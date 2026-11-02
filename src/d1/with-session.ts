@@ -1,6 +1,6 @@
 // `withSession`: one request's D1 Session, started from the bookmark it carries, and the bookmark sent back (#220).
 import { withDatabase } from "../current-database.ts";
-import { connectForRequest, type ConnectOptions, type D1RecordDatabase } from "./database.ts";
+import { connectForRequest, type ConnectOptions, type Database } from "./database.ts";
 
 /** How `withSession` opens the request's Database, and where its bookmark travels. */
 export type SessionOptions = Omit<ConnectOptions, "session"> & {
@@ -19,7 +19,7 @@ export type SessionOptions = Omit<ConnectOptions, "session"> & {
       }
   );
 
-type Handler = (db: D1RecordDatabase) => Response | Promise<Response>;
+type Handler = (db: Database) => Response | Promise<Response>;
 
 /** Where a bookmark is read from and written to. */
 interface Carrier {

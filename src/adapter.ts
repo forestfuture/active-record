@@ -1,5 +1,5 @@
 // What the core needs from a kind of database besides sending statements: its SQL, and reading its errors.
-import type { Database } from "./database.ts";
+import type { AnyDatabase } from "./database.ts";
 import type { Dialect } from "./dialect.ts";
 
 /** What a database's error says about a constraint that failed. */
@@ -29,5 +29,5 @@ export interface Adapter {
    * this adapter's own for `binding`, the name in the Model's schema. A Model with no schema has
    * none. Throws `NoDatabase` when there isn't one.
    */
-  databaseFor(binding: string | undefined, requested: readonly Database[]): Promise<Database>;
+  databaseFor(binding: string | undefined, requested: readonly AnyDatabase[]): Promise<AnyDatabase>;
 }

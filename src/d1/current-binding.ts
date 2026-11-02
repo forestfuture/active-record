@@ -1,9 +1,9 @@
 // Which D1 database a query from a Model's statics uses: the request's for its binding, or the binding's own from `cloudflare:workers` (#77). A binding's own Database holds no per-request state.
-import { Database, databaseParts } from "../database.ts";
+import { AnyDatabase, databaseParts } from "../database.ts";
 import { NoDatabase } from "../errors.ts";
 import { DatabaseExecutor } from "../executor.ts";
 import { d1Adapter } from "./adapter.ts";
-import type { D1RecordDatabase } from "./database.ts";
+import type { Database } from "./database.ts";
 import { D1Driver } from "./driver.ts";
 
 /** @internal The library's key for a D1 database's binding and Driver. */
@@ -38,12 +38,12 @@ function notAWorker(error: unknown): boolean {
 }
 
 /** One Database per D1 binding, for queries outside `withDatabase`: it holds nothing per-request. */
-const defaults = new WeakMap<D1Database, Database>();
+const defaults = new WeakMap<D1Database, AnyDatabase>();
 
-function defaultDatabase(binding: D1Database, name: string): Database {
+function defaultDatabase(binding: D1Database, name: string): AnyDatabase {
   let db = defaults.get(binding);
   if (db === undefined) {
-    db = new Database(new DatabaseExecutor(d1Adapter, new D1Driver(binding)));
+    db = new AnyDatabase(new DatabaseExecutor(d1Adapter, new D1Driver(binding)));
     db[databaseParts].executor.setOrigin({ binding: name });
     defaults.set(binding, db);
   }
@@ -59,7 +59,7 @@ function noDatabase(reason: string): NoDatabase {
 }
 
 /** Outside a Worker (Node, scripts), a request's database is the only one there can be. */
-function onlyRequested(requested: readonly Database[], name: string | undefined): Database {
+function onlyRequested(requested: readonly AnyDatabase[], name: string | undefined): AnyDatabase {
   if (requested.length === 1) return requested[0]!;
   if (requested.length > 1) {
     throw noDatabase(
@@ -76,8 +76,8 @@ function onlyRequested(requested: readonly Database[], name: string | undefined)
 /** The database a query on binding `name` uses now: the request's for it, or the binding's own. */
 export async function databaseFor(
   name: string | undefined,
-  requested: readonly Database[],
-): Promise<Database> {
+  requested: readonly AnyDatabase[],
+): Promise<AnyDatabase> {
   const env = name === undefined ? undefined : await bindings();
   if (env === undefined || name === undefined) return onlyRequested(requested, name);
   const binding = env[name] as D1Database | undefined;
@@ -87,8 +87,7 @@ export async function databaseFor(
     );
   }
   return (
-    requested.find(
-      (db) => d1Parts in db && (db as D1RecordDatabase)[d1Parts].binding === binding,
-    ) ?? defaultDatabase(binding, name)
+    requested.find((db) => d1Parts in db && (db as Database)[d1Parts].binding === binding) ??
+    defaultDatabase(binding, name)
   );
 }
