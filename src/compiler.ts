@@ -290,12 +290,12 @@ export function compileCount(query: QueryDescription, attribute?: string): Compi
   const toCount = queryToCount(query);
   if (attribute === undefined) {
     const inner = compileSelect(toCount);
-    return { ...inner, sql: `SELECT COUNT(*) AS count FROM (${inner.sql})` };
+    return { ...inner, sql: `SELECT COUNT(*) AS count FROM (${inner.sql}) AS counted` };
   }
   const inner = compileSelect({ ...toCount, select: undefined, distinct: false });
   const column = quoteIdentifier(attributeFor(query.model, attribute).column);
   const counted = query.distinct ? `DISTINCT ${column}` : column;
-  return { ...inner, sql: `SELECT COUNT(${counted}) AS count FROM (${inner.sql})` };
+  return { ...inner, sql: `SELECT COUNT(${counted}) AS count FROM (${inner.sql}) AS counted` };
 }
 
 /**
