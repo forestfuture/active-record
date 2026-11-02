@@ -11,7 +11,7 @@ export type RelationsFor<T extends Record<string, ModelClass<Model>>> = {
 };
 
 /** @internal The library's key for a Database's Executor (the current database, #77). */
-export const databaseParts = Symbol("databaseParts");
+export const databaseExecutor = Symbol("databaseExecutor");
 
 /** A per-request handle on a database; every query goes through it. */
 export class AnyDatabase {
@@ -23,8 +23,8 @@ export class AnyDatabase {
   }
 
   /** @internal Its Executor. */
-  get [databaseParts](): { executor: DatabaseExecutor } {
-    return { executor: this.#executor };
+  get [databaseExecutor](): DatabaseExecutor {
+    return this.#executor;
   }
 
   /** A request-bound Relation over the Model's records, with its scopes as methods. */
@@ -41,8 +41,9 @@ export class AnyDatabase {
   }
 
   /**
-   * Runs statements and record statements atomically: all of them are written, or none. Record statements (`user.toSave()`, `post.toDestroy()`) run
-   * their validations and before-callbacks first, in order; the first record that's invalid or
+   * Runs statements and record statements atomically: all of them are written, or none. Record
+   * statements (`user.toSave()`, `post.toDestroy()`) run their validations and before-callbacks
+   * first, in order; the first record that's invalid or
    * aborts throws (`RecordInvalid`, `RecordNotSaved`, `RecordNotDestroyed`) and nothing is sent.
    * After the batch, each record takes its saved state and runs its after-callbacks, in order.
    * Resolves to each entry's result: the `meta` for a statement, the record for a record

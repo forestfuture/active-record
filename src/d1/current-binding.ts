@@ -1,5 +1,5 @@
 // Which D1 database a query from a Model's statics uses: the request's for its binding, or the binding's own from `cloudflare:workers` (#77). A binding's own Database holds no per-request state.
-import { AnyDatabase, databaseParts } from "../database.ts";
+import { AnyDatabase, databaseExecutor } from "../database.ts";
 import { NoDatabase } from "../errors.ts";
 import { DatabaseExecutor } from "../executor.ts";
 import { d1Adapter } from "./adapter.ts";
@@ -44,7 +44,7 @@ function defaultDatabase(binding: D1Database, name: string): AnyDatabase {
   let db = defaults.get(binding);
   if (db === undefined) {
     db = new AnyDatabase(new DatabaseExecutor(d1Adapter, new D1Driver(binding)));
-    db[databaseParts].executor.setOrigin({ binding: name });
+    db[databaseExecutor].setOrigin({ binding: name });
     defaults.set(binding, db);
   }
   return db;
