@@ -68,8 +68,8 @@ export interface Executor {
   all(query: CompiledSql): Promise<Record<string, unknown>[]>;
   /** Runs one statement for its effect and resolves to D1's `meta`. */
   run(query: CompiledSql): Promise<D1Meta>;
-  /** Runs statements atomically and resolves to each one's result. */
-  batch(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
+  /** Runs reads together and resolves to each one's result. They needn't be atomic. */
+  read(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
   /** Runs statements atomically: one on its own, several as one batch. */
   write(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
   /** @internal The DatabaseExecutor that sends now: itself, or the current database's. */
@@ -131,20 +131,31 @@ export class DatabaseExecutor implements Executor {
     return (await this.#one(query)).meta;
   }
 
-  /**
-   * Runs statements atomically and resolves to each one's result (rows and `meta`). A batch fails
-   * as a whole, so on failure every statement is reported with the error.
-   */
-  async batch(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
-    if (statements.length === 0) return [];
-    return this.#driver.attempt(() => this.#batchOnce(statements));
+  /** Runs reads together and resolves to each one's result (rows and `meta`). */
+  async read(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
+    return this.#together(statements, () => this.#driver.read(statements));
   }
 
-  async #batchOnce(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
+  /**
+   * `statements`, sent by `send`, unless there are none. They fail as a whole, so on failure every
+   * one is reported with the error.
+   */
+  async #together(
+    statements: readonly CompiledSql[],
+    send: () => Promise<StatementResult[]>,
+  ): Promise<StatementResult[]> {
+    if (statements.length === 0) return [];
+    return this.#driver.attempt(() => this.#togetherOnce(statements, send));
+  }
+
+  async #togetherOnce(
+    statements: readonly CompiledSql[],
+    send: () => Promise<StatementResult[]>,
+  ): Promise<StatementResult[]> {
     const started = performance.now();
     let results: StatementResult[];
     try {
-      results = await this.#driver.batch(statements);
+      results = await send();
     } catch (error) {
       const durationMs = performance.now() - started;
       for (const statement of statements) this.#report(statement, { durationMs, error });
@@ -162,11 +173,11 @@ export class DatabaseExecutor implements Executor {
     return results;
   }
 
-  /** Runs statements atomically: one on its own, several as one batch. Resolves to each result. */
+  /** Runs statements atomically: one on its own, several all or none. Resolves to each result. */
   async write(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     const [only] = statements;
     if (statements.length === 1 && only !== undefined) return [await this.#one(only)];
-    return this.batch(statements);
+    return this.#together(statements, () => this.#driver.write(statements));
   }
 
   async #one(query: CompiledSql): Promise<StatementResult> {
@@ -222,8 +233,8 @@ abstract class ForwardingExecutor implements Executor {
     return (await this[resolve]()).run(query);
   }
 
-  async batch(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
-    return (await this[resolve]()).batch(statements);
+  async read(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
+    return (await this[resolve]()).read(statements);
   }
 
   async write(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
