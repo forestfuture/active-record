@@ -155,8 +155,8 @@ export type Conflict =
   | { kind: "skip" }
   | { kind: "update"; uniqueBy: readonly string[]; update?: readonly string[] };
 
-/** The rows of a bulk insert: their attributes, each row's values, and what a conflict does. */
-export interface InsertedRows {
+/** A bulk insert: its attributes, each row's values, and what a conflict does. */
+export interface BulkInsert {
   names: readonly string[];
   rows: readonly (readonly unknown[])[];
   conflict?: Conflict | undefined;
@@ -170,7 +170,7 @@ export interface InsertedRows {
 export function compileInsertRows(
   dialect: Dialect,
   model: ModelClass<Model>,
-  { names, rows, conflict }: InsertedRows,
+  { names, rows, conflict }: BulkInsert,
 ): CompiledSql {
   const attributes = names.map((name) => attributeFor(model, name));
   const columns = attributes.map(({ column }) => quoteIdentifier(column)).join(", ");
