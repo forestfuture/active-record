@@ -2,6 +2,7 @@
 import { boundValue, shownValue } from "./filtering.ts";
 import type { CompiledSql } from "./compiler.ts";
 import { translateConstraintError } from "./constraints.ts";
+import { sqlite, type Dialect } from "./dialect.ts";
 import { IncompatibleRelation, NoDatabase } from "./errors.ts";
 import { explainMissingTable } from "./table-names.ts";
 
@@ -60,6 +61,8 @@ const resolve = Symbol("resolve");
 
 /** Where a Relation's or record's statements go: one database, or the current one (#77). */
 export interface Executor {
+  /** How its database writes the SQL the compiler can't share. */
+  readonly dialect: Dialect;
   /** Runs one statement and resolves to its rows. */
   all(query: CompiledSql): Promise<Record<string, unknown>[]>;
   /** Runs one statement for its effect and resolves to D1's `meta`. */
@@ -87,6 +90,7 @@ function nameOf(origin: Origin): string {
  * constraint failure becomes the matching `ConstraintViolation` for the statement's Model.
  */
 export class D1Executor implements Executor {
+  readonly dialect = sqlite;
   #source: D1Database | D1DatabaseSession;
   /** Starts the Session again when D1 rejects the bookmark it started from (#237); once only. */
   #startAgain: (() => D1DatabaseSession) | undefined;
@@ -275,6 +279,9 @@ function shortenBookmarkIn(error: unknown): void {
 
 /** An Executor that finds its D1Executor when a statement runs, and sends the statement there. */
 abstract class ForwardingExecutor implements Executor {
+  // Statements compile before their database is found, so this can't ask it. D1 is the only one.
+  readonly dialect = sqlite;
+
   abstract [resolve](): Promise<D1Executor>;
 
   async all(query: CompiledSql): Promise<Record<string, unknown>[]> {

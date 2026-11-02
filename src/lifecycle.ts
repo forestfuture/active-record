@@ -73,8 +73,9 @@ async function isTaken(
     recordState.requireKey("be checked for uniqueness");
     conditions.push(new Negated({ [model.primaryKey]: recordState.storedKeyValue }));
   }
-  const query = compileSelect({ model, conditions, order: [], limit: 1 }, "1");
-  return (await recordState.executor.all(query)).length > 0;
+  const { executor } = recordState;
+  const query = compileSelect(executor.dialect, { model, conditions, order: [], limit: 1 }, "1");
+  return (await executor.all(query)).length > 0;
 }
 
 /** Runs the Model's callbacks of `kind` in declaration order, awaiting each. */
@@ -434,7 +435,7 @@ export async function reloadRecord(record: Model): Promise<void> {
   }
   const key = recordState.storedKeyValue;
   const query = { model, conditions: [{ [model.primaryKey]: key }], order: [], limit: 1 };
-  const [row] = await executor.all(compileSelect(query));
+  const [row] = await executor.all(compileSelect(executor.dialect, query));
   if (row === undefined) {
     throw new RecordNotFound(
       `${model.name} with ${model.primaryKey} ${shownKey(model, key)} not found`,

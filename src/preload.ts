@@ -1,6 +1,7 @@
 // `includes()`: preloading associations, the whole tree planned to go to D1 with its query (#217).
 import { attributeFor } from "./attribute.ts";
 import type { CompiledSql } from "./compiler.ts";
+import type { Dialect } from "./dialect.ts";
 import type { Executor } from "./executor.ts";
 import { selectFor, sendTogether, type Rows } from "./load.ts";
 import { hydrate, type Model, type ModelClass } from "./model.ts";
@@ -145,7 +146,8 @@ function planStep(
 ): void {
   const association = resolveAssociation(model, name);
   const query = linkedQuery(association, owners, planning.executor);
-  const targets = query && targetsOf(association, query, tree[name] ?? {});
+  const targets =
+    query && targetsOf(planning.executor.dialect, association, query, tree[name] ?? {});
   if (overBoundValues(owners, targets)) {
     const onlyThis = (from: IncludeTree) =>
       from[name] === undefined ? {} : { [name]: from[name] };
@@ -270,6 +272,7 @@ async function preloadStarts(starts: readonly Start[], executor: Executor): Prom
 
 /** The SELECT for an association's targets, `query`, and what to preload for them. */
 function targetsOf(
+  dialect: Dialect,
   association: ResolvedAssociation,
   query: QueryDescription,
   nested: IncludeTree,
@@ -278,7 +281,7 @@ function targetsOf(
   // A scope's select keeps the key its records are matched to their owners by (#201).
   const columns = query.select && [...query.select, association.targetAttribute];
   // Given to the SELECT, so the keys the nested includes need are loaded too.
-  const select = selectFor(association.target, { ...query, select: columns, includes });
+  const select = selectFor(dialect, association.target, { ...query, select: columns, includes });
   return { select, includes };
 }
 

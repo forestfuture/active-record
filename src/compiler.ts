@@ -6,9 +6,10 @@ import { Comparison, comparisonParts, type Operator } from "./comparisons.ts";
 import { Either, LinkedTo, Negated, type Condition, type QueryDescription } from "./query.ts";
 import { ColumnReference, ColumnValue, SafeSql } from "./sql.ts";
 import { writeUntypedValue } from "./conversion.ts";
+import type { Dialect } from "./dialect.ts";
 import { boundValue } from "./filtering.ts";
 
-/** One SQL statement ready for D1, with the Model whose table it reads or writes. */
+/** One SQL statement ready to send, with the Model whose table it reads or writes. */
 export interface CompiledSql {
   sql: string;
   params: unknown[];
@@ -26,58 +27,70 @@ export function querySql({ sql, params }: CompiledSql): QuerySql {
   return { sql, params: params.map(boundValue) };
 }
 
-/** Quotes a SQLite identifier; embedded double quotes are doubled. */
+/** Quotes an identifier; embedded double quotes are doubled. */
 function quoteIdentifier(name: string): string {
   return `"${name.replaceAll('"', '""')}"`;
 }
 
 /** `projection` is the SELECT list; the library builds it, never the caller. */
-export function compileSelect(query: QueryDescription, projection?: string): CompiledSql {
+export function compileSelect(
+  dialect: Dialect,
+  query: QueryDescription,
+  projection?: string,
+): CompiledSql {
   const params: unknown[] = [];
   const list = projection ?? compileColumns(query.model, query.select);
   let sql = `SELECT ${query.distinct ? "DISTINCT " : ""}${list}`;
   sql += ` FROM ${quoteIdentifier(query.model.table)}`;
-  sql += compileWhere(query, params);
+  sql += compileWhere(dialect, query, params);
   sql += compileOrder(query, params);
   sql += compilePagination(query, params);
   return { sql, params, model: query.model };
 }
 
-function compileWhere({ model, conditions }: QueryDescription, params: unknown[]): string {
-  return conditions.length === 0 ? "" : ` WHERE ${compileAll(conditions, model, params)}`;
+function compileWhere(
+  dialect: Dialect,
+  { model, conditions }: QueryDescription,
+  params: unknown[],
+): string {
+  return conditions.length === 0 ? "" : ` WHERE ${compileAll(dialect, conditions, model, params)}`;
 }
 
 /** Conditions ANDed together as one predicate; no conditions matches everything. */
 function compileAll(
+  dialect: Dialect,
   conditions: readonly Condition[],
   model: ModelClass<Model>,
   params: unknown[],
 ): string {
   if (conditions.length === 0) return "(1 = 1)";
-  return `(${conditions.map((condition) => compileCondition(condition, model, params)).join(" AND ")})`;
+  return `(${conditions.map((condition) => compileCondition(dialect, condition, model, params)).join(" AND ")})`;
 }
 
 /** One condition as a single parenthesized predicate. */
 function compileCondition(
+  dialect: Dialect,
   condition: Condition,
   model: ModelClass<Model>,
   params: unknown[],
 ): string {
   if (condition instanceof Either) {
-    const left = compileAll(condition.left, model, params);
-    const right = compileAll(condition.right, model, params);
+    const left = compileAll(dialect, condition.left, model, params);
+    const right = compileAll(dialect, condition.right, model, params);
     return `(${left} OR ${right})`;
   }
   if (condition instanceof Negated) {
-    return `(NOT ${compileCondition(condition.condition, model, params)})`;
+    return `(NOT ${compileCondition(dialect, condition.condition, model, params)})`;
   }
   if (condition instanceof SafeSql) return `(${compileFragment(condition, model, params)})`;
-  if (condition instanceof LinkedTo) return `(${compileLinkedTo(condition, model, params)})`;
+  if (condition instanceof LinkedTo) {
+    return `(${compileLinkedTo(dialect, condition, model, params)})`;
+  }
   const parts = Object.entries(condition).map(([name, value]) => {
     const attribute = attributeFor(model, name);
     return value instanceof Comparison
       ? compileComparison(attribute, value, params)
-      : compileEquality(attribute, value, params);
+      : compileEquality(dialect, attribute, value, params);
   });
   return `(${parts.join(" AND ")})`;
 }
@@ -89,6 +102,7 @@ function compileCondition(
  * by number, which can't search `attr`'s index, and which `'09'` matches.
  */
 function compileLinkedTo(
+  dialect: Dialect,
   { attribute, owners, ownerKey }: LinkedTo,
   model: ModelClass<Model>,
   params: unknown[],
@@ -102,7 +116,7 @@ function compileLinkedTo(
   const order = limited ? owners.order : [];
   // A distinct() with includes selects every column (a distinct select() can't be preloaded),
   // so the primary key already makes each row distinct: left out, it changes nothing.
-  const inner = compileSelect({ ...owners, order, distinct: false }, selected);
+  const inner = compileSelect(dialect, { ...owners, order, distinct: false }, selected);
   params.push(...inner.params);
   return `${column} IN (${inner.sql})`;
 }
@@ -224,31 +238,34 @@ function compileSets(
  * with a limit or offset, `<primary key> IN (SELECT <primary key> … ORDER … LIMIT … OFFSET)`;
  * `1 = 0` for `none()`. Order without a limit, select and includes don't matter to a write.
  */
-function compileTarget(query: QueryDescription, params: unknown[]): string {
+function compileTarget(dialect: Dialect, query: QueryDescription, params: unknown[]): string {
   if (query.none) return " WHERE 1 = 0";
-  if (query.limit === undefined && query.offset === undefined) return compileWhere(query, params);
+  if (query.limit === undefined && query.offset === undefined) {
+    return compileWhere(dialect, query, params);
+  }
   const key = quoteIdentifier(attributeFor(query.model, query.model.primaryKey).column);
-  const inner = compileSelect({ ...query, distinct: false }, key);
+  const inner = compileSelect(dialect, { ...query, distinct: false }, key);
   params.push(...inner.params);
   return ` WHERE ${key} IN (${inner.sql})`;
 }
 
 /** `UPDATE … SET … WHERE …` for every row `query` describes. */
 export function compileUpdateAll(
+  dialect: Dialect,
   query: QueryDescription,
   changes: readonly Assignment[] | SafeSql,
 ): CompiledSql {
   const params: unknown[] = [];
   const sets = compileSets(query.model, changes, params);
-  const target = compileTarget(query, params);
+  const target = compileTarget(dialect, query, params);
   const sql = `UPDATE ${quoteIdentifier(query.model.table)} SET ${sets}${target}`;
   return { sql, params, model: query.model };
 }
 
 /** `DELETE … WHERE …` for every row `query` describes. */
-export function compileDeleteAll(query: QueryDescription): CompiledSql {
+export function compileDeleteAll(dialect: Dialect, query: QueryDescription): CompiledSql {
   const params: unknown[] = [];
-  const target = compileTarget(query, params);
+  const target = compileTarget(dialect, query, params);
   const sql = `DELETE FROM ${quoteIdentifier(query.model.table)}${target}`;
   return { sql, params, model: query.model };
 }
@@ -286,13 +303,17 @@ export function compileColumns(
  * rows `toArray()` would return (including limit, offset, select and distinct).
  * `count(attr)` counts non-null values, or distinct non-null values after `distinct()`.
  */
-export function compileCount(query: QueryDescription, attribute?: string): CompiledSql {
+export function compileCount(
+  dialect: Dialect,
+  query: QueryDescription,
+  attribute?: string,
+): CompiledSql {
   const toCount = queryToCount(query);
   if (attribute === undefined) {
-    const inner = compileSelect(toCount);
+    const inner = compileSelect(dialect, toCount);
     return { ...inner, sql: `SELECT COUNT(*) AS count FROM (${inner.sql}) AS counted` };
   }
-  const inner = compileSelect({ ...toCount, select: undefined, distinct: false });
+  const inner = compileSelect(dialect, { ...toCount, select: undefined, distinct: false });
   const column = quoteIdentifier(attributeFor(query.model, attribute).column);
   const counted = query.distinct ? `DISTINCT ${column}` : column;
   return { ...inner, sql: `SELECT COUNT(${counted}) AS count FROM (${inner.sql}) AS counted` };
@@ -313,10 +334,10 @@ function queryToCount(query: QueryDescription): QueryDescription {
  * `DISTINCT 1` would make the matches one row, which an offset skips, so a distinct query with
  * an offset keeps its own select list: the rows `toArray()` reads (#222).
  */
-export function compileExists(query: QueryDescription): CompiledSql {
+export function compileExists(dialect: Dialect, query: QueryDescription): CompiledSql {
   const unordered = { ...query, order: [] };
-  if (query.distinct && query.offset !== undefined) return compileSelect(unordered);
-  return compileSelect(unordered, "1");
+  if (query.distinct && query.offset !== undefined) return compileSelect(dialect, unordered);
+  return compileSelect(dialect, unordered, "1");
 }
 
 /** `attr >= ?`, `attr BETWEEN ? AND ?`, …, with the values converted like the attribute's. */
@@ -349,7 +370,12 @@ const COMPARISON_SQL: Record<Operator, (column: string) => string> = {
 };
 
 /** `attr = value`, with NULL and arrays (IN) handled the way the contract specifies. */
-function compileEquality(attribute: Attribute, value: unknown, params: unknown[]): string {
+function compileEquality(
+  dialect: Dialect,
+  attribute: Attribute,
+  value: unknown,
+  params: unknown[],
+): string {
   const column = quoteIdentifier(attribute.column);
   if (value === null) return `${column} IS NULL`;
   if (!Array.isArray(value)) {
@@ -364,9 +390,9 @@ function compileEquality(attribute: Attribute, value: unknown, params: unknown[]
     .filter((item) => item !== noMatch);
   const parts: string[] = [];
   if (present.length > 0) {
-    // The whole list is one JSON value, so any length fits D1's 100 bound parameters.
-    attribute.bindCells(params, JSON.stringify(present));
-    parts.push(`${column} IN (SELECT value FROM json_each(?))`);
+    const list = dialect.inList(column, present);
+    attribute.bindCells(params, list.value);
+    parts.push(list.sql);
   }
   if (value.includes(null)) parts.push(`${column} IS NULL`);
   return parts.length > 0 ? `(${parts.join(" OR ")})` : NOTHING;
