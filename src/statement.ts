@@ -95,7 +95,12 @@ export function insertStatement(
     conflict?.kind === "update"
       ? { ...conflict, update: [...given, ...(names.includes("updatedAt") ? ["updatedAt"] : [])] }
       : conflict;
-  return new Statement(executor, compileInsertRows(model, names, values, resolved), landed);
+  const compiled = compileInsertRows(executor.dialect, model, {
+    names,
+    rows: values,
+    conflict: resolved,
+  });
+  return new Statement(executor, compiled, landed);
 }
 
 /** The attributes every row was given; they must be the same for all rows, in any order. */
