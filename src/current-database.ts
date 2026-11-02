@@ -5,7 +5,7 @@
 import { schemaBinding } from "./generated-model.ts";
 import type { Adapter } from "./adapter.ts";
 import { d1Adapter } from "./d1/adapter.ts";
-import { databaseParts, type Database } from "./database.ts";
+import { databaseParts, type AnyDatabase } from "./database.ts";
 import { NoDatabase } from "./errors.ts";
 import { CurrentExecutor, type Executor } from "./executor.ts";
 import type { ModelClass, ScopesOf } from "./model.ts";
@@ -18,13 +18,13 @@ interface Storage<T> {
 }
 
 /** The databases `withDatabase` set for the current request, once it's been called. */
-let requests: Storage<readonly Database[]> | undefined;
+let requests: Storage<readonly AnyDatabase[]> | undefined;
 
 /** Node's AsyncLocalStorage, loaded when it's first needed, so Workers without Node.js compatibility still build. */
-function newStorage(): Storage<readonly Database[]> {
+function newStorage(): Storage<readonly AnyDatabase[]> {
   const process = (globalThis as { process?: { getBuiltinModule?(id: string): unknown } }).process;
   const hooks = process?.getBuiltinModule?.("node:async_hooks") as
-    | { AsyncLocalStorage: new () => Storage<readonly Database[]> }
+    | { AsyncLocalStorage: new () => Storage<readonly AnyDatabase[]> }
     | undefined;
   if (hooks === undefined) {
     throw new NoDatabase(
@@ -41,12 +41,12 @@ function newStorage(): Storage<readonly Database[]> {
  * Usually called once per request, in middleware. Nested calls add to the outer ones.
  */
 export async function withDatabase<R>(
-  databases: Database | readonly Database[],
+  databases: AnyDatabase | readonly AnyDatabase[],
   fn: () => R | Promise<R>,
 ): Promise<R> {
   requests ??= newStorage();
   const outer = requests.getStore() ?? [];
-  const inner = Array.isArray(databases) ? databases : [databases as Database];
+  const inner = Array.isArray(databases) ? databases : [databases as AnyDatabase];
   for (const db of inner) db[databaseParts].executor.setOrigin("request");
   return requests.run([...inner, ...outer], fn);
 }
@@ -63,7 +63,7 @@ function adapterFor(name: string | undefined): Adapter {
 }
 
 /** The database a query on binding `name` uses now. */
-function databaseFor(name: string | undefined): Promise<Database> {
+function databaseFor(name: string | undefined): Promise<AnyDatabase> {
   return adapterFor(name).databaseFor(name, requests?.getStore() ?? []);
 }
 

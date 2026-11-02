@@ -1,5 +1,5 @@
 // The `Database` that `connect` returns: a D1 binding, with its sessions and bookmarks.
-import { Database } from "../database.ts";
+import { AnyDatabase } from "../database.ts";
 import { NoSession } from "../errors.ts";
 import { DatabaseExecutor, type QueryListener } from "../executor.ts";
 import { d1Adapter } from "./adapter.ts";
@@ -22,7 +22,7 @@ export interface ConnectOptions {
  * A per-request wrapper around a D1 binding; every query goes through it. `db.batch` uses D1's
  * `batch()`. There's no interactive `transaction()`, because D1 can't hold one open across awaits.
  */
-export class D1RecordDatabase extends Database {
+export class Database extends AnyDatabase {
   readonly #binding: D1Database;
   readonly #driver: D1Driver;
 
@@ -55,8 +55,8 @@ export class D1RecordDatabase extends Database {
   }
 }
 
-export function connect(binding: D1Database, options?: ConnectOptions): D1RecordDatabase {
-  return new D1RecordDatabase(binding, options);
+export function connect(binding: D1Database, options?: ConnectOptions): Database {
+  return new Database(binding, options);
 }
 
 /**
@@ -69,8 +69,8 @@ export function connectForRequest(
   bookmark: string | undefined,
   start: D1SessionConstraint,
   options: Omit<ConnectOptions, "session">,
-): D1RecordDatabase {
-  const db = new D1RecordDatabase(binding, { ...options, session: bookmark ?? start });
+): Database {
+  const db = new Database(binding, { ...options, session: bookmark ?? start });
   if (bookmark !== undefined) {
     db[d1Parts].driver.whenBookmarkRejected(() => binding.withSession(start));
   }

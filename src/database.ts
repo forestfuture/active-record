@@ -14,7 +14,7 @@ export type RelationsFor<T extends Record<string, ModelClass<Model>>> = {
 export const databaseParts = Symbol("databaseParts");
 
 /** A per-request handle on a database; every query goes through it. */
-export class Database {
+export class AnyDatabase {
   readonly #executor: DatabaseExecutor;
 
   /** @internal Built by an adapter, through its own `connect`. */

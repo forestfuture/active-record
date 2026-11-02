@@ -9,7 +9,7 @@ export type {
   HasOneDependent,
 } from "./associations.ts";
 export { batch, type BatchEntry, type BatchResults } from "./batch.ts";
-export { connect, D1RecordDatabase as Database, type ConnectOptions } from "./d1/database.ts";
+export { connect, Database, type ConnectOptions } from "./d1/database.ts";
 export type { RelationsFor } from "./database.ts";
 export {
   abort,
