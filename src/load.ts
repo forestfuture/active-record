@@ -1,6 +1,7 @@
 // How a Relation's query runs (on D1, or not at all for `none()`), and the keys `find` looks up.
 import { attributeFor, noMatch } from "./attribute.ts";
 import { compileColumns, compileSelect, type CompiledSql } from "./compiler.ts";
+import type { Dialect } from "./dialect.ts";
 import { databaseNow, type Executor } from "./executor.ts";
 import { stableOrder } from "./finder-order.ts";
 import { hydrate, primaryKeyOf, type Model, type ModelClass } from "./model.ts";
@@ -71,7 +72,7 @@ async function loadRecords<M extends Model>(
   model: ModelClass<M>,
   query: QueryDescription,
 ): Promise<M[]> {
-  const own = (loaded: QueryDescription) => [selectFor(model, loaded)];
+  const own = (loaded: QueryDescription) => [selectFor(executor.dialect, model, loaded)];
   return (await loadWith(executor, model, { query, own, rowsOf: ([rows]) => rows })).records;
 }
 
@@ -82,7 +83,7 @@ async function loadCounted<M extends Model>(
   query: QueryDescription,
   countSql: CompiledSql,
 ): Promise<Counted<M>> {
-  const own = (loaded: QueryDescription) => [countSql, selectFor(model, loaded)];
+  const own = (loaded: QueryDescription) => [countSql, selectFor(executor.dialect, model, loaded)];
   const loaded = await loadWith(executor, model, { query, own, rowsOf: ([, rows]) => rows });
   const [counted] = loaded.results;
   return { records: loaded.records, count: Number(counted?.[0]?.["count"] ?? 0) };
@@ -95,7 +96,7 @@ async function loadAhead<M extends Model>(
   query: QueryDescription & { limit: number },
 ): Promise<LoadedAhead<M>> {
   const own = (loaded: QueryDescription) => [
-    selectFor(model, { ...loaded, limit: query.limit + 1 }),
+    selectFor(executor.dialect, model, { ...loaded, limit: query.limit + 1 }),
   ];
   const rowsOf = ([rows]: readonly Rows[]) => rows?.slice(0, query.limit);
   const { records, results } = await loadWith(executor, model, { query, own, rowsOf });
@@ -158,23 +159,32 @@ export async function sendTogether(
 }
 
 /** The SELECT for `query`'s records. */
-export function selectFor(model: ModelClass, query: QueryDescription): CompiledSql {
+export function selectFor(
+  dialect: Dialect,
+  model: ModelClass,
+  query: QueryDescription,
+): CompiledSql {
   // A partial record keeps its primary key, so it keeps its identity — except after
   // distinct(), where adding the key would make every row distinct.
   const loaded =
     query.select && !query.distinct
       ? [...new Set([model.primaryKey, ...keysForIncludes(model, query.includes), ...query.select])]
       : query.select;
-  return compileSelect(query, compileColumns(model, loaded));
+  return compileSelect(dialect, query, compileColumns(model, loaded));
 }
 
 /**
  * The SELECT `toSql()` shows for `query`. A `none()` query is never sent, so it shows what
  * matching nothing would be: its conditions and `1 = 0`.
  */
-export function selectForToSql(model: ModelClass, query: QueryDescription): CompiledSql {
+export function selectForToSql(
+  dialect: Dialect,
+  model: ModelClass,
+  query: QueryDescription,
+): CompiledSql {
   const never = sql`1 = 0`;
   return selectFor(
+    dialect,
     model,
     query.none ? { ...query, conditions: [...query.conditions, never] } : query,
   );

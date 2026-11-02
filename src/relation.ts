@@ -360,7 +360,11 @@ export class Relation<M extends Model, S = {}> {
   /** `updateAll`, as a Statement for `db.batch([...])`. */
   toUpdateAll(changes: Partial<AttributesOf<M>> | SafeSql): Statement {
     const checked = checkChanges(this.#model, changes);
-    const query = compileUpdateAll(this.#writableQuery("updateAll"), checked);
+    const query = compileUpdateAll(
+      this.#executor.dialect,
+      this.#writableQuery("updateAll"),
+      checked,
+    );
     return new Statement(this.#executor, query, this.#clearCollectionUntilWritten());
   }
 
@@ -379,10 +383,11 @@ export class Relation<M extends Model, S = {}> {
     const query = this.#writableQuery("deleteAll");
     const landed = this.#clearCollectionUntilWritten();
     const nullifies = this.#collection.nullifies;
+    const { dialect } = this.#executor;
     const compiled =
       nullifies === undefined
-        ? compileDeleteAll(query)
-        : compileUpdateAll(query, [[nullifies, null]]);
+        ? compileDeleteAll(dialect, query)
+        : compileUpdateAll(dialect, query, [[nullifies, null]]);
     return new Statement(this.#executor, compiled, landed);
   }
 
@@ -497,7 +502,9 @@ export class Relation<M extends Model, S = {}> {
 
   /** The number of matching records, or of non-null values of `attribute`. */
   async count(attribute?: keyof AttributesOf<M> & string): Promise<number> {
-    const [row] = await this.#runner.rows(compileCount(this.#query, attribute));
+    const [row] = await this.#runner.rows(
+      compileCount(this.#executor.dialect, this.#query, attribute),
+    );
     return Number(row?.["count"] ?? 0);
   }
 
@@ -528,7 +535,7 @@ export class Relation<M extends Model, S = {}> {
   async exists(conditions?: Conditions<M> | SafeSql): Promise<boolean> {
     const relation = conditions === undefined ? this : this.where(conditions);
     const query = { ...relation.#query, limit: atMostOne(relation.#query.limit) };
-    return (await this.#runner.rows(compileExists(query))).length > 0;
+    return (await this.#runner.rows(compileExists(this.#executor.dialect, query))).length > 0;
   }
 
   /** Converted values of one attribute, or tuples of several, in this Relation's order. */
@@ -550,7 +557,11 @@ export class Relation<M extends Model, S = {}> {
       cached === undefined
         ? (
             await this.#runner.rows(
-              compileSelect(this.#query, compileColumns(this.#model, attributes)),
+              compileSelect(
+                this.#executor.dialect,
+                this.#query,
+                compileColumns(this.#model, attributes),
+              ),
             )
           ).map((row) => resolved.map((attribute) => attribute.read(row[attribute.column])))
         : cached.map((record) =>
@@ -568,7 +579,9 @@ export class Relation<M extends Model, S = {}> {
   async paginate(options?: PageOptions & { count?: true }): Promise<Page<M>>;
   async paginate(options: PageOptions): Promise<Page<M> | CountlessPage<M>>;
   async paginate(options: PageOptions = {}): Promise<Page<M> | CountlessPage<M>> {
-    return paginate({ model: this.#model, query: this.#query, runner: this.#runner }, options);
+    const { dialect } = this.#executor;
+    const paged = { dialect, model: this.#model, query: this.#query, runner: this.#runner };
+    return paginate(paged, options);
   }
 
   /**
@@ -576,12 +589,12 @@ export class Relation<M extends Model, S = {}> {
    * are never inlined into the SQL (ADR-0006), and none are redacted, filtered attributes included.
    */
   toSql(): QuerySql {
-    return querySql(selectForToSql(this.#model, this.#query));
+    return querySql(selectForToSql(this.#executor.dialect, this.#model, this.#query));
   }
 
   /** Prints as `Relation<Model> { sql, params }`: the SELECT it would send, without sending it (#104). */
   [inspectCustom](depth: number, options: InspectOptions, inspect: Inspect): string {
-    const compiled = selectForToSql(this.#model, this.#query);
+    const compiled = selectForToSql(this.#executor.dialect, this.#model, this.#query);
     return inspectRelation(this.#model.name, compiled, { depth, options, inspect });
   }
 
