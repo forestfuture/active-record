@@ -14,7 +14,7 @@ _Code:_ `vite.config.ts`, `package.json`.
 
 ## Connecting
 
-_Guide:_ [connecting](<../site/docs/(basics)/connecting.mdx>), [query-databases](<../site/docs/(background)/query-databases.md>), [several-databases](<../site/docs/(how-to)/several-databases.mdx>), [read-your-own-writes](<../site/docs/(how-to)/read-your-own-writes.mdx>). _Code:_ `src/database.ts`, `src/current-database.ts`, `src/with-session.ts`, `src/executor.ts`.
+_Guide:_ [connecting](<../site/docs/(basics)/connecting.mdx>), [query-databases](<../site/docs/(background)/query-databases.md>), [several-databases](<../site/docs/(how-to)/several-databases.mdx>), [read-your-own-writes](<../site/docs/(how-to)/read-your-own-writes.mdx>). _Code:_ `src/database.ts`, `src/current-database.ts`, `src/executor.ts`, `src/d1/`.
 
 A query finds its database one of three ways (#77):
 

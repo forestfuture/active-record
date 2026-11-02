@@ -22,7 +22,7 @@ Follow `docs/agents/workflow.md` for every issue. In short: orient (the issue an
 
 - Naming and attribution: ForestFuture, never a person, in every file; see `CONTRIBUTING.md#naming-and-attribution`.
 - Read `GLOSSARY.md` (glossary), `docs/contract.md` (agreed behavior) and `docs/adr/` before changing the public API.
-- Module map: every file in `src/` and `cli/` opens with a line saying what it owns. List them with `grep -m1 -H '^//' src/*.ts cli/*.ts cli/*/*.ts` before searching the code (lint enforces the line).
+- Module map: every file in `src/` and `cli/` opens with a line saying what it owns. List them with `grep -m1 -H '^//' src/*.ts src/*/*.ts cli/*.ts cli/*/*.ts` before searching the code (lint enforces the line).
 - Dependency APIs (D1 types, Wrangler, Miniflare, Vite+, Oxlint, Blume, tsdown): `docs/agents/dependencies.md` says where each lives.
 - Library code in `src/` must run on Cloudflare Workers. It's type-checked against `@cloudflare/workers-types` only (`src/tsconfig.json`), with no Node APIs. The one exception is `withDatabase`'s `AsyncLocalStorage`, loaded with `process.getBuiltinModule("node:async_hooks")` when it's first called, and guarded, so Workers without Node.js compatibility still build and run (ADR-0012). `cloudflare:workers` is loaded the same way, only when a query needs a Model's binding.
 - Tests: `tests/unit/**` (no database), `tests/integration/**` (real D1 through Miniflare in Node; see ADR-0002 and `tests/support/d1.ts`), and `tests/remote/**` (a smoke suite against a real remote D1, skipped unless configured; see `docs/agents/remote-smoke.md`). Run one project with `vp test --project unit`.

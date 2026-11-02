@@ -114,6 +114,30 @@ export default defineConfig({
         },
       },
       {
+        // The core knows a database only through an Adapter, so src/d1/ can leave for its own
+        // package (ADR-0016).
+        files: ["src/*.ts"],
+        rules: {
+          "no-restricted-imports": [
+            "error",
+            {
+              patterns: [
+                {
+                  group: ["./d1/*"],
+                  message: "The core reaches D1 through the Adapter: see src/adapter.ts.",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        // The two imports of src/d1/ that #268's package split removes: the public API, and
+        // the default adapter for a schema that doesn't name one yet.
+        files: ["src/index.ts", "src/current-database.ts"],
+        rules: { "no-restricted-imports": "off" },
+      },
+      {
         // A describe() callback holds a whole suite, so it's long by design.
         files: ["tests/**"],
         rules: { "max-lines-per-function": "off" },
