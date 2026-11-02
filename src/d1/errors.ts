@@ -2,7 +2,19 @@
 import type { ConstraintFailure } from "../adapter.ts";
 import { NoDatabase } from "../errors.ts";
 
-const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
+/** D1's error for a Session's bookmark it can't use, and the bookmark it repeats (#237). */
+export const rejectedBookmark = /invalid commitToken bookmark provided: (.*)$/s;
+
+/** Whether `error` is D1 rejecting the bookmark a Session started from. */
+export function isRejectedBookmark(error: unknown): boolean {
+  return error instanceof Error && rejectedBookmark.test(error.message);
+}
+
+/** What to read in `error`. A rejected bookmark repeats a request's text, so it says nothing. */
+function messageOf(error: unknown): string {
+  if (isRejectedBookmark(error)) return "";
+  return error instanceof Error ? error.message : String(error);
+}
 
 /** D1 constraint messages, e.g. "UNIQUE constraint failed: users.email: SQLITE_CONSTRAINT …". */
 const KINDS: readonly (readonly [pattern: RegExp, kind: ConstraintFailure["kind"]])[] = [
