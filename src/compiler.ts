@@ -44,7 +44,7 @@ export function compileSelect(
   sql += ` FROM ${quoteIdentifier(query.model.table)}`;
   sql += compileWhere(dialect, query, params);
   sql += compileOrder(query, params);
-  sql += compilePagination(query, params);
+  sql += compilePagination(dialect, query, params);
   return { sql, params, model: query.model };
 }
 
@@ -409,13 +409,13 @@ function compileOrder({ model, order }: QueryDescription, params: unknown[]): st
   return ` ORDER BY ${terms.join(", ")}`;
 }
 
-function compilePagination({ limit, offset }: QueryDescription, params: unknown[]): string {
+function compilePagination(
+  dialect: Dialect,
+  { limit, offset }: QueryDescription,
+  params: unknown[],
+): string {
   if (limit === undefined && offset === undefined) return "";
-  // SQLite only accepts OFFSET after a LIMIT; -1 means "no limit".
-  params.push(limit ?? -1);
-  if (offset === undefined) return " LIMIT ?";
-  params.push(offset);
-  return " LIMIT ? OFFSET ?";
+  return dialect.pagination(limit, offset, params);
 }
 
 /** Appends the fragment's values to `params` and returns its SQL text. */

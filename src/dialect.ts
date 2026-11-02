@@ -4,6 +4,8 @@
 export interface Dialect {
   /** `column` in a list of `cells` bound as one value, so any length fits a statement's limits. */
   inList(column: string, cells: readonly unknown[]): { sql: string; value: unknown };
+  /** ` LIMIT … OFFSET …`, or the part of it that's set, its values added to `params`. */
+  pagination(limit: number | undefined, offset: number | undefined, params: unknown[]): string;
 }
 
 /** D1's dialect. */
@@ -12,4 +14,11 @@ export const sqlite: Dialect = {
     sql: `${column} IN (SELECT value FROM json_each(?))`,
     value: JSON.stringify(cells),
   }),
+  pagination(limit, offset, params) {
+    // SQLite only accepts OFFSET after a LIMIT; -1 means "no limit".
+    params.push(limit ?? -1);
+    if (offset === undefined) return " LIMIT ?";
+    params.push(offset);
+    return " LIMIT ? OFFSET ?";
+  },
 };
