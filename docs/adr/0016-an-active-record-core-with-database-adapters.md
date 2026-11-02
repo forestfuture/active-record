@@ -13,6 +13,6 @@ Adapters are pure adapters, with the core as a peer dependency. Re-exporting the
 - **A breaking release.** Imports change, and `npx d1-record` becomes `npx active-record`. The library is pre-1.0, so a release note covers it, with no deprecated aliases.
 - **D1 and Postgres only.** The core may assume `RETURNING` and `ON CONFLICT`, which leaves MySQL out until someone needs it.
 - **One version.** All packages share a version, since the adapter interface is unstable until a third adapter has tested it.
-- **One command.** A single `active-record` command finds its adapter from `package.json`, so scripts survive a swap. Adapters supply what differs per database as plugins.
+- **One command.** A single `active-record` command finds its adapter from `package.json`, so scripts survive a swap. `ffar` is its short form, for projects that have the package installed. Adapters supply what differs per database as plugins.
 - **Every adapter is tested for real.** ADR-0002's rule now covers each adapter, through a conformance suite.
 - **Amends** ADR-0009 (writes resolve to a neutral result), ADR-0010 (schema reading is per adapter), ADR-0011 and ADR-0015 (the base class imports from the core), and ADR-0012 (finding a Model's database moves behind the adapter).
