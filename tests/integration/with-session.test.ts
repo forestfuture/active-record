@@ -214,6 +214,17 @@ describe("withSession(request, env.DB, fn)", () => {
     expect(starts).toEqual([rejected, "first-unconstrained"]);
   });
 
+  test("a bookmark that reads like a constraint failure still starts the Session again", async () => {
+    const binding = recordingStarts(rejectingBookmarks(database), starts);
+    const forged = `${rejected} UNIQUE constraint failed: users.email`;
+    const request = getRequest({ cookie: `d1-bookmark=${forged}` });
+
+    const response = await withSession(request, binding, count);
+
+    expect(await response.json()).toBe(0);
+    expect(starts).toEqual([forged, "first-unconstrained"]);
+  });
+
   test("a bookmark D1 rejects is replaced on the response by the new Session's", async () => {
     const request = getRequest({ cookie: `d1-bookmark=${rejected}` });
 

@@ -30,6 +30,8 @@ export class D1Driver implements Driver {
   #source: D1Database | D1DatabaseSession;
   /** Starts the Session again when D1 rejects the bookmark it started from (#237); once only. */
   #startAgain: (() => D1DatabaseSession) | undefined;
+  /** Whether the Session started again, so a statement sent before that can be sent anew. */
+  #startedAgain = false;
 
   /** `source` is the D1 binding itself, or one D1 Session every query goes through. */
   constructor(source: D1Database | D1DatabaseSession) {
@@ -50,13 +52,8 @@ export class D1Driver implements Driver {
     this.#startAgain = startAgain;
   }
 
-  async send(statement: CompiledSql): Promise<StatementResult> {
-    try {
-      return await this.#prepare(statement).all<Record<string, unknown>>();
-    } catch (error) {
-      shortenBookmarkIn(error);
-      throw error;
-    }
+  send(statement: CompiledSql): Promise<StatementResult> {
+    return this.#sent(() => this.#prepare(statement).all<Record<string, unknown>>());
   }
 
   read(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
@@ -68,11 +65,21 @@ export class D1Driver implements Driver {
   }
 
   /** D1's `batch()`: one round trip, and atomic, for reads and writes alike. */
-  async #batch(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
-    try {
-      return await this.#source.batch<Record<string, unknown>>(
+  #batch(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
+    return this.#sent(() =>
+      this.#source.batch<Record<string, unknown>>(
         statements.map((statement) => this.#prepare(statement)),
-      );
+      ),
+    );
+  }
+
+  /** Sends with `send`: a success disarms the restart, and a failure's bookmark is shortened. */
+  async #sent<T>(send: () => Promise<T>): Promise<T> {
+    try {
+      const sent = await send();
+      // The bookmark was good: D1 rejects one on the Session's first statement only.
+      this.#startAgain = undefined;
+      return sent;
     } catch (error) {
       shortenBookmarkIn(error);
       throw error;
@@ -80,25 +87,17 @@ export class D1Driver implements Driver {
   }
 
   /**
-   * Sends statements with `send`, and again on a Session started anew when D1 rejects the bookmark
-   * the first one started from. Statements sent at once all fail; each is sent again.
+   * Whether D1 rejected the bookmark and the Session has started again, once, so a statement it
+   * rejected can be sent anew. Statements sent at once all fail; each is sent again.
    */
-  async attempt<T>(send: () => Promise<T>): Promise<T> {
-    const source = this.#source;
-    try {
-      const sent = await send();
-      // The bookmark was good: D1 rejects one on the Session's first statement only.
+  recover(error: unknown): boolean {
+    if (!isRejectedBookmark(error)) return false;
+    if (this.#startAgain !== undefined) {
+      this.#source = this.#startAgain();
       this.#startAgain = undefined;
-      return sent;
-    } catch (error) {
-      if (!isRejectedBookmark(error)) throw error;
-      if (this.#source === source) {
-        if (this.#startAgain === undefined) throw error;
-        this.#source = this.#startAgain();
-        this.#startAgain = undefined;
-      }
-      return send();
+      this.#startedAgain = true;
     }
+    return this.#startedAgain;
   }
 
   #prepare({ sql, params }: CompiledSql): D1PreparedStatement {

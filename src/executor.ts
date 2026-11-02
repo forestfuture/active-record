@@ -131,22 +131,13 @@ export class DatabaseExecutor implements Executor {
     return this.#together(statements, () => this.#driver.read(statements));
   }
 
-  /**
-   * `statements`, sent by `send`, unless there are none. They fail as a whole, so on failure every
-   * one is reported with the error.
-   */
+  /** `statements`, sent by `send`, unless there are none. On failure every one is reported. */
   async #together(
     statements: readonly CompiledSql[],
     send: () => Promise<StatementResult[]>,
+    mayRetry = true,
   ): Promise<StatementResult[]> {
     if (statements.length === 0) return [];
-    return this.#driver.attempt(() => this.#togetherOnce(statements, send));
-  }
-
-  async #togetherOnce(
-    statements: readonly CompiledSql[],
-    send: () => Promise<StatementResult[]>,
-  ): Promise<StatementResult[]> {
     const started = performance.now();
     let results: StatementResult[];
     try {
@@ -154,12 +145,12 @@ export class DatabaseExecutor implements Executor {
     } catch (error) {
       const durationMs = performance.now() - started;
       for (const statement of statements) this.#report(statement, { durationMs, error });
+      if (mayRetry && this.#driver.recover(error)) return this.#together(statements, send, false);
       throw this.#explained(
         error,
         statements.map(({ model }) => model),
       );
     }
-    // D1 times each statement of a batch itself.
     statements.forEach((statement, index) => {
       const { meta } = results[index]!;
       this.#report(statement, { durationMs: meta.duration, meta });
@@ -174,25 +165,21 @@ export class DatabaseExecutor implements Executor {
     return this.#together(statements, () => this.#driver.write(statements));
   }
 
-  async #one(query: CompiledSql): Promise<StatementResult> {
-    return this.#driver.attempt(() => this.#oneOnce(query));
-  }
-
-  async #oneOnce(query: CompiledSql): Promise<StatementResult> {
-    const { model } = query;
+  async #one(query: CompiledSql, mayRetry = true): Promise<StatementResult> {
     const started = performance.now();
     let result: StatementResult;
     try {
       result = await this.#driver.send(query);
     } catch (error) {
       this.#report(query, { durationMs: performance.now() - started, error });
-      throw this.#explained(error, [model]);
+      if (mayRetry && this.#driver.recover(error)) return this.#one(query, false);
+      throw this.#explained(error, [query.model]);
     }
     this.#report(query, { durationMs: performance.now() - started, meta: result.meta });
     return result;
   }
 
-  /** What to throw for `error` from a write to `models`' tables. */
+  /** What to throw for `error` from a statement on `models`' tables. */
   #explained(error: unknown, models: readonly ModelClass[]): unknown {
     const { adapter } = this;
     return (

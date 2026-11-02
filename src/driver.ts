@@ -12,6 +12,6 @@ export interface Driver {
   read(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
   /** Sends writes atomically, all or none, resolving to each one's result. */
   write(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
-  /** Runs `send`, once or again if this database's connection can recover from its failure. */
-  attempt<T>(send: () => Promise<T>): Promise<T>;
+  /** Whether sending again can succeed after `error`, having readied the connection for it. */
+  recover(error: unknown): boolean;
 }
