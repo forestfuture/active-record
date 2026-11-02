@@ -1,4 +1,4 @@
-// Turns a QueryDescription or a write into SQL text and bound values. No other module writes SQL.
+// Turns a QueryDescription or a write into SQL text and bound values, with what differs per database from a dialect.
 import { type Attribute, attributeFor, noMatch, storedRows } from "./attribute.ts";
 import { ignoresColumns } from "./table-names.ts";
 import type { Model, ModelClass } from "./model.ts";
