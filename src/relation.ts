@@ -579,9 +579,7 @@ export class Relation<M extends Model, S = {}> {
   async paginate(options?: PageOptions & { count?: true }): Promise<Page<M>>;
   async paginate(options: PageOptions): Promise<Page<M> | CountlessPage<M>>;
   async paginate(options: PageOptions = {}): Promise<Page<M> | CountlessPage<M>> {
-    const { dialect } = this.#executor;
-    const paged = { dialect, model: this.#model, query: this.#query, runner: this.#runner };
-    return paginate(paged, options);
+    return paginate({ model: this.#model, query: this.#query, runner: this.#runner }, options);
   }
 
   /**
