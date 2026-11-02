@@ -1,6 +1,13 @@
 // Which D1 database a query from a Model's statics uses: the request's for its binding, or the binding's own from `cloudflare:workers` (#77). A binding's own Database holds no per-request state.
-import { databaseParts, type Database } from "../database.ts";
+import { Database, databaseParts } from "../database.ts";
 import { NoDatabase } from "../errors.ts";
+import { DatabaseExecutor } from "../executor.ts";
+import { d1Adapter } from "./adapter.ts";
+import type { D1RecordDatabase } from "./database.ts";
+import { D1Driver } from "./driver.ts";
+
+/** @internal The library's key for a D1 database's binding and Driver. */
+export const d1Parts = Symbol("d1Parts");
 
 type Env = Record<string, unknown>;
 
@@ -33,14 +40,10 @@ function notAWorker(error: unknown): boolean {
 /** One Database per D1 binding, for queries outside `withDatabase`: it holds nothing per-request. */
 const defaults = new WeakMap<D1Database, Database>();
 
-function defaultDatabase(
-  connect: (binding: D1Database) => Database,
-  binding: D1Database,
-  name: string,
-): Database {
+function defaultDatabase(binding: D1Database, name: string): Database {
   let db = defaults.get(binding);
   if (db === undefined) {
-    db = connect(binding);
+    db = new Database(new DatabaseExecutor(d1Adapter, new D1Driver(binding)));
     db[databaseParts].executor.setOrigin({ binding: name });
     defaults.set(binding, db);
   }
@@ -83,11 +86,9 @@ export async function databaseFor(
       `The binding ${name} isn't in this Worker's env; check d1_databases in your Wrangler config`,
     );
   }
-  // Loaded here because the core reaches this module before the Database that D1's extends exists.
-  const d1 = await import("./database.ts");
   return (
     requested.find(
-      (db) => db instanceof d1.D1RecordDatabase && db[d1.d1Parts].binding === binding,
-    ) ?? defaultDatabase(d1.connect, binding, name)
+      (db) => d1Parts in db && (db as D1RecordDatabase)[d1Parts].binding === binding,
+    ) ?? defaultDatabase(binding, name)
   );
 }

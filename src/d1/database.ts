@@ -3,6 +3,7 @@ import { Database } from "../database.ts";
 import { NoSession } from "../errors.ts";
 import { DatabaseExecutor, type QueryListener } from "../executor.ts";
 import { d1Adapter } from "./adapter.ts";
+import { d1Parts } from "./current-binding.ts";
 import { D1Driver } from "./driver.ts";
 
 export interface ConnectOptions {
@@ -16,9 +17,6 @@ export interface ConnectOptions {
   // `& {}` keeps the two constraint names suggested alongside any bookmark string.
   session?: D1SessionConstraint | (D1SessionBookmark & {});
 }
-
-/** @internal The library's key for a D1 database's binding and Driver. */
-export const d1Parts = Symbol("d1Parts");
 
 /**
  * A per-request wrapper around a D1 binding; every query goes through it. `db.batch` uses D1's
