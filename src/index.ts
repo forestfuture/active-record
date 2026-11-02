@@ -9,7 +9,8 @@ export type {
   HasOneDependent,
 } from "./associations.ts";
 export { batch, type BatchEntry, type BatchResults } from "./batch.ts";
-export { connect, Database, type ConnectOptions, type RelationsFor } from "./database.ts";
+export { connect, D1RecordDatabase as Database, type ConnectOptions } from "./d1/database.ts";
+export type { RelationsFor } from "./database.ts";
 export {
   abort,
   AssociationNotLoaded,
@@ -47,7 +48,7 @@ export type {
 } from "./error-messages.ts";
 export { Model, type ScopeStatic, type TableAttributes } from "./model.ts";
 export { withDatabase } from "./current-database.ts";
-export { withSession, type SessionOptions } from "./with-session.ts";
+export { withSession, type SessionOptions } from "./d1/with-session.ts";
 export type { DatabaseSchema, TableSchema, TableSchemas } from "./generated-model.ts";
 export type {
   LengthOptions,

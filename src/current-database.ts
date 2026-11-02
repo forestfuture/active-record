@@ -1,10 +1,11 @@
-// `withDatabase`, and where a query from a Model's statics (`Product.find(id)`) finds its database.
-// It's the request's, set with `withDatabase`, or else the Model's binding from
-// `cloudflare:workers` (#77). Nothing per-request is ever stored on a class (ADR-0003): a
-// request's database lives only in its AsyncLocalStorage, and a binding's Database holds no
-// per-request state.
+// `withDatabase`, and where a query from a Model's statics (`Product.find(id)`) finds its database:
+// the request's, set with `withDatabase`, or else whatever its adapter finds (#77). Nothing
+// per-request is ever stored on a class (ADR-0003): a request's database lives only in its
+// AsyncLocalStorage.
 import { schemaBinding } from "./generated-model.ts";
-import { connect, databaseParts, type Database } from "./database.ts";
+import type { Adapter } from "./adapter.ts";
+import { d1Adapter } from "./d1/adapter.ts";
+import { databaseParts, type Database } from "./database.ts";
 import { NoDatabase } from "./errors.ts";
 import { CurrentExecutor, type Executor } from "./executor.ts";
 import type { ModelClass, ScopesOf } from "./model.ts";
@@ -50,84 +51,20 @@ export async function withDatabase<R>(
   return requests.run([...inner, ...outer], fn);
 }
 
-type Env = Record<string, unknown>;
-
-/** The Worker's bindings, from `cloudflare:workers`; undefined outside a Worker (Node, scripts). */
-let workersEnv: Promise<Env | undefined> | undefined;
-
-function bindings(): Promise<Env | undefined> {
-  // A literal specifier: Wrangler and Miniflare (wrangler dev) only allow those. Outside a Worker
-  // the module doesn't exist, which is the one failure that means "not in a Worker".
-  workersEnv ??= import("cloudflare:workers").then(
-    (workers) => workers.env as unknown as Env,
-    (error: unknown) => {
-      if (notAWorker(error)) return undefined;
-      throw error;
-    },
-  );
-  return workersEnv;
+/**
+ * The adapter a statement on binding `name` compiles for. Statements compile when they're built,
+ * before their database is found, so this can't wait to find it: a generated Model's adapter,
+ * which is D1's until the schema names one (#268), or else the request's database's.
+ */
+function adapterFor(name: string | undefined): Adapter {
+  if (name !== undefined) return d1Adapter;
+  const [first] = requests?.getStore() ?? [];
+  return first?.[databaseParts].executor.adapter ?? d1Adapter;
 }
 
-/** Whether importing `cloudflare:workers` failed because this isn't a Worker (Node, scripts). */
-function notAWorker(error: unknown): boolean {
-  const { code, message } = error as { code?: unknown; message?: unknown };
-  return (
-    code === "ERR_UNSUPPORTED_ESM_URL_SCHEME" ||
-    code === "ERR_MODULE_NOT_FOUND" ||
-    /cloudflare:workers/.test(String(message))
-  );
-}
-
-/** One Database per D1 binding, for queries outside `withDatabase`: it holds nothing per-request. */
-const defaults = new WeakMap<D1Database, Database>();
-
-function defaultDatabase(binding: D1Database, name: string): Database {
-  let db = defaults.get(binding);
-  if (db === undefined) {
-    db = connect(binding);
-    db[databaseParts].executor.setOrigin({ binding: name });
-    defaults.set(binding, db);
-  }
-  return db;
-}
-
-/** Why there's no database here, saying what to do. */
-function noDatabase(reason: string): NoDatabase {
-  return new NoDatabase(
-    `No database for this query: ${reason}. Wrap the code in withDatabase(connect(env.DB), …), ` +
-      "or use db.model(Model)",
-  );
-}
-
-/** Outside a Worker (Node, scripts), a request's database is the only one there can be. */
-function onlyRequested(requested: readonly Database[], name: string | undefined): Database {
-  if (requested.length === 1) return requested[0]!;
-  if (requested.length > 1) {
-    throw noDatabase(
-      "withDatabase was given several, and outside a Worker a binding can't tell which",
-    );
-  }
-  throw noDatabase(
-    name === undefined
-      ? "its Model's base class holds no generated schema, which names its binding"
-      : `the binding ${name} is only there inside a Worker`,
-  );
-}
-
-/** The database a query on binding `name` uses now: the request's for it, or the binding's own. */
-async function databaseFor(name: string | undefined): Promise<Database> {
-  const requested = requests?.getStore() ?? [];
-  const env = name === undefined ? undefined : await bindings();
-  if (env === undefined || name === undefined) return onlyRequested(requested, name);
-  const binding = env[name] as D1Database | undefined;
-  if (binding === undefined) {
-    throw new NoDatabase(
-      `The binding ${name} isn't in this Worker's env; check d1_databases in your Wrangler config`,
-    );
-  }
-  return (
-    requested.find((db) => db[databaseParts].binding === binding) ?? defaultDatabase(binding, name)
-  );
+/** The database a query on binding `name` uses now. */
+function databaseFor(name: string | undefined): Promise<Database> {
+  return adapterFor(name).databaseFor(name, requests?.getStore() ?? []);
 }
 
 /**
@@ -140,7 +77,10 @@ const executors = new Map<string | undefined, Executor>();
 function currentExecutor(name: string | undefined): Executor {
   let executor = executors.get(name);
   if (executor === undefined) {
-    executor = new CurrentExecutor(async () => (await databaseFor(name))[databaseParts].executor);
+    executor = new CurrentExecutor(
+      () => adapterFor(name),
+      async () => (await databaseFor(name))[databaseParts].executor,
+    );
     executors.set(name, executor);
   }
   return executor;

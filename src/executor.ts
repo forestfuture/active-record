@@ -3,7 +3,6 @@ import { shownValue } from "./filtering.ts";
 import type { CompiledSql } from "./compiler.ts";
 import type { Adapter } from "./adapter.ts";
 import { translateConstraintError } from "./constraints.ts";
-import { sqlite } from "./d1/dialect.ts";
 import type { Dialect } from "./dialect.ts";
 import type { Driver, StatementResult } from "./driver.ts";
 import { IncompatibleRelation } from "./errors.ts";
@@ -51,6 +50,8 @@ const resolve = Symbol("resolve");
 
 /** Where a Relation's or record's statements go: one database, or the current one (#77). */
 export interface Executor {
+  /** The kind of database it sends to, known before that database is found. */
+  readonly adapter: Adapter;
   /** How its database writes the SQL the compiler can't share. */
   readonly dialect: Dialect;
   /** Runs one statement and resolves to its rows. */
@@ -80,19 +81,19 @@ function nameOf(origin: Origin): string {
  * constraint failure becomes the matching `ConstraintViolation` for the statement's Model.
  */
 export class DatabaseExecutor implements Executor {
-  readonly #adapter: Adapter;
+  readonly adapter: Adapter;
   readonly #driver: Driver;
   readonly #onQuery: QueryListener | undefined;
   #origin: Origin = "connect";
 
   constructor(adapter: Adapter, driver: Driver, onQuery?: QueryListener) {
-    this.#adapter = adapter;
+    this.adapter = adapter;
     this.#driver = driver;
     this.#onQuery = onQuery;
   }
 
   get dialect(): Dialect {
-    return this.#adapter.dialect;
+    return this.adapter.dialect;
   }
 
   async [resolve](): Promise<DatabaseExecutor> {
@@ -193,7 +194,7 @@ export class DatabaseExecutor implements Executor {
 
   /** What to throw for `error` from a write to `models`' tables. */
   #explained(error: unknown, models: readonly ModelClass[]): unknown {
-    const adapter = this.#adapter;
+    const { adapter } = this;
     return (
       adapter.refusal(error) ??
       explainMissingTable(adapter, translateConstraintError(adapter, error, models), models)
@@ -219,8 +220,11 @@ export class DatabaseExecutor implements Executor {
 
 /** An Executor that finds its DatabaseExecutor when a statement runs, and sends the statement there. */
 abstract class ForwardingExecutor implements Executor {
-  // Statements compile before their database is found, so this can't ask it. D1 is the only one.
-  readonly dialect = sqlite;
+  abstract get adapter(): Adapter;
+
+  get dialect(): Dialect {
+    return this.adapter.dialect;
+  }
 
   abstract [resolve](): Promise<DatabaseExecutor>;
 
@@ -246,11 +250,17 @@ abstract class ForwardingExecutor implements Executor {
  * the request's or the binding's, so a Relation built from a Model's statics can be built anywhere.
  */
 export class CurrentExecutor extends ForwardingExecutor {
+  readonly #adapter: () => Adapter;
   readonly #find: () => Promise<DatabaseExecutor>;
 
-  constructor(find: () => Promise<DatabaseExecutor>) {
+  constructor(adapter: () => Adapter, find: () => Promise<DatabaseExecutor>) {
     super();
+    this.#adapter = adapter;
     this.#find = find;
+  }
+
+  get adapter(): Adapter {
+    return this.#adapter();
   }
 
   [resolve](): Promise<DatabaseExecutor> {
@@ -334,6 +344,10 @@ class JointExecutor extends ForwardingExecutor {
     super();
     this.#handles = handles;
     this.#needs = needs;
+  }
+
+  get adapter(): Adapter {
+    return this.#handles[0].adapter;
   }
 
   [resolve](): Promise<DatabaseExecutor> {
