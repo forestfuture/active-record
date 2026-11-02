@@ -189,7 +189,7 @@ export function attributeFor(model: ModelClass, name: string): Attribute {
 }
 
 /**
- * Rows of `names`' values, assigned, as one JSON value D1 reads with `json_each`; listeners see
+ * Rows of `names`' values, assigned, as one JSON value the dialect reads them from; listeners see
  * a filtered attribute's column as "[FILTERED]" in every row.
  */
 export function storedRows(
