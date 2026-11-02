@@ -155,24 +155,31 @@ export type Conflict =
   | { kind: "skip" }
   | { kind: "update"; uniqueBy: readonly string[]; update?: readonly string[] };
 
+/** The rows of a bulk insert: their attributes, each row's values, and what a conflict does. */
+export interface InsertedRows {
+  names: readonly string[];
+  rows: readonly (readonly unknown[])[];
+  conflict?: Conflict | undefined;
+}
+
 /**
- * `INSERT` of several rows, all with the attributes `names`, bound as one JSON parameter:
- * `INSERT … SELECT value ->> '$[0]', … FROM json_each(?)`. One statement and one bound value,
- * whatever the number of rows, within D1's limit of 100 bound parameters per statement.
+ * `INSERT` of several rows, all with the attributes `names`, bound as one JSON parameter, which
+ * the dialect reads them from. One statement and one bound value, whatever the number of rows,
+ * within D1's limit of 100 bound parameters per statement.
  */
 export function compileInsertRows(
+  dialect: Dialect,
   model: ModelClass<Model>,
-  names: readonly string[],
-  rows: readonly (readonly unknown[])[],
-  conflict?: Conflict,
+  { names, rows, conflict }: InsertedRows,
 ): CompiledSql {
-  const columns = names.map((name) => quoteIdentifier(attributeFor(model, name).column)).join(", ");
-  const values = names.map((_, index) => `value ->> '$[${index}]'`).join(", ");
+  const attributes = names.map((name) => attributeFor(model, name));
+  const columns = attributes.map(({ column }) => quoteIdentifier(column)).join(", ");
+  const { select, from } = dialect.bulkRows(attributes);
   const json = storedRows(model, names, rows);
   // `WHERE true` keeps SQLite from reading ON CONFLICT as part of the SELECT.
   const sql =
     `INSERT INTO ${quoteIdentifier(model.table)} (${columns}) ` +
-    `SELECT ${values} FROM json_each(?) WHERE true${compileConflict(model, names, conflict)}`;
+    `SELECT ${select} FROM ${from} WHERE true${compileConflict(model, names, conflict)}`;
   return { sql, params: [json], model };
 }
 

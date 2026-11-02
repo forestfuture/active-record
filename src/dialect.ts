@@ -1,4 +1,5 @@
 // What the compiler can't write the same way on every database (ADR-0018), with SQLite's as `sqlite`.
+import type { Attribute } from "./attribute.ts";
 
 /** The SQL a database needs in its own form. Everything else in the compiler is shared. */
 export interface Dialect {
@@ -6,6 +7,8 @@ export interface Dialect {
   inList(column: string, cells: readonly unknown[]): { sql: string; value: unknown };
   /** ` LIMIT … OFFSET …`, or the part of it that's set, its values added to `params`. */
   pagination(limit: number | undefined, offset: number | undefined, params: unknown[]): string;
+  /** Where a bulk insert reads its rows of `attributes`, from one bound JSON value: its SELECT list and FROM. */
+  bulkRows(attributes: readonly Attribute[]): { select: string; from: string };
 }
 
 /** D1's dialect. */
@@ -21,4 +24,8 @@ export const sqlite: Dialect = {
     params.push(offset);
     return " LIMIT ? OFFSET ?";
   },
+  bulkRows: (attributes) => ({
+    select: attributes.map((_, index) => `value ->> '$[${index}]'`).join(", "),
+    from: "json_each(?)",
+  }),
 };
