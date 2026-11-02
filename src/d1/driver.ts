@@ -2,14 +2,7 @@
 import type { CompiledSql } from "../compiler.ts";
 import type { Driver, StatementResult } from "../driver.ts";
 import { boundValue } from "../filtering.ts";
-
-/** D1's error for a Session's bookmark it can't use, and the bookmark it repeats (#237). */
-const rejectedBookmark = /invalid commitToken bookmark provided: (.*)$/s;
-
-/** Whether `error` is D1 rejecting the bookmark a Session started from. */
-function isRejectedBookmark(error: unknown): boolean {
-  return error instanceof Error && rejectedBookmark.test(error.message);
-}
+import { isRejectedBookmark, rejectedBookmark } from "./errors.ts";
 
 /** How much of a rejected bookmark D1's error keeps, since a request may have sent any length. */
 const shownBookmarkLength = 64;
@@ -30,8 +23,8 @@ export class D1Driver implements Driver {
   #source: D1Database | D1DatabaseSession;
   /** Starts the Session again when D1 rejects the bookmark it started from (#237); once only. */
   #startAgain: (() => D1DatabaseSession) | undefined;
-  /** Whether the Session started again, so a statement sent before that can be sent anew. */
-  #startedAgain = false;
+  /** The source each rejected statement went to, so one the Session has left is sent anew. */
+  readonly #rejectedOn = new WeakMap<object, D1Database | D1DatabaseSession>();
 
   /** `source` is the D1 binding itself, or one D1 Session every query goes through. */
   constructor(source: D1Database | D1DatabaseSession) {
@@ -75,6 +68,7 @@ export class D1Driver implements Driver {
 
   /** Sends with `send`: a success disarms the restart, and a failure's bookmark is shortened. */
   async #sent<T>(send: () => Promise<T>): Promise<T> {
+    const source = this.#source;
     try {
       const sent = await send();
       // The bookmark was good: D1 rejects one on the Session's first statement only.
@@ -82,6 +76,7 @@ export class D1Driver implements Driver {
       return sent;
     } catch (error) {
       shortenBookmarkIn(error);
+      if (isRejectedBookmark(error)) this.#rejectedOn.set(error as Error, source);
       throw error;
     }
   }
@@ -92,12 +87,11 @@ export class D1Driver implements Driver {
    */
   recover(error: unknown): boolean {
     if (!isRejectedBookmark(error)) return false;
-    if (this.#startAgain !== undefined) {
-      this.#source = this.#startAgain();
-      this.#startAgain = undefined;
-      this.#startedAgain = true;
-    }
-    return this.#startedAgain;
+    if (this.#rejectedOn.get(error as Error) !== this.#source) return true;
+    if (this.#startAgain === undefined) return false;
+    this.#source = this.#startAgain();
+    this.#startAgain = undefined;
+    return true;
   }
 
   #prepare({ sql, params }: CompiledSql): D1PreparedStatement {

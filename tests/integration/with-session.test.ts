@@ -238,11 +238,15 @@ describe("withSession(request, env.DB, fn)", () => {
     const request = getRequest({ cookie: `d1-bookmark=${rejected}` });
 
     const response = await withSession(request, binding, async (db) => {
-      await db.batch([db.model(User).toInsert({ id: 2, email: "bob@example.com" })]);
-      return Response.json(await db.model(User).count());
+      const users = db.model(User);
+      await db.batch([
+        users.toInsert({ id: 2, email: "bob@example.com" }),
+        users.toInsert({ id: 3, email: "carol@example.com" }),
+      ]);
+      return Response.json(await users.count());
     });
 
-    expect(await response.json()).toBe(1);
+    expect(await response.json()).toBe(2);
     expect(starts).toEqual([rejected, "first-unconstrained"]);
   });
 
@@ -401,6 +405,13 @@ describe("nested withSession calls, one per binding", () => {
 });
 
 describe("connect(env.DB, { session: bookmark })", () => {
+  test("D1 rejecting a bookmark that reads like a constraint failure throws D1's error", async () => {
+    const session = `${rejected} UNIQUE constraint failed: users.email`;
+    const counted = connect(rejectingBookmarks(database), { session }).model(User).count();
+
+    await expect(counted).rejects.toThrow(/invalid commitToken bookmark/);
+  });
+
   test("a bookmark D1 rejects throws D1's error, with no new Session", async () => {
     const binding = recordingStarts(rejectingBookmarks(database), starts);
 
