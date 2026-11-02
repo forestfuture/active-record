@@ -1,7 +1,8 @@
 // The `Database` that `connect` returns: `db.model()`, sessions, and `db.batch`.
 import { NoSession } from "./errors.ts";
 import { runBatch, type BatchEntry, type BatchResults } from "./batch.ts";
-import { D1Executor, type QueryListener } from "./executor.ts";
+import { D1Driver } from "./d1/driver.ts";
+import { DatabaseExecutor, type QueryListener } from "./executor.ts";
 import type { Model, ModelClass, ScopesOf } from "./model.ts";
 import type { Scoped } from "./relation.ts";
 import { relationFor } from "./scoped-relation.ts";
@@ -29,17 +30,18 @@ export const databaseParts = Symbol("databaseParts");
 /** A per-request wrapper around a D1 binding; every query goes through it. */
 export class Database {
   readonly #binding: D1Database;
-  readonly #executor: D1Executor;
+  readonly #driver: D1Driver;
+  readonly #executor: DatabaseExecutor;
   constructor(binding: D1Database, options: ConnectOptions = {}) {
     const { session, onQuery } = options;
     this.#binding = binding;
-    const source = session === undefined ? binding : binding.withSession(session);
-    this.#executor = new D1Executor(source, onQuery);
+    this.#driver = new D1Driver(session === undefined ? binding : binding.withSession(session));
+    this.#executor = new DatabaseExecutor(this.#driver, onQuery);
   }
 
-  /** @internal Its D1 binding (not its Session), to match Models' bindings, and its Executor. */
-  get [databaseParts](): { binding: D1Database; executor: D1Executor } {
-    return { binding: this.#binding, executor: this.#executor };
+  /** @internal Its D1 binding (not its Session), to match Models' bindings, and what sends for it. */
+  get [databaseParts](): { binding: D1Database; driver: D1Driver; executor: DatabaseExecutor } {
+    return { binding: this.#binding, driver: this.#driver, executor: this.#executor };
   }
 
   /**
@@ -48,7 +50,7 @@ export class Database {
    */
   bookmark(): D1SessionBookmark | null {
     // Its Session now, which may have started again (#237).
-    const { session } = this.#executor;
+    const { session } = this.#driver;
     if (session === undefined) {
       throw new NoSession(
         "bookmark() needs a Database opened with a session: connect(env.DB, { session })",
@@ -103,7 +105,7 @@ export function connectForRequest(
 ): Database {
   const db = new Database(binding, { ...options, session: bookmark ?? start });
   if (bookmark !== undefined) {
-    db[databaseParts].executor.whenBookmarkRejected(() => binding.withSession(start));
+    db[databaseParts].driver.whenBookmarkRejected(() => binding.withSession(start));
   }
   return db;
 }

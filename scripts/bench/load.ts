@@ -5,7 +5,7 @@
 // its transport's CPU does.
 import { Miniflare } from "miniflare";
 import { connect } from "../../src/index.ts";
-import { D1Executor } from "../../src/executor.ts";
+import { databaseParts } from "../../src/database.ts";
 import { hydrate } from "../../src/model.ts";
 import { Author, schema } from "./models.ts";
 
@@ -41,7 +41,7 @@ for (let start = 0; start < ROWS; start += 500) {
 }
 
 const db = connect(binding as never);
-const executor = new D1Executor(binding as never);
+const { executor } = db[databaseParts];
 const { sql, params } = db.model(Author).toSql();
 const select = { sql, params: [...params], model: Author };
 const rows = await executor.all(select);
