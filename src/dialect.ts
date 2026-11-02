@@ -1,4 +1,4 @@
-// What the compiler can't write the same way on every database (ADR-0018), with SQLite's as `sqlite`.
+// What the compiler can't write the same way on every database (ADR-0018).
 import type { Attribute } from "./attribute.ts";
 
 /** The SQL a database needs in its own form. Everything else in the compiler is shared. */
@@ -10,22 +10,3 @@ export interface Dialect {
   /** Where a bulk insert reads its rows of `attributes`, from one bound JSON value: its SELECT list and FROM. */
   bulkRows(attributes: readonly Attribute[]): { select: string; from: string };
 }
-
-/** D1's dialect. */
-export const sqlite: Dialect = {
-  inList: (column, cells) => ({
-    sql: `${column} IN (SELECT value FROM json_each(?))`,
-    value: JSON.stringify(cells),
-  }),
-  pagination(limit, offset, params) {
-    // SQLite only accepts OFFSET after a LIMIT; -1 means "no limit".
-    params.push(limit ?? -1);
-    if (offset === undefined) return " LIMIT ?";
-    params.push(offset);
-    return " LIMIT ? OFFSET ?";
-  },
-  bulkRows: (attributes) => ({
-    select: attributes.map((_, index) => `value ->> '$[${index}]'`).join(", "),
-    from: "json_each(?)",
-  }),
-};

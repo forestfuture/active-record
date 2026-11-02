@@ -1,4 +1,5 @@
 // A Model's table: its name (inferred, bound, or declared) and whether its queries read every column.
+import type { Adapter } from "./adapter.ts";
 import { ancestors } from "./ancestors.ts";
 import { InvalidModel } from "./errors.ts";
 import { pluralize } from "./inflections.ts";
@@ -155,17 +156,20 @@ export function requireTableName(model: ModelClass): void {
 }
 
 /**
- * D1's "no such table" for a table whose name was inferred, as an `InvalidModel` saying where
+ * A database's "no such table" for a table whose name was inferred, as an `InvalidModel` saying where
  * the name came from (a bundler may have renamed the class). Any other error is returned as is.
  */
-export function explainMissingTable(error: unknown, models: readonly ModelClass[]): unknown {
-  const message = error instanceof Error ? error.message : String(error);
-  const table = /no such table: ([^\s:]+)/.exec(message)?.[1];
+export function explainMissingTable(
+  adapter: Adapter,
+  error: unknown,
+  models: readonly ModelClass[],
+): unknown {
+  const table = adapter.missingTable(error);
   const model = models.find((each) => each.table === table && tableNameSource(each));
   const source = model && tableNameSource(model);
   if (table === undefined || model === undefined) return error;
   return new InvalidModel(
-    `${model.name}'s table "${table}" doesn't exist in D1 (inferred from the class name ` +
+    `${model.name}'s table "${table}" doesn't exist in ${adapter.name} (inferred from the class name ` +
       `${source}; create it, set static table, or keep class names if your ` +
       "bundler renames them)",
     { cause: error },

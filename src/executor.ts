@@ -1,10 +1,13 @@
 // Sending statements through a database's Driver and reporting each to `onQuery`, where a database is from, and the pinning of records to it.
 import { shownValue } from "./filtering.ts";
 import type { CompiledSql } from "./compiler.ts";
+import type { Adapter } from "./adapter.ts";
 import { translateConstraintError } from "./constraints.ts";
-import { sqlite, type Dialect } from "./dialect.ts";
+import { sqlite } from "./d1/dialect.ts";
+import type { Dialect } from "./dialect.ts";
 import type { Driver, StatementResult } from "./driver.ts";
-import { IncompatibleRelation, NoDatabase } from "./errors.ts";
+import { IncompatibleRelation } from "./errors.ts";
+import type { ModelClass } from "./model.ts";
 import { explainMissingTable } from "./table-names.ts";
 
 /**
@@ -25,20 +28,6 @@ export interface QueryEvent {
 }
 
 export type QueryListener = (event: QueryEvent) => void;
-
-/**
- * Workers' refusal of a D1 call outside a request (a query at a module's top level), as a
- * `NoDatabase` saying where queries belong; any other error, undefined.
- */
-function outsideRequest(error: unknown): NoDatabase | undefined {
-  const message = error instanceof Error ? error.message : String(error);
-  if (!/within global scope/i.test(message)) return undefined;
-  return new NoDatabase(
-    "Queries run during a request: Workers don't allow D1 calls at a module's top level. Move " +
-      "the query into your fetch handler, or a function it calls",
-    { cause: error },
-  );
-}
 
 /**
  * Calls a query listener, which never changes the query's outcome: a listener that throws is
@@ -91,14 +80,19 @@ function nameOf(origin: Origin): string {
  * constraint failure becomes the matching `ConstraintViolation` for the statement's Model.
  */
 export class DatabaseExecutor implements Executor {
-  readonly dialect = sqlite;
+  readonly #adapter: Adapter;
   readonly #driver: Driver;
   readonly #onQuery: QueryListener | undefined;
   #origin: Origin = "connect";
 
-  constructor(driver: Driver, onQuery?: QueryListener) {
+  constructor(adapter: Adapter, driver: Driver, onQuery?: QueryListener) {
+    this.#adapter = adapter;
     this.#driver = driver;
     this.#onQuery = onQuery;
+  }
+
+  get dialect(): Dialect {
+    return this.#adapter.dialect;
   }
 
   async [resolve](): Promise<DatabaseExecutor> {
@@ -159,10 +153,9 @@ export class DatabaseExecutor implements Executor {
     } catch (error) {
       const durationMs = performance.now() - started;
       for (const statement of statements) this.#report(statement, { durationMs, error });
-      const models = statements.map(({ model }) => model);
-      throw (
-        outsideRequest(error) ??
-        explainMissingTable(translateConstraintError(error, models), models)
+      throw this.#explained(
+        error,
+        statements.map(({ model }) => model),
       );
     }
     // D1 times each statement of a batch itself.
@@ -192,13 +185,19 @@ export class DatabaseExecutor implements Executor {
       result = await this.#driver.send(query);
     } catch (error) {
       this.#report(query, { durationMs: performance.now() - started, error });
-      throw (
-        outsideRequest(error) ??
-        explainMissingTable(translateConstraintError(error, [model]), [model])
-      );
+      throw this.#explained(error, [model]);
     }
     this.#report(query, { durationMs: performance.now() - started, meta: result.meta });
     return result;
+  }
+
+  /** What to throw for `error` from a write to `models`' tables. */
+  #explained(error: unknown, models: readonly ModelClass[]): unknown {
+    const adapter = this.#adapter;
+    return (
+      adapter.refusal(error) ??
+      explainMissingTable(adapter, translateConstraintError(adapter, error, models), models)
+    );
   }
 
   /** Reports a statement to the database's listener, then to its Model's (`static onQuery`). */
