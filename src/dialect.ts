@@ -5,7 +5,7 @@ import type { Attribute } from "./attribute.ts";
 export interface Dialect {
   /** `column` in a list of `cells` bound as one value, so any length fits a statement's limits. */
   inList(column: string, cells: readonly unknown[]): { sql: string; value: unknown };
-  /** ` LIMIT … OFFSET …`, or the part of it that's set, its values added to `params`. */
+  /** `limit` and `offset`, at least one of them set, as this database writes them, their values added to `params`. */
   pagination(limit: number | undefined, offset: number | undefined, params: unknown[]): string;
   /** Where a bulk insert reads its rows of `attributes`, from one bound JSON value: its SELECT list and FROM. */
   bulkRows(attributes: readonly Attribute[]): { select: string; from: string };
