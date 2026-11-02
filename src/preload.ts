@@ -57,9 +57,6 @@ interface Afterwards extends Omit<Start, "owners"> {
   ownersAt: number;
 }
 
-/** D1's limit of values bound in one statement. */
-const MAX_BOUND_VALUES = 100;
-
 /**
  * Plans the preloads of `query`'s includes before the query is sent, so they go with it, every
  * level in one round trip: each association's query selects its owners' keys with a subquery
@@ -148,7 +145,7 @@ function planStep(
   const query = linkedQuery(association, owners, planning.executor);
   const targets =
     query && targetsOf(planning.executor.dialect, association, query, tree[name] ?? {});
-  if (overBoundValues(owners, targets)) {
+  if (overBoundValues(owners, targets, planning.executor.adapter.maxBoundValues)) {
     const onlyThis = (from: IncludeTree) =>
       from[name] === undefined ? {} : { [name]: from[name] };
     const deferred = { ownersAt, model, tree: onlyThis(tree), written: onlyThis(written) };
@@ -170,10 +167,14 @@ function planStep(
 
 /**
  * Whether `targets`' SELECT, selecting the keys of `owners`' query with a subquery, binds more
- * values than D1 allows in one statement.
+ * values than `limit`, what the database allows in one statement.
  */
-function overBoundValues(owners: Owners, targets: { select: CompiledSql } | undefined): boolean {
-  return "query" in owners && (targets?.select.params.length ?? 0) > MAX_BOUND_VALUES;
+function overBoundValues(
+  owners: Owners,
+  targets: { select: CompiledSql } | undefined,
+  limit: number,
+): boolean {
+  return "query" in owners && (targets?.select.params.length ?? 0) > limit;
 }
 
 /** Adds `deferred` to what's preloaded afterwards, merged with anything left for its owners. */

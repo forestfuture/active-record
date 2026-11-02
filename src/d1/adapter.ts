@@ -7,6 +7,7 @@ import { constraintFailure, missingTable, outsideRequest } from "./errors.ts";
 export const d1Adapter: Adapter = {
   name: "D1",
   dialect: sqlite,
+  maxBoundValues: 100,
   constraintFailure,
   missingTable,
   refusal: outsideRequest,

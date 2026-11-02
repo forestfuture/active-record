@@ -16,6 +16,8 @@ export interface Adapter {
   /** What the database is called in messages. */
   readonly name: string;
   readonly dialect: Dialect;
+  /** The most values one statement can bind. */
+  readonly maxBoundValues: number;
   /** What `error` says failed, or undefined when it isn't a constraint failure. */
   constraintFailure(error: unknown): ConstraintFailure | undefined;
   /** The table `error` says doesn't exist, or undefined when it says something else. */
