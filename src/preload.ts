@@ -132,7 +132,7 @@ function planSteps(planning: Planning, start: Start, level: Level): void {
 
 /**
  * Adds the step for one association of `start`'s, then the steps under it. One that, with the
- * subqueries of the levels above, would bind more values than D1 allows is left for
+ * subqueries of the levels above, would bind more values than the database allows is left for
  * afterwards, when its owners' keys are bound as one value.
  */
 function planStep(

@@ -1,7 +1,7 @@
 // Time to hydrate rows with none, one or two stored datetimes (#216), in-process, no D1.
 // Not part of CI; run with `vp run bench:datetime-reads` before and after a change to how
 // datetimes are read.
-import { databaseParts } from "../../src/database.ts";
+import { databaseExecutor } from "../../src/database.ts";
 import { connect, Model } from "../../src/index.ts";
 import { hydrate, type ModelClass } from "../../src/model.ts";
 
@@ -36,7 +36,7 @@ const rows = Array.from({ length: ROWS }, (_, i) => ({
   created_at: at(i),
   updated_at: at(i + 1),
 }));
-const { executor } = connect({} as never)[databaseParts];
+const executor = connect({} as never)[databaseExecutor];
 
 function measure(label: string, model: ModelClass) {
   const run = () => {

@@ -313,7 +313,7 @@ Any error thrown by a callback other than an `abort(...)` propagates unchanged. 
 
 ## Constraint errors
 
-_Guide:_ [errors](<../site/docs/(basics)/errors.mdx>). _Code:_ `src/constraints.ts`.
+_Guide:_ [errors](<../site/docs/(basics)/errors.mdx>). _Code:_ `src/constraints.ts`, `src/d1/errors.ts`.
 
 - `RecordNotUnique`, `InvalidForeignKey`, `NotNullViolation` and `CheckViolation`, all subclasses of `ConstraintViolation`, are recognized from D1 error messages on insert, update and delete. They carry the original error as `cause`, and `.table`, `.columns` and `.attributes` where the message names them (SQLite's foreign-key and check messages don't name a column). The same errors come from statements and batches. `.table` is the table D1's message names, and `.attributes` are mapped when that table is one being written to (a trigger's write to another table leaves them empty). When the message names no table (foreign-key and check failures), it's the only table written to. A batch that writes to several then has `.table` `null`, and the message starts with `batch:`.
 - Both the throwing and non-throwing methods throw them. After a constraint error the caller's own changes are kept and `errors` is not changed, because nothing was persisted. Timestamps are only applied once D1 accepts a write, so a failed save doesn't leave `createdAt`/`updatedAt` behind.

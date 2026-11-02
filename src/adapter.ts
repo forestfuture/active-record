@@ -1,4 +1,4 @@
-// What the core needs from a kind of database besides sending statements: its SQL, and reading its errors.
+// What the core needs from a kind of database besides sending statements: its SQL and limits, reading its errors, and finding a Model's database.
 import type { AnyDatabase } from "./database.ts";
 import type { Dialect } from "./dialect.ts";
 

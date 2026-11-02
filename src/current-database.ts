@@ -5,7 +5,7 @@
 import { schemaBinding } from "./generated-model.ts";
 import type { Adapter } from "./adapter.ts";
 import { d1Adapter } from "./d1/adapter.ts";
-import { databaseParts, type AnyDatabase } from "./database.ts";
+import { databaseExecutor, type AnyDatabase } from "./database.ts";
 import { NoDatabase } from "./errors.ts";
 import { CurrentExecutor, type Executor } from "./executor.ts";
 import type { ModelClass, ScopesOf } from "./model.ts";
@@ -47,7 +47,7 @@ export async function withDatabase<R>(
   requests ??= newStorage();
   const outer = requests.getStore() ?? [];
   const inner = Array.isArray(databases) ? databases : [databases as AnyDatabase];
-  for (const db of inner) db[databaseParts].executor.setOrigin("request");
+  for (const db of inner) db[databaseExecutor].setOrigin("request");
   return requests.run([...inner, ...outer], fn);
 }
 
@@ -59,7 +59,7 @@ export async function withDatabase<R>(
 function adapterFor(name: string | undefined): Adapter {
   if (name !== undefined) return d1Adapter;
   const [first] = requests?.getStore() ?? [];
-  return first?.[databaseParts].executor.adapter ?? d1Adapter;
+  return first?.[databaseExecutor].adapter ?? d1Adapter;
 }
 
 /** The database a query on binding `name` uses now. */
@@ -79,7 +79,7 @@ function currentExecutor(name: string | undefined): Executor {
   if (executor === undefined) {
     executor = new CurrentExecutor(
       () => adapterFor(name),
-      async () => (await databaseFor(name))[databaseParts].executor,
+      async () => (await databaseFor(name))[databaseExecutor],
     );
     executors.set(name, executor);
   }
