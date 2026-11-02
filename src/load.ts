@@ -1,6 +1,6 @@
 // How a Relation's query runs (on D1, or not at all for `none()`), and the keys `find` looks up.
 import { attributeFor, noMatch } from "./attribute.ts";
-import { compileColumns, compileSelect, type CompiledSql } from "./compiler.ts";
+import { compileColumns, compileCount, compileSelect, type CompiledSql } from "./compiler.ts";
 import type { Dialect } from "./dialect.ts";
 import { databaseNow, type Executor } from "./executor.ts";
 import { stableOrder } from "./finder-order.ts";
@@ -16,8 +16,8 @@ import { sql } from "./sql.ts";
 export interface QueryRunner<M extends Model> {
   /** The records `description` matches (one SELECT), hydrated, with its includes preloaded. */
   load(description: QueryDescription): Promise<M[]>;
-  /** The records `description` matches and the count `countSql` gives, sent as one batch. */
-  loadCounted(description: QueryDescription, countSql: CompiledSql): Promise<Counted<M>>;
+  /** The records `description` matches and the number `counted` matches, sent as one batch. */
+  loadCounted(description: QueryDescription, counted: QueryDescription): Promise<Counted<M>>;
   /**
    * The records `description` matches (one SELECT, its limit given), and whether more follow:
    * one row past the limit is read to learn that, and isn't hydrated or preloaded.
@@ -50,7 +50,7 @@ export function runnerFor<M extends Model>(
   if (query.none) return nothing;
   return {
     load: (description) => loadRecords(executor, model, description),
-    loadCounted: (description, countSql) => loadCounted(executor, model, description, countSql),
+    loadCounted: (description, counted) => loadCounted(executor, model, description, counted),
     loadAhead: (description) => loadAhead(executor, model, description),
     rows: (sql) => executor.all(sql),
     changes: async (write) => (await write()).changes,
@@ -76,17 +76,19 @@ async function loadRecords<M extends Model>(
   return (await loadWith(executor, model, { query, own, rowsOf: ([rows]) => rows })).records;
 }
 
-/** `countSql` and the SELECT for `query`'s records as one batch: one round trip. */
+/** The count of `counted` and the SELECT for `query`'s records as one batch: one round trip. */
 async function loadCounted<M extends Model>(
   executor: Executor,
   model: ModelClass<M>,
   query: QueryDescription,
-  countSql: CompiledSql,
+  counted: QueryDescription,
 ): Promise<Counted<M>> {
-  const own = (loaded: QueryDescription) => [countSql, selectFor(executor.dialect, model, loaded)];
+  const { dialect } = executor;
+  const countSql = compileCount(dialect, counted);
+  const own = (loaded: QueryDescription) => [countSql, selectFor(dialect, model, loaded)];
   const loaded = await loadWith(executor, model, { query, own, rowsOf: ([, rows]) => rows });
-  const [counted] = loaded.results;
-  return { records: loaded.records, count: Number(counted?.[0]?.["count"] ?? 0) };
+  const [countRows] = loaded.results;
+  return { records: loaded.records, count: Number(countRows?.[0]?.["count"] ?? 0) };
 }
 
 /** One SELECT for `query`'s records and one past its limit, which is read but not loaded. */

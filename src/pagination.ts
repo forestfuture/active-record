@@ -1,7 +1,5 @@
 // `paginate()`: one page of a Relation's records, and its total, in one round trip (#100).
-import { compileCount } from "./compiler.ts";
 import { castValue, uncastable } from "./conversion.ts";
-import type { Dialect } from "./dialect.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import { stableOrder } from "./finder-order.ts";
 import type { QueryRunner } from "./load.ts";
@@ -51,7 +49,6 @@ export interface PaginateStatic {
 
 /** A Relation's query and how it runs: what `paginate` pages. */
 export interface Paged<M extends Model> {
-  dialect: Dialect;
   model: ModelClass<M>;
   query: QueryDescription;
   runner: QueryRunner<M>;
@@ -62,7 +59,7 @@ export interface Paged<M extends Model> {
  * with `count: false`, one SELECT fetches a record past the page to learn whether there's a next.
  */
 export async function paginate<M extends Model>(
-  { dialect, model, query, runner }: Paged<M>,
+  { model, query, runner }: Paged<M>,
   options: PageOptions,
 ): Promise<Page<M> | CountlessPage<M>> {
   if (query.limit !== undefined || query.offset !== undefined) {
@@ -86,7 +83,7 @@ export async function paginate<M extends Model>(
     const { records, hasMore } = await runner.loadAhead(onPage);
     return { records, page, perPage, hasNext: hasMore, hasPrevious };
   }
-  const { records, count } = await runner.loadCounted(onPage, compileCount(dialect, query));
+  const { records, count } = await runner.loadCounted(onPage, query);
   const totalPages = Math.ceil(count / perPage);
   const hasNext = page < totalPages;
   return { records, page, perPage, total: count, totalPages, hasNext, hasPrevious };
