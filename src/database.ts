@@ -1,6 +1,7 @@
 // The `Database` that `connect` returns: `db.model()`, sessions, and `db.batch`.
 import { NoSession } from "./errors.ts";
 import { runBatch, type BatchEntry, type BatchResults } from "./batch.ts";
+import { d1Adapter } from "./d1/adapter.ts";
 import { D1Driver } from "./d1/driver.ts";
 import { DatabaseExecutor, type QueryListener } from "./executor.ts";
 import type { Model, ModelClass, ScopesOf } from "./model.ts";
@@ -36,7 +37,7 @@ export class Database {
     const { session, onQuery } = options;
     this.#binding = binding;
     this.#driver = new D1Driver(session === undefined ? binding : binding.withSession(session));
-    this.#executor = new DatabaseExecutor(this.#driver, onQuery);
+    this.#executor = new DatabaseExecutor(d1Adapter, this.#driver, onQuery);
   }
 
   /** @internal Its D1 binding (not its Session), to match Models' bindings, and what sends for it. */
