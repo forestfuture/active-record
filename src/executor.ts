@@ -1,8 +1,9 @@
-// The one place the library calls D1 (reporting each statement to `onQuery`, and starting a Session again when D1 rejects a request's bookmark), where a database is from, and the pinning of records to it.
-import { boundValue, shownValue } from "./filtering.ts";
+// Sending statements through a database's Driver and reporting each to `onQuery`, where a database is from, and the pinning of records to it.
+import { shownValue } from "./filtering.ts";
 import type { CompiledSql } from "./compiler.ts";
 import { translateConstraintError } from "./constraints.ts";
 import { sqlite, type Dialect } from "./dialect.ts";
+import type { Driver, StatementResult } from "./driver.ts";
 import { IncompatibleRelation, NoDatabase } from "./errors.ts";
 import { explainMissingTable } from "./table-names.ts";
 
@@ -67,12 +68,12 @@ export interface Executor {
   all(query: CompiledSql): Promise<Record<string, unknown>[]>;
   /** Runs one statement for its effect and resolves to D1's `meta`. */
   run(query: CompiledSql): Promise<D1Meta>;
-  /** Runs statements atomically with D1's `batch()` and resolves to each one's result. */
-  batch(statements: readonly CompiledSql[]): Promise<D1Result<Record<string, unknown>>[]>;
+  /** Runs statements atomically and resolves to each one's result. */
+  batch(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
   /** Runs statements atomically: one on its own, several as one batch. */
-  write(statements: readonly CompiledSql[]): Promise<D1Result<Record<string, unknown>>[]>;
-  /** @internal The D1Executor that sends to D1 now: itself, or the current database's. */
-  [resolve](): Promise<D1Executor>;
+  write(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
+  /** @internal The DatabaseExecutor that sends now: itself, or the current database's. */
+  [resolve](): Promise<DatabaseExecutor>;
 }
 
 /** Where a database came from, for errors to name it: `connect()`'s, the request's, or a binding's. */
@@ -86,39 +87,22 @@ function nameOf(origin: Origin): string {
 }
 
 /**
- * The single place the library calls D1: every statement is reported to `onQuery`, and a
+ * One database's Executor: every statement goes to its Driver and is reported to `onQuery`, and a
  * constraint failure becomes the matching `ConstraintViolation` for the statement's Model.
  */
-export class D1Executor implements Executor {
+export class DatabaseExecutor implements Executor {
   readonly dialect = sqlite;
-  #source: D1Database | D1DatabaseSession;
-  /** Starts the Session again when D1 rejects the bookmark it started from (#237); once only. */
-  #startAgain: (() => D1DatabaseSession) | undefined;
+  readonly #driver: Driver;
   readonly #onQuery: QueryListener | undefined;
   #origin: Origin = "connect";
 
-  /** `binding` is the D1 binding itself, or one D1 Session every query goes through. */
-  constructor(binding: D1Database | D1DatabaseSession, onQuery?: QueryListener) {
-    this.#source = binding;
+  constructor(driver: Driver, onQuery?: QueryListener) {
+    this.#driver = driver;
     this.#onQuery = onQuery;
   }
 
-  async [resolve](): Promise<D1Executor> {
+  async [resolve](): Promise<DatabaseExecutor> {
     return this;
-  }
-
-  /** @internal The D1 Session its statements go through now, if it has one. */
-  get session(): D1DatabaseSession | undefined {
-    return "getBookmark" in this.#source ? this.#source : undefined;
-  }
-
-  /**
-   * @internal Arms a new Session for when D1 rejects the bookmark this one started from (a
-   * request's, which may be forged): `startAgain` opens it, and the rejected statement is sent
-   * again on it, since it never ran. Disarmed once a statement succeeds.
-   */
-  whenBookmarkRejected(startAgain: () => D1DatabaseSession): void {
-    this.#startAgain = startAgain;
   }
 
   /** Where this database came from; errors name it by this. */
@@ -129,7 +113,7 @@ export class D1Executor implements Executor {
   /**
    * @internal Sets where this database came from (#170): `withDatabase` makes it `"request"`, and
    * a binding's own Database takes `{ binding }`. It lives on the executor because records keep
-   * their D1Executor and outlive `withDatabase`, so a per-request lookup couldn't find it later.
+   * their DatabaseExecutor and outlive `withDatabase`, so a per-request lookup couldn't find it later.
    * Sticky: a Database given to `withDatabase` is "the request's database" for its life, including
    * when it's used explicitly outside `withDatabase`.
    */
@@ -148,25 +132,20 @@ export class D1Executor implements Executor {
   }
 
   /**
-   * Runs statements atomically with D1's `batch()` and resolves to each one's result (rows and
-   * `meta`). D1 fails a batch as a whole, so on failure every statement is reported with the error.
+   * Runs statements atomically and resolves to each one's result (rows and `meta`). A batch fails
+   * as a whole, so on failure every statement is reported with the error.
    */
-  async batch(statements: readonly CompiledSql[]): Promise<D1Result<Record<string, unknown>>[]> {
+  async batch(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     if (statements.length === 0) return [];
-    return this.#startingAgainIfRejected(() => this.#batchOnce(statements));
+    return this.#driver.attempt(() => this.#batchOnce(statements));
   }
 
-  async #batchOnce(
-    statements: readonly CompiledSql[],
-  ): Promise<D1Result<Record<string, unknown>>[]> {
+  async #batchOnce(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     const started = performance.now();
-    let results: D1Result<Record<string, unknown>>[];
+    let results: StatementResult[];
     try {
-      results = await this.#source.batch<Record<string, unknown>>(
-        statements.map((statement) => this.#prepare(statement)),
-      );
+      results = await this.#driver.batch(statements);
     } catch (error) {
-      shortenBookmarkIn(error);
       const durationMs = performance.now() - started;
       for (const statement of statements) this.#report(statement, { durationMs, error });
       const models = statements.map(({ model }) => model);
@@ -184,46 +163,23 @@ export class D1Executor implements Executor {
   }
 
   /** Runs statements atomically: one on its own, several as one batch. Resolves to each result. */
-  async write(statements: readonly CompiledSql[]): Promise<D1Result<Record<string, unknown>>[]> {
+  async write(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     const [only] = statements;
     if (statements.length === 1 && only !== undefined) return [await this.#one(only)];
     return this.batch(statements);
   }
 
-  async #one(query: CompiledSql): Promise<D1Result<Record<string, unknown>>> {
-    return this.#startingAgainIfRejected(() => this.#oneOnce(query));
+  async #one(query: CompiledSql): Promise<StatementResult> {
+    return this.#driver.attempt(() => this.#oneOnce(query));
   }
 
-  /**
-   * Sends statements with `send`, and again on a Session started anew when D1 rejects the bookmark
-   * the first one started from. Statements sent at once all fail; each is sent again.
-   */
-  async #startingAgainIfRejected<T>(send: () => Promise<T>): Promise<T> {
-    const source = this.#source;
-    try {
-      const sent = await send();
-      // The bookmark was good: D1 rejects one on the Session's first statement only.
-      this.#startAgain = undefined;
-      return sent;
-    } catch (error) {
-      if (!isRejectedBookmark(error)) throw error;
-      if (this.#source === source) {
-        if (this.#startAgain === undefined) throw error;
-        this.#source = this.#startAgain();
-        this.#startAgain = undefined;
-      }
-      return send();
-    }
-  }
-
-  async #oneOnce(query: CompiledSql): Promise<D1Result<Record<string, unknown>>> {
+  async #oneOnce(query: CompiledSql): Promise<StatementResult> {
     const { model } = query;
     const started = performance.now();
-    let result: D1Result<Record<string, unknown>>;
+    let result: StatementResult;
     try {
-      result = await this.#prepare(query).all<Record<string, unknown>>();
+      result = await this.#driver.send(query);
     } catch (error) {
-      shortenBookmarkIn(error);
       this.#report(query, { durationMs: performance.now() - started, error });
       throw (
         outsideRequest(error) ??
@@ -249,40 +205,14 @@ export class D1Executor implements Executor {
     notify(this.#onQuery, event);
     notify(model.onQuery, event);
   }
-
-  #prepare({ sql, params }: CompiledSql): D1PreparedStatement {
-    return this.#source.prepare(sql).bind(...params.map(boundValue));
-  }
 }
 
-/** D1's error for a Session's bookmark it can't use, and the bookmark it repeats (#237). */
-const rejectedBookmark = /invalid commitToken bookmark provided: (.*)$/s;
-
-/** Whether `error` is D1 rejecting the bookmark a Session started from. */
-function isRejectedBookmark(error: unknown): boolean {
-  return error instanceof Error && rejectedBookmark.test(error.message);
-}
-
-/** How much of a rejected bookmark D1's error keeps, since a request may have sent any length. */
-const shownBookmarkLength = 64;
-
-/** Cuts a long rejected bookmark short in `error`'s message, and its cause's (workerd's). */
-function shortenBookmarkIn(error: unknown): void {
-  if (!(error instanceof Error)) return;
-  const bookmark = rejectedBookmark.exec(error.message)?.[1];
-  if (bookmark === undefined || bookmark.length <= shownBookmarkLength) return;
-  const short = `${bookmark.slice(0, shownBookmarkLength)}…`;
-  error.message = error.message.replace(bookmark, short);
-  if (error.cause instanceof Error)
-    error.cause.message = error.cause.message.replace(bookmark, short);
-}
-
-/** An Executor that finds its D1Executor when a statement runs, and sends the statement there. */
+/** An Executor that finds its DatabaseExecutor when a statement runs, and sends the statement there. */
 abstract class ForwardingExecutor implements Executor {
   // Statements compile before their database is found, so this can't ask it. D1 is the only one.
   readonly dialect = sqlite;
 
-  abstract [resolve](): Promise<D1Executor>;
+  abstract [resolve](): Promise<DatabaseExecutor>;
 
   async all(query: CompiledSql): Promise<Record<string, unknown>[]> {
     return (await this[resolve]()).all(query);
@@ -292,48 +222,48 @@ abstract class ForwardingExecutor implements Executor {
     return (await this[resolve]()).run(query);
   }
 
-  async batch(statements: readonly CompiledSql[]): Promise<D1Result<Record<string, unknown>>[]> {
+  async batch(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     return (await this[resolve]()).batch(statements);
   }
 
-  async write(statements: readonly CompiledSql[]): Promise<D1Result<Record<string, unknown>>[]> {
+  async write(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     return (await this[resolve]()).write(statements);
   }
 }
 
 /**
- * The current database's Executor (#77): finds the D1Executor to use each time a statement runs,
+ * The current database's Executor (#77): finds the DatabaseExecutor to use each time a statement runs,
  * the request's or the binding's, so a Relation built from a Model's statics can be built anywhere.
  */
 export class CurrentExecutor extends ForwardingExecutor {
-  readonly #find: () => Promise<D1Executor>;
+  readonly #find: () => Promise<DatabaseExecutor>;
 
-  constructor(find: () => Promise<D1Executor>) {
+  constructor(find: () => Promise<DatabaseExecutor>) {
     super();
     this.#find = find;
   }
 
-  [resolve](): Promise<D1Executor> {
+  [resolve](): Promise<DatabaseExecutor> {
     return this.#find();
   }
 }
 
-/** The D1Executor `handle` sends to now. */
-export function databaseNow(handle: Executor): Promise<D1Executor> {
+/** The DatabaseExecutor `handle` sends to now. */
+export function databaseNow(handle: Executor): Promise<DatabaseExecutor> {
   return handle[resolve]();
 }
 
 /**
- * The one database these handles resolve to now: their D1Executor. Two databases throw
+ * The one database these handles resolve to now: their DatabaseExecutor. Two databases throw
  * `IncompatibleRelation` (#93): "`needs` on one database", naming where each came from. Every
  * check of "the same database" (merge, or, scopes, batches, saves) and every pin goes here.
  */
 async function oneDatabase(
   handles: readonly [Executor, ...Executor[]],
   needs: string,
-): Promise<D1Executor> {
+): Promise<DatabaseExecutor> {
   const databases = [...new Set(await Promise.all(handles.map((handle) => handle[resolve]())))];
-  const [first, second] = databases as [D1Executor, D1Executor | undefined];
+  const [first, second] = databases as [DatabaseExecutor, DatabaseExecutor | undefined];
   if (second !== undefined) {
     const [one, two] = [nameOf(first.origin), nameOf(second.origin)];
     throw new IncompatibleRelation(
@@ -358,7 +288,7 @@ export async function pinBefore(
   links: readonly DatabaseLink[],
   needs: string,
   handles: readonly Executor[] = [],
-): Promise<D1Executor> {
+): Promise<DatabaseExecutor> {
   const all = [...handles, ...links.map((link) => link.executor)];
   const database = await oneDatabase(all as [Executor, ...Executor[]], needs);
   for (const link of links) link.belongTo(database);
@@ -371,7 +301,7 @@ export async function pinBefore(
  */
 export async function pinClaimed(
   links: readonly DatabaseLink[],
-  database: D1Executor,
+  database: DatabaseExecutor,
   needs: string,
 ): Promise<void> {
   await pinBefore(links, needs, [database]);
@@ -396,7 +326,7 @@ class JointExecutor extends ForwardingExecutor {
     this.#needs = needs;
   }
 
-  [resolve](): Promise<D1Executor> {
+  [resolve](): Promise<DatabaseExecutor> {
     return oneDatabase(this.#handles, this.#needs);
   }
 }
