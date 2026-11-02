@@ -152,6 +152,14 @@ _Avoid_: Logger, hook, middleware
 The database a query started from a Model (`User.find(id)`) uses: the request's, set with `withDatabase`, or else the Model's **Binding**'s. Never stored on a class.
 _Avoid_: Default connection, global database
 
+**Adapter**:
+The package for one database, under the Active Record core (#260, ADR-0016): its driver, SQL dialect, type mapping, constraint errors and schema reader. `d1-record` becomes one, and `pg-record` is the second. The **Generated schema** names it.
+_Avoid_: Dialect (one part of an adapter), driver, connector
+
+**Allowed difference**:
+A place where **Adapter**s may give different results because their databases do, such as NULL ordering (ADR-0017). Each is listed in the conformance suite and documented per adapter.
+_Avoid_: Quirk, incompatibility
+
 **Binding**:
 The name of the D1 binding a Model queries, from the Wrangler config, in the **Generated schema** its **Base class** holds.
 _Avoid_: Connection name, database name
