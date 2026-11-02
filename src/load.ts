@@ -157,7 +157,7 @@ export async function sendTogether(
 ): Promise<Rows[]> {
   const [only] = queries;
   if (queries.length === 1 && only !== undefined) return [await executor.all(only)];
-  return (await executor.batch(queries)).map((result) => result.results);
+  return (await executor.read(queries)).map((result) => result.results);
 }
 
 /** The SELECT for `query`'s records. */

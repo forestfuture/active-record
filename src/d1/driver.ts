@@ -59,7 +59,16 @@ export class D1Driver implements Driver {
     }
   }
 
-  async batch(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
+  read(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
+    return this.#batch(statements);
+  }
+
+  write(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
+    return this.#batch(statements);
+  }
+
+  /** D1's `batch()`: one round trip, and atomic, for reads and writes alike. */
+  async #batch(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     try {
       return await this.#source.batch<Record<string, unknown>>(
         statements.map((statement) => this.#prepare(statement)),
