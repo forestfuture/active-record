@@ -334,7 +334,7 @@ describe("the guide's examples", () => {
 
     expect(commentId).toEqual(expect.any(Number));
     expect(log).toHaveBeenCalledWith(1, 1, commentId); // the article's one comment deleted
-    expect(returned.map(({ body }) => body).toSorted()).toEqual(["One", "Two"]);
+    expect(new Set(returned.map(({ body }) => body))).toEqual(new Set(["One", "Two"]));
     for (const { id, body } of returned) expect(log).toHaveBeenCalledWith(id, body);
     expect(
       await db

@@ -170,9 +170,11 @@ export function returnedNames(
   model: ModelClass,
   returning: readonly string[] | false | undefined,
 ): string[] {
+  if (returning !== undefined && returning !== false && !Array.isArray(returning)) {
+    throw new TypeError("returning must be a list of attributes, or false");
+  }
   const names =
     returning === undefined ? [model.primaryKey] : returning === false ? [] : [...returning];
-  for (const name of names) attributeOf(model, name);
   return names;
 }
 

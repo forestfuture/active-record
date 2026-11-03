@@ -93,6 +93,17 @@ describe("what a bulk write resolves to", () => {
     );
   });
 
+  test("returning: [] returns no rows too, and a returning that isn't a list throws", async () => {
+    const keys = connect(binding).model(ApiKey);
+
+    expect(await keys.insert({ label: "deploy" }, { returning: [] })).toEqual({
+      rowsAffected: 1,
+      rows: [],
+    });
+    expect(() => keys.toInsert({ label: "x" }, { returning: "id" as never })).toThrow(TypeError);
+    expect(() => keys.toInsert({ label: "x" }, { returning: true as never })).toThrow(TypeError);
+  });
+
   test("a row skipped as a duplicate isn't returned", async () => {
     const keys = connect(binding).model(ApiKey);
     await keys.insert({ id: "a", label: "deploy" });

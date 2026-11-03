@@ -31,7 +31,7 @@ export interface WriteResult<Row = Record<string, unknown>> {
 }
 
 /** Each returned row's type: the attributes `returning` names, any of them when it names none. */
-export type ReturnedRow<M, R> = R extends false
+export type ReturnedRow<M, R> = R extends false | readonly []
   ? never
   : R extends readonly (infer K extends keyof AttributesOf<M>)[]
     ? Pick<AttributesOf<M>, K>
@@ -94,17 +94,12 @@ export class Statement<Row = never> {
   }
 }
 
-/** Runs a statement on its own, then its `landed`, resolving to the database's result. */
-async function runStatement(statement: Statement<unknown>): Promise<StatementResult> {
-  const { executor, query, landed } = statement[statementParts];
+/** Runs a statement on its own, then its `landed`, resolving to its `WriteResult`: what a Relation's write methods do. */
+export async function runAlone<Row>(statement: Statement<Row>): Promise<WriteResult<Row>> {
+  const { executor, query, landed, resultOf } = statement[statementParts];
   const result = await executor.run(query);
   landed();
-  return result;
-}
-
-/** Runs a statement on its own, resolving to its `WriteResult`: what a Relation's write methods do. */
-export async function runAlone<Row>(statement: Statement<Row>): Promise<WriteResult<Row>> {
-  return statement[statementParts].resultOf(await runStatement(statement));
+  return resultOf(result);
 }
 
 /** Reads the attributes `names` of each returned row, each as its type. */
