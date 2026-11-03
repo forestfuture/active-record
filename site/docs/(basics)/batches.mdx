@@ -13,7 +13,7 @@ Call a bulk write on a Relation. It runs straight away, without validations or c
 
 - **`updateAll(changes)`** takes attributes or an `sql` fragment, and resolves to the number of rows updated. It leaves `updatedAt` alone. With a `limit` or `offset`, the Relation’s order picks which rows are written.
 - **`deleteAll()`** resolves to the number of rows deleted. On `none()`, both send nothing and resolve to `0`.
-- **`insert(attrs)`** writes one row, and resolves to D1’s `meta`. Declared defaults, timestamps, and a Relation’s equality conditions fill what isn’t given.
+- **`insert(attrs)`** writes one row. It resolves to `{ rowsAffected, rows }`, and `rows` holds the new row’s primary key. Declared defaults, timestamps, and a Relation’s equality conditions fill what isn’t given.
 
 ### Inserting many rows
 
@@ -25,9 +25,19 @@ Insert many rows in one statement with `insertAll`:
 - **`{ onDuplicate: "skip" }`** skips rows that clash with a unique index.
 - **`upsert(attrs)`** and **`upsertAll(rows)`** update a row that clashes with the primary key, or with the unique index named by `uniqueBy`. Only the attributes you give are updated, and `updatedAt` is set.
 
+### Returning attributes
+
+Inserts and upserts return the primary key of each row they write. Name other attributes with `returning`:
+
+<include>/_excerpts/guide/batches/returning.ts</include>
+
+- **`rows`** has one entry for each row written, typed from the attributes you name. A row skipped as a duplicate isn’t in it.
+- **`returning: false`** returns no rows.
+- **Order:** the rows come back in no set order.
+
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-These are Rails’ `insert_all`, `upsert_all`, `update_all`, and `delete_all`, with two differences. Declared defaults fill what an insert isn’t given, since on D1 defaults are where keys are generated. And skipping duplicates is something you opt in to, so a duplicate is never silently lost.
+These are Rails’ `insert_all`, `upsert_all`, `update_all`, and `delete_all`, with two differences. Declared defaults fill what an insert isn’t given, since on D1 defaults are where keys are generated. And skipping duplicates is something you opt in to, so a duplicate is never silently lost. The `returning` option works as Rails’ does.
 
 </Callout>
 
@@ -37,7 +47,7 @@ Each bulk write has a `to…` form that prepares it instead of running it: `toIn
 
 <include>/_excerpts/guide/batches/batch.ts</include>
 
-`batch` resolves to each entry’s result, in order.
+`batch` resolves to each entry’s result, in order. A prepared write gives the same `{ rowsAffected, rows }` it resolves to when it runs alone, and `rows` is empty for `toUpdateAll` and `toDeleteAll`.
 
 - **Keys:** rows in one batch can only point at each other through keys that exist before it’s sent, so generate keys in code, with [`generateId`](./models#generating-ids).
 - **Inspecting:** a prepared write’s `toSql()` shows the SQL and values it will send, [without sending them](./querying#seeing-a-querys-sql).

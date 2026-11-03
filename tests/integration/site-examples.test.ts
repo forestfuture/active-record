@@ -329,10 +329,13 @@ describe("the guide's examples", () => {
 
     const commentId = await withDatabase(db, () => batches.statementsExample("x1"));
     await withDatabase(db, () => batches.insertAllExample("x1"));
+    const returned = await withDatabase(db, () => batches.returningExample("x1"));
     const graceId = await withDatabase(db, () => batches.batchExample());
 
     expect(commentId).toEqual(expect.any(Number));
     expect(log).toHaveBeenCalledWith(1, 1, commentId); // the article's one comment deleted
+    expect(returned.map(({ body }) => body).toSorted()).toEqual(["One", "Two"]);
+    for (const { id, body } of returned) expect(log).toHaveBeenCalledWith(id, body);
     expect(
       await db
         .model(Article)

@@ -1,5 +1,7 @@
 # Writes run when called; `to…` forms prepare them for a batch
 
+**Amended by ADR-0016** (#266): the insert family resolves to `{ rowsAffected, rows }`, each written row's `returning` attributes (the primary key by default), not D1's `meta`, and a batch's statements resolve to the same.
+
 A Relation's bulk writes run when they're called, as Rails' do: `await posts.deleteAll()` and `updateAll(…)` resolve to the number of rows, and `insert`, `insertAll`, `upsert` and `upsertAll` to D1's `meta`. Each has a `to…` form (`toInsert`, `toUpdateAll`, `toDeleteAll`, …) that returns a Statement for `db.batch([...])` instead of running it, as records have `save()` and `toSave()`. One rule covers both: methods do things, and `to…` methods hand you the thing to do, for a batch.
 
 Before this, the bulk writes only built a Statement, which ran with `.run()` or in a batch. That kept a single way to build any write, and was safe: Statements aren't awaitable, so an `async` function that returns one never runs it. But it surprised people coming from Rails, where `delete_all` runs, and `.run()` had to be looked up. Making Statements awaitable would have removed `.run()`, but brought back the accident: awaiting, or returning from an `async` function, a write that was meant for a batch would run it on its own.
