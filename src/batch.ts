@@ -90,7 +90,7 @@ function statementEntry(statement: Statement): PreparedEntry {
   const write: PreparedWrite = {
     statements: [query],
     commit: ([result]) => {
-      meta = result?.meta;
+      meta = result?.meta as D1Meta | undefined;
       landed();
     },
     after: async () => {},

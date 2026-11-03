@@ -1,9 +1,7 @@
 // Writing prepared writes as one atomic batch, then committing each and running its callbacks.
 import type { CompiledSql } from "./compiler.ts";
+import type { StatementResult } from "./driver.ts";
 import type { Executor } from "./executor.ts";
-
-/** A statement's result: its rows (from RETURNING) and D1's `meta`. */
-export type WriteResult = D1Result<Record<string, unknown>>;
 
 /**
  * One part of a unit of work, prepared: its statements, what the record takes on once they're
@@ -12,7 +10,7 @@ export type WriteResult = D1Result<Record<string, unknown>>;
 export interface PreparedWrite {
   statements: readonly CompiledSql[];
   /** Called with the results of its own statements, in order, once the batch succeeded. */
-  commit(results: readonly WriteResult[]): void;
+  commit(results: readonly StatementResult[]): void;
   after(): Promise<void>;
 }
 
@@ -28,7 +26,7 @@ export function statementWrite(statements: readonly CompiledSql[]): PreparedWrit
 export async function writeAll(
   executor: Executor,
   writes: readonly PreparedWrite[],
-): Promise<WriteResult[]> {
+): Promise<StatementResult[]> {
   const statements = writes.flatMap((write) => write.statements);
   const results = statements.length === 0 ? [] : await executor.write(statements);
   let offset = 0;

@@ -8,6 +8,7 @@ import {
   type Conflict,
   type QuerySql,
 } from "./compiler.ts";
+import type { StatementResult } from "./driver.ts";
 import type { Executor } from "./executor.ts";
 import { attributeOf, initialValues, requireDefined } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
@@ -47,12 +48,17 @@ export class Statement {
   }
 }
 
-/** Runs a statement on its own, then its `landed`, resolving to D1's `meta`: what a Relation's write methods do. */
-export async function runAlone(statement: Statement): Promise<D1Meta> {
+/** Runs a statement on its own, then its `landed`, resolving to its result: what a Relation's write methods do. */
+export async function runStatement(statement: Statement): Promise<StatementResult> {
   const { executor, query, landed } = statement[statementParts];
-  const meta = await executor.run(query);
+  const result = await executor.run(query);
   landed();
-  return meta;
+  return result;
+}
+
+/** `runStatement`, resolving to D1's `meta`. */
+export async function runAlone(statement: Statement): Promise<D1Meta> {
+  return (await runStatement(statement)).meta as D1Meta;
 }
 
 /**
