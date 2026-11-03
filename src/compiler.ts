@@ -124,18 +124,20 @@ function compileLinkedTo(
 /** An attribute and the value to write to it. */
 export type Assignment = readonly [attribute: string, value: unknown];
 
-/** `INSERT … RETURNING` the row (`*`, or the declared columns) for the given attribute values, or `DEFAULT VALUES` for none. */
+/**
+ * `INSERT … RETURNING` the row (`*`, or the declared columns) for the given attribute values, or
+ * `DEFAULT VALUES` for none. `returning` names the attributes to return instead; none sends no
+ * `RETURNING`.
+ */
 export function compileInsert(
   model: ModelClass<Model>,
   assignments: readonly Assignment[],
+  returning?: readonly string[],
 ): CompiledSql {
   const table = quoteIdentifier(model.table);
+  const returned = compileReturning(model, returning);
   if (assignments.length === 0) {
-    return {
-      sql: `INSERT INTO ${table} DEFAULT VALUES RETURNING ${allColumns(model)}`,
-      params: [],
-      model,
-    };
+    return { sql: `INSERT INTO ${table} DEFAULT VALUES${returned}`, params: [], model };
   }
   const columns = assignments
     .map(([name]) => quoteIdentifier(attributeFor(model, name).column))
@@ -144,10 +146,19 @@ export function compileInsert(
   const params: unknown[] = [];
   for (const [name, value] of assignments) attributeFor(model, name).bind(params, value);
   return {
-    sql: `INSERT INTO ${table} (${columns}) VALUES (${placeholders}) RETURNING ${allColumns(model)}`,
+    sql: `INSERT INTO ${table} (${columns}) VALUES (${placeholders})${returned}`,
     params,
     model,
   };
+}
+
+/** ` RETURNING` the whole row, or the columns of `attributes`, or nothing when there are none. */
+function compileReturning(
+  model: ModelClass<Model>,
+  attributes: readonly string[] | undefined,
+): string {
+  if (attributes?.length === 0) return "";
+  return ` RETURNING ${compileColumns(model, attributes)}`;
 }
 
 /** What an insert does when a row conflicts with a unique index: skip it, or update it. */
@@ -155,11 +166,12 @@ export type Conflict =
   | { kind: "skip" }
   | { kind: "update"; uniqueBy: readonly string[]; update?: readonly string[] };
 
-/** A bulk insert: its attributes, each row's values, and what a conflict does. */
+/** A bulk insert: its attributes, each row's values, what a conflict does, and what it returns. */
 export interface BulkInsert {
   names: readonly string[];
   rows: readonly (readonly unknown[])[];
   conflict?: Conflict | undefined;
+  returning: readonly string[];
 }
 
 /**
@@ -170,7 +182,7 @@ export interface BulkInsert {
 export function compileInsertRows(
   dialect: Dialect,
   model: ModelClass<Model>,
-  { names, rows, conflict }: BulkInsert,
+  { names, rows, conflict, returning }: BulkInsert,
 ): CompiledSql {
   const attributes = names.map((name) => attributeFor(model, name));
   const columns = attributes.map(({ column }) => quoteIdentifier(column)).join(", ");
@@ -179,7 +191,8 @@ export function compileInsertRows(
   // `WHERE true` keeps SQLite from reading ON CONFLICT as part of the SELECT.
   const sql =
     `INSERT INTO ${quoteIdentifier(model.table)} (${columns}) ` +
-    `SELECT ${select} FROM ${from} WHERE true${compileConflict(model, names, conflict)}`;
+    `SELECT ${select} FROM ${from} WHERE true${compileConflict(model, names, conflict)}` +
+    compileReturning(model, returning);
   return { sql, params: [json], model };
 }
 

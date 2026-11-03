@@ -80,12 +80,12 @@ describe.skipIf(!configured)("remote D1 smoke", () => {
     const events: QueryEvent[] = [];
     const db = connect(remote.binding, { onQuery: (event) => events.push(event) });
 
-    const meta = await db.model(User).insert({ id: 1, email: "a@example.com" });
+    const result = await db.model(User).insert({ id: 1, email: "a@example.com" });
 
-    expect(meta).toMatchObject({ changes: 1, last_row_id: 1 });
-    expect(typeof meta.duration).toBe("number");
+    expect(result).toEqual({ rowsAffected: 1, rows: [{ id: 1 }] });
     expect(events).toHaveLength(1);
-    expect(events[0]?.meta?.changes).toBe(1);
+    expect(events[0]?.meta).toMatchObject({ changes: 1, last_row_id: 1 });
+    expect(typeof events[0]?.meta?.duration).toBe("number");
   });
 
   describe("constraint errors: D1's message formats", () => {
@@ -220,7 +220,7 @@ describe.skipIf(!configured)("remote D1 smoke", () => {
     await users.upsertAll([{ id: 1, email: "a@example.com", role: "admin" }]);
     const skipped = await users.insert({ id: 2, email: "b@example.com" }, { onDuplicate: "skip" });
 
-    expect(skipped.changes).toBe(0);
+    expect(skipped).toEqual({ rowsAffected: 0, rows: [] });
     expect(await users.order({ id: "asc" }).pluck("role", "settings")).toEqual([
       ["admin", { theme: "dark" }],
       [null, null],

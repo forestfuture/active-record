@@ -99,12 +99,12 @@ describe("statements", () => {
   });
 
   describe("insert", () => {
-    test("insert writes the row and resolves to D1's meta, skipping validations and callbacks", async () => {
+    test("insert writes the row and resolves to its key, skipping validations and callbacks", async () => {
       const db = connect(binding);
 
-      const meta = await db.model(User).insert({ id: 1, email: "a@example.com" });
+      const result = await db.model(User).insert({ id: 1, email: "a@example.com" });
 
-      expect(meta.changes).toBe(1);
+      expect(result).toEqual({ rowsAffected: 1, rows: [{ id: 1 }] });
       expect(log).toEqual([]);
       const user = await db.model(User).find(1);
       expect(user.email).toBe("a@example.com");
@@ -380,9 +380,9 @@ describe("statements", () => {
       await seedUsers(db);
       events.length = 0;
 
-      const [meta] = await db.batch([db.model(User).none().toDeleteAll()]);
+      const [result] = await db.batch([db.model(User).none().toDeleteAll()]);
 
-      expect(meta.changes).toBe(0);
+      expect(result).toEqual({ rowsAffected: 0, rows: [] });
       expect(events.map((event) => event.sql)).toEqual([expect.stringContaining("1 = 0")]);
       expect(await db.model(User).count()).toBe(4);
     });
@@ -682,12 +682,12 @@ describe("statements", () => {
       const events: QueryEvent[] = [];
       const db = connect(binding, { onQuery: (event) => events.push(event) });
 
-      const meta = await db.model(ApiKey).insertAll([
+      const { rowsAffected } = await db.model(ApiKey).insertAll([
         { label: "deploy", scopes: ["read"] },
         { label: "release", scopes: null },
       ]);
 
-      expect(meta.changes).toBe(2);
+      expect(rowsAffected).toBe(2);
       expect(events).toHaveLength(1);
       const keys = await db.model(ApiKey).order({ label: "asc" }).toArray();
       expect(keys.map((key) => [key.label, key.scopes])).toEqual([
@@ -738,10 +738,12 @@ describe("statements", () => {
       const posts = connect(binding).model(Post);
       await posts.insert(post(1, "A"));
 
-      const meta = await posts.insertAll([post(1, "Again"), post(2, "B")], { onDuplicate: "skip" });
+      const result = await posts.insertAll([post(1, "Again"), post(2, "B")], {
+        onDuplicate: "skip",
+      });
       await posts.insert(post(2, "Again"), { onDuplicate: "skip" });
 
-      expect(meta.changes).toBe(1);
+      expect(result.rowsAffected).toBe(1);
       expect(await posts.order({ id: "asc" }).pluck("title")).toEqual(["A", "B"]);
     });
 
@@ -753,7 +755,7 @@ describe("statements", () => {
       const one = await posts.upsert({ ...post(1, "A2"), published: true });
       const all = await posts.upsertAll([post(2, "B")]);
 
-      expect([one.changes, all.changes]).toEqual([1, 1]);
+      expect([one.rowsAffected, all.rowsAffected]).toEqual([1, 1]);
 
       const updated = await posts.find(1);
       expect([updated.title, updated.published, updated.createdAt]).toEqual(["A2", true, past]);
@@ -830,7 +832,7 @@ describe("statements", () => {
       expect(() => bare.toInsert({}, { onDuplicate: "skip" })).toThrow(TypeError);
       expect(() => bare.toUpsert({})).toThrow(TypeError);
       expect(() => bare.toInsertAll([{}, {}])).toThrow(TypeError);
-      expect((await bare.insert({})).changes).toBe(1);
+      expect((await bare.insert({})).rowsAffected).toBe(1);
     });
 
     test("rows must share their attributes; an empty list and unknown attributes throw", () => {
@@ -861,17 +863,18 @@ describe("statements", () => {
   });
 
   describe("db.batch", () => {
-    test("runs the statements in order, atomically, and resolves to each one's meta", async () => {
+    test("runs the statements in order, atomically, and resolves to each one's result", async () => {
       const db = connect(binding);
       const userId = 7;
 
-      const metas = await db.batch([
+      const results = await db.batch([
         db.model(User).toInsert({ id: userId, email: "a@example.com", role: "member" }),
         db.model(Post).toInsert({ userId, title: "Hello", published: true }),
         db.model(User).where({ id: userId }).toUpdateAll({ role: "author" }),
       ]);
 
-      expect(metas.map((meta) => meta.changes)).toEqual([1, 1, 1]);
+      expect(results.map((result) => result.rowsAffected)).toEqual([1, 1, 1]);
+      expect(results[0].rows).toEqual([{ id: userId }]);
       const user = await db.model(User).find(userId);
       expect(user.role).toBe("author");
       expect(await user.posts().pluck("title")).toEqual(["Hello"]);

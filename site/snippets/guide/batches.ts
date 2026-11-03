@@ -8,10 +8,10 @@ export async function statementsExample(articleId: string) {
   await Article.where({ id: articleId }).updateAll(
     sql`${column("title")} = upper(${column("title")})`,
   );
-  const meta = await Comment.insert({ articleId, body: "First!" });
-  console.log(deleted, meta.last_row_id);
+  const { rowsAffected, rows } = await Comment.insert({ articleId, body: "First!" });
+  console.log(deleted, rowsAffected, rows[0]?.id); // the new comment's key
   // #endregion statements
-  return meta;
+  return rows[0]?.id;
 }
 
 export async function insertAllExample(articleId: string) {

@@ -2,7 +2,6 @@
 import { attributeFor, noMatch } from "./attribute.ts";
 import { compileColumns, compileCount, compileSelect, type CompiledSql } from "./compiler.ts";
 import type { Dialect } from "./dialect.ts";
-import type { StatementResult } from "./driver.ts";
 import { databaseNow, type Executor } from "./executor.ts";
 import { stableOrder } from "./finder-order.ts";
 import { hydrate, primaryKeyOf, type Model, type ModelClass } from "./model.ts";
@@ -27,7 +26,7 @@ export interface QueryRunner<M extends Model> {
   /** The rows of SQL other than loading records: a count, `exists`, `pluck`. */
   rows(sql: CompiledSql): Promise<Record<string, unknown>[]>;
   /** The rows `write` changed, running it now. */
-  changes(write: () => Promise<StatementResult>): Promise<number>;
+  changes(write: () => Promise<{ rowsAffected: number }>): Promise<number>;
 }
 
 /** Records, and a count sent with them. */

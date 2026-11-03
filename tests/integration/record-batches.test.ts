@@ -110,7 +110,7 @@ describe("saving and destroying records in a batch", () => {
     expect(saved).toBe(user);
     expect(updated).toBe(post);
     expect(destroyed).toBe(other);
-    expect(meta.changes).toBe(1);
+    expect(meta).toEqual({ rowsAffected: 1, rows: [] });
     expect(events).toHaveLength(4);
     expect(user.isPersisted()).toBe(true);
     expect(typeof user.id).toBe("number");

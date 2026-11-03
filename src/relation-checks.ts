@@ -23,14 +23,25 @@ export type Conditions<M> = {
 /** Numbers, strings and dates are ordered, so they can be compared; booleans and json can't. */
 type ComparisonOf<V> = [V] extends [number | string | Date] ? Comparison<V> : never;
 
-/** `insert`/`insertAll` options: `onDuplicate: "skip"` skips rows that clash with a unique index. */
-export interface InsertOptions {
+/**
+ * The attributes a bulk insert or upsert returns of each row it writes: the primary key by
+ * default, or `false` for none, which sends no `RETURNING`.
+ */
+export type Returning<M> = readonly (keyof AttributesOf<M> & string)[] | false;
+
+/**
+ * `insert`/`insertAll` options: `onDuplicate: "skip"` skips rows that clash with a unique index,
+ * and `returning` names the attributes to return of each row written.
+ */
+export interface InsertOptions<M = unknown> {
   onDuplicate?: "skip";
+  returning?: Returning<M>;
 }
 
 /** `upsert`/`upsertAll` options: the attributes of the unique index to match on. */
 export interface UpsertOptions<M> {
   uniqueBy?: (keyof AttributesOf<M> & string) | readonly (keyof AttributesOf<M> & string)[];
+  returning?: Returning<M>;
 }
 
 /** `{ attribute: "asc" | "desc" }`; key order sets precedence. */
@@ -145,10 +156,24 @@ export function orderTerms(model: ModelClass, spec: object, method: string): Ord
 }
 
 /** The conflict for `onDuplicate: "skip"`, checked; none without it. */
-export function skipOn({ onDuplicate }: InsertOptions, method: string): Conflict | undefined {
+export function skipOn(
+  { onDuplicate }: InsertOptions<unknown>,
+  method: string,
+): Conflict | undefined {
   if (onDuplicate === undefined) return undefined;
   if (onDuplicate !== "skip") throw new TypeError(`${method}() onDuplicate must be "skip"`);
   return { kind: "skip" };
+}
+
+/** The attributes `returning` names, checked: the primary key when it's not given, none for `false`. */
+export function returnedNames(
+  model: ModelClass,
+  returning: readonly string[] | false | undefined,
+): string[] {
+  const names =
+    returning === undefined ? [model.primaryKey] : returning === false ? [] : [...returning];
+  for (const name of names) attributeOf(model, name);
+  return names;
 }
 
 /** An upsert's conflict: update, matching on `uniqueBy` (the primary key by default). */
