@@ -18,7 +18,7 @@ export {
   CallbackAbort,
   CheckViolation,
   ConstraintViolation,
-  D1RecordError,
+  ActiveRecordError,
   DeleteRestriction,
   IncompatibleRelation,
   IrreversibleOrder,

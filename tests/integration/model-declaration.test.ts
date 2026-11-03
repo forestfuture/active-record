@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import {
   column,
   connect,
-  D1RecordError,
+  ActiveRecordError,
   InvalidModel,
   Model,
   sql,
@@ -38,7 +38,7 @@ describe("model declaration", () => {
 
     expect(use).toThrow(InvalidModel);
     expect(use).toThrow(/Nameless.*table/);
-    expect(use).toThrow(D1RecordError);
+    expect(use).toThrow(ActiveRecordError);
   });
 
   test("a missing table whose name was inferred says where the name came from", async () => {

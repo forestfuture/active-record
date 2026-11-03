@@ -392,7 +392,7 @@ this.beforeSave((account) => {
 });
 ```
 
-- `abort(reason)` returns a `CallbackAbort` (a `D1RecordError`; the reason defaults to "Aborted by a callback"), and only that class is caught. Returning `false` never halts anything.
+- `abort(reason)` returns a `CallbackAbort` (a `ActiveRecordError`; the reason defaults to "Aborted by a callback"), and only that class is caught. Returning `false` never halts anything.
 - It only takes effect in `beforeValidation`, `afterValidation`, `beforeSave`, `beforeCreate`, `beforeUpdate` and `beforeDestroy`.
 - `save()` returns `false`, does no write, and keeps the dirty and new-record state. `saveOrThrow()` throws `RecordNotSaved` with the reason. `destroy()` returns `false`, and `destroyOrThrow()` throws `RecordNotDestroyed`.
 - `record.abortReason` holds the reason. It's cleared at the start of each `isValid()`, `save()` and `destroy()`, and never copied into `errors`.
@@ -509,7 +509,7 @@ _Guide:_ [logging](<../site/docs/(how-to)/logging.mdx>). _Code:_ `src/executor.t
 
 _Guide:_ [errors](<../site/docs/(basics)/errors.mdx>). _Code:_ `src/errors.ts`.
 
-Everything extends `D1RecordError`:
+Everything extends `ActiveRecordError`:
 
 - **Lifecycle:** `RecordNotFound`, `RecordInvalid` (`.record`), `RecordNotSaved`, `RecordNotDestroyed`, `RecordDestroyed`, `CallbackAbort` (from `abort()`), `AbortAfterPersistence` (`.callback`, `.reason`)
 - **Usage:** `UnknownAssociation`, `InvalidModel` (a problem in a Model's declaration, detected the first time it's used), `UnknownAttribute`, `MissingAttribute`, `IncompatibleRelation`, `IrreversibleOrder`, `DeleteRestriction`, `AssociationNotLoaded`, `NoDatabase`, `NoSession`
