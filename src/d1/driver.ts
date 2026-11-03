@@ -18,6 +18,11 @@ function shortenBookmarkIn(error: unknown): void {
     error.cause.message = error.cause.message.replace(bookmark, short);
 }
 
+/** D1's result for a statement, as the core reads it: D1's `meta` kept for `onQuery`. */
+function neutral({ results, meta }: D1Result<Record<string, unknown>>): StatementResult {
+  return { rows: results, rowsAffected: meta.changes, durationMs: meta.duration, meta };
+}
+
 /** The single place the library calls D1. */
 export class D1Driver implements Driver {
   #source: D1Database | D1DatabaseSession;
@@ -45,8 +50,8 @@ export class D1Driver implements Driver {
     this.#startAgain = startAgain;
   }
 
-  send(statement: CompiledSql): Promise<StatementResult> {
-    return this.#sent(() => this.#prepare(statement).all<Record<string, unknown>>());
+  async send(statement: CompiledSql): Promise<StatementResult> {
+    return neutral(await this.#sent(() => this.#prepare(statement).all<Record<string, unknown>>()));
   }
 
   read(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
@@ -58,12 +63,13 @@ export class D1Driver implements Driver {
   }
 
   /** D1's `batch()`: one round trip, and atomic, for reads and writes alike. */
-  #batch(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
-    return this.#sent(() =>
+  async #batch(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
+    const results = await this.#sent(() =>
       this.#source.batch<Record<string, unknown>>(
         statements.map((statement) => this.#prepare(statement)),
       ),
     );
+    return results.map(neutral);
   }
 
   /** Sends with `send`: a success disarms the restart, and a failure's bookmark is shortened. */

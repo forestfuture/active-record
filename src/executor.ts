@@ -10,10 +10,11 @@ import type { ModelClass } from "./model.ts";
 import { explainMissingTable } from "./table-names.ts";
 
 /**
- * Reported once for every statement sent to D1: to the database's `onQuery`, then to the
- * statement's Model's (`static onQuery`, usually on the app's base class).
+ * Reported once for every statement sent to a database: to the database's `onQuery`, then to the
+ * statement's Model's (`static onQuery`, usually on the app's base class). `meta` is the
+ * database's own detail about the statement, typed by its adapter (D1's `D1Meta`).
  */
-export interface QueryEvent {
+export interface QueryEvent<Meta = unknown> {
   /**
    * The Model the statement is for: its class name (`"Product"`). It's `""` for an anonymous
    * class, and a bundler that renames classes changes it; Wrangler keeps names by default.
@@ -22,11 +23,17 @@ export interface QueryEvent {
   sql: string;
   params: unknown[];
   durationMs: number;
-  meta?: D1Meta;
+  meta?: Meta;
   error?: unknown;
 }
 
-export type QueryListener = (event: QueryEvent) => void;
+/**
+ * Hears each statement's `QueryEvent`. Declared as a method's type, so a listener typed for one
+ * adapter's `meta` (a D1 app's base class) can be a Model's `static onQuery`, which any adapter calls.
+ */
+export type QueryListener<Meta = unknown> = {
+  listener(event: QueryEvent<Meta>): void;
+}["listener"];
 
 /**
  * Calls a query listener, which never changes the query's outcome: a listener that throws is
@@ -56,8 +63,8 @@ export interface Executor {
   readonly dialect: Dialect;
   /** Runs one statement and resolves to its rows. */
   all(query: CompiledSql): Promise<Record<string, unknown>[]>;
-  /** Runs one statement for its effect and resolves to D1's `meta`. */
-  run(query: CompiledSql): Promise<D1Meta>;
+  /** Runs one statement for its effect and resolves to its result. */
+  run(query: CompiledSql): Promise<StatementResult>;
   /** Runs reads together and resolves to each one's result. They needn't be atomic. */
   read(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
   /** Runs statements atomically: one on its own, several as one batch. */
@@ -118,15 +125,15 @@ export class DatabaseExecutor implements Executor {
 
   /** Runs one statement and resolves to its rows. */
   async all(query: CompiledSql): Promise<Record<string, unknown>[]> {
-    return (await this.#one(query)).results;
+    return (await this.#one(query)).rows;
   }
 
-  /** Runs one statement for its effect and resolves to D1's `meta`. */
-  async run(query: CompiledSql): Promise<D1Meta> {
-    return (await this.#one(query)).meta;
+  /** Runs one statement for its effect and resolves to its result. */
+  async run(query: CompiledSql): Promise<StatementResult> {
+    return this.#one(query);
   }
 
-  /** Runs reads together and resolves to each one's result (rows and `meta`). */
+  /** Runs reads together and resolves to each one's result. */
   async read(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     return this.#together(statements, () => this.#driver.read(statements));
   }
@@ -151,9 +158,10 @@ export class DatabaseExecutor implements Executor {
         statements.map(({ model }) => model),
       );
     }
+    const elapsed = performance.now() - started;
     statements.forEach((statement, index) => {
-      const { meta } = results[index]!;
-      this.#report(statement, { durationMs: meta.duration, meta });
+      const { durationMs = elapsed, meta } = results[index]!;
+      this.#report(statement, { durationMs, meta });
     });
     return results;
   }
@@ -219,7 +227,7 @@ abstract class ForwardingExecutor implements Executor {
     return (await this[resolve]()).all(query);
   }
 
-  async run(query: CompiledSql): Promise<D1Meta> {
+  async run(query: CompiledSql): Promise<StatementResult> {
     return (await this[resolve]()).run(query);
   }
 

@@ -368,7 +368,7 @@ function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
     const insert = compileInsert(model, [...own, ...timestampsFor(model, "insert", own)]);
     return {
       statements: [insert],
-      commit: ([result]) => recordState.commitInsert(result?.results[0]),
+      commit: ([result]) => recordState.commitInsert(result?.rows[0]),
       after,
     };
   }

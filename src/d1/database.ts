@@ -1,14 +1,24 @@
 // The `Database` that `connect` returns: a D1 binding, with its sessions and bookmarks.
 import { AnyDatabase } from "../database.ts";
 import { NoSession } from "../errors.ts";
-import { DatabaseExecutor, type QueryListener } from "../executor.ts";
+import {
+  DatabaseExecutor,
+  type QueryEvent as AnyQueryEvent,
+  type QueryListener as AnyQueryListener,
+} from "../executor.ts";
 import { d1Adapter } from "./adapter.ts";
 import { d1Parts } from "./current-binding.ts";
 import { D1Driver } from "./driver.ts";
 
+/** What `onQuery` hears about a statement: its Model, SQL, bound values, timing, and D1's `meta`. */
+export type QueryEvent<Meta = D1Meta> = AnyQueryEvent<Meta>;
+
+/** Hears each statement's `QueryEvent`, with D1's `meta`. */
+export type QueryListener<Meta = D1Meta> = AnyQueryListener<Meta>;
+
 export interface ConnectOptions {
-  /** Called once for every statement sent to D1. */
-  onQuery?: QueryListener;
+  /** Called once for every statement sent to D1, with D1's `meta`. */
+  onQuery?: QueryListener<D1Meta>;
   /**
    * Sends every query through one D1 Session, so the request reads its own writes even when
    * reads are served by replicas: `"first-primary"`, `"first-unconstrained"`, or a bookmark

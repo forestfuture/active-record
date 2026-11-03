@@ -2,6 +2,7 @@
 import { attributeFor, noMatch } from "./attribute.ts";
 import { compileColumns, compileCount, compileSelect, type CompiledSql } from "./compiler.ts";
 import type { Dialect } from "./dialect.ts";
+import type { StatementResult } from "./driver.ts";
 import { databaseNow, type Executor } from "./executor.ts";
 import { stableOrder } from "./finder-order.ts";
 import { hydrate, primaryKeyOf, type Model, type ModelClass } from "./model.ts";
@@ -26,7 +27,7 @@ export interface QueryRunner<M extends Model> {
   /** The rows of SQL other than loading records: a count, `exists`, `pluck`. */
   rows(sql: CompiledSql): Promise<Record<string, unknown>[]>;
   /** The rows `write` changed, running it now. */
-  changes(write: () => Promise<D1Meta>): Promise<number>;
+  changes(write: () => Promise<StatementResult>): Promise<number>;
 }
 
 /** Records, and a count sent with them. */
@@ -53,7 +54,7 @@ export function runnerFor<M extends Model>(
     loadCounted: (description, counted) => loadCounted(executor, model, description, counted),
     loadAhead: (description) => loadAhead(executor, model, description),
     rows: (sql) => executor.all(sql),
-    changes: async (write) => (await write()).changes,
+    changes: async (write) => (await write()).rowsAffected,
   };
 }
 
@@ -157,7 +158,7 @@ export async function sendTogether(
 ): Promise<Rows[]> {
   const [only] = queries;
   if (queries.length === 1 && only !== undefined) return [await executor.all(only)];
-  return (await executor.read(queries)).map((result) => result.results);
+  return (await executor.read(queries)).map((result) => result.rows);
 }
 
 /** The SELECT for `query`'s records. */

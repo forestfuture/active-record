@@ -54,7 +54,7 @@ import {
 } from "./relation-checks.ts";
 import { alsoClearing, unowned, type OwnedCollection } from "./owned-collection.ts";
 import { atMostOne, reversed } from "./finder-order.ts";
-import { insertStatement, runAlone, Statement } from "./statement.ts";
+import { insertStatement, runAlone, runStatement, Statement } from "./statement.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
 
 declare const scopeTypes: unique symbol;
@@ -388,7 +388,7 @@ export class Relation<M extends Model, S = {}> {
 
   /** Runs a statement built from this Relation: the rows it changed, or 0 without a query on `none()`. */
   async #countOf(statement: Statement): Promise<number> {
-    return this.#runner.changes(() => runAlone(statement));
+    return this.#runner.changes(() => runStatement(statement));
   }
 
   /** Builds and saves a record; resolves to it whether or not it was saved (check `isPersisted()`). */

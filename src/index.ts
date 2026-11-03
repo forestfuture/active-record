@@ -37,7 +37,7 @@ export {
   UnknownAssociation,
   UnknownAttribute,
 } from "./errors.ts";
-export type { QueryEvent, QueryListener } from "./executor.ts";
+export type { QueryEvent, QueryListener } from "./d1/database.ts";
 export type { FilterAttribute } from "./filtering.ts";
 export { Errors, type ValidationError } from "./errors-collection.ts";
 export type {
