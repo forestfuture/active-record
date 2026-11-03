@@ -11,14 +11,14 @@ import { d1Parts } from "./current-binding.ts";
 import { D1Driver } from "./driver.ts";
 
 /** What `onQuery` hears about a statement: its Model, SQL, bound values, timing, and D1's `meta`. */
-export type QueryEvent<Meta = D1Meta> = AnyQueryEvent<Meta>;
+export type QueryEvent = AnyQueryEvent<D1Meta>;
 
 /** Hears each statement's `QueryEvent`, with D1's `meta`. */
-export type QueryListener<Meta = D1Meta> = AnyQueryListener<Meta>;
+export type QueryListener = AnyQueryListener<D1Meta>;
 
 export interface ConnectOptions {
   /** Called once for every statement sent to D1, with D1's `meta`. */
-  onQuery?: QueryListener<D1Meta>;
+  onQuery?: QueryListener;
   /**
    * Sends every query through one D1 Session, so the request reads its own writes even when
    * reads are served by replicas: `"first-primary"`, `"first-unconstrained"`, or a bookmark

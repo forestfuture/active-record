@@ -46,8 +46,8 @@ export class AnyDatabase {
    * first, in order; the first record that's invalid or
    * aborts throws (`RecordInvalid`, `RecordNotSaved`, `RecordNotDestroyed`) and nothing is sent.
    * After the batch, each record takes its saved state and runs its after-callbacks, in order.
-   * Resolves to each entry's result: the `meta` for a statement, the record for a record
-   * statement.
+   * Resolves to each entry's result: a statement's `{ rowsAffected, rows }`, the record for a
+   * record statement.
    */
   async batch<const T extends readonly BatchEntry[]>(entries: T): Promise<BatchResults<T>> {
     // Every entry on this Database: built on it, or on the current one when it's this.
