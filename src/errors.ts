@@ -1,48 +1,48 @@
-// Every error class the library throws on purpose, all extending `D1RecordError`.
+// Every error class the library throws on purpose, all extending `ActiveRecordError`.
 import type { Model } from "./model.ts";
 
 /** Base class for every error the library throws on purpose. */
-export class D1RecordError extends Error {
-  override name = "D1RecordError";
+export class ActiveRecordError extends Error {
+  override name = "ActiveRecordError";
 }
 
 /** A Model's declaration is invalid, e.g. an association's foreign key isn't an attribute. */
-export class InvalidModel extends D1RecordError {
+export class InvalidModel extends ActiveRecordError {
   override name = "InvalidModel";
 }
 
 /** A key that isn't a declared attribute of the Model. */
-export class UnknownAttribute extends D1RecordError {
+export class UnknownAttribute extends ActiveRecordError {
   override name = "UnknownAttribute";
 }
 
 /** `bookmark()` was called on a Database opened without a `session`. */
-export class NoSession extends D1RecordError {
+export class NoSession extends ActiveRecordError {
   override name = "NoSession";
 }
 
 /** A record constructed directly (`new User()`) was used for something that needs D1. */
-export class NoDatabase extends D1RecordError {
+export class NoDatabase extends ActiveRecordError {
   override name = "NoDatabase";
 }
 
 /** No record matched a lookup that requires one (`find`, `findByOrThrow`). */
-export class RecordNotFound extends D1RecordError {
+export class RecordNotFound extends ActiveRecordError {
   override name = "RecordNotFound";
 }
 
 /** Reading an attribute that wasn't loaded, e.g. one left out of `select(...)`. */
-export class MissingAttribute extends D1RecordError {
+export class MissingAttribute extends ActiveRecordError {
   override name = "MissingAttribute";
 }
 
 /** Destroying a record whose `dependent: "restrictWithException"` association still has records. */
-export class DeleteRestriction extends D1RecordError {
+export class DeleteRestriction extends ActiveRecordError {
   override name = "DeleteRestriction";
 }
 
 /** `last()` can't reverse an order given as an `sql` fragment (Rails' IrreversibleOrderError). */
-export class IrreversibleOrder extends D1RecordError {
+export class IrreversibleOrder extends ActiveRecordError {
   override name = "IrreversibleOrder";
 }
 
@@ -50,12 +50,12 @@ export class IrreversibleOrder extends D1RecordError {
  * Things that can't be combined: relations in `or`/`merge` (e.g. of different Models),
  * `includes` or a write statement with `distinct()`, or statements of two Databases in a batch.
  */
-export class IncompatibleRelation extends D1RecordError {
+export class IncompatibleRelation extends ActiveRecordError {
   override name = "IncompatibleRelation";
 }
 
 /** Using a destroyed record as a live one: `save`, `update`, `destroy` or `reload` after `destroy()`. */
-export class RecordDestroyed extends D1RecordError {
+export class RecordDestroyed extends ActiveRecordError {
   override name = "RecordDestroyed";
 }
 
@@ -64,7 +64,7 @@ export class RecordDestroyed extends D1RecordError {
  * are filled in when D1's message names them. `table` is null only for a batch writing to
  * several tables, when D1 doesn't say which one failed. The original D1 error is the `cause`.
  */
-export class ConstraintViolation extends D1RecordError {
+export class ConstraintViolation extends ActiveRecordError {
   override name = "ConstraintViolation";
   readonly table: string | null;
   readonly columns: readonly string[];
@@ -107,7 +107,7 @@ export class CheckViolation extends ConstraintViolation {
 }
 
 /** A `…OrThrow` save was refused because the record is invalid; `record.errors` says why. */
-export class RecordInvalid extends D1RecordError {
+export class RecordInvalid extends ActiveRecordError {
   override name = "RecordInvalid";
   readonly record: Model;
 
@@ -121,7 +121,7 @@ export class RecordInvalid extends D1RecordError {
  * Thrown by a callback to refuse a save or destroy: `throw abort("Account is suspended")`.
  * Only this exact class halts a lifecycle; returning `false` never does.
  */
-export class CallbackAbort extends D1RecordError {
+export class CallbackAbort extends ActiveRecordError {
   override name = "CallbackAbort";
   readonly reason: string;
 
@@ -137,7 +137,7 @@ export function abort(reason = "Aborted by a callback"): CallbackAbort {
 }
 
 /** A `…OrThrow` save was refused by a callback's `abort(reason)`. */
-export class RecordNotSaved extends D1RecordError {
+export class RecordNotSaved extends ActiveRecordError {
   override name = "RecordNotSaved";
 }
 
@@ -145,7 +145,7 @@ export class RecordNotSaved extends D1RecordError {
  * `abort()` was thrown from an after-write callback (`afterSave`, `afterCreate`, `afterUpdate`,
  * `afterDestroy`). That's a mistake: the save or destroy already succeeded and nothing rolls back.
  */
-export class AbortAfterPersistence extends D1RecordError {
+export class AbortAfterPersistence extends ActiveRecordError {
   override name = "AbortAfterPersistence";
   readonly callback: string;
   readonly reason: string;
@@ -158,16 +158,16 @@ export class AbortAfterPersistence extends D1RecordError {
 }
 
 /** A `destroyOrThrow()` was refused by a `beforeDestroy` callback's `abort(reason)`. */
-export class RecordNotDestroyed extends D1RecordError {
+export class RecordNotDestroyed extends ActiveRecordError {
   override name = "RecordNotDestroyed";
 }
 
 /** A name passed to `includes()` or `loaded()` that isn't one of the Model's associations. */
-export class UnknownAssociation extends D1RecordError {
+export class UnknownAssociation extends ActiveRecordError {
   override name = "UnknownAssociation";
 }
 
 /** `record.loaded(name)` for an association that wasn't preloaded or read yet. */
-export class AssociationNotLoaded extends D1RecordError {
+export class AssociationNotLoaded extends ActiveRecordError {
   override name = "AssociationNotLoaded";
 }

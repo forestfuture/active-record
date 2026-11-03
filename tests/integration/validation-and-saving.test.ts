@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { connect, D1RecordError, Model, RecordInvalid, type QueryEvent } from "../../src/index.ts";
+import {
+  connect,
+  ActiveRecordError,
+  Model,
+  RecordInvalid,
+  type QueryEvent,
+} from "../../src/index.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
 class User extends Model.define({
@@ -60,7 +66,7 @@ describe("validation when saving", () => {
     const error = await user.saveOrThrow().catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(RecordInvalid);
-    expect(error).toBeInstanceOf(D1RecordError);
+    expect(error).toBeInstanceOf(ActiveRecordError);
     expect((error as RecordInvalid).record).toBe(user);
     expect((error as Error).message).toMatch(/Email can't be blank/);
     await expect(users.createOrThrow({})).rejects.toThrow(RecordInvalid);

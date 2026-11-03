@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { connect, D1RecordError, RecordNotFound } from "../../src/index.ts";
+import { connect, ActiveRecordError, RecordNotFound } from "../../src/index.ts";
 import { User } from "../fixtures/models/user.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
@@ -34,7 +34,7 @@ describe("finding records", () => {
     const lookup = connect(binding).model(User).find(99);
 
     await expect(lookup).rejects.toThrow(RecordNotFound);
-    await expect(lookup).rejects.toThrow(D1RecordError);
+    await expect(lookup).rejects.toThrow(ActiveRecordError);
     await expect(lookup).rejects.toThrow(/User.*99/);
   });
 
