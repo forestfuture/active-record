@@ -12,7 +12,7 @@ import { linksOf, state } from "./record-state.ts";
 import { runAfter, writeAll, type PreparedWrite } from "./unit-of-work.ts";
 import { pinBefore, pinClaimed, type Executor } from "./executor.ts";
 import type { Model } from "./model.ts";
-import { statementParts, type Statement } from "./statement.ts";
+import { statementParts, type Statement, type WriteResult } from "./statement.ts";
 
 /** The Executor an entry was built on: its Relation's, or its record's. */
 function executorOf(entry: BatchEntry): Executor {
@@ -71,11 +71,15 @@ export async function batch<const T extends readonly BatchEntry[]>(
 }
 
 /** What `db.batch` accepts: statements, and records' save or destroy. */
-export type BatchEntry = Statement | RecordStatement;
+export type BatchEntry = Statement<unknown> | RecordStatement;
 
-/** `db.batch`'s result for each entry: D1's `meta`, or the saved or destroyed record. */
+/** `db.batch`'s result for each entry: a statement's `WriteResult`, or the saved or destroyed record. */
 export type BatchResults<T extends readonly BatchEntry[]> = {
-  -readonly [K in keyof T]: T[K] extends RecordStatement<infer R> ? R : D1Meta;
+  -readonly [K in keyof T]: T[K] extends RecordStatement<infer R>
+    ? R
+    : T[K] extends Statement<infer Row>
+      ? WriteResult<Row>
+      : never;
 };
 
 interface PreparedEntry {
@@ -84,18 +88,18 @@ interface PreparedEntry {
   result: () => unknown;
 }
 
-function statementEntry(statement: Statement): PreparedEntry {
-  let meta: D1Meta | undefined;
-  const { query, landed } = statement[statementParts];
+function statementEntry(statement: Statement<unknown>): PreparedEntry {
+  let written: WriteResult<unknown> | undefined;
+  const { query, landed, resultOf } = statement[statementParts];
   const write: PreparedWrite = {
     statements: [query],
     commit: ([result]) => {
-      meta = result?.meta as D1Meta | undefined;
+      if (result !== undefined) written = resultOf(result);
       landed();
     },
     after: async () => {},
   };
-  return { writes: () => [write], result: () => meta };
+  return { writes: () => [write], result: () => written };
 }
 
 /** A record's prepared save or destroy; a refusal throws, as a Rails transaction's `save!` does. */

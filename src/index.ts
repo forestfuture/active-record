@@ -60,10 +60,16 @@ export type { EpochStorage } from "./epoch-storage.ts";
 export type { AttributeConversions } from "./attribute-conversions.ts";
 export type { AttributeSpec, AttributeSpecs, AttributeType } from "./metadata.ts";
 export { Relation, type Scope, type ScopeMethods, type Scoped } from "./relation.ts";
-export type { Conditions, InsertOptions, OrderSpec, UpsertOptions } from "./relation-checks.ts";
+export type {
+  Conditions,
+  InsertOptions,
+  OrderSpec,
+  Returning,
+  UpsertOptions,
+} from "./relation-checks.ts";
 export type { CountlessPage, Page, PageOptions } from "./pagination.ts";
 export type { QuerySql } from "./compiler.ts";
-export type { Statement } from "./statement.ts";
+export type { ReturnedRow, Statement, WriteResult } from "./statement.ts";
 export type { RecordStatement } from "./record-statement.ts";
 export { between, gt, gte, lt, lte, type Comparison } from "./comparisons.ts";
 export { column, sql, type ColumnReference, type ColumnValue, type SafeSql } from "./sql.ts";

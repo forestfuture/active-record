@@ -279,15 +279,34 @@ describe("types", () => {
     expectTypeOf(typeOnly).toBeFunction();
   });
 
-  test("db.batch resolves to each entry's result: the record, or D1's meta", () => {
+  test("db.batch resolves to each entry's result: the record, or the statement's WriteResult", () => {
     // Checked by the type checker only; never called.
     const typeOnly = async (user: User) => {
-      const [saved, meta] = await db.batch([
+      const [saved, deleted, inserted] = await db.batch([
         user.toSave(),
         db.model(User).where({ id: 1 }).toDeleteAll(),
+        db.model(User).toInsert({ id: 2 }, { returning: ["id", "email"] }),
       ]);
       expectTypeOf(saved).toEqualTypeOf<User>();
-      expectTypeOf(meta.changes).toEqualTypeOf<number>();
+      expectTypeOf(deleted.rowsAffected).toEqualTypeOf<number>();
+      expectTypeOf(deleted.rows).toEqualTypeOf<never[]>();
+      expectTypeOf(inserted.rows).toEqualTypeOf<{ id: number; email: string }[]>();
+    };
+    expectTypeOf(typeOnly).toBeFunction();
+  });
+
+  test("a bulk insert's rows are typed by returning: the attributes it names, any for the key, none for false", () => {
+    // Checked by the type checker only; never called.
+    const typeOnly = async () => {
+      const users = db.model(User);
+      const named = await users.insert({ id: 1 }, { returning: ["email", "createdAt"] });
+      const keyed = await users.insertAll([{ id: 1 }]);
+      const none = await users.upsert({ id: 1 }, { returning: false });
+      expectTypeOf(named.rows).toEqualTypeOf<{ email: string; createdAt: Date | null }[]>();
+      expectTypeOf(keyed.rows[0]?.id).toEqualTypeOf<number | undefined>();
+      expectTypeOf(none.rows).toEqualTypeOf<never[]>();
+      // @ts-expect-error: returning names the Model's attributes
+      await users.insert({ id: 1 }, { returning: ["nope"] });
     };
     expectTypeOf(typeOnly).toBeFunction();
   });

@@ -327,12 +327,12 @@ describe("the guide's examples", () => {
   test("Batches: statements, many rows, an atomic batch, and records in a batch", async () => {
     const db = connect(binding);
 
-    const meta = await withDatabase(db, () => batches.statementsExample("x1"));
+    const commentId = await withDatabase(db, () => batches.statementsExample("x1"));
     await withDatabase(db, () => batches.insertAllExample("x1"));
     const graceId = await withDatabase(db, () => batches.batchExample());
 
-    expect(meta.changes).toBe(1);
-    expect(log).toHaveBeenCalledWith(1, meta.last_row_id); // the article's one comment deleted
+    expect(commentId).toEqual(expect.any(Number));
+    expect(log).toHaveBeenCalledWith(1, 1, commentId); // the article's one comment deleted
     expect(
       await db
         .model(Article)

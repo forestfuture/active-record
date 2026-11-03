@@ -50,11 +50,14 @@ import {
   type Conditions,
   type InsertOptions,
   type OrderSpec,
+  returnedNames,
+  type Returning,
   type UpsertOptions,
 } from "./relation-checks.ts";
 import { alsoClearing, unowned, type OwnedCollection } from "./owned-collection.ts";
 import { atMostOne, reversed } from "./finder-order.ts";
-import { insertStatement, runAlone, runStatement, Statement } from "./statement.ts";
+import { insertStatement, runAlone, Statement } from "./statement.ts";
+import type { ReturnedRow, WriteResult } from "./statement.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
 
 declare const scopeTypes: unique symbol;
@@ -240,12 +243,13 @@ export class Relation<M extends Model, S = {}> {
   }
 
   #build(attributes: Partial<AttributesOf<M>>): M {
-    const inherited = castInherited(
-      this.#model,
-      inheritedAttributes(this.#query.conditions),
-      this.#collection.link,
-    );
-    return buildRecord(this.#model, { ...inherited, ...attributes }, this.#executor);
+    return buildRecord(this.#model, { ...this.#inherited(), ...attributes }, this.#executor);
+  }
+
+  /** What a record built or inserted through this Relation takes from its conditions and owner. */
+  #inherited(): Record<string, unknown> {
+    const { conditions } = this.#query;
+    return castInherited(this.#model, inheritedAttributes(conditions), this.#collection.link);
   }
 
   /** As in Rails, records can't be created through an owner that has no key yet. */
@@ -257,83 +261,93 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /**
-   * Inserts one row now, resolving to D1's `meta`: `await db.model(Post).insert({ title })`.
-   * Skips validations and callbacks; declared defaults, generated ids, and timestamps apply, and this
-   * Relation's equality conditions are inserted too, as with `build()`. A duplicate throws,
+   * Inserts one row now: `await db.model(Post).insert({ title })`. Resolves to how many rows it
+   * wrote and the `returning` attributes of each (the primary key by default; `false` for none).
+   * Skips validations and callbacks; declared defaults, generated ids, and timestamps apply, and
+   * this Relation's equality conditions are inserted too, as with `build()`. A duplicate throws,
    * unless `onDuplicate: "skip"` (Rails' `insert`). `toInsert` is the same write, for a batch.
    */
-  async insert(attributes: Partial<AttributesOf<M>>, options: InsertOptions = {}): Promise<D1Meta> {
+  async insert<const R extends Returning<M> | undefined = undefined>(
+    attributes: Partial<AttributesOf<M>>,
+    options: InsertOptions<M> & { returning?: R } = {},
+  ): Promise<WriteResult<ReturnedRow<M, R>>> {
     return runAlone(this.toInsert(attributes, options));
   }
 
   /** `insert`, as a Statement for `db.batch([...])`. */
-  toInsert(attributes: Partial<AttributesOf<M>>, options: InsertOptions = {}): Statement {
-    return this.#insertStatement([attributes], skipOn(options, "insert"), "insert");
+  toInsert<const R extends Returning<M> | undefined = undefined>(
+    attributes: Partial<AttributesOf<M>>,
+    options: InsertOptions<M> & { returning?: R } = {},
+  ): Statement<ReturnedRow<M, R>> {
+    return this.#insertStatement([attributes], skipOn(options, "insert"), "insert", options);
   }
 
   /** Inserts several rows with the same attributes now, in one statement (Rails' `insert_all!`). */
-  async insertAll(
+  async insertAll<const R extends Returning<M> | undefined = undefined>(
     rows: readonly Partial<AttributesOf<M>>[],
-    options: InsertOptions = {},
-  ): Promise<D1Meta> {
+    options: InsertOptions<M> & { returning?: R } = {},
+  ): Promise<WriteResult<ReturnedRow<M, R>>> {
     return runAlone(this.toInsertAll(rows, options));
   }
 
   /** `insertAll`, as a Statement for `db.batch([...])`. */
-  toInsertAll(rows: readonly Partial<AttributesOf<M>>[], options: InsertOptions = {}): Statement {
-    return this.#insertStatement(rows, skipOn(options, "insertAll"), "insertAll");
+  toInsertAll<const R extends Returning<M> | undefined = undefined>(
+    rows: readonly Partial<AttributesOf<M>>[],
+    options: InsertOptions<M> & { returning?: R } = {},
+  ): Statement<ReturnedRow<M, R>> {
+    return this.#insertStatement(rows, skipOn(options, "insertAll"), "insertAll", options);
   }
 
   /**
    * Inserts a row now, or updates it when it clashes with the unique index on `uniqueBy` (the
    * primary key by default): every given attribute but those and `createdAt`, with `updatedAt`
-   * set, as Rails' `upsert` does.
+   * set, as Rails' `upsert` does. Resolves as `insert` does, returning inserted and updated rows.
    */
-  async upsert(
+  async upsert<const R extends Returning<M> | undefined = undefined>(
     attributes: Partial<AttributesOf<M>>,
-    options: UpsertOptions<M> = {},
-  ): Promise<D1Meta> {
+    options: UpsertOptions<M> & { returning?: R } = {},
+  ): Promise<WriteResult<ReturnedRow<M, R>>> {
     return runAlone(this.toUpsert(attributes, options));
   }
 
   /** `upsert`, as a Statement for `db.batch([...])`. */
-  toUpsert(attributes: Partial<AttributesOf<M>>, options: UpsertOptions<M> = {}): Statement {
-    return this.#insertStatement([attributes], updateOn(this.#model, options), "upsert");
+  toUpsert<const R extends Returning<M> | undefined = undefined>(
+    attributes: Partial<AttributesOf<M>>,
+    options: UpsertOptions<M> & { returning?: R } = {},
+  ): Statement<ReturnedRow<M, R>> {
+    return this.#insertStatement([attributes], updateOn(this.#model, options), "upsert", options);
   }
 
   /** `upsert` for several rows with the same attributes, now (Rails' `upsert_all`). */
-  async upsertAll(
+  async upsertAll<const R extends Returning<M> | undefined = undefined>(
     rows: readonly Partial<AttributesOf<M>>[],
-    options: UpsertOptions<M> = {},
-  ): Promise<D1Meta> {
+    options: UpsertOptions<M> & { returning?: R } = {},
+  ): Promise<WriteResult<ReturnedRow<M, R>>> {
     return runAlone(this.toUpsertAll(rows, options));
   }
 
   /** `upsertAll`, as a Statement for `db.batch([...])`. */
-  toUpsertAll(
+  toUpsertAll<const R extends Returning<M> | undefined = undefined>(
     rows: readonly Partial<AttributesOf<M>>[],
-    options: UpsertOptions<M> = {},
-  ): Statement {
-    return this.#insertStatement(rows, updateOn(this.#model, options), "upsertAll");
+    options: UpsertOptions<M> & { returning?: R } = {},
+  ): Statement<ReturnedRow<M, R>> {
+    return this.#insertStatement(rows, updateOn(this.#model, options), "upsertAll", options);
   }
 
-  #insertStatement(
+  #insertStatement<Row>(
     rows: readonly object[],
     conflict: Conflict | undefined,
     method: string,
-  ): Statement {
+    { returning }: { returning?: Returning<M> | undefined },
+  ): Statement<Row> {
     this.#requireSavedOwner();
-    const landed = this.#clearCollectionUntilWritten();
-    const inherited = castInherited(
-      this.#model,
-      inheritedAttributes(this.#query.conditions),
-      this.#collection.link,
-    );
+    const inherited = this.#inherited();
     const withInherited = rows.map((row) => ({ ...inherited, ...row }));
     return insertStatement(this.#executor, this.#model, withInherited, {
       conflict,
       method,
-      landed,
+      landed: this.#clearCollectionUntilWritten(),
+      returning: returnedNames(this.#model, returning),
     });
   }
 
@@ -388,7 +402,7 @@ export class Relation<M extends Model, S = {}> {
 
   /** Runs a statement built from this Relation: the rows it changed, or 0 without a query on `none()`. */
   async #countOf(statement: Statement): Promise<number> {
-    return this.#runner.changes(() => runStatement(statement));
+    return this.#runner.changes(() => runAlone(statement));
   }
 
   /** Builds and saves a record; resolves to it whether or not it was saved (check `isPersisted()`). */
