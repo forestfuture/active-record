@@ -176,6 +176,10 @@ _Avoid_: Token, cursor, version
 A bulk write prepared for a **Batch** rather than run (`toInsert`, `toUpdateAll`, `toDeleteAll`, …), skipping validations and callbacks. It runs only with its **Batch**, and is never run by being awaited. Its SQL can be read with `toSql()`, unsent.
 _Avoid_: Query, command
 
+**Write result**:
+What a bulk write resolves to, alone or in a **Batch**: `{ rowsAffected, rows }`, the number of rows it wrote and, for an insert or upsert, the `returning` attributes of each row (its primary key by default). The same on every database.
+_Avoid_: Meta, last insert ID
+
 **Batch**:
 An atomic group of **Statements** and **Record statements** run together with D1's `batch()`: all are written, or none.
 _Avoid_: Transaction

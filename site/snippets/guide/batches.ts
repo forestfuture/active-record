@@ -25,6 +25,21 @@ export async function insertAllExample(articleId: string) {
   // #endregion insert-all
 }
 
+export async function returningExample(articleId: string) {
+  // #region returning
+  const { rows } = await Comment.insertAll(
+    [
+      { articleId, body: "One" },
+      { articleId, body: "Two" },
+    ],
+    { returning: ["id", "body"] },
+  );
+  for (const { id, body } of rows) console.log(id, body);
+  await Comment.insert({ articleId, body: "Three" }, { returning: false });
+  // #endregion returning
+  return rows;
+}
+
 export async function batchExample() {
   // #region batch
   const authorId = crypto.randomUUID(); // generated in code, so rows can point at it
