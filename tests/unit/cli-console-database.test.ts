@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, test } from "vite-plus/test";
-import { databaseFor, remoteTarget } from "../../cli/console/database.ts";
+import { databaseFor, remoteTarget } from "../../packages/d1-record/cli/console/database.ts";
 
 const made: string[] = [];
 afterAll(() => {

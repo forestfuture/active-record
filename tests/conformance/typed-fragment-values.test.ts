@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { column, IncompatibleRelation, Model, sql, UnknownAttribute } from "../../src/index.ts";
-import type { AnyDatabase } from "../../src/database.ts";
+import {
+  column,
+  IncompatibleRelation,
+  Model,
+  sql,
+  UnknownAttribute,
+} from "../../packages/active-record/src/index.ts";
+import type { AnyDatabase } from "../../packages/active-record/src/database.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 // Attributes of every type, to show the value is written as each stores it.

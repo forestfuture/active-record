@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { IncompatibleRelation, Model, RecordNotFound, type Relation } from "../../src/index.ts";
+import {
+  IncompatibleRelation,
+  Model,
+  RecordNotFound,
+  type Relation,
+} from "../../packages/active-record/src/index.ts";
 import { Post } from "../fixtures/models/post.ts";
-import type { QueryEvent } from "../../src/executor.ts";
+import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class User extends Model.define({

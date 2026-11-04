@@ -1,4 +1,4 @@
-import { RecordInvalid } from "@forestfuture/d1-record";
+import { RecordInvalid } from "@forestfuture/active-record";
 import { User } from "../getting-started/models";
 
 export async function examples(): Promise<Response> {

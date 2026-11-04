@@ -1,8 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import { openLocalBinding, openRemoteBinding } from "../../cli/console/binding.ts";
-import type { ChosenDatabase } from "../../cli/console/database.ts";
+import {
+  openLocalBinding,
+  openRemoteBinding,
+} from "../../packages/d1-record/cli/console/binding.ts";
+import type { ChosenDatabase } from "../../packages/d1-record/cli/console/database.ts";
 import type { TestDatabase } from "../support/d1.ts";
 import { scratchDirs } from "../support/scratch.ts";
 

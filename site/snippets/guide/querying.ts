@@ -1,4 +1,4 @@
-import { between, column, gte, lt, sql } from "@forestfuture/d1-record";
+import { between, column, gte, lt, sql } from "@forestfuture/active-record";
 import { Post } from "../getting-started/models";
 import { User } from "./models";
 

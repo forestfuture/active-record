@@ -1,6 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vite-plus/test";
-import { connect, UnknownAssociation, UnknownAttribute } from "../../src/index.ts";
+import { UnknownAssociation, UnknownAttribute } from "../../packages/active-record/src/index.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
 import { users as userAttributes } from "../fixtures/DB.ts";
 import { User } from "../fixtures/models/user.ts";
 import { PURE_RUNS } from "../support/properties.ts";

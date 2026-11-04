@@ -1,4 +1,4 @@
-import { Model } from "@forestfuture/d1-record";
+import { Model } from "@forestfuture/active-record";
 
 export class Account extends Model.define({
   id: { type: "integer", null: false },

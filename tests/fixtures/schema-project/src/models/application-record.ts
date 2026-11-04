@@ -1,4 +1,5 @@
-import { Model, sql, type QueryListener } from "@forestfuture/d1-record";
+import { Model, sql } from "@forestfuture/active-record";
+import type { QueryListener } from "@forestfuture/d1-record";
 import { schema } from "../../schema";
 
 /**

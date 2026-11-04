@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import { connect, gte, Model, withDatabase } from "../../src/index.ts";
+import { gte, Model, withDatabase } from "../../packages/active-record/src/index.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
 import {
   Article,
   Author,
@@ -17,8 +18,8 @@ import * as batches from "../../site/snippets/guide/batches.ts";
 import { addExample, Booking, errorsExample } from "../../site/snippets/guide/validations.ts";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runGenerate } from "../../cli/generate/command.ts";
-import { runSchema } from "../../cli/schema/command.ts";
+import { runGenerate } from "../../packages/d1-record/cli/generate/command.ts";
+import { runSchema } from "../../packages/d1-record/cli/schema/command.ts";
 import { Post, User } from "../../site/snippets/getting-started/models.ts";
 import * as models from "../../site/snippets/guide/models.ts";
 import { createdSince, oldestFirst, Reminder } from "../../site/snippets/guide/mixed-dates.ts";

@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, onTestFinished, test, vi } from "vite-plus/test";
-import { main } from "../../cli/main.ts";
+import { main } from "../../packages/d1-record/cli/main.ts";
 import { scratchDirs } from "../support/scratch.ts";
 
 // In the repo, so the Models the generators write find this repo's library, as an app's do.

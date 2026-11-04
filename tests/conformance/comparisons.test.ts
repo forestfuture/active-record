@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { between, gt, gte, lt, lte, Model } from "../../src/index.ts";
+import { between, gt, gte, lt, lte, Model } from "../../packages/active-record/src/index.ts";
 import { User } from "../fixtures/models/user.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 

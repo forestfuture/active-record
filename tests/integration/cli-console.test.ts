@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { connect, Model, withDatabase } from "../../src/index.ts";
+import { Model, withDatabase } from "../../packages/active-record/src/index.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
-import { startSession } from "../../cli/console/session.ts";
+import { startSession } from "../../packages/d1-record/cli/console/session.ts";
 import { drive, terminalStreams, waitFor } from "../support/console.ts";
 
 class Sample extends Model.define({

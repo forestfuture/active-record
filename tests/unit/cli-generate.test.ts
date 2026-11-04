@@ -1,9 +1,17 @@
 import { describe, expect, test } from "vite-plus/test";
-import { parseColumns } from "../../cli/generate/columns.ts";
-import { migrationFor, migrationFileName, type KeyType } from "../../cli/generate/migration.ts";
-import { migrationNameError, modelName } from "../../cli/generate/names.ts";
-import { appendModel, modelFileName, modelSource } from "../../cli/generate/model-file.ts";
-import { schemaOf } from "../../cli/schema/schema.ts";
+import { parseColumns } from "../../packages/d1-record/cli/generate/columns.ts";
+import {
+  migrationFor,
+  migrationFileName,
+  type KeyType,
+} from "../../packages/d1-record/cli/generate/migration.ts";
+import { migrationNameError, modelName } from "../../packages/d1-record/cli/generate/names.ts";
+import {
+  appendModel,
+  modelFileName,
+  modelSource,
+} from "../../packages/d1-record/cli/generate/model-file.ts";
+import { schemaOf } from "../../packages/d1-record/cli/schema/schema.ts";
 
 /** Columns as parsed, or the errors joined, for short assertions. */
 function columns(...args: string[]) {
@@ -228,7 +236,7 @@ describe("Model files", () => {
   test("one per Model, named in kebab-case, extending ApplicationRecord and importing its belongsTo targets", () => {
     expect(modelFileName("LineItem")).toBe("line-item.ts");
     expect(modelSource(model, { separateFiles: true }))
-      .toBe(`import { belongsTo } from "@forestfuture/d1-record";
+      .toBe(`import { belongsTo } from "@forestfuture/active-record";
 import { ApplicationRecord } from "./application-record";
 import { Order } from "./order";
 
@@ -260,7 +268,7 @@ export class LineItem extends ApplicationRecord {}
   });
 
   test("appended to one models file, adding belongsTo to its import from the library", () => {
-    const existing = `import { hasMany } from "@forestfuture/d1-record";
+    const existing = `import { hasMany } from "@forestfuture/active-record";
 import { ApplicationRecord } from "./models/application-record";
 
 export class Order extends ApplicationRecord {
@@ -274,7 +282,7 @@ export class Order extends ApplicationRecord {
 
     expect(appendModel(existing, inOneFile)).toEqual({
       ok: true,
-      source: `import { belongsTo, hasMany } from "@forestfuture/d1-record";
+      source: `import { belongsTo, hasMany } from "@forestfuture/active-record";
 import { ApplicationRecord } from "./models/application-record";
 
 export class Order extends ApplicationRecord {
@@ -304,7 +312,7 @@ export class Order extends DbRecord {}
 
     expect(appendModel(existing, logs)).toEqual({
       ok: true,
-      source: `import { belongsTo } from "@forestfuture/d1-record";
+      source: `import { belongsTo } from "@forestfuture/active-record";
 import { LogsRecord } from "./models/logs-record";
 import { DbRecord } from "./models/db-record";
 

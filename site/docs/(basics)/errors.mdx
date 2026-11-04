@@ -6,7 +6,7 @@ description: "Every error d1-record throws: lifecycle, usage, and constraint err
 Every error d1-record throws extends `ActiveRecordError`, so one check separates them from anything else:
 
 ```ts
-import { ActiveRecordError } from "@forestfuture/d1-record";
+import { ActiveRecordError } from "@forestfuture/active-record";
 
 if (error instanceof ActiveRecordError) {
   // one of d1-record's own

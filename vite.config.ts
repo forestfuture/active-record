@@ -4,32 +4,6 @@ export default defineConfig({
   staged: {
     "*": "vp check --fix",
   },
-  pack: [
-    {
-      target: "es2022",
-      tsconfig: "src/tsconfig.json",
-      // Provided by the Workers runtime; loaded only when a Model queries its binding (#77).
-      external: ["cloudflare:workers"],
-      // The two builds run together, so each cleans only its own files.
-      clean: ["dist/index.*"],
-      dts: {
-        generator: "tsgo",
-      },
-      exports: true,
-      // ESM-only package for Workers: skip node10/CommonJS resolution checks.
-      attw: { profile: "esm-only" },
-      publint: true,
-    },
-    {
-      // The `d1-record` command (package.json's bin): Node only, never imported by a Worker.
-      entry: { cli: "cli/bin.ts" },
-      platform: "node",
-      target: "node22",
-      tsconfig: "cli/tsconfig.json",
-      dts: false,
-      clean: ["dist/cli.*"],
-    },
-  ],
   resolve: {
     // Resolves the package's own name to src/, from tsconfig.json's `paths` (one mapping for
     // TypeScript and tests), so the documentation's examples import it as an app would.
@@ -40,7 +14,7 @@ export default defineConfig({
     // floor, and CI runs it (#121). The Best Practices `dynamic_analysis` criterion asks for 80%.
     coverage: {
       provider: "v8",
-      include: ["src/**/*.ts", "cli/**/*.ts"],
+      include: ["packages/*/src/**/*.ts", "packages/*/cli/**/*.ts"],
       reporter: ["text-summary"],
       thresholds: { branches: 90 },
     },
@@ -99,7 +73,7 @@ export default defineConfig({
       {
         // Each library and command line module opens with what it owns (scripts/lint/), and stays
         // small enough to read: a module that outgrows the limit is split, not exempted.
-        files: ["src/**/*.ts", "cli/**/*.ts"],
+        files: ["packages/*/src/**/*.ts", "packages/*/cli/**/*.ts"],
         rules: {
           "d1-record/module-header": "error",
           "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }],
@@ -107,7 +81,7 @@ export default defineConfig({
       },
       {
         // The project reader sits below the schema reader: schema/ imports project/, never back.
-        files: ["cli/project/**"],
+        files: ["packages/d1-record/cli/project/**"],
         rules: {
           "no-restricted-imports": [
             "error",
@@ -124,17 +98,20 @@ export default defineConfig({
         },
       },
       {
-        // The core knows a database only through an Adapter, so src/d1/ can leave for its own
-        // package (ADR-0016).
-        files: ["src/*.ts"],
+        // The core knows a database only through an Adapter, so it never imports one (ADR-0016).
+        files: ["packages/active-record/**/*.ts"],
         rules: {
           "no-restricted-imports": [
             "error",
             {
               patterns: [
                 {
-                  group: ["./d1/*"],
-                  message: "The core reaches D1 through the Adapter: see src/adapter.ts.",
+                  group: [
+                    "@forestfuture/d1-record",
+                    "@forestfuture/d1-record/*",
+                    "**/d1-record/**",
+                  ],
+                  message: "The core reaches a database through its Adapter: see src/adapter.ts.",
                 },
               ],
             },
@@ -142,10 +119,22 @@ export default defineConfig({
         },
       },
       {
-        // The two imports of src/d1/ that #268's package split removes: the public API, and
-        // the default adapter for a schema that doesn't name one yet.
-        files: ["src/index.ts", "src/current-database.ts"],
-        rules: { "no-restricted-imports": "off" },
+        // An adapter reaches the core only as an app's install would: through its entry points.
+        files: ["packages/d1-record/**/*.ts"],
+        rules: {
+          "no-restricted-imports": [
+            "error",
+            {
+              patterns: [
+                {
+                  group: ["**/active-record/src/**"],
+                  message:
+                    "Import the core from @forestfuture/active-record, or its /adapter or /cli entry.",
+                },
+              ],
+            },
+          ],
+        },
       },
       {
         // A describe() callback holds a whole suite, so it's long by design.

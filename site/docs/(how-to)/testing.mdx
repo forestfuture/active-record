@@ -39,9 +39,10 @@ export async function testDatabase(folder = "migrations") {
 Outside a Worker there’s no binding, so run the test’s code inside `withDatabase`:
 
 ```ts test/users.test.ts
-import { connect, withDatabase } from "@forestfuture/d1-record";
+import { withDatabase } from "@forestfuture/active-record";
+import { connect } from "@forestfuture/d1-record";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { User } from "../src/models/user";
+import { User } from "../packages/active-record/src/models/user";
 import { testDatabase } from "./d1";
 
 let database: Awaited<ReturnType<typeof testDatabase>>;
@@ -63,9 +64,10 @@ Outside a Worker, the database given to `withDatabase` serves every Model, whate
 Call your Worker’s `fetch` handler inside `withDatabase` too, and its queries use the test’s database:
 
 ```ts test/worker.test.ts
-import { connect, withDatabase } from "@forestfuture/d1-record";
+import { withDatabase } from "@forestfuture/active-record";
+import { connect } from "@forestfuture/d1-record";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import worker from "../src/index";
+import worker from "../packages/active-record/src/index";
 import { testDatabase } from "./d1";
 
 let database: Awaited<ReturnType<typeof testDatabase>>;

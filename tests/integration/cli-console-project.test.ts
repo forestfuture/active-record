@@ -1,11 +1,11 @@
 import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import { loadProject } from "../../cli/console/project.ts";
+import { loadProject } from "../../packages/d1-record/cli/console/project.ts";
 import { scratchDirs } from "../support/scratch.ts";
+import { libraryPaths } from "../support/library-paths.ts";
 
 // The library resolves, as an app's does, from a tsconfig `paths` entry (here to this repo's source).
-const library = new URL("../../src/index.ts", import.meta.url).pathname;
 const scratch = scratchDirs();
 
 /** A throwaway project: its files, by path, and a tsconfig that finds the library. */
@@ -15,7 +15,7 @@ function project(files: Record<string, string>, outsideTheRepo = false): string 
     "tsconfig.json": JSON.stringify({
       compilerOptions: {
         baseUrl: ".",
-        paths: { "@forestfuture/d1-record": [library], "@/*": ["./src/*"] },
+        paths: { ...libraryPaths, "@/*": ["./src/*"] },
       },
     }),
     ...files,
@@ -28,7 +28,8 @@ function project(files: Record<string, string>, outsideTheRepo = false): string 
 }
 
 const applicationRecord = `
-import { d1, Model } from "@forestfuture/d1-record";
+import { Model } from "@forestfuture/active-record";
+import { d1 } from "@forestfuture/d1-record";
 export abstract class ApplicationRecord extends Model {
   static override schema = {
     adapter: d1({ binding: "DB" }),
@@ -47,7 +48,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
     const cwd = project({
       "src/models/application-record.ts": applicationRecord,
       "src/models/user.ts": `
-        import type { Model } from "@forestfuture/d1-record";
+        import type { Model } from "@forestfuture/active-record";
         import { ApplicationRecord } from "./application-record";
         import { greeting } from "@/lib/greeting";
         export class User extends ApplicationRecord { static greeting = greeting; }
@@ -109,6 +110,9 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
         {
           "package.json": '{ "name": "shop", "type": "module" }',
           "tsconfig.json": "{}",
+          "node_modules/@forestfuture/active-record/package.json":
+            '{ "name": "@forestfuture/active-record", "type": "module", "exports": "./index.js" }',
+          "node_modules/@forestfuture/active-record/index.js": "export class Model {}",
           "node_modules/@forestfuture/d1-record/package.json":
             '{ "name": "@forestfuture/d1-record", "type": "module", "exports": "./index.js" }',
           "node_modules/@forestfuture/d1-record/index.js": 'throw new Error("boom");',
@@ -117,7 +121,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
         true,
       );
 
-      expect(await loadProject(cwd)).toBe("Couldn't load @forestfuture/d1-record: boom");
+      expect(await loadProject(cwd)).toBe("Couldn't load the library: boom");
     });
 
     test("a project without the library", async () => {
@@ -131,7 +135,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
         true,
       );
 
-      expect(await loadProject(cwd)).toMatch(/^@forestfuture\/d1-record isn't installed here/);
+      expect(await loadProject(cwd)).toMatch(/^@forestfuture\/active-record isn't installed here/);
     });
   });
 
@@ -242,7 +246,10 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
           "tsconfig.json": JSON.stringify({
             compilerOptions: {
               baseUrl: ".",
-              paths: { "@forestfuture/d1-record": ["./vendor/library.ts"] },
+              paths: {
+                "@forestfuture/active-record": ["./vendor/library.ts"],
+                "@forestfuture/d1-record": ["./vendor/library.ts"],
+              },
             },
           }),
           // A stand-in with what the console needs of the library, for a library that is a
@@ -253,7 +260,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
             export const withDatabase = async (_db: unknown, run: () => unknown) => run();
           `,
           "src/models/user.ts": `
-            import { Model } from "@forestfuture/d1-record";
+            import { Model } from "@forestfuture/active-record";
             export class User extends Model {}
           `,
         },

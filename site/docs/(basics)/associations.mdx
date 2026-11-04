@@ -70,7 +70,7 @@ A foreign key names an attribute, such as `authorId`, rather than a column. By d
 If the name doesn’t follow the convention, pass `foreignKey`:
 
 ```ts
-import { belongsTo } from "@forestfuture/d1-record";
+import { belongsTo } from "@forestfuture/active-record";
 
 export class Post extends ApplicationRecord {
   author = belongsTo(User, { foreignKey: "userId" });

@@ -10,9 +10,9 @@ import {
   RecordNotUnique,
   sql,
   UnknownAttribute,
-} from "../../src/index.ts";
-import type { QueryEvent } from "../../src/executor.ts";
-import type { AnyDatabase } from "../../src/database.ts";
+} from "../../packages/active-record/src/index.ts";
+import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
+import type { AnyDatabase } from "../../packages/active-record/src/database.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { holdStatements, reads } from "../support/hold-statements.ts";
 

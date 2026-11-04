@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { ActiveRecordError, Model, RecordInvalid } from "../../src/index.ts";
-import type { QueryEvent } from "../../src/executor.ts";
+import { ActiveRecordError, Model, RecordInvalid } from "../../packages/active-record/src/index.ts";
+import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class User extends Model.define({

@@ -1,45 +1,11 @@
 {
-  "name": "@forestfuture/d1-record",
-  "version": "0.5.1",
-  "description": "A Rails-inspired Active Record for Cloudflare Workers and D1.",
-  "keywords": [
-    "active-record",
-    "cloudflare",
-    "d1",
-    "orm",
-    "sqlite",
-    "workers"
-  ],
-  "homepage": "https://d1-record.forestfuture.dev",
-  "bugs": {
-    "url": "https://github.com/forestfuture/d1-record/issues"
-  },
+  "name": "active-record-workspace",
+  "private": true,
   "license": "MIT",
   "author": "ForestFuture (https://forestfuture.dev)",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/forestfuture/d1-record.git"
-  },
-  "bin": {
-    "d1-record": "./dist/cli.mjs"
-  },
-  "files": [
-    "dist",
-    "llms-full.txt",
-    "skills"
-  ],
   "type": "module",
-  "sideEffects": false,
-  "exports": {
-    ".": "./dist/index.mjs",
-    "./package.json": "./package.json"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
-    "build": "vp pack",
-    "dev": "vp pack --watch",
+    "build": "vp run @forestfuture/active-record#build && vp run @forestfuture/d1-record#build",
     "test": "vp test",
     "coverage": "vp test --coverage",
     "test:remote": "D1_REMOTE_SMOKE=1 vp test --project remote",
@@ -51,15 +17,11 @@
     "bench:preload": "node scripts/bench/preload-trips.ts",
     "check": "vp check",
     "validate": "node scripts/validate.mjs",
-    "prepack": "vp run build && vp run docs:build && node scripts/pack-docs.mjs",
     "release:version": "changeset version && vp fmt",
     "prepare": "vp config",
     "knip": "knip",
     "docs:dev": "vp run d1-record-site#dev",
     "docs:build": "vp run d1-record-site#build"
-  },
-  "dependencies": {
-    "jiti": "^2.7.0"
   },
   "devDependencies": {
     "@arethetypeswrong/core": "^0.18.5",
@@ -75,14 +37,6 @@
     "typescript": "^7.0.2",
     "vite-plus": "catalog:",
     "wrangler": "^4.147.0"
-  },
-  "peerDependencies": {
-    "@cloudflare/workers-types": ">=4"
-  },
-  "peerDependenciesMeta": {
-    "@cloudflare/workers-types": {
-      "optional": true
-    }
   },
   "devEngines": {
     "packageManager": {

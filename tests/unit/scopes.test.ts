@@ -1,12 +1,12 @@
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
 import {
-  connect,
   IncompatibleRelation,
   InvalidModel,
   Model,
   type Relation,
   type ScopeStatic,
-} from "../../src/index.ts";
+} from "../../packages/active-record/src/index.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
 
 class User extends Model.define({
   id: { type: "integer", null: false },

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../src/index.ts";
+import { Model } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Account extends Model.define({ id: { type: "integer", null: false }, email: "string" }) {

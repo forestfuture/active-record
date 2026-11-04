@@ -2,10 +2,14 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import { migrationTool, toolsWithFiles, type Tool } from "../../cli/project/tools.ts";
-import { originNotes } from "../../cli/schema/origin.ts";
-import type { Migration } from "../../cli/project/migrations.ts";
-import { schemaOf } from "../../cli/schema/schema.ts";
+import {
+  migrationTool,
+  toolsWithFiles,
+  type Tool,
+} from "../../packages/d1-record/cli/project/tools.ts";
+import { originNotes } from "../../packages/d1-record/cli/schema/origin.ts";
+import type { Migration } from "../../packages/d1-record/cli/project/migrations.ts";
+import { schemaOf } from "../../packages/d1-record/cli/schema/schema.ts";
 
 /** A throwaway project folder with these files. */
 function projectWith(...files: string[]): string {

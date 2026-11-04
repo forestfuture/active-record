@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { connect, hasMany, Model } from "../../src/index.ts";
+import { hasMany, Model } from "../../packages/active-record/src/index.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
 class Reading extends Model.define({

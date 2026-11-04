@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, Model, sql } from "../../src/index.ts";
+import { belongsTo, hasMany, Model, sql } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Note extends Model.define({

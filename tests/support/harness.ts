@@ -1,8 +1,8 @@
 // The conformance suite's database: the adapter its Vitest project names, opened with a schema.
 import { inject } from "vite-plus/test";
-import type { AnyDatabase } from "../../src/database.ts";
-import type { Driver } from "../../src/driver.ts";
-import type { QueryListener } from "../../src/executor.ts";
+import type { AnyDatabase } from "../../packages/active-record/src/database.ts";
+import type { Driver } from "../../packages/active-record/src/driver.ts";
+import type { QueryListener } from "../../packages/active-record/src/executor.ts";
 
 /** Each adapter the conformance suite runs against, and how its harness opens. */
 const harnesses = {

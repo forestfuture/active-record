@@ -1,6 +1,6 @@
 import { PassThrough } from "node:stream";
 import { describe, expect, test } from "vite-plus/test";
-import { confirmRemote } from "../../cli/console/confirm.ts";
+import { confirmRemote } from "../../packages/d1-record/cli/console/confirm.ts";
 
 type Target = { name: string; id: string | undefined; preview: boolean };
 const shop: Target = { name: "shop", id: "1a2b3c", preview: false };

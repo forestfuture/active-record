@@ -1,9 +1,10 @@
 // Time to hydrate rows with none, one or two stored datetimes (#216), in-process, no D1.
 // Not part of CI; run with `vp run bench:datetime-reads` before and after a change to how
 // datetimes are read.
-import { databaseExecutor } from "../../src/database.ts";
-import { connect, Model } from "../../src/index.ts";
-import { hydrate, type ModelClass } from "../../src/model.ts";
+import { databaseExecutor } from "../../packages/active-record/src/database.ts";
+import { Model } from "../../packages/active-record/src/index.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
+import { hydrate, type ModelClass } from "../../packages/active-record/src/model.ts";
 
 const ROWS = 10_000;
 const RUNS = 40;

@@ -20,14 +20,16 @@ jobs:
       # Every test, and branch coverage of the library and command line above its floor
       # (vite.config.ts), which the Best Practices dynamic analysis criterion relies on.
       - run: vp run coverage
-      - run: vp pack
+      # Both packages: the core first, since the D1 adapter's types are built against its.
+      - run: vp run build
       # The published types show only the public interface, no library internals.
       - run: vp run check:public-types
       # Unused files, exports and dependencies.
       - run: vp run knip
       # The documentation site builds, with no dead links.
       - run: vp run docs:build
-      # The tarball holds exactly the library, its docs for agents (llms-full.txt, skills/d1-record/SKILL.md) and metadata.
+      # Each tarball holds exactly its files: the core with its docs for agents (llms-full.txt and
+      # its skill), and the D1 adapter with the `d1-record` command, importing the core by name.
       - run: vp run check:package
       # docs-deploy's own Wrangler, installed frozen with install scripts off, checks the site built
       # above as a deploy would, without uploading it or needing a token. So a bump of
@@ -52,7 +54,8 @@ jobs:
       - uses: ./.github/actions/setup-vp
         with:
           release: true
-      - run: pnpm pack --out "$RUNNER_TEMP/d1-record.tgz"
+      - run: pnpm --dir packages/active-record pack --out "$RUNNER_TEMP/active-record.tgz"
+      - run: pnpm --dir packages/d1-record pack --out "$RUNNER_TEMP/d1-record.tgz"
 
   # The documentation site deploys in two jobs (#243), only from main and only once the checks above
   # have passed. The build runs the site's whole dependency tree, so it gets no secrets; the deploy

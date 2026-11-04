@@ -1,5 +1,5 @@
 // The benchmark's Models: an author with three associations, as an app would declare them.
-import { belongsTo, hasMany, hasOne, Model } from "../../src/index.ts";
+import { belongsTo, hasMany, hasOne, Model } from "../../packages/active-record/src/index.ts";
 
 export const schema = `
 CREATE TABLE publishers (id TEXT PRIMARY KEY, name TEXT);

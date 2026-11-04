@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, connect, hasMany, Model, NoSession } from "../../src/index.ts";
+import { belongsTo, hasMany, Model } from "../../packages/active-record/src/index.ts";
+import { connect, NoSession } from "../../packages/d1-record/src/index.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
 class User extends Model.define({

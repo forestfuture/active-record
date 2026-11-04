@@ -10,7 +10,7 @@ const wrangler = fileURLToPath(
 const steps = [
   { name: "check", args: ["check"] },
   { name: "test and coverage", args: ["run", "coverage"] },
-  { name: "pack", args: ["pack"] },
+  { name: "build", args: ["run", "build"] },
   { name: "public types", args: ["run", "check:public-types"] },
   { name: "knip", args: ["run", "knip"] },
   { name: "docs build", args: ["run", "docs:build"] },

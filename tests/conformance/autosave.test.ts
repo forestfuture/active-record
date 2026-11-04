@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { hasMany, Model, RecordInvalid, RecordNotSaved, RecordNotUnique } from "../../src/index.ts";
-import type { QueryEvent } from "../../src/executor.ts";
+import {
+  hasMany,
+  Model,
+  RecordInvalid,
+  RecordNotSaved,
+  RecordNotUnique,
+} from "../../packages/active-record/src/index.ts";
+import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const log: string[] = [];

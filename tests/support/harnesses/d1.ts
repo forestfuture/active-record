@@ -1,9 +1,9 @@
 // The conformance suite's D1 harness: an in-memory Miniflare D1 per file, as tests/support/d1.ts makes.
-import { d1Adapter } from "../../../src/d1/adapter.ts";
-import { D1Driver } from "../../../src/d1/driver.ts";
-import { AnyDatabase } from "../../../src/database.ts";
-import { DatabaseExecutor } from "../../../src/executor.ts";
-import { connect } from "../../../src/index.ts";
+import { d1Adapter } from "../../../packages/d1-record/src/adapter.ts";
+import { D1Driver } from "../../../packages/d1-record/src/driver.ts";
+import { AnyDatabase } from "../../../packages/active-record/src/database.ts";
+import { DatabaseExecutor } from "../../../packages/active-record/src/executor.ts";
+import { connect } from "../../../packages/d1-record/src/index.ts";
 import { createTestDatabase } from "../d1.ts";
 import type { Harness, SchemaName } from "../harness.ts";
 

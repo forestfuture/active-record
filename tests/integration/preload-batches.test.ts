@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
   belongsTo,
-  connect,
   hasMany,
   hasOne,
   type HasMany,
@@ -9,9 +8,9 @@ import {
   InvalidModel,
   MissingAttribute,
   Model,
-  type QueryEvent,
   sql,
-} from "../../src/index.ts";
+} from "../../packages/active-record/src/index.ts";
+import { connect, type QueryEvent } from "../../packages/d1-record/src/index.ts";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../support/d1.ts";
 
 class User extends Model.define({

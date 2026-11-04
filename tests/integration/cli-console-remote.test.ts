@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import { runConsole, standardIo } from "../../cli/console/command.ts";
-import { main } from "../../cli/main.ts";
+import { runConsole, standardIo } from "../../packages/d1-record/cli/console/command.ts";
+import { main } from "../../packages/d1-record/cli/main.ts";
 import { capturedStreams, terminalStreams, waitFor } from "../support/console.ts";
 import { scratchDirs } from "../support/scratch.ts";
 import { remoteProject } from "../support/shop.ts";

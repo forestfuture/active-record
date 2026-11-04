@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vite-plus/test";
-import { readValue, writeValue } from "../../src/conversion.ts";
+import { readValue, writeValue } from "../../packages/active-record/src/conversion.ts";
 import { PURE_RUNS } from "../support/properties.ts";
 
 // A datetime stored as a Unix epoch (#73) keeps the instant to the unit it's stored in: a stored

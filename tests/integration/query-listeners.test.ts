@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import { d1, connect, Model, withDatabase, type QueryEvent } from "../../src/index.ts";
+import { Model, withDatabase } from "../../packages/active-record/src/index.ts";
+import { d1, connect, type QueryEvent } from "../../packages/d1-record/src/index.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
 // Level 1 reads the binding from cloudflare:workers; here, this test's D1.

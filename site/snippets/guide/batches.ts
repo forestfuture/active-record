@@ -1,4 +1,4 @@
-import { batch, column, sql } from "@forestfuture/d1-record";
+import { batch, column, sql } from "@forestfuture/active-record";
 import { Article, Author, Comment } from "./associations";
 
 export async function statementsExample(articleId: string) {

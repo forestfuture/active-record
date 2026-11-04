@@ -2,9 +2,9 @@ import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, onTestFinished, test, vi } from "vite-plus/test";
-import { openLocalBinding } from "../../cli/console/binding.ts";
-import { runConsole } from "../../cli/console/command.ts";
-import { main } from "../../cli/main.ts";
+import { openLocalBinding } from "../../packages/d1-record/cli/console/binding.ts";
+import { runConsole } from "../../packages/d1-record/cli/console/command.ts";
+import { main } from "../../packages/d1-record/cli/main.ts";
 import { terminalStreams, waitFor } from "../support/console.ts";
 import type { TestDatabase } from "../support/d1.ts";
 import { scratchDirs } from "../support/scratch.ts";
@@ -140,7 +140,7 @@ describe("d1-record console", () => {
 
       test("it stops the workerd it started, which would otherwise outlive it", async () => {
         const cwd = await shop();
-        const bin = new URL("../../cli/bin.ts", import.meta.url).pathname;
+        const bin = new URL("../../packages/d1-record/cli/bin.ts", import.meta.url).pathname;
         const child = spawn(process.execPath, [bin, "console", "--no-history"], {
           cwd,
           stdio: ["pipe", "pipe", "inherit"],

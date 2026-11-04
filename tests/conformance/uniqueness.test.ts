@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { MissingAttribute, Model } from "../../src/index.ts";
-import type { QueryEvent } from "../../src/executor.ts";
+import { MissingAttribute, Model } from "../../packages/active-record/src/index.ts";
+import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 // The accounts table has no UNIQUE constraints, so only the validation can reject duplicates.

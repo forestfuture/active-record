@@ -1,0 +1,48 @@
+{
+  "name": "@forestfuture/active-record",
+  "version": "0.5.1",
+  "description": "A Rails-inspired Active Record for Cloudflare Workers, with an adapter per database.",
+  "keywords": [
+    "active-record",
+    "cloudflare",
+    "orm",
+    "workers"
+  ],
+  "homepage": "https://d1-record.forestfuture.dev",
+  "bugs": {
+    "url": "https://github.com/forestfuture/d1-record/issues"
+  },
+  "license": "MIT",
+  "author": "ForestFuture (https://forestfuture.dev)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/forestfuture/d1-record.git",
+    "directory": "packages/active-record"
+  },
+  "files": [
+    "dist",
+    "llms-full.txt",
+    "skills"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./adapter": "./src/for-adapters.ts",
+    "./cli": "./src/for-cli.ts",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/index.mjs",
+      "./adapter": "./dist/adapter.mjs",
+      "./cli": "./dist/cli.mjs",
+      "./package.json": "./package.json"
+    },
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "prepack": "vp pack && vp run d1-record-site#build && node ../../scripts/pack-docs.mjs"
+  }
+}

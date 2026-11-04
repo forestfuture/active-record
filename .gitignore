@@ -7,7 +7,7 @@ dist
 site/.blume
 site/docs/_excerpts
 .wrangler
-/llms-full.txt
+/packages/active-record/llms-full.txt
 /tests/.scratch
 
 # Python bytecode from the supply-chain auditor skill
