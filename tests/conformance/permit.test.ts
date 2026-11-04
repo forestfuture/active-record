@@ -7,22 +7,21 @@ import {
   expectTypeOf,
   test,
 } from "vite-plus/test";
-import { connect, Model, UnknownAttribute } from "../../src/index.ts";
+import { Model, UnknownAttribute } from "../../src/index.ts";
 import { User } from "../fixtures/models/user.ts";
-import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
+import { openHarness, type Harness } from "../support/harness.ts";
 
 // Untrusted input, as a request gives it: only the named attributes reach a record (#82).
 describe("Model.permit", () => {
-  let binding: TestDatabase;
-  let dispose: () => Promise<void>;
-  const users = () => connect(binding).model(User);
+  let harness: Harness;
+  const users = () => harness.connect().model(User);
 
   beforeAll(async () => {
-    ({ db: binding, dispose } = await createTestDatabase());
+    harness = await openHarness();
   });
-  afterAll(() => dispose());
+  afterAll(() => harness.dispose());
   beforeEach(async () => {
-    await binding.prepare("DELETE FROM users").run();
+    await harness.exec("DELETE FROM users");
   });
 
   test("keeps the named attributes and drops every other key", () => {
