@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { connect, InvalidModel, Model, type QueryEvent } from "../../src/index.ts";
+import { InvalidModel, Model } from "../../packages/active-record/src/index.ts";
+import { connect, type QueryEvent } from "../../packages/d1-record/src/index.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
 // What D1 itself says: its meta and its messages. The portable halves are in tests/conformance.

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import { connect, Model, UnknownAttribute } from "../../src/index.ts";
+import { Model, UnknownAttribute } from "../../packages/active-record/src/index.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
 
 class Account extends Model.define({
   id: { type: "integer", null: false },

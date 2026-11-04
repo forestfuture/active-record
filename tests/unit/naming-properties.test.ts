@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, test } from "vite-plus/test";
-import { camelize, underscore } from "../../src/naming.ts";
+import { camelize, underscore } from "../../packages/active-record/src/naming.ts";
 import { originalUnderscore } from "../support/naming-oracle.ts";
 import { SLOW_RUNS, PURE_RUNS } from "../support/properties.ts";
 

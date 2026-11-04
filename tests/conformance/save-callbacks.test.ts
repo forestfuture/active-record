@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { abort, AbortAfterPersistence, CallbackAbort, Model } from "../../src/index.ts";
+import {
+  abort,
+  AbortAfterPersistence,
+  CallbackAbort,
+  Model,
+} from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const log: string[] = [];

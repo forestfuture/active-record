@@ -1,4 +1,4 @@
-import { RecordNotUnique } from "@forestfuture/d1-record";
+import { RecordNotUnique } from "@forestfuture/active-record";
 import type { User } from "./models";
 
 export async function saveOrReportTaken(user: User): Promise<void> {

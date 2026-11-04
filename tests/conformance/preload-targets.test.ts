@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, InvalidModel, Model } from "../../src/index.ts";
+import { belongsTo, hasMany, InvalidModel, Model } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 // Fresh Models used by no other test: Entry and Remark are only ever reached through includes.

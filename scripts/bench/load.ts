@@ -4,9 +4,9 @@
 // user + system) of several runs after a warm-up, so Miniflare's waiting doesn't count, though
 // its transport's CPU does.
 import { Miniflare } from "miniflare";
-import { connect } from "../../src/index.ts";
-import { databaseExecutor } from "../../src/database.ts";
-import { hydrate } from "../../src/model.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
+import { databaseExecutor } from "../../packages/active-record/src/database.ts";
+import { hydrate } from "../../packages/active-record/src/model.ts";
 import { Author, schema } from "./models.ts";
 
 const ROWS = 10_000;

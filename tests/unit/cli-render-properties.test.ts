@@ -1,8 +1,8 @@
 import fc from "fast-check";
 import { runInThisContext } from "node:vm";
 import { describe, expect, test } from "vite-plus/test";
-import { renderSchema } from "../../cli/schema/render.ts";
-import { schemaOf } from "../../cli/schema/schema.ts";
+import { renderSchema } from "../../packages/d1-record/cli/schema/render.ts";
+import { schemaOf } from "../../packages/d1-record/cli/schema/schema.ts";
 import { jsonValues } from "../support/json-values.ts";
 import { PURE_RUNS } from "../support/properties.ts";
 

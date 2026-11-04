@@ -1,4 +1,4 @@
-import { Model } from "../../src/index.ts";
+import { Model } from "../../packages/active-record/src/index.ts";
 
 // One attribute of every type and storage, shared by the property tests that try values of any
 // shape against them (assigned: casting-properties; stored: reading-properties and

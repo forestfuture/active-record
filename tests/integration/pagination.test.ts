@@ -1,13 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import {
-  belongsTo,
-  connect,
-  hasMany,
-  Model,
-  type QueryEvent,
-  sql,
-  column,
-} from "../../src/index.ts";
+import { belongsTo, hasMany, Model, sql, column } from "../../packages/active-record/src/index.ts";
+import { connect, type QueryEvent } from "../../packages/d1-record/src/index.ts";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../support/d1.ts";
 
 class User extends Model.define({

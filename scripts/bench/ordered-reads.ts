@@ -1,7 +1,8 @@
 // Rows D1 reads for exists(), count() and paginate()'s count on an ordered Relation (#215).
 // Run with `vp run bench:ordered-reads` before and after a change to how they're compiled.
 import { Miniflare } from "miniflare";
-import { connect, Model, type QueryEvent } from "../../src/index.ts";
+import { Model } from "../../packages/active-record/src/index.ts";
+import { connect, type QueryEvent } from "../../packages/d1-record/src/index.ts";
 
 class Post extends Model.define({
   id: { type: "string", null: false },

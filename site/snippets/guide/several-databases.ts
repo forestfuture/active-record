@@ -1,4 +1,5 @@
-import { Model, withSession } from "@forestfuture/d1-record";
+import { Model } from "@forestfuture/active-record";
+import { withSession } from "@forestfuture/d1-record";
 import { schema as logsSchema } from "../db/logs";
 import { schema as dbSchema } from "../db/schema";
 

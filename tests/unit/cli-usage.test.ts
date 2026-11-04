@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import { everySubcommand, main } from "../../cli/main.ts";
-import { defineSubcommand, helpFor } from "../../cli/subcommand.ts";
+import { everySubcommand, main } from "../../packages/d1-record/cli/main.ts";
+import { defineSubcommand, helpFor } from "../../packages/d1-record/cli/subcommand.ts";
 
 /** `d1-record --help`, as it reads today: the commands, the columns, and each one's flags. */
 const help = `Usage:

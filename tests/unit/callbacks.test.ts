@@ -2,11 +2,11 @@ import { describe, expect, test } from "vite-plus/test";
 import {
   abort,
   CallbackAbort,
-  connect,
   InvalidModel,
   Model,
   RecordNotSaved,
-} from "../../src/index.ts";
+} from "../../packages/active-record/src/index.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
 
 const log: string[] = [];
 

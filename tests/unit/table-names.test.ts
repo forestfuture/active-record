@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vite-plus/test";
-import { connect, InvalidModel, Model } from "../../src/index.ts";
-import { singularize } from "../../src/inflections.ts";
-import { underscore } from "../../src/naming.ts";
+import { InvalidModel, Model } from "../../packages/active-record/src/index.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
+import { singularize } from "../../packages/active-record/src/inflections.ts";
+import { underscore } from "../../packages/active-record/src/naming.ts";
 
 const db = connect({} as never);
 

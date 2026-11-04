@@ -1,13 +1,13 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vite-plus/test";
-import { define, type SpecObject } from "../../src/metadata.ts";
+import { define, type SpecObject } from "../../packages/active-record/src/metadata.ts";
 import {
   applyOverride,
   copiedKeys,
   isSpecOverride,
   overridableKeyNames,
   specProblem,
-} from "../../src/spec-keys.ts";
+} from "../../packages/active-record/src/spec-keys.ts";
 import { PURE_RUNS } from "../support/properties.ts";
 import { values } from "../support/values.ts";
 

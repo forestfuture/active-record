@@ -1,12 +1,12 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import { runConsole } from "../../cli/console/command.ts";
+import { runConsole } from "../../packages/d1-record/cli/console/command.ts";
 import { terminalStreams } from "../support/console.ts";
 import { scratchDirs } from "../support/scratch.ts";
 import { configured, remoteDatabase } from "./support.ts";
+import { libraryPaths } from "../support/library-paths.ts";
 
-const library = new URL("../../src/index.ts", import.meta.url).pathname;
 const scratch = scratchDirs();
 
 /** A project whose one D1 binding is `entry`, with a User Model on this run's users table. */
@@ -15,10 +15,11 @@ function project(table: string, entry: Record<string, unknown>): string {
   const files: Record<string, string> = {
     "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB", ...entry }] }),
     "tsconfig.json": JSON.stringify({
-      compilerOptions: { paths: { "@forestfuture/d1-record": [library] } },
+      compilerOptions: { paths: libraryPaths },
     }),
     "src/models/application-record.ts": `
-      import { d1, Model } from "@forestfuture/d1-record";
+      import { Model } from "@forestfuture/active-record";
+import { d1 } from "@forestfuture/d1-record";
       export abstract class ApplicationRecord extends Model {
         static override schema = {
           adapter: d1({ binding: "DB" }),

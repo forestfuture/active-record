@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { d1, hasMany, InvalidModel, Model, RecordNotUnique } from "../../src/index.ts";
+import {
+  hasMany,
+  InvalidModel,
+  Model,
+  RecordNotUnique,
+} from "../../packages/active-record/src/index.ts";
+import { d1 } from "../../packages/d1-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;

@@ -1,4 +1,4 @@
-import { abort, Model } from "@forestfuture/d1-record";
+import { abort, Model } from "@forestfuture/active-record";
 
 // #region callbacks
 export class Order extends Model.define({

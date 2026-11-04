@@ -1,4 +1,4 @@
-import { Model } from "@forestfuture/d1-record";
+import { Model } from "@forestfuture/active-record";
 
 // #region base
 // src/models/application-record.ts

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { statementLine } from "../../cli/console/verbose.ts";
+import { statementLine } from "../../packages/d1-record/cli/console/verbose.ts";
 
 describe("a --verbose statement line", () => {
   const event = { model: "User", sql: "SELECT *", params: [], durationMs: 1.234 };

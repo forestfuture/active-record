@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, test, vi } from "vite-plus/test";
-import { connect, Model, NoDatabase, Relation } from "../../src/index.ts";
+import { Model, NoDatabase, Relation } from "../../packages/active-record/src/index.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
 
 class User extends Model.define({
   id: { type: "integer", null: false },
@@ -97,7 +98,8 @@ describe("withDatabase", () => {
     vi.resetModules();
     const builtin = vi.spyOn(process, "getBuiltinModule").mockReturnValue(undefined as never);
     try {
-      const { withDatabase, connect } = await import("../../src/index.ts");
+      const { withDatabase } = await import("../../packages/active-record/src/index.ts");
+      const { connect } = await import("../../packages/d1-record/src/index.ts");
 
       await expect(withDatabase(connect({} as never), () => 1)).rejects.toThrow(
         "withDatabase needs Node.js compatibility: a compatibility_date of 2026-08-04 or later, or the nodejs_compat flag, in your Wrangler config",

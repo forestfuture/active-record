@@ -9,5 +9,6 @@
     }
   ],
   "commit": false,
-  "format": false
+  "format": false,
+  "fixed": [["@forestfuture/active-record", "@forestfuture/d1-record"]]
 }

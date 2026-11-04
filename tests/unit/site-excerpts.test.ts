@@ -23,7 +23,7 @@ name: d1-record
 <!-- #endregion rules -->
 `;
 
-const snippet = `import { batch, Model } from "@forestfuture/d1-record";
+const snippet = `import { batch, Model } from "@forestfuture/active-record";
 
 // #region declare
 export class Post extends Model.define({ id: "integer" }) {}
@@ -35,12 +35,12 @@ describe("the excerpts the site's build writes", () => {
   test("hold each region of a snippet file, with the imports it uses, at <file>/<region>.ts", () => {
     const site = repository({
       "site/snippets/guide/posts.ts": snippet,
-      "skills/d1-record/SKILL.md": skill,
+      "packages/active-record/skills/active-record/SKILL.md": skill,
     });
     writeExcerpts(site);
 
     expect(readFileSync(join(site, "docs/_excerpts/guide/posts/declare.ts"), "utf8"))
-      .toBe(`import { Model } from "@forestfuture/d1-record";
+      .toBe(`import { Model } from "@forestfuture/active-record";
 
 export class Post extends Model.define({ id: "integer" }) {}
 `);
@@ -50,7 +50,7 @@ export class Post extends Model.define({ id: "integer" }) {}
     const site = repository({
       "site/snippets/guide/posts.ts": snippet,
       "site/snippets/guide/schema.sql": "CREATE TABLE posts (id INTEGER);\n",
-      "skills/d1-record/SKILL.md": skill,
+      "packages/active-record/skills/active-record/SKILL.md": skill,
     });
     writeExcerpts(site);
 
@@ -63,7 +63,7 @@ export class Post extends Model.define({ id: "integer" }) {}
   test("hold the agent skill's rules in skill-rules.md", () => {
     const site = repository({
       "site/snippets/guide/posts.ts": snippet,
-      "skills/d1-record/SKILL.md": skill,
+      "packages/active-record/skills/active-record/SKILL.md": skill,
     });
     writeExcerpts(site);
 
@@ -76,7 +76,7 @@ export class Post extends Model.define({ id: "integer" }) {}
     const site = repository({
       "site/docs/_excerpts/guide/removed.ts": "export {};\n",
       "site/snippets/guide/posts.ts": snippet,
-      "skills/d1-record/SKILL.md": skill,
+      "packages/active-record/skills/active-record/SKILL.md": skill,
     });
     writeExcerpts(site);
 
@@ -86,9 +86,11 @@ export class Post extends Model.define({ id: "integer" }) {}
   test("can't be written when the agent skill has no rules region", () => {
     const site = repository({
       "site/snippets/guide/posts.ts": snippet,
-      "skills/d1-record/SKILL.md": "---\nname: d1-record\n---\n",
+      "packages/active-record/skills/active-record/SKILL.md": "---\nname: d1-record\n---\n",
     });
 
-    expect(() => writeExcerpts(site)).toThrow("skills/d1-record/SKILL.md has no rules region");
+    expect(() => writeExcerpts(site)).toThrow(
+      "packages/active-record/skills/active-record/SKILL.md has no rules region",
+    );
   });
 });

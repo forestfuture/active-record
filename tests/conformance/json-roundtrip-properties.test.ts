@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../src/index.ts";
+import { Model } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { jsonValues } from "../support/json-values.ts";
 import { SLOW_RUNS, SLOW_TIMEOUT } from "../support/properties.ts";

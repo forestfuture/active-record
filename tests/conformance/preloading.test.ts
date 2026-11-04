@@ -1,9 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { AssociationNotLoaded, IncompatibleRelation } from "../../src/index.ts";
+import {
+  AssociationNotLoaded,
+  IncompatibleRelation,
+} from "../../packages/active-record/src/index.ts";
 import { Post } from "../fixtures/models/post.ts";
 import { Profile } from "../fixtures/models/profile.ts";
 import { User } from "../fixtures/models/user.ts";
-import type { QueryEvent } from "../../src/executor.ts";
+import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 describe("preloading with includes", () => {

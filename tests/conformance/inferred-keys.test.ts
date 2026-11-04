@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, Model } from "../../src/index.ts";
+import { belongsTo, hasMany, Model } from "../../packages/active-record/src/index.ts";
 import { Post } from "../fixtures/models/post.ts";
 import { User } from "../fixtures/models/user.ts";
 import { openHarness, type Harness } from "../support/harness.ts";

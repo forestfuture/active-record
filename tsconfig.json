@@ -20,7 +20,12 @@
     "erasableSyntaxOnly": true,
     "skipLibCheck": true,
     // The documentation's examples import the package by name, as an app would.
-    "paths": { "@forestfuture/d1-record": ["./src/index.ts"] }
+    "paths": {
+      "@forestfuture/active-record": ["./packages/active-record/src/index.ts"],
+      "@forestfuture/active-record/adapter": ["./packages/active-record/src/for-adapters.ts"],
+      "@forestfuture/active-record/cli": ["./packages/active-record/src/for-cli.ts"],
+      "@forestfuture/d1-record": ["./packages/d1-record/src/index.ts"]
+    }
   },
-  "include": ["vite.config.ts", "tests"]
+  "include": ["vite.config.ts", "tests", "scripts", "packages/*/vite.config.ts"]
 }

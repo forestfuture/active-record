@@ -1,10 +1,15 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import type { Adapter } from "../../src/adapter.ts";
-import { d1Adapter } from "../../src/d1/adapter.ts";
-import { D1Driver } from "../../src/d1/driver.ts";
-import { AnyDatabase } from "../../src/database.ts";
-import { DatabaseExecutor } from "../../src/executor.ts";
-import { Model, NoDatabase, type TableAttributes, withDatabase } from "../../src/index.ts";
+import type { Adapter } from "../../packages/active-record/src/adapter.ts";
+import { d1Adapter } from "../../packages/d1-record/src/adapter.ts";
+import { D1Driver } from "../../packages/d1-record/src/driver.ts";
+import { AnyDatabase } from "../../packages/active-record/src/database.ts";
+import { DatabaseExecutor } from "../../packages/active-record/src/executor.ts";
+import {
+  Model,
+  NoDatabase,
+  type TableAttributes,
+  withDatabase,
+} from "../../packages/active-record/src/index.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
 const mark = "/* the other adapter */";

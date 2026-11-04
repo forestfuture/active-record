@@ -1,5 +1,6 @@
 // As `d1-record schema` generates it for a second binding, LOGS, for the guide's examples.
-import { d1, type TableAttributes } from "@forestfuture/d1-record";
+import type { TableAttributes } from "@forestfuture/active-record";
+import { d1 } from "@forestfuture/d1-record";
 
 /** entries */
 export const entries = {

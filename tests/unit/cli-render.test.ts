@@ -4,8 +4,8 @@ import {
   renderBase,
   renderSchema,
   type ListedModel,
-} from "../../cli/schema/render.ts";
-import { schemaOf, type GeneratedTable } from "../../cli/schema/schema.ts";
+} from "../../packages/d1-record/cli/schema/render.ts";
+import { schemaOf, type GeneratedTable } from "../../packages/d1-record/cli/schema/schema.ts";
 
 function tablesOf(sql: string): GeneratedTable[] {
   const result = schemaOf([{ name: "0001_create.sql", sql }]);
@@ -76,7 +76,7 @@ export const schema = {
     const source = renderSchema(schemaFor(tables, models), "migrations/");
 
     expect(source).toContain(
-      'import { d1, type TableAttributes } from "@forestfuture/d1-record";\n\n/** posts',
+      'import type { TableAttributes } from "@forestfuture/active-record";\nimport { d1 } from "@forestfuture/d1-record";\n\n/** posts',
     );
     expect(source).toContain(
       '  models: { FeaturedUser: "users", Post: "posts", User: "users" },\n} as const;',
@@ -177,7 +177,7 @@ export const schema = {
     const source = renderBase("LogsRecord", "../db/LOGS");
 
     expect(source).toMatch(
-      /^import \{ Model \} from "@forestfuture\/d1-record";\nimport \{ schema \} from "\.\.\/db\/LOGS";\n/,
+      /^import \{ Model \} from "@forestfuture\/active-record";\nimport \{ schema \} from "\.\.\/db\/LOGS";\n/,
     );
     expect(source).toContain("export abstract class LogsRecord extends Model {");
     expect(source).toContain("  static override schema = schema;");

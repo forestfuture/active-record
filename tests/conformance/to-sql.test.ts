@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../src/index.ts";
+import { Model } from "../../packages/active-record/src/index.ts";
 import { Post } from "../fixtures/models/post.ts";
 import { User } from "../fixtures/models/user.ts";
-import type { QueryEvent } from "../../src/executor.ts";
+import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 // A secret as the primary key: sessions looked up by their token (filtered by default).

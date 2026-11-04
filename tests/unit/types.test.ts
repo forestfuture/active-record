@@ -1,10 +1,8 @@
 import { describe, expectTypeOf, test } from "vite-plus/test";
 import {
-  d1,
   type AttributeConversions,
   belongsTo,
   between,
-  connect,
   gte,
   hasMany,
   hasOne,
@@ -15,9 +13,9 @@ import {
   type RecordStatement,
   Relation,
   sql,
-  withSession,
   type TableAttributes,
-} from "../../src/index.ts";
+} from "../../packages/active-record/src/index.ts";
+import { d1, connect, withSession } from "../../packages/d1-record/src/index.ts";
 
 class User extends Model.define({
   id: { type: "integer", null: false },

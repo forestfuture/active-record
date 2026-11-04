@@ -4,7 +4,7 @@ import { remoteProject, shop } from "../support/shop.ts";
 import { scratchDirs } from "../support/scratch.ts";
 
 const scratch = scratchDirs();
-const cli = new URL("../../cli/bin.ts", import.meta.url).pathname;
+const cli = new URL("../../packages/d1-record/cli/bin.ts", import.meta.url).pathname;
 const yellow = (text: string) => `\u001b[33m${text}\u001b[39m`;
 
 // What a terminal does that a piped stream can't show: line editing, completion while typing, a

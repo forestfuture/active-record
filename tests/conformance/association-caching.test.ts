@@ -8,8 +8,8 @@ import {
   type Relation,
   type ScopeStatic,
   withDatabase,
-} from "../../src/index.ts";
-import type { QueryEvent } from "../../src/executor.ts";
+} from "../../packages/active-record/src/index.ts";
+import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { holdStatements, reads } from "../support/hold-statements.ts";
 

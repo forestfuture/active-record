@@ -1,52 +1,100 @@
-// The published tarball holds exactly these files: the library, its `d1-record` command, its docs for
-// agents, and the package's own metadata. Run with `vp run check:package`, after `vp pack` and `vp run docs:build`
-// (as CI does): it packs what's built, skipping `prepack`, so pnpm prints only the JSON.
+// Each published tarball holds exactly its files: the core with its entries, its docs for agents and
+// its manifest; the D1 adapter with its build and the `d1-record` command. The adapter imports the
+// core only through its entries, never a copy of it. Run with `vp run check:package`, after
+// `vp run build` and `vp run docs:build` (as CI does): it packs what's built, skipping `prepack`.
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 
-const expected = [
-  "LICENSE",
-  "README.md",
-  "dist/cli.mjs",
-  "dist/index.d.mts",
-  "dist/index.mjs",
-  "llms-full.txt",
-  "package.json",
-  "skills/d1-record/SKILL.md",
-];
+/** Each package's files, a shared chunk's name standing for every chunk Rolldown names by hash. */
+const expected = {
+  "active-record": [
+    "LICENSE",
+    "README.md",
+    "dist/<chunk>.d.mts",
+    "dist/<chunk>.mjs",
+    "dist/adapter.d.mts",
+    "dist/adapter.mjs",
+    "dist/cli.d.mts",
+    "dist/cli.mjs",
+    "dist/index.d.mts",
+    "dist/index.mjs",
+    "llms-full.txt",
+    "package.json",
+    "skills/active-record/SKILL.md",
+  ],
+  "d1-record": [
+    "LICENSE",
+    "README.md",
+    "dist/cli.mjs",
+    "dist/index.d.mts",
+    "dist/index.mjs",
+    "package.json",
+  ],
+};
+
+const root = new URL("..", import.meta.url).pathname;
+/** Sorts as the expected lists are written: by code point, uppercase first. */
+const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+const fail = (message) => {
+  console.error(message);
+  process.exit(1);
+};
 
 execFileSync("node", [new URL("pack-docs.mjs", import.meta.url).pathname], { stdio: "inherit" });
-const output = execFileSync("pnpm", ["pack", "--dry-run", "--json", "--ignore-scripts"], {
-  encoding: "utf8",
-});
-const { files } = JSON.parse(output);
-const packed = files.map((file) => file.path).sort();
-
-if (JSON.stringify(packed) !== JSON.stringify(expected)) {
-  console.error(
-    `The tarball's files changed.\nExpected: ${expected.join(", ")}\nPacked:   ${packed.join(", ")}`,
+for (const [name, files] of Object.entries(expected)) {
+  const output = execFileSync(
+    "pnpm",
+    ["--dir", `packages/${name}`, "pack", "--dry-run", "--json", "--config.ignore-scripts=true"],
+    { cwd: root, encoding: "utf8" },
   );
-  process.exit(1);
+  const packed = JSON.parse(output).files.map((file) => file.path);
+  const named = [
+    ...new Set(packed.map((path) => path.replace(/^dist\/[\w-]+-[\w-]{8}\./, "dist/<chunk>."))),
+  ];
+  if (JSON.stringify(named.sort(byCodePoint)) !== JSON.stringify(files)) {
+    fail(
+      `${name}'s tarball changed.\nExpected: ${files.join(", ")}\nPacked:   ${named.join(", ")}`,
+    );
+  }
+  console.log(`${name}'s tarball holds exactly: ${named.join(", ")}`);
 }
-console.log(`The tarball holds exactly: ${packed.join(", ")}`);
+
+// The adapter's build imports the core by name, through its public entries, and bundles none of it.
+const d1 = readdirSync(new URL("../packages/d1-record/dist/", import.meta.url))
+  .filter((file) => file.endsWith(".mjs"))
+  .map((file) =>
+    readFileSync(new URL(`../packages/d1-record/dist/${file}`, import.meta.url), "utf8"),
+  )
+  .join("\n");
+const entries = new Set(
+  [...d1.matchAll(/from "(@forestfuture\/active-record[^"]*)"/g)].map(([, entry]) => entry),
+);
+const allowed = [
+  "@forestfuture/active-record",
+  "@forestfuture/active-record/adapter",
+  "@forestfuture/active-record/cli",
+];
+const unknown = [...entries].filter((entry) => !allowed.includes(entry));
+if (unknown.length > 0) fail(`d1-record imports the core through ${unknown.join(", ")}`);
+if (/class Relation\b|function compileSelect\b/.test(d1))
+  fail("d1-record bundles a copy of the core");
+console.log(`d1-record imports the core only through ${[...entries].sort(byCodePoint).join(", ")}`);
 
 // An agent reads llms-full.txt as one file, away from the site, so a link to another page can't be
 // relative to its page (#133). Blume writes those links from the site's root (`/models`), and each
 // page opens with its `Source:` URL, which gives the host to resolve them against.
-const guide = readFileSync(new URL("../llms-full.txt", import.meta.url), "utf8");
+const guide = readFileSync(
+  new URL("../packages/active-record/llms-full.txt", import.meta.url),
+  "utf8",
+);
 const relative = guide.match(/\]\(\.{1,2}\/[^)]*\)/g);
-if (relative) {
-  console.error(`llms-full.txt has ${relative.length} relative links, such as ${relative[0]}`);
-  process.exit(1);
-}
+if (relative) fail(`llms-full.txt has ${relative.length} relative links, such as ${relative[0]}`);
 const pages = readdirSync(new URL("../site/docs", import.meta.url), { recursive: true }).filter(
   (name) => /\.mdx?$/.test(name) && !name.startsWith("_"),
 ).length;
 const sources = guide.match(/^Source: https:\/\/d1-record\.forestfuture\.dev\//gm)?.length ?? 0;
-if (sources !== pages) {
-  console.error(`llms-full.txt names the source URL of ${sources} pages, of the guide's ${pages}`);
-  process.exit(1);
-}
+if (sources !== pages)
+  fail(`llms-full.txt names the source URL of ${sources} pages, of the guide's ${pages}`);
 console.log(
   `llms-full.txt names each of its ${pages} pages' source URL, and links no page relatively`,
 );

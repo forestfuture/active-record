@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import { connect, Model, RecordDestroyed } from "../../src/index.ts";
+import { Model, RecordDestroyed } from "../../packages/active-record/src/index.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
 
 class User extends Model.define({
   id: { type: "integer", null: false },

@@ -3,11 +3,10 @@
 // source, as an app's finds its own copies.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { openLocalBinding } from "../../cli/console/binding.ts";
-import type { ChosenDatabase } from "../../cli/console/database.ts";
+import { openLocalBinding } from "../../packages/d1-record/cli/console/binding.ts";
+import type { ChosenDatabase } from "../../packages/d1-record/cli/console/database.ts";
 import type { TestDatabase } from "./d1.ts";
-
-const library = new URL("../../src/index.ts", import.meta.url).pathname;
+import { libraryPaths } from "./library-paths.ts";
 
 /** The project's one D1 binding, as the console would choose it. */
 export function chosen(cwd: string): ChosenDatabase {
@@ -23,10 +22,11 @@ export async function shop(scratch: (prefix: string) => string): Promise<string>
       d1_databases: [{ binding: "DB", database_name: "shop", database_id: "local-shop" }],
     }),
     "tsconfig.json": JSON.stringify({
-      compilerOptions: { paths: { "@forestfuture/d1-record": [library] } },
+      compilerOptions: { paths: libraryPaths },
     }),
     "src/models/application-record.ts": `
-      import { d1, Model } from "@forestfuture/d1-record";
+      import { Model } from "@forestfuture/active-record";
+import { d1 } from "@forestfuture/d1-record";
       export abstract class ApplicationRecord extends Model {
         static override schema = {
           adapter: d1({ binding: "DB" }),

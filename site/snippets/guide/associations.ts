@@ -1,4 +1,4 @@
-import { belongsTo, hasMany, hasOne, Model, type HasMany } from "@forestfuture/d1-record";
+import { belongsTo, hasMany, hasOne, Model, type HasMany } from "@forestfuture/active-record";
 
 // #region declare
 export class Author extends Model.define({

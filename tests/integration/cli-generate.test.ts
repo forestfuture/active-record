@@ -10,8 +10,8 @@ import {
 import { join } from "node:path";
 import { Miniflare } from "miniflare";
 import { afterAll, describe, expect, test } from "vite-plus/test";
-import { runGenerate } from "../../cli/generate/command.ts";
-import { connect } from "../../src/index.ts";
+import { runGenerate } from "../../packages/d1-record/cli/generate/command.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
 
 // Inside tests/ (gitignored), so a generated project's imports of the library resolve as they
 // do in the repo, through tsconfig.json's paths.
@@ -126,7 +126,7 @@ export class Product extends ApplicationRecord {}
       "order_id INTEGER NOT NULL REFERENCES orders (id)",
     );
     expect(read(cwd, "src/models/line-item.ts"))
-      .toBe(`import { belongsTo } from "@forestfuture/d1-record";
+      .toBe(`import { belongsTo } from "@forestfuture/active-record";
 import { ApplicationRecord } from "./application-record";
 import { Order } from "./order";
 
@@ -186,7 +186,8 @@ Next: npx wrangler d1 migrations apply shop-db --local`);
 
     await generate(cwd, ["model", "Post", "user:references"], { models: "src/models.ts" });
 
-    expect(read(cwd, "src/models.ts")).toBe(`import { belongsTo } from "@forestfuture/d1-record";
+    expect(read(cwd, "src/models.ts"))
+      .toBe(`import { belongsTo } from "@forestfuture/active-record";
 import { ApplicationRecord } from "./application-record";
 
 export class User extends ApplicationRecord {}

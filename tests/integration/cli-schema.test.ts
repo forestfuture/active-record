@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import { runSchema, watchSchema } from "../../cli/schema/command.ts";
+import { runSchema, watchSchema } from "../../packages/d1-record/cli/schema/command.ts";
 import { scratchDirs } from "../support/scratch.ts";
 
 const scratch = scratchDirs();

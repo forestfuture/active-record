@@ -1,6 +1,6 @@
 // The fixture's Post, a generated Model with an override, associations, a method and a scope
 // (#232).
-import { belongsTo, hasMany } from "../../../src/index.ts";
+import { belongsTo, hasMany } from "../../../packages/active-record/src/index.ts";
 import { Comment } from "./comment.ts";
 import { DbRecord } from "./db-record.ts";
 import { User } from "./user.ts";

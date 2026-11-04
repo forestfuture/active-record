@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vite-plus/test";
-import { connect, hasMany, InvalidModel, Model, type ErrorMessages } from "../../src/index.ts";
+import {
+  hasMany,
+  InvalidModel,
+  Model,
+  type ErrorMessages,
+} from "../../packages/active-record/src/index.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
 
 // No D1 needed: none of these validations asks it anything.
 const db = connect({} as never);

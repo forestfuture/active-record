@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { ActiveRecordError, RecordNotFound } from "../../src/index.ts";
+import { ActiveRecordError, RecordNotFound } from "../../packages/active-record/src/index.ts";
 import { User } from "../fixtures/models/user.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 

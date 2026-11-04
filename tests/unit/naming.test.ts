@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
-import { connect } from "../../src/index.ts";
+import { connect } from "../../packages/d1-record/src/index.ts";
 import { User } from "../fixtures/models/user.ts";
-import { underscore } from "../../src/naming.ts";
+import { underscore } from "../../packages/active-record/src/naming.ts";
 import { originalUnderscore } from "../support/naming-oracle.ts";
 
 // No D1 needed: building a record and reading its errors never queries.

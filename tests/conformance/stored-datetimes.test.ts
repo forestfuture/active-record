@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { between, gte, Model } from "../../src/index.ts";
+import { between, gte, Model } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 // Integer epoch columns, as other tools leave them.

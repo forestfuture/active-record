@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { column, Model, sql } from "../../src/index.ts";
+import { column, Model, sql } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { fragment } from "../support/fragments.ts";
 

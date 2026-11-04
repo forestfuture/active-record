@@ -6,7 +6,7 @@ import {
   Model,
   sql,
   UnknownAttribute,
-} from "../../src/index.ts";
+} from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 describe("model declaration", () => {

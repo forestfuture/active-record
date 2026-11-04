@@ -1,4 +1,4 @@
-import { belongsTo, hasMany } from "@forestfuture/d1-record";
+import { belongsTo, hasMany } from "@forestfuture/active-record";
 import { ApplicationRecord } from "./application-record";
 
 export class User extends ApplicationRecord {

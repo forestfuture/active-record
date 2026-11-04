@@ -3,14 +3,13 @@
    type are defined when the Model's attributes resolve. */
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
 import {
-  d1,
-  connect,
   InvalidModel,
   Model,
   sql,
   UnknownAttribute,
   type TableAttributes,
-} from "../../src/index.ts";
+} from "../../packages/active-record/src/index.ts";
+import { d1, connect } from "../../packages/d1-record/src/index.ts";
 
 const db = connect({} as never);
 

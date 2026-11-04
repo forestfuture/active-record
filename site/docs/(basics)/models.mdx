@@ -12,7 +12,7 @@ A Model describes one table. Its attributes come from your migrations, through t
 The first time you run `d1-record schema`, it writes `src/models/application-record.ts`:
 
 ```ts
-import { Model } from "@forestfuture/d1-record";
+import { Model } from "@forestfuture/active-record";
 import { schema } from "../db/schema";
 
 export abstract class ApplicationRecord extends Model {
@@ -271,7 +271,7 @@ post.id; // "3b241101-e2bb-4255-8caf-4136c566a962"
 To use another kind of id across your app, override `generateId` on your app’s base class:
 
 ```ts
-import { Model } from "@forestfuture/d1-record";
+import { Model } from "@forestfuture/active-record";
 import { uuidv7 } from "uuidv7";
 import { schema } from "../db/schema";
 
@@ -331,7 +331,7 @@ Changes are found by comparing stored values, so editing a `json` value or a `Da
 For anything the query methods can’t express, write an `sql` tagged template. Values are always bound, and `column()` looks up an attribute’s column:
 
 ```ts
-import { column, sql } from "@forestfuture/d1-record";
+import { column, sql } from "@forestfuture/active-record";
 
 const recent = await User.where(sql`${column("createdAt")} > ${since}`).toArray();
 ```

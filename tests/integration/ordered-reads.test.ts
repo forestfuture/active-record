@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { connect, type QueryEvent } from "../../src/index.ts";
+import { connect, type QueryEvent } from "../../packages/d1-record/src/index.ts";
 import { Post } from "../fixtures/models/post.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 

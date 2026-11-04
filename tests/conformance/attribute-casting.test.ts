@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, between, gte, Model, RecordNotFound } from "../../src/index.ts";
-import type { QueryEvent } from "../../src/executor.ts";
+import {
+  belongsTo,
+  between,
+  gte,
+  Model,
+  RecordNotFound,
+} from "../../packages/active-record/src/index.ts";
+import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Sample extends Model.define({

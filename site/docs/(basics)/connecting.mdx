@@ -32,7 +32,8 @@ The binding is only there during a request, inside a Worker. Tests and scripts t
 Some things belong to one request, such as a D1 Session that reads its own writes, or logging tagged with the request’s ID. Open a database for the request, and run its code inside `withDatabase`:
 
 ```ts
-import { connect, withDatabase } from "@forestfuture/d1-record";
+import { withDatabase } from "@forestfuture/active-record";
+import { connect } from "@forestfuture/d1-record";
 
 export default {
   fetch(request, env) {

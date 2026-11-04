@@ -179,10 +179,6 @@ overrides:
 importers:
 
   .:
-    dependencies:
-      jiti:
-        specifier: ^2.7.0
-        version: 2.7.0
     devDependencies:
       '@arethetypeswrong/core':
         specifier: ^0.18.5
@@ -223,6 +219,21 @@ importers:
       wrangler:
         specifier: ^4.147.0
         version: 4.151.3(@cloudflare/workers-types@5.20261019.1)(@types/node@24.19.2)
+
+  packages/active-record: {}
+
+  packages/d1-record:
+    dependencies:
+      '@cloudflare/workers-types':
+        specifier: '>=4'
+        version: 5.20261019.1
+      jiti:
+        specifier: ^2.7.0
+        version: 2.7.0
+    devDependencies:
+      '@forestfuture/active-record':
+        specifier: workspace:*
+        version: link:../active-record
 
   site:
     devDependencies:

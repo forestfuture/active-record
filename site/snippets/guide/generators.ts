@@ -1,4 +1,4 @@
-import { belongsTo, hasMany, Model } from "@forestfuture/d1-record";
+import { belongsTo, hasMany, Model } from "@forestfuture/active-record";
 import { schema } from "../db/schema";
 
 // The app's base class, holding the generated schema with the categories table

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { chooseDatabase } from "../../cli/project/wrangler.ts";
+import { chooseDatabase } from "../../packages/d1-record/cli/project/wrangler.ts";
 
 /** Databases as the commands hold them: anything with a binding. */
 const bound = (...bindings: string[]) => bindings.map((binding) => ({ binding }));
