@@ -38,6 +38,8 @@ The release jobs in `.github/workflows/ci.yml` run on `main`, after `check` pass
 
 To release, merge the Version Packages pull request.
 
+**Publish only with pnpm.** In the repo, each package's `exports` point at its source, and the D1 adapter's peer dependency on the core is `workspace:*`. pnpm swaps in `publishConfig.exports` and the core's version when it packs; npm doesn't, so `npm publish` would upload a package no app could import or install. Each package's `prepublishOnly` (`scripts/require-pnpm.mjs`) refuses any publisher but pnpm. A publish by hand, such as the core's first (#279), runs `pnpm publish`, or `pnpm pack` and then `npm publish <tarball>`; check the packed `package.json` first.
+
 ## One-time setup
 
 These are done once, in this order.

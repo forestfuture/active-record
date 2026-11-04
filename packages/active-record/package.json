@@ -43,6 +43,7 @@
   },
   "scripts": {
     "build": "vp pack",
-    "prepack": "vp pack && vp run d1-record-site#build && node ../../scripts/pack-docs.mjs"
+    "prepack": "vp pack && vp run d1-record-site#build && node ../../scripts/pack-docs.mjs",
+    "prepublishOnly": "node ../../scripts/require-pnpm.mjs"
   }
 }
