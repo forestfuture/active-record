@@ -1,18 +1,22 @@
 # Behavior contract (draft)
 
-The public behavior agreed during design, which the tests must prove. The guide at d1-record.forestfuture.dev is written from it. Terms follow `GLOSSARY.md`; the reasons for decisions are in `docs/adr/`. Each section names the modules that implement it, and its guide pages where it has them.
+The public behavior agreed during design, which the tests must prove. The guide at d1-record.forestfuture.dev is written from it. Terms follow `GLOSSARY.md`; the reasons for decisions are in `docs/adr/`. Each section names the modules that implement it, and its guide pages where it has them. Each is marked _Portable_, proven on every adapter by the conformance suite (`tests/conformance/`), or _D1_, proven by the D1 adapter's own tests (`tests/integration/`). A portable section's bullet marked (D1) is the D1 adapter's alone.
 
 ## Toolchain
+
+_D1._
 
 _Code:_ `vite.config.ts`, `package.json`.
 
 - Vite+ `1.0.0`, pinned exactly; upgrade with `vp upgrade`, then `vp migrate`. pnpm 12.6.0 through `devEngines`. Node 24 LTS through `.node-version`.
 - Single package `@forestfuture/d1-record` (scoped, published with `access: public`), ESM-only, target ES2022, `.d.ts` emitted, attw `esm-only` profile and publint on every `vp pack`. `"private": true` until we decide to publish. MIT license.
 - `src/` is type-checked with `@cloudflare/workers-types` and no Node types. `tests/tsconfig.json` adds Node types.
-- Two Vitest projects. `unit` (`tests/unit/**`) is for logic that needs no database. There's no fake executor: tests that involve D1 use the real Miniflare D1 and watch queries through the public `onQuery` hook. `integration` (`tests/integration/**`) gets a fresh in-memory Miniflare D1 per file, with the schema created from `tests/fixtures/migrations/db/0001_schema.sql` (`tests/support/d1.ts`, Miniflare 4). See ADR-0002.
+- Three Vitest projects. `unit` (`tests/unit/**`) is for logic that needs no database. There's no fake executor: tests that involve a database use a real one and watch queries through the public `onQuery` hook. `conformance:d1` runs the portable conformance suite (`tests/conformance/**`, #267) against D1: each file opens its database through `openHarness()` (`tests/support/harness.ts`), which the project names with `provide`, and skips the tests an adapter's allowed differences name (`tests/conformance/allowed-differences.ts`). `integration` (`tests/integration/**`) holds the D1 adapter's own tests. Both get a fresh in-memory Miniflare D1 per file, with the schema created from `tests/fixtures/migrations/db/0001_schema.sql` (`tests/support/d1.ts`, Miniflare 4). See ADR-0002.
 - Pre-commit hooks lint and format staged files. GitHub Actions runs `vp install`, `vp check`, `vp test` and `vp pack` on push to `main`.
 
 ## Connecting
+
+_Portable._ A bullet marked (D1) is the D1 adapter's alone.
 
 _Guide:_ [connecting](<../site/docs/(basics)/connecting.mdx>), [query-databases](<../site/docs/(background)/query-databases.md>), [several-databases](<../site/docs/(how-to)/several-databases.mdx>), [read-your-own-writes](<../site/docs/(how-to)/read-your-own-writes.mdx>). _Code:_ `src/database.ts`, `src/current-database.ts`, `src/executor.ts`, `src/d1/`.
 
@@ -38,15 +42,15 @@ const users = db.model(User); // a Relation on this database
 const models = db.models({ User, Post }); // convenience: models.User has the same type as db.model(User)
 ```
 
-- A Database with a session sends every query through that one D1 Session: record reads and writes, uniqueness checks, association reads, preloads, statements and batches. So the request reads its own writes even when reads are served by replicas. `session` takes D1's own values: `"first-primary"`, `"first-unconstrained"`, or a bookmark. Apps that want a primary Database and a replica Database call `connect()` twice.
-- `db.bookmark()` is the Session's latest bookmark (D1's `getBookmark()`), `null` before its first query. Pass it to the next request's `connect(env.DB, { session: bookmark })` to read at least as new as this request wrote. On a Database opened without a session it throws `NoSession`, since a `null` there would quietly mean "no session" next time.
-- `withSession(request, env.DB, [options,] fn)` opens the request's Database with a Session, runs `fn(db)` inside `withDatabase(db, …)`, and resolves to `fn`'s Response with the Session's bookmark set on it (#220). The Session starts from the bookmark the request carries, or from `start` (`"first-unconstrained"` unless set) when it carries none. The bookmark set is `db.bookmark()`, or the request's own when `fn` sent no query; with neither, nothing is set. A request's bookmark may be forged, and D1 rejects one it can't use on the Session's first statement (`invalid commitToken bookmark`; `tests/remote/` checks garbage, a far-future bookmark shaped like D1's, and a 10,000-character value against real D1). So when it does, the Session starts again from `start`, and the rejected statement (or batch) is sent again on it, once: it never ran, and `fn` isn't run twice. First statements sent at once start it again once, and each is sent again. Once a statement succeeds, a later rejection is thrown as it is. `onQuery` hears both attempts. The bookmark set back is then the new Session's (#237). A bookmark given to `connect(binding, { session })` isn't started again: D1's error is thrown. Either way, a long bookmark in that error's message, and its cause's, is cut to 64 characters, since a request may have sent it.
+- (D1) A Database with a session sends every query through that one D1 Session: record reads and writes, uniqueness checks, association reads, preloads, statements and batches. So the request reads its own writes even when reads are served by replicas. `session` takes D1's own values: `"first-primary"`, `"first-unconstrained"`, or a bookmark. Apps that want a primary Database and a replica Database call `connect()` twice.
+- (D1) `db.bookmark()` is the Session's latest bookmark (D1's `getBookmark()`), `null` before its first query. Pass it to the next request's `connect(env.DB, { session: bookmark })` to read at least as new as this request wrote. On a Database opened without a session it throws `NoSession`, since a `null` there would quietly mean "no session" next time.
+- (D1) `withSession(request, env.DB, [options,] fn)` opens the request's Database with a Session, runs `fn(db)` inside `withDatabase(db, …)`, and resolves to `fn`'s Response with the Session's bookmark set on it (#220). The Session starts from the bookmark the request carries, or from `start` (`"first-unconstrained"` unless set) when it carries none. The bookmark set is `db.bookmark()`, or the request's own when `fn` sent no query; with neither, nothing is set. A request's bookmark may be forged, and D1 rejects one it can't use on the Session's first statement (`invalid commitToken bookmark`; `tests/remote/` checks garbage, a far-future bookmark shaped like D1's, and a 10,000-character value against real D1). So when it does, the Session starts again from `start`, and the rejected statement (or batch) is sent again on it, once: it never ran, and `fn` isn't run twice. First statements sent at once start it again once, and each is sent again. Once a statement succeeds, a later rejection is thrown as it is. `onQuery` hears both attempts. The bookmark set back is then the new Session's (#237). A bookmark given to `connect(binding, { session })` isn't started again: D1's error is thrown. Either way, a long bookmark in that error's message, and its cause's, is cut to 64 characters, since a request may have sent it.
   - **Where it travels:** by default a `d1-bookmark` cookie, read from the request's `Cookie` header (an empty value is none) and appended as `Set-Cookie: d1-bookmark=…; Path=/; HttpOnly; Secure; SameSite=Lax`, after any cookies `fn` set. It has no `Max-Age`, so it lasts the browser's session: an old bookmark only asks for data at least that new. `cookie` renames it. `header` carries it in that request header and response header instead (set, replacing one `fn` set), with no cookie. `cookie` and `header` together are a type error, and reject with `TypeError` before `fn` runs. The options also take `connect()`'s `onQuery`.
   - **The response:** one whose headers can't change (from `fetch()` or `Response.redirect()`) is copied, with its status and headers, before the bookmark is set; any other is returned as it is.
   - **Errors:** what `fn` throws reaches the caller unchanged, and no bookmark is set.
   - One binding per call. For several, nest calls, each with its own `cookie` or `header`: `withDatabase` adds nested databases to the outer ones.
 - **Statics:** every Relation method is a static of every Model (`find`, `findBy`, `where`, `whereNot`, `order`, `first`, `count`, `pluck`, `build`, `create`, `insert`, `insertAll`, `upsert`, `updateAll`, `deleteAll`, the `to…` forms, …), as Rails delegates them to `all`, plus `Model.all()`, the Relation itself, and the Model's scopes (`User.active()`). Each is typed for the class it's called on, so on a subclass it returns that subclass's records. They query the **current database**: the request's, then the Model's binding. Building a Relation never queries, so statics can be called anywhere; running one needs a database.
-- **The binding (level 1):** the generated schema a Model's base class holds names the D1 binding it queries when there's no request database, as Rails' `connects_to`; `d1-record schema` writes it, per binding. It's read from `import { env } from "cloudflare:workers"`, loaded only when a query needs it, so the library imports fine in Node. That `env` object is read once and kept, so a test that mocks `cloudflare:workers` (with d1-record inlined by Vitest, `test.server.deps.inline`) assigns its bindings onto the mocked object rather than replacing it; that's how tests give each Model its own database when there are several (#227). Each binding gets one Database, holding nothing per request (no Session, no listener), shared by every request: safe across concurrent requests in one isolate.
+- (D1) **The binding (level 1):** the generated schema a Model's base class holds names the D1 binding it queries when there's no request database, as Rails' `connects_to`; `d1-record schema` writes it, per binding. It's read from `import { env } from "cloudflare:workers"`, loaded only when a query needs it, so the library imports fine in Node. That `env` object is read once and kept, so a test that mocks `cloudflare:workers` (with d1-record inlined by Vitest, `test.server.deps.inline`) assigns its bindings onto the mocked object rather than replacing it; that's how tests give each Model its own database when there are several (#227). Each binding gets one Database, holding nothing per request (no Session, no listener), shared by every request: safe across concurrent requests in one isolate.
 - **The request's database (level 2):** `withDatabase(db | [db, …], fn)` runs `fn` with those databases as the request's own, through Workers' `AsyncLocalStorage`: every query started from a Model inside it, and everything it awaits, uses the one whose D1 binding is that Model's binding, with its Session and `onQuery`. Nested calls add to the outer ones. Outside a Worker (Node, scripts), where there's no binding to match, the request's database serves every Model if there's one, and several are an error. `AsyncLocalStorage` is loaded with `process.getBuiltinModule("node:async_hooks")` when `withDatabase` is first called, so Workers without Node.js compatibility still build; calling it there throws `NoDatabase` naming the setting (a `compatibility_date` of 2026-08-04 or later, or `nodejs_compat`).
 - **An explicit database (level 3):** `db.model(X)`, `db.models({...})` and `db.batch([...])` always use `db`, whatever `withDatabase` says.
 - **Errors** (`NoDatabase`, saying what to do): a Model whose base class holds no generated schema, outside `withDatabase`; a binding only available inside a Worker, queried outside one; several request databases outside a Worker; a binding that isn't in the Worker's env (check `d1_databases`). A query at a module's top level fails with Workers' own error: D1 calls happen during a request.
@@ -56,6 +60,8 @@ const models = db.models({ User, Post }); // convenience: models.User has the sa
 - Every record keeps the Database it was built or loaded through. Records come only from `build()`, `create()` or a query. A record constructed directly with `new User()` throws `NoDatabase` on any operation that needs D1; `User.build(…)` makes one on the current database.
 
 ## Declaring a Model
+
+_Portable._ A bullet marked (D1) is the D1 adapter's alone.
 
 _Guide:_ [models](<../site/docs/(basics)/models.mdx>), [untrusted-input](<../site/docs/(how-to)/untrusted-input.mdx>), [querying](<../site/docs/(basics)/querying.mdx>), [adopt-a-database](<../site/docs/(how-to)/adopt-a-database.mdx>). _Code:_ `src/model.ts`, `src/model-statics.ts`, `src/generated-model.ts`, `src/metadata.ts`, `src/spec-keys.ts`, `src/table-names.ts`, `src/verify-model.ts`, `src/permit.ts`, `src/attribute.ts`, `src/conversion.ts`, `src/attribute-conversions.ts`.
 
@@ -90,7 +96,7 @@ class User extends ApplicationRecord.define({
 - A Model's `table` is inferred from its class name by Rails' `tableize`: `underscore`, then pluralized by Active Support's default English inflections (rules, irregulars such as `person` → `people`, uncountables such as `sheep`), ported so tables are named as in Rails: `User` → `users`, `BlogPost` → `blog_posts`, `APIKey` → `api_keys`. An explicit `static table` always wins, and is the way to name a table the rules don't (there's no inflection configuration, which would be module-level state, ADR-0012). It's inferred from the class directly below a base class (the app's, one marked `static abstract = true`, or the class `define` makes), so a subclass shares its parent's table, as in Rails. Reading `Post.table` gives it. Rails' quirks come with the rules (`Human` → `humen`, `Leaf` → `leafs`), and `static table` fixes them. A class with no name to infer from (anonymous, or `export default class`) throws `InvalidModel` when first used, unless it sets `table`. Assigning `table` (a static block, or a class field compiled without `useDefineForClassFields`) sets it as declaring it does. Like inferred foreign keys, it needs the class to keep its name when bundled (a generated Model that doesn't is caught by the schema's `models` list); a Model's own `modelName` for this is #47. When D1 reports "no such table" for an inferred name, the error is an `InvalidModel` saying where the name came from, with D1's error as its `cause`. A declared table that's missing is D1's own error.
 - Attributes are camelCase and map automatically to snake_case columns (ADR-0004), using Rails' `underscore` rule, which treats a run of capitals as one word: `createdAt` → `created_at`, `externalAccountId` → `external_account_id`, `htmlURL` → `html_url`, `userID` → `user_id`, `sha256Hash` → `sha256_hash`. `column` overrides the mapping for one attribute.
 - Types: `string`, `integer`, `real`, `boolean` (0/1), `datetime` (a `Date`, stored as ISO-8601 TEXT; text with no zone, such as SQLite's `CURRENT_TIMESTAMP` writes, reads as UTC in any time zone; or, with `storage`, as an integer Unix time), `json` (stored as JSON text, in a `TEXT` column as D1 recommends; adding `CHECK (json_valid(column))` makes D1 reject invalid JSON). A column declared `JSON` also works: SQLite stores number-like values in it as numbers, and they still read back as the value written.
-- **`storage` (#73).** A `datetime` declared with `storage: "unixSeconds"` or `"unixMilliseconds"` is held in its column as an integer Unix time, as Drizzle's `timestamp` and `timestamp_ms` modes write it. It's still a `Date` in JavaScript, and it's cast like any `datetime` (an ISO string or a `Date`; a number is refused). It's written as an integer (seconds are floored, so a `Date` is kept to the second), read as `new Date(n * 1000)` or `new Date(n)`, and compared as integers by `where`, `gte`, `between` and `order`. `createdAt` and `updatedAt` are set through it. An assignment that stores the same integer isn't a change. `storage` on any other type, or any other value, is a compile error and an `InvalidModel`. Conditions compare the stored integer, so under `unixSeconds` a `Date` with milliseconds compares to the second. A `Date` interpolated into an `sql` fragment has no attribute, so it's written as ISO text and won't compare with the integer; use `column(attribute).value(date)` there, which writes it as the attribute stores it (#142). A column holding both `T…Z` text and SQLite's space form (Prisma's engine writes and its `CURRENT_TIMESTAMP` default) reads both as UTC but compares as text, so `order` and range conditions can misplace values within a day; the guide shows a migration that rewrites every date text form to d1-record's with `strftime` (leaving NULLs and anything it can't read), and a fragment that compares through `strftime` for a column another tool still writes (the comparison can't use the column's index) (#143). A cell in a `storage` column that isn't a Unix time (text, or past the range of a `Date`) raises `TypeError` when the record loads or `pluck` reads it, naming the Model and attribute and showing the value as an assigned one is shown, hidden for a filtered attribute. Reading is strict: an integer-storage column doesn't also read ISO text, since the tools that write epochs don't mix them (checked: Drizzle writes integers by its mode and by `unixepoch()` defaults; Prisma on D1 writes ISO text, so needs no `storage`).
+- (D1) **`storage` (#73).** A `datetime` declared with `storage: "unixSeconds"` or `"unixMilliseconds"` is held in its column as an integer Unix time, as Drizzle's `timestamp` and `timestamp_ms` modes write it. It's still a `Date` in JavaScript, and it's cast like any `datetime` (an ISO string or a `Date`; a number is refused). It's written as an integer (seconds are floored, so a `Date` is kept to the second), read as `new Date(n * 1000)` or `new Date(n)`, and compared as integers by `where`, `gte`, `between` and `order`. `createdAt` and `updatedAt` are set through it. An assignment that stores the same integer isn't a change. `storage` on any other type, or any other value, is a compile error and an `InvalidModel`. Conditions compare the stored integer, so under `unixSeconds` a `Date` with milliseconds compares to the second. A `Date` interpolated into an `sql` fragment has no attribute, so it's written as ISO text and won't compare with the integer; use `column(attribute).value(date)` there, which writes it as the attribute stores it (#142). A column holding both `T…Z` text and SQLite's space form (Prisma's engine writes and its `CURRENT_TIMESTAMP` default) reads both as UTC but compares as text, so `order` and range conditions can misplace values within a day; the guide shows a migration that rewrites every date text form to d1-record's with `strftime` (leaving NULLs and anything it can't read), and a fragment that compares through `strftime` for a column another tool still writes (the comparison can't use the column's index) (#143). A cell in a `storage` column that isn't a Unix time (text, or past the range of a `Date`) raises `TypeError` when the record loads or `pluck` reads it, naming the Model and attribute and showing the value as an assigned one is shown, hidden for a filtered attribute. Reading is strict: an integer-storage column doesn't also read ISO text, since the tools that write epochs don't mix them (checked: Drizzle writes integers by its mode and by `unixepoch()` defaults; Prisma on D1 writes ISO text, so needs no `storage`).
 - **Casting (#81).** A value is cast to its attribute's type when it's assigned (`build`, `create`, `assign`, `update`, a property setter, a default) or given to a bulk write (`insert`, `insertAll`, `upsert`, `upsertAll`, `updateAll` and their `to…` forms), so reads, validations and callbacks see the cast value. Only what's unambiguous is accepted; anything else throws `TypeError` (`Sample: "no" isn't a boolean for "enabled"`), and the attribute keeps its value. `null` is always NULL. `undefined` is refused the same way wherever an assigned value is cast (an assignment, `permit`, a bulk write, `column(attribute).value(undefined)`): `Sample: got undefined for "enabled"; use null to store NULL` (#163).
   - `boolean`: `true`/`false`, `1`/`0`, `"1"`/`"0"`, and `"true"`/`"false"` or `"on"`/`"off"` in any case.
   - `integer`: a safe integer, or a string that's wholly one (`" 42 "`, `"-7"`, `"+3"`). Not `1.7`, `"12abc"`, `"1e3"`, `""`, `NaN` or past `Number.MAX_SAFE_INTEGER`.
@@ -125,6 +131,8 @@ class User extends ApplicationRecord.define({
 - Keys that aren't declared attributes throw `UnknownAttribute` in `build`, `create`, `update` and `where`, and are compile errors where the types can see them.
 
 ## The generated schema
+
+_D1._
 
 _Guide:_ [schema](<../site/docs/(background)/schema.md>), [adopt-a-database](<../site/docs/(how-to)/adopt-a-database.mdx>), [command-line](<../site/docs/(basics)/command-line.mdx>). _Code:_ `cli/schema/`, `cli/project/`, `src/generated-model.ts`, `src/spec-keys.ts`.
 
@@ -173,6 +181,8 @@ export class Visit extends ApplicationRecord.define({ id: "integer", path: "stri
 
 ### Generators
 
+_D1._
+
 _Guide:_ [generators](<../site/docs/(how-to)/generators.mdx>), [change-a-table](<../site/docs/(how-to)/change-a-table.mdx>), [command-line](<../site/docs/(basics)/command-line.mdx>). _Code:_ `cli/generate/`.
 
 `npx d1-record g model <Name> [columns]` writes a `CREATE TABLE` migration and a Model; `npx d1-record g migration <Name> [columns]` writes a migration whose name says what it does. Both then regenerate the schema and print the next step (`npx wrangler d1 migrations apply <database_name> --local`); neither applies migrations.
@@ -185,6 +195,8 @@ _Guide:_ [generators](<../site/docs/(how-to)/generators.mdx>), [change-a-table](
 - **Nothing is written** unless the new migration applies after the existing ones (in memory, as `d1-record schema` applies them) and the Model file is new (or, for `--models` with one file, doesn't have the class yet). Otherwise the command prints why, then "Wrote nothing". With several D1 databases, `--database <binding>` chooses one, and the Model imports that database's schema file. `--config <file>` names the Wrangler config, as for `d1-record schema`.
 
 ## Console
+
+_D1._
 
 _Guide:_ [console](<../site/docs/(how-to)/console.mdx>), [command-line](<../site/docs/(basics)/command-line.mdx>). _Code:_ `cli/console/`. See ADR-0014.
 
@@ -209,6 +221,8 @@ _Guide:_ [console](<../site/docs/(how-to)/console.mdx>), [command-line](<../site
 
 ## Scopes
 
+_Portable._
+
 _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>), [models](<../site/docs/(basics)/models.mdx>). _Code:_ `src/scoped-relation.ts`.
 
 - Declared one static each, as Rails' `scope :active, -> { … }`: `static active = this.scope((q, ...args) => q…)`. A scope receives the current Relation and its arguments and returns a changed Relation of the **same Model**; anything else throws `TypeError` naming the scope. The Relation it returns may start again from the Model's statics: it must be on the same database when the query runs, or it throws `IncompatibleRelation` naming the scope (#93), so a query never silently moves to another database.
@@ -223,6 +237,8 @@ _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>), [models](<../site/doc
 
 ## Inheritance, shared behavior and serialization
 
+_Portable._
+
 _Guide:_ [shared-behavior](<../site/docs/(how-to)/shared-behavior.mdx>), [models](<../site/docs/(basics)/models.mdx>). _Code:_ `src/ancestors.ts`, `src/declarations.ts`, `src/model.ts`, `src/model-statics.ts`, `src/verify-model.ts`.
 
 - A subclass (`class Admin extends User`) inherits a copy of its parent's attributes, validations, callbacks, scopes and associations. Declaring more on the child never changes the parent. Single-table inheritance is out of scope.
@@ -231,6 +247,8 @@ _Guide:_ [shared-behavior](<../site/docs/(how-to)/shared-behavior.mdx>), [models
 - **Printing (#104):** a record and a Relation print readably under `Symbol.for("nodejs.util.inspect.custom")`, so Node's `util.inspect`, `console.log`, the REPL and workerd's `node:util` use it, with the `depth`, `colors` and `stylize` they pass. A record prints `Name { attribute: value, … }` with its loaded attributes (a new record's unassigned ones as `null`; a partial record's only the columns it loaded), and its values printed by the runtime's own `inspect`. A filtered attribute's non-null value prints as `[FILTERED]`, unquoted and in the special color; `null` prints as `null`. On a persisted record, an attribute that differs from its Snapshot prints `after (was before)`, a filtered one prints `[FILTERED] (changed)` (also when it became `null`, so the old value never shows), and an attribute a partial record never loaded prints `after (changed)`, since its value before is unknown; a new record flags nothing. `hiddenAttributes` don't affect it, and associations aren't printed. Nested deeper than `depth` allows, a record prints as `[Name]`. A Relation prints `Relation<Name> { sql, params }`: the SELECT `toSql()` shows, never sent (printing is synchronous, so it can't load records), with a filtered attribute's param as `[FILTERED]`; past `depth`, `[Relation]`. A record's `errors` print `Errors [ { attribute, type, message, values? }, … ]` (`Errors []` when there are none; `[Errors]` past `depth`). Code: `src/record-inspect.ts`, `src/relation-inspect.ts`, `src/errors-collection.ts`.
 
 ## Change tracking
+
+_Portable._
 
 _Guide:_ [models](<../site/docs/(basics)/models.mdx>). _Code:_ `src/record-state.ts`, `src/attribute.ts`.
 
@@ -243,6 +261,8 @@ _Guide:_ [models](<../site/docs/(basics)/models.mdx>). _Code:_ `src/record-state
 - `restoreAttributes(names?)` undoes unsaved changes, to the named attributes or all: a persisted record's go back to their stored values, and a new record's to their declared defaults or generated ids (or `null`), as in Rails.
 
 ## Associations
+
+_Portable._
 
 _Guide:_ [associations](<../site/docs/(basics)/associations.mdx>). _Code:_ `src/association-fields.ts`, `src/associations.ts`, `src/association-writers.ts`, `src/foreign-keys.ts`, `src/resolved-association.ts`, `src/owned-collection.ts`, `src/autosave.ts`, `src/dependents.ts`, `src/preload.ts`.
 
@@ -295,6 +315,8 @@ class Post extends Model.define({ id: "integer", userId: "integer" }) {
 
 ## Persistence results
 
+_Portable._
+
 _Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `src/lifecycle.ts`, `src/model.ts`, `src/model-statics.ts`.
 
 | Method                                   | Resolves to                           | Domain errors                                         |
@@ -313,6 +335,8 @@ Any error thrown by a callback other than an `abort(...)` propagates unchanged. 
 
 ## Constraint errors
 
+_Portable._
+
 _Guide:_ [errors](<../site/docs/(basics)/errors.mdx>). _Code:_ `src/constraints.ts`, `src/d1/errors.ts`.
 
 - `RecordNotUnique`, `InvalidForeignKey`, `NotNullViolation` and `CheckViolation`, all subclasses of `ConstraintViolation`, are recognized from D1 error messages on insert, update and delete. They carry the original error as `cause`, and `.table`, `.columns` and `.attributes` where the message names them (SQLite's foreign-key and check messages don't name a column). The same errors come from statements and batches. `.table` is the table D1's message names, and `.attributes` are mapped when that table is one being written to (a trigger's write to another table leaves them empty). When the message names no table (foreign-key and check failures), it's the only table written to. A batch that writes to several then has `.table` `null`, and the message starts with `batch:`.
@@ -321,11 +345,15 @@ _Guide:_ [errors](<../site/docs/(basics)/errors.mdx>). _Code:_ `src/constraints.
 
 ## Validation
 
+_Portable._
+
 _Guide:_ [validations](<../site/docs/(basics)/validations.mdx>). _Code:_ `src/validations.ts`, `src/lifecycle.ts`.
 
 `await record.isValid()` is the only public entry point. It clears `errors`, runs `beforeValidation`, runs the synchronous and asynchronous validators (uniqueness reads D1), runs `afterValidation`, and returns `true`/`false`. It catches `abort()` and returns `false`; every other error propagates. `save()` and `saveOrThrow()` call it internally. `isChanged()` is a pure synchronous state check, while `isValid()` does work and may query D1.
 
 ## Errors collection
+
+_Portable._
 
 _Guide:_ [validations](<../site/docs/(basics)/validations.mdx>). _Code:_ `src/errors-collection.ts`, `src/error-messages.ts`.
 
@@ -349,6 +377,8 @@ Validators add entries with a `type` (`"blank"`, `"taken"`, `"tooShort"`, …) a
 
 ## Validators
 
+_Portable._
+
 _Guide:_ [validations](<../site/docs/(basics)/validations.mdx>). _Code:_ `src/validations.ts`.
 
 Declared in `static {}` with `this.validates(attribute, rules)`. The attribute name and the `if` callback's record are typed against the Model. Every declared validation runs, in declaration order, with no stopping at the first failure, so one attribute can collect several errors. Within one `validates` call the rules apply in a fixed order: presence, length, format, inclusion, numericality, uniqueness.
@@ -365,6 +395,8 @@ Default messages (Rails' English, replaced through `errorMessages`): `blank` "ca
 - `uniqueness`: `{ scope: [...], caseSensitive }`. It leaves out the record itself when updating and runs `SELECT 1 … LIMIT 1` through the record's Database (so the same session). `null` is never taken, matching SQLite's UNIQUE, which allows any number of NULLs. `caseSensitive: false` compiles to `lower(col) = lower(?)`, and SQLite's `lower()` only lowercases ASCII letters.
 
 ## Callback lifecycle
+
+_Portable._
 
 _Guide:_ [callbacks](<../site/docs/(basics)/callbacks.mdx>). _Code:_ `src/lifecycle.ts`, `src/declarations.ts`.
 
@@ -384,6 +416,8 @@ beforeValidation → validators → afterValidation
 
 ## Abort
 
+_Portable._
+
 _Guide:_ [callbacks](<../site/docs/(basics)/callbacks.mdx>), [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `src/lifecycle.ts`.
 
 ```ts
@@ -400,6 +434,8 @@ this.beforeSave((account) => {
 
 ## Lifecycle state
 
+_Portable._
+
 _Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `src/record-state.ts`.
 
 | State                                            | `isNewRecord()` | `isPersisted()` | `isDestroyed()` |
@@ -410,6 +446,8 @@ _Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `src/re
 
 ## Destroyed records
 
+_Portable._
+
 _Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `src/record-state.ts`, `src/lifecycle.ts`.
 
 - A record is marked destroyed only after the D1 `DELETE` succeeds, and before `afterDestroy` runs. Destroying a never-saved record sends nothing, since there's no row, and marks it destroyed. If `afterDestroy` throws, the row stays deleted and the record stays destroyed.
@@ -419,17 +457,19 @@ _Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `src/re
 
 ## Relations
 
+_Portable._ A bullet marked (D1) is the D1 adapter's alone.
+
 _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `src/relation.ts`, `src/relation-checks.ts`, `src/load.ts`, `src/query.ts`, `src/compiler.ts`, `src/comparisons.ts`, `src/sql.ts`, `src/fragment-guard.ts`.
 
 - Every modifier returns a new Relation. Building a Relation never queries D1.
 - `static primaryKey` (default `"id"`) must name a declared attribute, or `db.model(X)` throws `InvalidModel`. `find(id)` takes one id, a `string | number`, and resolves to a record. `find(1, 2)` or `find([1, 2])` resolves to an array in the ids' order, or in the Relation's order if it has one, as in Rails. It's one query, repeated ids are found once, `find([])` resolves to `[]`, and a missing id throws `RecordNotFound` saying how many were found. Ids are cast to the key's type first, as in Rails, so `"01"` and `1` are the same id for an integer key. Unlike Rails, `find(1, 1)` still resolves to an array, so the return type follows the arguments. Any number of ids fits in the one query, as with `where`.
 - An empty conditions object (`where({})`, `whereNot({})`, `findBy({})`) adds no condition. An `undefined` value throws `TypeError`: use `null` to match NULL, or leave the key out. `undefined` would otherwise bind NULL and silently match nothing.
 - Condition values (`where`, `whereNot`, `findBy`, `exists`, lists and comparisons) are cast as assigned values are, except that a finite number matches a `string` attribute as its decimal string (`7` → `"7"`), as `find` does for a text key and as Rails does, so a foreign key of another type still finds its target. One that can't be cast matches nothing (`1 = 0`), as in Rails 6.1+, never NULL and never an error, so `where({ quantity: "abc" })` finds nothing and `find("abc")` on an integer key throws `RecordNotFound`. In a list, the values that can't be cast are left out. So `whereNot` with one matches every row, NULLs included (`NOT (1 = 0)`), as in Rails: excluding a record by a value that can't be cast excludes nothing.
-- `where({ x: null })` → `"x" IS NULL`. `where({ x: [1, 2] })` → `"x" IN (SELECT value FROM json_each(?))`, the whole list bound as one JSON value (converted like the attribute's own values), so a list of any length fits D1's 100 bound parameters. `where({ x: [] })` → `1 = 0`. `whereNot({ x: [] })` → `1 = 1`. `where({ x: [1, null] })` → `("x" IN (SELECT value FROM json_each(?)) OR "x" IS NULL)`.
+- (D1) `where({ x: null })` → `"x" IS NULL`. `where({ x: [1, 2] })` → `"x" IN (SELECT value FROM json_each(?))`, the whole list bound as one JSON value (converted like the attribute's own values), so a list of any length fits D1's 100 bound parameters. `where({ x: [] })` → `1 = 0`. `whereNot({ x: [] })` → `1 = 1`. `where({ x: [1, null] })` → `("x" IN (SELECT value FROM json_each(?)) OR "x" IS NULL)`.
 - Comparisons: `where({ age: gte(18) })`, `gt`, `lt`, `lte`, and `where({ createdAt: between(start, end) })`, which includes both ends like Rails' `start..end`. `between(start, end, { excludeEnd: true })` is `start <= x < end`, like `start...end`. `gte` and `lte` are also Rails' endless and beginless ranges. The value is converted like the attribute's own, so dates compare by time, and its type must be the attribute's. Only number, string and datetime attributes can be compared: a comparison on a boolean or `json` attribute is a type error, and throws `TypeError`. A comparison with `null` or `undefined` throws `TypeError`: use `where({ x: null })` to match NULL. Comparisons are values of their own class, so a `json` attribute's object value (`{ gt: 1 }`) still means equality. A record built from the Relation doesn't take a comparison's value.
 - `whereNot` wraps the whole condition: `whereNot({ a, b })` → `NOT ("a" = ? AND "b" = ?)`. Following SQL semantics, `whereNot({ role: "admin" })` also excludes NULL roles. `whereNot({ role: null })` → `"role" IS NOT NULL`.
 - Other hand-written conditions must be `sql` tagged templates (ADR-0006): ``where(sql`lower(${column("email")}) = ${email}`)``. Plain strings are rejected with a `TypeError` (and are compile errors). Values interpolated into a fragment have no declared type, so a `Date` is bound as ISO text and a boolean as 1/0, matching how attributes are stored by default. `column("publishedAt").value(date)` (#142) is a value of that attribute: cast as an assigned value (a value it can't hold throws `TypeError` naming the Model and attribute), then written as the attribute stores it (an integer for `storage: "unixSeconds"` or `"unixMilliseconds"`, 0/1 for a boolean, JSON text for `json`). It's still a bound parameter, hidden from `onQuery` when the attribute is filtered (#83), and an attribute the Model doesn't have is `UnknownAttribute` when the fragment is used. Fragments with equal typed values have the same shape for `or`, and equal `json` inputs are compared by their JSON text. It takes one value, not an array, so an `in (…)` list takes one `value` per element; a typed value is cast when `where`, `order` and the other methods are given the fragment, not when the query runs. (#149) A `Date` or a date text string (an ISO date or datetime, or SQLite's zone-less `2026-01-02 03:04:05`) interpolated bare binds ISO text, which never compares with an attribute stored as an integer, so use `value` there. A bare one placed beside the `column()` of an attribute with `storage` throws `TypeError` naming the Model and attribute, when `where`, `whereNot`, `findBy`, `exists`, `order`, `reorder` or `updateAll` is given the fragment (inside an `or` too). It reads only the text between the column and the value: a comparison operator (`=`, `==`, `<>`, `!=`, `<`, `<=`, `>`, `>=`) alone, or `BETWEEN … AND` (and `NOT BETWEEN`) with the value as a bound or as the value tested, in either order. Anything else isn't judged, so `abs(col - ${date})`, `datetime(col, 'unixepoch') >= ${date}`, `col + 1 = ${date}`, `IN` and `IS` pass, and so do a parenthesised column or a comment between the two. A value is never read, and there's no way to switch it off.
-- `order({ createdAt: "desc", id: "asc" })` sorts by each key in turn, and repeated calls append. NULLs sort as SQLite sorts them (first in ascending order) unless placed: `order({ role: { direction: "asc", nulls: "last" } })` compiles to `NULLS LAST`. An expression is an `sql` fragment: ``order(sql`lower(${column("email")})`)``, with the direction inside it. Plain strings throw `TypeError`. `reorder(spec)` replaces the order so far, as in Rails, and `reorder()` removes it. `limit`/`offset` page, and `offset` works without a `limit`.
+- (D1) `order({ createdAt: "desc", id: "asc" })` sorts by each key in turn, and repeated calls append. NULLs sort as SQLite sorts them (first in ascending order) unless placed: `order({ role: { direction: "asc", nulls: "last" } })` compiles to `NULLS LAST`. An expression is an `sql` fragment: ``order(sql`lower(${column("email")})`)``, with the direction inside it. Plain strings throw `TypeError`. `reorder(spec)` replaces the order so far, as in Rails, and `reorder()` removes it. `limit`/`offset` page, and `offset` works without a `limit`.
 - `first()` and `last()` with no order sort by the primary key ascending or descending. With `limit`/`offset`, `first`, `last`, `take` and `exists` work within that page (so `limit(0)` has none). `last()` reverses every direction of an explicit order, and moves placed NULLs to the other end, as Rails' `reverse_order` does. It can't reverse an `sql` fragment, so it throws `IrreversibleOrder` (Rails' `IrreversibleOrderError`). That is stricter than Rails, which flips a plain string order such as `"name DESC"` and only raises for ones it can't parse (function calls, NULLS placement). A fragment is a template with bound values, and reversing it would mean parsing SQL. `take()` adds no ordering.
 - `find()`, `findBy()` and `findByOrThrow()` keep the Relation's where conditions, scopes and includes, ignore its limit, offset and `select()`, and always load full rows. They ignore its order too, except that `find` with several ids returns them in the Relation's order when it has one (see above).
 - `or()`: same Model on the same database (checked when the query runs, #93), and the same select, order (fragments compare by text and values), limit, offset and distinct. Only where conditions may differ, and each side is wrapped in parentheses. Otherwise it throws `IncompatibleRelation`.
@@ -437,6 +477,8 @@ _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `src/relation
 - `toSql()` (#46), as Rails' `to_sql`, returns `{ sql, params }` for the SELECT `toArray()` sends, without sending it, so it needs no database. It shows the columns really loaded (a `select` plus the primary key and the keys `includes` needs), `limit` and `offset` as bound values, and a `none()` Relation as its conditions with `1 = 0`. It isn't the query `count()`, `pluck()` or `exists()` send, as in Rails. Values are never inlined (ADR-0006), so Rails' inlined values are `params` here. The params are the values D1 would bind, filtered attributes included: `onQuery` hides them, `toSql()` doesn't, as Rails' `to_sql` doesn't filter. A Model has it as a static (`User.toSql()`).
 
 ## Terminal operations
+
+_Portable._
 
 _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `src/relation.ts`, `src/load.ts`, `src/pagination.ts`.
 
@@ -454,6 +496,8 @@ _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `src/relation
 
 ## Partial records
 
+_Portable._
+
 _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `src/relation.ts`, `src/record-state.ts`.
 
 - `select()` on a Model Relation accepts only declared attributes. The primary key is always loaded too, so a partial record keeps its identity, except after `distinct()`, where adding the key would make every row distinct. Such records carry only the selected attributes.
@@ -461,6 +505,8 @@ _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `src/relation
 - `save()` writes only changed attributes (plus `updatedAt`), and never fills in unloaded ones. `reload()` loads the full row.
 
 ## Batches
+
+_Portable._ A bullet marked (D1) is the D1 adapter's alone.
 
 _Guide:_ [batches](<../site/docs/(basics)/batches.mdx>). _Code:_ `src/statement.ts`, `src/record-statement.ts`, `src/unit-of-work.ts`, `src/batch.ts`, `src/database.ts`, `src/relation.ts`, `src/load.ts`.
 
@@ -485,9 +531,9 @@ await db.model(Post).updateAll(sql`${column("views")} = ${column("views")} + ${1
   3. Each record takes its saved state (loading what `RETURNING` gave back, or becoming destroyed), then its after-callbacks run, in order.
      This differs from a Rails transaction, where one record's `after_save` runs before the next record's `before_save`: here every before-callback runs before any write, much like Rails' `after_commit`.
 - Records in one batch can't point at each other's database-generated keys, which don't exist until the batch is written. Keys generated in code (`generateId`, or a `default`) exist from `build()`, so records can be linked by them, or through autosave (#29).
-- There's no interactive `transaction(async tx => …)`. D1 can't hold a transaction open across awaits, so a callback that reads and then decides what to write can't be made atomic; a batch of statements and record statements prepared beforehand can.
+- (D1) There's no interactive `transaction(async tx => …)`. D1 can't hold a transaction open across awaits, so a callback that reads and then decides what to write can't be made atomic; a batch of statements and record statements prepared beforehand can.
 - `insert(attrs)` writes one row. Declared attribute defaults fill attributes that aren't given (unlike Rails' `insert_all`, because in D1 app-side defaults are where keys are generated), and `createdAt`/`updatedAt` are set unless given, as Rails does. A Relation's equality conditions are inserted too, as with `build()`. A constraint failure throws, as everywhere (ADR-0005).
-- `insertAll(rows)` inserts several rows in one statement (Rails' `insert_all!`), and throws on a duplicate, writing nothing. Every row must be given the same attributes, in any order, compared as given, before defaults and timestamps are filled in (`TypeError` otherwise, and for `[]`), and defaults, timestamps and a Relation's equality values apply to each row. The rows are bound as one JSON value (`INSERT … SELECT … FROM json_each(?)`), so any number of rows fits in one statement, within D1's 100 bound parameters and its 2 MB limit on one value. Rows with no attributes at all can't be inserted together or with an `onDuplicate` or upsert (`TypeError`, as Rails raises); a lone `insert({})` writes the table's `DEFAULT VALUES`.
+- (D1) `insertAll(rows)` inserts several rows in one statement (Rails' `insert_all!`), and throws on a duplicate, writing nothing. Every row must be given the same attributes, in any order, compared as given, before defaults and timestamps are filled in (`TypeError` otherwise, and for `[]`), and defaults, timestamps and a Relation's equality values apply to each row. The rows are bound as one JSON value (`INSERT … SELECT … FROM json_each(?)`), so any number of rows fits in one statement, within D1's 100 bound parameters and its 2 MB limit on one value. Rows with no attributes at all can't be inserted together or with an `onDuplicate` or upsert (`TypeError`, as Rails raises); a lone `insert({})` writes the table's `DEFAULT VALUES`.
 - `insert(attrs, { onDuplicate: "skip" })` and `insertAll(rows, { onDuplicate: "skip" })` skip rows that clash with a unique index (`ON CONFLICT DO NOTHING`). Skipping is opt-in: Rails' `insert` and `insert_all` skip by default, which ADR-0005 rules out.
 - `upsert(attrs)` and `upsertAll(rows)` update a row that clashes with the unique index on `uniqueBy`, which is the primary key by default or names another unique index's attributes. As in Rails, only the attributes given are updated, never ones filled in by defaults (such as a generated key), and not the `uniqueBy` ones or `createdAt`; `updatedAt` is set. Rails' `update_only` option is deferred (#36).
 - An insert or upsert's `rows` holds the `returning` attributes of each row it wrote, as Rails' `insert_all` returns its `:returning` columns (#266): the primary key by default, or the attributes `returning: [...]` names, each read as its type and typed in `rows` (a `Partial` of the attributes when `returning` isn't given, since the key's name isn't in the type). `returning: false` sends no `RETURNING` and gives `rows: []`, and so does `returning: []`. A `returning` that's neither a list nor `false` throws `TypeError`. A row that `ON CONFLICT DO NOTHING` skips isn't returned, and neither D1 nor Postgres promises the rows' order. A name that isn't an attribute throws `UnknownAttribute` when the write is built. `rowsAffected` is D1's `changes`: an upsert counts the rows it inserted and the ones it updated.
@@ -498,6 +544,8 @@ await db.model(Post).updateAll(sql`${column("views")} = ${column("views")} + ${1
 
 ## Instrumentation
 
+_Portable._
+
 _Guide:_ [logging](<../site/docs/(how-to)/logging.mdx>). _Code:_ `src/executor.ts`, `src/d1/driver.ts`, `src/filtering.ts`.
 
 - `connect(env.DB, { onQuery(event) })` is called once per statement, batches included, with `{ model, sql, params, durationMs, meta, error? }` (`model` is the statement's Model's class name). `meta` is the database's own detail about the statement: on D1, its `meta` (`changes`, `rows_read`, `duration`, …). The core's `QueryEvent<Meta>` takes its type as a parameter; the package exports `QueryEvent` and `QueryListener` with `D1Meta` filled in (#266). A `QueryListener` is declared as a method's type, so one typed for D1's `meta` can be a Model's `static onQuery`. The integration tests' query-count checks use this same hook. No logger is built in.
@@ -507,6 +555,8 @@ _Guide:_ [logging](<../site/docs/(how-to)/logging.mdx>). _Code:_ `src/executor.t
 - In a batch, each statement's `durationMs` is the database's own timing for it when it reports one (D1's `meta.duration`), or else the batch's elapsed time. When a batch fails, D1 doesn't say which statement failed, so every statement is reported with the error and the batch's elapsed time. `event.error` is D1's own error; the caller gets the translated `ConstraintViolation`, with D1's error as its `cause`.
 
 ## Errors
+
+_Portable._
 
 _Guide:_ [errors](<../site/docs/(basics)/errors.mdx>). _Code:_ `src/errors.ts`.
 
