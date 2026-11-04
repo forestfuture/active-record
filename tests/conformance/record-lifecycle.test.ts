@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
-  connect,
   MissingAttribute,
   Model,
   NoDatabase,
@@ -8,9 +7,9 @@ import {
   RecordDestroyed,
   RecordNotFound,
   UnknownAttribute,
-  type QueryEvent,
 } from "../../src/index.ts";
-import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
+import type { QueryEvent } from "../../src/executor.ts";
+import { openHarness, type Harness } from "../support/harness.ts";
 
 class User extends Model.define({
   id: { type: "integer", null: false },
@@ -33,23 +32,19 @@ class ApiKey extends Model.define({
 }
 
 describe("record lifecycle", () => {
-  let binding: TestDatabase;
-  let dispose: () => Promise<void>;
+  let harness: Harness;
 
   beforeAll(async () => {
-    ({ db: binding, dispose } = await createTestDatabase());
+    harness = await openHarness();
   });
-  afterAll(() => dispose());
+  afterAll(() => harness.dispose());
   beforeEach(async () => {
-    await binding.batch([
-      binding.prepare("DELETE FROM users"),
-      binding.prepare("DELETE FROM api_keys"),
-    ]);
+    await harness.reset("users", "api_keys");
   });
 
   test("build makes a new, unsaved record without querying, and evaluates defaults", () => {
     const queries: QueryEvent[] = [];
-    const db = connect(binding, { onQuery: (event) => queries.push(event) });
+    const db = harness.connect({ onQuery: (event) => queries.push(event) });
 
     const user = db.model(User).build({ email: "a@example.com" });
     const key = db.model(ApiKey).build({ label: "deploy" });
@@ -64,7 +59,7 @@ describe("record lifecycle", () => {
   });
 
   test("saving a new record inserts it; the database fills in its key and column defaults", async () => {
-    const users = connect(binding).model(User);
+    const users = harness.connect().model(User);
     const user = users.build({ email: "a@example.com" });
 
     expect(await user.save()).toBe(true);
@@ -77,7 +72,7 @@ describe("record lifecycle", () => {
   });
 
   test("an app-generated key from a default is inserted as given", async () => {
-    const keys = connect(binding).model(ApiKey);
+    const keys = harness.connect().model(ApiKey);
     const key = keys.build({ label: "deploy", scopes: ["read"] });
     const id = key.id;
 
@@ -88,7 +83,7 @@ describe("record lifecycle", () => {
   });
 
   test("create and createOrThrow build and save in one step, resolving to the record", async () => {
-    const users = connect(binding).model(User);
+    const users = harness.connect().model(User);
 
     const created = await users.create({ email: "a@example.com", role: "admin" });
     const createdOrThrow = await users.createOrThrow({ email: "b@example.com" });
@@ -103,9 +98,9 @@ describe("record lifecycle", () => {
   });
 
   test("saving a loaded record updates only its changed columns", async () => {
-    await connect(binding).model(User).create({ email: "a@example.com", role: "member" });
+    await harness.connect().model(User).create({ email: "a@example.com", role: "member" });
     const queries: QueryEvent[] = [];
-    const users = connect(binding, { onQuery: (event) => queries.push(event) }).model(User);
+    const users = harness.connect({ onQuery: (event) => queries.push(event) }).model(User);
     const user = await users.findByOrThrow({ email: "a@example.com" });
     queries.length = 0;
 
@@ -119,9 +114,9 @@ describe("record lifecycle", () => {
   });
 
   test("saving a record with no changes sends no statement", async () => {
-    await connect(binding).model(User).create({ email: "a@example.com" });
+    await harness.connect().model(User).create({ email: "a@example.com" });
     const queries: QueryEvent[] = [];
-    const users = connect(binding, { onQuery: (event) => queries.push(event) }).model(User);
+    const users = harness.connect({ onQuery: (event) => queries.push(event) }).model(User);
     const user = await users.findByOrThrow({ email: "a@example.com" });
     queries.length = 0;
 
@@ -133,7 +128,7 @@ describe("record lifecycle", () => {
 
   test("assign sets several attributes without saving, rejecting unknown keys and undefined", async () => {
     const queries: QueryEvent[] = [];
-    const users = connect(binding, { onQuery: (event) => queries.push(event) }).model(User);
+    const users = harness.connect({ onQuery: (event) => queries.push(event) }).model(User);
     const user = users.build({ email: "a@example.com" });
 
     user.assign({ role: "admin", isActive: false });
@@ -147,7 +142,7 @@ describe("record lifecycle", () => {
   });
 
   test("update and updateOrThrow assign and save in one step", async () => {
-    const users = connect(binding).model(User);
+    const users = harness.connect().model(User);
     const user = await users.create({ email: "a@example.com", role: "member" });
 
     expect(await user.update({ role: "admin" })).toBe(true);
@@ -158,9 +153,9 @@ describe("record lifecycle", () => {
   });
 
   test("reload discards unsaved changes and loads the stored row", async () => {
-    const users = connect(binding).model(User);
+    const users = harness.connect().model(User);
     const user = await users.create({ email: "a@example.com", role: "member" });
-    await binding.prepare("UPDATE users SET role = 'owner' WHERE id = ?").bind(user.id).run();
+    await harness.exec("UPDATE users SET role = 'owner' WHERE id = ?", [user.id]);
     user.email = "changed@example.com";
 
     await user.reload();
@@ -171,14 +166,14 @@ describe("record lifecycle", () => {
   });
 
   test("reload throws RecordNotFound when the row is gone", async () => {
-    const user = await connect(binding).model(User).create({ email: "a@example.com" });
-    await binding.prepare("DELETE FROM users").run();
+    const user = await harness.connect().model(User).create({ email: "a@example.com" });
+    await harness.exec("DELETE FROM users");
 
     await expect(user.reload()).rejects.toThrow(RecordNotFound);
   });
 
   test("building from a relation inherits its single equality values; explicit ones win", async () => {
-    const users = connect(binding).model(User);
+    const users = harness.connect().model(User);
     const admins = users
       .where({ role: "admin", id: [1, 2] })
       .whereNot({ email: "x@example.com" })
@@ -194,7 +189,7 @@ describe("record lifecycle", () => {
   });
 
   test("destroy deletes the row; the record stays readable as a destroyed snapshot", async () => {
-    const users = connect(binding).model(User);
+    const users = harness.connect().model(User);
     const user = await users.create({ email: "a@example.com" });
 
     expect(await user.destroy()).toBe(user);
@@ -206,15 +201,15 @@ describe("record lifecycle", () => {
   });
 
   test("destroyOrThrow resolves to the record, and a row that's already gone still counts", async () => {
-    const user = await connect(binding).model(User).create({ email: "a@example.com" });
-    await binding.prepare("DELETE FROM users").run();
+    const user = await harness.connect().model(User).create({ email: "a@example.com" });
+    await harness.exec("DELETE FROM users");
 
     expect(await user.destroyOrThrow()).toBe(user);
     expect(user.isDestroyed()).toBe(true);
   });
 
   test("using a destroyed record as a live one throws RecordDestroyed", async () => {
-    const user = await connect(binding).model(User).create({ email: "a@example.com" });
+    const user = await harness.connect().model(User).create({ email: "a@example.com" });
     await user.destroy();
 
     await expect(user.save()).rejects.toThrow(RecordDestroyed);
@@ -229,11 +224,11 @@ describe("record lifecycle", () => {
 
     await expect(user.save()).rejects.toThrow(NoDatabase);
     await expect(user.reload()).rejects.toThrow(/User.*db\.model\(User\)/);
-    await expect(connect(binding).model(User).build().reload()).rejects.toThrow(RecordNotFound);
+    await expect(harness.connect().model(User).build().reload()).rejects.toThrow(RecordNotFound);
   });
 
   test("a keyless record from select(...).distinct() can't be saved, updated, destroyed or reloaded", async () => {
-    const users = connect(binding).model(User);
+    const users = harness.connect().model(User);
     await users.create({ email: "a@example.com", role: "admin" });
     const [role] = await users.select("role").distinct().toArray();
     if (!role) throw new Error("expected a record");
@@ -247,7 +242,8 @@ describe("record lifecycle", () => {
 
   test("destroying a never-saved record sends nothing: there's no row to delete", async () => {
     const queries: QueryEvent[] = [];
-    const user = connect(binding, { onQuery: (event) => queries.push(event) })
+    const user = harness
+      .connect({ onQuery: (event) => queries.push(event) })
       .model(User)
       .build({ email: "a@example.com" });
 
@@ -258,7 +254,7 @@ describe("record lifecycle", () => {
   });
 
   test("changing the primary key updates the row found by its stored key", async () => {
-    const users = connect(binding).model(User);
+    const users = harness.connect().model(User);
     const user = await users.create({ email: "a@example.com" });
     const oldId = user.id;
 
@@ -270,8 +266,8 @@ describe("record lifecycle", () => {
   });
 
   test("saving a record whose row was deleted elsewhere still succeeds", async () => {
-    const user = await connect(binding).model(User).create({ email: "a@example.com" });
-    await binding.prepare("DELETE FROM users").run();
+    const user = await harness.connect().model(User).create({ email: "a@example.com" });
+    await harness.exec("DELETE FROM users");
 
     user.role = "admin";
 
@@ -280,7 +276,7 @@ describe("record lifecycle", () => {
   });
 
   test("saving a partial record writes only its changes and leaves unloaded columns alone", async () => {
-    const users = connect(binding).model(User);
+    const users = harness.connect().model(User);
     const created = await users.create({ email: "a@example.com", role: "admin" });
     const [partial] = await users.select("email").toArray();
     if (!partial) throw new Error("expected a record");
@@ -293,7 +289,7 @@ describe("record lifecycle", () => {
   });
 
   test("a keyless record can still be changed in memory; it just can't be saved", async () => {
-    const users = connect(binding).model(User);
+    const users = harness.connect().model(User);
     await users.create({ email: "a@example.com", role: "admin" });
     const [role] = await users.select("role").distinct().toArray();
     if (!role) throw new Error("expected a record");
@@ -306,7 +302,7 @@ describe("record lifecycle", () => {
   });
 
   test("a loaded record rejects undefined when a property is set", async () => {
-    const users = connect(binding).model(User);
+    const users = harness.connect().model(User);
     const user = await users.findByOrThrow({
       email: (await users.create({ email: "a@example.com" })).email,
     });
@@ -318,7 +314,7 @@ describe("record lifecycle", () => {
   });
 
   test("after a real DELETE the record is read-only, even when assigning undefined", async () => {
-    const users = connect(binding).model(User);
+    const users = harness.connect().model(User);
     const user = await users.create({ email: "a@example.com" });
     await user.destroy();
 
