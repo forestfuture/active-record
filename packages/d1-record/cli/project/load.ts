@@ -8,8 +8,8 @@ import { oneModelsFile } from "./targets.ts";
 
 /**
  * A jiti based in the project: it reads TypeScript, extensionless imports and `tsconfig.json`
- * paths, and resolves the library (`@forestfuture/active-record` and `@forestfuture/d1-record`) from the project's `node_modules`, so the Models
- * and the command share a single copy of the library.
+ * paths, and resolves the library (`@forestfuture/active-record` and `@forestfuture/d1-record`)
+ * from the project's `node_modules`, so the Models and the command share a single copy of it.
  */
 export function projectJiti(cwd: string): Jiti {
   return createJiti(`${cwd}/`, { tsconfigPaths: true, fsCache: false, moduleCache: true });
@@ -43,9 +43,10 @@ function isMissing(error: unknown, name: string): boolean {
 }
 
 /**
- * The project's own library (the core and the D1 adapter, as one module), or why it can't be loaded. It is imported from a
- * file in the project, as its Models import it, because only imports made inside a file follow a
- * `tsconfig.json` path (a workspace link), and so the Models and the console get one copy.
+ * The project's own library (the core and the D1 adapter, as one module), or why it can't be
+ * loaded. It is imported from a file in the project, as its Models import it, because only imports
+ * made inside a file follow a `tsconfig.json` path (a workspace link), and so the Models and the
+ * console get one copy.
  */
 export async function loadLibrary<L>(
   cwd: string,

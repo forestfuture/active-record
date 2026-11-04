@@ -13,7 +13,7 @@ Coding agents follow d1-record’s conventions best with its guide at hand and i
 | [`llms-full.txt`](https://d1-record.forestfuture.dev/llms-full.txt)                                   | The whole guide in one Markdown file, about 55K tokens.                                                                                       |
 | Any page + `.md`                                                                                      | Every page as Markdown: [`/associations.md`](https://d1-record.forestfuture.dev/associations.md).                                             |
 | [The agent skill](https://d1-record.forestfuture.dev/.well-known/agent-skills/active-record/SKILL.md) | The skill below, published where agents look for a site’s skills.                                                                             |
-| `node_modules/@forestfuture/d1-record/llms-full.txt`                                                  | The same guide, shipped in the package. It matches the version you’ve installed, and an agent can read it without fetching anything.          |
+| `node_modules/@forestfuture/active-record/llms-full.txt`                                              | The same guide, shipped in the package. It matches the version you’ve installed, and an agent can read it without fetching anything.          |
 
 ## Installing the agent skill
 
@@ -38,7 +38,7 @@ The skills CLI marks `experimental_sync` as experimental, so its name may change
 Agents read `AGENTS.md`, or `CLAUDE.md` for Claude Code, at the start of every task, while a skill loads only when the agent decides it applies. To make sure the guide is always in reach, add one line to yours:
 
 ```md
-Before writing code with `@forestfuture/d1-record`, read the part of `node_modules/@forestfuture/d1-record/llms-full.txt` for the task.
+Before writing code with `@forestfuture/d1-record`, read the part of `node_modules/@forestfuture/active-record/llms-full.txt` for the task.
 ```
 
 The line names the guide shipped with your installed version, so it stays correct after an upgrade.

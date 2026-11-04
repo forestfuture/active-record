@@ -42,7 +42,7 @@ Outside a Worker there’s no binding, so run the test’s code inside `withData
 import { withDatabase } from "@forestfuture/active-record";
 import { connect } from "@forestfuture/d1-record";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import { User } from "../packages/active-record/src/models/user";
+import { User } from "../src/models/user";
 import { testDatabase } from "./d1";
 
 let database: Awaited<ReturnType<typeof testDatabase>>;
@@ -67,7 +67,7 @@ Call your Worker’s `fetch` handler inside `withDatabase` too, and its queries 
 import { withDatabase } from "@forestfuture/active-record";
 import { connect } from "@forestfuture/d1-record";
 import { afterAll, beforeAll, expect, test } from "vitest";
-import worker from "../packages/active-record/src/index";
+import worker from "../src/index";
 import { testDatabase } from "./d1";
 
 let database: Awaited<ReturnType<typeof testDatabase>>;

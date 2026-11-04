@@ -1,6 +1,5 @@
 // Parses a generator's `name:type` column arguments.
-import { pluralize } from "@forestfuture/active-record/cli";
-import { camelize, underscore } from "@forestfuture/active-record/cli";
+import { pluralize, camelize, underscore } from "@forestfuture/active-record/cli";
 
 type ColumnType = "string" | "integer" | "real" | "boolean" | "datetime" | "json" | "references";
 

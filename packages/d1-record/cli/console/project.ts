@@ -13,8 +13,9 @@ import { defaultModels } from "../project/targets.ts";
 import type { StatementEvent } from "./verbose.ts";
 
 /**
- * What the console uses of the project's library (the core and the D1 adapter). Typed loosely on purpose: it is
- * the project's copy, loaded at run time, and not the one this command line was built against.
+ * What the console uses of the project's library (the core and the D1 adapter). Typed loosely on
+ * purpose: it is the project's copy, loaded at run time, and not the one this command was built
+ * against.
  */
 interface Library {
   connect: (binding: unknown, options?: { onQuery?: (event: StatementEvent) => void }) => unknown;

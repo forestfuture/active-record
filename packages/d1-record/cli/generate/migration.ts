@@ -1,6 +1,5 @@
 // A generated migration's SQL and its Wrangler-numbered file name.
-import { pluralize } from "@forestfuture/active-record/cli";
-import { underscore } from "@forestfuture/active-record/cli";
+import { pluralize, underscore } from "@forestfuture/active-record/cli";
 import type { ColumnArg } from "./columns.ts";
 
 export interface MigrationOptions {

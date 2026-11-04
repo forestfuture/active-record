@@ -1,7 +1,10 @@
 // Which D1 database a query from a Model's statics uses: the request's for its binding, or the binding's own from `cloudflare:workers` (#77). A binding's own Database holds no per-request state.
-import { AnyDatabase, databaseExecutor } from "@forestfuture/active-record/adapter";
+import {
+  AnyDatabase,
+  databaseExecutor,
+  DatabaseExecutor,
+} from "@forestfuture/active-record/adapter";
 import { NoDatabase } from "@forestfuture/active-record";
-import { DatabaseExecutor } from "@forestfuture/active-record/adapter";
 import { d1Adapter } from "./adapter.ts";
 import type { Database } from "./database.ts";
 import { D1Driver } from "./driver.ts";

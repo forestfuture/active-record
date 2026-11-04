@@ -43,7 +43,7 @@ jobs:
       - run: wrangler deploy --dry-run --config host/wrangler.jsonc
         working-directory: site
 
-  # Packs the library as release-pack does (#80): dependencies installed without their install
+  # Packs both packages as release-pack does (#80): dependencies installed without their install
   # scripts or the shared cache. A release that couldn't be built that way fails here first.
   pack:
     runs-on: ubuntu-latest
@@ -160,8 +160,8 @@ jobs:
       - uses: ./.github/actions/setup-vp
         with:
           release: true
-      # "version" while changesets are waiting, "publish" once package.json has a version npm
-      # doesn't, and "none" otherwise (most pushes).
+      # "version" while changesets are waiting, "publish" once a package's package.json has a
+      # version npm doesn't, and "none" otherwise (most pushes).
       - id: select-mode
         uses: changesets/action/select-mode@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
 
@@ -209,8 +209,9 @@ jobs:
       - uses: ./.github/actions/setup-vp
         with:
           release: true
-      # Packing runs the package's `prepack` script: it builds dist/ (attw and publint included) and
-      # the docs site, whose llms-full.txt ships in the package. A broken docs build blocks a release.
+      # Packing runs each package's `prepack` script, building its dist/ (attw and publint included).
+      # The core's also builds the docs site, whose llms-full.txt ships in it, so a broken docs build
+      # blocks a release; the D1 adapter's builds the core first, whose declarations it's built on.
       - id: pack
         uses: changesets/action/pack@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:

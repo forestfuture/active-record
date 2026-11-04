@@ -1,5 +1,10 @@
 import { describe, expect, expectTypeOf, test, vi } from "vite-plus/test";
-import { Model, NoDatabase, Relation } from "../../packages/active-record/src/index.ts";
+import {
+  Model,
+  UnknownAttribute,
+  NoDatabase,
+  Relation,
+} from "../../packages/active-record/src/index.ts";
 import { connect } from "../../packages/d1-record/src/index.ts";
 
 class User extends Model.define({
@@ -79,6 +84,14 @@ describe("none() with no database", () => {
     expect(await none.count()).toBe(0);
     expect(await none.exists()).toBe(false);
     await expect(none.find(1)).rejects.toThrow("User with id 1 not found");
+  });
+
+  test("their arguments are still checked: an unknown attribute rejects", async () => {
+    const none = User.none();
+
+    await expect(none.count("nope" as never)).rejects.toThrow(UnknownAttribute);
+    await expect(none.pluck("nope" as never)).rejects.toThrow(UnknownAttribute);
+    await expect(none.updateAll({ nope: 1 } as never)).rejects.toThrow(UnknownAttribute);
   });
 
   test("other reads and bulk writes answer, wherever none() is in the chain", async () => {

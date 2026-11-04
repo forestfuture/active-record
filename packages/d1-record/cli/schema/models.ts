@@ -2,8 +2,7 @@
 // the schema as the migrations make it now standing in for each schema file (#232).
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
-import { ancestors } from "@forestfuture/active-record/cli";
-import { isBase } from "@forestfuture/active-record/cli";
+import { ancestors, isBase } from "@forestfuture/active-record/cli";
 import {
   forgetProjectFiles,
   loadLibrary,
