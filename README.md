@@ -12,7 +12,7 @@ Models with validations, callbacks, associations, and change tracking; lazy, com
 > **Status: pre-release (0.x).** The API is tested against real D1, but it may still change before 1.0.
 
 ```sh
-npm install @forestfuture/d1-record
+npm install @forestfuture/active-record @forestfuture/d1-record
 ```
 
 ## A quick look
@@ -55,7 +55,7 @@ A Model’s table comes from its class name, and its attributes from the schema,
 
 ```ts
 // src/models/user.ts
-import { hasMany } from "@forestfuture/d1-record";
+import { hasMany } from "@forestfuture/active-record";
 import { ApplicationRecord } from "./application-record";
 import { Post } from "./post";
 
@@ -75,7 +75,7 @@ export class User extends ApplicationRecord {
 
 ```ts
 // src/models/post.ts
-import { belongsTo } from "@forestfuture/d1-record";
+import { belongsTo } from "@forestfuture/active-record";
 import { ApplicationRecord } from "./application-record";
 import { User } from "./user";
 

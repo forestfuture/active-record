@@ -17,7 +17,7 @@ A **Model** whose attributes are declared in its class, with `Model.define({...}
 _Avoid_: Manual model, defined model
 
 **Generated schema**:
-The file `d1-record schema` writes from a project's migrations and Model files: each table's attributes, the **Binding**, the **Generated Model**s, and type declarations adding each one's attributes to its class. It's a document like Rails' `schema.rb`, committed and never edited by hand; the app's **Base class** holds it.
+The file `d1-record schema` writes from a project's migrations and Model files: each table's attributes, its **Adapter** and **Binding** (`adapter: d1({ binding: "DB" })`), the **Generated Model**s, and type declarations adding each one's attributes to its class. It's a document like Rails' `schema.rb`, committed and never edited by hand; the app's **Base class** holds it.
 _Avoid_: Schema dump, types file
 
 **Base class**:

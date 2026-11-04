@@ -6,19 +6,22 @@ The public behavior agreed during design, which the tests must prove. The guide 
 
 _D1._
 
-_Code:_ `vite.config.ts`, `package.json`.
+_Code:_ `vite.config.ts`, `package.json`, `packages/*/package.json`, `packages/*/vite.config.ts`. Below, a module's path is within `packages/`: `active-record/src/` is the core, and `d1-record/src/` and `d1-record/cli/` are the D1 adapter and its command.
 
 - Vite+ `1.0.0`, pinned exactly; upgrade with `vp upgrade`, then `vp migrate`. pnpm 12.6.0 through `devEngines`. Node 24 LTS through `.node-version`.
-- Single package `@forestfuture/d1-record` (scoped, published with `access: public`), ESM-only, target ES2022, `.d.ts` emitted, attw `esm-only` profile and publint on every `vp pack`. `"private": true` until we decide to publish. MIT license.
-- `src/` is type-checked with `@cloudflare/workers-types` and no Node types. `tests/tsconfig.json` adds Node types.
+- Two packages in one pnpm workspace (#277, ADR-0016), each scoped, published with `access: public`, ESM-only, target ES2022, `.d.ts` emitted, attw `esm-only` profile and publint on every `vp pack`. MIT license.
+  - `@forestfuture/active-record` (`packages/active-record`): the core, with two unstable entries besides its own, `/adapter` for adapters and `/cli` for the `d1-record` command until #278. It ships the agent skill and `llms-full.txt`.
+  - `@forestfuture/d1-record` (`packages/d1-record`): the D1 adapter and the `d1-record` command. The core is its peer dependency, pinned to the same version, and it reaches the core only through the core's entries (lint enforces it, and `check:package` checks its build bundles none of the core). It re-exports nothing of the core.
+  - Changesets moves both in `fixed` mode, so they share a version. In the repo, each package's `exports` resolve to its source (tsdown's `devExports`), so the command runs untranspiled; `publishConfig` points the published package at `dist/`.
+- Both packages' `src/` are type-checked with `@cloudflare/workers-types` and no Node types. `tests/tsconfig.json` adds Node types.
 - Three Vitest projects. `unit` (`tests/unit/**`) is for logic that needs no database. There's no fake executor: tests that involve a database use a real one and watch queries through the public `onQuery` hook. `conformance:d1` runs the portable conformance suite (`tests/conformance/**`, #267) against D1: each file opens its database through `openHarness()` (`tests/support/harness.ts`), which the project names with `provide`, and skips the tests an adapter's allowed differences name (`tests/conformance/allowed-differences.ts`). `integration` (`tests/integration/**`) holds the D1 adapter's own tests. Both get a fresh in-memory Miniflare D1 per file, with the schema created from `tests/fixtures/migrations/db/0001_schema.sql` (`tests/support/d1.ts`, Miniflare 4). See ADR-0002.
-- Pre-commit hooks lint and format staged files. GitHub Actions runs `vp install`, `vp check`, `vp test` and `vp pack` on push to `main`.
+- Pre-commit hooks lint and format staged files. GitHub Actions runs `vp install`, `vp check`, `vp test` and `vp run build` on push to `main`.
 
 ## Connecting
 
 _Portable._ A bullet or sentence marked (D1) is the D1 adapter's alone.
 
-_Guide:_ [connecting](<../site/docs/(basics)/connecting.mdx>), [query-databases](<../site/docs/(background)/query-databases.md>), [several-databases](<../site/docs/(how-to)/several-databases.mdx>), [read-your-own-writes](<../site/docs/(how-to)/read-your-own-writes.mdx>). _Code:_ `src/database.ts`, `src/current-database.ts`, `src/executor.ts`, `src/d1/`.
+_Guide:_ [connecting](<../site/docs/(basics)/connecting.mdx>), [query-databases](<../site/docs/(background)/query-databases.md>), [several-databases](<../site/docs/(how-to)/several-databases.mdx>), [read-your-own-writes](<../site/docs/(how-to)/read-your-own-writes.mdx>). _Code:_ `active-record/src/database.ts`, `active-record/src/current-database.ts`, `active-record/src/executor.ts`, `d1-record/src/`.
 
 A query finds its database one of three ways (#77):
 
@@ -53,7 +56,7 @@ const models = db.models({ User, Post }); // convenience: models.User has the sa
 - (D1) **The binding (level 1):** the generated schema a Model's base class holds names the D1 binding it queries when there's no request database, as Rails' `connects_to`; `d1-record schema` writes it, per binding. It's read from `import { env } from "cloudflare:workers"`, loaded only when a query needs it, so the library imports fine in Node. That `env` object is read once and kept, so a test that mocks `cloudflare:workers` (with d1-record inlined by Vitest, `test.server.deps.inline`) assigns its bindings onto the mocked object rather than replacing it; that's how tests give each Model its own database when there are several (#227). Each binding gets one Database, holding nothing per request (no Session, no listener), shared by every request: safe across concurrent requests in one isolate.
 - **The request's database (level 2):** `withDatabase(db | [db, …], fn)` runs `fn` with those databases as the request's own, through Workers' `AsyncLocalStorage`: every query started from a Model inside it, and everything it awaits, uses the one whose D1 binding is that Model's binding, with its Session and `onQuery`. Nested calls add to the outer ones. Outside a Worker (Node, scripts), where there's no binding to match, the request's database serves every Model if there's one, and several are an error. `AsyncLocalStorage` is loaded with `process.getBuiltinModule("node:async_hooks")` when `withDatabase` is first called, so Workers without Node.js compatibility still build; calling it there throws `NoDatabase` naming the setting (a `compatibility_date` of 2026-08-04 or later, or `nodejs_compat`).
 - **An explicit database (level 3):** `db.model(X)`, `db.models({...})` and `db.batch([...])` always use `db`, whatever `withDatabase` says.
-- **Errors** (`NoDatabase`, saying what to do): a Model whose base class holds no generated schema, outside `withDatabase`; a binding only available inside a Worker, queried outside one; several request databases outside a Worker; a binding that isn't in the Worker's env (check `d1_databases`). A query at a module's top level fails with Workers' own error: D1 calls happen during a request.
+- **Errors** (`NoDatabase`, saying what to do): a Model whose base class holds no generated schema, outside `withDatabase`, which can't even compile a statement, as its schema names its adapter; a binding only available inside a Worker, queried outside one; several request databases outside a Worker; a binding that isn't in the Worker's env (check `d1_databases`). A query at a module's top level fails with Workers' own error: D1 calls happen during a request.
 - **One database per query and write (#93).** Whether two handles are one database is decided by the database each resolves to, for every operation: `merge()`, `or()` and a scope's result when the query runs; `batch`, `db.batch`, `save()` and `destroy()` before anything else runs, with no validation, callback or write when they're refused. A save, batch or destroy checks every record it will write: a save's whole autosave graph (the records built through its associations and the new records it points at through `belongsTo`, at every level), and a destroy's dependents. So inside `withDatabase`, a loaded record's association merges with a Model's static Relation, since both resolve to the request's database. Two databases throw `IncompatibleRelation` naming where each came from ("the request's database", "the DB binding's database", "a connect() database"), and `db.batch()` names itself. A Database given to `withDatabase` is "the request's database" in errors for its life, including after `withDatabase` returns. Every record a save, destroy or batch writes keeps the database it ran on, as the record itself does.
 - **`batch([...])`** writes its entries atomically on the database they were built on, as `db.batch` does: the current database for entries from a Model's statics and their records, or one explicit database. Entries from two databases throw `IncompatibleRelation`.
 - No request state is ever stored on a Model class (ADR-0012): a request's database lives only in its `AsyncLocalStorage`.
@@ -63,7 +66,7 @@ const models = db.models({ User, Post }); // convenience: models.User has the sa
 
 _Portable._ A bullet or sentence marked (D1) is the D1 adapter's alone.
 
-_Guide:_ [models](<../site/docs/(basics)/models.mdx>), [untrusted-input](<../site/docs/(how-to)/untrusted-input.mdx>), [querying](<../site/docs/(basics)/querying.mdx>), [adopt-a-database](<../site/docs/(how-to)/adopt-a-database.mdx>). _Code:_ `src/model.ts`, `src/model-statics.ts`, `src/generated-model.ts`, `src/metadata.ts`, `src/spec-keys.ts`, `src/table-names.ts`, `src/verify-model.ts`, `src/permit.ts`, `src/attribute.ts`, `src/conversion.ts`, `src/attribute-conversions.ts`.
+_Guide:_ [models](<../site/docs/(basics)/models.mdx>), [untrusted-input](<../site/docs/(how-to)/untrusted-input.mdx>), [querying](<../site/docs/(basics)/querying.mdx>), [adopt-a-database](<../site/docs/(how-to)/adopt-a-database.mdx>). _Code:_ `active-record/src/model.ts`, `active-record/src/model-statics.ts`, `active-record/src/generated-model.ts`, `active-record/src/metadata.ts`, `active-record/src/spec-keys.ts`, `active-record/src/table-names.ts`, `active-record/src/verify-model.ts`, `active-record/src/permit.ts`, `active-record/src/attribute.ts`, `active-record/src/conversion.ts`, `active-record/src/attribute-conversions.ts`.
 
 A Model extends the app's base class (`ApplicationRecord`). A **generated Model**'s attributes are its table's in the generated schema (see The generated schema): `class Post extends ApplicationRecord {}`. A **hand-declared Model** declares them in its class, with `define`:
 
@@ -134,7 +137,7 @@ class User extends ApplicationRecord.define({
 
 _D1._
 
-_Guide:_ [schema](<../site/docs/(background)/schema.md>), [adopt-a-database](<../site/docs/(how-to)/adopt-a-database.mdx>), [command-line](<../site/docs/(basics)/command-line.mdx>). _Code:_ `cli/schema/`, `cli/project/`, `src/generated-model.ts`, `src/spec-keys.ts`.
+_Guide:_ [schema](<../site/docs/(background)/schema.md>), [adopt-a-database](<../site/docs/(how-to)/adopt-a-database.mdx>), [command-line](<../site/docs/(basics)/command-line.mdx>). _Code:_ `d1-record/cli/schema/`, `d1-record/cli/project/`, `active-record/src/generated-model.ts`, `active-record/src/spec-keys.ts`.
 
 `npx d1-record schema` (Node 22.13+) writes `src/db/schema.ts` from the project's D1 migrations and its Models, the migrations found through its Wrangler config (`migrations_dir`, `migrations_pattern`, `migrations_table`; one file per binding when there are several). It applies them to an in-memory SQLite database and converts each table's columns to attributes by convention: the declared type first (`INTEGER`, `TEXT`, `REAL`, `BOOLEAN`, `DATETIME`/`TIMESTAMP`/`DATE`, `JSON`, a `TEXT` with `CHECK (json_valid(…))` as `json`), then, only for a column declared exactly `TEXT` or `INTEGER`, its name (`…_at` `TEXT` → `datetime`, `is_…`/`has_…` `INTEGER` → `boolean`, printed as a note). A column with no declared type, or one that matches none of these (`UUID`, `ANY`), is read as a `string` and gets a note that a number in it fails when the record loads (#159), whatever tool wrote the migration. `NOT NULL` → `null: false`; literal defaults are copied, and a `TEXT` primary key without a literal default gets `generateId: true`. `NUMERIC`/`DECIMAL`, `BLOB`, composite or missing primary keys, and names that would collide are errors that say what to do; a broken migration is reported by file name and the last good file is kept. A `DATETIME` or `TIMESTAMP` column whose default is a number or an epoch function (`DEFAULT 0`, `unixepoch()`, `strftime('%s', …)`) gets a note naming the `storage` override, whatever tool wrote the migration. Migrations written by Drizzle or Prisma (recognized by `drizzle.config.*`, `schema.prisma`, `prisma/schema.prisma` or `prisma.config.ts` in the project or a folder above it up to the repository's root, or by the `--> statement-breakpoint` and `-- CreateTable` lines they write) add more notes, since those tools can store values differently. The first names the tool and links #73. Then each column worth checking gets one, whether it's named in snake_case or camelCase. An `INTEGER` named `…_at`/`…At` may hold a Unix timestamp, and its note shows the `storage` override that reads it as a `Date`, naming Drizzle's `timestamp` and `timestamp_ms` modes for Drizzle. A `TEXT` without a `json_valid` check named `…_json`/`…Json`, `metadata`, `settings`, `payload` or `properties` may hold JSON. A `DATETIME`/`TIMESTAMP` column whose default is `CURRENT_TIMESTAMP` or `datetime('now')` gets a note, under a recognized tool's migrations only: its default writes `2026-10-12 06:38:30` where d1-record writes ISO text, and the two sort apart as text (#143). A Prisma `datetime` otherwise gets no note, since Prisma writes ISO text to D1. These per-column notes come only with a recognized tool's migrations: they're hints, where the `is_…` note reports a guess the generator made for you. Notes come with a file that's written, so they don't repeat when it's up to date, while watching, or with `--check`. Migrations in folders (`migrations/0000_init/migration.sql`, as Drizzle writes them) with no `migrations_pattern` to find them get Wrangler's hint to set one, every time. It never replaces a file it didn't write (one without its "Generated by" header, such as a Drizzle schema), and never writes a file next to a folder of the same name (`src/db/schema.ts` beside a Drizzle `src/db/schema/`), whose imports it would take over; either is an error suggesting `--out`, and the generators check it before writing anything. `--check` fails when the file is stale (it compares a fingerprint of the schema and its Models, so formatting doesn't matter), and `--watch` regenerates as migrations or Model files change. `--migrations <dir>` reads the migrations from another folder (one database only), and `--config <file>` names the Wrangler config instead of finding `wrangler.jsonc`, `wrangler.json` or `wrangler.toml`.
 
@@ -170,7 +173,7 @@ export class Listing extends ApplicationRecord {
 export class Visit extends ApplicationRecord.define({ id: "integer", path: "string" }) {}
 ```
 
-- The generated `schema.ts` is a document, like Rails' `schema.rb`: each table's attributes, then `schema`, holding the binding, every table, and `models` (each generated Model's class name, with its table). After it, a `declare module` block per Model file adds each class's table attributes, after its own `static attributes`, typed with the library's `TableAttributes`. Those are type-only, so the file imports nothing at runtime. When it's missing, `d1-record schema` also writes the app's base class, `src/models/application-record.ts` (`abstract class ApplicationRecord extends Model`, holding `schema`), as Rails apps have `ApplicationRecord`; it never writes over it, so it's the app's to edit (`--check` writes nothing). With several databases, each binding gets its own schema file and base class, named as Rails names them (`LOGS` → `LogsRecord` in `src/models/logs-record.ts`, `MY_DB` → `MyDbRecord`); two bindings whose names would give the same base class (`DB` and `db`) are an error. `--models <dir>` puts it in another folder (`src/app/models`); the generators take the same flag, so Models and their base class stay together.
+- The generated `schema.ts` is a document, like Rails' `schema.rb`: each table's attributes, then `schema`, holding its adapter (`adapter: d1({ binding: "DB" })`, #277), every table, and `models` (each generated Model's class name, with its table). After it, a `declare module` block per Model file adds each class's table attributes, after its own `static attributes`, typed with the core's `TableAttributes`. Those are type-only, so at runtime the file imports only `d1` from `@forestfuture/d1-record`. When it's missing, `d1-record schema` also writes the app's base class, `src/models/application-record.ts` (`abstract class ApplicationRecord extends Model`, holding `schema`), as Rails apps have `ApplicationRecord`; it never writes over it, so it's the app's to edit (`--check` writes nothing). With several databases, each binding gets its own schema file and base class, named as Rails names them (`LOGS` → `LogsRecord` in `src/models/logs-record.ts`, `MY_DB` → `MyDbRecord`); two bindings whose names would give the same base class (`DB` and `db`) are an error. `--models <dir>` puts it in another folder (`src/app/models`); the generators take the same flag, so Models and their base class stay together.
 - **Finding the Models (#232).** `d1-record schema` loads the `.ts` files in `--models` (`src/models`), or the one file it names, with jiti, as the console does, through the project's own copy of the library (ADR-0014). While they load, the schema as the migrations make it now stands in for the schema file (written there for the moment when there's none), with no `models` list, so nothing is checked against the old file. A generated Model is an exported class directly below a base class (one holding a schema, or marked `static abstract = true`) whose schema is the one being generated. A subclass of a Model, an abstract class, and a hand-declared Model aren't listed. A Model whose table the migrations don't make, a file that throws when it loads (named by its file), or a Model exported as its file's `default` (its declarations need a named export) is an error, and the last good file is kept. The generators load the Models too, adding the one they write. `--check` fails when a Model was added, renamed or removed, since the `models` list is part of the fingerprint. A list too long for a line is written one entry a line, as a formatter would.
 - **A generated Model's attributes** are its table's, in the schema its nearest base class holds, after its overrides. They're settled when the Model is first used, once its class and statics are all defined: its table is bound and its accessors are defined then. Until then, each read of its `table`, `primaryKey` or attributes finds them again, so the statics of a class body may come in any order. A `validates` in a `static {}` block checks its attribute names when the Model is first used (an `UnknownAttribute`), not when it's declared. Its `primaryKey` is the table's; it can still be set, and must name an attribute. A subclass shares them; one that names another table throws `InvalidModel`.
 - **Generation is required.** A Model whose class name isn't in its schema's `models`, or whose table there isn't its table now, throws `InvalidModel` naming `d1-record schema` when it's first used. That's what stops a dev server, which doesn't type-check. Its query statics (`find`, `where`, …) are a compile error too, as an abstract class's are: they take only a class whose records have attributes. A schema with no `models` list (`DatabaseSchema`'s `models` is optional for this alone) checks nothing, which is how `d1-record schema` loads the Models.
@@ -183,7 +186,7 @@ export class Visit extends ApplicationRecord.define({ id: "integer", path: "stri
 
 _D1._
 
-_Guide:_ [generators](<../site/docs/(how-to)/generators.mdx>), [change-a-table](<../site/docs/(how-to)/change-a-table.mdx>), [command-line](<../site/docs/(basics)/command-line.mdx>). _Code:_ `cli/generate/`.
+_Guide:_ [generators](<../site/docs/(how-to)/generators.mdx>), [change-a-table](<../site/docs/(how-to)/change-a-table.mdx>), [command-line](<../site/docs/(basics)/command-line.mdx>). _Code:_ `d1-record/cli/generate/`.
 
 `npx d1-record g model <Name> [columns]` writes a `CREATE TABLE` migration and a Model; `npx d1-record g migration <Name> [columns]` writes a migration whose name says what it does. Both then regenerate the schema and print the next step (`npx wrangler d1 migrations apply <database_name> --local`); neither applies migrations.
 
@@ -198,7 +201,7 @@ _Guide:_ [generators](<../site/docs/(how-to)/generators.mdx>), [change-a-table](
 
 _D1._
 
-_Guide:_ [console](<../site/docs/(how-to)/console.mdx>), [command-line](<../site/docs/(basics)/command-line.mdx>). _Code:_ `cli/console/`. See ADR-0014.
+_Guide:_ [console](<../site/docs/(how-to)/console.mdx>), [command-line](<../site/docs/(basics)/command-line.mdx>). _Code:_ `d1-record/cli/console/`. See ADR-0014.
 
 - `d1-record console` (also `c`; options `--database`, `--models`, `--config`, `--no-history`, `--history`, `--verbose`, `--remote`, `--yes`, `-e`/`--eval`) opens the project's D1 database in a REPL (#104). **Local unless `--remote`**: `getPlatformProxy` is called with `remoteBindings: false`, so a binding marked `remote: true` still opens locally.
 - **The database** is the only `d1_databases` binding in the Wrangler config, or the one `--database` names; with several and no `--database`, or a name the config doesn't bind, it prints why and exits 1, as `g` does. Only that binding is started: `getPlatformProxy` is given a temporary Wrangler config holding the chosen `d1_databases` entry as the project's config has it (removed when the console ends), because it starts every binding a config declares (Durable Objects, services, secrets from `.dev.vars`), with their warnings and failures. State is read and written in `<config dir>/.wrangler/state/v3`, where `wrangler dev` keeps it (not relative to the working directory, as `getPlatformProxy`'s own default is).
@@ -223,7 +226,7 @@ _Guide:_ [console](<../site/docs/(how-to)/console.mdx>), [command-line](<../site
 
 _Portable._
 
-_Guide:_ [querying](<../site/docs/(basics)/querying.mdx>), [models](<../site/docs/(basics)/models.mdx>). _Code:_ `src/scoped-relation.ts`.
+_Guide:_ [querying](<../site/docs/(basics)/querying.mdx>), [models](<../site/docs/(basics)/models.mdx>). _Code:_ `active-record/src/scoped-relation.ts`.
 
 - Declared one static each, as Rails' `scope :active, -> { … }`: `static active = this.scope((q, ...args) => q…)`. A scope receives the current Relation and its arguments and returns a changed Relation of the **same Model**; anything else throws `TypeError` naming the scope. The Relation it returns may start again from the Model's statics: it must be on the same database when the query runs, or it throws `IncompatibleRelation` naming the scope (#93), so a query never silently moves to another database.
 - Callable as a static (`User.active()`, on the current database, #77), on `db.model(X)`, and on any Relation of that Model, and chainable with everything: `User.where(…).active().createdAfter(d).order(…)`. Scope calls are typed, including what a static scope returns when called on a subclass (`Admin.active()` is a Relation of `Admin`): a wrong argument type or an unknown scope name is a compile error.
@@ -239,7 +242,7 @@ _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>), [models](<../site/doc
 
 _Portable._
 
-_Guide:_ [shared-behavior](<../site/docs/(how-to)/shared-behavior.mdx>), [models](<../site/docs/(basics)/models.mdx>). _Code:_ `src/ancestors.ts`, `src/declarations.ts`, `src/model.ts`, `src/model-statics.ts`, `src/verify-model.ts`.
+_Guide:_ [shared-behavior](<../site/docs/(how-to)/shared-behavior.mdx>), [models](<../site/docs/(basics)/models.mdx>). _Code:_ `active-record/src/ancestors.ts`, `active-record/src/declarations.ts`, `active-record/src/model.ts`, `active-record/src/model-statics.ts`, `active-record/src/verify-model.ts`.
 
 - A subclass (`class Admin extends User`) inherits a copy of its parent's attributes, validations, callbacks, scopes and associations. Declaring more on the child never changes the parent. Single-table inheritance is out of scope.
 - Share behavior between all Models on the app's base class, `ApplicationRecord` (see "Shared behavior" under The generated schema), as Rails does. Behavior only some Models share can go on a class between them and it, marked `static abstract = true`, or in a function called from their `static {}` (e.g. `audited(this)`). A `.with({...})` helper for adding attributes to a subclass of a shared base is deferred (#14).
@@ -250,7 +253,7 @@ _Guide:_ [shared-behavior](<../site/docs/(how-to)/shared-behavior.mdx>), [models
 
 _Portable._
 
-_Guide:_ [models](<../site/docs/(basics)/models.mdx>). _Code:_ `src/record-state.ts`, `src/attribute.ts`.
+_Guide:_ [models](<../site/docs/(basics)/models.mdx>). _Code:_ `active-record/src/record-state.ts`, `active-record/src/attribute.ts`.
 
 - Change detection compares each attribute's current serialized value with the value last loaded or saved, so in-place changes to `json` values and `Date`s are detected.
 - After a successful save (an insert or an update), every loaded attribute holds what D1 stored, as a reload gives (#163): a `unixSeconds` `Date` has no milliseconds, and a `json` value's `NaN` or `Map` is `null` or `{}`, even when assigning it wasn't a change.
@@ -264,7 +267,7 @@ _Guide:_ [models](<../site/docs/(basics)/models.mdx>). _Code:_ `src/record-state
 
 _Portable._
 
-_Guide:_ [associations](<../site/docs/(basics)/associations.mdx>). _Code:_ `src/association-fields.ts`, `src/associations.ts`, `src/association-writers.ts`, `src/foreign-keys.ts`, `src/resolved-association.ts`, `src/owned-collection.ts`, `src/autosave.ts`, `src/dependents.ts`, `src/preload.ts`.
+_Guide:_ [associations](<../site/docs/(basics)/associations.mdx>). _Code:_ `active-record/src/association-fields.ts`, `active-record/src/associations.ts`, `active-record/src/association-writers.ts`, `active-record/src/foreign-keys.ts`, `active-record/src/resolved-association.ts`, `active-record/src/owned-collection.ts`, `active-record/src/autosave.ts`, `active-record/src/dependents.ts`, `active-record/src/preload.ts`.
 
 ```ts
 class User extends Model.define({ id: { type: "integer", null: false } }) {
@@ -317,7 +320,7 @@ class Post extends Model.define({ id: "integer", userId: "integer" }) {
 
 _Portable._
 
-_Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `src/lifecycle.ts`, `src/model.ts`, `src/model-statics.ts`.
+_Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `active-record/src/lifecycle.ts`, `active-record/src/model.ts`, `active-record/src/model-statics.ts`.
 
 | Method                                   | Resolves to                           | Domain errors                                         |
 | ---------------------------------------- | ------------------------------------- | ----------------------------------------------------- |
@@ -337,7 +340,7 @@ Any error thrown by a callback other than an `abort(...)` propagates unchanged. 
 
 _Portable._
 
-_Guide:_ [errors](<../site/docs/(basics)/errors.mdx>). _Code:_ `src/constraints.ts`, `src/d1/errors.ts`.
+_Guide:_ [errors](<../site/docs/(basics)/errors.mdx>). _Code:_ `active-record/src/constraints.ts`, `d1-record/src/errors.ts`.
 
 - `RecordNotUnique`, `InvalidForeignKey`, `NotNullViolation` and `CheckViolation`, all subclasses of `ConstraintViolation`, are recognized from D1 error messages on insert, update and delete. They carry the original error as `cause`, and `.table`, `.columns` and `.attributes` where the message names them (SQLite's foreign-key and check messages don't name a column). The same errors come from statements and batches. `.table` is the table D1's message names, and `.attributes` are mapped when that table is one being written to (a trigger's write to another table leaves them empty). When the message names no table (foreign-key and check failures), it's the only table written to. A batch that writes to several then has `.table` `null`, and the message starts with `batch:`.
 - Both the throwing and non-throwing methods throw them. After a constraint error the caller's own changes are kept and `errors` is not changed, because nothing was persisted. Timestamps are only applied once D1 accepts a write, so a failed save doesn't leave `createdAt`/`updatedAt` behind.
@@ -347,7 +350,7 @@ _Guide:_ [errors](<../site/docs/(basics)/errors.mdx>). _Code:_ `src/constraints.
 
 _Portable._
 
-_Guide:_ [validations](<../site/docs/(basics)/validations.mdx>). _Code:_ `src/validations.ts`, `src/lifecycle.ts`.
+_Guide:_ [validations](<../site/docs/(basics)/validations.mdx>). _Code:_ `active-record/src/validations.ts`, `active-record/src/lifecycle.ts`.
 
 `await record.isValid()` is the only public entry point. It clears `errors`, runs `beforeValidation`, runs the synchronous and asynchronous validators (uniqueness reads D1), runs `afterValidation`, and returns `true`/`false`. It catches `abort()` and returns `false`; every other error propagates. `save()` and `saveOrThrow()` call it internally. `isChanged()` is a pure synchronous state check, while `isValid()` does work and may query D1.
 
@@ -355,7 +358,7 @@ _Guide:_ [validations](<../site/docs/(basics)/validations.mdx>). _Code:_ `src/va
 
 _Portable._
 
-_Guide:_ [validations](<../site/docs/(basics)/validations.mdx>). _Code:_ `src/errors-collection.ts`, `src/error-messages.ts`.
+_Guide:_ [validations](<../site/docs/(basics)/validations.mdx>). _Code:_ `active-record/src/errors-collection.ts`, `active-record/src/error-messages.ts`.
 
 ```ts
 record.errors.add("email", "is invalid", { type: "invalid" }); // type defaults to "invalid"
@@ -379,7 +382,7 @@ Validators add entries with a `type` (`"blank"`, `"taken"`, `"tooShort"`, …) a
 
 _Portable._
 
-_Guide:_ [validations](<../site/docs/(basics)/validations.mdx>). _Code:_ `src/validations.ts`.
+_Guide:_ [validations](<../site/docs/(basics)/validations.mdx>). _Code:_ `active-record/src/validations.ts`.
 
 Declared in `static {}` with `this.validates(attribute, rules)`. The attribute name and the `if` callback's record are typed against the Model. Every declared validation runs, in declaration order, with no stopping at the first failure, so one attribute can collect several errors. Within one `validates` call the rules apply in a fixed order: presence, length, format, inclusion, numericality, uniqueness.
 
@@ -398,7 +401,7 @@ Default messages (Rails' English, replaced through `errorMessages`): `blank` "ca
 
 _Portable._
 
-_Guide:_ [callbacks](<../site/docs/(basics)/callbacks.mdx>). _Code:_ `src/lifecycle.ts`, `src/declarations.ts`.
+_Guide:_ [callbacks](<../site/docs/(basics)/callbacks.mdx>). _Code:_ `active-record/src/lifecycle.ts`, `active-record/src/declarations.ts`.
 
 Declared in `static {}`: `this.beforeValidation(fn)`, `afterValidation`, `beforeSave`, `beforeCreate`, `beforeUpdate`, `afterCreate`, `afterUpdate`, `afterSave`, `beforeDestroy`, `afterDestroy`. Each takes a function that receives the record, typed as the Model's record, and may be async; callbacks of one kind run in declaration order. A subclass runs its parent's callbacks and validations plus its own, and declaring on it never changes the parent. Declarations belong in the class's `static {}` block: once a Model has been used (`db.model(X)`), declaring on it throws `InvalidModel`, so request code can never add callbacks that leak into later requests.
 
@@ -418,7 +421,7 @@ beforeValidation → validators → afterValidation
 
 _Portable._
 
-_Guide:_ [callbacks](<../site/docs/(basics)/callbacks.mdx>), [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `src/lifecycle.ts`.
+_Guide:_ [callbacks](<../site/docs/(basics)/callbacks.mdx>), [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `active-record/src/lifecycle.ts`.
 
 ```ts
 this.beforeSave((account) => {
@@ -436,7 +439,7 @@ this.beforeSave((account) => {
 
 _Portable._
 
-_Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `src/record-state.ts`.
+_Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `active-record/src/record-state.ts`.
 
 | State                                            | `isNewRecord()` | `isPersisted()` | `isDestroyed()` |
 | ------------------------------------------------ | --------------- | --------------- | --------------- |
@@ -448,7 +451,7 @@ _Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `src/re
 
 _Portable._
 
-_Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `src/record-state.ts`, `src/lifecycle.ts`.
+_Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `active-record/src/record-state.ts`, `active-record/src/lifecycle.ts`.
 
 - A record is marked destroyed only after the D1 `DELETE` succeeds, and before `afterDestroy` runs. Destroying a never-saved record sends nothing, since there's no row, and marks it destroyed. If `afterDestroy` throws, the row stays deleted and the record stays destroyed.
 - `isDestroyed()` is `true` and `isPersisted()` is `false`. Attributes stay readable, but the record is read-only: setting a property or calling `assign` throws `RecordDestroyed`.
@@ -459,7 +462,7 @@ _Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `src/re
 
 _Portable._ A bullet or sentence marked (D1) is the D1 adapter's alone.
 
-_Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `src/relation.ts`, `src/relation-checks.ts`, `src/load.ts`, `src/query.ts`, `src/compiler.ts`, `src/comparisons.ts`, `src/sql.ts`, `src/fragment-guard.ts`.
+_Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `active-record/src/relation.ts`, `active-record/src/relation-checks.ts`, `active-record/src/load.ts`, `active-record/src/query.ts`, `active-record/src/compiler.ts`, `active-record/src/comparisons.ts`, `active-record/src/sql.ts`, `active-record/src/fragment-guard.ts`.
 
 - Every modifier returns a new Relation. Building a Relation never queries D1.
 - `static primaryKey` (default `"id"`) must name a declared attribute, or `db.model(X)` throws `InvalidModel`. `find(id)` takes one id, a `string | number`, and resolves to a record. `find(1, 2)` or `find([1, 2])` resolves to an array in the ids' order, or in the Relation's order if it has one, as in Rails. It's one query, repeated ids are found once, `find([])` resolves to `[]`, and a missing id throws `RecordNotFound` saying how many were found. Ids are cast to the key's type first, as in Rails, so `"01"` and `1` are the same id for an integer key. Unlike Rails, `find(1, 1)` still resolves to an array, so the return type follows the arguments. Any number of ids fits in the one query, as with `where`.
@@ -474,13 +477,13 @@ _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `src/relation
 - `find()`, `findBy()` and `findByOrThrow()` keep the Relation's where conditions, scopes and includes, ignore its limit, offset and `select()`, and always load full rows. They ignore its order too, except that `find` with several ids returns them in the Relation's order when it has one (see above).
 - `or()`: same Model on the same database (checked when the query runs, #93), and the same select, order (fragments compare by text and values), limit, offset and distinct. Only where conditions may differ, and each side is wrapped in parentheses. Otherwise it throws `IncompatibleRelation`.
 - `merge()`: same Model on the same database only (checked when the query runs, #93). Where conditions combine with AND. For order, limit, offset, select and distinct, a clause the argument sets explicitly replaces the receiver's, and a clause it doesn't set leaves the receiver's alone. Orders are replaced, not concatenated, which is a deliberate difference from Rails. An argument built with `reorder()` replaces the order even when its own is empty, as in Rails. Merging across Models throws `IncompatibleRelation`.
-- `toSql()` (#46), as Rails' `to_sql`, returns `{ sql, params }` for the SELECT `toArray()` sends, without sending it, so it needs no database. It shows the columns really loaded (a `select` plus the primary key and the keys `includes` needs), `limit` and `offset` as bound values, and a `none()` Relation as its conditions with `1 = 0`. It isn't the query `count()`, `pluck()` or `exists()` send, as in Rails. Values are never inlined (ADR-0006), so Rails' inlined values are `params` here. The params are the values D1 would bind, filtered attributes included: `onQuery` hides them, `toSql()` doesn't, as Rails' `to_sql` doesn't filter. A Model has it as a static (`User.toSql()`).
+- `toSql()` (#46), as Rails' `to_sql`, returns `{ sql, params }` for the SELECT `toArray()` sends, without sending it, so it needs no database when its Model's schema names its adapter. A Model with no schema compiles for the request's database, and with none it throws `NoDatabase`, since nothing says which database's SQL to write (#277). It shows the columns really loaded (a `select` plus the primary key and the keys `includes` needs), `limit` and `offset` as bound values, and a `none()` Relation as its conditions with `1 = 0`. It isn't the query `count()`, `pluck()` or `exists()` send, as in Rails. Values are never inlined (ADR-0006), so Rails' inlined values are `params` here. The params are the values D1 would bind, filtered attributes included: `onQuery` hides them, `toSql()` doesn't, as Rails' `to_sql` doesn't filter. A Model has it as a static (`User.toSql()`).
 
 ## Terminal operations
 
 _Portable._
 
-_Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `src/relation.ts`, `src/load.ts`, `src/pagination.ts`.
+_Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `active-record/src/relation.ts`, `active-record/src/load.ts`, `active-record/src/pagination.ts`.
 
 - `toArray`, `first`, `last`, `take`, `find`, `findBy`, `findByOrThrow`.
 - `pluck("email")` resolves to converted values. `pluck("id", "email")` resolves to tuples.
@@ -498,7 +501,7 @@ _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `src/relation
 
 _Portable._
 
-_Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `src/relation.ts`, `src/record-state.ts`.
+_Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `active-record/src/relation.ts`, `active-record/src/record-state.ts`.
 
 - `select()` on a Model Relation accepts only declared attributes. The primary key is always loaded too, so a partial record keeps its identity, except after `distinct()`, where adding the key would make every row distinct. Such records carry only the selected attributes.
 - Reading an unloaded attribute throws `MissingAttribute`, including when a validator or callback reads it. Setting one is allowed and makes it loaded and dirty.
@@ -508,7 +511,7 @@ _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `src/relation
 
 _Portable._ A bullet or sentence marked (D1) is the D1 adapter's alone.
 
-_Guide:_ [batches](<../site/docs/(basics)/batches.mdx>). _Code:_ `src/statement.ts`, `src/record-statement.ts`, `src/unit-of-work.ts`, `src/batch.ts`, `src/database.ts`, `src/relation.ts`, `src/load.ts`.
+_Guide:_ [batches](<../site/docs/(basics)/batches.mdx>). _Code:_ `active-record/src/statement.ts`, `active-record/src/record-statement.ts`, `active-record/src/unit-of-work.ts`, `active-record/src/batch.ts`, `active-record/src/database.ts`, `active-record/src/relation.ts`, `active-record/src/load.ts`.
 
 ```ts
 const userId = crypto.randomUUID(); // ids generated in code link rows inside one batch
@@ -546,7 +549,7 @@ await db.model(Post).updateAll(sql`${column("views")} = ${column("views")} + ${1
 
 _Portable._
 
-_Guide:_ [logging](<../site/docs/(how-to)/logging.mdx>). _Code:_ `src/executor.ts`, `src/d1/driver.ts`, `src/filtering.ts`.
+_Guide:_ [logging](<../site/docs/(how-to)/logging.mdx>). _Code:_ `active-record/src/executor.ts`, `d1-record/src/driver.ts`, `active-record/src/filtering.ts`.
 
 - `connect(env.DB, { onQuery(event) })` is called once per statement, batches included, with `{ model, sql, params, durationMs, meta, error? }` (`model` is the statement's Model's class name). `meta` is the database's own detail about the statement: on D1, its `meta` (`changes`, `rows_read`, `duration`, …). The core's `QueryEvent<Meta>` takes its type as a parameter; the package exports `QueryEvent` and `QueryListener` with `D1Meta` filled in (#266). A `QueryListener` is declared as a method's type, so one typed for D1's `meta` can be a Model's `static onQuery`. The integration tests' query-count checks use this same hook. No logger is built in.
 - **App-wide (#78):** `static onQuery` on a Model class, usually the app's base class (`static override onQuery: QueryListener = (event) => …`), is called with the same event for every statement of that Model and those extending it, at every level (the binding, `withDatabase`, an explicit `db`), after the database's own `onQuery`. It's inherited, and a Model's own replaces it. It holds no request state, so it's safe on a class, and can't tell requests apart: a request's ID comes from a database opened for it with `withDatabase`.
@@ -558,7 +561,7 @@ _Guide:_ [logging](<../site/docs/(how-to)/logging.mdx>). _Code:_ `src/executor.t
 
 _Portable._
 
-_Guide:_ [errors](<../site/docs/(basics)/errors.mdx>). _Code:_ `src/errors.ts`.
+_Guide:_ [errors](<../site/docs/(basics)/errors.mdx>). _Code:_ `active-record/src/errors.ts`.
 
 Everything extends `ActiveRecordError`:
 

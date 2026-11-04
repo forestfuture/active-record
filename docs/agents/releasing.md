@@ -33,8 +33,8 @@ The release jobs in `.github/workflows/ci.yml` run on `main`, after `check` pass
    - `publish` once `package.json` has a version npm doesn't have yet;
    - `none` otherwise, which is what most pushes hit.
 2. **`release-version`** opens or updates the **Version Packages** pull request. That pull request bumps `package.json`, writes `CHANGELOG.md` (formatted with `vp fmt`) and deletes the used changesets. CI rewrites its branch on every push to `main`, so don't edit it by hand. Pull requests opened by Actions don't run CI, but merging one runs CI on `main` before anything is published.
-3. **`release-pack`** packs the tarball. Packing runs the package's `prepack` script, which builds `dist/` with `vp pack` (attw and publint included), then the docs site, and copies its `llms-full.txt` into the package. So a docs build that fails, a dead link included, blocks the release.
-4. **`release-publish`** publishes the tarball to npm with provenance, tags the commit with the version, and creates a GitHub Release with its changelog. It's the only job that can get an OIDC token (`id-token: write`). Changesets publishes with pnpm, so provenance is turned on with `PNPM_CONFIG_PROVENANCE`: pnpm ignores `NPM_CONFIG_*`.
+3. **`release-pack`** packs a tarball for each package (#277). Packing runs each package's `prepack` script: the core's builds its `dist/` with `vp pack` (attw and publint included), then the docs site, and copies its `llms-full.txt` into the package, so a docs build that fails, a dead link included, blocks the release. The D1 adapter's builds the core, then its own `dist/` against the core's declarations. Changesets' `fixed` mode keeps both at one version, and the adapter's peer dependency on the core is pinned to it.
+4. **`release-publish`** publishes the tarballs to npm with provenance, tags the commit with the version, and creates a GitHub Release with its changelog. It's the only job that can get an OIDC token (`id-token: write`). Changesets publishes with pnpm, so provenance is turned on with `PNPM_CONFIG_PROVENANCE`: pnpm ignores `NPM_CONFIG_*`.
 
 To release, merge the Version Packages pull request.
 
