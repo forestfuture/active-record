@@ -8,7 +8,7 @@ Read a dependency's types and docs from these paths, rather than searching `node
 - **Vite+** commands and config: `node_modules/vite-plus/docs/guide/<command>.md`. `lint.md` covers the repo's own lint rules (`scripts/lint/`).
 - **Oxlint rules** and their options: https://oxc.rs/docs/guide/usage/linter/rules.html. `vp lint --rules` prints nothing here.
 - **Blume**, the documentation site: its docs are bundled at `site/node_modules/blume/docs/` (configuration in `configuration/index.mdx`, includes in `content/includes.mdx`, components in `content/components.mdx`), and its skills at `site/node_modules/blume/skills/`. `useblume.dev` has the same pages.
-- **tsdown**, which `vp pack` runs: its config types are under `node_modules/.pnpm/@voidzero-dev+vite-plus-core@*/node_modules/@voidzero-dev/vite-plus-core/dist/tsdown/`.
+- **tsdown**, which `vp pack` runs in each package (`packages/*/vite.config.ts`): its config types are under `node_modules/.pnpm/@voidzero-dev+vite-plus-core@*/node_modules/@voidzero-dev/vite-plus-core/dist/tsdown/`.
 
 ## Bumping Vite+
 
