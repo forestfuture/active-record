@@ -100,7 +100,7 @@ describe("values by their use", () => {
       expect(note.label).toBe("9");
     });
 
-    test("and a key D1 generates, filled in when the owner is saved with its records", async () => {
+    test("and a key the database generates, filled in when the owner is saved with its records", async () => {
       const owner = db().model(Owner).build({ email: "grace@example.com" });
       const note = owner.notes().build({ id: 3 });
 
@@ -130,7 +130,7 @@ describe("values by their use", () => {
       expect(note!.loaded("owner")?.id).toBe(9);
     });
 
-    // A preload selects the keys with a subquery (#217), where SQLite would compare an integer
+    // A preload selects the keys with a subquery (#217), where a database could compare an integer
     // with text by its number: an integer key matches only its own digits, as a condition does.
     test.each(["notes", "note"] as const)(
       "%s finds the text foreign keys that are an integer key's digits, not '09'",
@@ -164,9 +164,6 @@ describe("values by their use", () => {
 
       expect(counted!.loaded("code")?.id).toBe("9");
     });
-
-    // Compared by number, a text column's index can't be searched: the integer key is selected
-    // as text instead, so D1 reads (and bills) the matches, not the whole table.
 
     test("a hasMany finds the integer foreign keys a text key casts to, as a condition does", async () => {
       await db()

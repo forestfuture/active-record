@@ -21,7 +21,7 @@ class Session extends Model.define({
 }
 
 // What onQuery listeners see of a filtered attribute's values: "[FILTERED]", as in Rails' logs.
-// D1 still gets the real values (#83).
+// The database still gets the real values (#83).
 describe("filterAttributes", () => {
   let harness: Harness;
   let events: QueryEvent[];

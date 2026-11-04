@@ -42,9 +42,8 @@ describe("paginate", () => {
   const titles = (records: readonly Post[]) => records.map((post) => post.title);
 
   beforeAll(async () => {
-    harness = await openHarness();
-    // Read backwards for a descending order, the index gives tied rows in reverse key order.
-    await harness.exec("CREATE INDEX posts_user_id ON posts (user_id)");
+    // Read backwards for a descending order, its index gives tied rows in reverse key order.
+    harness = await openHarness({ schema: "paginated" });
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
@@ -246,7 +245,7 @@ describe("paginate", () => {
     expect(total).toBe(5);
   });
 
-  test("on a hasMany, queries D1, leaving out the owner's loaded and unsaved built records", async () => {
+  test("on a hasMany, queries the database, leaving out the owner's loaded and unsaved built records", async () => {
     const user = await db().model(User).includes("posts").findByOrThrow({ id: 1 });
     user.posts().build({ title: "0 unsaved" });
     events.length = 0;

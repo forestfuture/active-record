@@ -52,9 +52,6 @@ describe("values by their use", () => {
   });
 
   describe("preloading across key types", () => {
-    // A preload selects the keys with a subquery (#217), where SQLite would compare an integer
-    // with text by its number: an integer key matches only its own digits, as a condition does.
-
     // Compared by number, a text column's index can't be searched: the integer key is selected
     // as text instead, so D1 reads (and bills) the matches, not the whole table.
     describe("an integer key searches a text key's index", () => {

@@ -169,7 +169,7 @@ describe("autosave: records built through a hasMany are saved with their owner",
     expect(await key.accounts().pluck("id")).toEqual([1]);
   });
 
-  test("with a key D1 generates, the owner is written first: a record that then fails leaves the owner saved", async () => {
+  test("with a key the database generates, the owner is written first: a record that then fails leaves the owner saved", async () => {
     await harness.exec("INSERT INTO users (id, email) VALUES (1, 'x@example.com')");
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'Taken')");
     const user = db().model(User).build({ email: "a@example.com" });
@@ -203,7 +203,7 @@ describe("autosave: records built through a hasMany are saved with their owner",
     expect(await db().model(Post).count()).toBe(2);
   });
 
-  test("in a batch, an owner autosaves when its key is known, and refuses when D1 would generate it", async () => {
+  test("in a batch, an owner autosaves when its key is known, and refuses when the database would generate it", async () => {
     const database = db();
     const key = database.model(ApiKey).build({ label: "deploy" });
     key.accounts().build({ id: 1 });

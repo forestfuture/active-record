@@ -7,12 +7,18 @@ import { connect } from "../../../src/index.ts";
 import { createTestDatabase } from "../d1.ts";
 import type { Harness, SchemaName } from "../harness.ts";
 
-const fixture = new URL("../../fixtures/migrations/db/0001_schema.sql", import.meta.url);
+const sqlite = (name: string) => new URL(`../../fixtures/sqlite/${name}.sql`, import.meta.url);
+// The integration tests' schema, also a Wrangler fixture's migration, and the suite's own tables.
+const fixture = [
+  new URL("../../fixtures/migrations/db/0001_schema.sql", import.meta.url),
+  sqlite("conformance"),
+];
 
 /** Each schema's SQLite migrations, applied in order. */
 const schemas: Record<SchemaName, readonly URL[]> = {
-  fixture: [fixture],
-  "generated-ids": [new URL("../../fixtures/sqlite/generated-ids.sql", import.meta.url)],
+  fixture,
+  "generated-ids": [sqlite("generated-ids")],
+  paginated: [...fixture, sqlite("paginated")],
 };
 
 export async function openD1Harness(schema: SchemaName): Promise<Harness> {

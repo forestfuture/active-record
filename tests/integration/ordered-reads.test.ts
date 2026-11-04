@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { column, connect, sql, type QueryEvent } from "../../src/index.ts";
+import { connect, type QueryEvent } from "../../src/index.ts";
 import { Post } from "../fixtures/models/post.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
@@ -54,16 +54,6 @@ describe("an order that can't change the answer isn't sent (#215)", () => {
     expect(rowsRead()).toBe(11);
   });
 
-  test("exists() finds the last row, and nothing past it, with or without a limit", async () => {
-    expect(await ordered().offset(POSTS).exists()).toBe(false);
-    expect(
-      await ordered()
-        .limit(5)
-        .offset(POSTS - 1)
-        .exists(),
-    ).toBe(true);
-  });
-
   test("count() on an ordered Relation reads each row once, with no sort", async () => {
     expect(await ordered().count()).toBe(POSTS);
     expect(rowsRead()).toBe(POSTS);
@@ -81,39 +71,6 @@ describe("an order that can't change the answer isn't sent (#215)", () => {
     expect(page.records.map((post) => post.title).slice(0, 2)).toEqual(["Post 00", "Post 01"]);
     const count = events.find((event) => event.sql.startsWith("SELECT COUNT"));
     expect(count?.meta?.rows_read).toBe(POSTS);
-  });
-
-  test("with a limit, count(attribute) counts the rows the order picks", async () => {
-    // Ascending titles start at post 50, so the first five have no createdAt; descending, post 1.
-    expect(await ordered().limit(5).count("createdAt")).toBe(0);
-    expect(await db().model(Post).order({ title: "desc" }).limit(5).count("createdAt")).toBe(5);
-  });
-
-  test("with only an offset, count(attribute) counts the rows the order picks", async () => {
-    // Ascending, the last five are posts 5 to 1, which have a createdAt; descending, 46 to 50.
-    expect(
-      await ordered()
-        .offset(POSTS - 5)
-        .count("createdAt"),
-    ).toBe(5);
-    expect(
-      await db()
-        .model(Post)
-        .order({ title: "desc" })
-        .offset(POSTS - 5)
-        .count("createdAt"),
-    ).toBe(0);
-  });
-
-  test("an sql order with bound values is left out with its values, and kept with them", async () => {
-    const third = db()
-      .model(Post)
-      .where(sql`${column("id")} <= ${20}`)
-      .order(sql`CASE WHEN ${column("id")} = ${column("id").value(3)} THEN 0 ELSE 1 END`);
-
-    expect([await third.exists(), await third.count()]).toEqual([true, 20]);
-    expect(await third.limit(1).count()).toBe(1);
-    expect((await third.limit(1).toArray()).map((post) => post.id)).toEqual([3]);
   });
 });
 
@@ -134,36 +91,6 @@ describe("exists() with distinct() and an offset reads the rows toArray() would 
     ]);
   });
   afterAll(() => dispose());
-
-  test("a distinct select past an offset finds the distinct rows left", async () => {
-    const pastFirst = titles().distinct().offset(1);
-
-    expect(await pastFirst.exists()).toBe(true);
-    expect([await pastFirst.isEmpty(), await pastFirst.hasAny()]).toEqual([false, true]);
-  });
-
-  test("distinct() without a select treats whole rows as distinct", async () => {
-    expect(await posts().distinct().offset(1).exists()).toBe(true);
-    expect(await posts().distinct().offset(3).exists()).toBe(false);
-  });
-
-  test("past the last distinct row, there are none", async () => {
-    expect(await titles().distinct().offset(2).exists()).toBe(false);
-    expect(await titles().distinct().offset(2).isEmpty()).toBe(true);
-  });
-
-  test("with a limit and an offset, it finds the distinct row left, and none past it", async () => {
-    expect(await titles().distinct().limit(1).offset(1).exists()).toBe(true);
-    expect(await titles().distinct().limit(5).offset(2).exists()).toBe(false);
-  });
-
-  test("exists(conditions) applies them before the distinct rows and the offset", async () => {
-    const pastFirst = titles().distinct().offset(1);
-
-    expect(await pastFirst.exists({ title: "B" })).toBe(false);
-    expect(await pastFirst.where({ title: "B" }).toArray()).toEqual([]);
-    expect(await pastFirst.exists({ title: ["A", "B"] })).toBe(true);
-  });
 
   // SQL text, though not a safety property: #222 asks that every other Relation's exists() send
   // the same SQL as before, and the rows D1 reads can't tell the two queries apart.

@@ -19,14 +19,11 @@ class Post extends Model.define({
   static table = "typed_posts";
 }
 
-describe("typeForAttribute against D1: a raw statement and a save agree (#148)", () => {
+describe("typeForAttribute against the database: a raw statement and a save agree (#148)", () => {
   let harness: Harness;
 
   beforeAll(async () => {
     harness = await openHarness();
-    await harness.exec(`CREATE TABLE typed_posts (id INTEGER PRIMARY KEY, title TEXT, published_at TEXT,
-           seconds INTEGER, milliseconds INTEGER, featured INTEGER, rating INTEGER, score REAL,
-           meta TEXT, secret TEXT)`);
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {

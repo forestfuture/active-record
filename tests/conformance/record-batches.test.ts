@@ -156,7 +156,7 @@ describe("saving and destroying records in a batch", () => {
     expect(await database.model(User).count()).toBe(1);
   });
 
-  test("when D1 refuses the batch, nothing is written and records keep their unsaved state", async () => {
+  test("when the database refuses the batch, nothing is written and records keep their unsaved state", async () => {
     const database = db();
     const user = database.model(User).build({ email: "b@example.com" });
     const post = await database.model(Post).find(10);

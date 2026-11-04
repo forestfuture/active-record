@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { between, gte, Model } from "../../src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
-// Columns as other tools leave them: integer epochs. Text in a SQLite DATETIME is D1's (tests/integration).
+// Integer epoch columns, as other tools leave them.
 // Drizzle's integer({ mode: "timestamp" }) and integer({ mode: "timestamp_ms" }).
 class Stamp extends Model.define({
   id: { type: "integer", null: false },
@@ -29,12 +29,6 @@ describe("datetimes stored by other tools (#73)", () => {
 
   beforeAll(async () => {
     harness = await openHarness();
-    await harness.exec(
-      "CREATE TABLE entries (id INTEGER PRIMARY KEY, title TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)",
-    );
-    await harness.exec(
-      "CREATE TABLE stamps (id INTEGER PRIMARY KEY, name TEXT, seconds INTEGER, milliseconds INTEGER)",
-    );
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {

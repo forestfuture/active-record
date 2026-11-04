@@ -106,7 +106,7 @@ describe("change tracking", () => {
     expect(key.savedChanges()).toEqual({ scopes: [["read"], ["read", "write"]] });
   });
 
-  test("after create, savedChanges includes what D1 filled in, like the generated key", async () => {
+  test("after create, savedChanges includes what the database filled in, like the generated key", async () => {
     const user = await harness.connect().model(User).create({ email: "b@example.com" });
 
     expect(user.savedChanges()).toEqual({

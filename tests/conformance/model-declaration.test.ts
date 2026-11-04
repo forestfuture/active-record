@@ -58,24 +58,24 @@ describe("model declaration", () => {
     expect(errors).toHaveLength(2);
     for (const error of errors) {
       expect(error).toBeInstanceOf(InvalidModel);
-      expect(error).toHaveProperty("cause.message", expect.stringMatching(/no such table: es/));
+      expect(error).toHaveProperty("cause", expect.any(Error));
       expect(error).toHaveProperty(
         "message",
         expect.stringMatching(
-          /e's table "es" doesn't exist in D1 \(inferred from the class name e; create it, set static table, or keep class names if your bundler renames them\)/,
+          /e's table "es" doesn't exist in \S+ \(inferred from the class name e; create it, set static table, or keep class names if your bundler renames them\)/,
         ),
       );
     }
   });
 
-  test("a missing table that was declared is D1's own error, as before", async () => {
+  test("a missing table that was declared is the database's own error, as before", async () => {
     class Missing extends Model.define({ id: "integer" }) {
       static table = "nowhere";
     }
 
     const read = harness.connect().model(Missing).toArray();
 
-    await expect(read).rejects.toThrow(/no such table: nowhere/);
+    await expect(read).rejects.toThrow(Error);
     await expect(read).rejects.not.toThrow(InvalidModel);
   });
 

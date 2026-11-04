@@ -67,7 +67,7 @@ describe("relation composition", () => {
     expect(() => db.model(User).merge(db.model(Post))).toThrow(IncompatibleRelation);
   });
 
-  test("none never touches D1, and every terminal operation returns an empty result", async () => {
+  test("none never touches the database, and every terminal operation returns an empty result", async () => {
     const queries: QueryEvent[] = [];
     const nothing = harness
       .connect({ onQuery: (event) => queries.push(event) })
