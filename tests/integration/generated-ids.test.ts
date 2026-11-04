@@ -89,7 +89,7 @@ describe("generated ids", () => {
 
   beforeAll(async () => {
     ({ db: binding, dispose } = await createTestDatabase(
-      new URL("../fixtures/generated-ids.sql", import.meta.url),
+      new URL("../fixtures/sqlite/generated-ids.sql", import.meta.url),
     ));
   });
   afterAll(() => dispose());

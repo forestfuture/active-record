@@ -37,7 +37,7 @@ describe("preloading for a limited query", () => {
 
   beforeAll(async () => {
     ({ db: binding, dispose } = await createTestDatabase(
-      new URL("../fixtures/generated-ids.sql", import.meta.url),
+      new URL("../fixtures/sqlite/generated-ids.sql", import.meta.url),
     ));
     await binding.batch([
       binding.prepare(

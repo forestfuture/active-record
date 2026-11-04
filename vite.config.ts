@@ -54,6 +54,15 @@ export default defineConfig({
         extends: true,
         test: { name: "integration", include: ["tests/integration/**/*.test.ts"] },
       },
+      {
+        // The portable conformance suite, once per adapter, each through its harness (#267).
+        extends: true,
+        test: {
+          name: "conformance:d1",
+          include: ["tests/conformance/**/*.test.ts"],
+          provide: { adapter: "d1" },
+        },
+      },
       // Real remote D1 through Wrangler's remote bindings (docs/agents/remote-smoke.md): only for
       // `vp run test:remote`, which sets D1_REMOTE_SMOKE, so a plain `vp test` stays local even
       // with the credentials in the environment (#202). Still skipped without them.
