@@ -1,4 +1,4 @@
-// Reading D1's errors: constraint failures, a missing table, and a query outside a request.
+// Reading D1's errors (constraint failures, a missing table, a query outside a request), and `NoSession`.
 import type { ConstraintFailure } from "@forestfuture/active-record/adapter";
 import { ActiveRecordError, NoDatabase } from "@forestfuture/active-record";
 

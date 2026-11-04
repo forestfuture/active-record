@@ -1,6 +1,5 @@
 // Reads a column as an attribute by the conventions (#66): name, type, nullability, default.
-import { type EpochStorage, epochStorages } from "@forestfuture/active-record/cli";
-import { underscore } from "@forestfuture/active-record/cli";
+import { type EpochStorage, epochStorages, underscore } from "@forestfuture/active-record/cli";
 import { attributeName } from "../project/names.ts";
 
 type AttributeType = "string" | "integer" | "real" | "boolean" | "datetime" | "json";

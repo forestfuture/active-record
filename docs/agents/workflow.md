@@ -28,7 +28,7 @@ Follow the `tdd` skill, one vertical slice at a time:
 
 1. Write **one** failing test. Run it and confirm it fails for the expected reason (red). A red test that opens a console, a server or a process waits out its timeout, so run it with `--bail 1 --test-timeout 20000` and raise the timeout only once it is green.
 2. Write the least code that makes it pass (green).
-3. Run `vp check --fix` (format, lint, types, complexity limits) and `vp test`. Without `--fix`, a formatting error hides the lint errors, and the pre-commit hook then rejects the commit. `src/relation.ts` sits at the 500-line cap, so adding to it means moving code to another module in the same commit. When a slice passes, **commit it** on the issue's branch, named `<issue>-<slug>` (`main` takes pull requests only), with a message saying what behavior was added (see [Commit messages](#commit-messages)).
+3. Run `vp check --fix` (format, lint, types, complexity limits) and `vp test`. Without `--fix`, a formatting error hides the lint errors, and the pre-commit hook then rejects the commit. `packages/active-record/src/relation.ts` sits at the 500-line cap, so adding to it means moving code to another module in the same commit. When a slice passes, **commit it** on the issue's branch, named `<issue>-<slug>` (`main` takes pull requests only), with a message saying what behavior was added (see [Commit messages](#commit-messages)).
 
 ### Commit messages
 

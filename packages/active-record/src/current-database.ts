@@ -55,8 +55,8 @@ export async function withDatabase<R>(
  * database is found, so this can't wait to find it: the one its Model's schema names, or else
  * the request's database's. A Model with neither can't compile, so it throws `NoDatabase`.
  */
-function adapterFor(schema: SchemaAdapter | undefined): Adapter {
-  if (schema !== undefined) return schema.adapter;
+function adapterFor(named: SchemaAdapter | undefined): Adapter {
+  if (named !== undefined) return named.adapter;
   const [first] = requests?.getStore() ?? [];
   if (first === undefined) throw noSchemaOrDatabase();
   return first[databaseExecutor].adapter;
@@ -69,9 +69,9 @@ function noSchemaOrDatabase(): NoDatabase {
   );
 }
 
-/** The database a query on `schema`'s adapter uses now. */
-function databaseFor(schema: SchemaAdapter | undefined): Promise<AnyDatabase> {
-  return adapterFor(schema).databaseFor(schema?.binding, requests?.getStore() ?? []);
+/** The database a query uses now, on the adapter its Model's schema names. */
+function databaseFor(named: SchemaAdapter | undefined): Promise<AnyDatabase> {
+  return adapterFor(named).databaseFor(named?.binding, requests?.getStore() ?? []);
 }
 
 /**
@@ -80,17 +80,17 @@ function databaseFor(schema: SchemaAdapter | undefined): Promise<AnyDatabase> {
  */
 const executors = new Map<Adapter | undefined, Map<string | undefined, Executor>>();
 
-/** The Executor for queries started from a Model whose schema names `schema`. */
-function currentExecutor(schema: SchemaAdapter | undefined): Executor {
-  let byBinding = executors.get(schema?.adapter);
-  if (byBinding === undefined) executors.set(schema?.adapter, (byBinding = new Map()));
-  let executor = byBinding.get(schema?.binding);
+/** The Executor for queries started from a Model whose schema names `named`. */
+function currentExecutor(named: SchemaAdapter | undefined): Executor {
+  let byBinding = executors.get(named?.adapter);
+  if (byBinding === undefined) executors.set(named?.adapter, (byBinding = new Map()));
+  let executor = byBinding.get(named?.binding);
   if (executor === undefined) {
     executor = new CurrentExecutor(
-      () => adapterFor(schema),
-      async () => (await databaseFor(schema))[databaseExecutor],
+      () => adapterFor(named),
+      async () => (await databaseFor(named))[databaseExecutor],
     );
-    byBinding.set(schema?.binding, executor);
+    byBinding.set(named?.binding, executor);
   }
   return executor;
 }

@@ -518,9 +518,9 @@ export class Relation<M extends Model, S = {}> {
 
   /** The number of matching records, or of non-null values of `attribute`. */
   async count(attribute?: keyof AttributesOf<M> & string): Promise<number> {
-    const [row] = await this.#runner.rows(() =>
-      compileCount(this.#dialect, this.#query, attribute),
-    );
+    if (attribute !== undefined) attributeFor(this.#model, attribute); // on none() too
+    const counting = () => compileCount(this.#dialect, this.#query, attribute);
+    const [row] = await this.#runner.rows(counting);
     return Number(row?.["count"] ?? 0);
   }
 

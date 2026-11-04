@@ -1,7 +1,10 @@
 // Sends statements to D1: through a binding or a Session, started again when D1 rejects its bookmark (#237).
-import type { CompiledSql } from "@forestfuture/active-record/adapter";
-import type { Driver, StatementResult } from "@forestfuture/active-record/adapter";
-import { boundValue } from "@forestfuture/active-record/adapter";
+import {
+  type CompiledSql,
+  type Driver,
+  type StatementResult,
+  boundValue,
+} from "@forestfuture/active-record/adapter";
 import { isRejectedBookmark, rejectedBookmark } from "./errors.ts";
 
 /** How much of a rejected bookmark D1's error keeps, since a request may have sent any length. */

@@ -1,6 +1,6 @@
 // The `Database` that `connect` returns: a D1 binding, with its sessions and bookmarks.
-import { AnyDatabase } from "@forestfuture/active-record/adapter";
 import {
+  AnyDatabase,
   DatabaseExecutor,
   type QueryEvent as AnyQueryEvent,
   type QueryListener as AnyQueryListener,

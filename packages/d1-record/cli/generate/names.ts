@@ -1,6 +1,5 @@
 // Names the generators accept, and Rails' `tableize` for a Model's table.
-import { singularize } from "@forestfuture/active-record/cli";
-import { underscore } from "@forestfuture/active-record/cli";
+import { singularize, underscore } from "@forestfuture/active-record/cli";
 import { classify } from "../project/names.ts";
 
 /** A name the generators accept: letters, digits and `_`, starting with a letter. */
