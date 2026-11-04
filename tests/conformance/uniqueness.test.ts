@@ -54,7 +54,7 @@ describe("uniqueness validation", () => {
     expect(await account.save()).toBe(true);
   });
 
-  test("null is never taken, matching SQLite's UNIQUE", async () => {
+  test("null is never taken, as a UNIQUE index treats it", async () => {
     const accounts = harness.connect().model(Account);
     await accounts.create({ externalAccountId: "e1", userID: 1 });
 

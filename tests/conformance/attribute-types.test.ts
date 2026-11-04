@@ -16,7 +16,7 @@ class Sample extends Model.define({
 
 class JsonValue extends Model.define({
   id: { type: "integer", null: false },
-  checked: "json", // TEXT CHECK (json_valid(checked)), as D1 recommends
+  checked: "json", // a column checked to hold JSON
   value: "json", // declared JSON
 }) {
   static table = "json_values";
@@ -33,7 +33,7 @@ describe("attribute types", () => {
     await harness.reset("samples", "json_values");
   });
 
-  test("each type reads back from D1 as its JavaScript value", async () => {
+  test("each type reads back from the database as its JavaScript value", async () => {
     await harness.exec(`INSERT INTO samples (id, label, quantity, ratio, enabled, stamp, settings)
          VALUES (1, 'hello', 42, 0.5, 1, '2026-01-02T03:04:05.000Z', '{"theme":"dark","sizes":[1,2]}')`);
 

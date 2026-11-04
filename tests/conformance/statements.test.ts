@@ -711,7 +711,7 @@ describe("statements", () => {
       expect(stamps.flat().every((stamp) => stamp!.getTime() >= before)).toBe(true);
     });
 
-    test("any number of rows fits in one statement, beyond D1's 100 bound parameters", async () => {
+    test("any number of rows fits in one statement, beyond any limit on bound parameters", async () => {
       const rows = Array.from({ length: 150 }, (_, index) => post(index + 1, `Post ${index + 1}`));
 
       await harness.connect().model(Post).insertAll(rows);
@@ -906,7 +906,7 @@ describe("statements", () => {
       expect(await db.model(Post).count()).toBe(0);
     });
 
-    test("a constraint D1 doesn't name a table for is the batch's Model if it has only one", async () => {
+    test("a constraint error that names no table is the batch's Model if it has only one", async () => {
       const db = harness.connect();
 
       const error: unknown = await db

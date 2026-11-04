@@ -11,7 +11,7 @@ class Sample extends Model.define({ id: { type: "integer", null: false }, settin
 
 // A JSON attribute is saved as text and parsed back, so any JSON value, a top-level number or
 // string and keys like `__proto__` included, must come back as it went in (#122).
-describe("a JSON attribute, saved and read back through D1", () => {
+describe("a JSON attribute, saved and read back through the database", () => {
   let harness: Harness;
   const samples = () => harness.connect().model(Sample);
 

@@ -33,12 +33,6 @@ describe("a typed value in an sql fragment (#142)", () => {
 
   beforeAll(async () => {
     harness = await openHarness();
-    await harness.exec(
-      "CREATE TABLE stamps (id INTEGER PRIMARY KEY, name TEXT, seconds INTEGER, milliseconds INTEGER)",
-    );
-    await harness.exec(
-      "CREATE TABLE typed_samples (id INTEGER PRIMARY KEY, label TEXT, enabled INTEGER, settings TEXT, stamp TEXT, secret TEXT)",
-    );
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
@@ -136,7 +130,7 @@ describe("a typed value in an sql fragment (#142)", () => {
     expect(JSON.stringify(events.map((event) => event.params))).toContain("[FILTERED]");
   });
 
-  test("a filtered attribute's value still reaches D1", async () => {
+  test("a filtered attribute's value still reaches the database", async () => {
     await harness.exec("INSERT INTO typed_samples (id, secret) VALUES (1, 's3cret')");
     const secret = column("secret");
 

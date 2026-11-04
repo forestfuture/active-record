@@ -136,7 +136,7 @@ describe("conditions", () => {
     await expect(users.pluck()).rejects.toThrow(TypeError);
   });
 
-  test("a list of any length is one bound value, so D1's 100-parameter limit never applies", async () => {
+  test("a list of any length is one bound value, so no limit on bound parameters applies", async () => {
     const events: QueryEvent[] = [];
     const users = harness.connect({ onQuery: (event) => events.push(event) }).model(User);
     const many = Array.from({ length: 250 }, (_, index) => index + 1);

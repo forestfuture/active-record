@@ -204,7 +204,7 @@ describe("building and setting hasOne and belongsTo", () => {
       expect(log).toEqual([`account sees key ${key.id}`]);
     });
 
-    test("with a key D1 generates, the owner's before-callbacks run before it exists", async () => {
+    test("with a key the database generates, the owner's before-callbacks run before it exists", async () => {
       const post = db().model(Post).build({ title: "Hello again" });
       post.author.build({ email: "new@example.com" });
 
@@ -293,7 +293,7 @@ describe("building and setting hasOne and belongsTo", () => {
     });
   });
 
-  test("in a batch, a new belongsTo record is saved when its key is known, and refused when D1 generates it", async () => {
+  test("in a batch, a new belongsTo record is saved when its key is known, and refused when the database generates it", async () => {
     const database = db();
     const account = database.model(Account).build({ id: 1 });
     account.apiKey.build({ label: "deploy" });

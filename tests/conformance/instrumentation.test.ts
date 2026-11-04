@@ -21,7 +21,7 @@ describe("instrumentation", () => {
   });
   afterAll(() => harness.dispose());
 
-  test("a successful statement reports its sql, params, duration and D1 meta", async () => {
+  test("a successful statement reports its sql, params, duration and the database's meta", async () => {
     const queries: QueryEvent[] = [];
     const db = harness.connect({ onQuery: (event) => queries.push(event) });
 
@@ -30,7 +30,7 @@ describe("instrumentation", () => {
     expect(queries).toHaveLength(1);
     expect(queries[0]?.params).toEqual(["a@example.com"]);
     expect(queries[0]?.durationMs).toBeGreaterThanOrEqual(0);
-    expect(queries[0]?.meta).toHaveProperty("rows_read");
+    expect(queries[0]?.meta).toBeDefined();
     expect(queries[0]?.error).toBeUndefined();
   });
 
@@ -40,9 +40,10 @@ describe("instrumentation", () => {
 
     const failure = db.model(Missing).toArray();
 
-    await expect(failure).rejects.toThrow(/no such table/);
+    const error: unknown = await failure.catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(Error);
     expect(queries).toHaveLength(1);
-    expect(String(queries[0]?.error)).toMatch(/no such table/);
+    expect(queries[0]?.error).toBe(error);
   });
 
   test("a listener that throws is called once, logged, and never changes the query's result (#78)", async () => {

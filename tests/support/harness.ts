@@ -4,11 +4,16 @@ import type { AnyDatabase } from "../../src/database.ts";
 import type { Driver } from "../../src/driver.ts";
 import type { QueryListener } from "../../src/executor.ts";
 
+/** Each adapter the conformance suite runs against, and how its harness opens. */
+const harnesses = {
+  d1: async (schema: SchemaName) => (await import("./harnesses/d1.ts")).openD1Harness(schema),
+} satisfies Record<string, (schema: SchemaName) => Promise<Harness>>;
+
 /** The adapters the conformance suite runs against, each through its own harness. */
-export type AdapterName = "d1";
+export type AdapterName = keyof typeof harnesses;
 
 /** A schema the suite's tests ask for by name; each harness has its own SQL for it. */
-export type SchemaName = "fixture" | "generated-ids";
+export type SchemaName = "fixture" | "generated-ids" | "paginated";
 
 /** How a test opens a Database on a harness. */
 interface ConnectOptions {
@@ -38,19 +43,17 @@ export interface Harness {
 export async function openHarness({
   schema = "fixture",
 }: { schema?: SchemaName } = {}): Promise<Harness> {
-  const adapter = providedAdapter();
-  switch (adapter) {
-    case "d1":
-      return (await import("./harnesses/d1.ts")).openD1Harness(schema);
-  }
+  return harnesses[providedAdapter()](schema);
 }
 
 /**
  * The adapter the running project `provide`s (vite.config.ts). Vitest's `ProvidedContext` can't
  * be augmented from here, since `vitest` is only reachable through `vite-plus`, so it's checked.
  */
-function providedAdapter(): AdapterName {
+export function providedAdapter(): AdapterName {
   const adapter = (inject as (key: string) => unknown)("adapter");
-  if (adapter === "d1") return adapter;
+  if (typeof adapter === "string" && Object.hasOwn(harnesses, adapter)) {
+    return adapter as AdapterName;
+  }
   throw new Error(`A conformance project must provide a known adapter, not ${String(adapter)}`);
 }

@@ -101,7 +101,7 @@ describe("a listener that throws", () => {
     }
   });
 
-  test("on a D1 error: the caller gets D1's error, translated, and the other listener still runs", async () => {
+  test("on a database error: the caller gets it, translated, and the other listener still runs", async () => {
     const seen: QueryEvent[] = [];
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     class Watched extends User {
@@ -119,7 +119,7 @@ describe("a listener that throws", () => {
     }
   });
 
-  test("in a failed batch: every statement is still reported, and D1's error reaches the caller", async () => {
+  test("in a failed batch: every statement is still reported, and the database's error reaches the caller", async () => {
     const seen: QueryEvent[] = [];
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     try {

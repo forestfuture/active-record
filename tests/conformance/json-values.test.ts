@@ -23,10 +23,6 @@ describe("json attributes: values JSON can't write, and cells that aren't JSON (
 
   beforeAll(async () => {
     harness = await openHarness();
-    await harness.exec(
-      "CREATE TABLE json_docs (id INTEGER PRIMARY KEY, folder_id INTEGER, settings TEXT, secret TEXT)",
-    );
-    await harness.exec("CREATE TABLE json_folders (id INTEGER PRIMARY KEY)");
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
@@ -158,7 +154,7 @@ describe("json attributes: values JSON can't write, and cells that aren't JSON (
     });
   });
 
-  describe("after a save, the record holds what D1 stored (#163)", () => {
+  describe("after a save, the record holds what the database stored (#163)", () => {
     test("a lossy value is what it was stored as, after an insert", async () => {
       const doc = await docs().create({ id: 1, settings: { n: Number.NaN } });
 

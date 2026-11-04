@@ -19,9 +19,6 @@ describe("a bare date beside an integer-stored column in a fragment (#149)", () 
 
   beforeAll(async () => {
     harness = await openHarness();
-    await harness.exec(
-      "CREATE TABLE guarded_stamps (id INTEGER PRIMARY KEY, seconds INTEGER, milliseconds INTEGER, mapped_at INTEGER, iso TEXT)",
-    );
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
@@ -85,7 +82,7 @@ describe("a bare date beside an integer-stored column in a fragment (#149)", () 
       );
     });
 
-    test("SQLite's own date text, which has no zone", () => {
+    test("date text with a space and no zone", () => {
       expect(() => stamps().where(sql`${seconds} > ${"2026-01-02 03:04:05"}`)).toThrow(
         refusal("seconds", "unixSeconds", "string"),
       );

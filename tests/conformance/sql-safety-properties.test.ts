@@ -13,7 +13,7 @@ class Sample extends Model.define({ id: { type: "integer", null: false }, label:
 
 // The characters SQL and its comments, quoting and patterns are made of, plus ones that are
 // awkward in a string (a NUL, a newline, accented and astral letters). Lone surrogates aren't
-// here: SQLite stores UTF-8, so what comes back isn't the lone half the app sent, and that's
+// here: the database stores UTF-8, so what comes back isn't the lone half the app sent, and that's
 // not something the library controls.
 const sqlCharacters = fc.constantFrom(
   "'",

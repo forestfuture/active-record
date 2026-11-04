@@ -157,12 +157,8 @@ The package for one database, under the Active Record core (#260, ADR-0016): its
 _Avoid_: Dialect (one part of an adapter), driver, connector
 
 **Allowed difference**:
-A contract behavior an **Adapter** keeps its database's own semantics for, such as how NULLs sort (ADR-0017). The conformance suite lists each, with the reason and the tests it skips on that adapter, and the adapter's own tests prove what it does instead. D1 sets the baseline, so it has none.
-_Avoid_: Known difference, incompatibility, bug
-
-**Allowed difference**:
-A place where **Adapter**s may give different results because their databases do, such as NULL ordering (ADR-0017). Each is listed in the conformance suite and documented per adapter.
-_Avoid_: Quirk, incompatibility
+A contract behavior an **Adapter** keeps its database's own semantics for, such as how NULLs sort (ADR-0017). The conformance suite lists each, with the reason and the tests it skips on that adapter, and the adapter's own tests and docs show what it does instead. D1 sets the baseline, so it has none.
+_Avoid_: Quirk, known difference, incompatibility, bug
 
 **Binding**:
 The name of the D1 binding a Model queries, from the Wrangler config, in the **Generated schema** its **Base class** holds.
