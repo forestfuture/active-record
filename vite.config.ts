@@ -60,6 +60,7 @@ export default defineConfig({
         test: {
           name: "conformance:d1",
           include: ["tests/conformance/**/*.test.ts"],
+          setupFiles: ["tests/support/conformance-setup.ts"],
           provide: { adapter: "d1" },
         },
       },
