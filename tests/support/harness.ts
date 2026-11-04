@@ -5,7 +5,7 @@ import type { Driver } from "../../src/driver.ts";
 import type { QueryListener } from "../../src/executor.ts";
 
 /** The adapters the conformance suite runs against, each through its own harness. */
-type AdapterName = "d1";
+export type AdapterName = "d1";
 
 /** A schema the suite's tests ask for by name; each harness has its own SQL for it. */
 export type SchemaName = "fixture" | "generated-ids";
