@@ -1,4 +1,8 @@
 // The conformance suite's D1 harness: an in-memory Miniflare D1 per file, as tests/support/d1.ts makes.
+import { d1Adapter } from "../../../src/d1/adapter.ts";
+import { D1Driver } from "../../../src/d1/driver.ts";
+import { AnyDatabase } from "../../../src/database.ts";
+import { DatabaseExecutor } from "../../../src/executor.ts";
 import { connect } from "../../../src/index.ts";
 import { createTestDatabase } from "../d1.ts";
 import type { Harness, SchemaName } from "../harness.ts";
@@ -15,7 +19,10 @@ export async function openD1Harness(schema: SchemaName): Promise<Harness> {
   const { db, dispose } = await createTestDatabase(schemas[schema]);
   return {
     adapter: "d1",
-    connect: (options = {}) => connect(db, options),
+    connect({ onQuery, driver } = {}) {
+      if (driver === undefined) return connect(db, { onQuery });
+      return new AnyDatabase(new DatabaseExecutor(d1Adapter, driver(new D1Driver(db)), onQuery));
+    },
     async exec(sql, params = []) {
       const { results } = await db
         .prepare(sql)
