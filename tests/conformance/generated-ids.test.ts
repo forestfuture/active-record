@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { hasMany, InvalidModel, Model, RecordNotUnique } from "../../src/index.ts";
+import { d1, hasMany, InvalidModel, Model, RecordNotUnique } from "../../src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -32,7 +32,7 @@ const sequential = () => `id-${++issued}`;
 
 // A generated schema, as `d1-record schema` writes it, for Models built on it.
 const schema = {
-  binding: "DB",
+  adapter: d1({ binding: "DB" }),
   tables: {
     notes: {
       attributes: { id: { type: "string", null: false, generateId: true }, body: "string" },

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import {
+  d1,
   batch,
   belongsTo,
   connect,
@@ -18,7 +19,7 @@ vi.mock("cloudflare:workers", () => workers);
 
 /** An app's base class for the DB binding: its generated schema names the binding. */
 abstract class DbRecord extends Model {
-  static override schema = { binding: "DB", tables: {}, models: {} };
+  static override schema = { adapter: d1({ binding: "DB" }), tables: {}, models: {} };
 }
 
 class Post extends DbRecord.define({

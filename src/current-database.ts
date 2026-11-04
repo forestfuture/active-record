@@ -2,9 +2,8 @@
 // the request's, set with `withDatabase`, or else whatever its adapter finds (#77). Nothing
 // per-request is ever stored on a class (ADR-0003): a request's database lives only in its
 // AsyncLocalStorage.
-import { schemaBinding } from "./generated-model.ts";
-import type { Adapter } from "./adapter.ts";
-import { d1Adapter } from "./d1/adapter.ts";
+import { schemaAdapter } from "./generated-model.ts";
+import type { Adapter, SchemaAdapter } from "./adapter.ts";
 import { databaseExecutor, type AnyDatabase } from "./database.ts";
 import { NoDatabase } from "./errors.ts";
 import { CurrentExecutor, type Executor } from "./executor.ts";
@@ -52,36 +51,46 @@ export async function withDatabase<R>(
 }
 
 /**
- * The adapter a statement on binding `name` compiles for. Statements compile when they're built,
- * before their database is found, so this can't wait to find it: a generated Model's adapter,
- * which is D1's until the schema names one (#268), or else the request's database's.
+ * The adapter a statement compiles for. Statements compile when they're built, before their
+ * database is found, so this can't wait to find it: the one its Model's schema names, or else
+ * the request's database's. A Model with neither can't compile, so it throws `NoDatabase`.
  */
-function adapterFor(name: string | undefined): Adapter {
-  if (name !== undefined) return d1Adapter;
+function adapterFor(schema: SchemaAdapter | undefined): Adapter {
+  if (schema !== undefined) return schema.adapter;
   const [first] = requests?.getStore() ?? [];
-  return first?.[databaseExecutor].adapter ?? d1Adapter;
+  if (first === undefined) throw noSchemaOrDatabase();
+  return first[databaseExecutor].adapter;
 }
 
-/** The database a query on binding `name` uses now. */
-function databaseFor(name: string | undefined): Promise<AnyDatabase> {
-  return adapterFor(name).databaseFor(name, requests?.getStore() ?? []);
+function noSchemaOrDatabase(): NoDatabase {
+  return new NoDatabase(
+    "No database for this query: its Model's base class holds no generated schema, which names " +
+      "its adapter. Wrap the code in withDatabase(db, …), or use db.model(Model)",
+  );
+}
+
+/** The database a query on `schema`'s adapter uses now. */
+function databaseFor(schema: SchemaAdapter | undefined): Promise<AnyDatabase> {
+  return adapterFor(schema).databaseFor(schema?.binding, requests?.getStore() ?? []);
 }
 
 /**
- * One Executor per binding name (from a Model's schema), finding the current database each
+ * One Executor per adapter and binding (from a Model's schema), finding the current database each
  * time a query runs; Models on one binding share it, so their statements can share a batch.
  */
-const executors = new Map<string | undefined, Executor>();
+const executors = new Map<Adapter | undefined, Map<string | undefined, Executor>>();
 
-/** The Executor for queries started from a Model on binding `name`. */
-function currentExecutor(name: string | undefined): Executor {
-  let executor = executors.get(name);
+/** The Executor for queries started from a Model whose schema names `schema`. */
+function currentExecutor(schema: SchemaAdapter | undefined): Executor {
+  let byBinding = executors.get(schema?.adapter);
+  if (byBinding === undefined) executors.set(schema?.adapter, (byBinding = new Map()));
+  let executor = byBinding.get(schema?.binding);
   if (executor === undefined) {
     executor = new CurrentExecutor(
-      () => adapterFor(name),
-      async () => (await databaseFor(name))[databaseExecutor],
+      () => adapterFor(schema),
+      async () => (await databaseFor(schema))[databaseExecutor],
     );
-    executors.set(name, executor);
+    byBinding.set(schema?.binding, executor);
   }
   return executor;
 }
@@ -90,5 +99,5 @@ function currentExecutor(name: string | undefined): Executor {
 export function currentRelation<C extends ModelClass>(
   model: C,
 ): Scoped<InstanceType<C>, ScopesOf<C>> {
-  return relationFor(currentExecutor(schemaBinding(model)), model);
+  return relationFor(currentExecutor(schemaAdapter(model)), model);
 }

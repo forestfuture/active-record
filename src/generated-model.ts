@@ -1,6 +1,7 @@
 // A generated Model (`class Post extends ApplicationRecord {}`): the generated schema's types, its
 // table, primary key and attributes from the schema its base class holds (overrides checked),
 // settled on first use, and its binding (#232).
+import type { SchemaAdapter } from "./adapter.ts";
 import { ancestors } from "./ancestors.ts";
 import { InvalidModel } from "./errors.ts";
 import {
@@ -78,9 +79,9 @@ export type AsSpecs<S> = S extends AttributeSpecs ? S : never;
  */
 export type AttributeOverrides = Readonly<Record<string, AttributeOverride | false>>;
 
-/** What `d1-record schema` generates for one database: its binding, its tables, and its Models. */
+/** What `d1-record schema` generates for one database: its adapter, its tables, and its Models. */
 export interface DatabaseSchema {
-  readonly binding: string;
+  readonly adapter: SchemaAdapter;
   readonly tables: TableSchemas;
   /**
    * The Models the schema was generated for: each one's class name, and its table. Absent only
@@ -242,10 +243,10 @@ export function isGenerated(model: object): boolean {
   return generated(model) !== undefined;
 }
 
-/** The binding in the generated schema a Model's base holds, if any. */
-export function schemaBinding(model: object): string | undefined {
+/** The adapter the generated schema a Model's base holds names, if any. */
+export function schemaAdapter(model: object): SchemaAdapter | undefined {
   const holder = ancestors(model).find((each) => Object.hasOwn(each, "schema"));
-  return (holder as GeneratedClass | undefined)?.schema?.binding;
+  return (holder as GeneratedClass | undefined)?.schema?.adapter;
 }
 
 /**

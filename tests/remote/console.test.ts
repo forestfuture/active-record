@@ -18,10 +18,10 @@ function project(table: string, entry: Record<string, unknown>): string {
       compilerOptions: { paths: { "@forestfuture/d1-record": [library] } },
     }),
     "src/models/application-record.ts": `
-      import { Model } from "@forestfuture/d1-record";
+      import { d1, Model } from "@forestfuture/d1-record";
       export abstract class ApplicationRecord extends Model {
         static override schema = {
-          binding: "DB",
+          adapter: d1({ binding: "DB" }),
           tables: {
             ${JSON.stringify(table)}: { attributes: { id: "integer", email: "string" }, primaryKey: "id" },
           },

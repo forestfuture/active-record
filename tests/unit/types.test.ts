@@ -1,5 +1,6 @@
 import { describe, expectTypeOf, test } from "vite-plus/test";
 import {
+  d1,
   type AttributeConversions,
   belongsTo,
   between,
@@ -40,7 +41,7 @@ const db = connect({} as never);
 const notes = { id: { type: "string", null: false }, body: "string", openedAt: "integer" } as const;
 abstract class ApplicationRecord extends Model {
   static override schema = {
-    binding: "DB",
+    adapter: d1({ binding: "DB" }),
     tables: { notes: { attributes: notes, primaryKey: "id" } },
     models: { Note: "notes" },
   } as const;

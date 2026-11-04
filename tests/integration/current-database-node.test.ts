@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { connect, Model, NoDatabase, withDatabase } from "../../src/index.ts";
+import { d1, connect, Model, NoDatabase, withDatabase } from "../../src/index.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
 // Outside a Worker, as tests and scripts run: cloudflare:workers doesn't exist here.
 /** An app's base class for the DB binding: its generated schema names the binding. */
 abstract class DbRecord extends Model {
-  static override schema = { binding: "DB", tables: {}, models: {} };
+  static override schema = { adapter: d1({ binding: "DB" }), tables: {}, models: {} };
 }
 
 class User extends DbRecord.define({ id: { type: "integer", null: false }, email: "string" }) {

@@ -28,10 +28,10 @@ function project(files: Record<string, string>, outsideTheRepo = false): string 
 }
 
 const applicationRecord = `
-import { Model } from "@forestfuture/d1-record";
+import { d1, Model } from "@forestfuture/d1-record";
 export abstract class ApplicationRecord extends Model {
   static override schema = {
-    binding: "DB",
+    adapter: d1({ binding: "DB" }),
     tables: {
       users: { attributes: { id: "integer", name: "string" }, primaryKey: "id" },
       posts: { attributes: { id: "integer", title: "string" }, primaryKey: "id" },

@@ -8,8 +8,14 @@ import { PURE_RUNS } from "../support/properties.ts";
 
 /** The generated schema.ts's tables as a value: its `export`s and `as const`s dropped, then run. */
 function generated(source: string): Record<string, { attributes: Record<string, unknown> }> {
-  const code = source.replace(/^export const /gm, "const ").replace(/ as const;/g, ";");
-  return runInThisContext(`(() => {\n${code}\nreturn schema.tables;\n})()`) as never;
+  const code = source
+    .replace(/^import .*$/gm, "")
+    .replace(/^export const /gm, "const ")
+    .replace(/ as const;/g, ";");
+  // `d1({ binding })` is the adapter's; the tables don't depend on it.
+  return runInThisContext(
+    `(() => {\nconst d1 = (x) => x;\n${code}\nreturn schema.tables;\n})()`,
+  ) as never;
 }
 
 /** The `default` of a JSON column that a migration declares with `value` as its default. */

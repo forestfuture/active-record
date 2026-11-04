@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { Model, UnknownAttribute, type TableAttributes } from "../../src/index.ts";
+import { d1, Model, UnknownAttribute, type TableAttributes } from "../../src/index.ts";
 
 // One attribute per stored form. `secret` is filtered by default.
 class Post extends Model.define({
@@ -19,7 +19,7 @@ class Post extends Model.define({
 const notes = { id: { type: "integer", null: false }, openedAt: "integer" } as const;
 abstract class ApplicationRecord extends Model {
   static override schema = {
-    binding: "DB",
+    adapter: d1({ binding: "DB" }),
     tables: { notes: { attributes: notes, primaryKey: "id" } },
     models: { Note: "notes" },
   } as const;

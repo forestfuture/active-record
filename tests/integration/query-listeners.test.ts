@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import { connect, Model, withDatabase, type QueryEvent } from "../../src/index.ts";
+import { d1, connect, Model, withDatabase, type QueryEvent } from "../../src/index.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
 // Level 1 reads the binding from cloudflare:workers; here, this test's D1.
@@ -10,7 +10,7 @@ vi.mock("cloudflare:workers", () => workers);
 const logged: QueryEvent[] = [];
 abstract class ApplicationRecord extends Model {
   // Its generated schema names the binding (these Models declare their own attributes).
-  static override schema = { binding: "DB", tables: {}, models: {} };
+  static override schema = { adapter: d1({ binding: "DB" }), tables: {}, models: {} };
   static override onQuery = (event: QueryEvent) => {
     logged.push(event);
   };
