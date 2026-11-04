@@ -42,7 +42,8 @@
   },
   "scripts": {
     "build": "vp pack",
-    "prepack": "vp run @forestfuture/active-record#build && vp pack"
+    "prepack": "vp run @forestfuture/active-record#build && vp pack",
+    "prepublishOnly": "node ../../scripts/require-pnpm.mjs"
   },
   "dependencies": {
     "jiti": "^2.7.0"
