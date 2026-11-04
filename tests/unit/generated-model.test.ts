@@ -3,6 +3,7 @@
    type are defined when the Model's attributes resolve. */
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
 import {
+  d1,
   connect,
   InvalidModel,
   Model,
@@ -27,7 +28,7 @@ const entries = {
   at: { type: "datetime", storage: "unixSeconds" },
 } as const;
 const schema = {
-  binding: "DB",
+  adapter: d1({ binding: "DB" }),
   tables: {
     products: { attributes: products, primaryKey: "id" },
     events: { attributes: events, primaryKey: "eventId" },

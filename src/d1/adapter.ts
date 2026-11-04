@@ -1,5 +1,5 @@
 // The D1 adapter: what the core needs from D1 besides sending statements.
-import type { Adapter } from "../adapter.ts";
+import type { Adapter, SchemaAdapter } from "../adapter.ts";
 import { databaseFor } from "./current-binding.ts";
 import { sqlite } from "./dialect.ts";
 import { constraintFailure, missingTable, outsideRequest } from "./errors.ts";
@@ -13,3 +13,8 @@ export const d1Adapter: Adapter = {
   refusal: outsideRequest,
   databaseFor,
 };
+
+/** The D1 database a generated schema's Models query: `adapter: d1({ binding: "DB" })`. */
+export function d1({ binding }: { binding: string }): SchemaAdapter {
+  return { adapter: d1Adapter, binding };
+}

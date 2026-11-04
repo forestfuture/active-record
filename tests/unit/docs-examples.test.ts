@@ -112,8 +112,8 @@ export class Comment extends ApplicationRecord {}`);
     const unimported = pages.flatMap(({ name: page, text }) =>
       [...text.matchAll(/```ts[^\n]*\n([\s\S]*?)```/g)].flatMap(([, code]) =>
         exported
-          // A bare name, not a property such as `binding.batch`.
-          .filter((name) => name && new RegExp(`(?<![.\\w])${name}\\b`).test(code!))
+          // A bare name, not a property such as `binding.batch`, nor `d1` in `d1-record`.
+          .filter((name) => name && new RegExp(`(?<![.\\w])${name}\\b(?!-)`).test(code!))
           .filter((name) => !new RegExp(`import[^;]*\\b${name}\\b`).test(code!))
           .map((name) => `${page}: ${name}`),
       ),

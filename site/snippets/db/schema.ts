@@ -1,6 +1,6 @@
 // As `d1-record schema` generates it, for the guide's examples (their Models are declared in
 // several files, so it's kept by hand rather than generated).
-import type { TableAttributes } from "@forestfuture/d1-record";
+import { d1, type TableAttributes } from "@forestfuture/d1-record";
 
 /** billing_accounts */
 export const billingAccounts = {
@@ -50,9 +50,9 @@ export const users = {
   email: { type: "string", null: false },
 } as const;
 
-/** The database's binding, its tables (with their primary keys), and the Models built on them. */
+/** The database's adapter and binding, its tables (with their primary keys), and the Models built on them. */
 export const schema = {
-  binding: "DB",
+  adapter: d1({ binding: "DB" }),
   tables: {
     billing_accounts: { attributes: billingAccounts, primaryKey: "id" },
     products: { attributes: products, primaryKey: "id" },

@@ -51,6 +51,7 @@ import {
   type InsertOptions,
   type OrderSpec,
   returnedNames,
+  writableQuery,
   type Returning,
   type UpsertOptions,
 } from "./relation-checks.ts";
@@ -368,13 +369,15 @@ export class Relation<M extends Model, S = {}> {
    * Rails. A `none()` Relation sends nothing and resolves to 0.
    */
   async updateAll(changes: Partial<AttributesOf<M>> | SafeSql): Promise<number> {
-    return this.#countOf(this.toUpdateAll(changes));
+    checkChanges(this.#model, changes);
+    writableQuery(this.#query, "updateAll");
+    return this.#countOf(() => this.toUpdateAll(changes));
   }
 
   /** `updateAll`, as a Statement for `db.batch([...])`. */
   toUpdateAll(changes: Partial<AttributesOf<M>> | SafeSql): Statement {
     const checked = checkChanges(this.#model, changes);
-    const query = compileUpdateAll(this.#dialect, this.#writableQuery("updateAll"), checked);
+    const query = compileUpdateAll(this.#dialect, writableQuery(this.#query, "updateAll"), checked);
     return new Statement(this.#executor, query, this.#clearCollectionUntilWritten());
   }
 
@@ -385,12 +388,13 @@ export class Relation<M extends Model, S = {}> {
    * resolves to 0.
    */
   async deleteAll(): Promise<number> {
-    return this.#countOf(this.toDeleteAll());
+    writableQuery(this.#query, "deleteAll");
+    return this.#countOf(() => this.toDeleteAll());
   }
 
   /** `deleteAll`, as a Statement for `db.batch([...])`. */
   toDeleteAll(): Statement {
-    const query = this.#writableQuery("deleteAll");
+    const query = writableQuery(this.#query, "deleteAll");
     const landed = this.#clearCollectionUntilWritten();
     const nullifies = this.#collection.nullifies;
     const compiled =
@@ -400,9 +404,12 @@ export class Relation<M extends Model, S = {}> {
     return new Statement(this.#executor, compiled, landed);
   }
 
-  /** Runs a statement built from this Relation: the rows it changed, or 0 without a query on `none()`. */
-  async #countOf(statement: Statement): Promise<number> {
-    return this.#runner.changes(() => runAlone(statement));
+  /**
+   * Builds and runs a statement from this Relation: the rows it changed, or 0 without a query on
+   * `none()`, which never builds it, so it needs no database to compile for.
+   */
+  async #countOf(build: () => Statement): Promise<number> {
+    return this.#runner.changes(() => runAlone(build()));
   }
 
   /** Builds and saves a record; resolves to it whether or not it was saved (check `isPersisted()`). */
@@ -511,7 +518,9 @@ export class Relation<M extends Model, S = {}> {
 
   /** The number of matching records, or of non-null values of `attribute`. */
   async count(attribute?: keyof AttributesOf<M> & string): Promise<number> {
-    const [row] = await this.#runner.rows(compileCount(this.#dialect, this.#query, attribute));
+    const [row] = await this.#runner.rows(() =>
+      compileCount(this.#dialect, this.#query, attribute),
+    );
     return Number(row?.["count"] ?? 0);
   }
 
@@ -542,7 +551,7 @@ export class Relation<M extends Model, S = {}> {
   async exists(conditions?: Conditions<M> | SafeSql): Promise<boolean> {
     const relation = conditions === undefined ? this : this.where(conditions);
     const query = { ...relation.#query, limit: atMostOne(relation.#query.limit) };
-    return (await this.#runner.rows(compileExists(this.#dialect, query))).length > 0;
+    return (await this.#runner.rows(() => compileExists(this.#dialect, query))).length > 0;
   }
 
   /** Converted values of one attribute, or tuples of several, in this Relation's order. */
@@ -563,7 +572,7 @@ export class Relation<M extends Model, S = {}> {
     const values =
       cached === undefined
         ? (
-            await this.#runner.rows(
+            await this.#runner.rows(() =>
               compileSelect(this.#dialect, this.#query, compileColumns(this.#model, attributes)),
             )
           ).map((row) => resolved.map((attribute) => attribute.read(row[attribute.column])))
@@ -637,14 +646,6 @@ export class Relation<M extends Model, S = {}> {
         `${method}() needs relations of the same Model, not ${this.#model.name} and ${other.#model.name}`,
       );
     }
-  }
-
-  /** The query a write statement targets; rows from `distinct()` have no identity to write to. */
-  #writableQuery(method: string): QueryDescription {
-    if (this.#query.distinct) {
-      throw new IncompatibleRelation(`${method}() can't be combined with distinct()`);
-    }
-    return this.#query;
   }
 
   /** @internal Runs a scope on this Relation, checking it returned a Relation of the same Model. */

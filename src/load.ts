@@ -23,8 +23,8 @@ export interface QueryRunner<M extends Model> {
    * one row past the limit is read to learn that, and isn't hydrated or preloaded.
    */
   loadAhead(description: QueryDescription & { limit: number }): Promise<LoadedAhead<M>>;
-  /** The rows of SQL other than loading records: a count, `exists`, `pluck`. */
-  rows(sql: CompiledSql): Promise<Record<string, unknown>[]>;
+  /** The rows of SQL other than loading records (a count, `exists`, `pluck`), compiled only to send it. */
+  rows(sql: () => CompiledSql): Promise<Record<string, unknown>[]>;
   /** The rows `write` changed, running it now. */
   changes(write: () => Promise<{ rowsAffected: number }>): Promise<number>;
 }
@@ -52,7 +52,7 @@ export function runnerFor<M extends Model>(
     load: (description) => loadRecords(executor, model, description),
     loadCounted: (description, counted) => loadCounted(executor, model, description, counted),
     loadAhead: (description) => loadAhead(executor, model, description),
-    rows: (sql) => executor.all(sql),
+    rows: (sql) => executor.all(sql()),
     changes: async (write) => (await write()).rowsAffected,
   };
 }

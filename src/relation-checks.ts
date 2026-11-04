@@ -5,7 +5,8 @@ import { attributeFor } from "./attribute.ts";
 import { refuseBareDates } from "./fragment-guard.ts";
 import { attributeOf, type AttributeType } from "./metadata.ts";
 import type { AttributesOf, ModelClass } from "./model.ts";
-import type { NullsPlacement, OrderDirection, OrderTerm } from "./query.ts";
+import { IncompatibleRelation } from "./errors.ts";
+import type { NullsPlacement, OrderDirection, OrderTerm, QueryDescription } from "./query.ts";
 import { ColumnValue, namesAttribute, SafeSql } from "./sql.ts";
 
 /**
@@ -183,4 +184,11 @@ export function updateOn<M>(model: ModelClass, options: UpsertOptions<M>): Confl
   const uniqueBy = [options.uniqueBy ?? model.primaryKey].flat() as string[];
   for (const name of uniqueBy) attributeOf(model, name);
   return { kind: "update", uniqueBy };
+}
+
+/** The query a write statement targets; rows from `distinct()` have no identity to write to. */
+export function writableQuery(query: QueryDescription, method: string): QueryDescription {
+  if (query.distinct)
+    throw new IncompatibleRelation(`${method}() can't be combined with distinct()`);
+  return query;
 }

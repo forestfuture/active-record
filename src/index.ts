@@ -10,6 +10,7 @@ export type {
 } from "./associations.ts";
 export { batch, type BatchEntry, type BatchResults } from "./batch.ts";
 export { connect, Database, type ConnectOptions } from "./d1/database.ts";
+export { d1 } from "./d1/adapter.ts";
 export type { RelationsFor } from "./database.ts";
 export {
   abort,

@@ -11,6 +11,16 @@ export interface ConstraintFailure {
   columns: string[];
 }
 
+/**
+ * What a generated schema names (`adapter: d1({ binding: "DB" })`): the kind of database its
+ * Models are on, and which of its databases. Made by an adapter's own function.
+ */
+export interface SchemaAdapter {
+  readonly adapter: Adapter;
+  /** The database's name in the app's config: a D1 binding. */
+  readonly binding: string;
+}
+
 /** One kind of database (ADR-0016). A `Driver` sends to one database of that kind. */
 export interface Adapter {
   /** What the database is called in messages. */

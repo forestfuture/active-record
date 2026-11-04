@@ -1,5 +1,5 @@
 // As `d1-record schema` generates it for a second binding, LOGS, for the guide's examples.
-import type { TableAttributes } from "@forestfuture/d1-record";
+import { d1, type TableAttributes } from "@forestfuture/d1-record";
 
 /** entries */
 export const entries = {
@@ -8,9 +8,9 @@ export const entries = {
   message: { type: "string", null: false },
 } as const;
 
-/** The database's binding, its tables (with their primary keys), and the Models built on them. */
+/** The database's adapter and binding, its tables (with their primary keys), and the Models built on them. */
 export const schema = {
-  binding: "LOGS",
+  adapter: d1({ binding: "LOGS" }),
   tables: {
     entries: { attributes: entries, primaryKey: "id" },
   },

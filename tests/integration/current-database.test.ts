@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test, vi } from "vite-plus/test";
 import {
+  d1,
   batch,
   connect,
   IncompatibleRelation,
@@ -18,12 +19,12 @@ vi.mock("cloudflare:workers", () => workers);
 
 /** An app's base class for the DB binding: its generated schema names the binding. */
 abstract class DbRecord extends Model {
-  static override schema = { binding: "DB", tables: {}, models: {} };
+  static override schema = { adapter: d1({ binding: "DB" }), tables: {}, models: {} };
 }
 
 /** An app's base class for the LOGS binding: its generated schema names the binding. */
 abstract class LogsRecord extends Model {
-  static override schema = { binding: "LOGS", tables: {}, models: {} };
+  static override schema = { adapter: d1({ binding: "LOGS" }), tables: {}, models: {} };
 }
 
 class User extends DbRecord.define({
@@ -81,7 +82,7 @@ describe("Product.find(id): a query started from a Model", () => {
   test("level 2 outside a Worker: the request's database serves a Model with no binding", async () => {
     await expect(Unbound.find(1)).rejects.toThrow(
       new NoDatabase(
-        "No database for this query: its Model's base class holds no generated schema, which names its binding. Wrap the code in withDatabase(connect(env.DB), …), or use db.model(Model)",
+        "No database for this query: its Model's base class holds no generated schema, which names its adapter. Wrap the code in withDatabase(db, …), or use db.model(Model)",
       ),
     );
     expect((await withDatabase(connect(binding), () => Unbound.find(2))).email).toBe(

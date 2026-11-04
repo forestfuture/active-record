@@ -89,7 +89,7 @@ describe("toSql", () => {
   });
 
   test("shows a filtered primary key's real value", () => {
-    expect(Session.where({ token: "s3cret" }).toSql().params).toEqual(["s3cret"]);
+    expect(db().model(Session).where({ token: "s3cret" }).toSql().params).toEqual(["s3cret"]);
   });
 
   test("keeps includes and select when none() is chained, and shows an owner's hasMany", async () => {
