@@ -10,6 +10,7 @@ import {
 } from "./compiler.ts";
 import type { StatementResult } from "./driver.ts";
 import type { Executor } from "./executor.ts";
+import { withPlaceholders } from "./dialect.ts";
 import { attributeFor } from "./attribute.ts";
 import { attributeOf, initialValues, requireDefined } from "./metadata.ts";
 import type { AttributesOf, ModelClass } from "./model.ts";
@@ -73,7 +74,7 @@ export class Statement<Row = never> {
 
   /** The SQL this Statement sends and its bound values, unsent: see `Relation#toSql`. */
   toSql(): QuerySql {
-    return querySql(this.#query);
+    return querySql(withPlaceholders(this.#executor.dialect, this.#query));
   }
 
   /**

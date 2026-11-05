@@ -1,7 +1,7 @@
 // How a Relation's query runs (on D1, or not at all for `none()`), and the keys `find` looks up.
 import { attributeFor, noMatch } from "./attribute.ts";
 import { compileColumns, compileCount, compileSelect, type CompiledSql } from "./compiler.ts";
-import type { Dialect } from "./dialect.ts";
+import { type Dialect, withPlaceholders } from "./dialect.ts";
 import { databaseNow, type Executor } from "./executor.ts";
 import { stableOrder } from "./finder-order.ts";
 import { hydrate, primaryKeyOf, type Model, type ModelClass } from "./model.ts";
@@ -185,11 +185,8 @@ export function selectForToSql(
   query: QueryDescription,
 ): CompiledSql {
   const never = sql`1 = 0`;
-  return selectFor(
-    dialect,
-    model,
-    query.none ? { ...query, conditions: [...query.conditions, never] } : query,
-  );
+  const shown = query.none ? { ...query, conditions: [...query.conditions, never] } : query;
+  return withPlaceholders(dialect, selectFor(dialect, model, shown));
 }
 
 /**

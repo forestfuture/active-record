@@ -6,7 +6,7 @@ import { Comparison, comparisonParts, type Operator } from "./comparisons.ts";
 import { Either, LinkedTo, Negated, type Condition, type QueryDescription } from "./query.ts";
 import { ColumnReference, ColumnValue, SafeSql } from "./sql.ts";
 import { writeUntypedValue } from "./conversion.ts";
-import type { Dialect } from "./dialect.ts";
+import { type Dialect, param } from "./dialect.ts";
 import { boundValue } from "./filtering.ts";
 
 /** One SQL statement ready to send, with the Model whose table it reads or writes. */
@@ -142,7 +142,7 @@ export function compileInsert(
   const columns = assignments
     .map(([name]) => quoteIdentifier(attributeFor(model, name).column))
     .join(", ");
-  const placeholders = assignments.map(() => "?").join(", ");
+  const placeholders = assignments.map(() => param).join(", ");
   const params: unknown[] = [];
   for (const [name, value] of assignments) attributeFor(model, name).bind(params, value);
   return {
@@ -231,7 +231,7 @@ export function compileUpdate(
   const primaryKey = attributeFor(model, model.primaryKey);
   attributeFor(model, model.primaryKey).bindCells(params, storedKey);
   return {
-    sql: `UPDATE ${quoteIdentifier(model.table)} SET ${sets} WHERE ${quoteIdentifier(primaryKey.column)} = ?`,
+    sql: `UPDATE ${quoteIdentifier(model.table)} SET ${sets} WHERE ${quoteIdentifier(primaryKey.column)} = ${param}`,
     params,
     model,
   };
@@ -248,7 +248,7 @@ function compileSets(
     .map(([name, value]) => {
       const attribute = attributeFor(model, name);
       attribute.bind(params, value);
-      return `${quoteIdentifier(attribute.column)} = ?`;
+      return `${quoteIdentifier(attribute.column)} = ${param}`;
     })
     .join(", ");
 }
@@ -296,7 +296,7 @@ export function compileDelete(model: ModelClass<Model>, storedKey: unknown): Com
   const params: unknown[] = [];
   attributeFor(model, model.primaryKey).bindCells(params, storedKey);
   return {
-    sql: `DELETE FROM ${quoteIdentifier(model.table)} WHERE ${quoteIdentifier(column)} = ?`,
+    sql: `DELETE FROM ${quoteIdentifier(model.table)} WHERE ${quoteIdentifier(column)} = ${param}`,
     params,
     model,
   };
@@ -381,12 +381,12 @@ const NOTHING = "1 = 0";
 
 /** Each comparison's SQL for a quoted column; values are bound in order. */
 const COMPARISON_SQL: Record<Operator, (column: string) => string> = {
-  ">": (column) => `${column} > ?`,
-  ">=": (column) => `${column} >= ?`,
-  "<": (column) => `${column} < ?`,
-  "<=": (column) => `${column} <= ?`,
-  between: (column) => `${column} BETWEEN ? AND ?`,
-  betweenExcludingEnd: (column) => `(${column} >= ? AND ${column} < ?)`,
+  ">": (column) => `${column} > ${param}`,
+  ">=": (column) => `${column} >= ${param}`,
+  "<": (column) => `${column} < ${param}`,
+  "<=": (column) => `${column} <= ${param}`,
+  between: (column) => `${column} BETWEEN ${param} AND ${param}`,
+  betweenExcludingEnd: (column) => `(${column} >= ${param} AND ${column} < ${param})`,
 };
 
 /** `attr = value`, with NULL and arrays (IN) handled the way the contract specifies. */
@@ -402,7 +402,7 @@ function compileEquality(
     const stored = attribute.conditionCell(value);
     if (stored === noMatch) return NOTHING;
     attribute.bindCells(params, stored);
-    return `${column} = ?`;
+    return `${column} = ${param}`;
   }
   const present = value
     .filter((item) => item !== null)
@@ -446,10 +446,10 @@ function compileFragment(fragment: SafeSql, model: ModelClass<Model>, params: un
       text += quoteIdentifier(attributeFor(model, value.attribute).column);
     } else if (value instanceof ColumnValue) {
       attributeFor(model, value.attribute).bind(params, value.assigned);
-      text += "?";
+      text += param;
     } else {
       params.push(writeUntypedValue(value));
-      text += "?";
+      text += param;
     }
     text += fragment.strings[index + 1] ?? "";
   });
