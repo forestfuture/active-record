@@ -52,6 +52,12 @@ describe("the adapter the command uses", () => {
     expect(await found(project({ "package.json": "{}" }))).toBe("adapter d1");
   });
 
+  test("a package.json that isn't JSON is reported, not thrown", async () => {
+    expect(await found(project({ "package.json": "{ not json" }))).toMatch(
+      /^Couldn't load @forestfuture\/\w+-record\/cli: Invalid package config .*package\.json/,
+    );
+  });
+
   test("with several, needs --adapter, which chooses one", async () => {
     const listed = manifest("@forestfuture/d1-record", "@forestfuture/pg-record");
     const cwd = project({ "package.json": listed, ...pgInstalled });

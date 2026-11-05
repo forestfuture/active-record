@@ -11,18 +11,25 @@ const adapters: Readonly<Record<string, string>> = {
   pg: "@forestfuture/pg-record",
 };
 
+/** The packages a `package.json` depends on; none when it isn't there, or isn't JSON. */
+function dependenciesIn(file: string): string[] {
+  if (!existsSync(file)) return [];
+  try {
+    const manifest = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
+    return ["dependencies", "devDependencies"].flatMap((field) =>
+      Object.keys((manifest[field] as Record<string, unknown> | undefined) ?? {}),
+    );
+  } catch {
+    return [];
+  }
+}
+
 /** The adapters the nearest `package.json` that lists any depends on, from `cwd` up. */
 function listedIn(cwd: string): string[] {
   for (let dir = resolve(cwd); ; dir = dirname(dir)) {
-    const file = join(dir, "package.json");
-    if (existsSync(file)) {
-      const manifest = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
-      const names = ["dependencies", "devDependencies"].flatMap((field) =>
-        Object.keys((manifest[field] as Record<string, unknown> | undefined) ?? {}),
-      );
-      const found = Object.keys(adapters).filter((name) => names.includes(adapters[name]!));
-      if (found.length > 0) return found;
-    }
+    const names = dependenciesIn(join(dir, "package.json"));
+    const found = Object.keys(adapters).filter((name) => names.includes(adapters[name]!));
+    if (found.length > 0) return found;
     if (dirname(dir) === dir) return [];
   }
 }
