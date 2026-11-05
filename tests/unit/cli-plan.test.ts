@@ -6,6 +6,7 @@ import type {
   DatabaseSnapshot,
   ProjectSnapshot,
 } from "../../packages/active-record/cli/project/snapshot.ts";
+import type { CliAdapter } from "../../packages/active-record/cli/adapter.ts";
 import { cli } from "../../packages/d1-record/cli/plugin.ts";
 
 const cwd = "/app";
@@ -26,7 +27,6 @@ function project(database: Partial<DatabaseSnapshot> = {}): ProjectSnapshot {
         target: {
           database: {
             binding: "DB",
-            databaseName: "my-app-db",
             migrationsDir: "migrations",
             entry: { binding: "DB" },
           },
@@ -241,5 +241,49 @@ describe("planGenerate: what g model and g migration write and print, from a sna
     expect(filesOf(plan)).toEqual([]);
     expect(plan.code).toBe(1);
     expect(linesOf(plan).at(-1)).toBe("Wrote nothing");
+  });
+});
+
+// The core plans with whatever adapter the project uses (#278): a stand-in here, not D1's plugin.
+describe("planning with another adapter's plugin", () => {
+  const readSchemas: string[][] = [];
+  const stub: CliAdapter = {
+    name: "stub",
+    databases: () => ({ ok: false, error: "unused" }),
+    readSchema(migrations) {
+      readSchemas.push(migrations.map((migration) => migration.name));
+      const id = { type: "string", null: false } as const;
+      const tables = migrations.map((migration) => ({
+        name: migration.name.replace(/^\d+_|\.sql$/g, ""),
+        exportName: "items",
+        primaryKey: "id",
+        lastChangedBy: migration.name,
+        attributes: { id },
+      }));
+      return { ok: true, tables, notes: [], textDates: [] };
+    },
+    migration: ({ name }) => ({ ok: true, file: `9999_${name}.stub`, sql: "-- stub\n" }),
+    remote: () => "unused",
+    open: async () => "unused",
+    migrate: async () => 0,
+  };
+
+  test("the schema comes from the plugin's tables", () => {
+    const plan = planSchema({ ...project(), adapter: stub }, false);
+
+    expect(linesOf(plan)[0]).toBe("Wrote src/db/schema.ts (1 table) from migrations/");
+    expect(readSchemas.at(-1)).toEqual(["0001_users.sql"]);
+  });
+
+  test("a migration is the plugin's file and SQL, checked by reading the schema it makes", () => {
+    const product = { kind: "model", name: "Product", columns: ["name:string!"] } as const;
+
+    const plan = planGenerate({ ...project(), adapter: stub }, product);
+
+    expect(filesOf(plan).find((file) => file.path.endsWith(".stub"))).toEqual({
+      path: `${cwd}/migrations/9999_create_products.stub`,
+      source: "-- stub\n",
+    });
+    expect(readSchemas.at(-1)).toEqual(["0001_users.sql", "9999_create_products.stub"]);
   });
 });

@@ -1,4 +1,4 @@
-// The tests' own project: two D1 databases, whose schemas `d1-record schema` generates from these
+// The tests' own project: two D1 databases, whose schemas `active-record schema` generates from these
 // migrations and the Models in models/ (tests/integration/application-record.test.ts).
 {
   "d1_databases": [

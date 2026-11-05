@@ -24,6 +24,11 @@ function dependenciesIn(file: string): string[] {
   }
 }
 
+/** The package an adapter's plugin came from: `@forestfuture/d1-record` for `d1`. */
+export function adapterPackage(adapter: CliAdapter): string {
+  return adapters[adapter.name] ?? adapter.name;
+}
+
 /** The adapters the nearest `package.json` that lists any depends on, from `cwd` up. */
 function listedIn(cwd: string): string[] {
   for (let dir = resolve(cwd); ; dir = dirname(dir)) {

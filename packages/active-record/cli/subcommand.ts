@@ -1,4 +1,4 @@
-// What a `active-record` subcommand declares (flags, help, its action), `defineSubcommand`, which parses a command line for it, and `helpFor`, which joins their help.
+// What an `active-record` subcommand declares (flags, help, its action), `defineSubcommand`, which parses a command line for it, and `helpFor`, which joins their help.
 import { parseArgs, type ParseArgsOptionsConfig } from "node:util";
 import type { Print } from "./plan.ts";
 

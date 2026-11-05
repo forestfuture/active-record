@@ -30,8 +30,8 @@ export function modelFiles(cwd: string, models: string): string[] | string {
 
 export type Jiti = ReturnType<typeof createJiti>;
 
-/** The library, as the project installs it: the core, and the D1 adapter beside it. */
-const libraryNames = ["@forestfuture/active-record", "@forestfuture/d1-record"];
+/** The core, which every command loads from the project, beside the adapter some need. */
+export const corePackage = "@forestfuture/active-record";
 
 /** Whether `error` is the loader failing to find `name` itself, not something it imports. */
 export function isMissing(error: unknown, name: string): boolean {
@@ -43,27 +43,31 @@ export function isMissing(error: unknown, name: string): boolean {
 }
 
 /**
- * The project's own library (the core and the D1 adapter, as one module), or why it can't be
- * loaded. It is imported from a file in the project, as its Models import it, because only imports
- * made inside a file follow a `tsconfig.json` path (a workspace link), and so the Models and the
- * console get one copy.
+ * The project's own copies of `packages` (the core, and the adapter when a command needs it), as
+ * one module, or why one can't be loaded, naming it. Each is imported from a file in the project,
+ * as its Models import it, because only imports made inside a file follow a `tsconfig.json` path
+ * (a workspace link), and so the Models and the command get one copy.
  */
 export async function loadLibrary<L>(
   cwd: string,
   jiti: Jiti,
-  command: string,
+  { command, packages }: { command: string; packages: readonly string[] },
 ): Promise<L | string> {
-  try {
-    const source = libraryNames.map((name) => `export * from "${name}";`).join("\n");
-    const filename = join(cwd, `d1-record-${command}.ts`);
-    return (await jiti.evalModule(source, { filename, async: true })) as L;
-  } catch (error) {
-    const missing = libraryNames.find((name) => isMissing(error, name));
-    if (missing !== undefined) {
-      return `${missing} isn't installed here (install it, then run active-record ${command} again)`;
+  const filename = join(cwd, `active-record-${command}.ts`);
+  let library = {};
+  for (const name of packages) {
+    try {
+      const source = `export * from "${name}";`;
+      const loaded = (await jiti.evalModule(source, { filename, async: true })) as object;
+      library = { ...library, ...loaded };
+    } catch (error) {
+      if (isMissing(error, name)) {
+        return `${name} isn't installed here (install it, then run active-record ${command} again)`;
+      }
+      return `Couldn't load ${name}: ${(error as Error).message}`;
     }
-    return `Couldn't load the library: ${(error as Error).message}`;
   }
+  return library as L;
 }
 
 /**

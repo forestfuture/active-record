@@ -6,8 +6,6 @@ import type { Migration } from "./project/migrations.ts";
 export interface DatabaseConfig {
   /** Its name in the app's config, which a generated schema names: a D1 binding. */
   binding: string;
-  /** The name the adapter's own commands take (D1's `database_name`). */
-  databaseName?: string;
   /** Relative to the config file. */
   migrationsDir: string;
   /** A glob for nested migration layouts (D1's `migrations_pattern`). */
@@ -104,7 +102,7 @@ export interface OpenBinding {
 }
 
 /** Where `migrate` writes what the adapter's own tool prints. */
-export interface MigrateIo {
+export interface MigrateOutput {
   output: (text: string) => void;
 }
 
@@ -118,8 +116,11 @@ export interface CliAdapter {
   readSchema(migrations: readonly Migration[], options: { migrationsTable?: string }): SchemaResult;
   /** A migration's SQL, and its file name after the existing ones. */
   migration(change: MigrationChange): MigrationResult;
-  /** The remote database `chosen` names, or why it has none. */
-  remote(chosen: ChosenDatabase): RemoteTarget | string;
+  /**
+   * The remote database `chosen` names, or why it has none: the one the console opens, or the one
+   * `migrate` applies migrations to, which needn't be the same (D1's preview database).
+   */
+  remote(chosen: ChosenDatabase, use: "open" | "migrate"): RemoteTarget | string;
   /** Opens the database for the console: the local one, or with `remote`, the real one. */
   open(
     cwd: string,
@@ -131,6 +132,6 @@ export interface CliAdapter {
     cwd: string,
     chosen: ChosenDatabase,
     options: { remote: boolean },
-    io: MigrateIo,
+    io: MigrateOutput,
   ): Promise<number>;
 }

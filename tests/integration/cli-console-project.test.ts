@@ -5,6 +5,8 @@ import { loadProject } from "../../packages/active-record/cli/console/project.ts
 import { scratchDirs } from "../support/scratch.ts";
 import { libraryPaths } from "../support/library-paths.ts";
 
+const d1Package = "@forestfuture/d1-record";
+
 // The library resolves, as an app's does, from a tsconfig `paths` entry (here to this repo's source).
 const scratch = scratchDirs();
 
@@ -61,7 +63,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
       "src/lib/greeting.ts": `export const greeting: string = "hello";`,
     });
 
-    const loaded = await loadProject(cwd);
+    const loaded = await loadProject(d1Package, cwd);
 
     if (typeof loaded === "string") throw new Error(loaded);
     expect(Object.keys(loaded.models).sort()).toEqual(["Post", "User"]);
@@ -78,7 +80,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
       `,
     });
 
-    const loaded = await loadProject(cwd, "src/models.ts");
+    const loaded = await loadProject(d1Package, cwd, "src/models.ts");
 
     if (typeof loaded === "string") throw new Error(loaded);
     expect(Object.keys(loaded.models).sort()).toEqual(["Post", "User"]);
@@ -86,7 +88,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
 
   describe("says why a project can't be loaded", () => {
     test("no models folder", async () => {
-      expect(await loadProject(project({}))).toBe(
+      expect(await loadProject(d1Package, project({}))).toBe(
         "No Models at src/models (run active-record g model, or pass --models)",
       );
     });
@@ -94,7 +96,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
     test("a folder with no Models in it", async () => {
       const cwd = project({ "src/models/notes.ts": "export const notes = 1;" });
 
-      expect(await loadProject(cwd)).toBe(
+      expect(await loadProject(d1Package, cwd)).toBe(
         "No Models in src/models (run active-record g model, or pass --models)",
       );
     });
@@ -102,7 +104,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
     test("a file that throws, by name", async () => {
       const cwd = project({ "src/models/broken.ts": 'throw new Error("boom");' });
 
-      expect(await loadProject(cwd)).toBe("Couldn't load src/models/broken.ts: boom");
+      expect(await loadProject(d1Package, cwd)).toBe("Couldn't load src/models/broken.ts: boom");
     });
 
     test("a library that fails to load is reported as that, not as missing", async () => {
@@ -121,7 +123,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
         true,
       );
 
-      expect(await loadProject(cwd)).toBe("Couldn't load the library: boom");
+      expect(await loadProject(d1Package, cwd)).toBe("Couldn't load @forestfuture/d1-record: boom");
     });
 
     test("a project without the library", async () => {
@@ -135,7 +137,9 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
         true,
       );
 
-      expect(await loadProject(cwd)).toMatch(/^@forestfuture\/active-record isn't installed here/);
+      expect(await loadProject(d1Package, cwd)).toMatch(
+        /^@forestfuture\/active-record isn't installed here/,
+      );
     });
   });
 
@@ -151,7 +155,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
         `,
         "src/lib/greeting.ts": `export const greeting: string = "hello";`,
       });
-      const first = await loadProject(cwd);
+      const first = await loadProject(d1Package, cwd);
       if (typeof first === "string") throw new Error(first);
       return { cwd, first };
     }
@@ -221,7 +225,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
         const { cwd } = await loaded();
         const link = `${cwd}-link`;
         symlinkSync(cwd, link);
-        const first = await loadProject(link);
+        const first = await loadProject(d1Package, link);
         if (typeof first === "string") throw new Error(first);
         writeFileSync(
           join(cwd, "src/models/user.ts"),
@@ -266,7 +270,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
         },
         true,
       );
-      const first = await loadProject(cwd);
+      const first = await loadProject(d1Package, cwd);
       if (typeof first === "string") throw new Error(first);
 
       const again = await first.reload();

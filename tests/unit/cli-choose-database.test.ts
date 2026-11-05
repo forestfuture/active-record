@@ -4,7 +4,7 @@ import { chooseDatabase } from "../../packages/active-record/cli/project/databas
 /** Databases as the commands hold them: anything with a binding. */
 const bound = (...bindings: string[]) => bindings.map((binding) => ({ binding }));
 
-describe("choosing the D1 database a command works on", () => {
+describe("choosing the database a command works on", () => {
   test.each([
     ["one binding, none named", ["DB"], undefined, { binding: "DB" }],
     ["one binding, named", ["DB"], "DB", { binding: "DB" }],

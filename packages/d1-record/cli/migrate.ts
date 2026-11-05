@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
-import type { ChosenDatabase, MigrateIo } from "@forestfuture/active-record/cli";
+import type { ChosenDatabase, MigrateOutput } from "@forestfuture/active-record/cli";
 
 /** The project's own Wrangler's command line script, or why there's none. */
 function wranglerBin(cwd: string): string | string[] {
@@ -23,7 +23,7 @@ export function migrate(
   cwd: string,
   { binding, configFile }: ChosenDatabase,
   { remote }: { remote: boolean },
-  io: MigrateIo,
+  io: MigrateOutput,
 ): Promise<number> {
   const bin = wranglerBin(cwd);
   if (Array.isArray(bin)) {

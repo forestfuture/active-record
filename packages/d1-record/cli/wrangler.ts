@@ -1,4 +1,4 @@
-// Reads a Worker's Wrangler config (D1 databases, migrations folders, account_id) and chooses one database.
+// Reads a Worker's Wrangler config: its D1 databases, their migrations folders, and its account_id.
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import type { ConfigResult, DatabaseConfig } from "@forestfuture/active-record/cli";
@@ -89,7 +89,6 @@ function databaseOf(entry: Record<string, unknown>): DatabaseConfig {
   if (typeof entry.migrations_pattern === "string")
     database.migrationsPattern = entry.migrations_pattern;
   if (typeof entry.migrations_table === "string") database.migrationsTable = entry.migrations_table;
-  if (typeof entry.database_name === "string") database.databaseName = entry.database_name;
   return database;
 }
 
