@@ -81,7 +81,7 @@ export default defineConfig({
       },
       {
         // The project reader sits below the schema reader: schema/ imports project/, never back.
-        files: ["packages/d1-record/cli/project/**"],
+        files: ["packages/active-record/cli/project/**"],
         rules: {
           "no-restricted-imports": [
             "error",
@@ -127,7 +127,7 @@ export default defineConfig({
             {
               patterns: [
                 {
-                  group: ["**/active-record/src/**"],
+                  group: ["**/active-record/src/**", "**/active-record/cli/**"],
                   message:
                     "Import the core from @forestfuture/active-record, or its /adapter or /cli entry.",
                 },

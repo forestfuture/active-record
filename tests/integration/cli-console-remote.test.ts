@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import { runConsole, standardIo } from "../../packages/d1-record/cli/console/command.ts";
-import { main } from "../../packages/d1-record/cli/main.ts";
+import { runConsole, standardIo } from "../../packages/active-record/cli/console/command.ts";
+import { main } from "../../packages/active-record/cli/main.ts";
 import { capturedStreams, terminalStreams, waitFor } from "../support/console.ts";
 import { scratchDirs } from "../support/scratch.ts";
 import { remoteProject } from "../support/shop.ts";
@@ -18,8 +18,8 @@ function onATerminal() {
   return { terminal, lines, io: { ...terminal, terminal: true } };
 }
 
-// `d1-record console --remote` (#104): the same console on the real database, after asking.
-describe("d1-record console --remote", () => {
+// `active-record console --remote` (#104): the same console on the real database, after asking.
+describe("active-record console --remote", () => {
   test("--yes opens it through wrangler's remote proxy", async () => {
     const { cwd, asked } = await remoteShop();
     const terminal = terminalStreams();
@@ -190,7 +190,7 @@ describe("the local console's prompt", () => {
 });
 
 // `-e` with `--remote` (#105): the same consent as a session, with the result alone on stdout.
-describe("d1-record console -e --remote", () => {
+describe("active-record console -e --remote", () => {
   /** A script's streams, with a terminal flag for the confirmation. */
   function streams(terminal: boolean) {
     const { input, output, error, seen } = capturedStreams();

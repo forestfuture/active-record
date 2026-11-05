@@ -21,9 +21,6 @@
     "url": "git+https://github.com/forestfuture/d1-record.git",
     "directory": "packages/d1-record"
   },
-  "bin": {
-    "d1-record": "./dist/cli.mjs"
-  },
   "files": [
     "dist"
   ],
@@ -31,11 +28,13 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./cli": "./cli/plugin.ts",
     "./package.json": "./package.json"
   },
   "publishConfig": {
     "exports": {
       ".": "./dist/index.mjs",
+      "./cli": "./dist/cli.mjs",
       "./package.json": "./package.json"
     },
     "access": "public"

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-pl
 import { Model, withDatabase } from "../../packages/active-record/src/index.ts";
 import { connect } from "../../packages/d1-record/src/index.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
-import { startSession } from "../../packages/d1-record/cli/console/session.ts";
+import { startSession } from "../../packages/active-record/cli/console/session.ts";
 import { drive, terminalStreams, waitFor } from "../support/console.ts";
 
 class Sample extends Model.define({
@@ -13,7 +13,7 @@ class Sample extends Model.define({
   static table = "samples";
 }
 
-// `d1-record console`: a REPL with the project's Models in scope (#104).
+// `active-record console`: a REPL with the project's Models in scope (#104).
 describe("the console session", () => {
   let binding: TestDatabase;
   let dispose: () => Promise<void>;

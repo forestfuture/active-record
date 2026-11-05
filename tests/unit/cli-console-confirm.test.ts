@@ -1,9 +1,11 @@
 import { PassThrough } from "node:stream";
 import { describe, expect, test } from "vite-plus/test";
-import { confirmRemote } from "../../packages/d1-record/cli/console/confirm.ts";
+import { confirmRemote } from "../../packages/active-record/cli/console/confirm.ts";
 
-type Target = { name: string; id: string | undefined; preview: boolean };
-const shop: Target = { name: "shop", id: "1a2b3c", preview: false };
+import type { RemoteTarget } from "../../packages/active-record/cli/adapter.ts";
+
+type Target = RemoteTarget;
+const shop: Target = { name: "shop", description: "Remote database DB (shop, id 1a2b3c)" };
 
 /** Asks `confirmRemote` about a database, with this typed at it; what it printed, and its answer. */
 async function asked(typed: string | undefined, target: Target = shop) {
@@ -11,7 +13,7 @@ async function asked(typed: string | undefined, target: Target = shop) {
   const output = new PassThrough();
   let printed = "";
   output.on("data", (chunk: Buffer) => (printed += chunk.toString()));
-  const answer = confirmRemote({ input, output, binding: "DB", target });
+  const answer = confirmRemote({ input, output, target });
   if (typed === undefined) input.end();
   else input.write(`${typed}\n`);
   const { confirmed } = await answer;
@@ -55,8 +57,12 @@ describe("confirming a remote database", () => {
     );
   });
 
-  test("says when it is the preview database, and that the config chose it", async () => {
-    const { printed } = await asked("shop", { name: "shop", id: "9z9z", preview: true });
+  test("says what the adapter notes about it, such as a preview database", async () => {
+    const { printed } = await asked("shop", {
+      name: "shop",
+      description: "Remote preview database DB (shop, id 9z9z)",
+      note: "That is the config's preview_database_id, which Wrangler opens in place of database_id.",
+    });
 
     expect(printed).toBe(
       "Remote preview database DB (shop, id 9z9z)\n" +
@@ -74,7 +80,7 @@ describe("what is typed behind the answer", () => {
   async function leftOver(...behind: string[]): Promise<string[]> {
     const input = new PassThrough();
     const output = new PassThrough();
-    const answer = confirmRemote({ input, output, binding: "DB", target: shop });
+    const answer = confirmRemote({ input, output, target: shop });
     input.write("shop\n");
     behind.forEach((line, index) => setTimeout(() => input.write(line), 20 * (index + 1)));
 

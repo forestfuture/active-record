@@ -6,10 +6,10 @@ import {
   migrationTool,
   toolsWithFiles,
   type Tool,
-} from "../../packages/d1-record/cli/project/tools.ts";
-import { originNotes } from "../../packages/d1-record/cli/schema/origin.ts";
-import type { Migration } from "../../packages/d1-record/cli/project/migrations.ts";
-import { schemaOf } from "../../packages/d1-record/cli/schema/schema.ts";
+} from "../../packages/active-record/cli/project/tools.ts";
+import { originNotes } from "../../packages/active-record/cli/schema/origin.ts";
+import type { Migration } from "../../packages/active-record/cli/project/migrations.ts";
+import { schemaOf } from "../../packages/d1-record/cli/schema.ts";
 
 /** A throwaway project folder with these files. */
 function projectWith(...files: string[]): string {
@@ -21,7 +21,7 @@ function projectWith(...files: string[]): string {
   return dir;
 }
 
-/** The tool recognised for a project folder and its migrations, as `d1-record schema` reads them. */
+/** The tool recognised for a project folder and its migrations, as `active-record schema` reads them. */
 function recognised(dir: string, migrations: readonly Migration[]): Tool | undefined {
   return migrationTool(toolsWithFiles(dir), migrations);
 }

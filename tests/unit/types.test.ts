@@ -45,7 +45,7 @@ abstract class ApplicationRecord extends Model {
   } as const;
 }
 
-// The interface stands in for the declarations d1-record schema generates in another file.
+// The interface stands in for the declarations active-record schema generates in another file.
 /* oxlint-disable typescript/no-unsafe-declaration-merging */
 class Note extends ApplicationRecord {
   static override attributes = { openedAt: { type: "datetime", storage: "unixSeconds" } } as const;

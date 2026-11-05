@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, onTestFinished, test, vi } from "vite-plus/test";
-import { main } from "../../packages/d1-record/cli/main.ts";
+import { main } from "../../packages/active-record/cli/main.ts";
 import { scratchDirs } from "../support/scratch.ts";
 
 // In the repo, so the Models the generators write find this repo's library, as an app's do.
@@ -25,7 +25,7 @@ describe("the d1-record command line", () => {
     );
 
     expect(help).toBe(0);
-    expect(output[0]).toMatch(/^Usage:\n  d1-record schema \[options\]/);
+    expect(output[0]).toMatch(/^Usage:\n  active-record schema \[options\]/);
     expect(generated).toBe(0);
     expect(output[1]).toMatch(/^Wrote .*out\.ts \(1 table\)/);
   });
@@ -33,7 +33,7 @@ describe("the d1-record command line", () => {
   test("anything else prints the usage and fails", () => {
     const output: string[] = [];
 
-    expect(main(["migrate"], (line) => output.push(line))).toBe(1);
+    expect(main(["deploy"], (line) => output.push(line))).toBe(1);
     expect(output[0]).toMatch(/^Usage:/);
   });
 
@@ -54,7 +54,7 @@ describe("the d1-record command line", () => {
       spy.mockRestore();
     }
     expect(output).toEqual([
-      `d1-record schema needs Node 22.13 or later, for node:sqlite (this is Node ${process.versions.node})`,
+      `active-record schema needs Node 22.13 or later, for node:sqlite (this is Node ${process.versions.node})`,
     ]);
   });
 

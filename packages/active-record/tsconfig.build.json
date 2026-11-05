@@ -1,0 +1,10 @@
+{
+  // The build's one program: the library (Workers) and the command line (Node), as the build emits
+  // declarations for both. Type checking stays with src/ and cli/'s own tsconfig.json.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "@cloudflare/workers-types"],
+    "stripInternal": true
+  },
+  "include": ["src", "cli"]
+}

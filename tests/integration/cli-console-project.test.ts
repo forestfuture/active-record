@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import { loadProject } from "../../packages/d1-record/cli/console/project.ts";
+import { loadProject } from "../../packages/active-record/cli/console/project.ts";
 import { scratchDirs } from "../support/scratch.ts";
 import { libraryPaths } from "../support/library-paths.ts";
 
@@ -87,7 +87,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
   describe("says why a project can't be loaded", () => {
     test("no models folder", async () => {
       expect(await loadProject(project({}))).toBe(
-        "No Models at src/models (run d1-record g model, or pass --models)",
+        "No Models at src/models (run active-record g model, or pass --models)",
       );
     });
 
@@ -95,7 +95,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
       const cwd = project({ "src/models/notes.ts": "export const notes = 1;" });
 
       expect(await loadProject(cwd)).toBe(
-        "No Models in src/models (run d1-record g model, or pass --models)",
+        "No Models in src/models (run active-record g model, or pass --models)",
       );
     });
 
