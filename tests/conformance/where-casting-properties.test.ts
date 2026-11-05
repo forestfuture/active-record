@@ -3,7 +3,10 @@ import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { Model } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { SLOW_RUNS, SLOW_TIMEOUT } from "../support/properties.ts";
-import { values } from "../support/values.ts";
+import { storable } from "../support/storable.ts";
+import { values as anyValues } from "../support/values.ts";
+
+const values = storable(anyValues);
 
 class Sample extends Model.define({
   id: { type: "integer", null: false },

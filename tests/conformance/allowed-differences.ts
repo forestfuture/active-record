@@ -65,8 +65,8 @@ export const allowedDifferences: readonly AllowedDifference[] = [
     id: "nul-in-text",
     adapters: ["pg"],
     reason:
-      "Postgres text can't hold the NUL character (U+0000), so a value with one is refused " +
-      "with Postgres's own error. SQLite stores it.",
+      "Postgres text can't hold the NUL character (U+0000), nor can a jsonb string, so a value " +
+      "with one is refused with Postgres's own error. SQLite stores it.",
     contract: "Values are never inlined (ADR-0006)",
     tests: [],
     avoidedBy: [
@@ -75,6 +75,10 @@ export const allowedDifferences: readonly AllowedDifference[] = [
       "a text value of any content, in a query > is bound in a list of values: the statement is the same, and each exact match is found",
       "a text value of any content, in a query > is stored and read back as it was",
       "a text value of any content, in a query > is inserted with the statement a harmless value gives",
+      "where, for a value of any shape > is a TypeError only for undefined, which it names",
+      "where, for a value of any shape > matches nothing for a single value that can't be cast",
+      "where, for a value of any shape > matches only rows holding the cast value",
+      "a JSON attribute, saved and read back through the database > is the value that was saved, key for key",
     ],
   },
   {
