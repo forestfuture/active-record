@@ -21,14 +21,14 @@ export interface MigrateOptions {
 }
 
 /** Where `migrate` asks, and what it prints. */
-export interface MigrateIo {
+export interface MigrateTerminal {
   input: Readable;
   output: Writable;
   /** Whether a person is there to type a database's name. */
   terminal: boolean;
 }
 
-const standardIo = (): MigrateIo => ({
+const standardIo = (): MigrateTerminal => ({
   input: process.stdin,
   output: process.stdout,
   terminal: process.stdin.isTTY === true && process.stdout instanceof WriteStream,
@@ -38,7 +38,7 @@ const standardIo = (): MigrateIo => ({
 async function allowed(
   target: { name: string; description: string },
   options: MigrateOptions,
-  io: MigrateIo,
+  io: MigrateTerminal,
 ): Promise<string | undefined> {
   if (options.yes === true) return undefined;
   if (!io.terminal)
@@ -58,7 +58,7 @@ async function allowed(
 export async function runMigrate(
   options: MigrateOptions,
   print: (line: string) => void,
-  io: MigrateIo = standardIo(),
+  io: MigrateTerminal = standardIo(),
 ): Promise<number> {
   const cwd = options.cwd ?? process.cwd();
   const adapter = await loadAdapter(cwd, options.adapter);
@@ -73,7 +73,7 @@ export async function runMigrate(
   }
   const remote = options.remote === true;
   if (remote) {
-    const target = adapter.remote(chosen);
+    const target = adapter.remote(chosen, "migrate");
     const refusal = typeof target === "string" ? target : await allowed(target, options, io);
     if (refusal !== undefined) {
       print(refusal);

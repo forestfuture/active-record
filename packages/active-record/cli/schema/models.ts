@@ -6,6 +6,7 @@ import { ancestors } from "../../src/ancestors.ts";
 import { isBase } from "../../src/generated-model.ts";
 import {
   forgetProjectFiles,
+  corePackage,
   loadLibrary,
   modelFiles,
   projectJiti,
@@ -162,7 +163,11 @@ async function modelsIn(
   schemas: ReadonlyMap<unknown, DatabaseSnapshot>,
 ): Promise<{ found: Found; library: Library | string }> {
   const found: Found = { models: new Map(), errors: [] };
-  const library = await loadLibrary<Library>(cwd, jiti, "schema");
+  // Finding Models takes only the core's Model, whichever adapter they're on.
+  const library = await loadLibrary<Library>(cwd, jiti, {
+    command: "schema",
+    packages: [corePackage],
+  });
   if (typeof library === "string") return { found, library };
   for (const file of files) {
     const exported = await importFile(cwd, jiti, file);

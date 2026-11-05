@@ -3,7 +3,7 @@
   "workspaces": {
     ".": {
       // Generated schemas, committed as tests' fixtures: all of each is output, every table
-      // exported as d1-record schema writes it.
+      // exported as active-record schema writes it.
       "ignore": [
         "tests/fixtures/schema-project/schema.ts",
         "tests/fixtures/DB.ts",

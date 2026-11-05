@@ -2,6 +2,7 @@
 import { resolve, sep } from "node:path";
 import {
   forgetProjectFiles,
+  corePackage,
   loadLibrary,
   modelFiles,
   projectJiti,
@@ -89,6 +90,7 @@ async function modelsIn(
  * share a single copy of the library. Or why they can't be loaded.
  */
 export async function loadProject(
+  adapterPackage: string,
   cwd: string,
   models = defaultModels,
 ): Promise<ConsoleProject | string> {
@@ -97,7 +99,8 @@ export async function loadProject(
   if (typeof files === "string") return files;
   const jiti = projectJiti(cwd);
   const loadedBefore = new Set(Object.keys(jiti.cache));
-  const library = await loadLibrary<Library>(cwd, jiti, "console");
+  const packages = [corePackage, adapterPackage];
+  const library = await loadLibrary<Library>(cwd, jiti, { command: "console", packages });
   if (typeof library === "string") return library;
   const libraryFiles = new Set(Object.keys(jiti.cache).filter((file) => !loadedBefore.has(file)));
   const found = await modelsIn(cwd, models, jiti, library);

@@ -13,7 +13,7 @@ export const cli: CliAdapter = {
   databases: readWranglerConfig,
   readSchema: schemaOf,
   migration,
-  remote: remoteTarget,
+  remote: (chosen, use) => remoteTarget(chosen, use),
   open: (cwd, chosen, { remote }) =>
     remote ? openRemoteBinding(cwd, chosen) : openLocalBinding(cwd, chosen),
   migrate,

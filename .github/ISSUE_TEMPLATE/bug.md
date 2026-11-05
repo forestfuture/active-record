@@ -8,7 +8,7 @@ labels: bug, needs-triage
 
 **d1-record version:** <!-- `npm ls @forestfuture/d1-record` -->
 
-**Where it runs:** <!-- A Worker, Miniflare or `vp test`, or the command line (`d1-record schema` or `console`, with your Node.js version) -->
+**Where it runs:** <!-- A Worker, Miniflare or `vp test`, or the command line (`active-record schema`, `console` or `migrate`, with your Node.js version) -->
 
 ## What happened
 

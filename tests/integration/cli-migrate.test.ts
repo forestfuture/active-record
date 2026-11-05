@@ -84,6 +84,15 @@ describe("migrate", () => {
     expect([code, lines]).toEqual([1, ["Not migrated."]]);
   });
 
+  test("--remote confirms the database Wrangler migrates, database_id, not a preview database", async () => {
+    const cwd = project({ preview_database_id: "preview-shop" });
+
+    const { printed } = await migrated(cwd, { remote: true }, "nope");
+
+    expect(printed).toContain("Remote database DB (shop, id local-shop)");
+    expect(printed).not.toContain("preview");
+  });
+
   test("--remote refuses without a terminal, unless --yes", async () => {
     const { code, lines } = await migrated(project(), { remote: true });
 
