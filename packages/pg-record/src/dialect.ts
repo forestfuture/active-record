@@ -35,6 +35,16 @@ export const postgres: Dialect = {
     return text;
   },
   /**
+   * Postgres compares no text with a number. A number selected for a text attribute is its text,
+   * and text selected for a number is the number its digits are, as a condition casts it; text
+   * that isn't one matches nothing.
+   */
+  linkedKey(key, keyAttribute, linked) {
+    if (linked.isText === keyAttribute.isText) return key;
+    if (linked.isText) return `CAST(${key} AS TEXT)`;
+    return `CASE WHEN ${key} ~ '^\\s*[+-]?[0-9]+\\s*$' THEN CAST(${key} AS NUMERIC) END`;
+  },
+  /**
    * Each row's cells become an object of its columns, read into a record of `table`, so every
    * value converts to its column's own type as an insert's would. A json attribute's cell is its
    * JSON's text, so it's read as JSON first, or it would be stored as a JSON string.

@@ -18,4 +18,8 @@ export const sqlite: Dialect = {
     select: attributes.map((_, index) => `value ->> '$[${index}]'`).join(", "),
     from: `json_each(${param})`,
   }),
+  // A key that isn't text, selected for a text attribute, is cast to text: SQLite would compare
+  // them by number, which can't search the attribute's index, and which '09' matches.
+  linkedKey: (key, keyAttribute, linked) =>
+    linked.isText && !keyAttribute.isText ? `CAST(${key} AS TEXT)` : key,
 };

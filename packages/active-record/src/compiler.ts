@@ -98,8 +98,7 @@ function compileCondition(
 /**
  * `attr IN (SELECT key FROM … WHERE …)`: the keys of the records `owners` finds. With a limit
  * or offset, its order picks those records; without, it's left out, as it can't change them.
- * A key that isn't text, selected for a text `attr`, is cast to text: SQLite would compare them
- * by number, which can't search `attr`'s index, and which `'09'` matches.
+ * The dialect selects the key so it compares with `attr` as a condition would, across key types.
  */
 function compileLinkedTo(
   dialect: Dialect,
@@ -111,7 +110,7 @@ function compileLinkedTo(
   const keyAttribute = attributeFor(owners.model, ownerKey);
   const column = quoteIdentifier(linked.column);
   const keyColumn = quoteIdentifier(keyAttribute.column);
-  const selected = linked.isText && !keyAttribute.isText ? `CAST(${keyColumn} AS TEXT)` : keyColumn;
+  const selected = dialect.linkedKey(keyColumn, keyAttribute, linked);
   const limited = owners.limit !== undefined || owners.offset !== undefined;
   const order = limited ? owners.order : [];
   // A distinct() with includes selects every column (a distinct select() can't be preloaded),
