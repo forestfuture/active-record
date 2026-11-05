@@ -17,7 +17,7 @@ Coding agents follow Active Record’s conventions best with its guide at hand a
 
 ## Installing the agent skill
 
-Install d1-record’s [agent skill](https://github.com/forestfuture/d1-record/blob/main/packages/active-record/skills/active-record/SKILL.md): its rules, the shapes of a Model and a Worker, and the mistakes to watch for, with pointers into the guide. Agents that support skills, such as Claude Code, Cursor, Codex, and [others](https://skills.sh), load it when they work on d1-record code:
+Install the library’s [agent skill](https://github.com/forestfuture/d1-record/blob/main/packages/active-record/skills/active-record/SKILL.md): its rules, the shapes of a Model and a Worker, and the mistakes to watch for, with pointers into the guide. Agents that support skills, such as Claude Code, Cursor, Codex, and [others](https://skills.sh), load it when they work on d1-record code:
 
 ```sh
 npx skills add forestfuture/d1-record
@@ -38,7 +38,7 @@ The skills CLI marks `experimental_sync` as experimental, so its name may change
 Agents read `AGENTS.md`, or `CLAUDE.md` for Claude Code, at the start of every task, while a skill loads only when the agent decides it applies. To make sure the guide is always in reach, add one line to yours:
 
 ```md
-Before writing code with `@forestfuture/d1-record`, read the part of `node_modules/@forestfuture/active-record/llms-full.txt` for the task.
+Before writing code with `@forestfuture/active-record` or `@forestfuture/d1-record`, read the part of `node_modules/@forestfuture/active-record/llms-full.txt` for the task.
 ```
 
 The line names the guide shipped with your installed version, so it stays correct after an upgrade.

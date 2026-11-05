@@ -20,7 +20,7 @@ A Worker serves many requests at once from one isolate, so nothing about a reque
 
 Most names are Rails’ own, in camelCase:
 
-| Rails                                    | d1-record                                         |
+| Rails                                    | Active Record for Workers                         |
 | ---------------------------------------- | ------------------------------------------------- |
 | `created_at` (attribute)                 | `createdAt`, mapped to `created_at`               |
 | `foreign_key: :user_id`                  | `foreignKey: "userId"`                            |
@@ -43,7 +43,7 @@ Attributes, conditions, and association keys all name attributes, in camelCase. 
 
 ## Declaring Models
 
-Migrations define the columns, and a Model declares only behavior. Where Rails reads the columns when the app runs, d1-record reads them into `src/db/schema.ts` when you run `active-record schema` or a generator, so TypeScript knows every attribute’s type.
+Migrations define the columns, and a Model declares only behavior. Where Rails reads the columns when the app runs, this library reads them into `src/db/schema.ts` when you run `active-record schema` or a generator, so TypeScript knows every attribute’s type.
 
 A Model names its table, since TypeScript can’t derive a class’s types from its name. Scopes are statics, and validations and callbacks go in a `static {}` block:
 
