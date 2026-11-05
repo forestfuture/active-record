@@ -108,7 +108,8 @@ describe("record lifecycle", () => {
     expect(await user.save()).toBe(true);
 
     expect(queries).toHaveLength(1);
-    expect(queries[0]?.sql).toMatch(/^UPDATE "users" SET "role" = \?/);
+    const update = harness.asSent('UPDATE "users" SET "role" = ?');
+    expect(queries[0]?.sql.slice(0, update.length)).toBe(update);
     expect(queries[0]?.sql).not.toContain('"email"');
     expect((await users.find(user.id)).role).toBe("admin");
   });
