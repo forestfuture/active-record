@@ -22,6 +22,11 @@ export interface Dialect {
    * value: its SELECT list and FROM.
    */
   bulkRows(table: string, attributes: readonly Attribute[]): { select: string; from: string };
+  /**
+   * The owners' `key` (a quoted column, of `keyAttribute`) as a linked condition selects it, so
+   * it matches `linked`'s column as a condition on `linked` would: by text for a text attribute.
+   */
+  linkedKey(key: string, keyAttribute: Attribute, linked: Attribute): string;
 }
 
 /** `compiled` with each `param` written as `dialect`'s placeholder: the SQL as it's sent. */
