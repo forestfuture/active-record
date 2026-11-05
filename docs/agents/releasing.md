@@ -30,9 +30,9 @@ The release jobs in `.github/workflows/ci.yml` run on `main`, after `check` pass
 
 1. **`release-mode`** works out what to do:
    - `version` while changesets are waiting;
-   - `publish` once `package.json` has a version npm doesn't have yet;
+   - `publish` once a package's `package.json` has a version npm doesn't have yet;
    - `none` otherwise, which is what most pushes hit.
-2. **`release-version`** opens or updates the **Version Packages** pull request. That pull request bumps `package.json`, writes `CHANGELOG.md` (formatted with `vp fmt`) and deletes the used changesets. CI rewrites its branch on every push to `main`, so don't edit it by hand. Pull requests opened by Actions don't run CI, but merging one runs CI on `main` before anything is published.
+2. **`release-version`** opens or updates the **Version Packages** pull request. That pull request bumps both packages' `package.json` (Changesets' `fixed` mode keeps them at one version), writes each package's `CHANGELOG.md` (formatted with `vp fmt`) and deletes the used changesets. `packages/d1-record/CHANGELOG.md` holds the history from 0.1, when the core was part of it; `packages/active-record/CHANGELOG.md` starts at 0.6. CI rewrites its branch on every push to `main`, so don't edit it by hand. Pull requests opened by Actions don't run CI, but merging one runs CI on `main` before anything is published.
 3. **`release-pack`** packs a tarball for each package (#277). Packing runs each package's `prepack` script: the core's builds its `dist/` with `vp pack` (attw and publint included), then the docs site, and copies its `llms-full.txt` into the package, so a docs build that fails, a dead link included, blocks the release. The D1 adapter's builds the core, then its own `dist/` against the core's declarations. Changesets' `fixed` mode keeps both at one version, and the adapter's peer dependency on the core is pinned to it.
 4. **`release-publish`** publishes the tarballs to npm with provenance, tags the commit with the version, and creates a GitHub Release with its changelog. It's the only job that can get an OIDC token (`id-token: write`). Changesets publishes with pnpm, so provenance is turned on with `PNPM_CONFIG_PROVENANCE`: pnpm ignores `NPM_CONFIG_*`.
 
@@ -57,6 +57,25 @@ These are done once, in this order.
 6. **Check each release for provenance.** The package page on npmjs.com shows a provenance badge linking to the commit, and the version has `dist.attestations`. `0.1.0` has none (#109), because a token published it. `0.1.1` was the first published through the trusted publisher, and has one (2026-10-10). The registry can take a few minutes to list a version just published: a 404 straight after a green `release-publish` is that lag, and `npm view @forestfuture/d1-record@<version> --prefer-online` settles it.
 
 From then on, only CI in `forestfuture/d1-record`, from `ci.yml`, can publish.
+
+## The split's first release (0.6.0, #279)
+
+The 0.6.0 release is the first of two packages, from a renamed repository. npm's provenance check needs each `package.json`'s `repository.url` to name the repository the release ran in, and trusted publishing can't be set on a package that doesn't exist yet. So, in this order:
+
+1. **Rename the repository** (the maintainer): Settings → General → Repository name → `active-record`. GitHub redirects the old URLs, remotes and links. Locally, `git remote set-url origin https://github.com/forestfuture/active-record.git`.
+2. **Update what names the repository**, in a pull request to `main`: each `package.json`'s `repository.url`, `.changeset/config.json`'s changelog `repo`, the README's badges, `context7.json`, `.github/ISSUE_TEMPLATE/config.yml`, `npx skills add forestfuture/active-record`, and every `github.com/forestfuture/d1-record` link in the guide, the README and `docs/`.
+3. **Outside GitHub** (the maintainer):
+   - On bestpractices.dev, change the project's repository URL to `https://github.com/forestfuture/active-record`.
+   - OpenSSF Scorecard follows the repository by itself, from `scorecard.yml`; its badge URL changes with step 2.
+   - On Context7, add `https://github.com/forestfuture/active-record` and claim it, as in "help agents find it" below; the old `/forestfuture/d1-record` entry goes stale.
+4. **Point `d1-record`'s trusted publisher at the new name** (the maintainer), from a terminal outside the repo: `npm trust list @forestfuture/d1-record`, then `npm trust github @forestfuture/d1-record --file ci.yml --repo forestfuture/active-record --allow-publish`, and remove the old entry. Or on npmjs.com: the package's Settings → Trusted Publisher.
+5. **Publish a placeholder of the core**, so its trusted publisher can be set (the maintainer), from a folder outside the repo holding only a `package.json` and a README:
+   - `package.json`: `{ "name": "@forestfuture/active-record", "version": "0.0.0", "description": "Placeholder: install 0.6.0 or later.", "license": "MIT", "repository": { "type": "git", "url": "git+https://github.com/forestfuture/active-record.git" } }`
+   - `npm login`, then `npm publish --access public`. This placeholder is plain files, not the workspace package, so `npm publish` is fine for it.
+   - `npm deprecate @forestfuture/active-record@0.0.0 "Placeholder: install 0.6.0 or later"`.
+6. **Set the core's trusted publisher** (the maintainer): `npm trust github @forestfuture/active-record --file ci.yml --repo forestfuture/active-record --allow-publish`, then its Settings → Publishing access → **Require two-factor authentication and disallow tokens**.
+7. **Merge the Version Packages pull request.** CI publishes 0.6.0 of both packages, with provenance.
+8. **Check the release:** `npm view @forestfuture/active-record@0.6.0 --prefer-online` and the same for `@forestfuture/d1-record`, each with `dist.attestations`; then install both into a fresh app, follow the guide's [Upgrading to 0.6](<../../site/docs/(how-to)/upgrading.mdx>), and run it.
 
 ## After the first release: help agents find it
 
