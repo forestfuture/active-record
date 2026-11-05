@@ -86,7 +86,7 @@ describe("a typed value in an sql fragment (#142)", () => {
   });
 
   test("a boolean's value is 0 or 1, from the forms an assignment accepts", async () => {
-    await harness.exec("INSERT INTO typed_samples (id, enabled) VALUES (1, 1)");
+    await harness.exec("INSERT INTO typed_samples (id, enabled) VALUES (1, TRUE)");
     const enabled = column("enabled");
 
     expect(await countSamples(sql`${enabled} = ${enabled.value("on")}`)).toBe(1);
