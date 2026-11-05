@@ -37,7 +37,9 @@ function newStorage(): Storage<readonly AnyDatabase[]> {
 /**
  * Runs `fn` with `databases` as the request's own: queries started from a Model inside it (and
  * everything it awaits) use the one on that Model's binding, with its Session and `onQuery`.
- * Usually called once per request, in middleware. Nested calls add to the outer ones.
+ * Usually called once per request, in middleware. Nested calls add to the outer ones. An adapter
+ * may hold a connection for the scope (pg-record, from a connection string), let go when `fn`
+ * settles; work that outlives it, such as a `waitUntil` save, gets its own.
  */
 export async function withDatabase<R>(
   databases: AnyDatabase | readonly AnyDatabase[],
@@ -46,8 +48,17 @@ export async function withDatabase<R>(
   requests ??= newStorage();
   const outer = requests.getStore() ?? [];
   const inner = Array.isArray(databases) ? databases : [databases as AnyDatabase];
-  for (const db of inner) db[databaseExecutor].setOrigin("request");
-  return requests.run([...inner, ...outer], fn);
+  const executors = inner.map((db) => db[databaseExecutor]);
+  for (const executor of executors) {
+    executor.setOrigin("request");
+    executor.enterScope();
+  }
+  try {
+    return await requests.run([...inner, ...outer], fn);
+  } finally {
+    // An adapter may hold a connection for the scope (pg-record): it's let go now.
+    await Promise.all(executors.map((executor) => executor.leaveScope()));
+  }
 }
 
 /**

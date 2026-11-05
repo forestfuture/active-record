@@ -123,6 +123,16 @@ export class DatabaseExecutor implements Executor {
     this.#origin = origin;
   }
 
+  /** @internal A `withDatabase` scope with this database has begun (see `Driver`). */
+  enterScope(): void {
+    this.#driver.enterScope?.();
+  }
+
+  /** @internal A scope `enterScope` began has ended. */
+  async leaveScope(): Promise<void> {
+    await this.#driver.leaveScope?.();
+  }
+
   /** Runs one statement and resolves to its rows. */
   async all(query: CompiledSql): Promise<Record<string, unknown>[]> {
     return (await this.#one(this.#sendable(query))).rows;

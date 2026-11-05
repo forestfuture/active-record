@@ -26,7 +26,11 @@ export default defineConfig({
       {
         // Real D1 via Miniflare, running in Node (see ADR-0002).
         extends: true,
-        test: { name: "integration", include: ["tests/integration/**/*.test.ts"] },
+        test: {
+          name: "integration",
+          include: ["tests/integration/**/*.test.ts"],
+          exclude: ["tests/integration/pg/**"],
+        },
       },
       {
         // The portable conformance suite, once per adapter, each through its harness (#267).
@@ -38,8 +42,8 @@ export default defineConfig({
           provide: { adapter: "d1" },
         },
       },
-      // The same suite on Postgres (#269): the server DATABASE_URL names, as CI provides. Without it,
-      // the project is left out, as the remote smoke suite is.
+      // The same suite on Postgres (#269), and pg-record's own tests: the server DATABASE_URL names,
+      // as CI provides. Without it, they're left out, as the remote smoke suite is.
       ...(process.env["DATABASE_URL"] === undefined
         ? []
         : [
@@ -51,6 +55,11 @@ export default defineConfig({
                 setupFiles: ["tests/support/conformance-setup.ts"],
                 provide: { adapter: "pg" },
               },
+            },
+            {
+              // pg-record's own tests: its clients, on Node and in workerd.
+              extends: true,
+              test: { name: "integration:pg", include: ["tests/integration/pg/**/*.test.ts"] },
             },
           ]),
       // Real remote D1 through Wrangler's remote bindings (docs/agents/remote-smoke.md): only for
