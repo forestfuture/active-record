@@ -1,5 +1,5 @@
 /* oxlint-disable typescript/no-unsafe-declaration-merging -- each interface stands in for the
-   declarations d1-record schema generates, which merge from another file: the accessors they
+   declarations active-record schema generates, which merge from another file: the accessors they
    type are defined when the Model's attributes resolve. */
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
 import {
@@ -13,7 +13,7 @@ import { d1, connect } from "../../packages/d1-record/src/index.ts";
 
 const db = connect({} as never);
 
-// A generated schema, as `d1-record schema` writes it.
+// A generated schema, as `active-record schema` writes it.
 const products = {
   id: { type: "string", null: false, default: () => "key" },
   name: { type: "string", null: false },
@@ -450,22 +450,22 @@ describe("abstract classes", () => {
 });
 
 describe("a Model the schema wasn't generated for", () => {
-  test("is an InvalidModel when used, saying to run d1-record schema", () => {
+  test("is an InvalidModel when used, saying to run active-record schema", () => {
     class Ungenerated extends AppRecord {}
 
     expect(() => db.model(Ungenerated).build()).toThrow(
-      new InvalidModel("Ungenerated isn't in the generated schema; run d1-record schema"),
+      new InvalidModel("Ungenerated isn't in the generated schema; run active-record schema"),
     );
   });
 
-  test("whose table changed since is an InvalidModel, saying to run d1-record schema", () => {
+  test("whose table changed since is an InvalidModel, saying to run active-record schema", () => {
     class Product extends AppRecord {
       static override table = "drafts";
     }
 
     expect(() => db.model(Product).build()).toThrow(
       new InvalidModel(
-        "Product's table is drafts, but the generated schema has products; run d1-record schema",
+        "Product's table is drafts, but the generated schema has products; run active-record schema",
       ),
     );
   });
@@ -473,9 +473,9 @@ describe("a Model the schema wasn't generated for", () => {
   test("has statics that are a compile error, as an abstract base class's are", () => {
     class Ungenerated extends AppRecord {}
     const use = () => {
-      // @ts-expect-error Its records have no attributes until d1-record schema runs.
+      // @ts-expect-error Its records have no attributes until active-record schema runs.
       void Ungenerated.find(1);
-      // @ts-expect-error Its records have no attributes until d1-record schema runs.
+      // @ts-expect-error Its records have no attributes until active-record schema runs.
       void Ungenerated.where({});
       // @ts-expect-error An abstract class has no table to query.
       void AppRecord.all();

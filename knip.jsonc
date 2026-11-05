@@ -13,6 +13,7 @@
         "config": [
           "tsconfig.json",
           "packages/active-record/src/tsconfig.json",
+          "packages/active-record/cli/tsconfig.json",
           "packages/d1-record/src/tsconfig.json",
           "packages/d1-record/cli/tsconfig.json",
           "tests/tsconfig.json",
@@ -24,8 +25,6 @@
     },
     "packages/active-record": {},
     "packages/d1-record": {
-      // The `d1-record` command: package.json's bin points at its build, dist/cli.mjs.
-      "entry": ["cli/bin.ts"],
       // Provided by the Workers runtime (#77), and its types, an optional peer the root installs.
       "ignoreDependencies": ["cloudflare", "@cloudflare/workers-types"],
     },

@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import { apply, printed, written } from "../../packages/d1-record/cli/plan.ts";
+import { apply, printed, written } from "../../packages/active-record/cli/plan.ts";
 
 /** A throwaway project folder. */
 function folder(): string {

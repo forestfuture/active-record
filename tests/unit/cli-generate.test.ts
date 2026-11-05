@@ -1,17 +1,14 @@
 import { describe, expect, test } from "vite-plus/test";
-import { parseColumns } from "../../packages/d1-record/cli/generate/columns.ts";
-import {
-  migrationFor,
-  migrationFileName,
-  type KeyType,
-} from "../../packages/d1-record/cli/generate/migration.ts";
-import { migrationNameError, modelName } from "../../packages/d1-record/cli/generate/names.ts";
+import { parseColumns } from "../../packages/active-record/cli/generate/columns.ts";
+import type { KeyType } from "../../packages/active-record/cli/adapter.ts";
+import { migrationFor, migrationFileName } from "../../packages/d1-record/cli/migration.ts";
+import { migrationNameError, modelName } from "../../packages/active-record/cli/generate/names.ts";
 import {
   appendModel,
   modelFileName,
   modelSource,
-} from "../../packages/d1-record/cli/generate/model-file.ts";
-import { schemaOf } from "../../packages/d1-record/cli/schema/schema.ts";
+} from "../../packages/active-record/cli/generate/model-file.ts";
+import { schemaOf } from "../../packages/d1-record/cli/schema.ts";
 
 /** Columns as parsed, or the errors joined, for short assertions. */
 function columns(...args: string[]) {

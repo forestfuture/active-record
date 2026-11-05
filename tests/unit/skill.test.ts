@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, test } from "vite-plus/test";
-import { runSchema } from "../../packages/d1-record/cli/schema/command.ts";
+import { runSchema } from "../../packages/active-record/cli/schema/command.ts";
 
 // SKILL.md ships in the package as plain Markdown, so its examples can't be included from files.
 // They're kept as type-checked files instead (site/snippets/skill/), and must match them exactly.

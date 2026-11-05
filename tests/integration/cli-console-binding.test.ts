@@ -1,17 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import {
-  openLocalBinding,
-  openRemoteBinding,
-} from "../../packages/d1-record/cli/console/binding.ts";
-import type { ChosenDatabase } from "../../packages/d1-record/cli/console/database.ts";
+import { openLocalBinding, openRemoteBinding } from "../../packages/d1-record/cli/binding.ts";
+import type { ChosenDatabase } from "../../packages/active-record/cli/adapter.ts";
 import type { TestDatabase } from "../support/d1.ts";
 import { scratchDirs } from "../support/scratch.ts";
 
 const scratch = scratchDirs();
 
-/** The first D1 binding of the project's wrangler.jsonc, as `d1-record console` would choose it. */
+/** The first D1 binding of the project's wrangler.jsonc, as `active-record console` would choose it. */
 function chosen(cwd: string): ChosenDatabase {
   const configFile = join(cwd, "wrangler.jsonc");
   const config = JSON.parse(readFileSync(configFile, "utf8")) as {
@@ -73,7 +70,7 @@ describe("the console's local database binding", () => {
     writeFileSync(join(cwd, "wrangler.jsonc"), "{}");
 
     expect(await openLocalBinding(cwd, chosen(cwd))).toBe(
-      "wrangler isn't installed here (install it, then run d1-record console again)",
+      "wrangler isn't installed here (install it, then run active-record console again)",
     );
   });
 
@@ -332,7 +329,7 @@ describe("the console's remote database binding", () => {
     writeFileSync(join(cwd, "wrangler.jsonc"), "{}");
 
     expect(await openRemoteBinding(cwd, remote(cwd))).toBe(
-      "wrangler isn't installed here (install it, then run d1-record console again)",
+      "wrangler isn't installed here (install it, then run active-record console again)",
     );
   });
 });

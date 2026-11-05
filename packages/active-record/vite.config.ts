@@ -1,15 +1,27 @@
-// Builds @forestfuture/active-record: the core, its adapter entry, and its entry for the command line.
+// Builds @forestfuture/active-record: the core, its entries for adapters, and the `active-record` command.
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   pack: {
-    entry: { index: "src/index.ts", adapter: "src/for-adapters.ts", cli: "src/for-cli.ts" },
+    // One build, so the entries share the core's modules (one copy of each class) and `exports`
+    // lists them all. The command (package.json's bin) runs on Node, and no Worker imports it.
+    entry: {
+      index: "src/index.ts",
+      adapter: "src/for-adapters.ts",
+      cli: "cli/for-adapters.ts",
+      command: "cli/bin.ts",
+    },
     target: "es2022",
-    tsconfig: "src/tsconfig.json",
+    tsconfig: "tsconfig.build.json",
     dts: { generator: "tsgo" },
     // In the repo, the package resolves to its source, so the command runs untranspiled with no
     // build; publishConfig points the published package at dist/.
-    exports: { devExports: true },
+    // `ffar` is its short name (#260). In the repo both run the source, published they run dist/.
+    exports: {
+      devExports: true,
+      exclude: ["command"],
+      bin: { "active-record": "cli/bin.ts", ffar: "cli/bin.ts" },
+    },
     // ESM-only package for Workers: skip node10/CommonJS resolution checks.
     attw: { profile: "esm-only" },
     publint: true,

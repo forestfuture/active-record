@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import { Model, withDatabase } from "../../packages/active-record/src/index.ts";
 import { connect } from "../../packages/d1-record/src/index.ts";
-import { runScript } from "../../packages/d1-record/cli/console/script.ts";
+import { runScript } from "../../packages/active-record/cli/console/script.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
 class Sample extends Model.define({
@@ -12,7 +12,7 @@ class Sample extends Model.define({
   static table = "samples";
 }
 
-// `d1-record console -e` (#105): one piece of code, its result on stdout, its failure on stderr.
+// `active-record console -e` (#105): one piece of code, its result on stdout, its failure on stderr.
 describe("running one piece of code in the console's scope", () => {
   let binding: TestDatabase;
   let dispose: () => Promise<void>;

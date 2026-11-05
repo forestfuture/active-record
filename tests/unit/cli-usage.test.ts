@@ -1,13 +1,14 @@
 import { describe, expect, test } from "vite-plus/test";
-import { everySubcommand, main } from "../../packages/d1-record/cli/main.ts";
-import { defineSubcommand, helpFor } from "../../packages/d1-record/cli/subcommand.ts";
+import { everySubcommand, main } from "../../packages/active-record/cli/main.ts";
+import { defineSubcommand, helpFor } from "../../packages/active-record/cli/subcommand.ts";
 
-/** `d1-record --help`, as it reads today: the commands, the columns, and each one's flags. */
+/** `active-record --help`, as it reads today: the commands, the columns, and each one's flags. */
 const help = `Usage:
-  d1-record schema [options]              Generate src/db/schema.ts from your D1 migrations
-  d1-record g model <Name> [columns]      Write a CREATE TABLE migration and a Model
-  d1-record g migration <Name> [columns]  Write a migration: Create…, Add…To…, Remove…From…, or empty
-  d1-record console (or c)                Open a console on your D1 database, with your Models
+  active-record schema [options]              Generate src/db/schema.ts from your D1 migrations
+  active-record g model <Name> [columns]      Write a CREATE TABLE migration and a Model
+  active-record g migration <Name> [columns]  Write a migration: Create…, Add…To…, Remove…From…, or empty
+  active-record console (or c)                Open a console on your D1 database, with your Models
+  active-record migrate                       Apply your pending migrations to the local database
 
 Columns are name:type, where the type is string (the default), integer, real, boolean,
 datetime, json or references; then ! for NOT NULL, =value for a default, and :unique or
@@ -38,11 +39,17 @@ Options for console:
   --verbose           Print each statement a line runs (.verbose toggles it while it runs)
   -e, --eval <code>   Run this code, print its result, and exit (only the result goes to stdout)
 
+Options for migrate:
+  --database <name>   The database to migrate, when the config has several
+  --remote            Migrate your remote database instead, after asking you to type its name
+  --yes               Don't ask first (with --remote); also how to migrate it without a terminal
+
 Options for every command:
+  --adapter <name>    The adapter (d1), when the project has several installed
   --config <file>     Use this Wrangler config
   -h, --help          Show this help`;
 
-describe("d1-record's help", () => {
+describe("active-record's help", () => {
   test("--help prints the usage, word for word", () => {
     const output: string[] = [];
 

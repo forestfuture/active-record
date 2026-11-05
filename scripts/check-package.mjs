@@ -1,5 +1,5 @@
-// Each published tarball holds exactly its files: the core with its entries, its docs for agents and
-// its manifest; the D1 adapter with its build and the `d1-record` command. The adapter imports the
+// Each published tarball holds exactly its files: the core with its entries, the `active-record`
+// command, its docs for agents and its manifest; the D1 adapter with its build and its plugin. The adapter imports the
 // core only through its entries, never a copy of it. Run with `vp run check:package`, after
 // `vp run build` and `vp run docs:build` (as CI does): it packs what's built, skipping `prepack`.
 import { execFileSync } from "node:child_process";
@@ -16,6 +16,8 @@ const expected = {
     "dist/adapter.mjs",
     "dist/cli.d.mts",
     "dist/cli.mjs",
+    "dist/command.d.mts",
+    "dist/command.mjs",
     "dist/index.d.mts",
     "dist/index.mjs",
     "llms-full.txt",
@@ -25,6 +27,7 @@ const expected = {
   "d1-record": [
     "LICENSE",
     "README.md",
+    "dist/cli.d.mts",
     "dist/cli.mjs",
     "dist/index.d.mts",
     "dist/index.mjs",

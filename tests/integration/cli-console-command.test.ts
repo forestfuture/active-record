@@ -2,9 +2,9 @@ import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, onTestFinished, test, vi } from "vite-plus/test";
-import { openLocalBinding } from "../../packages/d1-record/cli/console/binding.ts";
-import { runConsole } from "../../packages/d1-record/cli/console/command.ts";
-import { main } from "../../packages/d1-record/cli/main.ts";
+import { openLocalBinding } from "../../packages/d1-record/cli/binding.ts";
+import { runConsole } from "../../packages/active-record/cli/console/command.ts";
+import { main } from "../../packages/active-record/cli/main.ts";
 import { terminalStreams, waitFor } from "../support/console.ts";
 import type { TestDatabase } from "../support/d1.ts";
 import { scratchDirs } from "../support/scratch.ts";
@@ -27,7 +27,7 @@ async function running(options: { verbose?: boolean } = {}) {
   return { cwd, send, end };
 }
 
-describe("d1-record console", () => {
+describe("active-record console", () => {
   test("opens the project's local database with its Models, and persists what you do", async () => {
     const cwd = await shop();
     const terminal = terminalStreams();
@@ -64,14 +64,14 @@ describe("d1-record console", () => {
     ]);
   });
 
-  test("is a d1-record command with its own options in the help", async () => {
+  test("is an active-record command with its own options in the help", async () => {
     const lines: string[] = [];
 
     expect(await main(["console", "--help"], (line) => lines.push(line))).toBe(0);
-    expect(lines[0]).toMatch(/d1-record console \(or c\) +Open a console/);
+    expect(lines[0]).toMatch(/active-record console \(or c\) +Open a console/);
     expect(lines[0]).toMatch(/Options for console:\n  --database <name>/);
     expect(lines[0]).toMatch(/--no-history +Don't keep what you type/);
-    expect(lines[0]).toMatch(/Options for every command:\n  --config <file>/);
+    expect(lines[0]).toMatch(/Options for every command:\n  --adapter <name>/);
   });
 
   test("c is the same command", async () => {
@@ -140,7 +140,7 @@ describe("d1-record console", () => {
 
       test("it stops the workerd it started, which would otherwise outlive it", async () => {
         const cwd = await shop();
-        const bin = new URL("../../packages/d1-record/cli/bin.ts", import.meta.url).pathname;
+        const bin = new URL("../../packages/active-record/cli/bin.ts", import.meta.url).pathname;
         const child = spawn(process.execPath, [bin, "console", "--no-history"], {
           cwd,
           stdio: ["pipe", "pipe", "inherit"],

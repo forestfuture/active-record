@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
-import { runConsole } from "../../packages/d1-record/cli/console/command.ts";
-import { main } from "../../packages/d1-record/cli/main.ts";
+import { runConsole } from "../../packages/active-record/cli/console/command.ts";
+import { main } from "../../packages/active-record/cli/main.ts";
 import { capturedStreams } from "../support/console.ts";
 import { scratchDirs } from "../support/scratch.ts";
 import { shop } from "../support/shop.ts";
@@ -41,8 +41,8 @@ async function mainInShop(...args: string[]) {
   }
 }
 
-// `d1-record console -e` (#105): one piece of code, its result on stdout, everything else on stderr.
-describe("d1-record console -e", () => {
+// `active-record console -e` (#105): one piece of code, its result on stdout, everything else on stderr.
+describe("active-record console -e", () => {
   test("prints the result on stdout, and nothing else there", async () => {
     const run = await evaluating("(await User.find(1)).name");
 
@@ -100,7 +100,7 @@ describe("d1-record console -e", () => {
 });
 
 describe("-e on the command line", () => {
-  test("is a d1-record console option, in the help", async () => {
+  test("is a active-record console option, in the help", async () => {
     const lines: string[] = [];
 
     await main(["console", "--help"], (line) => lines.push(line));

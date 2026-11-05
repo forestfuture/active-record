@@ -3,7 +3,7 @@ import { withSession } from "@forestfuture/d1-record";
 import { schema as logsSchema } from "../db/logs";
 import { schema as dbSchema } from "../db/schema";
 
-// Each binding's base class, holding the schema `d1-record schema` writes for it
+// Each binding's base class, holding the schema `active-record schema` writes for it
 // (site/snippets/db/schema.ts and logs.ts).
 abstract class DbRecord extends Model {
   static override schema = dbSchema;

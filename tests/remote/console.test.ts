@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import { runConsole } from "../../packages/d1-record/cli/console/command.ts";
+import { runConsole } from "../../packages/active-record/cli/console/command.ts";
 import { terminalStreams } from "../support/console.ts";
 import { scratchDirs } from "../support/scratch.ts";
 import { configured, remoteDatabase } from "./support.ts";
@@ -60,7 +60,7 @@ async function session(cwd: string, ...lines: string[]) {
 
 const smokeId = process.env["D1_SMOKE_DATABASE_ID"];
 
-// `d1-record console --remote` against the real smoke database, through Wrangler's remote proxy:
+// `active-record console --remote` against the real smoke database, through Wrangler's remote proxy:
 // what the fake wrangler in tests/integration/cli-console-remote.test.ts stands in for.
 // Skipped unless configured (see support.ts).
 describe.skipIf(!configured)("the console on a remote D1", () => {

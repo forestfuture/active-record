@@ -10,7 +10,7 @@ import {
 import { join } from "node:path";
 import { Miniflare } from "miniflare";
 import { afterAll, describe, expect, test } from "vite-plus/test";
-import { runGenerate } from "../../packages/d1-record/cli/generate/command.ts";
+import { runGenerate } from "../../packages/active-record/cli/generate/command.ts";
 import { connect } from "../../packages/d1-record/src/index.ts";
 
 // Inside tests/ (gitignored), so a generated project's imports of the library resolve as they
@@ -59,7 +59,7 @@ async function modelsIn(cwd: string, path: string) {
 
 const read = (cwd: string, path: string) => readFileSync(join(cwd, path), "utf8");
 
-describe("d1-record g model", () => {
+describe("active-record g model", () => {
   test("refuses to write one file twice, such as a schema --out naming the new Model", async () => {
     const cwd = project({ "migrations/.keep": "" });
 
@@ -90,7 +90,7 @@ describe("d1-record g model", () => {
 Wrote src/models/product.ts
 Wrote src/db/schema.ts (1 table) from migrations/
 Wrote src/models/application-record.ts
-Next: npx wrangler d1 migrations apply shop-db --local`);
+Next: npx active-record migrate`);
     expect(read(cwd, "src/models/product.ts"))
       .toBe(`import { ApplicationRecord } from "./application-record";
 
@@ -145,7 +145,7 @@ export class LineItem extends ApplicationRecord {
 Wrote src/app/models/product.ts
 Wrote src/db/schema.ts (1 table) from migrations/
 Wrote src/app/models/application-record.ts
-Next: npx wrangler d1 migrations apply shop-db --local`);
+Next: npx active-record migrate`);
     expect(read(cwd, "src/app/models/product.ts")).toContain(
       'import { ApplicationRecord } from "./application-record";',
     );
@@ -248,7 +248,7 @@ describe("names", () => {
   });
 });
 
-describe("d1-record g migration", () => {
+describe("active-record g migration", () => {
   test("adds and removes columns, numbering after the existing migrations", async () => {
     const cwd = project({
       "migrations/0007_create_products.sql": "CREATE TABLE products (id TEXT PRIMARY KEY);",
@@ -299,7 +299,7 @@ describe("d1-record g migration", () => {
 
     expect(await generate(two, ["model", "Product"])).toEqual({
       code: 1,
-      output: "This config has several D1 databases; choose one with --database (DB or LOGS)",
+      output: "This config has several databases; choose one with --database (DB or LOGS)",
     });
     expect((await generate(two, ["model", "Entry"], { database: "LOGS" })).output).toContain(
       "Wrote logs/0001_create_entries.sql\nWrote src/models/entry.ts\nWrote src/db/LOGS.ts",

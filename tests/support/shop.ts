@@ -3,8 +3,8 @@
 // source, as an app's finds its own copies.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { openLocalBinding } from "../../packages/d1-record/cli/console/binding.ts";
-import type { ChosenDatabase } from "../../packages/d1-record/cli/console/database.ts";
+import { openLocalBinding } from "../../packages/d1-record/cli/binding.ts";
+import type { ChosenDatabase } from "../../packages/active-record/cli/adapter.ts";
 import type { TestDatabase } from "./d1.ts";
 import { libraryPaths } from "./library-paths.ts";
 

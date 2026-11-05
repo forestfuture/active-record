@@ -2,7 +2,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, test } from "vite-plus/test";
-import { databaseFor, remoteTarget } from "../../packages/d1-record/cli/console/database.ts";
+import { chosenDatabase } from "../../packages/active-record/cli/project/databases.ts";
+import { cli } from "../../packages/d1-record/cli/plugin.ts";
+import { remoteTarget } from "../../packages/d1-record/cli/remote.ts";
+
+const databaseFor = (cwd: string, options: { config?: string; database?: string }) =>
+  chosenDatabase(cli, cwd, options);
 
 const made: string[] = [];
 afterAll(() => {
@@ -83,8 +88,7 @@ describe("the remote database a binding points at", () => {
 
     expect(remoteTarget({ binding: "DB", entry, configFile })).toEqual({
       name: "shop",
-      id: "1a2b",
-      preview: false,
+      description: "Remote database DB (shop, id 1a2b)",
     });
   });
 
@@ -98,26 +102,28 @@ describe("the remote database a binding points at", () => {
 
     expect(remoteTarget({ binding: "DB", entry, configFile })).toEqual({
       name: "shop",
-      id: "9z",
-      preview: true,
+      description: "Remote preview database DB (shop, id 9z)",
+      note: "That is the config's preview_database_id, which Wrangler opens in place of database_id.",
     });
   });
 
   test("is named by the binding when the config gives no database_name", () => {
     const entry = { binding: "DB", database_id: "1a2b" };
 
-    expect(remoteTarget({ binding: "DB", entry, configFile }).name).toBe("DB");
+    expect(remoteTarget({ binding: "DB", entry, configFile })).toMatchObject({ name: "DB" });
   });
 
   test("is named by the binding when the database_name is empty", () => {
     const entry = { binding: "DB", database_name: "", database_id: "1a2b" };
 
-    expect(remoteTarget({ binding: "DB", entry, configFile }).name).toBe("DB");
+    expect(remoteTarget({ binding: "DB", entry, configFile })).toMatchObject({ name: "DB" });
   });
 
-  test("has no id when the config gives none", () => {
+  test("is none when the config gives no id, which --remote needs", () => {
     const entry = { binding: "DB", database_name: "shop" };
 
-    expect(remoteTarget({ binding: "DB", entry, configFile }).id).toBeUndefined();
+    expect(remoteTarget({ binding: "DB", entry, configFile })).toBe(
+      "DB has no database_id in wrangler.jsonc, which --remote needs",
+    );
   });
 });
