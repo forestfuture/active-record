@@ -186,11 +186,12 @@ export function compileInsertRows(
 ): CompiledSql {
   const attributes = names.map((name) => attributeFor(model, name));
   const columns = attributes.map(({ column }) => quoteIdentifier(column)).join(", ");
-  const { select, from } = dialect.bulkRows(attributes);
+  const table = quoteIdentifier(model.table);
+  const { select, from } = dialect.bulkRows(table, attributes);
   const json = storedRows(model, names, rows);
   // `WHERE true` keeps SQLite from reading ON CONFLICT as part of the SELECT.
   const sql =
-    `INSERT INTO ${quoteIdentifier(model.table)} (${columns}) ` +
+    `INSERT INTO ${table} (${columns}) ` +
     `SELECT ${select} FROM ${from} WHERE true${compileConflict(model, names, conflict)}` +
     compileReturning(model, returning);
   return { sql, params: [json], model };

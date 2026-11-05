@@ -25,7 +25,8 @@
       "@forestfuture/active-record/adapter": ["./packages/active-record/src/for-adapters.ts"],
       "@forestfuture/active-record/cli": ["./packages/active-record/cli/for-adapters.ts"],
       "@forestfuture/d1-record": ["./packages/d1-record/src/index.ts"],
-      "@forestfuture/d1-record/cli": ["./packages/d1-record/cli/plugin.ts"]
+      "@forestfuture/d1-record/cli": ["./packages/d1-record/cli/plugin.ts"],
+      "@forestfuture/pg-record": ["./packages/pg-record/src/index.ts"]
     }
   },
   "include": ["vite.config.ts", "tests", "scripts", "packages/*/vite.config.ts"]

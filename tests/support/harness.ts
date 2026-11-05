@@ -7,6 +7,7 @@ import type { QueryListener } from "../../packages/active-record/src/executor.ts
 /** Each adapter the conformance suite runs against, and how its harness opens. */
 const harnesses = {
   d1: async (schema: SchemaName) => (await import("./harnesses/d1.ts")).openD1Harness(schema),
+  pg: async (schema: SchemaName) => (await import("./harnesses/pg.ts")).openPgHarness(schema),
 } satisfies Record<string, (schema: SchemaName) => Promise<Harness>>;
 
 /** The adapters the conformance suite runs against, each through its own harness. */

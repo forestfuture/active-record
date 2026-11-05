@@ -5,7 +5,7 @@
   "author": "ForestFuture (https://forestfuture.dev)",
   "type": "module",
   "scripts": {
-    "build": "vp run @forestfuture/active-record#build && vp run @forestfuture/d1-record#build",
+    "build": "vp run @forestfuture/active-record#build && vp run @forestfuture/d1-record#build && vp run @forestfuture/pg-record#build",
     "test": "vp test",
     "coverage": "vp test --coverage",
     "test:remote": "D1_REMOTE_SMOKE=1 vp test --project remote",
@@ -33,6 +33,7 @@
     "fast-check": "4.10.2",
     "knip": "^6.39.0",
     "miniflare": "^4.20260730.0",
+    "pg": "^8.23.1",
     "publint": "^0.3.25",
     "typescript": "^7.0.2",
     "vite-plus": "catalog:",

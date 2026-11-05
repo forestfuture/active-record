@@ -7,5 +7,6 @@
     "module": "preserve",
     "moduleResolution": "bundler"
   },
-  "include": ["."]
+  // pg-record types the part of `pg` it calls itself, which its tests call too.
+  "include": [".", "../packages/pg-record/src/pg-module.d.ts"]
 }
