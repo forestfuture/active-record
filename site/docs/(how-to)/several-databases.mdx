@@ -30,7 +30,7 @@ Wrangler applies a folder’s migrations to one database, so each needs its own 
 Generate the schemas as usual:
 
 ```sh
-npx d1-record schema
+npx active-record schema
 ```
 
 With several databases, it writes one of each per binding:
@@ -55,8 +55,8 @@ await Entry.where({ level: "error" }).count(); // on LOGS
 Name the binding with `--database`:
 
 ```sh
-npx d1-record g model Entry 'level:string!' message --database LOGS
-npx wrangler d1 migrations apply my-app-logs --local
+npx active-record g model Entry 'level:string!' message --database LOGS
+npx active-record migrate --database LOGS
 ```
 
 ## Using both in a request
@@ -140,5 +140,5 @@ Assign the bindings onto the mocked `env` object, as above. d1-record reads `env
 Name the binding with `--database`:
 
 ```sh
-npx d1-record console --database LOGS
+npx active-record console --database LOGS
 ```

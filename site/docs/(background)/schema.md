@@ -13,9 +13,9 @@ A Model never redeclares its columns. If it did, the migration and the Model wou
 
 ## The generated schema
 
-TypeScript needs to know a Model’s attributes before your code runs, to type `product.priceCents` and check `Product.where({ … })`. And a Worker shouldn’t ask D1 for its tables on every request. So instead of reading the database at runtime, `d1-record schema` applies your migrations to an in-memory SQLite database, reads each table’s columns, and writes them to `src/db/schema.ts`.
+TypeScript needs to know a Model’s attributes before your code runs, to type `product.priceCents` and check `Product.where({ … })`. And a Worker shouldn’t ask D1 for its tables on every request. So instead of reading the database at runtime, `active-record schema` applies your migrations to an in-memory SQLite database, reads each table’s columns, and writes them to `src/db/schema.ts`.
 
-That file is to d1-record what `db/schema.rb` is to Rails: a document of every table, regenerated after each migration, never edited by hand, and committed, so each schema change shows up as a readable diff next to its migration. Each table names the migration that last changed it. In CI, `d1-record schema --check` catches a schema someone forgot to regenerate.
+That file is to d1-record what `db/schema.rb` is to Rails: a document of every table, regenerated after each migration, never edited by hand, and committed, so each schema change shows up as a readable diff next to its migration. Each table names the migration that last changed it. In CI, `active-record schema --check` catches a schema someone forgot to regenerate.
 
 After the tables, the file holds `schema`: the D1 binding, every table, and the list of your Models. Last come type declarations that add each table’s attributes to its Model’s class. They’re types only, so the file still imports nothing when your Worker runs.
 
@@ -31,10 +31,10 @@ import { ApplicationRecord } from "./application-record";
 export class Product extends ApplicationRecord {}
 ```
 
-TypeScript can’t give a class types from its name. So `d1-record schema` loads your Model files, finds `Product`, and writes a declaration giving the `Product` class the `products` table’s attributes. That’s why the schema is generated from your Models as well as your migrations, and why it changes when you add or rename a Model.
+TypeScript can’t give a class types from its name. So `active-record schema` loads your Model files, finds `Product`, and writes a declaration giving the `Product` class the `products` table’s attributes. That’s why the schema is generated from your Models as well as your migrations, and why it changes when you add or rename a Model.
 
-When your Worker runs, `Product` finds its attributes the first time it’s used. Its table comes from its class name, and the table’s attributes from the schema that `ApplicationRecord` holds. A Model missing from the schema’s list throws `InvalidModel`, telling you to run `d1-record schema`. Without that check, a development server, which doesn’t type-check, would run a Model whose types were never generated.
+When your Worker runs, `Product` finds its attributes the first time it’s used. Its table comes from its class name, and the table’s attributes from the schema that `ApplicationRecord` holds. A Model missing from the schema’s list throws `InvalidModel`, telling you to run `active-record schema`. Without that check, a development server, which doesn’t type-check, would run a Model whose types were never generated.
 
-`ApplicationRecord` itself is a file in your app, `src/models/application-record.ts`, which `d1-record schema` writes once. It’s an abstract class that holds the generated schema, and it’s where behavior shared by every Model goes. See [Shared behavior](./shared-behavior).
+`ApplicationRecord` itself is a file in your app, `src/models/application-record.ts`, which `active-record schema` writes once. It’s an abstract class that holds the generated schema, and it’s where behavior shared by every Model goes. See [Shared behavior](./shared-behavior).
 
 A Model can still declare its attributes itself, with `define`, for a view or a table your migrations don’t make. See [Models](./models#declaring-attributes-yourself).

@@ -1,22 +1,24 @@
 ---
 title: Command line
-description: "Reference for d1-record's command line: d1-record schema and its options, d1-record console, the conventions from columns to attributes, d1-record g model and g migration, the column syntax, and what each command refuses."
+description: "Reference for the active-record command: active-record schema and its options, active-record console and migrate, the conventions from columns to attributes, active-record g model and g migration, the column syntax, and what each command refuses."
 ---
 
-The command line generates `src/db/schema.ts` from your migrations, and writes new migrations and Models. Run it from the folder with your Wrangler config:
+The `active-record` command generates `src/db/schema.ts` from your migrations, writes new migrations and Models, and applies migrations. It comes with `@forestfuture/active-record`, and `ffar` is its short name. Run it from the folder with your Wrangler config:
 
 ```sh
-npx d1-record --help
+npx active-record --help
 ```
+
+It finds your database’s adapter from your `package.json`, so it works the same on every database.
 
 It needs Node.js 22.13 or later, for Node’s built-in SQLite. [Generators](./generators) shows it step by step.
 
-## `d1-record schema`
+## `active-record schema`
 
 Generate the schema file from your migrations:
 
 ```sh
-npx d1-record schema
+npx active-record schema
 ```
 
 It applies your migrations, in order, to an in-memory SQLite database, and writes each table’s columns to `src/db/schema.ts`.
@@ -29,8 +31,9 @@ It applies your migrations, in order, to an in-memory SQLite database, and write
 | `--migrations <dir>` | Read migrations from here instead of the Wrangler config’s folder (one database only).             |
 | `--models <dir>`     | Where your Models and `application-record.ts` are (`src/models/` by default).                      |
 | `--config <file>`    | Use this Wrangler config instead of finding `wrangler.jsonc`, `wrangler.json`, or `wrangler.toml`. |
+| `--adapter <name>`   | The adapter (`d1`), when the project has several installed.                                        |
 
-**What it reads:** each entry of the Wrangler config’s `d1_databases`, with its `binding`, `migrations_dir` (default `migrations/`), `migrations_pattern` (for migrations in folders), and `migrations_table` (left out of the schema). Migrations apply in file-name order, as Wrangler applies them. It also loads the Model files in `--models`, using your project’s own `@forestfuture/d1-record`, to find each Model and its table, so code at a Model file’s top level runs.
+**What it reads:** each entry of the Wrangler config’s `d1_databases`, with its `binding`, `migrations_dir` (default `migrations/`), `migrations_pattern` (for migrations in folders), and `migrations_table` (left out of the schema). Migrations apply in file-name order, as Wrangler applies them. It also loads the Model files in `--models`, using your project’s own `@forestfuture/active-record`, to find each Model and its table, so code at a Model file’s top level runs.
 
 **What it writes:**
 
@@ -56,12 +59,12 @@ The schema file plays the part of Rails’ `schema.rb`, and each base class is n
 Their schemas often live at `src/db/schema.ts` or `src/db/schema/`. Write d1-record’s somewhere else, with `--out src/db/d1-record.ts`, and, if `application-record.ts` already exists, point its `import { schema }` at it (a new one is written importing the right file).
 :::
 
-## `d1-record console`
+## `active-record console`
 
-Open your database with your Models in a console, or `d1-record c` for short ([Console](./console) shows a session). It opens the local one unless you pass `--remote`:
+Open your database with your Models in a console, or `active-record c` for short ([Console](./console) shows a session). It opens the local one unless you pass `--remote`:
 
 ```sh
-npx d1-record console
+npx active-record console
 ```
 
 | Option              |                                                                                            |
@@ -69,6 +72,7 @@ npx d1-record console
 | `--database <name>` | The D1 binding to open, when the config has several.                                       |
 | `--models <path>`   | Where the Models are: a folder (`src/models`) or one file (`src/models.ts`).               |
 | `--config <file>`   | Use this Wrangler config instead of finding `wrangler.jsonc`, `wrangler.json`, or `.toml`. |
+| `--adapter <name>`  | The adapter (`d1`), when the project has several installed.                                |
 | `--no-history`      | Don’t keep what you type in `.wrangler/d1-record-history`.                                 |
 | `--verbose`         | Print each statement a line runs. `.verbose` turns it on and off in the console.           |
 | `-e, --eval <code>` | Run this code, print its result (alone, on stdout), and exit; a failure exits 1.           |
@@ -76,7 +80,25 @@ npx d1-record console
 | `--yes`             | With `--remote`, don’t ask first (also how to open it without a terminal).                 |
 | `--history`         | Keep what you type in a remote session, which isn’t kept unless you ask.                   |
 
-It reads TypeScript Models and uses your project’s own `wrangler` and `@forestfuture/d1-record`. It refuses, printing why, when there’s no Wrangler config, with several databases and no `--database`, with no Models, with `wrangler` or the library not installed, or with `--remote` when the binding has no `database_id`, or when you don’t confirm it (or aren’t on a terminal and didn’t pass `--yes`). `--yes` only goes with `--remote`, `--history` can’t be combined with `--no-history`, and `-e` takes one piece of code, once.
+It reads TypeScript Models and uses your project’s own `wrangler`, `@forestfuture/active-record`, and its adapter. It refuses, printing why, when there’s no Wrangler config, with several databases and no `--database`, with no Models, with `wrangler` or the library not installed, or with `--remote` when the binding has no `database_id`, or when you don’t confirm it (or aren’t on a terminal and didn’t pass `--yes`). `--yes` only goes with `--remote`, `--history` can’t be combined with `--no-history`, and `-e` takes one piece of code, once.
+
+## `active-record migrate`
+
+Apply your pending migrations to the local database, through your project’s own `wrangler`:
+
+```sh
+npx active-record migrate
+```
+
+| Option              |                                                                               |
+| ------------------- | ----------------------------------------------------------------------------- |
+| `--database <name>` | The database to migrate, when the config has several.                         |
+| `--remote`          | Migrate your remote database instead, after you type its name.                |
+| `--yes`             | With `--remote`, don’t ask first (also how to migrate it without a terminal). |
+| `--config <file>`   | Use this Wrangler config.                                                     |
+| `--adapter <name>`  | The adapter (`d1`), when the project has several installed.                   |
+
+On D1, it runs `wrangler d1 migrations apply` for the database, `--local` or `--remote`, and prints what Wrangler prints. It exits with Wrangler’s code.
 
 ## Mapping columns to attributes
 
@@ -117,11 +139,11 @@ Also:
 - for migrations written by Drizzle or Prisma, a `DATETIME` column whose default is `CURRENT_TIMESTAMP` or `datetime('now')`, since it writes a different date text from d1-record’s and the two [compare as text](./adopt-a-database#comparing-dates-in-two-forms);
 - migrations in folders with no `migrations_pattern` to find them.
 
-## `d1-record g model` and `g migration`
+## `active-record g model` and `g migration`
 
 ```sh
-npx d1-record g model <Name> [columns] [options]
-npx d1-record g migration <Name> [columns] [options]
+npx active-record g model <Name> [columns] [options]
+npx active-record g migration <Name> [columns] [options]
 ```
 
 `generate` is the same as `g`.
@@ -132,8 +154,9 @@ npx d1-record g migration <Name> [columns] [options]
 | `--no-timestamps`      | Leave out `created_at` and `updated_at`.                                                                               |
 | `--models <path>`      | Write Models in this folder (importing `application-record.ts` from it), or append them to one file (`src/models.ts`). |
 | `--database <binding>` | The D1 database to use, when the Wrangler config has several.                                                          |
-| `--out <file>`         | The schema file to regenerate, as for `d1-record schema` (for a Drizzle project’s `src/db/d1-record.ts`, say).         |
+| `--out <file>`         | The schema file to regenerate, as for `active-record schema` (for a Drizzle project’s `src/db/d1-record.ts`, say).     |
 | `--config <file>`      | Use this Wrangler config.                                                                                              |
+| `--adapter <name>`     | The adapter (`d1`), when the project has several installed.                                                            |
 
 ### Column syntax
 
@@ -177,13 +200,13 @@ A name can be written `AddSkuToProducts` or `add_sku_to_products`, and the table
 
 Nothing is written unless all of these hold:
 
-- the new migration applies after the existing ones (in memory, as `d1-record schema` applies them);
+- the new migration applies after the existing ones (in memory, as `active-record schema` applies them);
 - the Model’s file doesn’t exist yet (or, with one models file, doesn’t have the class yet);
 - the config’s `migrations_pattern`, if it has one, would match the new file, so Wrangler would apply it;
-- the schema file can be written (see [What it refuses](#d1-record-schema));
+- the schema file can be written (see [What it refuses](#active-record-schema));
 - it isn’t a required column added without a default.
 
-Then the generator writes the files, regenerates the schema, and prints the next step: `npx wrangler d1 migrations apply <database_name> --local`.
+Then the generator writes the files, regenerates the schema, and prints the next step: `npx active-record migrate`.
 
 ## Exit codes
 

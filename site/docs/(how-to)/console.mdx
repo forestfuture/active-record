@@ -1,12 +1,12 @@
 ---
 title: Console
-description: "How to open a console on your D1 database with your Models loaded: d1-record console, what is in scope, its options, opening the remote database with --remote, and where its data and history live."
+description: "How to open a console on your D1 database with your Models loaded: active-record console, what is in scope, its options, opening the remote database with --remote, and where its data and history live."
 ---
 
 Open a console on your local database, with your Models loaded, to try a query or fix a record by hand, or on your remote one with [`--remote`](#opening-your-remote-database). Run it from the folder with your Wrangler config:
 
 ```sh
-npx d1-record console
+npx active-record console
 ```
 
 It prints which database and Models it opened, then waits for a line:
@@ -25,7 +25,7 @@ local> const admins = await User.where({ role: "admin" }).toArray()
 #=> undefined
 ```
 
-Leave with `quit`, `exit`, or Ctrl-D. Ctrl-C stops a line that’s still running. `.help` lists the console’s own commands, and `npx d1-record c` is the short form.
+Leave with `quit`, `exit`, or Ctrl-D. Ctrl-C stops a line that’s still running. `.help` lists the console’s own commands, and `npx active-record c` is the short form.
 
 ## What you can use
 
@@ -101,7 +101,7 @@ On a terminal, what you type is kept in `.wrangler/d1-record-history`, which Wra
 `--remote` opens the real database your binding points at, to look at production data or fix one record by hand:
 
 ```sh
-npx d1-record console --remote
+npx active-record console --remote
 ```
 
 It names the database and waits for you to type its name. Anything else, including `y`, cancels and opens nothing. Anything you type or paste after the name is dropped, so a pasted block can’t run on the real database before you’ve seen the prompt:
@@ -131,7 +131,7 @@ The console signs in with your Wrangler login, or with `CLOUDFLARE_API_TOKEN` an
 There’s no one to type the name unless both your input and output are a terminal, so a piped session refuses unless you add `--yes`, which is how a script opens it:
 
 ```sh
-echo 'await User.count()' | npx d1-record console --remote --yes
+echo 'await User.count()' | npx active-record console --remote --yes
 ```
 
 What you type isn’t kept unless you add `--history`, and then it goes in `.wrangler/d1-record-history-remote`, a file of its own, so the up arrow never offers a local session a line you typed against the real database.
@@ -149,7 +149,7 @@ A token needs **D1: Edit** and **Workers Scripts: Edit**, and the account needs 
 `-e` runs one piece of code with your Models and `db` in scope, prints its result, and exits, which is how to use the console from a script:
 
 ```sh
-npx d1-record console -e 'await User.count()'
+npx active-record console -e 'await User.count()'
 ```
 
 ```text
@@ -167,7 +167,7 @@ Await every call. `User.find(1)` without `await` prints `Promise { <pending> }`,
 :::
 
 :::note
-Put the code in single quotes, so your shell leaves `$`, `!`, and backticks alone. With `--remote`, `$(…)` makes stdout a pipe, so there is no terminal to ask: add `--yes`, as in `npx d1-record console --remote --yes -e 'await User.count()'`.
+Put the code in single quotes, so your shell leaves `$`, `!`, and backticks alone. With `--remote`, `$(…)` makes stdout a pipe, so there is no terminal to ask: add `--yes`, as in `npx active-record console --remote --yes -e 'await User.count()'`.
 :::
 
 ## Running a few lines at once
@@ -175,7 +175,7 @@ Put the code in single quotes, so your shell leaves `$`, `!`, and backticks alon
 Lines you paste or pipe run in order, each after the one before, and the console finishes them before it exits:
 
 ```sh
-echo 'await User.count()' | npx d1-record console
+echo 'await User.count()' | npx active-record console
 ```
 
 That prints the same transcript a session does (the database, a prompt before each line, `#=> ` before each result) and exits 0 even when a line fails. For a script that checks the result or the exit code, use `-e`.

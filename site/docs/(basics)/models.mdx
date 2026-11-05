@@ -9,7 +9,7 @@ A Model describes one table. Its attributes come from your migrations, through t
 
 ### Generating `ApplicationRecord`
 
-The first time you run `d1-record schema`, it writes `src/models/application-record.ts`:
+The first time you run `active-record schema`, it writes `src/models/application-record.ts`:
 
 ```ts
 import { Model } from "@forestfuture/active-record";
@@ -32,7 +32,7 @@ Define each Model by extending `ApplicationRecord`:
 
 The class name names the table, so `Product` reads and writes `products`. The table’s attributes, primary key, and types come from `src/db/schema.ts`.
 
-[`d1-record schema`](./command-line#d1-record-schema) writes that file from your migrations and your Models. Run it after you add a Model or a migration. [`d1-record g model`](./generators) runs it for you.
+[`active-record schema`](./command-line#active-record-schema) writes that file from your migrations and your Models. Run it after you add a Model or a migration. [`active-record g model`](./generators) runs it for you.
 
 A subclass shares its parent’s table:
 
@@ -60,7 +60,7 @@ An override is one of these:
 | `{ type?, null?, default?, generateId? }` | Replaces those parts of the generated attribute; `null: false` makes it non-null in TypeScript        |
 | `false`                                   | Ignores the column: it’s never typed, read, or written, and queries name their columns instead of `*` |
 
-An override of an attribute the table doesn’t have throws `InvalidModel`, and `d1-record schema` reports it. So does an override that changes a column or ignores the primary key.
+An override of an attribute the table doesn’t have throws `InvalidModel`, and `active-record schema` reports it. So does an override that changes a column or ignores the primary key.
 
 - **Changing a `type`** drops the generated default or `generateId`, so the column’s own default applies unless you give one.
 - **A `default` and `generateId`** replace each other, so an attribute has one or the other. `generateId` is only for strings.
@@ -444,7 +444,7 @@ To share methods, callbacks, and scopes across every Model, write them on your a
 
 The first time a Model is used, by its first query or `db.model(X)`, its declaration is checked. It throws `InvalidModel` for:
 
-- A Model `d1-record schema` hasn’t seen, or whose table has changed since. Run it again.
+- A Model `active-record schema` hasn’t seen, or whose table has changed since. Run it again.
 - No table name: an empty `table`, or a class with no name to infer one from.
 - An override of an attribute the table doesn’t have.
 - A `primaryKey` that isn’t an attribute.

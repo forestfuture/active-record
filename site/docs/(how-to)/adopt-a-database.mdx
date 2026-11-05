@@ -23,7 +23,7 @@ Drizzle writes its migrations to `drizzle/`, its `out` setting. Tell Wrangler wh
 Drizzle’s own schema often lives at `src/db/schema.ts` or in `src/db/schema/`, where d1-record writes its schema by default. Generate d1-record’s elsewhere:
 
 ```sh
-npx d1-record schema --out src/db/d1-record.ts
+npx active-record schema --out src/db/d1-record.ts
 ```
 
 If `src/models/application-record.ts` already exists, point it at the new file with `import { tables } from "../db/d1-record";`. A new one imports it already.
@@ -36,7 +36,7 @@ Without `--out`, d1-record refuses to write over a file it didn’t write, or be
 
 ## Using Prisma’s migrations
 
-With D1, Prisma’s migrations are usually Wrangler’s own: files in `migrations/`, written by `prisma migrate diff`. `npx d1-record schema` reads them as they are.
+With D1, Prisma’s migrations are usually Wrangler’s own: files in `migrations/`, written by `prisma migrate diff`. `npx active-record schema` reads them as they are.
 
 Prisma names tables after its models, such as `User`, and columns in camelCase, such as `createdAt`. d1-record keeps both names, so the Model sets its table, `static override table = "User"`, and has attributes such as `createdAt`.
 
@@ -82,7 +82,7 @@ From then on, change tables with new migrations. See [Schema changes](./change-a
 
 ## Checking the generated attributes
 
-Other tools can store values differently, so a column can become the wrong attribute type, and fail when it’s read. When `d1-record schema` recognizes Drizzle’s or Prisma’s migrations, it prints a note for each column worth checking:
+Other tools can store values differently, so a column can become the wrong attribute type, and fail when it’s read. When `active-record schema` recognizes Drizzle’s or Prisma’s migrations, it prints a note for each column worth checking:
 
 ```
 Note: these migrations look like Drizzle's. Some columns may convert to the wrong type and fail when read, especially numeric timestamps: check the generated types (…)

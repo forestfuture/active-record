@@ -19,7 +19,7 @@ Each Model names the D1 binding it queries, so a Model queries by itself during 
 
 <include>/_excerpts/guide/connecting/binding.ts</include>
 
-`d1-record schema` writes the binding into the generated schema your app’s base class holds, from your Wrangler config’s `d1_databases`.
+`active-record schema` writes the binding into the generated schema your app’s base class holds, from your Wrangler config’s `d1_databases`.
 
 Records remember their database, so `user.save()` and `user.posts()` use the same one later. Build records with `User.build(…)`: a record made with `new User()` has no database, and throws `NoDatabase` when it needs one.
 
