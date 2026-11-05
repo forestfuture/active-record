@@ -69,7 +69,7 @@ describe("SQL safety", () => {
       .toArray();
 
     expect(users.map((user) => user.id)).toEqual([2]);
-    expect(queries[0]?.sql).toContain('"created_at" > ?');
+    expect(queries[0]?.sql).toContain(harness.asSent('"created_at" > ?'));
   });
 
   test("where rejects a plain string, even one that looks harmless", () => {

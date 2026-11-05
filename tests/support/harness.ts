@@ -35,6 +35,8 @@ export interface Harness {
    * library: for seeding rows and reading them back. Resolves to its rows.
    */
   exec(sql: string, params?: readonly unknown[]): Promise<Record<string, unknown>[]>;
+  /** `sql`, written with `?` placeholders, as this adapter sends it: on Postgres, with `$1`, `$2`, …. */
+  asSent(sql: string): string;
   /** Deletes every row of `tables`, in order. */
   reset(...tables: readonly string[]): Promise<void>;
   dispose(): Promise<void>;

@@ -74,6 +74,7 @@ export async function openPgHarness(schema: SchemaName): Promise<Harness> {
       const own = driver(new PgDriver(new PoolClients(pool)));
       return new AnyDatabase(new DatabaseExecutor(pgAdapter, own, onQuery));
     },
+    asSent: numbered,
     async exec(sql, params = []) {
       const values = [...params];
       const { rows } = await pool.query({ text: numbered(sql), values, types: typeParsers });

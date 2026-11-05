@@ -211,7 +211,7 @@ describe("inspect", () => {
 
       expect(inspect(relation, flat)).toBe(
         "Relation<Sample> { " +
-          `sql: 'SELECT * FROM "samples" WHERE (("label" = ?)) ORDER BY "id" ASC LIMIT ?', ` +
+          `sql: '${harness.asSent('SELECT * FROM "samples" WHERE (("label" = ?)) ORDER BY "id" ASC LIMIT ?')}', ` +
           "params: [ 'bolt', 5 ] }",
       );
       expect(events).toEqual([]);
