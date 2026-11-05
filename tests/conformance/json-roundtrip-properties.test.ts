@@ -4,6 +4,7 @@ import { Model } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { jsonValues } from "../support/json-values.ts";
 import { SLOW_RUNS, SLOW_TIMEOUT } from "../support/properties.ts";
+import { storable } from "../support/storable.ts";
 
 class Sample extends Model.define({ id: { type: "integer", null: false }, settings: "json" }) {
   static table = "samples";
@@ -22,7 +23,7 @@ describe("a JSON attribute, saved and read back through the database", () => {
 
   test("is the value that was saved, key for key", { timeout: SLOW_TIMEOUT }, async () => {
     await fc.assert(
-      fc.asyncProperty(jsonValues, async (value) => {
+      fc.asyncProperty(storable(jsonValues), async (value) => {
         const created = await samples().create({ settings: value as never });
         const reloaded = await samples().find(created.id);
 
