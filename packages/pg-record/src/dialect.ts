@@ -19,6 +19,18 @@ function jsonObject(pairs: readonly string[]): string {
   return parts.join(" || ");
 }
 
+/**
+ * A json attribute's cell, which is its JSON's text: read as JSON for a json or jsonb column,
+ * which would otherwise keep it as a JSON string, and kept as that text for any other column.
+ */
+function jsonCell(table: string, column: string, index: number): string {
+  const type = `pg_typeof((NULL::${table}).${quoted(column)})`;
+  return (
+    `CASE WHEN ${type} IN ('json'::regtype, 'jsonb'::regtype) ` +
+    `THEN (cells ->> ${index})::jsonb ELSE cells -> ${index} END`
+  );
+}
+
 export const postgres: Dialect = {
   placeholder: (index) => `$${index}`,
   inList: (column, cells) => ({ sql: `${column} = ANY(${param})`, value: [...cells] }),
@@ -46,12 +58,11 @@ export const postgres: Dialect = {
   },
   /**
    * Each row's cells become an object of its columns, read into a record of `table`, so every
-   * value converts to its column's own type as an insert's would. A json attribute's cell is its
-   * JSON's text, so it's read as JSON first, or it would be stored as a JSON string.
+   * value converts to its column's own type as an insert's would.
    */
   bulkRows(table, attributes) {
     const pairs = attributes.map(({ column, isJson }, index) => {
-      const cell = isJson ? `(cells ->> ${index})::jsonb` : `cells -> ${index}`;
+      const cell = isJson ? jsonCell(table, column, index) : `cells -> ${index}`;
       return `${literal(column)}, ${cell}`;
     });
     return {
