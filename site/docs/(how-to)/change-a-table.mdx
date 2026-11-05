@@ -37,7 +37,7 @@ ALTER TABLE users RENAME COLUMN bio TO about;
 The attribute follows the column, so `bio` becomes `about`. Update the code that uses it, then apply the migration and deploy together, since the old code reads a column that’s gone.
 
 :::note
-Keeping the old attribute name for a renamed column is planned in [#65](https://github.com/forestfuture/d1-record/issues/65).
+Keeping the old attribute name for a renamed column is planned in [#65](https://github.com/forestfuture/active-record/issues/65).
 :::
 
 ## Removing a column

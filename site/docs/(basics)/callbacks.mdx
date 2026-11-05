@@ -72,10 +72,10 @@ In an after-callback, the write has already happened, so `abort()` throws `Abort
 
 These callbacks aren’t in d1-record yet. The code shows the shape they’re likely to take.
 
-- **Around callbacks** ([#48](https://github.com/forestfuture/d1-record/issues/48)): `this.aroundSave(async (record, proceed) => { …; await proceed(); … })`, and `aroundCreate`, `aroundUpdate`, and `aroundDestroy`.
-- **`afterInitialize` and `afterFind`** ([#49](https://github.com/forestfuture/d1-record/issues/49)): for every record built or loaded, and every record loaded.
-- **`record.touch()` and `afterTouch`** ([#50](https://github.com/forestfuture/d1-record/issues/50)): sets `updatedAt` without a full save.
-- **`on: "create"` and `on: "update"`** ([#51](https://github.com/forestfuture/d1-record/issues/51)): `this.validates("password", { presence: true, on: "create" })`. Until then, check `record.isNewRecord()` in an `if` option or a callback.
+- **Around callbacks** ([#48](https://github.com/forestfuture/active-record/issues/48)): `this.aroundSave(async (record, proceed) => { …; await proceed(); … })`, and `aroundCreate`, `aroundUpdate`, and `aroundDestroy`.
+- **`afterInitialize` and `afterFind`** ([#49](https://github.com/forestfuture/active-record/issues/49)): for every record built or loaded, and every record loaded.
+- **`record.touch()` and `afterTouch`** ([#50](https://github.com/forestfuture/active-record/issues/50)): sets `updatedAt` without a full save.
+- **`on: "create"` and `on: "update"`** ([#51](https://github.com/forestfuture/active-record/issues/51)): `this.validates("password", { presence: true, on: "create" })`. Until then, check `record.isNewRecord()` in an `if` option or a callback.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 

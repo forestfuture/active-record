@@ -10,13 +10,13 @@
   ],
   "homepage": "https://d1-record.forestfuture.dev",
   "bugs": {
-    "url": "https://github.com/forestfuture/d1-record/issues"
+    "url": "https://github.com/forestfuture/active-record/issues"
   },
   "license": "MIT",
   "author": "ForestFuture (https://forestfuture.dev)",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/forestfuture/d1-record.git",
+    "url": "git+https://github.com/forestfuture/active-record.git",
     "directory": "packages/active-record"
   },
   "bin": {

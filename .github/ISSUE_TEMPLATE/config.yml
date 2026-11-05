@@ -4,5 +4,5 @@ contact_links:
     url: https://github.com/orgs/forestfuture/discussions
     about: Ask how something works, or talk an idea through before it becomes an issue.
   - name: Security problem
-    url: https://github.com/forestfuture/d1-record/security/advisories/new
+    url: https://github.com/forestfuture/active-record/security/advisories/new
     about: Report a vulnerability privately. Please don't open a public issue for it.

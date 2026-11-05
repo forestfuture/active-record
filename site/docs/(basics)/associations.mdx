@@ -209,7 +209,7 @@ Without a strategy, it’s up to the database. If the table declares the foreign
 
 These features aren’t in d1-record yet. The code shows the shape they’re likely to take.
 
-- **Associations through another** ([#59](https://github.com/forestfuture/d1-record/issues/59)): `projects = hasMany(Project, { through: "assignments" })`, a user’s projects reached through their assignments.
-- **Polymorphic associations** ([#60](https://github.com/forestfuture/d1-record/issues/60)): `commentable = belongsTo([Post, Photo])`, with `comments = hasMany(Comment, { as: "commentable" })` on each.
-- **Counter caches** ([#61](https://github.com/forestfuture/d1-record/issues/61)): `post = belongsTo(Post, { counterCache: true })`, keeping a `commentsCount` on each post, updated in the same atomic batch as the write.
-- **Inverse associations** ([#62](https://github.com/forestfuture/d1-record/issues/62)): after `await post.comments().toArray()`, each `comment.post()` returns that same post, without a query.
+- **Associations through another** ([#59](https://github.com/forestfuture/active-record/issues/59)): `projects = hasMany(Project, { through: "assignments" })`, a user’s projects reached through their assignments.
+- **Polymorphic associations** ([#60](https://github.com/forestfuture/active-record/issues/60)): `commentable = belongsTo([Post, Photo])`, with `comments = hasMany(Comment, { as: "commentable" })` on each.
+- **Counter caches** ([#61](https://github.com/forestfuture/active-record/issues/61)): `post = belongsTo(Post, { counterCache: true })`, keeping a `commentsCount` on each post, updated in the same atomic batch as the write.
+- **Inverse associations** ([#62](https://github.com/forestfuture/active-record/issues/62)): after `await post.comments().toArray()`, each `comment.post()` returns that same post, without a query.

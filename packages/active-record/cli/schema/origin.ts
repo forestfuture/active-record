@@ -8,7 +8,7 @@ import type { Target } from "../project/targets.ts";
 import type { Tool } from "../project/tools.ts";
 import type { GeneratedTable } from "../adapter.ts";
 
-const issue = "https://github.com/forestfuture/d1-record/issues/73";
+const issue = "https://github.com/forestfuture/active-record/issues/73";
 
 /** Column names (as snake_case words) that suggest a `TEXT` column holds JSON. */
 const jsonish = /(^|_)(json|metadata|settings|payload|properties)$/;
