@@ -27,10 +27,10 @@ describe("scopes", () => {
   beforeAll(async () => {
     harness = await openHarness();
     await harness.exec(`INSERT INTO users (id, email, role, is_active, created_at) VALUES
-           (1, 'a@example.com', 'admin',  1, '2026-01-01T00:00:00.000Z'),
-           (2, 'b@example.com', 'member', 1, '2026-03-01T00:00:00.000Z'),
-           (3, 'c@example.com', 'admin',  0, '2026-04-01T00:00:00.000Z'),
-           (4, 'd@example.com', 'admin',  1, '2026-05-01T00:00:00.000Z')`);
+           (1, 'a@example.com', 'admin',  TRUE, '2026-01-01T00:00:00.000Z'),
+           (2, 'b@example.com', 'member', TRUE, '2026-03-01T00:00:00.000Z'),
+           (3, 'c@example.com', 'admin',  FALSE, '2026-04-01T00:00:00.000Z'),
+           (4, 'd@example.com', 'admin',  TRUE, '2026-05-01T00:00:00.000Z')`);
   });
   afterAll(() => harness.dispose());
   afterEach(() => {

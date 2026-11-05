@@ -24,8 +24,8 @@ describe("column mapping", () => {
   beforeEach(async () => {
     await harness.exec("DELETE FROM accounts");
     await harness.exec(`INSERT INTO accounts (id, is_active, external_account_id, html_url, user_id, sha256_hash, person_identifier)
-         VALUES (1, 1, 'ext-1', 'https://example.com', 7, 'abc', 'P-1'),
-                (2, 0, 'ext-2', NULL, NULL, NULL, 'P-2')`);
+         VALUES (1, TRUE, 'ext-1', 'https://example.com', 7, 'abc', 'P-1'),
+                (2, FALSE, 'ext-2', NULL, NULL, NULL, 'P-2')`);
   });
 
   test("camelCase attributes read from their snake_case columns", async () => {

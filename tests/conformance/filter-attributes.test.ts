@@ -224,7 +224,9 @@ describe("filterAttributes", () => {
           .connect({ onQuery: (event) => seen.push(event) })
           .model(model as ReturnType<typeof named>) // any Model with these attributes
           .where({ [name]: "x" } as never)
-          .toArray();
+          .toArray()
+          // The table has none of these columns: onQuery hears the statement either way.
+          .catch(() => {});
         if (seen[0]?.params[0] === "[FILTERED]") hidden.push(name);
       }
       return hidden;
