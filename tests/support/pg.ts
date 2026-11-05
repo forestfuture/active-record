@@ -1,6 +1,7 @@
 // A Postgres schema of its own for one of pg-record's test files, on the server DATABASE_URL names.
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { userInfo } from "node:os";
 import pg from "pg";
 
 const fixture = [
@@ -29,6 +30,8 @@ export interface PgSchema {
 export async function openPgSchema(schema: readonly URL[] = fixture): Promise<PgSchema> {
   const name = `record_${randomUUID().replaceAll("-", "")}`;
   const url = new URL(databaseUrl());
+  // Node's pg falls back to the OS user, as libpq does; a Worker has none to fall back to.
+  if (url.username === "") url.username = userInfo().username;
   url.searchParams.set("options", `-c search_path=${name}`);
   url.searchParams.set("application_name", name);
   const pool = new pg.Pool({ connectionString: databaseUrl(), options: `-c search_path=${name}` });
