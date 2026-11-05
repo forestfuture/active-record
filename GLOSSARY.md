@@ -17,7 +17,7 @@ A **Model** whose attributes are declared in its class, with `Model.define({...}
 _Avoid_: Manual model, defined model
 
 **Generated schema**:
-The file `active-record schema` writes from a project's migrations, as its **Adapter** reads them, and its Model files: each table's attributes, its **Adapter** and **Binding** (`adapter: d1({ binding: "DB" })`), the **Generated Model**s, and type declarations adding each one's attributes to its class. It's a document like Rails' `schema.rb`, committed and never edited by hand; the app's **Base class** holds it.
+The file `active-record schema` writes from a project's migrations and Model files, with its **Adapter** reading the migrations: each table's attributes, its **Adapter** and **Binding** (`adapter: d1({ binding: "DB" })`), the **Generated Model**s, and type declarations adding each one's attributes to its class. It's a document like Rails' `schema.rb`, committed and never edited by hand; the app's **Base class** holds it.
 _Avoid_: Schema dump, types file
 
 **Base class**:
@@ -89,7 +89,7 @@ A value in an **SQL fragment** written as `column(attribute).value(v)`: cast as 
 _Avoid_: Bound attribute, cast value
 
 **Attribute conversions**:
-The `cast`, `serialize` and `deserialize` of one **Attribute**, from `Model.typeForAttribute(name)`: the same steps a record uses, for SQL d1-record doesn't write. `serialize` is what a **Typed value** binds.
+The `cast`, `serialize` and `deserialize` of one **Attribute**, from `Model.typeForAttribute(name)`: the same steps a record uses, for SQL the library doesn't write. `serialize` is what a **Typed value** binds.
 _Avoid_: Attribute type (that is the declared type, `"datetime"`), codec, serializer
 
 **Abort**:
