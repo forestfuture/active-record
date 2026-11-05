@@ -29,7 +29,7 @@ jobs:
       # The documentation site builds, with no dead links.
       - run: vp run docs:build
       # Each tarball holds exactly its files: the core with its docs for agents (llms-full.txt and
-      # its skill), and the D1 adapter with the `d1-record` command, importing the core by name.
+      # its skill) and the `active-record` command, and the D1 adapter with its plugin for the command.
       - run: vp run check:package
       # docs-deploy's own Wrangler, installed frozen with install scripts off, checks the site built
       # above as a deploy would, without uploading it or needing a token. So a bump of

@@ -10,7 +10,8 @@
     "CONTRIBUTING.md",
     "CODING_STANDARDS.md",
     "AGENTS.md",
-    "CHANGELOG.md",
+    "packages/active-record/CHANGELOG.md",
+    "packages/d1-record/CHANGELOG.md",
     "brief.md"
   ],
   "rules": [
