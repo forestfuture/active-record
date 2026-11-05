@@ -17,7 +17,7 @@ export interface ConstraintFailure {
  */
 export interface SchemaAdapter {
   readonly adapter: Adapter;
-  /** The database's name in the app's config: a D1 binding. */
+  /** The database's name in the app's config, its Binding: on D1, a Wrangler binding (`DB`). */
   readonly binding: string;
 }
 

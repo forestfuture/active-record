@@ -1,0 +1,68 @@
+---
+title: Upgrading to 0.6
+description: "Move an app from d1-record 0.5 to 0.6: install the core beside the D1 adapter, change imports, regenerate the schema, and run npx active-record."
+---
+
+In 0.6, the library is two packages. `@forestfuture/active-record` is the core: Models, Relations, validations, callbacks, and associations. `@forestfuture/d1-record` is its adapter for D1. Upgrade in four steps.
+
+## Installing both packages
+
+Install the core beside the adapter:
+
+```sh
+npm install @forestfuture/active-record@^0.6.0 @forestfuture/d1-record@^0.6.0
+```
+
+Both packages share a version, so keep them on the same one.
+
+## Changing imports
+
+Import from the core everything that isn’t about D1. Import from the adapter what opens D1:
+
+```ts
+import {
+  batch,
+  belongsTo,
+  hasMany,
+  Model,
+  RecordNotFound,
+  withDatabase,
+} from "@forestfuture/active-record";
+import { connect, d1, withSession } from "@forestfuture/d1-record";
+```
+
+| Package                       | What it holds                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| `@forestfuture/active-record` | Models, Relations, `batch`, `withDatabase`, `sql`, and every error but one     |
+| `@forestfuture/d1-record`     | `connect`, `Database`, `withSession`, `NoSession`, `d1`, and D1’s `QueryEvent` |
+
+`d1-record` re-exports nothing of the core, so an import of `Model` from it fails.
+
+## Regenerating the schema
+
+Run the schema command under its new name:
+
+```sh
+npx active-record schema
+```
+
+The generated schema now names its adapter, `adapter: d1({ binding: "DB" })`, where it named only the binding. Your base class needs no change.
+
+## Running `active-record`
+
+The command is now `active-record`, or `ffar` for short. Swap it in your scripts and CI:
+
+| Before                    | Now                           |
+| ------------------------- | ----------------------------- |
+| `npx d1-record schema`    | `npx active-record schema`    |
+| `npx d1-record g model …` | `npx active-record g model …` |
+| `npx d1-record console`   | `npx active-record console`   |
+
+It also applies migrations, with `npx active-record migrate`, through your project’s Wrangler. See [Command line](./command-line#active-record-migrate).
+
+## Other changes in 0.6
+
+- **Write results:** `insert`, `insertAll`, `upsert`, and `upsertAll` resolve to `{ rowsAffected, rows }`, where they resolved to D1’s `meta`. `rows` holds each new row’s primary key. Use `rowsAffected` for `meta.changes`, and `rows[0]` for `meta.last_row_id`. A statement in `batch` resolves to the same.
+- **The base error** is `ActiveRecordError`, where it was `D1RecordError`.
+- **`toSql()` with no database:** on a Model with no generated schema, outside `withDatabase`, it throws `NoDatabase`. Use a `db` (`db.model(Post).toSql()`), or a Model built on your base class.
+- **D1’s `meta`** is still on every `onQuery` event.

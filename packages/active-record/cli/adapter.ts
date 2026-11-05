@@ -4,7 +4,7 @@ import type { Migration } from "./project/migrations.ts";
 
 /** One database a project declares, and where its migrations are. */
 export interface DatabaseConfig {
-  /** Its name in the app's config, which a generated schema names: a D1 binding. */
+  /** Its name in the app's config, which a generated schema names: its **Binding** (`DB`). */
   binding: string;
   /** Relative to the config file. */
   migrationsDir: string;

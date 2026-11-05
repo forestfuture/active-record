@@ -1,13 +1,13 @@
-# d1-record
+# active-record
 
 [![CI](https://github.com/forestfuture/d1-record/actions/workflows/ci.yml/badge.svg)](https://github.com/forestfuture/d1-record/actions/workflows/ci.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/forestfuture/d1-record/badge)](https://scorecard.dev/viewer/?uri=github.com/forestfuture/d1-record)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15356/badge)](https://www.bestpractices.dev/projects/15356)
 [![OpenSSF Baseline](https://www.bestpractices.dev/projects/15356/baseline)](https://www.bestpractices.dev/projects/15356)
 
-A Rails-inspired Active Record for [Cloudflare Workers](https://developers.cloudflare.com/workers/) and [D1](https://developers.cloudflare.com/d1/).
+A Rails-inspired Active Record for [Cloudflare Workers](https://developers.cloudflare.com/workers/), with an adapter for each database. The first is [D1](https://developers.cloudflare.com/d1/).
 
-Models with validations, callbacks, associations, and change tracking; lazy, composable queries; and a predictable save lifecycle, built for the Worker runtime and honest about what D1 can and can’t do.
+Models with validations, callbacks, associations, and change tracking; lazy, composable queries; and a predictable save lifecycle, built for the Worker runtime and honest about what each database can and can’t do.
 
 > **Status: pre-release (0.x).** The API is tested against real D1, but it may still change before 1.0.
 
@@ -15,9 +15,16 @@ Models with validations, callbacks, associations, and change tracking; lazy, com
 npm install @forestfuture/active-record @forestfuture/d1-record
 ```
 
+| Package                                                  |                                                                                                    |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [`@forestfuture/active-record`](packages/active-record/) | The core: Models, Relations, validations, callbacks, associations, and the `active-record` command |
+| [`@forestfuture/d1-record`](packages/d1-record/)         | The D1 adapter: `connect`, `withSession`, and the command’s D1 plugin                              |
+
+Coming from d1-record 0.5? See [Upgrading to 0.6](https://d1-record.forestfuture.dev/upgrading).
+
 ## A quick look
 
-A [Worker](https://developers.cloudflare.com/workers/) is a function that runs at Cloudflare’s edge, and [D1](https://developers.cloudflare.com/d1/) is its SQLite database. d1-record sits between the two: you describe each table once as a **Model**, and your Worker reads and writes **records** instead of rows.
+A [Worker](https://developers.cloudflare.com/workers/) is a function that runs at Cloudflare’s edge, and [D1](https://developers.cloudflare.com/d1/) is its SQLite database. Active Record sits between the two: you describe each table once as a **Model**, and your Worker reads and writes **records** instead of rows.
 
 ### 1. Bind a D1 database
 
@@ -142,7 +149,7 @@ await batch([
 
 ## Honest about D1
 
-d1-record follows Rails wherever D1 allows, and says so where it can’t:
+The D1 adapter follows Rails wherever D1 allows, and says so where it can’t:
 
 - **No interactive transactions.** D1 can’t hold a transaction open across `await`s, so there’s no `transaction(async tx => …)`. Instead, `batch([...])` writes a prepared set of statements and records atomically, and a record with `dependent: "destroy"` or new associated records is written in one batch when its keys are known in advance.
 - **Keys generated in code are first-class.** A generated `TEXT` key is a UUID made at `build()` (or whatever your `generateId` makes), so records can be linked and saved together atomically before D1 has seen them.
@@ -156,11 +163,11 @@ Most of it will feel familiar. The main difference is naming: attributes are cam
 
 ## How it compares
 
-Query builders such as [Drizzle](https://orm.drizzle.team) and [Kysely](https://kysely.dev) are SQL-first: you write queries against a typed schema, and rows come back as plain objects. d1-record is an Active Record: rows come back as records that know how to validate, save, destroy, and load their associations, with the conventions of Ruby on Rails. Its value is a coherent, rigorously tested lifecycle rather than advanced type inference. If you know Rails, you already know most of it.
+Query builders such as [Drizzle](https://orm.drizzle.team) and [Kysely](https://kysely.dev) are SQL-first: you write queries against a typed schema, and rows come back as plain objects. This library is an Active Record: rows come back as records that know how to validate, save, destroy, and load their associations, with the conventions of Ruby on Rails. Its value is a coherent, rigorously tested lifecycle rather than advanced type inference. If you know Rails, you already know most of it.
 
 ## Versioning
 
-d1-record follows [semantic versioning](https://semver.org). While it’s on 0.x, a breaking change bumps the minor version (0.1 → 0.2), and features and fixes bump the patch, so a `^0.1.0` range never brings in a breaking change. Every release is listed on the [releases page](https://github.com/forestfuture/d1-record/releases), and in `CHANGELOG.md`.
+Both packages follow [semantic versioning](https://semver.org), and always share a version, so install the same one of each. While they’re on 0.x, a breaking change bumps the minor version (0.5 → 0.6), and features and fixes bump the patch, so a `^0.6.0` range never brings in a breaking change. Every release is listed on the [releases page](https://github.com/forestfuture/d1-record/releases), and in each package’s `CHANGELOG.md`.
 
 ## For AI agents
 
