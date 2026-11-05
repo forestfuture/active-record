@@ -13,5 +13,6 @@ export default defineMeta({
     "read-your-own-writes",
     "testing",
     "several-databases",
+    "upgrading",
   ],
 });

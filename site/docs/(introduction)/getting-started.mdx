@@ -1,12 +1,12 @@
 ---
 title: Getting started
-description: "From an empty Worker to two related Models in about ten minutes: install d1-record, generate Models and their tables, add behavior, and use them in a Worker."
+description: "From an empty Worker to two related Models in about ten minutes: install Active Record, generate Models and their tables, add behavior, and use them in a Worker."
 ---
 
-d1-record turns each table in your [D1](https://developers.cloudflare.com/d1/) database into a Model, so your [Worker](https://developers.cloudflare.com/workers/) works with records instead of rows. In this tutorial you’ll build the start of a small blog: users, and the posts they write.
+Active Record turns each table in your [D1](https://developers.cloudflare.com/d1/) database into a Model, so your [Worker](https://developers.cloudflare.com/workers/) works with records instead of rows. In this tutorial you’ll build the start of a small blog: users, and the posts they write.
 
 :::warning[Version 0.x]
-d1-record is before 1.0. Its behavior is tested against real D1, but the API may still change. A breaking change ships in a new minor version, so `^0.1.0` never takes one.
+Active Record is before 1.0. Its behavior is tested against real D1, but the API may still change. A breaking change ships in a new minor version, so `^0.6.0` never takes one.
 :::
 
 ## Prerequisites
@@ -26,7 +26,9 @@ You’ll need:
 
 - **Node.js 22.13 or later**, for the command line.
 
-## Installing d1-record
+## Installing Active Record
+
+Install the core and its D1 adapter:
 
 ```sh
 npm install @forestfuture/active-record @forestfuture/d1-record

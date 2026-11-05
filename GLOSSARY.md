@@ -1,11 +1,11 @@
-# d1-record
+# active-record
 
-A Rails-inspired Active Record library for Cloudflare Workers backed by Cloudflare D1. It maps D1 rows to domain objects with a lazy, composable query vocabulary and a predictable persistence lifecycle.
+A Rails-inspired Active Record library for Cloudflare Workers: a core (`@forestfuture/active-record`) and an **Adapter** for each database, D1's first (`@forestfuture/d1-record`). It maps a database's rows to domain objects with a lazy, composable query vocabulary and a predictable persistence lifecycle.
 
 ## Language
 
 **Model**:
-A class extending the app's **Base class** that describes one D1 table: its attributes, validations, callbacks, associations and scopes. Its table is named after its class (`Post` → `posts`), or by `static table`; a subclass of a Model shares its table.
+A class extending the app's **Base class** that describes one table: its attributes, validations, callbacks, associations and scopes. Its table is named after its class (`Post` → `posts`), or by `static table`; a subclass of a Model shares its table.
 _Avoid_: Record (as the base class; `ApplicationRecord` is the one exception, named as Rails names it), entity, schema
 
 **Generated Model**:
@@ -17,7 +17,7 @@ A **Model** whose attributes are declared in its class, with `Model.define({...}
 _Avoid_: Manual model, defined model
 
 **Generated schema**:
-The file `active-record schema` writes from a project's migrations and Model files: each table's attributes, its **Adapter** and **Binding** (`adapter: d1({ binding: "DB" })`), the **Generated Model**s, and type declarations adding each one's attributes to its class. It's a document like Rails' `schema.rb`, committed and never edited by hand; the app's **Base class** holds it.
+The file `active-record schema` writes from a project's migrations, as its **Adapter** reads them, and its Model files: each table's attributes, its **Adapter** and **Binding** (`adapter: d1({ binding: "DB" })`), the **Generated Model**s, and type declarations adding each one's attributes to its class. It's a document like Rails' `schema.rb`, committed and never edited by hand; the app's **Base class** holds it.
 _Avoid_: Schema dump, types file
 
 **Base class**:
@@ -161,7 +161,7 @@ A contract behavior an **Adapter** keeps its database's own semantics for, such 
 _Avoid_: Quirk, known difference, incompatibility, bug
 
 **Binding**:
-The name of the D1 binding a Model queries, from the Wrangler config, in the **Generated schema** its **Base class** holds.
+The name the app's config gives the database a Model queries, in the **Generated schema** its **Base class** holds (`d1({ binding: "DB" })`). On D1, it's a binding from the Wrangler config, `env.DB`.
 _Avoid_: Connection name, database name
 
 **Session**:
