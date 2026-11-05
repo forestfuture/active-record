@@ -2,7 +2,7 @@
 export type { Adapter, ConstraintFailure, SchemaAdapter } from "./adapter.ts";
 export type { CompiledSql } from "./compiler.ts";
 export { AnyDatabase, databaseExecutor } from "./database.ts";
-export type { Dialect } from "./dialect.ts";
+export { type Dialect, param } from "./dialect.ts";
 export type { Driver, StatementResult } from "./driver.ts";
 export { DatabaseExecutor, type QueryEvent, type QueryListener } from "./executor.ts";
 export { boundValue } from "./filtering.ts";

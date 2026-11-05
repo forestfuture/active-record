@@ -3,7 +3,7 @@ import { shownValue } from "./filtering.ts";
 import type { CompiledSql } from "./compiler.ts";
 import type { Adapter } from "./adapter.ts";
 import { translateConstraintError } from "./constraints.ts";
-import type { Dialect } from "./dialect.ts";
+import { type Dialect, withPlaceholders } from "./dialect.ts";
 import type { Driver, StatementResult } from "./driver.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import type { ModelClass } from "./model.ts";
@@ -125,17 +125,23 @@ export class DatabaseExecutor implements Executor {
 
   /** Runs one statement and resolves to its rows. */
   async all(query: CompiledSql): Promise<Record<string, unknown>[]> {
-    return (await this.#one(query)).rows;
+    return (await this.#one(this.#sendable(query))).rows;
   }
 
   /** Runs one statement for its effect and resolves to its result. */
   async run(query: CompiledSql): Promise<StatementResult> {
-    return this.#one(query);
+    return this.#one(this.#sendable(query));
   }
 
   /** Runs reads together and resolves to each one's result. */
   async read(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
-    return this.#together(statements, () => this.#driver.read(statements));
+    const sent = statements.map((statement) => this.#sendable(statement));
+    return this.#together(sent, () => this.#driver.read(sent));
+  }
+
+  /** `query` as it's sent and reported: with its database's placeholders. */
+  #sendable(query: CompiledSql): CompiledSql {
+    return withPlaceholders(this.dialect, query);
   }
 
   /** `statements`, sent by `send`, unless there are none. On failure every one is reported. */
@@ -168,9 +174,10 @@ export class DatabaseExecutor implements Executor {
 
   /** Runs statements atomically: one on its own, several all or none. Resolves to each result. */
   async write(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
-    const [only] = statements;
-    if (statements.length === 1 && only !== undefined) return [await this.#one(only)];
-    return this.#together(statements, () => this.#driver.write(statements));
+    const sent = statements.map((statement) => this.#sendable(statement));
+    const [only] = sent;
+    if (sent.length === 1 && only !== undefined) return [await this.#one(only)];
+    return this.#together(sent, () => this.#driver.write(sent));
   }
 
   async #one(query: CompiledSql, mayRetry = true): Promise<StatementResult> {
