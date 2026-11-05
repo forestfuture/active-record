@@ -7,6 +7,7 @@ import {
 } from "@forestfuture/active-record/adapter";
 import { pgAdapter } from "./adapter.ts";
 import { type Clients, type Pool, PoolClients, UrlClients } from "./clients.ts";
+import { pgConnectionString } from "./current-database.ts";
 import { PgDriver, type PgMeta } from "./driver.ts";
 
 /** What `onQuery` hears about a statement: its Model, SQL, bound values, timing, and Postgres's `meta`. */
@@ -23,10 +24,17 @@ export interface ConnectOptions {
 /** Where a Database's Postgres is: a Hyperdrive binding (`env.HYPERDRIVE`), a connection string, or a `pg` Pool. */
 export type PgSource = Hyperdrive | string | Pool;
 
+/** The connection string `source` opens its clients from, or undefined for a Pool. */
+function connectionStringOf(source: PgSource): string | undefined {
+  if (typeof source === "string") return source;
+  return "connectionString" in source ? source.connectionString : undefined;
+}
+
 function clientsFor(source: PgSource): Clients {
-  if (typeof source === "string") return new UrlClients(source);
-  if ("connectionString" in source) return new UrlClients(source.connectionString);
-  return new PoolClients(source);
+  const connectionString = connectionStringOf(source);
+  return connectionString === undefined
+    ? new PoolClients(source as Pool)
+    : new UrlClients(connectionString);
 }
 
 /**
@@ -34,8 +42,16 @@ function clientsFor(source: PgSource): Clients {
  * transaction, on a client of its own.
  */
 export class Database extends AnyDatabase {
+  readonly #connectionString: string | undefined;
+
   constructor(source: PgSource, options: ConnectOptions = {}) {
     super(new DatabaseExecutor(pgAdapter, new PgDriver(clientsFor(source)), options.onQuery));
+    this.#connectionString = connectionStringOf(source);
+  }
+
+  /** @internal Its connection string, to match a Model's binding; none for a Pool. */
+  get [pgConnectionString](): string | undefined {
+    return this.#connectionString;
   }
 }
 

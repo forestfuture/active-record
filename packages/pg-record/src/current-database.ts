@@ -1,6 +1,32 @@
-// Which Postgres database a query from a Model's statics uses: the request's, from `withDatabase`.
-import type { AnyDatabase } from "@forestfuture/active-record/adapter";
+// Which Postgres database a query from a Model's statics uses: the request's for its binding, or the binding's own, from the Worker's env (a Hyperdrive binding or a connection string). A binding's own Database holds no client between operations.
+import {
+  AnyDatabase,
+  DatabaseExecutor,
+  databaseExecutor,
+  workersEnv,
+} from "@forestfuture/active-record/adapter";
 import { NoDatabase } from "@forestfuture/active-record";
+import { pgAdapter } from "./adapter.ts";
+import { UrlClients } from "./clients.ts";
+import { PgDriver } from "./driver.ts";
+
+/** @internal The library's key for the connection string a Database opens its clients from. */
+export const pgConnectionString = Symbol("pgConnectionString");
+
+/** One Database per connection string, for queries outside `withDatabase`. */
+const defaults = new Map<string, AnyDatabase>();
+
+function defaultDatabase(connectionString: string, name: string): AnyDatabase {
+  let db = defaults.get(connectionString);
+  if (db === undefined) {
+    db = new AnyDatabase(
+      new DatabaseExecutor(pgAdapter, new PgDriver(new UrlClients(connectionString))),
+    );
+    db[databaseExecutor].setOrigin({ binding: name });
+    defaults.set(connectionString, db);
+  }
+  return db;
+}
 
 /** Why there's no database here, saying what to do. */
 function noDatabase(reason: string): NoDatabase {
@@ -10,18 +36,45 @@ function noDatabase(reason: string): NoDatabase {
   );
 }
 
-/** The database a query on binding `name` uses now: the request's. */
-export async function databaseFor(
-  name: string | undefined,
-  requested: readonly AnyDatabase[],
-): Promise<AnyDatabase> {
+/** Outside a Worker (Node, scripts), a request's database is the only one there can be. */
+function onlyRequested(requested: readonly AnyDatabase[], name: string | undefined): AnyDatabase {
   if (requested.length === 1) return requested[0]!;
   if (requested.length > 1) {
-    throw noDatabase("withDatabase was given several, and a binding can't tell which");
+    throw noDatabase(
+      "withDatabase was given several, and outside a Worker a binding can't tell which",
+    );
   }
   throw noDatabase(
     name === undefined
       ? "its Model's base class holds no generated schema, which names its binding"
-      : `the binding ${name} needs withDatabase`,
+      : `the binding ${name} is only there inside a Worker`,
+  );
+}
+
+/** A binding's connection string: a Hyperdrive binding's, or the binding itself when it's one. */
+function connectionStringOf(binding: unknown): string | undefined {
+  if (typeof binding === "string") return binding;
+  const held = (binding as { connectionString?: unknown } | undefined)?.connectionString;
+  return typeof held === "string" ? held : undefined;
+}
+
+/** The database a query on binding `name` uses now: the request's for it, or the binding's own. */
+export async function databaseFor(
+  name: string | undefined,
+  requested: readonly AnyDatabase[],
+): Promise<AnyDatabase> {
+  const env = name === undefined ? undefined : await workersEnv();
+  if (env === undefined || name === undefined) return onlyRequested(requested, name);
+  const connectionString = connectionStringOf(env[name]);
+  if (connectionString === undefined) {
+    throw new NoDatabase(
+      `The binding ${name} isn't in this Worker's env as a Hyperdrive binding or a connection ` +
+        "string; check hyperdrive in your Wrangler config",
+    );
+  }
+  return (
+    requested.find(
+      (db) => (db as { [pgConnectionString]?: string })[pgConnectionString] === connectionString,
+    ) ?? defaultDatabase(connectionString, name)
   );
 }
