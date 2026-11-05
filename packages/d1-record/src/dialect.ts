@@ -14,7 +14,7 @@ export const sqlite: Dialect = {
     params.push(offset);
     return ` LIMIT ${param} OFFSET ${param}`;
   },
-  bulkRows: (attributes) => ({
+  bulkRows: (_table, attributes) => ({
     select: attributes.map((_, index) => `value ->> '$[${index}]'`).join(", "),
     from: `json_each(${param})`,
   }),

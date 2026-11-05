@@ -1,0 +1,14 @@
+{
+  // The build's view of the core: its published declarations, as an app installing both sees them,
+  // so the declarations of this package are emitted alone. `vp run build` builds the core first.
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["@cloudflare/workers-types"],
+    "stripInternal": true,
+    "paths": {
+      "@forestfuture/active-record": ["../active-record/dist/index.d.mts"],
+      "@forestfuture/active-record/adapter": ["../active-record/dist/adapter.d.mts"]
+    }
+  },
+  "include": ["src"]
+}

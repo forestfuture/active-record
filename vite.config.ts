@@ -38,6 +38,21 @@ export default defineConfig({
           provide: { adapter: "d1" },
         },
       },
+      // The same suite on Postgres (#269): the server DATABASE_URL names, as CI provides. Without it,
+      // the project is left out, as the remote smoke suite is.
+      ...(process.env["DATABASE_URL"] === undefined
+        ? []
+        : [
+            {
+              extends: true,
+              test: {
+                name: "conformance:pg",
+                include: ["tests/conformance/**/*.test.ts"],
+                setupFiles: ["tests/support/conformance-setup.ts"],
+                provide: { adapter: "pg" },
+              },
+            },
+          ]),
       // Real remote D1 through Wrangler's remote bindings (docs/agents/remote-smoke.md): only for
       // `vp run test:remote`, which sets D1_REMOTE_SMOKE, so a plain `vp test` stays local even
       // with the credentials in the environment (#202). Still skipped without them.
@@ -110,6 +125,9 @@ export default defineConfig({
                     "@forestfuture/d1-record",
                     "@forestfuture/d1-record/*",
                     "**/d1-record/**",
+                    "@forestfuture/pg-record",
+                    "@forestfuture/pg-record/*",
+                    "**/pg-record/**",
                   ],
                   message: "The core reaches a database through its Adapter: see src/adapter.ts.",
                 },
@@ -120,7 +138,7 @@ export default defineConfig({
       },
       {
         // An adapter reaches the core only as an app's install would: through its entry points.
-        files: ["packages/d1-record/**/*.ts"],
+        files: ["packages/d1-record/**/*.ts", "packages/pg-record/**/*.ts"],
         rules: {
           "no-restricted-imports": [
             "error",

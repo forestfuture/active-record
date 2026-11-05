@@ -48,6 +48,11 @@ export class Attribute {
     return this.#definition.type === "string";
   }
 
+  /** Whether it's a `json` attribute, whose stored text is JSON itself. */
+  get isJson(): boolean {
+    return this.#definition.type === "json";
+  }
+
   /**
    * An assigned value (a setter, `build`, `update`, `insert`, `permit`) as the attribute's type:
    * only what's unambiguous for it (#81). `undefined` throws, as it would store NULL silently;

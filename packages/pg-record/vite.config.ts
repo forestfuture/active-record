@@ -1,0 +1,17 @@
+// Builds @forestfuture/pg-record: the Postgres adapter.
+import { defineConfig } from "vite-plus";
+
+export default defineConfig({
+  pack: {
+    entry: { index: "src/index.ts" },
+    target: "es2022",
+    tsconfig: "tsconfig.build.json",
+    // `pg` is the app's, a peer dependency; `cloudflare:workers` is the Workers runtime's,
+    // loaded only when a Model queries its binding.
+    external: ["pg", "cloudflare:workers"],
+    dts: { generator: "tsgo" },
+    exports: { devExports: true },
+    attw: { profile: "esm-only" },
+    publint: true,
+  },
+});
