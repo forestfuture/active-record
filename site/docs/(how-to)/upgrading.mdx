@@ -66,4 +66,4 @@ It also applies migrations through your project’s Wrangler, with `npx active-r
 - **The base error** is `ActiveRecordError`, where it was `D1RecordError`.
 - **`toSql()` with no database:** on a Model with no generated schema, outside `withDatabase`, it throws `NoDatabase`. Use a `db` (`db.model(Post).toSql()`), or a Model built on your base class.
 - **D1’s `meta`** is still on every `onQuery` event.
-- **The agent skill** is now `active-record`. Install it again with `npx skills add forestfuture/d1-record`.
+- **The agent skill** is now `active-record`. Install it again with `npx skills add forestfuture/active-record`.

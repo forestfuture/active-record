@@ -1,6 +1,6 @@
 # Contributing to d1-record
 
-Thanks for helping. The [ForestFuture contributing guide](https://github.com/forestfuture/.github/blob/main/CONTRIBUTING.md) applies here: start ideas and questions in a [Discussion](https://github.com/orgs/forestfuture/discussions), report a bug as an [issue](https://github.com/forestfuture/d1-record/issues/new/choose) with the Bug report template, follow the [code of conduct](https://github.com/forestfuture/.github/blob/main/CODE_OF_CONDUCT.md), and report security problems privately, as the [security policy](https://github.com/forestfuture/.github/blob/main/SECURITY.md) describes. This page adds what's specific to d1-record.
+Thanks for helping. The [ForestFuture contributing guide](https://github.com/forestfuture/.github/blob/main/CONTRIBUTING.md) applies here: start ideas and questions in a [Discussion](https://github.com/orgs/forestfuture/discussions), report a bug as an [issue](https://github.com/forestfuture/active-record/issues/new/choose) with the Bug report template, follow the [code of conduct](https://github.com/forestfuture/.github/blob/main/CODE_OF_CONDUCT.md), and report security problems privately, as the [security policy](https://github.com/forestfuture/.github/blob/main/SECURITY.md) describes. This page adds what’s specific to this repository.
 
 ## Setup
 

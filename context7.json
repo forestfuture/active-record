@@ -1,9 +1,9 @@
 {
   "$schema": "https://context7.com/schema/context7.json",
-  "url": "https://context7.com/forestfuture/d1-record",
+  "url": "https://context7.com/forestfuture/active-record",
   "public_key": "pk_bJAmxfR5pjyhpbAlvUg8v",
-  "projectTitle": "d1-record",
-  "description": "A Rails-inspired Active Record for Cloudflare Workers and D1: models with validations, callbacks, associations, and change tracking; lazy, composable queries; and a predictable save lifecycle.",
+  "projectTitle": "active-record",
+  "description": "A Rails-inspired Active Record for Cloudflare Workers, with an adapter for each database, the first for D1: models with validations, callbacks, associations, and change tracking; lazy, composable queries; and a predictable save lifecycle.",
   "folders": ["site/docs", "docs"],
   "excludeFolders": ["docs/agents", "docs/adr"],
   "excludeFiles": [

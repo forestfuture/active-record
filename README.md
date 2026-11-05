@@ -1,7 +1,7 @@
 # active-record
 
-[![CI](https://github.com/forestfuture/d1-record/actions/workflows/ci.yml/badge.svg)](https://github.com/forestfuture/d1-record/actions/workflows/ci.yml)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/forestfuture/d1-record/badge)](https://scorecard.dev/viewer/?uri=github.com/forestfuture/d1-record)
+[![CI](https://github.com/forestfuture/active-record/actions/workflows/ci.yml/badge.svg)](https://github.com/forestfuture/active-record/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/forestfuture/active-record/badge)](https://scorecard.dev/viewer/?uri=github.com/forestfuture/active-record)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15356/badge)](https://www.bestpractices.dev/projects/15356)
 [![OpenSSF Baseline](https://www.bestpractices.dev/projects/15356/baseline)](https://www.bestpractices.dev/projects/15356)
 
@@ -167,11 +167,11 @@ Query builders such as [Drizzle](https://orm.drizzle.team) and [Kysely](https://
 
 ## Versioning
 
-Both packages follow [semantic versioning](https://semver.org), and always share a version, so install the same one of each. While they’re on 0.x, a breaking change bumps the minor version (0.5 → 0.6), and features and fixes bump the patch, so a `^0.6.0` range never brings in a breaking change. Every release is listed on the [releases page](https://github.com/forestfuture/d1-record/releases), and in each package’s `CHANGELOG.md`.
+Both packages follow [semantic versioning](https://semver.org), and always share a version, so install the same one of each. While they’re on 0.x, a breaking change bumps the minor version (0.5 → 0.6), and features and fixes bump the patch, so a `^0.6.0` range never brings in a breaking change. Every release is listed on the [releases page](https://github.com/forestfuture/active-record/releases), and in each package’s `CHANGELOG.md`.
 
 ## For AI agents
 
-The guide is also published for coding agents: [`llms.txt`](https://d1-record.forestfuture.dev/llms.txt), [`llms-full.txt`](https://d1-record.forestfuture.dev/llms-full.txt), and every page as Markdown. The package ships the guide for its own version (`node_modules/@forestfuture/active-record/llms-full.txt`) and an [agent skill](packages/active-record/skills/active-record/SKILL.md) (`npx skills add forestfuture/d1-record`). See [AI agents](https://d1-record.forestfuture.dev/ai-agents).
+The guide is also published for coding agents: [`llms.txt`](https://d1-record.forestfuture.dev/llms.txt), [`llms-full.txt`](https://d1-record.forestfuture.dev/llms-full.txt), and every page as Markdown. The package ships the guide for its own version (`node_modules/@forestfuture/active-record/llms-full.txt`) and an [agent skill](packages/active-record/skills/active-record/SKILL.md) (`npx skills add forestfuture/active-record`). See [AI agents](https://d1-record.forestfuture.dev/ai-agents).
 
 ## Documentation
 

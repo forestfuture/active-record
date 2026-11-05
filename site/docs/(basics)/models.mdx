@@ -64,7 +64,7 @@ An override of an attribute the table doesn’t have throws `InvalidModel`, and 
 
 - **Changing a `type`** drops the generated default or `generateId`, so the column’s own default applies unless you give one.
 - **A `default` and `generateId`** replace each other, so an attribute has one or the other. `generateId` is only for strings.
-- **A `default`** isn’t type-checked yet ([#74](https://github.com/forestfuture/d1-record/issues/74)). One that returns a value the type can’t cast throws `TypeError` when a record is built.
+- **A `default`** isn’t type-checked yet ([#74](https://github.com/forestfuture/active-record/issues/74)). One that returns a value the type can’t cast throws `TypeError` when a record is built.
 - **Ignoring a `NOT NULL` column** without a default makes inserts fail, so give it a default in a migration first.
 
 ### Narrowing types

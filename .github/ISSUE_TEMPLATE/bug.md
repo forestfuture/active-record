@@ -1,12 +1,12 @@
 ---
 name: Bug report
-about: d1-record does something other than what the guide or the contract says
+about: Active Record does something other than what the guide or the contract says
 labels: bug, needs-triage
 ---
 
-<!-- A security problem doesn't go here: report it privately at https://github.com/forestfuture/d1-record/security/advisories/new -->
+<!-- A security problem doesn't go here: report it privately at https://github.com/forestfuture/active-record/security/advisories/new -->
 
-**d1-record version:** <!-- `npm ls @forestfuture/d1-record` -->
+**Versions:** <!-- `npm ls @forestfuture/active-record @forestfuture/d1-record` -->
 
 **Where it runs:** <!-- A Worker, Miniflare or `vp test`, or the command line (`active-record schema`, `console` or `migrate`, with your Node.js version) -->
 

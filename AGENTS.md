@@ -4,7 +4,7 @@
 
 ### Issue tracker
 
-Issues live in GitHub Issues on `forestfuture/d1-record`. Before any `gh issue` command, read `docs/agents/issue-tracker.md`: plain `gh issue view` prints nothing here.
+Issues live in GitHub Issues on `forestfuture/active-record`. Before any `gh issue` command, read `docs/agents/issue-tracker.md`: plain `gh issue view` prints nothing here.
 
 ### Triage labels
 
