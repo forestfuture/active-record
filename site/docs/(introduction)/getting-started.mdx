@@ -37,8 +37,8 @@ npm install @forestfuture/active-record @forestfuture/d1-record
 The generator writes a table’s migration and its Model in one step, like `rails generate model`. Generate users first, since each post belongs to a user:
 
 ```sh
-npx d1-record g model User 'email:string!:unique' 'isActive:boolean!=true'
-npx d1-record g model Post user:references 'title:string!' publishedAt:datetime
+npx active-record g model User 'email:string!:unique' 'isActive:boolean!=true'
+npx active-record g model Post user:references 'title:string!' publishedAt:datetime
 ```
 
 Each column is `name:type`. A `!` makes it required, `=true` sets a default, `:unique` adds a unique index, and `user:references` links each post to a user. The quotes stop your shell from reading the `!`.
@@ -69,10 +69,10 @@ Each `id` is a UUID generated in code, not an auto-incrementing integer, so a us
 Apply the migrations to your local database:
 
 ```sh
-npx wrangler d1 migrations apply my-app-db --local
+npx active-record migrate
 ```
 
-Use `--remote` when you deploy.
+Use `npx active-record migrate --remote` when you deploy.
 
 ## Adding behavior
 

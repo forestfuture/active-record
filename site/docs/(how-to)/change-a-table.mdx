@@ -10,8 +10,8 @@ Change a table with a new migration. Wrangler applies each migration once, in or
 Generate the migration, then apply it:
 
 ```sh
-npx d1-record g migration AddBioToUsers bio:string
-npx wrangler d1 migrations apply my-app-db --local
+npx active-record g migration AddBioToUsers bio:string
+npx active-record migrate
 ```
 
 ```sql migrations/0003_add_bio_to_users.sql
@@ -27,7 +27,7 @@ To deploy, apply the migration with `--remote` first, then deploy the code that 
 Generate an empty migration, and write the rename:
 
 ```sh
-npx d1-record g migration RenameBioToAbout
+npx active-record g migration RenameBioToAbout
 ```
 
 ```sql migrations/0004_rename_bio_to_about.sql
@@ -57,7 +57,7 @@ Remove a column in the opposite order to adding one, so the code stops using it 
 2. Generate the migration, and apply it with `--remote`:
 
    ```sh
-   npx d1-record g migration RemoveBioFromUsers bio
+   npx active-record g migration RemoveBioFromUsers bio
    ```
 
 3. Remove `{ bio: false }`, now that the schema no longer has the column.
@@ -85,7 +85,7 @@ ALTER TABLE products_new RENAME TO products;
 
 - **`PRAGMA defer_foreign_keys = true`** lets the swap happen while other tables point at this one, [as Cloudflare recommends](https://developers.cloudflare.com/d1/reference/migrations/).
 - **Indexes** are dropped with the old table, so recreate them after the swap.
-- **The schema** needs regenerating with `npx d1-record schema`, since you wrote this migration by hand.
+- **The schema** needs regenerating with `npx active-record schema`, since you wrote this migration by hand.
 
 :::note
 Wrangler backs up the database before applying migrations to it.

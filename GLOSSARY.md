@@ -9,7 +9,7 @@ A class extending the app's **Base class** that describes one D1 table: its attr
 _Avoid_: Record (as the base class; `ApplicationRecord` is the one exception, named as Rails names it), entity, schema
 
 **Generated Model**:
-A **Model** whose attributes are its table's in the **Generated schema**, after its **Override**s. `d1-record schema` must have seen its class: one it hasn't is an `InvalidModel` when used.
+A **Model** whose attributes are its table's in the **Generated schema**, after its **Override**s. `active-record schema` must have seen its class: one it hasn't is an `InvalidModel` when used.
 _Avoid_: Plain model, schema model
 
 **Hand-declared Model**:
@@ -17,7 +17,7 @@ A **Model** whose attributes are declared in its class, with `Model.define({...}
 _Avoid_: Manual model, defined model
 
 **Generated schema**:
-The file `d1-record schema` writes from a project's migrations and Model files: each table's attributes, its **Adapter** and **Binding** (`adapter: d1({ binding: "DB" })`), the **Generated Model**s, and type declarations adding each one's attributes to its class. It's a document like Rails' `schema.rb`, committed and never edited by hand; the app's **Base class** holds it.
+The file `active-record schema` writes from a project's migrations and Model files: each table's attributes, its **Adapter** and **Binding** (`adapter: d1({ binding: "DB" })`), the **Generated Model**s, and type declarations adding each one's attributes to its class. It's a document like Rails' `schema.rb`, committed and never edited by hand; the app's **Base class** holds it.
 _Avoid_: Schema dump, types file
 
 **Base class**:
@@ -25,11 +25,11 @@ The app's abstract class extending `Model`, `ApplicationRecord` (in `application
 _Avoid_: Mixin, concern, parent model
 
 **Generator**:
-The `d1-record g model` and `g migration` commands: they write a migration (and a Model) from a name and columns, checked against the existing migrations first.
+The `active-record g model` and `g migration` commands: they write a migration (and a Model) from a name and columns, checked against the existing migrations first.
 _Avoid_: Scaffold, codegen
 
 **Console**:
-The interactive session `d1-record console` opens: a REPL on the project's local D1 database, with its Models and `db` in scope and each line run against that database. Local unless `--remote`, which opens the real database after its name is typed. With `-e` it isn't a session: it runs one piece of code, prints its result alone, and exits. A **Generator** writes files; the console works with data.
+The interactive session `active-record console` opens: a REPL on the project's local D1 database, with its Models and `db` in scope and each line run against that database. Local unless `--remote`, which opens the real database after its name is typed. With `-e` it isn't a session: it runs one piece of code, prints its result alone, and exits. A **Generator** writes files; the console works with data.
 _Avoid_: Shell, REPL (in the guide), playground
 
 **Override**:

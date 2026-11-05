@@ -10,20 +10,20 @@ Generators write a table’s migration and its Model from a short description, t
 Name the Model, and list its columns, with `g model`:
 
 ```sh
-npx d1-record g model Product 'name:string!' 'priceCents:integer!=0' user:references
+npx active-record g model Product 'name:string!' 'priceCents:integer!=0' user:references
 ```
 
 ```
 Wrote migrations/0003_create_products.sql
 Wrote src/models/product.ts
 Wrote src/db/schema.ts (3 tables) from migrations/
-Next: npx wrangler d1 migrations apply my-app-db --local
+Next: npx active-record migrate
 ```
 
 Then apply the migration to your local database:
 
 ```sh
-npx wrangler d1 migrations apply my-app-db --local
+npx active-record migrate
 ```
 
 The table is `products`, with an `id` generated in code, `created_at`, and `updated_at`.
@@ -68,9 +68,9 @@ Rails’ generators have no syntax for a column’s default. d1-record adds `=va
 Write a migration with `g migration`. It reads what to do from the migration’s name:
 
 ```sh
-npx d1-record g migration AddSlugToPosts slug:string:unique   # ADD COLUMN, with a unique index
-npx d1-record g migration RemoveSlugFromPosts slug             # DROP COLUMN
-npx d1-record g migration BackfillSlugs                         # an empty migration to write yourself
+npx active-record g migration AddSlugToPosts slug:string:unique   # ADD COLUMN, with a unique index
+npx active-record g migration RemoveSlugFromPosts slug             # DROP COLUMN
+npx active-record g migration BackfillSlugs                         # an empty migration to write yourself
 ```
 
 The name can be written `AddSlugToPosts` or `add_slug_to_posts`. Apply each migration afterwards, as above.
@@ -106,12 +106,12 @@ Rails writes `belongs_to :parent, class_name: "Category", optional: true`. Here 
 By default, Models and `application-record.ts` go in `src/models/`. To keep them elsewhere, pass `--models` to every command:
 
 ```sh
-npx d1-record schema --models src/app/models
-npx d1-record g model Product 'name:string!' --models src/app/models
+npx active-record schema --models src/app/models
+npx active-record g model Product 'name:string!' --models src/app/models
 ```
 
 :::note
-`d1-record schema` writes `application-record.ts` there and reads your Models from there, and the generators write Models that import it, so both need `--models`. A `package.json` script saves retyping it: `"db:schema": "d1-record schema --models src/app/models"`.
+`active-record schema` writes `application-record.ts` there and reads your Models from there, and the generators write Models that import it, so both need `--models`. A `package.json` script saves retyping it: `"db:schema": "active-record schema --models src/app/models"`.
 :::
 
 ## Keeping the schema current
@@ -119,7 +119,7 @@ npx d1-record g model Product 'name:string!' --models src/app/models
 The generators regenerate `src/db/schema.ts` themselves. After writing or editing a migration by hand, or adding or renaming a Model, regenerate it:
 
 ```sh
-npx d1-record schema
+npx active-record schema
 ```
 
 - **`--watch`** regenerates it whenever a migration or a Model file changes.
