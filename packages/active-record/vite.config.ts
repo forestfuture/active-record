@@ -13,6 +13,8 @@ export default defineConfig({
     },
     target: "es2022",
     tsconfig: "tsconfig.build.json",
+    // Provided by the Workers runtime; loaded only when an adapter looks up a Model's binding.
+    external: ["cloudflare:workers"],
     dts: { generator: "tsgo" },
     // In the repo, the package resolves to its source, so the command runs untranspiled with no
     // build; publishConfig points the published package at dist/.
