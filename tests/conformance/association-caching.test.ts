@@ -270,7 +270,8 @@ describe("caching lazily loaded associations", () => {
 
     await write(user);
 
-    expect(await user.posts().pluck("title")).toEqual(titles);
+    // Sorted: rows without an order come back in whatever order the database keeps them.
+    expect((await user.posts().pluck("title")).sort()).toEqual(titles);
   });
 
   test.each([
@@ -302,7 +303,7 @@ describe("caching lazily loaded associations", () => {
 
     expect(created.userId).toBe(1);
     expect(user.isLoaded("posts")).toBe(false);
-    expect(await user.posts().pluck("title")).toEqual(["A1", "A2", "A3"]);
+    expect((await user.posts().pluck("title")).sort()).toEqual(["A1", "A2", "A3"]);
   });
 
   test("a write through or() of two owners' hasManys clears both loaded collections", async () => {
