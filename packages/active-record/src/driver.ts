@@ -23,4 +23,11 @@ export interface Driver {
   write(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
   /** Whether sending again can succeed after `error`, having readied the connection for it. */
   recover(error: unknown): boolean;
+  /**
+   * A `withDatabase` scope with this database has begun: a driver may hold a connection for it
+   * until the scope ends. Scopes nest, each ended by its own `leaveScope`.
+   */
+  enterScope?(): void;
+  /** A scope `enterScope` began has ended: what it held can be let go once its queries finish. */
+  leaveScope?(): Promise<void>;
 }

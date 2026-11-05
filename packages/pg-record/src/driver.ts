@@ -73,6 +73,14 @@ export class PgDriver implements Driver {
     }
   }
 
+  enterScope(): void {
+    this.#clients.enterScope?.();
+  }
+
+  async leaveScope(): Promise<void> {
+    await this.#clients.leaveScope?.();
+  }
+
   /** Postgres's errors are final: nothing is sent again. */
   recover(): boolean {
     return false;

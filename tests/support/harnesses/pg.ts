@@ -10,6 +10,7 @@ import { PgDriver } from "../../../packages/pg-record/src/driver.ts";
 import { connect } from "../../../packages/pg-record/src/index.ts";
 import { typeParsers } from "../../../packages/pg-record/src/type-parsers.ts";
 import type { Harness, SchemaName } from "../harness.ts";
+import { databaseUrl } from "../pg.ts";
 
 const postgres = (name: string) => new URL(`../../fixtures/postgres/${name}.sql`, import.meta.url);
 const fixture = [postgres("fixture"), postgres("conformance")];
@@ -20,13 +21,6 @@ const schemas: Record<SchemaName, readonly URL[]> = {
   "generated-ids": [postgres("generated-ids")],
   paginated: [...fixture, postgres("paginated")],
 };
-
-/** The server the Postgres projects run against. */
-export function databaseUrl(): string {
-  const url = process.env["DATABASE_URL"];
-  if (url === undefined) throw new Error("The Postgres projects need DATABASE_URL");
-  return url;
-}
 
 /** `?` placeholders as Postgres's `$1`, `$2`, …, leaving quoted text and identifiers alone. */
 function numbered(sql: string): string {

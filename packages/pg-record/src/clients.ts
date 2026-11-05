@@ -1,4 +1,4 @@
-// Where a Database's Postgres clients come from: the app's Pool, or a connection string (Hyperdrive's or the app's), a client per operation.
+// Where a Database's Postgres clients come from: the app's Pool, or a connection string (Hyperdrive's or the app's), a client per scope or per operation.
 import pg from "pg";
 
 type Client = InstanceType<typeof pg.Client>;
@@ -50,6 +50,9 @@ export interface Clients {
   borrow(): Promise<Lease>;
   /** A client of its own, which nothing else sends on: for a write batch's transaction. */
   own(): Promise<Lease>;
+  /** A `withDatabase` scope has begun, and ended (see the core's `Driver`). */
+  enterScope?(): void;
+  leaveScope?(): Promise<void>;
 }
 
 /** Clients lent by the app's Pool. */
@@ -73,21 +76,70 @@ export class PoolClients implements Clients {
   }
 }
 
-/** Clients opened from a connection string: one per operation, closed when it's done. */
+/**
+ * Clients opened from a connection string. Inside a `withDatabase` scope, one opens on the first
+ * operation and serves the rest until the scope ends. Outside one, before it or after it, each
+ * operation opens its own and closes it when it's done, as no client may outlive a Worker's
+ * request.
+ */
 export class UrlClients implements Clients {
   readonly #connectionString: string;
+  /** How many scopes are open: they nest. */
+  #depth = 0;
+  /** The open scope's client, once an operation has asked for it. */
+  #scoped: Promise<Client> | undefined;
+  /** The scope client's operations not yet done, which its scope waits for before closing it. */
+  readonly #busy = new Set<Promise<void>>();
 
   constructor(connectionString: string) {
     this.#connectionString = connectionString;
   }
 
+  enterScope(): void {
+    this.#depth += 1;
+  }
+
+  /** Closes the scope's client once its last scope has ended and its operations are done. */
+  async leaveScope(): Promise<void> {
+    this.#depth = Math.max(0, this.#depth - 1);
+    const scoped = this.#scoped;
+    if (this.#depth > 0 || scoped === undefined) return;
+    this.#scoped = undefined;
+    await Promise.allSettled(this.#busy);
+    const client = await scoped.catch(() => undefined);
+    if (client !== undefined) await closed(client);
+  }
+
   async borrow(): Promise<Lease> {
+    if (this.#depth === 0) return this.own();
+    // Counted before the client is awaited, so a scope ending meanwhile waits for this operation.
+    let finish = () => {};
+    const busy = new Promise<void>((resolve) => (finish = resolve));
+    this.#busy.add(busy);
+    const done = async () => {
+      this.#busy.delete(busy);
+      finish();
+    };
+    try {
+      return { client: await this.#scopeClient(), done };
+    } catch (error) {
+      await done();
+      throw error;
+    }
+  }
+
+  async own(): Promise<Lease> {
     const client = await this.#open();
     return { client, done: () => closed(client) };
   }
 
-  own(): Promise<Lease> {
-    return this.borrow();
+  /** The scope's client, opened on first use; a failed open is tried again by the next. */
+  #scopeClient(): Promise<Client> {
+    this.#scoped ??= this.#open().catch((error: unknown) => {
+      this.#scoped = undefined;
+      throw error;
+    });
+    return this.#scoped;
   }
 
   async #open(): Promise<Client> {
