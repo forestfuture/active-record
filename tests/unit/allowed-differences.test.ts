@@ -26,7 +26,7 @@ describe("allowed differences", () => {
     expect(differenceSkipping("pg" as never, "ordering > by name", differences)).toBeUndefined();
   });
 
-  test("none names D1, which sets the baseline, and each is complete with a unique id", () => {
+  test("none names D1, which sets the baseline, and each is complete with a unique id and its tests", () => {
     const ids = allowedDifferences.map(({ id }) => id);
 
     expect(allowedDifferences.filter(({ adapters }) => adapters.includes("d1" as never))).toEqual(
@@ -34,8 +34,9 @@ describe("allowed differences", () => {
     );
     expect(new Set(ids).size).toBe(ids.length);
     for (const difference of allowedDifferences) {
-      expect([difference.reason, difference.contract, ...difference.tests]).not.toContain("");
-      expect(difference.tests.length).toBeGreaterThan(0);
+      const named = [...difference.tests, ...(difference.avoidedBy ?? [])];
+      expect([difference.reason, difference.contract, ...named]).not.toContain("");
+      expect(named.length).toBeGreaterThan(0);
     }
   });
 

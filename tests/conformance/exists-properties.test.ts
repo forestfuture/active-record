@@ -1,8 +1,9 @@
 import fc from "fast-check";
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { Post } from "../fixtures/models/post.ts";
-import { openHarness, type Harness } from "../support/harness.ts";
+import { openHarness, providedAdapter, type Harness } from "../support/harness.ts";
 import { SLOW_RUNS, SLOW_TIMEOUT } from "../support/properties.ts";
+import { allows } from "./allowed-differences.ts";
 
 /** Repeated titles and published flags, so distinct() changes how many rows there are. */
 const POSTS = [
@@ -39,14 +40,31 @@ describe("exists(), for any Relation", { timeout: SLOW_TIMEOUT }, () => {
   });
   afterAll(() => harness.dispose());
 
-  const relations = fc.record({
-    select: fc.constantFrom(...selections),
-    distinct: fc.boolean(),
-    where: fc.constantFrom(...conditions),
-    order: fc.constantFrom(...orders),
-    limit: fc.option(fc.nat({ max: 10 }), { nil: undefined }),
-    offset: fc.option(fc.nat({ max: 10 }), { nil: undefined }),
-  });
+  const relations = fc
+    .record({
+      select: fc.constantFrom(...selections),
+      distinct: fc.boolean(),
+      where: fc.constantFrom(...conditions),
+      order: fc.constantFrom(...orders),
+      limit: fc.option(fc.nat({ max: 10 }), { nil: undefined }),
+      offset: fc.option(fc.nat({ max: 10 }), { nil: undefined }),
+    })
+    .filter((relation) => orderable(relation));
+
+  /** Whether the database orders it: Postgres won't order distinct rows by an unselected column. */
+  function orderable({
+    select,
+    distinct,
+    order,
+  }: {
+    select?: readonly string[];
+    distinct: boolean;
+    order?: object;
+  }) {
+    if (!distinct || select === undefined || order === undefined) return true;
+    if (!allows(providedAdapter(), "distinct-order")) return true;
+    return Object.keys(order).every((key) => select.includes(key));
+  }
 
   test("is whether toArray() returns any record", async () => {
     await fc.assert(
