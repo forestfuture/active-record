@@ -1,8 +1,8 @@
 // Postgres's SQL: numbered placeholders, lists as arrays, and bulk rows read into the table's own column types.
 import { type Dialect, param } from "@forestfuture/active-record/adapter";
 
-/** A text literal. */
-const literal = (text: string) => `'${text.replaceAll("'", "''")}'`;
+/** A text literal, as an escape string, so it reads the same whatever `standard_conforming_strings` is. */
+const literal = (text: string) => `E'${text.replaceAll("\\", "\\\\").replaceAll("'", "''")}'`;
 
 /** A quoted identifier; embedded double quotes are doubled. */
 const quoted = (name: string) => `"${name.replaceAll('"', '""')}"`;
@@ -54,7 +54,7 @@ export const postgres: Dialect = {
   linkedKey(key, keyAttribute, linked) {
     if (linked.isText === keyAttribute.isText) return key;
     if (linked.isText) return `CAST(${key} AS TEXT)`;
-    return `CASE WHEN ${key} ~ '^\\s*[+-]?[0-9]+\\s*$' THEN CAST(${key} AS NUMERIC) END`;
+    return `CASE WHEN ${key} ~ ${literal("^\\s*[+-]?[0-9]+\\s*$")} THEN CAST(${key} AS NUMERIC) END`;
   },
   /**
    * Each row's cells become an object of its columns, read into a record of `table`, so every

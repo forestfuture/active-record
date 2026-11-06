@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vite-plus/test";
-import { column, Model, sql } from "../../../packages/active-record/src/index.ts";
+import { belongsTo, column, Model, sql } from "../../../packages/active-record/src/index.ts";
 import { connect, type QueryEvent } from "../../../packages/pg-record/src/index.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 
@@ -13,6 +13,12 @@ class User extends Model.define({
 
 class JsonValue extends Model.define({ id: { type: "integer", null: false }, value: "json" }) {
   static table = "json_values";
+}
+
+// A text foreign key to an integer key, which Postgres links by the key's digits.
+class Note extends Model.define({ id: { type: "integer", null: false }, label: "string" }) {
+  static table = "samples";
+  owner = belongsTo(User, { foreignKey: "label" });
 }
 
 // What Postgres gives that D1 can't: bigints, and its own detail for onQuery (#269).
@@ -29,6 +35,7 @@ describe("pg-record's values", () => {
     events.length = 0;
     await schema.pool.query({ text: "DELETE FROM users" });
     await schema.pool.query({ text: "DELETE FROM json_values" });
+    await schema.pool.query({ text: "DELETE FROM samples" });
   });
 
   test("a bigint reads as a number while it's a safe integer", async () => {
@@ -62,6 +69,22 @@ describe("pg-record's values", () => {
     const themed = await values.where(sql`${column("value")} ? ${"theme"}`).pluck("id");
 
     expect(themed).toEqual([1]);
+  });
+
+  test("its SQL reads the same with standard_conforming_strings off", async () => {
+    const url = new URL(schema.url);
+    url.searchParams.set(
+      "options",
+      `${url.searchParams.get("options")} -c standard_conforming_strings=off`,
+    );
+    const db = connect(url.toString());
+    await db.model(User).insertAll([{ id: 7, email: "a@example.com" }]);
+    // Spaces around the digits, which the key test reads with \s: a condition casts " 7" to 7.
+    await db.model(Note).insertAll([{ id: 1, label: " 7" }]);
+
+    const [note] = await db.model(Note).includes("owner").toArray();
+
+    expect(note!.loaded("owner")?.email).toBe("a@example.com");
   });
 
   test("onQuery hears Postgres's command and row count as meta", async () => {
