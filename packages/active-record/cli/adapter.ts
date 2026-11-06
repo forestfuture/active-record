@@ -113,7 +113,10 @@ export interface CliAdapter {
   /** The project's databases, from its config, or why they can't be read. */
   databases(cwd: string, configPath?: string): ConfigResult;
   /** A database's tables, from its migrations applied in order. */
-  readSchema(migrations: readonly Migration[], options: { migrationsTable?: string }): SchemaResult;
+  readSchema(
+    migrations: readonly Migration[],
+    options: { migrationsTable?: string },
+  ): Promise<SchemaResult>;
   /** A migration's SQL, and its file name after the existing ones. */
   migration(change: MigrationChange): MigrationResult;
   /**
