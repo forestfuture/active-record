@@ -94,7 +94,7 @@ It opens your remote database only when you ask with `--remote`, and never for a
 
 It starts only that D1 binding. The rest of your Wrangler config (Durable Objects, services, `vars`, and the secrets in `.dev.vars`) isn’t started, so it can’t warn or fail on them, and your Models can’t reach them either.
 
-On a terminal, what you type is kept in `.wrangler/d1-record-history`, which Wrangler projects already ignore. A line can hold a token or an email, so add `--no-history` when you’d rather it wasn’t kept.
+On a terminal, what you type is kept in `.wrangler/active-record-history`, which Wrangler projects already ignore. A line can hold a token or an email, so add `--no-history` when you’d rather it wasn’t kept.
 
 ## Opening your remote database
 
@@ -134,7 +134,7 @@ There’s no one to type the name unless both your input and output are a termin
 echo 'await User.count()' | npx active-record console --remote --yes
 ```
 
-What you type isn’t kept unless you add `--history`, and then it goes in `.wrangler/d1-record-history-remote`, a file of its own, so the up arrow never offers a local session a line you typed against the real database.
+What you type isn’t kept unless you add `--history`, and then it goes in `.wrangler/active-record-history-remote`, a file of its own, so the up arrow never offers a local session a line you typed against the real database.
 
 :::note
 The binding needs a `database_id`. If it also has a `preview_database_id`, Wrangler opens that one in place of `database_id`, and the console says so: `Remote preview database DB (…)`.
