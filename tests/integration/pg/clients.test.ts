@@ -111,12 +111,34 @@ describe("pg-record's clients, from a connection string (#269)", () => {
     const seen = await withDatabase(db, async () => {
       const first = await backend();
       await schema.pool.query({ text: "SELECT pg_terminate_backend($1)", values: [first] });
-      const failed: unknown = await backend().catch((error: unknown) => error);
-      return { first, failed, next: await backend() };
+      // Sent before or after pg hears the connection go: it fails, or opens the new client.
+      await backend().catch(() => undefined);
+      return { first, next: await backend() };
     });
 
-    expect(seen.failed).toBeInstanceOf(Error);
     expect(seen.next).not.toBe(seen.first);
+    await closed();
+  });
+
+  test("a query pg refuses before sending leaves the scope's client serving the others", async () => {
+    const circular: Record<string, unknown> = {};
+    circular["self"] = circular;
+
+    const outcomes = await withDatabase(db, () =>
+      Promise.allSettled([
+        db
+          .model(Backend)
+          .where(sql`(SELECT true FROM pg_sleep(0.2))`)
+          .pluck("id"),
+        db
+          .model(Backend)
+          .where(sql`id = ${circular}`)
+          .pluck("id"),
+        backend(),
+      ]),
+    );
+
+    expect(outcomes.map(({ status }) => status)).toEqual(["fulfilled", "rejected", "fulfilled"]);
     await closed();
   });
 
