@@ -46,7 +46,7 @@ function defaultDatabase(binding: unknown, connectionString: string, name: strin
 }
 
 /** The connection string a request's Postgres database opens its clients from; undefined for a Pool's. */
-const connectionStringOfDb = (db: AnyDatabase) =>
+const dbConnectionString = (db: AnyDatabase) =>
   (db as { [pgConnectionString]?: string })[pgConnectionString];
 
 /**
@@ -58,9 +58,9 @@ function requestedFor(
   requested: readonly AnyDatabase[],
 ): AnyDatabase | undefined {
   const postgres = requested.filter((db) => db[databaseExecutor].adapter === pgAdapter);
-  const matched = postgres.find((db) => connectionStringOfDb(db) === connectionString);
+  const matched = postgres.find((db) => dbConnectionString(db) === connectionString);
   if (matched !== undefined) return matched;
-  const pools = postgres.filter((db) => connectionStringOfDb(db) === undefined);
+  const pools = postgres.filter((db) => dbConnectionString(db) === undefined);
   return pools.length === 1 ? pools[0] : undefined;
 }
 
