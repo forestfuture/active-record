@@ -71,7 +71,7 @@ export interface ListedModel {
 }
 
 /** An adapter as a generated schema imports it: its factory, named for it, and its package. */
-export interface SchemaAdapter {
+interface SchemaAdapter {
   factory: string;
   from: string;
 }
