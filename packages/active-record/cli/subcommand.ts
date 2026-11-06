@@ -24,7 +24,7 @@ export type Parsed<O extends ParseArgsOptionsConfig> = ReturnType<
 >;
 
 /** What running a subcommand comes to: its exit code, or that it keeps running (`--watch`). */
-type Outcome = number | "watching" | Promise<number>;
+type Outcome = number | "watching" | Promise<number | "watching">;
 
 /** Prints what is wrong with a command line, then the usage; 1. */
 type Fail = (problem: string) => number;
