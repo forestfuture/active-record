@@ -110,7 +110,7 @@ describe("schemaOf: from migrations to table schemas", () => {
     );
 
     expect(defaulted.tables).toEqual(plain.tables);
-    const adapter = { name: "d1", from: "@forestfuture/d1-record" };
+    const adapter = { factory: "d1", from: "@forestfuture/d1-record" };
     const schema = (tables: typeof plain.tables) => ({
       adapter,
       tables,

@@ -5,7 +5,7 @@ import { renderSchema } from "../../packages/active-record/cli/schema/render.ts"
 import { schemaOf } from "../../packages/d1-record/cli/schema.ts";
 
 /** D1, as the generated schema imports it. */
-const d1 = { name: "d1", from: "@forestfuture/d1-record" };
+const d1 = { factory: "d1", from: "@forestfuture/d1-record" };
 import { jsonValues } from "../support/json-values.ts";
 import { PURE_RUNS } from "../support/properties.ts";
 

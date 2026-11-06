@@ -9,7 +9,7 @@ import type { GeneratedTable } from "../../packages/active-record/cli/adapter.ts
 import { schemaOf } from "../../packages/d1-record/cli/schema.ts";
 
 /** D1, as the generated schema imports it. */
-const d1 = { name: "d1", from: "@forestfuture/d1-record" };
+const d1 = { factory: "d1", from: "@forestfuture/d1-record" };
 
 function tablesOf(sql: string): GeneratedTable[] {
   const result = schemaOf([{ name: "0001_create.sql", sql }]);
