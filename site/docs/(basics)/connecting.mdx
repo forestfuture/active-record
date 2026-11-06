@@ -68,6 +68,50 @@ To name your Models once, use `db.models`:
 
 `connect(env.DB, { session, onQuery })` takes the same options as a request’s database.
 
+## Connecting to Postgres
+
+:::note
+`@forestfuture/pg-record` isn’t on npm yet. It’s released once the `active-record` command can generate its schema and apply its migrations.
+:::
+
+On Postgres, `connect` takes a Hyperdrive binding, a connection string, or a `pg` Pool. Open the request’s database from your Hyperdrive binding:
+
+```ts
+import { withDatabase } from "@forestfuture/active-record";
+import { connect } from "@forestfuture/pg-record";
+
+export default {
+  fetch(request, env) {
+    const db = connect(env.HYPERDRIVE);
+    return withDatabase(db, () => app.fetch(request, env));
+  },
+};
+```
+
+The first query inside `withDatabase` opens a client, and the rest of the request shares it. It closes when `withDatabase` finishes. Without `withDatabase`, each query opens a client of its own and closes it when it’s done. So does work that outlives the request, such as a save in `ctx.waitUntil`.
+
+Your schema names the binding, `adapter: pg({ binding: "HYPERDRIVE" })`, so `User.find(id)` works in a Worker with nothing to set up.
+
+`connect(env.DATABASE_URL)` takes a connection string the same way.
+
+:::tip
+On Workers, use Hyperdrive. It pools connections, so a new client doesn’t mean a new connection to Postgres.
+:::
+
+On Node, pass your own Pool, which your app ends when it shuts down:
+
+```ts
+import pg from "pg";
+import { connect } from "@forestfuture/pg-record";
+
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const db = connect(pool);
+```
+
+Outside a Worker there’s no binding, so wrap each request in `withDatabase(db, …)` for your Models’ statics.
+
+[Postgres’s differences](./postgres) lists what works differently from D1.
+
 ## Batching writes
 
 `batch` writes statements and records atomically, on the database they were built on:

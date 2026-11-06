@@ -161,7 +161,7 @@ A contract behavior an **Adapter** keeps its database's own semantics for, such 
 _Avoid_: Quirk, known difference, incompatibility, bug
 
 **Binding**:
-The name the app's config gives the database a Model queries, in the **Generated schema** its **Base class** holds (`d1({ binding: "DB" })`). On D1, it's a binding from the Wrangler config, `env.DB`.
+The name the app's config gives the database a Model queries, in the **Generated schema** its **Base class** holds (`d1({ binding: "DB" })`). On D1, it's a binding from the Wrangler config, `env.DB`. On Postgres, it's a Hyperdrive binding (`env.HYPERDRIVE`) or a variable holding a connection string (`env.DATABASE_URL`).
 _Avoid_: Connection name, database name
 
 **Session**:

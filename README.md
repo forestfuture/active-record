@@ -20,6 +20,8 @@ npm install @forestfuture/active-record @forestfuture/d1-record
 | [`@forestfuture/active-record`](packages/active-record/) | The core: Models, Relations, validations, callbacks, associations, and the `active-record` command |
 | [`@forestfuture/d1-record`](packages/d1-record/)         | The D1 adapter: `connect`, `withSession`, and the command’s D1 plugin                              |
 
+A Postgres adapter, [`@forestfuture/pg-record`](packages/pg-record/), is in the repository and not yet on npm.
+
 Coming from d1-record 0.5? See [Upgrading to 0.6](https://d1-record.forestfuture.dev/upgrading).
 
 ## A quick look
