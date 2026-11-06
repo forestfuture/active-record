@@ -32,7 +32,10 @@ async function dropStale(pool: Pool): Promise<void> {
   const before = Date.now() - 60 * 60 * 1000;
   for (const { tablename } of rows as { tablename: string }[]) {
     const time = Number.parseInt(/^smoke_([0-9a-z]+)_/.exec(tablename)?.[1] ?? "", 36);
-    if (time < before) await pool.query({ text: `DROP TABLE IF EXISTS "${tablename}" CASCADE` });
+    if (time < before)
+      await pool.query({
+        text: `DROP TABLE IF EXISTS "${tablename.replaceAll('"', '""')}" CASCADE`,
+      });
   }
 }
 
