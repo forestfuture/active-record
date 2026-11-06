@@ -90,7 +90,7 @@ describe("active-record console", () => {
     const cwd = await shop();
     const terminal = terminalStreams();
     const done = runConsole({ cwd }, () => {}, { ...terminal, terminal: true });
-    const history = join(cwd, ".wrangler/d1-record-history");
+    const history = join(cwd, ".wrangler/active-record-history");
 
     terminal.input.write("1 + 1\n");
     await waitFor(() => existsSync(history));
@@ -111,7 +111,7 @@ describe("active-record console", () => {
     terminal.input.end();
     await done;
 
-    expect(existsSync(join(cwd, ".wrangler/d1-record-history"))).toBe(false);
+    expect(existsSync(join(cwd, ".wrangler/active-record-history"))).toBe(false);
   }, 90_000);
 
   // pgrep: not on Windows. SIGKILL can't be caught, and does leave workerd running.
