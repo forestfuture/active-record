@@ -4,6 +4,7 @@ import {
   databaseExecutor,
   DatabaseExecutor,
   workersEnv,
+  type WorkersEnv,
 } from "@forestfuture/active-record/adapter";
 import { NoDatabase } from "@forestfuture/active-record";
 import { d1Adapter } from "./adapter.ts";
@@ -12,6 +13,15 @@ import { D1Driver } from "./driver.ts";
 
 /** @internal The library's key for a D1 database's binding and Driver. */
 export const d1Parts = Symbol("d1Parts");
+
+/** The Worker's bindings, from `cloudflare:workers`, read once; undefined outside a Worker. */
+let bindings: Promise<WorkersEnv | undefined> | undefined;
+
+/** The `env` a test mocks with d1-record inlined is this module's import, so it's imported here. */
+function workerBindings(): Promise<WorkersEnv | undefined> {
+  bindings ??= workersEnv(() => import("cloudflare:workers"));
+  return bindings;
+}
 
 /** One Database per D1 binding, for queries outside `withDatabase`: it holds nothing per-request. */
 const defaults = new WeakMap<D1Database, AnyDatabase>();
@@ -54,7 +64,7 @@ export async function databaseFor(
   name: string | undefined,
   requested: readonly AnyDatabase[],
 ): Promise<AnyDatabase> {
-  const env = name === undefined ? undefined : await workersEnv();
+  const env = name === undefined ? undefined : await workerBindings();
   if (env === undefined || name === undefined) return onlyRequested(requested, name);
   const binding = env[name] as D1Database | undefined;
   if (binding === undefined) {
