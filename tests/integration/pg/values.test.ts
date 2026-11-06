@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../../packages/active-record/src/index.ts";
+import { column, Model, sql } from "../../../packages/active-record/src/index.ts";
 import { connect, type QueryEvent } from "../../../packages/pg-record/src/index.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 
@@ -9,6 +9,10 @@ class User extends Model.define({
   age: "integer",
 }) {
   static table = "users";
+}
+
+class JsonValue extends Model.define({ id: { type: "integer", null: false }, value: "json" }) {
+  static table = "json_values";
 }
 
 // What Postgres gives that D1 can't: bigints, and its own detail for onQuery (#269).
@@ -24,6 +28,7 @@ describe("pg-record's values", () => {
   afterEach(async () => {
     events.length = 0;
     await schema.pool.query({ text: "DELETE FROM users" });
+    await schema.pool.query({ text: "DELETE FROM json_values" });
   });
 
   test("a bigint reads as a number while it's a safe integer", async () => {
@@ -45,6 +50,18 @@ describe("pg-record's values", () => {
       new TypeError('User: 9007199254740993 isn\'t an integer for "age"'),
     );
     await expect(users().pluck("age")).rejects.toThrow(TypeError);
+  });
+
+  test("a ? in an sql fragment's text is Postgres's own, not a placeholder: jsonb's key test", async () => {
+    const values = connect(schema.url).model(JsonValue);
+    await values.insertAll([
+      { id: 1, value: { theme: "dark" } },
+      { id: 2, value: { size: 3 } },
+    ]);
+
+    const themed = await values.where(sql`${column("value")} ? ${"theme"}`).pluck("id");
+
+    expect(themed).toEqual([1]);
   });
 
   test("onQuery hears Postgres's command and row count as meta", async () => {
