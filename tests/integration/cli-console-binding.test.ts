@@ -240,13 +240,40 @@ describe("the console's remote database binding", () => {
   });
 
   test("keeps the config's account, since its own config would lose it", async () => {
-    const cwd = projectWithFakeWrangler();
+    const cwd = projectWithFakeWrangler({ account_id: "acct-1", d1_databases: [entry] });
 
-    const opened = await openRemoteBinding(cwd, remote(cwd, { accountId: "acct-1" }));
+    const opened = await openRemoteBinding(cwd, remote(cwd));
     if (typeof opened === "string") throw new Error(opened);
 
     const [call] = globalThis.__fakeWrangler!.calls;
     expect(call!.config.account_id).toBe("acct-1");
+    await opened.dispose();
+  });
+
+  test("reads the account from a TOML config", async () => {
+    const cwd = projectWithFakeWrangler();
+    const configFile = join(cwd, "wrangler.toml");
+    writeFileSync(
+      configFile,
+      'name = "shop"\naccount_id = "acct-2"\n\n[[d1_databases]]\nbinding = "DB"\n',
+    );
+
+    const opened = await openRemoteBinding(cwd, remote(cwd, { configFile }));
+    if (typeof opened === "string") throw new Error(opened);
+
+    const [call] = globalThis.__fakeWrangler!.calls;
+    expect(call!.config.account_id).toBe("acct-2");
+    await opened.dispose();
+  });
+
+  test("names no account when the config names none", async () => {
+    const cwd = projectWithFakeWrangler({ d1_databases: [entry] });
+
+    const opened = await openRemoteBinding(cwd, remote(cwd));
+    if (typeof opened === "string") throw new Error(opened);
+
+    const [call] = globalThis.__fakeWrangler!.calls;
+    expect(call!.config).not.toHaveProperty("account_id");
     await opened.dispose();
   });
 

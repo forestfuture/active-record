@@ -44,31 +44,6 @@ describe("the database the console opens", () => {
     });
   });
 
-  test("carries the config's account_id, which the temporary config would otherwise lose", () => {
-    const cwd = project("DB");
-    writeFileSync(
-      join(cwd, "wrangler.jsonc"),
-      JSON.stringify({ account_id: "acct-1", d1_databases: [{ binding: "DB" }] }),
-    );
-
-    expect(databaseFor(cwd, {})).toMatchObject({ accountId: "acct-1" });
-  });
-
-  test("has no account id when the config names none", () => {
-    expect(databaseFor(project("DB"), {})).not.toHaveProperty("accountId");
-  });
-
-  test("reads account_id from a TOML config", () => {
-    const cwd = mkdtempSync(join(tmpdir(), "console-db-"));
-    made.push(cwd);
-    writeFileSync(
-      join(cwd, "wrangler.toml"),
-      'name = "shop"\naccount_id = "acct-2"\n\n[[d1_databases]]\nbinding = "DB"\n',
-    );
-
-    expect(databaseFor(cwd, {})).toMatchObject({ accountId: "acct-2" });
-  });
-
   test("no config says so", () => {
     const cwd = mkdtempSync(join(tmpdir(), "console-db-"));
     made.push(cwd);
