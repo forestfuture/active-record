@@ -1,5 +1,5 @@
 // `active-record console`: opens the project's database, local or remote, with its Models, and runs a REPL or one piece of code (#104, #105).
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { WriteStream } from "node:tty";
 import type { ChosenDatabase, CliAdapter, OpenBinding } from "../adapter.ts";
@@ -54,12 +54,12 @@ export function standardIo(): ConsoleIo {
 }
 
 /**
- * Where the history is kept: beside the project's local state, which Wrangler projects ignore. A
- * remote session has a file of its own, so a line typed against the real database is never
- * offered, with the up arrow, to a local session (or the other way round).
+ * Where the history is kept: in the adapter's folder for local files, which the project already
+ * ignores. A remote session has a file of its own, so a line typed against the real database is
+ * never offered, with the up arrow, to a local session (or the other way round).
  */
-function historyFileFor(configFile: string, remote: boolean): string {
-  return join(dirname(configFile), `.wrangler/d1-record-history${remote ? "-remote" : ""}`);
+function historyFileFor(stateFolder: string, remote: boolean): string {
+  return join(stateFolder, `active-record-history${remote ? "-remote" : ""}`);
 }
 
 /** Says why the console can't open; 1. */
@@ -130,6 +130,8 @@ function runOnce(code: string, opened: Opened, io: ConsoleIo, errors: Writable):
 /** What opening the console found: the database chosen, the project's Models, the open binding. */
 interface Prepared {
   chosen: ChosenDatabase;
+  /** The adapter's folder for the command's local files: the history's. */
+  stateFolder: string;
   project: ConsoleProject;
   opened: OpenBinding;
 }
@@ -146,7 +148,8 @@ async function prepare(options: ConsoleOptions, io: ConsoleIo): Promise<Prepared
   const opened = await (options.remote === true
     ? openRemote(adapter, { cwd, chosen }, options, io)
     : adapter.open(cwd, chosen, { remote: false }));
-  return typeof opened === "string" ? opened : { chosen, project, opened };
+  if (typeof opened === "string") return opened;
+  return { chosen, stateFolder: adapter.stateFolder(chosen), project, opened };
 }
 
 /** Where a console talks: its own ends, what it says besides results, and its error stream. */
@@ -159,7 +162,7 @@ interface Talk {
 /** The session, or the one piece of code, on the open database; the exit code. */
 async function converse(
   options: ConsoleOptions,
-  { chosen, project, opened }: Prepared,
+  { stateFolder, project, opened }: Prepared,
   { io, say, errors }: Talk,
 ): Promise<Finished> {
   const scripted = options.eval !== undefined;
@@ -184,8 +187,7 @@ async function converse(
     ...inside,
     prompt: promptFor(remote, io.terminal === true),
     // What is typed against a real database stays out of the history unless it is asked for.
-    historyFile:
-      (options.history ?? !remote) ? historyFileFor(chosen.configFile, remote) : undefined,
+    historyFile: (options.history ?? !remote) ? historyFileFor(stateFolder, remote) : undefined,
   });
   await session.closed;
   return { exitCode: 0, stdout: "", stderr: "" };

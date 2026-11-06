@@ -124,6 +124,11 @@ export interface CliAdapter {
    * `migrate` applies migrations to, which needn't be the same (D1's preview database).
    */
   remote(chosen: ChosenDatabase, use: "open" | "migrate"): RemoteTarget | string;
+  /**
+   * The folder for the command's own local files, such as the console's history: one the
+   * project's tools already keep out of version control.
+   */
+  stateFolder(chosen: ChosenDatabase): string;
   /** Opens the database for the console: the local one, or with `remote`, the real one. */
   open(
     cwd: string,

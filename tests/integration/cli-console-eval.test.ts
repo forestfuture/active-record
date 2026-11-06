@@ -95,7 +95,7 @@ describe("active-record console -e", () => {
   test("keeps no history", async () => {
     const run = await evaluating("1 + 1");
 
-    expect(existsSync(join(run.cwd, ".wrangler/d1-record-history"))).toBe(false);
+    expect(existsSync(join(run.cwd, ".wrangler/active-record-history"))).toBe(false);
   }, 90_000);
 });
 

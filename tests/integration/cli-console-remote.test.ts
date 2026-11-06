@@ -151,7 +151,7 @@ describe("active-record console --remote", () => {
     terminal.input.end();
     await done;
 
-    expect(existsSync(join(cwd, ".wrangler/d1-record-history"))).toBe(false);
+    expect(existsSync(join(cwd, ".wrangler/active-record-history"))).toBe(false);
   }, 90_000);
 
   test("keeps what you type, in a file of its own, when asked to", async () => {
@@ -162,7 +162,7 @@ describe("active-record console --remote", () => {
       (line) => lines.push(line),
       io,
     );
-    const history = join(cwd, ".wrangler/d1-record-history-remote");
+    const history = join(cwd, ".wrangler/active-record-history-remote");
 
     await waitFor(() => lines.includes("Models: User"));
     terminal.input.write("1 + 1\n");
@@ -171,7 +171,7 @@ describe("active-record console --remote", () => {
     await done;
 
     expect(readFileSync(history, "utf8")).toContain("1 + 1");
-    expect(existsSync(join(cwd, ".wrangler/d1-record-history"))).toBe(false);
+    expect(existsSync(join(cwd, ".wrangler/active-record-history"))).toBe(false);
   }, 90_000);
 });
 

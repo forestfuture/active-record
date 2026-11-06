@@ -267,6 +267,7 @@ describe("planning with another adapter's plugin", () => {
     },
     migration: ({ name }) => ({ ok: true, file: `9999_${name}.stub`, sql: "-- stub\n" }),
     remote: () => "unused",
+    stateFolder: () => "unused",
     open: async () => "unused",
     migrate: async () => 0,
   };
