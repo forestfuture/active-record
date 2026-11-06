@@ -8,7 +8,7 @@ import { databaseExecutor, type AnyDatabase } from "./database.ts";
 import { NoDatabase } from "./errors.ts";
 import { CurrentExecutor, type DatabaseExecutor, type Executor } from "./executor.ts";
 import type { ModelClass, ScopesOf } from "./model.ts";
-import { requestStore, runWithStore } from "./request-store.ts";
+import { type DatabaseScope, requestStore, runWithStore } from "./request-store.ts";
 import type { Scoped } from "./relation.ts";
 import { relationFor } from "./scoped-relation.ts";
 
@@ -19,9 +19,9 @@ import { relationFor } from "./scoped-relation.ts";
  *
  * Each call is a scope of its own, even with a Database another request shares. An adapter may
  * hold a connection for the scope (pg-record does, from a connection string). A nested call with
- * the same Database shares the outer call's scope. When `fn` settles, the scope ends, and the
- * adapter lets its connection go once the queries still running on it finish. Work that outlives
- * the scope, such as a `waitUntil` save, gets a connection of its own.
+ * the same Database shares the outer call's scope while that call is running. When `fn` settles,
+ * the scope ends, and the adapter lets its connection go once the queries still running on it
+ * finish. Work that outlives the scope, such as a `waitUntil` save, gets a connection of its own.
  */
 export async function withDatabase<R>(
   databases: AnyDatabase | readonly AnyDatabase[],
@@ -38,30 +38,37 @@ export async function withDatabase<R>(
     return await runWithStore({ databases: all, scopes }, fn);
   } finally {
     // The scopes end; an adapter lets their connections go once their queries finish.
-    await Promise.all(opened.map(({ executor, scope }) => executor.closeScope(scope)));
+    await Promise.all(
+      opened.map(({ executor, scope }) => {
+        scope.hasEnded = true;
+        return executor.closeScope(scope.held);
+      }),
+    );
   }
 }
 
-/** A scope a `withDatabase` call opened, which it closes when it ends: its database's, and what its driver holds. */
+/** A scope a `withDatabase` call opened, which it closes when it ends, and its database's. */
 interface OpenedScope {
   executor: DatabaseExecutor;
-  scope: unknown;
+  scope: DatabaseScope;
 }
 
 /**
- * Opens a scope for each of `databases` not already in one, added to `scopes` and to `opened` as
+ * Opens a scope for each of `databases` not already in a running one, added to `scopes` and to `opened` as
  * it opens, so the ones opened before a driver throws are still closed.
  */
 function openScopes(
   databases: readonly AnyDatabase[],
-  scopes: Map<DatabaseExecutor, unknown>,
+  scopes: Map<DatabaseExecutor, DatabaseScope>,
   opened: OpenedScope[],
 ): void {
   for (const db of databases) {
     const executor = db[databaseExecutor];
     executor.setOrigin("request");
-    if (scopes.has(executor)) continue;
-    const scope = executor.openScope();
+    // A call nested in one still running shares its scope; in one that has returned (a
+    // `waitUntil`'s, started inside the request), it opens its own.
+    if (scopes.get(executor)?.hasEnded === false) continue;
+    const scope: DatabaseScope = { held: executor.openScope(), hasEnded: false };
     scopes.set(executor, scope);
     opened.push({ executor, scope });
   }

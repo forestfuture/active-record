@@ -136,7 +136,7 @@ export class DatabaseExecutor implements Executor {
 
   /** What the driver opened for the `withDatabase` scope a statement is sent in, if any. */
   #scope(): unknown {
-    return requestStore()?.scopes.get(this);
+    return requestStore()?.scopes.get(this)?.held;
   }
 
   /** Runs one statement and resolves to its rows. */

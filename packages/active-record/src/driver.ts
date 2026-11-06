@@ -29,8 +29,8 @@ export interface Driver<Scope = unknown> {
   /**
    * A `withDatabase` call with this database has begun: what the driver holds for it, such as a
    * connection, until `closeScope`. Each call opens its own, so overlapping requests sharing a
-   * Database never share one; a call nested in one with the same database shares the outer's.
-   * Statements sent after it ended (a `waitUntil` save) are still handed it.
+   * Database never share one; a call nested in a running one with the same database shares the
+   * outer's. Statements sent after it ended (a `waitUntil` save) are still handed it.
    */
   openScope?(): Scope;
   /**
