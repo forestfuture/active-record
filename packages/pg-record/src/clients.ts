@@ -9,14 +9,14 @@ export interface TypeParsers {
 }
 
 /** One query, as `pg`'s `query` takes it. */
-export interface QueryConfig {
+interface QueryConfig {
   text: string;
   values?: unknown[];
   types?: TypeParsers;
 }
 
 /** What `pg`'s `query` resolves to, as far as this adapter reads it. */
-export interface QueryResult {
+interface QueryResult {
   rows: Record<string, unknown>[];
   rowCount: number | null;
   command: string;
@@ -28,7 +28,7 @@ export interface Queryable {
 }
 
 /** A client lent by a `pg` Pool, released when it's done. */
-export interface PoolClient extends Queryable {
+interface PoolClient extends Queryable {
   release(error?: Error | boolean): void;
 }
 

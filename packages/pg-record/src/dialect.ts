@@ -1,5 +1,5 @@
 // Postgres's SQL: numbered placeholders, lists as arrays, and bulk rows read into the table's own column types.
-import { type Dialect, param } from "@forestfuture/active-record/adapter";
+import { type Dialect, valueMark } from "@forestfuture/active-record/adapter";
 
 /** A text literal, as an escape string, so it reads the same whatever `standard_conforming_strings` is. */
 const literal = (text: string) => `E'${text.replaceAll("\\", "\\\\").replaceAll("'", "''")}'`;
@@ -33,16 +33,16 @@ function jsonCell(table: string, column: string, index: number): string {
 
 export const postgres: Dialect = {
   placeholder: (index) => `$${index}`,
-  inList: (column, cells) => ({ sql: `${column} = ANY(${param})`, value: [...cells] }),
+  inList: (column, cells) => ({ sql: `${column} = ANY(${valueMark})`, value: [...cells] }),
   pagination(limit, offset, params) {
     let text = "";
     if (limit !== undefined) {
       params.push(limit);
-      text += ` LIMIT ${param}`;
+      text += ` LIMIT ${valueMark}`;
     }
     if (offset !== undefined) {
       params.push(offset);
-      text += ` OFFSET ${param}`;
+      text += ` OFFSET ${valueMark}`;
     }
     return text;
   },
@@ -68,7 +68,7 @@ export const postgres: Dialect = {
     return {
       select: attributes.map(({ column }) => `row.${quoted(column)}`).join(", "),
       from:
-        `jsonb_array_elements(${param}::jsonb) AS cells, ` +
+        `jsonb_array_elements(${valueMark}::jsonb) AS cells, ` +
         `jsonb_populate_record(NULL::${table}, ${jsonObject(pairs)}) AS row`,
     };
   },

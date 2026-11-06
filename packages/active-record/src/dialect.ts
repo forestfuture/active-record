@@ -7,7 +7,7 @@ import type { CompiledSql } from "./compiler.ts";
  * placeholder once the SQL is complete, so a `?` in a raw `sql` fragment's text (Postgres's jsonb
  * operator) is never read as one. NUL, since no database accepts it in a statement's text.
  */
-export const param = "\u0000";
+export const valueMark = "\u0000";
 
 /** The SQL a database needs in its own form. Everything else in the compiler is shared. */
 export interface Dialect {
@@ -29,10 +29,10 @@ export interface Dialect {
   linkedKey(key: string, keyAttribute: Attribute, linked: Attribute): string;
 }
 
-/** `compiled` with each `param` written as `dialect`'s placeholder: the SQL as it's sent. */
+/** `compiled` with each `valueMark` written as `dialect`'s placeholder: the SQL as it's sent. */
 export function withPlaceholders(dialect: Dialect, compiled: CompiledSql): CompiledSql {
-  if (!compiled.sql.includes(param)) return compiled;
+  if (!compiled.sql.includes(valueMark)) return compiled;
   let index = 0;
-  const sql = compiled.sql.replaceAll(param, () => dialect.placeholder(++index));
+  const sql = compiled.sql.replaceAll(valueMark, () => dialect.placeholder(++index));
   return { ...compiled, sql };
 }
