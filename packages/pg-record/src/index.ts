@@ -1,6 +1,6 @@
 // The Postgres adapter's public API: what an app imports from `@forestfuture/pg-record`, beside the core.
 export { pg } from "./adapter.ts";
-export type { Pool, PoolClient, QueryConfig, QueryResult, TypeParsers } from "./clients.ts";
+export type { Pool } from "./clients.ts";
 export {
   connect,
   Database,
