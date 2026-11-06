@@ -15,8 +15,8 @@ export interface AllowedDifference {
   tests: readonly string[];
   /**
    * The conformance tests that run on those adapters by avoiding it, by full name: a property
-   * test that leaves it out of what it generates (through `allows`), or one whose schema there
-   * doesn't reach it.
+   * test that leaves it out of what it generates (through `allows`), one whose schema there
+   * doesn't reach it, or one that never sends what would show it.
    */
   avoidedBy?: readonly string[];
 }
@@ -25,6 +25,20 @@ const ordering = '`order({ createdAt: "desc", id: "asc" })` sorts by each key in
 
 /** Each adapter's docs repeat the list. */
 export const allowedDifferences: readonly AllowedDifference[] = [
+  {
+    id: "paginate-reads",
+    adapters: ["pg"],
+    reason:
+      "Postgres sends a page's count and its rows one after another, not in one batch, so a " +
+      "write between them can make `total` disagree with `records` for a moment. D1 reads both " +
+      "in one round trip.",
+    contract: "the page's `SELECT` go to D1 as one batch: one round trip",
+    tests: [],
+    avoidedBy: [
+      "paginate > keeps the Relation's conditions and order",
+      "paginate > past the last page, has no records but the real total",
+    ],
+  },
   {
     id: "null-ordering",
     adapters: ["pg"],
