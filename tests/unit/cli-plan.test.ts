@@ -311,6 +311,22 @@ describe("planning with another adapter's plugin", () => {
     );
   });
 
+  test("a migration a pattern wouldn't match is refused, when the plugin names no setting for it", async () => {
+    const one = project().databases[0]!;
+    const pattern = "migrations/*/migration.sql";
+    const database = { ...one.target.database, migrationsPattern: pattern };
+    const nested = { ...one, target: { ...one.target, database } };
+    const product = { kind: "model", name: "Product", columns: [] } as const;
+
+    const plan = await planGenerate({ ...project(), databases: [nested], adapter: stub }, product);
+
+    expect(linesOf(plan)).toEqual([
+      "migrations/9999_create_products.stub wouldn't match the pattern " +
+        "(migrations/*/migration.sql) in wrangler.jsonc, so it wouldn't be applied; write the " +
+        "migration with your migration tool instead",
+    ]);
+  });
+
   test("--check reports a schema written for another adapter as out of date", async () => {
     const written = await planSchema({ ...project(), adapter: { ...stub, name: "d1" } }, false);
     const schema = filesOf(written)[0]!.source;
