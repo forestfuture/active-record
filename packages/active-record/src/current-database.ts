@@ -28,7 +28,7 @@ export async function withDatabase<R>(
   const outer = requestStore();
   const inner = Array.isArray(databases) ? databases : [databases as AnyDatabase];
   const scopes = new Map(outer?.scopes);
-  const opened: [DatabaseExecutor, unknown][] = [];
+  const opened: OpenedScope[] = [];
   try {
     openScopes(inner, scopes, opened);
     // A Database given twice, or again in a nested call, is one of the request's databases.
@@ -36,8 +36,14 @@ export async function withDatabase<R>(
     return await runWithStore({ databases: all, scopes }, fn);
   } finally {
     // An adapter may hold a connection for the scope (pg-record): it's let go now.
-    await Promise.all(opened.map(([executor, scope]) => executor.closeScope(scope)));
+    await Promise.all(opened.map(({ executor, scope }) => executor.closeScope(scope)));
   }
+}
+
+/** A scope a `withDatabase` call opened, which it closes when it ends: its database's, and what its driver holds. */
+interface OpenedScope {
+  executor: DatabaseExecutor;
+  scope: unknown;
 }
 
 /**
@@ -47,7 +53,7 @@ export async function withDatabase<R>(
 function openScopes(
   databases: readonly AnyDatabase[],
   scopes: Map<DatabaseExecutor, unknown>,
-  opened: [DatabaseExecutor, unknown][],
+  opened: OpenedScope[],
 ): void {
   for (const db of databases) {
     const executor = db[databaseExecutor];
@@ -55,7 +61,7 @@ function openScopes(
     if (scopes.has(executor)) continue;
     const scope = executor.openScope();
     scopes.set(executor, scope);
-    opened.push([executor, scope]);
+    opened.push({ executor, scope });
   }
 }
 
