@@ -88,7 +88,8 @@ export async function loadAdapter(cwd: string, named?: string): Promise<CliAdapt
   }
   const found = await installed(cwd, named);
   if (typeof found === "string") return found;
-  if (found.length === 1) return found[0]!.unsupported?.() ?? found[0]!;
+  const [only, ...others] = found;
+  if (only !== undefined && others.length === 0) return only.unsupported?.() ?? only;
   if (found.length > 1) {
     const names = listed(found.map((plugin) => plugin.name));
     return `Several adapters are installed here (${names}); choose one with --adapter`;
