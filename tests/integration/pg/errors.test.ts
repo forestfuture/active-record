@@ -99,7 +99,7 @@ describe("pg-record's constraint errors", () => {
     }
   });
 
-  test("a unique failure still names its columns", async () => {
+  test("a unique failure names its columns", async () => {
     const db = connect(schema.url);
     await db.model(User).create({ email: "twice@example.com" });
 
