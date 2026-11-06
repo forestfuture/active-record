@@ -44,6 +44,16 @@ export interface Lease {
   done(error?: unknown): Promise<void>;
 }
 
+/**
+ * The connection string a source opens its clients from: a Hyperdrive binding's, or the source
+ * itself when it's one. Undefined for anything else, such as a Pool.
+ */
+export function connectionStringOf(source: unknown): string | undefined {
+  if (typeof source === "string") return source;
+  const held = (source as { connectionString?: unknown } | undefined)?.connectionString;
+  return typeof held === "string" ? held : undefined;
+}
+
 /** Where a Database's clients come from. */
 export interface Clients {
   /** A client for one statement, or one read batch. */
