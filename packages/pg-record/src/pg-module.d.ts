@@ -23,6 +23,7 @@ declare module "pg" {
     query(config: QueryConfig): Promise<QueryResult>;
     end(): Promise<void>;
     on(event: "error", listener: (error: Error) => void): this;
+    once(event: "end", listener: () => void): this;
   }
 
   interface PoolClient {

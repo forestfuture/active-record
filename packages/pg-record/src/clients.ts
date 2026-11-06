@@ -118,7 +118,7 @@ export class ClientScope {
     const done = async (error?: unknown) => {
       this.#busy.delete(busy);
       finish();
-      if (error !== undefined && isConnectionLost(error)) this.#drop(opening);
+      if (isSessionEnding(error)) this.#forget(opening);
     };
     try {
       return { client: await opening, done };
@@ -126,12 +126,6 @@ export class ClientScope {
       await done();
       throw error;
     }
-  }
-
-  /** Lets a client whose connection was lost go, so the scope's next operation opens another. */
-  #drop(opening: Promise<Client>): void {
-    if (this.#client === opening) this.#client = undefined;
-    void opening.then(closed, () => {});
   }
 
   /**
@@ -150,13 +144,28 @@ export class ClientScope {
     if (client !== undefined) await closed(client);
   }
 
-  /** The client, opened on first use; a failed open is tried again by the next. */
+  /**
+   * The client, opened on first use. A failed open is tried again by the next operation, and so
+   * is a client whose connection has gone, as `pg` reports it (`error` on the client itself, then
+   * `end`) or the server does (`isSessionEnding`). An error that leaves the connection healthy,
+   * such as `pg` refusing a value before sending it, never costs the scope its client.
+   */
   #opened(): Promise<Client> {
-    this.#client ??= this.#open().catch((error: unknown) => {
-      this.#client = undefined;
-      throw error;
-    });
-    return this.#client;
+    if (this.#client !== undefined) return this.#client;
+    const opening: Promise<Client> = this.#open().then(
+      (client) =>
+        client.on("error", () => this.#forget(opening)).once("end", () => this.#forget(opening)),
+      (error: unknown) => {
+        this.#forget(opening);
+        throw error;
+      },
+    );
+    this.#client = opening;
+    return opening;
+  }
+
+  #forget(opening: Promise<Client>): void {
+    if (this.#client === opening) this.#client = undefined;
   }
 }
 
@@ -198,15 +207,10 @@ export class UrlClients implements Clients {
   }
 }
 
-/**
- * Whether `error` means the client's connection is gone: an error the server didn't send (the
- * socket closed or reset, `ECONNRESET`), a connection exception (SQLSTATE class 08), or the server
- * ending the session (57P: shut down, terminated). The server's own errors carry a `severity`.
- */
-function isConnectionLost(error: unknown): boolean {
-  const { severity, code } = (error ?? {}) as { severity?: unknown; code?: unknown };
-  if (typeof severity !== "string" || typeof code !== "string") return true;
-  return code.startsWith("08") || code.startsWith("57P");
+/** Whether the server sent `error` as it ends the session: a `FATAL` or `PANIC` (57P01, a terminated backend). */
+function isSessionEnding(error: unknown): boolean {
+  const severity = (error as { severity?: unknown } | undefined)?.severity;
+  return severity === "FATAL" || severity === "PANIC";
 }
 
 /** Ends `client`. A connection that fails to close has nothing left to do, so it's not an error. */
