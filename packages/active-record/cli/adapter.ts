@@ -79,6 +79,8 @@ export interface ChosenDatabase {
   /** Its entry, as the config has it. */
   entry: Record<string, unknown>;
   configFile: string;
+  /** Its migrations folder, as an absolute path. */
+  migrationsDir: string;
 }
 
 /** A remote database, named for a person to confirm before anything reaches it. */

@@ -14,7 +14,8 @@ function chosen(cwd: string): ChosenDatabase {
   const config = JSON.parse(readFileSync(configFile, "utf8")) as {
     d1_databases?: Record<string, unknown>[];
   };
-  return { binding: "DB", entry: config.d1_databases?.[0] ?? { binding: "DB" }, configFile };
+  const entry = config.d1_databases?.[0] ?? { binding: "DB" };
+  return { binding: "DB", entry, configFile, migrationsDir: join(cwd, "migrations") };
 }
 
 /** A project in the repo (so it finds this repo's wrangler) with one D1 binding configured. */
@@ -194,6 +195,7 @@ describe("the console's remote database binding", () => {
     binding: "DB",
     entry,
     configFile: join(cwd, "wrangler.jsonc"),
+    migrationsDir: join(cwd, "migrations"),
     ...more,
   });
   beforeEach(() => {
