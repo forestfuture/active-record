@@ -114,16 +114,24 @@ export class ClientScope {
     let finish = () => {};
     const busy = new Promise<void>((resolve) => (finish = resolve));
     this.#busy.add(busy);
-    const done = async () => {
+    const opening = this.#opened();
+    const done = async (error?: unknown) => {
       this.#busy.delete(busy);
       finish();
+      if (error !== undefined && isConnectionLost(error)) this.#drop(opening);
     };
     try {
-      return { client: await this.#opened(), done };
+      return { client: await opening, done };
     } catch (error) {
       await done();
       throw error;
     }
+  }
+
+  /** Lets a client whose connection was lost go, so the scope's next operation opens another. */
+  #drop(opening: Promise<Client>): void {
+    if (this.#client === opening) this.#client = undefined;
+    void opening.then(closed, () => {});
   }
 
   /**
@@ -188,6 +196,17 @@ export class UrlClients implements Clients {
     await client.connect();
     return client;
   }
+}
+
+/**
+ * Whether `error` means the client's connection is gone: an error the server didn't send (the
+ * socket closed or reset, `ECONNRESET`), a connection exception (SQLSTATE class 08), or the server
+ * ending the session (57P: shut down, terminated). The server's own errors carry a `severity`.
+ */
+function isConnectionLost(error: unknown): boolean {
+  const { severity, code } = (error ?? {}) as { severity?: unknown; code?: unknown };
+  if (typeof severity !== "string" || typeof code !== "string") return true;
+  return code.startsWith("08") || code.startsWith("57P");
 }
 
 /** Ends `client`. A connection that fails to close has nothing left to do, so it's not an error. */

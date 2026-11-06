@@ -107,6 +107,19 @@ describe("pg-record's clients, from a connection string (#269)", () => {
     await closed();
   });
 
+  test("a scope whose client loses its connection opens a new one for its next query", async () => {
+    const seen = await withDatabase(db, async () => {
+      const first = await backend();
+      await schema.pool.query({ text: "SELECT pg_terminate_backend($1)", values: [first] });
+      const failed: unknown = await backend().catch((error: unknown) => error);
+      return { first, failed, next: await backend() };
+    });
+
+    expect(seen.failed).toBeInstanceOf(Error);
+    expect(seen.next).not.toBe(seen.first);
+    await closed();
+  });
+
   test("a read batch runs on one client: a preload sees the backend of its owners' query", async () => {
     const [found] = await db.model(Backend).includes("sessions").toArray();
 
