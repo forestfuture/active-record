@@ -49,6 +49,7 @@ describe("migrate", () => {
         binding: "DB",
         entry: { binding: "DB", database_name: "shop", database_id: "local-shop" },
         configFile: join(cwd, "wrangler.jsonc"),
+        migrationsDir: join(cwd, "migrations"),
       },
       { remote: false },
     );

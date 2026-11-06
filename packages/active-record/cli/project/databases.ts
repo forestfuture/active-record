@@ -1,4 +1,5 @@
 // Choosing the database a command acts on: the only one a project declares, or the one `--database` names.
+import { resolve } from "node:path";
 import type { ChosenDatabase, CliAdapter } from "../adapter.ts";
 import { listed } from "./names.ts";
 
@@ -29,5 +30,7 @@ export function chosenDatabase(
   if (!config.ok) return config.error;
   const chosen = chooseDatabase(config.databases, options.database);
   if (typeof chosen === "string") return chosen;
-  return { binding: chosen.binding, entry: chosen.entry, configFile: config.file };
+  const { binding, entry } = chosen;
+  const migrationsDir = resolve(config.dir, chosen.migrationsDir);
+  return { binding, entry, configFile: config.file, migrationsDir };
 }

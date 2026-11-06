@@ -11,7 +11,8 @@ import { libraryPaths } from "./library-paths.ts";
 /** The project's one D1 binding, as the console would choose it. */
 export function chosen(cwd: string): ChosenDatabase {
   const entry = { binding: "DB", database_name: "shop", database_id: "local-shop" };
-  return { binding: "DB", entry, configFile: join(cwd, "wrangler.jsonc") };
+  const configFile = join(cwd, "wrangler.jsonc");
+  return { binding: "DB", entry, configFile, migrationsDir: join(cwd, "migrations") };
 }
 
 /** A project, in the folder `scratch` makes, with its local database seeded: Alice, id 1. */

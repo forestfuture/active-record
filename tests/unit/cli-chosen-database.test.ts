@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, test } from "vite-plus/test";
@@ -31,6 +31,7 @@ describe("the database the console opens", () => {
       binding: "DB",
       entry: { binding: "DB", database_name: "DB-name" },
       configFile: join(cwd, "wrangler.jsonc"),
+      migrationsDir: join(cwd, "migrations"),
     });
   });
 
@@ -41,6 +42,20 @@ describe("the database the console opens", () => {
       binding: "LOGS",
       entry: { binding: "LOGS", database_name: "LOGS-name" },
       configFile: join(cwd, "wrangler.jsonc"),
+      migrationsDir: join(cwd, "migrations"),
+    });
+  });
+
+  // A migration runner needs the folder, as the config has it, beside the config (#284).
+  test("with its migrations folder, from beside the config file", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "console-db-"));
+    made.push(cwd);
+    mkdirSync(join(cwd, "app"));
+    const d1_databases = [{ binding: "DB", migrations_dir: "db/migrations" }];
+    writeFileSync(join(cwd, "app/wrangler.jsonc"), JSON.stringify({ d1_databases }));
+
+    expect(databaseFor(cwd, { config: "app/wrangler.jsonc" })).toMatchObject({
+      migrationsDir: join(cwd, "app/db/migrations"),
     });
   });
 
@@ -57,11 +72,12 @@ describe("the database the console opens", () => {
 // What `--remote` would open, which it names before asking and before any sign-in.
 describe("the remote database a binding points at", () => {
   const configFile = "/project/wrangler.jsonc";
+  const migrationsDir = "/project/migrations";
 
   test("is its database_id, named by its database_name", () => {
     const entry = { binding: "DB", database_name: "shop", database_id: "1a2b" };
 
-    expect(remoteTarget({ binding: "DB", entry, configFile })).toEqual({
+    expect(remoteTarget({ binding: "DB", entry, configFile, migrationsDir })).toEqual({
       name: "shop",
       description: "Remote database DB (shop, id 1a2b)",
     });
@@ -75,7 +91,7 @@ describe("the remote database a binding points at", () => {
       preview_database_id: "9z",
     };
 
-    expect(remoteTarget({ binding: "DB", entry, configFile })).toEqual({
+    expect(remoteTarget({ binding: "DB", entry, configFile, migrationsDir })).toEqual({
       name: "shop",
       description: "Remote preview database DB (shop, id 9z)",
       note: "That is the config's preview_database_id, which Wrangler opens in place of database_id.",
@@ -85,19 +101,23 @@ describe("the remote database a binding points at", () => {
   test("is named by the binding when the config gives no database_name", () => {
     const entry = { binding: "DB", database_id: "1a2b" };
 
-    expect(remoteTarget({ binding: "DB", entry, configFile })).toMatchObject({ name: "DB" });
+    expect(remoteTarget({ binding: "DB", entry, configFile, migrationsDir })).toMatchObject({
+      name: "DB",
+    });
   });
 
   test("is named by the binding when the database_name is empty", () => {
     const entry = { binding: "DB", database_name: "", database_id: "1a2b" };
 
-    expect(remoteTarget({ binding: "DB", entry, configFile })).toMatchObject({ name: "DB" });
+    expect(remoteTarget({ binding: "DB", entry, configFile, migrationsDir })).toMatchObject({
+      name: "DB",
+    });
   });
 
   test("is none when the config gives no id, which --remote needs", () => {
     const entry = { binding: "DB", database_name: "shop" };
 
-    expect(remoteTarget({ binding: "DB", entry, configFile })).toBe(
+    expect(remoteTarget({ binding: "DB", entry, configFile, migrationsDir })).toBe(
       "DB has no database_id in wrangler.jsonc, which --remote needs",
     );
   });
