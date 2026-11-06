@@ -54,6 +54,10 @@ async function pluginOf(cwd: string, name: string): Promise<CliAdapter | undefin
     const loaded = (await projectJiti(cwd).evalModule(source, { filename, async: true })) as {
       cli: CliAdapter;
     };
+    // A generated schema imports the factory named for the plugin, from this package.
+    if (loaded.cli.name !== name) {
+      return `${entry} calls its adapter ${loaded.cli.name}, not ${name}; reinstall ${adapters[name]}`;
+    }
     return loaded.cli;
   } catch (error) {
     if (isMissing(error, entry) || isMissing(error, adapters[name]!)) return undefined;
