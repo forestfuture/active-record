@@ -46,7 +46,7 @@ A change to public behavior or the public API updates, in the same pull request,
 - **`docs/contract.md`**: the section for the behavior. Its _Guide_ and _Code_ line names the pages and modules to check.
 - **`GLOSSARY.md`**: a new term, or a term whose meaning changed.
 - **`site/docs/`**: the guide page for the behavior, and its examples in `site/snippets/` (see [Documentation](#documentation)).
-- **`packages/*/src/index.ts`**: a new public name is exported from its package's index (the core's, or the D1 adapter's); an internal one is marked `/** @internal */`, and `vp run check:public-types` keeps it out of the published types. What only adapters need goes in the core's `src/for-adapters.ts`.
+- **`packages/*/src/index.ts`**: a new public name is exported from its package's index (the core's, or an adapter's); an internal one is marked `/** @internal */`, and `vp run check:public-types` keeps it out of the published types. What only adapters need goes in the core's `src/for-adapters.ts`.
 - **`packages/active-record/skills/active-record/SKILL.md`**: the agent skill's rules, when the change alters how an app should write code with the library.
 - **`README.md`**: its quick look and feature list, when they show the behavior.
 - **`.changeset/`**: a changeset (see [Changesets](#changesets)).

@@ -1,0 +1,60 @@
+---
+title: "Postgres’s differences"
+description: "What's different on Postgres: batches as transactions, reads one after another, bigints, $1 placeholders, and the allowed differences from D1, such as how NULLs and text sort."
+---
+
+Your Models, queries, and callbacks work the same on Postgres. These are the places Postgres works differently from D1. The conformance suite lists each one, so a change to the library is checked against them.
+
+:::note
+`@forestfuture/pg-record` isn’t on npm yet. It’s released once the `active-record` command can generate its schema and apply its migrations.
+:::
+
+## Batches are transactions
+
+[`batch([...])`](./batches#batching-writes) writes all its entries or none, as on D1. On Postgres it runs them between `BEGIN` and `COMMIT`, on a client of its own. A query your request sends while the batch runs stays outside the transaction, so a failed batch never rolls it back.
+
+## Reads run one after another
+
+On D1, a [preload](./associations#preloading-associations) or a [page](./querying#paginating) sends all its queries in one round trip. On Postgres they run one after another, on one client. A page’s `total` comes from its own query, so a write between the two can make it disagree with the page’s records for a moment.
+
+## Large integers
+
+A `bigint` column reads as a number. A value past `Number.MAX_SAFE_INTEGER` throws a `TypeError` naming its attribute, rather than reading as a number that’s slightly wrong.
+
+## Placeholders
+
+`onQuery` and `toSql()` show the SQL Postgres runs, with `$1`, `$2`, and so on where D1 shows `?`.
+
+## Raw SQL stays on its database
+
+An [`sql` fragment](./querying#using-raw-statements) is sent as you wrote it. A fragment that uses SQLite’s functions fails on Postgres, and one that uses Postgres’s fails on D1.
+
+## Sorting
+
+Postgres sorts NULL after every value: last in ascending order, and first in descending order. D1 sorts it first in ascending order. Place NULLs yourself to sort them the same on both:
+
+```ts
+User.order({ role: { direction: "asc", nulls: "last" } });
+```
+
+Postgres sorts text by your database’s collation, usually its locale’s, where capitals and lowercase letters interleave. D1 sorts by code point, so every capital comes before every lowercase letter.
+
+## Distinct records ordered by another column
+
+Postgres refuses to order `distinct()` records by a column they don’t select, and throws its own error. Select the column, or order by one you select.
+
+## NUL characters
+
+Postgres text, and strings in a `jsonb` value, can’t hold the NUL character (`\u0000`). A value with one fails with Postgres’s own error.
+
+## Keys written by hand
+
+A key you set yourself doesn’t move a Postgres identity column. The next key Postgres makes can then be one you’ve already used, which fails as a duplicate.
+
+## Constraint errors name their table
+
+Postgres’s constraint errors name their table and columns. So a batch’s foreign-key failure has `.table` and `.columns`, where D1’s has `.table` `null` when the batch writes to several tables.
+
+## jsonb keeps the value
+
+A `jsonb` column keeps a JSON value, not the text you wrote. A raw query reads it back with Postgres’s own spacing and key order. Your Models read the same value either way.
