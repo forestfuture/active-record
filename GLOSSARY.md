@@ -121,7 +121,7 @@ One page of a **Relation**'s records, from `paginate()`, with its position (`pag
 _Avoid_: Paginator, cursor (that's keyset pagination), batch (that's D1's)
 
 **Scope**:
-A named, reusable change to a Relation, declared on a **Model**, that may take arguments. Calling a scope never runs a query.
+A named, reusable change to a Relation, declared on a **Model**, that may take arguments. Calling a scope never runs a query. Not a **Database scope**.
 _Avoid_: Filter, named query
 
 **Association**:
@@ -151,6 +151,10 @@ _Avoid_: Logger, hook, middleware
 **Current database**:
 The database a query started from a Model (`User.find(id)`) uses: the request's, set with `withDatabase`, or else the Model's **Binding**'s. Never stored on a class.
 _Avoid_: Default connection, global database
+
+**Database scope**:
+One `withDatabase` call's time with a **Database**, during which its **Adapter** may hold a connection for it (pg-record does, from a connection string). Each call has its own, even with a Database other requests share; a call nested in a running one shares it. In the `/adapter` interface, a driver's `openScope` and `closeScope` begin and end it.
+_Avoid_: Scope (on its own: that's a Model's), request scope, transaction
 
 **Adapter**:
 The package for one database, under the Active Record core (#260, ADR-0016): its driver, SQL dialect, type mapping, constraint errors and schema reader. `d1-record` becomes one, and `pg-record` is the second. The **Generated schema** names it.
