@@ -4,7 +4,7 @@ The repository's GitHub Actions use two Cloudflare API tokens, each with only th
 
 | GitHub secret               | Used by                                                                                         | Permissions                                                                                        | Resources                                         |
 | --------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`      | The remote D1 smoke suite: `vp run test:remote`, and the **Remote D1 smoke** workflow (by hand) | Account → **D1** → Edit<br>Account → **Workers Scripts** → Edit<br>Account → **Hyperdrive** → Edit | The account                                       |
+| `CLOUDFLARE_API_TOKEN`      | The remote D1 smoke suite: `vp run test:remote`, and the **Remote D1 smoke** workflow (by hand) | Account → **D1** → Edit<br>Account → **Workers Scripts** → Edit<br>Account → **Hyperdrive** → Read | The account                                       |
 | `CLOUDFLARE_DOCS_API_TOKEN` | The documentation deploy: the `docs-deploy` job in `ci.yml`, on pushes to `main`                | Account → **Workers Scripts** → Edit<br>Zone → **Workers Routes** → Edit<br>Zone → **Zone** → Read | The account, and the zone `forestfuture.dev` only |
 
 The token can replace any Worker in the account, so the job that holds it runs only a pinned Wrangler, never the site's dependencies. The `docs-build` job builds the guide with no secrets and hands the deploy job its files. The deploy job installs Wrangler from `.github/docs-deploy`, which has a lockfile of its own, with install scripts off.
@@ -22,8 +22,9 @@ Both workflows also need these secrets, which aren't tokens:
 
 - **D1 → Edit**: the smoke suite creates, writes and reads its tables in `d1-record-smoke`.
 - **Workers Scripts → Edit**:
-  - Smoke token: Wrangler's remote bindings run through a temporary preview Worker, so the account also needs a `workers.dev` subdomain.
+  - Smoke token: Wrangler's remote bindings run through a temporary preview Worker, so the account also needs a `workers.dev` subdomain. The Hyperdrive smoke deploys its own `pg-record-smoke-…` Worker on it, lists the account's Workers to delete stale ones, and deletes its own.
   - Docs token: it creates and updates two Workers and uploads their files: `d1-record-docs`, the guide (`site/wrangler.jsonc`), and `forestfuture-docs`, the library list at `docs.forestfuture.dev` (`site/host/wrangler.jsonc`).
+- **Hyperdrive → Read**: the Hyperdrive smoke binds its Worker to the existing `pg-record-smoke` config, and changes no config. If Wrangler refuses the deploy for want of a permission, raise it to Edit and say so here.
 - **Workers Routes → Edit**: attaches `d1-record.forestfuture.dev/*` to the guide's Worker and `docs.forestfuture.dev/*` to the library list's.
 - **Zone → Read**: the route names its zone by name (`forestfuture.dev`), and Wrangler looks up the zone's ID.
 

@@ -36,7 +36,7 @@ It runs only with `vp run test:remote`, which sets `D1_REMOTE_SMOKE=1`. A plain 
    pnpm dlx wrangler hyperdrive create pg-record-smoke --connection-string="postgres://…"
    ```
    Note the `id` it prints.
-3. **The token** above, with Account → **Hyperdrive** → Edit added (see [cloudflare-tokens.md](cloudflare-tokens.md)).
+3. **The token** above, with Account → **Hyperdrive** → Read added (see [cloudflare-tokens.md](cloudflare-tokens.md)).
 4. **Run it locally:**
    ```sh
    CLOUDFLARE_ACCOUNT_ID=… CLOUDFLARE_API_TOKEN=… PG_SMOKE_HYPERDRIVE_ID=… PG_SMOKE_DATABASE_URL=… vp run test:remote
