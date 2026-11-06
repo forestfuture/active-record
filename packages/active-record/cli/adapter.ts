@@ -115,6 +115,8 @@ export interface CliAdapter {
    * config; none when the adapter reads no pattern, and migrations in folders go unread.
    */
   readonly patternSetting?: string;
+  /** Why this Node can't run the plugin, if it can't; the command refuses before it starts. */
+  unsupported?(): string | undefined;
   /** The project's databases, from its config, or why they can't be read. */
   databases(cwd: string, configPath?: string): ConfigResult;
   /** A database's tables, from its migrations applied in order. */

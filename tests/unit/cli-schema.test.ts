@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vite-plus/test";
+import { describe, expect, test } from "vite-plus/test";
 import { fingerprintOf } from "../../packages/active-record/cli/schema/render.ts";
 import { schemaOf } from "../../packages/d1-record/cli/schema.ts";
 
@@ -375,29 +375,5 @@ describe("schemaOf: from migrations to table schemas", () => {
         "things: columns user_id and userId would both be the attribute userId; rename one",
       ],
     });
-  });
-});
-
-// D1's reader needs node:sqlite, unflagged from Node 22.13 and 23.4; the core doesn't (#284).
-describe("schemaOf on a Node without node:sqlite", () => {
-  test("says which Node it needs, in place of failing", () => {
-    const builtin = process.getBuiltinModule.bind(process);
-    const spy = vi
-      .spyOn(process, "getBuiltinModule")
-      .mockImplementation(((id: string) =>
-        id === "node:sqlite" ? undefined : builtin(id)) as never);
-
-    try {
-      expect(
-        schemaOf([{ name: "0001_m.sql", sql: "CREATE TABLE t (id TEXT PRIMARY KEY)" }]),
-      ).toEqual({
-        ok: false,
-        errors: [
-          `Reading D1 migrations needs Node 22.13 or later, for node:sqlite (this is Node ${process.versions.node})`,
-        ],
-      });
-    } finally {
-      spy.mockRestore();
-    }
   });
 });

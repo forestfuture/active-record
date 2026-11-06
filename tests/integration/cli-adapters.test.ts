@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { describe, expect, test } from "vite-plus/test";
+import { describe, expect, test, vi } from "vite-plus/test";
 import { loadAdapter } from "../../packages/active-record/cli/project/adapters.ts";
 import { libraryPaths } from "../support/library-paths.ts";
 import { scratchDirs } from "../support/scratch.ts";
@@ -50,6 +50,24 @@ describe("the adapter the command uses", () => {
 
   test("with none listed, is the one installed", async () => {
     expect(await found(project({ "package.json": "{}" }))).toBe("adapter d1");
+  });
+
+  // D1's schema reading needs node:sqlite, so its plugin refuses a Node without it, up front (#284).
+  test("one this Node can't run says why, before any command starts", async () => {
+    const builtin = process.getBuiltinModule.bind(process);
+    const spy = vi
+      .spyOn(process, "getBuiltinModule")
+      .mockImplementation(((id: string) =>
+        id === "node:sqlite" ? undefined : builtin(id)) as never);
+
+    try {
+      expect(await found(project({ "package.json": "{}" }))).toBe(
+        "active-record needs Node 22.13 or later (23.4 on Node 23), for node:sqlite " +
+          `(this is Node ${process.versions.node})`,
+      );
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   test("a package.json that isn't JSON is reported, not thrown", async () => {

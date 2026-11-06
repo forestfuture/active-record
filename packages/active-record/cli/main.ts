@@ -28,11 +28,15 @@ function usage(print: Print, problem: string): number {
 }
 
 /**
- * Whether this Node has what the command itself uses: `process.getBuiltinModule`, and
- * `path.matchesGlob` (Node 22.5). A plugin checks for what it loads itself.
+ * Whether this Node has what the command itself uses: `process.getBuiltinModule`, `fs.globSync`
+ * and `path.matchesGlob` (Node 22.5; Node 20 has only the first and last). A plugin says what
+ * it needs itself, with `unsupported`.
  */
 function isSupportedNode(): boolean {
-  return process.getBuiltinModule?.("node:path")?.matchesGlob !== undefined;
+  // Node before 22.3 (or 20.16) has no getBuiltinModule.
+  if (typeof process.getBuiltinModule !== "function") return false;
+  const { globSync } = process.getBuiltinModule("node:fs");
+  return globSync !== undefined && process.getBuiltinModule("node:path").matchesGlob !== undefined;
 }
 
 /** Runs the command line; resolves to the exit code (or never, while watching). */
