@@ -62,15 +62,45 @@ function withoutRefusedValue(error: PgError): void {
   if (stack !== undefined) error.stack = stack.replace(message, filtered!);
 }
 
-/**
- * An enum's refusal, whose type name Postgres quotes as an identifier when it needs to, its own
- * quotes doubled: `enum "Mood": "…"`, `enum app."Mood": "…"`.
- */
-const enumRefusal = /^(invalid input value for enum (?:[^\s:"]|"(?:[^"]|"")*")+: )".*"$/s;
+const enumRefusal = "invalid input value for enum ";
 
-/** `message` with its refused value, from its first quote to its last, written `[FILTERED]`. */
+/** Where the quoted identifier opening at `at` ends, past its closing quote; its own quotes are doubled. -1 if it never closes. */
+function quotedEnd(message: string, at: number): number {
+  let next = at + 1;
+  while (next < message.length) {
+    if (message[next] !== '"') next += 1;
+    else if (message[next + 1] === '"') next += 2;
+    else return next + 1;
+  }
+  return -1;
+}
+
+/**
+ * Where an enum refusal's type name ends: identifiers joined by dots, each bare or quoted
+ * (`mood`, `"Mood"`, `app."Mood"`), read in one pass. -1 if it isn't one.
+ */
+function enumNameEnd(message: string): number {
+  let at = enumRefusal.length;
+  for (;;) {
+    if (message[at] === '"') at = quotedEnd(message, at);
+    else while (at < message.length && !/[\s:".]/.test(message[at]!)) at += 1;
+    if (at === -1 || message[at] !== ".") return at;
+    at += 1;
+  }
+}
+
+/**
+ * `message` with its refused value, from its first quote to its last, written `[FILTERED]`, but
+ * for an enum's quoted type name: `invalid input value for enum "Mood": "[FILTERED]"`. Scanned,
+ * not matched with a pattern that could backtrack, since the value is the user's.
+ */
 function refusedValueFiltered(message: string): string {
-  if (enumRefusal.test(message)) return message.replace(enumRefusal, '$1"[FILTERED]"');
+  if (message.startsWith(enumRefusal)) {
+    const end = enumNameEnd(message);
+    if (end !== -1 && message.startsWith(': "', end) && message.endsWith('"')) {
+      return `${message.slice(0, end)}: "[FILTERED]"`;
+    }
+  }
   return message.replace(/".*"/s, '"[FILTERED]"');
 }
 
