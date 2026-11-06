@@ -71,7 +71,8 @@ const routes: Record<string, (env: Env) => Promise<unknown>> = {
     const heard: string[] = [];
     const db = connect(pool, { onQuery: (event) => heard.push(event.sql) });
     try {
-      await withDatabase(db, backend);
+      // Given twice, it's still the request's only Pool database.
+      await withDatabase(db, () => withDatabase([db, db], backend));
     } finally {
       await pool.end();
     }

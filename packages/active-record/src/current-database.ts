@@ -30,7 +30,9 @@ export async function withDatabase<R>(
   const scopes = new Map(outer?.scopes);
   const opened = openScopes(inner, scopes);
   try {
-    return await runWithStore({ databases: [...inner, ...(outer?.databases ?? [])], scopes }, fn);
+    // A Database given twice, or again in a nested call, is one of the request's databases.
+    const all = [...new Set([...inner, ...(outer?.databases ?? [])])];
+    return await runWithStore({ databases: all, scopes }, fn);
   } finally {
     // An adapter may hold a connection for the scope (pg-record): it's let go now.
     await Promise.all(opened.map(([executor, scope]) => executor.closeScope(scope)));
