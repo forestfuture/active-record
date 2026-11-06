@@ -1,5 +1,5 @@
 // A project read from disk once: each database's migrations and generated files.
-// One per D1 database. Commands plan from a snapshot, so what they decide is testable without a
+// One per database. Commands plan from a snapshot, so what they decide is testable without a
 // folder on disk (#95).
 import { existsSync, readFileSync, statSync } from "node:fs";
 import type { CliAdapter } from "../adapter.ts";
@@ -16,10 +16,10 @@ export interface FoundModel {
   file: string;
 }
 
-/** One D1 database, and what's on disk for it. */
+/** One database, and what's on disk for it. */
 export interface DatabaseSnapshot {
   target: Target;
-  /** Its migrations, in the order Wrangler applies them; undefined with no migrations folder. */
+  /** Its migrations, in the order they're applied; undefined with no migrations folder. */
   migrations?: Migration[];
   /** The schema file as it is, when there's one. */
   schema?: string;
@@ -69,7 +69,7 @@ function databaseSnapshot(target: Target, toolsFound: Tool[]): DatabaseSnapshot 
 }
 
 /**
- * Reads a project's databases from its Wrangler config, and the other `files` a command needs
+ * Reads a project's databases from its config, and the other `files` a command needs
  * (a Model file, for `g model`); or why it can't, such as a missing config.
  */
 export function readProject(

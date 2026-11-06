@@ -1,7 +1,7 @@
 // A path as printed or imported: relative, forward slashes.
 import { relative, sep } from "node:path";
 
-/** A relative path with forward slashes, as Wrangler names migrations on every system. */
+/** A relative path with forward slashes, as migrations are named on every system. */
 export function slashed(path: string): string {
   return path.split(sep).join("/");
 }

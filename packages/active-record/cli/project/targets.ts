@@ -1,4 +1,4 @@
-// Where each D1 database's migrations, schema and base class are, from the config and the options.
+// Where each database's migrations, schema and base class are, from the config and the options.
 // Shared by `active-record schema`, the generators and the console.
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -7,11 +7,11 @@ import type { CliAdapter, DatabaseConfig } from "../adapter.ts";
 
 /** Where a project's config, migrations and generated schema are, when not the defaults. */
 export interface ProjectOptions {
-  /** The adapter, `--adapter d1`, when a project has several. */
+  /** The adapter, by its `--adapter` name, when a project has several. */
   adapter?: string;
-  /** The Wrangler config file, in place of finding it. */
+  /** The config file, in place of the one the adapter finds. */
   config?: string;
-  /** The migrations folder, in place of the Wrangler config's. */
+  /** The migrations folder, in place of the config's. */
   migrations?: string;
   /** The file to write (or, with several databases, the folder). */
   out?: string;

@@ -31,17 +31,17 @@ import { migrationNameError, modelName, tableize } from "./names.ts";
 export interface GenerateOptions {
   /** The project's folder; the current one by default. */
   cwd?: string;
-  /** The adapter, `--adapter d1`, when a project has several. */
+  /** The adapter, by its `--adapter` name, when a project has several. */
   adapter?: string;
-  /** The Wrangler config file, in place of finding it. */
+  /** The config file, in place of the one the adapter finds. */
   config?: string;
-  /** The D1 binding to generate for, when the config has several. */
+  /** The database to generate for, by its binding, when the config has several. */
   database?: string;
   kind: "model" | "migration";
   /** The Model's class name, or the migration's name. */
   name: string;
   columns: readonly string[];
-  /** `--id integer`: a key D1 generates, in place of a `TEXT` key made in code. */
+  /** `--id integer`: a key the database generates, in place of a `TEXT` key made in code. */
   integerId?: boolean;
   /** `--no-timestamps` sets this false. */
   timestamps?: boolean;
@@ -203,7 +203,7 @@ async function checkedMigration(
   });
   if (!result.ok) return refused(result.error);
   const name = result.file;
-  // In the order Wrangler applies them, which a migration with no number may change.
+  // In file-name order, the order they're applied in, which a migration with no number may change.
   const after = [...existing, { name, sql: result.sql }].sort((a, b) => byName(a.name, b.name));
   const checked = await adapter.readSchema(after, { migrationsTable });
   if (!checked.ok) return refused(...checked.errors);

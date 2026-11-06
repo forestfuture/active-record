@@ -11,7 +11,7 @@ export const schemaSubcommand = defineSubcommand({
     migrations: { type: "string" },
     models: { type: "string" },
   },
-  usage: `  active-record schema [options]              Generate src/db/schema.ts from your D1 migrations`,
+  usage: `  active-record schema [options]              Generate src/db/schema.ts from your migrations`,
   flagHelp: `Options for schema:
   --check             Fail if the generated schema is out of date (for CI)
   --watch             Regenerate whenever a migration changes

@@ -11,6 +11,9 @@ const adapters: Readonly<Record<string, string>> = {
   pg: "@forestfuture/pg-record",
 };
 
+/** The adapter suggested when none is installed: the registry's first. */
+const suggested = Object.values(adapters)[0]!;
+
 /** The packages a `package.json` depends on; none when it isn't there, or isn't JSON. */
 function dependenciesIn(file: string): string[] {
   if (!existsSync(file)) return [];
@@ -24,7 +27,7 @@ function dependenciesIn(file: string): string[] {
   }
 }
 
-/** The package an adapter's plugin came from: `@forestfuture/d1-record` for `d1`. */
+/** The package an adapter's plugin came from, as the registry names it. */
 export function adapterPackage(adapter: CliAdapter): string {
   return adapters[adapter.name] ?? adapter.name;
 }
@@ -88,5 +91,5 @@ export async function loadAdapter(cwd: string, named?: string): Promise<CliAdapt
   }
   if (named !== undefined)
     return `${adapters[named]} isn't installed here (install it, then try again)`;
-  return `No adapter is installed here: install one, such as ${adapters["d1"]}, then try again`;
+  return `No adapter is installed here: install one, such as ${suggested}, then try again`;
 }

@@ -14,17 +14,17 @@ import { startSession, type SessionOptions } from "./session.ts";
 export interface ConsoleOptions {
   /** The project's folder; the current one by default. */
   cwd?: string;
-  /** The adapter, `--adapter d1`, when a project has several. */
+  /** The adapter, by its `--adapter` name, when a project has several. */
   adapter?: string;
-  /** The Wrangler config file, in place of finding it. */
+  /** The config file, in place of the one the adapter finds. */
   config?: string;
-  /** The D1 binding to open, when the config has several. */
+  /** The database to open, by its binding, when the config has several. */
   database?: string;
   /** Where the Models are: a folder or one file (`src/models`). */
   models?: string;
   /** Keep what is typed on a terminal in the history file; on, unless remote, by default. */
   history?: boolean;
-  /** Open the project's real D1 database instead of the local one, after asking. */
+  /** Open the project's real database instead of the local one, after asking. */
   remote?: boolean;
   /** With `remote`: don't ask first, which is also how to open it without a terminal. */
   yes?: boolean;

@@ -61,7 +61,7 @@ function textDateNote(where: string): string {
 
 /**
  * Notes for a schema generated from another tool's migrations: the tool, then the columns to
- * check, and `textDates`, the datetime columns whose default is SQLite's own date text.
+ * check, and `textDates`, the datetime columns whose default is the database's own date text.
  */
 export function originNotes(
   tool: Tool | undefined,
