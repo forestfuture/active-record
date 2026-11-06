@@ -4,11 +4,21 @@ import {
   DatabaseExecutor,
   databaseExecutor,
   workersEnv,
+  type WorkersEnv,
 } from "@forestfuture/active-record/adapter";
 import { NoDatabase } from "@forestfuture/active-record";
 import { pgAdapter } from "./adapter.ts";
 import { UrlClients } from "./clients.ts";
 import { PgDriver } from "./driver.ts";
+
+/** The Worker's bindings, from `cloudflare:workers`, read once; undefined outside a Worker. */
+let bindings: Promise<WorkersEnv | undefined> | undefined;
+
+/** The `env` a test mocks with pg-record inlined is this module's import, so it's imported here. */
+function workerBindings(): Promise<WorkersEnv | undefined> {
+  bindings ??= workersEnv(() => import("cloudflare:workers"));
+  return bindings;
+}
 
 /** @internal The library's key for the connection string a Database opens its clients from. */
 export const pgConnectionString = Symbol("pgConnectionString");
@@ -63,7 +73,7 @@ export async function databaseFor(
   name: string | undefined,
   requested: readonly AnyDatabase[],
 ): Promise<AnyDatabase> {
-  const env = name === undefined ? undefined : await workersEnv();
+  const env = name === undefined ? undefined : await workerBindings();
   if (env === undefined || name === undefined) return onlyRequested(requested, name);
   const connectionString = connectionStringOf(env[name]);
   if (connectionString === undefined) {

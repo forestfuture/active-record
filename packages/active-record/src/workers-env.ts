@@ -1,8 +1,6 @@
-// The Worker's bindings, from `cloudflare:workers`, for an adapter to find a Model's database: loaded when a query first needs them, and none outside a Worker.
+// The Worker's bindings, for an adapter to find a Model's database: read from the `cloudflare:workers` module the adapter imports itself, and none outside a Worker.
 /** A Worker's `env`: its bindings and variables, by name. */
 export type WorkersEnv = Record<string, unknown>;
-
-let env: Promise<WorkersEnv | undefined> | undefined;
 
 /** Whether importing `cloudflare:workers` failed because this isn't a Worker (Node, scripts). */
 function notAWorker(error: unknown): boolean {
@@ -15,18 +13,17 @@ function notAWorker(error: unknown): boolean {
 }
 
 /**
- * The Worker's `env`, read once and kept, or undefined outside a Worker (Node, scripts). A test
- * that mocks `cloudflare:workers` assigns its bindings onto the mocked `env`, not a new one.
+ * The Worker's `env`, from `load`, or undefined outside a Worker (Node, scripts). An adapter
+ * passes `() => import("cloudflare:workers")` from its own module, with that literal specifier:
+ * Wrangler only bundles those, and a test that mocks the module with the adapter inlined reaches it.
  */
-export function workersEnv(): Promise<WorkersEnv | undefined> {
-  // A literal specifier: Wrangler and Miniflare (wrangler dev) only allow those. Outside a Worker
-  // the module doesn't exist, which is the one failure that means "not in a Worker".
-  env ??= import("cloudflare:workers").then(
-    (workers) => workers.env as unknown as WorkersEnv,
-    (error: unknown) => {
-      if (notAWorker(error)) return undefined;
-      throw error;
-    },
-  );
-  return env;
+export async function workersEnv(
+  load: () => Promise<{ env: unknown }>,
+): Promise<WorkersEnv | undefined> {
+  try {
+    return (await load()).env as WorkersEnv;
+  } catch (error) {
+    if (notAWorker(error)) return undefined;
+    throw error;
+  }
 }
