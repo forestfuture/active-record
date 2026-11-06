@@ -35,6 +35,8 @@ interface PoolClient extends Queryable {
 /** A `pg` Pool, as `connect` takes it: the app's own, which the app ends. */
 export interface Pool {
   connect(): Promise<PoolClient>;
+  /** What it was built with: its connection string, when it was built from one. */
+  readonly options?: { readonly connectionString?: string | undefined };
 }
 
 /** A client for one operation, and what to do when the operation is done with it. */

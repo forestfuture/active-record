@@ -31,7 +31,7 @@ let shared: Database | undefined;
 /** Long enough for overlapping requests to be inside their scopes at once. */
 const pause = () => Backend.where(sql`(SELECT true FROM pg_sleep(0.2))`).pluck("id");
 
-const routes: Record<string, (env: Env) => Promise<unknown>> = {
+const routes: Record<string, (env: Env, url: URL) => Promise<unknown>> = {
   /** A Model's statics, with no withDatabase: the binding's own database, a client per query. */
   async "/statics"() {
     const made = await User.create({ email: "worker@example.com" });
@@ -65,9 +65,15 @@ const routes: Record<string, (env: Env) => Promise<unknown>> = {
     });
     return { backends };
   },
-  /** A Pool's Database as the request's: statics use it, though it has no connection string. */
-  async "/pool"(env) {
-    const pool = new pgModule.Pool({ connectionString: env.DATABASE_URL });
+  /**
+   * A Pool's Database as the request's: statics use it when it was built from their binding's
+   * connection string. `?other` builds it from another, which they never use.
+   */
+  async "/pool"(env, url) {
+    const other = new URL(env.DATABASE_URL);
+    other.searchParams.set("application_name", "other");
+    const connectionString = url.searchParams.has("other") ? other.href : env.DATABASE_URL;
+    const pool = new pgModule.Pool({ connectionString });
     const heard: string[] = [];
     const db = connect(pool, { onQuery: (event) => heard.push(event.sql) });
     try {
@@ -82,10 +88,11 @@ const routes: Record<string, (env: Env) => Promise<unknown>> = {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const route = routes[new URL(request.url).pathname];
+    const url = new URL(request.url);
+    const route = routes[url.pathname];
     if (route === undefined) return new Response("not found", { status: 404 });
     try {
-      return Response.json(await route(env));
+      return Response.json(await route(env, url));
     } catch (error) {
       return Response.json({ error: String(error) }, { status: 500 });
     }

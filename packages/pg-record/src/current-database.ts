@@ -1,4 +1,4 @@
-// Which Postgres database a query from a Model's statics uses: the request's for its binding (or its one Pool), or the binding's own, from the Worker's env (a Hyperdrive binding or a connection string). A binding's own Database holds no client between operations.
+// Which Postgres database a query from a Model's statics uses: the request's for its binding (by connection string, a Pool's included), or the binding's own, from the Worker's env (a Hyperdrive binding or a connection string). A binding's own Database holds no client between operations.
 import {
   AnyDatabase,
   DatabaseExecutor,
@@ -46,24 +46,9 @@ function defaultDatabase(binding: unknown, connectionString: string, name: strin
   return db;
 }
 
-/** The connection string a request's Postgres database opens its clients from; undefined for a Pool's. */
+/** The connection string a request's Postgres database opens its clients from, or its Pool was built from. */
 const dbConnectionString = (db: AnyDatabase) =>
   (db as { [pgConnectionString]?: string })[pgConnectionString];
-
-/**
- * The request's Postgres database for a binding on `connectionString`: the one opened from it,
- * or else its only one from a Pool, which has no connection string to match.
- */
-function requestedFor(
-  connectionString: string,
-  requested: readonly AnyDatabase[],
-): AnyDatabase | undefined {
-  const postgres = requested.filter((db) => db[databaseExecutor].adapter === pgAdapter);
-  const matched = postgres.find((db) => dbConnectionString(db) === connectionString);
-  if (matched !== undefined) return matched;
-  const pools = postgres.filter((db) => dbConnectionString(db) === undefined);
-  return pools.length === 1 ? pools[0] : undefined;
-}
 
 /** The database a query on binding `name` uses now: the request's for it, or the binding's own. */
 export async function databaseFor(
@@ -81,6 +66,7 @@ export async function databaseFor(
     );
   }
   return (
-    requestedFor(connectionString, requested) ?? defaultDatabase(binding, connectionString, name)
+    requested.find((db) => dbConnectionString(db) === connectionString) ??
+    defaultDatabase(binding, connectionString, name)
   );
 }

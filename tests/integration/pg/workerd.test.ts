@@ -60,8 +60,12 @@ describe("pg-record in workerd", { timeout: 60_000 }, () => {
     await expect.poll(() => schema.connections()).toBe(0);
   });
 
-  test("a Model's statics use the request's Pool Database, which has no connection string", async () => {
+  test("a Model's statics use the request's Pool Database built from their binding's connection string", async () => {
     expect(await get("/pool")).toEqual({ heard: 1 });
+  });
+
+  test("a Model's statics never use a Pool Database built from another connection string", async () => {
+    expect(await get("/pool?other")).toEqual({ heard: 0 });
   });
 
   test.each(["/scope", "/hyperdrive"])(

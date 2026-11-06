@@ -40,10 +40,14 @@ export class Database extends AnyDatabase {
 
   constructor(source: PgSource, options: ConnectOptions = {}) {
     super(new DatabaseExecutor(pgAdapter, new PgDriver(clientsFor(source)), options.onQuery));
-    this.#connectionString = connectionStringOf(source);
+    this.#connectionString =
+      connectionStringOf(source) ?? (source as Pool).options?.connectionString;
   }
 
-  /** @internal Its connection string, to match a Model's binding; none for a Pool. */
+  /**
+   * @internal Its connection string, to match a Model's binding: a Pool's, when it was built from
+   * one. A Pool built any other way matches none.
+   */
   get [pgConnectionString](): string | undefined {
     return this.#connectionString;
   }
