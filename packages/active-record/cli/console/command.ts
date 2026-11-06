@@ -127,9 +127,8 @@ function runOnce(code: string, opened: Opened, io: ConsoleIo, errors: Writable):
   });
 }
 
-/** What opening the console found: the database chosen, the project's Models, the open binding. */
+/** What opening the console found: where its history goes, the project's Models, the open binding. */
 interface Prepared {
-  chosen: ChosenDatabase;
   /** The adapter's folder for the command's local files: the history's. */
   stateFolder: string;
   project: ConsoleProject;
@@ -149,7 +148,7 @@ async function prepare(options: ConsoleOptions, io: ConsoleIo): Promise<Prepared
     ? openRemote(adapter, { cwd, chosen }, options, io)
     : adapter.open(cwd, chosen, { remote: false }));
   if (typeof opened === "string") return opened;
-  return { chosen, stateFolder: adapter.stateFolder(chosen), project, opened };
+  return { stateFolder: adapter.stateFolder(chosen), project, opened };
 }
 
 /** Where a console talks: its own ends, what it says besides results, and its error stream. */
