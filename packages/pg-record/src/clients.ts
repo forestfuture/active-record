@@ -124,11 +124,17 @@ export class ClientScope {
     }
   }
 
-  /** Ends the scope, and closes its client once its operations are done. */
-  async end(): Promise<void> {
+  /**
+   * Ends the scope at once, and closes its client in the background once its operations are
+   * done, so a query still running (a `waitUntil` save's) never holds up the response.
+   */
+  end(): void {
     this.#hasEnded = true;
     const opening = this.#client;
-    if (opening === undefined) return;
+    if (opening !== undefined) void this.#closeWhenDone(opening);
+  }
+
+  async #closeWhenDone(opening: Promise<Client>): Promise<void> {
     await Promise.allSettled(this.#busy);
     const client = await opening.catch(() => undefined);
     if (client !== undefined) await closed(client);
@@ -161,7 +167,7 @@ export class UrlClients implements Clients {
   }
 
   async closeScope(scope: ClientScope): Promise<void> {
-    await scope.end();
+    scope.end();
   }
 
   borrow(scope?: ClientScope): Promise<Lease> {

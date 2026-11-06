@@ -136,20 +136,23 @@ describe("pg-record's clients, from a connection string (#269)", () => {
     await closed();
   });
 
-  test("a query still running when its scope ends finishes before the client closes", async () => {
+  test("a query still running when its scope ends finishes before the client closes, without holding up the scope", async () => {
     let running: Promise<number[]> | undefined;
+    let hasSettled = false;
 
     const scoped = await withDatabase(db, async () => {
       const id = await backend();
       running = db
         .model(Backend)
         .where(sql`(SELECT true FROM pg_sleep(0.2))`)
-        .pluck("id");
+        .pluck("id")
+        .finally(() => (hasSettled = true));
       // Long enough for it to reach Postgres, on the scope's client, before the scope ends.
       await new Promise((resolve) => setTimeout(resolve, 50));
       return id;
     });
 
+    expect(hasSettled).toBe(false);
     expect(await running).toEqual([scoped]);
     await closed();
   });

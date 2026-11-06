@@ -33,6 +33,9 @@ export interface Driver<Scope = unknown> {
    * Statements sent after it ended (a `waitUntil` save) are still handed it.
    */
   openScope?(): Scope;
-  /** The scope `openScope` returned has ended: what it holds can be let go once its statements finish. */
+  /**
+   * The scope `openScope` returned has ended: what it holds can be let go once its statements
+   * finish. `withDatabase` waits for it, so it shouldn't wait for them.
+   */
   closeScope?(scope: Scope): Promise<void>;
 }
