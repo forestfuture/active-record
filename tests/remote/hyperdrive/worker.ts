@@ -33,13 +33,18 @@ const routes: Record<string, (env: Env) => Promise<unknown>> = {
     const made = await User.create({ email: "statics@example.com" });
     return { email: (await User.find(made.id)).email };
   },
-  /** A request's database, one client for its scope, and a page read in order on it. */
+  /**
+   * A request's database, one client for its scope, and a page read in order on it. Its onQuery
+   * hears every statement, so the statics used it, not the binding's own database.
+   */
   async "/scope"(env) {
     const { User } = modelsFor(env.TABLE_PREFIX);
-    return withDatabase(connect(env.HYPERDRIVE), async () => {
+    let heard = 0;
+    const db = connect(env.HYPERDRIVE, { onQuery: () => (heard += 1) });
+    return withDatabase(db, async () => {
       await User.insertAll([{ email: "a@example.com" }, { email: "b@example.com" }]);
       const page = await User.order({ email: "asc" }).paginate({ page: 1, perPage: 1 });
-      return { emails: page.records.map((user) => user.email), total: page.total };
+      return { emails: page.records.map((user) => user.email), total: page.total, heard };
     });
   },
   /** A write beside a failing batch is kept: the batch has a client, and a transaction, of its own. */

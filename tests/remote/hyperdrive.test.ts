@@ -105,7 +105,7 @@ describe.runIf(configured)("pg-record through a real Hyperdrive", { timeout: 120
   });
 
   test("a request's database serves its scope, and a page's count and rows read in order", async () => {
-    expect(await get("/scope")).toEqual({ emails: ["a@example.com"], total: 2 });
+    expect(await get("/scope")).toEqual({ emails: ["a@example.com"], total: 2, heard: 3 });
   });
 
   test("a write beside a failing batch is kept, and the batch writes nothing (ADR-0017)", async () => {
