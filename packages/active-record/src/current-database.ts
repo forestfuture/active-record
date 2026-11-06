@@ -28,8 +28,9 @@ export async function withDatabase<R>(
   const outer = requestStore();
   const inner = Array.isArray(databases) ? databases : [databases as AnyDatabase];
   const scopes = new Map(outer?.scopes);
-  const opened = openScopes(inner, scopes);
+  const opened: [DatabaseExecutor, unknown][] = [];
   try {
+    openScopes(inner, scopes, opened);
     // A Database given twice, or again in a nested call, is one of the request's databases.
     const all = [...new Set([...inner, ...(outer?.databases ?? [])])];
     return await runWithStore({ databases: all, scopes }, fn);
@@ -39,12 +40,15 @@ export async function withDatabase<R>(
   }
 }
 
-/** Opens a scope for each of `databases` not already in one, added to `scopes`; the ones opened. */
+/**
+ * Opens a scope for each of `databases` not already in one, added to `scopes` and to `opened` as
+ * it opens, so the ones opened before a driver throws are still closed.
+ */
 function openScopes(
   databases: readonly AnyDatabase[],
   scopes: Map<DatabaseExecutor, unknown>,
-): [DatabaseExecutor, unknown][] {
-  const opened: [DatabaseExecutor, unknown][] = [];
+  opened: [DatabaseExecutor, unknown][],
+): void {
   for (const db of databases) {
     const executor = db[databaseExecutor];
     executor.setOrigin("request");
@@ -53,7 +57,6 @@ function openScopes(
     scopes.set(executor, scope);
     opened.push([executor, scope]);
   }
-  return opened;
 }
 
 /**
