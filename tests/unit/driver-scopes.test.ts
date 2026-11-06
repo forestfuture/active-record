@@ -47,6 +47,21 @@ describe("a driver's withDatabase scopes", () => {
     expect(seen).toEqual({ opened: 2, closed: [1, 2], sentIn: [1, 1, 2] });
   });
 
+  test("a call nested in one that has already returned opens its own, as a waitUntil's does", async () => {
+    const { db, seen } = scopedDriver();
+    let later: Promise<unknown> | undefined;
+
+    await withDatabase(db, async () => {
+      await send(db);
+      later = new Promise((resolve) => setTimeout(resolve, 10)).then(() =>
+        withDatabase(db, () => send(db)),
+      );
+    });
+    await later;
+
+    expect(seen).toEqual({ opened: 2, closed: [1, 2], sentIn: [1, 2] });
+  });
+
   test("a scope already opened is closed when another database's fails to open", async () => {
     const opens = scopedDriver();
     const fails = scopedDriver(true);

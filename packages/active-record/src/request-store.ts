@@ -3,15 +3,20 @@ import type { AnyDatabase } from "./database.ts";
 import { NoDatabase } from "./errors.ts";
 import type { DatabaseExecutor } from "./executor.ts";
 
+/** A database's scope in one `withDatabase` call (a Database scope). */
+export interface DatabaseScope {
+  /** What its driver opened for it (pg-record: the scope's client), handed to each statement. */
+  readonly held: unknown;
+  /** Whether its call has returned: a call nested in it after that opens its own. */
+  hasEnded: boolean;
+}
+
 /** What `withDatabase` keeps for the code it runs. */
 export interface RequestStore {
   /** The request's databases, the innermost scope's first. */
   databases: readonly AnyDatabase[];
-  /**
-   * What each database's driver opened for its scope (pg-record: the scope's client), handed to
-   * every statement sent inside it. A nested scope with the same database shares the outer's.
-   */
-  scopes: ReadonlyMap<DatabaseExecutor, unknown>;
+  /** Each database's scope. A call nested in a running one with the same database shares it. */
+  scopes: ReadonlyMap<DatabaseExecutor, DatabaseScope>;
 }
 
 interface Storage<T> {
