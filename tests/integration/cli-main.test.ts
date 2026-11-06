@@ -44,18 +44,17 @@ describe("the d1-record command line", () => {
     expect(output[0]).toMatch(/^Unknown option '--chek'.*\n\nUsage:/s);
   });
 
-  test("a Node before 22.13 is told which Node it needs", () => {
+  test("a Node without what the command uses is told which Node it needs", () => {
     const output: string[] = [];
-    const versions = process.versions;
-    Object.defineProperty(process, "versions", { value: { ...versions, node: "22.12.0" } });
+    const spy = vi.spyOn(process, "getBuiltinModule").mockReturnValue(undefined);
 
     try {
       expect(main(["schema"], (line) => output.push(line))).toBe(1);
     } finally {
-      Object.defineProperty(process, "versions", { value: versions });
+      spy.mockRestore();
     }
     expect(output).toEqual([
-      "active-record schema needs Node 22.13 or later (this is Node 22.12.0)",
+      `active-record schema needs Node 22.5 or later (this is Node ${process.versions.node})`,
     ]);
   });
 

@@ -28,12 +28,11 @@ function usage(print: Print, problem: string): number {
 }
 
 /**
- * Whether this Node has what the command and its adapters' plugins use (`getBuiltinModule`,
- * `fs.globSync`, `path.matchesGlob`, and the modules a plugin loads when used): 22.13 or later.
+ * Whether this Node has what the command itself uses: `process.getBuiltinModule`, and
+ * `path.matchesGlob` (Node 22.5). A plugin checks for what it loads itself.
  */
-function supportedNode(version: string): boolean {
-  const [major = 0, minor = 0] = version.split(".").map(Number);
-  return major > 22 || (major === 22 && minor >= 13);
+function isSupportedNode(): boolean {
+  return process.getBuiltinModule?.("node:path")?.matchesGlob !== undefined;
 }
 
 /** Runs the command line; resolves to the exit code (or never, while watching). */
@@ -48,9 +47,10 @@ export function main(
     print(help);
     return asked ? 0 : 1;
   }
-  const node = process.versions.node;
-  if (!supportedNode(node)) {
-    print(`active-record ${command} needs Node 22.13 or later (this is Node ${node})`);
+  if (!isSupportedNode()) {
+    print(
+      `active-record ${command} needs Node 22.5 or later (this is Node ${process.versions.node})`,
+    );
     return 1;
   }
   return subcommand.run(rest, print, (problem) => usage(print, problem));
