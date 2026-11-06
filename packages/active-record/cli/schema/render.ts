@@ -6,7 +6,7 @@ import { isIdentifier } from "../project/names.ts";
 
 /**
  * The generated file's format. Bump it when the output changes, so `--check` reports files an
- * older d1-record wrote (its fingerprint covers the format as well as the schema).
+ * older version of the command wrote (its fingerprint covers the format as well as the schema).
  */
 const format = 6;
 
@@ -70,7 +70,7 @@ export interface ListedModel {
   module: string;
 }
 
-/** An adapter as a generated schema imports it: its factory (`d1`), and the package that exports it. */
+/** An adapter as a generated schema imports it: its factory, named for it, and its package. */
 export interface SchemaAdapter {
   name: string;
   from: string;

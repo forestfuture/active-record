@@ -4,10 +4,10 @@ import { defineSubcommand, helpFor } from "../../packages/active-record/cli/subc
 
 /** `active-record --help`, as it reads today: the commands, the columns, and each one's flags. */
 const help = `Usage:
-  active-record schema [options]              Generate src/db/schema.ts from your D1 migrations
+  active-record schema [options]              Generate src/db/schema.ts from your migrations
   active-record g model <Name> [columns]      Write a CREATE TABLE migration and a Model
   active-record g migration <Name> [columns]  Write a migration: Create…, Add…To…, Remove…From…, or empty
-  active-record console (or c)                Open a console on your D1 database, with your Models
+  active-record console (or c)                Open a console on your database, with your Models
   active-record migrate                       Apply your pending migrations to the local database
 
 Columns are name:type, where the type is string (the default), integer, real, boolean,
@@ -22,20 +22,20 @@ Options for schema:
   --models <dir>      Write ApplicationRecord here (src/models by default)
 
 Options for g:
-  --id integer        Give the table an INTEGER key D1 generates (a TEXT key made in code by default)
+  --id integer        Give the table an INTEGER key the database generates (a TEXT key made in code by default)
   --no-timestamps     Leave out created_at and updated_at
   --models <path>     Write Models here (src/models), or append them to one file (src/models.ts);
                       ApplicationRecord is imported from the same folder
-  --database <name>   The D1 binding to use, when the config has several
+  --database <name>   The database to use, when the config has several
   --out <file>        The schema file to regenerate, when it isn't src/db/schema.ts
 
 Options for console:
-  --database <name>   The D1 binding to open, when the config has several
+  --database <name>   The database to open, when the config has several
   --models <path>     Where the Models are: a folder (src/models) or one file (src/models.ts)
   --remote            Open your remote database instead, after asking you to type its name
   --yes               Don't ask first (with --remote); also how to open it without a terminal
   --history           Keep what you type, which a remote session doesn't unless asked
-  --no-history        Don't keep what you type in .wrangler/d1-record-history
+  --no-history        Don't keep what you type
   --verbose           Print each statement a line runs (.verbose toggles it while it runs)
   -e, --eval <code>   Run this code, print its result, and exit (only the result goes to stdout)
 
@@ -45,8 +45,8 @@ Options for migrate:
   --yes               Don't ask first (with --remote); also how to migrate it without a terminal
 
 Options for every command:
-  --adapter <name>    The adapter (d1), when the project has several installed
-  --config <file>     Use this Wrangler config
+  --adapter <name>    The adapter, when the project has several installed
+  --config <file>     Use this config file, in place of the one the adapter finds
   -h, --help          Show this help`;
 
 describe("active-record's help", () => {

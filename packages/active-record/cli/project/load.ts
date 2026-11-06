@@ -8,7 +8,7 @@ import { oneModelsFile } from "./targets.ts";
 
 /**
  * A jiti based in the project: it reads TypeScript, extensionless imports and `tsconfig.json`
- * paths, and resolves the library (`@forestfuture/active-record` and `@forestfuture/d1-record`)
+ * paths, and resolves the library (`@forestfuture/active-record` and its adapter's package)
  * from the project's `node_modules`, so the Models and the command share a single copy of it.
  */
 export function projectJiti(cwd: string): Jiti {

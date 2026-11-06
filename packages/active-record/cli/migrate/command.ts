@@ -8,7 +8,7 @@ import { chosenDatabase } from "../project/databases.ts";
 export interface MigrateOptions {
   /** The project's folder; the current one by default. */
   cwd?: string;
-  /** The adapter, `--adapter d1`, when a project has several. */
+  /** The adapter, by its `--adapter` name, when a project has several. */
   adapter?: string;
   /** The adapter's config file, in place of finding it. */
   config?: string;

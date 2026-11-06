@@ -44,17 +44,18 @@ describe("the d1-record command line", () => {
     expect(output[0]).toMatch(/^Unknown option '--chek'.*\n\nUsage:/s);
   });
 
-  test("a Node without node:sqlite is told which Node it needs", () => {
+  test("a Node before 22.13 is told which Node it needs", () => {
     const output: string[] = [];
-    const spy = vi.spyOn(process, "getBuiltinModule").mockReturnValue(undefined);
+    const versions = process.versions;
+    Object.defineProperty(process, "versions", { value: { ...versions, node: "22.12.0" } });
 
     try {
       expect(main(["schema"], (line) => output.push(line))).toBe(1);
     } finally {
-      spy.mockRestore();
+      Object.defineProperty(process, "versions", { value: versions });
     }
     expect(output).toEqual([
-      `active-record schema needs Node 22.13 or later, for node:sqlite (this is Node ${process.versions.node})`,
+      "active-record schema needs Node 22.13 or later (this is Node 22.12.0)",
     ]);
   });
 

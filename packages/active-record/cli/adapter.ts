@@ -8,7 +8,7 @@ export interface DatabaseConfig {
   binding: string;
   /** Relative to the config file. */
   migrationsDir: string;
-  /** A glob for nested migration layouts (D1's `migrations_pattern`). */
+  /** A glob for migrations in nested folders, from the config's `patternSetting`. */
   migrationsPattern?: string;
   /** The adapter's record of applied migrations, left out of the schema. */
   migrationsTable?: string;
@@ -95,7 +95,7 @@ export interface RemoteTarget {
 
 /** An open database for the console, what to tell the person about it, and how to close it. */
 export interface OpenBinding {
-  /** What the project's `connect` takes: on D1, the `D1Database` binding, as `env.DB`. */
+  /** What the project's `connect` takes, as a Worker's `env` holds it. */
   binding: unknown;
   description: string;
   dispose: () => Promise<void>;
@@ -108,7 +108,7 @@ export interface MigrateOutput {
 
 /** An adapter's plugin for the `active-record` command, from its `/cli` entry (ADR-0016). */
 export interface CliAdapter {
-  /** The name `--adapter` takes: `d1`. */
+  /** The name `--adapter` takes, which a generated schema imports its factory by. */
   readonly name: string;
   /**
    * The config setting a database's `migrationsPattern` comes from, as a person writes it in the
@@ -126,7 +126,7 @@ export interface CliAdapter {
   migration(change: MigrationChange): MigrationResult;
   /**
    * The remote database `chosen` names, or why it has none: the one the console opens, or the one
-   * `migrate` applies migrations to, which needn't be the same (D1's preview database).
+   * `migrate` applies migrations to, which needn't be the same (a preview database, say).
    */
   remote(chosen: ChosenDatabase, use: "open" | "migrate"): RemoteTarget | string;
   /**

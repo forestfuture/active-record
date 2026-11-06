@@ -1,11 +1,11 @@
-// A database's migrations: the files Wrangler finds, in the order it applies them.
+// A database's migrations: its SQL files, in file-name order, which is the order they're applied in.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { slashed } from "./paths.ts";
 import type { Target } from "./targets.ts";
 
 export interface Migration {
-  /** The file's name, as Wrangler orders and records it. */
+  /** The file's name, relative to the migrations folder, which orders it. */
   name: string;
   sql: string;
 }
@@ -15,7 +15,7 @@ export function byName(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/** A database's migrations, in the order Wrangler applies them: by file name. */
+/** A database's migrations, in the order they're applied: by file name. */
 export function migrationsOf(target: Target): Migration[] {
   const { migrationsPattern } = target.database;
   const files =

@@ -67,7 +67,7 @@ export async function planSchema(project: ProjectSnapshot, check: boolean): Prom
 }
 
 /**
- * `active-record schema`: generates each D1 database's `schema.ts` from its migrations and the Models
+ * `active-record schema`: generates each database's `schema.ts` from its migrations and the Models
  * built on it (#66, #68, #232). Resolves to the exit code: 0, or 1 when anything failed or, with
  * `check`, is out of date.
  */

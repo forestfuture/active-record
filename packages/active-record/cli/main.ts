@@ -27,6 +27,15 @@ function usage(print: Print, problem: string): number {
   return 1;
 }
 
+/**
+ * Whether this Node has what the command and its adapters' plugins use (`getBuiltinModule`,
+ * `fs.globSync`, `path.matchesGlob`, and the modules a plugin loads when used): 22.13 or later.
+ */
+function supportedNode(version: string): boolean {
+  const [major = 0, minor = 0] = version.split(".").map(Number);
+  return major > 22 || (major === 22 && minor >= 13);
+}
+
 /** Runs the command line; resolves to the exit code (or never, while watching). */
 export function main(
   argv: readonly string[],
@@ -39,10 +48,9 @@ export function main(
     print(help);
     return asked ? 0 : 1;
   }
-  if (process.getBuiltinModule?.("node:sqlite") === undefined) {
-    print(
-      `active-record ${command} needs Node 22.13 or later, for node:sqlite (this is Node ${process.versions.node})`,
-    );
+  const node = process.versions.node;
+  if (!supportedNode(node)) {
+    print(`active-record ${command} needs Node 22.13 or later (this is Node ${node})`);
     return 1;
   }
   return subcommand.run(rest, print, (problem) => usage(print, problem));

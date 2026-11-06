@@ -11,8 +11,8 @@ const sharedOptions = {
 
 /** The help for the shared flags, after every subcommand's own. */
 const sharedFlagHelp = `Options for every command:
-  --adapter <name>    The adapter (d1), when the project has several installed
-  --config <file>     Use this Wrangler config
+  --adapter <name>    The adapter, when the project has several installed
+  --config <file>     Use this config file, in place of the one the adapter finds
   -h, --help          Show this help`;
 
 /** A subcommand's options and the shared ones, as one `parseArgs` table. */
