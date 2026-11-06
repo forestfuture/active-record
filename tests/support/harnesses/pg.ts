@@ -1,6 +1,4 @@
 // The conformance suite's Postgres harness: a schema of its own per file, on the server DATABASE_URL names.
-import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
 import pg from "pg";
 import { AnyDatabase } from "../../../packages/active-record/src/database.ts";
 import { DatabaseExecutor } from "../../../packages/active-record/src/executor.ts";
@@ -10,7 +8,7 @@ import { PgDriver } from "../../../packages/pg-record/src/driver.ts";
 import { connect } from "../../../packages/pg-record/src/index.ts";
 import { typeParsers } from "../../../packages/pg-record/src/type-parsers.ts";
 import type { Harness, SchemaName } from "../harness.ts";
-import { databaseUrl } from "../pg.ts";
+import { openPgSchema } from "../pg.ts";
 
 const postgres = (name: string) => new URL(`../../fixtures/postgres/${name}.sql`, import.meta.url);
 const fixture = [postgres("fixture"), postgres("conformance")];
@@ -54,13 +52,8 @@ async function pastSeededKeys(pool: InstanceType<typeof pg.Pool>, table: string)
 }
 
 export async function openPgHarness(schema: SchemaName): Promise<Harness> {
-  const name = `conformance_${randomUUID().replaceAll("-", "")}`;
-  const admin = new pg.Pool({ connectionString: databaseUrl(), max: 1 });
-  await admin.query({ text: `CREATE SCHEMA ${name}` });
-  await admin.end();
-  const pool = new pg.Pool({ connectionString: databaseUrl(), options: `-c search_path=${name}` });
-  pool.on("error", () => {});
-  for (const file of schemas[schema]) await pool.query({ text: readFileSync(file, "utf8") });
+  const opened = await openPgSchema(schemas[schema]);
+  const { pool } = opened;
   return {
     adapter: "pg",
     connect({ onQuery, driver } = {}) {
@@ -84,9 +77,6 @@ export async function openPgHarness(schema: SchemaName): Promise<Harness> {
         await pastSeededKeys(pool, table);
       }
     },
-    async dispose() {
-      await pool.query({ text: `DROP SCHEMA ${name} CASCADE` });
-      await pool.end();
-    },
+    dispose: () => opened.dispose(),
   };
 }
