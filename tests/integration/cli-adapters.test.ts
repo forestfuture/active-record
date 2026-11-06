@@ -95,4 +95,17 @@ describe("the adapter the command uses", () => {
 
     expect(await found(cwd, "pg")).toBe("Couldn't load @forestfuture/pg-record/cli: boom");
   });
+
+  // A generated schema imports the factory the plugin's name names, so it must be its own (#284).
+  test("a plugin that names another adapter is refused", async () => {
+    const cwd = project({
+      "node_modules/@forestfuture/pg-record/package.json":
+        pgInstalled["node_modules/@forestfuture/pg-record/package.json"],
+      "node_modules/@forestfuture/pg-record/cli.js": 'export const cli = { name: "d1" };',
+    });
+
+    expect(await found(cwd, "pg")).toBe(
+      "@forestfuture/pg-record/cli calls its adapter d1, not pg; reinstall @forestfuture/pg-record",
+    );
+  });
 });
