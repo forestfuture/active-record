@@ -8,6 +8,9 @@ import {
 import type { GeneratedTable } from "../../packages/active-record/cli/adapter.ts";
 import { schemaOf } from "../../packages/d1-record/cli/schema.ts";
 
+/** D1, as the generated schema imports it. */
+const d1 = { name: "d1", from: "@forestfuture/d1-record" };
+
 function tablesOf(sql: string): GeneratedTable[] {
   const result = schemaOf([{ name: "0001_create.sql", sql }]);
   if (!result.ok) throw new Error(result.errors.join("\n"));
@@ -16,7 +19,7 @@ function tablesOf(sql: string): GeneratedTable[] {
 
 /** A database's schema to render: its tables, on the DB binding, with these Models. */
 function schemaFor(tables: GeneratedTable[], models: ListedModel[] = []) {
-  return { tables, binding: "DB", models };
+  return { adapter: d1, tables, binding: "DB", models };
 }
 
 describe("renderSchema: the generated schema.ts", () => {

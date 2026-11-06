@@ -26,9 +26,13 @@ function failed(errors: readonly string[], cwd: string, db: DatabaseSnapshot): P
 }
 
 /** `--check`: whether the file on disk was generated from these tables (its fingerprint, not its format). */
-function checkPlan(cwd: string, db: DatabaseSnapshot, tables: readonly GeneratedTable[]): Plan {
-  const out = shown(cwd, db.target.out);
-  const schema = schemaSourceOf(db, tables);
+function checkPlan(
+  project: ProjectSnapshot,
+  db: DatabaseSnapshot,
+  tables: readonly GeneratedTable[],
+): Plan {
+  const out = shown(project.cwd, db.target.out);
+  const schema = schemaSourceOf(project, db, tables);
   const current = db.schema !== undefined && fingerprintIn(db.schema) === fingerprintOf(schema);
   const line = current
     ? `${out} is up to date`
@@ -52,7 +56,7 @@ async function planDatabase(
   const migrationsTable = db.target.database.migrationsTable;
   const result = await adapter.readSchema(db.migrations, { migrationsTable });
   if (!result.ok) return failed(result.errors, cwd, db);
-  return check ? checkPlan(cwd, db, result.tables) : schemaWrites(cwd, db, result);
+  return check ? checkPlan(project, db, result.tables) : schemaWrites(project, db, result);
 }
 
 /** What `active-record schema` writes and prints for a project (or, with `check`, only prints). */

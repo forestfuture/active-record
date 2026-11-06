@@ -17,6 +17,7 @@ import { shown } from "../project/paths.ts";
 import type { DatabaseSnapshot, FoundModel, ProjectSnapshot } from "../project/snapshot.ts";
 import { defaultModels } from "../project/targets.ts";
 import { renderSchema } from "./render.ts";
+import { schemaAdapterOf } from "./writes.ts";
 
 /** What finding Models uses of the project's own library: its base class. */
 interface Library {
@@ -63,7 +64,12 @@ async function freshSchemas(
     const result = await project.adapter.readSchema(db.migrations ?? [], { migrationsTable });
     if (db.migrations === undefined || !result.ok) continue;
     const source = renderSchema(
-      { tables: result.tables, binding: database.binding, models: [] },
+      {
+        adapter: schemaAdapterOf(project.adapter),
+        tables: result.tables,
+        binding: database.binding,
+        models: [],
+      },
       "",
     );
     if (!existsSync(out)) placeholders.push(placeholder(out, source));
