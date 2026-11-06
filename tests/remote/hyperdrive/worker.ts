@@ -1,11 +1,13 @@
 // pg-record through a real Hyperdrive, deployed for a moment by tests/remote/hyperdrive.test.ts: each
-// route reports what it saw, on this run's prefixed tables (TABLE_PREFIX).
+// route reports what it saw, on this run's prefixed tables (TABLE_PREFIX). It answers only requests
+// carrying the run's own random SMOKE_TOKEN, so one left behind by a killed run writes nothing.
 import { Model, withDatabase } from "../../../packages/active-record/src/index.ts";
 import { connect, pg } from "../../../packages/pg-record/src/index.ts";
 
 interface Env {
   HYPERDRIVE: Parameters<typeof connect>[0];
   TABLE_PREFIX: string;
+  SMOKE_TOKEN: string;
 }
 
 abstract class SmokeRecord extends Model {
@@ -70,7 +72,8 @@ const routes: Record<string, (env: Env) => Promise<unknown>> = {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const route = routes[new URL(request.url).pathname];
-    if (route === undefined) return new Response("not found", { status: 404 });
+    const allowed = request.headers.get("x-smoke-token") === env.SMOKE_TOKEN;
+    if (route === undefined || !allowed) return new Response("not found", { status: 404 });
     try {
       return Response.json(await route(env));
     } catch (error) {
