@@ -268,6 +268,18 @@ describe("the console's remote database binding", () => {
     await opened.dispose();
   });
 
+  test("names no account when the config can't be read again", async () => {
+    const cwd = projectWithFakeWrangler();
+    writeFileSync(join(cwd, "wrangler.jsonc"), "{ not json");
+
+    const opened = await openRemoteBinding(cwd, remote(cwd));
+    if (typeof opened === "string") throw new Error(opened);
+
+    const [call] = globalThis.__fakeWrangler!.calls;
+    expect(call!.config).not.toHaveProperty("account_id");
+    await opened.dispose();
+  });
+
   test("names no account when the config names none", async () => {
     const cwd = projectWithFakeWrangler({ d1_databases: [entry] });
 

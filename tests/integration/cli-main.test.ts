@@ -44,6 +44,21 @@ describe("the d1-record command line", () => {
     expect(output[0]).toMatch(/^Unknown option '--chek'.*\n\nUsage:/s);
   });
 
+  test("a Node without getBuiltinModule (before 22.3) is told which Node it needs", () => {
+    const output: string[] = [];
+    const builtin = Object.getOwnPropertyDescriptor(process, "getBuiltinModule")!;
+    Object.defineProperty(process, "getBuiltinModule", { value: undefined, configurable: true });
+
+    try {
+      expect(main(["schema"], (line) => output.push(line))).toBe(1);
+    } finally {
+      Object.defineProperty(process, "getBuiltinModule", builtin);
+    }
+    expect(output).toEqual([
+      `active-record schema needs Node 22.5 or later (this is Node ${process.versions.node})`,
+    ]);
+  });
+
   // Node 20.17 has getBuiltinModule and path.matchesGlob, but not fs.globSync.
   test("a Node without what the command uses is told which Node it needs", () => {
     const output: string[] = [];

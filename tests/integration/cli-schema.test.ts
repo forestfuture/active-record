@@ -433,6 +433,18 @@ describe("active-record schema, with Models", () => {
   };
   const base = 'import { ApplicationRecord } from "./application-record";\n';
 
+  test("with Models but no migrations folder, says so and keeps the schema", async () => {
+    const cwd = await withModels({
+      "user.ts": `${base}export class User extends ApplicationRecord {}\n`,
+    });
+    rmSync(join(cwd, "migrations"), { recursive: true });
+
+    expect(await run(cwd)).toEqual({
+      code: 1,
+      output: "No migrations folder at migrations/\nKept src/db/schema.ts as it was",
+    });
+  });
+
   test("lists the Models it finds, and adds each one's attributes to its class", async () => {
     const cwd = await withModels({
       "user.ts": `${base}export class User extends ApplicationRecord {}\n`,
