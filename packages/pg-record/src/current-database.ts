@@ -24,17 +24,23 @@ function workerBindings(): Promise<WorkersEnv | undefined> {
 /** @internal The library's key for the connection string a Database opens its clients from. */
 export const pgConnectionString = Symbol("pgConnectionString");
 
-/** One Database per connection string, for queries outside `withDatabase`. */
-const defaults = new Map<string, AnyDatabase>();
+/**
+ * Each binding's own Database: a Hyperdrive binding's kept by the binding, so it goes when the
+ * binding does; a connection string's by the string, of which a Worker's env holds a few.
+ */
+const byHyperdrive = new WeakMap<object, AnyDatabase>();
+const byString = new Map<string, AnyDatabase>();
 
-function defaultDatabase(connectionString: string, name: string): AnyDatabase {
-  let db = defaults.get(connectionString);
+function defaultDatabase(binding: unknown, connectionString: string, name: string): AnyDatabase {
+  const hyperdrive = typeof binding === "object" && binding !== null ? binding : undefined;
+  let db = hyperdrive === undefined ? byString.get(connectionString) : byHyperdrive.get(hyperdrive);
   if (db === undefined) {
     db = new AnyDatabase(
       new DatabaseExecutor(pgAdapter, new PgDriver(new UrlClients(connectionString))),
     );
     db[databaseExecutor].setOrigin({ binding: name });
-    defaults.set(connectionString, db);
+    if (hyperdrive === undefined) byString.set(connectionString, db);
+    else byHyperdrive.set(hyperdrive, db);
   }
   return db;
 }
@@ -73,5 +79,7 @@ export async function databaseFor(
         "string; check hyperdrive in your Wrangler config",
     );
   }
-  return requestedFor(connectionString, requested) ?? defaultDatabase(connectionString, name);
+  return (
+    requestedFor(connectionString, requested) ?? defaultDatabase(binding, connectionString, name)
+  );
 }
