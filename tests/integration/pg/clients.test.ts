@@ -89,6 +89,24 @@ describe("pg-record's clients, from a connection string (#269)", () => {
     await closed();
   });
 
+  test("overlapping scopes of one Database each get a client of their own", async () => {
+    const gate = deferred();
+    const first = withDatabase(db, async () => {
+      const before = await backend();
+      await gate.promise;
+      return [before, await backend()];
+    });
+
+    const second = await withDatabase(db, async () => [await backend(), await backend()]);
+    gate.resolve();
+    const [firstBefore, firstAfter] = await first;
+
+    expect(firstAfter).toBe(firstBefore);
+    expect(second[1]).toBe(second[0]);
+    expect(second[0]).not.toBe(firstBefore);
+    await closed();
+  });
+
   test("a read batch runs on one client: a preload sees the backend of its owners' query", async () => {
     const [found] = await db.model(Backend).includes("sessions").toArray();
 
