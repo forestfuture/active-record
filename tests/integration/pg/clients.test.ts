@@ -120,6 +120,41 @@ describe("pg-record's clients, from a connection string (#269)", () => {
     await closed();
   });
 
+  test("a scope whose backend is ended mid-query opens a new client for its next query", async () => {
+    const seen = await withDatabase(db, async () => {
+      const first = await backend();
+      const slow = db
+        .model(Backend)
+        .where(sql`(SELECT true FROM pg_sleep(1))`)
+        .pluck("id")
+        .catch((error: unknown) => error);
+      // Long enough for the slow query to reach Postgres before its backend is ended.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await schema.pool.query({ text: "SELECT pg_terminate_backend($1)", values: [first] });
+      return { first, failed: await slow, next: await backend() };
+    });
+
+    expect(seen.failed).toMatchObject({ code: "57P01" });
+    expect(seen.next).not.toBe(seen.first);
+    await closed();
+  });
+
+  test("a call nested after its outer call returned has a client of its own, closed when it ends", async () => {
+    let later: Promise<(number | undefined)[]> | undefined;
+
+    const outer = await withDatabase(db, async () => {
+      later = new Promise((resolve) => setTimeout(resolve, 50)).then(() =>
+        withDatabase(db, async () => [await backend(), await backend()]),
+      );
+      return backend();
+    });
+    const [first, second] = await later!;
+
+    expect(second).toBe(first);
+    expect(first).not.toBe(outer);
+    await closed();
+  });
+
   test("a read batch runs on one client: a preload sees the backend of its owners' query", async () => {
     const [found] = await db.model(Backend).includes("sessions").toArray();
 
