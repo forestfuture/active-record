@@ -5,7 +5,7 @@ import {
   type StatementResult,
   boundValue,
 } from "@forestfuture/active-record/adapter";
-import type { Clients, ClientScope, Queryable } from "./clients.ts";
+import type { Clients, ClientScope, Queryable, QueryConfig, QueryResult } from "./clients.ts";
 import { withoutRowValues } from "./errors.ts";
 import { typeParsers } from "./type-parsers.ts";
 
@@ -16,13 +16,20 @@ export interface PgMeta {
   rowCount: number | null;
 }
 
+/** Every query the driver sends: its error, if it fails, without the row values Postgres wrote in it. */
+function queried(client: Queryable, query: QueryConfig): Promise<QueryResult> {
+  return client.query(query).catch((error: unknown) => {
+    throw withoutRowValues(error);
+  });
+}
+
 /** Sends `statement` on `client`, its values bound as the core stores them. */
 async function sent(client: Queryable, { sql, params }: CompiledSql): Promise<StatementResult> {
-  const { rows, rowCount, command } = await client
-    .query({ text: sql, values: params.map(boundValue), types: typeParsers })
-    .catch((error: unknown) => {
-      throw withoutRowValues(error);
-    });
+  const { rows, rowCount, command } = await queried(client, {
+    text: sql,
+    values: params.map(boundValue),
+    types: typeParsers,
+  });
   const meta: PgMeta = { command, rowCount };
   return { rows, rowsAffected: rowCount ?? 0, meta };
 }
@@ -61,10 +68,11 @@ export class PgDriver implements Driver<ClientScope | undefined> {
     const lease = await this.#clients.own();
     const { client } = lease;
     try {
-      await client.query({ text: "BEGIN" });
+      await queried(client, { text: "BEGIN" });
       const results: StatementResult[] = [];
       for (const statement of statements) results.push(await sent(client, statement));
-      await client.query({ text: "COMMIT" });
+      // A deferred constraint fails here, with the row in its detail.
+      await queried(client, { text: "COMMIT" });
       await lease.done();
       return results;
     } catch (error) {
