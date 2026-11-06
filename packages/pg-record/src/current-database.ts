@@ -3,6 +3,7 @@ import {
   AnyDatabase,
   DatabaseExecutor,
   databaseExecutor,
+  onlyRequested,
   workersEnv,
   type WorkersEnv,
 } from "@forestfuture/active-record/adapter";
@@ -38,36 +39,13 @@ function defaultDatabase(connectionString: string, name: string): AnyDatabase {
   return db;
 }
 
-/** Why there's no database here, saying what to do. */
-function noDatabase(reason: string): NoDatabase {
-  return new NoDatabase(
-    `No database for this query: ${reason}. Wrap the code in withDatabase(connect(…), …), ` +
-      "or use db.model(Model)",
-  );
-}
-
-/** Outside a Worker (Node, scripts), a request's database is the only one there can be. */
-function onlyRequested(requested: readonly AnyDatabase[], name: string | undefined): AnyDatabase {
-  if (requested.length === 1) return requested[0]!;
-  if (requested.length > 1) {
-    throw noDatabase(
-      "withDatabase was given several, and outside a Worker a binding can't tell which",
-    );
-  }
-  throw noDatabase(
-    name === undefined
-      ? "its Model's base class holds no generated schema, which names its binding"
-      : `the binding ${name} is only there inside a Worker`,
-  );
-}
-
 /** The database a query on binding `name` uses now: the request's for it, or the binding's own. */
 export async function databaseFor(
   name: string | undefined,
   requested: readonly AnyDatabase[],
 ): Promise<AnyDatabase> {
   const env = name === undefined ? undefined : await workerBindings();
-  if (env === undefined || name === undefined) return onlyRequested(requested, name);
+  if (env === undefined || name === undefined) return onlyRequested(requested, name, "connect(…)");
   const connectionString = connectionStringOf(env[name]);
   if (connectionString === undefined) {
     throw new NoDatabase(

@@ -6,4 +6,5 @@ export { type Dialect, param } from "./dialect.ts";
 export type { Driver, StatementResult } from "./driver.ts";
 export { DatabaseExecutor, type QueryEvent, type QueryListener } from "./executor.ts";
 export { boundValue } from "./filtering.ts";
+export { onlyRequested } from "./request-database.ts";
 export { workersEnv, type WorkersEnv } from "./workers-env.ts";
