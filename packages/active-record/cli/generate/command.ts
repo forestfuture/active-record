@@ -279,7 +279,7 @@ export async function planGenerate(
   const { db, migration, model, notes } = checked;
   const { cwd } = project;
   const own = model === undefined ? [migration] : [migration, model];
-  const schema = schemaWrites(cwd, db, checked.schema);
+  const schema = schemaWrites(project, db, checked.schema);
   const several = project.databases.length > 1;
   const named = several ? ` --database ${db.target.database.binding}` : "";
   return {

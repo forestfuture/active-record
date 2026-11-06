@@ -3,6 +3,9 @@ import { runInThisContext } from "node:vm";
 import { describe, expect, test } from "vite-plus/test";
 import { renderSchema } from "../../packages/active-record/cli/schema/render.ts";
 import { schemaOf } from "../../packages/d1-record/cli/schema.ts";
+
+/** D1, as the generated schema imports it. */
+const d1 = { name: "d1", from: "@forestfuture/d1-record" };
 import { jsonValues } from "../support/json-values.ts";
 import { PURE_RUNS } from "../support/properties.ts";
 
@@ -28,7 +31,7 @@ function defaultOf(value: unknown): unknown {
   const result = schemaOf([{ name: "0001_create.sql", sql }]);
   if (!result.ok) throw new Error(result.errors.join("\n"));
   const settings = generated(
-    renderSchema({ tables: result.tables, binding: "DB", models: [] }, "migrations/"),
+    renderSchema({ adapter: d1, tables: result.tables, binding: "DB", models: [] }, "migrations/"),
   ).things!.attributes.settings as { default: () => unknown };
   return settings.default();
 }

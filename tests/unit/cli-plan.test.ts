@@ -289,4 +289,30 @@ describe("planning with another adapter's plugin", () => {
     });
     expect(readSchemas.at(-1)).toEqual(["0001_users.sql", "9999_create_products.stub"]);
   });
+
+  // The adapter's factory has the adapter's name, exported from its package (#284).
+  test("the schema imports the adapter's factory from its package, and calls it with the binding", async () => {
+    const plan = await planSchema({ ...project(), adapter: { ...stub, name: "pg" } }, false);
+    const source = filesOf(plan)[0]!.source;
+
+    expect(source).toContain('import { pg } from "@forestfuture/pg-record";');
+    expect(source).toContain('adapter: pg({ binding: "DB" }),');
+    expect(source).not.toMatch(/d1/);
+  });
+
+  test("--check reports a schema written for another adapter as out of date", async () => {
+    const written = await planSchema({ ...project(), adapter: { ...stub, name: "d1" } }, false);
+    const schema = filesOf(written)[0]!.source;
+
+    const plan = await planSchema(
+      { ...project({ schema }), adapter: { ...stub, name: "pg" } },
+      true,
+    );
+
+    expect(shown(plan)).toEqual({
+      files: [],
+      lines: ["src/db/schema.ts is out of date: run `active-record schema`"],
+      code: 1,
+    });
+  });
 });

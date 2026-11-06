@@ -6,7 +6,9 @@ import type { DatabaseSnapshot } from "../project/snapshot.ts";
 import { migrationTool } from "../project/tools.ts";
 import { layoutNote, originNotes } from "./origin.ts";
 import { fingerprintIn, renderBase, renderSchema, type SchemaSource } from "./render.ts";
-import type { GeneratedTable } from "../adapter.ts";
+import type { CliAdapter, GeneratedTable } from "../adapter.ts";
+import { adapterPackage } from "../project/adapters.ts";
+import type { ProjectSnapshot } from "../project/snapshot.ts";
 
 /** The tables a database's migrations make, and the notes their columns raise. */
 export interface SchemaTables {
@@ -46,26 +48,45 @@ export function schemaRefusal(cwd: string, db: DatabaseSnapshot): string | undef
   return undefined;
 }
 
-/** What a database's schema is rendered from: its tables, its binding, and the Models found. */
-export function schemaSourceOf(db: DatabaseSnapshot, tables: SchemaSource["tables"]): SchemaSource {
+/** The adapter a schema imports: the plugin's name is its factory's, from the adapter's package. */
+export function schemaAdapterOf(adapter: CliAdapter): SchemaSource["adapter"] {
+  return { name: adapter.name, from: adapterPackage(adapter) };
+}
+
+/** What a database's schema is rendered from: its adapter, tables and binding, and the Models found. */
+export function schemaSourceOf(
+  project: ProjectSnapshot,
+  db: DatabaseSnapshot,
+  tables: SchemaSource["tables"],
+): SchemaSource {
   const { target } = db;
   const models = db.models.map(({ className, table, file }) => ({
     className,
     table,
     module: importPath(dirname(target.out), file),
   }));
-  return { tables, binding: target.database.binding, models };
+  return {
+    adapter: schemaAdapterOf(project.adapter),
+    tables,
+    binding: target.database.binding,
+    models,
+  };
 }
 
 /**
  * What writing a database's schema takes, once its tables are known: the schema file (unless
  * it's unchanged), the base class when it's missing, and the notes.
  */
-export function schemaWrites(cwd: string, db: DatabaseSnapshot, result: SchemaTables): Plan {
+export function schemaWrites(
+  project: ProjectSnapshot,
+  db: DatabaseSnapshot,
+  result: SchemaTables,
+): Plan {
+  const { cwd } = project;
   const { target } = db;
   const out = shown(cwd, target.out);
   const source = `${shown(cwd, target.migrationsDir)}/`;
-  const rendered = renderSchema(schemaSourceOf(db, result.tables), source);
+  const rendered = renderSchema(schemaSourceOf(project, db, result.tables), source);
   const count = `${result.tables.length} table${result.tables.length === 1 ? "" : "s"}`;
   // Notes come with a file that's written, so watching or generating again doesn't repeat them;
   // the hint for migrations it can't see comes every time, since nothing else would show them.
