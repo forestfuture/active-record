@@ -178,15 +178,17 @@ function referenceNotes(
 }
 
 /** The migration, checked by applying it after the others in memory; or why it was refused. */
-function checkedMigration(
+async function checkedMigration(
   request: Request,
   existing: readonly Migration[],
-): { migration: FileToWrite; after: Migration[]; schema: SchemaTables; notes: string[] } | Plan {
+): Promise<
+  { migration: FileToWrite; after: Migration[]; schema: SchemaTables; notes: string[] } | Plan
+> {
   const { project, db, options, columns } = request;
   const { adapter } = project;
   const { target } = db;
   const migrationsTable = target.database.migrationsTable;
-  const current = adapter.readSchema(existing, { migrationsTable });
+  const current = await adapter.readSchema(existing, { migrationsTable });
   if (!current.ok) return refused(...current.errors);
   const keys = keyTypes(current.tables);
   const stem =
@@ -202,7 +204,7 @@ function checkedMigration(
   const name = result.file;
   // In the order Wrangler applies them, which a migration with no number may change.
   const after = [...existing, { name, sql: result.sql }].sort((a, b) => byName(a.name, b.name));
-  const checked = adapter.readSchema(after, { migrationsTable });
+  const checked = await adapter.readSchema(after, { migrationsTable });
   if (!checked.ok) return refused(...checked.errors);
   const migration = { path: join(target.migrationsDir, name), source: result.sql };
   return { migration, after, schema: checked, notes: referenceNotes(columns, keys) };
@@ -238,12 +240,15 @@ function withModel(models: readonly FoundModel[], added: FoundModel): FoundModel
 }
 
 /** Checks everything a generator would write, before anything is written. */
-function checkedFor(project: ProjectSnapshot, options: GenerateOptions): Checked | Plan {
+async function checkedFor(
+  project: ProjectSnapshot,
+  options: GenerateOptions,
+): Promise<Checked | Plan> {
   const request = requestFor(project, options);
   if (isPlan(request)) return request;
   const model = request.className === undefined ? undefined : modelFile(request);
   if (model !== undefined && isPlan(model)) return model;
-  const checked = checkedMigration(request, request.db.migrations ?? []);
+  const checked = await checkedMigration(request, request.db.migrations ?? []);
   if (isPlan(checked)) return checked;
   const refusal = patternRefusal(request, checked.migration.path);
   if (refusal !== undefined) return unusable(refusal);
@@ -265,8 +270,11 @@ function checkedFor(project: ProjectSnapshot, options: GenerateOptions): Checked
  * What `g model` or `g migration` writes and prints for a project: a migration (and a Model),
  * checked against the existing migrations, then the schema regenerated with it.
  */
-export function planGenerate(project: ProjectSnapshot, options: GenerateOptions): Plan {
-  const checked = checkedFor(project, options);
+export async function planGenerate(
+  project: ProjectSnapshot,
+  options: GenerateOptions,
+): Promise<Plan> {
+  const checked = await checkedFor(project, options);
   if (isPlan(checked)) return checked;
   const { db, migration, model, notes } = checked;
   const { cwd } = project;
@@ -306,5 +314,5 @@ export async function runGenerate(options: GenerateOptions, print: Print): Promi
     return 1;
   }
   const project = await withModels(read, { models });
-  return apply(planGenerate(project, options), cwd, print);
+  return apply(await planGenerate(project, options), cwd, print);
 }

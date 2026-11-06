@@ -49,8 +49,8 @@ function project(database: Partial<DatabaseSnapshot> = {}): ProjectSnapshot {
 }
 
 describe("planSchema: what active-record schema writes and prints, from a snapshot", () => {
-  test("a new project gets its schema and its base class", () => {
-    const plan = planSchema(project(), false);
+  test("a new project gets its schema and its base class", async () => {
+    const plan = await planSchema(project(), false);
 
     expect(filesOf(plan).map((file) => file.path)).toEqual([
       `${cwd}/src/db/schema.ts`,
@@ -63,8 +63,8 @@ describe("planSchema: what active-record schema writes and prints, from a snapsh
     expect(plan.code).toBe(0);
   });
 
-  test("a schema file d1-record didn't write is left alone, and nothing is written", () => {
-    const plan = planSchema(project({ schema: "export const users = {};\n" }), false);
+  test("a schema file d1-record didn't write is left alone, and nothing is written", async () => {
+    const plan = await planSchema(project({ schema: "export const users = {};\n" }), false);
 
     expect(filesOf(plan)).toEqual([]);
     expect(linesOf(plan)).toEqual([
@@ -75,8 +75,8 @@ describe("planSchema: what active-record schema writes and prints, from a snapsh
     expect(plan.code).toBe(1);
   });
 
-  test("a missing migrations folder writes nothing", () => {
-    const plan = planSchema(project({ migrations: undefined }), false);
+  test("a missing migrations folder writes nothing", async () => {
+    const plan = await planSchema(project({ migrations: undefined }), false);
 
     expect(linesOf(plan)).toEqual([
       "No migrations folder at migrations/",
@@ -85,26 +85,26 @@ describe("planSchema: what active-record schema writes and prints, from a snapsh
     expect(plan.code).toBe(1);
   });
 
-  test("with check, an up-to-date schema passes and nothing is written", () => {
-    const written = filesOf(planSchema(project(), false))[0]!.source;
-    const plan = planSchema(project({ schema: written, hasBase: true }), true);
+  test("with check, an up-to-date schema passes and nothing is written", async () => {
+    const written = filesOf(await planSchema(project(), false))[0]!.source;
+    const plan = await planSchema(project({ schema: written, hasBase: true }), true);
 
     expect(shown(plan)).toEqual({ files: [], lines: ["src/db/schema.ts is up to date"], code: 0 });
   });
 
-  test("lists the Models found, adding each one's attributes to its class", () => {
+  test("lists the Models found, adding each one's attributes to its class", async () => {
     const user = { className: "User", table: "users", file: `${cwd}/src/models/user.ts` };
 
-    const source = filesOf(planSchema(project({ models: [user] }), false))[0]!.source;
+    const source = filesOf(await planSchema(project({ models: [user] }), false))[0]!.source;
 
     expect(source).toContain('  models: { User: "users" },');
     expect(source).toContain('declare module "../models/user" {\n  interface User extends');
   });
 
-  test("a Model file that can't be read writes nothing, and keeps the last good file", () => {
+  test("a Model file that can't be read writes nothing, and keeps the last good file", async () => {
     const error = "Couldn't load src/models/user.ts: Unexpected token";
 
-    const plan = planSchema(
+    const plan = await planSchema(
       project({ schema: "// schema: 0123456789ab\n", modelErrors: [error] }),
       false,
     );
@@ -116,11 +116,14 @@ describe("planSchema: what active-record schema writes and prints, from a snapsh
     });
   });
 
-  test("with check, a Model the schema doesn't list makes it out of date", () => {
-    const written = filesOf(planSchema(project(), false))[0]!.source;
+  test("with check, a Model the schema doesn't list makes it out of date", async () => {
+    const written = filesOf(await planSchema(project(), false))[0]!.source;
     const user = { className: "User", table: "users", file: `${cwd}/src/models/user.ts` };
 
-    const plan = planSchema(project({ schema: written, hasBase: true, models: [user] }), true);
+    const plan = await planSchema(
+      project({ schema: written, hasBase: true, models: [user] }),
+      true,
+    );
 
     expect(shown(plan)).toEqual({
       files: [],
@@ -129,8 +132,8 @@ describe("planSchema: what active-record schema writes and prints, from a snapsh
     });
   });
 
-  test("Drizzle's config files earn its notes with a new schema", () => {
-    const plan = planSchema(project({ toolsFound: ["Drizzle"] }), false);
+  test("Drizzle's config files earn its notes with a new schema", async () => {
+    const plan = await planSchema(project({ toolsFound: ["Drizzle"] }), false);
 
     expect(linesOf(plan).at(-1)).toMatch(/^Note: these migrations look like Drizzle's\./);
   });
@@ -139,8 +142,8 @@ describe("planSchema: what active-record schema writes and prints, from a snapsh
 describe("planGenerate: what g model and g migration write and print, from a snapshot", () => {
   const product = { kind: "model", name: "Product", columns: ["name:string!"] } as const;
 
-  test("g model writes its migration, its Model, the schema, and the base class", () => {
-    const plan = planGenerate(project(), product);
+  test("g model writes its migration, its Model, the schema, and the base class", async () => {
+    const plan = await planGenerate(project(), product);
 
     expect(filesOf(plan).map((file) => file.path)).toEqual([
       `${cwd}/migrations/0002_create_products.sql`,
@@ -158,12 +161,12 @@ describe("planGenerate: what g model and g migration write and print, from a sna
     expect(plan.code).toBe(0);
   });
 
-  test("a Model file that already exists is refused, and nothing is written", () => {
+  test("a Model file that already exists is refused, and nothing is written", async () => {
     const existing = {
       ...project(),
       files: new Map([[`${cwd}/src/models/product.ts`, "// mine\n"]]),
     };
-    const plan = planGenerate(existing, product);
+    const plan = await planGenerate(existing, product);
 
     expect(shown(plan)).toEqual({
       files: [],
@@ -172,8 +175,8 @@ describe("planGenerate: what g model and g migration write and print, from a sna
     });
   });
 
-  test("a schema file d1-record didn't write is refused before anything else", () => {
-    const plan = planGenerate(project({ schema: "export {};\n" }), {
+  test("a schema file d1-record didn't write is refused before anything else", async () => {
+    const plan = await planGenerate(project({ schema: "export {};\n" }), {
       ...product,
       columns: ["x:nope"],
     });
@@ -183,19 +186,19 @@ describe("planGenerate: what g model and g migration write and print, from a sna
     expect(linesOf(plan).at(-1)).toBe("Wrote nothing");
   });
 
-  test("a Model already in the one Models file is refused", () => {
+  test("a Model already in the one Models file is refused", async () => {
     const models = `${cwd}/src/models.ts`;
     const existing = {
       ...project(),
       files: new Map([[models, "export class Product extends ApplicationRecord {}\n"]]),
     };
-    const plan = planGenerate(existing, { ...product, models: "src/models.ts" });
+    const plan = await planGenerate(existing, { ...product, models: "src/models.ts" });
 
     expect(linesOf(plan)).toEqual(["src/models.ts already has Product", "Wrote nothing"]);
   });
 
-  test("a schema file that would take over a folder's imports is refused", () => {
-    const plan = planGenerate(project({ schemaFolder: true }), product);
+  test("a schema file that would take over a folder's imports is refused", async () => {
+    const plan = await planGenerate(project({ schemaFolder: true }), product);
 
     expect(linesOf(plan)[0]).toMatch(
       /^src\/db\/schema.ts would take over imports of the folder src\/db\/schema\//,
@@ -203,15 +206,15 @@ describe("planGenerate: what g model and g migration write and print, from a sna
     expect(plan.code).toBe(1);
   });
 
-  test("a --database the config doesn't bind is refused, naming the bindings it has", () => {
-    expect(shown(planGenerate(project(), { ...product, database: "CACHE" }))).toEqual({
+  test("a --database the config doesn't bind is refused, naming the bindings it has", async () => {
+    expect(shown(await planGenerate(project(), { ...product, database: "CACHE" }))).toEqual({
       files: [],
       lines: ["No database is bound as CACHE; this config has DB"],
       code: 1,
     });
   });
 
-  test("a migration that migrations_pattern wouldn't match is refused", () => {
+  test("a migration that migrations_pattern wouldn't match is refused", async () => {
     const one = project().databases[0]!;
     const nested = {
       ...one,
@@ -220,7 +223,7 @@ describe("planGenerate: what g model and g migration write and print, from a sna
         database: { ...one.target.database, migrationsPattern: "migrations/*/migration.sql" },
       },
     };
-    const plan = planGenerate({ ...project(), databases: [nested] }, product);
+    const plan = await planGenerate({ ...project(), databases: [nested] }, product);
 
     expect(linesOf(plan)).toEqual([
       "migrations/0002_create_products.sql wouldn't match migrations_pattern " +
@@ -229,8 +232,8 @@ describe("planGenerate: what g model and g migration write and print, from a sna
     ]);
   });
 
-  test("the new migration is checked in the order Wrangler applies them", () => {
-    const plan = planGenerate(
+  test("the new migration is checked in the order Wrangler applies them", async () => {
+    const plan = await planGenerate(
       project({
         migrations: [{ name: "init.sql", sql: "CREATE TABLE users (id TEXT PRIMARY KEY);" }],
       }),
@@ -250,7 +253,7 @@ describe("planning with another adapter's plugin", () => {
   const stub: CliAdapter = {
     name: "stub",
     databases: () => ({ ok: false, error: "unused" }),
-    readSchema(migrations) {
+    async readSchema(migrations) {
       readSchemas.push(migrations.map((migration) => migration.name));
       const id = { type: "string", null: false } as const;
       const tables = migrations.map((migration) => ({
@@ -268,17 +271,17 @@ describe("planning with another adapter's plugin", () => {
     migrate: async () => 0,
   };
 
-  test("the schema comes from the plugin's tables", () => {
-    const plan = planSchema({ ...project(), adapter: stub }, false);
+  test("the schema comes from the plugin's tables", async () => {
+    const plan = await planSchema({ ...project(), adapter: stub }, false);
 
     expect(linesOf(plan)[0]).toBe("Wrote src/db/schema.ts (1 table) from migrations/");
     expect(readSchemas.at(-1)).toEqual(["0001_users.sql"]);
   });
 
-  test("a migration is the plugin's file and SQL, checked by reading the schema it makes", () => {
+  test("a migration is the plugin's file and SQL, checked by reading the schema it makes", async () => {
     const product = { kind: "model", name: "Product", columns: ["name:string!"] } as const;
 
-    const plan = planGenerate({ ...project(), adapter: stub }, product);
+    const plan = await planGenerate({ ...project(), adapter: stub }, product);
 
     expect(filesOf(plan).find((file) => file.path.endsWith(".stub"))).toEqual({
       path: `${cwd}/migrations/9999_create_products.stub`,

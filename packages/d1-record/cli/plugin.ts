@@ -11,7 +11,7 @@ import { readWranglerConfig } from "./wrangler.ts";
 export const cli: CliAdapter = {
   name: "d1",
   databases: readWranglerConfig,
-  readSchema: schemaOf,
+  readSchema: async (migrations, options) => schemaOf(migrations, options),
   migration,
   remote: (chosen, use) => remoteTarget(chosen, use),
   open: (cwd, chosen, { remote }) =>

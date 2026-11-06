@@ -37,7 +37,11 @@ function checkPlan(cwd: string, db: DatabaseSnapshot, tables: readonly Generated
 }
 
 /** One database's schema, generated (or, with `check`, checked). */
-function planDatabase(project: ProjectSnapshot, db: DatabaseSnapshot, check: boolean): Plan {
+async function planDatabase(
+  project: ProjectSnapshot,
+  db: DatabaseSnapshot,
+  check: boolean,
+): Promise<Plan> {
   const { adapter, cwd } = project;
   if (db.migrations === undefined) {
     return failed([`No migrations folder at ${shown(cwd, db.target.migrationsDir)}/`], cwd, db);
@@ -46,14 +50,16 @@ function planDatabase(project: ProjectSnapshot, db: DatabaseSnapshot, check: boo
   if (refusal !== undefined) return failed([refusal], cwd, db);
   if (db.modelErrors.length > 0) return failed(db.modelErrors, cwd, db);
   const migrationsTable = db.target.database.migrationsTable;
-  const result = adapter.readSchema(db.migrations, { migrationsTable });
+  const result = await adapter.readSchema(db.migrations, { migrationsTable });
   if (!result.ok) return failed(result.errors, cwd, db);
   return check ? checkPlan(cwd, db, result.tables) : schemaWrites(cwd, db, result);
 }
 
 /** What `active-record schema` writes and prints for a project (or, with `check`, only prints). */
-export function planSchema(project: ProjectSnapshot, check: boolean): Plan {
-  return combined(project.databases.map((db) => planDatabase(project, db, check)));
+export async function planSchema(project: ProjectSnapshot, check: boolean): Promise<Plan> {
+  return combined(
+    await Promise.all(project.databases.map((db) => planDatabase(project, db, check))),
+  );
 }
 
 /**
@@ -74,7 +80,7 @@ export async function runSchema(options: SchemaOptions, print: Print): Promise<n
     return 1;
   }
   const project = await withModels(read, { models: options.models, check: options.check });
-  return apply(planSchema(project, options.check === true), project.cwd, print);
+  return apply(await planSchema(project, options.check === true), project.cwd, print);
 }
 
 /**
