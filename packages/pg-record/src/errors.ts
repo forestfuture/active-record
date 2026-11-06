@@ -50,15 +50,28 @@ export function withoutRowValues(error: unknown): unknown {
 /**
  * A data error's message (SQLSTATE class 22) with the value it refused filtered, in its stack
  * too: `invalid input syntax for type uuid: "[FILTERED]"`, `value "[FILTERED]" is out of range`.
- * Postgres quotes the value without escaping it, so all from its first quote to its last goes.
+ * Postgres quotes the value without escaping it, so all from its first quote to its last goes,
+ * but for an enum's quoted type name.
  */
 function withoutRefusedValue(error: PgError): void {
   const message = text(error.message);
-  const filtered = message?.replace(/".*"/s, '"[FILTERED]"');
+  const filtered = message === undefined ? undefined : refusedValueFiltered(message);
   if (message === undefined || filtered === message) return;
   error.message = filtered;
   const stack = text(error.stack);
   if (stack !== undefined) error.stack = stack.replace(message, filtered!);
+}
+
+/**
+ * An enum's refusal, whose type name Postgres quotes as an identifier when it needs to, its own
+ * quotes doubled: `enum "Mood": "…"`, `enum app."Mood": "…"`.
+ */
+const enumRefusal = /^(invalid input value for enum (?:[^\s:"]|"(?:[^"]|"")*")+: )".*"$/s;
+
+/** `message` with its refused value, from its first quote to its last, written `[FILTERED]`. */
+function refusedValueFiltered(message: string): string {
+  if (enumRefusal.test(message)) return message.replace(enumRefusal, '$1"[FILTERED]"');
+  return message.replace(/".*"/s, '"[FILTERED]"');
 }
 
 /** The columns a failure names: a not-null's column, or the key in a unique failure's detail. */
