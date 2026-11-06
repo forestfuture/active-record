@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
 import { loadAdapter } from "../../packages/active-record/cli/project/adapters.ts";
+import { cli } from "../../packages/d1-record/cli/plugin.ts";
 import { libraryPaths } from "../support/library-paths.ts";
 import { scratchDirs } from "../support/scratch.ts";
 
@@ -50,6 +51,10 @@ describe("the adapter the command uses", () => {
 
   test("with none listed, is the one installed", async () => {
     expect(await found(project({ "package.json": "{}" }))).toBe("adapter d1");
+  });
+
+  test("D1's plugin runs on this Node, which has node:sqlite", () => {
+    expect(cli.unsupported?.()).toBeUndefined();
   });
 
   // D1's schema reading needs node:sqlite, so its plugin refuses a Node without it, up front (#284).
