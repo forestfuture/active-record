@@ -12,7 +12,7 @@ import { readWranglerConfig } from "./wrangler.ts";
 function unsupported(): string | undefined {
   if (process.getBuiltinModule("node:sqlite") !== undefined) return undefined;
   const node = process.versions.node;
-  return `active-record needs Node 22.13 or later (23.4 on Node 23), for node:sqlite (this is Node ${node})`;
+  return `@forestfuture/d1-record needs Node 22.13 or later (23.4 on Node 23), for node:sqlite (this is Node ${node})`;
 }
 
 /** D1, as the command line sees it: Wrangler's config and migrations, SQLite's schema, and its bindings. */
