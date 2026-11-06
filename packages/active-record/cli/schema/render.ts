@@ -184,8 +184,8 @@ import { schema } from ${stringLiteral(schemaImport)};
  * It's abstract: it has no table of its own.
  */
 export abstract class ${className} extends Model {
-  // The generated schema: each Model's attributes, from its table, and the D1 binding Models
-  // query (Product.find(id)), from your Wrangler config's d1_databases.
+  // The generated schema: each Model's attributes, from its table, and the binding Models
+  // query (Product.find(id)), from your project's config.
   static override schema = schema;
 
   // A method every record has:

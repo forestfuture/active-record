@@ -50,12 +50,12 @@ function columnNotes(tool: Tool, tables: readonly GeneratedTable[]): string[] {
   return notes;
 }
 
-/** A note for a datetime whose default writes SQLite's date text, which sorts apart from ISO (#143). */
+/** A note for a datetime whose default writes the database's own date text, which sorts apart from ISO (#143). */
 function textDateNote(where: string): string {
   return (
-    `${where}: its default writes SQLite's date text (2026-10-12 06:38:30), where d1-record ` +
-    `writes ISO text (2026-10-12T06:38:30.000Z), and the two sort apart as text, so range ` +
-    `conditions can misplace values within a day (see Existing databases in the guide)`
+    `${where}: its default writes the database's own date text (2026-10-12 06:38:30), where ` +
+    `active-record writes ISO text (2026-10-12T06:38:30.000Z), and the two sort apart as text, ` +
+    `so range conditions can misplace values within a day (see Existing databases in the guide)`
   );
 }
 
