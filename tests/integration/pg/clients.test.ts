@@ -136,10 +136,10 @@ describe("pg-record's clients, from a connection string (#269)", () => {
     await closed();
   });
 
-  test("a query still running when its scope ends finishes before the client closes, without holding up the scope", async () => {
+  /** A scope that ends while a slow query it started is running on its client: the query, and the scope's id. */
+  const endingMidQuery = async () => {
     let running: Promise<number[]> | undefined;
     let hasSettled = false;
-
     const scoped = await withDatabase(db, async () => {
       const id = await backend();
       running = db
@@ -151,9 +151,21 @@ describe("pg-record's clients, from a connection string (#269)", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
       return id;
     });
+    return { running: running!, scoped, hasSettledAtEnd: hasSettled };
+  };
 
-    expect(hasSettled).toBe(false);
+  test("a query still running when its scope ends finishes on the scope's client before it closes", async () => {
+    const { running, scoped } = await endingMidQuery();
+
     expect(await running).toEqual([scoped]);
+    await closed();
+  });
+
+  test("a scope ends without waiting for a query still running on its client", async () => {
+    const { running, hasSettledAtEnd } = await endingMidQuery();
+
+    expect(hasSettledAtEnd).toBe(false);
+    await running;
     await closed();
   });
 
