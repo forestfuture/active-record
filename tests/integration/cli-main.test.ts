@@ -44,9 +44,14 @@ describe("the d1-record command line", () => {
     expect(output[0]).toMatch(/^Unknown option '--chek'.*\n\nUsage:/s);
   });
 
+  // Node 20.17 has getBuiltinModule and path.matchesGlob, but not fs.globSync.
   test("a Node without what the command uses is told which Node it needs", () => {
     const output: string[] = [];
-    const spy = vi.spyOn(process, "getBuiltinModule").mockReturnValue(undefined);
+    const builtin = process.getBuiltinModule.bind(process);
+    const spy = vi
+      .spyOn(process, "getBuiltinModule")
+      .mockImplementation(((id: string) =>
+        id === "node:fs" ? { ...builtin("node:fs"), globSync: undefined } : builtin(id)) as never);
 
     try {
       expect(main(["schema"], (line) => output.push(line))).toBe(1);
