@@ -10,7 +10,7 @@ const fixture = [
 ];
 
 /** The server the Postgres projects run against. */
-export function databaseUrl(): string {
+function databaseUrl(): string {
   const url = process.env["DATABASE_URL"];
   if (url === undefined) throw new Error("The Postgres projects need DATABASE_URL");
   return url;
