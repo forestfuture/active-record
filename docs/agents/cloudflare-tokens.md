@@ -4,17 +4,19 @@ The repository's GitHub Actions use two Cloudflare API tokens, each with only th
 
 | GitHub secret               | Used by                                                                                         | Permissions                                                                                        | Resources                                         |
 | --------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`      | The remote D1 smoke suite: `vp run test:remote`, and the **Remote D1 smoke** workflow (by hand) | Account → **D1** → Edit<br>Account → **Workers Scripts** → Edit                                    | The account                                       |
+| `CLOUDFLARE_API_TOKEN`      | The remote D1 smoke suite: `vp run test:remote`, and the **Remote D1 smoke** workflow (by hand) | Account → **D1** → Edit<br>Account → **Workers Scripts** → Edit<br>Account → **Hyperdrive** → Edit | The account                                       |
 | `CLOUDFLARE_DOCS_API_TOKEN` | The documentation deploy: the `docs-deploy` job in `ci.yml`, on pushes to `main`                | Account → **Workers Scripts** → Edit<br>Zone → **Workers Routes** → Edit<br>Zone → **Zone** → Read | The account, and the zone `forestfuture.dev` only |
 
 The token can replace any Worker in the account, so the job that holds it runs only a pinned Wrangler, never the site's dependencies. The `docs-build` job builds the guide with no secrets and hands the deploy job its files. The deploy job installs Wrangler from `.github/docs-deploy`, which has a lockfile of its own, with install scripts off.
 
 Both workflows also need these secrets, which aren't tokens:
 
-| GitHub secret           | Value                                                                        |
-| ----------------------- | ---------------------------------------------------------------------------- |
-| `CLOUDFLARE_ACCOUNT_ID` | The account ID, from the account's Workers & Pages overview page             |
-| `D1_SMOKE_DATABASE_ID`  | The `d1-record-smoke` database's ID (see [remote-smoke.md](remote-smoke.md)) |
+| GitHub secret            | Value                                                                                                             |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_ACCOUNT_ID`  | The account ID, from the account's Workers & Pages overview page                                                  |
+| `D1_SMOKE_DATABASE_ID`   | The `d1-record-smoke` database's ID (see [remote-smoke.md](remote-smoke.md))                                      |
+| `PG_SMOKE_HYPERDRIVE_ID` | The `pg-record-smoke` Hyperdrive config's ID (see [remote-smoke.md](remote-smoke.md#postgres-through-hyperdrive)) |
+| `PG_SMOKE_DATABASE_URL`  | The connection string of the Postgres database that config reaches                                                |
 
 ## Why each permission
 

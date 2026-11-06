@@ -26,6 +26,23 @@ It runs only with `vp run test:remote`, which sets `D1_REMOTE_SMOKE=1`. A plain 
    ```
 5. **In CI:** add `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` and `D1_SMOKE_DATABASE_ID` as repository secrets, then run the **Remote D1 smoke** workflow from the Actions tab. It only runs when started by hand (`workflow_dispatch`), never on push.
 
+## Postgres through Hyperdrive
+
+`tests/remote/hyperdrive.test.ts` runs pg-record through a **real Hyperdrive** (#269), which local mode can't show, since it doesn't pool connections. It deploys a temporary Worker (`pg-record-smoke-<tag>`, from `tests/remote/hyperdrive/worker.ts`) bound to the Hyperdrive config, calls it, and deletes it. It creates its own table with the same `smoke_<time>_<random>_` prefix through the connection string, and drops it, and tables older than an hour, when it finishes. It runs with `vp run test:remote`, and is skipped without the variables below.
+
+1. **A dedicated Postgres database** the Hyperdrive config can reach, used for nothing else, and its connection string.
+2. **A Hyperdrive config** for it:
+   ```sh
+   pnpm dlx wrangler hyperdrive create pg-record-smoke --connection-string="postgres://…"
+   ```
+   Note the `id` it prints.
+3. **The token** above, with Account → **Hyperdrive** → Edit added (see [cloudflare-tokens.md](cloudflare-tokens.md)).
+4. **Run it locally:**
+   ```sh
+   CLOUDFLARE_ACCOUNT_ID=… CLOUDFLARE_API_TOKEN=… PG_SMOKE_HYPERDRIVE_ID=… PG_SMOKE_DATABASE_URL=… vp run test:remote
+   ```
+5. **In CI:** add `PG_SMOKE_HYPERDRIVE_ID` and `PG_SMOKE_DATABASE_URL` as repository secrets too.
+
 ## When it fails
 
 A failure here that doesn't happen in `vp test` is a difference between Miniflare and real D1. Fix the library, not the smoke test, and add an integration test for the behavior where Miniflare can show it.
