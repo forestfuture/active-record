@@ -1,6 +1,7 @@
 // pg-record in workerd, for tests/integration/pg/workerd.test.ts: each route reports the backend
 // (connection) each query ran on, so the test sees which client served it.
 import { Model, sql, withDatabase } from "../../../../packages/active-record/src/index.ts";
+import pgModule from "pg";
 import { connect, pg, type Database } from "../../../../packages/pg-record/src/index.ts";
 
 interface Env {
@@ -63,6 +64,18 @@ const routes: Record<string, (env: Env) => Promise<unknown>> = {
       return [before, await backend()];
     });
     return { backends };
+  },
+  /** A Pool's Database as the request's: statics use it, though it has no connection string. */
+  async "/pool"(env) {
+    const pool = new pgModule.Pool({ connectionString: env.DATABASE_URL });
+    const heard: string[] = [];
+    const db = connect(pool, { onQuery: (event) => heard.push(event.sql) });
+    try {
+      await withDatabase(db, backend);
+    } finally {
+      await pool.end();
+    }
+    return { heard: heard.length };
   },
 };
 
