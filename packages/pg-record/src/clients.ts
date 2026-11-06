@@ -9,14 +9,14 @@ export interface TypeParsers {
 }
 
 /** One query, as `pg`'s `query` takes it. */
-interface QueryConfig {
+export interface QueryConfig {
   text: string;
   values?: unknown[];
   types?: TypeParsers;
 }
 
 /** What `pg`'s `query` resolves to, as far as this adapter reads it. */
-interface QueryResult {
+export interface QueryResult {
   rows: Record<string, unknown>[];
   rowCount: number | null;
   command: string;
