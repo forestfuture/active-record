@@ -5,7 +5,7 @@ import {
   type StatementResult,
   boundValue,
 } from "@forestfuture/active-record/adapter";
-import type { Clients, Queryable } from "./clients.ts";
+import type { Clients, ClientScope, Queryable } from "./clients.ts";
 import { withoutRowValues } from "./errors.ts";
 import { typeParsers } from "./type-parsers.ts";
 
@@ -28,20 +28,20 @@ async function sent(client: Queryable, { sql, params }: CompiledSql): Promise<St
 }
 
 /** The single place the adapter calls Postgres. */
-export class PgDriver implements Driver {
+export class PgDriver implements Driver<ClientScope | undefined> {
   readonly #clients: Clients;
 
   constructor(clients: Clients) {
     this.#clients = clients;
   }
 
-  async send(statement: CompiledSql): Promise<StatementResult> {
-    return (await this.read([statement]))[0]!;
+  async send(statement: CompiledSql, scope?: ClientScope): Promise<StatementResult> {
+    return (await this.read([statement], scope))[0]!;
   }
 
   /** One after another on one client: Postgres has no batch, and reads needn't be atomic. */
-  async read(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
-    const lease = await this.#clients.borrow();
+  async read(statements: readonly CompiledSql[], scope?: ClientScope): Promise<StatementResult[]> {
+    const lease = await this.#clients.borrow(scope);
     try {
       const results: StatementResult[] = [];
       for (const statement of statements) results.push(await sent(lease.client, statement));
@@ -74,12 +74,12 @@ export class PgDriver implements Driver {
     }
   }
 
-  enterScope(): void {
-    this.#clients.enterScope?.();
+  openScope(): ClientScope | undefined {
+    return this.#clients.openScope?.();
   }
 
-  async leaveScope(): Promise<void> {
-    await this.#clients.leaveScope?.();
+  async closeScope(scope: ClientScope | undefined): Promise<void> {
+    if (scope !== undefined) await this.#clients.closeScope?.(scope);
   }
 
   /** Postgres's errors are final: nothing is sent again. */

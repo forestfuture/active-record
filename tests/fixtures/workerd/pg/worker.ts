@@ -1,7 +1,7 @@
 // pg-record in workerd, for tests/integration/pg/workerd.test.ts: each route reports the backend
 // (connection) each query ran on, so the test sees which client served it.
-import { Model, withDatabase } from "../../../../packages/active-record/src/index.ts";
-import { connect, pg } from "../../../../packages/pg-record/src/index.ts";
+import { Model, sql, withDatabase } from "../../../../packages/active-record/src/index.ts";
+import { connect, pg, type Database } from "../../../../packages/pg-record/src/index.ts";
 
 interface Env {
   DATABASE_URL: string;
@@ -23,6 +23,12 @@ class User extends PgRecord.define({
 }
 
 const backend = async () => (await Backend.pluck("id"))[0];
+
+/** One Database for every request, as an app opens it at module scope. */
+let shared: Database | undefined;
+
+/** Long enough for overlapping requests to be inside their scopes at once. */
+const pause = () => Backend.where(sql`(SELECT true FROM pg_sleep(0.2))`).pluck("id");
 
 const routes: Record<string, (env: Env) => Promise<unknown>> = {
   /** A Model's statics, with no withDatabase: the binding's own database, a client per query. */
@@ -46,6 +52,16 @@ const routes: Record<string, (env: Env) => Promise<unknown>> = {
       await backend(),
       await backend(),
     ]);
+    return { backends };
+  },
+  /** A module-level Database, in a request that may overlap another: its own client. */
+  async "/shared"(env) {
+    shared ??= connect(env.DATABASE_URL);
+    const backends = await withDatabase(shared, async () => {
+      const before = await backend();
+      await pause();
+      return [before, await backend()];
+    });
     return { backends };
   },
 };

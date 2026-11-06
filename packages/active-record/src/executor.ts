@@ -7,6 +7,7 @@ import { type Dialect, withPlaceholders } from "./dialect.ts";
 import type { Driver, StatementResult } from "./driver.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import type { ModelClass } from "./model.ts";
+import { requestStore } from "./request-store.ts";
 import { explainMissingTable } from "./table-names.ts";
 
 /**
@@ -123,14 +124,19 @@ export class DatabaseExecutor implements Executor {
     this.#origin = origin;
   }
 
-  /** @internal A `withDatabase` scope with this database has begun (see `Driver`). */
-  enterScope(): void {
-    this.#driver.enterScope?.();
+  /** @internal A `withDatabase` scope with this database has begun: what its driver holds for it. */
+  openScope(): unknown {
+    return this.#driver.openScope?.();
   }
 
-  /** @internal A scope `enterScope` began has ended. */
-  async leaveScope(): Promise<void> {
-    await this.#driver.leaveScope?.();
+  /** @internal The scope `openScope` began has ended. */
+  async closeScope(scope: unknown): Promise<void> {
+    await this.#driver.closeScope?.(scope);
+  }
+
+  /** What the driver opened for the `withDatabase` scope a statement is sent in, if any. */
+  #scope(): unknown {
+    return requestStore()?.scopes.get(this);
   }
 
   /** Runs one statement and resolves to its rows. */
@@ -146,7 +152,7 @@ export class DatabaseExecutor implements Executor {
   /** Runs reads together and resolves to each one's result. */
   async read(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     const sent = statements.map((statement) => this.#sendable(statement));
-    return this.#together(sent, () => this.#driver.read(sent));
+    return this.#together(sent, () => this.#driver.read(sent, this.#scope()));
   }
 
   /** `query` as it's sent and reported: with its database's placeholders. */
@@ -187,14 +193,14 @@ export class DatabaseExecutor implements Executor {
     const sent = statements.map((statement) => this.#sendable(statement));
     const [only] = sent;
     if (sent.length === 1 && only !== undefined) return [await this.#one(only)];
-    return this.#together(sent, () => this.#driver.write(sent));
+    return this.#together(sent, () => this.#driver.write(sent, this.#scope()));
   }
 
   async #one(query: CompiledSql, mayRetry = true): Promise<StatementResult> {
     const started = performance.now();
     let result: StatementResult;
     try {
-      result = await this.#driver.send(query);
+      result = await this.#driver.send(query, this.#scope());
     } catch (error) {
       this.#report(query, { durationMs: performance.now() - started, error });
       if (mayRetry && this.#driver.recover(error)) return this.#one(query, false);

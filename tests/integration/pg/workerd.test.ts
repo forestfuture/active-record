@@ -49,6 +49,17 @@ describe("pg-record in workerd", { timeout: 60_000 }, () => {
     await expect.poll(() => schema.connections()).toBe(0);
   });
 
+  test("overlapping requests sharing a module-level Database each get a client of their own", async () => {
+    const [first, second] = (await Promise.all([get("/shared"), get("/shared")])) as {
+      backends: number[];
+    }[];
+
+    expect(first!.backends[1]).toBe(first!.backends[0]);
+    expect(second!.backends[1]).toBe(second!.backends[0]);
+    expect(first!.backends[0]).not.toBe(second!.backends[0]);
+    await expect.poll(() => schema.connections()).toBe(0);
+  });
+
   test.each(["/scope", "/hyperdrive"])(
     "%s: a request's database holds one client for its withDatabase scope",
     async (path) => {

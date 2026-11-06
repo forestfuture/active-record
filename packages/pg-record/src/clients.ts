@@ -1,4 +1,4 @@
-// Where a Database's Postgres clients come from: the app's Pool, or a connection string (Hyperdrive's or the app's), a client per scope or per operation.
+// Where a Database's Postgres clients come from: the app's Pool, or a connection string (Hyperdrive's or the app's), a client per `withDatabase` scope or per operation.
 import pg from "pg";
 
 type Client = InstanceType<typeof pg.Client>;
@@ -56,13 +56,13 @@ export function connectionStringOf(source: unknown): string | undefined {
 
 /** Where a Database's clients come from. */
 export interface Clients {
-  /** A client for one statement, or one read batch. */
-  borrow(): Promise<Lease>;
+  /** A client for one statement, or one read batch: `scope`'s, while it's open. */
+  borrow(scope?: ClientScope): Promise<Lease>;
   /** A client of its own, which nothing else sends on: for a write batch's transaction. */
   own(): Promise<Lease>;
   /** A `withDatabase` scope has begun, and ended (see the core's `Driver`). */
-  enterScope?(): void;
-  leaveScope?(): Promise<void>;
+  openScope?(): ClientScope;
+  closeScope?(scope: ClientScope): Promise<void>;
 }
 
 /** Clients lent by the app's Pool. */
@@ -87,42 +87,28 @@ export class PoolClients implements Clients {
 }
 
 /**
- * Clients opened from a connection string. Inside a `withDatabase` scope, one opens on the first
- * operation and serves the rest until the scope ends. Outside one, before it or after it, each
- * operation opens its own and closes it when it's done, as no client may outlive a Worker's
- * request.
+ * One `withDatabase` scope's client: opened by its first operation, it serves the rest, and
+ * closes when the scope ends and the operations it's running are done.
  */
-export class UrlClients implements Clients {
-  readonly #connectionString: string;
-  /** How many scopes are open: they nest. */
-  #depth = 0;
-  /** The open scope's client, once an operation has asked for it. */
-  #scoped: Promise<Client> | undefined;
-  /** The scope client's operations not yet done, which its scope waits for before closing it. */
+export class ClientScope {
+  readonly #open: () => Promise<Client>;
+  /** The client, once an operation has asked for it. */
+  #client: Promise<Client> | undefined;
+  /** Operations on the client not yet done, which closing it waits for. */
   readonly #busy = new Set<Promise<void>>();
+  #hasEnded = false;
 
-  constructor(connectionString: string) {
-    this.#connectionString = connectionString;
+  constructor(open: () => Promise<Client>) {
+    this.#open = open;
   }
 
-  enterScope(): void {
-    this.#depth += 1;
+  /** Whether the scope has ended: an operation sent after it (a `waitUntil` save) opens its own. */
+  get hasEnded(): boolean {
+    return this.#hasEnded;
   }
 
-  /** Closes the scope's client once its last scope has ended and its operations are done. */
-  async leaveScope(): Promise<void> {
-    this.#depth = Math.max(0, this.#depth - 1);
-    const scoped = this.#scoped;
-    if (this.#depth > 0 || scoped === undefined) return;
-    this.#scoped = undefined;
-    await Promise.allSettled(this.#busy);
-    const client = await scoped.catch(() => undefined);
-    if (client !== undefined) await closed(client);
-  }
-
-  async borrow(): Promise<Lease> {
-    if (this.#depth === 0) return this.own();
-    // Counted before the client is awaited, so a scope ending meanwhile waits for this operation.
+  async lease(): Promise<Lease> {
+    // Counted before the client is awaited, so the scope ending meanwhile waits for this operation.
     let finish = () => {};
     const busy = new Promise<void>((resolve) => (finish = resolve));
     this.#busy.add(busy);
@@ -131,25 +117,60 @@ export class UrlClients implements Clients {
       finish();
     };
     try {
-      return { client: await this.#scopeClient(), done };
+      return { client: await this.#opened(), done };
     } catch (error) {
       await done();
       throw error;
     }
   }
 
+  /** Ends the scope, and closes its client once its operations are done. */
+  async end(): Promise<void> {
+    this.#hasEnded = true;
+    const opening = this.#client;
+    if (opening === undefined) return;
+    await Promise.allSettled(this.#busy);
+    const client = await opening.catch(() => undefined);
+    if (client !== undefined) await closed(client);
+  }
+
+  /** The client, opened on first use; a failed open is tried again by the next. */
+  #opened(): Promise<Client> {
+    this.#client ??= this.#open().catch((error: unknown) => {
+      this.#client = undefined;
+      throw error;
+    });
+    return this.#client;
+  }
+}
+
+/**
+ * Clients opened from a connection string. Inside a `withDatabase` scope, its client serves each
+ * operation (`ClientScope`). Outside one, before it or after it, each operation opens its own and
+ * closes it when it's done, as no client may outlive a Worker's request.
+ */
+export class UrlClients implements Clients {
+  readonly #connectionString: string;
+
+  constructor(connectionString: string) {
+    this.#connectionString = connectionString;
+  }
+
+  openScope(): ClientScope {
+    return new ClientScope(() => this.#open());
+  }
+
+  async closeScope(scope: ClientScope): Promise<void> {
+    await scope.end();
+  }
+
+  borrow(scope?: ClientScope): Promise<Lease> {
+    return scope === undefined || scope.hasEnded ? this.own() : scope.lease();
+  }
+
   async own(): Promise<Lease> {
     const client = await this.#open();
     return { client, done: () => closed(client) };
-  }
-
-  /** The scope's client, opened on first use; a failed open is tried again by the next. */
-  #scopeClient(): Promise<Client> {
-    this.#scoped ??= this.#open().catch((error: unknown) => {
-      this.#scoped = undefined;
-      throw error;
-    });
-    return this.#scoped;
   }
 
   async #open(): Promise<Client> {

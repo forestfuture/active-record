@@ -6,59 +6,52 @@ import { schemaAdapter } from "./generated-model.ts";
 import type { Adapter, SchemaAdapter } from "./adapter.ts";
 import { databaseExecutor, type AnyDatabase } from "./database.ts";
 import { NoDatabase } from "./errors.ts";
-import { CurrentExecutor, type Executor } from "./executor.ts";
+import { CurrentExecutor, type DatabaseExecutor, type Executor } from "./executor.ts";
 import type { ModelClass, ScopesOf } from "./model.ts";
+import { requestStore, runWithStore } from "./request-store.ts";
 import type { Scoped } from "./relation.ts";
 import { relationFor } from "./scoped-relation.ts";
-
-interface Storage<T> {
-  getStore(): T | undefined;
-  run<R>(store: T, fn: () => R): R;
-}
-
-/** The databases `withDatabase` set for the current request, once it's been called. */
-let requests: Storage<readonly AnyDatabase[]> | undefined;
-
-/** Node's AsyncLocalStorage, loaded when it's first needed, so Workers without Node.js compatibility still build. */
-function newStorage(): Storage<readonly AnyDatabase[]> {
-  const process = (globalThis as { process?: { getBuiltinModule?(id: string): unknown } }).process;
-  const hooks = process?.getBuiltinModule?.("node:async_hooks") as
-    | { AsyncLocalStorage: new () => Storage<readonly AnyDatabase[]> }
-    | undefined;
-  if (hooks === undefined) {
-    throw new NoDatabase(
-      "withDatabase needs Node.js compatibility: a compatibility_date of 2026-08-04 or later, " +
-        "or the nodejs_compat flag, in your Wrangler config",
-    );
-  }
-  return new hooks.AsyncLocalStorage();
-}
 
 /**
  * Runs `fn` with `databases` as the request's own: queries started from a Model inside it (and
  * everything it awaits) use the one on that Model's binding, with its Session and `onQuery`.
- * Usually called once per request, in middleware. Nested calls add to the outer ones. An adapter
- * may hold a connection for the scope (pg-record, from a connection string), let go when `fn`
- * settles; work that outlives it, such as a `waitUntil` save, gets its own.
+ * Usually called once per request, in middleware. Nested calls add to the outer ones. Each call
+ * is a scope of its own, even with a Database another request shares: an adapter may hold a
+ * connection for it (pg-record, from a connection string), let go when `fn` settles, which a
+ * nested call with the same Database shares. Work that outlives it, such as a `waitUntil` save,
+ * gets its own.
  */
 export async function withDatabase<R>(
   databases: AnyDatabase | readonly AnyDatabase[],
   fn: () => R | Promise<R>,
 ): Promise<R> {
-  requests ??= newStorage();
-  const outer = requests.getStore() ?? [];
+  const outer = requestStore();
   const inner = Array.isArray(databases) ? databases : [databases as AnyDatabase];
-  const executors = inner.map((db) => db[databaseExecutor]);
-  for (const executor of executors) {
-    executor.setOrigin("request");
-    executor.enterScope();
-  }
+  const scopes = new Map(outer?.scopes);
+  const opened = openScopes(inner, scopes);
   try {
-    return await requests.run([...inner, ...outer], fn);
+    return await runWithStore({ databases: [...inner, ...(outer?.databases ?? [])], scopes }, fn);
   } finally {
     // An adapter may hold a connection for the scope (pg-record): it's let go now.
-    await Promise.all(executors.map((executor) => executor.leaveScope()));
+    await Promise.all(opened.map(([executor, scope]) => executor.closeScope(scope)));
   }
+}
+
+/** Opens a scope for each of `databases` not already in one, added to `scopes`; the ones opened. */
+function openScopes(
+  databases: readonly AnyDatabase[],
+  scopes: Map<DatabaseExecutor, unknown>,
+): [DatabaseExecutor, unknown][] {
+  const opened: [DatabaseExecutor, unknown][] = [];
+  for (const db of databases) {
+    const executor = db[databaseExecutor];
+    executor.setOrigin("request");
+    if (scopes.has(executor)) continue;
+    const scope = executor.openScope();
+    scopes.set(executor, scope);
+    opened.push([executor, scope]);
+  }
+  return opened;
 }
 
 /**
@@ -68,7 +61,7 @@ export async function withDatabase<R>(
  */
 function adapterFor(named: SchemaAdapter | undefined): Adapter {
   if (named !== undefined) return named.adapter;
-  const [first] = requests?.getStore() ?? [];
+  const [first] = requestStore()?.databases ?? [];
   if (first === undefined) throw noSchemaOrDatabase();
   return first[databaseExecutor].adapter;
 }
@@ -82,7 +75,7 @@ function noSchemaOrDatabase(): NoDatabase {
 
 /** The database a query uses now, on the adapter its Model's schema names. */
 function databaseFor(named: SchemaAdapter | undefined): Promise<AnyDatabase> {
-  return adapterFor(named).databaseFor(named?.binding, requests?.getStore() ?? []);
+  return adapterFor(named).databaseFor(named?.binding, requestStore()?.databases ?? []);
 }
 
 /**

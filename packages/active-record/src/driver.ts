@@ -13,21 +13,26 @@ export interface StatementResult {
   meta?: unknown;
 }
 
-/** Sends statements to one database. It knows nothing of Models, `onQuery` or error classes. */
-export interface Driver {
-  /** Sends one statement. */
-  send(statement: CompiledSql): Promise<StatementResult>;
+/**
+ * Sends statements to one database. It knows nothing of Models, `onQuery` or error classes.
+ * `Scope` is what it holds for a `withDatabase` scope, handed back with each statement sent inside it.
+ */
+export interface Driver<Scope = unknown> {
+  /** Sends one statement, inside `scope` when one was opened. */
+  send(statement: CompiledSql, scope?: Scope): Promise<StatementResult>;
   /** Sends reads at once where it can, resolving to each one's result. They needn't be atomic. */
-  read(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
+  read(statements: readonly CompiledSql[], scope?: Scope): Promise<StatementResult[]>;
   /** Sends writes atomically, all or none, resolving to each one's result. */
-  write(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
+  write(statements: readonly CompiledSql[], scope?: Scope): Promise<StatementResult[]>;
   /** Whether sending again can succeed after `error`, having readied the connection for it. */
   recover(error: unknown): boolean;
   /**
-   * A `withDatabase` scope with this database has begun: a driver may hold a connection for it
-   * until the scope ends. Scopes nest, each ended by its own `leaveScope`.
+   * A `withDatabase` call with this database has begun: what the driver holds for it, such as a
+   * connection, until `closeScope`. Each call opens its own, so overlapping requests sharing a
+   * Database never share one; a call nested in one with the same database shares the outer's.
+   * Statements sent after it ended (a `waitUntil` save) are still handed it.
    */
-  enterScope?(): void;
-  /** A scope `enterScope` began has ended: what it held can be let go once its queries finish. */
-  leaveScope?(): Promise<void>;
+  openScope?(): Scope;
+  /** The scope `openScope` returned has ended: what it holds can be let go once its statements finish. */
+  closeScope?(scope: Scope): Promise<void>;
 }
