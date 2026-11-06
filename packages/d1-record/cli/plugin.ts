@@ -8,7 +8,10 @@ import { remoteTarget } from "./remote.ts";
 import { schemaOf } from "./schema.ts";
 import { readWranglerConfig } from "./wrangler.ts";
 
-/** Why this Node can't read D1 migrations: no node:sqlite, unflagged from 22.13 and 23.4. */
+/**
+ * Why this Node can't read D1 migrations: no node:sqlite, unflagged from 22.13 and 23.4.
+ * `getBuiltinModule` itself is there: the command checks for it before it loads a plugin.
+ */
 function unsupported(): string | undefined {
   if (process.getBuiltinModule("node:sqlite") !== undefined) return undefined;
   const node = process.versions.node;
