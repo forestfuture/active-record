@@ -235,7 +235,7 @@ _Guide:_ [console](<../site/docs/(how-to)/console.mdx>), [command-line](<../site
 - **Leaving:** a line that is just `quit` or `exit` (also `.exit`, and Ctrl-D on a terminal) closes the session without evaluating anything, so nothing prints, and lines queued after it are not run. They are matched as whole lines, so `quit()` or `await quit` are not.
 - **Ctrl-C** on a terminal stops a line that is still running (`breakEvalOnSigint`), such as an `await` that never ends; the session carries on.
 - **When it can't start** it prints why and exits 1: a binding Wrangler can't open (with Wrangler's reason), or `wrangler` or the library that is found but throws on load (named as that, not as "not installed").
-- **Needs** Node 22.13 or later (as every command). It starts by printing the database (`Local database DB (.wrangler/state)`) and the Models (`Models: Post, User`).
+- **Needs** Node 22.5 or later, as every command does (D1's `schema` and `g` need 22.13, for `node:sqlite`, and say so). It starts by printing the database (`Local database DB (.wrangler/state)`) and the Models (`Models: Post, User`).
 - Not yet: `--sandbox` (#107, which records why it is a discardable copy and not a transaction).
 
 ## Scopes
