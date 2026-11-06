@@ -1,5 +1,6 @@
 // Reading Postgres's errors by their SQLSTATE codes (constraint failures and a missing table), once their row values are stripped.
 import type { ConstraintFailure } from "@forestfuture/active-record/adapter";
+import { isObject } from "./is-object.ts";
 
 /** The fields of a `pg` error this adapter reads. */
 interface PgError {
@@ -16,8 +17,7 @@ const kinds: Record<string, ConstraintFailure["kind"]> = {
   "23514": "check",
 };
 
-const fields = (error: unknown): PgError =>
-  typeof error === "object" && error !== null ? (error as PgError) : {};
+const fields = (error: unknown): PgError => (isObject(error) ? (error as PgError) : {});
 
 const text = (value: unknown) => (typeof value === "string" ? value : undefined);
 
@@ -37,7 +37,7 @@ function keyColumnsIn(detail: unknown): string[] {
  * error's `cause` or `onQuery`. Its key columns are kept for `constraintFailure`.
  */
 export function withoutRowValues(error: unknown): unknown {
-  if (typeof error !== "object" || error === null || !("detail" in error)) return error;
+  if (!isObject(error) || !("detail" in error)) return error;
   keyColumns.set(error, keyColumnsIn(error.detail));
   for (const field of ["detail", "where", "internalQuery"])
     delete (error as Record<string, unknown>)[field];
@@ -48,7 +48,7 @@ export function withoutRowValues(error: unknown): unknown {
 function columnsOf(error: unknown, { column }: PgError): string[] {
   const named = text(column);
   if (named !== undefined) return [named];
-  return typeof error === "object" && error !== null ? (keyColumns.get(error) ?? []) : [];
+  return isObject(error) ? (keyColumns.get(error) ?? []) : [];
 }
 
 /** What a Postgres constraint failure says failed. Any other error, undefined. */
