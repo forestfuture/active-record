@@ -1,4 +1,4 @@
-// Reading Postgres's errors by their SQLSTATE codes (constraint failures and a missing table), once their row values are stripped.
+// Reading Postgres's errors by their SQLSTATE codes (constraint failures and a missing table), once the row values and refused values Postgres wrote in them are stripped.
 import type { ConstraintFailure } from "@forestfuture/active-record/adapter";
 import { isObject } from "./is-object.ts";
 
@@ -8,6 +8,7 @@ interface PgError {
   table?: unknown;
   column?: unknown;
   message?: unknown;
+  stack?: unknown;
 }
 
 const kinds: Record<string, ConstraintFailure["kind"]> = {
@@ -34,14 +35,30 @@ function keyColumnsIn(detail: unknown): string[] {
 /**
  * `error` without the fields where Postgres writes a row's values (`detail`: "Key (email)=(…)",
  * "Failing row contains (…)"; `where`; the internal query), so they never reach a log through an
- * error's `cause` or `onQuery`. Its key columns are kept for `constraintFailure`.
+ * error's `cause` or `onQuery`, and a data error's message without the value it refused. Its key
+ * columns are kept for `constraintFailure`.
  */
 export function withoutRowValues(error: unknown): unknown {
   if (!isObject(error) || !("detail" in error)) return error;
   keyColumns.set(error, keyColumnsIn(error.detail));
   for (const field of ["detail", "where", "internalQuery"])
     delete (error as Record<string, unknown>)[field];
+  if (text((error as PgError).code)?.startsWith("22")) withoutRefusedValue(error as PgError);
   return error;
+}
+
+/**
+ * A data error's message (SQLSTATE class 22) with the value it refused filtered, in its stack
+ * too: `invalid input syntax for type uuid: "[FILTERED]"`, `value "[FILTERED]" is out of range`.
+ * Postgres quotes the value without escaping it, so all from its first quote to its last goes.
+ */
+function withoutRefusedValue(error: PgError): void {
+  const message = text(error.message);
+  const filtered = message?.replace(/".*"/s, '"[FILTERED]"');
+  if (message === undefined || filtered === message) return;
+  error.message = filtered;
+  const stack = text(error.stack);
+  if (stack !== undefined) error.stack = stack.replace(message, filtered!);
 }
 
 /** The columns a failure names: a not-null's column, or the key in a unique failure's detail. */
