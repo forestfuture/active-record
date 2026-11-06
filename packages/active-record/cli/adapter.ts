@@ -18,7 +18,7 @@ export interface DatabaseConfig {
 
 /** A project's config: the file, its folder, and its databases, or why it can't be read. */
 export type ConfigResult =
-  | { ok: true; file: string; dir: string; databases: DatabaseConfig[]; accountId?: string }
+  | { ok: true; file: string; dir: string; databases: DatabaseConfig[] }
   | { ok: false; error: string };
 
 type AttributeType = "string" | "integer" | "real" | "boolean" | "datetime" | "json";
@@ -79,8 +79,6 @@ export interface ChosenDatabase {
   /** Its entry, as the config has it. */
   entry: Record<string, unknown>;
   configFile: string;
-  /** The config's account, which a config of the adapter's own would lose (D1's `account_id`). */
-  accountId?: string;
 }
 
 /** A remote database, named for a person to confirm before anything reaches it. */

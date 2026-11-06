@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 import type { ChosenDatabase, OpenBinding } from "@forestfuture/active-record/cli";
 import { remoteTarget } from "./remote.ts";
+import { accountIdIn } from "./wrangler.ts";
 
 interface Wrangler {
   getPlatformProxy: (options: {
@@ -64,12 +65,12 @@ interface Opening {
 
 async function open(
   cwd: string,
-  { binding, accountId }: ChosenDatabase,
+  { binding, configFile }: ChosenDatabase,
   opening: Opening,
 ): Promise<OpenBinding | string> {
   const wrangler = await projectWrangler(cwd);
   if (typeof wrangler === "string") return wrangler;
-  const config = d1OnlyConfig(opening.entry, accountId);
+  const config = d1OnlyConfig(opening.entry, accountIdIn(configFile));
   let proxy: Awaited<ReturnType<Wrangler["getPlatformProxy"]>>;
   try {
     proxy = await wrangler.getPlatformProxy({

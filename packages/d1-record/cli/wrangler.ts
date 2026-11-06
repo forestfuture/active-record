@@ -114,6 +114,12 @@ export function readWranglerConfig(cwd: string, configPath?: string): ConfigResu
   if (entries.some((entry) => typeof entry.binding !== "string")) {
     return { ok: false, error: `${basename(file)} has a d1_databases entry with no binding` };
   }
-  const found = { ok: true, file, dir: dirname(file), databases: entries.map(databaseOf) } as const;
-  return typeof config.account_id === "string" ? { ...found, accountId: config.account_id } : found;
+  return { ok: true, file, dir: dirname(file), databases: entries.map(databaseOf) };
+}
+
+/** The account a Wrangler config names (`account_id`), if it names one and can be read. */
+export function accountIdIn(configFile: string): string | undefined {
+  const config = parsed(configFile);
+  if (typeof config === "string") return undefined;
+  return typeof config.account_id === "string" ? config.account_id : undefined;
 }

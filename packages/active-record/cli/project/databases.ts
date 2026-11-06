@@ -29,6 +29,5 @@ export function chosenDatabase(
   if (!config.ok) return config.error;
   const chosen = chooseDatabase(config.databases, options.database);
   if (typeof chosen === "string") return chosen;
-  const found = { binding: chosen.binding, entry: chosen.entry, configFile: config.file };
-  return config.accountId === undefined ? found : { ...found, accountId: config.accountId };
+  return { binding: chosen.binding, entry: chosen.entry, configFile: config.file };
 }
