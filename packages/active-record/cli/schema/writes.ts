@@ -14,7 +14,7 @@ import type { ProjectSnapshot } from "../project/snapshot.ts";
 export interface SchemaTables {
   tables: GeneratedTable[];
   notes: string[];
-  /** The datetime columns (`table.column`) whose default is SQLite's own date text (#143). */
+  /** The datetime columns (`table.column`) whose default is the database's own date text (#143). */
   textDates: string[];
 }
 
@@ -28,14 +28,14 @@ function baseWrites(cwd: string, db: DatabaseSnapshot): Step[] {
 }
 
 /**
- * Why the schema can't be written where it's going, if it can't: a file d1-record didn't write
+ * Why the schema can't be written where it's going, if it can't: a file the command didn't write
  * (a Drizzle schema, say) is never replaced, and a file next to a folder of the same name would
  * take over that folder's imports (`@/db/schema` finds `schema.ts` before `schema/index.ts`).
  */
 export function schemaRefusal(cwd: string, db: DatabaseSnapshot): string | undefined {
   const out = shown(cwd, db.target.out);
   const folder = db.target.out.replace(/\.ts$/, "");
-  const suggestion = "choose another file with --out, such as --out src/db/d1-record.ts";
+  const suggestion = "choose another file with --out, such as --out src/db/active-record.ts";
   if (db.schemaFolder) {
     return (
       `${out} would take over imports of the folder ${shown(cwd, folder)}/ (an import of ` +

@@ -133,13 +133,13 @@ describe("notes for another tool's migrations", () => {
 
   test("a datetime defaulting to SQLite's date text is noted, naming the two forms and the guide (#143)", () => {
     expect(originNotes("Prisma", tables, ["posts.created_at"])).toContain(
-      "posts.created_at: its default writes SQLite's date text (2026-10-12 06:38:30), where d1-record writes ISO text (2026-10-12T06:38:30.000Z), and the two sort apart as text, so range conditions can misplace values within a day (see Existing databases in the guide)",
+      "posts.created_at: its default writes the database's own date text (2026-10-12 06:38:30), where active-record writes ISO text (2026-10-12T06:38:30.000Z), and the two sort apart as text, so range conditions can misplace values within a day (see Existing databases in the guide)",
     );
   });
 
   test("Drizzle's migrations get the date text note too (#143)", () => {
     expect(originNotes("Drizzle", tables, ["posts.created_at"]).join("\n")).toContain(
-      "posts.created_at: its default writes SQLite's date text",
+      "posts.created_at: its default writes the database's own date text",
     );
   });
 
