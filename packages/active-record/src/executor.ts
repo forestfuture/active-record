@@ -1,4 +1,4 @@
-// Sending statements through a database's Driver and reporting each to `onQuery`, where a database is from, and the pinning of records to it.
+// Sending statements through a database's Driver, with the `withDatabase` scope they're sent in, and reporting each to `onQuery`; where a database is from, and the pinning of records to it.
 import { shownValue } from "./filtering.ts";
 import type { CompiledSql } from "./compiler.ts";
 import type { Adapter } from "./adapter.ts";
