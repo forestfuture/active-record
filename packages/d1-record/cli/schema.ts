@@ -30,10 +30,19 @@ function applied(migrations: readonly Migration[]): {
   changedBy: Map<string, string>;
   error?: string;
 } {
-  // Loaded when used, so a Node without node:sqlite gets the command's own message (cli/main.ts).
-  const { DatabaseSync: Database } = process.getBuiltinModule("node:sqlite");
-  const db = new Database(":memory:");
   const changedBy = new Map<string, string>();
+  // Loaded when used: unflagged from Node 22.13 (and 23.4), where the command itself needs less.
+  const sqlite = process.getBuiltinModule("node:sqlite") as
+    | typeof import("node:sqlite")
+    | undefined;
+  if (sqlite === undefined) {
+    const node = process.versions.node;
+    return {
+      changedBy,
+      error: `Reading D1 migrations needs Node 22.13 or later, for node:sqlite (this is Node ${node})`,
+    };
+  }
+  const db = new sqlite.DatabaseSync(":memory:");
   let before = definitions(db);
   for (const { name, sql } of migrations) {
     try {
