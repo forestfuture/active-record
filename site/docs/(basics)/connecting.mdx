@@ -90,7 +90,7 @@ export default {
 
 The first query inside `withDatabase` opens a client, and the rest of the request shares it. It closes when `withDatabase` finishes. Without `withDatabase`, each query opens a client of its own and closes it when it’s done. So does work that outlives the request, such as a save in `ctx.waitUntil`.
 
-Your schema names the binding, `adapter: pg({ binding: "HYPERDRIVE" })`, so `User.find(id)` works in a Worker with nothing to set up.
+Your schema names the binding with `adapter: pg({ binding: "HYPERDRIVE" })`. So `User.find(id)` works in a Worker with nothing to set up.
 
 `connect(env.DATABASE_URL)` takes a connection string the same way.
 
