@@ -8,7 +8,7 @@ import {
 } from "@forestfuture/active-record/adapter";
 import { NoDatabase } from "@forestfuture/active-record";
 import { pgAdapter } from "./adapter.ts";
-import { UrlClients } from "./clients.ts";
+import { connectionStringOf, UrlClients } from "./clients.ts";
 import { PgDriver } from "./driver.ts";
 
 /** The Worker's bindings, from `cloudflare:workers`, read once; undefined outside a Worker. */
@@ -59,13 +59,6 @@ function onlyRequested(requested: readonly AnyDatabase[], name: string | undefin
       ? "its Model's base class holds no generated schema, which names its binding"
       : `the binding ${name} is only there inside a Worker`,
   );
-}
-
-/** A binding's connection string: a Hyperdrive binding's, or the binding itself when it's one. */
-function connectionStringOf(binding: unknown): string | undefined {
-  if (typeof binding === "string") return binding;
-  const held = (binding as { connectionString?: unknown } | undefined)?.connectionString;
-  return typeof held === "string" ? held : undefined;
 }
 
 /** The database a query on binding `name` uses now: the request's for it, or the binding's own. */

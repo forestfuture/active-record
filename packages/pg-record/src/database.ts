@@ -6,7 +6,7 @@ import {
   type QueryListener as AnyQueryListener,
 } from "@forestfuture/active-record/adapter";
 import { pgAdapter } from "./adapter.ts";
-import { type Clients, type Pool, PoolClients, UrlClients } from "./clients.ts";
+import { type Clients, connectionStringOf, type Pool, PoolClients, UrlClients } from "./clients.ts";
 import { pgConnectionString } from "./current-database.ts";
 import { PgDriver, type PgMeta } from "./driver.ts";
 
@@ -23,12 +23,6 @@ export interface ConnectOptions {
 
 /** Where a Database's Postgres is: a Hyperdrive binding (`env.HYPERDRIVE`), a connection string, or a `pg` Pool. */
 export type PgSource = Hyperdrive | string | Pool;
-
-/** The connection string `source` opens its clients from, or undefined for a Pool. */
-function connectionStringOf(source: PgSource): string | undefined {
-  if (typeof source === "string") return source;
-  return "connectionString" in source ? source.connectionString : undefined;
-}
 
 function clientsFor(source: PgSource): Clients {
   const connectionString = connectionStringOf(source);
