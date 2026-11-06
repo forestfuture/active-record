@@ -30,6 +30,7 @@ function project(database: Partial<DatabaseSnapshot> = {}): ProjectSnapshot {
             migrationsDir: "migrations",
             entry: { binding: "DB" },
           },
+          configFile: `${cwd}/wrangler.jsonc`,
           configDir: cwd,
           migrationsDir: `${cwd}/migrations`,
           out: `${cwd}/src/db/schema.ts`,
@@ -227,8 +228,8 @@ describe("planGenerate: what g model and g migration write and print, from a sna
 
     expect(linesOf(plan)).toEqual([
       "migrations/0002_create_products.sql wouldn't match migrations_pattern " +
-        "(migrations/*/migration.sql), so Wrangler wouldn't apply it; write the migration with " +
-        "your migration tool instead",
+        "(migrations/*/migration.sql) in wrangler.jsonc, so it wouldn't be applied; write the " +
+        "migration with your migration tool instead",
     ]);
   });
 
@@ -299,6 +300,15 @@ describe("planning with another adapter's plugin", () => {
     expect(source).toContain('import { pg } from "@forestfuture/pg-record";');
     expect(source).toContain('adapter: pg({ binding: "DB" }),');
     expect(source).not.toMatch(/d1/);
+  });
+
+  // An adapter without a pattern setting can't be told to read migrations in folders (#284).
+  test("migrations in folders are noted as unread, when the plugin has no pattern setting", async () => {
+    const plan = await planSchema({ ...project({ nestedMigrations: true }), adapter: stub }, false);
+
+    expect(linesOf(plan).at(-1)).toBe(
+      "Note: migrations/ has its migrations in folders, as Drizzle writes them, which aren't read",
+    );
   });
 
   test("--check reports a schema written for another adapter as out of date", async () => {

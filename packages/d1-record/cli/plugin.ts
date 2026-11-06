@@ -11,6 +11,7 @@ import { readWranglerConfig } from "./wrangler.ts";
 /** D1, as the command line sees it: Wrangler's config and migrations, SQLite's schema, and its bindings. */
 export const cli: CliAdapter = {
   name: "d1",
+  patternSetting: "migrations_pattern",
   databases: readWranglerConfig,
   readSchema: async (migrations, options) => schemaOf(migrations, options),
   migration,

@@ -307,7 +307,7 @@ describe("active-record g migration", () => {
     expect(await generate(drizzle, ["model", "Product"])).toEqual({
       code: 1,
       output:
-        "migrations/0001_create_products.sql wouldn't match migrations_pattern (migrations/*/migration.sql), so Wrangler wouldn't apply it; write the migration with your migration tool instead",
+        "migrations/0001_create_products.sql wouldn't match migrations_pattern (migrations/*/migration.sql) in wrangler.jsonc, so it wouldn't be applied; write the migration with your migration tool instead",
     });
     expect(existsSync(join(drizzle, "migrations"))).toBe(false);
   });
