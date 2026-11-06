@@ -15,11 +15,13 @@ import { relationFor } from "./scoped-relation.ts";
 /**
  * Runs `fn` with `databases` as the request's own: queries started from a Model inside it (and
  * everything it awaits) use the one on that Model's binding, with its Session and `onQuery`.
- * Usually called once per request, in middleware. Nested calls add to the outer ones. Each call
- * is a scope of its own, even with a Database another request shares: an adapter may hold a
- * connection for it (pg-record, from a connection string), let go when `fn` settles, which a
- * nested call with the same Database shares. Work that outlives it, such as a `waitUntil` save,
- * gets its own.
+ * Usually called once per request, in middleware. Nested calls add to the outer ones.
+ *
+ * Each call is a scope of its own, even with a Database another request shares. An adapter may
+ * hold a connection for the scope (pg-record does, from a connection string). A nested call with
+ * the same Database shares the outer call's scope. When `fn` settles, the scope ends, and the
+ * adapter lets its connection go once the queries still running on it finish. Work that outlives
+ * the scope, such as a `waitUntil` save, gets a connection of its own.
  */
 export async function withDatabase<R>(
   databases: AnyDatabase | readonly AnyDatabase[],
@@ -35,7 +37,7 @@ export async function withDatabase<R>(
     const all = [...new Set([...inner, ...(outer?.databases ?? [])])];
     return await runWithStore({ databases: all, scopes }, fn);
   } finally {
-    // An adapter may hold a connection for the scope (pg-record): it's let go now.
+    // The scopes end; an adapter lets their connections go once their queries finish.
     await Promise.all(opened.map(({ executor, scope }) => executor.closeScope(scope)));
   }
 }
