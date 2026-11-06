@@ -10,6 +10,7 @@ import {
 import { NoDatabase } from "@forestfuture/active-record";
 import { pgAdapter } from "./adapter.ts";
 import { connectionStringOf, UrlClients } from "./clients.ts";
+import { isObject } from "./is-object.ts";
 import { PgDriver } from "./driver.ts";
 
 /** The Worker's bindings, from `cloudflare:workers`, read once; undefined outside a Worker. */
@@ -32,7 +33,7 @@ const byHyperdrive = new WeakMap<object, AnyDatabase>();
 const byString = new Map<string, AnyDatabase>();
 
 function defaultDatabase(binding: unknown, connectionString: string, name: string): AnyDatabase {
-  const hyperdrive = typeof binding === "object" && binding !== null ? binding : undefined;
+  const hyperdrive = isObject(binding) ? binding : undefined;
   let db = hyperdrive === undefined ? byString.get(connectionString) : byHyperdrive.get(hyperdrive);
   if (db === undefined) {
     db = new AnyDatabase(
