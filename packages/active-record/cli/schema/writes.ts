@@ -50,7 +50,7 @@ export function schemaRefusal(cwd: string, db: DatabaseSnapshot): string | undef
 
 /** The adapter a schema imports: the plugin's name is its factory's, from the adapter's package. */
 export function schemaAdapterOf(adapter: CliAdapter): SchemaSource["adapter"] {
-  return { name: adapter.name, from: adapterPackage(adapter) };
+  return { factory: adapter.name, from: adapterPackage(adapter) };
 }
 
 /** What a database's schema is rendered from: its adapter, tables and binding, and the Models found. */

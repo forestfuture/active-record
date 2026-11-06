@@ -299,7 +299,8 @@ describe("planning with another adapter's plugin", () => {
 
     expect(source).toContain('import { pg } from "@forestfuture/pg-record";');
     expect(source).toContain('adapter: pg({ binding: "DB" }),');
-    expect(source).not.toMatch(/d1/);
+    // As a word: a fingerprint is hex, and can hold "d1".
+    expect(source).not.toMatch(/\bd1\b/);
   });
 
   // An adapter without a pattern setting can't be told to read migrations in folders (#284).
