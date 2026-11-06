@@ -93,7 +93,7 @@ describe("Unix time cells SQLite's loose typing lets in (#73)", () => {
     );
   });
 
-  test("pluck names a cell that isn't a Unix time too, as a record load does", async () => {
+  test("pluck names a cell that isn't a Unix time, as a record load does", async () => {
     await binding.prepare("INSERT INTO stamps VALUES (1, 'a', 'abc', NULL)").run();
 
     await expect(connect(binding).model(Stamp).pluck("seconds")).rejects.toThrow(
