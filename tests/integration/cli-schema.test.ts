@@ -364,7 +364,7 @@ migrations_dir = "db\\u002Fmigrate"
     expect(checked.output).toBe("src/db/schema.ts is up to date");
   });
 
-  test("migrations in folders, as Drizzle writes them, get Wrangler's hint to set migrations_pattern", async () => {
+  test("migrations in folders, as Drizzle writes them, get the hint to set migrations_pattern", async () => {
     const cwd = project({
       "wrangler.jsonc": wranglerJsonc,
       "migrations/0000_init/migration.sql": "CREATE TABLE posts (id INTEGER PRIMARY KEY);",
@@ -372,7 +372,7 @@ migrations_dir = "db\\u002Fmigrate"
 
     expect((await run(cwd)).output).toBe(`Wrote src/db/schema.ts (0 tables) from migrations/
 Wrote src/models/application-record.ts
-Note: migrations/ has its migrations in folders, as Drizzle writes them; set migrations_pattern to "migrations/*/migration.sql" in your Wrangler config, so Wrangler and d1-record read them`);
+Note: migrations/ has its migrations in folders, as Drizzle writes them; set migrations_pattern to "migrations/*/migration.sql" in wrangler.jsonc, so they're read`);
   });
 
   test("--watch regenerates when a migration changes", async () => {

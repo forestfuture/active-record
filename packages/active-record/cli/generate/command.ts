@@ -103,7 +103,7 @@ function databaseFor(
   return project.databases.find((db) => db.target.database === chosen)!;
 }
 
-/** Wrangler only applies migrations its `migrations_pattern` matches, so refuse any other file. */
+/** Only migrations a database's pattern matches are applied, so refuse any other file. */
 function patternRefusal({ project, db }: Request, path: string): string | undefined {
   const { target } = db;
   const pattern = target.database.migrationsPattern;
@@ -115,8 +115,9 @@ function patternRefusal({ project, db }: Request, path: string): string | undefi
     return undefined;
   }
   return (
-    `${shown(project.cwd, path)} wouldn't match migrations_pattern (${pattern}), so Wrangler wouldn't ` +
-    "apply it; write the migration with your migration tool instead"
+    `${shown(project.cwd, path)} wouldn't match ${project.adapter.patternSetting ?? "the pattern"} ` +
+    `(${pattern}) in ${shown(project.cwd, target.configFile)}, so it wouldn't be applied; write ` +
+    "the migration with your migration tool instead"
   );
 }
 

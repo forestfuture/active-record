@@ -1,4 +1,4 @@
-// Notes for a schema from another tool's migrations, and for migrations Wrangler can't find.
+// Notes for a schema from another tool's migrations, and for migrations in folders the config doesn't find.
 // Those tools can store values differently from active-record's conventions, so some columns
 // convert to the wrong type and fail when they are read (#73, #159).
 import { underscore } from "../../src/naming.ts";
@@ -13,14 +13,17 @@ const issue = "https://github.com/forestfuture/active-record/issues/73";
 /** Column names (as snake_case words) that suggest a `TEXT` column holds JSON. */
 const jsonish = /(^|_)(json|metadata|settings|payload|properties)$/;
 
-/** Wrangler's hint for migrations in folders, when `hasNestedMigrations` found them. */
-export function layoutNote(cwd: string, target: Target): string {
+/**
+ * The hint for migrations in folders, when `hasNestedMigrations` found them: the pattern to set,
+ * when the adapter reads one (`setting`), or that they aren't read.
+ */
+export function layoutNote(cwd: string, target: Target, setting: string | undefined): string {
   const dir = target.migrationsDir;
+  const found = `${shown(cwd, dir)}/ has its migrations in folders, as Drizzle writes them`;
+  if (setting === undefined) return `${found}, which aren't read`;
   const pattern = `${shown(target.configDir, dir)}/*/migration.sql`;
-  return (
-    `${shown(cwd, dir)}/ has its migrations in folders, as Drizzle writes them; set ` +
-    `migrations_pattern to "${pattern}" in your Wrangler config, so Wrangler and d1-record read them`
-  );
+  const config = shown(cwd, target.configFile);
+  return `${found}; set ${setting} to "${pattern}" in ${config}, so they're read`;
 }
 
 /** The columns worth checking, in a schema from `tool`'s migrations. */

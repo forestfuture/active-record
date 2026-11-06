@@ -110,6 +110,11 @@ export interface MigrateOutput {
 export interface CliAdapter {
   /** The name `--adapter` takes: `d1`. */
   readonly name: string;
+  /**
+   * The config setting a database's `migrationsPattern` comes from, as a person writes it in the
+   * config; none when the adapter reads no pattern, and migrations in folders go unread.
+   */
+  readonly patternSetting?: string;
   /** The project's databases, from its config, or why they can't be read. */
   databases(cwd: string, configPath?: string): ConfigResult;
   /** A database's tables, from its migrations applied in order. */

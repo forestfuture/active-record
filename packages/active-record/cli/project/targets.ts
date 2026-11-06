@@ -22,6 +22,8 @@ export interface ProjectOptions {
 /** One database to generate: where its migrations are read from, and where its schema goes. */
 export interface Target {
   database: DatabaseConfig;
+  /** The config file that declares it. */
+  configFile: string;
   configDir: string;
   migrationsDir: string;
   out: string;
@@ -83,7 +85,7 @@ export function targetsOf(
 ): Target[] | string {
   const config = adapter.databases(cwd, options.config);
   if (!config.ok) return config.error;
-  const { databases, dir } = config;
+  const { databases, dir, file } = config;
   if (options.migrations !== undefined && databases.length > 1) {
     return `--migrations needs a single database; this config has ${databases.length}`;
   }
@@ -94,7 +96,7 @@ export function targetsOf(
         ? resolve(cwd, options.out ?? "src/db/schema.ts")
         : resolve(cwd, options.out ?? "src/db", `${database.binding}.ts`);
     const base = baseFor(modelsDirOf(cwd, options.models), database.binding, databases.length > 1);
-    return { database, configDir: dir, migrationsDir, out, base };
+    return { database, configFile: file, configDir: dir, migrationsDir, out, base };
   });
   return sharedBase(targets) ?? targets;
 }

@@ -90,7 +90,8 @@ export function schemaWrites(
   const count = `${result.tables.length} table${result.tables.length === 1 ? "" : "s"}`;
   // Notes come with a file that's written, so watching or generating again doesn't repeat them;
   // the hint for migrations it can't see comes every time, since nothing else would show them.
-  const notes = db.nestedMigrations ? [layoutNote(cwd, target)] : [];
+  const setting = project.adapter.patternSetting;
+  const notes = db.nestedMigrations ? [layoutNote(cwd, target, setting)] : [];
   const steps: Step[] = [];
   if (rendered === db.schema) steps.push({ line: `${out} is up to date (${count})` });
   else {
