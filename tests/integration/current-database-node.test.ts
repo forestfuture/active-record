@@ -35,4 +35,11 @@ describe("outside a Worker", () => {
       "No database for this query: withDatabase was given several, and outside a Worker a binding can't tell which",
     );
   });
+
+  test("a Database given twice, or nested in a call with itself, is one database", async () => {
+    const db = connect(binding);
+
+    expect(await withDatabase([db, db], () => User.count())).toBe(0);
+    expect(await withDatabase(db, () => withDatabase(db, () => User.count()))).toBe(0);
+  });
 });
