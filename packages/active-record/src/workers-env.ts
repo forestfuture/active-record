@@ -3,7 +3,7 @@
 export type WorkersEnv = Record<string, unknown>;
 
 /** Whether importing `cloudflare:workers` failed because this isn't a Worker (Node, scripts). */
-function notAWorker(error: unknown): boolean {
+function isOutsideWorker(error: unknown): boolean {
   const { code, message } = error as { code?: unknown; message?: unknown };
   return (
     code === "ERR_UNSUPPORTED_ESM_URL_SCHEME" ||
@@ -23,7 +23,7 @@ export async function workersEnv(
   try {
     return (await load()).env as WorkersEnv;
   } catch (error) {
-    if (notAWorker(error)) return undefined;
+    if (isOutsideWorker(error)) return undefined;
     throw error;
   }
 }
