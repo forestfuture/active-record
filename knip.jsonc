@@ -8,6 +8,8 @@
         "tests/fixtures/schema-project/schema.ts",
         "tests/fixtures/DB.ts",
         "tests/fixtures/LOGS.ts",
+        // A Worker that Wrangler bundles in tests/integration/pg/workerd.test.ts, not imported.
+        "tests/fixtures/workerd/pg/worker.ts",
       ],
       "typescript": {
         "config": [

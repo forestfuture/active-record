@@ -24,8 +24,8 @@ const INTERNAL = [
   "clearErrors",
 ];
 
-/** Each package's published declarations: the core's, then the D1 adapter's. */
-const files = ["active-record", "d1-record"].map(
+/** Each package's published declarations: the core's, then the adapters'. */
+const files = ["active-record", "d1-record", "pg-record"].map(
   (name) => new URL(`../packages/${name}/dist/index.d.mts`, import.meta.url),
 );
 const problems = [];
