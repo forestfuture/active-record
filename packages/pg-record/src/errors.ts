@@ -1,4 +1,4 @@
-// Reading Postgres's errors by their SQLSTATE codes: constraint failures and a missing table.
+// Reading Postgres's errors by their SQLSTATE codes (constraint failures and a missing table), once their row values are stripped.
 import type { ConstraintFailure } from "@forestfuture/active-record/adapter";
 
 /** The fields of a `pg` error this adapter reads. */
@@ -6,7 +6,6 @@ interface PgError {
   code?: unknown;
   table?: unknown;
   column?: unknown;
-  detail?: unknown;
   message?: unknown;
 }
 
@@ -22,13 +21,34 @@ const fields = (error: unknown): PgError =>
 
 const text = (value: unknown) => (typeof value === "string" ? value : undefined);
 
-/** The columns a failure names: a not-null's column, or the key in a unique failure's detail. */
-function columnsOf({ column, detail }: PgError): string[] {
-  const named = text(column);
-  if (named !== undefined) return [named];
+/** The key columns an error's `detail` named, read before `detail` is stripped. */
+const keyColumns = new WeakMap<object, string[]>();
+
+/** The key columns in a unique or foreign-key failure's detail. */
+function keyColumnsIn(detail: unknown): string[] {
   // "Key (email)=(a@example.com) already exists.", "Key (user_id, slug)=(1, a) …"
   const key = /^Key \((.+?)\)=/.exec(text(detail) ?? "")?.[1];
   return key === undefined ? [] : key.split(", ").map((part) => part.replace(/^"(.*)"$/, "$1"));
+}
+
+/**
+ * `error` without the fields where Postgres writes a row's values (`detail`: "Key (email)=(…)",
+ * "Failing row contains (…)"; `where`; the internal query), so they never reach a log through an
+ * error's `cause` or `onQuery`. Its key columns are kept for `constraintFailure`.
+ */
+export function withoutRowValues(error: unknown): unknown {
+  if (typeof error !== "object" || error === null || !("detail" in error)) return error;
+  keyColumns.set(error, keyColumnsIn(error.detail));
+  for (const field of ["detail", "where", "internalQuery"])
+    delete (error as Record<string, unknown>)[field];
+  return error;
+}
+
+/** The columns a failure names: a not-null's column, or the key in a unique failure's detail. */
+function columnsOf(error: unknown, { column }: PgError): string[] {
+  const named = text(column);
+  if (named !== undefined) return [named];
+  return typeof error === "object" && error !== null ? (keyColumns.get(error) ?? []) : [];
 }
 
 /** What a Postgres constraint failure says failed. Any other error, undefined. */
@@ -36,7 +56,7 @@ export function constraintFailure(error: unknown): ConstraintFailure | undefined
   const failed = fields(error);
   const kind = kinds[text(failed.code) ?? ""];
   if (kind === undefined) return undefined;
-  return { kind, table: text(failed.table), columns: columnsOf(failed) };
+  return { kind, table: text(failed.table), columns: columnsOf(error, failed) };
 }
 
 /** The table Postgres's "relation … does not exist" names. Any other error, undefined. */

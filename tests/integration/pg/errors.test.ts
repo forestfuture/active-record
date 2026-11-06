@@ -1,6 +1,12 @@
-import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { InvalidForeignKey, Model } from "../../../packages/active-record/src/index.ts";
-import { connect } from "../../../packages/pg-record/src/index.ts";
+import { inspect } from "node:util";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "vite-plus/test";
+import {
+  InvalidForeignKey,
+  Model,
+  RecordNotUnique,
+  CheckViolation,
+} from "../../../packages/active-record/src/index.ts";
+import { connect, type Database } from "../../../packages/pg-record/src/index.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 
 class User extends Model.define({
@@ -18,6 +24,14 @@ class Post extends Model.define({
   static table = "posts";
 }
 
+class Product extends Model.define({
+  id: { type: "integer", null: false },
+  name: { type: "string", null: false },
+  priceCents: { type: "integer", null: false },
+}) {
+  static table = "products";
+}
+
 // What Postgres's errors say where D1's can't (the constraint-tables allowed difference, #269).
 describe("pg-record's constraint errors", () => {
   let schema: PgSchema;
@@ -26,6 +40,10 @@ describe("pg-record's constraint errors", () => {
     schema = await openPgSchema();
   });
   afterAll(() => schema.dispose());
+  afterEach(async () => {
+    await schema.pool.query({ text: "DELETE FROM posts" });
+    await schema.pool.query({ text: "DELETE FROM users" });
+  });
 
   test("a batch's foreign-key failure names its table and columns, even when it writes to several", async () => {
     const db = connect(schema.url);
@@ -39,5 +57,42 @@ describe("pg-record's constraint errors", () => {
 
     expect(error).toBeInstanceOf(InvalidForeignKey);
     expect(error).toMatchObject({ table: "posts", columns: ["user_id"], attributes: ["userId"] });
+  });
+
+  // Postgres's detail says "Key (email)=(…)" or "Failing row contains (…)": a log would hold the row.
+  test.each([
+    [
+      "a unique failure",
+      RecordNotUnique,
+      (db: Database) => db.model(User).create({ email: "kept-secret@example.com" }),
+    ],
+    [
+      "a check failure",
+      CheckViolation,
+      (db: Database) => db.model(Product).create({ name: "kept-secret", priceCents: -1 }),
+    ],
+  ])("%s's error, and onQuery's, hold no row's values", async (_, kind, write) => {
+    const heard: unknown[] = [];
+    const db = connect(schema.url, { onQuery: (event) => heard.push(event.error) });
+    await db.model(User).create({ email: "kept-secret@example.com" });
+
+    const error: unknown = await write(db).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(kind);
+    for (const shown of [error, ...heard]) {
+      expect(inspect(shown, { depth: 5 })).not.toContain("kept-secret");
+    }
+  });
+
+  test("a unique failure still names its columns", async () => {
+    const db = connect(schema.url);
+    await db.model(User).create({ email: "twice@example.com" });
+
+    const error: unknown = await db
+      .model(User)
+      .create({ email: "twice@example.com" })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ table: "users", columns: ["email"], attributes: ["email"] });
   });
 });

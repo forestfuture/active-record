@@ -6,6 +6,7 @@ import {
   boundValue,
 } from "@forestfuture/active-record/adapter";
 import type { Clients, Queryable } from "./clients.ts";
+import { withoutRowValues } from "./errors.ts";
 import { typeParsers } from "./type-parsers.ts";
 
 /** What `onQuery` hears from Postgres about a statement: its command and the rows it counted. */
@@ -17,11 +18,11 @@ export interface PgMeta {
 
 /** Sends `statement` on `client`, its values bound as the core stores them. */
 async function sent(client: Queryable, { sql, params }: CompiledSql): Promise<StatementResult> {
-  const { rows, rowCount, command } = await client.query({
-    text: sql,
-    values: params.map(boundValue),
-    types: typeParsers,
-  });
+  const { rows, rowCount, command } = await client
+    .query({ text: sql, values: params.map(boundValue), types: typeParsers })
+    .catch((error: unknown) => {
+      throw withoutRowValues(error);
+    });
   const meta: PgMeta = { command, rowCount };
   return { rows, rowsAffected: rowCount ?? 0, meta };
 }
