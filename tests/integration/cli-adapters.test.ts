@@ -58,7 +58,7 @@ describe("the adapter the command uses", () => {
   });
 
   // D1's schema reading needs node:sqlite, so its plugin refuses a Node without it, up front (#284).
-  test("one this Node can't run says why, before any command starts", async () => {
+  test("one this Node can't run says why as it loads, before anything is read", async () => {
     const builtin = process.getBuiltinModule.bind(process);
     const spy = vi
       .spyOn(process, "getBuiltinModule")
