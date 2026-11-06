@@ -1,6 +1,6 @@
 // `active-record schema`'s flags and help, and how they become SchemaOptions.
 import { defineSubcommand } from "../subcommand.ts";
-import { runSchema, watchSchema } from "./command.ts";
+import { runSchema, watchFromCommandLine } from "./command.ts";
 
 /** `active-record schema`, once or watching. */
 export const schemaSubcommand = defineSubcommand({
@@ -21,9 +21,6 @@ export const schemaSubcommand = defineSubcommand({
   action({ values, positionals }, print, fail) {
     const { watch, help: _, ...options } = values;
     if (positionals.length > 0) return fail(`Unexpected ${positionals[0]}`);
-    if (!watch) return runSchema(options, print);
-    // A missing adapter is said by the first run, which watching starts with.
-    void watchSchema(options, print);
-    return "watching";
+    return watch ? watchFromCommandLine(options, print) : runSchema(options, print);
   },
 });

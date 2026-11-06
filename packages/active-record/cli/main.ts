@@ -39,11 +39,11 @@ function isSupportedNode(): boolean {
   return globSync !== undefined && process.getBuiltinModule("node:path").matchesGlob !== undefined;
 }
 
-/** Runs the command line; resolves to the exit code (or never, while watching). */
+/** Runs the command line: the exit code, or "watching" while `schema --watch` runs on. */
 export function main(
   argv: readonly string[],
   print = console.log,
-): number | "watching" | Promise<number> {
+): number | "watching" | Promise<number | "watching"> {
   const [command = "", ...rest] = argv;
   const subcommand = Object.hasOwn(subcommands, command) ? subcommands[command] : undefined;
   const asked = [command, ...rest].some((arg) => arg === "--help" || arg === "-h");

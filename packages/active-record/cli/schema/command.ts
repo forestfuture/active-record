@@ -88,6 +88,24 @@ export async function runSchema(options: SchemaOptions, print: Print): Promise<n
 }
 
 /**
+ * `active-record schema --watch` from the command line: watching, once its adapter loads; or, when
+ * it can't (none installed, or a Node it can't run on), 1, having said why, as a run without
+ * `--watch` would.
+ */
+export async function watchFromCommandLine(
+  options: SchemaOptions,
+  print: Print,
+): Promise<1 | "watching"> {
+  const adapter = await loadAdapter(resolve(options.cwd ?? process.cwd()), options.adapter);
+  if (typeof adapter === "string") {
+    print(adapter);
+    return 1;
+  }
+  void watchSchema(options, print);
+  return "watching";
+}
+
+/**
  * `active-record schema --watch`: generates, then again whenever a migration or a Model file changes,
  * keeping the last good file when one fails. Returns a function that stops watching.
  */

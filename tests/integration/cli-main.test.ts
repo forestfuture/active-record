@@ -30,6 +30,29 @@ describe("the d1-record command line", () => {
     expect(output[1]).toMatch(/^Wrote .*out\.ts \(1 table\)/);
   });
 
+  // On main, a Node D1 can't run on was refused before --watch began; it still exits 1 (#284).
+  test("schema --watch on a Node its adapter can't run says why and fails, without watching", async () => {
+    const cwd = scratch("main-");
+    writeFileSync(join(cwd, "wrangler.jsonc"), '{ "d1_databases": [{ "binding": "DB" }] }');
+    const output: string[] = [];
+    const inProject = vi.spyOn(process, "cwd").mockReturnValue(cwd);
+    const builtin = process.getBuiltinModule.bind(process);
+    const noSqlite = vi
+      .spyOn(process, "getBuiltinModule")
+      .mockImplementation(((id: string) =>
+        id === "node:sqlite" ? undefined : builtin(id)) as never);
+    onTestFinished(() => {
+      noSqlite.mockRestore();
+      inProject.mockRestore();
+    });
+
+    expect(await main(["schema", "--watch"], (line) => output.push(line))).toBe(1);
+    expect(output).toEqual([
+      "active-record needs Node 22.13 or later (23.4 on Node 23), for node:sqlite " +
+        `(this is Node ${process.versions.node})`,
+    ]);
+  });
+
   test("anything else prints the usage and fails", () => {
     const output: string[] = [];
 
