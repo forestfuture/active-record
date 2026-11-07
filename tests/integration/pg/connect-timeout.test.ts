@@ -93,4 +93,16 @@ describe("opening a pg-record client times out (#292)", () => {
       expect(await sent.outcome).toMatchObject({ code: "ECONNRESET" });
     },
   );
+
+  test.each(["soon", "", "1.5", "10s"])(
+    "a connect_timeout of %j throws when the Database is built, naming it but not the URL",
+    (value) => {
+      const url = host.url(`?connect_timeout=${value}`).replace("app@", "app:secret@");
+      expect(() => connect(url)).toThrow(
+        new TypeError(
+          `connect_timeout must be a whole number of seconds, not ${JSON.stringify(value)}`,
+        ),
+      );
+    },
+  );
 });
