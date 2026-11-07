@@ -40,14 +40,21 @@ function deferred() {
 describe("pg-record's clients, from a connection string (#269)", () => {
   let schema: PgSchema;
   let db: Database;
+  // Node gives each deprecation once per process, so this hears the file's from its first test.
+  const warnings: Error[] = [];
+  const heard = (warning: Error) => warnings.push(warning);
 
   const backend = async () => (await db.model(Backend).pluck("id"))[0];
   const closed = () => expect.poll(() => schema.connections()).toBe(0);
 
   beforeAll(async () => {
+    process.on("warning", heard);
     schema = await openPgSchema();
   });
-  afterAll(() => schema.dispose());
+  afterAll(async () => {
+    process.off("warning", heard);
+    await schema.dispose();
+  });
   afterEach(async () => {
     await schema.pool.query({ text: "DELETE FROM users" });
     await closed();
@@ -257,5 +264,26 @@ describe("pg-record's clients, from a connection string (#269)", () => {
 
     expect(outcome).toBeInstanceOf(RecordNotUnique);
     expect(await users.pluck("email")).toEqual(["beside@example.com"]);
+  });
+
+  // Last, so it hears a query sent beside another anywhere in the file (#288).
+  test("operations sent at once in a scope take turns on its one client", async () => {
+    const seen = await withDatabase(db, async () => {
+      const [preloaded, ...ids] = await Promise.all([
+        db.model(Backend).includes("sessions").toArray(),
+        backend(),
+        backend(),
+      ]);
+      const [found] = preloaded;
+      const sessions = found!.loaded("sessions").map((session) => session.id);
+      return { backends: [found!.id, ...sessions, ...ids], open: await schema.connections() };
+    });
+
+    expect(new Set(seen.backends).size).toBe(1);
+    expect(seen.open).toBe(1);
+    expect(warnings.map(({ message }) => message)).not.toContainEqual(
+      expect.stringContaining("already executing a query"),
+    );
+    await closed();
   });
 });

@@ -89,15 +89,19 @@ export class PoolClients implements Clients {
 }
 
 /**
- * One `withDatabase` scope's client: opened by its first operation, it serves the rest, and
- * closes when the scope ends and the operations it's running are done.
+ * One `withDatabase` scope's client: opened by its first operation, it serves the rest, one at a
+ * time, and closes when the scope ends and the operations sent before then are done.
  */
 export class ClientScope {
   readonly #open: () => Promise<Client>;
   /** The client, once an operation has asked for it. */
   #client: Promise<Client> | undefined;
-  /** Operations on the client not yet done, which closing it waits for. */
-  readonly #busy = new Set<Promise<void>>();
+  /**
+   * Settles when the latest operation is done. Each waits for the one before it, so `pg` never
+   * gets a query while another is running (its queue for those is deprecated), and closing the
+   * client waits for the last.
+   */
+  #turn: Promise<void> = Promise.resolve();
   #hasEnded = false;
 
   constructor(open: () => Promise<Client>) {
@@ -110,15 +114,16 @@ export class ClientScope {
   }
 
   async lease(): Promise<Lease> {
-    // Counted before the client is awaited, so the scope ending meanwhile waits for this operation.
+    // Queued before anything is awaited, so the scope ending meanwhile waits for this operation.
+    const previous = this.#turn;
     let finish = () => {};
-    const busy = new Promise<void>((resolve) => (finish = resolve));
-    this.#busy.add(busy);
+    this.#turn = new Promise<void>((resolve) => (finish = resolve));
+    await previous;
+    // Asked for on its turn: a client the operation before it lost is replaced.
     const opening = this.#opened();
     const done = async (error?: unknown) => {
-      this.#busy.delete(busy);
-      finish();
       if (isSessionEnding(error)) this.#forget(opening);
+      finish();
     };
     try {
       return { client: await opening, done };
@@ -134,13 +139,13 @@ export class ClientScope {
    */
   end(): void {
     this.#hasEnded = true;
-    const opening = this.#client;
-    if (opening !== undefined) void this.#closeWhenDone(opening);
+    void this.#closeWhenDone();
   }
 
-  async #closeWhenDone(opening: Promise<Client>): Promise<void> {
-    await Promise.allSettled(this.#busy);
-    const client = await opening.catch(() => undefined);
+  /** Closes the client the scope holds once its last operation is done, if it holds one. */
+  async #closeWhenDone(): Promise<void> {
+    await this.#turn;
+    const client = await this.#client?.catch(() => undefined);
     if (client !== undefined) await closed(client);
   }
 
