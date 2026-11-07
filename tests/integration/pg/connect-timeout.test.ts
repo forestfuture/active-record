@@ -1,7 +1,17 @@
 import { createServer, type AddressInfo, type Socket } from "node:net";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from "vite-plus/test";
 import { Model } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/pg-record/src/index.ts";
+import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 
 class User extends Model.define({ id: { type: "integer", null: false } }) {
   static table = "users";
@@ -105,4 +115,20 @@ describe("opening a pg-record client times out (#292)", () => {
       );
     },
   );
+});
+
+describe("a connection string's connect_timeout, on a server that answers (#292)", () => {
+  let schema: PgSchema;
+
+  beforeAll(async () => {
+    schema = await openPgSchema();
+  });
+  afterAll(async () => {
+    await schema.dispose();
+  });
+
+  test("is pg-record's alone: the server never hears it", async () => {
+    const db = connect(`${schema.url}&connect_timeout=5`);
+    expect(await db.model(User).count()).toBe(0);
+  });
 });
