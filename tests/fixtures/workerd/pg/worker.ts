@@ -6,6 +6,8 @@ import { connect, pg, type Database } from "../../../../packages/pg-record/src/i
 
 interface Env {
   DATABASE_URL: string;
+  /** A host that never answers, with `connect_timeout=2`. */
+  UNANSWERED_URL: string;
 }
 
 abstract class PgRecord extends Model {
@@ -23,6 +25,19 @@ class User extends PgRecord.define({
   static override table = "users";
 }
 
+/** A Model whose binding is a host that never answers. */
+class Unanswered extends Model.define({ id: { type: "integer", null: false } }) {
+  static override schema = { adapter: pg({ binding: "UNANSWERED_URL" }), tables: {} };
+  static override table = "users";
+}
+
+/** What a query fails with, or undefined when it doesn't. */
+const failure = (query: Promise<unknown>) =>
+  query.then(
+    () => undefined,
+    (error: Error) => error.message,
+  );
+
 const backend = async () => (await Backend.pluck("id"))[0];
 
 /** One Database for every request, as an app opens it at module scope. */
@@ -38,16 +53,16 @@ const routes: Record<string, (env: Env, url: URL) => Promise<unknown>> = {
     const found = await User.find(made.id);
     return { email: found.email, backends: [await backend(), await backend()] };
   },
-  /** A query to `?to`, a host that never answers: what it fails with, once its open times out. */
-  async "/unanswered"(_env, url) {
-    const failed = await connect(url.searchParams.get("to")!)
-      .model(User)
-      .count()
-      .then(
-        () => undefined,
-        (error: Error) => error.message,
-      );
-    return { failed };
+  /**
+   * Queries to a host that never answers, from `connect` and from a Model's binding: what each
+   * fails with, once its open times out.
+   */
+  async "/unanswered"(env) {
+    const [connected, statics] = await Promise.all([
+      failure(connect(env.UNANSWERED_URL).model(Unanswered).count()),
+      failure(Unanswered.count()),
+    ]);
+    return { connected, statics };
   },
   /** A request's database from the connection string: one client for the scope. */
   async "/scope"(env) {
