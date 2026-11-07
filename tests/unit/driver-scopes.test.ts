@@ -49,16 +49,16 @@ describe("a driver's withDatabase scopes", () => {
 
   test("a call nested in one that has already returned opens its own, as a waitUntil's does", async () => {
     const { db, seen } = scopedDriver();
-    let returned = () => {};
-    const hasReturned = new Promise<void>((resolve) => (returned = resolve));
+    let markReturned = () => {};
+    const outerReturned = new Promise<void>((resolve) => (markReturned = resolve));
     let later: Promise<unknown> | undefined;
 
     await withDatabase(db, async () => {
       await send(db);
       // Started inside the outer call, run once it has returned.
-      later = hasReturned.then(() => withDatabase(db, () => send(db)));
+      later = outerReturned.then(() => withDatabase(db, () => send(db)));
     });
-    returned();
+    markReturned();
     await later;
 
     expect(seen).toEqual({ opened: 2, closed: [1, 2], sentIn: [1, 2] });
