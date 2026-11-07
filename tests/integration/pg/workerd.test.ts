@@ -4,7 +4,7 @@ import { Miniflare } from "miniflare";
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 import { scratchDirs } from "../../support/scratch.ts";
-import { openSilentHost } from "../../support/silent-host.ts";
+import { openSilentHost, type SilentHost } from "../../support/silent-host.ts";
 
 const fixture = new URL("../../fixtures/workerd/pg/", import.meta.url).pathname;
 const wrangler = new URL("../../../node_modules/.bin/wrangler", import.meta.url).pathname;
@@ -13,6 +13,7 @@ const scratch = scratchDirs();
 // pg-record bundled by Wrangler, as an app's Worker is, and run in workerd (#269).
 describe("pg-record in workerd", { timeout: 60_000 }, () => {
   let schema: PgSchema;
+  let unanswered: SilentHost;
   let mf: Miniflare;
 
   const get = async (path: string) => {
@@ -24,6 +25,7 @@ describe("pg-record in workerd", { timeout: 60_000 }, () => {
 
   beforeAll(async () => {
     schema = await openPgSchema();
+    unanswered = await openSilentHost();
     const out = scratch("pg-worker-");
     execFileSync(wrangler, ["deploy", "--dry-run", "--outdir", out, "--config", "wrangler.jsonc"], {
       cwd: fixture,
@@ -34,12 +36,16 @@ describe("pg-record in workerd", { timeout: 60_000 }, () => {
       scriptPath: join(out, "worker.js"),
       compatibilityDate: "2025-09-01",
       compatibilityFlags: ["nodejs_compat"],
-      bindings: { DATABASE_URL: schema.url },
+      bindings: {
+        DATABASE_URL: schema.url,
+        UNANSWERED_URL: unanswered.url("?connect_timeout=2"),
+      },
     });
   }, 120_000);
   afterAll(async () => {
     await mf?.dispose();
     await schema?.dispose();
+    await unanswered?.close();
   });
 
   test("a Model's statics use the binding's own database, a client per query, each closed", async () => {
@@ -80,13 +86,10 @@ describe("pg-record in workerd", { timeout: 60_000 }, () => {
     },
   );
 
-  test("opening a client to a host that never answers times out in workerd too (#292)", async () => {
-    const host = await openSilentHost();
-    try {
-      const to = encodeURIComponent(host.url("?connect_timeout=2"));
-      expect(await get(`/unanswered?to=${to}`)).toEqual({ failed: "timeout expired" });
-    } finally {
-      await host.close();
-    }
+  test("opening a client to a host that never answers times out, a binding's too (#292)", async () => {
+    expect(await get("/unanswered")).toEqual({
+      connected: "timeout expired",
+      statics: "timeout expired",
+    });
   });
 });
