@@ -94,6 +94,26 @@ Your schema names the binding with `adapter: pg({ binding: "HYPERDRIVE" })`. So 
 
 `connect(env.DATABASE_URL)` takes a connection string the same way.
 
+Opening a client waits up to 10 seconds for Postgres to answer. After that, the query fails with `Error: timeout expired`. To change the limit, set `connect_timeout` in the connection string, in seconds:
+
+```ts
+import { connect } from "@forestfuture/pg-record";
+
+const db = connect("postgres://app@db.example.com/app?connect_timeout=5");
+```
+
+With `connect_timeout=0`, opening a client waits as long as it takes.
+
+:::note
+`connect(pool)` uses your Pool’s own `connectionTimeoutMillis`, since the Pool opens its clients.
+:::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails sets no limit, so opening a connection waits as long as it takes unless you set `connect_timeout`. Here the limit is 10 seconds unless you set one.
+
+</Callout>
+
 :::tip
 On Workers, use Hyperdrive. It pools connections, so a new client doesn’t mean a new connection to Postgres.
 :::
