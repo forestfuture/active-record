@@ -21,20 +21,22 @@ function isGlobalSetTimeout(callee) {
 
 /** The function `node` sits directly in, if any. */
 function enclosingFunction(node) {
-  let scope = node.parent;
-  while (scope !== undefined && scope !== null && !isFunction(scope)) scope = scope.parent;
-  return scope ?? undefined;
+  let ancestor = node.parent;
+  while (ancestor !== undefined && ancestor !== null && !isFunction(ancestor)) {
+    ancestor = ancestor.parent;
+  }
+  return ancestor ?? undefined;
 }
 
 /** The name of the resolve a Promise's executor takes, when `node` sits directly in one. */
 function executorResolve(node) {
-  const scope = enclosingFunction(node);
-  const promise = scope?.parent;
+  const fn = enclosingFunction(node);
+  const promise = fn?.parent;
   const isExecutor =
     promise?.type === "NewExpression" &&
     isNamed(promise.callee, "Promise") &&
-    promise.arguments[0] === scope;
-  const resolve = isExecutor ? scope.params[0] : undefined;
+    promise.arguments[0] === fn;
+  const resolve = isExecutor ? fn.params[0] : undefined;
   return resolve?.type === "Identifier" ? resolve.name : undefined;
 }
 
@@ -87,7 +89,8 @@ export default defineRule({
     },
   },
   create(context) {
-    const promised = new Set();
+    /** Names `setTimeout` from the promised timers module is imported under. */
+    const promisedSetTimeouts = new Set();
     /** Names the promised timers module is imported under, whole: `timers` in `timers.setTimeout`. */
     const timersModules = new Set();
     const isPromisedSetTimeout = (callee) =>
@@ -95,13 +98,14 @@ export default defineRule({
         ? callee.object.type === "Identifier" &&
           timersModules.has(callee.object.name) &&
           isNamed(callee.property, "setTimeout")
-        : callee.type === "Identifier" && promised.has(callee.name);
+        : callee.type === "Identifier" && promisedSetTimeouts.has(callee.name);
     return {
       ImportDeclaration(node) {
         if (!timersPromises.has(node.source.value)) return;
         for (const specifier of node.specifiers) {
           if (specifier.type !== "ImportSpecifier") timersModules.add(specifier.local.name);
-          else if (specifier.imported.name === "setTimeout") promised.add(specifier.local.name);
+          else if (specifier.imported.name === "setTimeout")
+            promisedSetTimeouts.add(specifier.local.name);
         }
       },
       CallExpression(node) {
