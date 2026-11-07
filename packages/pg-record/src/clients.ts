@@ -101,7 +101,7 @@ export class ClientScope {
    * gets a query while another is running (its queue for those is deprecated), and closing the
    * client waits for the last.
    */
-  #turn: Promise<void> = Promise.resolve();
+  #lastDone: Promise<void> = Promise.resolve();
   #hasEnded = false;
 
   constructor(open: () => Promise<Client>) {
@@ -115,9 +115,9 @@ export class ClientScope {
 
   async lease(): Promise<Lease> {
     // Queued before anything is awaited, so the scope ending meanwhile waits for this operation.
-    const previous = this.#turn;
+    const previous = this.#lastDone;
     let finish = () => {};
-    this.#turn = new Promise<void>((resolve) => (finish = resolve));
+    this.#lastDone = new Promise<void>((resolve) => (finish = resolve));
     await previous;
     // Asked for on its turn: a client the operation before it lost is replaced.
     const opening = this.#opened();
@@ -144,7 +144,7 @@ export class ClientScope {
 
   /** Closes the client the scope holds once its last operation is done, if it holds one. */
   async #closeWhenDone(): Promise<void> {
-    await this.#turn;
+    await this.#lastDone;
     const client = await this.#client?.catch(() => undefined);
     if (client !== undefined) await closed(client);
   }
