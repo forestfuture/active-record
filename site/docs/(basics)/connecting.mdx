@@ -94,26 +94,6 @@ Your schema names the binding with `adapter: pg({ binding: "HYPERDRIVE" })`. So 
 
 `connect(env.DATABASE_URL)` takes a connection string the same way.
 
-Opening a client waits up to 10 seconds for Postgres to answer. After that, the query fails with `Error: timeout expired`. To change the limit, set `connect_timeout` in the connection string, in seconds:
-
-```ts
-import { connect } from "@forestfuture/pg-record";
-
-const db = connect("postgres://app@db.example.com/app?connect_timeout=5");
-```
-
-With `connect_timeout=0`, opening a client waits as long as it takes.
-
-:::note
-`connect(pool)` uses your Pool’s own `connectionTimeoutMillis`, since the Pool opens its clients.
-:::
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-Rails sets no limit, so opening a connection waits as long as it takes unless you set `connect_timeout`. Here the limit is 10 seconds unless you set one.
-
-</Callout>
-
 :::tip
 On Workers, use Hyperdrive. It pools connections, so a new client doesn’t mean a new connection to Postgres.
 :::
@@ -129,6 +109,26 @@ const db = connect(pool);
 ```
 
 Outside a Worker there’s no binding, so wrap each request in `withDatabase(db, …)` for your Models’ statics.
+
+Opening a client waits up to 10 seconds for Postgres to answer. After that, the query fails with `Error: timeout expired`. Each query waiting for that client tries again, and can wait as long. To change the limit, set `connect_timeout` to a number of seconds:
+
+```ts
+import { connect } from "@forestfuture/pg-record";
+
+const db = connect("postgres://app@db.example.com/app?connect_timeout=5");
+```
+
+If you want no limit, set `connect_timeout=0`.
+
+:::note
+A Hyperdrive binding’s connection string isn’t yours to change, so it always waits up to 10 seconds. A Pool uses its own `connectionTimeoutMillis`.
+:::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails sets no limit, so opening a connection waits as long as it takes unless you set `connect_timeout`. Here the limit is 10 seconds unless you set one.
+
+</Callout>
 
 [Postgres’s differences](./postgres) lists what works differently from D1.
 
