@@ -19,7 +19,7 @@ const wholeNumber = /^\s*[-+]?\d+\s*$/;
  * parameter but not the connection string, which may hold a password.
  */
 export function connectTimeoutOf(connectionString: string): number {
-  const value = parameter(connectionString, "connect_timeout");
+  const value = queryParameter(connectionString, "connect_timeout");
   if (value === undefined) return defaultTimeout;
   if (!wholeNumber.test(value)) {
     throw new TypeError(
@@ -31,13 +31,16 @@ export function connectTimeoutOf(connectionString: string): number {
   return Math.min(Math.max(seconds, shortestTimeout) * 1000, longestTimeout);
 }
 
-/** A parameter of a connection string's query, or undefined when it has none, or can't be read. */
-function parameter(connectionString: string, name: string): string | undefined {
-  try {
-    return new URL(connectionString).searchParams.get(name) ?? undefined;
-  } catch {
-    return undefined;
-  }
+/**
+ * A parameter of a connection string's query, or undefined when it has none. The query is read
+ * on its own, after the first `?` and before any `#`, as a URL's is: `pg` takes strings a URL
+ * can't parse, such as a socket's with no host (`postgres://app@/app?host=/tmp`).
+ */
+function queryParameter(connectionString: string, name: string): string | undefined {
+  const start = connectionString.indexOf("?");
+  if (start === -1) return undefined;
+  const query = connectionString.slice(start + 1).split("#")[0];
+  return new URLSearchParams(query).get(name) ?? undefined;
 }
 
 /**

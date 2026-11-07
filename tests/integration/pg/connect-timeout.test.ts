@@ -122,4 +122,9 @@ describe("a connection string's connect_timeout, on a server that answers (#292)
     const db = connect(`${schema.url}&connect_timeout=5`);
     expect(await db.model(User).count()).toBe(0);
   });
+
+  test("a socket's connection string, with no host before its path, is read too", () => {
+    const url = "postgres://app@/app?host=/var/run/postgresql&connect_timeout=soon";
+    expect(() => connect(url)).toThrow(TypeError);
+  });
 });
