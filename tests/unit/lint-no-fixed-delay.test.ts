@@ -52,6 +52,16 @@ tester.run("no-fixed-delay", noFixedDelay, {
       errors: [{ messageId: "fixedDelay" }],
     },
     {
+      name: "a callback that takes none of the timer's values",
+      code: "await new Promise((resolve) => setTimeout(() => resolve(), 50, 1));",
+      errors: [{ messageId: "fixedDelay" }],
+    },
+    {
+      name: "a resolve given undefined by the timer",
+      code: "await new Promise((resolve) => setTimeout(resolve, 50, undefined));",
+      errors: [{ messageId: "fixedDelay" }],
+    },
+    {
       name: "the global's own setTimeout",
       code: "await new Promise((resolve) => globalThis.setTimeout(resolve, 50));",
       errors: [{ messageId: "fixedDelay" }],
