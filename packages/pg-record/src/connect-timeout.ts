@@ -3,6 +3,9 @@
 /** The limit when the connection string sets none, in milliseconds. */
 const defaultTimeout = 10_000;
 
+/** The longest a timer waits, in milliseconds (about 24 days): it fires at once for longer. */
+const longestTimeout = 2 ** 31 - 1;
+
 /** libpq's shortest limit, in seconds: a `connect_timeout` of 1 waits 2. */
 const shortestTimeout = 2;
 
@@ -25,7 +28,7 @@ export function connectTimeoutOf(connectionString: string): number {
   }
   const seconds = Number.parseInt(value, 10);
   if (seconds <= 0) return 0;
-  return Math.max(seconds, shortestTimeout) * 1000;
+  return Math.min(Math.max(seconds, shortestTimeout) * 1000, longestTimeout);
 }
 
 /** A parameter of a connection string's query, or undefined when it has none, or can't be read. */
