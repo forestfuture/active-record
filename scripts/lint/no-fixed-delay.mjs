@@ -55,6 +55,20 @@ function onlyResolves(callback, resolve) {
   );
 }
 
+/** Whether `callback` is a resolve by its name: `resolve`, or a gate's `gate.resolve`. */
+function isNamedResolve(callback) {
+  const named = callback?.type === "MemberExpression" ? callback.property : callback;
+  return isNamed(named, "resolve");
+}
+
+/** Whether a global `setTimeout` call waits: its callback is a resolve, by name or its executor's. */
+function resolvesLater(node) {
+  const [callback] = node.arguments;
+  if (isNamedResolve(callback)) return true;
+  const resolve = executorResolve(node);
+  return resolve !== undefined && onlyResolves(callback, resolve);
+}
+
 export default defineRule({
   meta: {
     messages: {
@@ -80,9 +94,7 @@ export default defineRule({
           context.report({ node, messageId: "fixedDelay" });
           return;
         }
-        if (!isGlobalSetTimeout(callee)) return;
-        const resolve = executorResolve(node);
-        if (resolve !== undefined && onlyResolves(node.arguments[0], resolve)) {
+        if (isGlobalSetTimeout(callee) && resolvesLater(node)) {
           context.report({ node, messageId: "fixedDelay" });
         }
       },
