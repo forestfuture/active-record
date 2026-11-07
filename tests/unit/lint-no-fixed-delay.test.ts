@@ -71,6 +71,16 @@ tester.run("no-fixed-delay", noFixedDelay, {
       errors: [{ messageId: "fixedDelay" }],
     },
     {
+      name: "Node's promised setTimeout, through a namespace",
+      code: 'import * as timers from "node:timers/promises"; await timers.setTimeout(50);',
+      errors: [{ messageId: "fixedDelay" }],
+    },
+    {
+      name: "Node's promised setTimeout, through the default export",
+      code: 'import timers from "node:timers/promises"; await timers.setTimeout(50);',
+      errors: [{ messageId: "fixedDelay" }],
+    },
+    {
       name: "Node's promised setTimeout, renamed",
       code: 'import { setTimeout as sleep } from "timers/promises"; await sleep(50);',
       errors: [{ messageId: "fixedDelay" }],

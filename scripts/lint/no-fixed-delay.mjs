@@ -79,18 +79,25 @@ export default defineRule({
   },
   create(context) {
     const promised = new Set();
+    /** Names the promised timers module is imported under, whole: `timers` in `timers.setTimeout`. */
+    const timersModules = new Set();
+    const isPromisedSetTimeout = (callee) =>
+      callee.type === "MemberExpression"
+        ? callee.object.type === "Identifier" &&
+          timersModules.has(callee.object.name) &&
+          isNamed(callee.property, "setTimeout")
+        : callee.type === "Identifier" && promised.has(callee.name);
     return {
       ImportDeclaration(node) {
         if (!timersPromises.has(node.source.value)) return;
         for (const specifier of node.specifiers) {
-          if (specifier.type === "ImportSpecifier" && specifier.imported.name === "setTimeout") {
-            promised.add(specifier.local.name);
-          }
+          if (specifier.type !== "ImportSpecifier") timersModules.add(specifier.local.name);
+          else if (specifier.imported.name === "setTimeout") promised.add(specifier.local.name);
         }
       },
       CallExpression(node) {
         const { callee } = node;
-        if (callee.type === "Identifier" && promised.has(callee.name)) {
+        if (isPromisedSetTimeout(callee)) {
           context.report({ node, messageId: "fixedDelay" });
           return;
         }
