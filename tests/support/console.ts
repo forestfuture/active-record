@@ -8,6 +8,7 @@ import {
 export async function waitFor(done: () => boolean, seconds = 10): Promise<void> {
   for (let waited = 0; !done(); waited++) {
     if (waited >= seconds * 20) throw new Error(`Waited ${seconds} s for ${done.toString()}`);
+    // oxlint-disable-next-line d1-record/no-fixed-delay -- the interval between polls, not a wait
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }
