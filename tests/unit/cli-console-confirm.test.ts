@@ -86,11 +86,13 @@ describe("what is typed behind the answer", () => {
 
     const { release } = await answer;
     // The connection takes its time to open; meanwhile the person (or a paste) keeps going.
+    // oxlint-disable-next-line d1-record/no-fixed-delay -- the connection takes its time to open
     await new Promise((resolve) => setTimeout(resolve, 120));
     await release();
     const left: string[] = [];
     input.on("data", (chunk: Buffer) => left.push(chunk.toString()));
     input.resume(); // as the console's REPL does when it starts
+    // oxlint-disable-next-line d1-record/no-fixed-delay -- waits for typed input that must not arrive
     await new Promise((resolve) => setTimeout(resolve, 100));
     return left;
   }

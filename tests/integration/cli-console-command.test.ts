@@ -107,6 +107,7 @@ describe("active-record console", () => {
 
     terminal.input.write("1 + 1\n");
     await waitFor(() => terminal.transcript().includes("#=>"));
+    // oxlint-disable-next-line d1-record/no-fixed-delay -- waits for a history write that must not happen
     await new Promise((resolve) => setTimeout(resolve, 500));
     terminal.input.end();
     await done;
@@ -253,6 +254,7 @@ describe("active-record console", () => {
       await waitFor(() => existsSync(started), 60);
       // The first line waits for the edit however late it lands; this gives a reload that didn't
       // wait the time to run first and show it.
+      // oxlint-disable-next-line d1-record/no-fixed-delay -- time for a reload that didn't wait to run first
       await new Promise((resolve) => setTimeout(resolve, 150));
       writeFileSync(model, edited);
       await done;

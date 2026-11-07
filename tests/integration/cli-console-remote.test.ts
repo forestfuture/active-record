@@ -100,6 +100,7 @@ describe("active-record console --remote", () => {
     await waitFor(() => terminal.transcript().includes("Type its name to continue"));
     terminal.input.write("shop\n");
     // A terminal delivers a paste a line at a time, while the connection is still being made.
+    // oxlint-disable-next-line d1-record/no-fixed-delay -- a paste reaches the console a line at a time
     await new Promise((resolve) => setTimeout(resolve, 10));
     terminal.input.write('await User.create({ id: 2, name: "pasted", email: "p@example.com" })\n');
     await waitFor(() => terminal.transcript().includes("remote> "));
@@ -147,6 +148,7 @@ describe("active-record console --remote", () => {
     await waitFor(() => lines.includes("Models: User"));
     terminal.input.write("1 + 1\n");
     await waitFor(() => terminal.transcript().includes("#=>"));
+    // oxlint-disable-next-line d1-record/no-fixed-delay -- waits for a history write that must not happen
     await new Promise((resolve) => setTimeout(resolve, 500));
     terminal.input.end();
     await done;

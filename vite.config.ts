@@ -164,9 +164,10 @@ export default defineConfig({
         },
       },
       {
-        // A describe() callback holds a whole suite, so it's long by design.
+        // A describe() callback holds a whole suite, so it's long by design. A test waits on an
+        // event, a gate, or a polled state, never a fixed delay (CODING_STANDARDS.md, Tests).
         files: ["tests/**"],
-        rules: { "max-lines-per-function": "off" },
+        rules: { "max-lines-per-function": "off", "d1-record/no-fixed-delay": "error" },
       },
     ],
   },
