@@ -63,4 +63,34 @@ describe("opening a pg-record client times out (#292)", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(await query.outcome).toMatchObject(timedOut);
   });
+
+  /** Sends a query to the silent host, and runs `pg`'s connect timer for `ms` once it's there. */
+  const pendingAfter = async (query: string, ms: number) => {
+    const sent = watch(connect(host.url(query)).model(User).count());
+    await host.reached;
+    await vi.advanceTimersByTimeAsync(ms);
+    return sent;
+  };
+
+  test.each([
+    ["?connect_timeout=3", 3_000],
+    ["?sslmode=disable&connect_timeout=30", 30_000],
+    ["?connect_timeout=1", 2_000],
+  ])("%s in the connection string fails it after %ims", async (query, ms) => {
+    const sent = await pendingAfter(query, ms - 1);
+    expect(sent.settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await sent.outcome).toMatchObject(timedOut);
+  });
+
+  test.each(["?connect_timeout=0", "?connect_timeout=-5"])(
+    "%s waits for the host as long as it takes",
+    async (query) => {
+      const sent = await pendingAfter(query, 3_600_000);
+      expect(sent.settled).toBe(false);
+      // Only the host closing the connection ends the wait.
+      await host.close();
+      expect(await sent.outcome).toMatchObject({ code: "ECONNRESET" });
+    },
+  );
 });
