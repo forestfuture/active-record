@@ -33,15 +33,16 @@ export function connectTimeoutOf(connectionString: string): number {
 }
 
 /**
- * A parameter of a connection string's query, or undefined when it has none. The query is read
- * on its own, after the first `?` and before any `#`, as a URL's is: `pg` takes strings a URL
- * can't parse, such as a socket's with no host (`postgres://app@/app?host=/tmp`).
+ * A parameter of a connection string's query (its last, when it's given twice, as `pg` reads it),
+ * or undefined when it has none. The query is read on its own, before any `#` and after the first
+ * `?`, as a URL's is: `pg` takes strings a URL can't parse, such as a socket's with no host
+ * (`postgres://app@/app?host=/tmp`).
  */
 function queryParameter(connectionString: string, name: string): string | undefined {
-  const start = connectionString.indexOf("?");
+  const [beforeFragment = ""] = connectionString.split("#");
+  const start = beforeFragment.indexOf("?");
   if (start === -1) return undefined;
-  const query = connectionString.slice(start + 1).split("#")[0];
-  return new URLSearchParams(query).get(name) ?? undefined;
+  return new URLSearchParams(beforeFragment.slice(start + 1)).getAll(name).at(-1);
 }
 
 /**
