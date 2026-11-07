@@ -88,6 +88,13 @@ describe("opening a pg-record client times out (#292)", () => {
     },
   );
 
+  test("a connect_timeout longer than a timer can wait doesn't fail the query at once", async () => {
+    const sent = await pendingAfter("?connect_timeout=99999999", 3_600_000);
+    expect(sent.settled).toBe(false);
+    await host.close();
+    expect(await sent.outcome).toMatchObject({ code: "ECONNRESET" });
+  });
+
   test.each(["soon", "", "1.5", "10s"])(
     "a connect_timeout of %j throws when the Database is built, naming it but not the URL",
     (value) => {
