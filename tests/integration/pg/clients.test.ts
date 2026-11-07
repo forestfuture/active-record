@@ -46,6 +46,11 @@ describe("pg-record's clients, from a connection string (#269)", () => {
 
   const backend = async () => (await db.model(Backend).pluck("id"))[0];
   const closed = () => expect.poll(() => schema.connections()).toBe(0);
+  /** Settles once a slow query (`pg_sleep`) the test sent is running on Postgres. */
+  const sleeping = () =>
+    expect
+      .poll(async () => (await schema.running()).some((query) => query.includes("pg_sleep")))
+      .toBe(true);
 
   beforeAll(async () => {
     process.on("warning", heard);
@@ -157,8 +162,7 @@ describe("pg-record's clients, from a connection string (#269)", () => {
         .where(sql`(SELECT true FROM pg_sleep(1))`)
         .pluck("id")
         .catch((error: unknown) => error);
-      // Long enough for the slow query to reach Postgres before its backend is ended.
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await sleeping();
       await schema.pool.query({ text: "SELECT pg_terminate_backend($1)", values: [first] });
       return { first, failed: await slow, next: await backend() };
     });
@@ -167,18 +171,6 @@ describe("pg-record's clients, from a connection string (#269)", () => {
     expect(seen.next).not.toBe(seen.first);
     await closed();
   });
-
-  /** Settles once backend `id` is running a query. */
-  const runningOn = (id: number | undefined) =>
-    expect
-      .poll(async () => {
-        const { rows } = await schema.pool.query({
-          text: "SELECT state FROM pg_stat_activity WHERE pid = $1",
-          values: [id],
-        });
-        return rows[0]?.["state"];
-      })
-      .toBe("active");
 
   /** A slow query on the scope's backend `id`, with a read queued behind it, and that backend ended. */
   const queuedBehindEnded = (id: number | undefined) => {
@@ -189,7 +181,7 @@ describe("pg-record's clients, from a connection string (#269)", () => {
       .catch((error: unknown) => error);
     const queued = backend();
     // Ended once the slow query is running on it, so it fails as the backend goes.
-    const ending = runningOn(id).then(() =>
+    const ending = sleeping().then(() =>
       schema.pool.query({ text: "SELECT pg_terminate_backend($1)", values: [id] }),
     );
     return { slow, queued, ending };
@@ -296,8 +288,8 @@ describe("pg-record's clients, from a connection string (#269)", () => {
         .where(sql`(SELECT true FROM pg_sleep(0.2))`)
         .pluck("id")
         .finally(() => (hasSettled = true));
-      // Long enough for it to reach Postgres, on the scope's client, before the scope ends.
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      // Running on Postgres, on the scope's client, before the scope ends.
+      await sleeping();
       return id;
     });
     return { running: running!, scoped, hasSettledAtEnd: hasSettled };
@@ -329,7 +321,7 @@ describe("pg-record's clients, from a connection string (#269)", () => {
           users.toInsert({ email: "in-batch@example.com" }),
         ])
         .catch((error: unknown) => error);
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await sleeping();
       await users.create({ email: "beside@example.com" });
       return batch;
     });
