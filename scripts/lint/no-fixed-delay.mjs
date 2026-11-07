@@ -115,7 +115,8 @@ export default defineRule({
       },
       CallExpression(node) {
         const { callee } = node;
-        if (isPromisedSetTimeout(callee)) {
+        // The promised setTimeout resolves with its second argument: given one, it bounds a race.
+        if (isPromisedSetTimeout(callee) && noValue(node.arguments.slice(1, 2))) {
           context.report({ node, messageId: "fixedDelay" });
           return;
         }
