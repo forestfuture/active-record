@@ -1,6 +1,6 @@
 // Where a Database's Postgres clients come from: the app's Pool, or a connection string (Hyperdrive's or the app's), a client per `withDatabase` scope or per operation.
 import pg from "pg";
-import { connectTimeoutOf } from "./connect-timeout.ts";
+import { connected, connectTimeoutOf } from "./connect-timeout.ts";
 
 type Client = InstanceType<typeof pg.Client>;
 
@@ -214,7 +214,7 @@ export class UrlClients implements Clients {
     });
     // A connection lost while idle is reported here; unheard, it would crash a Node process.
     client.on("error", () => {});
-    await client.connect();
+    await connected(client, this.#connectTimeout);
     return client;
   }
 }

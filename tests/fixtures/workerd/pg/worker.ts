@@ -38,6 +38,17 @@ const routes: Record<string, (env: Env, url: URL) => Promise<unknown>> = {
     const found = await User.find(made.id);
     return { email: found.email, backends: [await backend(), await backend()] };
   },
+  /** A query to `?to`, a host that never answers: what it fails with, once its open times out. */
+  async "/unanswered"(_env, url) {
+    const failed = await connect(url.searchParams.get("to")!)
+      .model(User)
+      .count()
+      .then(
+        () => undefined,
+        (error: Error) => error.message,
+      );
+    return { failed };
+  },
   /** A request's database from the connection string: one client for the scope. */
   async "/scope"(env) {
     const backends = await withDatabase(connect(env.DATABASE_URL), async () => [
