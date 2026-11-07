@@ -1,4 +1,3 @@
-import { createServer, type AddressInfo, type Socket } from "node:net";
 import {
   afterAll,
   afterEach,
@@ -12,34 +11,13 @@ import {
 import { Model } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/pg-record/src/index.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
+import { openSilentHost, type SilentHost } from "../../support/silent-host.ts";
 
 class User extends Model.define({ id: { type: "integer", null: false } }) {
   static table = "users";
 }
 
-/** A host that takes a client's connection and never answers it, as one that can't be reached. */
-async function silentHost() {
-  const sockets = new Set<Socket>();
-  let arrived = () => {};
-  const reached = new Promise<void>((resolve) => (arrived = resolve));
-  const server = createServer((socket) => {
-    sockets.add(socket);
-    arrived();
-  });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const { port } = server.address() as AddressInfo;
-  return {
-    url: (query = "") => `postgres://app@127.0.0.1:${port}/app${query}`,
-    /** Settles once a client has connected: by then, `pg` has started its connect timer. */
-    reached,
-    close: () => {
-      for (const socket of sockets) socket.destroy();
-      return new Promise<void>((resolve) => server.close(() => resolve()));
-    },
-  };
-}
-
-/** `pg`'s own error for an open that took too long. */
+/** The error for an open that took too long: libpq's, as `pg` gives it on Node. */
 const timedOut = { message: "timeout expired" };
 
 /** A query's outcome, and whether it has one yet. */
@@ -54,10 +32,10 @@ function watch(query: Promise<unknown>) {
 }
 
 describe("opening a pg-record client times out (#292)", () => {
-  let host: Awaited<ReturnType<typeof silentHost>>;
+  let host: SilentHost;
 
   beforeEach(async () => {
-    host = await silentHost();
+    host = await openSilentHost();
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
   });
   afterEach(async () => {
@@ -72,6 +50,12 @@ describe("opening a pg-record client times out (#292)", () => {
     expect(query.settled).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
     expect(await query.outcome).toMatchObject(timedOut);
+  });
+
+  test("an open that fails before the limit fails with its own error", async () => {
+    const url = host.url();
+    await host.close();
+    await expect(connect(url).model(User).count()).rejects.toMatchObject({ code: "ECONNREFUSED" });
   });
 
   /** Sends a query to the silent host, and runs `pg`'s connect timer for `ms` once it's there. */

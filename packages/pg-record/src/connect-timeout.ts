@@ -1,4 +1,4 @@
-// How long opening a client from a connection string may take: its `connect_timeout`, read as libpq reads it, or 10 seconds.
+// How long opening a client from a connection string may take (its `connect_timeout`, read as libpq reads it, or 10 seconds), and the error when it takes longer.
 
 /** The limit when the connection string sets none, in milliseconds. */
 const defaultTimeout = 10_000;
@@ -34,5 +34,27 @@ function parameter(connectionString: string, name: string): string | undefined {
     return new URL(connectionString).searchParams.get(name) ?? undefined;
   } catch {
     return undefined;
+  }
+}
+
+/**
+ * Connects `client`, which `pg` gives up on after `timeout` milliseconds (0: never). An open that
+ * took that long fails with libpq's `timeout expired`, `pg`'s own error as its cause, on Workers
+ * too, where `pg` reports it as a dropped connection.
+ */
+export async function connected(
+  client: { connect(): Promise<void> },
+  timeout: number,
+): Promise<void> {
+  if (timeout === 0) return client.connect();
+  let expired = false;
+  // Started before `pg`'s, with the same delay, so it has fired by the time `pg` gives up.
+  const timer = setTimeout(() => (expired = true), timeout);
+  try {
+    await client.connect();
+  } catch (error) {
+    throw expired ? new Error("timeout expired", { cause: error }) : error;
+  } finally {
+    clearTimeout(timer);
   }
 }

@@ -4,6 +4,7 @@ import { Miniflare } from "miniflare";
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 import { scratchDirs } from "../../support/scratch.ts";
+import { openSilentHost } from "../../support/silent-host.ts";
 
 const fixture = new URL("../../fixtures/workerd/pg/", import.meta.url).pathname;
 const wrangler = new URL("../../../node_modules/.bin/wrangler", import.meta.url).pathname;
@@ -78,4 +79,14 @@ describe("pg-record in workerd", { timeout: 60_000 }, () => {
       await expect.poll(() => schema.connections()).toBe(0);
     },
   );
+
+  test("opening a client to a host that never answers times out in workerd too (#292)", async () => {
+    const host = await openSilentHost();
+    try {
+      const to = encodeURIComponent(host.url("?connect_timeout=2"));
+      expect(await get(`/unanswered?to=${to}`)).toEqual({ failed: "timeout expired" });
+    } finally {
+      await host.close();
+    }
+  });
 });
