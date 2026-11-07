@@ -1,6 +1,6 @@
 // Where a Database's Postgres clients come from: the app's Pool, or a connection string (Hyperdrive's or the app's), a client per `withDatabase` scope or per operation.
 import pg from "pg";
-import { connected, connectTimeoutOf } from "./connect-timeout.ts";
+import { connectTimeoutOf, openClient } from "./connect-timeout.ts";
 
 type Client = InstanceType<typeof pg.Client>;
 
@@ -183,11 +183,11 @@ export class ClientScope {
 export class UrlClients implements Clients {
   readonly #connectionString: string;
   /** How long opening a client may take, in milliseconds: no limit when 0. */
-  readonly #connectTimeout: number;
+  readonly #connectTimeoutMs: number;
 
   constructor(connectionString: string) {
     this.#connectionString = connectionString;
-    this.#connectTimeout = connectTimeoutOf(connectionString);
+    this.#connectTimeoutMs = connectTimeoutOf(connectionString);
   }
 
   openScope(): ClientScope {
@@ -207,15 +207,8 @@ export class UrlClients implements Clients {
     return { client, done: () => closed(client) };
   }
 
-  async #open(): Promise<Client> {
-    const client = new pg.Client({
-      connectionString: this.#connectionString,
-      connectionTimeoutMillis: this.#connectTimeout,
-    });
-    // A connection lost while idle is reported here; unheard, it would crash a Node process.
-    client.on("error", () => {});
-    await connected(client, this.#connectTimeout);
-    return client;
+  #open(): Promise<Client> {
+    return openClient(this.#connectionString, this.#connectTimeoutMs);
   }
 }
 

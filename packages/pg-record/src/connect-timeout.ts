@@ -1,13 +1,14 @@
-// How long opening a client from a connection string may take (its `connect_timeout`, read as libpq reads it, or 10 seconds), and the error when it takes longer.
+// Opening a client from a connection string within its time limit: its `connect_timeout`, read as libpq reads it, or 10 seconds, and the error when it takes longer.
+import pg from "pg";
 
 /** The limit when the connection string sets none, in milliseconds. */
-const defaultTimeout = 10_000;
+const defaultTimeoutMs = 10_000;
 
 /** The longest a timer waits, in milliseconds (about 24 days): it fires at once for longer. */
-const longestTimeout = 2 ** 31 - 1;
+const longestTimeoutMs = 2 ** 31 - 1;
 
 /** libpq's shortest limit, in seconds: a `connect_timeout` of 1 waits 2. */
-const shortestTimeout = 2;
+const shortestTimeoutSeconds = 2;
 
 /** A whole number as libpq reads one: a sign, digits, and spaces around them. */
 const wholeNumber = /^\s*[-+]?\d+\s*$/;
@@ -20,7 +21,7 @@ const wholeNumber = /^\s*[-+]?\d+\s*$/;
  */
 export function connectTimeoutOf(connectionString: string): number {
   const value = queryParameter(connectionString, "connect_timeout");
-  if (value === undefined) return defaultTimeout;
+  if (value === undefined) return defaultTimeoutMs;
   if (!wholeNumber.test(value)) {
     throw new TypeError(
       `connect_timeout must be a whole number of seconds, not ${JSON.stringify(value)}`,
@@ -28,7 +29,7 @@ export function connectTimeoutOf(connectionString: string): number {
   }
   const seconds = Number.parseInt(value, 10);
   if (seconds <= 0) return 0;
-  return Math.min(Math.max(seconds, shortestTimeout) * 1000, longestTimeout);
+  return Math.min(Math.max(seconds, shortestTimeoutSeconds) * 1000, longestTimeoutMs);
 }
 
 /**
@@ -44,20 +45,24 @@ function queryParameter(connectionString: string, name: string): string | undefi
 }
 
 /**
- * Connects `client`, which `pg` gives up on after `timeout` milliseconds (0: never). An open that
- * took that long fails with libpq's `timeout expired`, `pg`'s own error as its cause, on Workers
- * too, where `pg` reports it as a dropped connection.
+ * A client of `connectionString`'s, connected: `pg` gives up on it after `timeoutMs` (0: never).
+ * An open that took that long fails with libpq's `timeout expired`, `pg`'s own error as its
+ * cause, on Workers too, where `pg` reports it as a dropped connection.
  */
-export async function connected(
-  client: { connect(): Promise<void> },
-  timeout: number,
-): Promise<void> {
-  if (timeout === 0) return client.connect();
+export async function openClient(
+  connectionString: string,
+  timeoutMs: number,
+): Promise<InstanceType<typeof pg.Client>> {
+  const client = new pg.Client({ connectionString, connectionTimeoutMillis: timeoutMs });
+  // A connection lost while idle is reported here; unheard, it would crash a Node process.
+  client.on("error", () => {});
+  if (timeoutMs === 0) return client.connect().then(() => client);
   let expired = false;
   // Started before `pg`'s, with the same delay, so it has fired by the time `pg` gives up.
-  const timer = setTimeout(() => (expired = true), timeout);
+  const timer = setTimeout(() => (expired = true), timeoutMs);
   try {
     await client.connect();
+    return client;
   } catch (error) {
     throw expired ? new Error("timeout expired", { cause: error }) : error;
   } finally {
