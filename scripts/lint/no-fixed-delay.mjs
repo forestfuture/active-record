@@ -85,7 +85,8 @@ export default defineRule({
     messages: {
       fixedDelay:
         "Wait on an event, a gate, or a polled state, not a fixed delay: a slow run outlasts it. " +
-        "If the delay is what's tested, opt out with a reason after `--`.",
+        "If the delay is what's tested, or it only paces or bounds another wait, opt out with a " +
+        "reason after `--`.",
     },
   },
   create(context) {
