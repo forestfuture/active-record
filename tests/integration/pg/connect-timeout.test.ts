@@ -31,7 +31,7 @@ function watch(query: Promise<unknown>) {
   return Object.assign(state, { outcome });
 }
 
-describe("opening a pg-record client times out (#292)", () => {
+describe("a query to a host that never answers (#292)", () => {
   let host: SilentHost;
 
   beforeEach(async () => {
@@ -43,21 +43,6 @@ describe("opening a pg-record client times out (#292)", () => {
     await host.close();
   });
 
-  test("a host that never answers fails the query after 10 seconds", async () => {
-    const query = watch(connect(host.url()).model(User).count());
-    await host.reached;
-    await vi.advanceTimersByTimeAsync(9_999);
-    expect(query.settled).toBe(false);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(await query.outcome).toMatchObject(timedOut);
-  });
-
-  test("an open that fails before the limit fails with its own error", async () => {
-    const url = host.url();
-    await host.close();
-    await expect(connect(url).model(User).count()).rejects.toMatchObject({ code: "ECONNREFUSED" });
-  });
-
   /** Sends a query to the silent host, and runs `pg`'s connect timer for `ms` once it's there. */
   const pendingAfter = async (query: string, ms: number) => {
     const sent = watch(connect(host.url(query)).model(User).count());
@@ -67,48 +52,45 @@ describe("opening a pg-record client times out (#292)", () => {
   };
 
   test.each([
-    ["?connect_timeout=3", 3_000],
-    ["?sslmode=disable&connect_timeout=30", 30_000],
-    ["?connect_timeout=1", 2_000],
-  ])("%s in the connection string fails it after %ims", async (query, ms) => {
+    ["with no connect_timeout", 10_000, ""],
+    ["with connect_timeout=3", 3_000, "?connect_timeout=3"],
+    [
+      "with connect_timeout=30 after another parameter",
+      30_000,
+      "?sslmode=disable&connect_timeout=30",
+    ],
+    ["with connect_timeout=1, libpq's shortest of 2", 2_000, "?connect_timeout=1"],
+  ])("%s fails after %ims", async (_name, ms, query) => {
     const sent = await pendingAfter(query, ms - 1);
     expect(sent.settled).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
     expect(await sent.outcome).toMatchObject(timedOut);
   });
 
-  test.each(["?connect_timeout=0", "?connect_timeout=-5"])(
-    "%s waits for the host as long as it takes",
-    async (query) => {
-      const sent = await pendingAfter(query, 3_600_000);
-      expect(sent.settled).toBe(false);
-      // Only the host closing the connection ends the wait.
-      await host.close();
-      expect(await sent.outcome).toMatchObject({ code: "ECONNRESET" });
-    },
-  );
-
-  test("a connect_timeout longer than a timer can wait doesn't fail the query at once", async () => {
-    const sent = await pendingAfter("?connect_timeout=99999999", 3_600_000);
+  test.each([
+    ["with connect_timeout=0", "?connect_timeout=0"],
+    ["with a negative connect_timeout", "?connect_timeout=-5"],
+    ["with a connect_timeout longer than a timer can wait", "?connect_timeout=99999999"],
+  ])("%s is still waiting an hour later", async (_name, query) => {
+    const sent = await pendingAfter(query, 3_600_000);
     expect(sent.settled).toBe(false);
+    // Only the host closing the connection ends the wait.
     await host.close();
     expect(await sent.outcome).toMatchObject({ code: "ECONNRESET" });
   });
-
-  test.each(["soon", "", "1.5", "10s"])(
-    "a connect_timeout of %j throws when the Database is built, naming it but not the URL",
-    (value) => {
-      const url = host.url(`?connect_timeout=${value}`).replace("app@", "app:secret@");
-      expect(() => connect(url)).toThrow(
-        new TypeError(
-          `connect_timeout must be a whole number of seconds, not ${JSON.stringify(value)}`,
-        ),
-      );
-    },
-  );
 });
 
-describe("a connection string's connect_timeout, on a server that answers (#292)", () => {
+describe("a query to a host that refuses the connection (#292)", () => {
+  test("fails with its own error, not the timeout's", async () => {
+    const host = await openSilentHost();
+    await host.close();
+    await expect(connect(host.url()).model(User).count()).rejects.toMatchObject({
+      code: "ECONNREFUSED",
+    });
+  });
+});
+
+describe("a connection string's connect_timeout (#292)", () => {
   let schema: PgSchema;
 
   beforeAll(async () => {
@@ -118,13 +100,25 @@ describe("a connection string's connect_timeout, on a server that answers (#292)
     await schema.dispose();
   });
 
-  test("is pg-record's alone: the server never hears it", async () => {
-    const db = connect(`${schema.url}&connect_timeout=5`);
-    expect(await db.model(User).count()).toBe(0);
-  });
+  test.each(["soon", "", "1.5", "10s"])(
+    "of %j throws when the Database is built, naming it but not the URL",
+    (value) => {
+      const url = `postgres://app:secret@db.example.com/app?connect_timeout=${value}`;
+      expect(() => connect(url)).toThrow(
+        new TypeError(
+          `connect_timeout must be a whole number of seconds, not ${JSON.stringify(value)}`,
+        ),
+      );
+    },
+  );
 
-  test("a socket's connection string, with no host before its path, is read too", () => {
+  test("is read from a socket's string, with no host before its path", () => {
     const url = "postgres://app@/app?host=/var/run/postgresql&connect_timeout=soon";
     expect(() => connect(url)).toThrow(TypeError);
+  });
+
+  test("still connects to a server that answers", async () => {
+    const db = connect(`${schema.url}&connect_timeout=5`);
+    expect(await db.model(User).count()).toBe(0);
   });
 });
