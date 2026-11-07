@@ -117,7 +117,17 @@ describe("a connection string's connect_timeout (#292)", () => {
     expect(() => connect(url)).toThrow(TypeError);
   });
 
-  test("still connects to a server that answers", async () => {
+  test("is ignored after a #, which ends the query", () => {
+    const url = "postgres://app@db.example.com/app#x?connect_timeout=soon";
+    expect(() => connect(url)).not.toThrow();
+  });
+
+  test("given twice, is the last, as pg reads it", () => {
+    const url = "postgres://app@db.example.com/app?connect_timeout=soon&connect_timeout=5";
+    expect(() => connect(url)).not.toThrow();
+  });
+
+  test("leaves a server that answers serving the query", async () => {
     const db = connect(`${schema.url}&connect_timeout=5`);
     expect(await db.model(User).count()).toBe(0);
   });
