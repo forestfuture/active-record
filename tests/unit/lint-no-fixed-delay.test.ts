@@ -67,6 +67,16 @@ tester.run("no-fixed-delay", noFixedDelay, {
       errors: [{ messageId: "fixedDelay" }],
     },
     {
+      name: "a callback that only calls a gate's resolve",
+      code: "setTimeout(() => gate.resolve(), 50);",
+      errors: [{ messageId: "fixedDelay" }],
+    },
+    {
+      name: "a callback that only calls a resolve from outside an executor",
+      code: "const { promise, resolve } = Promise.withResolvers(); setTimeout(() => resolve(), 50);",
+      errors: [{ messageId: "fixedDelay" }],
+    },
+    {
       name: "a helper's resolve",
       code: "function later(resolve) { setTimeout(resolve, 10); }",
       errors: [{ messageId: "fixedDelay" }],

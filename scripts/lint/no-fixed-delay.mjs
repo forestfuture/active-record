@@ -53,18 +53,21 @@ function noValue(args) {
   return args.length === 0 || (args.length === 1 && isNamed(args[0], "undefined"));
 }
 
+/** What `callback` calls, when it's a function that only calls one thing, with no value. */
+function calledWithNoValue(callback) {
+  const call = onlyExpression(callback);
+  return call?.type === "CallExpression" && noValue(call.arguments) ? call.callee : undefined;
+}
+
 /** Whether `callback` is `resolve`, or a function that only calls it with no value. */
 function onlyResolves(callback, resolve) {
   if (callback?.type === "Identifier") return callback.name === resolve;
-  const call = onlyExpression(callback);
-  return (
-    call?.type === "CallExpression" && noValue(call.arguments) && isNamed(call.callee, resolve)
-  );
+  return isNamed(calledWithNoValue(callback), resolve);
 }
 
-/** Whether `callback` is a resolve by its name: `resolve`, or a gate's `gate.resolve`. */
-function isNamedResolve(callback) {
-  const named = callback?.type === "MemberExpression" ? callback.property : callback;
+/** Whether `callee` is a resolve by its name: `resolve`, or a gate's `gate.resolve`. */
+function isNamedResolve(callee) {
+  const named = callee?.type === "MemberExpression" ? callee.property : callee;
   return isNamed(named, "resolve");
 }
 
@@ -75,7 +78,7 @@ function isNamedResolve(callback) {
 function resolvesLater(node) {
   const [callback, , ...values] = node.arguments;
   if (values.length > 0) return false;
-  if (isNamedResolve(callback)) return true;
+  if (isNamedResolve(callback) || isNamedResolve(calledWithNoValue(callback))) return true;
   const resolve = executorResolve(node);
   return resolve !== undefined && onlyResolves(callback, resolve);
 }
