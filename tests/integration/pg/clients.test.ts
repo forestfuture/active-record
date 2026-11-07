@@ -219,6 +219,24 @@ describe("pg-record's clients, from a connection string (#269)", () => {
     await closed();
   });
 
+  test("an operation still queued when its scope ends runs on the scope's client", async () => {
+    let slow: Promise<number[]> | undefined;
+    let queued: Promise<number | undefined> | undefined;
+    const scoped = await withDatabase(db, async () => {
+      const id = await backend();
+      slow = db
+        .model(Backend)
+        .where(sql`(SELECT true FROM pg_sleep(0.2))`)
+        .pluck("id");
+      queued = backend();
+      return id;
+    });
+
+    expect(await queued).toBe(scoped);
+    await slow;
+    await closed();
+  });
+
   test("a call nested after its outer call returned has a client of its own, closed when it ends", async () => {
     let later: Promise<(number | undefined)[]> | undefined;
 
