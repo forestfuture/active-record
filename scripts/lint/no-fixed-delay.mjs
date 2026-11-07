@@ -73,11 +73,12 @@ function isNamedResolve(callee) {
 
 /**
  * Whether a global `setTimeout` call waits: its callback is a resolve, by name or its executor's,
- * given no value. One given a value (`setTimeout(resolve, 50, "hung")`) bounds a race.
+ * given no value. A resolve the timer gives a value (`setTimeout(resolve, 50, "hung")`) bounds a
+ * race; a function callback takes none of the timer's values.
  */
 function resolvesLater(node) {
   const [callback, , ...values] = node.arguments;
-  if (values.length > 0) return false;
+  if (!isFunction(callback) && !noValue(values)) return false;
   if (isNamedResolve(callback) || isNamedResolve(calledWithNoValue(callback))) return true;
   const resolve = executorResolve(node);
   return resolve !== undefined && onlyResolves(callback, resolve);
