@@ -46,12 +46,17 @@ function onlyExpression(callback) {
   return body.body.length === 1 ? body.body[0].expression : undefined;
 }
 
+/** Whether `args` pass no value: none, or `undefined`. */
+function noValue(args) {
+  return args.length === 0 || (args.length === 1 && isNamed(args[0], "undefined"));
+}
+
 /** Whether `callback` is `resolve`, or a function that only calls it with no value. */
 function onlyResolves(callback, resolve) {
   if (callback?.type === "Identifier") return callback.name === resolve;
   const call = onlyExpression(callback);
   return (
-    call?.type === "CallExpression" && call.arguments.length === 0 && isNamed(call.callee, resolve)
+    call?.type === "CallExpression" && noValue(call.arguments) && isNamed(call.callee, resolve)
   );
 }
 
