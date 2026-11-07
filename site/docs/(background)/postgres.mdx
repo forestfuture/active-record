@@ -17,6 +17,8 @@ Your Models, queries, and callbacks work the same on Postgres. These are the pla
 
 On D1, a [preload](./associations#preloading-associations) or a [page](./querying#paginating) sends all its queries in one round trip. On Postgres they run one after another, on one client. A page’s `total` comes from its own query, so a write between the two can make it disagree with the page’s records for a moment.
 
+Queries you send at once with `Promise.all` inside one `withDatabase` call also run one after another, on that call’s client.
+
 ## Large integers
 
 A `bigint` column reads as a number. A value past `Number.MAX_SAFE_INTEGER` throws a `TypeError` naming its attribute, rather than reading as a number that’s slightly wrong.
