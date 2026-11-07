@@ -168,6 +168,49 @@ describe("pg-record's clients, from a connection string (#269)", () => {
     await closed();
   });
 
+  /** A slow query on the scope's backend `id`, with a read queued behind it, and that backend ended. */
+  const queuedBehindEnded = (id: number | undefined) => {
+    const slow = db
+      .model(Backend)
+      .where(sql`(SELECT true FROM pg_sleep(1))`)
+      .pluck("id")
+      .catch((error: unknown) => error);
+    const queued = backend();
+    // Long enough for the slow query to reach Postgres before its backend is ended.
+    const ending = new Promise((resolve) => setTimeout(resolve, 50)).then(() =>
+      schema.pool.query({ text: "SELECT pg_terminate_backend($1)", values: [id] }),
+    );
+    return { slow, queued, ending };
+  };
+
+  test("an operation queued behind a query whose backend is ended runs on a new client", async () => {
+    const seen = await withDatabase(db, async () => {
+      const first = await backend();
+      const { slow, queued, ending } = queuedBehindEnded(first);
+      await ending;
+      return { first, failed: await slow, queued: await queued };
+    });
+
+    expect(seen.failed).toMatchObject({ code: "57P01" });
+    expect(seen.queued).toEqual(expect.any(Number));
+    expect(seen.queued).not.toBe(seen.first);
+    await closed();
+  });
+
+  test("a client opened by an operation queued when its scope ended is closed once it's done", async () => {
+    let queued: ReturnType<typeof queuedBehindEnded> | undefined;
+    const first = await withDatabase(db, async () => {
+      const id = await backend();
+      queued = queuedBehindEnded(id);
+      return id;
+    });
+    await queued!.ending;
+
+    expect(await queued!.slow).toMatchObject({ code: "57P01" });
+    expect(await queued!.queued).not.toBe(first);
+    await closed();
+  });
+
   test("a call nested after its outer call returned has a client of its own, closed when it ends", async () => {
     let later: Promise<(number | undefined)[]> | undefined;
 
