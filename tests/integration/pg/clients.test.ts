@@ -46,10 +46,15 @@ describe("pg-record's clients, from a connection string (#269)", () => {
 
   const backend = async () => (await db.model(Backend).pluck("id"))[0];
   const closed = () => expect.poll(() => schema.connections()).toBe(0);
-  /** Settles once a slow query (`pg_sleep`) the test sent is running on Postgres. */
-  const sleeping = () =>
+  /** Settles once a slow query (`pg_sleep`) the test sent is running: on backend `on`, if given. */
+  const sleeping = (on?: number) =>
     expect
-      .poll(async () => (await schema.running()).some((query) => query.includes("pg_sleep")))
+      .poll(async () =>
+        (await schema.running()).some(
+          ({ backend, query }) =>
+            query.includes("pg_sleep") && (on === undefined || backend === on),
+        ),
+      )
       .toBe(true);
 
   beforeAll(async () => {
@@ -162,7 +167,7 @@ describe("pg-record's clients, from a connection string (#269)", () => {
         .where(sql`(SELECT true FROM pg_sleep(1))`)
         .pluck("id")
         .catch((error: unknown) => error);
-      await sleeping();
+      await sleeping(first);
       await schema.pool.query({ text: "SELECT pg_terminate_backend($1)", values: [first] });
       return { first, failed: await slow, next: await backend() };
     });
@@ -181,7 +186,7 @@ describe("pg-record's clients, from a connection string (#269)", () => {
       .catch((error: unknown) => error);
     const queued = backend();
     // Ended once the slow query is running on it, so it fails as the backend goes.
-    const ending = sleeping().then(() =>
+    const ending = sleeping(id).then(() =>
       schema.pool.query({ text: "SELECT pg_terminate_backend($1)", values: [id] }),
     );
     return { slow, queued, ending };
@@ -289,7 +294,7 @@ describe("pg-record's clients, from a connection string (#269)", () => {
         .pluck("id")
         .finally(() => (hasSettled = true));
       // Running on Postgres, on the scope's client, before the scope ends.
-      await sleeping();
+      await sleeping(id);
       return id;
     });
     return { running: running!, scoped, hasSettledAtEnd: hasSettled };

@@ -23,8 +23,8 @@ export interface PgSchema {
   pool: InstanceType<typeof pg.Pool>;
   /** How many connections `url`'s clients have open now. */
   connections(): Promise<number>;
-  /** The queries `url`'s clients are running now. */
-  running(): Promise<string[]>;
+  /** The queries `url`'s clients are running now, each with its backend's id. */
+  running(): Promise<{ backend: number; query: string }[]>;
   dispose(): Promise<void>;
 }
 
@@ -52,10 +52,10 @@ export async function openPgSchema(schema: readonly URL[] = fixture): Promise<Pg
     },
     async running() {
       const { rows } = await pool.query({
-        text: "SELECT query FROM pg_stat_activity WHERE application_name = $1 AND state = 'active'",
+        text: "SELECT pid, query FROM pg_stat_activity WHERE application_name = $1 AND state = 'active'",
         values: [name],
       });
-      return rows.map((row) => row["query"] as string);
+      return rows.map((row) => ({ backend: row["pid"] as number, query: row["query"] as string }));
     },
     async dispose() {
       await pool.query({ text: `DROP SCHEMA ${name} CASCADE` });
