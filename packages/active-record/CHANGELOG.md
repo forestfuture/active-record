@@ -1,5 +1,15 @@
 # @forestfuture/active-record
 
+## 0.7.0
+
+### Minor Changes
+
+- [#290](https://github.com/forestfuture/active-record/pull/290) [`8806626`](https://github.com/forestfuture/active-record/commit/88066260274829dcd3216047d4c4659ec619e23b) Thanks [@christopherstyles](https://github.com/christopherstyles)! - The `active-record` command now speaks for any adapter. Its help and messages say the database, its binding and its config, and D1's own words (`migrations_pattern`, the config file) come from D1's plugin. `active-record schema --check` now reports a schema as out of date when it was written for another adapter, so a schema written before this release reads as out of date once: run `npx active-record schema` to bring it up to date. The console keeps its history in `.wrangler/active-record-history`; the old `.wrangler/d1-record-history` isn't read, so earlier history isn't offered. The command itself needs Node 22.5 or later; on D1 every command still needs 22.13 (23.4 on Node 23), for `node:sqlite`, and says so before it starts. A plugin for the command (`@forestfuture/active-record/cli`, unstable) reads a schema asynchronously, names the folder for the command's local files, can say why a Node can't run it, and gets the chosen database's migrations folder in place of D1's account; a plugin whose name isn't its adapter's is refused.
+
+### Patch Changes
+
+- [#287](https://github.com/forestfuture/active-record/pull/287) [`b6e2d37`](https://github.com/forestfuture/active-record/commit/b6e2d3791753b95f1b72c4b66a329d6d7716493e) Thanks [@christopherstyles](https://github.com/christopherstyles)! - The adapter interface (`@forestfuture/active-record/adapter`, unstable) takes what the Postgres adapter needs: a dialect writes its own placeholders and links keys of different types, a driver can hold a connection for a `withDatabase` scope, and `workersEnv()` tells a Worker from Node. Nothing changes for an app on D1.
+
 ## 0.6.0
 
 ### Minor Changes

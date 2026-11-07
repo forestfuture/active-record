@@ -1,6 +1,6 @@
 {
   "name": "@forestfuture/d1-record",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "The Cloudflare D1 adapter for @forestfuture/active-record.",
   "keywords": [
     "active-record",
