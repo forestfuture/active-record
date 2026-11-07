@@ -168,6 +168,18 @@ describe("pg-record's clients, from a connection string (#269)", () => {
     await closed();
   });
 
+  /** Settles once backend `id` is running a query. */
+  const runningOn = (id: number | undefined) =>
+    expect
+      .poll(async () => {
+        const { rows } = await schema.pool.query({
+          text: "SELECT state FROM pg_stat_activity WHERE pid = $1",
+          values: [id],
+        });
+        return rows[0]?.["state"];
+      })
+      .toBe("active");
+
   /** A slow query on the scope's backend `id`, with a read queued behind it, and that backend ended. */
   const queuedBehindEnded = (id: number | undefined) => {
     const slow = db
@@ -176,8 +188,8 @@ describe("pg-record's clients, from a connection string (#269)", () => {
       .pluck("id")
       .catch((error: unknown) => error);
     const queued = backend();
-    // Long enough for the slow query to reach Postgres before its backend is ended.
-    const ending = new Promise((resolve) => setTimeout(resolve, 50)).then(() =>
+    // Ended once the slow query is running on it, so it fails as the backend goes.
+    const ending = runningOn(id).then(() =>
       schema.pool.query({ text: "SELECT pg_terminate_backend($1)", values: [id] }),
     );
     return { slow, queued, ending };
