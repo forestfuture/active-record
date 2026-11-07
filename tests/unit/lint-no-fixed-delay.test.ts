@@ -20,8 +20,8 @@ tester.run("no-fixed-delay", noFixedDelay, {
     "await waitFor(() => done);",
     // Code a test types into the console is a string, not the test's own.
     'input.write("await new Promise((resolve) => setTimeout(resolve, 10))");',
-    // A timer outside a Promise's executor resolves nothing.
-    "function later(resolve) { setTimeout(resolve, 10); }",
+    // A timer outside a Promise's executor, calling something that isn't a resolve.
+    "function later(run) { setTimeout(run, 10); }",
     'import { setTimeout } from "node:timers"; setTimeout(run, 5);',
   ],
   invalid: [
@@ -48,6 +48,21 @@ tester.run("no-fixed-delay", noFixedDelay, {
     {
       name: "the global's own setTimeout",
       code: "await new Promise((resolve) => globalThis.setTimeout(resolve, 50));",
+      errors: [{ messageId: "fixedDelay" }],
+    },
+    {
+      name: "a gate's resolve",
+      code: "setTimeout(gate.resolve, 50);",
+      errors: [{ messageId: "fixedDelay" }],
+    },
+    {
+      name: "a resolve from outside an executor",
+      code: "const { promise, resolve } = Promise.withResolvers(); setTimeout(resolve, 50);",
+      errors: [{ messageId: "fixedDelay" }],
+    },
+    {
+      name: "a helper's resolve",
+      code: "function later(resolve) { setTimeout(resolve, 10); }",
       errors: [{ messageId: "fixedDelay" }],
     },
     {
