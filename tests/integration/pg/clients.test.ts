@@ -238,14 +238,17 @@ describe("pg-record's clients, from a connection string (#269)", () => {
   });
 
   test("a call nested after its outer call returned has a client of its own, closed when it ends", async () => {
+    const returned = deferred();
     let later: Promise<(number | undefined)[]> | undefined;
 
     const outer = await withDatabase(db, async () => {
-      later = new Promise((resolve) => setTimeout(resolve, 50)).then(() =>
+      // Started inside the outer call, run once it has returned.
+      later = returned.promise.then(() =>
         withDatabase(db, async () => [await backend(), await backend()]),
       );
       return backend();
     });
+    returned.resolve();
     const [first, second] = await later!;
 
     expect(second).toBe(first);
