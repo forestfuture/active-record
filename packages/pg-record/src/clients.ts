@@ -56,6 +56,9 @@ export function connectionStringOf(source: unknown): string | undefined {
   return typeof held === "string" ? held : undefined;
 }
 
+/** How long opening a client may take before it fails, in milliseconds. */
+const defaultConnectTimeout = 10_000;
+
 /** Where a Database's clients come from. */
 export interface Clients {
   /** A client for one statement, or one read batch: `scope`'s, while it's open. */
@@ -204,7 +207,10 @@ export class UrlClients implements Clients {
   }
 
   async #open(): Promise<Client> {
-    const client = new pg.Client({ connectionString: this.#connectionString });
+    const client = new pg.Client({
+      connectionString: this.#connectionString,
+      connectionTimeoutMillis: defaultConnectTimeout,
+    });
     // A connection lost while idle is reported here; unheard, it would crash a Node process.
     client.on("error", () => {});
     await client.connect();

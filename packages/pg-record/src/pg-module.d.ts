@@ -18,7 +18,7 @@ declare module "pg" {
   }
 
   class Client {
-    constructor(config: { connectionString: string });
+    constructor(config: { connectionString: string; connectionTimeoutMillis?: number });
     connect(): Promise<void>;
     query(config: QueryConfig): Promise<QueryResult>;
     end(): Promise<void>;
