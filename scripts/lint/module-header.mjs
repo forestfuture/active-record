@@ -1,9 +1,9 @@
-// The repo's own lint rules, loaded by vite.config.ts's `lint.jsPlugins`.
-import { definePlugin, defineRule } from "vite-plus/lint/plugins";
+// The repo's lint rule that every library and command module opens with the line saying what it owns.
+import { defineRule } from "vite-plus/lint/plugins";
 
 // Every module opens with a `//` comment whose first line says what it owns, so the first comment
 // lines of src/ and cli/ read as a map (AGENTS.md). A shebang line may come first.
-const moduleHeader = defineRule({
+export default defineRule({
   meta: {
     messages: {
       missing:
@@ -18,9 +18,4 @@ const moduleHeader = defineRule({
       },
     };
   },
-});
-
-export default definePlugin({
-  meta: { name: "d1-record" },
-  rules: { "module-header": moduleHeader },
 });
