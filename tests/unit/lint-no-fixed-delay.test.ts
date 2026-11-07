@@ -14,6 +14,7 @@ tester.run("no-fixed-delay", noFixedDelay, {
     // Not waits: a write scheduled for later, and a race's bound that resolves with a value.
     "setTimeout(() => input.write(line), 20);",
     "Promise.race([closed, new Promise((resolve) => setTimeout(() => resolve({ hung: true }), 20_000))]);",
+    'Promise.race([closed, new Promise((resolve) => setTimeout(resolve, 20_000, "hung"))]);',
     // Waiting on an event, a gate, or a polled state.
     'new Promise((resolve) => emitter.once("end", resolve));',
     "await gate.promise;",
