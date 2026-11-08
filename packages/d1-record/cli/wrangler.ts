@@ -1,37 +1,13 @@
 // Reads a Worker's Wrangler config: its D1 databases, their migrations folders, and its account_id.
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import type { ConfigResult, DatabaseConfig } from "@forestfuture/active-record/cli";
+import {
+  parseJsonc,
+  type ConfigResult,
+  type DatabaseConfig,
+} from "@forestfuture/active-record/cli";
 
 const candidates = ["wrangler.jsonc", "wrangler.json", "wrangler.toml"];
-
-/** JSON with comments and trailing commas, as wrangler.jsonc allows. */
-function parseJsonc(text: string): unknown {
-  let out = "";
-  for (let index = 0; index < text.length; index++) {
-    const char = text[index]!;
-    if (char === '"') {
-      const end = endOfString(text, index);
-      out += text.slice(index, end);
-      index = end - 1;
-    } else if (text.startsWith("//", index)) {
-      index = text.indexOf("\n", index) - 1;
-      if (index < 0) break;
-    } else if (text.startsWith("/*", index)) {
-      const end = text.indexOf("*/", index + 2);
-      if (end < 0) throw new SyntaxError("Unterminated /* comment");
-      index = end + 1;
-    } else out += char;
-  }
-  return JSON.parse(out.replace(/,(\s*[}\]])/g, "$1"));
-}
-
-/** Just past the string literal starting at `start`. */
-function endOfString(text: string, start: number): number {
-  let index = start + 1;
-  while (index < text.length && text[index] !== '"') index += text[index] === "\\" ? 2 : 1;
-  return index + 1;
-}
 
 /** A TOML basic string's contents, its escapes decoded (`\\` → `\`, `\u00e9` → `é`). */
 function basicString(body: string): string {
