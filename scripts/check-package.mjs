@@ -62,26 +62,32 @@ for (const [name, files] of Object.entries(expected)) {
   console.log(`${name}'s tarball holds exactly: ${named.join(", ")}`);
 }
 
-// The adapter's build imports the core by name, through its public entries, and bundles none of it.
-const d1 = readdirSync(new URL("../packages/d1-record/dist/", import.meta.url))
-  .filter((file) => file.endsWith(".mjs"))
-  .map((file) =>
-    readFileSync(new URL(`../packages/d1-record/dist/${file}`, import.meta.url), "utf8"),
-  )
-  .join("\n");
-const entries = new Set(
-  [...d1.matchAll(/from "(@forestfuture\/active-record[^"]*)"/g)].map(([, entry]) => entry),
-);
+// Each adapter's build imports the core by name, through its public entries, and bundles none of it.
 const allowed = [
   "@forestfuture/active-record",
   "@forestfuture/active-record/adapter",
   "@forestfuture/active-record/cli",
 ];
-const unknown = [...entries].filter((entry) => !allowed.includes(entry));
-if (unknown.length > 0) fail(`d1-record imports the core through ${unknown.join(", ")}`);
-if (/class Relation\b|function compileSelect\b/.test(d1))
-  fail("d1-record bundles a copy of the core");
-console.log(`d1-record imports the core only through ${[...entries].sort(byCodePoint).join(", ")}`);
+for (const adapter of ["d1-record", "pg-record"]) {
+  const built = readdirSync(new URL(`../packages/${adapter}/dist/`, import.meta.url))
+    .filter((file) => file.endsWith(".mjs"))
+    .map((file) =>
+      readFileSync(new URL(`../packages/${adapter}/dist/${file}`, import.meta.url), "utf8"),
+    )
+    .join("\n");
+  const entries = new Set(
+    [...built.matchAll(/from "(@forestfuture\/active-record[^"]*)"/g)].map(([, entry]) => entry),
+  );
+  const unknown = [...entries].filter((entry) => !allowed.includes(entry));
+  if (unknown.length > 0) fail(`${adapter} imports the core through ${unknown.join(", ")}`);
+  if (/class Relation\b|function compileSelect\b/.test(built))
+    fail(`${adapter} bundles a copy of the core`);
+  // PGlite and pg are the app's install, loaded by name.
+  if (/class PGlite\b|class Client extends/.test(built)) fail(`${adapter} bundles PGlite or pg`);
+  console.log(
+    `${adapter} imports the core only through ${[...entries].sort(byCodePoint).join(", ")}`,
+  );
+}
 
 // An agent reads llms-full.txt as one file, away from the site, so a link to another page can't be
 // relative to its page (#133). Blume writes those links from the site's root (`/models`), and each
