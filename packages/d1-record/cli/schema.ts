@@ -1,12 +1,9 @@
 // Applies a database's migrations to in-memory SQLite and reads back its tables and columns.
 import type { DatabaseSync } from "node:sqlite";
 import {
-  byName,
-  exportName,
-  type GeneratedTable,
+  generatedSchema,
   type Migration,
   type SchemaResult,
-  type Spec,
 } from "@forestfuture/active-record/cli";
 import { convert, type Column } from "./conventions.ts";
 
@@ -109,95 +106,9 @@ function columnsOf(db: DatabaseSync, table: string, definition: string): Column[
     }));
 }
 
-/** Why a table's primary key won't do: none, or more than one column. */
-function keyError(name: string, keys: readonly string[]): string | undefined {
-  if (keys.length === 0) {
-    return `${name}: no primary key; d1-record needs one (id INTEGER PRIMARY KEY, or id TEXT PRIMARY KEY)`;
-  }
-  if (keys.length > 1) {
-    return `${name}: a composite primary key (${keys.join(", ")}) isn't supported; give the table a single key`;
-  }
-  return undefined;
-}
-
-/**
- * What reading columns turns up besides attributes: the errors that stop a schema, the notes to
- * print, and the datetime columns (`table.column`) whose default is SQLite's own date text (#143).
- */
-interface Findings {
-  errors: string[];
-  notes: string[];
-  textDates: string[];
-}
-
-const noFindings = (): Findings => ({ errors: [], notes: [], textDates: [] });
-
-function merge(into: Findings, from: Findings): void {
-  into.errors.push(...from.errors);
-  into.notes.push(...from.notes);
-  into.textDates.push(...from.textDates);
-}
-
-/** A table's attributes, in column order, with what their columns turn up. */
-function attributesOf(columns: readonly Column[]): { attributes: Record<string, Spec> } & Findings {
-  const attributes: Record<string, Spec> = {};
-  const found = noFindings();
-  const columnOf = new Map<string, string>();
-  for (const column of columns) {
-    const converted = convert(column);
-    if (!converted.ok) {
-      found.errors.push(converted.error);
-      continue;
-    }
-    const { attribute, spec, note, textDate } = converted;
-    const taken = columnOf.get(attribute);
-    if (taken !== undefined) {
-      found.errors.push(
-        `${column.table}: columns ${taken} and ${column.name} would both be the attribute ${attribute}; rename one`,
-      );
-    }
-    columnOf.set(attribute, column.name);
-    attributes[attribute] = spec;
-    if (note !== undefined) found.notes.push(note);
-    if (textDate) found.textDates.push(`${column.table}.${column.name}`);
-  }
-  return { attributes, ...found };
-}
-
-/** One table's schema, or the errors that stop it from being generated. */
-function tableSchema(
-  columns: Column[],
-  lastChangedBy: string,
-): { table?: GeneratedTable } & Findings {
-  const name = columns[0]!.table;
-  const keys = columns.filter((column) => column.primaryKey).map((column) => column.name);
-  const error = keyError(name, keys);
-  if (error !== undefined) return { ...noFindings(), errors: [error] };
-  const { attributes, ...found } = attributesOf(columns);
-  const table = {
-    name,
-    exportName: exportName(name),
-    primaryKey: keys[0]!,
-    lastChangedBy,
-    attributes,
-  };
-  return { table, ...found };
-}
-
-/** Tables whose names become the same export (`line_items`, `line-items` → `lineItems`). */
-function exportCollisions(names: readonly string[]): string[] {
-  const seen = new Map<string, string>();
-  const errors: string[] = [];
-  for (const name of names) {
-    const as = exportName(name);
-    const other = seen.get(as);
-    if (other !== undefined) {
-      errors.push(`${other} and ${name} would both be exported as ${as}; rename one of the tables`);
-    }
-    seen.set(as, name);
-  }
-  return errors;
-}
+/** The error for a table without a primary key, saying what D1 takes. */
+const missingKey = (name: string) =>
+  `${name}: no primary key; d1-record needs one (id INTEGER PRIMARY KEY, or id TEXT PRIMARY KEY)`;
 
 /**
  * The tables a project's migrations make, by active-record's conventions (#66): applied in order to
@@ -209,16 +120,11 @@ export function schemaOf(migrations: readonly Migration[], options: Options = {}
   const { db, changedBy, error } = applied(migrations);
   if (db === undefined) return { ok: false, errors: [error!] };
   const migrationsTable = options.migrationsTable ?? "d1_migrations";
-  const tables: GeneratedTable[] = [];
-  const found = noFindings();
-  const own = ownTables(definitions(db), migrationsTable).sort(([a], [b]) => byName(a, b));
-  found.errors.push(...exportCollisions(own.map(([name]) => name)));
-  for (const [name, definition] of own) {
-    const result = tableSchema(columnsOf(db, name, definition), changedBy.get(name)!);
-    merge(found, result);
-    if (result.table !== undefined) tables.push(result.table);
-  }
+  const tables = ownTables(definitions(db), migrationsTable).map(([name, definition]) => ({
+    name,
+    columns: columnsOf(db, name, definition),
+    lastChangedBy: changedBy.get(name)!,
+  }));
   db.close();
-  const { errors, notes, textDates } = found;
-  return errors.length > 0 ? { ok: false, errors } : { ok: true, tables, notes, textDates };
+  return generatedSchema(tables, { convert, missingKey });
 }

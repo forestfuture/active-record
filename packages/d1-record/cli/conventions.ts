@@ -3,6 +3,7 @@ import {
   attributeName,
   storageOverride,
   underscore,
+  type Converted,
   type Default,
   type Spec,
 } from "@forestfuture/active-record/cli";
@@ -22,11 +23,6 @@ export interface Column {
   /** The declared type of the column a foreign key references, if it has one. */
   referencedType: string | undefined;
 }
-
-/** What a column became, or why it can't be one, plus a note when its type was guessed. */
-export type Converted =
-  | { ok: true; attribute: string; spec: Spec; note?: string; textDate?: true }
-  | { ok: false; error: string };
 
 const declaredTypes: readonly (readonly [RegExp, AttributeType])[] = [
   [/^BOOL/, "boolean"],
