@@ -3,7 +3,7 @@ title: Generators
 description: "Add a table with its Model, change a table, write columns, reference the same table, keep Models in another folder, and keep the generated schema current."
 ---
 
-Generators write a table’s migration and its Model from a short description, then regenerate `src/db/schema.ts`. The [Command line](./command-line) reference lists every option.
+Generators write a table’s migration and its Model from a short description, then regenerate `src/db/schema.ts`. Each migration is written in your database’s own SQL: the [Command line](./command-line#column-syntax) reference lists the types on D1 and on Postgres, and every option.
 
 ## Adding a table
 
@@ -14,7 +14,7 @@ npx active-record g model Product 'name:string!' 'priceCents:integer!=0' user:re
 ```
 
 ```
-Wrote migrations/0003_create_products.sql
+Wrote migrations/20261108093000_create_products.sql
 Wrote src/models/product.ts
 Wrote src/db/schema.ts (3 tables) from migrations/
 Next: npx active-record migrate

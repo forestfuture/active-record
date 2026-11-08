@@ -1,12 +1,12 @@
 ---
 title: "Postgres’s differences"
-description: "What's different on Postgres: batches as transactions, reads one after another, bigints, $1 placeholders, and the allowed differences from D1, such as how NULLs and text sort."
+description: "What's different on Postgres: batches as transactions, reads one after another, bigints, $1 placeholders, migrations the command applies and the schema PGlite reads, and the allowed differences from D1, such as how NULLs and text sort."
 ---
 
 Your Models, queries, and callbacks work the same on Postgres. These are the places Postgres works differently from D1.
 
 :::note
-`@forestfuture/pg-record` isn’t on npm yet. It’s released once the `active-record` command can generate its schema and apply its migrations.
+`@forestfuture/pg-record` isn’t on npm yet. It’s released once moving an app from D1 to Postgres is proven.
 :::
 
 ## Batches are transactions
@@ -56,6 +56,28 @@ A key you set yourself doesn’t move a Postgres identity column. The next key P
 ## Constraint errors name their table
 
 Postgres’s constraint errors name their table and columns. So a batch’s foreign-key failure has `.table` and `.columns`, where D1’s has `.table` `null` when the batch writes to several tables.
+
+## Migrations are applied by the command
+
+On D1, `active-record migrate` runs Wrangler, which records each migration by its file name. On Postgres, the command applies them itself and records each one’s version, the number its name starts with, in a `schema_migrations` table. So renaming the rest of a file’s name doesn’t run it again, and every file’s name has to start with a number.
+
+Each migration runs in a transaction. One that fails leaves nothing behind, since Postgres can undo a `CREATE TABLE` or an `ALTER TABLE`. A statement that can’t run in a transaction, such as `CREATE INDEX CONCURRENTLY`, fails.
+
+[Migrating the real database](./command-line#active-record-migrate) needs its connection string and a route to its server.
+
+## Reading the schema
+
+`active-record schema` reads your schema by applying your migrations to [PGlite](https://pglite.dev), Postgres in memory, so it needs no server. A migration that creates an extension PGlite doesn’t have, such as PostGIS, is read on the server your `url` names instead.
+
+Postgres’s column types decide the attributes. Unlike on D1, a column’s name never does, so an `is_active BIGINT` is an integer.
+
+## Adding a required column
+
+A generated migration can add a `NOT NULL` column without a default, which SQLite refuses. Postgres runs it on an empty table, and refuses it on a table with rows.
+
+## Migrations in folders
+
+The command reads a Postgres database’s migrations from its folder, not from folders inside it. Migrations a tool writes in folders, such as `migrations/0000_init/migration.sql`, aren’t read.
 
 ## jsonb keeps the value
 

@@ -22,7 +22,7 @@ Options for schema:
   --models <dir>      Write ApplicationRecord here (src/models by default)
 
 Options for g:
-  --id integer        Give the table an INTEGER key the database generates (a TEXT key made in code by default)
+  --id integer        Give the table an integer key the database generates (a key made in code by default)
   --no-timestamps     Leave out created_at and updated_at
   --models <path>     Write Models here (src/models), or append them to one file (src/models.ts);
                       ApplicationRecord is imported from the same folder

@@ -3,11 +3,13 @@ title: Console
 description: "How to open a console on your D1 database with your Models loaded: active-record console, what is in scope, its options, opening the remote database with --remote, and where its data and history live."
 ---
 
-Open a console on your local database, with your Models loaded, to try a query or fix a record by hand, or on your remote one with [`--remote`](#opening-your-remote-database). Run it from the folder with your Wrangler config:
+Open a console on your local database, with your Models loaded, to try a query or fix a record by hand, or on your remote one with [`--remote`](#opening-your-remote-database). Run it from your project’s folder:
 
 ```sh
 npx active-record console
 ```
+
+On Postgres, it opens the `url` your [`active-record.jsonc`](./command-line#declaring-postgress-databases) declares, or with `--remote` its `remoteUrl`. The rest of this page shows D1.
 
 It prints which database and Models it opened, then waits for a line:
 

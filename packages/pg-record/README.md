@@ -1,6 +1,6 @@
 # @forestfuture/pg-record
 
-The Postgres adapter for [`@forestfuture/active-record`](https://www.npmjs.com/package/@forestfuture/active-record), on Cloudflare Workers through [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) and on Node. It isn’t on npm yet: it’s released once the `active-record` command can generate its schema and apply its migrations.
+The Postgres adapter for [`@forestfuture/active-record`](https://www.npmjs.com/package/@forestfuture/active-record), on Cloudflare Workers through [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) and on Node. It isn’t on npm yet: it’s released once moving an app from D1 to Postgres is proven.
 
 Open a database from a Hyperdrive binding, a connection string, or your own `pg` Pool:
 
@@ -12,6 +12,6 @@ const db = connect(env.HYPERDRIVE);
 await withDatabase(db, () => app.fetch(request, env));
 ```
 
-It provides `connect`, `Database`, and `pg` (what a generated schema names). [Postgres’s differences](https://d1-record.forestfuture.dev/postgres) lists what works differently from D1.
+It provides `connect`, `Database`, and `pg` (what a generated schema names), and a plugin for the `active-record` command: declare your databases in `active-record.jsonc`, and `npx active-record schema`, `g model`, `migrate`, and `console` work on Postgres. [Postgres’s differences](https://d1-record.forestfuture.dev/postgres) lists what works differently from D1.
 
 The guide is at [d1-record.forestfuture.dev](https://d1-record.forestfuture.dev), and the source is on [GitHub](https://github.com/forestfuture/active-record).
