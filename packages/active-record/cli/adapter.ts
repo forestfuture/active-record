@@ -45,6 +45,8 @@ export interface GeneratedTable {
   /** The migration that created or last changed it. */
   lastChangedBy: string;
   attributes: Record<string, Spec>;
+  /** Its key column's type, as the database declares it (`uuid`), when the adapter reads one. */
+  keyType?: string;
 }
 
 /** A database's tables, read from its migrations, with notes for a person, or why they can't be. */
@@ -65,17 +67,19 @@ export interface MigrationChange {
   /** The migration's name, as Rails reads it (`CreateProducts`, `AddSkuToProducts`, …). */
   name: string;
   columns: readonly ColumnArg[];
-  /** Each existing table's key type, for the columns that reference it. */
-  keys: ReadonlyMap<string, KeyType>;
+  /**
+   * Each existing table's key column's type, as its adapter declares it (`INTEGER`, `uuid`), for
+   * the columns that reference it.
+   */
+  keys: ReadonlyMap<string, string>;
   /** `--id integer`, and `--no-timestamps` as `timestamps: false`. */
   options: { integerId?: boolean; timestamps?: boolean };
 }
 
-/** A table's key type, which a column referencing it takes. */
-export type KeyType = "TEXT" | "INTEGER";
-
 /** A migration's SQL, or why it can't be written. */
-export type MigrationResult = { ok: true; sql: string } | { ok: false; error: string };
+export type MigrationResult =
+  /** `notes` say what was guessed, such as the key type of a table the migrations don't make yet. */
+  { ok: true; sql: string; notes?: string[] } | { ok: false; error: string };
 
 /** The database a command acts on, and the config file that declares it. */
 export interface ChosenDatabase {

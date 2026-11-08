@@ -1,17 +1,11 @@
 // A generated migration's SQL, for SQLite as D1 runs it.
 import {
-  pluralize,
-  underscore,
+  indexName,
+  migrationPlan,
   type ColumnArg,
-  type KeyType,
   type MigrationChange,
   type MigrationResult,
 } from "@forestfuture/active-record/cli";
-
-/** What a migration's name says it does (`CreateProducts`, `AddSkuToProducts`, …). */
-type MigrationPlan =
-  | { kind: "create" | "add" | "remove"; table: string }
-  | { kind: "empty"; table?: undefined };
 
 type SqlResult = { ok: true; sql: string } | { ok: false; error: string };
 
@@ -54,7 +48,7 @@ function literal(value: string | number | boolean): string {
 /** A column's definition, as `CREATE TABLE` and `ADD COLUMN` write it. */
 function definition(
   column: ColumnArg,
-  keys: ReadonlyMap<string, KeyType>,
+  keys: ReadonlyMap<string, string>,
   notNull: boolean,
 ): string {
   const name = identifier(column.name);
@@ -67,11 +61,6 @@ function definition(
   if (column.default !== undefined) parts.push(`DEFAULT ${literal(column.default)}`);
   if (column.type === "json") parts.push(`CHECK (json_valid(${name}))`);
   return parts.join(" ");
-}
-
-/** The index the generators name a column's index by, as Rails does: `index_products_on_sku`. */
-function indexName(table: string, column: string): string {
-  return `index_${table}_on_${column}`;
 }
 
 /** `CREATE [UNIQUE] INDEX` for each indexed column. */
@@ -90,7 +79,7 @@ function indexes(table: string, columns: readonly ColumnArg[]): string {
 function createTable(
   table: string,
   columns: readonly ColumnArg[],
-  keys: ReadonlyMap<string, KeyType>,
+  keys: ReadonlyMap<string, string>,
   options: MigrationChange["options"],
 ): string {
   const lines = [options.integerId ? "id INTEGER PRIMARY KEY" : "id TEXT PRIMARY KEY NOT NULL"];
@@ -104,7 +93,7 @@ function createTable(
 function addColumns(
   table: string,
   columns: readonly ColumnArg[],
-  keys: ReadonlyMap<string, KeyType>,
+  keys: ReadonlyMap<string, string>,
 ): SqlResult {
   const refused = columns.find(
     (column) => column.type !== "references" && column.notNull && column.default === undefined,
@@ -139,17 +128,6 @@ function removeColumns(table: string, columns: readonly ColumnArg[]): SqlResult 
   return { ok: true, sql };
 }
 
-/** What a migration's name says to do, as Rails' generator reads it, with its table plural. */
-function planOf(name: string): MigrationPlan {
-  const words = underscore(name);
-  const create = /^create_(\w+)$/.exec(words);
-  if (create) return { kind: "create", table: pluralize(create[1]!) };
-  const add = /^add_\w+?_to_(\w+)$/.exec(words);
-  if (add) return { kind: "add", table: pluralize(add[1]!) };
-  const remove = /^remove_\w+?_from_(\w+)$/.exec(words);
-  return remove ? { kind: "remove", table: pluralize(remove[1]!) } : { kind: "empty" };
-}
-
 /**
  * The SQL for a migration named `name` with `columns`: a table created, columns added or removed,
  * or an empty migration. `keys` has each table's key type, for the columns that reference it.
@@ -157,10 +135,10 @@ function planOf(name: string): MigrationPlan {
 export function migrationFor(
   name: string,
   columns: readonly ColumnArg[],
-  keys: ReadonlyMap<string, KeyType>,
+  keys: ReadonlyMap<string, string>,
   options: MigrationChange["options"] = {},
 ): SqlResult {
-  const plan = planOf(name);
+  const plan = migrationPlan(name);
   if (plan.kind === "empty") {
     return columns.length > 0
       ? {
@@ -178,7 +156,20 @@ export function migrationFor(
   return addColumns(plan.table, columns, keys);
 }
 
-/** A migration's SQL, for SQLite as D1 runs it. */
+/** Notes for references to tables the migrations don't make yet: their key type is a guess. */
+function referenceNotes(
+  columns: readonly ColumnArg[],
+  keys: ReadonlyMap<string, string>,
+): string[] {
+  return columns
+    .filter((column) => column.type === "references" && !keys.has(column.references!))
+    .map((column) => `${column.references} isn't in the migrations yet, so ${column.name} is TEXT`);
+}
+
+/** A migration's SQL, for SQLite as D1 runs it, with a note for each key type it guessed. */
 export function migration({ name, columns, keys, options }: MigrationChange): MigrationResult {
-  return migrationFor(name, columns, keys, options);
+  const result = migrationFor(name, columns, keys, options);
+  if (!result.ok) return result;
+  const notes = referenceNotes(columns, keys);
+  return notes.length === 0 ? result : { ...result, notes };
 }
