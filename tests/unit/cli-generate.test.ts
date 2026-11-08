@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
 import { parseColumns } from "../../packages/active-record/cli/generate/columns.ts";
-import type { KeyType } from "../../packages/active-record/cli/adapter.ts";
 import { migrationFor } from "../../packages/d1-record/cli/migration.ts";
 import { migrationFileName } from "../../packages/active-record/cli/generate/migration-file.ts";
 import { migrationNameError, modelName } from "../../packages/active-record/cli/generate/names.ts";
@@ -18,7 +17,7 @@ function columns(...args: string[]) {
   return result.columns;
 }
 
-const noKeys = new Map<string, KeyType>();
+const noKeys = new Map<string, string>();
 
 /** The migration's SQL, or its error. */
 function sqlFor(name: string, args: string[], options = {}, keys = noKeys) {
@@ -119,7 +118,7 @@ CREATE UNIQUE INDEX index_products_on_sku ON products (sku);
         "create_line_items",
         ["order:references", "settings:json", "quantity:integer!=1", "note=it's"],
         { integerId: true, timestamps: false },
-        new Map<string, KeyType>([["orders", "INTEGER"]]),
+        new Map<string, string>([["orders", "INTEGER"]]),
       ),
     ).toBe(
       `CREATE TABLE line_items (

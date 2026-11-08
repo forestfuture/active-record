@@ -22,7 +22,7 @@ import { loadAdapter } from "../project/adapters.ts";
 import { chooseDatabase } from "../project/databases.ts";
 import { byName, type Migration } from "../project/migrations.ts";
 import { withModels } from "../schema/models.ts";
-import type { GeneratedTable, KeyType } from "../adapter.ts";
+import type { GeneratedTable } from "../adapter.ts";
 import { schemaRefusal, schemaWrites, type SchemaTables } from "../schema/writes.ts";
 import { parseColumns, type ColumnArg } from "./columns.ts";
 import { appendModel, modelFileName, modelSource, type ModelToWrite } from "./model-file.ts";
@@ -122,12 +122,15 @@ function patternRefusal({ project, db }: Request, path: string): string | undefi
   );
 }
 
-/** Each table's key type, for the columns that reference it. */
-function keyTypes(tables: readonly GeneratedTable[]): Map<string, KeyType> {
+/**
+ * Each table's key column's type, for the columns that reference it: as the adapter read it, or
+ * else by its attribute's type.
+ */
+function keyTypes(tables: readonly GeneratedTable[]): Map<string, string> {
   return new Map(
     tables.map((table) => {
       const spec = table.attributes[table.primaryKey]!;
-      return [table.name, spec.type === "integer" ? "INTEGER" : "TEXT"];
+      return [table.name, table.keyType ?? (spec.type === "integer" ? "INTEGER" : "TEXT")];
     }),
   );
 }
@@ -169,16 +172,6 @@ function modelFile(request: Request): FileToWrite | Plan {
     : refused(`${shown(cwd, path)}: ${appended.error}`);
 }
 
-/** Notes for references to tables the migrations don't make yet: their key type is a guess. */
-function referenceNotes(
-  columns: readonly ColumnArg[],
-  keys: ReadonlyMap<string, KeyType>,
-): string[] {
-  return columns
-    .filter((column) => column.type === "references" && !keys.has(column.references!))
-    .map((column) => `${column.references} isn't in the migrations yet, so ${column.name} is TEXT`);
-}
-
 /** The migration, checked by applying it after the others in memory; or why it was refused. */
 async function checkedMigration(
   request: Request,
@@ -207,7 +200,7 @@ async function checkedMigration(
   const checked = await adapter.readSchema(after, { migrationsTable, entry });
   if (!checked.ok) return refused(...checked.errors);
   const migration = { path: join(target.migrationsDir, name), source: result.sql };
-  return { migration, after, schema: checked, notes: referenceNotes(columns, keys) };
+  return { migration, after, schema: checked, notes: result.notes ?? [] };
 }
 
 /** The request: the database, the columns and the names, each checked. */
