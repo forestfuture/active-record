@@ -24,12 +24,20 @@ _Avoid_: Schema dump, types file
 The app's abstract class extending `Model`, `ApplicationRecord` (in `application-record.ts`), that holds the **Generated schema** and that every Model is built on, so the methods, callbacks and scopes written on it are shared. It has no table. Neither does a class between it and some Models marked `static abstract = true`.
 _Avoid_: Mixin, concern, parent model
 
+**Migration**:
+A SQL file in a database's migrations folder, applied once, in file-name order. Its version is the number its name starts with: a UTC timestamp as the **Generator**s write it (`20261108090503_create_products.sql`), or any leading number (`0001_…`). Wrangler records D1's applied migrations; on Postgres, `active-record migrate` records each one's version in `schema_migrations`.
+_Avoid_: Schema change, patch, revision
+
+**Project config**:
+The project's `active-record.jsonc`, beside its `package.json`: settings the `active-record` command reads, through the **Adapter**'s plugin. On Postgres it declares the databases (`databases.HYPERDRIVE.url`); D1's stay in the Wrangler config.
+_Avoid_: Database config, settings file, active-record.json
+
 **Generator**:
 The `active-record g model` and `g migration` commands: they write a migration (and a Model) from a name and columns, checked against the existing migrations first.
 _Avoid_: Scaffold, codegen
 
 **Console**:
-The interactive session `active-record console` opens: a REPL on the project's local D1 database, with its Models and `db` in scope and each line run against that database. Local unless `--remote`, which opens the real database after its name is typed. With `-e` it isn't a session: it runs one piece of code, prints its result alone, and exits. A **Generator** writes files; the console works with data.
+The interactive session `active-record console` opens: a REPL on the project's local database, with its Models and `db` in scope and each line run against that database. Local unless `--remote`, which opens the real database after its name is typed. With `-e` it isn't a session: it runs one piece of code, prints its result alone, and exits. A **Generator** writes files; the console works with data.
 _Avoid_: Shell, REPL (in the guide), playground
 
 **Override**:
@@ -105,7 +113,7 @@ A value declared on a **Model**, with a camelCase name, the snake_case column it
 _Avoid_: Field, property
 
 **Generated id**:
-A string **Attribute** declared with `generateId: true`, whose value, when not given, comes from its **Model**'s `generateId` where a default would: a key made in code, before the row is written. A `TEXT` primary key in the **Generated schema** is one.
+A string **Attribute** declared with `generateId: true`, whose value, when not given, comes from its **Model**'s `generateId` where a default would: a key made in code, before the row is written. A string primary key without a literal default in the **Generated schema** is one: `TEXT` on D1, `UUID` (or `TEXT`) on Postgres.
 _Avoid_: Generated attribute, auto id
 
 **Column**:
@@ -165,7 +173,7 @@ A contract behavior an **Adapter** keeps its database's own semantics for, such 
 _Avoid_: Quirk, known difference, incompatibility, bug
 
 **Binding**:
-The name the app's config gives the database a Model queries, in the **Generated schema** its **Base class** holds (`d1({ binding: "DB" })`). On D1, it's a binding from the Wrangler config, `env.DB`. On Postgres, it's a Hyperdrive binding (`env.HYPERDRIVE`) or a variable holding a connection string (`env.DATABASE_URL`).
+The name the app's config gives the database a Model queries, in the **Generated schema** its **Base class** holds (`d1({ binding: "DB" })`). On D1, it's a binding from the Wrangler config, `env.DB`. On Postgres, it's a Hyperdrive binding (`env.HYPERDRIVE`) or a variable holding a connection string (`env.DATABASE_URL`), and the **Project config** declares it, with its local and remote connection strings for the command.
 _Avoid_: Connection name, database name
 
 **Session**:

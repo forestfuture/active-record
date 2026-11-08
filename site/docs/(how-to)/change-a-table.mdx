@@ -14,7 +14,7 @@ npx active-record g migration AddBioToUsers bio:string
 npx active-record migrate
 ```
 
-```sql migrations/0003_add_bio_to_users.sql
+```sql migrations/20261108100000_add_bio_to_users.sql
 ALTER TABLE users ADD COLUMN bio TEXT;
 ```
 
@@ -30,7 +30,7 @@ Generate an empty migration, and write the rename:
 npx active-record g migration RenameBioToAbout
 ```
 
-```sql migrations/0004_rename_bio_to_about.sql
+```sql migrations/20261108100500_rename_bio_to_about.sql
 ALTER TABLE users RENAME COLUMN bio TO about;
 ```
 
@@ -68,7 +68,7 @@ Remove a `references` column the same way, with `RemoveUserFromPosts user:refere
 
 SQLite can’t change a column’s type in place. Write a migration that builds a new table, copies the rows, and swaps the tables, as [SQLite describes](https://www.sqlite.org/lang_altertable.html#otheralter):
 
-```sql migrations/0005_make_price_cents_an_integer.sql
+```sql migrations/20261108101000_make_price_cents_an_integer.sql
 PRAGMA defer_foreign_keys = true;
 
 CREATE TABLE products_new (

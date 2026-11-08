@@ -17,7 +17,7 @@ export const generateSubcommand = defineSubcommand({
 datetime, json or references; then ! for NOT NULL, =value for a default, and :unique or
 :index for an index. For example: email:string!:unique active:boolean!=false user:references`,
   flagHelp: `Options for g:
-  --id integer        Give the table an INTEGER key the database generates (a TEXT key made in code by default)
+  --id integer        Give the table an integer key the database generates (a key made in code by default)
   --no-timestamps     Leave out created_at and updated_at
   --models <path>     Write Models here (src/models), or append them to one file (src/models.ts);
                       ApplicationRecord is imported from the same folder
