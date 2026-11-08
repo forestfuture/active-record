@@ -77,7 +77,12 @@ async function tablesIn(
   const byTable = await columnsByTable(scratch.query);
   return [...byTable]
     .filter(([name]) => name !== ownTable)
-    .map(([name, columns]) => ({ name, columns, lastChangedBy: changedBy.get(name)! }));
+    .map(([name, columns]) => ({
+      name,
+      columns,
+      lastChangedBy: changedBy.get(name)!,
+      keyType: columns.find((column) => column.primaryKey)?.declared,
+    }));
 }
 
 /** What reading on one database came to: the schema, or the extension it couldn't load. */

@@ -20,6 +20,8 @@ export interface ReadTable<C extends ReadColumn> {
   name: string;
   columns: readonly C[];
   lastChangedBy: string;
+  /** Its key column's type, as the database declares it, for the columns that reference it. */
+  keyType?: string;
 }
 
 /** How an adapter reads its columns: each one converted, and what to say of a table without a key. */
@@ -82,7 +84,7 @@ function tableSchema<C extends ReadColumn>(
   table: ReadTable<C>,
   reading: Reading<C>,
 ): { table?: GeneratedTable } & Findings {
-  const { name, columns, lastChangedBy } = table;
+  const { name, columns, lastChangedBy, keyType } = table;
   const keys = columns.filter((column) => column.primaryKey).map((column) => column.name);
   if (keys.length !== 1) {
     const error =
@@ -93,7 +95,8 @@ function tableSchema<C extends ReadColumn>(
   }
   const { attributes, ...found } = attributesOf(columns, reading.convert);
   const generated = { name, exportName: exportName(name), primaryKey: keys[0]!, lastChangedBy };
-  return { table: { ...generated, attributes }, ...found };
+  const known = keyType === undefined ? {} : { keyType };
+  return { table: { ...generated, attributes, ...known }, ...found };
 }
 
 /** Tables whose names become the same export (`line_items`, `line-items` → `lineItems`). */
