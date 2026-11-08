@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { Miniflare } from "miniflare";
-import { afterAll, describe, expect, test } from "vite-plus/test";
+import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { runGenerate } from "../../packages/active-record/cli/generate/command.ts";
 import { connect } from "../../packages/d1-record/src/index.ts";
 
@@ -57,6 +57,15 @@ async function modelsIn(cwd: string, path: string) {
   return models;
 }
 
+// Migrations are named for the UTC second they're written in, so the clock is set.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-08T09:05:03Z"));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 const read = (cwd: string, path: string) => readFileSync(join(cwd, path), "utf8");
 
 describe("active-record g model", () => {
@@ -86,7 +95,7 @@ describe("active-record g model", () => {
     ]);
 
     expect(code).toBe(0);
-    expect(output).toBe(`Wrote migrations/0001_create_products.sql
+    expect(output).toBe(`Wrote migrations/20261108090503_create_products.sql
 Wrote src/models/product.ts
 Wrote src/db/schema.ts (1 table) from migrations/
 Wrote src/models/application-record.ts
@@ -122,7 +131,7 @@ export class Product extends ApplicationRecord {}
     ]);
 
     expect(code).toBe(0);
-    expect(read(cwd, "migrations/0002_create_line_items.sql")).toContain(
+    expect(read(cwd, "migrations/20261108090504_create_line_items.sql")).toContain(
       "order_id INTEGER NOT NULL REFERENCES orders (id)",
     );
     expect(read(cwd, "src/models/line-item.ts"))
@@ -141,7 +150,7 @@ export class LineItem extends ApplicationRecord {
 
     const model = await generate(cwd, ["model", "Product"], { models: "src/app/models" });
 
-    expect(model.output).toBe(`Wrote migrations/0001_create_products.sql
+    expect(model.output).toBe(`Wrote migrations/20261108090503_create_products.sql
 Wrote src/app/models/product.ts
 Wrote src/db/schema.ts (1 table) from migrations/
 Wrote src/app/models/application-record.ts
@@ -209,10 +218,10 @@ export class Post extends ApplicationRecord {
     expect(await generate(cwd, ["model", "Product"], { models: "src/other" })).toEqual({
       code: 1,
       output: expect.stringMatching(
-        /^0002_create_products\.sql: .*table products already exists\nWrote nothing$/,
+        /^20261108090504_create_products\.sql: .*table products already exists\nWrote nothing$/,
       ),
     });
-    expect(readdirSync(join(cwd, "migrations"))).toEqual(["0001_create_products.sql"]);
+    expect(readdirSync(join(cwd, "migrations"))).toEqual(["20261108090503_create_products.sql"]);
   });
 });
 
@@ -249,7 +258,7 @@ describe("names", () => {
 });
 
 describe("active-record g migration", () => {
-  test("adds and removes columns, numbering after the existing migrations", async () => {
+  test("adds and removes columns, named after the existing migrations", async () => {
     const cwd = project({
       "migrations/0007_create_products.sql": "CREATE TABLE products (id TEXT PRIMARY KEY);",
     });
@@ -263,10 +272,10 @@ describe("active-record g migration", () => {
     const removed = await generate(cwd, ["migration", "RemoveSkuFromProducts", "sku"]);
 
     expect(added.code).toBe(0);
-    expect(added.output).toMatch(/^Wrote migrations\/0008_add_sku_to_products\.sql\n/);
+    expect(added.output).toMatch(/^Wrote migrations\/20261108090503_add_sku_to_products\.sql\n/);
     expect(removed.code).toBe(0);
     expect(read(cwd, "src/db/schema.ts")).toContain(
-      "/** products — last changed by 0009_remove_sku_from_products.sql */",
+      "/** products — last changed by 20261108090504_remove_sku_from_products.sql */",
     );
     expect(read(cwd, "src/db/schema.ts")).not.toContain("sku:");
   });
@@ -277,7 +286,7 @@ describe("active-record g migration", () => {
     });
 
     expect((await generate(cwd, ["migration", "BackfillPrices"])).code).toBe(0);
-    expect(read(cwd, "migrations/0002_backfill_prices.sql")).toBe(
+    expect(read(cwd, "migrations/20261108090503_backfill_prices.sql")).toBe(
       "-- Write the migration's SQL here.\n",
     );
     expect(await generate(cwd, ["migration", "AddSkuToProducts", "sku:string!"])).toEqual({
@@ -302,12 +311,12 @@ describe("active-record g migration", () => {
       output: "This config has several databases; choose one with --database (DB or LOGS)",
     });
     expect((await generate(two, ["model", "Entry"], { database: "LOGS" })).output).toContain(
-      "Wrote logs/0001_create_entries.sql\nWrote src/models/entry.ts\nWrote src/db/LOGS.ts",
+      "Wrote logs/20261108090503_create_entries.sql\nWrote src/models/entry.ts\nWrote src/db/LOGS.ts",
     );
     expect(await generate(drizzle, ["model", "Product"])).toEqual({
       code: 1,
       output:
-        "migrations/0001_create_products.sql wouldn't match migrations_pattern (migrations/*/migration.sql) in wrangler.jsonc, so it wouldn't be applied; write the migration with your migration tool instead",
+        "migrations/20261108090503_create_products.sql wouldn't match migrations_pattern (migrations/*/migration.sql) in wrangler.jsonc, so it wouldn't be applied; write the migration with your migration tool instead",
     });
     expect(existsSync(join(drizzle, "migrations"))).toBe(false);
   });

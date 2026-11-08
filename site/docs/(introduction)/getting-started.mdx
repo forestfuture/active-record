@@ -47,17 +47,17 @@ Each column is `name:type`. A `!` makes it required, `=true` sets a default, `:u
 
 The generator writes these files:
 
-| File                                                        | What it is                                                           |
-| ----------------------------------------------------------- | -------------------------------------------------------------------- |
-| `migrations/0001_create_users.sql`, `0002_create_posts.sql` | The SQL that creates each table                                      |
-| `src/db/schema.ts`                                          | Every table’s columns, generated from the migrations. Don’t edit it. |
-| `src/models/application-record.ts`                          | Your app’s base class. It’s yours to edit.                           |
-| `src/models/user.ts`, `post.ts`                             | One Model per table                                                  |
+| File                                                                            | What it is                                                           |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `migrations/20261108090503_create_users.sql`, `20261108090504_create_posts.sql` | The SQL that creates each table                                      |
+| `src/db/schema.ts`                                                              | Every table’s columns, generated from the migrations. Don’t edit it. |
+| `src/models/application-record.ts`                                              | Your app’s base class. It’s yours to edit.                           |
+| `src/models/user.ts`, `post.ts`                                                 | One Model per table                                                  |
 
 Here’s the migration for posts:
 
-<include meta="migrations/0002_create_posts.sql">
-  /_excerpts/getting-started/migrations/0002_create_posts.sql
+<include meta="migrations/20261108090504_create_posts.sql">
+  /_excerpts/getting-started/migrations/20261108090504_create_posts.sql
 </include>
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">

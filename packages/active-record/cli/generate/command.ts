@@ -26,6 +26,7 @@ import type { GeneratedTable, KeyType } from "../adapter.ts";
 import { schemaRefusal, schemaWrites, type SchemaTables } from "../schema/writes.ts";
 import { parseColumns, type ColumnArg } from "./columns.ts";
 import { appendModel, modelFileName, modelSource, type ModelToWrite } from "./model-file.ts";
+import { migrationFileName } from "./migration-file.ts";
 import { migrationNameError, modelName, tableize } from "./names.ts";
 
 export interface GenerateOptions {
@@ -194,15 +195,13 @@ async function checkedMigration(
   const keys = keyTypes(current.tables);
   const stem =
     request.className === undefined ? options.name : `create_${tableize(request.className)}`;
-  const result = adapter.migration({
-    name: stem,
-    columns,
-    keys,
-    existing: existing.map((each) => each.name),
-    options,
-  });
+  const result = adapter.migration({ name: stem, columns, keys, options });
   if (!result.ok) return refused(result.error);
-  const name = result.file;
+  const name = migrationFileName(
+    existing.map((each) => each.name),
+    stem,
+    new Date(),
+  );
   // In file-name order, the order they're applied in, which a migration with no number may change.
   const after = [...existing, { name, sql: result.sql }].sort((a, b) => byName(a.name, b.name));
   const checked = await adapter.readSchema(after, { migrationsTable });

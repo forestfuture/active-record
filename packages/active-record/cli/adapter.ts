@@ -52,15 +52,13 @@ export type SchemaResult =
   | { ok: true; tables: GeneratedTable[]; notes: string[]; textDates: string[] }
   | { ok: false; errors: string[] };
 
-/** What `g model` and `g migration` ask an adapter for: a migration's SQL, and its file's name. */
+/** What `g model` and `g migration` ask an adapter for: a migration's SQL. */
 export interface MigrationChange {
   /** The migration's name, as Rails reads it (`CreateProducts`, `AddSkuToProducts`, …). */
   name: string;
   columns: readonly ColumnArg[];
   /** Each existing table's key type, for the columns that reference it. */
   keys: ReadonlyMap<string, KeyType>;
-  /** The migrations already in the folder, by path, for the new one's number. */
-  existing: readonly string[];
   /** `--id integer`, and `--no-timestamps` as `timestamps: false`. */
   options: { integerId?: boolean; timestamps?: boolean };
 }
@@ -68,10 +66,8 @@ export interface MigrationChange {
 /** A table's key type, which a column referencing it takes. */
 export type KeyType = "TEXT" | "INTEGER";
 
-/** A migration's file name and SQL, or why it can't be written. */
-export type MigrationResult =
-  | { ok: true; file: string; sql: string }
-  | { ok: false; error: string };
+/** A migration's SQL, or why it can't be written. */
+export type MigrationResult = { ok: true; sql: string } | { ok: false; error: string };
 
 /** The database a command acts on, and the config file that declares it. */
 export interface ChosenDatabase {
@@ -124,7 +120,7 @@ export interface CliAdapter {
     migrations: readonly Migration[],
     options: { migrationsTable?: string },
   ): Promise<SchemaResult>;
-  /** A migration's SQL, and its file name after the existing ones. */
+  /** A migration's SQL; the command names its file. */
   migration(change: MigrationChange): MigrationResult;
   /**
    * The remote database `chosen` names, or why it has none: the one the console opens, or the one

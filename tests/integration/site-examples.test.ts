@@ -1,4 +1,13 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vite-plus/test";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  onTestFinished,
+  test,
+  vi,
+} from "vite-plus/test";
 import { gte, Model, withDatabase } from "../../packages/active-record/src/index.ts";
 import { connect } from "../../packages/d1-record/src/index.ts";
 import {
@@ -44,9 +53,10 @@ vi.mock("cloudflare:workers", () => workers);
 // The Getting started project: the generators' own output (its migrations, schema.ts and
 // application-record.ts), with the tutorial's edits to the Models.
 const gettingStarted = new URL("../../site/snippets/getting-started/", import.meta.url);
-const gettingStartedMigrations = ["0001_create_users.sql", "0002_create_posts.sql"].map(
-  (file) => new URL(`migrations/${file}`, gettingStarted),
-);
+const gettingStartedMigrations = [
+  "20261108090503_create_users.sql",
+  "20261108090504_create_posts.sql",
+].map((file) => new URL(`migrations/${file}`, gettingStarted));
 
 // The documentation's Getting started runs as written, on its own migrations.
 describe("Getting started", () => {
@@ -59,6 +69,10 @@ describe("Getting started", () => {
   afterAll(() => dispose());
 
   test("its files are what the tutorial's two g model commands write, apart from its edit to user.ts", async () => {
+    // Migrations are named for the UTC second they're written in, so the clock is set.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-08T09:05:03Z"));
+    onTestFinished(() => void vi.useRealTimers());
     // In the repo, so the Models g model writes find this repo's library, as an app's do.
     const fresh = scratch("getting-started-");
     writeFileSync(
@@ -86,8 +100,8 @@ describe("Getting started", () => {
     );
 
     for (const file of [
-      "migrations/0001_create_users.sql",
-      "migrations/0002_create_posts.sql",
+      "migrations/20261108090503_create_users.sql",
+      "migrations/20261108090504_create_posts.sql",
       "src/db/schema.ts",
       "src/models/application-record.ts",
       "src/models/post.ts",
