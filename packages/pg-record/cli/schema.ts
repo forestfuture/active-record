@@ -3,19 +3,18 @@ import {
   generatedSchema,
   type Migration,
   type ReadTable,
+  type SchemaOptions,
   type SchemaResult,
 } from "@forestfuture/active-record/cli";
 import { columnsByTable, definitions, type Column, type Query } from "./catalog.ts";
 import { convert } from "./conventions.ts";
+import { migrationsTable } from "./config.ts";
 import { pgliteExtensions } from "./extensions.ts";
-
-interface Options {
-  /** The runner's record of applied migrations, left out of the schema. */
-  migrationsTable?: string;
-}
+import { temporaryDatabase } from "./server-schema.ts";
+import { connectionString, hostOf } from "./urls.ts";
 
 /** A database the migrations are applied to: statements run as a script, and queries read back. */
-interface Scratch {
+export interface Scratch {
   exec: (sql: string) => Promise<void>;
   query: Query;
   close: () => Promise<void>;
@@ -39,14 +38,22 @@ async function pglite(migrations: readonly Migration[]): Promise<Scratch> {
 async function applied(
   scratch: Scratch,
   migrations: readonly Migration[],
-): Promise<{ changedBy: Map<string, string> } | { error: string }> {
+): Promise<
+  { changedBy: Map<string, string> } | { error: string; migration: string; missing?: string }
+> {
   const changedBy = new Map<string, string>();
   let before = await definitions(scratch.query);
   for (const { name, sql } of migrations) {
     try {
       await scratch.exec(sql);
     } catch (error) {
-      return { error: `${name}: ${(error as Error).message}` };
+      const { message } = error as Error;
+      const missing = /^extension "([^"]+)" is not available/.exec(message)?.[1];
+      return {
+        error: `${name}: ${message}`,
+        migration: name,
+        ...(missing !== undefined && { missing }),
+      };
     }
     const after = await definitions(scratch.query);
     for (const [table, definition] of after) {
@@ -65,30 +72,81 @@ const missingKey = (name: string) =>
 async function tablesIn(
   scratch: Scratch,
   changedBy: Map<string, string>,
-  migrationsTable: string,
+  ownTable: string,
 ): Promise<ReadTable<Column>[]> {
   const byTable = await columnsByTable(scratch.query);
   return [...byTable]
-    .filter(([name]) => name !== migrationsTable)
+    .filter(([name]) => name !== ownTable)
     .map(([name, columns]) => ({ name, columns, lastChangedBy: changedBy.get(name)! }));
 }
 
-/**
- * The tables a project's migrations make: applied in order to an in-memory PGlite, then read from
- * its catalog, in the current schema. Views, other schemas and the migrations table are left out.
- */
-export async function schemaOf(
+/** What reading on one database came to: the schema, or the extension it couldn't load. */
+type Reading = SchemaResult | { migration: string; missing: string };
+
+/** The schema the migrations make on `scratch`, which is closed afterwards. */
+async function readOn(
+  scratch: Scratch,
   migrations: readonly Migration[],
-  options: Options = {},
-): Promise<SchemaResult> {
-  const scratch = await pglite(migrations);
+  migrationsTable: string,
+): Promise<Reading> {
   try {
     const result = await applied(scratch, migrations);
-    if ("error" in result) return { ok: false, errors: [result.error] };
-    const migrationsTable = options.migrationsTable ?? "schema_migrations";
+    if ("error" in result) {
+      if (result.missing === undefined) return { ok: false, errors: [result.error] };
+      return { migration: result.migration, missing: result.missing };
+    }
     const tables = await tablesIn(scratch, result.changedBy, migrationsTable);
     return generatedSchema(tables, { convert, missingKey });
   } finally {
     await scratch.close();
   }
+}
+
+/**
+ * The schema read on the server the database's `url` names, in a database of its own, for
+ * migrations that need an extension PGlite can't load.
+ */
+async function readOnServer(
+  migrations: readonly Migration[],
+  options: SchemaOptions,
+  { migration, missing }: { migration: string; missing: string },
+): Promise<SchemaResult> {
+  const url = connectionString(options.entry, "url");
+  if (url === undefined) {
+    const where = "set the database's url in active-record.jsonc to a Postgres server that has it";
+    return {
+      ok: false,
+      errors: [
+        `${migration}: PGlite can't load the extension ${missing}; ${where}, and the schema is read there, in a database of its own`,
+      ],
+    };
+  }
+  if (typeof url !== "string") return { ok: false, errors: [url.error] };
+  const server = await temporaryDatabase(url);
+  if (typeof server === "string") {
+    return { ok: false, errors: [`Couldn't read the schema on ${hostOf(url)}: ${server}`] };
+  }
+  const read = await readOn(server, migrations, options.migrationsTable ?? migrationsTable);
+  if (!("ok" in read))
+    return {
+      ok: false,
+      errors: [`${read.migration}: extension "${read.missing}" is not available`],
+    };
+  if (!read.ok) return read;
+  const note = `PGlite can't load the extension ${missing}, so the schema was read on ${hostOf(url)} in a database of its own`;
+  return { ...read, notes: [...read.notes, note] };
+}
+
+/**
+ * The tables a project's migrations make: applied in order to an in-memory PGlite, then read from
+ * its catalog, in the current schema. Views, other schemas and the migrations table are left out.
+ * Migrations that need an extension PGlite can't load are read on the database's local server.
+ */
+export async function schemaOf(
+  migrations: readonly Migration[],
+  options: SchemaOptions = {},
+): Promise<SchemaResult> {
+  const table = options.migrationsTable ?? migrationsTable;
+  const read = await readOn(await pglite(migrations), migrations, table);
+  return "ok" in read ? read : readOnServer(migrations, options, read);
 }

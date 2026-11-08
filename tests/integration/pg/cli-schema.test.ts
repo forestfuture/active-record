@@ -1,4 +1,5 @@
-import { describe, expect, test } from "vite-plus/test";
+import pg from "pg";
+import { afterAll, describe, expect, test, vi } from "vite-plus/test";
 import type { Migration, SchemaResult } from "../../../packages/active-record/cli/for-adapters.ts";
 import { cli } from "../../../packages/pg-record/cli/plugin.ts";
 
@@ -175,6 +176,80 @@ describe("Postgres's schema, from its migrations on PGlite", () => {
     expect(result).toEqual({
       ok: false,
       errors: ['2_broken.sql: relation "nowhere" does not exist'],
+    });
+  });
+});
+
+// An extension PGlite can't load is read on the database's local server instead (#285).
+describe("Postgres's schema, when PGlite can't load an extension", () => {
+  const url = process.env["DATABASE_URL"]!;
+  const needsDblink = {
+    "1_extensions.sql": "CREATE EXTENSION IF NOT EXISTS dblink;",
+    "2_create_links.sql": "CREATE TABLE links (id BIGINT PRIMARY KEY, target TEXT NOT NULL);",
+  };
+
+  /** The temporary databases left on the server. */
+  async function leftOver(): Promise<unknown[]> {
+    const client = new pg.Client({ connectionString: url });
+    await client.connect();
+    try {
+      const { rows } = await client.query({
+        text: "SELECT datname FROM pg_database WHERE datname LIKE 'active_record_schema_%'",
+      });
+      return rows;
+    } finally {
+      await client.end();
+    }
+  }
+
+  test("is read in a database of its own on the url's server, dropped afterwards", async () => {
+    const before = await leftOver();
+
+    const result = await cli.readSchema(migrations(needsDblink), {
+      migrationsTable: "schema_migrations",
+      entry: { url },
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      tables: [{ name: "links", lastChangedBy: "2_create_links.sql" }],
+      notes: [
+        expect.stringMatching(
+          /^PGlite can't load the extension dblink, so the schema was read on .+ in a database of its own$/,
+        ),
+      ],
+    });
+    expect(await leftOver()).toEqual(before);
+  });
+
+  test("a url from the environment is read from it", async () => {
+    vi.stubEnv("SCHEMA_DATABASE_URL", url);
+    afterAll(() => void vi.unstubAllEnvs());
+
+    const result = await cli.readSchema(migrations(needsDblink), {
+      entry: { url: "${SCHEMA_DATABASE_URL}" },
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  test("without a url, says to set one", async () => {
+    expect(await cli.readSchema(migrations(needsDblink), { entry: {} })).toEqual({
+      ok: false,
+      errors: [
+        "1_extensions.sql: PGlite can't load the extension dblink; set the database's url in active-record.jsonc to a Postgres server that has it, and the schema is read there, in a database of its own",
+      ],
+    });
+  });
+
+  test("a url naming a variable that isn't set says so", async () => {
+    const result = await cli.readSchema(migrations(needsDblink), {
+      entry: { url: "${NOT_SET_ANYWHERE}" },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      errors: ["The database's url names ${NOT_SET_ANYWHERE}, which isn't set"],
     });
   });
 });

@@ -189,8 +189,8 @@ async function checkedMigration(
   const { project, db, options, columns } = request;
   const { adapter } = project;
   const { target } = db;
-  const migrationsTable = target.database.migrationsTable;
-  const current = await adapter.readSchema(existing, { migrationsTable });
+  const { migrationsTable, entry } = target.database;
+  const current = await adapter.readSchema(existing, { migrationsTable, entry });
   if (!current.ok) return refused(...current.errors);
   const keys = keyTypes(current.tables);
   const stem =
@@ -204,7 +204,7 @@ async function checkedMigration(
   );
   // In file-name order, the order they're applied in, which a migration with no number may change.
   const after = [...existing, { name, sql: result.sql }].sort((a, b) => byName(a.name, b.name));
-  const checked = await adapter.readSchema(after, { migrationsTable });
+  const checked = await adapter.readSchema(after, { migrationsTable, entry });
   if (!checked.ok) return refused(...checked.errors);
   const migration = { path: join(target.migrationsDir, name), source: result.sql };
   return { migration, after, schema: checked, notes: referenceNotes(columns, keys) };

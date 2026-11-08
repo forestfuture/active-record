@@ -52,6 +52,14 @@ export type SchemaResult =
   | { ok: true; tables: GeneratedTable[]; notes: string[]; textDates: string[] }
   | { ok: false; errors: string[] };
 
+/** What an adapter reads a database's schema with, besides its migrations. */
+export interface SchemaOptions {
+  /** The adapter's record of applied migrations, left out of the schema. */
+  migrationsTable?: string;
+  /** The database's entry, as the config has it, for an adapter that reads more of it. */
+  entry?: Record<string, unknown>;
+}
+
 /** What `g model` and `g migration` ask an adapter for: a migration's SQL. */
 export interface MigrationChange {
   /** The migration's name, as Rails reads it (`CreateProducts`, `AddSkuToProducts`, …). */
@@ -116,10 +124,7 @@ export interface CliAdapter {
   /** The project's databases, from its config, or why they can't be read. */
   databases(cwd: string, configPath?: string): ConfigResult;
   /** A database's tables, from its migrations applied in order. */
-  readSchema(
-    migrations: readonly Migration[],
-    options: { migrationsTable?: string },
-  ): Promise<SchemaResult>;
+  readSchema(migrations: readonly Migration[], options: SchemaOptions): Promise<SchemaResult>;
   /** A migration's SQL; the command names its file. */
   migration(change: MigrationChange): MigrationResult;
   /**
