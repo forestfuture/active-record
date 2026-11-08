@@ -1,6 +1,7 @@
 // The Postgres adapter's plugin for the `active-record` command (`@forestfuture/pg-record/cli`, #285).
 import type { CliAdapter } from "@forestfuture/active-record/cli";
 import { readDatabases } from "./config.ts";
+import { migrate, remoteTarget } from "./migrate.ts";
 import { migration } from "./migration.ts";
 import { schemaOf } from "./schema.ts";
 
@@ -14,8 +15,8 @@ export const cli: CliAdapter = {
   databases: readDatabases,
   readSchema: schemaOf,
   migration,
-  remote: notYet,
+  remote: (chosen) => remoteTarget(chosen),
   stateFolder: notYet,
   open: notYet,
-  migrate: notYet,
+  migrate,
 };

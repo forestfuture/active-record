@@ -22,8 +22,18 @@ export function connectionString(
 /** Where a connection string points, for a person: its host, never its password. */
 export function hostOf(url: string): string {
   try {
-    return new URL(url).host || "a local socket";
+    return new URL(url).hostname || "a local socket";
   } catch {
     return "its server";
+  }
+}
+
+/** The database a connection string names, for a person to type: its path, or else its user's. */
+export function databaseNameOf(url: string): string {
+  try {
+    const parsed = new URL(url);
+    return decodeURIComponent(parsed.pathname.slice(1) || parsed.username) || "postgres";
+  } catch {
+    return "postgres";
   }
 }
