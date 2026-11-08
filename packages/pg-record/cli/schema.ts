@@ -7,6 +7,7 @@ import {
 } from "@forestfuture/active-record/cli";
 import { columnsByTable, definitions, type Column, type Query } from "./catalog.ts";
 import { convert } from "./conventions.ts";
+import { pgliteExtensions } from "./extensions.ts";
 
 interface Options {
   /** The runner's record of applied migrations, left out of the schema. */
@@ -20,10 +21,10 @@ interface Scratch {
   close: () => Promise<void>;
 }
 
-/** An in-memory PGlite, loaded when a schema is first read. */
-async function pglite(): Promise<Scratch> {
+/** An in-memory PGlite, loaded when a schema is first read, with the extensions it has builds of. */
+async function pglite(migrations: readonly Migration[]): Promise<Scratch> {
   const { PGlite } = await import("@electric-sql/pglite");
-  const lite = new PGlite();
+  const lite = new PGlite({ extensions: await pgliteExtensions(migrations) });
   return {
     exec: async (sql) => void (await lite.exec(sql)),
     query: async (sql) => (await lite.query<Record<string, unknown>>(sql)).rows,
@@ -80,7 +81,7 @@ export async function schemaOf(
   migrations: readonly Migration[],
   options: Options = {},
 ): Promise<SchemaResult> {
-  const scratch = await pglite();
+  const scratch = await pglite(migrations);
   try {
     const result = await applied(scratch, migrations);
     if ("error" in result) return { ok: false, errors: [result.error] };

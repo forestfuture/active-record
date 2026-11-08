@@ -149,6 +149,23 @@ describe("Postgres's schema, from its migrations on PGlite", () => {
     });
   });
 
+  test("a migration may create an extension PGlite has its own build of", async () => {
+    const { tables } = await tablesOf({
+      "1_extensions.sql": `
+        CREATE EXTENSION IF NOT EXISTS citext;
+        CREATE EXTENSION "uuid-ossp";
+        create extension if not exists "pg_trgm" with schema public;`,
+      "2_create_users.sql": `
+        CREATE TABLE users (id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), email CITEXT NOT NULL);
+        CREATE INDEX index_users_on_email ON users USING gin (email gin_trgm_ops);`,
+    });
+
+    expect(tables[0]!.attributes).toEqual({
+      id: { type: "string", null: false, generateId: true },
+      email: { type: "string", null: false },
+    });
+  });
+
   test("a migration Postgres refuses is named by its file", async () => {
     const result = await read({
       "1_create.sql": "CREATE TABLE users (id BIGINT PRIMARY KEY);",
