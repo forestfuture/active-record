@@ -45,6 +45,9 @@
     "prepack": "vp run @forestfuture/active-record#build && vp pack",
     "prepublishOnly": "node ../../scripts/require-pnpm.mjs"
   },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.14"
+  },
   "devDependencies": {
     "@forestfuture/active-record": "workspace:*",
     "pg": "^8.23.1"
