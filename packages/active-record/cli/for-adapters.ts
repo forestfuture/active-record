@@ -10,5 +10,12 @@ export {
 } from "./project/config-file.ts";
 export { attributeName, exportName, listed } from "./project/names.ts";
 export { storageOverride } from "./schema/storage-override.ts";
+export {
+  generatedSchema,
+  type Converted,
+  type Reading,
+  type ReadColumn,
+  type ReadTable,
+} from "./schema/tables.ts";
 export { pluralize } from "../src/inflections.ts";
 export { underscore } from "../src/naming.ts";
