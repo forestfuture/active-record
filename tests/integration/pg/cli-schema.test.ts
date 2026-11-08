@@ -48,6 +48,7 @@ describe("Postgres's schema, from its migrations on PGlite", () => {
         exportName: "users",
         primaryKey: "id",
         lastChangedBy: "20261108090503_create_users.sql",
+        keyType: "bigint",
         attributes: {
           id: { type: "integer", null: false },
           email: { type: "string", null: false },

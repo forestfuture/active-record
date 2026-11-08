@@ -1,6 +1,7 @@
 // The Postgres adapter's plugin for the `active-record` command (`@forestfuture/pg-record/cli`, #285).
 import type { CliAdapter } from "@forestfuture/active-record/cli";
 import { readDatabases } from "./config.ts";
+import { migration } from "./migration.ts";
 import { schemaOf } from "./schema.ts";
 
 const notYet = (): never => {
@@ -12,7 +13,7 @@ export const cli: CliAdapter = {
   name: "pg",
   databases: readDatabases,
   readSchema: schemaOf,
-  migration: notYet,
+  migration,
   remote: notYet,
   stateFolder: notYet,
   open: notYet,
