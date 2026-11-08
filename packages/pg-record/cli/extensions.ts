@@ -16,7 +16,7 @@ const contrib = new Set(
 const createExtension = /\bcreate\s+extension\s+(?:if\s+not\s+exists\s+)?(?:"([^"]+)"|([\w-]+))/gi;
 
 /** The extensions the migrations create, by name, in the order they first appear. */
-export function extensionsIn(migrations: readonly Migration[]): string[] {
+function extensionsIn(migrations: readonly Migration[]): string[] {
   const names = migrations.flatMap(({ sql }) =>
     [...sql.matchAll(createExtension)].map((match) => (match[1] ?? match[2]!).toLowerCase()),
   );
