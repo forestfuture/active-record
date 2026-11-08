@@ -1,4 +1,4 @@
-// A generated migration's SQL and its Wrangler-numbered file name.
+// A generated migration's SQL, for SQLite as D1 runs it.
 import {
   pluralize,
   underscore,
@@ -178,21 +178,7 @@ export function migrationFor(
   return addColumns(plan.table, columns, keys);
 }
 
-/** The next migration's file name, numbered as Wrangler numbers them: the highest + 1, in 4 digits. */
-export function migrationFileName(existing: readonly string[], name: string): string {
-  const numbers = existing.map((each) => Number.parseInt(each.split("/")[0]!.split("_")[0]!, 10));
-  const next = Math.max(0, ...numbers.filter(Number.isFinite)) + 1;
-  return `${String(next).padStart(4, "0")}_${underscore(name)}.sql`;
-}
-
-/** A migration's SQL, for SQLite as D1 runs it, and its Wrangler-numbered file name. */
-export function migration({
-  name,
-  columns,
-  keys,
-  existing,
-  options,
-}: MigrationChange): MigrationResult {
-  const result = migrationFor(name, columns, keys, options);
-  return result.ok ? { ...result, file: migrationFileName(existing, name) } : result;
+/** A migration's SQL, for SQLite as D1 runs it. */
+export function migration({ name, columns, keys, options }: MigrationChange): MigrationResult {
+  return migrationFor(name, columns, keys, options);
 }

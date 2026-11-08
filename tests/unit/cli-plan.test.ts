@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { planGenerate } from "../../packages/active-record/cli/generate/command.ts";
 import { filesOf, linesOf, type Plan } from "../../packages/active-record/cli/plan.ts";
 import { planSchema } from "../../packages/active-record/cli/schema/command.ts";
@@ -8,6 +8,15 @@ import type {
 } from "../../packages/active-record/cli/project/snapshot.ts";
 import type { CliAdapter } from "../../packages/active-record/cli/adapter.ts";
 import { cli } from "../../packages/d1-record/cli/plugin.ts";
+
+// Migrations are named for the UTC second they're written in, so the clock is set.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-08T09:05:03Z"));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const cwd = "/app";
 
@@ -147,13 +156,13 @@ describe("planGenerate: what g model and g migration write and print, from a sna
     const plan = await planGenerate(project(), product);
 
     expect(filesOf(plan).map((file) => file.path)).toEqual([
-      `${cwd}/migrations/0002_create_products.sql`,
+      `${cwd}/migrations/20261108090503_create_products.sql`,
       `${cwd}/src/models/product.ts`,
       `${cwd}/src/db/schema.ts`,
       `${cwd}/src/models/application-record.ts`,
     ]);
     expect(linesOf(plan)).toEqual([
-      "Wrote migrations/0002_create_products.sql",
+      "Wrote migrations/20261108090503_create_products.sql",
       "Wrote src/models/product.ts",
       "Wrote src/db/schema.ts (2 tables) from migrations/",
       "Wrote src/models/application-record.ts",
@@ -227,7 +236,7 @@ describe("planGenerate: what g model and g migration write and print, from a sna
     const plan = await planGenerate({ ...project(), databases: [nested] }, product);
 
     expect(linesOf(plan)).toEqual([
-      "migrations/0002_create_products.sql wouldn't match migrations_pattern " +
+      "migrations/20261108090503_create_products.sql wouldn't match migrations_pattern " +
         "(migrations/*/migration.sql) in wrangler.jsonc, so it wouldn't be applied; write the " +
         "migration with your migration tool instead",
     ]);
@@ -241,7 +250,7 @@ describe("planGenerate: what g model and g migration write and print, from a sna
       { kind: "migration", name: "AddSkuToUsers", columns: ["sku"] },
     );
 
-    // 0001_add_sku_to_users.sql sorts before init.sql, so Wrangler would run it first, and fail.
+    // 20261108090503_add_sku_to_users.sql sorts before init.sql, so Wrangler would run it first, and fail.
     expect(filesOf(plan)).toEqual([]);
     expect(plan.code).toBe(1);
     expect(linesOf(plan).at(-1)).toBe("Wrote nothing");
@@ -266,7 +275,7 @@ describe("planning with another adapter's plugin", () => {
       }));
       return { ok: true, tables, notes: [], textDates: [] };
     },
-    migration: ({ name }) => ({ ok: true, file: `9999_${name}.stub`, sql: "-- stub\n" }),
+    migration: () => ({ ok: true, sql: "-- stub\n" }),
     remote: () => "unused",
     stateFolder: () => "unused",
     open: async () => "unused",
@@ -280,16 +289,16 @@ describe("planning with another adapter's plugin", () => {
     expect(readSchemas.at(-1)).toEqual(["0001_users.sql"]);
   });
 
-  test("a migration is the plugin's file and SQL, checked by reading the schema it makes", async () => {
+  test("a migration is the plugin's SQL in a file the command names, checked by reading the schema it makes", async () => {
     const product = { kind: "model", name: "Product", columns: ["name:string!"] } as const;
 
     const plan = await planGenerate({ ...project(), adapter: stub }, product);
 
-    expect(filesOf(plan).find((file) => file.path.endsWith(".stub"))).toEqual({
-      path: `${cwd}/migrations/9999_create_products.stub`,
+    expect(filesOf(plan).find((file) => file.path.endsWith("_create_products.sql"))).toEqual({
+      path: `${cwd}/migrations/20261108090503_create_products.sql`,
       source: "-- stub\n",
     });
-    expect(readSchemas.at(-1)).toEqual(["0001_users.sql", "9999_create_products.stub"]);
+    expect(readSchemas.at(-1)).toEqual(["0001_users.sql", "20261108090503_create_products.sql"]);
   });
 
   // The adapter's factory has the adapter's name, exported from its package (#284).
@@ -322,7 +331,7 @@ describe("planning with another adapter's plugin", () => {
     const plan = await planGenerate({ ...project(), databases: [nested], adapter: stub }, product);
 
     expect(linesOf(plan)).toEqual([
-      "migrations/9999_create_products.stub wouldn't match the pattern " +
+      "migrations/20261108090503_create_products.sql wouldn't match the pattern " +
         "(migrations/*/migration.sql) in wrangler.jsonc, so it wouldn't be applied; write the " +
         "migration with your migration tool instead",
     ]);

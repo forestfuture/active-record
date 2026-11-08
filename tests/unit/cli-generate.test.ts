@@ -1,7 +1,8 @@
 import { describe, expect, test } from "vite-plus/test";
 import { parseColumns } from "../../packages/active-record/cli/generate/columns.ts";
 import type { KeyType } from "../../packages/active-record/cli/adapter.ts";
-import { migrationFor, migrationFileName } from "../../packages/d1-record/cli/migration.ts";
+import { migrationFor } from "../../packages/d1-record/cli/migration.ts";
+import { migrationFileName } from "../../packages/active-record/cli/generate/migration-file.ts";
 import { migrationNameError, modelName } from "../../packages/active-record/cli/generate/names.ts";
 import {
   appendModel,
@@ -210,14 +211,23 @@ ALTER TABLE products DROP COLUMN code;
   });
 });
 
-describe("migration file names: numbered as Wrangler numbers them", () => {
-  test("the next number after the highest, padded to four digits, then the name in snake_case", () => {
-    expect(migrationFileName([], "CreateProducts")).toBe("0001_create_products.sql");
-    expect(
-      migrationFileName(["0001_init.sql", "0009_x.sql", "notes.md"], "add_sku_to_products"),
-    ).toBe("0010_add_sku_to_products.sql");
-    expect(migrationFileName(["0042_init/migration.sql"], "AddSKUToProducts")).toBe(
-      "0043_add_sku_to_products.sql",
+describe("migration file names: a UTC timestamp, as Rails writes them", () => {
+  const now = new Date("2026-11-08T09:05:03.250Z");
+
+  test("the current UTC second, then the name in snake_case", () => {
+    expect(migrationFileName([], "CreateProducts", now)).toBe("20261108090503_create_products.sql");
+    expect(migrationFileName(["0001_init.sql", "0009_x.sql"], "AddSKUToProducts", now)).toBe(
+      "20261108090503_add_sku_to_products.sql",
+    );
+  });
+
+  test("one past the highest version when that's later, so two in a second keep their order", () => {
+    const existing = ["20261108090503_create_products.sql", "notes.md"];
+    expect(migrationFileName(existing, "add_sku_to_products", now)).toBe(
+      "20261108090504_add_sku_to_products.sql",
+    );
+    expect(migrationFileName(["20261108090600_x/migration.sql"], "Later", now)).toBe(
+      "20261108090601_later.sql",
     );
   });
 });

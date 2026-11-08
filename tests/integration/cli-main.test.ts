@@ -17,6 +17,10 @@ describe("the d1-record command line", () => {
     // Paths are relative to where the command runs, so run it in the project, not the repo.
     const inProject = vi.spyOn(process, "cwd").mockReturnValue(cwd);
     onTestFinished(() => inProject.mockRestore());
+    // Migrations are named for the UTC second they're written in, so the clock is set.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-08T09:05:03Z"));
+    onTestFinished(() => void vi.useRealTimers());
 
     const help = main(["--help"], (line) => output.push(line));
     const generated = await main(
@@ -110,6 +114,10 @@ describe("the d1-record command line", () => {
     // Paths are relative to where the command runs, so run it in the project.
     const inProject = vi.spyOn(process, "cwd").mockReturnValue(cwd);
     onTestFinished(() => inProject.mockRestore());
+    // Migrations are named for the UTC second they're written in, so the clock is set.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-08T09:05:03Z"));
+    onTestFinished(() => void vi.useRealTimers());
 
     expect(
       await main(
@@ -126,8 +134,8 @@ describe("the d1-record command line", () => {
 
     expect(output).toContain("Wrote src/app/models/application-record.ts");
     expect(output.filter((line) => line.startsWith("Wrote migrations"))).toEqual([
-      "Wrote migrations/0001_create_products.sql",
-      "Wrote migrations/0002_add_sku_to_products.sql",
+      "Wrote migrations/20261108090503_create_products.sql",
+      "Wrote migrations/20261108090504_add_sku_to_products.sql",
     ]);
     expect(output.at(-1)).toMatch(
       /^Name what to generate: g model <Name> or g migration <Name>\n\nUsage:/,
