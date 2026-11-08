@@ -29,11 +29,13 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
+    "./cli": "./cli/plugin.ts",
     "./package.json": "./package.json"
   },
   "publishConfig": {
     "exports": {
       ".": "./dist/index.mjs",
+      "./cli": "./dist/cli.mjs",
       "./package.json": "./package.json"
     },
     "access": "public"
