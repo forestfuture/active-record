@@ -53,8 +53,8 @@ async function planDatabase(
   const refusal = check ? undefined : schemaRefusal(cwd, db);
   if (refusal !== undefined) return failed([refusal], cwd, db);
   if (db.modelErrors.length > 0) return failed(db.modelErrors, cwd, db);
-  const migrationsTable = db.target.database.migrationsTable;
-  const result = await adapter.readSchema(db.migrations, { migrationsTable });
+  const { migrationsTable, entry } = db.target.database;
+  const result = await adapter.readSchema(db.migrations, { migrationsTable, entry });
   if (!result.ok) return failed(result.errors, cwd, db);
   return check ? checkPlan(project, db, result.tables) : schemaWrites(project, db, result);
 }
