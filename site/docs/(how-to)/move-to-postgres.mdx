@@ -138,7 +138,11 @@ Then bind it in your Wrangler config, beside your D1 binding, with the `nodejs_c
 
 ## Going live
 
-Writes that reach D1 after you copy its data don’t reach Postgres, so stop them first, for example with a deploy that answers writes with a 503. Then create your tables on the real database, copy the data, and deploy:
+:::warning[Stop writes before you copy]
+A write that reaches D1 after you copy its data never reaches Postgres. Stop writes first, for example with a deploy that answers them with a 503.
+:::
+
+Then create your tables on the real database, copy the data, and deploy:
 
 ```sh
 npx active-record migrate --adapter pg --remote
