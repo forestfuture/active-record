@@ -37,7 +37,10 @@ for table in "$@"; do
   columns=$(sqlite3 "$work/d1.db" "SELECT group_concat('\"' || name || '\"', ', ') $info")
   [ -n "$columns" ] || fail "D1 has no table named $table"
   sqlite3 -csv -header "$work/d1.db" "SELECT $columns FROM \"$table\"" > "$work/$table.csv"
-  printf '%s\n' "\\copy \"$table\" ($columns) FROM '$work/$table.csv' WITH (FORMAT csv, HEADER true)" >> "$work/copy.sql"
+  # Postgres folds an unquoted migration's names to lowercase, so they're named that way here.
+  pg_table=$(printf '%s' "$table" | tr '[:upper:]' '[:lower:]')
+  pg_columns=$(printf '%s' "$columns" | tr '[:upper:]' '[:lower:]')
+  printf '%s\n' "\\copy \"$pg_table\" ($pg_columns) FROM '$work/$table.csv' WITH (FORMAT csv, HEADER true)" >> "$work/copy.sql"
 done
 
 # Every table in one transaction, so a failure copies nothing.
