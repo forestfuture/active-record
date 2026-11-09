@@ -66,7 +66,7 @@ These are the files `g model` writes on Postgres for the same commands. Change e
 
 If your `generateId` makes keys that aren’t UUIDs, keep those keys `TEXT`, and their foreign keys too.
 
-A datetime with a `storage` override, kept as a Unix time, can stay `BIGINT`, with its override. To store it as `TIMESTAMPTZ` instead, add a migration that converts it after you copy the data, and remove the override from your Model:
+A datetime kept as a Unix time has a `storage` override. It can stay `BIGINT`, and keep the override. To store it as `TIMESTAMPTZ` instead, add a migration that converts it after you copy the data. Then remove the override from your Model:
 
 ```sql
 ALTER TABLE payments ALTER COLUMN paid_at TYPE TIMESTAMPTZ USING to_timestamp(paid_at);
