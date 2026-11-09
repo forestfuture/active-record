@@ -20,7 +20,7 @@ describe("the guide's old host", () => {
     );
   });
 
-  test("redirects every method, so a HEAD from a link checker sees it too", () => {
+  test("redirects a HEAD request, as a link checker sends, to the same page", () => {
     const response = redirect.fetch(
       new Request("https://d1-record.forestfuture.dev/models", { method: "HEAD" }),
     );
