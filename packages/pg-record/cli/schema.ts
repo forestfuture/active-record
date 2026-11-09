@@ -12,6 +12,7 @@ import { migrationsTable } from "./config.ts";
 import { pgliteExtensions } from "./extensions.ts";
 import { temporaryDatabase } from "./server-schema.ts";
 import { connectionString, hostOf } from "./urls.ts";
+import { versionsOf } from "./versions.ts";
 
 /** A database the migrations are applied to: statements run as a script, and queries read back. */
 export interface Scratch {
@@ -164,6 +165,9 @@ export async function schemaOf(
   migrations: readonly Migration[],
   options: SchemaOptions = {},
 ): Promise<SchemaResult> {
+  // What `migrate` would refuse is refused here too, before anything is read.
+  const versions = versionsOf(migrations.map((migration) => migration.name));
+  if (typeof versions === "string") return { ok: false, errors: [versions] };
   const table = options.migrationsTable ?? migrationsTable;
   const read = await readOn(await pglite(migrations), migrations, table);
   return "ok" in read ? read : readOnServer(migrations, options, read);

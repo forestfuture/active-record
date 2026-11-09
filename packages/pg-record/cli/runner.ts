@@ -1,37 +1,16 @@
 // The migration runner: applies a database's pending migrations in order, each in a transaction with its version, recorded in `schema_migrations`.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { byVersion } from "@forestfuture/active-record/cli";
 import { connected, type Client } from "./client.ts";
 import { migrationsTable } from "./config.ts";
 import { hostOf } from "./urls.ts";
+import { versionsOf } from "./versions.ts";
 
 /** A migration file, and the version its name starts with. */
 interface MigrationFile {
   file: string;
   version: string;
   sql: string;
-}
-
-/** Each file with its version, or why one has none or shares its version with another. */
-function versioned(dir: string, names: readonly string[]): MigrationFile[] | string {
-  const files: MigrationFile[] = [];
-  const seen = new Map<string, string>();
-  for (const file of names) {
-    const digits = /^(\d+)/.exec(file)?.[1];
-    if (digits === undefined) {
-      return `${file} has no version: start its name with one, as the generators do (20261108090503_create_products.sql)`;
-    }
-    // A number, so `01_…` and `1_…` share one.
-    const version = BigInt(digits).toString();
-    const other = seen.get(version);
-    if (other !== undefined) {
-      return `${other} and ${file} have the same version, ${version}; give one a version of its own`;
-    }
-    seen.set(version, file);
-    files.push({ file, version, sql: readFileSync(join(dir, file), "utf8") });
-  }
-  return files;
 }
 
 /** The migrations folder's files in the order they're applied (by version), or why they can't be. */
@@ -42,7 +21,13 @@ export function migrationFiles(dir: string): MigrationFile[] | string {
   } catch {
     return `No migrations folder at ${dir}`;
   }
-  return versioned(dir, names.sort(byVersion));
+  const versions = versionsOf(names);
+  if (typeof versions === "string") return versions;
+  return [...versions].map(([file, version]) => ({
+    file,
+    version,
+    sql: readFileSync(join(dir, file), "utf8"),
+  }));
 }
 
 /** One lock per database and schema: a run while another holds it is refused, as Rails refuses it. */

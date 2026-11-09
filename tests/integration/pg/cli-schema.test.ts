@@ -177,6 +177,24 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
     });
   });
 
+  test("refuses migrations migrate would refuse: one without a version, or two sharing one", async () => {
+    const shared = await read({ "1_a.sql": "SELECT 1;", "01_b.sql": "SELECT 1;" });
+    const unnumbered = await read({ "notes.sql": "SELECT 1;" });
+
+    expect([shared, unnumbered]).toEqual([
+      {
+        ok: false,
+        errors: ["01_b.sql and 1_a.sql have the same version, 1; give one a version of its own"],
+      },
+      {
+        ok: false,
+        errors: [
+          "notes.sql has no version: start its name with one, as the generators do (20261108090503_create_products.sql)",
+        ],
+      },
+    ]);
+  });
+
   test("a migration Postgres refuses is named by its file", async () => {
     const result = await read({
       "1_create.sql": "CREATE TABLE users (id BIGINT PRIMARY KEY);",
