@@ -28,6 +28,8 @@ import { addExample, Booking, errorsExample } from "../../site/snippets/guide/va
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runGenerate } from "../../packages/active-record/cli/generate/command.ts";
+import { runInit } from "../../packages/active-record/cli/init/command.ts";
+import { parseJsonc } from "../../packages/active-record/cli/project/config-file.ts";
 import { runSchema } from "../../packages/active-record/cli/schema/command.ts";
 import { Post, User } from "../../site/snippets/getting-started/models.ts";
 import * as models from "../../site/snippets/guide/models.ts";
@@ -68,17 +70,19 @@ describe("Getting started", () => {
   });
   afterAll(() => dispose());
 
-  test("its files are what the tutorial's two g model commands write, apart from its edit to user.ts", async () => {
+  test("its files are what the tutorial's init and two g model commands write, apart from its edit to user.ts", async () => {
     // Migrations are named for the UTC second they're written in, so the clock is set.
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-11-08T09:05:03Z"));
     onTestFinished(() => void vi.useRealTimers());
     // In the repo, so the Models g model writes find this repo's library, as an app's do.
     const fresh = scratch("getting-started-");
-    for (const config of ["wrangler.jsonc", "active-record.jsonc"]) {
-      writeFileSync(join(fresh, config), readFileSync(new URL(config, gettingStarted)));
-    }
+    writeFileSync(
+      join(fresh, "wrangler.jsonc"),
+      readFileSync(new URL("wrangler.jsonc", gettingStarted)),
+    );
     const quiet = () => {};
+    await runInit({ cwd: fresh }, quiet);
     await runGenerate(
       {
         cwd: fresh,
@@ -110,6 +114,14 @@ describe("Getting started", () => {
         readFileSync(new URL(file, gettingStarted), "utf8"),
       ]);
     }
+    // Its $schema links to the package in the app's node_modules; this one finds the repo's.
+    const read = (path: string | URL) => ({
+      ...(parseJsonc(readFileSync(path, "utf8")) as object),
+      $schema: "…",
+    });
+    expect(read(join(fresh, "active-record.jsonc"))).toEqual(
+      read(new URL("active-record.jsonc", gettingStarted)),
+    );
   });
 
   test("its schema.ts is what its migrations generate", async () => {

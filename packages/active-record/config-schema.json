@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "active-record.jsonc",
+  "description": "The project's databases and their adapter, which the active-record command reads. `npx active-record init` writes it.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "This schema, for an editor to complete and check the file's keys.",
+      "type": "string"
+    },
+    "databases": {
+      "description": "Each database by its binding: the name the Worker's env, and the generated schema, give it.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "oneOf": [{ "$ref": "#/definitions/d1" }, { "$ref": "#/definitions/pg" }]
+      }
+    }
+  },
+  "required": ["databases"],
+  "additionalProperties": false,
+  "definitions": {
+    "d1": {
+      "description": "A D1 database. Its migrations folder and the rest come from its d1_databases entry in the Wrangler config beside this file.",
+      "type": "object",
+      "properties": {
+        "adapter": { "description": "The database's adapter.", "const": "d1" }
+      },
+      "required": ["adapter"],
+      "additionalProperties": false
+    },
+    "pg": {
+      "description": "A Postgres database. `${NAME}` in a connection string reads the variable NAME from the environment.",
+      "type": "object",
+      "properties": {
+        "adapter": { "description": "The database's adapter.", "const": "pg" },
+        "migrationsDir": {
+          "description": "Its migrations folder, relative to this file.",
+          "type": "string",
+          "default": "migrations"
+        },
+        "url": {
+          "description": "The local database: what migrate and the console use.",
+          "type": "string"
+        },
+        "remoteUrl": { "description": "The real database, for --remote.", "type": "string" },
+        "schemaUrl": {
+          "description": "A server the schema may be read on, for an extension PGlite doesn't have.",
+          "type": "string"
+        }
+      },
+      "required": ["adapter"],
+      "additionalProperties": false
+    }
+  }
+}

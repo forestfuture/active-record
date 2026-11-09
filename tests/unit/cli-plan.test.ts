@@ -262,6 +262,7 @@ describe("planning with another adapter's plugin", () => {
   const readSchemas: string[][] = [];
   const stub: ProjectAdapter = {
     name: "stub",
+    init: () => undefined,
     databases: () => ({ ok: false, error: "unused" }),
     async readSchema(migrations) {
       readSchemas.push(migrations.map((migration) => migration.name));

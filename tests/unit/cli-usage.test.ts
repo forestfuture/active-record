@@ -4,6 +4,7 @@ import { defineSubcommand, helpFor } from "../../packages/active-record/cli/subc
 
 /** `active-record --help`, as it reads today: the commands, the columns, and each one's flags. */
 const help = `Usage:
+  active-record init                          Write active-record.jsonc, which names your databases
   active-record schema [options]              Generate src/db/schema.ts from your migrations
   active-record g model <Name> [columns]      Write a CREATE TABLE migration and a Model
   active-record g migration <Name> [columns]  Write a migration: Create…, Add…To…, Remove…From…, or empty
@@ -13,6 +14,9 @@ const help = `Usage:
 Columns are name:type, where the type is string (the default), integer, real, boolean,
 datetime, json or references; then ! for NOT NULL, =value for a default, and :unique or
 :index for an index. For example: email:string!:unique active:boolean!=false user:references
+
+Options for init:
+  --adapter <name>    The adapter, when the project could use several, or nothing says which
 
 Options for schema:
   --check             Fail if the generated schema is out of date (for CI)

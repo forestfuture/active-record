@@ -1,4 +1,5 @@
 {
+  "$schema": "./node_modules/@forestfuture/active-record/config-schema.json",
   "databases": {
     "HYPERDRIVE": {
       "adapter": "pg",

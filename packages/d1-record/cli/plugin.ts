@@ -2,6 +2,7 @@
 import { dirname, join } from "node:path";
 import type { CliAdapter } from "@forestfuture/active-record/cli";
 import { openLocalBinding, openRemoteBinding } from "./binding.ts";
+import { init } from "./init.ts";
 import { migrate } from "./migrate.ts";
 import { migration } from "./migration.ts";
 import { remoteTarget } from "./remote.ts";
@@ -23,6 +24,7 @@ export const cli: CliAdapter = {
   name: "d1",
   patternSetting: "migrations_pattern",
   unsupported,
+  init,
   databases: readWranglerConfig,
   readSchema: async (migrations, options) => schemaOf(migrations, options),
   migration,

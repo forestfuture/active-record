@@ -2,6 +2,7 @@
 import { dirname, join } from "node:path";
 import type { CliAdapter } from "@forestfuture/active-record/cli";
 import { readDatabases } from "./config.ts";
+import { init } from "./init.ts";
 import { migrate } from "./migrate.ts";
 import { remoteTarget } from "./targets.ts";
 import { migration } from "./migration.ts";
@@ -11,6 +12,7 @@ import { schemaOf } from "./schema.ts";
 /** Postgres, as the command line sees it: `active-record.jsonc`'s databases, PGlite's schema, and `pg`. */
 export const cli: CliAdapter = {
   name: "pg",
+  init,
   databases: readDatabases,
   readSchema: schemaOf,
   migration,
