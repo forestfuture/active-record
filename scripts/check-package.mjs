@@ -82,7 +82,7 @@ for (const adapter of ["d1-record", "pg-record"]) {
   if (unknown.length > 0) fail(`${adapter} imports the core through ${unknown.join(", ")}`);
   if (/class Relation\b|function compileSelect\b/.test(built))
     fail(`${adapter} bundles a copy of the core`);
-  // PGlite and pg are the app's install, loaded by name.
+  // pg is the app's, a peer dependency, and PGlite is pg-record's own: both loaded by name.
   if (/class PGlite\b|class Client extends/.test(built)) fail(`${adapter} bundles PGlite or pg`);
   console.log(
     `${adapter} imports the core only through ${[...entries].sort(byCodePoint).join(", ")}`,
