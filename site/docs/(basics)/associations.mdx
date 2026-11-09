@@ -98,7 +98,7 @@ A loaded association is cached on the record. Reading `author()` again doesn’t
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-After `author.articles().where({ title: "Untitled" }).deleteAll()`, you’d expect `author.articles()` not to hold the untitled articles any more, and here it doesn’t. In Rails it still does, until you reload: only a write on the association itself (`author.articles.delete_all`) resets what it has loaded, while a write after `where`, `or`, `merge` or a scope runs on a separate relation. In d1-record any write built from `author.articles()` clears it, at the cost of one query on the next read.
+After `author.articles().where({ title: "Untitled" }).deleteAll()`, you’d expect `author.articles()` not to hold the untitled articles any more, and here it doesn’t. In Rails it still does, until you reload: only a write on the association itself (`author.articles.delete_all`) resets what it has loaded, while a write after `where`, `or`, `merge` or a scope runs on a separate relation. In Active Record any write built from `author.articles()` clears it, at the cost of one query on the next read.
 
 </Callout>
 
@@ -114,7 +114,7 @@ Load an association for every record at once with `includes`, with one query per
 
 Nest with an object: `includes({ articles: "comments" })` or `includes({ articles: ["comments", "tags"] })`.
 
-The whole tree goes to D1 with the authors’ own query, in one round trip. The example above sends four queries. A nested query that would bind more than D1’s 100 values waits for the records above it, and takes one more round trip.
+The example above sends four queries, however many authors there are. On D1, the whole tree goes [in one round trip](./d1#sending-queries-in-one-round-trip) with the authors’ own query.
 
 :::note
 With a `limit` or `offset`, `includes` ends the order with the primary key, so the preloads find the same records the query loads.
@@ -122,7 +122,7 @@ With a `limit` or `offset`, `includes` ends the order with the primary key, so t
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-Rails sends each association’s preload query on its own, so every association adds a round trip. Here the whole tree takes one.
+Rails sends each association’s preload query on its own, so every association adds a round trip. On D1, the whole tree takes one.
 
 </Callout>
 
@@ -207,7 +207,7 @@ Without a strategy, it’s up to the database. If the table declares the foreign
 
 ## Not built yet
 
-These features aren’t in d1-record yet. The code shows the shape they’re likely to take.
+These features aren’t in Active Record yet. The code shows the shape they’re likely to take.
 
 - **Associations through another** ([#59](https://github.com/forestfuture/active-record/issues/59)): `projects = hasMany(Project, { through: "assignments" })`, a user’s projects reached through their assignments.
 - **Polymorphic associations** ([#60](https://github.com/forestfuture/active-record/issues/60)): `commentable = belongsTo([Post, Photo])`, with `comments = hasMany(Comment, { as: "commentable" })` on each.

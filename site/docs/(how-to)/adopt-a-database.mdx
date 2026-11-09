@@ -1,9 +1,9 @@
 ---
 title: Existing databases
-description: "Use d1-record with a D1 database that Drizzle or Prisma manages, or one with no migrations at all: point it at the migrations, read its notes, and fix columns with overrides."
+description: "Use Active Record with a D1 database that Drizzle or Prisma manages, or one with no migrations at all: point it at the migrations, read its notes, and fix columns with overrides."
 ---
 
-d1-record reads a database’s tables from its migrations. If your database already has migrations, from Drizzle, Prisma, or Wrangler, point d1-record at them. If it doesn’t, start from a snapshot of its schema.
+Active Record reads a database’s tables from its migrations. If your database already has migrations, from Drizzle, Prisma, or Wrangler, point Active Record at them. If it doesn’t, start from a snapshot of its schema.
 
 ## Using Drizzle’s migrations
 
@@ -20,7 +20,7 @@ Drizzle writes its migrations to `drizzle/`, its `out` setting. Tell Wrangler wh
 }
 ```
 
-Drizzle’s own schema often lives at `src/db/schema.ts` or in `src/db/schema/`, where d1-record writes its schema by default. Generate d1-record’s elsewhere:
+Drizzle’s own schema often lives at `src/db/schema.ts` or in `src/db/schema/`, where Active Record writes its schema by default. Generate Active Record’s elsewhere:
 
 ```sh
 npx active-record schema --out src/db/d1-record.ts
@@ -31,34 +31,34 @@ If `src/models/application-record.ts` already exists, point it at the new file w
 Pass `--out` to every later `schema` and `g` command, or keep it in a `package.json` script.
 
 :::note
-Without `--out`, d1-record refuses to write over a file it didn’t write, or beside a folder of the same name, so Drizzle’s schema is safe.
+Without `--out`, Active Record refuses to write over a file it didn’t write, or beside a folder of the same name, so Drizzle’s schema is safe.
 :::
 
 ## Using Prisma’s migrations
 
 With D1, Prisma’s migrations are usually Wrangler’s own: files in `migrations/`, written by `prisma migrate diff`. `npx active-record schema` reads them as they are.
 
-Prisma names tables after its models, such as `User`, and columns in camelCase, such as `createdAt`. d1-record keeps both names, so the Model sets its table, `static override table = "User"`, and has attributes such as `createdAt`.
+Prisma names tables after its models, such as `User`, and columns in camelCase, such as `createdAt`. Active Record keeps both names, so the Model sets its table, `static override table = "User"`, and has attributes such as `createdAt`.
 
 :::warning[Two date formats in one column]
-Prisma writes a `DateTime` as `2026-10-12T06:38:30.325+00:00`, and a `DEFAULT CURRENT_TIMESTAMP` fills `2026-10-12 06:38:30`. d1-record reads both as UTC, but SQLite compares dates as text, so a column with both needs the steps in [Comparing dates in two forms](#comparing-dates-in-two-forms).
+Prisma writes a `DateTime` as `2026-10-12T06:38:30.325+00:00`, and a `DEFAULT CURRENT_TIMESTAMP` fills `2026-10-12 06:38:30`. Active Record reads both as UTC, but SQLite compares dates as text, so a column with both needs the steps in [Comparing dates in two forms](#comparing-dates-in-two-forms).
 :::
 
 ## Comparing dates in two forms
 
-A column can hold SQLite’s own date text (`2026-10-12 06:38:30`, from a `DEFAULT CURRENT_TIMESTAMP`) beside ISO text (`2026-10-12T06:38:30.000Z`). d1-record reads both as UTC, but SQLite compares them as text. On a column with both, `order` and `between` can misplace values within a day, and a condition on one instant misses the row written in the other form.
+A column can hold SQLite’s own date text (`2026-10-12 06:38:30`, from a `DEFAULT CURRENT_TIMESTAMP`) beside ISO text (`2026-10-12T06:38:30.000Z`). Active Record reads both as UTC, but SQLite compares them as text. On a column with both, `order` and `between` can misplace values within a day, and a condition on one instant misses the row written in the other form.
 
 To make the rows match, rewrite them once in a migration, with your own table and column:
 
 <include>/_excerpts/guide/mixed-dates-normalize.sql</include>
 
-It writes d1-record’s form for every row SQLite can read as a date, and leaves NULLs and anything else as they were. Running it again changes nothing. The rewrite is permanent, so export the table first. Conditions on the column then use its index.
+It writes Active Record’s form for every row SQLite can read as a date, and leaves NULLs and anything else as they were. Running it again changes nothing. The rewrite is permanent, so export the table first. Conditions on the column then use its index.
 
 If another tool still writes the other form, compare through `strftime` in a fragment instead:
 
 <include>/_excerpts/guide/mixed-dates/recipe.ts</include>
 
-`strftime` reads every form SQLite knows and writes d1-record’s ISO text, so rows in either form compare and sort as the times they are.
+`strftime` reads every form SQLite knows and writes Active Record’s ISO text, so rows in either form compare and sort as the times they are.
 
 :::note
 A wrapped column can’t use its index for that condition, so SQLite reads the whole table.
@@ -117,12 +117,12 @@ In a raw `env.DB.prepare(...)` statement, bind `Article.typeForAttribute("publis
 :::
 
 :::note
-Prisma’s dates need no override. On D1, Prisma writes a `DateTime` as ISO text, which d1-record reads as it is.
+Prisma’s dates need no override. On D1, Prisma writes a `DateTime` as ISO text, which Active Record reads as it is.
 :::
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-Active Record has no option for a date kept as an integer; there it takes a custom attribute type. In d1-record it’s a `storage` on the `datetime`.
+Rails has no option for a date kept as an integer; there it takes a custom attribute type. Here it’s a `storage` on the `datetime`.
 
 </Callout>
 

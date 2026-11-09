@@ -70,7 +70,7 @@ In an after-callback, the write has already happened, so `abort()` throws `Abort
 
 ## Not built yet
 
-These callbacks aren’t in d1-record yet. The code shows the shape they’re likely to take.
+These callbacks aren’t in Active Record yet. The code shows the shape they’re likely to take.
 
 - **Around callbacks** ([#48](https://github.com/forestfuture/active-record/issues/48)): `this.aroundSave(async (record, proceed) => { …; await proceed(); … })`, and `aroundCreate`, `aroundUpdate`, and `aroundDestroy`.
 - **`afterInitialize` and `afterFind`** ([#49](https://github.com/forestfuture/active-record/issues/49)): for every record built or loaded, and every record loaded.

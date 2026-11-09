@@ -1,15 +1,15 @@
 ---
 title: Errors
-description: "Every error d1-record throws: lifecycle, usage, and constraint errors, and when each is raised."
+description: "Every error Active Record throws: lifecycle, usage, and constraint errors, and when each is raised."
 ---
 
-Every error d1-record throws extends `ActiveRecordError`, so one check separates them from anything else:
+Every error Active Record throws extends `ActiveRecordError`, so one check separates them from anything else:
 
 ```ts
 import { ActiveRecordError } from "@forestfuture/active-record";
 
 if (error instanceof ActiveRecordError) {
-  // one of d1-record's own
+  // one of Active Record's own
 }
 ```
 

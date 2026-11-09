@@ -1,6 +1,6 @@
 ---
-title: Active Record for Cloudflare D1
-description: Models, validations, callbacks, associations, and composable queries for Cloudflare Workers, in the spirit of Ruby on Rails, and honest about what D1 can and can’t do.
+title: Active Record for Cloudflare Workers
+description: Models, validations, callbacks, associations, and composable queries for Cloudflare Workers, in the spirit of Ruby on Rails, on D1 or Postgres, and honest about what each database can and can’t do.
 mode: center
 sidebar:
   label: Overview
@@ -10,12 +10,14 @@ sidebar:
 npm install @forestfuture/active-record @forestfuture/d1-record
 ```
 
+On Postgres, install [`@forestfuture/pg-record`](/postgres) in place of the D1 adapter. The same Models and queries run on either.
+
 <CardGroup cols={2}>
   <Card title="Get started" href="/getting-started" icon="rocket" cta="Read the tutorial">
     From an empty Worker to two related Models in about ten minutes.
   </Card>
   <Card title="Coming from Rails" href="/coming-from-rails" icon="gem" cta="See what’s different">
-    What carries over from Active Record, and what D1 changes.
+    What carries over from Rails, and what’s different.
   </Card>
 </CardGroup>
 
@@ -52,8 +54,12 @@ npm install @forestfuture/active-record @forestfuture/d1-record
     `save`, `create`, `update`, and `destroy` run validations and callbacks in a predictable order,
     with dirty tracking and dependent strategies. Methods that throw end in `OrThrow`.
   </Card>
-  <Card title="Atomic where D1 allows" href="/batches" icon="layers">
-    D1 can’t hold a transaction open across awaits, so `batch` writes a set of statements and
-    records all at once, or not at all. Keys generated in code let a whole graph save in one batch.
+  <Card title="Atomic batches" href="/batches" icon="layers">
+    `batch` writes a set of statements and records all at once, or not at all, on D1 and on
+    Postgres. Keys generated in code let a whole graph save in one batch.
+  </Card>
+  <Card title="One API, two databases" href="/move-to-postgres" icon="arrow-right-left">
+    Start on D1 and move to Postgres with your Models and code unchanged. Each adapter lists what
+    works differently on its database.
   </Card>
 </CardGroup>

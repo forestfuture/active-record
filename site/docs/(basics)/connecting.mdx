@@ -3,7 +3,7 @@ title: Connections
 description: "How a query finds its database: a Model's binding with no setup (User.find(id)), withDatabase for a request's Session or onQuery, or an explicit connect(env.DB). Read replicas, bookmarks, batches, and watching queries."
 ---
 
-A query finds its D1 database in one of three ways. Most apps only use the first.
+A query finds its database in one of three ways. Most apps only use the first.
 
 |                            | How                                                      | Use it for                                                                      |
 | -------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -13,13 +13,17 @@ A query finds its D1 database in one of three ways. Most apps only use the first
 
 [Database resolution](./query-databases) explains why there are three, and [which one you need](./query-databases#which-do-i-need).
 
+:::note
+The examples use D1’s `connect`, from `@forestfuture/d1-record`. On Postgres, `connect` comes from `@forestfuture/pg-record` and takes your Hyperdrive binding. See [Postgres](./postgres#connecting).
+:::
+
 ## Using the binding
 
-Each Model names the D1 binding it queries, so a Model queries by itself during any request:
+Each Model names the binding it queries, so a Model queries by itself during any request:
 
 <include>/_excerpts/guide/connecting/binding.ts</include>
 
-`active-record schema` writes the binding into the generated schema your app’s base class holds, from your Wrangler config’s `d1_databases`.
+`active-record schema` writes the binding into the generated schema your app’s base class holds. On D1 it comes from your Wrangler config’s `d1_databases`, and on Postgres from your `active-record.jsonc`.
 
 Records remember their database, so `user.save()` and `user.posts()` use the same one later. Build records with `User.build(…)`: a record made with `new User()` has no database, and throws `NoDatabase` when it needs one.
 
@@ -46,7 +50,7 @@ export default {
 Every query started from a Model inside it, and everything it awaits, uses that database instead of the binding.
 
 :::warning[Node.js compatibility]
-`withDatabase` uses Workers’ `AsyncLocalStorage`. It’s on by default for compatibility dates from 2026-08-04. For an earlier date, add `"compatibility_flags": ["nodejs_compat"]` to your Wrangler config, or `withDatabase` throws `NoDatabase`. The rest of d1-record doesn’t need it.
+`withDatabase` uses Workers’ `AsyncLocalStorage`. It’s on by default for compatibility dates from 2026-08-04. For an earlier date, add `"compatibility_flags": ["nodejs_compat"]` to your Wrangler config, or `withDatabase` throws `NoDatabase`. Nothing else on D1 needs it. On Postgres, `pg` needs it too.
 :::
 
 These pages use a request’s database:
@@ -67,66 +71,6 @@ To name your Models once, use `db.models`:
 <include>/_excerpts/guide/connecting/models.ts</include>
 
 `connect(env.DB, { session, onQuery })` takes the same options as a request’s database.
-
-## Connecting to Postgres
-
-On Postgres, `connect` takes a Hyperdrive binding, a connection string, or a `pg` Pool. Open the request’s database from your Hyperdrive binding:
-
-```ts
-import { withDatabase } from "@forestfuture/active-record";
-import { connect } from "@forestfuture/pg-record";
-
-export default {
-  fetch(request, env) {
-    const db = connect(env.HYPERDRIVE);
-    return withDatabase(db, () => app.fetch(request, env));
-  },
-};
-```
-
-The first query inside `withDatabase` opens a client, and the rest of the request shares it. It closes when `withDatabase` finishes. Each `withDatabase` call gets its own client, so a Database your Worker opens once can serve every request. Without `withDatabase`, each query opens a client of its own and closes it when it’s done. So does work that outlives the request, such as a save in `ctx.waitUntil`.
-
-Your schema names the binding with `adapter: pg({ binding: "HYPERDRIVE" })`. So `User.find(id)` works in a Worker with nothing to set up.
-
-`connect(env.DATABASE_URL)` takes a connection string the same way.
-
-:::tip
-On Workers, use Hyperdrive. It pools connections, so a new client doesn’t mean a new connection to Postgres.
-:::
-
-On Node, pass your own Pool, which your app ends when it shuts down:
-
-```ts
-import pg from "pg";
-import { connect } from "@forestfuture/pg-record";
-
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-const db = connect(pool);
-```
-
-Outside a Worker there’s no binding, so wrap each request in `withDatabase(db, …)` for your Models’ statics.
-
-Opening a client from a binding or a connection string waits up to 10 seconds for Postgres to answer. After that, the query fails with `Error: timeout expired`. Each query waiting for that client tries again, and can wait as long. To change the limit, set `connect_timeout` to a number of seconds:
-
-```ts
-import { connect } from "@forestfuture/pg-record";
-
-const db = connect("postgres://app@db.example.com/app?connect_timeout=5");
-```
-
-If you want no limit, set `connect_timeout=0`.
-
-:::note
-A Hyperdrive binding’s connection string isn’t yours to change, so it always waits up to 10 seconds. A Pool uses its own `connectionTimeoutMillis`.
-:::
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-Rails sets no limit, so opening a connection waits as long as it takes unless you set `connect_timeout`. Here the limit is 10 seconds unless you set one.
-
-</Callout>
-
-[Postgres’s differences](./postgres) lists what works differently from D1.
 
 ## Batching writes
 

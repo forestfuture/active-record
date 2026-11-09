@@ -1,6 +1,6 @@
 # active-record
 
-A Rails-inspired Active Record library for Cloudflare Workers: a core (`@forestfuture/active-record`) and an **Adapter** for each database, D1's first (`@forestfuture/d1-record`). It maps a database's rows to domain objects with a lazy, composable query vocabulary and a predictable persistence lifecycle.
+A Rails-inspired Active Record library for Cloudflare Workers: a core (`@forestfuture/active-record`) and an **Adapter** for each database: D1's (`@forestfuture/d1-record`) and Postgres's (`@forestfuture/pg-record`). It maps a database's rows to domain objects with a lazy, composable query vocabulary and a predictable persistence lifecycle.
 
 ## Language
 
@@ -137,7 +137,7 @@ A named link from one **Model** to another through a foreign-key **Attribute**: 
 _Avoid_: Relationship, relation (a Relation is a query)
 
 **Preload**:
-Loading an **Association** for many **Records** at once, in a small, bounded number of queries (one per association, the whole tree sent with the records' query in one round trip), so each becomes a **Loaded association**. You ask for it with `includes`.
+Loading an **Association** for many **Records** at once, in a small, bounded number of queries (one per association; on D1, the whole tree is sent with the records' query in one round trip), so each becomes a **Loaded association**. You ask for it with `includes`.
 _Avoid_: Eager load, join
 
 **Loaded association**:
