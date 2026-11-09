@@ -1,6 +1,6 @@
 # Behavior contract (draft)
 
-The public behavior agreed during design, which the tests must prove. The guide at d1-record.forestfuture.dev is written from it. Terms follow `GLOSSARY.md`; the reasons for decisions are in `docs/adr/`. Each section names the modules that implement it, and its guide pages where it has them. Each is marked _Portable_, proven on every adapter by the conformance suite (`tests/conformance/`), or _D1_, proven by the D1 adapter's own tests (`tests/integration/`). A bullet or sentence marked (D1) in a portable section is the D1 adapter's alone, and one marked (Postgres) is pg-record's.
+The public behavior agreed during design, which the tests must prove. The guide at active-record.forestfuture.dev is written from it. Terms follow `GLOSSARY.md`; the reasons for decisions are in `docs/adr/`. Each section names the modules that implement it, and its guide pages where it has them. Each is marked _Portable_, proven on every adapter by the conformance suite (`tests/conformance/`), or _D1_, proven by the D1 adapter's own tests (`tests/integration/`). A bullet or sentence marked (D1) in a portable section is the D1 adapter's alone, and one marked (Postgres) is pg-record's.
 
 ## Toolchain
 

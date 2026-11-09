@@ -8,7 +8,7 @@
     "orm",
     "workers"
   ],
-  "homepage": "https://d1-record.forestfuture.dev",
+  "homepage": "https://active-record.forestfuture.dev",
   "bugs": {
     "url": "https://github.com/forestfuture/active-record/issues"
   },
@@ -51,7 +51,7 @@
   },
   "scripts": {
     "build": "vp pack",
-    "prepack": "vp pack && vp run d1-record-site#build && node ../../scripts/pack-docs.mjs",
+    "prepack": "vp pack && vp run active-record-site#build && node ../../scripts/pack-docs.mjs",
     "prepublishOnly": "node ../../scripts/require-pnpm.mjs"
   },
   "dependencies": {

@@ -58,7 +58,7 @@ A change users will notice (new behavior, a fix, a breaking change, a deprecatio
 
 ## Documentation
 
-The guide is in `site/docs/` (a [Blume](https://useblume.dev) site at [d1-record.forestfuture.dev](https://d1-record.forestfuture.dev), `vp run docs:dev`), and a change in behavior updates its page too. Each page sits in its sidebar group's folder (`(basics)/models.mdx` is `/models`), ordered by the group's `meta.ts`.
+The guide is in `site/docs/` (a [Blume](https://useblume.dev) site at [active-record.forestfuture.dev](https://active-record.forestfuture.dev), `vp run docs:dev`), and a change in behavior updates its page too. Each page sits in its sidebar group's folder (`(basics)/models.mdx` is `/models`), ordered by the group's `meta.ts`.
 
 - **Pages are organized by [Diátaxis](https://diataxis.fr/)**: tutorial, how-to guides, reference and background. A new page, or a page's new structure, starts from the `documentation-writer` skill: decide its type, audience and goal, and agree the outline in the issue.
 - **Write in the guide's voice** ([docs-voice.md](docs/agents/docs-voice.md)): open with what the reader does, assume a competent developer, keep examples short, and put side facts in notes.

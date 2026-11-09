@@ -20,8 +20,8 @@
     "release:version": "changeset version && vp fmt",
     "prepare": "vp config",
     "knip": "knip",
-    "docs:dev": "vp run d1-record-site#dev",
-    "docs:build": "vp run d1-record-site#build"
+    "docs:dev": "vp run active-record-site#dev",
+    "docs:build": "vp run active-record-site#build"
   },
   "devDependencies": {
     "@arethetypeswrong/core": "^0.18.5",

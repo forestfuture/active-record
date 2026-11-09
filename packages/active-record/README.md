@@ -24,4 +24,4 @@ const drafts = await Post.where({ publishedAt: null })
 
 The package also installs the `active-record` command (`ffar` for short), which generates the schema, Models and migrations, applies migrations, and opens a console. It ships the guide for its own version as `llms-full.txt`, and an agent skill in `skills/active-record/`.
 
-The guide is at [d1-record.forestfuture.dev](https://d1-record.forestfuture.dev). Coming from d1-record 0.5? See [Upgrading to 0.6](https://d1-record.forestfuture.dev/upgrading). The source is on [GitHub](https://github.com/forestfuture/active-record).
+The guide is at [active-record.forestfuture.dev](https://active-record.forestfuture.dev). Coming from d1-record 0.5? See [Upgrading to 0.6](https://active-record.forestfuture.dev/upgrading). The source is on [GitHub](https://github.com/forestfuture/active-record).

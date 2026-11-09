@@ -56,6 +56,8 @@ jobs:
         working-directory: site
       - run: wrangler deploy --dry-run --config host/wrangler.jsonc
         working-directory: site
+      - run: wrangler deploy --dry-run --config redirect/wrangler.jsonc
+        working-directory: site
 
   # Packs every package as release-pack does (#80): dependencies installed without their install
   # scripts or the shared cache. A release that couldn't be built that way fails here first.
@@ -100,8 +102,9 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Deploys the guide to d1-record.forestfuture.dev (site/wrangler.jsonc) and the docs.forestfuture.dev
-  # library list (site/host/wrangler.jsonc, whose page is committed, not built). It never installs the
+  # Deploys the guide to active-record.forestfuture.dev (site/wrangler.jsonc), the docs.forestfuture.dev
+  # library list (site/host/wrangler.jsonc, whose page is committed, not built), and the redirect from
+  # the guide's old host, d1-record.forestfuture.dev (site/redirect/wrangler.jsonc). It never installs the
   # workspace: Wrangler comes from .github/docs-deploy, which has a lockfile of its own, installed
   # frozen with install scripts off.
   docs-deploy:
@@ -124,6 +127,7 @@ jobs:
             /.github/docs-deploy/
             /site/wrangler.jsonc
             /site/host/
+            /site/redirect/
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: docs-site
@@ -147,6 +151,12 @@ jobs:
           # Workers Scripts: Edit on the account, and Workers Routes: Edit on the forestfuture.dev zone.
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DOCS_API_TOKEN }}
       - run: wrangler deploy --config host/wrangler.jsonc
+        working-directory: site
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DOCS_API_TOKEN }}
+      # After the guide, so the old host never redirects to a guide that isn't there yet.
+      - run: wrangler deploy --config redirect/wrangler.jsonc
         working-directory: site
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

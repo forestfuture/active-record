@@ -22,7 +22,7 @@ npm install @forestfuture/active-record @forestfuture/d1-record
 
 A Postgres adapter, [`@forestfuture/pg-record`](packages/pg-record/), is in the repository and not yet on npm.
 
-Coming from d1-record 0.5? See [Upgrading to 0.6](https://d1-record.forestfuture.dev/upgrading).
+Coming from d1-record 0.5? See [Upgrading to 0.6](https://active-record.forestfuture.dev/upgrading).
 
 ## A quick look
 
@@ -95,7 +95,7 @@ export class Post extends ApplicationRecord {
 
 ### 4. Use them in your Worker
 
-Queries start from the Model, and use its binding during the request: there’s nothing to connect. (For a D1 Session or per-request logging, see [Connections](https://d1-record.forestfuture.dev/connecting).)
+Queries start from the Model, and use its binding during the request: there’s nothing to connect. (For a D1 Session or per-request logging, see [Connections](https://active-record.forestfuture.dev/connecting).)
 
 ```ts
 // src/index.ts
@@ -173,11 +173,11 @@ Both packages follow [semantic versioning](https://semver.org), and always share
 
 ## For AI agents
 
-The guide is also published for coding agents: [`llms.txt`](https://d1-record.forestfuture.dev/llms.txt), [`llms-full.txt`](https://d1-record.forestfuture.dev/llms-full.txt), and every page as Markdown. The package ships the guide for its own version (`node_modules/@forestfuture/active-record/llms-full.txt`) and an [agent skill](packages/active-record/skills/active-record/SKILL.md) (`npx skills add forestfuture/active-record`). See [AI agents](https://d1-record.forestfuture.dev/ai-agents).
+The guide is also published for coding agents: [`llms.txt`](https://active-record.forestfuture.dev/llms.txt), [`llms-full.txt`](https://active-record.forestfuture.dev/llms-full.txt), and every page as Markdown. The package ships the guide for its own version (`node_modules/@forestfuture/active-record/llms-full.txt`) and an [agent skill](packages/active-record/skills/active-record/SKILL.md) (`npx skills add forestfuture/active-record`). See [AI agents](https://active-record.forestfuture.dev/ai-agents).
 
 ## Documentation
 
-The guide is at [d1-record.forestfuture.dev](https://d1-record.forestfuture.dev), built from [`site/`](site/). In the repository:
+The guide is at [active-record.forestfuture.dev](https://active-record.forestfuture.dev), built from [`site/`](site/). In the repository:
 
 - [`site/docs/`](site/docs/): the guide pages, from getting started to D1’s limits.
 - [`docs/contract.md`](docs/contract.md): the full public behavior, which the tests prove.
