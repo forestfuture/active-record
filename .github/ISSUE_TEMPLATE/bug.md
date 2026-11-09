@@ -6,7 +6,7 @@ labels: bug, needs-triage
 
 <!-- A security problem doesn't go here: report it privately at https://github.com/forestfuture/active-record/security/advisories/new -->
 
-**Versions:** <!-- `npm ls @forestfuture/active-record @forestfuture/d1-record` -->
+**Versions:** <!-- `npm ls @forestfuture/active-record pg` -->
 
 **Where it runs:** <!-- A Worker, Miniflare or `vp test`, or the command line (`active-record schema`, `console` or `migrate`, with your Node.js version) -->
 

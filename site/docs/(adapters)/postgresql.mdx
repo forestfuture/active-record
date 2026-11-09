@@ -1,19 +1,18 @@
 ---
-title: Postgres
-description: "The Postgres adapter, @forestfuture/pg-record: installing it, connecting through Hyperdrive or a Pool, and what's different on Postgres: batches as transactions, reads one after another, bigints, $1 placeholders, migrations the command applies, and how NULLs and text sort."
+title: PostgreSQL
+description: "The PostgreSQL adapter, @forestfuture/active-record/postgresql: installing pg, connecting through Hyperdrive or a Pool, and what's different on PostgreSQL: batches as transactions, reads one after another, bigints, $1 placeholders, migrations the command applies, and how NULLs and text sort."
 ---
 
-`@forestfuture/pg-record` runs your Models on Postgres, in a Worker through [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) or on Node. Install it with the core and `pg`:
+The PostgreSQL adapter runs your Models on Postgres, in a Worker through [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) or on Node. It comes with `@forestfuture/active-record`, as its `/postgresql` entry. Install the library with `pg`, and PGlite for reading your schema:
 
 ```sh
-npm install @forestfuture/active-record @forestfuture/pg-record pg
+npm install @forestfuture/active-record pg
+npm install --save-dev @electric-sql/pglite
 ```
 
-:::note
-`@forestfuture/pg-record` isn’t on npm yet. It ships in a coming release, as part of `@forestfuture/active-record`.
-:::
+Then name your database in [`active-record.jsonc`](./command-line#declaring-your-databases), with `npx active-record init --adapter postgresql`.
 
-A Worker that uses it needs `"compatibility_flags": ["nodejs_compat"]` in its Wrangler config, for `pg`. To move an app from D1, see [Moving to Postgres](./move-to-postgres).
+A Worker on Postgres needs `"compatibility_flags": ["nodejs_compat"]` in its Wrangler config, for `pg`. To move an app from D1, see [Moving to Postgres](./move-to-postgres).
 
 Your Models, queries, and callbacks work the same on Postgres. The sections after [Connecting](#connecting) are the places Postgres works differently from D1.
 
@@ -35,7 +34,7 @@ export default {
 
 The first query inside `withDatabase` opens a client, and the rest of the request shares it. It closes when `withDatabase` finishes. Each `withDatabase` call gets its own client, so a Database your Worker opens once can serve every request. Without `withDatabase`, each query opens a client of its own and closes it when it’s done. So does work that outlives the request, such as a save in `ctx.waitUntil`.
 
-Your schema names the binding with `adapter: postgresql({ binding: "HYPERDRIVE" })`, so `User.find(id)` works in a Worker with nothing to set up. Declare it in your [`active-record.jsonc`](./command-line#declaring-postgress-databases), where the command finds your databases.
+Your schema names the binding with `adapter: postgresql({ binding: "HYPERDRIVE" })`, so `User.find(id)` works in a Worker with nothing to set up. Declare it in your [`active-record.jsonc`](./command-line#declaring-your-databases), where the command finds your databases.
 
 `connect(env.DATABASE_URL)` takes a connection string the same way.
 

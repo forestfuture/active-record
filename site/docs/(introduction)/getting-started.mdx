@@ -1,12 +1,12 @@
 ---
 title: Getting started
-description: "From an empty Worker to two related Models in about ten minutes: install Active Record, generate Models and their tables, add behavior, and use them in a Worker."
+description: "From an empty Worker to two related Models in about ten minutes: install Active Record, name your database, generate Models and their tables, add behavior, and use them in a Worker."
 ---
 
 Active Record turns each table in your [D1](https://developers.cloudflare.com/d1/) database into a Model, so your [Worker](https://developers.cloudflare.com/workers/) works with records instead of rows. In this tutorial you’ll build the start of a small blog: users, and the posts they write.
 
 :::warning[Version 0.x]
-Active Record is before 1.0. Its behavior is tested against real D1, but the API may still change. A breaking change ships in a new minor version, so `^0.6.0` never takes one.
+Active Record is before 1.0. Its behavior is tested against real D1, but the API may still change. A breaking change ships in a new minor version, so `^0.7.0` never takes one.
 :::
 
 ## Prerequisites
@@ -28,11 +28,23 @@ You’ll need:
 
 ## Installing Active Record
 
-Install the core and its D1 adapter:
+Install Active Record. Its D1 adapter comes with it:
 
 ```sh
-npm install @forestfuture/active-record @forestfuture/d1-record
+npm install @forestfuture/active-record
 ```
+
+## Naming your database
+
+Tell Active Record about your database:
+
+```sh
+npx active-record init
+```
+
+It writes `active-record.jsonc`, which names `DB` as a D1 database. Every `active-record` command reads it:
+
+<include meta="active-record.jsonc">/_excerpts/getting-started/active-record.jsonc</include>
 
 ## Generating the Models
 

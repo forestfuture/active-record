@@ -1,6 +1,6 @@
 # active-record
 
-A Rails-inspired Active Record library for Cloudflare Workers: a core (`@forestfuture/active-record`) and an **Adapter** for each database: D1's (`@forestfuture/d1-record`) and Postgres's (`@forestfuture/pg-record`). It maps a database's rows to domain objects with a lazy, composable query vocabulary and a predictable persistence lifecycle.
+A Rails-inspired Active Record library for Cloudflare Workers: one package, `@forestfuture/active-record`: a core, and an **Adapter** for each database inside it, D1's (`/d1`) and PostgreSQL's (`/postgresql`). It maps a database's rows to domain objects with a lazy, composable query vocabulary and a predictable persistence lifecycle.
 
 ## Language
 
@@ -29,7 +29,7 @@ A SQL file in a database's migrations folder, applied once, in the order of the 
 _Avoid_: Schema change, patch, revision
 
 **Project config**:
-The project's `active-record.jsonc`, beside its `package.json`: settings the `active-record` command reads, through the **Adapter**'s plugin. On Postgres it declares the databases (`databases.HYPERDRIVE.url`); D1's stay in the Wrangler config.
+The project's `active-record.jsonc`, beside its `package.json`, which `active-record init` writes: each database by its **Binding**, with the **Adapter** it uses (`"DB": { "adapter": "d1" }`), and the settings the `active-record` command reads. Every command reads it (#301). On Postgres an entry holds the database's settings (`databases.HYPERDRIVE.url`); a D1 database's stay in the Wrangler config.
 _Avoid_: Database config, settings file, active-record.json
 
 **Generator**:
@@ -161,11 +161,11 @@ The database a query started from a Model (`User.find(id)`) uses: the request's,
 _Avoid_: Default connection, global database
 
 **Database scope**:
-One `withDatabase` call's time with a **Database**, during which its **Adapter** may hold a connection for it (pg-record does, from a connection string). Each call has its own, even with a Database other requests share; a call nested in a running one shares it. In the `/adapter` interface, a driver's `openScope` and `closeScope` begin and end it.
+One `withDatabase` call's time with a **Database**, during which its **Adapter** may hold a connection for it (the PostgreSQL adapter does, from a connection string). Each call has its own, even with a Database other requests share; a call nested in a running one shares it. In the `/adapter` interface, a driver's `openScope` and `closeScope` begin and end it.
 _Avoid_: Scope (on its own: that's a Model's), request scope, transaction
 
 **Adapter**:
-The package for one database, under the Active Record core (#260, ADR-0016): its driver, SQL dialect, type mapping, constraint errors and schema reader. `d1-record` becomes one, and `pg-record` is the second. The **Generated schema** names it.
+What the Active Record core needs for one database (#260, ADR-0016): its driver, SQL dialect, type mapping, constraint errors and schema reader, with its plugin for the command. Each ships inside `@forestfuture/active-record` as an entry named for its database, `/d1` and `/postgresql` (ADR-0019), and its driver is the app's to install. The **Project config** names a database's adapter, and the **Generated schema** imports it.
 _Avoid_: Dialect (one part of an adapter), driver, connector
 
 **Allowed difference**:
