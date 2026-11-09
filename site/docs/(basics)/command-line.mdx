@@ -29,7 +29,7 @@ On D1, the command reads your databases from your Wrangler config. On Postgres, 
 }
 ```
 
-Each key is a database’s binding, the name your generated schema gives it.
+Each key is a database’s binding. Your generated schema names the database by it.
 
 | Setting         |                                                                                              |
 | --------------- | -------------------------------------------------------------------------------------------- |
@@ -106,7 +106,7 @@ npx active-record console
 | `--yes`             | With `--remote`, don’t ask first (also how to open it without a terminal).            |
 | `--history`         | Keep what you type in a remote session, which isn’t kept unless you ask.              |
 
-It reads TypeScript Models and uses your project’s own `@forestfuture/active-record` and its adapter. On D1, it opens the database through your project’s `wrangler`. On Postgres, it opens a connection to the database’s `url`, or with `--remote` its `remoteUrl`, and closes it when you leave. It refuses, printing why, when there’s no config, with several databases and no `--database`, with no Models, with `wrangler` or the library not installed, or with `--remote` when the binding has no `database_id`, or when you don’t confirm it (or aren’t on a terminal and didn’t pass `--yes`). `--yes` only goes with `--remote`, `--history` can’t be combined with `--no-history`, and `-e` takes one piece of code, once.
+It reads TypeScript Models and uses your project’s own `@forestfuture/active-record` and its adapter. On D1, it opens the database through your project’s `wrangler`. On Postgres, it opens a connection to the database’s `url`, or with `--remote` its `remoteUrl`, and closes it when you leave. It refuses, printing why, when there’s no config, with several databases and no `--database`, with no Models, or with the library not installed. On D1, it also refuses without `wrangler` installed, or with `--remote` when the binding has no `database_id`. On Postgres, it refuses when the database has no `url` (or, with `--remote`, no `remoteUrl`), or names a variable that isn’t set. With `--remote`, it refuses when you don’t confirm it, or aren’t on a terminal and didn’t pass `--yes`. `--yes` only goes with `--remote`, `--history` can’t be combined with `--no-history`, and `-e` takes one piece of code, once.
 
 ## `active-record migrate`
 
@@ -126,7 +126,7 @@ npx active-record migrate
 
 On D1, it runs your project’s `wrangler d1 migrations apply` for the database, `--local` or `--remote`, and prints what Wrangler prints. It exits with Wrangler’s code.
 
-On Postgres, it applies them itself, to the database’s `url`, or with `--remote` its `remoteUrl`. It runs the migrations folder’s `.sql` files in file-name order and records each one’s version, the number its name starts with, in `schema_migrations`:
+On Postgres, it applies them itself, to the database’s `url`, or with `--remote` its `remoteUrl`. It runs the migrations folder’s `.sql` files in file-name order and records each one’s version in `schema_migrations`. A version is the number a file’s name starts with:
 
 ```text
 Local database HYPERDRIVE (shop_development on localhost)
@@ -199,7 +199,11 @@ On Postgres, an override in the Model still comes first. Otherwise each column�
 
 A domain maps as the type it’s built on. Names, `NOT NULL`, and keys work as on D1. A string key gets `generateId: true` unless it has a literal default, even when Postgres has a default such as `gen_random_uuid()`. Literal defaults (`'draft'`, `0`, `true`, `'{}'::jsonb`) are copied, and functions such as `now()` are left to Postgres. Views, other schemas, and `schema_migrations` are left out.
 
-**Extensions:** a migration can `CREATE EXTENSION` any of the extensions PGlite has its own build of, such as `citext`, `uuid-ossp`, `pg_trgm`, `pgcrypto`, `hstore`, and `ltree`. For any other, such as PostGIS, the schema is read on the server your `url` names instead, in a database of its own that’s dropped afterwards, which needs permission to create databases. A note says so.
+**Extensions:** a migration can `CREATE EXTENSION` any of the extensions PGlite has its own build of, such as `citext`, `uuid-ossp`, `pg_trgm`, `pgcrypto`, `hstore`, and `ltree`. For any other, such as PostGIS, the schema is read on the server your `url` names instead. It’s read in a database of its own, dropped afterwards, which needs permission to create databases. A note says so.
+
+:::warning[The fallback runs your migrations on that server]
+The temporary database is dropped, but what a migration changes outside it stays. A `CREATE ROLE` makes the role on the server, and the next read then fails on it. Point `url` at a development server, and write such statements so they can run twice (`DO $$ … $$` with a check).
+:::
 
 ## `active-record g model` and `g migration`
 

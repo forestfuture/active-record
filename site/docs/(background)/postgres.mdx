@@ -59,7 +59,7 @@ Postgres’s constraint errors name their table and columns. So a batch’s fore
 
 ## Migrations are applied by the command
 
-On D1, `active-record migrate` runs Wrangler, which records each migration by its file name. On Postgres, the command applies them itself and records each one’s version, the number its name starts with, in a `schema_migrations` table. So renaming the rest of a file’s name doesn’t run it again, and every file’s name has to start with a number.
+On D1, `active-record migrate` runs Wrangler, which records each migration by its file name. On Postgres, the command applies them itself. It records each one’s version in a `schema_migrations` table. A version is the number a file’s name starts with, so every file’s name needs one. Renaming the rest of the name doesn’t run the migration again.
 
 Each migration runs in a transaction. One that fails leaves nothing behind, since Postgres can undo a `CREATE TABLE` or an `ALTER TABLE`. A statement that can’t run in a transaction, such as `CREATE INDEX CONCURRENTLY`, fails.
 
