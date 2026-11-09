@@ -1,13 +1,13 @@
-// A generated migration's SQL, for SQLite as D1 runs it.
+// A generated migration's SQL, for SQLite as D1 runs it: the dialect the core's generator writes it in.
 import {
   indexName,
-  migrationPlan,
+  migrationSql,
+  quotedName,
   type ColumnArg,
   type MigrationChange,
+  type MigrationDialect,
   type MigrationResult,
 } from "@forestfuture/active-record/cli";
-
-type SqlResult = { ok: true; sql: string } | { ok: false; error: string };
 
 // SQLite's keywords (https://sqlite.org/lang_keywords.html): a column or table named one is quoted.
 const keywords = new Set(
@@ -25,108 +25,31 @@ const keywords = new Set(
   ).split(" "),
 );
 
-/** A name as SQL: quoted only when SQLite reserves it, so migrations stay readable. */
-function identifier(name: string): string {
-  return keywords.has(name) ? `"${name}"` : name;
-}
-
-const sqlTypes: Record<Exclude<ColumnArg["type"], "references">, string> = {
-  string: "TEXT",
-  integer: "INTEGER",
-  real: "REAL",
-  boolean: "BOOLEAN",
-  datetime: "DATETIME",
-  json: "TEXT",
+/** SQLite's SQL for a generated migration. */
+const sqlite: MigrationDialect = {
+  reserved: keywords,
+  types: {
+    string: "TEXT",
+    integer: "INTEGER",
+    real: "REAL",
+    boolean: "BOOLEAN",
+    datetime: "DATETIME",
+    json: "TEXT",
+  },
+  // A TEXT key is made in code (ADR-0013); an INTEGER PRIMARY KEY is D1's rowid.
+  key: (integerId) => (integerId ? "id INTEGER PRIMARY KEY" : "id TEXT PRIMARY KEY NOT NULL"),
+  timestampType: "DATETIME",
+  guessedKeyType: "TEXT",
+  check: (column, name) => (column.type === "json" ? `CHECK (json_valid(${name}))` : undefined),
+  addRefusal: (table, column) =>
+    column.type !== "references" && column.notNull && column.default === undefined
+      ? `${table}.${column.name}: SQLite can't add a NOT NULL column without a default; give one (${column.name}:${column.type}!=…) or leave out the !`
+      : undefined,
+  // SQLite can't drop an indexed column, so the index the generators would have made goes first.
+  dropColumn: (table, column) =>
+    `DROP INDEX IF EXISTS ${indexName(table, column)};\n` +
+    `ALTER TABLE ${quotedName(sqlite, table)} DROP COLUMN ${quotedName(sqlite, column)};\n`,
 };
-
-/** A default as a SQL literal: `TRUE`, `1.5`, `'it''s'`. */
-function literal(value: string | number | boolean): string {
-  if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
-  return typeof value === "number" ? String(value) : `'${value.replaceAll("'", "''")}'`;
-}
-
-/** A column's definition, as `CREATE TABLE` and `ADD COLUMN` write it. */
-function definition(
-  column: ColumnArg,
-  keys: ReadonlyMap<string, string>,
-  notNull: boolean,
-): string {
-  const name = identifier(column.name);
-  if (column.type === "references") {
-    const type = keys.get(column.references!) ?? "TEXT";
-    return `${name} ${type}${notNull ? " NOT NULL" : ""} REFERENCES ${identifier(column.references!)} (id)`;
-  }
-  const parts = [name, sqlTypes[column.type]];
-  if (notNull) parts.push("NOT NULL");
-  if (column.default !== undefined) parts.push(`DEFAULT ${literal(column.default)}`);
-  if (column.type === "json") parts.push(`CHECK (json_valid(${name}))`);
-  return parts.join(" ");
-}
-
-/** `CREATE [UNIQUE] INDEX` for each indexed column. */
-function indexes(table: string, columns: readonly ColumnArg[]): string {
-  return columns
-    .filter((column) => column.index !== "none")
-    .map((column) => {
-      const unique = column.index === "unique" ? "UNIQUE " : "";
-      const on = `${identifier(table)} (${identifier(column.name)})`;
-      return `CREATE ${unique}INDEX ${indexName(table, column.name)} ON ${on};\n`;
-    })
-    .join("");
-}
-
-/** `CREATE TABLE`, with its key, columns, timestamps and indexes. */
-function createTable(
-  table: string,
-  columns: readonly ColumnArg[],
-  keys: ReadonlyMap<string, string>,
-  options: MigrationChange["options"],
-): string {
-  const lines = [options.integerId ? "id INTEGER PRIMARY KEY" : "id TEXT PRIMARY KEY NOT NULL"];
-  for (const column of columns) lines.push(definition(column, keys, column.notNull));
-  if (options.timestamps !== false)
-    lines.push("created_at DATETIME NOT NULL", "updated_at DATETIME NOT NULL");
-  return `CREATE TABLE ${identifier(table)} (\n  ${lines.join(",\n  ")}\n);\n${indexes(table, columns)}`;
-}
-
-/** `ADD COLUMN` for each column; a reference added later can be null, as Rails' `add_reference`. */
-function addColumns(
-  table: string,
-  columns: readonly ColumnArg[],
-  keys: ReadonlyMap<string, string>,
-): SqlResult {
-  const refused = columns.find(
-    (column) => column.type !== "references" && column.notNull && column.default === undefined,
-  );
-  if (refused !== undefined) {
-    return {
-      ok: false,
-      error: `${table}.${refused.name}: SQLite can't add a NOT NULL column without a default; give one (${refused.name}:${refused.type}!=…) or leave out the !`,
-    };
-  }
-  const added = columns
-    .map((column) => {
-      const notNull = column.type !== "references" && column.notNull;
-      return `ALTER TABLE ${identifier(table)} ADD COLUMN ${definition(column, keys, notNull)};\n`;
-    })
-    .join("");
-  return { ok: true, sql: added + indexes(table, columns) };
-}
-
-/**
- * `DROP COLUMN` for each column, after dropping the index the generators would have made on it
- * (SQLite can't drop an indexed column). A reference drops like any column: D1 allows it.
- */
-function removeColumns(table: string, columns: readonly ColumnArg[]): SqlResult {
-  const sql = columns
-    .map(
-      (column) =>
-        `DROP INDEX IF EXISTS ${indexName(table, column.name)};\n` +
-        `ALTER TABLE ${identifier(table)} DROP COLUMN ${identifier(column.name)};\n`,
-    )
-    .join("");
-  return { ok: true, sql };
-}
 
 /**
  * The SQL for a migration named `name` with `columns`: a table created, columns added or removed,
@@ -137,40 +60,12 @@ export function migrationFor(
   columns: readonly ColumnArg[],
   keys: ReadonlyMap<string, string>,
   options: MigrationChange["options"] = {},
-): SqlResult {
-  const plan = migrationPlan(name);
-  if (plan.kind === "empty") {
-    return columns.length > 0
-      ? {
-          ok: false,
-          error: `${name}: columns only go with Create…, Add…To… or Remove…From… migrations`,
-        }
-      : { ok: true, sql: "-- Write the migration's SQL here.\n" };
-  }
-  if (columns.length === 0 && plan.kind !== "create") {
-    return { ok: false, error: `${name}: name the columns to ${plan.kind} (sku:string)` };
-  }
-  if (plan.kind === "create")
-    return { ok: true, sql: createTable(plan.table, columns, keys, options) };
-  if (plan.kind === "remove") return removeColumns(plan.table, columns);
-  return addColumns(plan.table, columns, keys);
-}
-
-/** Notes for references to tables the migrations don't make yet: their key type is a guess. */
-function referenceNotes(
-  columns: readonly ColumnArg[],
-  keys: ReadonlyMap<string, string>,
-): string[] {
-  return columns
-    .filter((column) => column.type === "references" && !keys.has(column.references!))
-    .map((column) => `${column.references} isn't in the migrations yet, so ${column.name} is TEXT`);
+): { ok: true; sql: string } | { ok: false; error: string } {
+  const result = migrationSql({ name, columns, keys, options }, sqlite);
+  return result.ok ? { ok: true, sql: result.sql } : result;
 }
 
 /** A migration's SQL, for SQLite as D1 runs it, with a note for each key type it guessed. */
-export function migration({ name, columns, keys, options }: MigrationChange): MigrationResult {
-  const result = migrationFor(name, columns, keys, options);
-  // A removed reference's type isn't written, so nothing was guessed.
-  if (!result.ok || migrationPlan(name).kind === "remove") return result;
-  const notes = referenceNotes(columns, keys);
-  return notes.length === 0 ? result : { ...result, notes };
+export function migration(change: MigrationChange): MigrationResult {
+  return migrationSql(change, sqlite);
 }
