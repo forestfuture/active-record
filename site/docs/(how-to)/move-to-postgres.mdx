@@ -130,7 +130,7 @@ Create a Hyperdrive config for your real database:
 npx wrangler hyperdrive create my-app --connection-string="$PRODUCTION_DATABASE_URL"
 ```
 
-Then bind it in your Wrangler config, beside your D1 binding, with the `nodejs_compat` flag `pg` needs:
+Then bind it in your Wrangler config, with the `nodejs_compat` flag `pg` needs. Keep your D1 binding there too:
 
 <include meta="wrangler.jsonc">/_excerpts/move-to-postgres/wrangler.jsonc</include>
 
@@ -142,6 +142,10 @@ Then bind it in your Wrangler config, beside your D1 binding, with the `nodejs_c
 A write that reaches D1 after you copy its data never reaches Postgres. Stop writes first, for example with a deploy that answers them with a 503.
 :::
 
+:::note
+While it copies, `psql` shows its connection string to anyone on your machine who lists its processes. Copy from a machine only you use. To check your server’s certificate, add `sslmode=verify-full&sslrootcert=system` to the URL you copy to (libpq 16 or later).
+:::
+
 Then create your tables on the real database, copy the data, and deploy:
 
 ```sh
@@ -149,10 +153,6 @@ npx active-record migrate --adapter pg --remote
 DATABASE_URL="$PRODUCTION_DATABASE_URL" sh copy-data.sh --remote users posts
 npx wrangler deploy
 ```
-
-:::note
-`psql` shows its connection string to anyone on your machine who lists its processes. Leave the password out of `PRODUCTION_DATABASE_URL`, and set it in `PGPASSWORD` or `~/.pgpass` instead. `psql` checks your server’s certificate only with `sslmode=verify-full`, so add it to the URL you copy to.
-:::
 
 ## Removing the D1 adapter
 
