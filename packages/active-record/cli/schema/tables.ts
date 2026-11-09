@@ -95,8 +95,8 @@ function tableSchema<C extends ReadColumn>(
   }
   const { attributes, ...found } = attributesOf(columns, reading.convert);
   const generated = { name, exportName: exportName(name), primaryKey: keys[0]!, lastChangedBy };
-  const known = keyType === undefined ? {} : { keyType };
-  return { table: { ...generated, attributes, ...known }, ...found };
+  const withKeyType = keyType === undefined ? {} : { keyType };
+  return { table: { ...generated, attributes, ...withKeyType }, ...found };
 }
 
 /** Tables whose names become the same export (`line_items`, `line-items` → `lineItems`). */
