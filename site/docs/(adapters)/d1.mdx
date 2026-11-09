@@ -31,7 +31,7 @@ D1 sends a batch of queries in one round trip. A [preload](./associations#preloa
 
 A batch runs as one transaction, so every query in it reads the same data. A preload’s nested query that would bind more than 100 values waits for the records above it, and takes one more round trip.
 
-D1 also works differently in these ways, worth knowing before you design around them.
+D1 also differs in these ways.
 
 ## No interactive transactions
 
