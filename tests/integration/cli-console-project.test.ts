@@ -5,7 +5,7 @@ import { loadProject } from "../../packages/active-record/cli/console/project.ts
 import { scratchDirs } from "../support/scratch.ts";
 import { libraryPaths } from "../support/library-paths.ts";
 
-const d1Package = "@forestfuture/d1-record";
+const d1Package = "@forestfuture/active-record/d1";
 
 // The library resolves, as an app's does, from a tsconfig `paths` entry (here to this repo's source).
 const scratch = scratchDirs();
@@ -31,7 +31,7 @@ function project(files: Record<string, string>, outsideTheRepo = false): string 
 
 const applicationRecord = `
 import { Model } from "@forestfuture/active-record";
-import { d1 } from "@forestfuture/d1-record";
+import { d1 } from "@forestfuture/active-record/d1";
 export abstract class ApplicationRecord extends Model {
   static override schema = {
     adapter: d1({ binding: "DB" }),
@@ -112,18 +112,21 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
         {
           "package.json": '{ "name": "shop", "type": "module" }',
           "tsconfig.json": "{}",
-          "node_modules/@forestfuture/active-record/package.json":
-            '{ "name": "@forestfuture/active-record", "type": "module", "exports": "./index.js" }',
+          "node_modules/@forestfuture/active-record/package.json": JSON.stringify({
+            name: "@forestfuture/active-record",
+            type: "module",
+            exports: { ".": "./index.js", "./d1": "./d1.js" },
+          }),
           "node_modules/@forestfuture/active-record/index.js": "export class Model {}",
-          "node_modules/@forestfuture/d1-record/package.json":
-            '{ "name": "@forestfuture/d1-record", "type": "module", "exports": "./index.js" }',
-          "node_modules/@forestfuture/d1-record/index.js": 'throw new Error("boom");',
+          "node_modules/@forestfuture/active-record/d1.js": 'throw new Error("boom");',
           "src/models/user.ts": "export class User {}",
         },
         true,
       );
 
-      expect(await loadProject(d1Package, cwd)).toBe("Couldn't load @forestfuture/d1-record: boom");
+      expect(await loadProject(d1Package, cwd)).toBe(
+        "Couldn't load @forestfuture/active-record/d1: boom",
+      );
     });
 
     test("a project without the library", async () => {
@@ -252,7 +255,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
               baseUrl: ".",
               paths: {
                 "@forestfuture/active-record": ["./vendor/library.ts"],
-                "@forestfuture/d1-record": ["./vendor/library.ts"],
+                "@forestfuture/active-record/d1": ["./vendor/library.ts"],
               },
             },
           }),

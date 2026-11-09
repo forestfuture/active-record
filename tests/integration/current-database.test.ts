@@ -7,7 +7,11 @@ import {
   sql,
   withDatabase,
 } from "../../packages/active-record/src/index.ts";
-import { d1, connect, type QueryEvent } from "../../packages/d1-record/src/index.ts";
+import {
+  d1,
+  connect,
+  type QueryEvent,
+} from "../../packages/active-record/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
 // Level 1 reads the Worker's bindings from cloudflare:workers, which only exists inside a Worker;

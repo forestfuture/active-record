@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
 import { loadAdapter } from "../../packages/active-record/cli/project/adapters.ts";
-import { cli } from "../../packages/d1-record/cli/plugin.ts";
+import { cli } from "../../packages/active-record/cli/adapters/d1/plugin.ts";
 import { libraryPaths } from "../support/library-paths.ts";
 import { scratchDirs } from "../support/scratch.ts";
 
@@ -147,7 +147,7 @@ describe("the adapter the command uses", () => {
 
     try {
       expect(await found(cwd)).toBe(
-        "@forestfuture/d1-record needs Node 22.13 or later (23.4 on Node 23), for node:sqlite " +
+        "The D1 adapter needs Node 22.13 or later (23.4 on Node 23), for node:sqlite " +
           `(this is Node ${process.versions.node})`,
       );
     } finally {

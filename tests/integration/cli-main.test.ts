@@ -55,7 +55,7 @@ describe("the d1-record command line", () => {
 
     expect(await main(["schema", "--watch"], (line) => output.push(line))).toBe(1);
     expect(output).toEqual([
-      "@forestfuture/d1-record needs Node 22.13 or later (23.4 on Node 23), for node:sqlite " +
+      "The D1 adapter needs Node 22.13 or later (23.4 on Node 23), for node:sqlite " +
         `(this is Node ${process.versions.node})`,
     ]);
   });

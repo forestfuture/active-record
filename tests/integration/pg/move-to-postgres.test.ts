@@ -152,7 +152,7 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     expect(withoutHash(onPostgres)).toBe(
       withoutHash(onD1Schema)
         .replace(
-          'import { d1 } from "@forestfuture/d1-record";',
+          'import { d1 } from "@forestfuture/active-record/d1";',
           'import { pg } from "@forestfuture/pg-record";',
         )
         .replace('adapter: d1({ binding: "DB" })', 'adapter: pg({ binding: "HYPERDRIVE" })'),

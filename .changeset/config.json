@@ -10,5 +10,5 @@
   ],
   "commit": false,
   "format": false,
-  "fixed": [["@forestfuture/active-record", "@forestfuture/d1-record", "@forestfuture/pg-record"]]
+  "fixed": [["@forestfuture/active-record", "@forestfuture/pg-record"]]
 }

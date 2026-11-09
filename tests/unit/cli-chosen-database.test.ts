@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { afterAll, describe, expect, test } from "vite-plus/test";
 import { projectDatabases } from "../../packages/active-record/cli/project/config-file.ts";
 import { chosenDatabase } from "../../packages/active-record/cli/project/databases.ts";
-import { cli } from "../../packages/d1-record/cli/plugin.ts";
-import { remoteTarget } from "../../packages/d1-record/cli/remote.ts";
+import { cli } from "../../packages/active-record/cli/adapters/d1/plugin.ts";
+import { remoteTarget } from "../../packages/active-record/cli/adapters/d1/remote.ts";
 
 /** The database chosen in a D1 project, or why there isn't one. */
 function databaseFor(cwd: string, options: { config?: string; database?: string }) {

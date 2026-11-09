@@ -13,7 +13,7 @@ describe("the guide's example blocks", () => {
   writeFileSync(
     file,
     `import { belongsTo, hasMany, Model } from "@forestfuture/active-record";
-import { connect, type Database } from "@forestfuture/d1-record";
+import { connect, type Database } from "@forestfuture/active-record/d1";
 import { User } from "../shared/users";
 import { Tag } from "./tags";
 import { schema } from "../db/schema";
@@ -100,9 +100,9 @@ export class Comment extends ApplicationRecord {}`);
   });
 
   test("an example written inline in a page imports whatever it uses from the package", () => {
-    const index = ["active-record", "d1-record"]
-      .map((name) =>
-        readFileSync(new URL(`../../packages/${name}/src/index.ts`, import.meta.url), "utf8"),
+    const index = ["index.ts", "adapters/d1/index.ts"]
+      .map((entry) =>
+        readFileSync(new URL(`../../packages/active-record/src/${entry}`, import.meta.url), "utf8"),
       )
       .join("\n");
     const exported = [...index.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}/g)].flatMap(([, list]) =>

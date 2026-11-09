@@ -1,4 +1,4 @@
-// The D1 adapter's public API: what an app imports from `@forestfuture/d1-record`, beside the core.
+// The D1 adapter's public API: what an app imports from `@forestfuture/active-record/d1`, beside the core.
 export { d1 } from "./adapter.ts";
 export {
   connect,

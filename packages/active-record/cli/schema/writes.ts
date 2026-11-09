@@ -7,7 +7,7 @@ import { migrationTool } from "../project/tools.ts";
 import { layoutNote, originNotes } from "./origin.ts";
 import { fingerprintIn, renderBase, renderSchema, type SchemaSource } from "./render.ts";
 import type { GeneratedTable, ProjectAdapter } from "../adapter.ts";
-import { adapterPackage } from "../project/adapters.ts";
+import { adapterEntry } from "../project/adapters.ts";
 import type { ProjectSnapshot } from "../project/snapshot.ts";
 
 /** The tables a database's migrations make, and the notes their columns raise. */
@@ -50,7 +50,7 @@ export function schemaRefusal(cwd: string, db: DatabaseSnapshot): string | undef
 
 /** The adapter a schema imports: the plugin's name is its factory's, from the adapter's package. */
 export function schemaAdapterOf(adapter: ProjectAdapter): SchemaSource["adapter"] {
-  return { factory: adapter.name, from: adapterPackage(adapter) };
+  return { factory: adapter.name, from: adapterEntry(adapter) };
 }
 
 /** What a database's schema is rendered from: its adapter, tables and binding, and the Models found. */

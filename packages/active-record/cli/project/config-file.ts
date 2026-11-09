@@ -35,7 +35,7 @@ function endOfString(text: string, start: number): number {
 }
 
 /** The project's config, read: the file, its folder, and its settings. */
-export interface ProjectConfig {
+interface ProjectConfig {
   file: string;
   dir: string;
   settings: Record<string, unknown>;

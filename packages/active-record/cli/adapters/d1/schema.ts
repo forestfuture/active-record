@@ -108,7 +108,7 @@ function columnsOf(db: DatabaseSync, table: string, definition: string): Column[
 
 /** The error for a table without a primary key, saying what D1 takes. */
 const missingKey = (name: string) =>
-  `${name}: no primary key; d1-record needs one (id INTEGER PRIMARY KEY, or id TEXT PRIMARY KEY)`;
+  `${name}: no primary key; Active Record needs one (id INTEGER PRIMARY KEY, or id TEXT PRIMARY KEY)`;
 
 /**
  * The tables a project's migrations make, by active-record's conventions (#66): applied in order to

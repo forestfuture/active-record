@@ -1,18 +1,22 @@
-// Builds @forestfuture/active-record: the core, its entries for adapters, and the `active-record` command.
+// Builds @forestfuture/active-record: the core, its entries for adapters, the D1 adapter, and the `active-record` command.
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   pack: {
     // One build, so the entries share the core's modules (one copy of each class) and `exports`
-    // lists them all. The command (package.json's bin) runs on Node, and no Worker imports it.
+    // lists them all. An adapter imports the core by its own entries' names, which resolve to the
+    // same modules. The command (package.json's bin) runs on Node, and no Worker imports it.
     entry: {
       index: "src/index.ts",
       adapter: "src/for-adapters.ts",
       cli: "cli/for-adapters.ts",
+      d1: "src/adapters/d1/index.ts",
       command: "cli/bin.ts",
     },
     target: "es2022",
     tsconfig: "tsconfig.build.json",
+    // Provided by the Workers runtime; loaded only when a Model queries its binding (#77).
+    external: ["cloudflare:workers"],
     dts: { generator: "tsgo" },
     // In the repo, the package resolves to its source, so the command runs untranspiled with no
     // build; publishConfig points the published package at dist/.

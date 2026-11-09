@@ -82,7 +82,7 @@ function source(link: string, { name, result }: Found): string {
 }
 
 /** What `init` does: write the file, and say what's next; or say why it can't. */
-export async function planInit(options: InitOptions): Promise<Plan> {
+async function planInit(options: InitOptions): Promise<Plan> {
   const cwd = resolve(options.cwd ?? process.cwd());
   const path = resolve(cwd, options.config ?? configFileName);
   const name = shown(cwd, path);

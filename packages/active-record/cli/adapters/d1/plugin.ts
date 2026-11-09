@@ -1,4 +1,4 @@
-// The D1 adapter's plugin for the `active-record` command (`@forestfuture/d1-record/cli`, #278).
+// The D1 adapter's plugin for the `active-record` command (#278), which the command imports itself (#301).
 import { dirname, join } from "node:path";
 import type { CliAdapter } from "@forestfuture/active-record/cli";
 import { openLocalBinding, openRemoteBinding } from "./binding.ts";
@@ -16,7 +16,7 @@ import { readWranglerConfig } from "./wrangler.ts";
 function unsupported(): string | undefined {
   if (process.getBuiltinModule("node:sqlite") !== undefined) return undefined;
   const node = process.versions.node;
-  return `@forestfuture/d1-record needs Node 22.13 or later (23.4 on Node 23), for node:sqlite (this is Node ${node})`;
+  return `The D1 adapter needs Node 22.13 or later (23.4 on Node 23), for node:sqlite (this is Node ${node})`;
 }
 
 /** D1, as the command line sees it: Wrangler's config and migrations, SQLite's schema, and its bindings. */

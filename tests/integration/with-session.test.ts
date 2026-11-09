@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { connect, withSession, type QueryEvent } from "../../packages/d1-record/src/index.ts";
+import {
+  connect,
+  withSession,
+  type QueryEvent,
+} from "../../packages/active-record/src/adapters/d1/index.ts";
 import { User } from "../fixtures/models/user.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 

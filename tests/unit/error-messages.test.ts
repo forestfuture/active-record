@@ -5,7 +5,7 @@ import {
   Model,
   type ErrorMessages,
 } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/d1-record/src/index.ts";
+import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 
 // No D1 needed: none of these validations asks it anything.
 const db = connect({} as never);

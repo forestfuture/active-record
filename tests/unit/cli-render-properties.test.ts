@@ -2,7 +2,7 @@ import fc from "fast-check";
 import { runInThisContext } from "node:vm";
 import { describe, expect, test } from "vite-plus/test";
 import { renderSchema } from "../../packages/active-record/cli/schema/render.ts";
-import { schemaOf } from "../../packages/d1-record/cli/schema.ts";
+import { schemaOf } from "../../packages/active-record/cli/adapters/d1/schema.ts";
 
 /** D1, as the generated schema imports it. */
 const d1 = { factory: "d1", from: "@forestfuture/d1-record" };

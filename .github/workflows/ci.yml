@@ -71,7 +71,6 @@ jobs:
         with:
           release: true
       - run: pnpm --dir packages/active-record pack --out "$RUNNER_TEMP/active-record.tgz"
-      - run: pnpm --dir packages/d1-record pack --out "$RUNNER_TEMP/d1-record.tgz"
 
   # The documentation site deploys in two jobs (#243), only from main and only once the checks above
   # have passed. The build runs the site's whole dependency tree, so it gets no secrets; the deploy

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import { belongsTo, hasMany, hasOne, Model } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/d1-record/src/index.ts";
+import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
 // A text foreign key (label) pointing at an integer key: the two keys' types differ.

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 import { fingerprintOf } from "../../packages/active-record/cli/schema/render.ts";
-import { schemaOf } from "../../packages/d1-record/cli/schema.ts";
+import { schemaOf } from "../../packages/active-record/cli/adapters/d1/schema.ts";
 
 /** The tables a set of migrations makes, as the schema command reads them. */
 function tables(...sql: string[]) {
@@ -371,7 +371,7 @@ describe("schemaOf: from migrations to table schemas", () => {
       ok: false,
       errors: [
         "line-items and line_items would both be exported as lineItems; rename one of the tables",
-        "logs: no primary key; d1-record needs one (id INTEGER PRIMARY KEY, or id TEXT PRIMARY KEY)",
+        "logs: no primary key; Active Record needs one (id INTEGER PRIMARY KEY, or id TEXT PRIMARY KEY)",
         "things: columns user_id and userId would both be the attribute userId; rename one",
       ],
     });

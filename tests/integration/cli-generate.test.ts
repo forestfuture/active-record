@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { Miniflare } from "miniflare";
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { runGenerate } from "../../packages/active-record/cli/generate/command.ts";
-import { connect } from "../../packages/d1-record/src/index.ts";
+import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 import { withD1Config } from "../support/d1-config.ts";
 
 // Inside tests/ (gitignored), so a generated project's imports of the library resolve as they

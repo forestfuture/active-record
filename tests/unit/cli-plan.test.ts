@@ -7,7 +7,7 @@ import type {
   ProjectSnapshot,
 } from "../../packages/active-record/cli/project/snapshot.ts";
 import type { ProjectAdapter } from "../../packages/active-record/cli/adapter.ts";
-import { cli } from "../../packages/d1-record/cli/plugin.ts";
+import { cli } from "../../packages/active-record/cli/adapters/d1/plugin.ts";
 
 // Migrations are named for the UTC second they're written in, so the clock is set.
 beforeEach(() => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 import { column, Model, sql } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/d1-record/src/index.ts";
+import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 import { attributeFor } from "../../packages/active-record/src/attribute.ts";
 
 class Sample extends Model.define({

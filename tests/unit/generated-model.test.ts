@@ -9,7 +9,7 @@ import {
   UnknownAttribute,
   type TableAttributes,
 } from "../../packages/active-record/src/index.ts";
-import { d1, connect } from "../../packages/d1-record/src/index.ts";
+import { d1, connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 
 const db = connect({} as never);
 

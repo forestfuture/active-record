@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { WriteStream } from "node:tty";
 import type { ChosenDatabase, OpenBinding, ProjectAdapter } from "../adapter.ts";
-import { adapterPackage, loadAdapter } from "../project/adapters.ts";
+import { adapterEntry, loadAdapter } from "../project/adapters.ts";
 import { chosenDatabase } from "../project/databases.ts";
 import { consoleCommands } from "./commands.ts";
 import { confirmRemote } from "./confirm.ts";
@@ -140,7 +140,7 @@ async function prepare(options: ConsoleOptions, io: ConsoleIo): Promise<Prepared
   if (typeof adapter === "string") return adapter;
   const chosen = chosenDatabase(adapter, cwd, options);
   if (typeof chosen === "string") return chosen;
-  const project = await loadProject(adapterPackage(adapter), cwd, options.models);
+  const project = await loadProject(adapterEntry(adapter), cwd, options.models);
   if (typeof project === "string") return project;
   const opened = await (options.remote === true
     ? openRemote(adapter, { cwd, chosen }, options, io)

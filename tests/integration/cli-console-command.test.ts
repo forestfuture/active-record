@@ -2,7 +2,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, onTestFinished, test, vi } from "vite-plus/test";
-import { openLocalBinding } from "../../packages/d1-record/cli/binding.ts";
+import { openLocalBinding } from "../../packages/active-record/cli/adapters/d1/binding.ts";
 import { runConsole } from "../../packages/active-record/cli/console/command.ts";
 import { main } from "../../packages/active-record/cli/main.ts";
 import { terminalStreams, waitFor } from "../support/console.ts";

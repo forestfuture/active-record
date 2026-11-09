@@ -1,5 +1,0 @@
-{
-  // The command runs in Node (not Workers): Node's types, including node:sqlite.
-  "extends": "../../../tsconfig.json",
-  "include": ["."]
-}

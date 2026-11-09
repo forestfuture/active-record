@@ -19,7 +19,7 @@ function project(table: string, entry: Record<string, unknown>): string {
     }),
     "src/models/application-record.ts": `
       import { Model } from "@forestfuture/active-record";
-import { d1 } from "@forestfuture/d1-record";
+import { d1 } from "@forestfuture/active-record/d1";
       export abstract class ApplicationRecord extends Model {
         static override schema = {
           adapter: d1({ binding: "DB" }),
