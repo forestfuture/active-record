@@ -9,8 +9,11 @@ describe("a connection string, as a person confirms it", () => {
     expect([hostOf(url), databaseNameOf(url)]).toEqual(["db.example.com", "shop"]);
   });
 
-  test("names a socket's folder, and the user's database when the string names none", () => {
+  test("names a socket's folder as its host", () => {
     expect(hostOf("postgres://app@/shop?host=/var/run/postgresql")).toBe("/var/run/postgresql");
+  });
+
+  test("names the user's database when the string names none", () => {
     expect(databaseNameOf("postgres://app@db.example.com")).toBe("app");
   });
 });
