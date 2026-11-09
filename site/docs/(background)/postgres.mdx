@@ -67,7 +67,7 @@ Each migration runs in a transaction. One that fails leaves nothing behind, sinc
 
 ## Reading the schema
 
-`active-record schema` reads your schema by applying your migrations to [PGlite](https://pglite.dev), Postgres in memory, so it needs no server. A migration that creates an extension PGlite doesn’t have, such as PostGIS, is read on the server your `url` names instead.
+`active-record schema` reads your schema by applying your migrations to [PGlite](https://pglite.dev), Postgres in memory, so it needs no server. A migration that creates an extension PGlite doesn’t have, such as PostGIS, is read on the server your [`schemaUrl`](./command-line#mapping-postgress-columns) names instead.
 
 Postgres’s column types decide the attributes. Unlike on D1, a column’s name never does, so an `is_active BIGINT` is an integer.
 

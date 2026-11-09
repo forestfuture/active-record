@@ -10,7 +10,7 @@ const variable = /\$\{(\w+)\}/g;
  */
 export function connectionString(
   entry: Record<string, unknown> | undefined,
-  setting: "url" | "remoteUrl",
+  setting: "url" | "remoteUrl" | "schemaUrl",
 ): string | { error: string } | undefined {
   const value = entry?.[setting];
   if (typeof value !== "string") return undefined;

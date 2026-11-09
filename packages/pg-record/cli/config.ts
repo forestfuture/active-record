@@ -11,7 +11,7 @@ import {
 export const migrationsTable = "schema_migrations";
 
 /** The settings a database's entry may have, each a string. */
-const stringSettings = ["migrationsDir", "url", "remoteUrl"] as const;
+const stringSettings = ["migrationsDir", "url", "remoteUrl", "schemaUrl"] as const;
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);

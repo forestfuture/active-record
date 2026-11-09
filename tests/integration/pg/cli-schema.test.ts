@@ -184,7 +184,7 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
   });
 });
 
-// An extension PGlite can't load is read on the database's local server instead (#285).
+// An extension PGlite can't load is read on the server schemaUrl names, if it names one (#285).
 describe("Postgres's schema, when PGlite can't load an extension", pgliteTimeout, () => {
   const url = process.env["DATABASE_URL"]!;
   const needsDblink = {
@@ -206,12 +206,12 @@ describe("Postgres's schema, when PGlite can't load an extension", pgliteTimeout
     }
   }
 
-  test("is read in a database of its own on the url's server, dropped afterwards", async () => {
+  test("is read in a database of its own on the schemaUrl's server, dropped afterwards", async () => {
     const before = await leftOver();
 
     const result = await cli.readSchema(migrations(needsDblink), {
       migrationsTable: "schema_migrations",
-      entry: { url },
+      entry: { schemaUrl: url },
     });
 
     expect(result).toMatchObject({
@@ -226,51 +226,73 @@ describe("Postgres's schema, when PGlite can't load an extension", pgliteTimeout
     expect(await leftOver()).toEqual(before);
   });
 
-  test("a url from the environment is read from it", async () => {
+  test("a schemaUrl from the environment is read from it", async () => {
     vi.stubEnv("SCHEMA_DATABASE_URL", url);
     afterAll(() => void vi.unstubAllEnvs());
 
     const result = await cli.readSchema(migrations(needsDblink), {
-      entry: { url: "${SCHEMA_DATABASE_URL}" },
+      entry: { schemaUrl: "${SCHEMA_DATABASE_URL}" },
     });
 
     expect(result.ok).toBe(true);
   });
 
-  test("a url Node can't read as a URL is refused before any database is made, never printed", async () => {
+  test("a schemaUrl Node can't read as a URL is refused before any database is made, never printed", async () => {
     const before = await leftOver();
 
     const result = await cli.readSchema(migrations(needsDblink), {
-      entry: { url: "postgres://app:s3cret@/active_record_test" },
+      entry: { schemaUrl: "postgres://app:s3cret@/active_record_test" },
     });
 
     expect(result).toEqual({
       ok: false,
       errors: [
-        "Couldn't read the schema on localhost: the database's url can't be read as a URL; write it as postgres://user:password@host/database",
+        "Couldn't read the schema on localhost: the database's schemaUrl can't be read as a URL; write it as postgres://user:password@host/database",
       ],
     });
     expect(JSON.stringify(result)).not.toContain("s3cret");
     expect(await leftOver()).toEqual(before);
   });
 
-  test("without a url, says to set one", async () => {
-    expect(await cli.readSchema(migrations(needsDblink), { entry: {} })).toEqual({
+  test("without a schemaUrl, says to set one, and never uses the database's url", async () => {
+    const before = await leftOver();
+
+    expect(await cli.readSchema(migrations(needsDblink), { entry: { url } })).toEqual({
       ok: false,
       errors: [
-        "1_extensions.sql: PGlite can't load the extension dblink; set the database's url in active-record.jsonc to a Postgres server that has it, and the schema is read there, in a database of its own",
+        "1_extensions.sql: PGlite can't load the extension dblink; set the database's schemaUrl in active-record.jsonc to a Postgres server that has it, where the schema is read in a database of its own",
       ],
     });
+    expect(await leftOver()).toEqual(before);
   });
 
-  test("a url naming a variable that isn't set says so", async () => {
+  test("what a migration does outside its database is rolled back, a role included", async () => {
+    const role = `schema_role_${process.pid}`;
+    const files = { ...needsDblink, "3_role.sql": `CREATE ROLE ${role};` };
+
+    expect((await cli.readSchema(migrations(files), { entry: { schemaUrl: url } })).ok).toBe(true);
+
+    const client = new pg.Client({ connectionString: url });
+    await client.connect();
+    try {
+      const { rows } = await client.query({
+        text: "SELECT 1 FROM pg_roles WHERE rolname = $1",
+        values: [role],
+      });
+      expect(rows).toEqual([]);
+    } finally {
+      await client.end();
+    }
+  });
+
+  test("a schemaUrl naming a variable that isn't set says so", async () => {
     const result = await cli.readSchema(migrations(needsDblink), {
-      entry: { url: "${NOT_SET_ANYWHERE}" },
+      entry: { schemaUrl: "${NOT_SET_ANYWHERE}" },
     });
 
     expect(result).toEqual({
       ok: false,
-      errors: ["The database's url names ${NOT_SET_ANYWHERE}, which isn't set"],
+      errors: ["The database's schemaUrl names ${NOT_SET_ANYWHERE}, which isn't set"],
     });
   });
 });
