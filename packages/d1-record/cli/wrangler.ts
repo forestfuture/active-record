@@ -69,8 +69,13 @@ function databaseOf(entry: Record<string, unknown>): DatabaseConfig {
   return database;
 }
 
+/** The Wrangler config in `dir`: `wrangler.jsonc`, `wrangler.json` or `wrangler.toml`, if any. */
+export function wranglerConfigIn(dir: string): string | undefined {
+  return candidates.map((each) => join(dir, each)).find((path) => existsSync(path));
+}
+
 /** The Wrangler config's `d1_databases` entries, each with a binding, or why they can't be read. */
-function d1Entries(file: string): Record<string, unknown>[] | string {
+export function d1Entries(file: string): Record<string, unknown>[] | string {
   const config = parsed(file);
   if (typeof config === "string") return config;
   const entries = config.d1_databases ?? [];
@@ -87,7 +92,7 @@ function d1Entries(file: string): Record<string, unknown>[] | string {
  */
 export function readWranglerConfig(project: ProjectDatabases): ConfigResult {
   const name = basename(project.file);
-  const file = candidates.map((each) => join(project.dir, each)).find((path) => existsSync(path));
+  const file = wranglerConfigIn(project.dir);
   if (file === undefined) {
     return { ok: false, error: `No wrangler.jsonc, wrangler.json or wrangler.toml beside ${name}` };
   }

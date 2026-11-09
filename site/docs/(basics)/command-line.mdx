@@ -13,6 +13,15 @@ It finds your database’s adapter from your `package.json`, so it works the sam
 
 It needs Node.js 22.5 or later. On D1, it needs 22.13 or later, for Node’s built-in SQLite. [Generators](./generators) shows it step by step.
 
+## `active-record init`
+
+Writes `active-record.jsonc`, which names each of your databases and its adapter. Every other command reads it. On D1, it lists each database in your Wrangler config’s `d1_databases`. On Postgres, it lists each Hyperdrive binding, with its `localConnectionString` as the `url`. With neither, `--adapter pg` writes a `DATABASE_URL` entry whose `url` you set. It never writes over a file that’s there.
+
+| Option             | What it does                                                                    |
+| ------------------ | ------------------------------------------------------------------------------- |
+| `--adapter <name>` | The adapter (`d1` or `pg`), when the project could use either, or neither says. |
+| `--config <file>`  | Write this file, in place of `active-record.jsonc`.                             |
+
 ## Declaring Postgres’s databases
 
 On D1, the command reads your databases from your Wrangler config. On Postgres, declare them in `active-record.jsonc`, beside your `package.json`:

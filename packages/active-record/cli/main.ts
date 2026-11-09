@@ -1,6 +1,7 @@
 // The `active-record` command line. Node only: no Worker imports it (cli/bin.ts runs it).
 import { consoleSubcommand } from "./console/flags.ts";
 import { generateSubcommand } from "./generate/flags.ts";
+import { initSubcommand } from "./init/flags.ts";
 import { migrateSubcommand } from "./migrate/flags.ts";
 import type { Print } from "./plan.ts";
 import { schemaSubcommand } from "./schema/flags.ts";
@@ -8,6 +9,7 @@ import { helpFor, type Subcommand } from "./subcommand.ts";
 
 /** Each subcommand by the names it answers to. */
 const subcommands: Record<string, Subcommand> = {
+  init: initSubcommand,
   schema: schemaSubcommand,
   g: generateSubcommand,
   generate: generateSubcommand,

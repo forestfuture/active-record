@@ -31,7 +31,7 @@ describe("the d1-record command line", () => {
     );
 
     expect(help).toBe(0);
-    expect(output[0]).toMatch(/^Usage:\n  active-record schema \[options\]/);
+    expect(output[0]).toMatch(/^Usage:\n  active-record init +Write active-record.jsonc/);
     expect(generated).toBe(0);
     expect(output[1]).toMatch(/^Wrote .*out\.ts \(1 table\)/);
   });

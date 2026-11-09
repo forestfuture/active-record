@@ -11,8 +11,11 @@ const adapters: Readonly<Record<string, string>> = {
   pg: "@forestfuture/pg-record",
 };
 
+/** The adapters' names, in the registry's order. */
+export const adapterNames: readonly string[] = Object.keys(adapters);
+
 /** The adapters' names, as a message lists them. */
-const names = () => listed(Object.keys(adapters));
+const names = () => listed(adapterNames);
 
 /** The package an adapter's plugin came from, as the registry names it. */
 export function adapterPackage(adapter: Pick<CliAdapter, "name">): string {
@@ -48,7 +51,7 @@ function adapterNamed(project: ProjectDatabases): string | { error: string } {
  * The adapter's plugin, from the project's copy of its `/cli`, found as the project finds it (its
  * `node_modules`, or a `tsconfig.json` path); or why it can't be loaded.
  */
-async function pluginOf(cwd: string, name: string): Promise<CliAdapter | string> {
+export async function pluginOf(cwd: string, name: string): Promise<CliAdapter | string> {
   const entry = `${adapters[name]}/cli`;
   try {
     const source = `export { cli } from "${entry}";`;

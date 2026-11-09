@@ -120,6 +120,16 @@ export interface OpenBinding {
   dispose: () => Promise<void>;
 }
 
+/**
+ * The databases `init` writes for an adapter, as `active-record.jsonc` entries (its `adapter` is
+ * added), and notes for a person; or why it can't write them; or undefined when nothing in the
+ * project points to this adapter and it wasn't chosen.
+ */
+export type InitResult =
+  | { databases: Record<string, Record<string, unknown>>; notes?: string[] }
+  | string
+  | undefined;
+
 /** Where `migrate` writes what the adapter's own tool prints. */
 export interface MigrateOutput {
   output: (text: string) => void;
@@ -136,6 +146,12 @@ export interface CliAdapter {
   readonly patternSetting?: string;
   /** Why this Node can't run the plugin, if it can't; the command refuses before it starts. */
   unsupported?(): string | undefined;
+  /**
+   * The entries `init` writes, from what's in `dir` (the folder `active-record.jsonc` goes in),
+   * such as another tool's config. Undefined when nothing there points to this adapter, unless
+   * it's `chosen` (`--adapter`), when it writes what it can.
+   */
+  init(dir: string, chosen: boolean): InitResult;
   /**
    * The project's databases, from the entries its `active-record.jsonc` has for this adapter (and
    * the adapter's own config, if it reads one), or why they can't be read.

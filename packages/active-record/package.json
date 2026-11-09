@@ -24,6 +24,7 @@
     "ffar": "./cli/bin.ts"
   },
   "files": [
+    "config-schema.json",
     "dist",
     "llms-full.txt",
     "skills"
