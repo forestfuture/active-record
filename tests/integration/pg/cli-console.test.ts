@@ -68,7 +68,8 @@ describe("console, on Postgres", pgliteTimeout, () => {
   });
 
   test("keeps local files, such as its history, where node_modules is ignored", async () => {
-    const { cli } = await import("../../../packages/pg-record/cli/plugin.ts");
+    const { cli } =
+      await import("../../../packages/active-record/cli/adapters/postgresql/plugin.ts");
     const chosen = {
       binding: "DB",
       entry: {},

@@ -6,7 +6,10 @@ import {
   sql,
   withDatabase,
 } from "../../../packages/active-record/src/index.ts";
-import { connect, type Database } from "../../../packages/pg-record/src/index.ts";
+import {
+  connect,
+  type Database,
+} from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 
 // Each row is the backend (connection) its query ran on.
@@ -37,7 +40,7 @@ function deferred() {
   return { promise, resolve };
 }
 
-describe("pg-record's clients, from a connection string (#269)", () => {
+describe("the PostgreSQL adapter's clients, from a connection string (#269)", () => {
   let schema: PgSchema;
   let db: Database;
   // Node gives each deprecation once per process, so this hears the file's from its first test.

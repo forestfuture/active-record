@@ -1,4 +1,4 @@
-// A throwaway Postgres project for the command's tests: its package.json lists pg-record, its tsconfig finds this repo's packages, and active-record.jsonc declares its databases.
+// A throwaway Postgres project for the command's tests: its package.json lists the library and pg, its tsconfig finds this repo's packages, and active-record.jsonc declares its databases.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { libraryPaths } from "./library-paths.ts";
@@ -8,8 +8,9 @@ const source = (path: string) => [new URL(`../../packages/${path}`, import.meta.
 /** The packages a Postgres project imports, at their source in this repo. */
 const pgPaths = {
   ...libraryPaths,
-  "@forestfuture/pg-record": source("pg-record/src/index.ts"),
-  "@forestfuture/pg-record/cli": source("pg-record/cli/plugin.ts"),
+  "@forestfuture/active-record/postgresql": source(
+    "active-record/src/adapters/postgresql/index.ts",
+  ),
 };
 
 /** The project's databases, as active-record.jsonc declares them, by binding. */
@@ -18,7 +19,10 @@ export type PgDatabases = Record<string, Record<string, string>>;
 /** Each database's entry with its adapter, unless it names one. */
 const onPg = (databases: PgDatabases) =>
   Object.fromEntries(
-    Object.entries(databases).map(([binding, entry]) => [binding, { adapter: "pg", ...entry }]),
+    Object.entries(databases).map(([binding, entry]) => [
+      binding,
+      { adapter: "postgresql", ...entry },
+    ]),
   );
 
 /**
@@ -32,7 +36,7 @@ export function writePgProject(
 ): string {
   const all = {
     "package.json": JSON.stringify({
-      dependencies: { "@forestfuture/active-record": "*", "@forestfuture/pg-record": "*" },
+      dependencies: { "@forestfuture/active-record": "*", pg: "*" },
     }),
     "tsconfig.json": JSON.stringify({ compilerOptions: { baseUrl: ".", paths: pgPaths } }),
     "active-record.jsonc": JSON.stringify({ databases: onPg(databases) }, null, 2),

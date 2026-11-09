@@ -23,7 +23,7 @@ Your Models, queries, and callbacks work the same on Postgres. The sections afte
 
 ```ts
 import { withDatabase } from "@forestfuture/active-record";
-import { connect } from "@forestfuture/pg-record";
+import { connect } from "@forestfuture/active-record/postgresql";
 
 export default {
   fetch(request, env) {
@@ -35,7 +35,7 @@ export default {
 
 The first query inside `withDatabase` opens a client, and the rest of the request shares it. It closes when `withDatabase` finishes. Each `withDatabase` call gets its own client, so a Database your Worker opens once can serve every request. Without `withDatabase`, each query opens a client of its own and closes it when it’s done. So does work that outlives the request, such as a save in `ctx.waitUntil`.
 
-Your schema names the binding with `adapter: pg({ binding: "HYPERDRIVE" })`, so `User.find(id)` works in a Worker with nothing to set up. Declare it in your [`active-record.jsonc`](./command-line#declaring-postgress-databases), where the command finds your databases.
+Your schema names the binding with `adapter: postgresql({ binding: "HYPERDRIVE" })`, so `User.find(id)` works in a Worker with nothing to set up. Declare it in your [`active-record.jsonc`](./command-line#declaring-postgress-databases), where the command finds your databases.
 
 `connect(env.DATABASE_URL)` takes a connection string the same way.
 
@@ -47,7 +47,7 @@ On Node, pass your own Pool, which your app ends when it shuts down:
 
 ```ts
 import pg from "pg";
-import { connect } from "@forestfuture/pg-record";
+import { connect } from "@forestfuture/active-record/postgresql";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const db = connect(pool);
@@ -58,7 +58,7 @@ Outside a Worker there’s no binding, so wrap each request in `withDatabase(db,
 Opening a client from a binding or a connection string waits up to 10 seconds for Postgres to answer. After that, the query fails with `Error: timeout expired`. Each query waiting for that client tries again, and can wait as long. To change the limit, set `connect_timeout` to a number of seconds:
 
 ```ts
-import { connect } from "@forestfuture/pg-record";
+import { connect } from "@forestfuture/active-record/postgresql";
 
 const db = connect("postgres://app@db.example.com/app?connect_timeout=5");
 ```

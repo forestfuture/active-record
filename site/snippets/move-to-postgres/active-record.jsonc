@@ -2,7 +2,7 @@
   "$schema": "./node_modules/@forestfuture/active-record/config-schema.json",
   "databases": {
     "HYPERDRIVE": {
-      "adapter": "pg",
+      "adapter": "postgresql",
       "url": "postgres://user:password@localhost:5432/my_app",
       "remoteUrl": "${PRODUCTION_DATABASE_URL}",
     },

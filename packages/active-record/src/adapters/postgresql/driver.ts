@@ -10,7 +10,7 @@ import { withoutRowValues } from "./errors.ts";
 import { typeParsers } from "./type-parsers.ts";
 
 /** What `onQuery` hears from Postgres about a statement: its command and the rows it counted. */
-export interface PgMeta {
+export interface PostgreSQLMeta {
   /** `SELECT`, `INSERT`, `UPDATE`, `DELETE`, … */
   command: string;
   rowCount: number | null;
@@ -30,7 +30,7 @@ async function sent(client: Queryable, { sql, params }: CompiledSql): Promise<St
     values: params.map(boundValue),
     types: typeParsers,
   });
-  const meta: PgMeta = { command, rowCount };
+  const meta: PostgreSQLMeta = { command, rowCount };
   return { rows, rowsAffected: rowCount ?? 0, meta };
 }
 

@@ -45,21 +45,18 @@ const joined = (names: readonly string[]) =>
   names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 
 /** The plugin `name`'s entries, chosen with `--adapter`, or why there are none. */
-async function chosenEntries(cwd: string, dir: string, name: string): Promise<Found | string> {
+async function chosenEntries(dir: string, name: string): Promise<Found | string> {
   if (!adapterNames.includes(name)) return `--adapter takes ${listed(adapterNames)}, not ${name}`;
-  const plugin = await pluginOf(cwd, name);
-  if (typeof plugin === "string") return plugin;
-  const result = plugin.init(dir, true);
+  const result = (await pluginOf(name)).init(dir, true);
   if (result === undefined) return `Nothing here declares a database for ${name}`;
   return typeof result === "string" ? result : { name, result };
 }
 
 /** The entries of the one adapter something in the project points to, or why there isn't one. */
-async function foundEntries(cwd: string, dir: string): Promise<Found | string> {
+async function foundEntries(dir: string): Promise<Found | string> {
   const found: Found[] = [];
   for (const name of adapterNames) {
-    const plugin = await pluginOf(cwd, name);
-    const result = typeof plugin === "string" ? undefined : plugin.init(dir, false);
+    const result = (await pluginOf(name)).init(dir, false);
     if (typeof result === "string") return result;
     if (result !== undefined) found.push({ name, result });
   }
@@ -91,8 +88,8 @@ async function planInit(options: InitOptions): Promise<Plan> {
   const dir = dirname(path);
   const found =
     options.adapter === undefined
-      ? await foundEntries(cwd, dir)
-      : await chosenEntries(cwd, dir, options.adapter);
+      ? await foundEntries(dir)
+      : await chosenEntries(dir, options.adapter);
   if (typeof found === "string") return printing([found], 1);
   const bindings = joined(Object.keys(found.result.databases));
   const notes = (found.result.notes ?? []).map((note) => printed(`Note: ${note}`));

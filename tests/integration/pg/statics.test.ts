@@ -1,10 +1,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { Model, NoDatabase, withDatabase } from "../../../packages/active-record/src/index.ts";
-import { connect, pg } from "../../../packages/pg-record/src/index.ts";
+import {
+  connect,
+  postgresql,
+} from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 
 abstract class PgRecord extends Model {
-  static override schema = { adapter: pg({ binding: "DATABASE_URL" }), tables: {} };
+  static override schema = { adapter: postgresql({ binding: "DATABASE_URL" }), tables: {} };
 }
 
 class User extends PgRecord.define({

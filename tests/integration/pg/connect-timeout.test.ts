@@ -9,7 +9,7 @@ import {
   vi,
 } from "vite-plus/test";
 import { Model } from "../../../packages/active-record/src/index.ts";
-import { connect } from "../../../packages/pg-record/src/index.ts";
+import { connect } from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 import { openSilentHost, type SilentHost } from "../../support/silent-host.ts";
 

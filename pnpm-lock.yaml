@@ -228,32 +228,10 @@ importers:
       jiti:
         specifier: ^2.7.0
         version: 2.7.0
-
-  packages/d1-record:
-    dependencies:
-      '@cloudflare/workers-types':
-        specifier: '>=4'
-        version: 5.20261019.1
-      jiti:
-        specifier: ^2.7.0
-        version: 2.7.0
     devDependencies:
-      '@forestfuture/active-record':
-        specifier: workspace:*
-        version: link:../active-record
-
-  packages/pg-record:
-    dependencies:
-      '@cloudflare/workers-types':
-        specifier: '>=4'
-        version: 5.20261019.1
       '@electric-sql/pglite':
         specifier: ^0.5.14
         version: 0.5.15
-    devDependencies:
-      '@forestfuture/active-record':
-        specifier: workspace:*
-        version: link:../active-record
       pg:
         specifier: ^8.23.1
         version: 8.23.1

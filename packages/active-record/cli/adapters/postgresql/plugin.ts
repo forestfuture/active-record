@@ -1,4 +1,4 @@
-// The Postgres adapter's plugin for the `active-record` command (`@forestfuture/pg-record/cli`, #285).
+// The PostgreSQL adapter's plugin for the `active-record` command (#285), which the command imports itself (#301).
 import { dirname, join } from "node:path";
 import type { CliAdapter } from "@forestfuture/active-record/cli";
 import { readDatabases } from "./config.ts";
@@ -11,7 +11,7 @@ import { schemaOf } from "./schema.ts";
 
 /** Postgres, as the command line sees it: `active-record.jsonc`'s databases, PGlite's schema, and `pg`. */
 export const cli: CliAdapter = {
-  name: "pg",
+  name: "postgresql",
   init,
   databases: readDatabases,
   readSchema: schemaOf,

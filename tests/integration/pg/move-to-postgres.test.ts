@@ -24,26 +24,27 @@ const bin = new URL("../../../node_modules/.bin", import.meta.url).pathname;
 // In the repo, so the app finds this repo's Wrangler, as an app finds its own.
 const scratch = scratchDirs();
 
-/** The app's package.json, with these adapters as its dependencies. */
-function packageJson(cwd: string, adapters: string[]): void {
+/** The app's package.json: the library, and these drivers, as its dependencies (#301). */
+function packageJson(cwd: string, drivers: string[]): void {
   const dependencies = Object.fromEntries(
-    ["@forestfuture/active-record", ...adapters].map((name) => [name, "*"]),
+    ["@forestfuture/active-record", ...drivers].map((name) => [name, "*"]),
   );
   writeFileSync(join(cwd, "package.json"), JSON.stringify({ dependencies }, null, 2));
 }
 
 /**
- * A copy of the Getting started app. Its tsconfig finds every package at its source in this repo,
- * as an app's node_modules would once each is installed; package.json says which are.
+ * A copy of the Getting started app. Its tsconfig finds the library's entries at their source in
+ * this repo, as an app's node_modules would once it's installed; package.json says what is.
  */
 function copyOfTheApp(): string {
   const cwd = scratch("move-");
   cpSync(app, cwd, { recursive: true });
-  packageJson(cwd, ["@forestfuture/d1-record"]);
+  packageJson(cwd, []);
   const paths = {
     ...libraryPaths,
-    "@forestfuture/pg-record": sourcePaths("pg-record/src/index.ts"),
-    "@forestfuture/pg-record/cli": sourcePaths("pg-record/cli/plugin.ts"),
+    "@forestfuture/active-record/postgresql": sourcePaths(
+      "active-record/src/adapters/postgresql/index.ts",
+    ),
   };
   writeFileSync(join(cwd, "tsconfig.json"), JSON.stringify({ compilerOptions: { paths } }));
   return cwd;
@@ -135,9 +136,9 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     ]);
   });
 
-  test("with pg-record installed, the schema regenerates from Postgres migrations, its adapter all that changes", async () => {
+  test("with active-record.jsonc on PostgreSQL, the schema regenerates from Postgres migrations, its adapter all that changes", async () => {
     const onD1Schema = readFileSync(join(cwd, "src/db/schema.ts"), "utf8");
-    packageJson(cwd, ["@forestfuture/d1-record", "@forestfuture/pg-record"]);
+    packageJson(cwd, ["pg"]);
     writeFileSync(
       join(cwd, "active-record.jsonc"),
       readFileSync(join(move, "active-record.jsonc"), "utf8").replaceAll(guideUrl, database.url),
@@ -153,9 +154,12 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
       withoutHash(onD1Schema)
         .replace(
           'import { d1 } from "@forestfuture/active-record/d1";',
-          'import { pg } from "@forestfuture/pg-record";',
+          'import { postgresql } from "@forestfuture/active-record/postgresql";',
         )
-        .replace('adapter: d1({ binding: "DB" })', 'adapter: pg({ binding: "HYPERDRIVE" })'),
+        .replace(
+          'adapter: d1({ binding: "DB" })',
+          'adapter: postgresql({ binding: "HYPERDRIVE" })',
+        ),
     );
   });
 
@@ -223,9 +227,7 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     expect(hedy.rows[0]).toEqual({ n: 1 });
   });
 
-  test("with d1-record removed, the schema is current", async () => {
-    packageJson(cwd, ["@forestfuture/pg-record"]);
-
+  test("after the move, the schema is current", async () => {
     expect(await command(cwd, ["schema", "--check"])).toMatchObject({ code: 0 });
   });
 

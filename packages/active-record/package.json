@@ -36,6 +36,7 @@
     "./adapter": "./src/for-adapters.ts",
     "./cli": "./cli/for-adapters.ts",
     "./d1": "./src/adapters/d1/index.ts",
+    "./postgresql": "./src/adapters/postgresql/index.ts",
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -48,6 +49,7 @@
       "./adapter": "./dist/adapter.mjs",
       "./cli": "./dist/cli.mjs",
       "./d1": "./dist/d1.mjs",
+      "./postgresql": "./dist/postgresql.mjs",
       "./package.json": "./package.json"
     },
     "access": "public"
@@ -59,5 +61,21 @@
   },
   "dependencies": {
     "jiti": "^2.7.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.14",
+    "pg": "^8.23.1"
+  },
+  "peerDependencies": {
+    "@electric-sql/pglite": "^0.5.14",
+    "pg": "^8.23.1"
+  },
+  "peerDependenciesMeta": {
+    "@electric-sql/pglite": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    }
   }
 }

@@ -1,4 +1,4 @@
-// A Postgres schema, or a database, of its own for one of pg-record's test files, on the server DATABASE_URL names.
+// A Postgres schema, or a database, of its own for one of the PostgreSQL adapter's test files, on the server DATABASE_URL names.
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { userInfo } from "node:os";

@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vite-plus/test";
 import { parseColumns } from "../../packages/active-record/cli/generate/columns.ts";
-import { cli } from "../../packages/pg-record/cli/plugin.ts";
+import { cli } from "../../packages/active-record/cli/adapters/postgresql/plugin.ts";
 
-/** The SQL pg-record's plugin writes for a migration, or its error. */
+/** The SQL the PostgreSQL adapter's plugin writes for a migration, or its error. */
 function sqlFor(
   name: string,
   args: string[] = [],
@@ -21,7 +21,7 @@ function sqlFor(
 }
 
 // The generators' SQL on Postgres (#285): its own types, and its keys.
-describe("pg-record's migrations, for g model and g migration", () => {
+describe("the PostgreSQL adapter's migrations, for g model and g migration", () => {
   test("a table: a UUID key, each type, defaults, NOT NULL, indexes, and timestamps", () => {
     expect(
       sqlFor("CreateProducts", [

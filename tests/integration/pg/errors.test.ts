@@ -6,7 +6,10 @@ import {
   RecordNotUnique,
   CheckViolation,
 } from "../../../packages/active-record/src/index.ts";
-import { connect, type Database } from "../../../packages/pg-record/src/index.ts";
+import {
+  connect,
+  type Database,
+} from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 
 class User extends Model.define({
@@ -51,7 +54,7 @@ class Ticket extends Model.define({
 }
 
 // What Postgres's errors say where D1's can't (the constraint-tables allowed difference, #269).
-describe("pg-record's constraint errors", () => {
+describe("the PostgreSQL adapter's constraint errors", () => {
   let schema: PgSchema;
 
   beforeAll(async () => {

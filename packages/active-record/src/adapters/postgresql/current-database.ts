@@ -16,7 +16,7 @@ import { PgDriver } from "./driver.ts";
 /** The Worker's bindings, from `cloudflare:workers`, read once; undefined outside a Worker. */
 let bindings: Promise<WorkersEnv | undefined> | undefined;
 
-/** The `env` a test mocks with pg-record inlined is this module's import, so it's imported here. */
+/** The `env` a test mocks with the PostgreSQL adapter inlined is this module's import, so it's imported here. */
 function workerBindings(): Promise<WorkersEnv | undefined> {
   bindings ??= workersEnv(() => import("cloudflare:workers"));
   return bindings;

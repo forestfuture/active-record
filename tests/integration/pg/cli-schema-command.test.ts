@@ -19,7 +19,7 @@ async function run(cwd: string, options: Parameters<typeof runSchema>[0] = {}) {
 
 // `active-record schema` on a Postgres project (#285).
 describe("active-record schema, on Postgres", pgliteTimeout, () => {
-  test("writes the schema from the migrations, naming pg-record's adapter and the binding", async () => {
+  test("writes the schema from the migrations, naming the PostgreSQL adapter and the binding", async () => {
     const cwd = writePgProject(
       scratch("pg-schema-", true),
       { HYPERDRIVE: {} },
@@ -36,8 +36,10 @@ describe("active-record schema, on Postgres", pgliteTimeout, () => {
       "Wrote src/db/schema.ts (1 table) from migrations/\nWrote src/models/application-record.ts",
     ]);
     const schema = readFileSync(join(cwd, "src/db/schema.ts"), "utf8");
-    expect(schema).toContain('import { pg } from "@forestfuture/pg-record";');
-    expect(schema).toContain('adapter: pg({ binding: "HYPERDRIVE" }),');
+    expect(schema).toContain(
+      'import { postgresql } from "@forestfuture/active-record/postgresql";',
+    );
+    expect(schema).toContain('adapter: postgresql({ binding: "HYPERDRIVE" }),');
     expect(schema).toContain("/** users — last changed by 20261108090503_create_users.sql */");
     expect(schema).toContain('admin: { type: "boolean", null: false, default: () => false },');
     expect((await run(cwd, { check: true })).code).toBe(0);
@@ -57,7 +59,7 @@ describe("active-record schema, on Postgres", pgliteTimeout, () => {
 
     expect(code).toBe(0);
     expect(readFileSync(join(cwd, "src/db/LOGS.ts"), "utf8")).toContain(
-      'adapter: pg({ binding: "LOGS" }),',
+      'adapter: postgresql({ binding: "LOGS" }),',
     );
     expect(readFileSync(join(cwd, "src/db/HYPERDRIVE.ts"), "utf8")).toContain("users");
   });

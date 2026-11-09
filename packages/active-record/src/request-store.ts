@@ -5,7 +5,7 @@ import type { DatabaseExecutor } from "./executor.ts";
 
 /** A database's scope in one `withDatabase` call (a Database scope). */
 export interface DatabaseScope {
-  /** What its driver opened for it (pg-record: the scope's client), handed to each statement. */
+  /** What its driver opened for it (the PostgreSQL adapter: the scope's client), handed to each statement. */
   readonly held: unknown;
   /** Whether its call has returned: a call nested in it after that opens its own. */
   hasEnded: boolean;

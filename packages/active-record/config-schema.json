@@ -13,7 +13,7 @@
       "type": "object",
       "minProperties": 1,
       "additionalProperties": {
-        "oneOf": [{ "$ref": "#/definitions/d1" }, { "$ref": "#/definitions/pg" }]
+        "oneOf": [{ "$ref": "#/definitions/d1" }, { "$ref": "#/definitions/postgresql" }]
       }
     }
   },
@@ -29,11 +29,11 @@
       "required": ["adapter"],
       "additionalProperties": false
     },
-    "pg": {
+    "postgresql": {
       "description": "A Postgres database. `${NAME}` in a connection string reads the variable NAME from the environment.",
       "type": "object",
       "properties": {
-        "adapter": { "description": "The database's adapter.", "const": "pg" },
+        "adapter": { "description": "The database's adapter.", "const": "postgresql" },
         "migrationsDir": {
           "description": "Its migrations folder, relative to this file.",
           "type": "string",

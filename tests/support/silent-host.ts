@@ -1,4 +1,4 @@
-// A host that takes a Postgres client's connection and never answers it, for pg-record's connect timeout (#292).
+// A host that takes a Postgres client's connection and never answers it, for the PostgreSQL adapter's connect timeout (#292).
 import { createServer, type AddressInfo, type Socket } from "node:net";
 
 export interface SilentHost {

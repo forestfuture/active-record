@@ -304,11 +304,16 @@ describe("planning with another adapter's plugin", () => {
 
   // The adapter's factory has the adapter's name, exported from its package (#284).
   test("the schema imports the adapter's factory from its package, and calls it with the binding", async () => {
-    const plan = await planSchema({ ...project(), adapter: { ...stub, name: "pg" } }, false);
+    const plan = await planSchema(
+      { ...project(), adapter: { ...stub, name: "postgresql" } },
+      false,
+    );
     const source = filesOf(plan)[0]!.source;
 
-    expect(source).toContain('import { pg } from "@forestfuture/pg-record";');
-    expect(source).toContain('adapter: pg({ binding: "DB" }),');
+    expect(source).toContain(
+      'import { postgresql } from "@forestfuture/active-record/postgresql";',
+    );
+    expect(source).toContain('adapter: postgresql({ binding: "DB" }),');
     // As a word: a fingerprint is hex, and can hold "d1".
     expect(source).not.toMatch(/\bd1\b/);
   });
@@ -343,7 +348,7 @@ describe("planning with another adapter's plugin", () => {
     const schema = filesOf(written)[0]!.source;
 
     const plan = await planSchema(
-      { ...project({ schema }), adapter: { ...stub, name: "pg" } },
+      { ...project({ schema }), adapter: { ...stub, name: "postgresql" } },
       true,
     );
 

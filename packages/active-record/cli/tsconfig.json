@@ -1,5 +1,6 @@
 {
   // The command runs in Node (not Workers): Node's types.
   "extends": "../../../tsconfig.json",
-  "include": ["."]
+  // pg is typed by the PostgreSQL adapter's own declaration of the part it calls.
+  "include": [".", "../src/adapters/postgresql/pg-module.d.ts"]
 }

@@ -25,8 +25,8 @@ const INTERNAL = [
 ];
 
 /** Each package's published declarations: the core's, then the adapters'. */
-const files = ["active-record/dist/index", "active-record/dist/d1", "pg-record/dist/index"].map(
-  (name) => new URL(`../packages/${name}.d.mts`, import.meta.url),
+const files = ["index", "d1", "postgresql"].map(
+  (name) => new URL(`../packages/active-record/dist/${name}.d.mts`, import.meta.url),
 );
 const problems = [];
 for (const file of files) {

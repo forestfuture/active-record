@@ -59,13 +59,13 @@ describe("active-record.jsonc's JSON Schema", () => {
     expect(unknownKeys(config.databases)).toEqual([]);
   });
 
-  test("takes every setting pg-record reads", () => {
+  test("takes every setting the PostgreSQL adapter reads", () => {
     const settings = /const stringSettings = \[([^\]]*)\]/.exec(
-      read("packages/pg-record/cli/config.ts"),
+      read("packages/active-record/cli/adapters/postgresql/config.ts"),
     )![1]!;
 
     for (const setting of settings.match(/\w+/g)!) {
-      expect(described["pg"]!.properties).toHaveProperty(setting);
+      expect(described["postgresql"]!.properties).toHaveProperty(setting);
     }
   });
 });
