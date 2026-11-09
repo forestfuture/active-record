@@ -149,7 +149,7 @@ describe("Getting started", () => {
       .where({ email: "grace@example.com" })
       .includes("posts")
       .toArray();
-    expect(grace!.loaded("posts").map((post) => post.title)).toEqual(["Hello, D1"]);
+    expect(grace!.loaded("posts").map((post) => post.title)).toEqual(["Hello, world"]);
   });
 
   test("a batch publishes the drafts and destroys a user with their posts, atomically", async () => {
@@ -176,7 +176,7 @@ describe("Getting started", () => {
     const second = await withDatabase(db, paginating.countless);
 
     expect(await response.json()).toMatchObject({
-      records: [{ title: "Day 2" }, { title: "Day 1" }, { title: "Hello, D1" }],
+      records: [{ title: "Day 2" }, { title: "Day 1" }, { title: "Hello, world" }],
       page: 1,
       perPage: 20,
       total: 3,
