@@ -29,6 +29,12 @@ const steps = [
     args: ["deploy", "--dry-run", "--config", "host/wrangler.jsonc"],
     cwd: "site",
   },
+  {
+    name: "redirect deploy dry run",
+    command: wrangler,
+    args: ["deploy", "--dry-run", "--config", "redirect/wrangler.jsonc"],
+    cwd: "site",
+  },
 ];
 
 for (const { name, command = "vp", args, cwd } of steps) {
