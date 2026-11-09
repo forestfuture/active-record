@@ -7,6 +7,9 @@ import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 import { writePgProject, type PgDatabases } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
+// PGlite starts for each schema read, which takes seconds with coverage on.
+const pgliteTimeout = { timeout: 60_000 };
+
 const scratch = scratchDirs();
 
 const createUsers = {
@@ -30,7 +33,7 @@ async function migrated(cwd: string, options: object = {}, typed?: string) {
 }
 
 // `active-record migrate` applies a Postgres database's pending migrations itself (#285).
-describe("migrate, on Postgres", () => {
+describe("migrate, on Postgres", pgliteTimeout, () => {
   let schema: PgSchema;
   beforeAll(async () => {
     schema = await openPgSchema([]);

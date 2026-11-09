@@ -5,6 +5,9 @@ import { runSchema } from "../../../packages/active-record/cli/schema/command.ts
 import { writePgProject } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
+// PGlite starts for each schema read, which takes seconds with coverage on.
+const pgliteTimeout = { timeout: 60_000 };
+
 const scratch = scratchDirs();
 
 /** Runs `active-record schema` in the project, collecting what it prints. */
@@ -15,7 +18,7 @@ async function run(cwd: string, options: Parameters<typeof runSchema>[0] = {}) {
 }
 
 // `active-record schema` on a Postgres project (#285).
-describe("active-record schema, on Postgres", () => {
+describe("active-record schema, on Postgres", pgliteTimeout, () => {
   test("writes the schema from the migrations, naming pg-record's adapter and the binding", async () => {
     const cwd = writePgProject(
       scratch("pg-schema-", true),

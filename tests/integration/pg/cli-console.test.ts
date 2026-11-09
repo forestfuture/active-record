@@ -9,11 +9,14 @@ import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 import { writePgProject } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
+// PGlite starts for each schema read, which takes seconds with coverage on.
+const pgliteTimeout = { timeout: 60_000 };
+
 const scratch = scratchDirs();
 const quiet = () => {};
 
 // The console on a Postgres project (#285): a project generated, migrated and opened by the command.
-describe("console, on Postgres", () => {
+describe("console, on Postgres", pgliteTimeout, () => {
   let schema: PgSchema;
   let cwd: string;
   beforeAll(async () => {
