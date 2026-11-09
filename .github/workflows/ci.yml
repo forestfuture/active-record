@@ -155,9 +155,10 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DOCS_API_TOKEN }}
       # After the guide, so the old host never redirects to a guide that isn't there yet. A
-      # permanent redirect is cached, so it waits until the new host answers: its DNS record is
-      # added by hand (docs/agents/cloudflare-tokens.md).
-      - run: curl --fail --silent --show-error --head --retry 5 --retry-all-errors https://active-record.forestfuture.dev/
+      # permanent redirect is cached, so it waits until the new host's DNS record exists, which is
+      # added by hand (docs/agents/cloudflare-tokens.md). It looks the name up rather than fetching
+      # the page, since Cloudflare answers a runner's request with a 403.
+      - run: getent ahosts active-record.forestfuture.dev
       - run: wrangler deploy --config redirect/wrangler.jsonc
         working-directory: site
         env:
