@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { cpSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { cpSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { afterAll, beforeAll, describe, expect, onTestFinished, test, vi } from "vite-plus/test";
 import { libraryPaths } from "../../support/library-paths.ts";
 import { openPgDatabase, type PgDatabase } from "../../support/pg.ts";
@@ -13,7 +13,7 @@ const app = new URL("../../../site/snippets/getting-started/", import.meta.url).
 // The files the guide writes for Postgres.
 const move = new URL("../../../site/snippets/move-to-postgres/", import.meta.url).pathname;
 /** The local database the guide's files name, which the test's own database stands in for. */
-const guideUrl = "postgres://localhost:5432/my_app";
+const guideUrl = "postgres://user:password@localhost:5432/my_app";
 
 /** This repo's installed commands, such as wrangler, as an app's are on its scripts' PATH. */
 const bin = new URL("../../../node_modules/.bin", import.meta.url).pathname;
@@ -57,6 +57,19 @@ function d1Rows(cwd: string, sql: string): Record<string, unknown>[] {
 /** Each post's id, owner, title and creation time, oldest first, as text. */
 const postsQuery = "SELECT id, user_id, title, created_at FROM posts ORDER BY created_at, id";
 
+/** A URL with a password, which Hyperdrive requires, even for a server that asks for none. */
+function withPassword(url: string): string {
+  const withOne = new URL(url);
+  if (withOne.password === "") withOne.password = "unused";
+  return withOne.toString();
+}
+
+/** The files in `dir`, by their path in it. */
+const filesIn = (dir: string) =>
+  readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => relative(dir, join(entry.parentPath, entry.name)));
+
 /** A generated schema without the line naming its migrations' hash. */
 const withoutHash = (schema: string) => schema.replace(/^\/\/ schema: \w+$/m, "");
 
@@ -65,6 +78,8 @@ const withoutHash = (schema: string) => schema.replace(/^\/\/ schema: \w+$/m, ""
 describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000 }, () => {
   let cwd: string;
   let onD1: Served;
+  let onPostgres: Served;
+  let listedOnD1: unknown;
   let database: PgDatabase;
 
   beforeAll(async () => {
@@ -73,6 +88,7 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
   });
   afterAll(async () => {
     await onD1?.dispose();
+    await onPostgres?.dispose();
     await database?.dispose();
   });
 
@@ -88,6 +104,7 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
       signups.push((await onD1.fetch("POST", { email })).status);
     }
     const listed = await onD1.fetch("GET");
+    listedOnD1 = listed.body;
 
     expect(signups).toEqual([201, 201, 422]);
     expect((listed.body as { email: string }[]).map((user) => user.email)).toEqual([
@@ -154,6 +171,53 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
       { email: "ada@example.com", is_active: true },
       { email: "grace@example.com", is_active: true },
     ]);
+  });
+
+  test("on Hyperdrive, the same code lists the same users, and signs up more", async () => {
+    writeFileSync(
+      join(cwd, "wrangler.jsonc"),
+      readFileSync(join(move, "wrangler.jsonc"), "utf8").replaceAll(
+        guideUrl,
+        withPassword(database.url),
+      ),
+    );
+    packageJson(cwd, ["@forestfuture/pg-record"]);
+    // With d1-record removed, the command finds pg-record without --adapter.
+    expect(await command(cwd, ["schema", "--check"])).toMatchObject({ code: 0 });
+    onPostgres = await serve(cwd, { hyperdrives: { HYPERDRIVE: withPassword(database.url) } });
+
+    const listed = await onPostgres.fetch("GET");
+    const signedUp = await onPostgres.fetch("POST", { email: "Hedy@example.com" });
+    const again = await onPostgres.fetch("POST", { email: "hedy@example.com" });
+    const after = await onPostgres.fetch("GET");
+
+    expect(listed).toEqual({ status: 200, body: listedOnD1 });
+    expect([signedUp.status, again]).toEqual([
+      201,
+      { status: 422, body: { errors: ["Email has already been taken"] } },
+    ]);
+    expect((after.body as { email: string }[]).map((user) => user.email)).toEqual([
+      "hedy@example.com",
+      "grace@example.com",
+      "ada@example.com",
+    ]);
+  });
+
+  test("the move changed only the migrations, the schema, the Wrangler config and the packages", () => {
+    const moved = new Set(["src/db/schema.ts", "wrangler.jsonc"]);
+    const unchanged = filesIn(app).filter(
+      (file) => !file.startsWith("migrations/") && !moved.has(file),
+    );
+
+    for (const file of unchanged) {
+      expect([file, readFileSync(join(cwd, file), "utf8")]).toEqual([
+        file,
+        readFileSync(join(app, file), "utf8"),
+      ]);
+    }
+    expect(unchanged).toEqual(
+      expect.arrayContaining(["src/index.ts", "src/models/user.ts", "src/models/post.ts"]),
+    );
   });
 });
 
