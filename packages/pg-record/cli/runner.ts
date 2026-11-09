@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { connected, type Client } from "./client.ts";
 import { migrationsTable } from "./config.ts";
 import { hostOf } from "./urls.ts";
+import { ownTransactions } from "./transaction-control.ts";
 import { versionsOf } from "./versions.ts";
 
 /** A migration file, and the version its name starts with. */
@@ -23,11 +24,12 @@ export function migrationFiles(dir: string): MigrationFile[] | string {
   }
   const versions = versionsOf(names);
   if (typeof versions === "string") return versions;
-  return [...versions].map(([file, version]) => ({
+  const files = [...versions].map(([file, version]) => ({
     file,
     version,
     sql: readFileSync(join(dir, file), "utf8"),
   }));
+  return ownTransactions(files.map(({ file, sql }) => ({ name: file, sql }))) ?? files;
 }
 
 /** One lock per database and schema: a run while another holds it is refused, as Rails refuses it. */
