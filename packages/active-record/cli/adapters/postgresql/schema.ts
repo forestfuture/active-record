@@ -9,6 +9,7 @@ import {
 import { columnsByTable, definitions, type Column, type Query } from "./catalog.ts";
 import { convert } from "./conventions.ts";
 import { migrationsTable } from "./config.ts";
+import { pgliteModule } from "./drivers.ts";
 import { pgliteExtensions } from "./extensions.ts";
 import { temporaryDatabase } from "./server-schema.ts";
 import { connectionString, hostOf } from "./urls.ts";
@@ -22,10 +23,14 @@ export interface Scratch {
   close: () => Promise<void>;
 }
 
-/** An in-memory PGlite, loaded when a schema is first read, with the extensions it has builds of. */
-async function pglite(migrations: readonly Migration[]): Promise<Scratch> {
-  const { PGlite } = await import("@electric-sql/pglite");
-  const lite = new PGlite({ extensions: await pgliteExtensions(migrations) });
+/**
+ * An in-memory PGlite, loaded when a schema is first read, with the extensions it has builds of;
+ * or what to install.
+ */
+async function pglite(migrations: readonly Migration[]): Promise<Scratch | string> {
+  const loaded = await pgliteModule();
+  if (typeof loaded === "string") return loaded;
+  const lite = new loaded.PGlite({ extensions: await pgliteExtensions(migrations) });
   return {
     exec: async (sql) => void (await lite.exec(sql)),
     query: async (sql) => (await lite.query<Record<string, unknown>>(sql)).rows,
@@ -171,6 +176,8 @@ export async function schemaOf(
   const refusal = typeof versions === "string" ? versions : ownTransactions(migrations);
   if (refusal !== undefined) return { ok: false, errors: [refusal] };
   const table = options.migrationsTable ?? migrationsTable;
-  const read = await readOn(await pglite(migrations), migrations, table);
+  const scratch = await pglite(migrations);
+  if (typeof scratch === "string") return { ok: false, errors: [scratch] };
+  const read = await readOn(scratch, migrations, table);
   return "ok" in read ? read : readOnServer(migrations, options, read);
 }
