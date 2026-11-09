@@ -1,6 +1,6 @@
 // Each published tarball holds exactly its files: the core with its entries, the `active-record`
-// command, its docs for agents and its manifest; the D1 adapter with its build and its plugin. The adapter imports the
-// core only through its entries, never a copy of it. Run with `vp run check:package`, after
+// command, the D1 adapter, its docs for agents and its manifest. pg-record imports the core only
+// through its entries, never a copy of it. Run with `vp run check:package`, after
 // `vp run build` and `vp run docs:build` (as CI does): it packs what's built, skipping `prepack`.
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
@@ -10,6 +10,7 @@ const expected = {
   "active-record": [
     "LICENSE",
     "README.md",
+    "config-schema.json",
     "dist/<chunk>.d.mts",
     "dist/<chunk>.mjs",
     "dist/adapter.d.mts",
@@ -18,20 +19,13 @@ const expected = {
     "dist/cli.mjs",
     "dist/command.d.mts",
     "dist/command.mjs",
+    "dist/d1.d.mts",
+    "dist/d1.mjs",
     "dist/index.d.mts",
     "dist/index.mjs",
     "llms-full.txt",
     "package.json",
     "skills/active-record/SKILL.md",
-  ],
-  "d1-record": [
-    "LICENSE",
-    "README.md",
-    "dist/cli.d.mts",
-    "dist/cli.mjs",
-    "dist/index.d.mts",
-    "dist/index.mjs",
-    "package.json",
   ],
 };
 
@@ -68,7 +62,7 @@ const allowed = [
   "@forestfuture/active-record/adapter",
   "@forestfuture/active-record/cli",
 ];
-for (const adapter of ["d1-record", "pg-record"]) {
+for (const adapter of ["pg-record"]) {
   const built = readdirSync(new URL(`../packages/${adapter}/dist/`, import.meta.url))
     .filter((file) => file.endsWith(".mjs"))
     .map((file) =>

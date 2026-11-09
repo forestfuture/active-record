@@ -4,7 +4,7 @@
 // D1 multiplies.
 import { Miniflare } from "miniflare";
 import { hasMany, Model, sql } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/d1-record/src/index.ts";
+import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 
 const AUTHORS = 200,
   POSTS = 10,

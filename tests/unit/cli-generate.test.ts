@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 import { parseColumns } from "../../packages/active-record/cli/generate/columns.ts";
-import { migrationFor } from "../../packages/d1-record/cli/migration.ts";
+import { migrationFor } from "../../packages/active-record/cli/adapters/d1/migration.ts";
 import { migrationFileName } from "../../packages/active-record/cli/generate/migration-file.ts";
 import { migrationNameError, modelName } from "../../packages/active-record/cli/generate/names.ts";
 import {
@@ -8,7 +8,7 @@ import {
   modelFileName,
   modelSource,
 } from "../../packages/active-record/cli/generate/model-file.ts";
-import { schemaOf } from "../../packages/d1-record/cli/schema.ts";
+import { schemaOf } from "../../packages/active-record/cli/adapters/d1/schema.ts";
 
 /** Columns as parsed, or the errors joined, for short assertions. */
 function columns(...args: string[]) {
@@ -213,7 +213,7 @@ ALTER TABLE products DROP COLUMN code;
 // The plugin notes a key type it guessed (#285); a removed column's type isn't written.
 describe("D1's notes on a migration's references", () => {
   test("a reference to a table not in the migrations yet is noted, but not when it's removed", async () => {
-    const { cli } = await import("../../packages/d1-record/cli/plugin.ts");
+    const { cli } = await import("../../packages/active-record/cli/adapters/d1/plugin.ts");
     const change = (name: string) => ({
       name,
       columns: columns("user:references"),

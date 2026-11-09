@@ -122,7 +122,8 @@ export default defineConfig({
         },
       },
       {
-        // The core knows a database only through an Adapter, so it never imports one (ADR-0016).
+        // The core knows a database only through an Adapter, so it never imports one (ADR-0016):
+        // the command loads its adapters' plugins by name, with import() (cli/project/adapters.ts).
         files: ["packages/active-record/**/*.ts"],
         rules: {
           "no-restricted-imports": [
@@ -131,9 +132,8 @@ export default defineConfig({
               patterns: [
                 {
                   group: [
-                    "@forestfuture/d1-record",
-                    "@forestfuture/d1-record/*",
-                    "**/d1-record/**",
+                    "**/adapters/**",
+                    "@forestfuture/active-record/d1",
                     "@forestfuture/pg-record",
                     "@forestfuture/pg-record/*",
                     "**/pg-record/**",
@@ -146,17 +146,31 @@ export default defineConfig({
         },
       },
       {
-        // An adapter reaches the core only as an app's install would: through its entry points.
-        files: ["packages/d1-record/**/*.ts", "packages/pg-record/**/*.ts"],
+        // The registry of adapters, the one module that loads their plugins, with import().
+        files: ["packages/active-record/cli/project/adapters.ts"],
+        rules: { "no-restricted-imports": "off" },
+      },
+      {
+        // An adapter reaches the core only as an app's install would, through its entries, and
+        // never another adapter: its imports stay in its own folder (#301).
+        files: [
+          "packages/active-record/src/adapters/**/*.ts",
+          "packages/active-record/cli/adapters/**/*.ts",
+          "packages/pg-record/**/*.ts",
+        ],
         rules: {
           "no-restricted-imports": [
             "error",
             {
               patterns: [
                 {
-                  group: ["**/active-record/src/**", "**/active-record/cli/**"],
+                  group: ["../*", "../**", "**/active-record/src/**", "**/active-record/cli/**"],
                   message:
                     "Import the core from @forestfuture/active-record, or its /adapter or /cli entry.",
+                },
+                {
+                  group: ["@forestfuture/active-record/d1", "@forestfuture/pg-record*"],
+                  message: "An adapter never imports another adapter.",
                 },
               ],
             },

@@ -8,7 +8,7 @@ import {
   NoDatabase,
   type HasMany,
 } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/d1-record/src/index.ts";
+import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 import { Post } from "../fixtures/models/post.ts";
 
 // No D1 needed: these checks happen when a Model is first used.

@@ -9,7 +9,7 @@ import {
   vi,
 } from "vite-plus/test";
 import { gte, Model, withDatabase } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/d1-record/src/index.ts";
+import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 import {
   Article,
   Author,

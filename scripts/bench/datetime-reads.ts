@@ -3,7 +3,7 @@
 // datetimes are read.
 import { databaseExecutor } from "../../packages/active-record/src/database.ts";
 import { Model } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/d1-record/src/index.ts";
+import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 import { hydrate, type ModelClass } from "../../packages/active-record/src/model.ts";
 
 const ROWS = 10_000;

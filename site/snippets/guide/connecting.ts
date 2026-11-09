@@ -1,5 +1,10 @@
 import { batch, Model, withDatabase } from "@forestfuture/active-record";
-import { connect, withSession, type Database, type QueryListener } from "@forestfuture/d1-record";
+import {
+  connect,
+  withSession,
+  type Database,
+  type QueryListener,
+} from "@forestfuture/active-record/d1";
 import { env as workerEnv } from "cloudflare:workers";
 import { schema } from "../db/schema";
 import { Post, User } from "../getting-started/models";

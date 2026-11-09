@@ -5,7 +5,7 @@ import {
   Model,
   RecordNotUnique,
 } from "../../packages/active-record/src/index.ts";
-import { d1 } from "../../packages/d1-record/src/index.ts";
+import { d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;

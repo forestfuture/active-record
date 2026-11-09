@@ -16,8 +16,6 @@
           "tsconfig.json",
           "packages/active-record/src/tsconfig.json",
           "packages/active-record/cli/tsconfig.json",
-          "packages/d1-record/src/tsconfig.json",
-          "packages/d1-record/cli/tsconfig.json",
           "packages/pg-record/src/tsconfig.json",
           "tests/tsconfig.json",
         ],
@@ -26,10 +24,9 @@
       // tests/integration/cli-console-command.test.ts lists a process's children with it.
       "ignoreBinaries": ["pgrep"],
     },
-    "packages/active-record": {},
-    "packages/d1-record": {
-      // Provided by the Workers runtime (#77), and its types, an optional peer the root installs.
-      "ignoreDependencies": ["cloudflare", "@cloudflare/workers-types"],
+    "packages/active-record": {
+      // Provided by the Workers runtime (#77) to the D1 adapter.
+      "ignoreDependencies": ["cloudflare"],
     },
     "packages/pg-record": {
       // Provided by the Workers runtime, and its types, an optional peer the root installs.

@@ -15,7 +15,7 @@ import {
   sql,
   type TableAttributes,
 } from "../../packages/active-record/src/index.ts";
-import { d1, connect, withSession } from "../../packages/d1-record/src/index.ts";
+import { d1, connect, withSession } from "../../packages/active-record/src/adapters/d1/index.ts";
 
 class User extends Model.define({
   id: { type: "integer", null: false },

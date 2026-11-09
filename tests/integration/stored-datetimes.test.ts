@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vite-plus/test";
 import { Model } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/d1-record/src/index.ts";
+import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
 // Datetime text other tools leave in a SQLite DATETIME column. The rest are in tests/conformance.

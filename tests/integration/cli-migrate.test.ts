@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { describe, expect, test } from "vite-plus/test";
 import { runMigrate } from "../../packages/active-record/cli/migrate/command.ts";
-import { cli } from "../../packages/d1-record/cli/plugin.ts";
+import { cli } from "../../packages/active-record/cli/adapters/d1/plugin.ts";
 import { d1Config } from "../support/d1-config.ts";
 import { scratchDirs } from "../support/scratch.ts";
 

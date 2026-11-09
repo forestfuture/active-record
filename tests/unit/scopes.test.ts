@@ -6,7 +6,7 @@ import {
   type Relation,
   type ScopeStatic,
 } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/d1-record/src/index.ts";
+import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 
 class User extends Model.define({
   id: { type: "integer", null: false },

@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vite-plus/test";
-import { connect } from "../../packages/d1-record/src/index.ts";
+import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 import {
   assignedRefusal,
   isOfType,

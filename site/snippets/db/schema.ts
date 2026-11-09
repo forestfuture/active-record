@@ -1,7 +1,7 @@
 // As `active-record schema` generates it, for the guide's examples (their Models are declared in
 // several files, so it's kept by hand rather than generated).
 import type { TableAttributes } from "@forestfuture/active-record";
-import { d1 } from "@forestfuture/d1-record";
+import { d1 } from "@forestfuture/active-record/d1";
 
 /** billing_accounts */
 export const billingAccounts = {

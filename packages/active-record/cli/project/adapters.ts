@@ -1,14 +1,29 @@
-// Which adapter a project uses, as its `active-record.jsonc` names it, and that adapter's command line plugin, loaded from the project's own install (#278, #301).
+// Which adapter a project uses, as its `active-record.jsonc` names it, and that adapter's command line plugin (#278, #301).
 import { basename, join } from "node:path";
 import type { CliAdapter, ProjectAdapter, ProjectDatabases } from "../adapter.ts";
 import { projectDatabases } from "./config-file.ts";
 import { isMissing, projectJiti } from "./load.ts";
 import { listed } from "./names.ts";
 
-/** Each adapter a database's `adapter` names, and its package. */
-const adapters: Readonly<Record<string, string>> = {
-  d1: "@forestfuture/d1-record",
-  pg: "@forestfuture/pg-record",
+/** An adapter the command knows: the entry its factory is imported from, and its plugin. */
+interface Registered {
+  entry: string;
+  plugin: (cwd: string) => Promise<CliAdapter | string>;
+}
+
+/**
+ * Each adapter a database's `adapter` names. A plugin that ships with the command is its own
+ * import, loaded only when it's used.
+ */
+const adapters: Readonly<Record<string, Registered>> = {
+  d1: {
+    entry: "@forestfuture/active-record/d1",
+    plugin: async () => (await import("../adapters/d1/plugin.ts")).cli,
+  },
+  pg: {
+    entry: "@forestfuture/pg-record",
+    plugin: (cwd) => installedPlugin(cwd, "@forestfuture/pg-record"),
+  },
 };
 
 /** The adapters' names, in the registry's order. */
@@ -17,9 +32,9 @@ export const adapterNames: readonly string[] = Object.keys(adapters);
 /** The adapters' names, as a message lists them. */
 const names = () => listed(adapterNames);
 
-/** The package an adapter's plugin came from, as the registry names it. */
-export function adapterPackage(adapter: Pick<CliAdapter, "name">): string {
-  return adapters[adapter.name] ?? adapter.name;
+/** The entry an adapter's factory and `connect` are imported from, as the registry names it. */
+export function adapterEntry(adapter: Pick<CliAdapter, "name">): string {
+  return adapters[adapter.name]?.entry ?? adapter.name;
 }
 
 /** What's wrong with a database's `adapter`, if anything. */
@@ -48,11 +63,11 @@ function adapterNamed(project: ProjectDatabases): string | { error: string } {
 }
 
 /**
- * The adapter's plugin, from the project's copy of its `/cli`, found as the project finds it (its
- * `node_modules`, or a `tsconfig.json` path); or why it can't be loaded.
+ * An adapter's plugin from the project's copy of its package's `/cli`, found as the project finds
+ * it (its `node_modules`, or a `tsconfig.json` path); or why it can't be loaded.
  */
-export async function pluginOf(cwd: string, name: string): Promise<CliAdapter | string> {
-  const entry = `${adapters[name]}/cli`;
+async function installedPlugin(cwd: string, pkg: string): Promise<CliAdapter | string> {
+  const entry = `${pkg}/cli`;
   try {
     const source = `export { cli } from "${entry}";`;
     const filename = join(cwd, "active-record-adapter.ts");
@@ -61,11 +76,16 @@ export async function pluginOf(cwd: string, name: string): Promise<CliAdapter | 
     };
     return loaded.cli;
   } catch (error) {
-    if (isMissing(error, entry) || isMissing(error, adapters[name]!)) {
-      return `${adapters[name]} isn't installed here (install it, then try again)`;
+    if (isMissing(error, entry) || isMissing(error, pkg)) {
+      return `${pkg} isn't installed here (install it, then try again)`;
     }
     return `Couldn't load ${entry}: ${(error as Error).message}`;
   }
+}
+
+/** The plugin of the adapter `name`, or why it can't be loaded. */
+export function pluginOf(cwd: string, name: string): Promise<CliAdapter | string> {
+  return adapters[name]!.plugin(cwd);
 }
 
 /**

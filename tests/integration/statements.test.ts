@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import { Model, RecordNotUnique } from "../../packages/active-record/src/index.ts";
-import { connect, type QueryEvent } from "../../packages/d1-record/src/index.ts";
+import { connect, type QueryEvent } from "../../packages/active-record/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
 
 // Statements on D1 alone: its meta, and a SQLite trigger. The rest are in tests/conformance.

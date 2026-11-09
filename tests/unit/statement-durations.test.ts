@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { d1Adapter } from "../../packages/d1-record/src/adapter.ts";
+import { d1Adapter } from "../../packages/active-record/src/adapters/d1/adapter.ts";
 import type { Driver, StatementResult } from "../../packages/active-record/src/driver.ts";
 import { DatabaseExecutor, type QueryEvent } from "../../packages/active-record/src/executor.ts";
 import type { CompiledSql } from "../../packages/active-record/src/compiler.ts";

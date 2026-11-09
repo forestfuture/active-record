@@ -2,7 +2,7 @@
 // Run with `vp run bench:ordered-reads` before and after a change to how they're compiled.
 import { Miniflare } from "miniflare";
 import { Model } from "../../packages/active-record/src/index.ts";
-import { connect, type QueryEvent } from "../../packages/d1-record/src/index.ts";
+import { connect, type QueryEvent } from "../../packages/active-record/src/adapters/d1/index.ts";
 
 class Post extends Model.define({
   id: { type: "string", null: false },

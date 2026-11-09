@@ -35,6 +35,7 @@
     ".": "./src/index.ts",
     "./adapter": "./src/for-adapters.ts",
     "./cli": "./cli/for-adapters.ts",
+    "./d1": "./src/adapters/d1/index.ts",
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -46,6 +47,7 @@
       ".": "./dist/index.mjs",
       "./adapter": "./dist/adapter.mjs",
       "./cli": "./dist/cli.mjs",
+      "./d1": "./dist/d1.mjs",
       "./package.json": "./package.json"
     },
     "access": "public"
