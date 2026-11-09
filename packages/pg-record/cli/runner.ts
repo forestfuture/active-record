@@ -45,7 +45,7 @@ export function migrationFiles(dir: string): MigrationFile[] | string {
   return versioned(dir, names.sort(byVersion));
 }
 
-/** One lock per database and schema, so two runs at once take turns. */
+/** One lock per database and schema: a run while another holds it is refused, as Rails refuses it. */
 const lock = `hashtext('active-record migrate ' || current_database() || '.' || current_schema())`;
 
 /** The versions already applied, once the table that records them is there. */
@@ -78,7 +78,7 @@ async function applyOne(
 }
 
 /** Applies the files not applied yet, saying each; false once one fails, and none after it run. */
-async function applyMigrationFile(
+async function applyPending(
   client: Client,
   files: readonly MigrationFile[],
   say: (line: string) => void,
@@ -116,8 +116,12 @@ export async function runMigrations(
     return 1;
   }
   try {
-    await client.query({ text: `SELECT pg_advisory_lock(${lock})` });
-    return (await applyMigrationFile(client, files, say)) ? 0 : 1;
+    const { rows } = await client.query({ text: `SELECT pg_try_advisory_lock(${lock}) AS locked` });
+    if (rows[0]?.["locked"] !== true) {
+      say("Another migrate is running on this database; run it again once that one's done");
+      return 1;
+    }
+    return (await applyPending(client, files, say)) ? 0 : 1;
   } catch (error) {
     say(`Couldn't take the migrations' lock: ${(error as Error).message}`);
     return 1;

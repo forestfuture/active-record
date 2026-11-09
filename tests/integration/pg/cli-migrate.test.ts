@@ -108,13 +108,23 @@ describe("migrate, on Postgres", pgliteTimeout, () => {
     expect(rows).toEqual([{ posts: null }]);
   });
 
-  test("two at once apply each migration once", async () => {
-    const cwd = project(createUsers);
+  test("refuses while another migrate holds the database, as Rails does", async () => {
+    const holder = await schema.pool.connect();
+    const lock =
+      "hashtext('active-record migrate ' || current_database() || '.' || current_schema())";
+    await holder.query({ text: `SELECT pg_advisory_lock(${lock})` });
+    try {
+      const { code, printed } = await migrated(project(createUsers));
 
-    const both = await Promise.all([migrated(cwd), migrated(cwd)]);
-
-    expect(both.map(({ code }) => code)).toEqual([0, 0]);
-    expect(await versions()).toEqual(["20261108090503", "20261108090504"]);
+      expect([code, printed]).toEqual([
+        1,
+        "Local database DB (active_record_test on localhost)\nAnother migrate is running on this database; run it again once that one's done\n",
+      ]);
+    } finally {
+      await holder.query({ text: `SELECT pg_advisory_unlock(${lock})` });
+      holder.release();
+    }
+    expect((await migrated(project(createUsers))).code).toBe(0);
   });
 
   test("a migration whose file name has no version is refused before any runs", async () => {
