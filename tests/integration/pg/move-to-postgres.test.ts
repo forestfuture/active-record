@@ -216,6 +216,11 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
       "grace@example.com",
       "ada@example.com",
     ]);
+    // Signed up on Postgres, not on the D1 binding still beside it.
+    const hedy = await database.pool.query({
+      text: "SELECT count(*)::int AS n FROM users WHERE email = 'hedy@example.com'",
+    });
+    expect(hedy.rows[0]).toEqual({ n: 1 });
   });
 
   test("with d1-record removed, the command finds pg-record without --adapter", async () => {
