@@ -75,10 +75,9 @@ describe("Getting started", () => {
     onTestFinished(() => void vi.useRealTimers());
     // In the repo, so the Models g model writes find this repo's library, as an app's do.
     const fresh = scratch("getting-started-");
-    writeFileSync(
-      join(fresh, "wrangler.jsonc"),
-      readFileSync(new URL("wrangler.jsonc", gettingStarted)),
-    );
+    for (const config of ["wrangler.jsonc", "active-record.jsonc"]) {
+      writeFileSync(join(fresh, config), readFileSync(new URL(config, gettingStarted)));
+    }
     const quiet = () => {};
     await runGenerate(
       {

@@ -8,11 +8,15 @@ import { scratchDirs } from "../support/scratch.ts";
 
 const scratch = scratchDirs();
 
-/** A project outside the repo: its files by path, D1's plugin found through tsconfig paths. */
+/** pg-record's plugin, at its source in this repo, as a tsconfig `paths` entry. */
+const pgPlugin = [new URL("../../packages/pg-record/cli/plugin.ts", import.meta.url).pathname];
+
+/** A project outside the repo: its files by path, each adapter's plugin found through tsconfig paths. */
 function project(files: Record<string, string>): string {
   const cwd = scratch("adapters-", true);
+  const paths = { ...libraryPaths, "@forestfuture/pg-record/cli": pgPlugin };
   const all = {
-    "tsconfig.json": JSON.stringify({ compilerOptions: { baseUrl: ".", paths: libraryPaths } }),
+    "tsconfig.json": JSON.stringify({ compilerOptions: { baseUrl: ".", paths } }),
     ...files,
   };
   for (const [path, text] of Object.entries(all)) {
@@ -22,35 +26,107 @@ function project(files: Record<string, string>): string {
   return cwd;
 }
 
-/** A stand-in Postgres adapter, installed in the project's node_modules with a plugin of its own. */
-const pgInstalled = {
-  "node_modules/@forestfuture/pg-record/package.json": JSON.stringify({
-    name: "@forestfuture/pg-record",
-    type: "module",
-    exports: { "./cli": "./cli.js" },
-  }),
-  "node_modules/@forestfuture/pg-record/cli.js": 'export const cli = { name: "pg" };',
-};
+/** An `active-record.jsonc` declaring these databases. */
+const config = (databases: Record<string, unknown>) => JSON.stringify({ databases });
 
-const manifest = (...packages: string[]) =>
-  JSON.stringify({ dependencies: Object.fromEntries(packages.map((name) => [name, "*"])) });
+const wrangler = (...bindings: string[]) =>
+  JSON.stringify({ d1_databases: bindings.map((binding) => ({ binding, database_id: "x" })) });
 
-/** The adapter's name, or what the command would print. */
-async function found(cwd: string, named?: string): Promise<string> {
-  const adapter = await loadAdapter(cwd, named);
-  return typeof adapter === "string" ? adapter : `adapter ${adapter.name}`;
+/** The adapter's name and its databases' bindings, or what the command would print. */
+async function found(cwd: string, configPath?: string): Promise<string> {
+  const adapter = await loadAdapter(cwd, configPath);
+  if (typeof adapter === "string") return adapter;
+  const databases = adapter.databases();
+  if (!databases.ok) return `adapter ${adapter.name}: ${databases.error}`;
+  return `adapter ${adapter.name}: ${databases.databases.map((each) => each.binding).join(", ")}`;
 }
 
-// The command finds its adapter from the project (#278), so one command works on every database.
+// The project's active-record.jsonc names each database's adapter, as Rails' database.yml does (#301).
 describe("the adapter the command uses", () => {
-  test("is the one the project's package.json lists", async () => {
-    const cwd = project({ "package.json": manifest("@forestfuture/d1-record"), ...pgInstalled });
+  test("is the one active-record.jsonc names", async () => {
+    const d1 = project({
+      "active-record.jsonc": config({ DB: { adapter: "d1" } }),
+      "wrangler.jsonc": wrangler("DB"),
+    });
+    const pg = project({
+      "active-record.jsonc": config({ HYPERDRIVE: { adapter: "pg", url: "postgres://x/y" } }),
+    });
 
-    expect(await found(cwd)).toBe("adapter d1");
+    expect(await found(d1)).toBe("adapter d1: DB");
+    expect(await found(pg)).toBe("adapter pg: HYPERDRIVE");
   });
 
-  test("with none listed, is the one installed", async () => {
-    expect(await found(project({ "package.json": "{}" }))).toBe("adapter d1");
+  test("--config names another file, beside which D1 finds Wrangler's config", async () => {
+    const cwd = project({
+      "app/settings.jsonc": config({ DB: { adapter: "d1" } }),
+      "app/wrangler.jsonc": wrangler("DB"),
+    });
+
+    expect(await found(cwd, "app/settings.jsonc")).toBe("adapter d1: DB");
+    expect(await found(cwd, "app/missing.jsonc")).toBe("app/missing.jsonc isn't there");
+  });
+
+  test("without active-record.jsonc, says to run init", async () => {
+    const cwd = project({ "wrangler.jsonc": wrangler("DB") });
+
+    expect(await found(cwd)).toBe(
+      "No active-record.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one",
+    );
+  });
+
+  test("a file with no databases, or one that isn't an object, says so", async () => {
+    expect(await found(project({ "active-record.jsonc": "{}" }))).toBe(
+      "active-record.jsonc has no databases",
+    );
+    expect(await found(project({ "active-record.jsonc": config({ DB: "d1" }) }))).toBe(
+      "active-record.jsonc: databases.DB isn't an object",
+    );
+    expect(await found(project({ "active-record.jsonc": "[]" }))).toBe(
+      "active-record.jsonc isn't an object",
+    );
+    expect(await found(project({ "active-record.jsonc": "{" }))).toMatch(
+      /^active-record\.jsonc couldn't be read: /,
+    );
+  });
+
+  test("a database without an adapter, or with one that isn't one, says which there are", async () => {
+    expect(await found(project({ "active-record.jsonc": config({ DB: {} }) }))).toBe(
+      'active-record.jsonc: databases.DB has no adapter (add "adapter": "d1" or "pg")',
+    );
+    expect(
+      await found(project({ "active-record.jsonc": config({ DB: { adapter: "mysql" } }) })),
+    ).toBe('active-record.jsonc: databases.DB has the adapter "mysql", which isn\'t d1 or pg');
+  });
+
+  // One adapter per project, for now (#305).
+  test("databases on different adapters are refused", async () => {
+    const cwd = project({
+      "active-record.jsonc": config({ DB: { adapter: "d1" }, HYPERDRIVE: { adapter: "pg" } }),
+    });
+
+    expect(await found(cwd)).toBe(
+      "active-record.jsonc names more than one adapter (d1 for DB, pg for HYPERDRIVE); a project uses one, for now",
+    );
+  });
+
+  test("D1's databases are the ones it names, read from Wrangler's config", async () => {
+    const some = project({
+      "active-record.jsonc": config({ LOGS: { adapter: "d1" } }),
+      "wrangler.jsonc": wrangler("DB", "LOGS"),
+    });
+    const missing = project({
+      "active-record.jsonc": config({ DB: { adapter: "d1" }, LOGS: { adapter: "d1" } }),
+      "wrangler.jsonc": wrangler("DB"),
+    });
+    const noWrangler = project({ "active-record.jsonc": config({ DB: { adapter: "d1" } }) });
+
+    expect(await found(some)).toBe("adapter d1: LOGS");
+    expect(await found(missing)).toBe(
+      "adapter d1: active-record.jsonc names LOGS, which isn't in wrangler.jsonc's d1_databases",
+    );
+    expect(await found(noWrangler)).toBe(
+      "adapter d1: No wrangler.jsonc, wrangler.json or wrangler.toml beside active-record.jsonc",
+    );
   });
 
   test("D1's plugin runs on this Node, which has node:sqlite", () => {
@@ -64,71 +140,18 @@ describe("the adapter the command uses", () => {
       .spyOn(process, "getBuiltinModule")
       .mockImplementation(((id: string) =>
         id === "node:sqlite" ? undefined : builtin(id)) as never);
+    const cwd = project({
+      "active-record.jsonc": config({ DB: { adapter: "d1" } }),
+      "wrangler.jsonc": wrangler("DB"),
+    });
 
     try {
-      expect(await found(project({ "package.json": "{}" }))).toBe(
+      expect(await found(cwd)).toBe(
         "@forestfuture/d1-record needs Node 22.13 or later (23.4 on Node 23), for node:sqlite " +
           `(this is Node ${process.versions.node})`,
       );
     } finally {
       spy.mockRestore();
     }
-  });
-
-  test("a package.json that isn't JSON is reported, not thrown", async () => {
-    expect(await found(project({ "package.json": "{ not json" }))).toMatch(
-      /^Couldn't load @forestfuture\/\w+-record\/cli: Invalid package config .*package\.json/,
-    );
-  });
-
-  test("with several, needs --adapter, which chooses one", async () => {
-    const listed = manifest("@forestfuture/d1-record", "@forestfuture/pg-record");
-    const cwd = project({ "package.json": listed, ...pgInstalled });
-
-    expect(await found(cwd)).toBe(
-      "Several adapters are installed here (d1 or pg); choose one with --adapter",
-    );
-    expect(await found(cwd, "pg")).toBe("adapter pg");
-    expect(await found(cwd, "d1")).toBe("adapter d1");
-  });
-
-  test("an --adapter that isn't installed, or isn't one, says so", async () => {
-    const cwd = project({});
-
-    expect(await found(cwd, "pg")).toBe(
-      "@forestfuture/pg-record isn't installed here (install it, then try again)",
-    );
-    expect(await found(cwd, "mysql")).toBe("--adapter takes d1 or pg, not mysql");
-  });
-
-  test("with no adapter installed, says what to install", async () => {
-    const cwd = scratch("no-adapter-", true);
-
-    expect(await found(cwd)).toBe(
-      "No adapter is installed here: install one, such as @forestfuture/d1-record, then try again",
-    );
-  });
-
-  test("a plugin that fails to load is reported as that, not as missing", async () => {
-    const cwd = project({
-      "node_modules/@forestfuture/pg-record/package.json":
-        pgInstalled["node_modules/@forestfuture/pg-record/package.json"],
-      "node_modules/@forestfuture/pg-record/cli.js": 'throw new Error("boom");',
-    });
-
-    expect(await found(cwd, "pg")).toBe("Couldn't load @forestfuture/pg-record/cli: boom");
-  });
-
-  // A generated schema imports the factory the plugin's name names, so it must be its own (#284).
-  test("a plugin that names another adapter is refused", async () => {
-    const cwd = project({
-      "node_modules/@forestfuture/pg-record/package.json":
-        pgInstalled["node_modules/@forestfuture/pg-record/package.json"],
-      "node_modules/@forestfuture/pg-record/cli.js": 'export const cli = { name: "d1" };',
-    });
-
-    expect(await found(cwd, "pg")).toBe(
-      "@forestfuture/pg-record/cli calls its adapter d1, not pg; reinstall @forestfuture/pg-record",
-    );
   });
 });

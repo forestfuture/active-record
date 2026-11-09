@@ -45,8 +45,7 @@ Options for migrate:
   --yes               Don't ask first (with --remote); also how to migrate it without a terminal
 
 Options for every command:
-  --adapter <name>    The adapter, when the project has several installed
-  --config <file>     Use this config file, in place of the one the adapter finds
+  --config <file>     Use this config file, in place of active-record.jsonc
   -h, --help          Show this help`;
 
 describe("active-record's help", () => {

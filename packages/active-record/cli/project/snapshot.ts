@@ -2,7 +2,7 @@
 // One per database. Commands plan from a snapshot, so what they decide is testable without a
 // folder on disk (#95).
 import { existsSync, readFileSync, statSync } from "node:fs";
-import type { CliAdapter } from "../adapter.ts";
+import type { ProjectAdapter } from "../adapter.ts";
 import { hasNestedMigrations, migrationsOf, type Migration } from "./migrations.ts";
 import { targetsOf, type ProjectOptions, type Target } from "./targets.ts";
 import { toolsWithFiles, type Tool } from "./tools.ts";
@@ -40,7 +40,7 @@ export interface DatabaseSnapshot {
 /** A project: its databases, and any other files a command asked for, by path. */
 export interface ProjectSnapshot {
   /** The adapter the project uses: its plugin for this command. */
-  adapter: CliAdapter;
+  adapter: ProjectAdapter;
   cwd: string;
   databases: DatabaseSnapshot[];
   /** The contents of the other files asked for that exist. */
@@ -73,7 +73,7 @@ function databaseSnapshot(target: Target, toolsFound: Tool[]): DatabaseSnapshot 
  * (a Model file, for `g model`); or why it can't, such as a missing config.
  */
 export function readProject(
-  adapter: CliAdapter,
+  adapter: ProjectAdapter,
   cwd: string,
   options: ProjectOptions,
   files: readonly string[] = [],

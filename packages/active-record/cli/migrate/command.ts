@@ -8,9 +8,7 @@ import { chosenDatabase } from "../project/databases.ts";
 export interface MigrateOptions {
   /** The project's folder; the current one by default. */
   cwd?: string;
-  /** The adapter, by its `--adapter` name, when a project has several. */
-  adapter?: string;
-  /** The adapter's config file, in place of finding it. */
+  /** The project's config file, in place of its `active-record.jsonc`. */
   config?: string;
   /** The database to migrate, when the config has several. */
   database?: string;
@@ -61,7 +59,7 @@ export async function runMigrate(
   io: MigrateTerminal = standardIo(),
 ): Promise<number> {
   const cwd = options.cwd ?? process.cwd();
-  const adapter = await loadAdapter(cwd, options.adapter);
+  const adapter = await loadAdapter(cwd, options.config);
   if (typeof adapter === "string") {
     print(adapter);
     return 1;

@@ -60,7 +60,7 @@ describe("active-record console", () => {
 
     expect(code).toBe(1);
     expect(lines).toEqual([
-      "No wrangler.jsonc, wrangler.json or wrangler.toml here (pass --config)",
+      "No active-record.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one",
     ]);
   });
 
@@ -71,7 +71,7 @@ describe("active-record console", () => {
     expect(lines[0]).toMatch(/active-record console \(or c\) +Open a console/);
     expect(lines[0]).toMatch(/Options for console:\n  --database <name>/);
     expect(lines[0]).toMatch(/--no-history +Don't keep what you type/);
-    expect(lines[0]).toMatch(/Options for every command:\n  --adapter <name>/);
+    expect(lines[0]).toMatch(/Options for every command:\n  --config <file>/);
   });
 
   test("c is the same command", async () => {
@@ -82,7 +82,7 @@ describe("active-record console", () => {
 
     expect(await main(["c"], (line) => lines.push(line))).toBe(1);
     expect(lines).toEqual([
-      "No wrangler.jsonc, wrangler.json or wrangler.toml here (pass --config)",
+      "No active-record.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one",
     ]);
   });
 

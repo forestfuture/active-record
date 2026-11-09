@@ -50,15 +50,14 @@ npx active-record schema
 
 It applies your migrations, in order, to an in-memory database, and writes each table’s columns to `src/db/schema.ts`. On D1 that’s SQLite. On Postgres it’s [PGlite](https://pglite.dev), so it needs no server.
 
-| Option               |                                                                                      |
-| -------------------- | ------------------------------------------------------------------------------------ |
-| `--check`            | Write nothing: fail (exit 1) if the schema file is out of date. For CI.              |
-| `--watch`            | Regenerate whenever a migration or a Model file changes.                             |
-| `--out <file>`       | Write the schema here instead. With several databases, a folder for one file each.   |
-| `--migrations <dir>` | Read migrations from here instead of the config’s folder (one database only).        |
-| `--models <dir>`     | Where your Models and `application-record.ts` are (`src/models/` by default).        |
-| `--config <file>`    | Use this config file: a Wrangler config on D1, or `active-record.jsonc` on Postgres. |
-| `--adapter <name>`   | The adapter (`d1` or `pg`), when the project has several installed.                  |
+| Option               |                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| `--check`            | Write nothing: fail (exit 1) if the schema file is out of date. For CI.            |
+| `--watch`            | Regenerate whenever a migration or a Model file changes.                           |
+| `--out <file>`       | Write the schema here instead. With several databases, a folder for one file each. |
+| `--migrations <dir>` | Read migrations from here instead of the config’s folder (one database only).      |
+| `--models <dir>`     | Where your Models and `application-record.ts` are (`src/models/` by default).      |
+| `--config <file>`    | Use this config file, in place of `active-record.jsonc`.                           |
 
 **What it reads:** on Postgres, each database in `active-record.jsonc`, from its `migrationsDir`. On D1, each entry of the Wrangler config’s `d1_databases`, with its `binding`, `migrations_dir` (default `migrations/`), `migrations_pattern` (for migrations in folders), and `migrations_table` (left out of the schema). Migrations apply in the order of the numbers their names start with (`9_…` before `10_…`), as Wrangler applies them. It also loads the Model files in `--models`, using your project’s own `@forestfuture/active-record`, to find each Model and its table, so code at a Model file’s top level runs.
 
@@ -98,8 +97,7 @@ npx active-record console
 | ------------------- | ------------------------------------------------------------------------------------- |
 | `--database <name>` | The database to open, by its binding, when the config has several.                    |
 | `--models <path>`   | Where the Models are: a folder (`src/models`) or one file (`src/models.ts`).          |
-| `--config <file>`   | Use this config file: a Wrangler config on D1, or `active-record.jsonc` on Postgres.  |
-| `--adapter <name>`  | The adapter (`d1` or `pg`), when the project has several installed.                   |
+| `--config <file>`   | Use this config file, in place of `active-record.jsonc`.                              |
 | `--no-history`      | Don’t keep what you type (in `.wrangler/` on D1, `node_modules/.cache/` on Postgres). |
 | `--verbose`         | Print each statement a line runs. `.verbose` turns it on and off in the console.      |
 | `-e, --eval <code>` | Run this code, print its result (alone, on stdout), and exit; a failure exits 1.      |
@@ -123,7 +121,6 @@ npx active-record migrate
 | `--remote`          | Migrate your remote database instead, after you type its name.                |
 | `--yes`             | With `--remote`, don’t ask first (also how to migrate it without a terminal). |
 | `--config <file>`   | Use this config file.                                                         |
-| `--adapter <name>`  | The adapter (`d1` or `pg`), when the project has several installed.           |
 
 On D1, it runs your project’s `wrangler d1 migrations apply` for the database, `--local` or `--remote`, and prints what Wrangler prints. It exits with Wrangler’s code.
 
@@ -228,7 +225,6 @@ npx active-record g migration <Name> [columns] [options]
 | `--database <binding>` | The database to use, when the config has several.                                                                      |
 | `--out <file>`         | The schema file to regenerate, as for `active-record schema` (for a Drizzle project’s `src/db/d1-record.ts`, say).     |
 | `--config <file>`      | Use this config file.                                                                                                  |
-| `--adapter <name>`     | The adapter (`d1` or `pg`), when the project has several installed.                                                    |
 
 ### Column syntax
 

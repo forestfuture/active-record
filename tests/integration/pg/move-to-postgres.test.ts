@@ -145,7 +145,7 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     rmSync(join(cwd, "migrations"), { recursive: true });
     cpSync(join(move, "migrations"), join(cwd, "migrations"), { recursive: true });
 
-    const schema = await command(cwd, ["schema", "--adapter", "pg"]);
+    const schema = await command(cwd, ["schema"]);
 
     expect(schema).toMatchObject({ code: 0 });
     const onPostgres = readFileSync(join(cwd, "src/db/schema.ts"), "utf8");
@@ -159,8 +159,8 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     );
   });
 
-  test("migrate --adapter pg creates the tables on Postgres", async () => {
-    const migrated = await command(cwd, ["migrate", "--adapter", "pg"]);
+  test("migrate creates the tables on Postgres, as active-record.jsonc names it", async () => {
+    const migrated = await command(cwd, ["migrate"]);
 
     expect(migrated).toMatchObject({ code: 0 });
     const { rows } = await database.pool.query({
@@ -223,19 +223,19 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     expect(hedy.rows[0]).toEqual({ n: 1 });
   });
 
-  test("with d1-record removed, the command finds pg-record without --adapter", async () => {
+  test("with d1-record removed, the schema is current", async () => {
     packageJson(cwd, ["@forestfuture/pg-record"]);
 
     expect(await command(cwd, ["schema", "--check"])).toMatchObject({ code: 0 });
   });
 
-  test("the move changed only the migrations, the schema and the Wrangler config, and added only active-record.jsonc", () => {
-    const moved = ["src/db/schema.ts", "wrangler.jsonc"];
+  test("the move changed only the migrations, the schema, and the Wrangler and active-record config", () => {
+    const moved = ["active-record.jsonc", "src/db/schema.ts", "wrangler.jsonc"];
     const unchanged = filesIn(app).filter(
       (file) => !file.startsWith("migrations/") && !moved.includes(file),
     );
     // package.json and tsconfig.json stand in for the app's own, which the guide's npm commands change.
-    const added = ["active-record.jsonc", "package.json", "tsconfig.json"];
+    const added = ["package.json", "tsconfig.json"];
 
     for (const file of unchanged) expectSameFile(file, cwd, app);
     expect(unchanged).toEqual(

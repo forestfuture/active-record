@@ -3,13 +3,11 @@
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { classify, moduleName } from "./names.ts";
-import type { CliAdapter, DatabaseConfig } from "../adapter.ts";
+import type { DatabaseConfig, ProjectAdapter } from "../adapter.ts";
 
 /** Where a project's config, migrations and generated schema are, when not the defaults. */
 export interface ProjectOptions {
-  /** The adapter, by its `--adapter` name, when a project has several. */
-  adapter?: string;
-  /** The config file, in place of the one the adapter finds. */
+  /** The project's config file, in place of its `active-record.jsonc`. */
   config?: string;
   /** The migrations folder, in place of the config's. */
   migrations?: string;
@@ -79,11 +77,11 @@ function sharedBase(targets: readonly Target[]): string | undefined {
 
 /** The databases to generate, from the adapter's config and the options; or why there are none. */
 export function targetsOf(
-  adapter: CliAdapter,
+  adapter: ProjectAdapter,
   cwd: string,
   options: ProjectOptions,
 ): Target[] | string {
-  const config = adapter.databases(cwd, options.config);
+  const config = adapter.databases();
   if (!config.ok) return config.error;
   const { databases, dir, file } = config;
   if (options.migrations !== undefined && databases.length > 1) {

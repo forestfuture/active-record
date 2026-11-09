@@ -1,0 +1,5 @@
+{
+  "databases": {
+    "DB": { "adapter": "d1" },
+  },
+}

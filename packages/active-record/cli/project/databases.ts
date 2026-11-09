@@ -1,6 +1,6 @@
 // Choosing the database a command acts on: the only one a project declares, or the one `--database` names.
 import { resolve } from "node:path";
-import type { ChosenDatabase, CliAdapter } from "../adapter.ts";
+import type { ChosenDatabase, ProjectAdapter } from "../adapter.ts";
 import { listed } from "./names.ts";
 
 /**
@@ -22,11 +22,11 @@ export function chooseDatabase<D extends { binding: string }>(
 
 /** The database for `--database` (and `--config`), with its config file, or why there isn't one. */
 export function chosenDatabase(
-  adapter: CliAdapter,
+  adapter: ProjectAdapter,
   cwd: string,
   options: { config?: string; database?: string },
 ): ChosenDatabase | string {
-  const config = adapter.databases(cwd, options.config);
+  const config = adapter.databases();
   if (!config.ok) return config.error;
   const chosen = chooseDatabase(config.databases, options.database);
   if (typeof chosen === "string") return chosen;

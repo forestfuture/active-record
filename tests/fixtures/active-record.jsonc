@@ -1,0 +1,6 @@
+{
+  "databases": {
+    "DB": { "adapter": "d1" },
+    "LOGS": { "adapter": "d1" },
+  },
+}

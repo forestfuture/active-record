@@ -2,7 +2,7 @@
 import { join } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { WriteStream } from "node:tty";
-import type { ChosenDatabase, CliAdapter, OpenBinding } from "../adapter.ts";
+import type { ChosenDatabase, OpenBinding, ProjectAdapter } from "../adapter.ts";
 import { adapterPackage, loadAdapter } from "../project/adapters.ts";
 import { chosenDatabase } from "../project/databases.ts";
 import { consoleCommands } from "./commands.ts";
@@ -14,9 +14,7 @@ import { startSession, type SessionOptions } from "./session.ts";
 export interface ConsoleOptions {
   /** The project's folder; the current one by default. */
   cwd?: string;
-  /** The adapter, by its `--adapter` name, when a project has several. */
-  adapter?: string;
-  /** The config file, in place of the one the adapter finds. */
+  /** The project's config file, in place of its `active-record.jsonc`. */
   config?: string;
   /** The database to open, by its binding, when the config has several. */
   database?: string;
@@ -79,7 +77,7 @@ function promptFor(remote: boolean, terminal: boolean): string {
  * or said `--yes`. Input typed behind the confirmation is dropped until the database is open.
  */
 async function openRemote(
-  adapter: CliAdapter,
+  adapter: ProjectAdapter,
   { cwd, chosen }: { cwd: string; chosen: ChosenDatabase },
   options: ConsoleOptions,
   io: ConsoleIo,
@@ -138,7 +136,7 @@ interface Prepared {
 /** Everything that has to be true before a session starts, or why it isn't. */
 async function prepare(options: ConsoleOptions, io: ConsoleIo): Promise<Prepared | string> {
   const cwd = options.cwd ?? process.cwd();
-  const adapter = await loadAdapter(cwd, options.adapter);
+  const adapter = await loadAdapter(cwd, options.config);
   if (typeof adapter === "string") return adapter;
   const chosen = chosenDatabase(adapter, cwd, options);
   if (typeof chosen === "string") return chosen;

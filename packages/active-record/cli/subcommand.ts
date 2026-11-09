@@ -4,15 +4,13 @@ import type { Print } from "./plan.ts";
 
 /** The flags every subcommand takes. */
 const sharedOptions = {
-  adapter: { type: "string" },
   config: { type: "string" },
   help: { type: "boolean", short: "h" },
 } as const satisfies ParseArgsOptionsConfig;
 
 /** The help for the shared flags, after every subcommand's own. */
 const sharedFlagHelp = `Options for every command:
-  --adapter <name>    The adapter, when the project has several installed
-  --config <file>     Use this config file, in place of the one the adapter finds
+  --config <file>     Use this config file, in place of active-record.jsonc
   -h, --help          Show this help`;
 
 /** A subcommand's options and the shared ones, as one `parseArgs` table. */

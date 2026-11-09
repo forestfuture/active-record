@@ -16,6 +16,17 @@ export interface DatabaseConfig {
   entry: Record<string, unknown>;
 }
 
+/**
+ * The databases a project's `active-record.jsonc` names, each with its entry as the file has it
+ * (its `adapter` included), and the file and its folder.
+ */
+export interface ProjectDatabases {
+  file: string;
+  dir: string;
+  /** Each database's entry, by binding, in the file's order. */
+  databases: Readonly<Record<string, Record<string, unknown>>>;
+}
+
 /** A project's config: the file, its folder, and its databases, or why it can't be read. */
 export type ConfigResult =
   | { ok: true; file: string; dir: string; databases: DatabaseConfig[] }
@@ -116,7 +127,7 @@ export interface MigrateOutput {
 
 /** An adapter's plugin for the `active-record` command, from its `/cli` entry (ADR-0016). */
 export interface CliAdapter {
-  /** The name `--adapter` takes, which a generated schema imports its factory by. */
+  /** The name a database's `adapter` takes, which a generated schema imports its factory by. */
   readonly name: string;
   /**
    * The config setting a database's `migrationsPattern` comes from, as a person writes it in the
@@ -125,8 +136,11 @@ export interface CliAdapter {
   readonly patternSetting?: string;
   /** Why this Node can't run the plugin, if it can't; the command refuses before it starts. */
   unsupported?(): string | undefined;
-  /** The project's databases, from its config, or why they can't be read. */
-  databases(cwd: string, configPath?: string): ConfigResult;
+  /**
+   * The project's databases, from the entries its `active-record.jsonc` has for this adapter (and
+   * the adapter's own config, if it reads one), or why they can't be read.
+   */
+  databases(project: ProjectDatabases): ConfigResult;
   /** A database's tables, from its migrations applied in order. */
   readSchema(migrations: readonly Migration[], options: SchemaOptions): Promise<SchemaResult>;
   /** A migration's SQL; the command names its file. */
@@ -155,3 +169,9 @@ export interface CliAdapter {
     io: MigrateOutput,
   ): Promise<number>;
 }
+
+/** The project's adapter, as the command uses it: its plugin, reading the project's databases. */
+export type ProjectAdapter = Omit<CliAdapter, "databases"> & {
+  /** The project's databases, or why they can't be read. */
+  databases(): ConfigResult;
+};

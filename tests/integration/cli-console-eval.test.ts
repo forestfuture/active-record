@@ -88,7 +88,7 @@ describe("active-record console -e", () => {
     expect(run.exitCode).toBe(1);
     expect(run.stdout).toBe("");
     expect(run.stderr).toBe(
-      "No wrangler.jsonc, wrangler.json or wrangler.toml here (pass --config)\n",
+      "No active-record.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one\n",
     );
   });
 

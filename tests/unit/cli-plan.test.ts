@@ -6,7 +6,7 @@ import type {
   DatabaseSnapshot,
   ProjectSnapshot,
 } from "../../packages/active-record/cli/project/snapshot.ts";
-import type { CliAdapter } from "../../packages/active-record/cli/adapter.ts";
+import type { ProjectAdapter } from "../../packages/active-record/cli/adapter.ts";
 import { cli } from "../../packages/d1-record/cli/plugin.ts";
 
 // Migrations are named for the UTC second they're written in, so the clock is set.
@@ -28,7 +28,7 @@ function shown(plan: Plan) {
 /** A project with one database, `DB`, as `readProject` would read it from disk. */
 function project(database: Partial<DatabaseSnapshot> = {}): ProjectSnapshot {
   return {
-    adapter: cli,
+    adapter: { ...cli, databases: () => ({ ok: false, error: "unused" }) },
     cwd,
     files: new Map(),
     databases: [
@@ -260,7 +260,7 @@ describe("planGenerate: what g model and g migration write and print, from a sna
 // The core plans with whatever adapter the project uses (#278): a stand-in here, not D1's plugin.
 describe("planning with another adapter's plugin", () => {
   const readSchemas: string[][] = [];
-  const stub: CliAdapter = {
+  const stub: ProjectAdapter = {
     name: "stub",
     databases: () => ({ ok: false, error: "unused" }),
     async readSchema(migrations) {

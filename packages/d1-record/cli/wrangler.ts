@@ -1,10 +1,11 @@
 // Reads a Worker's Wrangler config: its D1 databases, their migrations folders, and its account_id.
 import { existsSync, readFileSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join } from "node:path";
 import {
   parseJsonc,
   type ConfigResult,
   type DatabaseConfig,
+  type ProjectDatabases,
 } from "@forestfuture/active-record/cli";
 
 const candidates = ["wrangler.jsonc", "wrangler.json", "wrangler.toml"];
@@ -68,29 +69,42 @@ function databaseOf(entry: Record<string, unknown>): DatabaseConfig {
   return database;
 }
 
-/**
- * The D1 databases in a project's Wrangler config: `wrangler.jsonc`, `wrangler.json` or
- * `wrangler.toml` in `cwd`, or the file `--config` names.
- */
-export function readWranglerConfig(cwd: string, configPath?: string): ConfigResult {
-  const file =
-    configPath === undefined
-      ? candidates.map((name) => join(cwd, name)).find((path) => existsSync(path))
-      : resolve(cwd, configPath);
-  if (file === undefined || !existsSync(file)) {
-    return {
-      ok: false,
-      error: "No wrangler.jsonc, wrangler.json or wrangler.toml here (pass --config)",
-    };
-  }
+/** The Wrangler config's `d1_databases` entries, each with a binding, or why they can't be read. */
+function d1Entries(file: string): Record<string, unknown>[] | string {
   const config = parsed(file);
-  if (typeof config === "string") return { ok: false, error: config };
+  if (typeof config === "string") return config;
   const entries = config.d1_databases ?? [];
-  if (entries.length === 0) return { ok: false, error: `${basename(file)} has no d1_databases` };
   if (entries.some((entry) => typeof entry.binding !== "string")) {
-    return { ok: false, error: `${basename(file)} has a d1_databases entry with no binding` };
+    return `${basename(file)} has a d1_databases entry with no binding`;
   }
-  return { ok: true, file, dir: dirname(file), databases: entries.map(databaseOf) };
+  return entries;
+}
+
+/**
+ * The D1 databases a project's `active-record.jsonc` names, as its Wrangler config declares them:
+ * `wrangler.jsonc`, `wrangler.json` or `wrangler.toml`, beside `active-record.jsonc`. Wrangler's
+ * other D1 databases are left out.
+ */
+export function readWranglerConfig(project: ProjectDatabases): ConfigResult {
+  const name = basename(project.file);
+  const file = candidates.map((each) => join(project.dir, each)).find((path) => existsSync(path));
+  if (file === undefined) {
+    return { ok: false, error: `No wrangler.jsonc, wrangler.json or wrangler.toml beside ${name}` };
+  }
+  const entries = d1Entries(file);
+  if (typeof entries === "string") return { ok: false, error: entries };
+  const databases: DatabaseConfig[] = [];
+  for (const binding of Object.keys(project.databases)) {
+    const entry = entries.find((each) => each.binding === binding);
+    if (entry === undefined) {
+      return {
+        ok: false,
+        error: `${name} names ${binding}, which isn't in ${basename(file)}'s d1_databases`,
+      };
+    }
+    databases.push(databaseOf(entry));
+  }
+  return { ok: true, file, dir: dirname(file), databases };
 }
 
 /** The account a Wrangler config names (`account_id`), if it names one and can be read. */
