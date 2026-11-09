@@ -8,7 +8,10 @@ import { writePgProject } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 import { command, runWrangler, serve, type Served } from "../../support/worker-app.ts";
 
-const source = (path: string) => [new URL(`../../../packages/${path}`, import.meta.url).pathname];
+/** A package entry at its source in this repo, as a tsconfig `paths` entry. */
+const sourcePaths = (path: string) => [
+  new URL(`../../../packages/${path}`, import.meta.url).pathname,
+];
 const app = new URL("../../../site/snippets/getting-started/", import.meta.url).pathname;
 // The files the guide writes for Postgres.
 const move = new URL("../../../site/snippets/move-to-postgres/", import.meta.url).pathname;
@@ -39,8 +42,8 @@ function copyOfTheApp(): string {
   packageJson(cwd, ["@forestfuture/d1-record"]);
   const paths = {
     ...libraryPaths,
-    "@forestfuture/pg-record": source("pg-record/src/index.ts"),
-    "@forestfuture/pg-record/cli": source("pg-record/cli/plugin.ts"),
+    "@forestfuture/pg-record": sourcePaths("pg-record/src/index.ts"),
+    "@forestfuture/pg-record/cli": sourcePaths("pg-record/cli/plugin.ts"),
   };
   writeFileSync(join(cwd, "tsconfig.json"), JSON.stringify({ compilerOptions: { paths } }));
   return cwd;
@@ -54,8 +57,20 @@ function d1Rows(cwd: string, sql: string): Record<string, unknown>[] {
   return result!.results;
 }
 
-/** Each post's id, owner, title and creation time, oldest first, as text. */
-const postsQuery = "SELECT id, user_id, title, created_at FROM posts ORDER BY created_at, id";
+/**
+ * A row as plain values, where D1 and Postgres return the same value differently: each `_at`
+ * time as ISO text (D1's text, Postgres's Date), and `is_active` as a boolean (D1's 1).
+ */
+function plain(row: Record<string, unknown>): Record<string, unknown> {
+  const value = (column: string, cell: unknown) => {
+    if (cell === null) return null;
+    if (column.endsWith("_at")) return new Date(cell as string | Date).toISOString();
+    return column === "is_active" ? Boolean(cell) : cell;
+  };
+  return Object.fromEntries(
+    Object.entries(row).map(([column, cell]) => [column, value(column, cell)]),
+  );
+}
 
 /** A URL with a password, which Hyperdrive requires, even for a server that asks for none. */
 function withPassword(url: string): string {
@@ -64,11 +79,21 @@ function withPassword(url: string): string {
   return withOne.toString();
 }
 
-/** The files in `dir`, by their path in it. */
+/** The files in `dir`, by their path in it, leaving out what Wrangler and the test write there. */
 const filesIn = (dir: string) =>
   readdirSync(dir, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
-    .map((entry) => relative(dir, join(entry.parentPath, entry.name)));
+    .map((entry) => relative(dir, join(entry.parentPath, entry.name)))
+    .filter((file) => !/^\.(?:wrangler|bundle)\//.test(file))
+    .sort();
+
+/** Expects `file` to read the same in both folders. */
+function expectSameFile(file: string, dir: string, other: string): void {
+  expect([file, readFileSync(join(dir, file), "utf8")]).toEqual([
+    file,
+    readFileSync(join(other, file), "utf8"),
+  ]);
+}
 
 /** A generated schema without the line naming its migrations' hash. */
 const withoutHash = (schema: string) => schema.replace(/^\/\/ schema: \w+$/m, "");
@@ -94,10 +119,7 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
 
   test("on D1, the app signs up users and lists them", async () => {
     expect(await command(cwd, ["migrate"])).toMatchObject({ code: 0 });
-    onD1 = await serve(cwd, {
-      d1Databases: { DB: "…" },
-      d1Persist: join(cwd, ".wrangler/state/v3/d1"),
-    });
+    onD1 = await serve(cwd);
 
     const signups = [];
     for (const email of ["Ada@example.com", "grace@example.com", "ada@example.com"]) {
@@ -112,6 +134,7 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
       "ada@example.com",
     ]);
   });
+
   test("with pg-record installed, the schema regenerates from Postgres migrations, its adapter all that changes", async () => {
     const onD1Schema = readFileSync(join(cwd, "src/db/schema.ts"), "utf8");
     packageJson(cwd, ["@forestfuture/d1-record", "@forestfuture/pg-record"]);
@@ -136,7 +159,17 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     );
   });
 
-  test("migrate creates the tables on Postgres, and copy-data.sh copies every row, empty text as empty text", async () => {
+  test("migrate --adapter pg creates the tables on Postgres", async () => {
+    const migrated = await command(cwd, ["migrate", "--adapter", "pg"]);
+
+    expect(migrated).toMatchObject({ code: 0 });
+    const { rows } = await database.pool.query({
+      text: "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename",
+    });
+    expect(rows.map((row) => row["tablename"])).toEqual(["posts", "schema_migrations", "users"]);
+  });
+
+  test("with Hyperdrive bound beside D1, copy-data.sh copies every row as D1 holds it, empty text as empty text", async () => {
     // A post the app can't write, with an empty title, in a NOT NULL column.
     d1Rows(
       cwd,
@@ -144,47 +177,29 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
         "SELECT '00000000-0000-4000-8000-000000000000', id, '', created_at, updated_at FROM users " +
         "WHERE email = 'grace@example.com'",
     );
+    writeFileSync(
+      join(cwd, "wrangler.jsonc"),
+      readFileSync(join(move, "wrangler.jsonc"), "utf8").replaceAll(guideUrl, hyperdriveUrl()),
+    );
 
-    const migrated = await command(cwd, ["migrate", "--adapter", "pg"]);
     execFileSync("sh", [join(move, "copy-data.sh"), "--local", "users", "posts"], {
       cwd,
       env: { ...process.env, DATABASE_URL: database.url, PATH: `${bin}:${process.env["PATH"]}` },
       stdio: "pipe",
     });
 
-    expect(migrated).toMatchObject({ code: 0 });
-    const { rows } = await database.pool.query({ text: postsQuery });
-    const copied = (rows as Record<string, unknown>[]).map((row): Record<string, unknown> => ({
-      ...row,
-      created_at: (row["created_at"] as Date).toISOString(),
-    }));
-    const onD1Posts = d1Rows(cwd, postsQuery).map((row) => ({
-      ...row,
-      created_at: new Date(row["created_at"] as string).toISOString(),
-    }));
-    expect(copied).toEqual(onD1Posts);
-    expect(copied.map((post) => post["title"])).toContain("");
-    const users = await database.pool.query({
-      text: "SELECT email, is_active FROM users ORDER BY email",
-    });
-    expect(users.rows).toEqual([
-      { email: "ada@example.com", is_active: true },
-      { email: "grace@example.com", is_active: true },
-    ]);
+    for (const table of ["users", "posts"]) {
+      const query = `SELECT * FROM ${table} ORDER BY id`;
+      const { rows } = await database.pool.query({ text: query });
+      const onD1Rows = d1Rows(cwd, query).map(plain);
+      expect([table, (rows as Record<string, unknown>[]).map(plain)]).toEqual([table, onD1Rows]);
+    }
+    const titles = await database.pool.query({ text: "SELECT title FROM posts" });
+    expect(titles.rows.map((row) => row["title"])).toContain("");
   });
 
   test("on Hyperdrive, the same code lists the same users, and signs up more", async () => {
-    writeFileSync(
-      join(cwd, "wrangler.jsonc"),
-      readFileSync(join(move, "wrangler.jsonc"), "utf8").replaceAll(
-        guideUrl,
-        withPassword(database.url),
-      ),
-    );
-    packageJson(cwd, ["@forestfuture/pg-record"]);
-    // With d1-record removed, the command finds pg-record without --adapter.
-    expect(await command(cwd, ["schema", "--check"])).toMatchObject({ code: 0 });
-    onPostgres = await serve(cwd, { hyperdrives: { HYPERDRIVE: withPassword(database.url) } });
+    onPostgres = await serve(cwd);
 
     const listed = await onPostgres.fetch("GET");
     const signedUp = await onPostgres.fetch("POST", { email: "Hedy@example.com" });
@@ -203,22 +218,36 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     ]);
   });
 
-  test("the move changed only the migrations, the schema, the Wrangler config and the packages", () => {
-    const moved = new Set(["src/db/schema.ts", "wrangler.jsonc"]);
-    const unchanged = filesIn(app).filter(
-      (file) => !file.startsWith("migrations/") && !moved.has(file),
-    );
+  test("with d1-record removed, the command finds pg-record without --adapter", async () => {
+    packageJson(cwd, ["@forestfuture/pg-record"]);
 
-    for (const file of unchanged) {
-      expect([file, readFileSync(join(cwd, file), "utf8")]).toEqual([
-        file,
-        readFileSync(join(app, file), "utf8"),
-      ]);
-    }
+    expect(await command(cwd, ["schema", "--check"])).toMatchObject({ code: 0 });
+  });
+
+  test("the move changed only the migrations, the schema and the Wrangler config, and added only active-record.jsonc", () => {
+    const moved = ["src/db/schema.ts", "wrangler.jsonc"];
+    const unchanged = filesIn(app).filter(
+      (file) => !file.startsWith("migrations/") && !moved.includes(file),
+    );
+    // package.json and tsconfig.json stand in for the app's own, which the guide's npm commands change.
+    const added = ["active-record.jsonc", "package.json", "tsconfig.json"];
+
+    for (const file of unchanged) expectSameFile(file, cwd, app);
     expect(unchanged).toEqual(
       expect.arrayContaining(["src/index.ts", "src/models/user.ts", "src/models/post.ts"]),
     );
+    expect(filesIn(cwd)).toEqual(
+      [
+        ...unchanged,
+        ...moved,
+        ...filesIn(move).filter((file) => file.startsWith("migrations/")),
+        ...added,
+      ].sort(),
+    );
   });
+
+  /** The Hyperdrive binding's local URL: the test's database, with a password Hyperdrive requires. */
+  const hyperdriveUrl = () => withPassword(database.url);
 });
 
 test("the guide's Postgres migrations are what the tutorial's g model commands write on Postgres", async () => {
@@ -240,9 +269,6 @@ test("the guide's Postgres migrations are what the tutorial's g model commands w
   ]);
 
   for (const file of ["20261108090503_create_users.sql", "20261108090504_create_posts.sql"]) {
-    expect([file, readFileSync(join(cwd, "migrations", file), "utf8")]).toEqual([
-      file,
-      readFileSync(join(move, "migrations", file), "utf8"),
-    ]);
+    expectSameFile(`migrations/${file}`, cwd, move);
   }
 });
