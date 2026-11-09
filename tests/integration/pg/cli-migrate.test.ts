@@ -189,6 +189,16 @@ describe("migrate, on Postgres", pgliteTimeout, () => {
     }
   });
 
+  test("a url pg can't read is a message, without the url", async () => {
+    const url = "postgres://app:s3cret@db.example.com/%E0%A4%A";
+
+    const { code, printed } = await migrated(project(createUsers, { DB: { url } }));
+
+    expect(code).toBe(1);
+    expect(printed).toMatch(/\nCouldn't connect to its server: URI malformed\n$/);
+    expect(printed).not.toContain("s3cret");
+  });
+
   test("without a url, says to set one", async () => {
     const { code, printed } = await migrated(project(createUsers, { DB: {} }));
 
