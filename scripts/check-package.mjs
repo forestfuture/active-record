@@ -110,7 +110,7 @@ if (relative) fail(`llms-full.txt has ${relative.length} relative links, such as
 const pages = readdirSync(new URL("../site/docs", import.meta.url), { recursive: true }).filter(
   (name) => /\.mdx?$/.test(name) && !name.startsWith("_"),
 ).length;
-const sources = guide.match(/^Source: https:\/\/d1-record\.forestfuture\.dev\//gm)?.length ?? 0;
+const sources = guide.match(/^Source: https:\/\/active-record\.forestfuture\.dev\//gm)?.length ?? 0;
 if (sources !== pages)
   fail(`llms-full.txt names the source URL of ${sources} pages, of the guide's ${pages}`);
 console.log(
