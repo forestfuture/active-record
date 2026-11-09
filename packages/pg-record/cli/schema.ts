@@ -88,23 +88,34 @@ async function tablesIn(
 /** What reading on one database came to: the schema, or the extension it couldn't load. */
 type Reading = SchemaResult | { migration: string; missing: string };
 
-/** The schema the migrations make on `scratch`, which is closed afterwards. */
+/** The schema the migrations make on `scratch`, which is closed afterwards, even when it fails. */
 async function readOn(
   scratch: Scratch,
   migrations: readonly Migration[],
   migrationsTable: string,
 ): Promise<Reading> {
-  try {
-    const result = await applied(scratch, migrations);
-    if ("error" in result) {
-      if (result.missing === undefined) return { ok: false, errors: [result.error] };
-      return { migration: result.migration, missing: result.missing };
-    }
-    const tables = await tablesIn(scratch, result.changedBy, migrationsTable);
-    return generatedSchema(tables, { convert, missingKey });
-  } finally {
-    await scratch.close();
+  const failed = (error: unknown) => ({ ok: false as const, errors: [(error as Error).message] });
+  const read = await readFrom(scratch, migrations, migrationsTable).catch(failed);
+  // Closed whatever the read came to; a close that fails is said, after what the read said.
+  const closing = await scratch.close().then(() => undefined, failed);
+  if (closing === undefined) return read;
+  const before = "errors" in read ? read.errors : [];
+  return { ok: false, errors: [...before, ...closing.errors] };
+}
+
+/** The schema the migrations make on `scratch`, or the extension it couldn't load. */
+async function readFrom(
+  scratch: Scratch,
+  migrations: readonly Migration[],
+  migrationsTable: string,
+): Promise<Reading> {
+  const result = await applied(scratch, migrations);
+  if ("error" in result) {
+    if (result.missing === undefined) return { ok: false, errors: [result.error] };
+    return { migration: result.migration, missing: result.missing };
   }
+  const tables = await tablesIn(scratch, result.changedBy, migrationsTable);
+  return generatedSchema(tables, { convert, missingKey });
 }
 
 /**
