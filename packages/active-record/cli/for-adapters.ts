@@ -2,7 +2,7 @@
 export type * from "./adapter.ts";
 export type { ColumnArg } from "./generate/columns.ts";
 export { indexName, migrationPlan, type MigrationPlan } from "./generate/migration-plan.ts";
-export { byName, type Migration } from "./project/migrations.ts";
+export { byName, byVersion, type Migration } from "./project/migrations.ts";
 export {
   configFileName,
   parseJsonc,

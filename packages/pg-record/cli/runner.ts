@@ -1,7 +1,7 @@
 // The migration runner: applies a database's pending migrations in order, each in a transaction with its version, recorded in `schema_migrations`.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { byName } from "@forestfuture/active-record/cli";
+import { byVersion } from "@forestfuture/active-record/cli";
 import { connected, type Client } from "./client.ts";
 import { migrationsTable } from "./config.ts";
 import { hostOf } from "./urls.ts";
@@ -18,10 +18,12 @@ function versioned(dir: string, names: readonly string[]): MigrationFile[] | str
   const files: MigrationFile[] = [];
   const seen = new Map<string, string>();
   for (const file of names) {
-    const version = /^(\d+)/.exec(file)?.[1];
-    if (version === undefined) {
+    const digits = /^(\d+)/.exec(file)?.[1];
+    if (digits === undefined) {
       return `${file} has no version: start its name with one, as the generators do (20261108090503_create_products.sql)`;
     }
+    // A number, so `01_…` and `1_…` share one.
+    const version = BigInt(digits).toString();
     const other = seen.get(version);
     if (other !== undefined) {
       return `${other} and ${file} have the same version, ${version}; give one a version of its own`;
@@ -32,7 +34,7 @@ function versioned(dir: string, names: readonly string[]): MigrationFile[] | str
   return files;
 }
 
-/** The migrations folder's files in the order they're applied (by name), or why they can't be. */
+/** The migrations folder's files in the order they're applied (by version), or why they can't be. */
 export function migrationFiles(dir: string): MigrationFile[] | string {
   let names: string[];
   try {
@@ -40,7 +42,7 @@ export function migrationFiles(dir: string): MigrationFile[] | string {
   } catch {
     return `No migrations folder at ${dir}`;
   }
-  return versioned(dir, names.sort(byName));
+  return versioned(dir, names.sort(byVersion));
 }
 
 /** One lock per database and schema, so two runs at once take turns. */

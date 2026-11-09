@@ -128,6 +128,32 @@ describe("migrate, on Postgres", pgliteTimeout, () => {
     ]);
   });
 
+  test("runs migrations in the order of their versions, as numbers", async () => {
+    const { code, printed } = await migrated(
+      project({
+        "migrations/9_create_users.sql": "CREATE TABLE users (id UUID PRIMARY KEY);",
+        "migrations/10_add_name.sql": "ALTER TABLE users ADD COLUMN name TEXT;",
+      }),
+    );
+
+    expect([code, printed]).toEqual([
+      0,
+      "Local database DB (active_record_test on localhost)\nApplied 9_create_users.sql\nApplied 10_add_name.sql\n",
+    ]);
+    expect(await versions()).toEqual(["10", "9"]);
+  });
+
+  test("versions are numbers, so 1 and 01 are the same one", async () => {
+    const { code, printed } = await migrated(
+      project({ "migrations/1_a.sql": "SELECT 1;", "migrations/01_b.sql": "SELECT 1;" }),
+    );
+
+    expect([code, printed]).toEqual([
+      1,
+      "01_b.sql and 1_a.sql have the same version, 1; give one a version of its own\n",
+    ]);
+  });
+
   test("two files with one version are refused before any runs", async () => {
     const { code, printed } = await migrated(
       project({ ...createUsers, "migrations/20261108090503_create_posts.sql": "SELECT 1;" }),

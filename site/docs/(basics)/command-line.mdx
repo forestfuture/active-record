@@ -59,7 +59,7 @@ It applies your migrations, in order, to an in-memory database, and writes each 
 | `--config <file>`    | Use this config file: a Wrangler config on D1, or `active-record.jsonc` on Postgres. |
 | `--adapter <name>`   | The adapter (`d1` or `pg`), when the project has several installed.                  |
 
-**What it reads:** on Postgres, each database in `active-record.jsonc`, from its `migrationsDir`. On D1, each entry of the Wrangler config’s `d1_databases`, with its `binding`, `migrations_dir` (default `migrations/`), `migrations_pattern` (for migrations in folders), and `migrations_table` (left out of the schema). Migrations apply in file-name order, as Wrangler applies them. It also loads the Model files in `--models`, using your project’s own `@forestfuture/active-record`, to find each Model and its table, so code at a Model file’s top level runs.
+**What it reads:** on Postgres, each database in `active-record.jsonc`, from its `migrationsDir`. On D1, each entry of the Wrangler config’s `d1_databases`, with its `binding`, `migrations_dir` (default `migrations/`), `migrations_pattern` (for migrations in folders), and `migrations_table` (left out of the schema). Migrations apply in the order of the numbers their names start with (`9_…` before `10_…`), as Wrangler applies them. It also loads the Model files in `--models`, using your project’s own `@forestfuture/active-record`, to find each Model and its table, so code at a Model file’s top level runs.
 
 **What it writes:**
 
@@ -126,7 +126,7 @@ npx active-record migrate
 
 On D1, it runs your project’s `wrangler d1 migrations apply` for the database, `--local` or `--remote`, and prints what Wrangler prints. It exits with Wrangler’s code.
 
-On Postgres, it applies them itself, to the database’s `url`, or with `--remote` its `remoteUrl`. It runs the migrations folder’s `.sql` files in file-name order and records each one’s version in `schema_migrations`. A version is the number a file’s name starts with:
+On Postgres, it applies them itself, to the database’s `url`, or with `--remote` its `remoteUrl`. It runs the migrations folder’s `.sql` files in the order of their versions and records each one’s version in `schema_migrations`. A version is the number a file’s name starts with:
 
 ```text
 Local database HYPERDRIVE (shop_development on localhost)

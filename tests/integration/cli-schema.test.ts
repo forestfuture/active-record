@@ -228,6 +228,19 @@ migrations_table = "seen"
     expect(stale.output).toBe("src/db/schema.ts is out of date: run `active-record schema`");
   });
 
+  test("migrations apply in the order of their leading numbers, as Wrangler applies them", async () => {
+    const cwd = project({
+      "wrangler.jsonc": wranglerJsonc,
+      "migrations/9_create_users.sql": "CREATE TABLE users (id TEXT PRIMARY KEY);",
+      "migrations/10_add_bio.sql": "ALTER TABLE users ADD COLUMN bio TEXT;",
+    });
+
+    const { code } = await run(cwd);
+
+    expect(code).toBe(0);
+    expect(generatedSchema(cwd)).toContain("/** users — last changed by 10_add_bio.sql */");
+  });
+
   test("a broken migration is reported, and the last good schema.ts is kept", async () => {
     const cwd = project({
       "wrangler.jsonc": wranglerJsonc,
