@@ -1,5 +1,5 @@
 // A database's connection strings from its config entry: written out, or read from the environment with `${NAME}`.
-import pg from "pg";
+import { pgDriver } from "./drivers.ts";
 
 /** `${NAME}`: a variable's value, put in its place. */
 const variable = /\$\{(\w+)\}/g;
@@ -22,6 +22,8 @@ export function connectionString(
 
 /** The server and database `pg` connects to with a connection string, as it reads one; none when it can't. */
 function parsed(url: string): { host: string; database: string } | undefined {
+  const pg = pgDriver();
+  if (typeof pg === "string") return undefined;
   try {
     const client = new pg.Client({ connectionString: url });
     return { host: client.host, database: client.database ?? client.user ?? "postgres" };

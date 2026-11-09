@@ -1,6 +1,6 @@
 // The console's database: a `pg` Pool on the database's url, or with `--remote` its remoteUrl, ended when the console closes.
 import type { ChosenDatabase, OpenBinding } from "@forestfuture/active-record/cli";
-import pg from "pg";
+import { pgDriver } from "./drivers.ts";
 import { target } from "./targets.ts";
 
 /**
@@ -13,6 +13,8 @@ export async function openDatabase(
 ): Promise<OpenBinding | string> {
   const reached = target(chosen, remote, "the console needs");
   if (typeof reached === "string") return reached;
+  const pg = pgDriver();
+  if (typeof pg === "string") return pg;
   const pool = new pg.Pool({ connectionString: reached.url });
   pool.on("error", () => {});
   return { binding: pool, description: reached.description, dispose: () => pool.end() };
