@@ -237,6 +237,23 @@ describe("Postgres's schema, when PGlite can't load an extension", pgliteTimeout
     expect(result.ok).toBe(true);
   });
 
+  test("a url Node can't read as a URL is refused before any database is made, never printed", async () => {
+    const before = await leftOver();
+
+    const result = await cli.readSchema(migrations(needsDblink), {
+      entry: { url: "postgres://app:s3cret@/active_record_test" },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      errors: [
+        "Couldn't read the schema on its server: the database's url can't be read as a URL; write it as postgres://user:password@host/database",
+      ],
+    });
+    expect(JSON.stringify(result)).not.toContain("s3cret");
+    expect(await leftOver()).toEqual(before);
+  });
+
   test("without a url, says to set one", async () => {
     expect(await cli.readSchema(migrations(needsDblink), { entry: {} })).toEqual({
       ok: false,
