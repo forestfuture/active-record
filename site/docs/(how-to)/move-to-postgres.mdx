@@ -150,6 +150,10 @@ DATABASE_URL="$PRODUCTION_DATABASE_URL" sh copy-data.sh --remote users posts
 npx wrangler deploy
 ```
 
+:::note
+`psql` shows its connection string to anyone on your machine who lists its processes. Leave the password out of `PRODUCTION_DATABASE_URL`, and set it in `PGPASSWORD` or `~/.pgpass` instead. `psql` checks your server’s certificate only with `sslmode=verify-full`, so add it to the URL you copy to.
+:::
+
 ## Removing the D1 adapter
 
 Once your app runs on Postgres, remove the D1 adapter:
