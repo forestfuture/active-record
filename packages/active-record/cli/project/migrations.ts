@@ -20,15 +20,27 @@ export function leadingNumber(path: string): number {
   return Number.parseInt(path.split("/")[0]!.split("_")[0]!, 10);
 }
 
+/** Two segments of migration paths: by their leading numbers, numbered first, then by name. */
+function bySegment(a: string, b: string): number {
+  const [left, right] = [leadingNumber(a), leadingNumber(b)];
+  const [leftNumbered, rightNumbered] = [Number.isFinite(left), Number.isFinite(right)];
+  if (leftNumbered && rightNumbered && left !== right) return left - right;
+  if (leftNumbered !== rightNumbered) return leftNumbered ? -1 : 1;
+  return byName(a, b);
+}
+
 /**
- * Migrations in the order they're applied, as migration tools order them: by their leading
- * numbers (`9_…` before `10_…`), those without one after them, and by name between equals.
+ * Migrations in the order they're applied, as migration tools order them: folder by folder, by
+ * their leading numbers (`9_…` before `10_…`), those without one after them, and by name between
+ * equals; a path that's the start of another comes first.
  */
 export function byVersion(a: string, b: string): number {
-  const [left, right] = [leadingNumber(a), leadingNumber(b)];
-  if (left === right || (Number.isNaN(left) && Number.isNaN(right))) return byName(a, b);
-  if (Number.isNaN(left)) return 1;
-  return Number.isNaN(right) ? -1 : left - right;
+  const [left, right] = [a.split("/"), b.split("/")];
+  for (let index = 0; index < Math.min(left.length, right.length); index++) {
+    const order = bySegment(left[index]!, right[index]!);
+    if (order !== 0) return order;
+  }
+  return left.length - right.length;
 }
 
 /** A database's migrations, in the order they're applied: by version. */
