@@ -3,6 +3,9 @@ import { afterAll, describe, expect, test, vi } from "vite-plus/test";
 import type { Migration, SchemaResult } from "../../../packages/active-record/cli/for-adapters.ts";
 import { cli } from "../../../packages/pg-record/cli/plugin.ts";
 
+// PGlite starts for each schema read, which takes seconds with coverage on.
+const pgliteTimeout = { timeout: 60_000 };
+
 /** Migrations by file name, in the order given. */
 const migrations = (files: Record<string, string>): Migration[] =>
   Object.entries(files).map(([name, sql]) => ({ name, sql }));
@@ -18,7 +21,7 @@ async function tablesOf(files: Record<string, string>) {
 }
 
 // Postgres's schema is read from its migrations applied to PGlite, so it needs no server (#285).
-describe("Postgres's schema, from its migrations on PGlite", () => {
+describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () => {
   test("each column's type, nullability and literal default, in column order", async () => {
     const { tables } = await tablesOf({
       "20261108090503_create_users.sql": `
@@ -182,7 +185,7 @@ describe("Postgres's schema, from its migrations on PGlite", () => {
 });
 
 // An extension PGlite can't load is read on the database's local server instead (#285).
-describe("Postgres's schema, when PGlite can't load an extension", () => {
+describe("Postgres's schema, when PGlite can't load an extension", pgliteTimeout, () => {
   const url = process.env["DATABASE_URL"]!;
   const needsDblink = {
     "1_extensions.sql": "CREATE EXTENSION IF NOT EXISTS dblink;",

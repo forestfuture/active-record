@@ -5,6 +5,9 @@ import { runGenerate } from "../../../packages/active-record/cli/generate/comman
 import { writePgProject } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
+// PGlite starts for each schema read, which takes seconds with coverage on.
+const pgliteTimeout = { timeout: 60_000 };
+
 const scratch = scratchDirs();
 
 // Migrations are named for the UTC second they're written in, so the clock is set.
@@ -29,7 +32,7 @@ async function generate(cwd: string, args: string[], options: { integerId?: bool
 const read = (cwd: string, path: string) => readFileSync(join(cwd, path), "utf8");
 
 // `g model` and `g migration` on a Postgres project (#285).
-describe("the generators, on Postgres", () => {
+describe("the generators, on Postgres", pgliteTimeout, () => {
   test("g model writes Postgres's migration, its Model and the schema", async () => {
     const cwd = writePgProject(scratch("pg-generate-", true), { HYPERDRIVE: {} });
 
