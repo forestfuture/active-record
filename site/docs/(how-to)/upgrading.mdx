@@ -1,11 +1,69 @@
 ---
-title: Upgrading to 0.6
-description: "Move an app from d1-record 0.5 to 0.6: install the core beside the D1 adapter, change imports, regenerate the schema, and run npx active-record."
+title: Upgrading
+description: "Move an app to a new release: from 0.6 to 0.7, swap the D1 package for the core's /d1 entry and write active-record.jsonc; from d1-record 0.5 to 0.6, install the core beside the adapter and run npx active-record."
 ---
+
+Each section moves an app up one release. Start from the release you’re on.
+
+## Upgrading from 0.6 to 0.7
+
+In 0.7, the adapters ship inside `@forestfuture/active-record`, so an app on D1 installs one package. Upgrade in four steps.
+
+### Replacing the D1 package
+
+Remove the D1 package, then update the core:
+
+```sh
+npm uninstall @forestfuture/d1-record
+npm install @forestfuture/active-record@^0.7.0
+```
+
+### Changing imports
+
+Import what opens D1 from the core’s `/d1` entry:
+
+```ts
+import { connect, d1, withSession } from "@forestfuture/active-record/d1";
+```
+
+Everything else still comes from `@forestfuture/active-record`. If your Vitest config inlines the D1 adapter (`server.deps.inline`), inline `@forestfuture/active-record` instead.
+
+### Writing `active-record.jsonc`
+
+Run `init` in your project’s folder:
+
+```sh
+npx active-record init
+```
+
+It writes `active-record.jsonc`, naming each database in your Wrangler config’s `d1_databases` and its adapter:
+
+```jsonc
+{
+  "$schema": "./node_modules/@forestfuture/active-record/config-schema.json",
+  "databases": {
+    "DB": { "adapter": "d1" },
+  },
+}
+```
+
+Every `active-record` command reads it. Each database’s migrations folder stays in your Wrangler config. `--adapter` is gone, and `--config` now names this file.
+
+### Regenerating the schema
+
+Regenerate your schema:
+
+```sh
+npx active-record schema
+```
+
+Its import changes to `@forestfuture/active-record/d1`. Until you regenerate it, `active-record schema --check` reports it as out of date.
+
+## Upgrading from d1-record 0.5 to 0.6
 
 In 0.6, the library is two packages. `@forestfuture/active-record` is the core: Models, Relations, validations, callbacks, and associations. `@forestfuture/d1-record` is its adapter for D1. Upgrade in four steps.
 
-## Installing both packages
+### Installing both packages
 
 Install the core beside the adapter:
 
@@ -15,7 +73,7 @@ npm install @forestfuture/active-record@^0.6.0 @forestfuture/d1-record@^0.6.0
 
 Both packages share a version, so keep them on the same one.
 
-## Changing imports
+### Changing imports
 
 Import from the core everything that isn’t about D1. Import from the adapter what opens D1:
 
@@ -28,7 +86,7 @@ import {
   RecordNotFound,
   withDatabase,
 } from "@forestfuture/active-record";
-import { connect, d1, withSession } from "@forestfuture/active-record/d1";
+import { connect, d1, withSession } from "@forestfuture/d1-record";
 ```
 
 | Package                       | What it holds                                                                  |
@@ -38,7 +96,7 @@ import { connect, d1, withSession } from "@forestfuture/active-record/d1";
 
 `d1-record` re-exports nothing of the core, so an import of `Model` from it fails.
 
-## Regenerating the schema
+### Regenerating the schema
 
 Run the schema command under its new name:
 
@@ -48,7 +106,7 @@ npx active-record schema
 
 The generated schema now names its adapter, `adapter: d1({ binding: "DB" })`, where it named only the binding. Your base class needs no change.
 
-## Running `active-record`
+### Running `active-record`
 
 The command is now `active-record`, or `ffar` for short. Swap it in your scripts and CI:
 
@@ -60,7 +118,7 @@ The command is now `active-record`, or `ffar` for short. Swap it in your scripts
 
 It also applies migrations through your project’s Wrangler, with `npx active-record migrate`. See [Command line](./command-line#active-record-migrate).
 
-## Updating for the other changes
+### Updating for the other changes
 
 - **Write results:** `insert`, `insertAll`, `upsert`, and `upsertAll` resolve to `{ rowsAffected, rows }`, where they resolved to D1’s `meta`. `rows` holds each written row’s primary key, or the attributes its `returning` option names. Use `rowsAffected` for `meta.changes`, and `rows[0]?.id` for `meta.last_row_id`. A statement in `batch` resolves to the same.
 - **The base error** is `ActiveRecordError`, where it was `D1RecordError`.

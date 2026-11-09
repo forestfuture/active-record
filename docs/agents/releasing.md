@@ -14,7 +14,7 @@ Or write the file by hand in `.changeset/` (any name ending in `.md`):
 
 ```md
 ---
-"@forestfuture/d1-record": patch
+"@forestfuture/active-record": patch
 ---
 
 `findBy` accepts a comparison, as `where` does.
@@ -32,13 +32,13 @@ The release jobs in `.github/workflows/ci.yml` run on `main`, after `check` pass
    - `version` while changesets are waiting;
    - `publish` once a package's `package.json` has a version npm doesn't have yet;
    - `none` otherwise, which is what most pushes hit.
-2. **`release-version`** opens or updates the **Version Packages** pull request. That pull request bumps both packages' `package.json` (Changesets' `fixed` mode keeps them at one version), writes each package's `CHANGELOG.md` (formatted with `vp fmt`) and deletes the used changesets. `packages/d1-record/CHANGELOG.md` holds the history from 0.1, when the core was part of it; `packages/active-record/CHANGELOG.md` starts at 0.6. CI rewrites its branch on every push to `main`, so don't edit it by hand. Pull requests opened by Actions don't run CI, but merging one runs CI on `main` before anything is published.
-3. **`release-pack`** packs a tarball for each package (#277). Packing runs each package's `prepack` script: the core's builds its `dist/` with `vp pack` (attw and publint included), then the docs site, and copies its `llms-full.txt` into the package, so a docs build that fails, a dead link included, blocks the release. The D1 adapter's builds the core, then its own `dist/` against the core's declarations. Changesets' `fixed` mode keeps both at one version, and the adapter's peer dependency on the core is pinned to it.
+2. **`release-version`** opens or updates the **Version Packages** pull request. That pull request bumps the package's `package.json`, writes its `CHANGELOG.md` (formatted with `vp fmt`) and deletes the used changesets. `packages/active-record/CHANGELOG.md` ends with the history of `@forestfuture/d1-record` from 0.1 to 0.5, when the library was that package. CI rewrites its branch on every push to `main`, so don't edit it by hand. Pull requests opened by Actions don't run CI, but merging one runs CI on `main` before anything is published.
+3. **`release-pack`** packs the package's tarball (#277). Packing runs its `prepack` script, which builds its `dist/` with `vp pack` (attw and publint included), then the docs site, and copies its `llms-full.txt` into the package, so a docs build that fails, a dead link included, blocks the release. The adapters are entries of the package (ADR-0019), so there's nothing else to pack.
 4. **`release-publish`** publishes the tarballs to npm with provenance, tags the commit with the version, and creates a GitHub Release with its changelog. It's the only job that can get an OIDC token (`id-token: write`). Changesets publishes with pnpm, so provenance is turned on with `PNPM_CONFIG_PROVENANCE`: pnpm ignores `NPM_CONFIG_*`.
 
 To release, merge the Version Packages pull request.
 
-**Publish only with pnpm.** In the repo, each package's `exports` point at its source, and the D1 adapter's peer dependency on the core is `workspace:*`. pnpm swaps in `publishConfig.exports` and the core's version when it packs; npm doesn't, so `npm publish` would upload a package no app could import or install. Each package's `prepublishOnly` (`scripts/require-pnpm.mjs`) refuses any publisher but pnpm. A publish by hand, such as the core's first (#279), runs `pnpm publish`, or `pnpm pack` and then `npm publish <tarball>`; check the packed `package.json` first.
+**Publish only with pnpm.** In the repo, the package's `exports` point at its source. pnpm swaps in `publishConfig.exports` when it packs; npm doesn't, so `npm publish` would upload a package no app could import. The package's `prepublishOnly` (`scripts/require-pnpm.mjs`) refuses any publisher but pnpm. A publish by hand, such as the core's first (#279), runs `pnpm publish`, or `pnpm pack` and then `npm publish <tarball>`; check the packed `package.json` first.
 
 ## One-time setup
 
@@ -76,6 +76,14 @@ The 0.6.0 release is the first of two packages, from a renamed repository. npm's
 6. **Set the core's trusted publisher** (the maintainer): `npm trust github @forestfuture/active-record --file ci.yml --repo forestfuture/active-record --allow-publish`, then its Settings → Publishing access → **Require two-factor authentication and disallow tokens**.
 7. **Merge the Version Packages pull request.** CI publishes 0.6.0 of both packages, with provenance.
 8. **Check the release:** `npm view @forestfuture/active-record@0.6.0 --prefer-online` and the same for `@forestfuture/d1-record`, each with `dist.attestations`; then install both into a fresh app, follow the guide's [Upgrading to 0.6](<../../site/docs/(how-to)/upgrading.mdx>), and run it.
+
+## Releasing 0.7: one package
+
+In 0.7 the adapters ship inside `@forestfuture/active-record` (#301, ADR-0019), and `@forestfuture/d1-record` gets no new version.
+
+1. **Merge the Version Packages pull request.** CI publishes `@forestfuture/active-record` 0.7.0, with provenance.
+2. **Check the release:** `npm view @forestfuture/active-record@0.7.0 --prefer-online` with `dist.attestations`; then install it into a fresh app, follow the guide's [Upgrading](<../../site/docs/(how-to)/upgrading.mdx>), and run it.
+3. **Deprecate the D1 package** (the maintainer), with no alias: `npm deprecate @forestfuture/d1-record "The D1 adapter is now part of @forestfuture/active-record, as @forestfuture/active-record/d1. See https://active-record.forestfuture.dev/upgrading"`.
 
 ## After the first release: help agents find it
 

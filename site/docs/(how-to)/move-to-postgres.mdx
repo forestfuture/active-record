@@ -1,42 +1,37 @@
 ---
 title: Moving to Postgres
-description: "Move a D1 app to Postgres with its Models and code unchanged: install pg-record, declare the database, rewrite the migrations in Postgres's types, regenerate the schema, copy the data, and switch the binding to Hyperdrive."
+description: "Move a D1 app to Postgres with its Models and code unchanged: install pg, point active-record.jsonc at Postgres, rewrite the migrations in Postgres's types, regenerate the schema, copy the data, and switch the binding to Hyperdrive."
 ---
 
 Move your app from D1 to Postgres by changing its migrations, its schema, its config, and its data. Your Models and the code that uses them stay as they are. The examples move the app from [Getting started](./getting-started).
 
-| What changes          | How                                                       |
-| --------------------- | --------------------------------------------------------- |
-| Packages              | Add `@forestfuture/pg-record` and `pg`, then remove D1’s. |
-| `active-record.jsonc` | New: it declares your Postgres database.                  |
-| `migrations/`         | Rewritten in Postgres’s types, with the same file names.  |
-| `src/db/schema.ts`    | Regenerated, so it names the Postgres adapter.            |
-| Your Wrangler config  | A Hyperdrive binding in place of the D1 one.              |
-| Your data             | Copied from D1 to Postgres.                               |
+| What changes          | How                                                      |
+| --------------------- | -------------------------------------------------------- |
+| Packages              | Add `pg`, and PGlite for reading your schema.            |
+| `active-record.jsonc` | It names your Postgres database in place of the D1 one.  |
+| `migrations/`         | Rewritten in Postgres’s types, with the same file names. |
+| `src/db/schema.ts`    | Regenerated, so it names the Postgres adapter.           |
+| Your Wrangler config  | A Hyperdrive binding in place of the D1 one.             |
+| Your data             | Copied from D1 to Postgres.                              |
 
 You’ll need `sqlite3` and `psql` on your machine to copy the data.
 
-:::note
-`@forestfuture/pg-record` isn’t on npm yet. It ships in a coming release, as part of `@forestfuture/active-record`.
-:::
+## Installing pg
 
-## Installing pg-record
-
-Install the Postgres adapter and `pg` beside the D1 adapter:
+The PostgreSQL adapter comes with `@forestfuture/active-record`. Install `pg`, which it connects with, and PGlite, which `active-record schema` reads your schema with:
 
 ```sh
-npm install @forestfuture/pg-record pg
+npm install pg
+npm install --save-dev @electric-sql/pglite
 ```
-
-With both adapters installed, the `active-record` command asks which one you mean. Pass `--adapter pg` until you remove the D1 adapter.
 
 ## Declaring the database
 
-Declare your Postgres database in `active-record.jsonc`, beside your `package.json`:
+Replace the D1 database in your `active-record.jsonc` with your Postgres one:
 
 <include meta="active-record.jsonc">/_excerpts/move-to-postgres/active-record.jsonc</include>
 
-`HYPERDRIVE` is the binding your Worker will reach Postgres through. `url` is your local database, and `remoteUrl` your real one, read here from the environment. See [Declaring Postgres’s databases](./command-line#declaring-postgress-databases).
+`HYPERDRIVE` is the binding your Worker will reach Postgres through. `url` is your local database, and `remoteUrl` your real one, read here from the environment. Every `active-record` command now works on Postgres. See [Declaring your databases](./command-line#declaring-your-databases).
 
 :::note
 Hyperdrive needs a password in a local connection string, even for a server that asks for none.
@@ -81,7 +76,7 @@ For milliseconds, convert `to_timestamp(paid_at / 1000.0)`.
 Then create the tables in your local database:
 
 ```sh
-npx active-record migrate --adapter pg
+npx active-record migrate
 ```
 
 ## Regenerating the schema
@@ -89,7 +84,7 @@ npx active-record migrate --adapter pg
 Regenerate your schema from the new migrations:
 
 ```sh
-npx active-record schema --adapter pg
+npx active-record schema
 ```
 
 Its attributes come out the same as on D1. Only its adapter changes:
@@ -153,21 +148,15 @@ While it copies, `psql` shows its connection string to anyone on your machine wh
 Then create your tables on the real database, copy the data, and deploy:
 
 ```sh
-npx active-record migrate --adapter pg --remote
+npx active-record migrate --remote
 DATABASE_URL="$PRODUCTION_DATABASE_URL" sh copy-data.sh --remote users posts
 npx wrangler deploy
 ```
 
-## Removing the D1 adapter
+## Removing the D1 database
 
-Once your app runs on Postgres, remove the D1 adapter:
-
-```sh
-npm uninstall @forestfuture/d1-record
-```
-
-Remove the `d1_databases` entry from your Wrangler config too. The command then finds pg-record by itself, without `--adapter`.
+Once your app runs on Postgres, remove the `d1_databases` entry from your Wrangler config.
 
 :::tip
-Your queries, validations, callbacks, and associations work the same on Postgres. A few things work differently, such as how NULLs and text sort, and `sql` fragments that use SQLite’s own functions. [Postgres](./postgres) lists each one.
+Your queries, validations, callbacks, and associations work the same on Postgres. A few things work differently, such as how NULLs and text sort, and `sql` fragments that use SQLite’s own functions. [Postgres](./postgresql) lists each one.
 :::

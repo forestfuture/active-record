@@ -1,6 +1,6 @@
 ---
 title: Command line
-description: "Reference for the active-record command: active-record schema and its options, active-record console and migrate, the conventions from columns to attributes, active-record g model and g migration, the column syntax, and what each command refuses."
+description: "Reference for the active-record command: active-record init and active-record.jsonc, active-record schema and its options, active-record console and migrate, the conventions from columns to attributes, active-record g model and g migration, the column syntax, and what each command refuses."
 ---
 
 The `active-record` command generates `src/db/schema.ts` from your migrations, writes new migrations and Models, and applies migrations. It comes with `@forestfuture/active-record`, and `ffar` is its short name. Run it from your project’s folder:
@@ -9,27 +9,49 @@ The `active-record` command generates `src/db/schema.ts` from your migrations, w
 npx active-record --help
 ```
 
-It finds your database’s adapter from your `package.json`, so it works the same on every database.
+Every command reads your databases, and the adapter each one uses, from `active-record.jsonc`. `active-record init` writes it.
 
 It needs Node.js 22.5 or later. On D1, it needs 22.13 or later, for Node’s built-in SQLite. [Generators](./generators) shows it step by step.
 
 ## `active-record init`
 
-Writes `active-record.jsonc`, which names each of your databases and its adapter. Every other command reads it. On D1, it lists each database in your Wrangler config’s `d1_databases`. On Postgres, it lists each Hyperdrive binding, with its `localConnectionString` as the `url`. With neither, `--adapter pg` writes a `DATABASE_URL` entry whose `url` you set. It never writes over a file that’s there.
+Write `active-record.jsonc` for your project:
 
-| Option             | What it does                                                                    |
-| ------------------ | ------------------------------------------------------------------------------- |
-| `--adapter <name>` | The adapter (`d1` or `pg`), when the project could use either, or neither says. |
-| `--config <file>`  | Write this file, in place of `active-record.jsonc`.                             |
+```sh
+npx active-record init
+```
 
-## Declaring Postgres’s databases
+It reads your Wrangler config. Each database in its `d1_databases` gets a D1 entry. Each Hyperdrive binding gets a PostgreSQL entry, whose `url` is the binding’s `localConnectionString`. It never writes over a file that’s there.
 
-On D1, the command reads your databases from your Wrangler config. On Postgres, declare them in `active-record.jsonc`, beside your `package.json`:
+| Option             |                                                                                    |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| `--adapter <name>` | The adapter, `d1` or `postgresql`, when your Wrangler config has both, or neither. |
+| `--config <file>`  | Write this file, in place of `active-record.jsonc`.                                |
+
+With `--adapter postgresql` and no Hyperdrive binding, it writes a `DATABASE_URL` entry, with a guess at your local database’s `url` for you to correct.
+
+## Declaring your databases
+
+`active-record.jsonc` sits beside your `package.json`. It names each of your databases by its binding, and the adapter it uses:
+
+```jsonc
+{
+  "$schema": "./node_modules/@forestfuture/active-record/config-schema.json",
+  "databases": {
+    "DB": { "adapter": "d1" },
+  },
+}
+```
+
+Your generated schema names each database by its binding. The `$schema` line lets your editor complete and check the file. A project’s databases all use one adapter.
+
+On D1, the rest of a database’s settings stay in your Wrangler config’s `d1_databases`, which must have its binding. On Postgres, the file holds them:
 
 ```jsonc
 {
   "databases": {
     "HYPERDRIVE": {
+      "adapter": "postgresql",
       "migrationsDir": "migrations",
       "url": "postgres://localhost/shop_development",
       "remoteUrl": "${PRODUCTION_DATABASE_URL}",
@@ -38,16 +60,17 @@ On D1, the command reads your databases from your Wrangler config. On Postgres, 
 }
 ```
 
-Each key is a database’s binding. Your generated schema names the database by it.
-
 | Setting         |                                                                           |
 | --------------- | ------------------------------------------------------------------------- |
+| `adapter`       | `d1` or `postgresql`.                                                     |
 | `migrationsDir` | Its migrations folder, relative to the file (`migrations` by default).    |
 | `url`           | The local database: what `migrate` and the console use.                   |
 | `remoteUrl`     | The real database, for `--remote`.                                        |
 | `schemaUrl`     | A server the schema may be read on, for an extension PGlite doesn’t have. |
 
 `${NAME}` reads a variable from the environment, so a password stays out of the file. The command never prints a connection string, only its database and host. `--config` names another file.
+
+On Postgres, the command needs `pg` installed, and PGlite to read your schema. It says what to install when either is missing.
 
 ## `active-record schema`
 
@@ -68,7 +91,7 @@ It applies your migrations, in order, to an in-memory database, and writes each 
 | `--models <dir>`     | Where your Models and `application-record.ts` are (`src/models/` by default).      |
 | `--config <file>`    | Use this config file, in place of `active-record.jsonc`.                           |
 
-**What it reads:** on Postgres, each database in `active-record.jsonc`, from its `migrationsDir`. On D1, each entry of the Wrangler config’s `d1_databases`, with its `binding`, `migrations_dir` (default `migrations/`), `migrations_pattern` (for migrations in folders), and `migrations_table` (left out of the schema). Migrations apply in the order of the numbers their names start with (`9_…` before `10_…`), as Wrangler applies them. It also loads the Model files in `--models`, using your project’s own `@forestfuture/active-record`, to find each Model and its table, so code at a Model file’s top level runs.
+**What it reads:** each database in `active-record.jsonc`. On Postgres, from its `migrationsDir`. On D1, from its entry in the Wrangler config’s `d1_databases`, with its `binding`, `migrations_dir` (default `migrations/`), `migrations_pattern` (for migrations in folders), and `migrations_table` (left out of the schema). Migrations apply in the order of the numbers their names start with (`9_…` before `10_…`), as Wrangler applies them. It also loads the Model files in `--models`, using your project’s own `@forestfuture/active-record`, to find each Model and its table, so code at a Model file’s top level runs.
 
 **What it writes:**
 

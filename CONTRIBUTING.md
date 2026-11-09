@@ -46,7 +46,7 @@ A change to public behavior or the public API updates, in the same pull request,
 - **`docs/contract.md`**: the section for the behavior. Its _Guide_ and _Code_ line names the pages and modules to check.
 - **`GLOSSARY.md`**: a new term, or a term whose meaning changed.
 - **`site/docs/`**: the guide page for the behavior, and its examples in `site/snippets/` (see [Documentation](#documentation)).
-- **`packages/*/src/index.ts`**: a new public name is exported from its package's index (the core's, or an adapter's); an internal one is marked `/** @internal */`, and `vp run check:public-types` keeps it out of the published types. What only adapters need goes in the core's `src/for-adapters.ts`.
+- **An entry's index**: a new public name is exported from the index of its entry (the core's `src/index.ts`, or an adapter's `src/adapters/<name>/index.ts`); an internal one is marked `/** @internal */`, and `vp run check:public-types` keeps it out of the published types. What only adapters need goes in the core's `src/for-adapters.ts`.
 - **`packages/active-record/skills/active-record/SKILL.md`**: the agent skill's rules, when the change alters how an app should write code with the library.
 - **`README.md`**: its quick look and feature list, when they show the behavior.
 - **`.changeset/`**: a changeset (see [Changesets](#changesets)).
@@ -69,7 +69,7 @@ The guide is in `site/docs/` (a [Blume](https://useblume.dev) site at [active-re
 ## Naming and attribution
 
 - **ForestFuture** in prose, logos and titles.
-- **forestfuture** in domains, handles, package scopes and repos (`forestfuture.dev`, `@forestfuture/d1-record`, `github.com/forestfuture`).
+- **forestfuture** in domains, handles, package scopes and repos (`forestfuture.dev`, `@forestfuture/active-record`, `github.com/forestfuture`).
 - Never "Forest Future", "Forestfuture" or "Forest-Future".
 
 Files in the codebase (licenses, `package.json`, docs, test data) are attributed to ForestFuture, never to a person: `Copyright (c) 2026 ForestFuture`, `"author": "ForestFuture (https://forestfuture.dev)"`. Vendored third-party files keep their own authors (`.claude/skills/LICENSE-*`). Commit with your GitHub noreply address, not a personal email.

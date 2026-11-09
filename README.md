@@ -12,18 +12,19 @@ Models with validations, callbacks, associations, and change tracking; lazy, com
 > **Status: pre-release (0.x).** The API is tested against real D1 and Postgres, but it may still change before 1.0.
 
 ```sh
-npm install @forestfuture/active-record @forestfuture/d1-record
+npm install @forestfuture/active-record
 ```
 
-| Package                                                  |                                                                                                    |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| [`@forestfuture/active-record`](packages/active-record/) | The core: Models, Relations, validations, callbacks, associations, and the `active-record` command |
-| [`@forestfuture/d1-record`](packages/d1-record/)         | The D1 adapter: `connect`, `withSession`, and the command’s D1 plugin                              |
-| [`@forestfuture/pg-record`](packages/pg-record/)         | The Postgres adapter, through Hyperdrive or on Node: `connect`, and the command’s Postgres plugin  |
+[`@forestfuture/active-record`](packages/active-record/) holds the core (Models, Relations, validations, callbacks, and associations), the `active-record` command, and an adapter for each database:
 
-pg-record isn’t on npm yet: it ships in a coming release, as part of `@forestfuture/active-record`. An app moves from D1 to Postgres with its Models and code unchanged. See [Moving to Postgres](https://active-record.forestfuture.dev/move-to-postgres).
+| Entry                                    |                                                                         |
+| ---------------------------------------- | ----------------------------------------------------------------------- |
+| `@forestfuture/active-record/d1`         | The D1 adapter: `connect` and `withSession`                             |
+| `@forestfuture/active-record/postgresql` | The Postgres adapter, through Hyperdrive or on Node, with your own `pg` |
 
-Coming from d1-record 0.5? See [Upgrading to 0.6](https://active-record.forestfuture.dev/upgrading).
+An app moves from D1 to Postgres with its Models and code unchanged. See [Moving to Postgres](https://active-record.forestfuture.dev/move-to-postgres).
+
+Coming from an earlier release? See [Upgrading](https://active-record.forestfuture.dev/upgrading).
 
 ## A quick look
 
@@ -47,6 +48,12 @@ npx wrangler d1 create my-app-db
 ```
 
 ### 2. Generate your models
+
+Name your database in `active-record.jsonc`, which every `active-record` command reads:
+
+```sh
+npx active-record init
+```
 
 The generator writes each table’s migration and its Model, as `rails generate model` does (it needs Node.js 22.13 or later):
 

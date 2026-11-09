@@ -59,7 +59,7 @@ jobs:
       - run: wrangler deploy --dry-run --config redirect/wrangler.jsonc
         working-directory: site
 
-  # Packs both packages as release-pack does (#80): dependencies installed without their install
+  # Packs the package as release-pack does (#80): dependencies installed without their install
   # scripts or the shared cache. A release that couldn't be built that way fails here first.
   pack:
     runs-on: ubuntu-latest

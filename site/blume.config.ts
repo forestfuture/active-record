@@ -20,7 +20,7 @@ export default defineConfig({
   agents: {
     llmsTxt: {
       details:
-        "Active Record is `@forestfuture/active-record` on npm, a Rails-inspired Active Record for Cloudflare Workers, with an adapter for each database: `@forestfuture/d1-record` for D1, and `@forestfuture/pg-record` for Postgres. Install its agent skill, with the rules for writing Active Record code, using `npx skills add forestfuture/active-record`. Every behavior the tests prove is in the [behavior contract](https://github.com/forestfuture/active-record/blob/main/docs/contract.md). The installed package ships this guide for its own version at `node_modules/@forestfuture/active-record/llms-full.txt`.",
+        "Active Record is `@forestfuture/active-record` on npm, a Rails-inspired Active Record for Cloudflare Workers, with an adapter for each database inside it: `@forestfuture/active-record/d1` for D1, and `@forestfuture/active-record/postgresql` for Postgres. Install its agent skill, with the rules for writing Active Record code, using `npx skills add forestfuture/active-record`. Every behavior the tests prove is in the [behavior contract](https://github.com/forestfuture/active-record/blob/main/docs/contract.md). The installed package ships this guide for its own version at `node_modules/@forestfuture/active-record/llms-full.txt`.",
     },
     // Published at /.well-known/agent-skills/active-record/SKILL.md, in place of Blume's generated skill.
     skills: "../packages/active-record/skills",

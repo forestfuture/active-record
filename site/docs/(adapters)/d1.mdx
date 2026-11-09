@@ -1,12 +1,12 @@
 ---
 title: D1
-description: "The D1 adapter, @forestfuture/d1-record: installing it, binding a database, Sessions for read replicas, preloads and pages in one round trip, and what's different on D1, from transactions to bound-parameter limits."
+description: "The D1 adapter, @forestfuture/active-record/d1: installing it, binding a database, Sessions for read replicas, preloads and pages in one round trip, and what's different on D1, from transactions to bound-parameter limits."
 ---
 
-`@forestfuture/d1-record` runs your Models on [Cloudflare D1](https://developers.cloudflare.com/d1/). Install it with the core:
+The D1 adapter runs your Models on [Cloudflare D1](https://developers.cloudflare.com/d1/). It comes with `@forestfuture/active-record`, as its `/d1` entry:
 
 ```sh
-npm install @forestfuture/active-record @forestfuture/d1-record
+npm install @forestfuture/active-record
 ```
 
 ## Binding a database
@@ -19,11 +19,11 @@ Bind your D1 database in your Wrangler config:
 }
 ```
 
-`active-record schema` reads the binding from there, and your generated schema names it with `adapter: d1({ binding: "DB" })`. Your Models then query it with nothing to set up. `connect(env.DB)` opens it yourself, for [a request’s database](./connecting#using-the-requests-database) or [an explicit one](./connecting#using-an-explicit-database). `active-record migrate` applies your migrations through Wrangler.
+Then run `npx active-record init`, which names it in your [`active-record.jsonc`](./command-line#declaring-your-databases) as a D1 database. `active-record schema` reads its migrations through your Wrangler config, and your generated schema names it with `adapter: d1({ binding: "DB" })`. Your Models then query it with nothing to set up. `connect(env.DB)` opens it yourself, for [a request’s database](./connecting#using-the-requests-database) or [an explicit one](./connecting#using-an-explicit-database). `active-record migrate` applies your migrations through Wrangler.
 
 ## Reading your own writes
 
-With read replication, wrap each request in [`withSession`](./read-your-own-writes), from `@forestfuture/d1-record`. It opens a D1 Session, so the request reads its own writes, and carries its bookmark to the user’s next request.
+With read replication, wrap each request in [`withSession`](./read-your-own-writes), from `@forestfuture/active-record/d1`. It opens a D1 Session, so the request reads its own writes, and carries its bookmark to the user’s next request.
 
 ## Sending queries in one round trip
 

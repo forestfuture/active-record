@@ -9,7 +9,7 @@ Open a console on your local database, with your Models loaded, to try a query o
 npx active-record console
 ```
 
-On Postgres, it opens the `url` your [`active-record.jsonc`](./command-line#declaring-postgress-databases) declares, or with `--remote` its `remoteUrl`. The rest of this page shows D1.
+On Postgres, it opens the `url` your [`active-record.jsonc`](./command-line#declaring-your-databases) declares, or with `--remote` its `remoteUrl`. The rest of this page shows D1.
 
 It prints which database and Models it opened, then waits for a line:
 
@@ -53,7 +53,7 @@ Reloaded: Post, User
 If a file fails to load, say a syntax error in the middle of an edit, the console names the file and keeps the Models you had.
 
 :::note
-Only files in your project’s folder are read again. Your database connection and `@forestfuture/d1-record` stay as they are.
+Only files in your project’s folder are read again. Your database connection and `@forestfuture/active-record` stay as they are.
 :::
 
 ## Seeing the SQL
@@ -183,11 +183,11 @@ echo 'await User.count()' | npx active-record console
 That prints the same transcript a session does (the database, a prompt before each line, `#=> ` before each result) and exits 0 even when a line fails. For a script that checks the result or the exit code, use `-e`.
 
 :::note
-The console reads your TypeScript Models directly, including extensionless imports and `tsconfig.json` paths, so it works in TypeScript projects. It needs Node.js 22.13 or later, and `wrangler` and `@forestfuture/d1-record` installed in your project. It uses your copies, so your Models and the console share one library.
+The console reads your TypeScript Models directly, including extensionless imports and `tsconfig.json` paths, so it works in TypeScript projects. It needs Node.js 22.13 or later, and `wrangler` and `@forestfuture/active-record` installed in your project. It uses your copies, so your Models and the console share one library.
 :::
 
 :::warning[Only in projects you trust]
-The console runs your project’s code: your Models, and the `wrangler` and `@forestfuture/d1-record` in its `node_modules`. Run it in a project you’d run `wrangler dev` in.
+The console runs your project’s code: your Models, and the `wrangler` and `@forestfuture/active-record` in its `node_modules`. Run it in a project you’d run `wrangler dev` in.
 :::
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
