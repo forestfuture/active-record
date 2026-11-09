@@ -21,7 +21,7 @@ npm install @forestfuture/active-record @forestfuture/d1-record
 | [`@forestfuture/d1-record`](packages/d1-record/)         | The D1 adapter: `connect`, `withSession`, and the command’s D1 plugin                              |
 | [`@forestfuture/pg-record`](packages/pg-record/)         | The Postgres adapter, through Hyperdrive or on Node: `connect`, and the command’s Postgres plugin  |
 
-An app moves from D1 to Postgres with its Models and code unchanged. See [Moving to Postgres](https://active-record.forestfuture.dev/move-to-postgres).
+pg-record isn’t on npm yet: it ships in a coming release, as part of `@forestfuture/active-record`. An app moves from D1 to Postgres with its Models and code unchanged. See [Moving to Postgres](https://active-record.forestfuture.dev/move-to-postgres).
 
 Coming from d1-record 0.5? See [Upgrading to 0.6](https://active-record.forestfuture.dev/upgrading).
 

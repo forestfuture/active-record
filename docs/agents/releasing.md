@@ -77,14 +77,6 @@ The 0.6.0 release is the first of two packages, from a renamed repository. npm's
 7. **Merge the Version Packages pull request.** CI publishes 0.6.0 of both packages, with provenance.
 8. **Check the release:** `npm view @forestfuture/active-record@0.6.0 --prefer-online` and the same for `@forestfuture/d1-record`, each with `dist.attestations`; then install both into a fresh app, follow the guide's [Upgrading to 0.6](<../../site/docs/(how-to)/upgrading.mdx>), and run it.
 
-## pg-record's first release (#270)
-
-`@forestfuture/pg-record` is public from #270, so the Version Packages pull request after it publishes it for the first time. Its trusted publisher can't be set until it exists, so before merging that pull request (the maintainer):
-
-1. **Publish a placeholder**, as for the core in step 5 above: `{ "name": "@forestfuture/pg-record", "version": "0.0.0", "description": "Placeholder: install 0.7.0 or later.", "license": "MIT", "repository": { "type": "git", "url": "git+https://github.com/forestfuture/active-record.git" } }`, then `npm deprecate @forestfuture/pg-record@0.0.0 "Placeholder: install 0.7.0 or later"`.
-2. **Set its trusted publisher**: `npm trust github @forestfuture/pg-record --file ci.yml --repo forestfuture/active-record --allow-publish`, then Settings → Publishing access → **Require two-factor authentication and disallow tokens**.
-3. **After the release**, check it as in step 8: `npm view @forestfuture/pg-record@0.7.0 --prefer-online`, with `dist.attestations`, then follow the guide's [Moving to Postgres](<../../site/docs/(how-to)/move-to-postgres.mdx>) on a fresh app.
-
 ## After the first release: help agents find it
 
 1. **Install the skill once** to check it works for others: `npx skills add forestfuture/active-record`. skills.sh has no submission and no crawler: a skill is listed from the install counts that the skills CLI reports for public GitHub repositories. Look for `active-record` at https://www.skills.sh a day or two later.
