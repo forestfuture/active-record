@@ -130,11 +130,11 @@ Create a Hyperdrive config for your real database:
 npx wrangler hyperdrive create my-app --connection-string="$PRODUCTION_DATABASE_URL"
 ```
 
-Then bind it in your Wrangler config, with the `nodejs_compat` flag `pg` needs:
+Then bind it in your Wrangler config, beside your D1 binding, with the `nodejs_compat` flag `pg` needs:
 
 <include meta="wrangler.jsonc">/_excerpts/move-to-postgres/wrangler.jsonc</include>
 
-Keep your `d1_databases` entry beside it until you’ve copied your real data, since the script exports D1 through it. `npx wrangler dev` now runs your app on your local Postgres.
+`npx wrangler dev` now runs your app on your local Postgres.
 
 ## Going live
 

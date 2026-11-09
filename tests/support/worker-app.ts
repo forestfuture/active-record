@@ -2,7 +2,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Miniflare, supportedCompatibilityDate, type MiniflareOptions } from "miniflare";
+import { Miniflare, supportedCompatibilityDate } from "miniflare";
 import { onTestFinished, vi } from "vite-plus/test";
 import { main } from "../../packages/active-record/cli/main.ts";
 import { parseJsonc } from "../../packages/active-record/cli/project/config-file.ts";
@@ -31,41 +31,46 @@ export interface Served {
   dispose(): Promise<void>;
 }
 
-/**
- * The compatibility settings the app's Wrangler config gives its Worker, its date no later than
- * this Miniflare's workerd supports.
- */
-function compatibility(
-  cwd: string,
-): Pick<MiniflareOptions, "compatibilityDate" | "compatibilityFlags"> {
-  const config = parseJsonc(readFileSync(join(cwd, "wrangler.jsonc"), "utf8")) as {
-    compatibility_date: string;
-    compatibility_flags?: string[];
-  };
-  const date = [config.compatibility_date, supportedCompatibilityDate].sort()[0];
-  return { compatibilityDate: date, compatibilityFlags: config.compatibility_flags ?? [] };
+/** What Miniflare needs of the app's Wrangler config to run its Worker as Wrangler would. */
+interface WranglerConfig {
+  compatibility_date: string;
+  compatibility_flags?: string[];
+  d1_databases?: { binding: string; database_id: string }[];
+  hyperdrive?: { binding: string; localConnectionString: string }[];
 }
 
 /**
- * The app's Worker as `wrangler deploy` would bundle it now, with the compatibility settings its
- * Wrangler config gives it, served by Miniflare with these bindings.
+ * Miniflare's options for the app's Worker, from its Wrangler config: its compatibility settings,
+ * the date no later than this Miniflare's workerd supports, and its D1 and Hyperdrive bindings,
+ * each D1 database kept in Wrangler's local state and each Hyperdrive reaching its local URL.
  */
-export async function serve(
-  cwd: string,
-  options: {
-    d1Databases?: Record<string, string>;
-    d1Persist?: string;
-    hyperdrives?: Record<string, string>;
-  },
-): Promise<Served> {
+function fromConfig(cwd: string) {
+  const config = parseJsonc(readFileSync(join(cwd, "wrangler.jsonc"), "utf8")) as WranglerConfig;
+  const d1 = config.d1_databases ?? [];
+  const hyperdrive = config.hyperdrive ?? [];
+  return {
+    compatibilityDate: [config.compatibility_date, supportedCompatibilityDate].sort()[0],
+    compatibilityFlags: config.compatibility_flags ?? [],
+    d1Databases: Object.fromEntries(d1.map((entry) => [entry.binding, entry.database_id])),
+    d1Persist: join(cwd, ".wrangler/state/v3/d1"),
+    hyperdrives: Object.fromEntries(
+      hyperdrive.map((entry) => [entry.binding, entry.localConnectionString]),
+    ),
+  };
+}
+
+/**
+ * The app's Worker as `wrangler deploy` would bundle it now, served by Miniflare with the
+ * settings and bindings its Wrangler config gives it, as `wrangler dev` would serve it.
+ */
+export async function serve(cwd: string): Promise<Served> {
   const out = join(cwd, ".bundle");
   runWrangler(cwd, ["deploy", "--dry-run", "--outdir", out]);
   const mf = new Miniflare({
     modules: true,
     scriptPath: join(out, "index.js"),
-    ...compatibility(cwd),
-    ...options,
-  } as MiniflareOptions);
+    ...fromConfig(cwd),
+  });
   return {
     async fetch(method, body) {
       const init = body === undefined ? { method } : { method, body: JSON.stringify(body) };
