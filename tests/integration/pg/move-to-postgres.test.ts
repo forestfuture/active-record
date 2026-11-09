@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { cpSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { afterAll, beforeAll, describe, expect, onTestFinished, test, vi } from "vite-plus/test";
@@ -271,4 +271,18 @@ test("the guide's Postgres migrations are what the tutorial's g model commands w
   for (const file of ["20261108090503_create_users.sql", "20261108090504_create_posts.sql"]) {
     expectSameFile(`migrations/${file}`, cwd, move);
   }
+});
+
+test("copy-data.sh refuses a table name that would end the SQL it's written into, before exporting anything", () => {
+  const cwd = scratch("move-names-");
+
+  const refused = spawnSync("sh", [join(move, "copy-data.sh"), "--local", "users", 'posts" (id)'], {
+    cwd,
+    encoding: "utf8",
+  });
+
+  expect([refused.status, refused.stderr]).toEqual([
+    1,
+    `copy-data.sh: can't copy a table named 'posts" (id)'\n`,
+  ]);
 });
