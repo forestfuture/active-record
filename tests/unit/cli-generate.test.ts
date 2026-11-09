@@ -210,6 +210,24 @@ ALTER TABLE products DROP COLUMN code;
   });
 });
 
+// The plugin notes a key type it guessed (#285); a removed column's type isn't written.
+describe("D1's notes on a migration's references", () => {
+  test("a reference to a table not in the migrations yet is noted, but not when it's removed", async () => {
+    const { cli } = await import("../../packages/d1-record/cli/plugin.ts");
+    const change = (name: string) => ({
+      name,
+      columns: columns("user:references"),
+      keys: noKeys,
+      options: {},
+    });
+
+    expect(cli.migration(change("AddUserToOrders"))).toMatchObject({
+      notes: ["users isn't in the migrations yet, so user_id is TEXT"],
+    });
+    expect(cli.migration(change("RemoveUserFromOrders"))).not.toHaveProperty("notes");
+  });
+});
+
 describe("migration file names: a UTC timestamp, as Rails writes them", () => {
   const now = new Date("2026-11-08T09:05:03.250Z");
 

@@ -169,7 +169,8 @@ function referenceNotes(
 /** A migration's SQL, for SQLite as D1 runs it, with a note for each key type it guessed. */
 export function migration({ name, columns, keys, options }: MigrationChange): MigrationResult {
   const result = migrationFor(name, columns, keys, options);
-  if (!result.ok) return result;
+  // A removed reference's type isn't written, so nothing was guessed.
+  if (!result.ok || migrationPlan(name).kind === "remove") return result;
   const notes = referenceNotes(columns, keys);
   return notes.length === 0 ? result : { ...result, notes };
 }
