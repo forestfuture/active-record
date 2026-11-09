@@ -9,6 +9,10 @@ description: "The Postgres adapter, @forestfuture/pg-record: installing it, conn
 npm install @forestfuture/active-record @forestfuture/pg-record pg
 ```
 
+:::note
+`@forestfuture/pg-record` isn’t on npm yet. It ships in a coming release, as part of `@forestfuture/active-record`.
+:::
+
 A Worker that uses it needs `"compatibility_flags": ["nodejs_compat"]` in its Wrangler config, for `pg`. To move an app from D1, see [Moving to Postgres](./move-to-postgres).
 
 Your Models, queries, and callbacks work the same on Postgres. The sections after [Connecting](#connecting) are the places Postgres works differently from D1.

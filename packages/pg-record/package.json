@@ -1,6 +1,7 @@
 {
   "name": "@forestfuture/pg-record",
   "version": "0.6.0",
+  "private": true,
   "description": "The Postgres adapter for @forestfuture/active-record, on Workers through Hyperdrive and on Node.",
   "keywords": [
     "active-record",
