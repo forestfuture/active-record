@@ -137,7 +137,8 @@ Applied 20261108090504_add_sku_to_products.sql
 
 - **Each migration runs in a transaction** with its version, so one that fails is rolled back whole, and the ones after it don’t run. A statement Postgres can’t run in a transaction, such as `CREATE INDEX CONCURRENTLY`, fails.
 - **A second run at the same time is refused**, through an advisory lock, so each migration runs once. Run it again once the first is done.
-- **A file whose name doesn’t start with a number** is refused before any migration runs.
+- **A file whose name doesn’t start with a number** is refused before any migration runs, as are two files with the same number.
+- **A migration with its own `BEGIN`, `COMMIT` or `ROLLBACK`** is refused too, since it would end the transaction the migration runs in. A function’s `BEGIN … END` is fine.
 
 :::note[Migrating the real database on Postgres]
 On D1, `--remote` reaches your database through Cloudflare, signed in with Wrangler. On Postgres, it connects to the database itself, so the machine that runs it needs the `remoteUrl`’s variable, password included, and a network route to the server. That’s usually your CI, with the URL as a secret. If the database is only reachable through a Cloudflare Tunnel, open a local port to it with `cloudflared access tcp --hostname db.example.com --url localhost:5433`, and point `remoteUrl` at `localhost:5433`.

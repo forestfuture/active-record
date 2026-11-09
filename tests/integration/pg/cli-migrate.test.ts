@@ -199,6 +199,25 @@ describe("migrate, on Postgres", pgliteTimeout, () => {
     expect(printed).not.toContain("s3cret");
   });
 
+  test("a migration with its own COMMIT is refused before any runs", async () => {
+    const { code, printed } = await migrated(
+      project({
+        ...createUsers,
+        "migrations/20261108090505_backfill.sql": "BEGIN; SELECT 1; COMMIT;",
+      }),
+    );
+
+    expect([code, printed]).toEqual([
+      1,
+      "20261108090505_backfill.sql has its own BEGIN; leave out BEGIN, COMMIT and ROLLBACK, since migrate runs each migration in a transaction of its own\n",
+    ]);
+    expect(await schema.pool.query({ text: "SELECT to_regclass('users') AS users" })).toMatchObject(
+      {
+        rows: [{ users: null }],
+      },
+    );
+  });
+
   test("without a url, says to set one", async () => {
     const { code, printed } = await migrated(project(createUsers, { DB: {} }));
 

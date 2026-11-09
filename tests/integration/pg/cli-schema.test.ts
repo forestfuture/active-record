@@ -195,6 +195,17 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
     ]);
   });
 
+  test("refuses a migration with its own COMMIT, as migrate does", async () => {
+    expect(
+      await read({ "1_create.sql": "CREATE TABLE a (id BIGINT PRIMARY KEY); COMMIT;" }),
+    ).toEqual({
+      ok: false,
+      errors: [
+        "1_create.sql has its own COMMIT; leave out BEGIN, COMMIT and ROLLBACK, since migrate runs each migration in a transaction of its own",
+      ],
+    });
+  });
+
   test("a migration Postgres refuses is named by its file", async () => {
     const result = await read({
       "1_create.sql": "CREATE TABLE users (id BIGINT PRIMARY KEY);",
