@@ -1,4 +1,4 @@
-// A Postgres schema of its own for one of pg-record's test files, on the server DATABASE_URL names.
+// A Postgres schema, or a database, of its own for one of pg-record's test files, on the server DATABASE_URL names.
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { userInfo } from "node:os";
@@ -16,6 +16,23 @@ function databaseUrl(): string {
   return url;
 }
 
+/** A name of its own, for a schema or a database. */
+const ownName = () => `record_${randomUUID().replaceAll("-", "")}`;
+
+/** The server's URL, naming its user: Node's pg falls back to the OS user, as libpq does, and a Worker has none to fall back to. */
+function urlWithUser(): URL {
+  const url = new URL(databaseUrl());
+  if (url.username === "") url.username = userInfo().username;
+  return url;
+}
+
+/** A Pool whose idle clients' errors, such as a dropped database's, don't fail the test. */
+function quietPool(config: ConstructorParameters<typeof pg.Pool>[0]): InstanceType<typeof pg.Pool> {
+  const pool = new pg.Pool(config);
+  pool.on("error", () => {});
+  return pool;
+}
+
 export interface PgSchema {
   /** A connection string to it, whose connections Postgres lists under this file's own name. */
   url: string;
@@ -30,14 +47,11 @@ export interface PgSchema {
 
 /** Creates a schema with the fixture tables (and `schema`'s, after them). Dispose in `afterAll`. */
 export async function openPgSchema(schema: readonly URL[] = fixture): Promise<PgSchema> {
-  const name = `record_${randomUUID().replaceAll("-", "")}`;
-  const url = new URL(databaseUrl());
-  // Node's pg falls back to the OS user, as libpq does; a Worker has none to fall back to.
-  if (url.username === "") url.username = userInfo().username;
+  const name = ownName();
+  const url = urlWithUser();
   url.searchParams.set("options", `-c search_path=${name}`);
   url.searchParams.set("application_name", name);
-  const pool = new pg.Pool({ connectionString: databaseUrl(), options: `-c search_path=${name}` });
-  pool.on("error", () => {});
+  const pool = quietPool({ connectionString: databaseUrl(), options: `-c search_path=${name}` });
   await pool.query({ text: `CREATE SCHEMA ${name}` });
   for (const file of schema) await pool.query({ text: readFileSync(file, "utf8") });
   return {
@@ -77,15 +91,12 @@ export interface PgDatabase {
  * database, as Hyperdrive does, and so can't be given a schema. Dispose in `afterAll`.
  */
 export async function openPgDatabase(): Promise<PgDatabase> {
-  const name = `record_${randomUUID().replaceAll("-", "")}`;
-  const admin = new pg.Pool({ connectionString: databaseUrl() });
-  admin.on("error", () => {});
+  const name = ownName();
+  const admin = quietPool({ connectionString: databaseUrl() });
   await admin.query({ text: `CREATE DATABASE ${name}` });
-  const url = new URL(databaseUrl());
-  if (url.username === "") url.username = userInfo().username;
+  const url = urlWithUser();
   url.pathname = `/${name}`;
-  const pool = new pg.Pool({ connectionString: url.toString() });
-  pool.on("error", () => {});
+  const pool = quietPool({ connectionString: url.toString() });
   return {
     url: url.toString(),
     pool,
