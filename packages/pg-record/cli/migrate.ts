@@ -15,10 +15,10 @@ export async function migrate(
     say(problem);
     return 1;
   };
-  const where = target(chosen, remote);
-  if (typeof where === "string") return refused(where);
+  const reached = target(chosen, remote);
+  if (typeof reached === "string") return refused(reached);
   const files = migrationFiles(chosen.migrationsDir);
   if (typeof files === "string") return refused(files);
-  say(where.description);
-  return runMigrations(where.url, files, say);
+  say(reached.description);
+  return runMigrations(reached.url, files, say);
 }

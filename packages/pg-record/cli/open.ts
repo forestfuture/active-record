@@ -11,9 +11,9 @@ export async function openDatabase(
   chosen: ChosenDatabase,
   { remote }: { remote: boolean },
 ): Promise<OpenBinding | string> {
-  const where = target(chosen, remote, "the console needs");
-  if (typeof where === "string") return where;
-  const pool = new pg.Pool({ connectionString: where.url, max: 1 });
+  const reached = target(chosen, remote, "the console needs");
+  if (typeof reached === "string") return reached;
+  const pool = new pg.Pool({ connectionString: reached.url });
   pool.on("error", () => {});
-  return { binding: pool, description: where.description, dispose: () => pool.end() };
+  return { binding: pool, description: reached.description, dispose: () => pool.end() };
 }

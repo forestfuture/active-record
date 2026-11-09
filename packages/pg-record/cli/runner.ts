@@ -2,22 +2,20 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { byName } from "@forestfuture/active-record/cli";
-import pg from "pg";
+import { connected, type Client } from "./client.ts";
 import { migrationsTable } from "./config.ts";
 import { hostOf } from "./urls.ts";
 
 /** A migration file, and the version its name starts with. */
-interface Pending {
+interface MigrationFile {
   file: string;
   version: string;
   sql: string;
 }
 
-type Client = InstanceType<typeof pg.Client>;
-
 /** Each file with its version, or why one has none or shares its version with another. */
-function versioned(dir: string, names: readonly string[]): Pending[] | string {
-  const files: Pending[] = [];
+function versioned(dir: string, names: readonly string[]): MigrationFile[] | string {
+  const files: MigrationFile[] = [];
   const seen = new Map<string, string>();
   for (const file of names) {
     const version = /^(\d+)/.exec(file)?.[1];
@@ -35,7 +33,7 @@ function versioned(dir: string, names: readonly string[]): Pending[] | string {
 }
 
 /** The migrations folder's files in the order they're applied (by name), or why they can't be. */
-export function migrationFiles(dir: string): Pending[] | string {
+export function migrationFiles(dir: string): MigrationFile[] | string {
   let names: string[];
   try {
     names = readdirSync(dir).filter((name) => name.endsWith(".sql"));
@@ -58,7 +56,10 @@ async function appliedVersions(client: Client): Promise<Set<string>> {
 }
 
 /** Applies one migration and records its version, in one transaction; why it failed, if it did. */
-async function applyOne(client: Client, { sql, version }: Pending): Promise<string | undefined> {
+async function applyOne(
+  client: Client,
+  { sql, version }: MigrationFile,
+): Promise<string | undefined> {
   try {
     await client.query({ text: "BEGIN" });
     await client.query({ text: sql });
@@ -75,9 +76,9 @@ async function applyOne(client: Client, { sql, version }: Pending): Promise<stri
 }
 
 /** Applies the files not applied yet, saying each; false once one fails, and none after it run. */
-async function applyPending(
+async function applyMigrationFile(
   client: Client,
-  files: readonly Pending[],
+  files: readonly MigrationFile[],
   say: (line: string) => void,
 ) {
   const applied = await appliedVersions(client).catch((error: unknown) => error as Error);
@@ -104,20 +105,17 @@ async function applyPending(
  */
 export async function runMigrations(
   url: string,
-  files: readonly Pending[],
+  files: readonly MigrationFile[],
   say: (line: string) => void,
 ): Promise<number> {
-  const client = new pg.Client({ connectionString: url, connectionTimeoutMillis: 10_000 });
-  client.on("error", () => {});
-  try {
-    await client.connect();
-  } catch (error) {
-    say(`Couldn't connect to ${hostOf(url)}: ${(error as Error).message}`);
+  const client = await connected(url);
+  if (typeof client === "string") {
+    say(`Couldn't connect to ${hostOf(url)}: ${client}`);
     return 1;
   }
   try {
     await client.query({ text: `SELECT pg_advisory_lock(${lock})` });
-    return (await applyPending(client, files, say)) ? 0 : 1;
+    return (await applyMigrationFile(client, files, say)) ? 0 : 1;
   } catch (error) {
     say(`Couldn't take the migrations' lock: ${(error as Error).message}`);
     return 1;

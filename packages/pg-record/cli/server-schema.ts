@@ -1,23 +1,7 @@
 // A database of its own on a Postgres server, for reading a schema whose migrations need an extension PGlite can't load.
 import { randomUUID } from "node:crypto";
-import pg from "pg";
+import { connected, type Client } from "./client.ts";
 import type { Scratch } from "./schema.ts";
-
-type Client = InstanceType<typeof pg.Client>;
-
-/** A client on the server, connected, or why it couldn't be. */
-async function connected(
-  connectionString: string,
-): Promise<InstanceType<typeof pg.Client> | string> {
-  const client = new pg.Client({ connectionString, connectionTimeoutMillis: 10_000 });
-  client.on("error", () => {});
-  try {
-    await client.connect();
-    return client;
-  } catch (error) {
-    return (error as Error).message;
-  }
-}
 
 /**
  * The same server's connection string, for another database on it; undefined when Node can't read

@@ -8,16 +8,10 @@ const described = (kind: string, binding: string, url: string) =>
   `${kind} database ${binding} (${databaseNameOf(url)} on ${hostOf(url)})`;
 
 /** The real database the entry's `remoteUrl` names, or why there's none. */
-export function remoteTarget({
-  binding,
-  entry,
-  configFile,
-}: ChosenDatabase): RemoteTarget | string {
-  const url = connectionString(entry, "remoteUrl");
-  if (url === undefined)
-    return `${binding} has no remoteUrl in ${basename(configFile)}, which --remote needs`;
-  if (typeof url !== "string") return url.error;
-  return { name: databaseNameOf(url), description: described("Remote", binding, url) };
+export function remoteTarget(chosen: ChosenDatabase): RemoteTarget | string {
+  const reached = target(chosen, true);
+  if (typeof reached === "string") return reached;
+  return { name: databaseNameOf(reached.url), description: reached.description };
 }
 
 /**
