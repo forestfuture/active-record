@@ -95,7 +95,7 @@ To pass per-request options without Sessions, such as `onQuery`, open the databa
 
 ## Testing with several databases
 
-Outside a Worker, a Model can’t look up its binding. Give your tests the bindings by mocking `cloudflare:workers`. First, let Vitest’s mocks reach d1-record:
+Outside a Worker, a Model can’t look up its binding. Give your tests the bindings by mocking `cloudflare:workers`. First, let Vitest’s mocks reach Active Record:
 
 ```ts vitest.config.ts
 import { defineConfig } from "vitest/config";
@@ -132,7 +132,7 @@ test("signing in logs an entry", async () => {
 Each Model now finds its own database, as it does in a Worker. Call your Worker’s `fetch` without `withDatabase`.
 
 :::note
-Assign the bindings onto the mocked `env` object, as above. d1-record reads `env` the first time a Model needs its binding, so it never sees an object assigned later.
+Assign the bindings onto the mocked `env` object, as above. Active Record reads `env` the first time a Model needs its binding, so it never sees an object assigned later.
 :::
 
 ## Opening one in the console

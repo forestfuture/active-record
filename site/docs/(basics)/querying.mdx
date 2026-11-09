@@ -49,7 +49,7 @@ For anything else, write an `sql` tagged template. Values are always bound, and 
 <include>/_excerpts/guide/querying/sql.ts</include>
 
 :::warning[Integer datetimes]
-A value in a fragment is bound as it is, so a `Date` is ISO text. If the attribute is a datetime [stored as a Unix time](./adopt-a-database#reading-unix-timestamps), compare it with `column("publishedAt").value(date)`, which writes the `Date` as the attribute stores it. A bare `Date` (or an ISO datetime string) beside that column in a comparison throws `TypeError`. In an expression, such as `abs(${column("publishedAt")} - ${date})`, or in an `IN` list, d1-record can’t tell what you meant: you’re comparing an integer with text, which SQLite always orders the same way, so `>` matches nothing and `<` matches every row. Check which form the expression needs, and use `value` when it needs the stored one.
+A value in a fragment is bound as it is, so a `Date` is ISO text. If the attribute is a datetime [stored as a Unix time](./adopt-a-database#reading-unix-timestamps), compare it with `column("publishedAt").value(date)`, which writes the `Date` as the attribute stores it. A bare `Date` (or an ISO datetime string) beside that column in a comparison throws `TypeError`. In an expression, such as `abs(${column("publishedAt")} - ${date})`, or in an `IN` list, Active Record can’t tell what you meant: you’re comparing an integer with text, which SQLite always orders the same way, so `>` matches nothing and `<` matches every row. Check which form the expression needs, and use `value` when it needs the stored one.
 :::
 
 <include>/_excerpts/guide/adopt/fragment.ts</include>
@@ -82,7 +82,7 @@ For a cache key, or the value a test expects of a raw row, `serialize` gives the
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-`typeForAttribute` is `type_for_attribute`, with the same `cast`, `serialize`, and `deserialize`. d1-record’s are strict: a value the attribute can’t hold throws, where Rails casts it leniently.
+`typeForAttribute` is `type_for_attribute`, with the same `cast`, `serialize`, and `deserialize`. Active Record’s are strict: a value the attribute can’t hold throws, where Rails casts it leniently.
 
 </Callout>
 
@@ -95,19 +95,20 @@ Sort by each key in turn with `order`, and page with `limit` and `offset`:
 Calling `order` again adds more keys. `reorder` replaces the order so far, and `reorder()` removes it. To get a page with its total, use [`paginate`](#paginating).
 
 :::note
-NULLs sort first in ascending order, as in SQLite. Place them with `nulls: "first"` or `nulls: "last"`.
+On D1, NULLs sort first in ascending order, and on Postgres last. Place them with `nulls: "first"` or `nulls: "last"` to sort them the same on both.
 :::
 
 ## Paginating
 
-`paginate` resolves to one page of records and the total they’re a page of, in a single round trip to D1:
+`paginate` resolves to one page of records and the total they’re a page of:
 
 <include>/_excerpts/guide/paginating/paginate.ts</include>
 
 - `page` and `perPage` take numbers, or text from a query string. Missing, `null`, or empty, they mean the first page and the default size. Anything that isn’t a whole number from 1 throws `TypeError`.
 - Pages sort by the Relation’s order, then by the primary key, so records that tie keep their pages between requests.
 - A page past the last has no records, but still has the real `total`.
-- `includes()` preloads the page’s associations in the same round trip, with one more query per association.
+- `includes()` preloads the page’s associations, with one more query per association.
+- On D1, the count, the records, and their preloads take [one round trip](./d1#sending-queries-in-one-round-trip).
 - A Relation with its own `limit` or `offset` throws `IncompatibleRelation`.
 
 ### Skipping the count
@@ -130,7 +131,7 @@ D1 limits neither the rows a query returns nor the size of its response. `maxPer
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-Rails leaves pagination to gems such as Kaminari and Pagy. d1-record builds it in, and sends the count and the page to D1 together.
+Rails leaves pagination to gems such as Kaminari and Pagy. Active Record builds it in, and on D1 sends the count and the page together.
 
 </Callout>
 
@@ -224,10 +225,10 @@ const admins = await User.where({ role: "admin" }).merge(recent).toArray();
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-Rails adds the argument’s order to the receiver’s. d1-record replaces it.
+Rails adds the argument’s order to the receiver’s. Active Record replaces it.
 
 </Callout>
 
 ## Preloading associations
 
-`includes` loads associations for every record, with one query per association, all in one round trip with the records’ own query. See [Associations](./associations#preloading-associations).
+`includes` loads associations for every record, with one query per association. See [Associations](./associations#preloading-associations).

@@ -216,7 +216,7 @@ Conditions are cast the same way, so `where({ quantity: "42" })` finds 42. A con
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-Rails casts leniently: `"12abc"` becomes `12`, `1.7` becomes `1`, any other text is `true`, and `""` is `nil`. d1-record refuses each, so `isAdmin=no` from a form can’t save `true`, and an empty field can’t silently become `null`.
+Rails casts leniently: `"12abc"` becomes `12`, `1.7` becomes `1`, any other text is `true`, and `""` is `nil`. Active Record refuses each, so `isAdmin=no` from a form can’t save `true`, and an empty field can’t silently become `null`.
 
 </Callout>
 
@@ -366,7 +366,7 @@ A name a Model doesn’t have throws `InvalidModel` when the Model is first used
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-Rails’ `serializable_hash(except:)` is per call, and `filter_attributes` only covers logs and inspection. d1-record keeps a class-level list, so `Response.json(user)` is safe without each call site remembering to strip the attribute.
+Rails’ `serializable_hash(except:)` is per call, and `filter_attributes` only covers logs and inspection. Active Record keeps a class-level list, so `Response.json(user)` is safe without each call site remembering to strip the attribute.
 
 </Callout>
 
@@ -430,7 +430,7 @@ A record prints as Rails’ `inspect` does, with `[FILTERED]` for filtered attri
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-Rails doesn’t mark unsaved changes when it prints a record. d1-record does, so a pending edit is visible in the console before you save it.
+Rails doesn’t mark unsaved changes when it prints a record. Active Record does, so a pending edit is visible in the console before you save it.
 
 </Callout>
 

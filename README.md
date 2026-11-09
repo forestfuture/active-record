@@ -5,11 +5,11 @@
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15356/badge)](https://www.bestpractices.dev/projects/15356)
 [![OpenSSF Baseline](https://www.bestpractices.dev/projects/15356/baseline)](https://www.bestpractices.dev/projects/15356)
 
-A Rails-inspired Active Record for [Cloudflare Workers](https://developers.cloudflare.com/workers/), with an adapter for each database. The first is [D1](https://developers.cloudflare.com/d1/).
+A Rails-inspired Active Record for [Cloudflare Workers](https://developers.cloudflare.com/workers/), with an adapter for each database: [D1](https://developers.cloudflare.com/d1/) and Postgres.
 
 Models with validations, callbacks, associations, and change tracking; lazy, composable queries; and a predictable save lifecycle, built for the Worker runtime and honest about what each database can and can’t do.
 
-> **Status: pre-release (0.x).** The API is tested against real D1, but it may still change before 1.0.
+> **Status: pre-release (0.x).** The API is tested against real D1 and Postgres, but it may still change before 1.0.
 
 ```sh
 npm install @forestfuture/active-record @forestfuture/d1-record
@@ -19,8 +19,9 @@ npm install @forestfuture/active-record @forestfuture/d1-record
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | [`@forestfuture/active-record`](packages/active-record/) | The core: Models, Relations, validations, callbacks, associations, and the `active-record` command |
 | [`@forestfuture/d1-record`](packages/d1-record/)         | The D1 adapter: `connect`, `withSession`, and the command’s D1 plugin                              |
+| [`@forestfuture/pg-record`](packages/pg-record/)         | The Postgres adapter, through Hyperdrive or on Node: `connect`, and the command’s Postgres plugin  |
 
-A Postgres adapter, [`@forestfuture/pg-record`](packages/pg-record/), is in the repository and not yet on npm.
+An app moves from D1 to Postgres with its Models and code unchanged. See [Moving to Postgres](https://active-record.forestfuture.dev/move-to-postgres).
 
 Coming from d1-record 0.5? See [Upgrading to 0.6](https://active-record.forestfuture.dev/upgrading).
 
@@ -141,9 +142,9 @@ await batch([
 ## What’s in it
 
 - **Models** whose attributes come from your migrations (`class Post extends ApplicationRecord {}`), typed, with Rails-style generators; or declared with `Model.define({...})`: camelCase attributes over snake_case columns, defaults (including app-generated keys), timestamps, JSON, and dates converted both ways.
-- **Queries**: `where`/`whereNot`/`or`/`merge`, comparisons (`gte`, `between`, …), ordering (`nulls: "last"`, `reorder`), pagination (`paginate()`: a page and its total in one round trip), `select`, `distinct`, `pluck`, `count`, `size`, `exists`, named scopes, and hand-written conditions only through the `sql` tagged template, so values are always bound.
+- **Queries**: `where`/`whereNot`/`or`/`merge`, comparisons (`gte`, `between`, …), ordering (`nulls: "last"`, `reorder`), pagination (`paginate()`: a page and its total, in one round trip on D1), `select`, `distinct`, `pluck`, `count`, `size`, `exists`, named scopes, and hand-written conditions only through the `sql` tagged template, so values are always bound.
 - **Persistence**: `save`/`create`/`update`/`destroy` with `…OrThrow` variants, validations (`presence`, `length`, `format`, `inclusion`, `numericality`, `uniqueness`) with error messages you can change, the full Rails callback lifecycle with `abort()`, dirty tracking (`changes`, `attributeWas`, `savedChangeTo`, …).
-- **Associations**: `belongsTo`, `hasMany`, `hasOne` with scopes, `dependent:` strategies, preloading with `includes` (one query per association, never N+1, and the whole tree in one round trip), caching until reload, autosave, and `build`/`create`/`set` through the association.
+- **Associations**: `belongsTo`, `hasMany`, `hasOne` with scopes, `dependent:` strategies, preloading with `includes` (one query per association, never N+1, and on D1 the whole tree in one round trip), caching until reload, autosave, and `build`/`create`/`set` through the association.
 - **Queries from the Model**, as in Rails: `User.find(id)`, `User.where(…)`, `User.active()`, on the Model’s binding with no setup.
 - **Bulk writes**: `insert`, `insertAll`, `upsert`, `updateAll`, `deleteAll`, and `batch([...])` mixing those with records’ `toSave()`/`toDestroy()`.
 - **Read replicas**: a request run in `withSession(request, env.DB, fn)` sends every query through one D1 Session, so it reads its own writes, and the Session’s bookmark goes to the user’s next request in a cookie or a header.
@@ -169,7 +170,7 @@ Query builders such as [Drizzle](https://orm.drizzle.team) and [Kysely](https://
 
 ## Versioning
 
-Both packages follow [semantic versioning](https://semver.org), and always share a version, so install the same one of each. While they’re on 0.x, a breaking change bumps the minor version (0.5 → 0.6), and features and fixes bump the patch, so a `^0.6.0` range never brings in a breaking change. Every release is listed on the [releases page](https://github.com/forestfuture/active-record/releases), and in each package’s `CHANGELOG.md`.
+The packages follow [semantic versioning](https://semver.org), and always share a version, so install the same one of each. While they’re on 0.x, a breaking change bumps the minor version (0.5 → 0.6), and features and fixes bump the patch, so a `^0.6.0` range never brings in a breaking change. Every release is listed on the [releases page](https://github.com/forestfuture/active-record/releases), and in each package’s `CHANGELOG.md`.
 
 ## For AI agents
 
@@ -179,7 +180,7 @@ The guide is also published for coding agents: [`llms.txt`](https://active-recor
 
 The guide is at [active-record.forestfuture.dev](https://active-record.forestfuture.dev), built from [`site/`](site/). In the repository:
 
-- [`site/docs/`](site/docs/): the guide pages, from getting started to D1’s limits.
+- [`site/docs/`](site/docs/): the guide pages, from getting started to each adapter’s differences.
 - [`docs/contract.md`](docs/contract.md): the full public behavior, which the tests prove.
 - [`GLOSSARY.md`](GLOSSARY.md): the domain glossary (Model, Record, Relation, Association, Batch, …).
 - [`docs/adr/`](docs/adr/): the architecture decisions and why they were made.

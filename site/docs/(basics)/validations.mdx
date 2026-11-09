@@ -171,6 +171,6 @@ With a count of 1, the three `length` messages say “1 character”. `restrictD
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-Rails looks messages up in its locale files, in nearly the same order: the Model’s, then its ancestors’, then the shared ones. Among the shared ones, Rails tries a message for the type before one for the attribute. Your base class tries the attribute’s first, as every class does. d1-record keeps messages on the classes instead, so a Model’s messages sit next to its validations. Their keys are d1-record’s error types, in camelCase. Rails shows “Translation missing” for a type with no message, where d1-record throws when the error is added. Messages in other languages aren’t here yet.
+Rails looks messages up in its locale files, in nearly the same order: the Model’s, then its ancestors’, then the shared ones. Among the shared ones, Rails tries a message for the type before one for the attribute. Your base class tries the attribute’s first, as every class does. Active Record keeps messages on the classes instead, so a Model’s messages sit next to its validations. Their keys are Active Record’s error types, in camelCase. Rails shows “Translation missing” for a type with no message, where Active Record throws when the error is added. Messages in other languages aren’t here yet.
 
 </Callout>

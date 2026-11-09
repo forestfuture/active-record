@@ -1,20 +1,48 @@
 ---
-title: "D1’s limits"
-description: "What's different on D1: no interactive transactions, keys generated in code, read replicas, uniqueness races, bound-parameter limits, foreign keys."
+title: D1
+description: "The D1 adapter, @forestfuture/d1-record: installing it, binding a database, Sessions for read replicas, preloads and pages in one round trip, and what's different on D1, from transactions to bound-parameter limits."
 ---
 
-d1-record follows Rails wherever D1 allows. These are the places D1 works differently, worth knowing before you design around them.
+`@forestfuture/d1-record` runs your Models on [Cloudflare D1](https://developers.cloudflare.com/d1/). Install it with the core:
+
+```sh
+npm install @forestfuture/active-record @forestfuture/d1-record
+```
+
+## Binding a database
+
+Bind your D1 database in your Wrangler config:
+
+```jsonc wrangler.jsonc
+{
+  "d1_databases": [{ "binding": "DB", "database_name": "my-app-db", "database_id": "…" }],
+}
+```
+
+`active-record schema` reads the binding from there, and your generated schema names it with `adapter: d1({ binding: "DB" })`. Your Models then query it with nothing to set up. `connect(env.DB)` opens it yourself, for [a request’s database](./connecting#using-the-requests-database) or [an explicit one](./connecting#using-an-explicit-database). `active-record migrate` applies your migrations through Wrangler.
+
+## Reading your own writes
+
+With read replication, wrap each request in [`withSession`](./read-your-own-writes), from `@forestfuture/d1-record`. It opens a D1 Session, so the request reads its own writes, and carries its bookmark to the user’s next request.
+
+## Sending queries in one round trip
+
+D1 sends a batch of queries in one round trip. A [preload](./associations#preloading-associations) sends its whole tree that way, with the records’ own query, so `includes({ articles: "comments" })` is three queries in one round trip. A [page](./querying#paginating) sends its `COUNT` and its records together, with their preloads.
+
+A batch runs as one transaction, so every query in it reads the same data. A preload’s nested query that would bind more than 100 values waits for the records above it, and takes one more round trip.
+
+D1 also works differently in these ways, worth knowing before you design around them.
 
 ## No interactive transactions
 
 D1 can’t hold a transaction open while your Worker awaits, so there’s no `transaction(async (tx) => …)`. You can’t read, decide, then write atomically.
 
-What you can make atomic is a set of writes prepared in advance: [`batch([...])`](./batches#batching-writes) sends statements and records together, and D1 writes all of them or none. d1-record uses the same batches itself:
+What you can make atomic is a set of writes prepared in advance: [`batch([...])`](./batches#batching-writes) sends statements and records together, and D1 writes all of them or none. Active Record uses the same batches itself:
 
 - A destroy’s [`dependent` strategies](./associations#destroying-dependent-records) are written in one batch with the owner’s DELETE.
 - A record [autosaved](./associations#autosaving) with its owner joins the owner’s batch when the owner’s key is known in advance.
 
-## Generate keys in code
+## Generating keys in code
 
 Rows in a batch can only point at each other through keys that exist before it’s sent. Generated `TEXT` keys are made in code by [`generateId`](./models#generating-ids), so records have their key from `build()`. Then:
 
@@ -22,10 +50,6 @@ Rows in a batch can only point at each other through keys that exist before it�
 - A batch can insert rows that point at each other.
 
 When D1 generates the key (`INTEGER PRIMARY KEY`), it doesn’t exist until the row is written. An owner is written first, then the records built through it in the next batch, a level at a time, and the batches aren’t atomic together. See [Autosaving](./associations#autosaving).
-
-## Read replicas
-
-With read replication, a read can come from a replica that’s slightly behind. Wrap each request in [`withSession`](./read-your-own-writes). It opens a Session for the request, so the request reads its own writes. It also carries the Session’s bookmark to the user’s next request, so a user never sees data older than their last write.
 
 ## Uniqueness is checked twice
 
@@ -35,7 +59,7 @@ The `uniqueness` validation asks D1 before saving, which gives a friendly error,
 
 ## Bound parameters
 
-D1 allows 100 bound values in one statement. d1-record binds lists as one JSON value (`json_each`), so `where({ id: [...] })`, `find([...])`, preloads, and `insertAll` work with any number of values. A single value can be up to 2 MB.
+D1 allows 100 bound values in one statement. The adapter binds lists as one JSON value (`json_each`), so `where({ id: [...] })`, `find([...])`, preloads, and `insertAll` work with any number of values. A single value can be up to 2 MB.
 
 ## Foreign keys are enforced
 

@@ -1,13 +1,13 @@
 ---
 title: Security
-description: "What d1-record protects against and what's left to your app, the guarantees its tests check, how its supply chain is set up, and a log of the security reviews it has had."
+description: "What Active Record protects against and what's left to your app, the guarantees its tests check, how its supply chain is set up, and a log of the security reviews it has had."
 ---
 
-Whatever a request sends can reach a query or a record through d1-record, so a mistake in it is a mistake in every app that uses it. Here’s what it protects against, what it leaves to your app, the tests that check each guarantee, how releases are built, and the security reviews it has had.
+Whatever a request sends can reach a query or a record through Active Record, so a mistake in it is a mistake in every app that uses it. Here’s what it protects against, what it leaves to your app, the tests that check each guarantee, how releases are built, and the security reviews it has had.
 
 These are the project’s own reviews, not an independent audit. Each says what it covered and what it didn’t.
 
-## What d1-record protects against
+## What Active Record protects against
 
 - **SQL injection.** Every value is bound as a parameter, never written into SQL text. Identifiers come only from a Model’s declared attributes, and are quoted. Raw SQL is only possible through the `sql` tagged template, which binds every value it’s given.
 - **Values that aren’t what TypeScript says.** A value from JSON, a form, or a query string is cast to its attribute’s type when it’s assigned or used in a condition, and anything ambiguous is refused: `"false"` can’t save `true`. See [Models](./models#casting-assigned-values).

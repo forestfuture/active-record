@@ -92,6 +92,6 @@ A bare value inside an `sql` fragment has no attribute, so it’s logged as give
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-Rails filters by its app-wide `filter_parameters`, against parameter and column names. d1-record keeps the list on the Model (`static filterAttributes`, inherited from your base class), and matches each entry against the attribute’s snake_case name, so `"_key"` filters `apiKey`. A RegExp may match either form. It also hides filtered values in cast errors and in `RecordNotFound`, which Rails’ filter doesn’t cover.
+Rails filters by its app-wide `filter_parameters`, against parameter and column names. Active Record keeps the list on the Model (`static filterAttributes`, inherited from your base class), and matches each entry against the attribute’s snake_case name, so `"_key"` filters `apiKey`. A RegExp may match either form. It also hides filtered values in cast errors and in `RecordNotFound`, which Rails’ filter doesn’t cover.
 
 </Callout>

@@ -1,9 +1,75 @@
 ---
-title: "Postgres’s differences"
-description: "What's different on Postgres: batches as transactions, reads one after another, bigints, $1 placeholders, migrations the command applies and the schema PGlite reads, and the allowed differences from D1, such as how NULLs and text sort."
+title: Postgres
+description: "The Postgres adapter, @forestfuture/pg-record: installing it, connecting through Hyperdrive or a Pool, and what's different on Postgres: batches as transactions, reads one after another, bigints, $1 placeholders, migrations the command applies, and how NULLs and text sort."
 ---
 
-Your Models, queries, and callbacks work the same on Postgres. These are the places Postgres works differently from D1.
+`@forestfuture/pg-record` runs your Models on Postgres, in a Worker through [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) or on Node. Install it with the core and `pg`:
+
+```sh
+npm install @forestfuture/active-record @forestfuture/pg-record pg
+```
+
+A Worker that uses it needs `"compatibility_flags": ["nodejs_compat"]` in its Wrangler config, for `pg`. To move an app from D1, see [Moving to Postgres](./move-to-postgres).
+
+Your Models, queries, and callbacks work the same on Postgres. After [connecting](#connecting), this page lists the places Postgres works differently from D1.
+
+## Connecting
+
+`connect` takes a Hyperdrive binding, a connection string, or a `pg` Pool. Open the request’s database from your Hyperdrive binding:
+
+```ts
+import { withDatabase } from "@forestfuture/active-record";
+import { connect } from "@forestfuture/pg-record";
+
+export default {
+  fetch(request, env) {
+    const db = connect(env.HYPERDRIVE);
+    return withDatabase(db, () => app.fetch(request, env));
+  },
+};
+```
+
+The first query inside `withDatabase` opens a client, and the rest of the request shares it. It closes when `withDatabase` finishes. Each `withDatabase` call gets its own client, so a Database your Worker opens once can serve every request. Without `withDatabase`, each query opens a client of its own and closes it when it’s done. So does work that outlives the request, such as a save in `ctx.waitUntil`.
+
+Your schema names the binding with `adapter: pg({ binding: "HYPERDRIVE" })`, so `User.find(id)` works in a Worker with nothing to set up. Declare it in your [`active-record.jsonc`](./command-line#declaring-postgress-databases), where the command finds your databases.
+
+`connect(env.DATABASE_URL)` takes a connection string the same way.
+
+:::tip
+On Workers, use Hyperdrive. It pools connections, so a new client doesn’t mean a new connection to Postgres.
+:::
+
+On Node, pass your own Pool, which your app ends when it shuts down:
+
+```ts
+import pg from "pg";
+import { connect } from "@forestfuture/pg-record";
+
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const db = connect(pool);
+```
+
+Outside a Worker there’s no binding, so wrap each request in `withDatabase(db, …)` for your Models’ statics.
+
+Opening a client from a binding or a connection string waits up to 10 seconds for Postgres to answer. After that, the query fails with `Error: timeout expired`. Each query waiting for that client tries again, and can wait as long. To change the limit, set `connect_timeout` to a number of seconds:
+
+```ts
+import { connect } from "@forestfuture/pg-record";
+
+const db = connect("postgres://app@db.example.com/app?connect_timeout=5");
+```
+
+If you want no limit, set `connect_timeout=0`.
+
+:::note
+A Hyperdrive binding’s connection string isn’t yours to change, so it always waits up to 10 seconds. A Pool uses its own `connectionTimeoutMillis`.
+:::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails sets no limit, so opening a connection waits as long as it takes unless you set `connect_timeout`. Here the limit is 10 seconds unless you set one.
+
+</Callout>
 
 ## Batches are transactions
 
@@ -11,7 +77,7 @@ Your Models, queries, and callbacks work the same on Postgres. These are the pla
 
 ## Reads run one after another
 
-On D1, a [preload](./associations#preloading-associations) or a [page](./querying#paginating) sends all its queries in one round trip. On Postgres they run one after another, on one client. A page’s `total` comes from its own query, so a write between the two can make it disagree with the page’s records for a moment.
+On D1, a [preload](./associations#preloading-associations) or a [page](./querying#paginating) sends all its queries [in one round trip](./d1#sending-queries-in-one-round-trip). On Postgres they run one after another, on one client. A page’s `total` comes from its own query, so a write between the two can make it disagree with the page’s records for a moment.
 
 Queries you send at once with `Promise.all` inside one `withDatabase` call also run one after another, on that call’s client.
 
