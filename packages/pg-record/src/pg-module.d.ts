@@ -19,6 +19,10 @@ declare module "pg" {
 
   class Client {
     constructor(config: { connectionString: string; connectionTimeoutMillis?: number });
+    /** The server, or a socket's folder, as `pg` read it from the connection string. */
+    readonly host: string;
+    readonly database: string | undefined;
+    readonly user: string | undefined;
     connect(): Promise<void>;
     query(config: QueryConfig): Promise<QueryResult>;
     end(): Promise<void>;
