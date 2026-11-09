@@ -5,10 +5,6 @@ description: "What's different on Postgres: batches as transactions, reads one a
 
 Your Models, queries, and callbacks work the same on Postgres. These are the places Postgres works differently from D1.
 
-:::note
-`@forestfuture/pg-record` isn’t on npm yet. It’s released once moving an app from D1 to Postgres is proven.
-:::
-
 ## Batches are transactions
 
 [`batch([...])`](./batches#batching-writes) writes all its entries or none, as on D1. On Postgres it runs them between `BEGIN` and `COMMIT`, on a client of its own. A query your request sends while the batch runs stays outside the transaction, so a failed batch never rolls it back.

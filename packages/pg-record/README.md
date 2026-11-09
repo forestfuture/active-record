@@ -1,6 +1,10 @@
 # @forestfuture/pg-record
 
-The Postgres adapter for [`@forestfuture/active-record`](https://www.npmjs.com/package/@forestfuture/active-record), on Cloudflare Workers through [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) and on Node. It isn’t on npm yet: it’s released once moving an app from D1 to Postgres is proven.
+The Postgres adapter for [`@forestfuture/active-record`](https://www.npmjs.com/package/@forestfuture/active-record), on Cloudflare Workers through [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) and on Node.
+
+```sh
+npm install @forestfuture/active-record @forestfuture/pg-record pg
+```
 
 Open a database from a Hyperdrive binding, a connection string, or your own `pg` Pool:
 
