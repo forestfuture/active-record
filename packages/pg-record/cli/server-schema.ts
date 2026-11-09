@@ -30,13 +30,12 @@ async function dropped(admin: Client, name: string): Promise<void> {
   }
 }
 
-/** Creates the database, or says why it couldn't, and ends the admin client then. */
+/** Creates the database, or says why it couldn't. */
 async function created(admin: Client, name: string): Promise<string | undefined> {
   try {
     await admin.query({ text: `CREATE DATABASE ${name}` });
     return undefined;
   } catch (error) {
-    await admin.end();
     return (error as Error).message;
   }
 }
@@ -44,22 +43,42 @@ async function created(admin: Client, name: string): Promise<string | undefined>
 /** The signals a person stops a command with: Ctrl-C, and a terminal's or a process manager's. */
 const stops = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
 
+/** Each temporary database there now, by its drop, which runs once however often it's called. */
+const open = new Set<() => Promise<void>>();
+
+/** Drops every temporary database there, then stops the command as the signal would have. */
+function onSignal(signal: NodeJS.Signals): void {
+  for (const stop of stops) process.off(stop, onSignal);
+  void Promise.allSettled([...open].map((drop) => drop())).finally(() =>
+    process.kill(process.pid, signal),
+  );
+}
+
 /**
- * While the temporary database is there, a signal that stops the command drops it first, then
- * stops the command as the signal would have. Returns what stops listening once it's dropped.
+ * Keeps a temporary database's drop while it's there, so a signal that stops the command drops
+ * it first (every one, when several databases are read at once); returns the drop, run once.
  */
-function dropOnSignal(admin: Client, name: string): () => void {
-  const onSignal = (signal: NodeJS.Signals) => {
-    stopListening();
-    void dropped(admin, name)
-      .catch(() => {})
-      .finally(() => process.kill(process.pid, signal));
+function tracked(drop: () => Promise<void>): () => Promise<void> {
+  let running: Promise<void> | undefined;
+  const once = () => (running ??= drop());
+  if (open.size === 0) for (const stop of stops) process.on(stop, onSignal);
+  open.add(once);
+  return async () => {
+    open.delete(once);
+    if (open.size === 0) for (const stop of stops) process.off(stop, onSignal);
+    await once();
   };
-  const stopListening = () => {
-    for (const signal of stops) process.off(signal, onSignal);
-  };
-  for (const signal of stops) process.on(signal, onSignal);
-  return stopListening;
+}
+
+/** Starts the one transaction the migrations run in, or says why it couldn't, ending the client. */
+async function begun(client: Client): Promise<string | undefined> {
+  try {
+    await client.query({ text: "BEGIN" });
+    return undefined;
+  } catch (error) {
+    await client.end().catch(() => {});
+    return (error as Error).message;
+  }
 }
 
 /**
@@ -73,16 +92,25 @@ export async function temporaryDatabase(url: string): Promise<Scratch | string> 
   if (target === undefined) return unreadableUrl;
   const admin = await connected(url);
   if (typeof admin === "string") return admin;
+  // Tracked before it's made: the server shows it before the command hears it was, and a Ctrl-C
+  // then still drops it (after the CREATE, on the same client).
+  const drop = tracked(() => dropped(admin, name));
   const refusal = await created(admin, name);
-  if (refusal !== undefined) return refusal;
+  if (refusal !== undefined) {
+    await drop().catch(() => {});
+    return refusal;
+  }
   const client = await connected(target);
   if (typeof client === "string") {
-    await dropped(admin, name);
+    await drop();
     return client;
   }
   // One transaction, never committed: what a migration does beyond the database (a role) is undone.
-  await client.query({ text: "BEGIN" });
-  const stopDropping = dropOnSignal(admin, name);
+  const failure = await begun(client);
+  if (failure !== undefined) {
+    await drop();
+    return failure;
+  }
   return {
     exec: async (sql) => void (await client.query({ text: sql })),
     query: async (sql) => (await client.query({ text: sql })).rows,
@@ -90,9 +118,9 @@ export async function temporaryDatabase(url: string): Promise<Scratch | string> 
       try {
         await client.query({ text: "ROLLBACK" });
       } finally {
-        stopDropping();
-        await client.end();
-        await dropped(admin, name);
+        // A signal's drop may have ended this connection already.
+        await client.end().catch(() => {});
+        await drop();
       }
     },
   };

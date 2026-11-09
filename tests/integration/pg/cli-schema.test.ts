@@ -232,17 +232,19 @@ describe("Postgres's schema, when PGlite can't load an extension", pgliteTimeout
     expect(await leftOver()).toEqual(before);
   });
 
-  test("Ctrl-C while it's read there drops the temporary database before the command exits", async () => {
+  test("Ctrl-C while it's read there drops every temporary database before the command exits", async () => {
     const before = await leftOver();
     const script = join(scratch("pg-signal-"), "read.mjs");
     const plugin = new URL("../../../packages/pg-record/cli/plugin.ts", import.meta.url).pathname;
     writeFileSync(
       script,
+      // Two databases read at once, as `schema` reads a project's.
       `import { cli } from ${JSON.stringify(plugin)};
-      await cli.readSchema(
+      const read = () => cli.readSchema(
         [{ name: "1.sql", sql: "CREATE EXTENSION IF NOT EXISTS dblink;" }, { name: "2.sql", sql: "SELECT pg_sleep(60);" }],
         { entry: { schemaUrl: process.env.SCHEMA_URL } },
-      );`,
+      );
+      await Promise.all([read(), read()]);`,
     );
     const child = spawn(process.execPath, [script], {
       env: { ...process.env, SCHEMA_URL: url },
@@ -251,7 +253,7 @@ describe("Postgres's schema, when PGlite can't load an extension", pgliteTimeout
     const exited = new Promise((resolve) => child.on("exit", (_, signal) => resolve(signal)));
     await expect
       .poll(async () => (await leftOver()).length, { timeout: 20_000 })
-      .toBe(before.length + 1);
+      .toBe(before.length + 2);
 
     child.kill("SIGINT");
 
