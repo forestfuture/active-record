@@ -73,7 +73,7 @@ export async function planSchema(project: ProjectSnapshot, check: boolean): Prom
  */
 export async function runSchema(options: SchemaOptions, print: Print): Promise<number> {
   const cwd = resolve(options.cwd ?? process.cwd());
-  const adapter = await loadAdapter(cwd, options.adapter);
+  const adapter = await loadAdapter(cwd, options.config);
   if (typeof adapter === "string") {
     print(adapter);
     return 1;
@@ -96,7 +96,7 @@ export async function watchFromCommandLine(
   options: SchemaOptions,
   print: Print,
 ): Promise<1 | "watching"> {
-  const adapter = await loadAdapter(resolve(options.cwd ?? process.cwd()), options.adapter);
+  const adapter = await loadAdapter(resolve(options.cwd ?? process.cwd()), options.config);
   if (typeof adapter === "string") {
     print(adapter);
     return 1;
@@ -112,7 +112,7 @@ export async function watchFromCommandLine(
 export async function watchSchema(options: SchemaOptions, print: Print): Promise<() => void> {
   let running = runSchema(options, print);
   const cwd = resolve(options.cwd ?? process.cwd());
-  const adapter = await loadAdapter(cwd, options.adapter);
+  const adapter = await loadAdapter(cwd, options.config);
   if (typeof adapter === "string") return () => {};
   const project = readProject(adapter, cwd, options);
   if (typeof project === "string") return () => {};

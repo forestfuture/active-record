@@ -6,7 +6,7 @@ import type { DatabaseSnapshot } from "../project/snapshot.ts";
 import { migrationTool } from "../project/tools.ts";
 import { layoutNote, originNotes } from "./origin.ts";
 import { fingerprintIn, renderBase, renderSchema, type SchemaSource } from "./render.ts";
-import type { CliAdapter, GeneratedTable } from "../adapter.ts";
+import type { GeneratedTable, ProjectAdapter } from "../adapter.ts";
 import { adapterPackage } from "../project/adapters.ts";
 import type { ProjectSnapshot } from "../project/snapshot.ts";
 
@@ -49,7 +49,7 @@ export function schemaRefusal(cwd: string, db: DatabaseSnapshot): string | undef
 }
 
 /** The adapter a schema imports: the plugin's name is its factory's, from the adapter's package. */
-export function schemaAdapterOf(adapter: CliAdapter): SchemaSource["adapter"] {
+export function schemaAdapterOf(adapter: ProjectAdapter): SchemaSource["adapter"] {
   return { factory: adapter.name, from: adapterPackage(adapter) };
 }
 

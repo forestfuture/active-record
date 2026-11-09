@@ -32,9 +32,7 @@ import { migrationNameError, modelName, tableize } from "./names.ts";
 export interface GenerateOptions {
   /** The project's folder; the current one by default. */
   cwd?: string;
-  /** The adapter, by its `--adapter` name, when a project has several. */
-  adapter?: string;
-  /** The config file, in place of the one the adapter finds. */
+  /** The project's config file, in place of its `active-record.jsonc`. */
   config?: string;
   /** The database to generate for, by its binding, when the config has several. */
   database?: string;
@@ -294,7 +292,7 @@ export async function planGenerate(
 export async function runGenerate(options: GenerateOptions, print: Print): Promise<number> {
   const cwd = resolve(options.cwd ?? process.cwd());
   const { config, models, out } = options;
-  const adapter = await loadAdapter(cwd, options.adapter);
+  const adapter = await loadAdapter(cwd, options.config);
   if (typeof adapter === "string") {
     print(adapter);
     return 1;

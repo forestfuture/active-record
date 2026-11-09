@@ -2,12 +2,23 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, test } from "vite-plus/test";
+import { projectDatabases } from "../../packages/active-record/cli/project/config-file.ts";
 import { chosenDatabase } from "../../packages/active-record/cli/project/databases.ts";
 import { cli } from "../../packages/d1-record/cli/plugin.ts";
 import { remoteTarget } from "../../packages/d1-record/cli/remote.ts";
 
-const databaseFor = (cwd: string, options: { config?: string; database?: string }) =>
-  chosenDatabase(cli, cwd, options);
+/** The database chosen in a D1 project, or why there isn't one. */
+function databaseFor(cwd: string, options: { config?: string; database?: string }) {
+  const project = projectDatabases(cwd, options.config);
+  if (typeof project === "string") return project;
+  return chosenDatabase({ ...cli, databases: () => cli.databases(project) }, cwd, options);
+}
+
+/** An `active-record.jsonc` naming these D1 databases. */
+const config = (...bindings: string[]) =>
+  JSON.stringify({
+    databases: Object.fromEntries(bindings.map((each) => [each, { adapter: "d1" }])),
+  });
 
 const made: string[] = [];
 afterAll(() => {
@@ -20,6 +31,7 @@ function project(...bindings: string[]): string {
   made.push(dir);
   const d1_databases = bindings.map((binding) => ({ binding, database_name: `${binding}-name` }));
   writeFileSync(join(dir, "wrangler.jsonc"), JSON.stringify({ d1_databases }));
+  writeFileSync(join(dir, "active-record.jsonc"), config(...bindings));
   return dir;
 }
 
@@ -53,8 +65,9 @@ describe("the database the console opens", () => {
     mkdirSync(join(cwd, "app"));
     const d1_databases = [{ binding: "DB", migrations_dir: "db/migrations" }];
     writeFileSync(join(cwd, "app/wrangler.jsonc"), JSON.stringify({ d1_databases }));
+    writeFileSync(join(cwd, "app/active-record.jsonc"), config("DB"));
 
-    expect(databaseFor(cwd, { config: "app/wrangler.jsonc" })).toMatchObject({
+    expect(databaseFor(cwd, { config: "app/active-record.jsonc" })).toMatchObject({
       migrationsDir: join(cwd, "app/db/migrations"),
     });
   });
@@ -63,9 +76,7 @@ describe("the database the console opens", () => {
     const cwd = mkdtempSync(join(tmpdir(), "console-db-"));
     made.push(cwd);
 
-    expect(databaseFor(cwd, {})).toBe(
-      "No wrangler.jsonc, wrangler.json or wrangler.toml here (pass --config)",
-    );
+    expect(databaseFor(cwd, {})).toMatch(/^No active-record\.jsonc here/);
   });
 });
 

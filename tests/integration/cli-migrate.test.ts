@@ -4,6 +4,7 @@ import { PassThrough } from "node:stream";
 import { describe, expect, test } from "vite-plus/test";
 import { runMigrate } from "../../packages/active-record/cli/migrate/command.ts";
 import { cli } from "../../packages/d1-record/cli/plugin.ts";
+import { d1Config } from "../support/d1-config.ts";
 import { scratchDirs } from "../support/scratch.ts";
 
 const scratch = scratchDirs();
@@ -13,6 +14,7 @@ function project(entry: Record<string, unknown> = {}): string {
   const cwd = scratch("migrate-");
   const database = { binding: "DB", database_name: "shop", database_id: "local-shop", ...entry };
   writeFileSync(join(cwd, "wrangler.jsonc"), JSON.stringify({ d1_databases: [database] }));
+  writeFileSync(join(cwd, "active-record.jsonc"), d1Config("DB"));
   mkdirSync(join(cwd, "migrations"));
   writeFileSync(
     join(cwd, "migrations/0001_create_users.sql"),

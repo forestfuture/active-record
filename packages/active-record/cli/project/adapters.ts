@@ -1,52 +1,54 @@
-// Which adapter a project uses, and its command line plugin, loaded from the project's own install (#278).
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import type { CliAdapter } from "../adapter.ts";
+// Which adapter a project uses, as its `active-record.jsonc` names it, and that adapter's command line plugin, loaded from the project's own install (#278, #301).
+import { basename, join } from "node:path";
+import type { CliAdapter, ProjectAdapter, ProjectDatabases } from "../adapter.ts";
+import { projectDatabases } from "./config-file.ts";
 import { isMissing, projectJiti } from "./load.ts";
 import { listed } from "./names.ts";
 
-/** Each adapter `--adapter` names, and its package. */
+/** Each adapter a database's `adapter` names, and its package. */
 const adapters: Readonly<Record<string, string>> = {
   d1: "@forestfuture/d1-record",
   pg: "@forestfuture/pg-record",
 };
 
-/** The adapter suggested when none is installed: the registry's first. */
-const suggested = Object.values(adapters)[0]!;
-
-/** The packages a `package.json` depends on; none when it isn't there, or isn't JSON. */
-function dependenciesIn(file: string): string[] {
-  if (!existsSync(file)) return [];
-  try {
-    const manifest = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
-    return ["dependencies", "devDependencies"].flatMap((field) =>
-      Object.keys((manifest[field] as Record<string, unknown> | undefined) ?? {}),
-    );
-  } catch {
-    return [];
-  }
-}
+/** The adapters' names, as a message lists them. */
+const names = () => listed(Object.keys(adapters));
 
 /** The package an adapter's plugin came from, as the registry names it. */
-export function adapterPackage(adapter: CliAdapter): string {
+export function adapterPackage(adapter: Pick<CliAdapter, "name">): string {
   return adapters[adapter.name] ?? adapter.name;
 }
 
-/** The adapters the nearest `package.json` that lists any depends on, from `cwd` up. */
-function listedIn(cwd: string): string[] {
-  for (let dir = resolve(cwd); ; dir = dirname(dir)) {
-    const names = dependenciesIn(join(dir, "package.json"));
-    const found = Object.keys(adapters).filter((name) => names.includes(adapters[name]!));
-    if (found.length > 0) return found;
-    if (dirname(dir) === dir) return [];
+/** What's wrong with a database's `adapter`, if anything. */
+function adapterError(binding: string, adapter: unknown): string | undefined {
+  if (adapter === undefined) {
+    return `databases.${binding} has no adapter (add "adapter": ${listed(Object.keys(adapters).map((name) => JSON.stringify(name)))})`;
   }
+  if (typeof adapter === "string" && Object.hasOwn(adapters, adapter)) return undefined;
+  return `databases.${binding} has the adapter ${JSON.stringify(adapter)}, which isn't ${names()}`;
+}
+
+/** The one adapter the project's databases name, or why there isn't one (#305). */
+function adapterNamed(project: ProjectDatabases): string | { error: string } {
+  const file = basename(project.file);
+  const entries = Object.entries(project.databases);
+  for (const [binding, entry] of entries) {
+    const error = adapterError(binding, entry.adapter);
+    if (error !== undefined) return { error: `${file}: ${error}` };
+  }
+  const named = new Set(entries.map(([, entry]) => entry.adapter as string));
+  if (named.size === 1) return [...named][0]!;
+  const each = entries.map(([binding, entry]) => `${String(entry.adapter)} for ${binding}`);
+  return {
+    error: `${file} names more than one adapter (${each.join(", ")}); a project uses one, for now`,
+  };
 }
 
 /**
  * The adapter's plugin, from the project's copy of its `/cli`, found as the project finds it (its
- * `node_modules`, or a `tsconfig.json` path); undefined when it isn't installed.
+ * `node_modules`, or a `tsconfig.json` path); or why it can't be loaded.
  */
-async function pluginOf(cwd: string, name: string): Promise<CliAdapter | undefined | string> {
+async function pluginOf(cwd: string, name: string): Promise<CliAdapter | string> {
   const entry = `${adapters[name]}/cli`;
   try {
     const source = `export { cli } from "${entry}";`;
@@ -54,47 +56,28 @@ async function pluginOf(cwd: string, name: string): Promise<CliAdapter | undefin
     const loaded = (await projectJiti(cwd).evalModule(source, { filename, async: true })) as {
       cli: CliAdapter;
     };
-    // A generated schema imports the factory named for the plugin, from this package.
-    if (loaded.cli.name !== name) {
-      return `${entry} calls its adapter ${loaded.cli.name}, not ${name}; reinstall ${adapters[name]}`;
-    }
     return loaded.cli;
   } catch (error) {
-    if (isMissing(error, entry) || isMissing(error, adapters[name]!)) return undefined;
+    if (isMissing(error, entry) || isMissing(error, adapters[name]!)) {
+      return `${adapters[name]} isn't installed here (install it, then try again)`;
+    }
     return `Couldn't load ${entry}: ${(error as Error).message}`;
   }
 }
 
-/** The plugins of the adapters `named`, or the project lists, or else any installed. */
-async function installed(cwd: string, named: string | undefined): Promise<CliAdapter[] | string> {
-  const listedHere = named === undefined ? listedIn(cwd) : [named];
-  const found: CliAdapter[] = [];
-  for (const name of listedHere.length > 0 ? listedHere : Object.keys(adapters)) {
-    const plugin = await pluginOf(cwd, name);
-    if (typeof plugin === "string") return plugin;
-    if (plugin !== undefined) found.push(plugin);
-  }
-  return found;
-}
-
 /**
- * The project's adapter plugin: the one `named` (`--adapter`), or the one its `package.json` lists,
- * or, when none lists one (a workspace whose root holds them), the one installed. Several, or
- * none, is a message saying what to do.
+ * The project's adapter, as its `active-record.jsonc` (or the file `configPath` names) names it, with
+ * its plugin reading the databases there; or a message saying what to do.
  */
-export async function loadAdapter(cwd: string, named?: string): Promise<CliAdapter | string> {
-  if (named !== undefined && !Object.hasOwn(adapters, named)) {
-    return `--adapter takes ${listed(Object.keys(adapters))}, not ${named}`;
-  }
-  const found = await installed(cwd, named);
-  if (typeof found === "string") return found;
-  const [only, ...others] = found;
-  if (only !== undefined && others.length === 0) return only.unsupported?.() ?? only;
-  if (found.length > 1) {
-    const names = listed(found.map((plugin) => plugin.name));
-    return `Several adapters are installed here (${names}); choose one with --adapter`;
-  }
-  if (named !== undefined)
-    return `${adapters[named]} isn't installed here (install it, then try again)`;
-  return `No adapter is installed here: install one, such as ${suggested}, then try again`;
+export async function loadAdapter(
+  cwd: string,
+  configPath?: string,
+): Promise<ProjectAdapter | string> {
+  const project = projectDatabases(cwd, configPath);
+  if (typeof project === "string") return project;
+  const name = adapterNamed(project);
+  if (typeof name !== "string") return name.error;
+  const plugin = await pluginOf(cwd, name);
+  if (typeof plugin === "string") return plugin;
+  return plugin.unsupported?.() ?? { ...plugin, databases: () => plugin.databases(project) };
 }

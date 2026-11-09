@@ -2,14 +2,18 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
 import { runSchema, watchSchema } from "../../packages/active-record/cli/schema/command.ts";
+import { d1Config, withD1Config } from "../support/d1-config.ts";
 import { scratchDirs } from "../support/scratch.ts";
 
 const scratch = scratchDirs();
 
+const noConfig =
+  "No active-record.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one";
+
 /** A throwaway project, where its Models find this repo's library: its files, by path. */
 function project(files: Record<string, string>): string {
   const dir = scratch("schema-");
-  for (const [path, content] of Object.entries(files)) {
+  for (const [path, content] of Object.entries(withD1Config(files))) {
     mkdirSync(join(dir, path, ".."), { recursive: true });
     writeFileSync(join(dir, path), content);
   }
@@ -260,25 +264,32 @@ migrations_table = "seen"
   });
 
   test("no Wrangler config, or no D1 database in it, says so", async () => {
-    expect(await run(project({ "readme.md": "" }))).toEqual({
+    const config = { "active-record.jsonc": d1Config("DB") };
+
+    expect(await run(project({ "readme.md": "" }))).toEqual({ code: 1, output: noConfig });
+    expect(await run(project(config))).toEqual({
       code: 1,
-      output: "No wrangler.jsonc, wrangler.json or wrangler.toml here (pass --config)",
+      output: "No wrangler.jsonc, wrangler.json or wrangler.toml beside active-record.jsonc",
     });
-    expect(await run(project({ "wrangler.jsonc": "{}" }))).toEqual({
+    expect(await run(project({ ...config, "wrangler.jsonc": "{}" }))).toEqual({
       code: 1,
-      output: "wrangler.jsonc has no d1_databases",
+      output: "active-record.jsonc names DB, which isn't in wrangler.jsonc's d1_databases",
     });
   });
 
   test("a Wrangler config it can't use says why", async () => {
+    const config = { "active-record.jsonc": d1Config("DB") };
+
     expect(
-      await run(project({ "wrangler.jsonc": '{ /* never closed "d1_databases": [] }' })),
+      await run(project({ ...config, "wrangler.jsonc": '{ /* never closed "d1_databases": [] }' })),
     ).toEqual({
       code: 1,
       output: "wrangler.jsonc couldn't be read: Unterminated /* comment",
     });
     expect(
-      await run(project({ "wrangler.jsonc": '{ "d1_databases": [{ "database_name": "x" }] }' })),
+      await run(
+        project({ ...config, "wrangler.jsonc": '{ "d1_databases": [{ "database_name": "x" }] }' }),
+      ),
     ).toEqual({
       code: 1,
       output: "wrangler.jsonc has a d1_databases entry with no binding",

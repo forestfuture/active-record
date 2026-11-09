@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { openLocalBinding } from "../../packages/d1-record/cli/binding.ts";
 import type { ChosenDatabase } from "../../packages/active-record/cli/adapter.ts";
+import { d1Config } from "./d1-config.ts";
 import type { TestDatabase } from "./d1.ts";
 import { libraryPaths } from "./library-paths.ts";
 
@@ -22,6 +23,7 @@ export async function shop(scratch: (prefix: string) => string): Promise<string>
     "wrangler.jsonc": JSON.stringify({
       d1_databases: [{ binding: "DB", database_name: "shop", database_id: "local-shop" }],
     }),
+    "active-record.jsonc": d1Config("DB"),
     "tsconfig.json": JSON.stringify({
       compilerOptions: { paths: libraryPaths },
     }),
@@ -66,8 +68,10 @@ export async function remoteProject(
   entry?: Record<string, unknown>,
 ) {
   const cwd = await shop(scratch);
-  if (entry !== undefined)
+  if (entry !== undefined) {
     writeFileSync(join(cwd, "wrangler.jsonc"), JSON.stringify({ d1_databases: [entry] }));
+    writeFileSync(join(cwd, "active-record.jsonc"), d1Config(String(entry.binding)));
+  }
   const real = import.meta.resolve("wrangler");
   const log = join(cwd, "wrangler-calls.jsonl");
   mkdirSync(join(cwd, "node_modules/wrangler"), { recursive: true });

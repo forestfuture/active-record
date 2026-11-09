@@ -1,6 +1,7 @@
 {
   "databases": {
     "HYPERDRIVE": {
+      "adapter": "pg",
       "url": "postgres://user:password@localhost:5432/my_app",
       "remoteUrl": "${PRODUCTION_DATABASE_URL}",
     },

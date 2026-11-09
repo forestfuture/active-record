@@ -1,6 +1,7 @@
 // The project's own config file (`active-record.jsonc`), and reading JSON with comments and trailing commas, as it allows.
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
+import type { ProjectDatabases } from "../adapter.ts";
 
 /** The project's config file's name, which `--config` replaces. */
 export const configFileName = "active-record.jsonc";
@@ -44,10 +45,7 @@ export interface ProjectConfig {
  * The project's `active-record.jsonc` in `cwd`, or the file `configPath` names; undefined when
  * there's none, or why it can't be read.
  */
-export function readProjectConfig(
-  cwd: string,
-  configPath?: string,
-): ProjectConfig | string | undefined {
+function readProjectConfig(cwd: string, configPath?: string): ProjectConfig | string | undefined {
   const file = resolve(cwd, configPath ?? configFileName);
   if (!existsSync(file)) return configPath === undefined ? undefined : `${configPath} isn't there`;
   let settings: unknown;
@@ -60,4 +58,31 @@ export function readProjectConfig(
     return `${basename(file)} isn't an object`;
   }
   return { file, dir: dirname(file), settings: settings as Record<string, unknown> };
+}
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/**
+ * The databases the project's `active-record.jsonc` (or the file `configPath` names) declares, each
+ * entry an object; or why there are none, saying to run `init` when there's no file.
+ */
+export function projectDatabases(cwd: string, configPath?: string): ProjectDatabases | string {
+  const config = readProjectConfig(cwd, configPath);
+  if (config === undefined) {
+    return `No ${configFileName} here, which names the project's databases and their adapter: run \`npx active-record init\` to write one`;
+  }
+  if (typeof config === "string") return config;
+  const name = basename(config.file);
+  const { databases } = config.settings;
+  if (!isObject(databases) || Object.keys(databases).length === 0) {
+    return `${name} has no databases`;
+  }
+  const wrong = Object.keys(databases).find((binding) => !isObject(databases[binding]));
+  if (wrong !== undefined) return `${name}: databases.${wrong} isn't an object`;
+  return {
+    file: config.file,
+    dir: config.dir,
+    databases: databases as ProjectDatabases["databases"],
+  };
 }

@@ -12,6 +12,7 @@ import { Miniflare } from "miniflare";
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { runGenerate } from "../../packages/active-record/cli/generate/command.ts";
 import { connect } from "../../packages/d1-record/src/index.ts";
+import { withD1Config } from "../support/d1-config.ts";
 
 // Inside tests/ (gitignored), so a generated project's imports of the library resolve as they
 // do in the repo, through tsconfig.json's paths.
@@ -30,7 +31,7 @@ function project(files: Record<string, string> = {}): string {
     "wrangler.jsonc": '{ "d1_databases": [{ "binding": "DB", "database_name": "shop-db" }] }',
     ...files,
   };
-  for (const [path, content] of Object.entries(all)) {
+  for (const [path, content] of Object.entries(withD1Config(all))) {
     mkdirSync(join(dir, path, ".."), { recursive: true });
     writeFileSync(join(dir, path), content);
   }
@@ -253,7 +254,7 @@ describe("names", () => {
       code: 1,
       output: "foo-bar isn't a Model name; use letters and digits, like LineItem\nWrote nothing",
     });
-    expect(readdirSync(cwd)).toEqual(["wrangler.jsonc"]);
+    expect(readdirSync(cwd)).toEqual(["active-record.jsonc", "wrangler.jsonc"]);
   });
 });
 

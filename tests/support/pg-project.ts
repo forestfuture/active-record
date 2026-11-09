@@ -15,6 +15,12 @@ const pgPaths = {
 /** The project's databases, as active-record.jsonc declares them, by binding. */
 export type PgDatabases = Record<string, Record<string, string>>;
 
+/** Each database's entry with its adapter, unless it names one. */
+const onPg = (databases: PgDatabases) =>
+  Object.fromEntries(
+    Object.entries(databases).map(([binding, entry]) => [binding, { adapter: "pg", ...entry }]),
+  );
+
 /**
  * Writes a Postgres project in `cwd` (a folder outside the repo, so only these paths find the
  * library): its files by path, after its package.json, tsconfig.json and active-record.jsonc.
@@ -29,7 +35,7 @@ export function writePgProject(
       dependencies: { "@forestfuture/active-record": "*", "@forestfuture/pg-record": "*" },
     }),
     "tsconfig.json": JSON.stringify({ compilerOptions: { baseUrl: ".", paths: pgPaths } }),
-    "active-record.jsonc": JSON.stringify({ databases }, null, 2),
+    "active-record.jsonc": JSON.stringify({ databases: onPg(databases) }, null, 2),
     ...files,
   };
   for (const [path, text] of Object.entries(all)) {
