@@ -1,4 +1,5 @@
 // A database's connection strings from its config entry: written out, or read from the environment with `${NAME}`.
+import pg from "pg";
 
 /** `${NAME}`: a variable's value, put in its place. */
 const variable = /\$\{(\w+)\}/g;
@@ -19,21 +20,22 @@ export function connectionString(
   return value.replaceAll(variable, (_, name: string) => process.env[name]!);
 }
 
-/** Where a connection string points, for a person: its host, never its password. */
-export function hostOf(url: string): string {
+/** The server and database `pg` connects to with a connection string, as it reads one; none when it can't. */
+function parsed(url: string): { host: string; database: string } | undefined {
   try {
-    return new URL(url).hostname || "a local socket";
+    const client = new pg.Client({ connectionString: url });
+    return { host: client.host, database: client.database ?? client.user ?? "postgres" };
   } catch {
-    return "its server";
+    return undefined;
   }
 }
 
-/** The database a connection string names, for a person to type: its path, or else its user's. */
+/** Where a connection string points, for a person: its host (or socket folder), never its password. */
+export function hostOf(url: string): string {
+  return parsed(url)?.host || "its server";
+}
+
+/** The database a connection string names, for a person to type: as `pg` reads it, its user's by default. */
 export function databaseNameOf(url: string): string {
-  try {
-    const parsed = new URL(url);
-    return decodeURIComponent(parsed.pathname.slice(1) || parsed.username) || "postgres";
-  } catch {
-    return "postgres";
-  }
+  return parsed(url)?.database ?? "postgres";
 }

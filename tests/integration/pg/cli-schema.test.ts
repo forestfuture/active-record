@@ -247,7 +247,7 @@ describe("Postgres's schema, when PGlite can't load an extension", pgliteTimeout
     expect(result).toEqual({
       ok: false,
       errors: [
-        "Couldn't read the schema on its server: the database's url can't be read as a URL; write it as postgres://user:password@host/database",
+        "Couldn't read the schema on localhost: the database's url can't be read as a URL; write it as postgres://user:password@host/database",
       ],
     });
     expect(JSON.stringify(result)).not.toContain("s3cret");
