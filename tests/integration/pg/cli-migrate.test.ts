@@ -128,6 +128,31 @@ describe("migrate, on Postgres", pgliteTimeout, () => {
     ]);
   });
 
+  test("two files with one version are refused before any runs", async () => {
+    const { code, printed } = await migrated(
+      project({ ...createUsers, "migrations/20261108090503_create_posts.sql": "SELECT 1;" }),
+    );
+
+    expect([code, printed]).toEqual([
+      1,
+      "20261108090503_create_posts.sql and 20261108090503_create_users.sql have the same version, 20261108090503; give one a version of its own\n",
+    ]);
+  });
+
+  test("a schema_migrations it can't read is a message, not a crash", async () => {
+    await schema.pool.query({ text: "CREATE VIEW schema_migrations AS SELECT 1 AS other" });
+    try {
+      const { code, printed } = await migrated(project(createUsers));
+
+      expect([code, printed]).toEqual([
+        1,
+        'Local database DB (active_record_test on localhost)\nCouldn\'t read schema_migrations: column "version" does not exist\n',
+      ]);
+    } finally {
+      await schema.pool.query({ text: "DROP VIEW schema_migrations" });
+    }
+  });
+
   test("without a url, says to set one", async () => {
     const { code, printed } = await migrated(project(createUsers, { DB: {} }));
 

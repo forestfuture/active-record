@@ -15,6 +15,25 @@ interface Pending {
 
 type Client = InstanceType<typeof pg.Client>;
 
+/** Each file with its version, or why one has none or shares its version with another. */
+function versioned(dir: string, names: readonly string[]): Pending[] | string {
+  const files: Pending[] = [];
+  const seen = new Map<string, string>();
+  for (const file of names) {
+    const version = /^(\d+)/.exec(file)?.[1];
+    if (version === undefined) {
+      return `${file} has no version: start its name with one, as the generators do (20261108090503_create_products.sql)`;
+    }
+    const other = seen.get(version);
+    if (other !== undefined) {
+      return `${other} and ${file} have the same version, ${version}; give one a version of its own`;
+    }
+    seen.set(version, file);
+    files.push({ file, version, sql: readFileSync(join(dir, file), "utf8") });
+  }
+  return files;
+}
+
 /** The migrations folder's files in the order they're applied (by name), or why they can't be. */
 export function migrationFiles(dir: string): Pending[] | string {
   let names: string[];
@@ -23,15 +42,7 @@ export function migrationFiles(dir: string): Pending[] | string {
   } catch {
     return `No migrations folder at ${dir}`;
   }
-  const files: Pending[] = [];
-  for (const file of names.sort(byName)) {
-    const version = /^(\d+)/.exec(file)?.[1];
-    if (version === undefined) {
-      return `${file} has no version: start its name with one, as the generators do (20261108090503_create_products.sql)`;
-    }
-    files.push({ file, version, sql: readFileSync(join(dir, file), "utf8") });
-  }
-  return files;
+  return versioned(dir, names.sort(byName));
 }
 
 /** One lock per database and schema, so two runs at once take turns. */
@@ -69,7 +80,11 @@ async function applyPending(
   files: readonly Pending[],
   say: (line: string) => void,
 ) {
-  const applied = await appliedVersions(client);
+  const applied = await appliedVersions(client).catch((error: unknown) => error as Error);
+  if (applied instanceof Error) {
+    say(`Couldn't read ${migrationsTable}: ${applied.message}`);
+    return false;
+  }
   const pending = files.filter((file) => !applied.has(file.version));
   if (pending.length === 0) say("No migrations to apply");
   for (const file of pending) {
@@ -103,6 +118,9 @@ export async function runMigrations(
   try {
     await client.query({ text: `SELECT pg_advisory_lock(${lock})` });
     return (await applyPending(client, files, say)) ? 0 : 1;
+  } catch (error) {
+    say(`Couldn't take the migrations' lock: ${(error as Error).message}`);
+    return 1;
   } finally {
     await client.end();
   }
