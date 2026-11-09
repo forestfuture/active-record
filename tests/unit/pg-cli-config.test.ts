@@ -77,6 +77,9 @@ describe("pg-record's databases, from active-record.jsonc", () => {
     expect(errorOf('{ "databases": { "DB": { "url": false } } }')).toBe(
       "active-record.jsonc: databases.DB.url isn't a string",
     );
+    expect(errorOf('{ "databases": { "DB": { "schemaUrl": 1 } } }')).toBe(
+      "active-record.jsonc: databases.DB.schemaUrl isn't a string",
+    );
   });
 
   test("with no file, says to write one or pass --config", () => {

@@ -119,22 +119,23 @@ async function readFrom(
 }
 
 /**
- * The schema read on the server the database's `url` names, in a database of its own, for
- * migrations that need an extension PGlite can't load.
+ * The schema read on the server the database's `schemaUrl` names, in a database of its own, for
+ * migrations that need an extension PGlite can't load. It's never the database's `url`: a read
+ * shouldn't reach a server the app uses unless it's asked to.
  */
 async function readOnServer(
   migrations: readonly Migration[],
   options: SchemaOptions,
   { migration, missing }: { migration: string; missing: string },
 ): Promise<SchemaResult> {
-  const url = connectionString(options.entry, "url");
+  const url = connectionString(options.entry, "schemaUrl");
   if (url === undefined) {
     const instruction =
-      "set the database's url in active-record.jsonc to a Postgres server that has it";
+      "set the database's schemaUrl in active-record.jsonc to a Postgres server that has it";
     return {
       ok: false,
       errors: [
-        `${migration}: PGlite can't load the extension ${missing}; ${instruction}, and the schema is read there, in a database of its own`,
+        `${migration}: PGlite can't load the extension ${missing}; ${instruction}, where the schema is read in a database of its own`,
       ],
     };
   }
@@ -157,7 +158,7 @@ async function readOnServer(
 /**
  * The tables a project's migrations make: applied in order to an in-memory PGlite, then read from
  * its catalog, in the current schema. Views, other schemas and the migrations table are left out.
- * Migrations that need an extension PGlite can't load are read on the database's local server.
+ * Migrations that need an extension PGlite can't load are read on the server `schemaUrl` names.
  */
 export async function schemaOf(
   migrations: readonly Migration[],

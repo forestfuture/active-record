@@ -31,11 +31,12 @@ On D1, the command reads your databases from your Wrangler config. On Postgres, 
 
 Each key is a database’s binding. Your generated schema names the database by it.
 
-| Setting         |                                                                                              |
-| --------------- | -------------------------------------------------------------------------------------------- |
-| `migrationsDir` | Its migrations folder, relative to the file (`migrations` by default).                       |
-| `url`           | The local database: what `migrate` and the console use, and the schema if it needs a server. |
-| `remoteUrl`     | The real database, for `--remote`.                                                           |
+| Setting         |                                                                           |
+| --------------- | ------------------------------------------------------------------------- |
+| `migrationsDir` | Its migrations folder, relative to the file (`migrations` by default).    |
+| `url`           | The local database: what `migrate` and the console use.                   |
+| `remoteUrl`     | The real database, for `--remote`.                                        |
+| `schemaUrl`     | A server the schema may be read on, for an extension PGlite doesn’t have. |
 
 `${NAME}` reads a variable from the environment, so a password stays out of the file. The command never prints a connection string, only its database and host. `--config` names another file.
 
@@ -199,11 +200,13 @@ On Postgres, an override in the Model still comes first. Otherwise each column�
 
 A domain maps as the type it’s built on. Names, `NOT NULL`, and keys work as on D1. A string key gets `generateId: true` unless it has a literal default, even when Postgres has a default such as `gen_random_uuid()`. Literal defaults (`'draft'`, `0`, `true`, `'{}'::jsonb`) are copied, and functions such as `now()` are left to Postgres. Views, other schemas, and `schema_migrations` are left out.
 
-**Extensions:** a migration can `CREATE EXTENSION` any of the extensions PGlite has its own build of, such as `citext`, `uuid-ossp`, `pg_trgm`, `pgcrypto`, `hstore`, and `ltree`. For any other, such as PostGIS, the schema is read on the server your `url` names instead. It’s read in a database of its own, dropped afterwards, which needs permission to create databases. A note says so.
+**Extensions:** a migration can `CREATE EXTENSION` any of the extensions PGlite has its own build of, such as `citext`, `uuid-ossp`, `pg_trgm`, `pgcrypto`, `hstore`, and `ltree`. For any other, such as PostGIS, set `schemaUrl` to a Postgres server that has it, such as a local one. The schema is then read there, in a database of its own:
 
-:::warning[The fallback runs your migrations on that server]
-The temporary database is dropped, but what a migration changes outside it stays. A `CREATE ROLE` makes the role on the server, and the next read then fails on it. Point `url` at a development server, and write such statements so they can run twice (`DO $$ … $$` with a check).
-:::
+```jsonc
+{ "databases": { "HYPERDRIVE": { "schemaUrl": "postgres://localhost/postgres" } } }
+```
+
+The migrations run in one transaction that’s rolled back, and the database is dropped afterwards, so a `CREATE ROLE` leaves nothing behind. It needs permission to create databases. A note says which server was read. Without `schemaUrl`, the command says to set one, and never uses `url` for it.
 
 ## `active-record g model` and `g migration`
 

@@ -19,7 +19,7 @@ function urlForDatabase(url: string, name: string): string | undefined {
 
 /** Why the url can't name another database on its server. */
 const unreadableUrl =
-  "the database's url can't be read as a URL; write it as postgres://user:password@host/database";
+  "the database's schemaUrl can't be read as a URL; write it as postgres://user:password@host/database";
 
 /** Drops the temporary database and ends the admin client, which ends even when the drop fails. */
 async function dropped(admin: Client, name: string): Promise<void> {
@@ -43,7 +43,8 @@ async function created(admin: Client, name: string): Promise<string | undefined>
 
 /**
  * A new, empty database on the server `url` names, which closing drops; or why there's none. The
- * migrations then create their extensions there, as they would on the real database.
+ * migrations then create their extensions there, as they would on the real database, in one
+ * transaction that closing rolls back.
  */
 export async function temporaryDatabase(url: string): Promise<Scratch | string> {
   const name = `active_record_schema_${randomUUID().replaceAll("-", "")}`;
@@ -58,12 +59,18 @@ export async function temporaryDatabase(url: string): Promise<Scratch | string> 
     await dropped(admin, name);
     return client;
   }
+  // One transaction, never committed: what a migration does beyond the database (a role) is undone.
+  await client.query({ text: "BEGIN" });
   return {
     exec: async (sql) => void (await client.query({ text: sql })),
     query: async (sql) => (await client.query({ text: sql })).rows,
     close: async () => {
-      await client.end();
-      await dropped(admin, name);
+      try {
+        await client.query({ text: "ROLLBACK" });
+      } finally {
+        await client.end();
+        await dropped(admin, name);
+      }
     },
   };
 }
