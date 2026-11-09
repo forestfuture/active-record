@@ -1,7 +1,8 @@
-// The documentation site: Blume's static build, served at d1-record.forestfuture.dev.
+// The documentation site: Blume's static build, served at active-record.forestfuture.dev. Its old
+// host, d1-record.forestfuture.dev, redirects here (redirect/wrangler.jsonc).
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
-  "name": "d1-record-docs",
+  "name": "active-record-docs",
   "compatibility_date": "2026-09-01",
   "assets": {
     "directory": "dist",
@@ -12,5 +13,5 @@
   "workers_dev": false,
   // The hostname's proxied DNS record is added once in the Cloudflare dashboard
   // (docs/agents/cloudflare-tokens.md); the route needs only Workers Routes: Edit.
-  "routes": [{ "pattern": "d1-record.forestfuture.dev/*", "zone_name": "forestfuture.dev" }],
+  "routes": [{ "pattern": "active-record.forestfuture.dev/*", "zone_name": "forestfuture.dev" }],
 }

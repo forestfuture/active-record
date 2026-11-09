@@ -1,0 +1,11 @@
+// d1-record.forestfuture.dev, where the guide was until #270: a Worker that redirects every request
+// to active-record.forestfuture.dev. It keeps the guide's old Worker name, so deploying it replaces
+// that Worker and its route.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "d1-record-docs",
+  "main": "worker.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "routes": [{ "pattern": "d1-record.forestfuture.dev/*", "zone_name": "forestfuture.dev" }],
+}

@@ -1,7 +1,7 @@
 {
-  "name": "d1-record-site",
+  "name": "active-record-site",
   "private": true,
-  "description": "The d1-record documentation site, deployed to d1-record.forestfuture.dev.",
+  "description": "The Active Record documentation site, deployed to active-record.forestfuture.dev.",
   "type": "module",
   "scripts": {
     "dev": "node excerpts.ts && blume dev",

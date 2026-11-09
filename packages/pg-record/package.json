@@ -10,7 +10,7 @@
     "postgres",
     "workers"
   ],
-  "homepage": "https://d1-record.forestfuture.dev",
+  "homepage": "https://active-record.forestfuture.dev",
   "bugs": {
     "url": "https://github.com/forestfuture/active-record/issues"
   },
