@@ -1,6 +1,6 @@
 // Each published tarball holds exactly its files: the core with its entries, the `active-record`
-// command, the D1 adapter, its docs for agents and its manifest. pg-record imports the core only
-// through its entries, never a copy of it. Run with `vp run check:package`, after
+// command, the D1 and PostgreSQL adapters, its docs for agents, its config's JSON Schema and its
+// manifest. Run with `vp run check:package`, after
 // `vp run build` and `vp run docs:build` (as CI does): it packs what's built, skipping `prepack`.
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
@@ -23,6 +23,8 @@ const expected = {
     "dist/d1.mjs",
     "dist/index.d.mts",
     "dist/index.mjs",
+    "dist/postgresql.d.mts",
+    "dist/postgresql.mjs",
     "llms-full.txt",
     "package.json",
     "skills/active-record/SKILL.md",
@@ -56,32 +58,37 @@ for (const [name, files] of Object.entries(expected)) {
   console.log(`${name}'s tarball holds exactly: ${named.join(", ")}`);
 }
 
-// Each adapter's build imports the core by name, through its public entries, and bundles none of it.
-const allowed = [
-  "@forestfuture/active-record",
-  "@forestfuture/active-record/adapter",
-  "@forestfuture/active-record/cli",
-];
-for (const adapter of ["pg-record"]) {
-  const built = readdirSync(new URL(`../packages/${adapter}/dist/`, import.meta.url))
+// The adapters' drivers are the app's: optional peer dependencies, imported by name, never bundled
+// (#301). A Worker on D1 bundles none of them, since only the PostgreSQL entry imports pg.
+const dist = new URL("../packages/active-record/dist/", import.meta.url);
+const built = Object.fromEntries(
+  readdirSync(dist)
     .filter((file) => file.endsWith(".mjs"))
-    .map((file) =>
-      readFileSync(new URL(`../packages/${adapter}/dist/${file}`, import.meta.url), "utf8"),
-    )
-    .join("\n");
-  const entries = new Set(
-    [...built.matchAll(/from "(@forestfuture\/active-record[^"]*)"/g)].map(([, entry]) => entry),
-  );
-  const unknown = [...entries].filter((entry) => !allowed.includes(entry));
-  if (unknown.length > 0) fail(`${adapter} imports the core through ${unknown.join(", ")}`);
-  if (/class Relation\b|function compileSelect\b/.test(built))
-    fail(`${adapter} bundles a copy of the core`);
-  // pg is the app's, a peer dependency, and PGlite is pg-record's own: both loaded by name.
-  if (/class PGlite\b|class Client extends/.test(built)) fail(`${adapter} bundles PGlite or pg`);
-  console.log(
-    `${adapter} imports the core only through ${[...entries].sort(byCodePoint).join(", ")}`,
-  );
+    .map((file) => [file, readFileSync(new URL(file, dist), "utf8")]),
+);
+for (const [file, text] of Object.entries(built)) {
+  if (/class PGlite\b|class Client extends/.test(text)) fail(`${file} bundles PGlite or pg`);
 }
+const importsOf = (file) =>
+  new Set([...built[file].matchAll(/(?:from|import\() ?"([^".][^"]*)"/g)].map(([, name]) => name));
+const outside = (file) => [...importsOf(file)].filter((name) => name !== "cloudflare:workers");
+if (outside("d1.mjs").length > 0) fail(`dist/d1.mjs imports ${outside("d1.mjs").join(", ")}`);
+if (outside("postgresql.mjs").join() !== "pg") {
+  fail(`dist/postgresql.mjs imports ${outside("postgresql.mjs").join(", ")}, not pg alone`);
+}
+const manifest = JSON.parse(
+  readFileSync(new URL("../packages/active-record/package.json", import.meta.url), "utf8"),
+);
+for (const driver of ["pg", "@electric-sql/pglite"]) {
+  if (
+    manifest.peerDependenciesMeta?.[driver]?.optional !== true ||
+    driver in (manifest.dependencies ?? {})
+  )
+    fail(`${driver} isn't an optional peer dependency`);
+}
+console.log(
+  "The adapters bundle no driver: pg and PGlite are optional peers, and only the PostgreSQL entry imports pg",
+);
 
 // An agent reads llms-full.txt as one file, away from the site, so a link to another page can't be
 // relative to its page (#133). Blume writes those links from the site's root (`/models`), and each

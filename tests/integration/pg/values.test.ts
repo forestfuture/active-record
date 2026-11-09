@@ -1,6 +1,9 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "vite-plus/test";
 import { belongsTo, column, Model, sql } from "../../../packages/active-record/src/index.ts";
-import { connect, type QueryEvent } from "../../../packages/pg-record/src/index.ts";
+import {
+  connect,
+  type QueryEvent,
+} from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 
 class User extends Model.define({
@@ -22,7 +25,7 @@ class Note extends Model.define({ id: { type: "integer", null: false }, label: "
 }
 
 // What Postgres gives that D1 can't: bigints, and its own detail for onQuery (#269).
-describe("pg-record's values", () => {
+describe("the PostgreSQL adapter's values", () => {
   let schema: PgSchema;
   const events: QueryEvent[] = [];
   const users = () => connect(schema.url, { onQuery: (event) => events.push(event) }).model(User);

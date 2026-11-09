@@ -1,4 +1,4 @@
-// A Worker on pg-record, bundled by tests/integration/pg/workerd.test.ts and run in workerd. Its
+// A Worker on the PostgreSQL adapter, bundled by tests/integration/pg/workerd.test.ts and run in workerd. Its
 // DATABASE_URL is the test's own schema, given to Miniflare as a text binding.
 {
   "name": "pg-record-workerd",

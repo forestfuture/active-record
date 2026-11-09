@@ -8,13 +8,10 @@ import { scratchDirs } from "../support/scratch.ts";
 
 const scratch = scratchDirs();
 
-/** pg-record's plugin, at its source in this repo, as a tsconfig `paths` entry. */
-const pgPlugin = [new URL("../../packages/pg-record/cli/plugin.ts", import.meta.url).pathname];
-
 /** A project outside the repo: its files by path, each adapter's plugin found through tsconfig paths. */
 function project(files: Record<string, string>): string {
   const cwd = scratch("adapters-", true);
-  const paths = { ...libraryPaths, "@forestfuture/pg-record/cli": pgPlugin };
+  const paths = libraryPaths;
   const all = {
     "tsconfig.json": JSON.stringify({ compilerOptions: { baseUrl: ".", paths } }),
     ...files,
@@ -49,11 +46,13 @@ describe("the adapter the command uses", () => {
       "wrangler.jsonc": wrangler("DB"),
     });
     const pg = project({
-      "active-record.jsonc": config({ HYPERDRIVE: { adapter: "pg", url: "postgres://x/y" } }),
+      "active-record.jsonc": config({
+        HYPERDRIVE: { adapter: "postgresql", url: "postgres://x/y" },
+      }),
     });
 
     expect(await found(d1)).toBe("adapter d1: DB");
-    expect(await found(pg)).toBe("adapter pg: HYPERDRIVE");
+    expect(await found(pg)).toBe("adapter postgresql: HYPERDRIVE");
   });
 
   test("--config names another file, beside which D1 finds Wrangler's config", async () => {
@@ -91,21 +90,26 @@ describe("the adapter the command uses", () => {
 
   test("a database without an adapter, or with one that isn't one, says which there are", async () => {
     expect(await found(project({ "active-record.jsonc": config({ DB: {} }) }))).toBe(
-      'active-record.jsonc: databases.DB has no adapter (add "adapter": "d1" or "pg")',
+      'active-record.jsonc: databases.DB has no adapter (add "adapter": "d1" or "postgresql")',
     );
     expect(
       await found(project({ "active-record.jsonc": config({ DB: { adapter: "mysql" } }) })),
-    ).toBe('active-record.jsonc: databases.DB has the adapter "mysql", which isn\'t d1 or pg');
+    ).toBe(
+      'active-record.jsonc: databases.DB has the adapter "mysql", which isn\'t d1 or postgresql',
+    );
   });
 
   // One adapter per project, for now (#305).
   test("databases on different adapters are refused", async () => {
     const cwd = project({
-      "active-record.jsonc": config({ DB: { adapter: "d1" }, HYPERDRIVE: { adapter: "pg" } }),
+      "active-record.jsonc": config({
+        DB: { adapter: "d1" },
+        HYPERDRIVE: { adapter: "postgresql" },
+      }),
     });
 
     expect(await found(cwd)).toBe(
-      "active-record.jsonc names more than one adapter (d1 for DB, pg for HYPERDRIVE); a project uses one, for now",
+      "active-record.jsonc names more than one adapter (d1 for DB, postgresql for HYPERDRIVE); a project uses one, for now",
     );
   });
 

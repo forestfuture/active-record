@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { transactionControl } from "../../packages/pg-record/cli/transaction-control.ts";
+import { transactionControl } from "../../packages/active-record/cli/adapters/postgresql/transaction-control.ts";
 
 // migrate runs each migration in a transaction of its own, which a migration mustn't end (#285).
 describe("a migration's own transaction control", () => {

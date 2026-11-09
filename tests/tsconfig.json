@@ -7,6 +7,6 @@
     "module": "preserve",
     "moduleResolution": "bundler"
   },
-  // pg-record types the part of `pg` it calls itself, which its tests call too.
-  "include": [".", "../packages/pg-record/src/pg-module.d.ts"]
+  // The PostgreSQL adapter types the part of `pg` it calls itself, which its tests call too.
+  "include": [".", "../packages/active-record/src/adapters/postgresql/pg-module.d.ts"]
 }

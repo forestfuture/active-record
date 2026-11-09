@@ -18,7 +18,7 @@ import { relationFor } from "./scoped-relation.ts";
  * Usually called once per request, in middleware. Nested calls add to the outer ones.
  *
  * Each call is a scope of its own, even with a Database another request shares. An adapter may
- * hold a connection for the scope (pg-record does, from a connection string). A nested call with
+ * hold a connection for the scope (the PostgreSQL adapter does, from a connection string). A nested call with
  * the same Database shares the outer call's scope while that call is running. When `fn` settles,
  * the scope ends, and the adapter lets its connection go once the queries still running on it
  * finish. Work that outlives the scope, such as a `waitUntil` save, gets a connection of its own.

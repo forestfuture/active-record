@@ -1,28 +1,24 @@
 // Which adapter a project uses, as its `active-record.jsonc` names it, and that adapter's command line plugin (#278, #301).
-import { basename, join } from "node:path";
+import { basename } from "node:path";
 import type { CliAdapter, ProjectAdapter, ProjectDatabases } from "../adapter.ts";
 import { projectDatabases } from "./config-file.ts";
-import { isMissing, projectJiti } from "./load.ts";
 import { listed } from "./names.ts";
 
 /** An adapter the command knows: the entry its factory is imported from, and its plugin. */
 interface Registered {
   entry: string;
-  plugin: (cwd: string) => Promise<CliAdapter | string>;
+  plugin: () => Promise<CliAdapter>;
 }
 
-/**
- * Each adapter a database's `adapter` names. A plugin that ships with the command is its own
- * import, loaded only when it's used.
- */
+/** Each adapter a database's `adapter` names. Its plugin ships with the command, loaded when it's used. */
 const adapters: Readonly<Record<string, Registered>> = {
   d1: {
     entry: "@forestfuture/active-record/d1",
     plugin: async () => (await import("../adapters/d1/plugin.ts")).cli,
   },
-  pg: {
-    entry: "@forestfuture/pg-record",
-    plugin: (cwd) => installedPlugin(cwd, "@forestfuture/pg-record"),
+  postgresql: {
+    entry: "@forestfuture/active-record/postgresql",
+    plugin: async () => (await import("../adapters/postgresql/plugin.ts")).cli,
   },
 };
 
@@ -62,30 +58,9 @@ function adapterNamed(project: ProjectDatabases): string | { error: string } {
   };
 }
 
-/**
- * An adapter's plugin from the project's copy of its package's `/cli`, found as the project finds
- * it (its `node_modules`, or a `tsconfig.json` path); or why it can't be loaded.
- */
-async function installedPlugin(cwd: string, pkg: string): Promise<CliAdapter | string> {
-  const entry = `${pkg}/cli`;
-  try {
-    const source = `export { cli } from "${entry}";`;
-    const filename = join(cwd, "active-record-adapter.ts");
-    const loaded = (await projectJiti(cwd).evalModule(source, { filename, async: true })) as {
-      cli: CliAdapter;
-    };
-    return loaded.cli;
-  } catch (error) {
-    if (isMissing(error, entry) || isMissing(error, pkg)) {
-      return `${pkg} isn't installed here (install it, then try again)`;
-    }
-    return `Couldn't load ${entry}: ${(error as Error).message}`;
-  }
-}
-
-/** The plugin of the adapter `name`, or why it can't be loaded. */
-export function pluginOf(cwd: string, name: string): Promise<CliAdapter | string> {
-  return adapters[name]!.plugin(cwd);
+/** The plugin of the adapter `name`. */
+export function pluginOf(name: string): Promise<CliAdapter> {
+  return adapters[name]!.plugin();
 }
 
 /**
@@ -100,7 +75,6 @@ export async function loadAdapter(
   if (typeof project === "string") return project;
   const name = adapterNamed(project);
   if (typeof name !== "string") return name.error;
-  const plugin = await pluginOf(cwd, name);
-  if (typeof plugin === "string") return plugin;
+  const plugin = await pluginOf(name);
   return plugin.unsupported?.() ?? { ...plugin, databases: () => plugin.databases(project) };
 }

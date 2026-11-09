@@ -5,7 +5,7 @@ import { target } from "./targets.ts";
 
 /**
  * A Pool on the chosen database, for the project's `connect`: the `pg` this plugin imports is the
- * one the project's pg-record imports, from the same install. It's ended when the console closes.
+ * one the project's PostgreSQL adapter imports, from the same install. It's ended when the console closes.
  */
 export async function openDatabase(
   chosen: ChosenDatabase,

@@ -1,8 +1,12 @@
-// pg-record in workerd, for tests/integration/pg/workerd.test.ts: each route reports the backend
+// The PostgreSQL adapter in workerd, for tests/integration/pg/workerd.test.ts: each route reports the backend
 // (connection) each query ran on, so the test sees which client served it.
 import { Model, sql, withDatabase } from "../../../../packages/active-record/src/index.ts";
 import pgModule from "pg";
-import { connect, pg, type Database } from "../../../../packages/pg-record/src/index.ts";
+import {
+  connect,
+  postgresql,
+  type Database,
+} from "../../../../packages/active-record/src/adapters/postgresql/index.ts";
 
 interface Env {
   DATABASE_URL: string;
@@ -11,7 +15,7 @@ interface Env {
 }
 
 abstract class PgRecord extends Model {
-  static override schema = { adapter: pg({ binding: "DATABASE_URL" }), tables: {} };
+  static override schema = { adapter: postgresql({ binding: "DATABASE_URL" }), tables: {} };
 }
 
 class Backend extends PgRecord.define({ id: { type: "integer", null: false } }) {
@@ -27,7 +31,7 @@ class User extends PgRecord.define({
 
 /** A Model whose binding is a host that never answers. */
 class Unanswered extends Model.define({ id: { type: "integer", null: false } }) {
-  static override schema = { adapter: pg({ binding: "UNANSWERED_URL" }), tables: {} };
+  static override schema = { adapter: postgresql({ binding: "UNANSWERED_URL" }), tables: {} };
   static override table = "users";
 }
 
@@ -72,7 +76,7 @@ const routes: Record<string, (env: Env, url: URL) => Promise<unknown>> = {
     ]);
     return { backends };
   },
-  /** The same from a Hyperdrive binding's shape: what pg-record reads of one. */
+  /** The same from a Hyperdrive binding's shape: what the PostgreSQL adapter reads of one. */
   async "/hyperdrive"(env) {
     const hyperdrive = { connectionString: env.DATABASE_URL } as Parameters<typeof connect>[0];
     const backends = await withDatabase(connect(hyperdrive), async () => [

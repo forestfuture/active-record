@@ -9,13 +9,10 @@ import { scratchDirs } from "../support/scratch.ts";
 
 const scratch = scratchDirs();
 
-/** pg-record's plugin, at its source in this repo, as a tsconfig `paths` entry. */
-const pgPlugin = [new URL("../../packages/pg-record/cli/plugin.ts", import.meta.url).pathname];
-
 /** A project outside the repo, named `shop`: its files by path, each plugin found through paths. */
 function project(files: Record<string, string> = {}): string {
   const cwd = join(scratch("init-", true), "shop");
-  const paths = { ...libraryPaths, "@forestfuture/pg-record/cli": pgPlugin };
+  const paths = libraryPaths;
   const all = { "tsconfig.json": JSON.stringify({ compilerOptions: { paths } }), ...files };
   for (const [path, text] of Object.entries(all)) {
     mkdirSync(dirname(join(cwd, path)), { recursive: true });
@@ -67,11 +64,12 @@ describe("active-record init", () => {
 
     expect(await init(cwd)).toEqual({
       code: 0,
-      output: "Wrote active-record.jsonc (HYPERDRIVE, on pg)\nNext: npx active-record schema",
+      output:
+        "Wrote active-record.jsonc (HYPERDRIVE, on postgresql)\nNext: npx active-record schema",
     });
     expect(written(cwd)).toEqual({
       $schema: schemaLink,
-      databases: { HYPERDRIVE: { adapter: "pg", url: "postgres://localhost/s" } },
+      databases: { HYPERDRIVE: { adapter: "postgresql", url: "postgres://localhost/s" } },
     });
   });
 
@@ -81,27 +79,27 @@ describe("active-record init", () => {
     expect(await init(cwd)).toEqual({
       code: 0,
       output:
-        "Wrote active-record.jsonc (HYPERDRIVE, on pg)\n" +
+        "Wrote active-record.jsonc (HYPERDRIVE, on postgresql)\n" +
         "Note: HYPERDRIVE has no localConnectionString in wrangler.jsonc, so its url is a guess " +
         "(postgres://localhost:5432/shop_development); set it to your local database\n" +
         "Next: npx active-record schema",
     });
   });
 
-  test("--adapter pg with nothing to read names DATABASE_URL, on a local database named as Rails names it", async () => {
+  test("--adapter postgresql with nothing to read names DATABASE_URL, on a local database named as Rails names it", async () => {
     const cwd = project();
 
-    expect(await init(cwd, { adapter: "pg" })).toEqual({
+    expect(await init(cwd, { adapter: "postgresql" })).toEqual({
       code: 0,
       output:
-        "Wrote active-record.jsonc (DATABASE_URL, on pg)\n" +
+        "Wrote active-record.jsonc (DATABASE_URL, on postgresql)\n" +
         "Note: its url is a guess (postgres://localhost:5432/shop_development); set it to your local database\n" +
         "Next: npx active-record schema",
     });
     expect(written(cwd)).toEqual({
       $schema: schemaLink,
       databases: {
-        DATABASE_URL: { adapter: "pg", url: "postgres://localhost:5432/shop_development" },
+        DATABASE_URL: { adapter: "postgresql", url: "postgres://localhost:5432/shop_development" },
       },
     });
   });
@@ -116,7 +114,7 @@ describe("active-record init", () => {
 
     expect(await init(cwd)).toEqual({
       code: 1,
-      output: "This project could use d1 or pg; choose one with --adapter",
+      output: "This project could use d1 or postgresql; choose one with --adapter",
     });
     expect(existsSync(join(cwd, "active-record.jsonc"))).toBe(false);
     expect((await init(cwd, { adapter: "d1" })).code).toBe(0);
@@ -126,7 +124,8 @@ describe("active-record init", () => {
   test("with nothing to read and no --adapter, says to choose one", async () => {
     expect(await init(project())).toEqual({
       code: 1,
-      output: "Nothing here says which database the project uses; choose d1 or pg with --adapter",
+      output:
+        "Nothing here says which database the project uses; choose d1 or postgresql with --adapter",
     });
   });
 
@@ -142,7 +141,7 @@ describe("active-record init", () => {
   test("an --adapter that isn't one says which there are", async () => {
     expect(await init(project(), { adapter: "mysql" })).toEqual({
       code: 1,
-      output: "--adapter takes d1 or pg, not mysql",
+      output: "--adapter takes d1 or postgresql, not mysql",
     });
   });
 

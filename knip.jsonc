@@ -16,7 +16,6 @@
           "tsconfig.json",
           "packages/active-record/src/tsconfig.json",
           "packages/active-record/cli/tsconfig.json",
-          "packages/pg-record/src/tsconfig.json",
           "tests/tsconfig.json",
         ],
       },
@@ -27,10 +26,6 @@
     "packages/active-record": {
       // Provided by the Workers runtime (#77) to the D1 adapter.
       "ignoreDependencies": ["cloudflare"],
-    },
-    "packages/pg-record": {
-      // Provided by the Workers runtime, and its types, an optional peer the root installs.
-      "ignoreDependencies": ["cloudflare", "@cloudflare/workers-types"],
     },
     "site": {
       // Examples reach pages through the excerpts the site's build writes, not through imports;

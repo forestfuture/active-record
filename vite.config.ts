@@ -134,9 +134,7 @@ export default defineConfig({
                   group: [
                     "**/adapters/**",
                     "@forestfuture/active-record/d1",
-                    "@forestfuture/pg-record",
-                    "@forestfuture/pg-record/*",
-                    "**/pg-record/**",
+                    "@forestfuture/active-record/postgresql",
                   ],
                   message: "The core reaches a database through its Adapter: see src/adapter.ts.",
                 },
@@ -156,7 +154,6 @@ export default defineConfig({
         files: [
           "packages/active-record/src/adapters/**/*.ts",
           "packages/active-record/cli/adapters/**/*.ts",
-          "packages/pg-record/**/*.ts",
         ],
         rules: {
           "no-restricted-imports": [
@@ -169,7 +166,10 @@ export default defineConfig({
                     "Import the core from @forestfuture/active-record, or its /adapter or /cli entry.",
                 },
                 {
-                  group: ["@forestfuture/active-record/d1", "@forestfuture/pg-record*"],
+                  group: [
+                    "@forestfuture/active-record/d1",
+                    "@forestfuture/active-record/postgresql",
+                  ],
                   message: "An adapter never imports another adapter.",
                 },
               ],

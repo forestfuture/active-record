@@ -95,10 +95,10 @@ npx active-record schema --adapter pg
 Its attributes come out the same as on D1. Only its adapter changes:
 
 ```ts src/db/schema.ts
-import { pg } from "@forestfuture/pg-record";
+import { postgresql } from "@forestfuture/active-record/postgresql";
 
 export const schema = {
-  adapter: pg({ binding: "HYPERDRIVE" }),
+  adapter: postgresql({ binding: "HYPERDRIVE" }),
   // …
 };
 ```

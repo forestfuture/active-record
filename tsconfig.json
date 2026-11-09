@@ -25,7 +25,9 @@
       "@forestfuture/active-record/adapter": ["./packages/active-record/src/for-adapters.ts"],
       "@forestfuture/active-record/cli": ["./packages/active-record/cli/for-adapters.ts"],
       "@forestfuture/active-record/d1": ["./packages/active-record/src/adapters/d1/index.ts"],
-      "@forestfuture/pg-record": ["./packages/pg-record/src/index.ts"]
+      "@forestfuture/active-record/postgresql": [
+        "./packages/active-record/src/adapters/postgresql/index.ts"
+      ]
     }
   },
   "include": ["vite.config.ts", "tests", "scripts", "packages/*/vite.config.ts"]

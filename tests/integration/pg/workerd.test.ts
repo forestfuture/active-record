@@ -10,8 +10,8 @@ const fixture = new URL("../../fixtures/workerd/pg/", import.meta.url).pathname;
 const wrangler = new URL("../../../node_modules/.bin/wrangler", import.meta.url).pathname;
 const scratch = scratchDirs();
 
-// pg-record bundled by Wrangler, as an app's Worker is, and run in workerd (#269).
-describe("pg-record in workerd", { timeout: 60_000 }, () => {
+// The PostgreSQL adapter bundled by Wrangler, as an app's Worker is, and run in workerd (#269).
+describe("the PostgreSQL adapter in workerd", { timeout: 60_000 }, () => {
   let schema: PgSchema;
   let unanswered: SilentHost;
   let mf: Miniflare;

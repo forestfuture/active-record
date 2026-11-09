@@ -8,13 +8,13 @@ import {
 import { pgAdapter } from "./adapter.ts";
 import { type Clients, connectionStringOf, type Pool, PoolClients, UrlClients } from "./clients.ts";
 import { pgConnectionString } from "./current-database.ts";
-import { PgDriver, type PgMeta } from "./driver.ts";
+import { PgDriver, type PostgreSQLMeta } from "./driver.ts";
 
 /** What `onQuery` hears about a statement: its Model, SQL, bound values, timing, and Postgres's `meta`. */
-export type QueryEvent = AnyQueryEvent<PgMeta>;
+export type QueryEvent = AnyQueryEvent<PostgreSQLMeta>;
 
 /** Hears each statement's `QueryEvent`, with Postgres's `meta`. */
-export type QueryListener = AnyQueryListener<PgMeta>;
+export type QueryListener = AnyQueryListener<PostgreSQLMeta>;
 
 export interface ConnectOptions {
   /** Called once for every statement sent to Postgres, with Postgres's `meta`. */
@@ -22,9 +22,9 @@ export interface ConnectOptions {
 }
 
 /** Where a Database's Postgres is: a Hyperdrive binding (`env.HYPERDRIVE`), a connection string, or a `pg` Pool. */
-export type PgSource = Hyperdrive | string | Pool;
+export type PostgreSQLSource = Hyperdrive | string | Pool;
 
-function clientsFor(source: PgSource): Clients {
+function clientsFor(source: PostgreSQLSource): Clients {
   const connectionString = connectionStringOf(source);
   return connectionString === undefined
     ? new PoolClients(source as Pool)
@@ -38,7 +38,7 @@ function clientsFor(source: PgSource): Clients {
 export class Database extends AnyDatabase {
   readonly #connectionString: string | undefined;
 
-  constructor(source: PgSource, options: ConnectOptions = {}) {
+  constructor(source: PostgreSQLSource, options: ConnectOptions = {}) {
     super(new DatabaseExecutor(pgAdapter, new PgDriver(clientsFor(source)), options.onQuery));
     this.#connectionString =
       connectionStringOf(source) ?? (source as Pool).options?.connectionString;
@@ -53,6 +53,6 @@ export class Database extends AnyDatabase {
   }
 }
 
-export function connect(source: PgSource, options?: ConnectOptions): Database {
+export function connect(source: PostgreSQLSource, options?: ConnectOptions): Database {
   return new Database(source, options);
 }

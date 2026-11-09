@@ -27,7 +27,7 @@ function databaseOf(binding: string, entry: Record<string, unknown>): DatabaseCo
 
 /**
  * The Postgres databases a project's `active-record.jsonc` declares, by binding:
- * `{ "databases": { "HYPERDRIVE": { "adapter": "pg", "url": "postgres://localhost/shop" } } }`.
+ * `{ "databases": { "HYPERDRIVE": { "adapter": "postgresql", "url": "postgres://localhost/shop" } } }`.
  */
 export function readDatabases(project: ProjectDatabases): ConfigResult {
   const name = basename(project.file);

@@ -34,7 +34,7 @@ export type Jiti = ReturnType<typeof createJiti>;
 export const corePackage = "@forestfuture/active-record";
 
 /** Whether `error` is the loader failing to find `name` itself, not something it imports. */
-export function isMissing(error: unknown, name: string): boolean {
+function isMissing(error: unknown, name: string): boolean {
   const { code, message } = error as { code?: unknown; message?: unknown };
   return (
     (code === "MODULE_NOT_FOUND" || code === "ERR_MODULE_NOT_FOUND") &&

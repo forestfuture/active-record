@@ -1,8 +1,11 @@
-// pg-record through a real Hyperdrive, deployed for a moment by tests/remote/hyperdrive.test.ts: each
+// The PostgreSQL adapter through a real Hyperdrive, deployed for a moment by tests/remote/hyperdrive.test.ts: each
 // route reports what it saw, on this run's prefixed tables (TABLE_PREFIX). It answers only requests
 // carrying the run's own random SMOKE_TOKEN, so one left behind by a killed run writes nothing.
 import { Model, withDatabase } from "../../../packages/active-record/src/index.ts";
-import { connect, pg } from "../../../packages/pg-record/src/index.ts";
+import {
+  connect,
+  postgresql,
+} from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 
 interface Env {
   HYPERDRIVE: Parameters<typeof connect>[0];
@@ -11,7 +14,7 @@ interface Env {
 }
 
 abstract class SmokeRecord extends Model {
-  static override schema = { adapter: pg({ binding: "HYPERDRIVE" }), tables: {} };
+  static override schema = { adapter: postgresql({ binding: "HYPERDRIVE" }), tables: {} };
 }
 
 /** The run's Models, on its own tables. */

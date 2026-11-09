@@ -15,7 +15,7 @@ export const pgAdapter: Adapter = {
   databaseFor,
 };
 
-/** The Postgres database a generated schema's Models query: `adapter: pg({ binding: "HYPERDRIVE" })`. */
-export function pg({ binding }: { binding: string }): SchemaAdapter {
+/** The Postgres database a generated schema's Models query: `adapter: postgresql({ binding: "HYPERDRIVE" })`. */
+export function postgresql({ binding }: { binding: string }): SchemaAdapter {
   return { adapter: pgAdapter, binding };
 }
