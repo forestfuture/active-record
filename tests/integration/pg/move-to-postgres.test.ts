@@ -255,28 +255,33 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
   const hyperdriveUrl = () => withPassword(database.url);
 });
 
-test("the guide's Postgres migrations are what the tutorial's g model commands write on Postgres", async () => {
-  const cwd = writePgProject(scratch("move-generate-", true), { HYPERDRIVE: { url: guideUrl } });
-  // Migrations are named for the UTC second they're written in, so the clock is set.
-  vi.useFakeTimers({ toFake: ["Date"] });
-  onTestFinished(() => void vi.useRealTimers());
+// Each g model reads the schema through PGlite, which takes seconds under coverage in CI.
+test(
+  "the guide's Postgres migrations are what the tutorial's g model commands write on Postgres",
+  { timeout: 60_000 },
+  async () => {
+    const cwd = writePgProject(scratch("move-generate-", true), { HYPERDRIVE: { url: guideUrl } });
+    // Migrations are named for the UTC second they're written in, so the clock is set.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    onTestFinished(() => void vi.useRealTimers());
 
-  vi.setSystemTime(new Date("2026-11-08T09:05:03Z"));
-  await command(cwd, ["g", "model", "User", "email:string!:unique", "isActive:boolean!=true"]);
-  vi.setSystemTime(new Date("2026-11-08T09:05:04Z"));
-  await command(cwd, [
-    "g",
-    "model",
-    "Post",
-    "user:references",
-    "title:string!",
-    "publishedAt:datetime",
-  ]);
+    vi.setSystemTime(new Date("2026-11-08T09:05:03Z"));
+    await command(cwd, ["g", "model", "User", "email:string!:unique", "isActive:boolean!=true"]);
+    vi.setSystemTime(new Date("2026-11-08T09:05:04Z"));
+    await command(cwd, [
+      "g",
+      "model",
+      "Post",
+      "user:references",
+      "title:string!",
+      "publishedAt:datetime",
+    ]);
 
-  for (const file of ["20261108090503_create_users.sql", "20261108090504_create_posts.sql"]) {
-    expectSameFile(`migrations/${file}`, cwd, move);
-  }
-});
+    for (const file of ["20261108090503_create_users.sql", "20261108090504_create_posts.sql"]) {
+      expectSameFile(`migrations/${file}`, cwd, move);
+    }
+  },
+);
 
 test("copy-data.sh refuses a table name that would end the SQL it's written into, before exporting anything", () => {
   const cwd = scratch("move-names-");
