@@ -63,3 +63,36 @@ export async function openPgSchema(schema: readonly URL[] = fixture): Promise<Pg
     },
   };
 }
+
+export interface PgDatabase {
+  /** A connection string to it, with nothing but the database to choose (no `options`). */
+  url: string;
+  /** A Pool on it, for the test's own reads. */
+  pool: InstanceType<typeof pg.Pool>;
+  dispose(): Promise<void>;
+}
+
+/**
+ * A database of its own on DATABASE_URL's server, for a client that passes on only a URL's
+ * database, as Hyperdrive does, and so can't be given a schema. Dispose in `afterAll`.
+ */
+export async function openPgDatabase(): Promise<PgDatabase> {
+  const name = `record_${randomUUID().replaceAll("-", "")}`;
+  const admin = new pg.Pool({ connectionString: databaseUrl() });
+  admin.on("error", () => {});
+  await admin.query({ text: `CREATE DATABASE ${name}` });
+  const url = new URL(databaseUrl());
+  if (url.username === "") url.username = userInfo().username;
+  url.pathname = `/${name}`;
+  const pool = new pg.Pool({ connectionString: url.toString() });
+  pool.on("error", () => {});
+  return {
+    url: url.toString(),
+    pool,
+    async dispose() {
+      await pool.end();
+      await admin.query({ text: `DROP DATABASE ${name} WITH (FORCE)` });
+      await admin.end();
+    },
+  };
+}
