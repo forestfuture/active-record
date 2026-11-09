@@ -20,7 +20,7 @@ import {
 import { defaultModels, oneModelsFile } from "../project/targets.ts";
 import { loadAdapter } from "../project/adapters.ts";
 import { chooseDatabase } from "../project/databases.ts";
-import { byName, type Migration } from "../project/migrations.ts";
+import { byVersion, type Migration } from "../project/migrations.ts";
 import { withModels } from "../schema/models.ts";
 import type { GeneratedTable } from "../adapter.ts";
 import { schemaRefusal, schemaWrites, type SchemaTables } from "../schema/writes.ts";
@@ -195,8 +195,8 @@ async function checkedMigration(
     stem,
     new Date(),
   );
-  // In file-name order, the order they're applied in, which a migration with no number may change.
-  const after = [...existing, { name, sql: result.sql }].sort((a, b) => byName(a.name, b.name));
+  // In the order they're applied in, which a migration with no number may change.
+  const after = [...existing, { name, sql: result.sql }].sort((a, b) => byVersion(a.name, b.name));
   const checked = await adapter.readSchema(after, { migrationsTable, entry });
   if (!checked.ok) return refused(...checked.errors);
   const migration = { path: join(target.migrationsDir, name), source: result.sql };

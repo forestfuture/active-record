@@ -25,7 +25,7 @@ The app's abstract class extending `Model`, `ApplicationRecord` (in `application
 _Avoid_: Mixin, concern, parent model
 
 **Migration**:
-A SQL file in a database's migrations folder, applied once, in file-name order. Its version is the number its name starts with: a UTC timestamp as the **Generator**s write it (`20261108090503_create_products.sql`), or any leading number (`0001_…`). Wrangler records D1's applied migrations; on Postgres, `active-record migrate` records each one's version in `schema_migrations`.
+A SQL file in a database's migrations folder, applied once, in the order of the numbers their names start with. Its version is the number its name starts with: a UTC timestamp as the **Generator**s write it (`20261108090503_create_products.sql`), or any leading number (`0001_…`). Wrangler records D1's applied migrations; on Postgres, `active-record migrate` records each one's version in `schema_migrations`.
 _Avoid_: Schema change, patch, revision
 
 **Project config**:
