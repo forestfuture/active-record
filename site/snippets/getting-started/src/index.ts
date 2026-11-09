@@ -15,7 +15,7 @@ export default {
     // POST: sign up a user with a first post, saved together.
     const { email } = await request.json<{ email: string }>();
     const user = User.build({ email });
-    user.posts().build({ title: "Hello, D1" });
+    user.posts().build({ title: "Hello, world" });
 
     // save() validates and runs callbacks; false means it wasn't saved, and why is in errors.
     if (!(await user.save())) {
