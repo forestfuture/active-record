@@ -208,6 +208,8 @@ A domain maps as the type it’s built on. Names, `NOT NULL`, and keys work as o
 
 The migrations run in one transaction that’s rolled back, and the database is dropped afterwards, so a `CREATE ROLE` leaves nothing behind. It needs permission to create databases. A note says which server was read. Without `schemaUrl`, the command says to set one, and never uses `url` for it.
 
+Stopping the command with Ctrl-C drops the database too. A command killed outright can leave one behind, named `active_record_schema_…`, which you can drop yourself.
+
 ## `active-record g model` and `g migration`
 
 ```sh

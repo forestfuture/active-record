@@ -1,7 +1,13 @@
+import { spawn } from "node:child_process";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import pg from "pg";
 import { afterAll, describe, expect, test, vi } from "vite-plus/test";
 import type { Migration, SchemaResult } from "../../../packages/active-record/cli/for-adapters.ts";
 import { cli } from "../../../packages/pg-record/cli/plugin.ts";
+import { scratchDirs } from "../../support/scratch.ts";
+
+const scratch = scratchDirs();
 
 // PGlite starts for each schema read, which takes seconds with coverage on.
 const pgliteTimeout = { timeout: 60_000 };
@@ -223,6 +229,33 @@ describe("Postgres's schema, when PGlite can't load an extension", pgliteTimeout
         ),
       ],
     });
+    expect(await leftOver()).toEqual(before);
+  });
+
+  test("Ctrl-C while it's read there drops the temporary database before the command exits", async () => {
+    const before = await leftOver();
+    const script = join(scratch("pg-signal-"), "read.mjs");
+    const plugin = new URL("../../../packages/pg-record/cli/plugin.ts", import.meta.url).pathname;
+    writeFileSync(
+      script,
+      `import { cli } from ${JSON.stringify(plugin)};
+      await cli.readSchema(
+        [{ name: "1.sql", sql: "CREATE EXTENSION IF NOT EXISTS dblink;" }, { name: "2.sql", sql: "SELECT pg_sleep(60);" }],
+        { entry: { schemaUrl: process.env.SCHEMA_URL } },
+      );`,
+    );
+    const child = spawn(process.execPath, [script], {
+      env: { ...process.env, SCHEMA_URL: url },
+      stdio: "ignore",
+    });
+    const exited = new Promise((resolve) => child.on("exit", (_, signal) => resolve(signal)));
+    await expect
+      .poll(async () => (await leftOver()).length, { timeout: 20_000 })
+      .toBe(before.length + 1);
+
+    child.kill("SIGINT");
+
+    expect(await exited).toBe("SIGINT");
     expect(await leftOver()).toEqual(before);
   });
 

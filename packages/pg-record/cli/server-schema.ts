@@ -41,6 +41,27 @@ async function created(admin: Client, name: string): Promise<string | undefined>
   }
 }
 
+/** The signals a person stops a command with: Ctrl-C, and a terminal's or a process manager's. */
+const stops = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
+
+/**
+ * While the temporary database is there, a signal that stops the command drops it first, then
+ * stops the command as the signal would have. Returns what stops listening once it's dropped.
+ */
+function dropOnSignal(admin: Client, name: string): () => void {
+  const onSignal = (signal: NodeJS.Signals) => {
+    stopListening();
+    void dropped(admin, name)
+      .catch(() => {})
+      .finally(() => process.kill(process.pid, signal));
+  };
+  const stopListening = () => {
+    for (const signal of stops) process.off(signal, onSignal);
+  };
+  for (const signal of stops) process.on(signal, onSignal);
+  return stopListening;
+}
+
 /**
  * A new, empty database on the server `url` names, which closing drops; or why there's none. The
  * migrations then create their extensions there, as they would on the real database, in one
@@ -61,6 +82,7 @@ export async function temporaryDatabase(url: string): Promise<Scratch | string> 
   }
   // One transaction, never committed: what a migration does beyond the database (a role) is undone.
   await client.query({ text: "BEGIN" });
+  const stopDropping = dropOnSignal(admin, name);
   return {
     exec: async (sql) => void (await client.query({ text: sql })),
     query: async (sql) => (await client.query({ text: sql })).rows,
@@ -68,6 +90,7 @@ export async function temporaryDatabase(url: string): Promise<Scratch | string> 
       try {
         await client.query({ text: "ROLLBACK" });
       } finally {
+        stopDropping();
         await client.end();
         await dropped(admin, name);
       }
