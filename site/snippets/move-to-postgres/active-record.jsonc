@@ -1,0 +1,8 @@
+{
+  "databases": {
+    "HYPERDRIVE": {
+      "url": "postgres://localhost:5432/my_app",
+      "remoteUrl": "${PRODUCTION_DATABASE_URL}",
+    },
+  },
+}
