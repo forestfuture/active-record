@@ -22,6 +22,8 @@ done
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+# dash runs no EXIT trap on Ctrl-C, so exit first, and the copies of your data go too.
+trap 'exit 1' INT TERM HUP
 
 # D1's tables and rows, as SQL, loaded into a SQLite file of your own.
 npx wrangler d1 export DB "$d1" --output "$work/d1.sql"
