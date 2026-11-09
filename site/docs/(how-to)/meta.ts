@@ -1,7 +1,7 @@
 import { defineMeta } from "blume";
 
 export default defineMeta({
-  order: 3,
+  order: 4,
   pages: [
     "generators",
     "console",
@@ -13,6 +13,7 @@ export default defineMeta({
     "read-your-own-writes",
     "testing",
     "several-databases",
+    "move-to-postgres",
     "upgrading",
   ],
 });
