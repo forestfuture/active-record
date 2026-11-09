@@ -10,6 +10,6 @@
       "localConnectionString": "postgres://user:password@localhost:5432/my_app",
     },
   ],
-  // Until you've copied your real data: copy-data.sh exports D1 through it.
+  // copy-data.sh exports D1 through this binding. Remove it once you've copied your real data.
   "d1_databases": [{ "binding": "DB", "database_name": "my-app-db", "database_id": "…" }],
 }
