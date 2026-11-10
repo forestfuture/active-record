@@ -60,6 +60,13 @@ describe("active-record.jsonc's JSON Schema", () => {
     expect(unknownKeys(config.databases)).toEqual([]);
   });
 
+  // A D1 database's Wrangler config in another folder, such as a monorepo's Worker (#306).
+  test("takes a D1 database's wranglerConfig, a path", () => {
+    const setting = described["d1"]!.properties["wranglerConfig"] as { type?: string } | undefined;
+
+    expect(setting?.type).toBe("string");
+  });
+
   test("takes every setting the PostgreSQL adapter reads", () => {
     for (const setting of stringSettings) {
       expect(described["postgresql"]!.properties).toHaveProperty(setting);
