@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vit
 import {
   batch,
   belongsTo,
+  DeleteRestriction,
   hasMany,
   hasOne,
   IncompatibleRelation,
@@ -62,6 +63,7 @@ class Entry extends LogsRecord.define({
     this.validates("message", { presence: true });
     this.beforeSave((entry) => void log.push(`before save ${entry.message}`));
     this.afterSave((entry) => void log.push(`after save ${entry.message}`));
+    this.afterDestroy((entry) => void log.push(`after destroy ${entry.message}`));
   }
 }
 
@@ -79,6 +81,32 @@ class Note extends DbRecord.define({
   body: { type: "string", null: false },
 }) {
   static override table = "notes";
+}
+
+/** Users whose records on LOGS go when they do, each by a strategy of its own. */
+class Leaving extends DbRecord.define({ id: { type: "integer", null: false } }) {
+  static override table = "users";
+
+  entries = hasMany(Entry, { foreignKey: "userId", dependent: "destroy" });
+}
+
+class Purging extends DbRecord.define({ id: { type: "integer", null: false } }) {
+  static override table = "users";
+
+  entries = hasMany(Entry, { foreignKey: "userId", dependent: "deleteAll" });
+  badge = hasOne(Badge, { foreignKey: "userId", dependent: "delete" });
+}
+
+class Detaching extends DbRecord.define({ id: { type: "integer", null: false } }) {
+  static override table = "users";
+
+  entries = hasMany(Entry, { foreignKey: "userId", dependent: "nullify" });
+}
+
+class Guarded extends DbRecord.define({ id: { type: "integer", null: false } }) {
+  static override table = "users";
+
+  entries = hasMany(Entry, { foreignKey: "userId", dependent: "restrictWithException" });
 }
 
 const schema = new URL("../../fixtures/cross-database/schema.sql", import.meta.url);
@@ -352,5 +380,63 @@ describe("a batch with records on another database", () => {
 
     await expect(saving).rejects.toThrow(IncompatibleRelation);
     expect(await rows(db, "SELECT id FROM users WHERE id = 2")).toEqual([]);
+  });
+});
+
+describe("destroying an owner whose dependents are on another database", () => {
+  test("destroy destroys them there", async () => {
+    await inRequest(async () => (await Leaving.find(1)).destroyOrThrow());
+
+    expect(await rows(logs, "SELECT id FROM entries")).toEqual([]);
+    expect(await rows(db, "SELECT message FROM entries")).toEqual([{ message: "DB" }]);
+  });
+
+  test("destroy writes there before the owner's database, then runs their callbacks", async () => {
+    await inRequest(async () => (await Leaving.find(1)).destroyOrThrow());
+
+    expect(log).toEqual(["write LOGS", "write DB", "after destroy LOGS"]);
+  });
+
+  test("deleteAll and delete delete them there", async () => {
+    await inRequest(async () => (await Purging.find(1)).destroyOrThrow());
+
+    expect(await rows(logs, "SELECT id FROM entries UNION ALL SELECT id FROM badges")).toEqual([]);
+    expect(await rows(db, "SELECT label FROM badges")).toEqual([{ label: "DB" }]);
+  });
+
+  test("nullify clears their foreign key there", async () => {
+    await inRequest(async () => (await Detaching.find(1)).destroyOrThrow());
+
+    expect(await rows(logs, "SELECT user_id FROM entries")).toEqual([{ user_id: null }]);
+    expect(await rows(db, "SELECT user_id FROM entries")).toEqual([{ user_id: 1 }]);
+  });
+
+  test("a restriction looks for them there", async () => {
+    await logs.prepare("DELETE FROM entries").run();
+
+    await inRequest(async () => (await Guarded.find(1)).destroyOrThrow());
+
+    expect(await rows(db, "SELECT id FROM users")).toEqual([]);
+  });
+
+  test("a restriction refuses while they exist there", async () => {
+    await db.prepare("DELETE FROM entries").run();
+
+    const destroying = inRequest(async () => (await Guarded.find(1)).destroyOrThrow());
+
+    await expect(destroying).rejects.toThrow(DeleteRestriction);
+  });
+
+  test("a batch refuses the destroy before any callback runs", async () => {
+    const destroying = inRequest(async () => batch([(await Leaving.find(1)).toDestroy()]));
+
+    await expect(destroying).rejects.toThrow(
+      new IncompatibleRelation(
+        "batch() needs its statements and records on one database, and destroying this " +
+          "Leaving writes its dependent Leaving.entries, on another database; destroy it " +
+          "outside the batch",
+      ),
+    );
+    expect(await rows(db, "SELECT id FROM users")).toEqual([{ id: 1 }]);
   });
 });
