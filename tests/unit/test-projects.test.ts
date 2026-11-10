@@ -17,7 +17,7 @@ const projectFolders = [
 /** Every test file in the repository, committed or not, that git doesn't ignore. */
 const testFiles = execFileSync(
   "git",
-  ["ls-files", "--cached", "--others", "--exclude-standard", "--", "tests/**/*.test.ts"],
+  ["ls-files", "--cached", "--others", "--exclude-standard", "--", ":(glob)tests/**/*.test.ts"],
   { cwd: root, encoding: "utf8" },
 )
   .split("\n")
