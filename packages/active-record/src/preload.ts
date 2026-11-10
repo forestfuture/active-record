@@ -1,8 +1,8 @@
-// `includes()`: preloading associations, the whole tree planned to go to D1 with its query (#217).
+// `includes()`: preloading associations, the whole tree planned to go to D1 with its query (#217), and each level on another database to its own (#228).
 import { attributeFor } from "./attribute.ts";
 import type { CompiledSql } from "./compiler.ts";
 import type { Dialect } from "./dialect.ts";
-import type { Executor } from "./executor.ts";
+import { databaseNow, type Executor } from "./executor.ts";
 import { selectFor, sendTogether, type Rows } from "./load.ts";
 import { hydrate, type Model, type ModelClass } from "./model.ts";
 import { LinkedTo, mergeTrees, type IncludeTree, type QueryDescription } from "./query.ts";
@@ -52,9 +52,13 @@ interface Step {
   select: CompiledSql | undefined;
 }
 
-/** What to preload once records are loaded: for the owners at `ownersAt`, the start's tree. */
+/**
+ * What to preload once records are loaded: for the owners at `ownersAt`, the start's tree. A
+ * level on another database (#228) is planned on `elsewhere`, its target's.
+ */
 interface Afterwards extends Omit<Start, "owners"> {
   ownersAt: number;
+  elsewhere?: Executor;
 }
 
 /**
@@ -133,23 +137,23 @@ function planSteps(planning: Planning, start: Start, level: Level): void {
 /**
  * Adds the step for one association of `start`'s, then the steps under it. One that, with the
  * subqueries of the levels above, would bind more values than the database allows is left for
- * afterwards, when its owners' keys are bound as one value.
+ * afterwards, when its owners' keys are bound as one value. So is one on another database
+ * (#228), whose query goes there, with the levels under it, as its own round trip.
  */
-function planStep(
-  planning: Planning,
-  { model, owners, tree, written }: Start,
-  { ownersAt, path }: Level,
-  name: string,
-): void {
+function planStep(planning: Planning, start: Start, level: Level, name: string): void {
+  const { model, owners, tree, written } = start;
+  const { ownersAt, path } = level;
   const association = resolveAssociation(model, name);
+  const elsewhere = association.targetExecutor(planning.executor);
+  if (elsewhere !== planning.executor) {
+    leaveForAfterwards(planning, { ...onlyOne(start, name), ownersAt, elsewhere });
+    return;
+  }
   const query = linkedQuery(association, owners, planning.executor);
   const targets =
     query && targetsOf(planning.executor.dialect, association, query, tree[name] ?? {});
   if (overBoundValues(owners, targets, planning.executor.adapter.maxBoundValues)) {
-    const onlyThis = (from: IncludeTree) =>
-      from[name] === undefined ? {} : { [name]: from[name] };
-    const deferred = { ownersAt, model, tree: onlyThis(tree), written: onlyThis(written) };
-    leaveForAfterwards(planning, deferred);
+    leaveForAfterwards(planning, { ...onlyOne(start, name), ownersAt });
     return;
   }
   const step = { association, ownersAt, select: targets?.select };
@@ -163,6 +167,15 @@ function planStep(
     written: written[name] ?? {},
   };
   planSteps(planning, next, { ownersAt: position, path: new Set([...path, association]) });
+}
+
+/** `start`'s Model and its trees, with only the association `name`. */
+function onlyOne(
+  { model, tree, written }: Start,
+  name: string,
+): Pick<Start, "model" | "tree" | "written"> {
+  const onlyThis = (from: IncludeTree) => (from[name] === undefined ? {} : { [name]: from[name] });
+  return { model, tree: onlyThis(tree), written: onlyThis(written) };
 }
 
 /**
@@ -180,7 +193,9 @@ function overBoundValues(
 /** Adds `deferred` to what's preloaded afterwards, merged with anything left for its owners. */
 function leaveForAfterwards(planning: Planning, deferred: Afterwards): void {
   if (Object.keys(deferred.tree).length === 0) return;
-  const existing = planning.afterwards.find(({ ownersAt }) => ownersAt === deferred.ownersAt);
+  const existing = planning.afterwards.find(
+    ({ ownersAt, elsewhere }) => ownersAt === deferred.ownersAt && elsewhere === deferred.elsewhere,
+  );
   if (existing === undefined) {
     planning.afterwards.push(deferred);
     return;
@@ -239,8 +254,8 @@ function splitRepeated(
 
 /**
  * Attaches each step's targets, from its statement's rows, to its owners: `records`, a plan's
- * starts, or an earlier step's targets. Then preloads, together in one more round trip, what
- * was left for afterwards.
+ * starts, or an earlier step's targets. Then preloads, together in one more round trip on each
+ * database, what was left for afterwards.
  */
 async function attachSteps(
   { steps, afterwards }: Planning,
@@ -256,19 +271,26 @@ async function attachSteps(
     attach(owners[ownersAt] ?? [], association, targets);
     owners.push(targets);
   }
-  const starts = afterwards.flatMap(({ ownersAt, ...deferred }): Start[] => {
+  const byDatabase = new Map<Executor, Start[]>();
+  for (const { ownersAt, elsewhere = executor, ...deferred } of afterwards) {
     const loaded = owners[ownersAt] ?? [];
-    return loaded.length === 0 ? [] : [{ ...deferred, owners: { records: loaded } }];
-  });
-  if (starts.length > 0) await preloadStarts(starts, executor);
+    if (loaded.length === 0) continue;
+    const starts = byDatabase.get(elsewhere) ?? [];
+    byDatabase.set(elsewhere, [...starts, { ...deferred, owners: { records: loaded } }]);
+  }
+  await Promise.all([...byDatabase].map(([database, starts]) => preloadStarts(starts, database)));
 }
 
-/** Preloads each start's tree from records already loaded, in one round trip. */
+/**
+ * Preloads each start's tree from records already loaded, in one round trip to the database
+ * `executor` finds, whose records the loaded ones are.
+ */
 async function preloadStarts(starts: readonly Start[], executor: Executor): Promise<void> {
   const plan = planFrom(starts, executor);
-  const rows = await sendTogether(executor, plan.statements);
+  const database = await databaseNow(executor);
+  const rows = await sendTogether(database, plan.statements);
   const records = starts.map(({ owners }) => ("records" in owners ? owners.records : []));
-  await plan.attach(records, rows, executor);
+  await plan.attach(records, rows, database);
 }
 
 /** The SELECT for an association's targets, `query`, and what to preload for them. */
