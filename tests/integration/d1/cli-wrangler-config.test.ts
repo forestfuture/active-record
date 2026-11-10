@@ -128,7 +128,12 @@ describe("a D1 database's wranglerConfig", () => {
       }),
       "worker/wrangler.jsonc": wrangler({ binding: "DB", database_id: "x" }),
     });
-    const beside = project({
+
+    expect(await chosen(join(root, "app"))).toMatchObject({ binding: "DB" });
+  });
+
+  test("still needs the Wrangler config beside the file for a database that names none", async () => {
+    const root = project({
       "app/active-record.jsonc": config({
         DB: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
         LOGS: { adapter: "d1" },
@@ -136,8 +141,7 @@ describe("a D1 database's wranglerConfig", () => {
       "worker/wrangler.jsonc": wrangler({ binding: "DB", database_id: "x" }),
     });
 
-    expect(await chosen(join(root, "app"))).toMatchObject({ binding: "DB" });
-    expect(await chosen(join(beside, "app"), "DB")).toBe(
+    expect(await chosen(join(root, "app"), "DB")).toBe(
       "No wrangler.jsonc, wrangler.json or wrangler.toml beside active-record.jsonc",
     );
   });
