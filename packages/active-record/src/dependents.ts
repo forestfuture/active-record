@@ -62,14 +62,24 @@ export async function prepareDependents(owner: Model, claimed: Claimed): Promise
 }
 
 /**
- * `model`'s dependent associations to another database that write when an owner is destroyed:
- * every strategy but a restriction, which only reads.
+ * The dependent associations to another database that destroying a `model` record writes
+ * through: every strategy but a restriction, which only reads, its own and those of the records
+ * its `destroy` strategies destroy on its database, at every level.
  */
-export function dependentsElsewhere(model: ModelClass): ResolvedAssociation[] {
+export function dependentsElsewhere(
+  model: ModelClass,
+  visited = new Set<ModelClass>(),
+): ResolvedAssociation[] {
+  if (visited.has(model)) return [];
+  visited.add(model);
   return [...associationsOf(model)]
     .filter(([, { dependent }]) => dependent !== undefined && !dependent.startsWith("restrict"))
     .map(([name]) => resolveAssociation(model, name))
-    .filter((association) => association.crossesDatabases);
+    .flatMap((association) => {
+      if (association.crossesDatabases) return [association];
+      const { dependent } = association.definition;
+      return dependent === "destroy" ? dependentsElsewhere(association.target, visited) : [];
+    });
 }
 
 /** The association's records for this owner (a hasOne's first one only), with its scope. */
