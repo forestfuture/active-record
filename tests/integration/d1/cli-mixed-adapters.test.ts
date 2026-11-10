@@ -1,8 +1,12 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
+import { PassThrough } from "node:stream";
+import { runConsole } from "../../../packages/active-record/cli/console/command.ts";
 import { runGenerate } from "../../../packages/active-record/cli/generate/command.ts";
+import { runMigrate } from "../../../packages/active-record/cli/migrate/command.ts";
 import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
+import { capturedStreams } from "../../support/console.ts";
 import { writePgProject, type PgDatabases } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
@@ -41,6 +45,11 @@ async function run(
   const code = await command({ cwd }, (line) => lines.push(line));
   return { code, output: lines.join("\n") };
 }
+
+/** A Model on each database's base class. */
+const posts = 'import { DbRecord } from "./db-record";\nexport class Post extends DbRecord {}\n';
+const users =
+  'import { HyperdriveRecord } from "./hyperdrive-record";\nexport class User extends HyperdriveRecord {}\n';
 
 const read = (cwd: string, path: string) => readFileSync(join(cwd, path), "utf8");
 
@@ -84,14 +93,8 @@ describe("a project whose databases use different adapters", pgliteTimeout, () =
   test("schema finds each database's Models on its base class, and --check passes", async () => {
     const cwd = mixedProject();
     await run(runSchema, cwd);
-    writeFileSync(
-      join(cwd, "src/models/post.ts"),
-      'import { DbRecord } from "./db-record";\nexport class Post extends DbRecord {}\n',
-    );
-    writeFileSync(
-      join(cwd, "src/models/user.ts"),
-      'import { HyperdriveRecord } from "./hyperdrive-record";\nexport class User extends HyperdriveRecord {}\n',
-    );
+    writeFileSync(join(cwd, "src/models/post.ts"), posts);
+    writeFileSync(join(cwd, "src/models/user.ts"), users);
 
     expect((await run(runSchema, cwd)).code).toBe(0);
 
@@ -124,5 +127,44 @@ describe("a project whose databases use different adapters", pgliteTimeout, () =
       code: 1,
       output: "This config has several databases; choose one with --database (DB or HYPERDRIVE)",
     });
+  });
+
+  // Its D1 side, which needs no Postgres server: tests/integration/pg/ has the other.
+  test("migrate and console use the D1 adapter for the D1 database --database names", async () => {
+    const cwd = mixedProject();
+    await run(runSchema, cwd);
+    writeFileSync(join(cwd, "src/models/post.ts"), posts);
+    writeFileSync(join(cwd, "src/models/user.ts"), users);
+    await run(runSchema, cwd);
+    const output = new PassThrough();
+    let applied = "";
+    output.on("data", (chunk: Buffer) => (applied += chunk.toString()));
+    const io = { input: new PassThrough(), output, terminal: false };
+
+    const said: string[] = [];
+    const migrated = await runMigrate({ cwd, database: "DB" }, (line) => said.push(line), io);
+    const streams = capturedStreams();
+    const opened = await runConsole(
+      { cwd, database: "DB", eval: "await Post.count()" },
+      () => {},
+      streams,
+    );
+
+    expect([migrated, said, applied]).toEqual([0, [], expect.stringContaining("0001_posts.sql")]);
+    expect([opened, streams.seen.stdout]).toEqual([0, "0\n"]);
+    expect(streams.seen.stderr).toBe("Local database DB (.wrangler/state)\nModels: Post, User\n");
+  }, 120_000);
+
+  test("migrate and console without --database ask for one", async () => {
+    const cwd = mixedProject();
+    const asked =
+      "This config has several databases; choose one with --database (DB or HYPERDRIVE)";
+    const io = { input: new PassThrough(), output: new PassThrough(), terminal: false };
+    const lines: string[] = [];
+    const streams = capturedStreams();
+
+    expect(await runMigrate({ cwd }, (line) => lines.push(line), io)).toBe(1);
+    expect(await runConsole({ cwd }, (line) => lines.push(line), streams)).toBe(1);
+    expect(lines).toEqual([asked, asked]);
   });
 });
