@@ -25,9 +25,6 @@ const adapters: Readonly<Record<string, Registered>> = {
 /** The adapters' names, in the registry's order. */
 export const adapterNames: readonly string[] = Object.keys(adapters);
 
-/** The adapters' names, as a message lists them. */
-const names = () => listed(adapterNames);
-
 /** The entry an adapter's factory and `connect` are imported from, as the registry names it. */
 export function adapterEntry(adapter: Pick<CliAdapter, "name">): string {
   return adapters[adapter.name]?.entry ?? adapter.name;
@@ -36,26 +33,25 @@ export function adapterEntry(adapter: Pick<CliAdapter, "name">): string {
 /** What's wrong with a database's `adapter`, if anything. */
 function adapterError(binding: string, adapter: unknown): string | undefined {
   if (adapter === undefined) {
-    return `databases.${binding} has no adapter (add "adapter": ${listed(Object.keys(adapters).map((name) => JSON.stringify(name)))})`;
+    const quoted = adapterNames.map((name) => JSON.stringify(name));
+    return `databases.${binding} has no adapter (add "adapter": ${listed(quoted)})`;
   }
   if (typeof adapter === "string" && Object.hasOwn(adapters, adapter)) return undefined;
-  return `databases.${binding} has the adapter ${JSON.stringify(adapter)}, which isn't ${names()}`;
+  return `databases.${binding} has the adapter ${JSON.stringify(adapter)}, which isn't ${listed(adapterNames)}`;
 }
 
 /** The one adapter the project's databases name, or why there isn't one (#305). */
-function adapterNamed(project: ProjectDatabases): string | { error: string } {
+function adapterNamed(project: ProjectDatabases): { name: string } | string {
   const file = basename(project.file);
   const entries = Object.entries(project.databases);
   for (const [binding, entry] of entries) {
     const error = adapterError(binding, entry.adapter);
-    if (error !== undefined) return { error: `${file}: ${error}` };
+    if (error !== undefined) return `${file}: ${error}`;
   }
   const named = new Set(entries.map(([, entry]) => entry.adapter as string));
-  if (named.size === 1) return [...named][0]!;
+  if (named.size === 1) return { name: [...named][0]! };
   const each = entries.map(([binding, entry]) => `${String(entry.adapter)} for ${binding}`);
-  return {
-    error: `${file} names more than one adapter (${each.join(", ")}); a project uses one, for now`,
-  };
+  return `${file} names more than one adapter (${each.join(", ")}); a project uses one, for now`;
 }
 
 /** The plugin of the adapter `name`. */
@@ -73,8 +69,8 @@ export async function loadAdapter(
 ): Promise<ProjectAdapter | string> {
   const project = projectDatabases(cwd, configPath);
   if (typeof project === "string") return project;
-  const name = adapterNamed(project);
-  if (typeof name !== "string") return name.error;
-  const plugin = await pluginOf(name);
+  const named = adapterNamed(project);
+  if (typeof named === "string") return named;
+  const plugin = await pluginOf(named.name);
   return plugin.unsupported?.() ?? { ...plugin, databases: () => plugin.databases(project) };
 }
