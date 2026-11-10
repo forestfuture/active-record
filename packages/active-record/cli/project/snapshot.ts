@@ -29,7 +29,7 @@ export interface DatabaseSnapshot {
   hasBase: boolean;
   /** Whether its migrations are in folders, with no `migrations_pattern` to find them. */
   nestedMigrations: boolean;
-  /** The tools (Drizzle, Prisma) whose files are in the project or above it. */
+  /** The tools (Drizzle, Prisma) whose files are in its config's folder or above it. */
   toolsFound: Tool[];
   /** Its Models, found by loading the Model files (none until they're loaded). */
   models: FoundModel[];
@@ -78,14 +78,17 @@ export function readProject(
 ): ProjectSnapshot | string {
   const targets = targetsOf(project, cwd, options);
   if (typeof targets === "string") return targets;
-  const toolsFound = targets.length === 0 ? [] : toolsWithFiles(targets[0]!.configDir);
+  // Each database's from its own config's folder, which needn't be the others' (#306).
+  const tools = new Map<string, Tool[]>();
+  const toolsFor = ({ configDir }: Target) =>
+    tools.get(configDir) ?? tools.set(configDir, toolsWithFiles(configDir)).get(configDir)!;
   const read = files.flatMap((path) => {
     const text = contents(path);
     return text === undefined ? [] : [[path, text] as const];
   });
   return {
     cwd,
-    databases: targets.map((target) => databaseSnapshot(target, toolsFound)),
+    databases: targets.map((target) => databaseSnapshot(target, toolsFor(target))),
     files: new Map(read),
   };
 }
