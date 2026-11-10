@@ -1,10 +1,11 @@
 // `active-record init`: writes the project's `active-record.jsonc`, naming its databases and their adapter, from what that adapter's plugin finds (#301).
-import { existsSync, lstatSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import type { InitResult } from "../adapter.ts";
 import { apply, printed, printing, written, type Plan, type Print } from "../plan.ts";
-import { adapterNames, pluginOf } from "../project/adapters.ts";
-import { configFileName } from "../project/config-file.ts";
+import { adapterNames, loadAdapter, pluginOf } from "../project/adapters.ts";
+import { configFileName, parseJsonc } from "../project/config-file.ts";
+import { withEntries } from "./insert.ts";
 import { corePackage } from "../project/load.ts";
 import { listed } from "../project/names.ts";
 import { shown, slashed } from "../project/paths.ts";
@@ -74,15 +75,55 @@ function source(link: string, { name, result }: Found): string {
   return `${JSON.stringify({ $schema: link, databases }, null, 2)}\n`;
 }
 
+/**
+ * What `init` does when the file is there: add each database the adapter the file names finds and
+ * the file doesn't name, keeping the rest of the text as written; or say why it can't.
+ */
+async function planAdding(cwd: string, path: string, options: InitOptions): Promise<Plan> {
+  const name = shown(cwd, path);
+  const adapter = await loadAdapter(cwd, options.config);
+  if (typeof adapter === "string") return printing([adapter], 1);
+  if (options.adapter !== undefined && options.adapter !== adapter.name) {
+    return printing(
+      [
+        `${name} names ${adapter.name}; a project uses one adapter, for now, so --adapter ${options.adapter} adds nothing`,
+      ],
+      1,
+    );
+  }
+  const found = adapter.init(dirname(path), false);
+  if (typeof found === "string") return printing([found], 1);
+  const text = readFileSync(path, "utf8");
+  const named = (parseJsonc(text) as { databases: Record<string, unknown> }).databases;
+  const missing = Object.entries(found?.databases ?? {}).filter(
+    ([key]) => !Object.hasOwn(named, key),
+  );
+  if (missing.length === 0)
+    return printing([`${name} names every database init finds; it wrote nothing`]);
+  const entries = missing.map(
+    ([key, entry]) => [key, { adapter: adapter.name, ...entry }] as const,
+  );
+  const source = withEntries(text, entries);
+  if (source === undefined) return printing([`${name}'s databases couldn't be found to add to`], 1);
+  const bindings = missing.map(([key]) => key);
+  const notes = bindings
+    .flatMap((key) => found?.notes?.[key] ?? [])
+    .map((note) => printed(`Note: ${note}`));
+  const added = `Added ${listed(bindings, "and")} to ${name} (on ${adapter.name})`;
+  return { steps: [written({ path, source }, added), ...notes], code: 0 };
+}
+
 /** What `init` does: write the file, and say what's next; or say why it can't. */
 async function planInit(options: InitOptions): Promise<Plan> {
   const cwd = resolve(options.cwd ?? process.cwd());
   const path = resolve(cwd, options.config ?? configFileName);
   const name = shown(cwd, path);
-  // lstat, not exists: a link is a file that's there, even one to nothing, and never written through.
-  if (lstatSync(path, { throwIfNoEntry: false }) !== undefined) {
-    return printing([`${name} is already here; init writes nothing over it`], 1);
+  // lstat, not exists: a link, even to nothing, is never written through.
+  const there = lstatSync(path, { throwIfNoEntry: false });
+  if (there?.isSymbolicLink() === true) {
+    return printing([`${name} is a link; init writes nothing through it`], 1);
   }
+  if (there !== undefined) return planAdding(cwd, path, options);
   const dir = dirname(path);
   const found =
     options.adapter === undefined
@@ -90,7 +131,7 @@ async function planInit(options: InitOptions): Promise<Plan> {
       : await chosenEntries(dir, options.adapter);
   if (typeof found === "string") return printing([found], 1);
   const bindings = listed(Object.keys(found.result.databases), "and");
-  const notes = (found.result.notes ?? []).map((note) => printed(`Note: ${note}`));
+  const notes = Object.values(found.result.notes ?? {}).map((note) => printed(`Note: ${note}`));
   const file = { path, source: source(schemaLink(cwd, dir), found) };
   return {
     steps: [

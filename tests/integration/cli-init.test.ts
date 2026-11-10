@@ -166,20 +166,117 @@ describe("active-record init", () => {
     });
   });
 
-  test("never writes over a file that's there", async () => {
-    const cwd = project({
-      "active-record.jsonc": "// mine\n{}",
-      "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB" }] }),
+  // Run again, init adds the databases the file doesn't name, and leaves the rest as written (#301).
+  describe("on a project that has the file", () => {
+    const wrangler = (...bindings: string[]) =>
+      JSON.stringify({ d1_databases: bindings.map((binding) => ({ binding })) });
+
+    test("adds each database it's missing, keeping the file's comments and layout", async () => {
+      const cwd = project({
+        "active-record.jsonc": [
+          "// The app's databases.",
+          "{",
+          '  "databases": {',
+          "    // The main one.",
+          '    "DB": { "adapter": "d1" } // keep',
+          "  }",
+          "}",
+          "",
+        ].join("\n"),
+        "wrangler.jsonc": wrangler("DB", "LOGS", "AUDIT"),
+      });
+
+      expect(await init(cwd)).toEqual({
+        code: 0,
+        output: "Added LOGS and AUDIT to active-record.jsonc (on d1)",
+      });
+      expect(readFileSync(join(cwd, "active-record.jsonc"), "utf8")).toBe(
+        [
+          "// The app's databases.",
+          "{",
+          '  "databases": {',
+          "    // The main one.",
+          '    "DB": { "adapter": "d1" }, // keep',
+          '    "LOGS": { "adapter": "d1" },',
+          '    "AUDIT": { "adapter": "d1" }',
+          "  }",
+          "}",
+          "",
+        ].join("\n"),
+      );
     });
 
-    expect(await init(cwd)).toEqual({
-      code: 1,
-      output: "active-record.jsonc is already here; init writes nothing over it",
+    test("keeps its trailing commas", async () => {
+      const cwd = project({
+        "active-record.jsonc": '{\n  "databases": {\n    "DB": { "adapter": "d1" },\n  },\n}\n',
+        "wrangler.jsonc": wrangler("DB", "LOGS"),
+      });
+
+      expect((await init(cwd)).code).toBe(0);
+      expect(readFileSync(join(cwd, "active-record.jsonc"), "utf8")).toBe(
+        '{\n  "databases": {\n    "DB": { "adapter": "d1" },\n    "LOGS": { "adapter": "d1" },\n  },\n}\n',
+      );
     });
-    expect(readFileSync(join(cwd, "active-record.jsonc"), "utf8")).toBe("// mine\n{}");
+
+    test("with nothing missing, writes nothing", async () => {
+      const text = '{ "databases": { "DB": { "adapter": "d1" } } }';
+      const cwd = project({ "active-record.jsonc": text, "wrangler.jsonc": wrangler("DB") });
+
+      expect(await init(cwd)).toEqual({
+        code: 0,
+        output: "active-record.jsonc names every database init finds; it wrote nothing",
+      });
+      expect(readFileSync(join(cwd, "active-record.jsonc"), "utf8")).toBe(text);
+    });
+
+    test("on Postgres, adds a Hyperdrive binding with its local connection string", async () => {
+      const hyperdrive = [
+        { binding: "HYPERDRIVE" },
+        { binding: "LOGS", localConnectionString: "postgres://localhost/logs" },
+      ];
+      const cwd = project({
+        "active-record.jsonc":
+          '{ "databases": { "HYPERDRIVE": { "adapter": "postgresql", "url": "postgres://x/y" } } }',
+        "wrangler.jsonc": JSON.stringify({ hyperdrive }),
+      });
+
+      expect(await init(cwd)).toEqual({
+        code: 0,
+        output: "Added LOGS to active-record.jsonc (on postgresql)",
+      });
+      expect(written(cwd)).toEqual({
+        databases: {
+          HYPERDRIVE: { adapter: "postgresql", url: "postgres://x/y" },
+          LOGS: { adapter: "postgresql", url: "postgres://localhost/logs" },
+        },
+      });
+    });
+
+    test("--adapter naming another adapter than the file's adds nothing", async () => {
+      const cwd = project({
+        "active-record.jsonc": '{ "databases": { "DB": { "adapter": "d1" } } }',
+        "wrangler.jsonc": JSON.stringify({ hyperdrive: [{ binding: "HYPERDRIVE" }] }),
+      });
+
+      expect(await init(cwd, { adapter: "postgresql" })).toEqual({
+        code: 1,
+        output:
+          "active-record.jsonc names d1; a project uses one adapter, for now, so --adapter postgresql adds nothing",
+      });
+    });
+
+    test("a file it can't read is left as it was, saying why", async () => {
+      const cwd = project({
+        "active-record.jsonc": "// mine\n{}",
+        "wrangler.jsonc": wrangler("DB"),
+      });
+
+      expect(await init(cwd)).toEqual({ code: 1, output: "active-record.jsonc has no databases" });
+      expect(readFileSync(join(cwd, "active-record.jsonc"), "utf8")).toBe("// mine\n{}");
+    });
   });
 
-  // A link where the file goes, even to nothing yet, is a file that's there: init never follows it.
+  // A link where the file goes, even to nothing yet, is never written through.
   test("never writes through a link that's there, though it points at nothing", async () => {
     const cwd = project({
       "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB" }] }),
@@ -189,7 +286,7 @@ describe("active-record init", () => {
 
     expect(await init(cwd)).toEqual({
       code: 1,
-      output: "active-record.jsonc is already here; init writes nothing over it",
+      output: "active-record.jsonc is a link; init writes nothing through it",
     });
     expect(existsSync(target)).toBe(false);
   });

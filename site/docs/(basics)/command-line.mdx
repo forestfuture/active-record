@@ -21,7 +21,13 @@ Write `active-record.jsonc` for your project:
 npx active-record init
 ```
 
-It reads your Wrangler config. Each database in its `d1_databases` gets a D1 entry. Each Hyperdrive binding gets a PostgreSQL entry, whose `url` is the binding’s `localConnectionString`. It never writes over a file that’s there.
+It reads your Wrangler config. Each database in its `d1_databases` gets a D1 entry. Each Hyperdrive binding gets a PostgreSQL entry, whose `url` is the binding’s `localConnectionString`.
+
+Run it again after you add a database to your Wrangler config. It adds each database the file doesn’t name yet, and leaves the rest of the file as you wrote it, comments included:
+
+```text
+Added LOGS to active-record.jsonc (on d1)
+```
 
 | Option             |                                                                                    |
 | ------------------ | ---------------------------------------------------------------------------------- |
@@ -45,7 +51,7 @@ With `--adapter postgresql` and no Hyperdrive binding, it writes a `DATABASE_URL
 
 Your generated schema names each database by its binding. The `$schema` line lets your editor complete and check the file. A project’s databases all use one adapter.
 
-On D1, the rest of a database’s settings stay in your Wrangler config’s `d1_databases`, which must have its binding. On Postgres, the file holds them:
+On D1, the rest of a database’s settings stay in your Wrangler config’s `d1_databases`, which must have its binding. A D1 database there that the file doesn’t name is left out, and every command notes it. On Postgres, the file holds a database’s settings:
 
 ```jsonc
 {
