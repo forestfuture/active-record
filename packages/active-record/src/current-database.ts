@@ -93,9 +93,16 @@ function noSchemaOrDatabase(): NoDatabase {
   );
 }
 
-/** The database a query uses now, on the adapter its Model's schema names. */
+/**
+ * The database a query uses now, on the adapter its Model's schema names: one of the request's on
+ * that adapter, as the adapter finds it, or else its own (#305).
+ */
 function databaseFor(named: SchemaAdapter | undefined): Promise<AnyDatabase> {
-  return adapterFor(named).databaseFor(named?.binding, requestStore()?.databases ?? []);
+  const adapter = adapterFor(named);
+  const requested = (requestStore()?.databases ?? []).filter(
+    (db) => db[databaseExecutor].adapter === adapter,
+  );
+  return adapter.databaseFor(named?.binding, requested);
 }
 
 /**
