@@ -1,10 +1,13 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { PassThrough } from "node:stream";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
 import {
   chosenDatabase,
   loadDatabases,
 } from "../../../packages/active-record/cli/project/databases.ts";
+import { cli } from "../../../packages/active-record/cli/adapters/d1/plugin.ts";
+import { runMigrate } from "../../../packages/active-record/cli/migrate/command.ts";
 import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
@@ -199,4 +202,45 @@ describe("active-record schema, with a database's wranglerConfig", () => {
       expect.stringMatching(/^Note: events\.logged_at: read as an integer/),
     );
   });
+});
+
+describe("migrate and the console, with a database's wranglerConfig", () => {
+  test("keep its local database beside that config, where wrangler dev keeps the Worker's", async () => {
+    const root = project({
+      "app/active-record.jsonc": config({
+        DB: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
+      }),
+      "worker/wrangler.jsonc": wrangler({
+        binding: "DB",
+        database_name: "shop",
+        database_id: "local-shop",
+      }),
+      "worker/migrations/0001_users.sql": "CREATE TABLE users (id INTEGER PRIMARY KEY);",
+    });
+    const app = join(root, "app");
+    let printed = "";
+    const output = new PassThrough().on("data", (chunk: Buffer) => (printed += chunk.toString()));
+    const io = { input: new PassThrough(), output, terminal: false };
+
+    const code = await runMigrate({ cwd: app }, () => {}, io);
+    const found = await chosen(app);
+    if (typeof found === "string") throw new Error(found);
+    const opened = await cli.open(app, found, { remote: false });
+    if (typeof opened === "string") throw new Error(opened);
+    let tables: unknown;
+    try {
+      const db = opened.binding as {
+        prepare(sql: string): { all(): Promise<{ results: unknown }> };
+      };
+      tables = (await db.prepare("SELECT name FROM sqlite_master WHERE name = 'users'").all())
+        .results;
+    } finally {
+      await opened.dispose();
+    }
+
+    expect([code, printed]).toEqual([0, expect.stringContaining("0001_users.sql")]);
+    expect(tables).toEqual([{ name: "users" }]);
+    expect(existsSync(join(root, "worker/.wrangler/state/v3/d1"))).toBe(true);
+    expect(existsSync(join(app, ".wrangler"))).toBe(false);
+  }, 120_000);
 });
