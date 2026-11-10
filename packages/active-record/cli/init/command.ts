@@ -40,10 +40,6 @@ function schemaLink(cwd: string, dir: string): string {
   return link.startsWith("../") ? link : `./${link}`;
 }
 
-/** Names joined as a person lists them: `DB`, `DB and LOGS`, `A, B and C`. */
-const joined = (names: readonly string[]) =>
-  names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
-
 /** The plugin `name`'s entries, chosen with `--adapter`, or why there are none. */
 async function chosenEntries(dir: string, name: string): Promise<Found | string> {
   if (!adapterNames.includes(name)) return `--adapter takes ${listed(adapterNames)}, not ${name}`;
@@ -93,7 +89,7 @@ async function planInit(options: InitOptions): Promise<Plan> {
       ? await foundEntries(dir)
       : await chosenEntries(dir, options.adapter);
   if (typeof found === "string") return printing([found], 1);
-  const bindings = joined(Object.keys(found.result.databases));
+  const bindings = listed(Object.keys(found.result.databases), "and");
   const notes = (found.result.notes ?? []).map((note) => printed(`Note: ${note}`));
   const file = { path, source: source(schemaLink(cwd, dir), found) };
   return {
