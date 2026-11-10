@@ -103,7 +103,7 @@ describe("the adapter the command uses", () => {
   test("databases on different adapters are each read by their own, in the file's order", async () => {
     const cwd = project({
       "active-record.jsonc": config({
-        HYPERDRIVE: { adapter: "postgresql" },
+        HYPERDRIVE: { adapter: "postgresql", migrationsDir: "pg" },
         DB: { adapter: "d1" },
         LOGS: { adapter: "postgresql", migrationsDir: "logs" },
       }),
@@ -156,11 +156,34 @@ describe("the adapter the command uses", () => {
     ]);
   });
 
+  // One folder can't hold both SQLite's SQL and Postgres's, and both adapters default to migrations/.
+  test("two databases on different adapters can't share a migrations folder", async () => {
+    const shared = project({
+      "active-record.jsonc": config({
+        DB: { adapter: "d1" },
+        HYPERDRIVE: { adapter: "postgresql" },
+      }),
+      "wrangler.jsonc": wrangler("DB"),
+    });
+    const apart = project({
+      "active-record.jsonc": config({
+        DB: { adapter: "d1" },
+        HYPERDRIVE: { adapter: "postgresql", migrationsDir: "pg-migrations" },
+      }),
+      "wrangler.jsonc": wrangler("DB"),
+    });
+
+    expect(await found(shared)).toBe(
+      "DB and HYPERDRIVE both read migrations/, on different adapters (d1 and postgresql); give each its own migrations folder",
+    );
+    expect(await found(apart)).toBe("DB on d1, HYPERDRIVE on postgresql");
+  });
+
   // Every adapter the file names has its say, not only the first's (#305).
   test("with databases on two adapters, D1's notes still come", async () => {
     const cwd = project({
       "active-record.jsonc": config({
-        HYPERDRIVE: { adapter: "postgresql" },
+        HYPERDRIVE: { adapter: "postgresql", migrationsDir: "pg" },
         LOGS: { adapter: "d1" },
       }),
       "wrangler.jsonc": wrangler("DB", "LOGS"),

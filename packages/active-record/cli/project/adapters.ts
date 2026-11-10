@@ -1,8 +1,9 @@
 // The adapters a project's `active-record.jsonc` names, each database's own (#305), their command line plugins, and the databases each reads (#278, #301).
-import { basename } from "node:path";
+import { basename, resolve } from "node:path";
 import type { CliAdapter, DatabaseConfig, ProjectDatabases } from "../adapter.ts";
 import { projectDatabases } from "./config-file.ts";
 import { listed } from "./names.ts";
+import { shown } from "./paths.ts";
 
 /** An adapter the command knows: the entry its factory is imported from, and its plugin. */
 interface Registered {
@@ -122,6 +123,25 @@ function databasesOf({ project, plugins }: NamedAdapters): LoadedProject | strin
 }
 
 /**
+ * Two databases on different adapters reading one migrations folder, as an error: one folder can't
+ * hold each adapter's SQL, and the adapters may default to the same folder.
+ */
+function sharedMigrations(cwd: string, databases: readonly ProjectDatabase[]): string | undefined {
+  const seen = new Map<string, ProjectDatabase>();
+  for (const each of databases) {
+    const folder = resolve(each.configDir, each.database.migrationsDir);
+    const other = seen.get(folder);
+    if (other !== undefined && other.adapter.name !== each.adapter.name) {
+      const names = `${other.database.binding} and ${each.database.binding}`;
+      const adapters = `${other.adapter.name} and ${each.adapter.name}`;
+      return `${names} both read ${shown(cwd, folder)}/, on different adapters (${adapters}); give each its own migrations folder`;
+    }
+    seen.set(folder, each);
+  }
+  return undefined;
+}
+
+/**
  * The project's databases, each with its own adapter, as its `active-record.jsonc` (or the file
  * `configPath` names) names it (#305); or a message saying what to do.
  */
@@ -130,7 +150,9 @@ export async function loadDatabases(
   configPath?: string,
 ): Promise<LoadedProject | string> {
   const named = await loadAdapters(cwd, configPath);
-  return typeof named === "string" ? named : databasesOf(named);
+  const loaded = typeof named === "string" ? named : databasesOf(named);
+  if (typeof loaded === "string") return loaded;
+  return sharedMigrations(cwd, loaded.databases) ?? loaded;
 }
 
 /** The notes the project's adapters have about its databases, as the command prints them. */
