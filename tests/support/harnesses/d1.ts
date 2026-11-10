@@ -8,7 +8,7 @@ import { createTestDatabase } from "../d1.ts";
 import type { Harness, SchemaName } from "../harness.ts";
 
 const sqlite = (name: string) => new URL(`../../fixtures/sqlite/${name}.sql`, import.meta.url);
-// The integration tests' schema, also a Wrangler fixture's migration, and the suite's own tables.
+// The schema D1's own tests use, also a Wrangler fixture's migration, and the suite's own tables.
 const fixture = [
   new URL("../../fixtures/migrations/db/0001_schema.sql", import.meta.url),
   sqlite("conformance"),

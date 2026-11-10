@@ -1,5 +1,5 @@
 // The tests' own project: two D1 databases, whose schemas `active-record schema` generates from these
-// migrations and the Models in models/ (tests/integration/application-record.test.ts).
+// migrations and the Models in models/ (tests/integration/d1/application-record.test.ts).
 {
   "d1_databases": [
     { "binding": "DB", "database_name": "tests", "migrations_dir": "migrations/db" },

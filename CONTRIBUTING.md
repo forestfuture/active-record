@@ -13,7 +13,7 @@ vp test      # every test
 vp run coverage   # every test, and fails if branch coverage is under its floor (90%)
 ```
 
-`vp test --project unit` runs the tests that need no database, and `--project integration` the ones that run against a real D1 through Miniflare. A third suite runs against a remote D1; it's skipped unless configured, so you don't need it ([remote-smoke.md](docs/agents/remote-smoke.md)).
+`vp test --project unit` runs the tests that need no database. `--project conformance:d1` runs the conformance suite against a real D1 through Miniflare: what every adapter does. `--project integration:d1` runs what only D1 does, on the same D1. Another suite runs against a remote D1; it's skipped unless configured, so you don't need it ([remote-smoke.md](docs/agents/remote-smoke.md)).
 
 ## Making a change
 
@@ -29,7 +29,7 @@ Pull requests are merged by rebasing, so each commit stays on `main`: make each 
 The rules that matter most:
 
 - **The contract is the source of truth.** A change in behavior updates `docs/contract.md` in the same pull request, and everything else it touches ([below](#what-a-public-change-touches)).
-- **Every public behavior has a test**, through the public API against a real database (there's no fake one): the conformance suite (`tests/conformance/`) for what every adapter does, and the D1 adapter's tests (`tests/integration/`) for what only D1 does.
+- **Every public behavior has a test**, through the public API against a real database (there's no fake one): the conformance suite (`tests/conformance/`) for what every adapter does, and the D1 adapter's tests (`tests/integration/d1/`) for what only D1 does.
 - **Input from outside gets a property, not only examples.** Where untrusted input reaches d1-record (names, assigned values, bound text, permitted keys, JSON), a `*-properties.test.ts` states what must hold for any input, and [fast-check](https://fast-check.dev/) generates them. A failure prints a counterexample and its `seed` and `path`: pass both to `fc.assert` to replay it, then keep the counterexample as an example test.
 - **Library code runs on Cloudflare Workers.** Each package's `src/` uses no Node APIs, and is type-checked against `@cloudflare/workers-types` only.
 - **Names say what a thing means, in a reader's words.** Say the sentence a name appears in out loud (`rule.onRetype === "drop"`, `generateId` conflicts with `default`); if it needs explaining, choose again. Name the fact, not the mechanism. Don't pick a word that suggests the opposite (`excludes` for a rule that holds both ways). A predicate starts with `is` or `has`. A policy value (`"drop" | "keep"`) beats a flag that reads as a double negative. Use the glossary's word for a concept (`override`, not `change`), and one word for one concept. If a reviewer has to ask what a name means, rename it.
@@ -64,7 +64,7 @@ The guide is in `site/docs/` (a [Blume](https://useblume.dev) site at [active-re
 - **Write in the guide's voice** ([docs-voice.md](docs/agents/docs-voice.md)): open with what the reader does, assume a competent developer, keep examples short, and put side facts in notes.
 - **Examples use d1-record's syntax**, even for features not built yet. Rails syntax appears only when comparing.
 - **Where d1-record goes beyond Rails or differs from it**, a Rails box says so.
-- **Larger examples live in `site/snippets/`**, where `vp check` type-checks them against the library and `tests/integration/site-examples.test.ts` runs them against D1. A page embeds one with `<include>`, from the excerpts `site/excerpts.ts` writes. An example written inline in a page imports what it uses.
+- **Larger examples live in `site/snippets/`**, where `vp check` type-checks them against the library and `tests/integration/d1/site-examples.test.ts` runs them against D1. A page embeds one with `<include>`, from the excerpts `site/excerpts.ts` writes. An example written inline in a page imports what it uses.
 
 ## Naming and attribution
 

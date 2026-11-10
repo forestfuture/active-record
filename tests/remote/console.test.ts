@@ -61,7 +61,7 @@ async function session(cwd: string, ...lines: string[]) {
 const smokeId = process.env["D1_SMOKE_DATABASE_ID"];
 
 // `active-record console --remote` against the real smoke database, through Wrangler's remote proxy:
-// what the fake wrangler in tests/integration/cli-console-remote.test.ts stands in for.
+// what the fake wrangler in tests/integration/d1/cli-console-remote.test.ts stands in for.
 // Skipped unless configured (see support.ts).
 describe.skipIf(!configured)("the console on a remote D1", () => {
   test("opens the database, and its Models read and write it", async () => {
