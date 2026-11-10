@@ -156,6 +156,23 @@ describe("the adapter the command uses", () => {
     ]);
   });
 
+  // Every adapter the file names has its say, not only the first's (#305).
+  test("with databases on two adapters, D1's notes still come", async () => {
+    const cwd = project({
+      "active-record.jsonc": config({
+        HYPERDRIVE: { adapter: "postgresql" },
+        LOGS: { adapter: "d1" },
+      }),
+      "wrangler.jsonc": wrangler("DB", "LOGS"),
+    });
+
+    const loaded = await loadDatabases(cwd);
+
+    expect(typeof loaded === "string" ? loaded : loaded.notes).toEqual([
+      "wrangler.jsonc has the D1 database DB, which active-record.jsonc doesn't name; run `npx active-record init` to add it",
+    ]);
+  });
+
   test("D1's plugin runs on this Node, which has node:sqlite", () => {
     expect(cli.unsupported?.()).toBeUndefined();
   });
@@ -169,6 +186,31 @@ describe("the adapter the command uses", () => {
         id === "node:sqlite" ? undefined : builtin(id)) as never);
     const cwd = project({
       "active-record.jsonc": config({ DB: { adapter: "d1" } }),
+      "wrangler.jsonc": wrangler("DB"),
+    });
+
+    try {
+      expect(await found(cwd)).toBe(
+        "The D1 adapter needs Node 22.13 or later (23.4 on Node 23), for node:sqlite " +
+          `(this is Node ${process.versions.node})`,
+      );
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  // Every adapter the file names is checked, though a command may only use another's database (#305).
+  test("one this Node can't run says why, though the file names another adapter first", async () => {
+    const builtin = process.getBuiltinModule.bind(process);
+    const spy = vi
+      .spyOn(process, "getBuiltinModule")
+      .mockImplementation(((id: string) =>
+        id === "node:sqlite" ? undefined : builtin(id)) as never);
+    const cwd = project({
+      "active-record.jsonc": config({
+        HYPERDRIVE: { adapter: "postgresql" },
+        DB: { adapter: "d1" },
+      }),
       "wrangler.jsonc": wrangler("DB"),
     });
 
