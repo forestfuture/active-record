@@ -73,7 +73,10 @@ export const allowedDifferences: readonly AllowedDifference[] = [
       "own error. SQLite orders by it.",
     contract: ordering,
     tests: [],
-    avoidedBy: ["exists(), for any Relation > is whether toArray() returns any record"],
+    avoidedBy: [
+      "exists(), for any Relation > is whether toArray() returns any record",
+      "count(attribute), for any Relation > is how many non-null values pluck(attribute) returns",
+    ],
   },
   {
     id: "nul-in-text",
