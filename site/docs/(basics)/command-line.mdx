@@ -53,7 +53,21 @@ With `--adapter postgresql` and no Hyperdrive binding, it writes a `DATABASE_URL
 
 Your generated schema names each database by its binding. The `$schema` line lets your editor complete and check the file. Each database names its own adapter, so one project can use D1 and Postgres together, as [Multiple databases](./several-databases#using-databases-on-different-adapters) shows.
 
-On D1, the rest of a database’s settings stay in your Wrangler config’s `d1_databases`, which must have its binding. A D1 database there that the file doesn’t name is left out, and every command notes it. On Postgres, the file holds a database’s settings:
+On D1, the rest of a database’s settings stay in your Wrangler config’s `d1_databases`, which must have its binding. A D1 database there that the file doesn’t name is left out, and every command notes it.
+
+By default, that’s the Wrangler config beside the file. If your Worker is in another folder, such as in a monorepo, name its config with `wranglerConfig`, relative to the file:
+
+```jsonc
+{
+  "databases": {
+    "DB": { "adapter": "d1", "wranglerConfig": "../worker/wrangler.jsonc" },
+  },
+}
+```
+
+The database’s migrations folder and its local data in `.wrangler/state` are then beside that config, where `wrangler dev` finds them. `migrate` and the console run the `wrangler` installed there, or else your project’s.
+
+On Postgres, the file holds a database’s settings:
 
 ```jsonc
 {

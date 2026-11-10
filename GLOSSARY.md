@@ -29,7 +29,7 @@ A SQL file in a database's migrations folder, applied once, in the order of the 
 _Avoid_: Schema change, patch, revision
 
 **Project config**:
-The project's `active-record.jsonc`, beside its `package.json`, which `active-record init` writes: each database by its **Binding**, with the **Adapter** it uses (`"DB": { "adapter": "d1" }`), and the settings the `active-record` command reads. Every command reads it (#301). On Postgres an entry holds the database's settings (`databases.HYPERDRIVE.url`); a D1 database's stay in the Wrangler config.
+The project's `active-record.jsonc`, beside its `package.json`, which `active-record init` writes: each database by its **Binding**, with the **Adapter** it uses (`"DB": { "adapter": "d1" }`), and the settings the `active-record` command reads. Every command reads it (#301). On Postgres an entry holds the database's settings (`databases.HYPERDRIVE.url`); a D1 database's stay in its Wrangler config: the one beside the file, or the one its entry's `wranglerConfig` names.
 _Avoid_: Database config, settings file, active-record.json
 
 **Generator**:
