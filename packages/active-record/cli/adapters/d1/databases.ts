@@ -25,25 +25,27 @@ function namedConfig(binding: string, named: unknown, project: ProjectDatabases)
   const setting = `${basename(project.file)}: databases.${binding}.wranglerConfig`;
   if (typeof named !== "string") return { error: `${setting} isn't a string` };
   const file = resolve(project.dir, named);
-  const names = `${setting} names ${shown(project, file)}`;
+  const settingNames = `${setting} names ${shown(project, file)}`;
   const stat = statSync(file, { throwIfNoEntry: false });
-  if (stat === undefined) return { error: `${names}, which isn't there` };
+  if (stat === undefined) return { error: `${settingNames}, which isn't there` };
   if (stat.isDirectory()) {
-    return { error: `${names}, which is a folder; name its ${listed(candidates)}` };
+    return { error: `${settingNames}, which is a folder; name its ${listed(candidates)}` };
   }
   return { file };
 }
 
-/** A database's Wrangler config: the one its entry names, or else the one beside the file. */
+/**
+ * A database's Wrangler config: the one its entry names, or else `beside`, the one beside the file.
+ */
 function configOf(
   binding: string,
   entry: Record<string, unknown>,
   project: ProjectDatabases,
+  beside: string | undefined,
 ): Found {
   if (entry.wranglerConfig !== undefined)
     return namedConfig(binding, entry.wranglerConfig, project);
-  const file = wranglerConfigIn(project.dir);
-  if (file !== undefined) return { file };
+  if (beside !== undefined) return { file: beside };
   return { error: `No ${listed(candidates)} beside ${basename(project.file)}` };
 }
 
@@ -52,7 +54,12 @@ function configOf(
  * the command leaves out, so one added to Wrangler's config alone isn't missed in silence (#301).
  * `init` adds those in the config beside the file; one elsewhere is added by hand (#306).
  */
-function unnamed(entries: Record<string, unknown>[], project: ProjectDatabases, file: string) {
+function unnamed(
+  entries: Record<string, unknown>[],
+  project: ProjectDatabases,
+  file: string,
+  beside: string | undefined,
+) {
   const left = entries
     .map((entry) => String(entry.binding))
     .filter((binding) => !Object.hasOwn(project.databases, binding));
@@ -61,7 +68,7 @@ function unnamed(entries: Record<string, unknown>[], project: ProjectDatabases, 
   const which = `the D1 database${one ? "" : "s"} ${listed(left, "and")}`;
   const path = shown(project, file);
   const add =
-    file === wranglerConfigIn(project.dir)
+    file === beside
       ? `run \`npx active-record init\` to add ${one ? "it" : "them"}`
       : `add ${one ? "it" : "each"} with "wranglerConfig": ${JSON.stringify(path)}`;
   return [`${path} has ${which}, which ${basename(project.file)} doesn't name; ${add}`];
@@ -74,14 +81,15 @@ function unnamed(entries: Record<string, unknown>[], project: ProjectDatabases, 
  */
 export function readDatabases(project: ProjectDatabases): ConfigResult {
   const name = basename(project.file);
-  const read = new Map<string, Record<string, unknown>[]>();
+  const beside = wranglerConfigIn(project.dir);
+  const entriesByConfig = new Map<string, Record<string, unknown>[]>();
   const databases: DatabaseConfig[] = [];
   for (const [binding, settings] of Object.entries(project.databases)) {
-    const found = configOf(binding, settings, project);
+    const found = configOf(binding, settings, project, beside);
     if ("error" in found) return { ok: false, error: found.error };
-    const entries = read.get(found.file) ?? d1Entries(found.file);
+    const entries = entriesByConfig.get(found.file) ?? d1Entries(found.file);
     if (typeof entries === "string") return { ok: false, error: entries };
-    read.set(found.file, entries);
+    entriesByConfig.set(found.file, entries);
     const entry = entries.find((each) => each.binding === binding);
     if (entry === undefined) {
       const error = `${name} names ${binding}, which isn't in ${shown(project, found.file)}'s d1_databases`;
@@ -89,6 +97,8 @@ export function readDatabases(project: ProjectDatabases): ConfigResult {
     }
     databases.push({ ...databaseOf(entry), configFile: found.file });
   }
-  const notes = [...read].flatMap(([file, entries]) => unnamed(entries, project, file));
+  const notes = [...entriesByConfig].flatMap(([file, entries]) =>
+    unnamed(entries, project, file, beside),
+  );
   return { ok: true, file: project.file, dir: project.dir, databases, notes };
 }
