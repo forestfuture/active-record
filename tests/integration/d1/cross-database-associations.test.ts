@@ -352,6 +352,20 @@ describe("autosaving records on another database", () => {
     expect(await rows(logs, "SELECT user_id FROM entries WHERE id = 2")).toEqual([{ user_id: id }]);
   });
 
+  test("records built through a built record come back to the owner's database", async () => {
+    await inRequest(async () => {
+      const user = User.build({ id: 2, email: "grace@DB" });
+      const entry = user.entries().build({ id: 2, message: "built" });
+      entry.notes().build({ id: 2, body: "noted" });
+      await user.saveOrThrow();
+    });
+
+    expect(await rows(logs, "SELECT user_id FROM entries WHERE id = 2")).toEqual([{ user_id: 2 }]);
+    expect(await rows(db, "SELECT entry_id, body FROM notes WHERE id = 2")).toEqual([
+      { entry_id: 2, body: "noted" },
+    ]);
+  });
+
   test("the owner's database is written first, after every before-callback", async () => {
     await inRequest(async () => {
       const user = User.build({ id: 2, email: "grace@DB" });
