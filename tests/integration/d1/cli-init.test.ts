@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 
 import { dirname, join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
 import { runInit } from "../../../packages/active-record/cli/init/command.ts";
-import { loadDatabases } from "../../../packages/active-record/cli/project/adapters.ts";
+import { loadDatabases } from "../../../packages/active-record/cli/project/databases.ts";
 import { parseJsonc } from "../../../packages/active-record/cli/project/config-file.ts";
 import { libraryPaths } from "../../support/library-paths.ts";
 import { scratchDirs } from "../../support/scratch.ts";

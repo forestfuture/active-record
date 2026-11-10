@@ -3,7 +3,7 @@ import { watch } from "node:fs";
 import { resolve } from "node:path";
 import { apply, combined, printing, type Plan, type Print } from "../plan.ts";
 import { shown } from "../project/paths.ts";
-import { configNotes, loadDatabases } from "../project/adapters.ts";
+import { configNotes, loadDatabases } from "../project/databases.ts";
 import { readProject, type DatabaseSnapshot, type ProjectSnapshot } from "../project/snapshot.ts";
 import { modelsFolders, type ProjectOptions } from "../project/targets.ts";
 import { fingerprintIn, fingerprintOf } from "./render.ts";

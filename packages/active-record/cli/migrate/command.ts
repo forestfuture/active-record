@@ -2,8 +2,7 @@
 import type { Readable, Writable } from "node:stream";
 import { WriteStream } from "node:tty";
 import { confirmRemote } from "../console/confirm.ts";
-import { configNotes, loadDatabases } from "../project/adapters.ts";
-import { chosenDatabase } from "../project/databases.ts";
+import { chosenDatabase, configNotes, loadDatabases } from "../project/databases.ts";
 
 export interface MigrateOptions {
   /** The project's folder; the current one by default. */

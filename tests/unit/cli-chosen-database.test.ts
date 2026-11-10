@@ -2,8 +2,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, test } from "vite-plus/test";
-import { loadDatabases } from "../../packages/active-record/cli/project/adapters.ts";
-import { chosenDatabase } from "../../packages/active-record/cli/project/databases.ts";
+import {
+  chosenDatabase,
+  loadDatabases,
+} from "../../packages/active-record/cli/project/databases.ts";
 import { remoteTarget } from "../../packages/active-record/cli/adapters/d1/remote.ts";
 
 /** The database chosen in a D1 project, or why there isn't one. */

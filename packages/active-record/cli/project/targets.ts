@@ -3,7 +3,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { classify, moduleName } from "./names.ts";
-import type { LoadedProject, ProjectDatabase } from "./adapters.ts";
+import type { LoadedDatabase, LoadedProject } from "./databases.ts";
 
 /** Where a project's config, migrations and generated schema are, when not the defaults. */
 export interface ProjectOptions {
@@ -21,7 +21,7 @@ export interface ProjectOptions {
  * One database to generate, with its adapter and the config that declares it: where its
  * migrations are read from, and where its schema goes.
  */
-export interface Target extends ProjectDatabase {
+export interface Target extends LoadedDatabase {
   migrationsDir: string;
   out: string;
   /** The app's base class for this database's Models: its file, and its name. */

@@ -18,8 +18,7 @@ import {
   type ProjectSnapshot,
 } from "../project/snapshot.ts";
 import { defaultModels, oneModelsFile } from "../project/targets.ts";
-import { configNotes, loadDatabases } from "../project/adapters.ts";
-import { chooseDatabase } from "../project/databases.ts";
+import { chooseDatabase, configNotes, loadDatabases } from "../project/databases.ts";
 import { byVersion, type Migration } from "../project/migrations.ts";
 import { withModels } from "../schema/models.ts";
 import type { GeneratedTable } from "../adapter.ts";
