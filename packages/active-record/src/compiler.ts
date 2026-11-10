@@ -321,8 +321,8 @@ export function compileColumns(
 /**
  * Counts over the whole query as a subquery, so `count()` always equals the number of
  * rows `toArray()` would return (including limit, offset, select and distinct).
- * `count(attr)` counts non-null values, or distinct non-null values after `distinct()`; with a
- * limit or offset too, those pick from the distinct values.
+ * `count(attr)` counts non-null values, or distinct non-null values after `distinct()`. With a
+ * limit or offset too, the limit and offset pick from the distinct values.
  */
 export function compileCount(
   dialect: Dialect,
