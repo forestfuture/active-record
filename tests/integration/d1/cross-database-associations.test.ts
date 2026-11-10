@@ -15,7 +15,7 @@ import {
   d1,
   type QueryEvent,
 } from "../../../packages/active-record/src/adapters/d1/index.ts";
-import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
+import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
 
 // Level 1 reads the Worker's bindings from cloudflare:workers; here they're this test's two D1s.
 const workers: { env: Record<string, unknown> } = { env: {} };
@@ -58,6 +58,7 @@ class Entry extends LogsRecord.define({
 
   user = belongsTo(User);
   notes = hasMany(Note);
+  badges = hasMany(Badge, { foreignKey: "userId", primaryKey: "userId" });
 
   static {
     this.validates("message", { presence: true });
@@ -145,13 +146,18 @@ beforeEach(async () => {
     ]);
   }
   log.length = 0;
+  reads.length = 0;
 });
 
-/** Logs each write a database is sent, by the database's binding. */
+/** Each read a database was sent, as its binding and the table it reads. */
+const reads: string[] = [];
+
+/** Logs each write a database is sent, by the database's binding, and keeps its reads. */
 const writesTo =
   (binding: string) =>
   ({ sql }: QueryEvent): void => {
-    if (!sql.startsWith("SELECT")) log.push(`write ${binding}`);
+    if (sql.startsWith("SELECT")) reads.push(`${binding} ${/FROM "(\w+)"/.exec(sql)?.[1]}`);
+    else log.push(`write ${binding}`);
   };
 
 /** `fn`, in a request with both databases, each logging its writes. */
@@ -438,5 +444,73 @@ describe("destroying an owner whose dependents are on another database", () => {
       ),
     );
     expect(await rows(db, "SELECT id FROM users")).toEqual([{ id: 1 }]);
+  });
+});
+
+describe("preloading an association to another database", () => {
+  test("a belongsTo's records come from the target's database", async () => {
+    const [entry] = await inRequest(() => Entry.includes("user").toArray());
+
+    expect(entry!.loaded("user")?.email).toBe("ada@DB");
+  });
+
+  test("a hasMany's records come from the target's database", async () => {
+    const user = await inRequest(() => User.includes("entries").find(1));
+
+    expect(user.loaded("entries").map((entry) => entry.message)).toEqual(["LOGS"]);
+  });
+
+  test("its query goes to the target's database, after the records' own", async () => {
+    await inRequest(() => User.includes("entries").find(1));
+
+    expect(reads).toEqual(["DB users", "LOGS entries"]);
+  });
+
+  test("the levels under it go with it, in one round trip there", async () => {
+    const recorded = { DB: recordingBatches(db), LOGS: recordingBatches(logs) };
+    // Assigned onto the env the library has read, as an app's test mocks do.
+    Object.assign(workers.env, { DB: recorded.DB.binding, LOGS: recorded.LOGS.binding });
+    try {
+      const databases = [connect(recorded.DB.binding), connect(recorded.LOGS.binding)];
+      const user = await withDatabase(databases, () =>
+        User.includes({ entries: "badges" }).find(1),
+      );
+      expect(
+        user
+          .loaded("entries")[0]!
+          .loaded("badges")
+          .map((badge) => badge.label),
+      ).toEqual(["LOGS"]);
+    } finally {
+      Object.assign(workers.env, { DB: db, LOGS: logs });
+    }
+
+    expect(recorded.LOGS.batches).toEqual([2]);
+  });
+
+  test("a level under it that crosses back comes from the first database", async () => {
+    const user = await inRequest(() => User.includes({ entries: "notes" }).find(1));
+
+    expect(
+      user
+        .loaded("entries")[0]!
+        .loaded("notes")
+        .map((note) => note.body),
+    ).toEqual(["DB"]);
+  });
+
+  test("an owner from an explicit database preloads from the target's binding", async () => {
+    const user = await connect(db).model(User).includes("entries").find(1);
+
+    expect(user.loaded("entries").map((entry) => entry.message)).toEqual(["LOGS"]);
+  });
+
+  test("the records it preloads save to the target's database", async () => {
+    await inRequest(async () => {
+      const user = await User.includes("entries").find(1);
+      await user.loaded("entries")[0]!.update({ message: "changed" });
+    });
+
+    expect(await rows(logs, "SELECT message FROM entries")).toEqual([{ message: "changed" }]);
   });
 });
