@@ -79,9 +79,14 @@ export function readProject(
   const targets = targetsOf(project, cwd, options);
   if (typeof targets === "string") return targets;
   // Each database's from its own config's folder, which needn't be the others' (#306).
-  const tools = new Map<string, Tool[]>();
-  const toolsFor = ({ configDir }: Target) =>
-    tools.get(configDir) ?? tools.set(configDir, toolsWithFiles(configDir)).get(configDir)!;
+  const toolsByFolder = new Map<string, Tool[]>();
+  const toolsFor = ({ configDir }: Target): Tool[] => {
+    const known = toolsByFolder.get(configDir);
+    if (known !== undefined) return known;
+    const found = toolsWithFiles(configDir);
+    toolsByFolder.set(configDir, found);
+    return found;
+  };
   const read = files.flatMap((path) => {
     const text = contents(path);
     return text === undefined ? [] : [[path, text] as const];
