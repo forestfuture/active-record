@@ -334,7 +334,8 @@ export function compileCount(
     return { ...inner, sql: `SELECT COUNT(*) AS count FROM (${inner.sql}) AS counted` };
   }
   const column = quoteIdentifier(attributeFor(query.model, attribute).column);
-  if (query.distinct && picksRows(query)) return compileDistinctCount(dialect, toCount, column);
+  if (query.distinct && hasLimitOrOffset(query))
+    return compileDistinctCount(dialect, toCount, column);
   const inner = compileSelect(dialect, { ...toCount, select: undefined, distinct: false });
   const counted = query.distinct ? `DISTINCT ${column}` : column;
   return { ...inner, sql: `SELECT COUNT(${counted}) AS count FROM (${inner.sql}) AS counted` };
@@ -355,7 +356,7 @@ function compileDistinctCount(
 }
 
 /** Whether a limit or offset picks which rows `query` describes. */
-function picksRows(query: QueryDescription): boolean {
+function hasLimitOrOffset(query: QueryDescription): boolean {
   return query.limit !== undefined || query.offset !== undefined;
 }
 
@@ -364,7 +365,7 @@ function picksRows(query: QueryDescription): boolean {
  * so SQLite doesn't sort every match only to count it (#215).
  */
 function queryToCount(query: QueryDescription): QueryDescription {
-  if (picksRows(query)) return query;
+  if (hasLimitOrOffset(query)) return query;
   return { ...query, order: [] };
 }
 
