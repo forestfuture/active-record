@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
 import { runInit } from "../../../packages/active-record/cli/init/command.ts";
-import { loadAdapter } from "../../../packages/active-record/cli/project/adapters.ts";
+import { loadDatabases } from "../../../packages/active-record/cli/project/adapters.ts";
 import { parseJsonc } from "../../../packages/active-record/cli/project/config-file.ts";
 import { libraryPaths } from "../../support/library-paths.ts";
 import { scratchDirs } from "../../support/scratch.ts";
@@ -51,11 +51,11 @@ describe("active-record init", () => {
       $schema: schemaLink,
       databases: { DB: { adapter: "d1" }, LOGS: { adapter: "d1" } },
     });
-    const adapter = await loadAdapter(cwd);
-    expect(typeof adapter === "string" ? adapter : adapter.databases()).toMatchObject({
-      ok: true,
-      databases: [{ binding: "DB" }, { binding: "LOGS", migrationsDir: "logs" }],
-    });
+    const loaded = await loadDatabases(cwd);
+    expect(typeof loaded === "string" ? loaded : loaded.databases).toMatchObject([
+      { database: { binding: "DB" } },
+      { database: { binding: "LOGS", migrationsDir: "logs" } },
+    ]);
   });
 
   test("on Postgres, names Wrangler's Hyperdrive binding, with its local connection string", async () => {

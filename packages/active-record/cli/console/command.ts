@@ -2,8 +2,8 @@
 import { join } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { WriteStream } from "node:tty";
-import type { ChosenDatabase, OpenBinding, ProjectAdapter } from "../adapter.ts";
-import { adapterEntry, configNotes, loadAdapter } from "../project/adapters.ts";
+import type { ChosenDatabase, CliAdapter, OpenBinding } from "../adapter.ts";
+import { adapterEntry, configNotes, loadDatabases } from "../project/adapters.ts";
 import { chosenDatabase } from "../project/databases.ts";
 import { consoleCommands } from "./commands.ts";
 import { confirmRemote } from "./confirm.ts";
@@ -77,7 +77,7 @@ function promptFor(remote: boolean, terminal: boolean): string {
  * or said `--yes`. Input typed behind the confirmation is dropped until the database is open.
  */
 async function openRemote(
-  adapter: ProjectAdapter,
+  adapter: CliAdapter,
   { cwd, chosen }: { cwd: string; chosen: ChosenDatabase },
   options: ConsoleOptions,
   io: ConsoleIo,
@@ -138,17 +138,18 @@ interface Prepared {
 /** Everything that has to be true before a session starts, or why it isn't. */
 async function prepare(options: ConsoleOptions, io: ConsoleIo): Promise<Prepared | string> {
   const cwd = options.cwd ?? process.cwd();
-  const adapter = await loadAdapter(cwd, options.config);
-  if (typeof adapter === "string") return adapter;
-  const chosen = chosenDatabase(adapter, cwd, options);
-  if (typeof chosen === "string") return chosen;
+  const loaded = await loadDatabases(cwd, options.config);
+  if (typeof loaded === "string") return loaded;
+  const found = chosenDatabase(loaded, options);
+  if (typeof found === "string") return found;
+  const { adapter, chosen } = found;
   const project = await loadProject(adapterEntry(adapter), cwd, options.models);
   if (typeof project === "string") return project;
   const opened = await (options.remote === true
     ? openRemote(adapter, { cwd, chosen }, options, io)
     : adapter.open(cwd, chosen, { remote: false }));
   if (typeof opened === "string") return opened;
-  return { stateFolder: adapter.stateFolder(chosen), notes: configNotes(adapter), project, opened };
+  return { stateFolder: adapter.stateFolder(chosen), notes: configNotes(loaded), project, opened };
 }
 
 /** Where a console talks: its own ends, what it says besides results, and its error stream. */

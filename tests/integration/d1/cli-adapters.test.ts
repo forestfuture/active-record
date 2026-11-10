@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
-import { loadAdapter } from "../../../packages/active-record/cli/project/adapters.ts";
+import { loadDatabases } from "../../../packages/active-record/cli/project/adapters.ts";
 import { cli } from "../../../packages/active-record/cli/adapters/d1/plugin.ts";
 import { libraryPaths } from "../../support/library-paths.ts";
 import { scratchDirs } from "../../support/scratch.ts";
@@ -29,13 +29,13 @@ const config = (databases: Record<string, unknown>) => JSON.stringify({ database
 const wrangler = (...bindings: string[]) =>
   JSON.stringify({ d1_databases: bindings.map((binding) => ({ binding, database_id: "x" })) });
 
-/** The adapter's name and its databases' bindings, or what the command would print. */
+/** Each database's binding and adapter, or what the command would print. */
 async function found(cwd: string, configPath?: string): Promise<string> {
-  const adapter = await loadAdapter(cwd, configPath);
-  if (typeof adapter === "string") return adapter;
-  const databases = adapter.databases();
-  if (!databases.ok) return `adapter ${adapter.name}: ${databases.error}`;
-  return `adapter ${adapter.name}: ${databases.databases.map((each) => each.binding).join(", ")}`;
+  const project = await loadDatabases(cwd, configPath);
+  if (typeof project === "string") return project;
+  return project.databases
+    .map(({ adapter, database }) => `${database.binding} on ${adapter.name}`)
+    .join(", ");
 }
 
 // The project's active-record.jsonc names each database's adapter, as Rails' database.yml does (#301).
@@ -51,8 +51,8 @@ describe("the adapter the command uses", () => {
       }),
     });
 
-    expect(await found(d1)).toBe("adapter d1: DB");
-    expect(await found(pg)).toBe("adapter postgresql: HYPERDRIVE");
+    expect(await found(d1)).toBe("DB on d1");
+    expect(await found(pg)).toBe("HYPERDRIVE on postgresql");
   });
 
   test("--config names another file, beside which D1 finds Wrangler's config", async () => {
@@ -61,7 +61,7 @@ describe("the adapter the command uses", () => {
       "app/wrangler.jsonc": wrangler("DB"),
     });
 
-    expect(await found(cwd, "app/settings.jsonc")).toBe("adapter d1: DB");
+    expect(await found(cwd, "app/settings.jsonc")).toBe("DB on d1");
     expect(await found(cwd, "app/missing.jsonc")).toBe("app/missing.jsonc isn't there");
   });
 
@@ -99,18 +99,18 @@ describe("the adapter the command uses", () => {
     );
   });
 
-  // One adapter per project, for now (#305).
-  test("databases on different adapters are refused", async () => {
+  // Each plugin reads only the entries for its adapter, so neither sees the other's (#305).
+  test("databases on different adapters are each read by their own, in the file's order", async () => {
     const cwd = project({
       "active-record.jsonc": config({
-        DB: { adapter: "d1" },
         HYPERDRIVE: { adapter: "postgresql" },
+        DB: { adapter: "d1" },
+        LOGS: { adapter: "postgresql", migrationsDir: "logs" },
       }),
+      "wrangler.jsonc": wrangler("DB"),
     });
 
-    expect(await found(cwd)).toBe(
-      "active-record.jsonc names more than one adapter (d1 for DB, postgresql for HYPERDRIVE); a project uses one, for now",
-    );
+    expect(await found(cwd)).toBe("HYPERDRIVE on postgresql, DB on d1, LOGS on postgresql");
   });
 
   test("D1's databases are the ones it names, read from Wrangler's config", async () => {
@@ -124,12 +124,12 @@ describe("the adapter the command uses", () => {
     });
     const noWrangler = project({ "active-record.jsonc": config({ DB: { adapter: "d1" } }) });
 
-    expect(await found(some)).toBe("adapter d1: LOGS");
+    expect(await found(some)).toBe("LOGS on d1");
     expect(await found(missing)).toBe(
-      "adapter d1: active-record.jsonc names LOGS, which isn't in wrangler.jsonc's d1_databases",
+      "active-record.jsonc names LOGS, which isn't in wrangler.jsonc's d1_databases",
     );
     expect(await found(noWrangler)).toBe(
-      "adapter d1: No wrangler.jsonc, wrangler.json or wrangler.toml beside active-record.jsonc",
+      "No wrangler.jsonc, wrangler.json or wrangler.toml beside active-record.jsonc",
     );
   });
 
@@ -144,9 +144,8 @@ describe("the adapter the command uses", () => {
       "wrangler.jsonc": wrangler("DB", "LOGS", "AUDIT"),
     });
     const notes = async (cwd: string) => {
-      const adapter = await loadAdapter(cwd);
-      const databases = typeof adapter === "string" ? undefined : adapter.databases();
-      return databases?.ok === true ? databases.notes : databases;
+      const loaded = await loadDatabases(cwd);
+      return typeof loaded === "string" ? loaded : loaded.notes;
     };
 
     expect(await notes(one)).toEqual([

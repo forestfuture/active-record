@@ -6,7 +6,7 @@ import type { DatabaseSnapshot } from "../project/snapshot.ts";
 import { migrationTool } from "../project/tools.ts";
 import { layoutNote, originNotes } from "./origin.ts";
 import { fingerprintIn, renderBase, renderSchema, type SchemaSource } from "./render.ts";
-import type { GeneratedTable, ProjectAdapter } from "../adapter.ts";
+import type { CliAdapter, GeneratedTable } from "../adapter.ts";
 import { adapterEntry } from "../project/adapters.ts";
 import type { ProjectSnapshot } from "../project/snapshot.ts";
 
@@ -49,16 +49,12 @@ export function schemaRefusal(cwd: string, db: DatabaseSnapshot): string | undef
 }
 
 /** The adapter a schema imports: the plugin's name is its factory's, from the adapter's package. */
-export function schemaAdapterOf(adapter: ProjectAdapter): SchemaSource["adapter"] {
+export function schemaAdapterOf(adapter: Pick<CliAdapter, "name">): SchemaSource["adapter"] {
   return { factory: adapter.name, from: adapterEntry(adapter) };
 }
 
 /** What a database's schema is rendered from: its adapter, tables and binding, and the Models found. */
-export function schemaSourceOf(
-  project: ProjectSnapshot,
-  db: DatabaseSnapshot,
-  tables: SchemaSource["tables"],
-): SchemaSource {
+export function schemaSourceOf(db: DatabaseSnapshot, tables: SchemaSource["tables"]): SchemaSource {
   const { target } = db;
   const models = db.models.map(({ className, table, file }) => ({
     className,
@@ -66,7 +62,7 @@ export function schemaSourceOf(
     module: importPath(dirname(target.out), file),
   }));
   return {
-    adapter: schemaAdapterOf(project.adapter),
+    adapter: schemaAdapterOf(target.adapter),
     tables,
     binding: target.database.binding,
     models,
@@ -86,11 +82,11 @@ export function schemaWrites(
   const { target } = db;
   const out = shown(cwd, target.out);
   const source = `${shown(cwd, target.migrationsDir)}/`;
-  const rendered = renderSchema(schemaSourceOf(project, db, result.tables), source);
+  const rendered = renderSchema(schemaSourceOf(db, result.tables), source);
   const count = `${result.tables.length} table${result.tables.length === 1 ? "" : "s"}`;
   // Notes come with a file that's written, so watching or generating again doesn't repeat them;
   // the hint for migrations it can't see comes every time, since nothing else would show them.
-  const setting = project.adapter.patternSetting;
+  const setting = target.adapter.patternSetting;
   const notes = db.nestedMigrations ? [layoutNote(cwd, target, setting)] : [];
   const steps: Step[] = [];
   if (rendered === db.schema) steps.push({ line: `${out} is up to date (${count})` });

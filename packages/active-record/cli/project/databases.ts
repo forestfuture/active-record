@@ -1,6 +1,7 @@
 // Choosing the database a command acts on: the only one a project declares, or the one `--database` names.
 import { resolve } from "node:path";
-import type { ChosenDatabase, ProjectAdapter } from "../adapter.ts";
+import type { ChosenDatabase, CliAdapter } from "../adapter.ts";
+import type { LoadedProject } from "./adapters.ts";
 import { listed } from "./names.ts";
 
 /**
@@ -20,17 +21,24 @@ export function chooseDatabase<D extends { binding: string }>(
   return chosen ?? `No database is bound as ${named}; this config has ${bindings}`;
 }
 
-/** The database for `--database` (and `--config`), with its config file, or why there isn't one. */
+/** The database a command acts on, and its adapter's plugin. */
+export interface Chosen {
+  adapter: CliAdapter;
+  chosen: ChosenDatabase;
+}
+
+/** The database `--database` names (or the only one), with its adapter, or why there isn't one. */
 export function chosenDatabase(
-  adapter: ProjectAdapter,
-  cwd: string,
-  options: { config?: string; database?: string },
-): ChosenDatabase | string {
-  const config = adapter.databases();
-  if (!config.ok) return config.error;
-  const chosen = chooseDatabase(config.databases, options.database);
-  if (typeof chosen === "string") return chosen;
-  const { binding, entry } = chosen;
-  const migrationsDir = resolve(config.dir, chosen.migrationsDir);
-  return { binding, entry, configFile: config.file, migrationsDir };
+  project: LoadedProject,
+  options: { database?: string },
+): Chosen | string {
+  const bindings = project.databases.map((each) => ({ ...each, binding: each.database.binding }));
+  const found = chooseDatabase(bindings, options.database);
+  if (typeof found === "string") return found;
+  const { adapter, database, configFile, configDir } = found;
+  const migrationsDir = resolve(configDir, database.migrationsDir);
+  return {
+    adapter,
+    chosen: { binding: database.binding, entry: database.entry, configFile, migrationsDir },
+  };
 }

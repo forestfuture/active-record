@@ -61,14 +61,14 @@ async function freshSchemas(
   for (const db of project.databases) {
     const { database, out } = db.target;
     const { migrationsTable, entry } = database;
-    const result = await project.adapter.readSchema(db.migrations ?? [], {
+    const result = await db.target.adapter.readSchema(db.migrations ?? [], {
       migrationsTable,
       entry,
     });
     if (db.migrations === undefined || !result.ok) continue;
     const source = renderSchema(
       {
-        adapter: schemaAdapterOf(project.adapter),
+        adapter: schemaAdapterOf(db.target.adapter),
         tables: result.tables,
         binding: database.binding,
         models: [],

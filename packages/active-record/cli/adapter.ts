@@ -196,9 +196,3 @@ export interface CliAdapter {
     io: MigrateOutput,
   ): Promise<number>;
 }
-
-/** The project's adapter, as the command uses it: its plugin, reading the project's databases. */
-export type ProjectAdapter = Omit<CliAdapter, "databases"> & {
-  /** The project's databases, or why they can't be read. */
-  databases(): ConfigResult;
-};
