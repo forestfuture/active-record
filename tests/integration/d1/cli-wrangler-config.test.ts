@@ -55,4 +55,27 @@ describe("a D1 database's wranglerConfig", () => {
       migrationsDir: join(root, "worker/db-migrations"),
     });
   });
+
+  test("is refused when it isn't a string, isn't there, is a folder, or doesn't have the binding", async () => {
+    const refusal = async (wranglerConfig: unknown) => {
+      const root = project({
+        "app/active-record.jsonc": config({ DB: { adapter: "d1", wranglerConfig } }),
+        "worker/wrangler.jsonc": wrangler({ binding: "LOGS", database_id: "x" }),
+      });
+      return chosen(join(root, "app"));
+    };
+
+    expect(await refusal(42)).toBe(
+      "active-record.jsonc: databases.DB.wranglerConfig isn't a string",
+    );
+    expect(await refusal("../worker/wrangler.toml")).toBe(
+      "active-record.jsonc: databases.DB.wranglerConfig names ../worker/wrangler.toml, which isn't there",
+    );
+    expect(await refusal("../worker")).toBe(
+      "active-record.jsonc: databases.DB.wranglerConfig names ../worker, which is a folder; name its wrangler.jsonc, wrangler.json or wrangler.toml",
+    );
+    expect(await refusal("../worker/wrangler.jsonc")).toBe(
+      "active-record.jsonc names DB, which isn't in ../worker/wrangler.jsonc's d1_databases",
+    );
+  });
 });
