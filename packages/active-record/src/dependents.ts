@@ -9,7 +9,7 @@ import { state } from "./record-state.ts";
 import type { Scoped } from "./relation.ts";
 import { statementParts, type Statement } from "./statement.ts";
 import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
-import { combine, statementWrite, type Stage } from "./unit-of-work.ts";
+import { combine, stageOf, statementWrite, type Stage } from "./unit-of-work.ts";
 
 /**
  * What an owner's `dependent:` associations add to its destroy, or why they refuse it: the
@@ -27,7 +27,7 @@ interface Dependents {
 /** A destroy with no dependents to write: a new record's. */
 export const noDependents: Dependents = {
   status: "ready",
-  here: { records: [], handles: [], writes: () => [] },
+  here: stageOf({}, [], () => []),
   elsewhere: [],
 };
 
@@ -137,5 +137,5 @@ function statementFor(owner: Model, association: ResolvedAssociation): Stage | u
     return undefined;
   }
   const { executor, query } = statement[statementParts];
-  return { records: [], handles: [executor], writes: () => [statementWrite([query])] };
+  return stageOf({}, [], () => [statementWrite([query])], [executor]);
 }

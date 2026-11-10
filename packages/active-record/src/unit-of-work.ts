@@ -47,24 +47,45 @@ export async function runAfter(writes: readonly PreparedWrite[]): Promise<void> 
 /**
  * One atomic batch of a save's or destroy's writes, on one database: the records it writes, the
  * handles of any statements it sends besides (a dependent's bulk write), and its writes, built
- * when it runs so foreign keys can be linked first. Its database is theirs.
+ * when it runs so foreign keys can be linked first. Its database is theirs, and the same as every
+ * other stage of its `group`'s: a record's own database, or an association's to another (#228).
  */
 export interface Stage {
+  group: object;
   records: readonly Model[];
   handles: readonly Executor[];
   writes(): PreparedWrite[];
 }
 
-/** Stage lists merged position by position: every list's first stage in one batch, and so on. */
+/** A stage of `group`'s writing `records`, and sending the statements of `handles`. */
+export function stageOf(
+  group: object,
+  records: readonly Model[],
+  writes: () => PreparedWrite[],
+  handles: readonly Executor[] = [],
+): Stage {
+  return { group, records, handles, writes };
+}
+
+/** `stages`, all on the database of `group`. */
+export function inGroup(stages: readonly Stage[], group: object): Stage[] {
+  return stages.map((stage) => ({ ...stage, group }));
+}
+
+/**
+ * Stage lists of one group merged position by position: every list's first stage in one batch,
+ * and so on.
+ */
 export function combine(stageLists: readonly (readonly Stage[])[]): Stage[] {
   const length = Math.max(0, ...stageLists.map((stages) => stages.length));
   return Array.from({ length }, (_, index) => {
     const together = stageLists.flatMap((stages) => stages[index] ?? []);
-    return {
-      records: together.flatMap((stage) => stage.records),
-      handles: together.flatMap((stage) => stage.handles),
-      writes: () => together.flatMap((stage) => stage.writes()),
-    };
+    return stageOf(
+      together[0]?.group ?? {},
+      together.flatMap((stage) => stage.records),
+      () => together.flatMap((stage) => stage.writes()),
+      together.flatMap((stage) => stage.handles),
+    );
   });
 }
 
@@ -81,22 +102,19 @@ export function afterLinking(stage: Stage, first: () => void): Stage {
 
 /**
  * Writes `stages` one after another, each as one atomic batch on its database, then runs the
- * written writes' after-callbacks in order. Each stage's database is found, and its records pinned
- * to it, before anything is written: a stage on two databases throws `IncompatibleRelation`
+ * written writes' after-callbacks in order. Each group's database is found, and its records pinned
+ * to it, before anything is written: a group on two databases throws `IncompatibleRelation`
  * ("`needs` on one database", #93). If a later stage fails, the earlier ones stay written, so
  * their after-callbacks still run before the error is thrown.
  */
 export async function runStages(stages: readonly Stage[], needs: string): Promise<void> {
-  const databases: Executor[] = [];
-  for (const { records, handles } of stages) {
-    databases.push(await pinBefore(linksOf(records), needs, handles));
-  }
+  const databases = await pinGroups(stages, needs);
   const written: PreparedWrite[] = [];
   let failure: { error: unknown } | undefined;
   try {
-    for (const [index, stage] of stages.entries()) {
+    for (const stage of stages) {
       const writes = stage.writes();
-      await writeAll(databases[index]!, writes);
+      await writeAll(databases.get(stage.group)!, writes);
       written.push(...writes);
     }
   } catch (error) {
@@ -104,4 +122,17 @@ export async function runStages(stages: readonly Stage[], needs: string): Promis
   }
   await runAfter(written);
   if (failure !== undefined) throw failure.error;
+}
+
+/** Each group's one database, its stages' records pinned to it. */
+async function pinGroups(stages: readonly Stage[], needs: string): Promise<Map<object, Executor>> {
+  const groups = new Map<object, Stage[]>();
+  for (const stage of stages) groups.set(stage.group, [...(groups.get(stage.group) ?? []), stage]);
+  const databases = new Map<object, Executor>();
+  for (const [group, members] of groups) {
+    const records = members.flatMap((stage) => stage.records);
+    const handles = members.flatMap((stage) => stage.handles);
+    databases.set(group, await pinBefore(linksOf(records), needs, handles));
+  }
+  return databases;
 }
