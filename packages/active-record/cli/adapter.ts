@@ -29,7 +29,14 @@ export interface ProjectDatabases {
 
 /** A project's config: the file, its folder, and its databases, or why it can't be read. */
 export type ConfigResult =
-  | { ok: true; file: string; dir: string; databases: DatabaseConfig[] }
+  | {
+      ok: true;
+      file: string;
+      dir: string;
+      databases: DatabaseConfig[];
+      /** For a person, such as databases the adapter's own config has that the file doesn't name. */
+      notes?: string[];
+    }
   | { ok: false; error: string };
 
 type AttributeType = "string" | "integer" | "real" | "boolean" | "datetime" | "json";

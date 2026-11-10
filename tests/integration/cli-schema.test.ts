@@ -263,6 +263,21 @@ migrations_table = "seen"
     expect(readFileSync(join(cwd, "src/db/schema.ts"), "utf8")).toBe(before);
   });
 
+  test("first notes a D1 database active-record.jsonc doesn't name", async () => {
+    const cwd = project({
+      "active-record.jsonc": d1Config("DB"),
+      "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB" }, { binding: "LOGS" }] }),
+      "migrations/0001_create_users.sql": "CREATE TABLE users (id TEXT PRIMARY KEY);",
+    });
+
+    const { code, output } = await run(cwd);
+
+    expect(code).toBe(0);
+    expect(output.split("\n")[0]).toBe(
+      "Note: wrangler.jsonc has the D1 database LOGS, which active-record.jsonc doesn't name; run `npx active-record init` to add it",
+    );
+  });
+
   test("no Wrangler config, or no D1 database in it, says so", async () => {
     const config = { "active-record.jsonc": d1Config("DB") };
 

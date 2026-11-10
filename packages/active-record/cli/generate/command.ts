@@ -18,7 +18,7 @@ import {
   type ProjectSnapshot,
 } from "../project/snapshot.ts";
 import { defaultModels, oneModelsFile } from "../project/targets.ts";
-import { loadAdapter } from "../project/adapters.ts";
+import { configNotes, loadAdapter } from "../project/adapters.ts";
 import { chooseDatabase } from "../project/databases.ts";
 import { byVersion, type Migration } from "../project/migrations.ts";
 import { withModels } from "../schema/models.ts";
@@ -297,6 +297,7 @@ export async function runGenerate(options: GenerateOptions, print: Print): Promi
     print(adapter);
     return 1;
   }
+  for (const note of configNotes(adapter)) print(note);
   const model = options.kind === "model" ? modelName(options.name) : undefined;
   const files = model?.ok === true ? [modelPathOf(cwd, options, model.className)] : [];
   const read = readProject(adapter, cwd, { config, models, out }, files);

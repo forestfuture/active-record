@@ -133,6 +133,30 @@ describe("the adapter the command uses", () => {
     );
   });
 
+  // A D1 database added to Wrangler's config, and not to active-record.jsonc, would go unseen.
+  test("D1's databases the file doesn't name are noted, with how to add them", async () => {
+    const one = project({
+      "active-record.jsonc": config({ LOGS: { adapter: "d1" } }),
+      "wrangler.jsonc": wrangler("DB", "LOGS"),
+    });
+    const two = project({
+      "active-record.jsonc": config({ LOGS: { adapter: "d1" } }),
+      "wrangler.jsonc": wrangler("DB", "LOGS", "AUDIT"),
+    });
+    const notes = async (cwd: string) => {
+      const adapter = await loadAdapter(cwd);
+      const databases = typeof adapter === "string" ? undefined : adapter.databases();
+      return databases?.ok === true ? databases.notes : databases;
+    };
+
+    expect(await notes(one)).toEqual([
+      "wrangler.jsonc has the D1 database DB, which active-record.jsonc doesn't name; run `npx active-record init` to add it",
+    ]);
+    expect(await notes(two)).toEqual([
+      "wrangler.jsonc has the D1 databases DB and AUDIT, which active-record.jsonc doesn't name; run `npx active-record init` to add them",
+    ]);
+  });
+
   test("D1's plugin runs on this Node, which has node:sqlite", () => {
     expect(cli.unsupported?.()).toBeUndefined();
   });

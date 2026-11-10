@@ -2,7 +2,7 @@
 import type { Readable, Writable } from "node:stream";
 import { WriteStream } from "node:tty";
 import { confirmRemote } from "../console/confirm.ts";
-import { loadAdapter } from "../project/adapters.ts";
+import { configNotes, loadAdapter } from "../project/adapters.ts";
 import { chosenDatabase } from "../project/databases.ts";
 
 export interface MigrateOptions {
@@ -64,6 +64,7 @@ export async function runMigrate(
     print(adapter);
     return 1;
   }
+  for (const note of configNotes(adapter)) print(note);
   const chosen = chosenDatabase(adapter, cwd, options);
   if (typeof chosen === "string") {
     print(chosen);

@@ -3,7 +3,7 @@ import { watch } from "node:fs";
 import { resolve } from "node:path";
 import { apply, combined, printing, type Plan, type Print } from "../plan.ts";
 import { shown } from "../project/paths.ts";
-import { loadAdapter } from "../project/adapters.ts";
+import { configNotes, loadAdapter } from "../project/adapters.ts";
 import { readProject, type DatabaseSnapshot, type ProjectSnapshot } from "../project/snapshot.ts";
 import { modelsFolders, type ProjectOptions } from "../project/targets.ts";
 import { fingerprintIn, fingerprintOf } from "./render.ts";
@@ -78,6 +78,7 @@ export async function runSchema(options: SchemaOptions, print: Print): Promise<n
     print(adapter);
     return 1;
   }
+  for (const note of configNotes(adapter)) print(note);
   const read = readProject(adapter, cwd, options);
   if (typeof read === "string") {
     print(read);
