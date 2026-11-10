@@ -3,7 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { parseJsonc, type DatabaseConfig } from "@forestfuture/active-record/cli";
 
-const candidates = ["wrangler.jsonc", "wrangler.json", "wrangler.toml"];
+/** The names a Wrangler config has, in the order Wrangler looks for them. */
+export const candidates = ["wrangler.jsonc", "wrangler.json", "wrangler.toml"];
 
 /** A TOML basic string's contents, its escapes decoded (`\\` → `\`, `\u00e9` → `é`). */
 function basicString(body: string): string {
