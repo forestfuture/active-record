@@ -10,7 +10,7 @@ Move your app from D1 to Postgres by changing its migrations, its schema, its co
 | Packages              | Add `pg`, and PGlite for reading your schema.            |
 | `active-record.jsonc` | It names your Postgres database in place of the D1 one.  |
 | `migrations/`         | Rewritten in Postgres’s types, with the same file names. |
-| `src/db/schema.ts`    | Regenerated, so it names the Postgres adapter.           |
+| `src/db/schema.ts`    | Regenerated, so it names the PostgreSQL adapter.         |
 | Your Wrangler config  | A Hyperdrive binding in place of the D1 one.             |
 | Your data             | Copied from D1 to Postgres.                              |
 
@@ -158,5 +158,5 @@ npx wrangler deploy
 Once your app runs on Postgres, remove the `d1_databases` entry from your Wrangler config.
 
 :::tip
-Your queries, validations, callbacks, and associations work the same on Postgres. A few things work differently, such as how NULLs and text sort, and `sql` fragments that use SQLite’s own functions. [Postgres](./postgresql) lists each one.
+Your queries, validations, callbacks, and associations work the same on Postgres. A few things work differently, such as how NULLs and text sort, and `sql` fragments that use SQLite’s own functions. [PostgreSQL](./postgresql) lists each one.
 :::

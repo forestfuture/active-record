@@ -17,10 +17,10 @@ npm install @forestfuture/active-record
 
 [`@forestfuture/active-record`](packages/active-record/) holds the core (Models, Relations, validations, callbacks, and associations), the `active-record` command, and an adapter for each database:
 
-| Entry                                    |                                                                         |
-| ---------------------------------------- | ----------------------------------------------------------------------- |
-| `@forestfuture/active-record/d1`         | The D1 adapter: `connect` and `withSession`                             |
-| `@forestfuture/active-record/postgresql` | The Postgres adapter, through Hyperdrive or on Node, with your own `pg` |
+| Entry                                    |                                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------- |
+| `@forestfuture/active-record/d1`         | The D1 adapter: `connect` and `withSession`                               |
+| `@forestfuture/active-record/postgresql` | The PostgreSQL adapter, through Hyperdrive or on Node, with your own `pg` |
 
 An app moves from D1 to Postgres with its Models and code unchanged. See [Moving to Postgres](https://active-record.forestfuture.dev/move-to-postgres).
 
