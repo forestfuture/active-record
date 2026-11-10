@@ -145,7 +145,7 @@ describe("a D1 database's wranglerConfig", () => {
     expect(await chosen(join(root, "app"))).toMatchObject({ binding: "DB" });
   });
 
-  test("still needs the Wrangler config beside the file for a database that names none", async () => {
+  test("needs the Wrangler config beside the file when any database names none", async () => {
     const root = project({
       "app/active-record.jsonc": config({
         DB: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
