@@ -1,6 +1,7 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
+import { runGenerate } from "../../../packages/active-record/cli/generate/command.ts";
 import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
 import { writePgProject, type PgDatabases } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
@@ -20,7 +21,7 @@ const wrangler = (...bindings: string[]) =>
  */
 function mixedProject(files: Record<string, string> = {}, databases?: PgDatabases): string {
   return writePgProject(
-    scratch("mixed-", true),
+    scratch("mixed-"),
     databases ?? { DB: { adapter: "d1" }, HYPERDRIVE: { migrationsDir: "pg-migrations" } },
     {
       "wrangler.jsonc": wrangler("DB"),
@@ -42,6 +43,17 @@ async function run(
 }
 
 const read = (cwd: string, path: string) => readFileSync(join(cwd, path), "utf8");
+
+/** The SQL of the migration in `folder` whose name ends with `suffix`. */
+function migration(cwd: string, folder: string, suffix: string): string {
+  const name = readdirSync(join(cwd, folder)).find((each) => each.endsWith(suffix));
+  return name === undefined ? `no ${suffix} in ${folder}` : read(cwd, join(folder, name));
+}
+
+/** `g model <name> name:string` in the project, on the database `--database` names, if any. */
+const generate =
+  (name: string, database?: string) => (options: { cwd: string }, print: (line: string) => void) =>
+    runGenerate({ ...options, kind: "model", name, columns: ["name:string"], database }, print);
 
 // One project, databases on different adapters: each read by its own adapter's plugin (#305).
 describe("a project whose databases use different adapters", pgliteTimeout, () => {
@@ -67,5 +79,50 @@ describe("a project whose databases use different adapters", pgliteTimeout, () =
     expect(pg).toContain('import { postgresql } from "@forestfuture/active-record/postgresql";');
     expect(pg).toContain('adapter: postgresql({ binding: "HYPERDRIVE" }),');
     expect(pg).toContain("users");
+  });
+
+  test("schema finds each database's Models on its base class, and --check passes", async () => {
+    const cwd = mixedProject();
+    await run(runSchema, cwd);
+    writeFileSync(
+      join(cwd, "src/models/post.ts"),
+      'import { DbRecord } from "./db-record";\nexport class Post extends DbRecord {}\n',
+    );
+    writeFileSync(
+      join(cwd, "src/models/user.ts"),
+      'import { HyperdriveRecord } from "./hyperdrive-record";\nexport class User extends HyperdriveRecord {}\n',
+    );
+
+    expect((await run(runSchema, cwd)).code).toBe(0);
+
+    expect(read(cwd, "src/db/DB.ts")).toContain('  models: { Post: "posts" },');
+    expect(read(cwd, "src/db/HYPERDRIVE.ts")).toContain('  models: { User: "users" },');
+    expect(
+      await run((options, print) => runSchema({ ...options, check: true }, print), cwd),
+    ).toEqual({
+      code: 0,
+      output: "src/db/DB.ts is up to date\nsrc/db/HYPERDRIVE.ts is up to date",
+    });
+  });
+
+  test("g writes a migration in the types of the database --database names", async () => {
+    const cwd = mixedProject();
+
+    expect((await run(generate("Product", "HYPERDRIVE"), cwd)).code).toBe(0);
+    expect((await run(generate("Tag", "DB"), cwd)).code).toBe(0);
+
+    expect(migration(cwd, "pg-migrations", "_create_products.sql")).toMatch(/id UUID PRIMARY KEY/);
+    expect(migration(cwd, "migrations", "_create_tags.sql")).toMatch(/id TEXT PRIMARY KEY/);
+    expect(read(cwd, "src/db/HYPERDRIVE.ts")).toContain("products");
+    expect(read(cwd, "src/db/DB.ts")).toContain("tags");
+  });
+
+  test("g without --database asks for one, as with several databases on one adapter", async () => {
+    const cwd = mixedProject();
+
+    expect(await run(generate("Product"), cwd)).toEqual({
+      code: 1,
+      output: "This config has several databases; choose one with --database (DB or HYPERDRIVE)",
+    });
   });
 });
