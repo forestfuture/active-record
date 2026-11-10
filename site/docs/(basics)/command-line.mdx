@@ -55,7 +55,7 @@ Your generated schema names each database by its binding. The `$schema` line let
 
 On D1, the rest of a database’s settings stay in your Wrangler config’s `d1_databases`, which must have its binding. A D1 database there that the file doesn’t name is left out, and every command notes it.
 
-By default, that’s the Wrangler config beside the file. If your Worker is in another folder, such as in a monorepo, name its config with `wranglerConfig`, relative to the file:
+By default, that’s the Wrangler config beside the file. If your Worker’s config is in another folder, name it with `wranglerConfig`. The path is relative to `active-record.jsonc`:
 
 ```jsonc
 {
