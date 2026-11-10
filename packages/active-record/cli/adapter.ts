@@ -135,7 +135,7 @@ export interface MigrateOutput {
   output: (text: string) => void;
 }
 
-/** An adapter's plugin for the `active-record` command, from its `/cli` entry (ADR-0016). */
+/** An adapter's plugin for the `active-record` command, which ships with the command (ADR-0019). */
 export interface CliAdapter {
   /** The name a database's `adapter` takes, which a generated schema imports its factory by. */
   readonly name: string;
