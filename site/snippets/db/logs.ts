@@ -5,6 +5,7 @@ import { d1 } from "@forestfuture/active-record/d1";
 /** entries */
 export const entries = {
   id: { type: "integer", null: false },
+  userId: "integer",
   level: { type: "string", null: false },
   message: { type: "string", null: false },
 } as const;

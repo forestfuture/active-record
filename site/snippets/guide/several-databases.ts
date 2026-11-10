@@ -1,4 +1,4 @@
-import { Model } from "@forestfuture/active-record";
+import { belongsTo, hasMany, Model } from "@forestfuture/active-record";
 import { withSession } from "@forestfuture/active-record/d1";
 import { schema as logsSchema } from "../db/logs";
 import { schema as dbSchema } from "../db/schema";
@@ -12,8 +12,15 @@ abstract class LogsRecord extends Model {
   static override schema = logsSchema;
 }
 
-export class User extends DbRecord {}
-export class Entry extends LogsRecord {}
+// #region associations
+export class User extends DbRecord {
+  entries = hasMany(Entry); // on LOGS
+}
+
+export class Entry extends LogsRecord {
+  user = belongsTo(User); // on DB
+}
+// #endregion associations
 
 // #region request
 // src/worker.ts: each Model queries its own database.
@@ -34,6 +41,32 @@ export async function signUp(email: string) {
   return user;
 }
 // #endregion sign-up
+
+// #region reading-associations
+export async function errorsOf(userId: number) {
+  const user = await User.find(userId); // on DB
+  return user.entries().where({ level: "error" }).toArray(); // on LOGS
+}
+
+export async function entriesWithUsers() {
+  return Entry.includes("user").toArray(); // the entries on LOGS, then their users on DB
+}
+// #endregion reading-associations
+
+// #region creating-through
+export async function logFor(user: User, message: string) {
+  return user.entries().create({ level: "info", message }); // on LOGS, with the user's key
+}
+// #endregion creating-through
+
+// #region autosaving
+export async function signUpWithEntry(email: string) {
+  const user = User.build({ email });
+  user.entries().build({ level: "info", message: "signed up" });
+  await user.saveOrThrow(); // the user on DB, then the entry on LOGS
+  return user;
+}
+// #endregion autosaving
 
 async function handle(request: Request): Promise<Response> {
   return Response.json(await signUp(new URL(request.url).searchParams.get("email") ?? ""));

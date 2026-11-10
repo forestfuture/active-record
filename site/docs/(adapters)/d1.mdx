@@ -29,7 +29,7 @@ With read replication, wrap each request in [`withSession`](./read-your-own-writ
 
 ## Sending queries in one round trip
 
-D1 sends a batch of queries in one round trip. A [preload](./associations#preloading-associations) sends its whole tree that way, with the records’ own query, so `includes({ articles: "comments" })` is three queries in one round trip. A [page](./querying#paginating) sends its `COUNT` and its records together, with their preloads.
+D1 sends a batch of queries in one round trip. A [preload](./associations#preloading-associations) sends its whole tree on one database that way, with the records’ own query, so `includes({ articles: "comments" })` is three queries in one round trip. A [page](./querying#paginating) sends its `COUNT` and its records together, with their preloads.
 
 A batch runs as one transaction, so every query in it reads the same data. A preload’s nested query that would bind more than 100 values waits for the records above it, and takes one more round trip.
 
@@ -41,8 +41,8 @@ D1 can’t hold a transaction open while your Worker awaits, so there’s no `tr
 
 What you can make atomic is a set of writes prepared in advance: [`batch([...])`](./batches#batching-writes) sends statements and records together, and D1 writes all of them or none. Active Record uses the same batches itself:
 
-- A destroy’s [`dependent` strategies](./associations#destroying-dependent-records) are written in one batch with the owner’s DELETE.
-- A record [autosaved](./associations#autosaving) with its owner joins the owner’s batch when the owner’s key is known in advance.
+- A destroy’s [`dependent` strategies](./associations#destroying-dependent-records) on the owner’s database are written in one batch with its DELETE.
+- A record [autosaved](./associations#autosaving) with its owner joins the owner’s batch when it’s on the owner’s database and the owner’s key is known in advance.
 
 ## Generating keys in code
 

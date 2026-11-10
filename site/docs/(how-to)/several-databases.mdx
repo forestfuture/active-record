@@ -1,6 +1,6 @@
 ---
 title: Multiple databases
-description: "Use two or more databases from one Worker, on D1 or on D1 and Postgres: a schema and base class for each binding, queries and writes on each, a Session for each, tests with both, the console on one, and databases on different adapters."
+description: "Use two or more databases from one Worker, on D1 or on D1 and Postgres: a schema and base class for each binding, queries and writes on each, associations between them, a Session for each, tests with both, the console on one, and databases on different adapters."
 ---
 
 A Worker can bind several D1 databases, or a D1 database and a Postgres one. Each gets its own schema file and base class, and each Model queries the database its base class names.
@@ -77,6 +77,32 @@ If `createOrThrow` throws, nothing reaches `LOGS`.
 
 :::warning[Two databases aren’t one write]
 The second write can still fail after the first one succeeds. A batch can’t join them either. It writes to one database, so entries from two throw `IncompatibleRelation`.
+:::
+
+## Associating Models on different databases
+
+An association can link Models on different databases. Declare it as usual:
+
+<include>/_excerpts/guide/several-databases/associations.ts</include>
+
+Each read goes to the database its Model is on:
+
+<include>/_excerpts/guide/several-databases/reading-associations.ts</include>
+
+`includes` loads the users from `DB` once the entries are loaded, in one more round trip. Each other database a [preload](./associations#preloading-associations) reaches adds one.
+
+Records you create through an association are written to their own database:
+
+<include>/_excerpts/guide/several-databases/creating-through.ts</include>
+
+Saving a record also saves the records built through it, each on its own database. Here the user is written to `DB` first, then the entry to `LOGS`, with the user’s new key:
+
+<include>/_excerpts/guide/several-databases/autosaving.ts</include>
+
+[`dependent` strategies](./associations#destroying-dependent-records) work the same way. With `dependent: "destroy"` on a user’s entries, destroying the user destroys its entries on `LOGS`, then deletes the user from `DB`.
+
+:::warning[Each database is written on its own]
+A save or a destroy that reaches two databases writes to each one separately. If the second write fails, the first stays written. A batch writes to one database, so `batch([...])` throws `IncompatibleRelation` for a record whose writes reach another one.
 :::
 
 ## Reading your own writes on each

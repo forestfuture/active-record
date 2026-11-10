@@ -665,6 +665,46 @@ describe("Multiple databases: each Model on its own binding", () => {
     expect(await messages()).toEqual([{ message: "ada@example.com signed up" }]);
   });
 
+  test("a user's entries are read from LOGS", async () => {
+    await db.prepare("INSERT INTO users VALUES (1, 'ada@example.com')").run();
+    await logs
+      .prepare("INSERT INTO entries (user_id, level, message) VALUES (1, 'error', 'failed')")
+      .run();
+
+    const errors = await several.errorsOf(1);
+
+    expect(errors.map((entry) => entry.message)).toEqual(["failed"]);
+  });
+
+  test("entries preload their users from DB", async () => {
+    await db.prepare("INSERT INTO users VALUES (1, 'ada@example.com')").run();
+    await logs
+      .prepare("INSERT INTO entries (user_id, level, message) VALUES (1, 'info', 'hello')")
+      .run();
+
+    const [entry] = await several.entriesWithUsers();
+
+    expect(entry!.loaded("user")?.email).toBe("ada@example.com");
+  });
+
+  test("an entry created through a user is written to LOGS with the user's key", async () => {
+    await db.prepare("INSERT INTO users VALUES (7, 'ada@example.com')").run();
+
+    await several.logFor(await several.User.find(7), "hello");
+
+    expect((await logs.prepare("SELECT user_id, message FROM entries").all()).results).toEqual([
+      { user_id: 7, message: "hello" },
+    ]);
+  });
+
+  test("a user saved with a built entry writes the entry to LOGS with its new key", async () => {
+    const user = await several.signUpWithEntry("ada@example.com");
+
+    expect((await logs.prepare("SELECT user_id FROM entries").all()).results).toEqual([
+      { user_id: user.id },
+    ]);
+  });
+
   test("nested withSession calls carry each database's bookmark in its own cookie", async () => {
     const request = new Request("https://example.com/?email=ada@example.com");
     const response = await several.replicas.fetch(request, env());
