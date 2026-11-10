@@ -80,7 +80,7 @@ The SQL comes from the database’s own `onQuery`, so a listener you set on your
 | ------------------- | ------------------------------------------------------------------------------------------------------- |
 | `--database <name>` | The D1 binding to open, when your Wrangler config has several.                                          |
 | `--models <path>`   | Where your Models are: a folder (`src/models` by default) or one file (`src/models.ts`).                |
-| `--config <file>`   | Use this Wrangler config instead of finding `wrangler.jsonc`, `wrangler.json`, or `.toml`.              |
+| `--config <file>`   | Use this config file, in place of `active-record.jsonc`.                                                |
 | `--no-history`      | Don’t keep what you type in the history file.                                                           |
 | `--verbose`         | Print each statement a line runs, to begin with. `.verbose` turns it on and off.                        |
 | `-e, --eval <code>` | Run this code, print its result, and exit. See [Running one piece of code](#running-one-piece-of-code). |
@@ -90,7 +90,7 @@ The SQL comes from the database’s own `onQuery`, so a listener you set on your
 
 ## Where your data lives
 
-The console opens the local database in `.wrangler/state`, beside your Wrangler config. It’s the same one `wrangler dev` and `wrangler d1 migrations apply --local` use, so apply your migrations first, and what you change in the console is what your dev server sees.
+The console opens the local database in `.wrangler/state`, beside your Wrangler config. It’s the same one `wrangler dev` and `wrangler d1 migrations apply --local` use, so apply your migrations first, and what you change in the console is what your dev server sees. With [`wranglerConfig`](./command-line#declaring-your-databases), it’s beside the config that setting names.
 
 It opens your remote database only when you ask with `--remote`, and never for a binding your config marks `remote: true` by itself.
 

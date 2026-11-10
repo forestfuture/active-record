@@ -47,7 +47,7 @@ It writes `active-record.jsonc`, naming each database in your Wrangler config’
 }
 ```
 
-Every `active-record` command reads it. Each database’s migrations folder stays in your Wrangler config. `--adapter` is gone, and `--config` now names this file.
+Every `active-record` command reads it. Each database’s migrations folder stays in your Wrangler config. `--adapter` is gone, and `--config` now names this file. If you used `--config` to name a Wrangler config in another folder, name it in the database’s entry with [`wranglerConfig`](./command-line#declaring-your-databases) instead.
 
 ### Regenerating the schema
 
