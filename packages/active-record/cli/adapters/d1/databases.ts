@@ -12,9 +12,12 @@ import { candidates, d1Entries, databaseOf, wranglerConfigIn } from "./wrangler.
 /** A database's Wrangler config, or why it has none. */
 type Found = { file: string } | { error: string };
 
-/** A path as a message names it: relative to `active-record.jsonc`'s folder, with forward slashes. */
+/**
+ * A path as a message names it: relative to `active-record.jsonc`'s folder, with forward slashes,
+ * and that folder itself as `.`.
+ */
 function shown(project: ProjectDatabases, path: string): string {
-  return relative(project.dir, path).split(sep).join("/");
+  return relative(project.dir, path).split(sep).join("/") || ".";
 }
 
 /** The Wrangler config a database's entry names with `wranglerConfig`, or why it can't be read. */
