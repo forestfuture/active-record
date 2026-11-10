@@ -24,6 +24,11 @@ class Member extends PgRecord.define({ id: { type: "integer", null: false } }) {
   static override table = "users";
 }
 
+/** A Model whose base class holds no generated schema, so nothing names its adapter. */
+class Visitor extends Model.define({ id: { type: "integer", null: false } }) {
+  static override table = "users";
+}
+
 // A request with databases on two adapters (#305). Its Postgres side, which needs a server, is in
 // tests/integration/pg/mixed-adapters.test.ts.
 describe("a request with a D1 database and a Postgres one, outside a Worker", () => {
@@ -50,6 +55,18 @@ describe("a request with a D1 database and a Postgres one, outside a Worker", ()
     const twice = withDatabase([postgres(), postgres()], () => Member.count());
 
     await expect(twice).rejects.toThrow(
+      new NoDatabase(
+        "No database for this query: withDatabase was given several, and outside a Worker a " +
+          "binding can't tell which. Wrap the code in withDatabase(connect(…), …), or use db.model(Model)",
+      ),
+    );
+  });
+
+  // Its adapter would be a guess: the first database's (#305).
+  test("a Model with no schema can't choose between a D1 database and a Postgres one", async () => {
+    const either = withDatabase([postgres(), connect(binding)], () => Visitor.count());
+
+    await expect(either).rejects.toThrow(
       new NoDatabase(
         "No database for this query: withDatabase was given several, and outside a Worker a " +
           "binding can't tell which. Wrap the code in withDatabase(connect(…), …), or use db.model(Model)",

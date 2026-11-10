@@ -95,13 +95,14 @@ function noSchemaOrDatabase(): NoDatabase {
 
 /**
  * The database a query uses now, on the adapter its Model's schema names: one of the request's on
- * that adapter, as the adapter finds it, or else its own (#305).
+ * that adapter, as the adapter finds it, or else its own (#305). A Model with no schema names no
+ * adapter, so every one of the request's databases is a candidate.
  */
 function databaseFor(named: SchemaAdapter | undefined): Promise<AnyDatabase> {
   const adapter = adapterFor(named);
-  const requested = (requestStore()?.databases ?? []).filter(
-    (db) => db[databaseExecutor].adapter === adapter,
-  );
+  const all = requestStore()?.databases ?? [];
+  const requested =
+    named === undefined ? all : all.filter((db) => db[databaseExecutor].adapter === adapter);
   return adapter.databaseFor(named?.binding, requested);
 }
 
