@@ -95,7 +95,7 @@ Records you create through an association are written to their own database:
 
 <include>/_excerpts/guide/several-databases/creating-through.ts</include>
 
-Saving a record also saves the records built through it, each on its own database. Here the user is written to `DB` first, then the entry to `LOGS`, with the user’s new key:
+Saving a record also saves the records built through it, each on its own database, so this writes the user to `DB` first and then the entry to `LOGS` with the user’s new key:
 
 <include>/_excerpts/guide/several-databases/autosaving.ts</include>
 

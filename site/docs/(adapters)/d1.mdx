@@ -48,7 +48,7 @@ What you can make atomic is a set of writes prepared in advance: [`batch([...])`
 
 Rows in a batch can only point at each other through keys that exist before it’s sent. Generated `TEXT` keys are made in code by [`generateId`](./models#generating-ids), so records have their key from `build()`. Then:
 
-- A graph of new records built through associations saves in one atomic batch.
+- A graph of new records built through associations on one database saves in one atomic batch.
 - A batch can insert rows that point at each other.
 
 When D1 generates the key (`INTEGER PRIMARY KEY`), it doesn’t exist until the row is written. An owner is written first, then the records built through it in the next batch, a level at a time, and the batches aren’t atomic together. See [Autosaving](./associations#autosaving).
