@@ -1,4 +1,4 @@
--- The tables the guide's examples use (tests/integration/site-examples.test.ts).
+-- The tables the guide's examples use (tests/integration/d1/site-examples.test.ts).
 CREATE TABLE authors (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL

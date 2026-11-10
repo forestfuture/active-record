@@ -20,7 +20,7 @@
         ],
       },
       "ignoreDependencies": ["@arethetypeswrong/core", "publint", "cloudflare"],
-      // tests/integration/cli-console-command.test.ts lists a process's children with it.
+      // tests/integration/d1/cli-console-command.test.ts lists a process's children with it.
       "ignoreBinaries": ["pgrep"],
     },
     "packages/active-record": {

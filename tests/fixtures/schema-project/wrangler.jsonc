@@ -1,4 +1,4 @@
-// A project for the schema command's end-to-end test (tests/integration/cli-schema-generated.test.ts).
+// A project for the schema command's end-to-end test (tests/integration/d1/cli-schema-generated.test.ts).
 {
   "name": "schema-fixture",
   "d1_databases": [{ "binding": "DB", "database_name": "fixture" }],

@@ -16,7 +16,7 @@ Contract sections: <!-- e.g. *Relations*, *Terminal operations* in docs/contract
 
 ## Tests that prove it
 
-<!-- Observable behavior through the public API against a real D1 (integration), plus type tests (unit). Query counts go through onQuery. -->
+<!-- Observable behavior through the public API against a real database: conformance for what every adapter does, integration:d1 for what only D1 does, plus type tests (unit). Query counts go through onQuery. -->
 
 -
 

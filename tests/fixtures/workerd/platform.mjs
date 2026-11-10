@@ -1,5 +1,5 @@
 // What the library assumes of the Workers runtime for Product.find(id) (#77), checked inside
-// workerd: see tests/integration/workerd-platform.test.ts.
+// workerd: see tests/integration/d1/workerd-platform.test.ts.
 import { env as moduleEnv } from "cloudflare:workers";
 
 export default {
