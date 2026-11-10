@@ -13,7 +13,7 @@ vp test      # every test
 vp run coverage   # every test, and fails if branch coverage is under its floor (90%)
 ```
 
-`vp test --project unit` runs the tests that need no database. `--project conformance:d1` runs the conformance suite against a real D1 through Miniflare: what every adapter does. `--project integration:d1` runs what only D1 does, on the same D1. Another suite runs against a remote D1; it's skipped unless configured, so you don't need it ([remote-smoke.md](docs/agents/remote-smoke.md)).
+`vp test --project unit` runs the tests that need no database. `--project conformance:d1` runs what every adapter does, against a real D1 through Miniflare. `--project integration:d1` runs what only D1 does. Another suite runs against a remote D1; it's skipped unless configured, so you don't need it ([remote-smoke.md](docs/agents/remote-smoke.md)).
 
 ## Making a change
 
