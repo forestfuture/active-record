@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { Model, NoDatabase, withDatabase } from "../../packages/active-record/src/index.ts";
-import { connect, d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { Model, NoDatabase, withDatabase } from "../../../packages/active-record/src/index.ts";
+import { connect, d1 } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import {
   connect as connectPostgres,
   postgresql,
-} from "../../packages/active-record/src/adapters/postgresql/index.ts";
-import { createTestDatabase, type TestDatabase } from "../support/d1.ts";
+} from "../../../packages/active-record/src/adapters/postgresql/index.ts";
+import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
 
 abstract class D1Record extends Model {
   static override schema = { adapter: d1({ binding: "DB" }), tables: {} };
