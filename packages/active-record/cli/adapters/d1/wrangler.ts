@@ -2,6 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import {
+  listed,
   parseJsonc,
   type ConfigResult,
   type DatabaseConfig,
@@ -86,6 +87,22 @@ export function d1Entries(file: string): Record<string, unknown>[] | string {
 }
 
 /**
+ * A note for the D1 databases the Wrangler config has that `active-record.jsonc` doesn't name, which
+ * the command leaves out, so one added to Wrangler's config alone isn't missed in silence (#301).
+ */
+function unnamed(entries: Record<string, unknown>[], project: ProjectDatabases, file: string) {
+  const left = entries
+    .map((entry) => String(entry.binding))
+    .filter((binding) => !Object.hasOwn(project.databases, binding));
+  if (left.length === 0) return [];
+  const one = left.length === 1;
+  const which = `the D1 database${one ? "" : "s"} ${listed(left, "and")}`;
+  return [
+    `${basename(file)} has ${which}, which ${basename(project.file)} doesn't name; run \`npx active-record init\` to add ${one ? "it" : "them"}`,
+  ];
+}
+
+/**
  * The D1 databases a project's `active-record.jsonc` names, as its Wrangler config declares them:
  * `wrangler.jsonc`, `wrangler.json` or `wrangler.toml`, beside `active-record.jsonc`. Wrangler's
  * other D1 databases are left out.
@@ -109,7 +126,7 @@ export function readWranglerConfig(project: ProjectDatabases): ConfigResult {
     }
     databases.push(databaseOf(entry));
   }
-  return { ok: true, file, dir: dirname(file), databases };
+  return { ok: true, file, dir: dirname(file), databases, notes: unnamed(entries, project, file) };
 }
 
 /** The account a Wrangler config names (`account_id`), if it names one and can be read. */

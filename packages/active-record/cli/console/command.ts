@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { WriteStream } from "node:tty";
 import type { ChosenDatabase, OpenBinding, ProjectAdapter } from "../adapter.ts";
-import { adapterEntry, loadAdapter } from "../project/adapters.ts";
+import { adapterEntry, configNotes, loadAdapter } from "../project/adapters.ts";
 import { chosenDatabase } from "../project/databases.ts";
 import { consoleCommands } from "./commands.ts";
 import { confirmRemote } from "./confirm.ts";
@@ -129,6 +129,8 @@ function runOnce(code: string, opened: Opened, io: ConsoleIo, errors: Writable):
 interface Prepared {
   /** The adapter's folder for the command's local files: the history's. */
   stateFolder: string;
+  /** What the adapter notes about the project's databases, said as the session opens. */
+  notes: string[];
   project: ConsoleProject;
   opened: OpenBinding;
 }
@@ -146,7 +148,7 @@ async function prepare(options: ConsoleOptions, io: ConsoleIo): Promise<Prepared
     ? openRemote(adapter, { cwd, chosen }, options, io)
     : adapter.open(cwd, chosen, { remote: false }));
   if (typeof opened === "string") return opened;
-  return { stateFolder: adapter.stateFolder(chosen), project, opened };
+  return { stateFolder: adapter.stateFolder(chosen), notes: configNotes(adapter), project, opened };
 }
 
 /** Where a console talks: its own ends, what it says besides results, and its error stream. */
@@ -159,7 +161,7 @@ interface Talk {
 /** The session, or the one piece of code, on the open database; the exit code. */
 async function converse(
   options: ConsoleOptions,
-  { stateFolder, project, opened }: Prepared,
+  { stateFolder, notes, project, opened }: Prepared,
   { io, say, errors }: Talk,
 ): Promise<Finished> {
   const scripted = options.eval !== undefined;
@@ -173,6 +175,7 @@ async function converse(
   const database = library.connect(opened.binding, { onQuery });
   say(opened.description);
   say(`Models: ${Object.keys(models).join(", ")}`);
+  for (const note of notes) say(note);
   const inside: Opened = {
     scope: { ...models, db: database },
     commands,

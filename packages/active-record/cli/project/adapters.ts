@@ -54,6 +54,12 @@ function adapterNamed(project: ProjectDatabases): { name: string } | string {
   return `${file} names more than one adapter (${each.join(", ")}); a project uses one, for now`;
 }
 
+/** The notes the project's adapter has about its databases, as the command prints them. */
+export function configNotes(adapter: ProjectAdapter): string[] {
+  const config = adapter.databases();
+  return config.ok ? (config.notes ?? []).map((note) => `Note: ${note}`) : [];
+}
+
 /** The plugin of the adapter `name`. */
 export function pluginOf(name: string): Promise<CliAdapter> {
   return adapters[name]!.plugin();
