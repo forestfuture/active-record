@@ -24,7 +24,7 @@ const testFiles = execFileSync(
   .filter((file) => file !== "");
 
 describe("the Vitest projects", () => {
-  test("each folder is one vite.config.ts includes", () => {
+  test("vite.config.ts includes each project's folder", () => {
     const config = readFileSync(`${root}vite.config.ts`, "utf8");
     for (const folder of projectFolders) expect(config).toContain(`"${folder}**/*.test.ts"`);
   });
