@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
 import { loadDatabases } from "../../../packages/active-record/cli/project/databases.ts";
@@ -177,6 +177,22 @@ describe("the adapter the command uses", () => {
       "DB and HYPERDRIVE both read migrations/, on different adapters (d1 and postgresql); give each its own migrations folder",
     );
     expect(await found(apart)).toBe("DB on d1, HYPERDRIVE on postgresql");
+  });
+
+  test("a folder linked to another adapter's migrations folder is that folder", async () => {
+    const cwd = project({
+      "active-record.jsonc": config({
+        DB: { adapter: "d1" },
+        HYPERDRIVE: { adapter: "postgresql", migrationsDir: "pg-migrations" },
+      }),
+      "wrangler.jsonc": wrangler("DB"),
+      "migrations/0001_posts.sql": "CREATE TABLE posts (id INTEGER PRIMARY KEY);",
+    });
+    symlinkSync(join(cwd, "migrations"), join(cwd, "pg-migrations"));
+
+    expect(await found(cwd)).toBe(
+      "DB and HYPERDRIVE both read pg-migrations/, on different adapters (d1 and postgresql); give each its own migrations folder",
+    );
   });
 
   // Every adapter the file names has its say, not only the first's (#305).
