@@ -21,10 +21,14 @@
   "additionalProperties": false,
   "definitions": {
     "d1": {
-      "description": "A D1 database. Its migrations folder and the rest come from its d1_databases entry in the Wrangler config beside this file.",
+      "description": "A D1 database. Its migrations folder and the rest come from its d1_databases entry in its Wrangler config: the one beside this file, or the one wranglerConfig names.",
       "type": "object",
       "properties": {
-        "adapter": { "description": "The database's adapter.", "const": "d1" }
+        "adapter": { "description": "The database's adapter.", "const": "d1" },
+        "wranglerConfig": {
+          "description": "Its Wrangler config, relative to this file, when it isn't beside this file: \"../worker/wrangler.jsonc\".",
+          "type": "string"
+        }
       },
       "required": ["adapter"],
       "additionalProperties": false
