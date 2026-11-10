@@ -127,9 +127,17 @@ function currentExecutor(named: SchemaAdapter | undefined): Executor {
   return executor;
 }
 
+/**
+ * The Executor for `model`'s current database, found each time a query runs: where its statics
+ * query, and where an association from a Model on another database finds its records (#228).
+ */
+export function currentExecutorOf(model: ModelClass): Executor {
+  return currentExecutor(schemaAdapter(model));
+}
+
 /** A Relation over all of `model`'s records, on the current database (`Product.all()`). */
 export function currentRelation<C extends ModelClass>(
   model: C,
 ): Scoped<InstanceType<C>, ScopesOf<C>> {
-  return relationFor(currentExecutor(schemaAdapter(model)), model);
+  return relationFor(currentExecutorOf(model), model);
 }

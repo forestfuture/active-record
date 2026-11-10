@@ -1,8 +1,10 @@
 // An association resolved for one owner: which attributes link the records, and in what order.
 // associations.ts imports this module too; both uses are at call time, never at load.
 import { readyModel, type AssociationDefinition } from "./associations.ts";
+import { currentExecutorOf } from "./current-database.ts";
 import type { Executor } from "./executor.ts";
 import { associationOf } from "./association-fields.ts";
+import { schemaAdapter } from "./generated-model.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
 import { applyScope, type Scope, type Scoped } from "./relation.ts";
@@ -44,6 +46,11 @@ export class ResolvedAssociation {
   readonly ownerAttribute: string;
   /** The target's attribute the owner's links to. */
   readonly targetAttribute: string;
+  /**
+   * Whether its target is on another database than its owner (#228): both Models' schemas name
+   * a database, and not the same one. Then its records are read and written there.
+   */
+  readonly crossesDatabases: boolean;
 
   constructor(owner: ModelClass, name: string) {
     this.owner = owner;
@@ -57,6 +64,7 @@ export class ResolvedAssociation {
       owner,
       this.target,
     ));
+    this.crossesDatabases = onDifferentDatabases(owner, this.target);
   }
 
   /** `User.posts`: how the association is named in messages. */
@@ -64,15 +72,23 @@ export class ResolvedAssociation {
     return `${this.owner.name}.${this.name}`;
   }
 
-  /** The target's records, with the association's scope applied. */
+  /**
+   * Where its records are for an owner on `executor`: the owner's database, or for an
+   * association to another database, the target's current one, as its statics find it.
+   */
+  targetExecutor(executor: Executor): Executor {
+    return this.crossesDatabases ? currentExecutorOf(this.target) : executor;
+  }
+
+  /** The target's records for an owner on `executor`, with the association's scope applied. */
   all(executor: Executor): Scoped<Model> {
-    const relation = relationFor(executor, this.target) as Scoped<Model>;
+    const relation = relationFor(this.targetExecutor(executor), this.target) as Scoped<Model>;
     const { scope } = this.definition;
     if (scope === undefined) return relation;
     return relation[applyScope](this.label, scope as Scope<Model>, []) as Scoped<Model>;
   }
 
-  /** The target's records linked to `key` (one value, or a list), with the scope applied. */
+  /** The target's records linked to `key` (one value, or a list), for an owner on `executor`. */
   linkedTo(executor: Executor, key: unknown): Scoped<Model> {
     return this.all(executor).where({ [this.targetAttribute]: key });
   }
@@ -110,6 +126,13 @@ export class ResolvedAssociation {
     if (this.definition.kind !== "belongsTo" && owner[state].isNew) return null;
     return owner[state].read(this.ownerAttribute);
   }
+}
+
+/** Whether the schemas `owner` and `target` are built on name two different databases. */
+function onDifferentDatabases(owner: ModelClass, target: ModelClass): boolean {
+  const [mine, theirs] = [schemaAdapter(owner), schemaAdapter(target)];
+  if (mine === undefined || theirs === undefined) return false;
+  return mine.adapter !== theirs.adapter || mine.binding !== theirs.binding;
 }
 
 /** Each Model's resolved associations, worked out on first use. Derived from the class only. */
