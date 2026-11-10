@@ -23,16 +23,16 @@ npx active-record init
 
 It reads your Wrangler config. Each database in its `d1_databases` gets a D1 entry. Each Hyperdrive binding gets a PostgreSQL entry, whose `url` is the binding’s `localConnectionString`.
 
-Run it again after you add a database to your Wrangler config. It adds each database the file doesn’t name yet, and leaves the rest of the file as you wrote it, comments included:
+Run it again after you add a database to your Wrangler config. It adds each database the file doesn’t name yet, on the adapters the file already uses, and leaves the rest of the file as you wrote it, comments included:
 
 ```text
 Added LOGS to active-record.jsonc (on d1)
 ```
 
-| Option             |                                                                                    |
-| ------------------ | ---------------------------------------------------------------------------------- |
-| `--adapter <name>` | The adapter, `d1` or `postgresql`, when your Wrangler config has both, or neither. |
-| `--config <file>`  | Write this file, in place of `active-record.jsonc`.                                |
+| Option             |                                                                                                                                           |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `--adapter <name>` | The adapter, `d1` or `postgresql`, when your Wrangler config has both, or neither. With the file there, it adds that adapter’s databases. |
+| `--config <file>`  | Write this file, in place of `active-record.jsonc`.                                                                                       |
 
 With `--adapter postgresql` and no Hyperdrive binding, it writes a `DATABASE_URL` entry, with a guess at your local database’s `url` for you to correct.
 
@@ -49,7 +49,7 @@ With `--adapter postgresql` and no Hyperdrive binding, it writes a `DATABASE_URL
 }
 ```
 
-Your generated schema names each database by its binding. The `$schema` line lets your editor complete and check the file. A project’s databases all use one adapter.
+Your generated schema names each database by its binding. The `$schema` line lets your editor complete and check the file. Each database names its own adapter, so one project can use D1 and Postgres together, as [Multiple databases](./several-databases#using-databases-on-different-adapters) shows.
 
 On D1, the rest of a database’s settings stay in your Wrangler config’s `d1_databases`, which must have its binding. A D1 database there that the file doesn’t name is left out, and every command notes it. On Postgres, the file holds a database’s settings:
 

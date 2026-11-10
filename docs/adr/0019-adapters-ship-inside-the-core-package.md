@@ -14,5 +14,5 @@ With the adapters inside the package, the command can't tell which one a project
 - **A breaking release.** `@forestfuture/d1-record` is deprecated on npm with no alias (pre-1.0); apps import `@forestfuture/active-record/d1`, run `active-record init`, and regenerate their schema.
 - **The PostgreSQL adapter's names follow Rails:** the entry `/postgresql`, the factory `postgresql({ binding })`, and the adapter name `postgresql`.
 - **`--adapter` is gone** from every command but `init`, and `--config` names `active-record.jsonc`.
-- **One adapter per project, for now** (#305). Each entry names its adapter so that a project can later mix them.
+- **Each database uses its own adapter** (amended by #305). Each entry names its adapter, so one project can hold a D1 database and a PostgreSQL one: the command hands each plugin only its own entries, and `init` adds another adapter's databases only when `--adapter` names it.
 - **`/adapter` and `/cli` stay, unstable,** for an adapter outside the package; the command only loads the plugins it ships with.

@@ -57,7 +57,7 @@ test("emails are saved in lowercase", async () => {
 });
 ```
 
-Outside a Worker, the database given to `withDatabase` serves every Model, whatever binding its base class names. For code that takes a database explicitly, pass it one: `connect(database.binding).model(User)`.
+Outside a Worker, the database given to `withDatabase` serves every Model on its adapter, whatever binding its base class names. For code that takes a database explicitly, pass it one: `connect(database.binding).model(User)`.
 
 ## Testing your Worker
 
