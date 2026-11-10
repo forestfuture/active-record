@@ -23,7 +23,7 @@ export function parseJsonc(text: string): unknown {
   return JSON.parse(kept.text());
 }
 
-/** The text JSON.parse reads: what's kept of JSONC, without its comments or trailing commas. */
+/** The text JSON.parse reads: what parseJsonc keeps of JSONC, less its trailing commas. */
 class KeptText {
   #parts: string[] = [];
   /** Where the last comma is, while only whitespace has come after it. */
