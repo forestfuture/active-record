@@ -24,8 +24,9 @@
       "ignoreBinaries": ["pgrep"],
     },
     "packages/active-record": {
-      // Provided by the Workers runtime (#77) to the D1 adapter.
-      "ignoreDependencies": ["cloudflare"],
+      // Provided by the Workers runtime (#77) to the adapters, and its types, an optional peer the
+      // root installs, which the adapters' declarations use (D1Database, Hyperdrive).
+      "ignoreDependencies": ["cloudflare", "@cloudflare/workers-types"],
     },
     "site": {
       // Examples reach pages through the excerpts the site's build writes, not through imports;

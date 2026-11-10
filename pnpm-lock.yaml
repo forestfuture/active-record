@@ -225,6 +225,9 @@ importers:
 
   packages/active-record:
     dependencies:
+      '@cloudflare/workers-types':
+        specifier: '>=4'
+        version: 5.20261019.1
       jiti:
         specifier: ^2.7.0
         version: 2.7.0
