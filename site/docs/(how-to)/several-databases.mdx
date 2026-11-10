@@ -145,7 +145,9 @@ npx active-record console --database LOGS
 
 ## Using databases on different adapters
 
-One project can keep some of its tables on D1 and others on Postgres. Name each database’s adapter in `active-record.jsonc`, and give the Postgres one its own migrations folder:
+One project can keep some of its tables on D1 and others on Postgres. First install `pg` and PGlite, as [PostgreSQL](./postgresql) describes.
+
+Name each database’s adapter in `active-record.jsonc`, and give the Postgres one its own migrations folder:
 
 ```jsonc active-record.jsonc
 {
@@ -160,7 +162,7 @@ One project can keep some of its tables on D1 and others on Postgres. Name each 
 }
 ```
 
-Both adapters read `migrations/` by default. Each database needs a folder of its own, since D1 and Postgres write their SQL differently, so the command refuses two on different adapters that share one.
+D1 and Postgres write their SQL differently, so each database needs a folder of its own. Both adapters read `migrations/` by default, and the command refuses two databases on different adapters that share one.
 
 To add your Hyperdrive bindings to a file that names only D1 databases, run `init` with the adapter:
 
@@ -168,7 +170,7 @@ To add your Hyperdrive bindings to a file that names only D1 databases, run `ini
 npx active-record init --adapter postgresql
 ```
 
-`npx active-record schema` reads each database with its own adapter. `src/db/DB.ts` imports `d1`, and `src/db/HYPERDRIVE.ts` imports `postgresql`. Each base class holds its database’s schema, so its Models query that database:
+`npx active-record schema` reads each database with its own adapter. `src/db/DB.ts` imports `d1`, and `src/db/HYPERDRIVE.ts` imports `postgresql`. Build each Model on its database’s base class:
 
 ```ts
 import { HyperdriveRecord } from "./hyperdrive-record";
@@ -182,5 +184,3 @@ Name the database with `--database` for the generators, `migrate`, and the conso
 npx active-record g model Order total:integer --database HYPERDRIVE
 npx active-record migrate --database HYPERDRIVE
 ```
-
-Install `pg` and PGlite first, as [PostgreSQL](./postgresql) describes.
