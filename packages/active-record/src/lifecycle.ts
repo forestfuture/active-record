@@ -41,7 +41,9 @@ import { timestampsFor } from "./timestamps.ts";
 import {
   afterLinking,
   combine,
+  inGroup,
   runStages,
+  stageOf,
   type PreparedWrite,
   type Stage,
 } from "./unit-of-work.ts";
@@ -249,14 +251,10 @@ async function prepareWrites(record: Model, claimed: Claimed): Promise<SavePlan>
   if (!Array.isArray(first)) return first;
   const isInsert = record[state].isNew;
   if (!(await beforeWrite(record, isInsert))) return aborted(record);
-  const own: Stage = {
-    records: [record],
-    handles: [],
-    writes: () => {
-      linkBelongsTo(record, pointedAt);
-      return [saveWrite(record, isInsert)];
-    },
-  };
+  const own = stageOf(record, [record], () => {
+    linkBelongsTo(record, pointedAt);
+    return [saveWrite(record, isInsert)];
+  });
   const autosaves = autosavesOf(record, claimed);
   const children = await prepareEach(linkedRecords(autosaves), claimed);
   if (!Array.isArray(children)) return children;
@@ -317,7 +315,8 @@ function assemble(parts: Parts): Ready {
   const elsewhere = (planned: readonly Planned[]) => planned.filter((each) => !here(each));
   return {
     status: "ready",
-    stages,
+    // Every one on its database, the records it autosaves there included, so pinned together.
+    stages: inGroup(stages, record),
     before: [
       ...elsewhere(parts.first).flatMap(({ plan }) => stagesOf(plan)),
       ...nested.flatMap((plan) => plan.before),
@@ -358,10 +357,12 @@ function builtElsewhere(
 ): Stage[] {
   const crossing = autosaves.filter(({ association }) => association.crossesDatabases);
   const stages = crossing.flatMap(({ association }) => {
-    const plans = planned.filter((each) => each.association === association).map((p) => p.plan);
+    const plans = planned
+      .filter((each) => each.association === association)
+      .map(({ plan }) => plan);
     return [
       ...plans.flatMap((plan) => plan.before),
-      ...combine(plans.map((plan) => plan.stages)),
+      ...inGroup(combine(plans.map((plan) => plan.stages)), association),
       ...plans.flatMap((plan) => plan.after),
     ];
   });
@@ -451,21 +452,17 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
   const dependents = recordState.isNew ? noDependents : await prepareDependents(record, claimed);
   if (dependents.status !== "ready") return dependents;
   const deletion = recordState.isNew ? [] : [compileDelete(modelOf(record), recordState.storedKey)];
-  const own: Stage = {
-    records: [record],
-    handles: [],
-    writes: () => [
-      {
-        statements: deletion,
-        commit: () => recordState.markDestroyed(),
-        after: () => runAfterCallbacks(record, "afterDestroy", "destroy"),
-      },
-    ],
-  };
+  const own = stageOf(record, [record], () => [
+    {
+      statements: deletion,
+      commit: () => recordState.markDestroyed(),
+      after: () => runAfterCallbacks(record, "afterDestroy", "destroy"),
+    },
+  ]);
   // Dependents first: their records go before the owner's row, which they may point at. Those
   // on another database (#228) are written there, before it.
-  const [stage] = combine([[dependents.here], [own]]);
-  return { status: "ready", stages: [stage!], before: dependents.elsewhere, after: [] };
+  const stages = inGroup(combine([[dependents.here], [own]]), record);
+  return { status: "ready", stages, before: dependents.elsewhere, after: [] };
 }
 
 /** Loads the record's row again by its stored primary key, discarding unsaved changes. */

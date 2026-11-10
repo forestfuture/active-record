@@ -55,6 +55,27 @@ class User extends DbRecord.define({
   }
 }
 
+/** Where a Reply's callback finds the author it points the reply at: another database. */
+let authorsElsewhere: TestDatabase | undefined;
+
+/** A post whose validation points it at a new author, built on `authorsElsewhere`. */
+class Reply extends DbRecord.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  author = belongsTo(User, { foreignKey: "userId" });
+
+  static {
+    this.beforeValidation((reply) => {
+      if (authorsElsewhere === undefined) return;
+      reply.author.set(connect(authorsElsewhere).model(User).build({ email: "b@example.com" }));
+    });
+  }
+}
+
 // One database per query, write and record, whichever level it came from (#93, ADR-0012).
 describe("one database", () => {
   let one: TestDatabase;
@@ -166,6 +187,19 @@ describe("one database", () => {
           0,
         );
       }
+    });
+
+    test("a target a callback points it at on another database is refused before anything is written", async () => {
+      authorsElsewhere = two;
+      const reply = connect(one).model(Reply).build({ id: 42, title: "Sneaky" });
+
+      try {
+        await expect(reply.save()).rejects.toThrow(IncompatibleRelation);
+      } finally {
+        authorsElsewhere = undefined;
+      }
+      expect(await two.prepare("SELECT count(*) AS n FROM users").first("n")).toBe(0);
+      expect(await one.prepare("SELECT count(*) AS n FROM posts WHERE id = 42").first("n")).toBe(0);
     });
 
     test("a statics-built target saves with an owner on the same database", async () => {
