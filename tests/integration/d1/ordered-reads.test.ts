@@ -105,3 +105,29 @@ describe("exists() with distinct() and an offset reads the rows toArray() would 
     ]);
   });
 });
+
+describe("count(attribute) after distinct() with a limit or offset (#250)", () => {
+  let binding: TestDatabase;
+  let dispose: () => Promise<void>;
+  const events: QueryEvent[] = [];
+  const posts = () => connect(binding, { onQuery: (event) => events.push(event) }).model(Post);
+
+  beforeAll(async () => {
+    ({ db: binding, dispose } = await createTestDatabase());
+  });
+  afterAll(() => dispose());
+
+  // SQL text, though not a safety property: only a distinct count with a limit or offset changes,
+  // and an empty table can't tell the queries apart.
+  test("without both distinct() and a limit or offset, it sends the same SQL as before", async () => {
+    await posts().offset(1).count("title");
+    await posts().distinct().count("title");
+    await posts().select("title").distinct().offset(1).count();
+
+    expect(events.map((event) => event.sql)).toEqual([
+      'SELECT COUNT("title") AS count FROM (SELECT * FROM "posts" LIMIT ? OFFSET ?) AS counted',
+      'SELECT COUNT(DISTINCT "title") AS count FROM (SELECT * FROM "posts") AS counted',
+      'SELECT COUNT(*) AS count FROM (SELECT DISTINCT "title" FROM "posts" LIMIT ? OFFSET ?) AS counted',
+    ]);
+  });
+});
