@@ -18,7 +18,7 @@ import {
   type ProjectSnapshot,
 } from "../project/snapshot.ts";
 import { defaultModels, oneModelsFile } from "../project/targets.ts";
-import { configNotes, loadAdapter } from "../project/adapters.ts";
+import { configNotes, loadDatabases } from "../project/adapters.ts";
 import { chooseDatabase } from "../project/databases.ts";
 import { byVersion, type Migration } from "../project/migrations.ts";
 import { withModels } from "../schema/models.ts";
@@ -114,7 +114,7 @@ function patternRefusal({ project, db }: Request, path: string): string | undefi
     return undefined;
   }
   return (
-    `${shown(project.cwd, path)} wouldn't match ${project.adapter.patternSetting ?? "the pattern"} ` +
+    `${shown(project.cwd, path)} wouldn't match ${target.adapter.patternSetting ?? "the pattern"} ` +
     `(${pattern}) in ${shown(project.cwd, target.configFile)}, so it wouldn't be applied; write ` +
     "the migration with your migration tool instead"
   );
@@ -177,9 +177,9 @@ async function checkedMigration(
 ): Promise<
   { migration: FileToWrite; after: Migration[]; schema: SchemaTables; notes: string[] } | Plan
 > {
-  const { project, db, options, columns } = request;
-  const { adapter } = project;
+  const { db, options, columns } = request;
   const { target } = db;
+  const { adapter } = target;
   const { migrationsTable, entry } = target.database;
   const current = await adapter.readSchema(existing, { migrationsTable, entry });
   if (!current.ok) return refused(...current.errors);
@@ -292,15 +292,15 @@ export async function planGenerate(
 export async function runGenerate(options: GenerateOptions, print: Print): Promise<number> {
   const cwd = resolve(options.cwd ?? process.cwd());
   const { config, models, out } = options;
-  const adapter = await loadAdapter(cwd, options.config);
-  if (typeof adapter === "string") {
-    print(adapter);
+  const loaded = await loadDatabases(cwd, options.config);
+  if (typeof loaded === "string") {
+    print(loaded);
     return 1;
   }
-  for (const note of configNotes(adapter)) print(note);
+  for (const note of configNotes(loaded)) print(note);
   const model = options.kind === "model" ? modelName(options.name) : undefined;
   const files = model?.ok === true ? [modelPathOf(cwd, options, model.className)] : [];
-  const read = readProject(adapter, cwd, { config, models, out }, files);
+  const read = readProject(loaded, cwd, { config, models, out }, files);
   if (typeof read === "string") {
     print(read);
     return 1;

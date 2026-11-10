@@ -3,7 +3,7 @@ import { watch } from "node:fs";
 import { resolve } from "node:path";
 import { apply, combined, printing, type Plan, type Print } from "../plan.ts";
 import { shown } from "../project/paths.ts";
-import { configNotes, loadAdapter } from "../project/adapters.ts";
+import { configNotes, loadDatabases } from "../project/adapters.ts";
 import { readProject, type DatabaseSnapshot, type ProjectSnapshot } from "../project/snapshot.ts";
 import { modelsFolders, type ProjectOptions } from "../project/targets.ts";
 import { fingerprintIn, fingerprintOf } from "./render.ts";
@@ -32,7 +32,7 @@ function checkPlan(
   tables: readonly GeneratedTable[],
 ): Plan {
   const out = shown(project.cwd, db.target.out);
-  const schema = schemaSourceOf(project, db, tables);
+  const schema = schemaSourceOf(db, tables);
   const current = db.schema !== undefined && fingerprintIn(db.schema) === fingerprintOf(schema);
   const line = current
     ? `${out} is up to date`
@@ -46,7 +46,7 @@ async function planDatabase(
   db: DatabaseSnapshot,
   check: boolean,
 ): Promise<Plan> {
-  const { adapter, cwd } = project;
+  const { cwd } = project;
   if (db.migrations === undefined) {
     return failed([`No migrations folder at ${shown(cwd, db.target.migrationsDir)}/`], cwd, db);
   }
@@ -54,7 +54,7 @@ async function planDatabase(
   if (refusal !== undefined) return failed([refusal], cwd, db);
   if (db.modelErrors.length > 0) return failed(db.modelErrors, cwd, db);
   const { migrationsTable, entry } = db.target.database;
-  const result = await adapter.readSchema(db.migrations, { migrationsTable, entry });
+  const result = await db.target.adapter.readSchema(db.migrations, { migrationsTable, entry });
   if (!result.ok) return failed(result.errors, cwd, db);
   return check ? checkPlan(project, db, result.tables) : schemaWrites(project, db, result);
 }
@@ -73,13 +73,13 @@ export async function planSchema(project: ProjectSnapshot, check: boolean): Prom
  */
 export async function runSchema(options: SchemaOptions, print: Print): Promise<number> {
   const cwd = resolve(options.cwd ?? process.cwd());
-  const adapter = await loadAdapter(cwd, options.config);
-  if (typeof adapter === "string") {
-    print(adapter);
+  const loaded = await loadDatabases(cwd, options.config);
+  if (typeof loaded === "string") {
+    print(loaded);
     return 1;
   }
-  for (const note of configNotes(adapter)) print(note);
-  const read = readProject(adapter, cwd, options);
+  for (const note of configNotes(loaded)) print(note);
+  const read = readProject(loaded, cwd, options);
   if (typeof read === "string") {
     print(read);
     return 1;
@@ -97,9 +97,9 @@ export async function watchFromCommandLine(
   options: SchemaOptions,
   print: Print,
 ): Promise<1 | "watching"> {
-  const adapter = await loadAdapter(resolve(options.cwd ?? process.cwd()), options.config);
-  if (typeof adapter === "string") {
-    print(adapter);
+  const loaded = await loadDatabases(resolve(options.cwd ?? process.cwd()), options.config);
+  if (typeof loaded === "string") {
+    print(loaded);
     return 1;
   }
   void watchSchema(options, print);
@@ -113,9 +113,9 @@ export async function watchFromCommandLine(
 export async function watchSchema(options: SchemaOptions, print: Print): Promise<() => void> {
   let running = runSchema(options, print);
   const cwd = resolve(options.cwd ?? process.cwd());
-  const adapter = await loadAdapter(cwd, options.config);
-  if (typeof adapter === "string") return () => {};
-  const project = readProject(adapter, cwd, options);
+  const loaded = await loadDatabases(cwd, options.config);
+  if (typeof loaded === "string") return () => {};
+  const project = readProject(loaded, cwd, options);
   if (typeof project === "string") return () => {};
   let pending: ReturnType<typeof setTimeout> | undefined;
   const regenerate = () => {

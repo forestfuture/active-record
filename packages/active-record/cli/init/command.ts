@@ -3,7 +3,7 @@ import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import type { InitResult } from "../adapter.ts";
 import { apply, printed, printing, written, type Plan, type Print } from "../plan.ts";
-import { adapterNames, loadAdapter, pluginOf } from "../project/adapters.ts";
+import { adapterNames, loadAdapters, pluginOf } from "../project/adapters.ts";
 import { configFileName, parseJsonc } from "../project/config-file.ts";
 import { withEntries } from "./insert.ts";
 import { corePackage } from "../project/load.ts";
@@ -81,8 +81,9 @@ function source(link: string, { name, result }: Found): string {
  */
 async function planAdding(cwd: string, path: string, options: InitOptions): Promise<Plan> {
   const name = shown(cwd, path);
-  const adapter = await loadAdapter(cwd, options.config);
-  if (typeof adapter === "string") return printing([adapter], 1);
+  const adapters = await loadAdapters(cwd, options.config);
+  if (typeof adapters === "string") return printing([adapters], 1);
+  const adapter = adapters.plugins[0]!;
   if (options.adapter !== undefined && options.adapter !== adapter.name) {
     return printing(
       [

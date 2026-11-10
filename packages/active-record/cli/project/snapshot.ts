@@ -2,7 +2,7 @@
 // One per database. Commands plan from a snapshot, so what they decide is testable without a
 // folder on disk (#95).
 import { existsSync, readFileSync, statSync } from "node:fs";
-import type { ProjectAdapter } from "../adapter.ts";
+import type { LoadedProject } from "./adapters.ts";
 import { hasNestedMigrations, migrationsOf, type Migration } from "./migrations.ts";
 import { targetsOf, type ProjectOptions, type Target } from "./targets.ts";
 import { toolsWithFiles, type Tool } from "./tools.ts";
@@ -37,10 +37,8 @@ export interface DatabaseSnapshot {
   modelErrors: string[];
 }
 
-/** A project: its databases, and any other files a command asked for, by path. */
+/** A project: its databases, each with its adapter, and any other files a command asked for, by path. */
 export interface ProjectSnapshot {
-  /** The adapter the project uses: its plugin for this command. */
-  adapter: ProjectAdapter;
   cwd: string;
   databases: DatabaseSnapshot[];
   /** The contents of the other files asked for that exist. */
@@ -73,12 +71,12 @@ function databaseSnapshot(target: Target, toolsFound: Tool[]): DatabaseSnapshot 
  * (a Model file, for `g model`); or why it can't, such as a missing config.
  */
 export function readProject(
-  adapter: ProjectAdapter,
+  project: LoadedProject,
   cwd: string,
   options: ProjectOptions,
   files: readonly string[] = [],
 ): ProjectSnapshot | string {
-  const targets = targetsOf(adapter, cwd, options);
+  const targets = targetsOf(project, cwd, options);
   if (typeof targets === "string") return targets;
   const toolsFound = targets.length === 0 ? [] : toolsWithFiles(targets[0]!.configDir);
   const read = files.flatMap((path) => {
@@ -86,7 +84,6 @@ export function readProject(
     return text === undefined ? [] : [[path, text] as const];
   });
   return {
-    adapter,
     cwd,
     databases: targets.map((target) => databaseSnapshot(target, toolsFound)),
     files: new Map(read),

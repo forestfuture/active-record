@@ -6,7 +6,7 @@ import type {
   DatabaseSnapshot,
   ProjectSnapshot,
 } from "../../packages/active-record/cli/project/snapshot.ts";
-import type { ProjectAdapter } from "../../packages/active-record/cli/adapter.ts";
+import type { CliAdapter } from "../../packages/active-record/cli/adapter.ts";
 import { cli } from "../../packages/active-record/cli/adapters/d1/plugin.ts";
 
 // Migrations are named for the UTC second they're written in, so the clock is set.
@@ -25,15 +25,18 @@ function shown(plan: Plan) {
   return { files: filesOf(plan).map((file) => file.path), lines: linesOf(plan), code: plan.code };
 }
 
-/** A project with one database, `DB`, as `readProject` would read it from disk. */
-function project(database: Partial<DatabaseSnapshot> = {}): ProjectSnapshot {
+/** A project with one database, `DB`, on `adapter`, as `readProject` would read it from disk. */
+function project(
+  database: Partial<DatabaseSnapshot> = {},
+  adapter: CliAdapter = cli,
+): ProjectSnapshot {
   return {
-    adapter: { ...cli, databases: () => ({ ok: false, error: "unused" }) },
     cwd,
     files: new Map(),
     databases: [
       {
         target: {
+          adapter,
           database: {
             binding: "DB",
             migrationsDir: "migrations",
@@ -260,7 +263,7 @@ describe("planGenerate: what g model and g migration write and print, from a sna
 // The core plans with whatever adapter the project uses (#278): a stand-in here, not D1's plugin.
 describe("planning with another adapter's plugin", () => {
   const readSchemas: string[][] = [];
-  const stub: ProjectAdapter = {
+  const stub: CliAdapter = {
     name: "stub",
     init: () => undefined,
     databases: () => ({ ok: false, error: "unused" }),
@@ -284,7 +287,7 @@ describe("planning with another adapter's plugin", () => {
   };
 
   test("the schema comes from the plugin's tables", async () => {
-    const plan = await planSchema({ ...project(), adapter: stub }, false);
+    const plan = await planSchema(project({}, stub), false);
 
     expect(linesOf(plan)[0]).toBe("Wrote src/db/schema.ts (1 table) from migrations/");
     expect(readSchemas.at(-1)).toEqual(["0001_users.sql"]);
@@ -293,7 +296,7 @@ describe("planning with another adapter's plugin", () => {
   test("a migration is the plugin's SQL in a file the command names, checked by reading the schema it makes", async () => {
     const product = { kind: "model", name: "Product", columns: ["name:string!"] } as const;
 
-    const plan = await planGenerate({ ...project(), adapter: stub }, product);
+    const plan = await planGenerate(project({}, stub), product);
 
     expect(filesOf(plan).find((file) => file.path.endsWith("_create_products.sql"))).toEqual({
       path: `${cwd}/migrations/20261108090503_create_products.sql`,
@@ -304,10 +307,7 @@ describe("planning with another adapter's plugin", () => {
 
   // The adapter's factory has the adapter's name, exported from its package (#284).
   test("the schema imports the adapter's factory from its package, and calls it with the binding", async () => {
-    const plan = await planSchema(
-      { ...project(), adapter: { ...stub, name: "postgresql" } },
-      false,
-    );
+    const plan = await planSchema(project({}, { ...stub, name: "postgresql" }), false);
     const source = filesOf(plan)[0]!.source;
 
     expect(source).toContain(
@@ -320,7 +320,7 @@ describe("planning with another adapter's plugin", () => {
 
   // An adapter without a pattern setting can't be told to read migrations in folders (#284).
   test("migrations in folders are noted as unread, when the plugin has no pattern setting", async () => {
-    const plan = await planSchema({ ...project({ nestedMigrations: true }), adapter: stub }, false);
+    const plan = await planSchema(project({ nestedMigrations: true }, stub), false);
 
     expect(linesOf(plan).at(-1)).toBe(
       "Note: migrations/ has its migrations in folders, as Drizzle writes them, which aren't read",
@@ -328,13 +328,13 @@ describe("planning with another adapter's plugin", () => {
   });
 
   test("a migration a pattern wouldn't match is refused, when the plugin names no setting for it", async () => {
-    const one = project().databases[0]!;
+    const one = project({}, stub).databases[0]!;
     const pattern = "migrations/*/migration.sql";
     const database = { ...one.target.database, migrationsPattern: pattern };
     const nested = { ...one, target: { ...one.target, database } };
     const product = { kind: "model", name: "Product", columns: [] } as const;
 
-    const plan = await planGenerate({ ...project(), databases: [nested], adapter: stub }, product);
+    const plan = await planGenerate({ ...project({}, stub), databases: [nested] }, product);
 
     expect(linesOf(plan)).toEqual([
       "migrations/20261108090503_create_products.sql wouldn't match the pattern " +
@@ -344,13 +344,10 @@ describe("planning with another adapter's plugin", () => {
   });
 
   test("--check reports a schema written for another adapter as out of date", async () => {
-    const written = await planSchema({ ...project(), adapter: { ...stub, name: "d1" } }, false);
+    const written = await planSchema(project({}, { ...stub, name: "d1" }), false);
     const schema = filesOf(written)[0]!.source;
 
-    const plan = await planSchema(
-      { ...project({ schema }), adapter: { ...stub, name: "postgresql" } },
-      true,
-    );
+    const plan = await planSchema(project({ schema }, { ...stub, name: "postgresql" }), true);
 
     expect(shown(plan)).toEqual({
       files: [],

@@ -3,7 +3,7 @@
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { classify, moduleName } from "./names.ts";
-import type { DatabaseConfig, ProjectAdapter } from "../adapter.ts";
+import type { LoadedProject, ProjectDatabase } from "./adapters.ts";
 
 /** Where a project's config, migrations and generated schema are, when not the defaults. */
 export interface ProjectOptions {
@@ -17,12 +17,11 @@ export interface ProjectOptions {
   models?: string;
 }
 
-/** One database to generate: where its migrations are read from, and where its schema goes. */
-export interface Target {
-  database: DatabaseConfig;
-  /** The config file that declares it. */
-  configFile: string;
-  configDir: string;
+/**
+ * One database to generate, with its adapter and the config that declares it: where its
+ * migrations are read from, and where its schema goes.
+ */
+export interface Target extends ProjectDatabase {
   migrationsDir: string;
   out: string;
   /** The app's base class for this database's Models: its file, and its name. */
@@ -75,26 +74,28 @@ function sharedBase(targets: readonly Target[]): string | undefined {
   return undefined;
 }
 
-/** The databases to generate, from the adapter's config and the options; or why there are none. */
+/** The databases to generate, from the project's databases and the options; or why there are none. */
 export function targetsOf(
-  adapter: ProjectAdapter,
+  project: LoadedProject,
   cwd: string,
   options: ProjectOptions,
 ): Target[] | string {
-  const config = adapter.databases();
-  if (!config.ok) return config.error;
-  const { databases, dir, file } = config;
+  const { databases } = project;
   if (options.migrations !== undefined && databases.length > 1) {
     return `--migrations needs a single database; this config has ${databases.length}`;
   }
-  const targets = databases.map((database) => {
-    const migrationsDir = resolve(cwd, options.migrations ?? join(dir, database.migrationsDir));
+  const targets = databases.map((each) => {
+    const { database, configDir } = each;
+    const migrationsDir = resolve(
+      cwd,
+      options.migrations ?? join(configDir, database.migrationsDir),
+    );
     const out =
       databases.length === 1
         ? resolve(cwd, options.out ?? "src/db/schema.ts")
         : resolve(cwd, options.out ?? "src/db", `${database.binding}.ts`);
     const base = baseFor(modelsDirOf(cwd, options.models), database.binding, databases.length > 1);
-    return { database, configFile: file, configDir: dir, migrationsDir, out, base };
+    return { ...each, migrationsDir, out, base };
   });
   return sharedBase(targets) ?? targets;
 }
