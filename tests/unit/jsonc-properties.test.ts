@@ -11,23 +11,23 @@ const filler = fc.oneof(
 );
 
 /** `value` written as JSON, with filler between its tokens and, at random, trailing commas. */
-function written(value: unknown, g: fc.GeneratorValue): string {
+function asJsonc(value: unknown, g: fc.GeneratorValue): string {
   const gap = () => g(fc.array, filler, { maxLength: 2 }).join("");
-  const list = (open: string, items: string[], close: string) => {
+  const bracketed = (open: string, items: string[], close: string) => {
     const trailing = items.length > 0 && g(fc.boolean) ? `,${gap()}` : "";
     return `${open}${items.map((item) => `${gap()}${item}${gap()}`).join(",")}${trailing}${close}`;
   };
   if (Array.isArray(value))
-    return list(
+    return bracketed(
       "[",
-      value.map((item) => written(item, g)),
+      value.map((item) => asJsonc(item, g)),
       "]",
     );
   if (typeof value !== "object" || value === null) return JSON.stringify(value);
   const entries = Object.entries(value);
-  return list(
+  return bracketed(
     "{",
-    entries.map(([key, item]) => `${JSON.stringify(key)}${gap()}:${gap()}${written(item, g)}`),
+    entries.map(([key, item]) => `${JSON.stringify(key)}${gap()}:${gap()}${asJsonc(item, g)}`),
     "}",
   );
 }
@@ -37,7 +37,7 @@ describe("reading JSON with comments and trailing commas", () => {
   test("any JSON, with comments and trailing commas added, reads as JSON.parse reads it", () => {
     fc.assert(
       fc.property(fc.jsonValue(), fc.gen(), (value, g) => {
-        expect(parseJsonc(written(value, g))).toEqual(JSON.parse(JSON.stringify(value)));
+        expect(parseJsonc(asJsonc(value, g))).toEqual(JSON.parse(JSON.stringify(value)));
       }),
       PURE_RUNS,
     );
