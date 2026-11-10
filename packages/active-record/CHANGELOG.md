@@ -1,5 +1,23 @@
 # @forestfuture/active-record
 
+## 0.7.0
+
+### Minor Changes
+
+- [#307](https://github.com/forestfuture/active-record/pull/307) [`8086f1f`](https://github.com/forestfuture/active-record/commit/8086f1ffcc6b554b959d1f455e54f2d0b8ac5d85) Thanks [@christopherstyles](https://github.com/christopherstyles)! - The adapters now ship inside `@forestfuture/active-record`, so an app installs one package. Import what opens D1 from `@forestfuture/active-record/d1` (`connect`, `withSession`, `NoSession`, `d1`), and uninstall `@forestfuture/d1-record`, which gets no new version. The PostgreSQL adapter is `@forestfuture/active-record/postgresql` (`connect`, `postgresql`), with your own `pg`; `pg` and PGlite are optional peer dependencies, so a D1 app installs neither.
+
+  Every `active-record` command now reads `active-record.jsonc`, which names each of your databases and its adapter (`"DB": { "adapter": "d1" }`). Run `npx active-record init` to write it: it reads your Wrangler config, and links a JSON Schema your editor completes the file from. Run it again after you add a database to your Wrangler config: it adds the ones the file doesn't name, and leaves the rest as you wrote it. A D1 database's other settings stay in your Wrangler config, and every command notes a D1 database there that the file doesn't name. `--adapter` is gone from every command but `init`, and `--config` now names `active-record.jsonc`.
+
+  Run `npx active-record schema` once: the generated schema now imports `d1` from `@forestfuture/active-record/d1`, and until you regenerate it, `schema --check` reports it as out of date. See [Upgrading](https://active-record.forestfuture.dev/upgrading).
+
+- [#290](https://github.com/forestfuture/active-record/pull/290) [`8806626`](https://github.com/forestfuture/active-record/commit/88066260274829dcd3216047d4c4659ec619e23b) Thanks [@christopherstyles](https://github.com/christopherstyles)! - The `active-record` command now speaks for any adapter. Its help and messages say the database, its binding and its config, and D1's own words (`migrations_pattern`, the config file) come from D1's plugin. `active-record schema --check` now reports a schema as out of date when it was written for another adapter, so a schema written before this release reads as out of date once: run `npx active-record schema` to bring it up to date. The console keeps its history in `.wrangler/active-record-history`; the old `.wrangler/d1-record-history` isn't read, so earlier history isn't offered. The command itself needs Node 22.5 or later; on D1 every command still needs 22.13 (23.4 on Node 23), for `node:sqlite`, and says so before it starts. A plugin for the command (its interface is `@forestfuture/active-record/cli`, unstable) reads a schema asynchronously, names the folder for the command's local files, can say why a Node can't run it, and gets the chosen database's migrations folder in place of D1's account.
+
+### Patch Changes
+
+- [#287](https://github.com/forestfuture/active-record/pull/287) [`b6e2d37`](https://github.com/forestfuture/active-record/commit/b6e2d3791753b95f1b72c4b66a329d6d7716493e) Thanks [@christopherstyles](https://github.com/christopherstyles)! - The adapter interface (`@forestfuture/active-record/adapter`, unstable) takes what the PostgreSQL adapter needs: a dialect writes its own placeholders and links keys of different types, a driver can hold a connection for a `withDatabase` scope, and `workersEnv()` tells a Worker from Node. Nothing changes for an app on D1.
+
+- [#298](https://github.com/forestfuture/active-record/pull/298) [`2cb4107`](https://github.com/forestfuture/active-record/commit/2cb41073ff5b09c48b4b19632d24f955f06b5a19) Thanks [@christopherstyles](https://github.com/christopherstyles)! - `g model` and `g migration` name a new migration for the UTC second it's written in (`20261108090503_create_products.sql`), on D1 too, so migrations written on two branches don't clash. Wrangler orders D1's migrations by their leading number, so files numbered `0001_…` still run first. The command reads a project's `active-record.jsonc`, which Postgres projects declare their databases in. A plugin for the command (`@forestfuture/active-record/cli`, unstable) returns a migration's SQL and notes while the command names its file, reads a schema with its database's config entry, and shares the core's helpers for reading tables, migration names and JSON with comments.
+
 ## 0.6.0
 
 ### Minor Changes
