@@ -1,6 +1,6 @@
 // The project's databases, each with its adapter's plugin, as the command loads them (#305), and choosing the one a command acts on: the only one, or the one `--database` names.
 import { existsSync, realpathSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import type { ChosenDatabase, CliAdapter, DatabaseConfig, ProjectDatabases } from "../adapter.ts";
 import { loadAdapters, type NamedAdapters } from "./adapters.ts";
 import { listed } from "./names.ts";
@@ -39,8 +39,9 @@ function databasesOf({ project, plugins }: NamedAdapters): LoadedProject | strin
   for (const adapter of plugins) {
     const config = adapter.databases(entriesFor(project, adapter.name));
     if (!config.ok) return config.error;
-    const { file: configFile, dir: configDir } = config;
     for (const database of config.databases) {
+      const configFile = database.configFile ?? config.file;
+      const configDir = database.configFile === undefined ? config.dir : dirname(configFile);
       loaded.databases.push({ adapter, database, configFile, configDir });
     }
     loaded.notes.push(...(config.notes ?? []));

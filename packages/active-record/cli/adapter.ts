@@ -6,7 +6,7 @@ import type { Migration } from "./project/migrations.ts";
 export interface DatabaseConfig {
   /** Its name in the app's config, which a generated schema names: its **Binding** (`DB`). */
   binding: string;
-  /** Relative to the config file. */
+  /** Relative to its config file's folder. */
   migrationsDir: string;
   /** A glob for migrations in nested folders, from the config's `patternSetting`. */
   migrationsPattern?: string;
@@ -14,6 +14,11 @@ export interface DatabaseConfig {
   migrationsTable?: string;
   /** The database's entry as the config has it. */
   entry: Record<string, unknown>;
+  /**
+   * The file that declares it, when it isn't the config's own: the adapter's config file that its
+   * entry in `active-record.jsonc` names (#306).
+   */
+  configFile?: string;
 }
 
 /**
@@ -27,7 +32,10 @@ export interface ProjectDatabases {
   databases: Readonly<Record<string, Record<string, unknown>>>;
 }
 
-/** A project's config: the file, its folder, and its databases, or why it can't be read. */
+/**
+ * A project's config: the file, its folder, and its databases, or why it can't be read. A
+ * database's own `configFile`, when it has one, is its file in place of this one.
+ */
 export type ConfigResult =
   | {
       ok: true;
