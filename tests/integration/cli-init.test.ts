@@ -93,7 +93,7 @@ describe("active-record init", () => {
       code: 0,
       output:
         "Wrote active-record.jsonc (DATABASE_URL, on postgresql)\n" +
-        "Note: its url is a guess (postgres://localhost:5432/shop_development); set it to your local database\n" +
+        "Note: DATABASE_URL's url is a guess (postgres://localhost:5432/shop_development); set it to your local database\n" +
         "Next: npx active-record schema",
     });
     expect(written(cwd)).toEqual({
