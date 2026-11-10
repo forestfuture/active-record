@@ -1,30 +1,7 @@
 // What `active-record init` writes on Postgres: each Hyperdrive binding the Wrangler config beside the file declares, with its local database, or else `DATABASE_URL` (#301).
-import { existsSync, readFileSync } from "node:fs";
-import { basename, join } from "node:path";
-import { parseJsonc, type InitResult } from "@forestfuture/active-record/cli";
-
-/** A Wrangler config's Hyperdrive binding, as `init` reads it. */
-interface Hyperdrive {
-  binding: string;
-  localConnectionString?: string;
-}
-
-/** The Hyperdrive bindings in the JSON Wrangler config in `dir`, if any, or why it can't be read. */
-function hyperdriveIn(dir: string): { file: string; bindings: Hyperdrive[] } | string | undefined {
-  const file = ["wrangler.jsonc", "wrangler.json"]
-    .map((name) => join(dir, name))
-    .find((path) => existsSync(path));
-  if (file === undefined) return undefined;
-  let config: { hyperdrive?: unknown };
-  try {
-    config = parseJsonc(readFileSync(file, "utf8")) as { hyperdrive?: unknown };
-  } catch (error) {
-    return `${basename(file)} couldn't be read: ${(error as Error).message}`;
-  }
-  const entries = Array.isArray(config.hyperdrive) ? (config.hyperdrive as Hyperdrive[]) : [];
-  const bindings = entries.filter((entry) => typeof entry?.binding === "string");
-  return { file, bindings };
-}
+import { basename } from "node:path";
+import type { InitResult } from "@forestfuture/active-record/cli";
+import { hyperdriveIn, type Hyperdrive } from "./wrangler.ts";
 
 /** The local database a project's folder suggests, named as Rails names it: `shop_development`. */
 function guessedUrl(dir: string): string {
