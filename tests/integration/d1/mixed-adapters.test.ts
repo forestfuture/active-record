@@ -51,7 +51,7 @@ describe("a request with a D1 database and a Postgres one, outside a Worker", ()
     expect(count).toBe(1);
   });
 
-  test("two databases on one adapter still can't be told apart by a binding", async () => {
+  test("two databases on one adapter can't be told apart by a binding", async () => {
     const twice = withDatabase([postgres(), postgres()], () => Member.count());
 
     await expect(twice).rejects.toThrow(

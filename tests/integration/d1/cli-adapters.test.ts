@@ -180,7 +180,7 @@ describe("the adapter the command uses", () => {
   });
 
   // Every adapter the file names has its say, not only the first's (#305).
-  test("with databases on two adapters, D1's notes still come", async () => {
+  test("with databases on two adapters, D1 notes Wrangler's databases the file doesn't name", async () => {
     const cwd = project({
       "active-record.jsonc": config({
         HYPERDRIVE: { adapter: "postgresql", migrationsDir: "pg" },
