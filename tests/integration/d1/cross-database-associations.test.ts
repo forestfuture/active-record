@@ -110,6 +110,41 @@ class Guarded extends DbRecord.define({ id: { type: "integer", null: false } }) 
   entries = hasMany(Entry, { foreignKey: "userId", dependent: "restrictWithException" });
 }
 
+/** Users whose members, on DB, go when they do, and take the members' badges on LOGS with them. */
+class Founder extends DbRecord.define({ id: { type: "integer", null: false } }) {
+  static override table = "users";
+
+  members = hasMany(Member, { foreignKey: "userId", dependent: "destroy" });
+
+  static {
+    this.beforeDestroy(() => void log.push("before destroy founder"));
+  }
+}
+
+class Member extends DbRecord.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+  message: { type: "string", null: false },
+}) {
+  static override table = "entries";
+
+  badges = hasMany(Badge, { foreignKey: "userId", primaryKey: "userId", dependent: "deleteAll" });
+}
+
+/** Users who log an entry, on LOGS, each time they're saved. */
+class Greeter extends DbRecord.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+}) {
+  static override table = "users";
+
+  entries = hasMany(Entry, { foreignKey: "userId" });
+
+  static {
+    this.beforeSave((greeter) => void greeter.entries().build({ message: "hello" }));
+  }
+}
+
 const schema = new URL("../../fixtures/cross-database/schema.sql", import.meta.url);
 
 let db: TestDatabase;
@@ -361,6 +396,19 @@ describe("autosaving records on another database", () => {
 });
 
 describe("a batch with records on another database", () => {
+  test("refuses a save whose callback builds them, writing nothing", async () => {
+    const saving = inRequest(() => batch([Greeter.build({ id: 2, email: "grace@DB" }).toSave()]));
+
+    await expect(saving).rejects.toThrow(
+      new IncompatibleRelation(
+        "batch() needs its statements and records on one database, and saving this Greeter " +
+          "writes records on another database; save it outside the batch",
+      ),
+    );
+    expect(await rows(db, "SELECT id FROM users WHERE id = 2")).toEqual([]);
+    expect(await rows(logs, "SELECT id FROM entries WHERE id <> 1")).toEqual([]);
+  });
+
   test("refuses a save that autosaves them, before any callback runs", async () => {
     const saving = inRequest(async () => {
       const user = User.build({ id: 2, email: "grace@DB" });
@@ -431,6 +479,19 @@ describe("destroying an owner whose dependents are on another database", () => {
     const destroying = inRequest(async () => (await Guarded.find(1)).destroyOrThrow());
 
     await expect(destroying).rejects.toThrow(DeleteRestriction);
+  });
+
+  test("a batch refuses a destroy whose dependents' dependents are there, before any callback runs", async () => {
+    const destroying = inRequest(async () => batch([(await Founder.find(1)).toDestroy()]));
+
+    await expect(destroying).rejects.toThrow(
+      new IncompatibleRelation(
+        "batch() needs its statements and records on one database, and destroying this " +
+          "Founder writes its dependent Member.badges, on another database; destroy it " +
+          "outside the batch",
+      ),
+    );
+    expect(log).toEqual([]);
   });
 
   test("a batch refuses the destroy before any callback runs", async () => {

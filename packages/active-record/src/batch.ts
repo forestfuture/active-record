@@ -17,32 +17,51 @@ function executorOf(entry: BatchEntry): Executor {
     : entry[statementParts].executor;
 }
 
-/**
- * The records a batch entry writes: a save's whole autosave graph, or a destroy's record. One
- * that would also write on another database (#228) is refused, since a batch writes one.
- */
-function recordsOf(entry: BatchEntry, needs: string): Model[] {
+/** The records a batch entry writes: a save's whole autosave graph, or a destroy's record. */
+function recordsOf(entry: BatchEntry): Model[] {
   if (!(entry instanceof RecordStatement)) return [];
   const { record, kind } = entry[recordStatementParts];
-  const { name } = modelOf(record);
+  return kind === "save" ? savingGroups(record)[0]!.records : [record];
+}
+
+/**
+ * Refuses an entry whose record would also write on another database (#228), before anything
+ * runs, since a batch writes one: a save whose autosave reaches one, or a destroy whose
+ * dependents do.
+ */
+function refuseElsewhere(entry: BatchEntry, needs: string): void {
+  if (!(entry instanceof RecordStatement)) return;
+  const { record, kind } = entry[recordStatementParts];
   if (kind === "destroy") {
     const [elsewhere] = dependentsElsewhere(modelOf(record));
-    if (elsewhere !== undefined) {
-      throw new IncompatibleRelation(
-        `${needs} on one database, and destroying this ${name} writes its dependent ` +
-          `${elsewhere.label}, on another database; destroy it outside the batch`,
-      );
-    }
-    return [record];
+    if (elsewhere === undefined) return;
+    throw writesElsewhere(needs, record, `writes its dependent ${elsewhere.label}, on`);
   }
-  const [own, elsewhere] = savingGroups(record);
-  if (elsewhere !== undefined) {
-    throw new IncompatibleRelation(
-      `${needs} on one database, and saving this ${name} autosaves records through ` +
-        `${elsewhere.through!.label}, on another database; save it outside the batch`,
-    );
-  }
-  return own!.records;
+  const [, elsewhere] = savingGroups(record);
+  if (elsewhere === undefined) return;
+  throw writesElsewhere(
+    needs,
+    record,
+    `autosaves records through ${elsewhere.through!.label}, on`,
+    "save",
+  );
+}
+
+/**
+ * The error for a batch entry that would write on another database: saving or destroying
+ * `record` "`does` another database".
+ */
+function writesElsewhere(
+  needs: string,
+  record: Model,
+  does: string,
+  kind: "save" | "destroy" = "destroy",
+): IncompatibleRelation {
+  const doing = kind === "save" ? "saving" : "destroying";
+  return new IncompatibleRelation(
+    `${needs} on one database, and ${doing} this ${modelOf(record).name} ${does} another ` +
+      `database; ${kind} it outside the batch`,
+  );
 }
 
 /**
@@ -57,7 +76,8 @@ export async function runBatch<const T extends readonly BatchEntry[]>(
 ): Promise<BatchResults<T>> {
   const statements = entries.filter((entry) => !(entry instanceof RecordStatement));
   const all = [...handles, ...statements.map(executorOf)];
-  const records = entries.flatMap((entry) => recordsOf(entry, needs));
+  for (const entry of entries) refuseElsewhere(entry, needs);
+  const records = entries.flatMap(recordsOf);
   if (all.length === 0 && records.length === 0) return [] as BatchResults<T>;
   const database = await pinBefore(linksOf(records), needs, all);
   // Each record is written once, even if listed twice or already saved by its owner.
@@ -65,7 +85,9 @@ export async function runBatch<const T extends readonly BatchEntry[]>(
   const prepared: PreparedEntry[] = [];
   for (const entry of entries) {
     prepared.push(
-      entry instanceof RecordStatement ? await recordEntry(entry, claimed) : statementEntry(entry),
+      entry instanceof RecordStatement
+        ? await recordEntry(entry, claimed, needs)
+        : statementEntry(entry),
     );
   }
   await pinClaimed(linksOf(claimed), database, needs);
@@ -120,12 +142,20 @@ function statementEntry(statement: Statement<unknown>): PreparedEntry {
 }
 
 /** A record's prepared save or destroy; a refusal throws, as a Rails transaction's `save!` does. */
-async function recordEntry(statement: RecordStatement, claimed: Claimed): Promise<PreparedEntry> {
+async function recordEntry(
+  statement: RecordStatement,
+  claimed: Claimed,
+  needs: string,
+): Promise<PreparedEntry> {
   const { record, kind } = statement[recordStatementParts];
   const plan = await (kind === "save"
     ? prepareSave(record, claimed)
     : prepareDestroy(record, claimed));
   if (plan.status !== "ready") throw refusalError(record, plan, kind);
+  // Records on another database a callback brought in, refused before anything is written.
+  if (plan.before.length + plan.after.length > 0) {
+    throw writesElsewhere(needs, record, "writes records on", kind);
+  }
   const stages = stagesOf(plan);
   if (stages.length > 1) {
     const { name } = record.constructor;
