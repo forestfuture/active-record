@@ -137,7 +137,7 @@ A named link from one **Model** to another through a foreign-key **Attribute**: 
 _Avoid_: Relationship, relation (a Relation is a query)
 
 **Preload**:
-Loading an **Association** for many **Records** at once, in a small, bounded number of queries (one per association; on D1, the whole tree is sent with the records' query in one round trip), so each becomes a **Loaded association**. You ask for it with `includes`.
+Loading an **Association** for many **Records** at once, in a small, bounded number of queries (one per association; on D1, the whole tree on the records' database is sent with their query in one round trip, and each other database it reaches takes one more), so each becomes a **Loaded association**. You ask for it with `includes`.
 _Avoid_: Eager load, join
 
 **Loaded association**:
@@ -149,7 +149,7 @@ A change to an **Association**'s **Relation** declared with the association (its
 _Avoid_: Scope (on its own), default scope
 
 **Dependent strategy**:
-What destroying a **Record** does to an **Association**'s records: destroy them, delete them, nullify their foreign key, or refuse while they exist (a restriction, which isn't an **Abort**).
+What destroying a **Record** does to an **Association**'s records: destroy them, delete them, nullify their foreign key, or refuse while they exist (a restriction, which isn't an **Abort**). On another database, it's written there, separately from the owner's DELETE.
 _Avoid_: Cascade (that's the database's), dependent destroy (for all of them)
 
 **Query listener**:
@@ -197,7 +197,7 @@ An atomic group of **Statements** and **Record statements** run together with D1
 _Avoid_: Transaction
 
 **Autosave**:
-Saving a **Record** also saves the new records of its **Associations**, validated with it: those built through a has-many or has-one, after it and with its key (and theirs, at every level), and a new record it points at through a belongs-to, before it, so it can take that record's key.
+Saving a **Record** also saves the new records of its **Associations**, validated with it: those built through a has-many or has-one, after it and with its key (and theirs, at every level), and a new record it points at through a belongs-to, before it, so it can take that record's key. Records on another database are written there, separately.
 _Avoid_: Nested save, cascade save
 
 **Record statement**:
