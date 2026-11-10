@@ -73,6 +73,27 @@ describe("active-record init", () => {
     });
   });
 
+  test("on Postgres, reads Hyperdrive bindings from wrangler.toml too", async () => {
+    const cwd = project({
+      "wrangler.toml": [
+        'name = "shop"',
+        "",
+        "[[hyperdrive]] # the database",
+        'binding = "HYPERDRIVE"',
+        'id = "1a2b"',
+        "localConnectionString = 'postgres://localhost/s'",
+        "",
+        "[vars]",
+        'binding = "NOT_A_DATABASE"',
+      ].join("\n"),
+    });
+
+    expect(await init(cwd)).toMatchObject({ code: 0 });
+    expect(written(cwd)).toMatchObject({
+      databases: { HYPERDRIVE: { adapter: "postgresql", url: "postgres://localhost/s" } },
+    });
+  });
+
   test("a Hyperdrive binding without a local connection string gets a guess, noted", async () => {
     const cwd = project({ "wrangler.jsonc": '{ "hyperdrive": [{ "binding": "HYPERDRIVE" }] }' });
 
