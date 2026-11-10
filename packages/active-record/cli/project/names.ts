@@ -47,7 +47,8 @@ export function moduleName(className: string): string {
   return underscore(className).replaceAll("_", "-");
 }
 
-/** `"A"`, `"A or B"`, `"A, B or C"`. */
-export function listed(names: readonly string[]): string {
-  return names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} or ${names.at(-1)}`;
+/** `"A"`, `"A or B"`, `"A, B or C"`, or with `"and"`, `"A, B and C"`. */
+export function listed(names: readonly string[], last: "or" | "and" = "or"): string {
+  if (names.length < 2) return names.join("");
+  return `${names.slice(0, -1).join(", ")} ${last} ${names.at(-1)}`;
 }
