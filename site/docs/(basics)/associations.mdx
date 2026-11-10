@@ -114,7 +114,7 @@ Load an association for every record at once with `includes`, with one query per
 
 Nest with an object: `includes({ articles: "comments" })` or `includes({ articles: ["comments", "tags"] })`.
 
-The example above sends four queries, however many authors there are. On D1, the whole tree goes [in one round trip](./d1#sending-queries-in-one-round-trip) with the authors’ own query.
+The example above sends four queries, however many authors there are. On D1, the whole tree goes [in one round trip](./d1#sending-queries-in-one-round-trip) with the authors’ own query. An association to [another database](./several-databases#associating-models-on-different-databases) takes one more.
 
 :::note
 With a `limit` or `offset`, `includes` ends the order with the primary key, so the preloads find the same records the query loads.
@@ -122,7 +122,7 @@ With a `limit` or `offset`, `includes` ends the order with the primary key, so t
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-Rails sends each association’s preload query on its own, so every association adds a round trip. On D1, the whole tree takes one.
+Rails sends each association’s preload query on its own, so every association adds a round trip. On D1, the whole tree on one database takes one.
 
 </Callout>
 
@@ -153,7 +153,7 @@ A record built through an association is saved with its owner. Build a whole gra
 
 The built records are validated with the owner. An invalid article makes the author invalid (“Articles is invalid”), with its own errors on the article.
 
-When the owner’s key is generated in code, as here, everything is written in one atomic batch.
+When the owner’s key is generated in code, as here, everything is written in one atomic batch. Records on [another database](./several-databases#associating-models-on-different-databases) are written there separately.
 
 :::warning[Keys D1 generates]
 When D1 generates the key, with an `INTEGER PRIMARY KEY`, the key doesn’t exist until the owner is written. So the owner is written first, and its records follow in the next batch, a level at a time. The batches aren’t atomic together: if a record fails at the second level, the save throws with the owner already saved. Generate keys in code wherever a graph must save all at once.
@@ -191,7 +191,7 @@ Set what destroying the owner does to its records with `dependent`:
 | `"restrictWithException"`  | The destroy throws `DeleteRestriction` while there are records                          |
 | `"restrictWithError"`      | The destroy returns `false`, with an error on the owner’s `base`                        |
 
-Everything a destroy does, the owner’s DELETE included, is written in one atomic batch. Strategies run after the owner’s `beforeDestroy` callbacks, so an `abort()` leaves the records alone.
+Everything a destroy does on the owner’s database, its DELETE included, is written in one atomic batch. Records on [another database](./several-databases#associating-models-on-different-databases) are written there separately. Strategies run after the owner’s `beforeDestroy` callbacks, so an `abort()` leaves the records alone.
 
 :::note
 Without a strategy, it’s up to the database. If the table declares the foreign key with `REFERENCES`, destroying an owner whose records still point at it throws `InvalidForeignKey`.
