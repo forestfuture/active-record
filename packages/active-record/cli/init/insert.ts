@@ -104,14 +104,22 @@ function indentAt(text: string, at: number): string {
   return /^[ \t]*/.exec(text.slice(lineStart))![0];
 }
 
-/** Just past the end of `at`'s line when only space and a `//` comment follow it there, or `at`. */
+/** The end of `at`'s line, before any `\r`, when only space and comments follow it there, or `at`. */
 function endOfLine(text: string, at: number): number {
   const found = text.indexOf("\n", at);
   const end = found < 0 ? text.length : found;
   // A `\r` before the newline is the line's end too, so the entries go before it.
   const lineEnd = text[end - 1] === "\r" ? end - 1 : end;
-  const rest = text.slice(at, lineEnd);
-  return /^[ \t]*(\/\*[^]*?\*\/[ \t]*)*(\/\/.*)?$/.test(rest) ? lineEnd : at;
+  // Read through once, comment by comment, as the tokens were read: no pattern to retry.
+  for (let index = at; index < lineEnd;) {
+    if (text.startsWith("//", index)) return lineEnd;
+    const past = pastComment(text, index);
+    if (past > lineEnd) return at;
+    if (past > index) index = past;
+    else if (text[index] === " " || text[index] === "\t") index += 1;
+    else return at;
+  }
+  return lineEnd;
 }
 
 /**
