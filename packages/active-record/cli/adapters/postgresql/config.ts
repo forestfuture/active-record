@@ -10,7 +10,7 @@ import type {
 export const migrationsTable = "schema_migrations";
 
 /** The settings a database's entry may have, each a string. */
-const stringSettings = ["migrationsDir", "url", "remoteUrl", "schemaUrl"] as const;
+export const stringSettings = ["migrationsDir", "url", "remoteUrl", "schemaUrl"] as const;
 
 /** Why a database's entry won't do, if it won't. */
 function entryError(binding: string, entry: Record<string, unknown>): string | undefined {

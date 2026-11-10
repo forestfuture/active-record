@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vite-plus/test";
+import { stringSettings } from "../../packages/active-record/cli/adapters/postgresql/config.ts";
 import { adapterNames } from "../../packages/active-record/cli/project/adapters.ts";
 import { parseJsonc } from "../../packages/active-record/cli/project/config-file.ts";
 
@@ -60,11 +61,7 @@ describe("active-record.jsonc's JSON Schema", () => {
   });
 
   test("takes every setting the PostgreSQL adapter reads", () => {
-    const settings = /const stringSettings = \[([^\]]*)\]/.exec(
-      read("packages/active-record/cli/adapters/postgresql/config.ts"),
-    )![1]!;
-
-    for (const setting of settings.match(/\w+/g)!) {
+    for (const setting of stringSettings) {
       expect(described["postgresql"]!.properties).toHaveProperty(setting);
     }
   });
