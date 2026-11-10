@@ -31,7 +31,10 @@ const lastLine = fc.option(
 const anyJson = fc.jsonValue({ stringUnit: anyChar });
 
 /** Up to two fillers, as a person might put between two tokens. */
-const gap = (g: fc.GeneratorValue) => g(fc.array, filler, { maxLength: 2 }).join("");
+const gaps = fc.array(filler, { maxLength: 2 }).map((fillers) => fillers.join(""));
+
+// One arbitrary for every gap: building one per gap took most of a second per thousand runs.
+const gap = (g: fc.GeneratorValue) => g(() => gaps);
 
 /** `value` written as JSON, with filler between its tokens and, at random, trailing commas. */
 function asJsonc(value: unknown, g: fc.GeneratorValue): string {
