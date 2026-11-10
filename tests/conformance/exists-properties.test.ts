@@ -49,10 +49,10 @@ describe("exists(), for any Relation", { timeout: SLOW_TIMEOUT }, () => {
       limit: fc.option(fc.nat({ max: 10 }), { nil: undefined }),
       offset: fc.option(fc.nat({ max: 10 }), { nil: undefined }),
     })
-    .filter((relation) => orderable(relation));
+    .filter((relation) => isOrderable(relation));
 
   /** Whether the database orders it: Postgres won't order distinct rows by an unselected column. */
-  function orderable({
+  function isOrderable({
     select,
     distinct,
     order,

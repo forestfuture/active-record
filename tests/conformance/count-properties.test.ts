@@ -58,13 +58,13 @@ describe("count(attribute), for any Relation", { timeout: SLOW_TIMEOUT }, () => 
       limit: fc.option(fc.nat({ max: 10 }), { nil: undefined }),
       offset: fc.option(fc.nat({ max: 10 }), { nil: undefined }),
     })
-    .filter((relation) => orderable(relation));
+    .filter((relation) => isOrderable(relation));
 
   /**
    * Whether the database orders it: Postgres won't order distinct values by another column.
    * Both count(attribute) and pluck(attribute) select only the attribute.
    */
-  function orderable({
+  function isOrderable({
     attribute,
     distinct,
     order,
