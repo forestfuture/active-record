@@ -1,7 +1,7 @@
-// `active-record init`: writes the project's `active-record.jsonc`, naming its databases and their adapter, from what that adapter's plugin finds (#301).
+// `active-record init`: writes the project's `active-record.jsonc`, naming its databases and their adapters, from what each adapter's plugin finds (#301, #305).
 import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
-import type { InitResult } from "../adapter.ts";
+import type { CliAdapter, InitResult } from "../adapter.ts";
 import { apply, printed, printing, written, type Plan, type Print } from "../plan.ts";
 import { adapterNames, loadAdapters, pluginOf } from "../project/adapters.ts";
 import { configFileName, parseJsonc } from "../project/config-file.ts";
@@ -61,7 +61,10 @@ async function foundEntries(dir: string): Promise<Found | string> {
   if (found.length === 0) {
     return `Nothing here says which database the project uses; choose ${listed(adapterNames)} with --adapter`;
   }
-  return `This project could use ${listed(found.map((each) => each.name))}; choose one with --adapter`;
+  return (
+    `This project could use ${listed(found.map((each) => each.name))}; choose one with ` +
+    "--adapter, then run init again with the other to add its databases too"
+  );
 }
 
 /** The file's text: the schema link, then each database with its adapter first. */
@@ -75,43 +78,77 @@ function source(link: string, { name, result }: Found): string {
   return `${JSON.stringify({ $schema: link, databases }, null, 2)}\n`;
 }
 
+/** The plugins whose databases `init` adds to a file: `--adapter`'s, or each one the file names. */
+async function addingWith(named: CliAdapter[], adapter: string | undefined) {
+  if (adapter === undefined) return named;
+  if (!adapterNames.includes(adapter))
+    return `--adapter takes ${listed(adapterNames)}, not ${adapter}`;
+  return [await pluginOf(adapter)];
+}
+
+/** A database init adds: its binding, its entry with its adapter first, and any note on it. */
+interface Added {
+  binding: string;
+  entry: Record<string, unknown>;
+  note?: string;
+}
+
 /**
- * What `init` does when the file is there: add each database the adapter the file names finds and
- * the file doesn't name, keeping the rest of the text as written; or say why it can't.
+ * The databases `plugins` find in `dir` that the file doesn't name (`named`), each plugin writing
+ * what it can when `--adapter` chose it; or why one can't be read.
+ */
+function missingFrom(dir: string, plugins: CliAdapter[], named: object, chosen: boolean) {
+  const added: Added[] = [];
+  for (const plugin of plugins) {
+    const found = plugin.init(dir, chosen);
+    if (typeof found === "string") return found;
+    for (const [binding, entry] of Object.entries(found?.databases ?? {})) {
+      if (Object.hasOwn(named, binding)) continue;
+      const note = found?.notes?.[binding];
+      added.push({ binding, entry: { adapter: plugin.name, ...entry }, note });
+    }
+  }
+  return added;
+}
+
+/** "Added LOGS to active-record.jsonc (on d1)", or with each one's adapter when they differ. */
+function addedLine(name: string, added: readonly Added[]): string {
+  const bindings = listed(
+    added.map((each) => each.binding),
+    "and",
+  );
+  const adapters = new Set(added.map((each) => each.entry.adapter));
+  const which =
+    adapters.size === 1
+      ? `on ${[...adapters][0] as string}`
+      : added.map((each) => `${each.binding} on ${each.entry.adapter as string}`).join(", ");
+  return `Added ${bindings} to ${name} (${which})`;
+}
+
+/**
+ * What `init` does when the file is there: add each database that the adapters the file names (or
+ * the one `--adapter` names) find and the file doesn't name, keeping the rest of the text as
+ * written; or say why it can't.
  */
 async function planAdding(cwd: string, path: string, options: InitOptions): Promise<Plan> {
   const name = shown(cwd, path);
   const adapters = await loadAdapters(cwd, options.config);
   if (typeof adapters === "string") return printing([adapters], 1);
-  const adapter = adapters.plugins[0]!;
-  if (options.adapter !== undefined && options.adapter !== adapter.name) {
-    return printing(
-      [
-        `${name} names ${adapter.name}; a project uses one adapter, for now, so --adapter ${options.adapter} adds nothing`,
-      ],
-      1,
-    );
-  }
-  const found = adapter.init(dirname(path), false);
-  if (typeof found === "string") return printing([found], 1);
+  const plugins = await addingWith(adapters.plugins, options.adapter);
+  if (typeof plugins === "string") return printing([plugins], 1);
   const text = readFileSync(path, "utf8");
   const named = (parseJsonc(text) as { databases: Record<string, unknown> }).databases;
-  const missing = Object.entries(found?.databases ?? {}).filter(
-    ([key]) => !Object.hasOwn(named, key),
-  );
-  if (missing.length === 0)
+  const added = missingFrom(dirname(path), plugins, named, options.adapter !== undefined);
+  if (typeof added === "string") return printing([added], 1);
+  if (added.length === 0)
     return printing([`${name} names every database init finds; it wrote nothing`]);
-  const entries = missing.map(
-    ([key, entry]) => [key, { adapter: adapter.name, ...entry }] as const,
+  const source = withEntries(
+    text,
+    added.map((each) => [each.binding, each.entry] as const),
   );
-  const source = withEntries(text, entries);
   if (source === undefined) return printing([`${name}'s databases couldn't be found to add to`], 1);
-  const bindings = missing.map(([key]) => key);
-  const notes = bindings
-    .flatMap((key) => found?.notes?.[key] ?? [])
-    .map((note) => printed(`Note: ${note}`));
-  const added = `Added ${listed(bindings, "and")} to ${name} (on ${adapter.name})`;
-  return { steps: [written({ path, source }, added), ...notes], code: 0 };
+  const notes = added.flatMap((each) => each.note ?? []).map((note) => printed(`Note: ${note}`));
+  return { steps: [written({ path, source }, addedLine(name, added)), ...notes], code: 0 };
 }
 
 /** What `init` does: write the file, and say what's next; or say why it can't. */

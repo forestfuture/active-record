@@ -16,7 +16,8 @@ datetime, json or references; then ! for NOT NULL, =value for a default, and :un
 :index for an index. For example: email:string!:unique active:boolean!=false user:references
 
 Options for init:
-  --adapter <name>    The adapter, when the project could use several, or nothing says which
+  --adapter <name>    The adapter, when the project could use several, or nothing says which;
+                      with the file there, adds that adapter's databases
 
 Options for schema:
   --check             Fail if the generated schema is out of date (for CI)

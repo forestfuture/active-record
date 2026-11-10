@@ -135,7 +135,8 @@ describe("active-record init", () => {
 
     expect(await init(cwd)).toEqual({
       code: 1,
-      output: "This project could use d1 or postgresql; choose one with --adapter",
+      output:
+        "This project could use d1 or postgresql; choose one with --adapter, then run init again with the other to add its databases too",
     });
     expect(existsSync(join(cwd, "active-record.jsonc"))).toBe(false);
     expect((await init(cwd, { adapter: "d1" })).code).toBe(0);
@@ -252,16 +253,83 @@ describe("active-record init", () => {
       });
     });
 
-    test("--adapter naming another adapter than the file's adds nothing", async () => {
+    // A project can use databases on different adapters (#305).
+    test("--adapter naming another adapter than the file's adds that adapter's databases", async () => {
       const cwd = project({
         "active-record.jsonc": '{ "databases": { "DB": { "adapter": "d1" } } }',
-        "wrangler.jsonc": JSON.stringify({ hyperdrive: [{ binding: "HYPERDRIVE" }] }),
+        "wrangler.jsonc": JSON.stringify({
+          d1_databases: [{ binding: "DB" }],
+          hyperdrive: [{ binding: "HYPERDRIVE", localConnectionString: "postgres://localhost/s" }],
+        }),
       });
 
       expect(await init(cwd, { adapter: "postgresql" })).toEqual({
+        code: 0,
+        output: "Added HYPERDRIVE to active-record.jsonc (on postgresql)",
+      });
+      expect(written(cwd)).toEqual({
+        databases: {
+          DB: { adapter: "d1" },
+          HYPERDRIVE: { adapter: "postgresql", url: "postgres://localhost/s" },
+        },
+      });
+    });
+
+    // During a move to Postgres, Wrangler's config keeps the D1 database the file no longer names.
+    test("without --adapter, adds only the databases of the adapters the file names", async () => {
+      const cwd = project({
+        "active-record.jsonc":
+          '{ "databases": { "HYPERDRIVE": { "adapter": "postgresql", "url": "postgres://x/y" } } }',
+        "wrangler.jsonc": JSON.stringify({
+          d1_databases: [{ binding: "DB" }],
+          hyperdrive: [{ binding: "HYPERDRIVE" }],
+        }),
+      });
+
+      expect(await init(cwd)).toEqual({
+        code: 0,
+        output: "active-record.jsonc names every database init finds; it wrote nothing",
+      });
+    });
+
+    test("on a file naming two adapters, adds each one's missing databases", async () => {
+      const cwd = project({
+        "active-record.jsonc": JSON.stringify({
+          databases: {
+            DB: { adapter: "d1" },
+            HYPERDRIVE: { adapter: "postgresql", url: "postgres://x/y" },
+          },
+        }),
+        "wrangler.jsonc": JSON.stringify({
+          d1_databases: [{ binding: "DB" }, { binding: "LOGS" }],
+          hyperdrive: [
+            { binding: "HYPERDRIVE" },
+            { binding: "CACHE", localConnectionString: "postgres://localhost/cache" },
+          ],
+        }),
+      });
+
+      expect(await init(cwd)).toEqual({
+        code: 0,
+        output: "Added LOGS and CACHE to active-record.jsonc (LOGS on d1, CACHE on postgresql)",
+      });
+      expect(written(cwd)).toMatchObject({
+        databases: {
+          LOGS: { adapter: "d1" },
+          CACHE: { adapter: "postgresql", url: "postgres://localhost/cache" },
+        },
+      });
+    });
+
+    test("an --adapter that isn't one says which there are", async () => {
+      const cwd = project({
+        "active-record.jsonc": '{ "databases": { "DB": { "adapter": "d1" } } }',
+        "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB" }] }),
+      });
+
+      expect(await init(cwd, { adapter: "mysql" })).toEqual({
         code: 1,
-        output:
-          "active-record.jsonc names d1; a project uses one adapter, for now, so --adapter postgresql adds nothing",
+        output: "--adapter takes d1 or postgresql, not mysql",
       });
     });
 
