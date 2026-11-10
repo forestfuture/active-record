@@ -45,8 +45,9 @@ function configOf(
 }
 
 /**
- * A note for the D1 databases the Wrangler config has that `active-record.jsonc` doesn't name, which
+ * A note for the D1 databases a Wrangler config has that `active-record.jsonc` doesn't name, which
  * the command leaves out, so one added to Wrangler's config alone isn't missed in silence (#301).
+ * `init` adds those in the config beside the file; one elsewhere is added by hand (#306).
  */
 function unnamed(entries: Record<string, unknown>[], project: ProjectDatabases, file: string) {
   const left = entries
@@ -55,9 +56,12 @@ function unnamed(entries: Record<string, unknown>[], project: ProjectDatabases, 
   if (left.length === 0) return [];
   const one = left.length === 1;
   const which = `the D1 database${one ? "" : "s"} ${listed(left, "and")}`;
-  return [
-    `${basename(file)} has ${which}, which ${basename(project.file)} doesn't name; run \`npx active-record init\` to add ${one ? "it" : "them"}`,
-  ];
+  const path = shown(project, file);
+  const add =
+    file === wranglerConfigIn(project.dir)
+      ? `run \`npx active-record init\` to add ${one ? "it" : "them"}`
+      : `add ${one ? "it" : "each"} with "wranglerConfig": ${JSON.stringify(path)}`;
+  return [`${path} has ${which}, which ${basename(project.file)} doesn't name; ${add}`];
 }
 
 /**
