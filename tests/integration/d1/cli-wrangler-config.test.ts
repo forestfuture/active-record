@@ -62,6 +62,19 @@ describe("a D1 database's wranglerConfig", () => {
     });
   });
 
+  test("takes an absolute path as it is", async () => {
+    const root = project({
+      "worker/wrangler.jsonc": wrangler({ binding: "DB", database_id: "x" }),
+    });
+    const wranglerConfig = join(root, "worker/wrangler.jsonc");
+    writeFileSync(
+      join(root, "active-record.jsonc"),
+      config({ DB: { adapter: "d1", wranglerConfig } }),
+    );
+
+    expect(await chosen(root)).toMatchObject({ configFile: wranglerConfig });
+  });
+
   test("is refused when it isn't a string, isn't there, or is a folder", async () => {
     const refusal = async (wranglerConfig: unknown) => {
       const root = project({
