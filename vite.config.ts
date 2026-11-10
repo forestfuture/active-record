@@ -24,13 +24,9 @@ export default defineConfig({
         test: { name: "unit", include: ["tests/unit/**/*.test.ts"] },
       },
       {
-        // Real D1 via Miniflare, running in Node (see ADR-0002).
+        // The D1 adapter's own tests: real D1 via Miniflare, running in Node (see ADR-0002).
         extends: true,
-        test: {
-          name: "integration",
-          include: ["tests/integration/**/*.test.ts"],
-          exclude: ["tests/integration/pg/**"],
-        },
+        test: { name: "integration:d1", include: ["tests/integration/d1/**/*.test.ts"] },
       },
       {
         // The portable conformance suite, once per adapter, each through its harness (#267).
