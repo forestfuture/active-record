@@ -321,6 +321,19 @@ describe("active-record init", () => {
       });
     });
 
+    // A guess is for an adapter the file doesn't use yet: one it uses has its databases already.
+    test("--adapter naming one of the file's adapters adds what it finds, and no guess", async () => {
+      const text =
+        '{ "databases": { "HYPERDRIVE": { "adapter": "postgresql", "url": "postgres://x/y" } } }';
+      const cwd = project({ "active-record.jsonc": text, "wrangler.jsonc": "{}" });
+
+      expect(await init(cwd, { adapter: "postgresql" })).toEqual({
+        code: 0,
+        output: "active-record.jsonc names every database init finds; it wrote nothing",
+      });
+      expect(readFileSync(join(cwd, "active-record.jsonc"), "utf8")).toBe(text);
+    });
+
     // Once the file names it, every command would load it, and refuse.
     test("--adapter naming an adapter this Node can't run adds nothing, saying why", async () => {
       const builtin = process.getBuiltinModule.bind(process);

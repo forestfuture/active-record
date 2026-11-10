@@ -98,12 +98,13 @@ interface Added {
 
 /**
  * The databases `plugins` find in `dir` that the file's `databases` (`inFile`) don't name, each
- * plugin writing what it can when `--adapter` chose it; or why one can't be read.
+ * plugin writing what it can when `--adapter` chose an adapter new to the file; or why one can't be
+ * read.
  */
-function missingFrom(dir: string, plugins: CliAdapter[], inFile: object, chosen: boolean) {
+function missingFrom(dir: string, plugins: CliAdapter[], inFile: object, newAdapter: boolean) {
   const added: Added[] = [];
   for (const plugin of plugins) {
-    const found = plugin.init(dir, chosen);
+    const found = plugin.init(dir, newAdapter);
     if (typeof found === "string") return found;
     for (const [binding, entry] of Object.entries(found?.databases ?? {})) {
       if (Object.hasOwn(inFile, binding)) continue;
@@ -140,7 +141,10 @@ async function planAdding(cwd: string, path: string, options: InitOptions): Prom
   if (typeof plugins === "string") return printing([plugins], 1);
   const text = readFileSync(path, "utf8");
   const inFile = (parseJsonc(text) as { databases: Record<string, unknown> }).databases;
-  const added = missingFrom(dirname(path), plugins, inFile, options.adapter !== undefined);
+  // `--adapter` lets a plugin write what it can only for an adapter the file doesn't use yet.
+  const inUse = adapters.plugins.some((each) => each.name === options.adapter);
+  const newAdapter = options.adapter !== undefined && !inUse;
+  const added = missingFrom(dirname(path), plugins, inFile, newAdapter);
   if (typeof added === "string") return printing([added], 1);
   if (added.length === 0)
     return printing([`${name} names every database init finds; it wrote nothing`]);
