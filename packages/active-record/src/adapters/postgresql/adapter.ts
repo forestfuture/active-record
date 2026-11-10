@@ -1,4 +1,4 @@
-// The Postgres adapter: what the core needs from Postgres besides sending statements.
+// The PostgreSQL adapter: what the core needs from Postgres besides sending statements.
 import type { Adapter, SchemaAdapter } from "@forestfuture/active-record/adapter";
 import { databaseFor } from "./current-database.ts";
 import { postgres } from "./dialect.ts";

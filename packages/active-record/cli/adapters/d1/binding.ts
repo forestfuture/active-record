@@ -44,8 +44,7 @@ async function projectWrangler(cwd: string): Promise<Wrangler | string> {
     return "wrangler isn't installed here (install it, then run active-record console again)";
   }
   try {
-    // Wrangler's entry is CommonJS: required natively, however this plugin was loaded, since jiti's
-    // own loading of Wrangler's bundle fails.
+    // Wrangler's entry is CommonJS: required natively, since jiti can't load its bundle.
     return createRequire(import.meta.url)(fileURLToPath(file)) as Wrangler;
   } catch (error) {
     return `Couldn't load wrangler: ${(error as Error).message}`;
