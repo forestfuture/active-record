@@ -50,7 +50,8 @@ describe("migrate and console on a mixed project's Postgres database", pgliteTim
       'import { HyperdriveRecord } from "./hyperdrive-record";\nexport class User extends HyperdriveRecord {}\n',
     );
     await runSchema({ cwd }, quiet);
-  });
+    // Each schema run starts PGlite, and a hook's limit isn't the describe's.
+  }, 120_000);
   afterAll(() => schema.dispose());
 
   test("migrate --database HYPERDRIVE applies its migrations with the PostgreSQL adapter", async () => {
