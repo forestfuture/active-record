@@ -23,11 +23,13 @@ npx active-record init
 
 It reads your Wrangler config. Each database in its `d1_databases` gets a D1 entry. Each Hyperdrive binding gets a PostgreSQL entry, whose `url` is the binding’s `localConnectionString`.
 
-Run it again after you add a database to your Wrangler config. It adds each database the file doesn’t name yet, on the adapters the file already uses, and leaves the rest of the file as you wrote it, comments included:
+Run it again after you add a database to your Wrangler config. It adds each database the file doesn’t name yet, and leaves the rest of the file as you wrote it, comments included:
 
 ```text
 Added LOGS to active-record.jsonc (on d1)
 ```
+
+It adds only databases on the adapters the file already uses. To add another adapter’s databases, name it with `--adapter`.
 
 | Option             |                                                                                                                                           |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
