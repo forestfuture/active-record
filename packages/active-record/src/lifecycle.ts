@@ -282,7 +282,7 @@ async function prepareEach(
 }
 
 /** What a record's save plan is made of: its own stage, and its autosaved records' plans. */
-interface Parts {
+interface SaveParts {
   record: Model;
   own: Stage;
   pointedAt: readonly BelongsToAutosave[];
@@ -298,21 +298,22 @@ interface Parts {
  * separately, as Rails does, by the association: the ones it points at before it, and the ones
  * built through it after it.
  */
-function assemble(parts: Parts): Ready {
+function assemble(parts: SaveParts): Ready {
   const { record, own } = parts;
-  const here = <T extends { association: ResolvedAssociation }>(each: T) =>
-    !each.association.crossesDatabases;
-  const first = parts.first.filter(here);
-  const autosaves = parts.autosaves.filter(here);
-  const children = parts.children.filter(here);
+  const isOnItsDatabase = <T extends { association: ResolvedAssociation }>(each: T) =>
+    !each.association.isCrossDatabase;
+  const first = parts.first.filter(isOnItsDatabase);
+  const autosaves = parts.autosaves.filter(isOnItsDatabase);
+  const children = parts.children.filter(isOnItsDatabase);
   let stages = withChildren(record, own, autosaves, children);
   if (first.length > 0) {
     const firstStages = combine(first.map(({ plan }) => plan.stages));
-    const known = belongsToKeysKnown(parts.pointedAt.filter(here));
+    const known = belongsToKeysKnown(parts.pointedAt.filter(isOnItsDatabase));
     stages = known ? combine([firstStages, stages]) : [...firstStages, ...stages];
   }
   const nested = [...first, ...children].map(({ plan }) => plan);
-  const elsewhere = (planned: readonly Planned[]) => planned.filter((each) => !here(each));
+  const elsewhere = (planned: readonly Planned[]) =>
+    planned.filter((each) => !isOnItsDatabase(each));
   return {
     status: "ready",
     // Every one on its database, the records it autosaves there included, so pinned together.
@@ -355,7 +356,7 @@ function builtElsewhere(
   autosaves: readonly Autosave[],
   planned: readonly Planned[],
 ): Stage[] {
-  const crossing = autosaves.filter(({ association }) => association.crossesDatabases);
+  const crossing = autosaves.filter(({ association }) => association.isCrossDatabase);
   const stages = crossing.flatMap(({ association }) => {
     const plans = planned
       .filter((each) => each.association === association)

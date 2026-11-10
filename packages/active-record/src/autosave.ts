@@ -114,7 +114,7 @@ export function savingGroups(record: Model): SavingGroup[] {
       ...pointedAt,
       ...linkedRecords(autosavesOf(each, found)),
     ]) {
-      visit(next, association.crossesDatabases ? startGroup(groups, association) : group);
+      visit(next, association.isCrossDatabase ? startGroup(groups, association) : group);
     }
   };
   visit(record, groups[0]!);
