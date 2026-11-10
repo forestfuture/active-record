@@ -1,17 +1,13 @@
 // A Batch's steps, and the free `batch()`: its one database pinned, before-callbacks, one atomic write, then after-callbacks.
-import { RecordNotSaved } from "./errors.ts";
-import {
-  prepareDestroy,
-  prepareSave,
-  refusalError,
-  recordsSaving,
-  type Claimed,
-} from "./lifecycle.ts";
+import { savingGroups } from "./autosave.ts";
+import { IncompatibleRelation, RecordNotSaved } from "./errors.ts";
+import { prepareDestroy, prepareSave, refusalError, stagesOf, type Claimed } from "./lifecycle.ts";
 import { RecordStatement, recordStatementParts } from "./record-statement.ts";
 import { linksOf, state } from "./record-state.ts";
 import { runAfter, writeAll, type PreparedWrite } from "./unit-of-work.ts";
 import { pinBefore, pinClaimed, type Executor } from "./executor.ts";
-import type { Model } from "./model.ts";
+import { modelOf, type Model } from "./model.ts";
+import { dependentsElsewhere } from "./dependents.ts";
 import { statementParts, type Statement, type WriteResult } from "./statement.ts";
 
 /** The Executor an entry was built on: its Relation's, or its record's. */
@@ -21,11 +17,32 @@ function executorOf(entry: BatchEntry): Executor {
     : entry[statementParts].executor;
 }
 
-/** The records a batch entry writes: a save's whole autosave graph, or a destroy's record. */
-function recordsOf(entry: BatchEntry): Model[] {
+/**
+ * The records a batch entry writes: a save's whole autosave graph, or a destroy's record. One
+ * that would also write on another database (#228) is refused, since a batch writes one.
+ */
+function recordsOf(entry: BatchEntry, needs: string): Model[] {
   if (!(entry instanceof RecordStatement)) return [];
   const { record, kind } = entry[recordStatementParts];
-  return kind === "save" ? recordsSaving(record) : [record];
+  const { name } = modelOf(record);
+  if (kind === "destroy") {
+    const [elsewhere] = dependentsElsewhere(modelOf(record));
+    if (elsewhere !== undefined) {
+      throw new IncompatibleRelation(
+        `${needs} on one database, and destroying this ${name} writes its dependent ` +
+          `${elsewhere.label}, on another database; destroy it outside the batch`,
+      );
+    }
+    return [record];
+  }
+  const [own, elsewhere] = savingGroups(record);
+  if (elsewhere !== undefined) {
+    throw new IncompatibleRelation(
+      `${needs} on one database, and saving this ${name} autosaves records through ` +
+        `${elsewhere.through!.label}, on another database; save it outside the batch`,
+    );
+  }
+  return own!.records;
 }
 
 /**
@@ -40,7 +57,7 @@ export async function runBatch<const T extends readonly BatchEntry[]>(
 ): Promise<BatchResults<T>> {
   const statements = entries.filter((entry) => !(entry instanceof RecordStatement));
   const all = [...handles, ...statements.map(executorOf)];
-  const records = entries.flatMap(recordsOf);
+  const records = entries.flatMap((entry) => recordsOf(entry, needs));
   if (all.length === 0 && records.length === 0) return [] as BatchResults<T>;
   const database = await pinBefore(linksOf(records), needs, all);
   // Each record is written once, even if listed twice or already saved by its owner.
@@ -109,11 +126,12 @@ async function recordEntry(statement: RecordStatement, claimed: Claimed): Promis
     ? prepareSave(record, claimed)
     : prepareDestroy(record, claimed));
   if (plan.status !== "ready") throw refusalError(record, plan, kind);
-  if (plan.stages.length > 1) {
+  const stages = stagesOf(plan);
+  if (stages.length > 1) {
     const { name } = record.constructor;
     throw new RecordNotSaved(
       `${name} can't be saved in a batch with the new records it autosaves: one of them needs a key D1 only generates when a record is written (the ${name}'s, or a new record it points at). Generate keys in code, or save it on its own`,
     );
   }
-  return { writes: () => plan.stages.flatMap((stage) => stage()), result: () => record };
+  return { writes: () => stages.flatMap((stage) => stage.writes()), result: () => record };
 }

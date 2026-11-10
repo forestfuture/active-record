@@ -70,10 +70,62 @@ export function belongsToAutosavesOf(owner: Model): BelongsToAutosave[] {
 export function unsavedBelongsTo(
   pointedAt: readonly BelongsToAutosave[],
   claimed: ReadonlySet<Model>,
-): Model[] {
-  return pointedAt
-    .map(({ record }) => record)
-    .filter((record) => record[state].isNew && !claimed.has(record));
+): Linked[] {
+  return pointedAt.filter(({ record }) => record[state].isNew && !claimed.has(record));
+}
+
+/** A record a save writes through one of its owner's associations. */
+export interface Linked {
+  association: ResolvedAssociation;
+  record: Model;
+}
+
+/** The records of `autosaves`, each with the association it was built through. */
+export function linkedRecords(autosaves: readonly Autosave[]): Linked[] {
+  return autosaves.flatMap(({ association, records }) =>
+    records.map((record) => ({ association, record })),
+  );
+}
+
+/**
+ * Records one save writes on one database: the saved record's own, or those an association to
+ * another database (`through`) reaches, with the records they autosave on theirs.
+ */
+export interface SavingGroup {
+  records: Model[];
+  through: ResolvedAssociation | undefined;
+}
+
+/**
+ * The records saving `record` would write, by database (#228): it, the new records it points at
+ * through belongsTo, and the new records built through its associations, at every level. A
+ * record reached through an association to another database starts a group of its own. Found
+ * without running any validation or callback, so a save can be checked before anything runs (#93).
+ */
+export function savingGroups(record: Model): SavingGroup[] {
+  const found = new Set<Model>();
+  const groups: SavingGroup[] = [{ records: [], through: undefined }];
+  const visit = (each: Model, group: SavingGroup): void => {
+    if (found.has(each)) return;
+    found.add(each);
+    group.records.push(each);
+    const pointedAt = unsavedBelongsTo(belongsToAutosavesOf(each), new Set());
+    for (const { association, record: next } of [
+      ...pointedAt,
+      ...linkedRecords(autosavesOf(each, found)),
+    ]) {
+      visit(next, association.crossesDatabases ? startGroup(groups, association) : group);
+    }
+  };
+  visit(record, groups[0]!);
+  return groups.filter(({ records }) => records.length > 0);
+}
+
+/** A new group of records, reached through `association`, added to `groups`. */
+function startGroup(groups: SavingGroup[], association: ResolvedAssociation): SavingGroup {
+  const group: SavingGroup = { records: [], through: association };
+  groups.push(group);
+  return group;
 }
 
 /** Whether every pointed-at record's key is known before it's written (generated in code). */

@@ -1,17 +1,27 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import {
+  batch,
   belongsTo,
   hasMany,
   hasOne,
+  IncompatibleRelation,
   Model,
+  RecordNotUnique,
   withDatabase,
 } from "../../../packages/active-record/src/index.ts";
-import { connect, d1 } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import {
+  connect,
+  d1,
+  type QueryEvent,
+} from "../../../packages/active-record/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
 
 // Level 1 reads the Worker's bindings from cloudflare:workers; here they're this test's two D1s.
 const workers: { env: Record<string, unknown> } = { env: {} };
 vi.mock("cloudflare:workers", () => workers);
+
+/** What the Models' callbacks ran, and where each write went, in order. */
+const log: string[] = [];
 
 /** An app's base class for the DB binding. */
 abstract class DbRecord extends Model {
@@ -31,6 +41,11 @@ class User extends DbRecord.define({
 
   entries = hasMany(Entry);
   badge = hasOne(Badge);
+
+  static {
+    this.beforeSave((user) => void log.push(`before save ${user.email}`));
+    this.afterSave((user) => void log.push(`after save ${user.email}`));
+  }
 }
 
 class Entry extends LogsRecord.define({
@@ -42,6 +57,12 @@ class Entry extends LogsRecord.define({
 
   user = belongsTo(User);
   notes = hasMany(Note);
+
+  static {
+    this.validates("message", { presence: true });
+    this.beforeSave((entry) => void log.push(`before save ${entry.message}`));
+    this.afterSave((entry) => void log.push(`after save ${entry.message}`));
+  }
 }
 
 class Badge extends LogsRecord.define({
@@ -95,11 +116,23 @@ beforeEach(async () => {
       binding.prepare("INSERT INTO notes (id, entry_id, body) VALUES (1, 1, ?)").bind(where),
     ]);
   }
+  log.length = 0;
 });
 
-/** `fn`, in a request with both databases. */
+/** Logs each write a database is sent, by the database's binding. */
+const writesTo =
+  (binding: string) =>
+  ({ sql }: QueryEvent): void => {
+    if (!sql.startsWith("SELECT")) log.push(`write ${binding}`);
+  };
+
+/** `fn`, in a request with both databases, each logging its writes. */
 function inRequest<R>(fn: () => Promise<R>): Promise<R> {
-  return withDatabase([connect(db), connect(logs)], fn);
+  const databases = [
+    connect(db, { onQuery: writesTo("DB") }),
+    connect(logs, { onQuery: writesTo("LOGS") }),
+  ];
+  return withDatabase(databases, fn);
 }
 
 describe("reading an association to another database", () => {
@@ -199,5 +232,125 @@ describe("writing through an association to another database", () => {
 
     expect(await rows(logs, "SELECT message FROM entries")).toEqual([{ message: "bulk" }]);
     expect(await rows(db, "SELECT message FROM entries")).toEqual([{ message: "DB" }]);
+  });
+});
+
+describe("autosaving records on another database", () => {
+  test("a hasMany's built records are written to their database", async () => {
+    const saved = await inRequest(async () => {
+      const user = User.build({ id: 2, email: "grace@DB" });
+      user.entries().build({ id: 2, message: "built" });
+      return user.save();
+    });
+
+    expect(saved).toBe(true);
+    expect(await rows(db, "SELECT id FROM users WHERE id = 2")).toEqual([{ id: 2 }]);
+    expect(await rows(logs, "SELECT user_id FROM entries WHERE id = 2")).toEqual([{ user_id: 2 }]);
+  });
+
+  test("a hasMany's built records take the key the database generates for the owner", async () => {
+    const id = await inRequest(async () => {
+      const user = User.build({ email: "grace@DB" });
+      user.entries().build({ id: 2, message: "built" });
+      await user.saveOrThrow();
+      return user.id;
+    });
+
+    expect(await rows(logs, "SELECT user_id FROM entries WHERE id = 2")).toEqual([{ user_id: id }]);
+  });
+
+  test("a hasOne's built record is written to its database", async () => {
+    await inRequest(async () => {
+      const user = User.build({ id: 2, email: "grace@DB" });
+      user.badge.build({ id: 2, label: "built" });
+      await user.saveOrThrow();
+    });
+
+    expect(await rows(logs, "SELECT user_id FROM badges WHERE id = 2")).toEqual([{ user_id: 2 }]);
+  });
+
+  test("a new record a belongsTo points at is written to its database first", async () => {
+    const id = await inRequest(async () => {
+      const entry = Entry.build({ id: 2, message: "built" });
+      const user = entry.user.build({ email: "grace@DB" });
+      await entry.saveOrThrow();
+      return user.id;
+    });
+
+    expect(await rows(db, `SELECT email FROM users WHERE id = ${id}`)).toEqual([
+      { email: "grace@DB" },
+    ]);
+    expect(await rows(logs, "SELECT user_id FROM entries WHERE id = 2")).toEqual([{ user_id: id }]);
+  });
+
+  test("the owner's database is written first, after every before-callback", async () => {
+    await inRequest(async () => {
+      const user = User.build({ id: 2, email: "grace@DB" });
+      user.entries().build({ id: 2, message: "built" });
+      await user.saveOrThrow();
+    });
+
+    expect(log).toEqual([
+      "before save grace@DB",
+      "before save built",
+      "write DB",
+      "write LOGS",
+      "after save grace@DB",
+      "after save built",
+    ]);
+  });
+
+  test("an invalid record on another database makes the owner invalid, writing nothing", async () => {
+    const saved = await inRequest(async () => {
+      const user = User.build({ id: 2, email: "grace@DB" });
+      user.entries().build({ id: 2, message: "" });
+      return user.save();
+    });
+
+    expect(saved).toBe(false);
+    expect(await rows(db, "SELECT id FROM users WHERE id = 2")).toEqual([]);
+    expect(await rows(logs, "SELECT id FROM entries WHERE id = 2")).toEqual([]);
+  });
+
+  test("a write the other database refuses leaves the owner saved and the record new", async () => {
+    const outcome = await inRequest(async () => {
+      const user = User.build({ id: 2, email: "grace@DB" });
+      const entry = user.entries().build({ id: 1, message: "clashes" });
+      const error = await user.save().catch((caught: unknown) => caught);
+      return { error, isNew: entry.isNewRecord() };
+    });
+
+    expect(outcome.error).toBeInstanceOf(RecordNotUnique);
+    expect(outcome.isNew).toBe(true);
+    expect(await rows(db, "SELECT id FROM users WHERE id = 2")).toEqual([{ id: 2 }]);
+  });
+});
+
+describe("a batch with records on another database", () => {
+  test("refuses a save that autosaves them, before any callback runs", async () => {
+    const saving = inRequest(async () => {
+      const user = User.build({ id: 2, email: "grace@DB" });
+      user.entries().build({ id: 2, message: "built" });
+      return batch([user.toSave()]);
+    });
+
+    await expect(saving).rejects.toThrow(
+      new IncompatibleRelation(
+        "batch() needs its statements and records on one database, and saving this User " +
+          "autosaves records through User.entries, on another database; save it outside the batch",
+      ),
+    );
+    expect(log).toEqual([]);
+  });
+
+  test("db.batch refuses such a save, writing nothing", async () => {
+    const saving = inRequest(async () => {
+      const user = User.build({ id: 2, email: "grace@DB" });
+      user.entries().build({ id: 2, message: "built" });
+      return connect(db).batch([user.toSave()]);
+    });
+
+    await expect(saving).rejects.toThrow(IncompatibleRelation);
+    expect(await rows(db, "SELECT id FROM users WHERE id = 2")).toEqual([]);
   });
 });
