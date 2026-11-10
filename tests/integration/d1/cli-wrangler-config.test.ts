@@ -121,4 +121,24 @@ describe("a D1 database's wranglerConfig", () => {
       "No wrangler.jsonc, wrangler.json or wrangler.toml beside active-record.jsonc",
     );
   });
+
+  // init reads only the config beside the file, so it can't add these; the note says how.
+  test("notes the databases the config it names has that the file doesn't, with the line that adds them", async () => {
+    const root = project({
+      "app/active-record.jsonc": config({
+        DB: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
+      }),
+      "app/wrangler.jsonc": wrangler({ binding: "UNUSED", database_id: "z" }),
+      "worker/wrangler.jsonc": wrangler(
+        { binding: "DB", database_id: "x" },
+        { binding: "LOGS", database_id: "y" },
+      ),
+    });
+
+    const loaded = await loadDatabases(join(root, "app"));
+
+    expect(typeof loaded === "string" ? loaded : loaded.notes).toEqual([
+      '../worker/wrangler.jsonc has the D1 database LOGS, which active-record.jsonc doesn\'t name; add it with "wranglerConfig": "../worker/wrangler.jsonc"',
+    ]);
+  });
 });
