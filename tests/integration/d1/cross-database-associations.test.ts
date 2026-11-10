@@ -439,7 +439,7 @@ describe("a batch with records on another database", () => {
     expect(log).toEqual([]);
   });
 
-  test("db.batch refuses such a save, writing nothing", async () => {
+  test("db.batch refuses a save that autosaves them, writing nothing", async () => {
     const saving = inRequest(async () => {
       const user = User.build({ id: 2, email: "grace@DB" });
       user.entries().build({ id: 2, message: "built" });
@@ -465,10 +465,17 @@ describe("destroying an owner whose dependents are on another database", () => {
     expect(log).toEqual(["write LOGS", "write DB", "after destroy LOGS"]);
   });
 
-  test("deleteAll and delete delete them there", async () => {
+  test("deleteAll deletes them there", async () => {
     await inRequest(async () => (await Purging.find(1)).destroyOrThrow());
 
-    expect(await rows(logs, "SELECT id FROM entries UNION ALL SELECT id FROM badges")).toEqual([]);
+    expect(await rows(logs, "SELECT id FROM entries")).toEqual([]);
+    expect(await rows(db, "SELECT message FROM entries")).toEqual([{ message: "DB" }]);
+  });
+
+  test("a hasOne's delete deletes its record there", async () => {
+    await inRequest(async () => (await Purging.find(1)).destroyOrThrow());
+
+    expect(await rows(logs, "SELECT id FROM badges")).toEqual([]);
     expect(await rows(db, "SELECT label FROM badges")).toEqual([{ label: "DB" }]);
   });
 
