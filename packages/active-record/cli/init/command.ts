@@ -79,33 +79,33 @@ function source(link: string, { name, result }: Found): string {
 }
 
 /** The plugins whose databases `init` adds to a file: `--adapter`'s, or each one the file names. */
-async function addingWith(named: CliAdapter[], adapter: string | undefined) {
-  if (adapter === undefined) return named;
+async function pluginsAdding(inFile: CliAdapter[], adapter: string | undefined) {
+  if (adapter === undefined) return inFile;
   if (!adapterNames.includes(adapter))
     return `--adapter takes ${listed(adapterNames)}, not ${adapter}`;
   return [await pluginOf(adapter)];
 }
 
-/** A database init adds: its binding, its entry with its adapter first, and any note on it. */
+/** A database init adds: its binding and adapter, its entry as the plugin wrote it, and any note on it. */
 interface Added {
   binding: string;
+  adapter: string;
   entry: Record<string, unknown>;
   note?: string;
 }
 
 /**
- * The databases `plugins` find in `dir` that the file doesn't name (`named`), each plugin writing
- * what it can when `--adapter` chose it; or why one can't be read.
+ * The databases `plugins` find in `dir` that the file's `databases` (`inFile`) don't name, each
+ * plugin writing what it can when `--adapter` chose it; or why one can't be read.
  */
-function missingFrom(dir: string, plugins: CliAdapter[], named: object, chosen: boolean) {
+function missingFrom(dir: string, plugins: CliAdapter[], inFile: object, chosen: boolean) {
   const added: Added[] = [];
   for (const plugin of plugins) {
     const found = plugin.init(dir, chosen);
     if (typeof found === "string") return found;
     for (const [binding, entry] of Object.entries(found?.databases ?? {})) {
-      if (Object.hasOwn(named, binding)) continue;
-      const note = found?.notes?.[binding];
-      added.push({ binding, entry: { adapter: plugin.name, ...entry }, note });
+      if (Object.hasOwn(inFile, binding)) continue;
+      added.push({ binding, adapter: plugin.name, entry, note: found?.notes?.[binding] });
     }
   }
   return added;
@@ -117,11 +117,11 @@ function addedLine(name: string, added: readonly Added[]): string {
     added.map((each) => each.binding),
     "and",
   );
-  const adapters = new Set(added.map((each) => each.entry.adapter));
+  const adapters = new Set(added.map((each) => each.adapter));
   const which =
     adapters.size === 1
-      ? `on ${[...adapters][0] as string}`
-      : added.map((each) => `${each.binding} on ${each.entry.adapter as string}`).join(", ");
+      ? `on ${added[0]!.adapter}`
+      : added.map((each) => `${each.binding} on ${each.adapter}`).join(", ");
   return `Added ${bindings} to ${name} (${which})`;
 }
 
@@ -134,17 +134,17 @@ async function planAdding(cwd: string, path: string, options: InitOptions): Prom
   const name = shown(cwd, path);
   const adapters = await loadAdapters(cwd, options.config);
   if (typeof adapters === "string") return printing([adapters], 1);
-  const plugins = await addingWith(adapters.plugins, options.adapter);
+  const plugins = await pluginsAdding(adapters.plugins, options.adapter);
   if (typeof plugins === "string") return printing([plugins], 1);
   const text = readFileSync(path, "utf8");
-  const named = (parseJsonc(text) as { databases: Record<string, unknown> }).databases;
-  const added = missingFrom(dirname(path), plugins, named, options.adapter !== undefined);
+  const inFile = (parseJsonc(text) as { databases: Record<string, unknown> }).databases;
+  const added = missingFrom(dirname(path), plugins, inFile, options.adapter !== undefined);
   if (typeof added === "string") return printing([added], 1);
   if (added.length === 0)
     return printing([`${name} names every database init finds; it wrote nothing`]);
   const source = withEntries(
     text,
-    added.map((each) => [each.binding, each.entry] as const),
+    added.map(({ binding, adapter, entry }) => [binding, { adapter, ...entry }] as const),
   );
   if (source === undefined) return printing([`${name}'s databases couldn't be found to add to`], 1);
   const notes = added.flatMap((each) => each.note ?? []).map((note) => printed(`Note: ${note}`));
