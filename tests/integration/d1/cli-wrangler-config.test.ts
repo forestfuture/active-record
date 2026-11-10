@@ -6,6 +6,8 @@ import {
   chosenDatabase,
   loadDatabases,
 } from "../../../packages/active-record/cli/project/databases.ts";
+import { openLocalBinding } from "../../../packages/active-record/cli/adapters/d1/binding.ts";
+import { migrate } from "../../../packages/active-record/cli/adapters/d1/migrate.ts";
 import { cli } from "../../../packages/active-record/cli/adapters/d1/plugin.ts";
 import { runMigrate } from "../../../packages/active-record/cli/migrate/command.ts";
 import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
@@ -243,4 +245,73 @@ describe("migrate and the console, with a database's wranglerConfig", () => {
     expect(existsSync(join(root, "worker/.wrangler/state/v3/d1"))).toBe(true);
     expect(existsSync(join(app, ".wrangler"))).toBe(false);
   }, 120_000);
+});
+
+/** A stand-in wrangler in `dir`'s node_modules: its entry, and its command line script, run as given. */
+function fakeWrangler(dir: string, entry: string, script: string): void {
+  const files = {
+    "package.json":
+      '{ "name": "wrangler", "type": "module", "exports": { ".": "./index.js", "./package.json": "./package.json" } }',
+    "index.js": entry,
+    "bin/wrangler.js": script,
+  };
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(dirname(join(dir, "node_modules/wrangler", path)), { recursive: true });
+    writeFileSync(join(dir, "node_modules/wrangler", path), text);
+  }
+}
+
+// In a monorepo, the Worker's package has wrangler, and the app's needn't (#306).
+describe("the wrangler a database's wranglerConfig uses", () => {
+  /** An app and a Worker outside the repo, so only the wranglers they hold are in reach. */
+  function monorepo() {
+    const root = scratch("wrangler-config-monorepo-", true);
+    mkdirSync(join(root, "app"));
+    mkdirSync(join(root, "worker"));
+    writeFileSync(join(root, "worker/wrangler.jsonc"), wrangler({ binding: "DB" }));
+    const chosen = {
+      binding: "DB",
+      entry: { binding: "DB" },
+      configFile: join(root, "worker/wrangler.jsonc"),
+      migrationsDir: join(root, "worker/migrations"),
+    };
+    return { app: join(root, "app"), worker: join(root, "worker"), chosen };
+  }
+
+  test("is the one beside that config, before the project's own", async () => {
+    const { app, worker, chosen } = monorepo();
+    fakeWrangler(app, 'throw new Error("the app\'s");', "");
+    fakeWrangler(worker, 'throw new Error("the Worker\'s");', "");
+
+    expect(await openLocalBinding(app, chosen)).toBe("Couldn't load wrangler: the Worker's");
+  });
+
+  test("applies migrations when only the Worker has it", async () => {
+    const { app, worker, chosen } = monorepo();
+    fakeWrangler(
+      worker,
+      "",
+      'console.log("the Worker\'s wrangler", process.argv.slice(2).join(" "));',
+    );
+    let printed = "";
+
+    const code = await migrate(
+      app,
+      chosen,
+      { remote: false },
+      { output: (text) => (printed += text) },
+    );
+
+    expect(code).toBe(0);
+    expect(printed).toBe(
+      `the Worker's wrangler d1 migrations apply DB --local --config ${chosen.configFile}\n`,
+    );
+  });
+
+  test("is the project's own when the Worker's folder has none", async () => {
+    const { app, chosen } = monorepo();
+    fakeWrangler(app, 'throw new Error("the app\'s");', "");
+
+    expect(await openLocalBinding(app, chosen)).toBe("Couldn't load wrangler: the app's");
+  });
 });
