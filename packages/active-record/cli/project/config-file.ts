@@ -11,12 +11,13 @@ export function parseJsonc(text: string): unknown {
   const kept = new KeptText();
   for (let index = 0; index < text.length; index++) {
     const char = text[index]!;
+    const comment = char === "/" ? endOfComment(text, index) : undefined;
     if (char === '"') {
       const end = endOfString(text, index);
       kept.add(text.slice(index, end));
       index = end - 1;
-    } else if (text.startsWith("//", index) || text.startsWith("/*", index)) {
-      index = endOfComment(text, index) - 1;
+    } else if (comment !== undefined) {
+      index = comment - 1;
     } else kept.add(char);
   }
   return JSON.parse(kept.text());
@@ -42,12 +43,13 @@ class KeptText {
   }
 }
 
-/** Just past the comment starting at `start`, keeping a line comment's newline. */
-function endOfComment(text: string, start: number): number {
-  if (text[start + 1] === "/") {
+/** Just past the comment starting at `start`, keeping a line comment's newline; undefined when none does. */
+function endOfComment(text: string, start: number): number | undefined {
+  if (text.startsWith("//", start)) {
     const newline = text.indexOf("\n", start);
     return newline < 0 ? text.length : newline;
   }
+  if (!text.startsWith("/*", start)) return undefined;
   const end = text.indexOf("*/", start + 2);
   if (end < 0) throw new SyntaxError("Unterminated /* comment");
   return end + 2;
