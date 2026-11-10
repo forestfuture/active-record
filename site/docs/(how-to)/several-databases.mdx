@@ -1,9 +1,9 @@
 ---
 title: Multiple databases
-description: "Use two or more D1 databases from one Worker: a schema and base class for each binding, queries and writes on each, a Session for each, tests with both, and the console on one."
+description: "Use two or more databases from one Worker, on D1 or on D1 and Postgres: a schema and base class for each binding, queries and writes on each, a Session for each, tests with both, the console on one, and databases on different adapters."
 ---
 
-A Worker can bind several D1 databases. Each gets its own schema file and base class, and each Model queries the database its base class names.
+A Worker can bind several D1 databases, or a D1 database and a Postgres one. Each gets its own schema file and base class, and each Model queries the database its base class names.
 
 ## Binding the databases
 
@@ -142,3 +142,45 @@ Name the binding with `--database`:
 ```sh
 npx active-record console --database LOGS
 ```
+
+## Using databases on different adapters
+
+One project can keep some of its tables on D1 and others on Postgres. Name each database’s adapter in `active-record.jsonc`, and give the Postgres one its own migrations folder:
+
+```jsonc active-record.jsonc
+{
+  "databases": {
+    "DB": { "adapter": "d1" },
+    "HYPERDRIVE": {
+      "adapter": "postgresql",
+      "migrationsDir": "pg-migrations",
+      "url": "postgres://localhost/shop_development",
+    },
+  },
+}
+```
+
+Both adapters read `migrations/` by default. Each database needs a folder of its own, since D1 and Postgres write their SQL differently, so the command refuses two on different adapters that share one.
+
+To add your Hyperdrive bindings to a file that names only D1 databases, run `init` with the adapter:
+
+```sh
+npx active-record init --adapter postgresql
+```
+
+`npx active-record schema` reads each database with its own adapter. `src/db/DB.ts` imports `d1`, and `src/db/HYPERDRIVE.ts` imports `postgresql`. Each base class holds its database’s schema, so its Models query that database:
+
+```ts
+import { HyperdriveRecord } from "./hyperdrive-record";
+
+export class Order extends HyperdriveRecord {}
+```
+
+Name the database with `--database` for the generators, `migrate`, and the console:
+
+```sh
+npx active-record g model Order total:integer --database HYPERDRIVE
+npx active-record migrate --database HYPERDRIVE
+```
+
+Install `pg` and PGlite first, as [PostgreSQL](./postgresql) describes.
