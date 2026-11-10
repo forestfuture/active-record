@@ -62,7 +62,7 @@ describe("a D1 database's wranglerConfig", () => {
     });
   });
 
-  test("is refused when it isn't a string, isn't there, is a folder, or doesn't have the binding", async () => {
+  test("is refused when it isn't a string, isn't there, or is a folder", async () => {
     const refusal = async (wranglerConfig: unknown) => {
       const root = project({
         "app/active-record.jsonc": config({ DB: { adapter: "d1", wranglerConfig } }),
@@ -80,7 +80,21 @@ describe("a D1 database's wranglerConfig", () => {
     expect(await refusal("../worker")).toBe(
       "active-record.jsonc: databases.DB.wranglerConfig names ../worker, which is a folder; name its wrangler.jsonc, wrangler.json or wrangler.toml",
     );
-    expect(await refusal("../worker/wrangler.jsonc")).toBe(
+    // An empty path is the file's own folder, which a message names as `.`.
+    expect(await refusal("")).toBe(
+      "active-record.jsonc: databases.DB.wranglerConfig names ., which is a folder; name its wrangler.jsonc, wrangler.json or wrangler.toml",
+    );
+  });
+
+  test("is refused when that config doesn't have the database's binding, naming its path", async () => {
+    const root = project({
+      "app/active-record.jsonc": config({
+        DB: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
+      }),
+      "worker/wrangler.jsonc": wrangler({ binding: "LOGS", database_id: "x" }),
+    });
+
+    expect(await chosen(join(root, "app"))).toBe(
       "active-record.jsonc names DB, which isn't in ../worker/wrangler.jsonc's d1_databases",
     );
   });
