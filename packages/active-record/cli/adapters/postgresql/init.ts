@@ -44,10 +44,12 @@ export function init(dir: string, named: boolean): InitResult {
     );
     return {
       databases: Object.fromEntries(made.map(([binding, { entry }]) => [binding, entry])),
-      notes: made.flatMap(([, { note }]) => (note === undefined ? [] : [note])),
+      notes: Object.fromEntries(
+        made.flatMap(([binding, { note }]) => (note === undefined ? [] : [[binding, note]])),
+      ),
     };
   }
   if (!named) return undefined;
   const { entry, note } = guessed(dir, "DATABASE_URL");
-  return { databases: { DATABASE_URL: entry }, notes: [note] };
+  return { databases: { DATABASE_URL: entry }, notes: { DATABASE_URL: note } };
 }

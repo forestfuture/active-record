@@ -133,7 +133,11 @@ export interface OpenBinding {
  * project points to this adapter and `--adapter` didn't name it.
  */
 export type InitResult =
-  | { databases: Record<string, Record<string, unknown>>; notes?: string[] }
+  | {
+      databases: Record<string, Record<string, unknown>>;
+      /** A note for a person about a database, such as a guess it holds, by its binding. */
+      notes?: Record<string, string>;
+    }
   | string
   | undefined;
 
