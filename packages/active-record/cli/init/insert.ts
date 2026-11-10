@@ -82,16 +82,20 @@ function isDatabasesKey(tokens: readonly Token[], index: number): boolean {
   );
 }
 
-/** The indexes of the top-level `databases` object's `{` and `}`, if the text has one. */
+/**
+ * The indexes of the top-level `databases` object's `{` and `}`, if the text has one: the last,
+ * when it has two, as JSON.parse (and so the command) reads it.
+ */
 function databasesObject(tokens: readonly Token[]): { open: number; close: number } | undefined {
   let depth = 0;
+  let found: { open: number; close: number } | undefined;
   for (let index = 0; index < tokens.length; index++) {
     depth += depthChange(tokens[index]!);
     if (depth === 1 && isDatabasesKey(tokens, index)) {
-      return { open: index + 2, close: closing(tokens, index + 2) };
+      found = { open: index + 2, close: closing(tokens, index + 2) };
     }
   }
-  return undefined;
+  return found;
 }
 
 /** The whitespace a line starts with, for the line holding `at`. */
@@ -102,14 +106,18 @@ function indentAt(text: string, at: number): string {
 
 /** Just past the end of `at`'s line when only space and a `//` comment follow it there, or `at`. */
 function endOfLine(text: string, at: number): number {
-  const end = text.indexOf("\n", at);
-  const rest = text.slice(at, end < 0 ? text.length : end);
-  return /^\s*(\/\/.*)?$/.test(rest) ? (end < 0 ? text.length : end) : at;
+  const found = text.indexOf("\n", at);
+  const end = found < 0 ? text.length : found;
+  // A `\r` before the newline is the line's end too, so the entries go before it.
+  const lineEnd = text[end - 1] === "\r" ? end - 1 : end;
+  const rest = text.slice(at, lineEnd);
+  return /^[ \t]*(\/\*[^]*?\*\/[ \t]*)*(\/\/.*)?$/.test(rest) ? lineEnd : at;
 }
 
 /**
  * The text with `entries` added at the end of its top-level `databases` object, each on a line of
- * its own, as the entries before it are indented, with a trailing comma if the last one had one;
+ * its own (with the file's line endings), as the entries before it are indented, with a trailing
+ * comma if the last one had one;
  * undefined when the text has no such object with an entry in it.
  */
 export function withEntries(
@@ -122,11 +130,12 @@ export function withEntries(
   const last = tokens[object.close - 1]!;
   const trailing = last.value === "," && !last.string;
   const indent = indentAt(text, tokens[object.open + 1]!.start);
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
   const lines = entries.map(([key, value]) => {
     const fields = Object.entries(value).map(
       ([name, field]) => `${JSON.stringify(name)}: ${JSON.stringify(field)}`,
     );
-    return `\n${indent}${JSON.stringify(key)}: { ${fields.join(", ")} }`;
+    return `${eol}${indent}${JSON.stringify(key)}: { ${fields.join(", ")} }`;
   });
   const after = endOfLine(text, last.end);
   const added = trailing ? lines.map((line) => `${line},`).join("") : lines.join(",");
