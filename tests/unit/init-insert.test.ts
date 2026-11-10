@@ -24,6 +24,16 @@ describe("adding entries to active-record.jsonc's text", () => {
     );
   });
 
+  // A line of many comments is read once through, never retried (CodeQL: inefficient regex).
+  test("a long run of comments after the last entry takes no time", () => {
+    const comments = `/*${"*//*".repeat(20_000)}`;
+    const text = `{ "databases": { "DB": { "adapter": "d1" } ${comments}\n} }`;
+    const started = performance.now();
+
+    expect(withEntries(text, logs)).toContain('"LOGS": { "adapter": "d1" }');
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
   // JSON.parse, and so the command, reads the last of two keys with one name.
   test("with databases twice, the entries go in the last, which the command reads", () => {
     const text =
