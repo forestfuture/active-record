@@ -1,30 +1,41 @@
-// What destroying a record does to its `dependent` associations, planned before the DELETE.
+// What destroying a record does to its `dependent` associations, planned before the DELETE: on its database, or as separate writes on another's.
 import { associationsOf } from "./association-fields.ts";
-import type { CompiledSql } from "./compiler.ts";
 import { DeleteRestriction } from "./errors.ts";
 import { addFailure } from "./errors-collection.ts";
 import { humanAttributeName } from "./error-messages.ts";
-import { prepareDestroy, refusalError, type Claimed } from "./lifecycle.ts";
-import { modelOf, type Model } from "./model.ts";
+import { prepareDestroy, refusalError, stagesOf, type Claimed } from "./lifecycle.ts";
+import { modelOf, type Model, type ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { Scoped } from "./relation.ts";
 import { statementParts, type Statement } from "./statement.ts";
 import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
-import { statementWrite, type PreparedWrite } from "./unit-of-work.ts";
+import { combine, statementWrite, type Stage } from "./unit-of-work.ts";
 
 /**
- * What an owner's `dependent:` associations add to its destroy (built when its batch is), or
- * why they refuse it.
+ * What an owner's `dependent:` associations add to its destroy, or why they refuse it: the
+ * writes on its database, for its batch (`here`), and those on other databases (#228), written
+ * there on their own before it (`elsewhere`).
  */
-export type DependentsPlan =
-  | { status: "ready"; writes: () => PreparedWrite[] }
-  | { status: "restricted"; reason: string };
+export type DependentsPlan = Dependents | { status: "restricted"; reason: string };
+
+interface Dependents {
+  status: "ready";
+  here: Stage;
+  elsewhere: Stage[];
+}
+
+/** A destroy with no dependents to write: a new record's. */
+export const noDependents: Dependents = {
+  status: "ready",
+  here: { records: [], handles: [], writes: () => [] },
+  elsewhere: [],
+};
 
 /**
  * Prepares the owner's `dependent:` strategies, in the contract's order: restrictions first, so
  * a restricted owner touches nothing; then each `destroy` record's own prepared destroy (its
  * callbacks and dependents); then the `deleteAll`/`delete`/`nullify` statements. The caller
- * writes all of it in one batch with the owner's DELETE.
+ * writes those on its database in one batch with the owner's DELETE, and the others before it.
  */
 export async function prepareDependents(owner: Model, claimed: Claimed): Promise<DependentsPlan> {
   const model = modelOf(owner);
@@ -35,15 +46,30 @@ export async function prepareDependents(owner: Model, claimed: Claimed): Promise
     const reason = await checkRestriction(owner, association);
     if (reason !== undefined) return { status: "restricted", reason };
   }
-  const stages: (() => PreparedWrite[])[] = [];
+  const here: Stage[] = [];
+  const elsewhere: Stage[] = [];
   for (const association of dependencies) {
-    stages.push(...(await destroyRecords(owner, association, claimed)));
+    const destroyed = await destroyRecords(owner, association, claimed);
+    here.push(...destroyed.here);
+    elsewhere.push(...destroyed.elsewhere);
   }
-  const statements = dependencies.flatMap((association) => statementFor(owner, association));
-  return {
-    status: "ready",
-    writes: () => [...stages.flatMap((stage) => stage()), statementWrite(statements)],
-  };
+  for (const association of dependencies) {
+    const statement = statementFor(owner, association);
+    if (statement !== undefined) (association.crossesDatabases ? elsewhere : here).push(statement);
+  }
+  const [together = noDependents.here] = combine(here.map((stage) => [stage]));
+  return { status: "ready", here: together, elsewhere };
+}
+
+/**
+ * `model`'s dependent associations to another database that write when an owner is destroyed:
+ * every strategy but a restriction, which only reads.
+ */
+export function dependentsElsewhere(model: ModelClass): ResolvedAssociation[] {
+  return [...associationsOf(model)]
+    .filter(([, { dependent }]) => dependent !== undefined && !dependent.startsWith("restrict"))
+    .map(([name]) => resolveAssociation(model, name))
+    .filter((association) => association.crossesDatabases);
 }
 
 /** The association's records for this owner (a hasOne's first one only), with its scope. */
@@ -74,26 +100,32 @@ async function checkRestriction(
 }
 
 /**
- * `destroy`: each record's prepared destroy, callbacks and dependents included. A record that
- * refuses stops the owner's destroy before anything is written.
+ * `destroy`: each record's prepared destroy, callbacks and dependents included: in the owner's
+ * batch (`here`), or for an association to another database, on its own before it. A record
+ * that refuses stops the owner's destroy before anything is written.
  */
 async function destroyRecords(
   owner: Model,
   association: ResolvedAssociation,
   claimed: Claimed,
-): Promise<(() => PreparedWrite[])[]> {
-  if (association.definition.dependent !== "destroy") return [];
-  const stages: (() => PreparedWrite[])[] = [];
+): Promise<{ here: Stage[]; elsewhere: Stage[] }> {
+  const destroyed = { here: [] as Stage[], elsewhere: [] as Stage[] };
+  if (association.definition.dependent !== "destroy") return destroyed;
   for (const record of await recordsOf(owner, association).toArray()) {
     const plan = await prepareDestroy(record, claimed);
     if (plan.status !== "ready") throw refusalError(record, plan, "destroy");
-    stages.push(...plan.stages);
+    if (association.crossesDatabases) {
+      destroyed.elsewhere.push(...stagesOf(plan));
+    } else {
+      destroyed.here.push(...plan.stages);
+      destroyed.elsewhere.push(...plan.before);
+    }
   }
-  return stages;
+  return destroyed;
 }
 
-/** The statement for `deleteAll`, `delete` or `nullify`, if that's the strategy. */
-function statementFor(owner: Model, association: ResolvedAssociation): CompiledSql[] {
+/** The stage for `deleteAll`, `delete` or `nullify`'s statement, if that's the strategy. */
+function statementFor(owner: Model, association: ResolvedAssociation): Stage | undefined {
   const { dependent, foreignKey } = association.definition;
   let statement: Statement;
   if (dependent === "deleteAll" || dependent === "delete") {
@@ -102,7 +134,8 @@ function statementFor(owner: Model, association: ResolvedAssociation): CompiledS
     // The foreign key was checked as a target attribute when the Model was prepared.
     statement = recordsOf(owner, association).toUpdateAll({ [foreignKey]: null } as never);
   } else {
-    return [];
+    return undefined;
   }
-  return [statement[statementParts].query];
+  const { executor, query } = statement[statementParts];
+  return { records: [], handles: [executor], writes: () => [statementWrite([query])] };
 }

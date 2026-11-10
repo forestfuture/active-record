@@ -5,13 +5,17 @@ import {
   autosavesOf,
   linkBelongsTo,
   linkRecords,
+  linkedRecords,
   ownerKeysKnown,
   belongsToKeysKnown,
   belongsToAutosavesOf,
+  savingGroups,
   unsavedBelongsTo,
   type Autosave,
+  type BelongsToAutosave,
+  type Linked,
 } from "./autosave.ts";
-import { prepareDependents } from "./dependents.ts";
+import { noDependents, prepareDependents } from "./dependents.ts";
 import {
   AbortAfterPersistence,
   CallbackAbort,
@@ -21,7 +25,7 @@ import {
   RecordNotSaved,
 } from "./errors.ts";
 import { clearErrors } from "./errors-collection.ts";
-import { type Executor, pinBefore, pinClaimed } from "./executor.ts";
+import { pinBefore } from "./executor.ts";
 import {
   declared,
   type AfterCallbackKind,
@@ -31,9 +35,16 @@ import {
 import { modelOf, type Model } from "./model.ts";
 import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
+import type { ResolvedAssociation } from "./resolved-association.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
-import { runAfter, writeAll, type PreparedWrite } from "./unit-of-work.ts";
+import {
+  afterLinking,
+  combine,
+  runStages,
+  type PreparedWrite,
+  type Stage,
+} from "./unit-of-work.ts";
 import { runValidations, type UniquenessOptions } from "./validations.ts";
 
 /**
@@ -122,17 +133,27 @@ async function validation(record: Model, claimed: Claimed): Promise<Validity> {
   return recordState.errors.isEmpty() ? "valid" : "invalid";
 }
 
-/** One batch of a plan: its writes, built when it runs so foreign keys can be linked first. */
-type Stage = () => PreparedWrite[];
-
 /**
  * A prepared save or destroy, ready to write: stages written one after another, each as one
- * atomic batch. There's more than one only when autosaved records need a key D1 generates for
- * their new owner, so they can't be written in the same batch.
+ * atomic batch. Its own `stages` are on its record's database, and there's more than one only
+ * when autosaved records need a key D1 generates for their new owner, so they can't be written
+ * in the same batch. Records on another database (#228) are separate writes on theirs: `before`
+ * its stages (the new records it points at, its dependents), or `after` them (the records built
+ * through it).
  */
 export interface Ready {
   status: "ready";
   stages: Stage[];
+  before: Stage[];
+  after: Stage[];
+}
+
+/** A plan with nothing to write: its record is already part of the write. */
+const nothing: Ready = { status: "ready", stages: [], before: [], after: [] };
+
+/** A plan's stages in the order they're written. */
+export function stagesOf({ before, stages, after }: Ready): Stage[] {
+  return [...before, ...stages, ...after];
 }
 
 /** A save, prepared: every before-callback has run, autosaved records' included. */
@@ -194,37 +215,19 @@ async function validateAutosaves(record: Model, claimed: Claimed): Promise<void>
  * → afterCreate | afterUpdate → afterSave.
  */
 export async function saveLifecycle(record: Model): Promise<Outcome> {
-  const database = await pinBefore(linksOf(recordsSaving(record)), "save() needs its records");
-  const claimed: Claimed = new Set();
-  const plan = await prepareSave(record, claimed);
+  const needs = "save() needs its records";
+  // Each database's records pinned to it before anything runs (#93), and each one's again
+  // before anything is written, with any a callback added.
+  for (const { records } of savingGroups(record)) await pinBefore(linksOf(records), needs);
+  const plan = await prepareSave(record, new Set());
   if (plan.status !== "ready") return plan;
-  await pinClaimed(linksOf(claimed), database, "save() needs its records");
-  await runPlan(database, plan);
+  await runStages(stagesOf(plan), needs);
   return { status: "saved" };
-}
-
-/**
- * The records saving `record` would write: it, the new records it points at through belongsTo,
- * and the new records built through its associations, at every level. Found without running
- * any validation or callback, so a save can be checked before anything runs (#93).
- */
-export function recordsSaving(record: Model): Model[] {
-  const found = new Set<Model>();
-  const visit = (each: Model): void => {
-    if (found.has(each)) return;
-    found.add(each);
-    for (const { record: target } of belongsToAutosavesOf(each)) {
-      if (target[state].isNew) visit(target);
-    }
-    for (const { records } of autosavesOf(each, found)) records.forEach(visit);
-  };
-  visit(record);
-  return [...found];
 }
 
 /** Everything a save does before writing: validation and the before-callbacks. */
 export async function prepareSave(record: Model, claimed: Claimed): Promise<SavePlan> {
-  if (claimed.has(record)) return { status: "ready", stages: [] };
+  if (claimed.has(record)) return nothing;
   const recordState = record[state];
   recordState.requireLive("be saved");
   const validity = await validation(record, claimed);
@@ -242,41 +245,88 @@ async function prepareWrites(record: Model, claimed: Claimed): Promise<SavePlan>
   claimed.add(record);
   // New belongsTo records first: the record needs their keys (Rails' belongs_to autosave).
   const pointedAt = belongsToAutosavesOf(record);
-  const firstPlans = await prepareEach(unsavedBelongsTo(pointedAt, claimed), claimed);
-  if (!Array.isArray(firstPlans)) return firstPlans;
+  const first = await prepareEach(unsavedBelongsTo(pointedAt, claimed), claimed);
+  if (!Array.isArray(first)) return first;
   const isInsert = record[state].isNew;
   if (!(await beforeWrite(record, isInsert))) return aborted(record);
-  const own: Stage = () => {
-    linkBelongsTo(record, pointedAt);
-    return [saveWrite(record, isInsert)];
+  const own: Stage = {
+    records: [record],
+    handles: [],
+    writes: () => {
+      linkBelongsTo(record, pointedAt);
+      return [saveWrite(record, isInsert)];
+    },
   };
   const autosaves = autosavesOf(record, claimed);
-  const childPlans = await prepareEach(
-    autosaves.flatMap(({ records }) => records),
-    claimed,
-  );
-  if (!Array.isArray(childPlans)) return childPlans;
-  const stages = withChildren(record, own, autosaves, childPlans);
-  if (firstPlans.length === 0) return { status: "ready", stages };
-  const first = combine(firstPlans.map((plan) => plan.stages));
-  return {
-    status: "ready",
-    stages: belongsToKeysKnown(pointedAt) ? combine([first, stages]) : [...first, ...stages],
-  };
+  const children = await prepareEach(linkedRecords(autosaves), claimed);
+  if (!Array.isArray(children)) return children;
+  return assemble({ record, own, pointedAt, first, autosaves, children });
+}
+
+/** A record's prepared writes, and the association its owner writes it through. */
+interface Planned {
+  association: ResolvedAssociation;
+  plan: Ready;
 }
 
 /** Each record's prepared writes, in order; the first refusal stops them. */
 async function prepareEach(
-  records: readonly Model[],
+  records: readonly Linked[],
   claimed: Claimed,
-): Promise<Ready[] | Exclude<SavePlan, Ready>> {
-  const plans: Ready[] = [];
-  for (const each of records) {
-    const plan = await prepareWrites(each, claimed);
+): Promise<Planned[] | Exclude<SavePlan, Ready>> {
+  const plans: Planned[] = [];
+  for (const { association, record } of records) {
+    const plan = await prepareWrites(record, claimed);
     if (plan.status !== "ready") return plan;
-    plans.push(plan);
+    plans.push({ association, plan });
   }
   return plans;
+}
+
+/** What a record's save plan is made of: its own stage, and its autosaved records' plans. */
+interface Parts {
+  record: Model;
+  own: Stage;
+  pointedAt: readonly BelongsToAutosave[];
+  first: readonly Planned[];
+  autosaves: readonly Autosave[];
+  children: readonly Planned[];
+}
+
+/**
+ * A record's save plan. The records it autosaves on its database join its stages: the new
+ * records it points at in its batch when their keys are known, else in the one before; those
+ * built through it as `withChildren` says. Those on another database (#228) are written there
+ * separately, as Rails does, by the association: the ones it points at before it, and the ones
+ * built through it after it.
+ */
+function assemble(parts: Parts): Ready {
+  const { record, own } = parts;
+  const here = <T extends { association: ResolvedAssociation }>(each: T) =>
+    !each.association.crossesDatabases;
+  const first = parts.first.filter(here);
+  const autosaves = parts.autosaves.filter(here);
+  const children = parts.children.filter(here);
+  let stages = withChildren(record, own, autosaves, children);
+  if (first.length > 0) {
+    const firstStages = combine(first.map(({ plan }) => plan.stages));
+    const known = belongsToKeysKnown(parts.pointedAt.filter(here));
+    stages = known ? combine([firstStages, stages]) : [...firstStages, ...stages];
+  }
+  const nested = [...first, ...children].map(({ plan }) => plan);
+  const elsewhere = (planned: readonly Planned[]) => planned.filter((each) => !here(each));
+  return {
+    status: "ready",
+    stages,
+    before: [
+      ...elsewhere(parts.first).flatMap(({ plan }) => stagesOf(plan)),
+      ...nested.flatMap((plan) => plan.before),
+    ],
+    after: [
+      ...nested.flatMap((plan) => plan.after),
+      ...builtElsewhere(record, parts.autosaves, elsewhere(parts.children)),
+    ],
+  };
 }
 
 /**
@@ -288,42 +338,36 @@ function withChildren(
   owner: Model,
   own: Stage,
   autosaves: readonly Autosave[],
-  plans: readonly Ready[],
+  planned: readonly Planned[],
 ): Stage[] {
-  if (plans.length === 0) return [own];
-  const [first, ...rest] = combine(plans.map(({ stages }) => stages));
-  const linked: Stage[] = [() => (linkRecords(owner, autosaves), first!()), ...rest];
+  if (planned.length === 0) return [own];
+  const [first, ...rest] = combine(planned.map(({ plan }) => plan.stages));
+  const linked = [afterLinking(first!, () => linkRecords(owner, autosaves)), ...rest];
   return ownerKeysKnown(owner, autosaves) ? combine([[own], linked]) : [own, ...linked];
 }
 
-/** Stage lists merged position by position: every plan's first stage in one batch, and so on. */
-function combine(stageLists: readonly (readonly Stage[])[]): Stage[] {
-  const length = Math.max(...stageLists.map((stages) => stages.length));
-  return Array.from(
-    { length },
-    (_, index) => () => stageLists.flatMap((stages) => stages[index]?.() ?? []),
-  );
-}
-
 /**
- * Writes a plan's stages one after another, each as one atomic batch, then runs the written
- * writes' after-callbacks in order. If a later stage fails, the earlier ones stay written, so
- * their after-callbacks still run before the error is thrown.
+ * The stages of the records built through `owner`'s associations to other databases, written
+ * after it: each association's records together, on its database. They're linked to the owner's
+ * key, which it has by then, just before the first.
  */
-async function runPlan(executor: Executor, plan: Ready): Promise<void> {
-  const written: PreparedWrite[] = [];
-  let failure: { error: unknown } | undefined;
-  try {
-    for (const stage of plan.stages) {
-      const writes = stage();
-      await writeAll(executor, writes);
-      written.push(...writes);
-    }
-  } catch (error) {
-    failure = { error };
-  }
-  await runAfter(written);
-  if (failure !== undefined) throw failure.error;
+function builtElsewhere(
+  owner: Model,
+  autosaves: readonly Autosave[],
+  planned: readonly Planned[],
+): Stage[] {
+  const crossing = autosaves.filter(({ association }) => association.crossesDatabases);
+  const stages = crossing.flatMap(({ association }) => {
+    const plans = planned.filter((each) => each.association === association).map((p) => p.plan);
+    return [
+      ...plans.flatMap((plan) => plan.before),
+      ...combine(plans.map((plan) => plan.stages)),
+      ...plans.flatMap((plan) => plan.after),
+    ];
+  });
+  const [first, ...rest] = stages;
+  if (first === undefined) return [];
+  return [afterLinking(first, () => linkRecords(owner, crossing)), ...rest];
 }
 
 /**
@@ -388,38 +432,40 @@ function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
  * → mark destroyed → afterDestroy. Every write, dependents' included, is one atomic batch.
  */
 export async function destroyLifecycle(record: Model): Promise<DestroyOutcome> {
-  const database = await pinBefore(linksOf([record]), "destroy() needs its records");
-  const claimed: Claimed = new Set();
-  const plan = await prepareDestroy(record, claimed);
+  const needs = "destroy() needs its records";
+  await pinBefore(linksOf([record]), needs);
+  const plan = await prepareDestroy(record, new Set());
   if (plan.status !== "ready") return plan;
-  await pinClaimed(linksOf(claimed), database, "destroy() needs its records");
-  await runPlan(database, plan);
+  await runStages(stagesOf(plan), needs);
   return { status: "destroyed" };
 }
 
 /** Everything a destroy does before writing: beforeDestroy, then its dependents' plans. */
 export async function prepareDestroy(record: Model, claimed: Claimed): Promise<DestroyPlan> {
-  if (claimed.has(record)) return { status: "ready", stages: [] };
+  if (claimed.has(record)) return nothing;
   claimed.add(record);
   const recordState = record[state];
   recordState.requireLive("be destroyed");
   recordState.abortReason = undefined;
   if (!(await runAbortableCallbacks(record, "beforeDestroy"))) return aborted(record);
-  const dependents = recordState.isNew
-    ? { status: "ready" as const, writes: () => [] }
-    : await prepareDependents(record, claimed);
+  const dependents = recordState.isNew ? noDependents : await prepareDependents(record, claimed);
   if (dependents.status !== "ready") return dependents;
   const deletion = recordState.isNew ? [] : [compileDelete(modelOf(record), recordState.storedKey)];
-  // Dependents first: their records go before the owner's row, which they may point at.
-  const stage: Stage = () => [
-    ...dependents.writes(),
-    {
-      statements: deletion,
-      commit: () => recordState.markDestroyed(),
-      after: () => runAfterCallbacks(record, "afterDestroy", "destroy"),
-    },
-  ];
-  return { status: "ready", stages: [stage] };
+  const own: Stage = {
+    records: [record],
+    handles: [],
+    writes: () => [
+      {
+        statements: deletion,
+        commit: () => recordState.markDestroyed(),
+        after: () => runAfterCallbacks(record, "afterDestroy", "destroy"),
+      },
+    ],
+  };
+  // Dependents first: their records go before the owner's row, which they may point at. Those
+  // on another database (#228) are written there, before it.
+  const [stage] = combine([[dependents.here], [own]]);
+  return { status: "ready", stages: [stage!], before: dependents.elsewhere, after: [] };
 }
 
 /** Loads the record's row again by its stored primary key, discarding unsaved changes. */
