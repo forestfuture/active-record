@@ -47,8 +47,7 @@ describe("adding entries to active-record.jsonc's text", () => {
   // A binding comes from another tool's config, so any name is written as a key and read back.
   test("any binding and value read back as written, beside the entries already there", () => {
     const text = '{\n  // ours\n  "databases": {\n    "DB": { "adapter": "d1" },\n  },\n}\n';
-    // parseJsonc reads a comma before } or ] in a string wrongly, as it did before (#308).
-    const strings = fc.string().filter((value) => !/,\s*[}\]]/.test(value));
+    const strings = fc.string();
     const entries = fc.uniqueArray(
       fc.tuple(
         strings.filter((key) => key !== "DB"),
