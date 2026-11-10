@@ -111,7 +111,7 @@ function missingFrom(dir: string, plugins: CliAdapter[], named: object, chosen: 
   return added;
 }
 
-/** "Added LOGS to active-record.jsonc (on d1)", or with each one's adapter when they differ. */
+/** The line saying what init added, with the adapter, or each one's when they differ. */
 function addedLine(name: string, added: readonly Added[]): string {
   const bindings = listed(
     added.map((each) => each.binding),
