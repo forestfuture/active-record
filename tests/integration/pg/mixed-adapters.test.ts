@@ -24,7 +24,7 @@ const scratch = scratchDirs();
 const quiet = () => {};
 
 // The Postgres side of a project whose databases use different adapters (#305). Its D1 side, which
-// needs no server, is in tests/integration/cli-mixed-adapters.test.ts.
+// needs no server, is in tests/integration/d1/cli-mixed-adapters.test.ts.
 describe("migrate and console on a mixed project's Postgres database", pgliteTimeout, () => {
   let schema: PgSchema;
   let cwd: string;
