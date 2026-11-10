@@ -2,12 +2,12 @@
 import { dirname, join } from "node:path";
 import type { CliAdapter } from "@forestfuture/active-record/cli";
 import { openLocalBinding, openRemoteBinding } from "./binding.ts";
+import { readDatabases } from "./databases.ts";
 import { init } from "./init.ts";
 import { migrate } from "./migrate.ts";
 import { migration } from "./migration.ts";
 import { remoteTarget } from "./remote.ts";
 import { schemaOf } from "./schema.ts";
-import { readWranglerConfig } from "./wrangler.ts";
 
 /**
  * Why this Node can't read D1 migrations: no node:sqlite, unflagged from 22.13 and 23.4.
@@ -25,7 +25,7 @@ export const cli: CliAdapter = {
   patternSetting: "migrations_pattern",
   unsupported,
   init,
-  databases: readWranglerConfig,
+  databases: readDatabases,
   readSchema: async (migrations, options) => schemaOf(migrations, options),
   migration,
   remote: (chosen, use) => remoteTarget(chosen, use),

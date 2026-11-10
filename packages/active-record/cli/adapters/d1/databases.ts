@@ -1,0 +1,64 @@
+// The D1 databases a project's `active-record.jsonc` names, each read from its Wrangler config: the one beside the file, or the one its entry's `wranglerConfig` names (#306).
+import { basename, resolve } from "node:path";
+import {
+  listed,
+  type ConfigResult,
+  type DatabaseConfig,
+  type ProjectDatabases,
+} from "@forestfuture/active-record/cli";
+import { d1Entries, databaseOf, wranglerConfigIn } from "./wrangler.ts";
+
+/** A database's Wrangler config, or why it has none. */
+type Found = { file: string } | { error: string };
+
+/** The Wrangler config a database's entry names with `wranglerConfig`, or else the one beside the file. */
+function configOf(entry: Record<string, unknown>, project: ProjectDatabases): Found {
+  const named = entry.wranglerConfig;
+  if (typeof named === "string") return { file: resolve(project.dir, named) };
+  const file = wranglerConfigIn(project.dir);
+  if (file !== undefined) return { file };
+  const error = `No wrangler.jsonc, wrangler.json or wrangler.toml beside ${basename(project.file)}`;
+  return { error };
+}
+
+/**
+ * A note for the D1 databases the Wrangler config has that `active-record.jsonc` doesn't name, which
+ * the command leaves out, so one added to Wrangler's config alone isn't missed in silence (#301).
+ */
+function unnamed(entries: Record<string, unknown>[], project: ProjectDatabases, file: string) {
+  const left = entries
+    .map((entry) => String(entry.binding))
+    .filter((binding) => !Object.hasOwn(project.databases, binding));
+  if (left.length === 0) return [];
+  const one = left.length === 1;
+  const which = `the D1 database${one ? "" : "s"} ${listed(left, "and")}`;
+  return [
+    `${basename(file)} has ${which}, which ${basename(project.file)} doesn't name; run \`npx active-record init\` to add ${one ? "it" : "them"}`,
+  ];
+}
+
+/**
+ * The D1 databases a project's `active-record.jsonc` names, each as its Wrangler config declares
+ * it: the config its entry's `wranglerConfig` names, relative to the file, or else `wrangler.jsonc`,
+ * `wrangler.json` or `wrangler.toml` beside the file. Wrangler's other D1 databases are left out.
+ */
+export function readDatabases(project: ProjectDatabases): ConfigResult {
+  const name = basename(project.file);
+  const read = new Map<string, Record<string, unknown>[]>();
+  const databases: DatabaseConfig[] = [];
+  for (const [binding, settings] of Object.entries(project.databases)) {
+    const found = configOf(settings, project);
+    if ("error" in found) return { ok: false, error: found.error };
+    const entries = read.get(found.file) ?? d1Entries(found.file);
+    if (typeof entries === "string") return { ok: false, error: entries };
+    read.set(found.file, entries);
+    const entry = entries.find((each) => each.binding === binding);
+    if (entry === undefined) {
+      const error = `${name} names ${binding}, which isn't in ${basename(found.file)}'s d1_databases`;
+      return { ok: false, error };
+    }
+    databases.push({ ...databaseOf(entry), configFile: found.file });
+  }
+  const notes = [...read].flatMap(([file, entries]) => unnamed(entries, project, file));
+  return { ok: true, file: project.file, dir: project.dir, databases, notes };
+}
