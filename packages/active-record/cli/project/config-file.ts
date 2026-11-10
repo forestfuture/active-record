@@ -15,16 +15,32 @@ export function parseJsonc(text: string): unknown {
       const end = endOfString(text, index);
       out += text.slice(index, end);
       index = end - 1;
-    } else if (text.startsWith("//", index)) {
-      index = text.indexOf("\n", index) - 1;
-      if (index < 0) break;
-    } else if (text.startsWith("/*", index)) {
-      const end = text.indexOf("*/", index + 2);
-      if (end < 0) throw new SyntaxError("Unterminated /* comment");
-      index = end + 1;
-    } else out += char;
+    } else if (text.startsWith("//", index) || text.startsWith("/*", index)) {
+      index = endOfComment(text, index) - 1;
+    } else {
+      if (char === "}" || char === "]") out = withoutTrailingComma(out);
+      out += char;
+    }
   }
-  return JSON.parse(out.replace(/,(\s*[}\]])/g, "$1"));
+  return JSON.parse(out);
+}
+
+/** Just past the comment starting at `start`, keeping a line comment's newline. */
+function endOfComment(text: string, start: number): number {
+  if (text[start + 1] === "/") {
+    const newline = text.indexOf("\n", start);
+    return newline < 0 ? text.length : newline;
+  }
+  const end = text.indexOf("*/", start + 2);
+  if (end < 0) throw new SyntaxError("Unterminated /* comment");
+  return end + 2;
+}
+
+/** `out` without a comma that only whitespace follows, which a `}` or `]` is about to close. */
+function withoutTrailingComma(out: string): string {
+  let index = out.length - 1;
+  while (index >= 0 && /\s/.test(out[index]!)) index--;
+  return out[index] === "," ? out.slice(0, index) + out.slice(index + 1) : out;
 }
 
 /** Just past the string literal starting at `start`. */
