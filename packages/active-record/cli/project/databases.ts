@@ -1,4 +1,5 @@
 // The project's databases, each with its adapter's plugin, as the command loads them (#305), and choosing the one a command acts on: the only one, or the one `--database` names.
+import { existsSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import type { ChosenDatabase, CliAdapter, DatabaseConfig, ProjectDatabases } from "../adapter.ts";
 import { loadAdapters, type NamedAdapters } from "./adapters.ts";
@@ -50,6 +51,11 @@ function databasesOf({ project, plugins }: NamedAdapters): LoadedProject | strin
   return loaded;
 }
 
+/** A folder with its links followed, when it exists, so a linked folder is the one it links to. */
+function onDisk(folder: string): string {
+  return existsSync(folder) ? realpathSync.native(folder) : folder;
+}
+
 /**
  * Two databases on different adapters reading one migrations folder, as an error: one folder can't
  * hold each adapter's SQL, and the adapters may default to the same folder.
@@ -58,13 +64,13 @@ function sharedMigrations(cwd: string, databases: readonly LoadedDatabase[]): st
   const seen = new Map<string, LoadedDatabase>();
   for (const each of databases) {
     const folder = migrationsFolderOf(each);
-    const other = seen.get(folder);
+    const other = seen.get(onDisk(folder));
     if (other !== undefined && other.adapter.name !== each.adapter.name) {
       const names = `${other.database.binding} and ${each.database.binding}`;
       const adapters = `${other.adapter.name} and ${each.adapter.name}`;
       return `${names} both read ${shown(cwd, folder)}/, on different adapters (${adapters}); give each its own migrations folder`;
     }
-    seen.set(folder, each);
+    seen.set(onDisk(folder), each);
   }
   return undefined;
 }
