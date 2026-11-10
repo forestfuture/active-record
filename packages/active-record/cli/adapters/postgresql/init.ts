@@ -35,14 +35,23 @@ function guessedUrl(dir: string): string {
   return `postgres://localhost:5432/${name || "app"}_development`;
 }
 
+/** A database's entry with a guessed local `url`, and a note naming it, with why it's a guess. */
+function guessed(dir: string, binding: string, why = "") {
+  const url = guessedUrl(dir);
+  const note = `${binding}${why ? ` ${why}, so its` : "'s"} url is a guess (${url}); set it to your local database`;
+  return { entry: { url }, note };
+}
+
 /** A Hyperdrive binding's entry: its local connection string as the `url`, or a guess, noted. */
-function entryOf(dir: string, file: string, binding: Hyperdrive) {
+function entryOf(
+  dir: string,
+  file: string,
+  binding: Hyperdrive,
+): { entry: { url: string }; note?: string } {
   if (typeof binding.localConnectionString === "string") {
     return { entry: { url: binding.localConnectionString } };
   }
-  const url = guessedUrl(dir);
-  const note = `${binding.binding} has no localConnectionString in ${basename(file)}, so its url is a guess (${url}); set it to your local database`;
-  return { entry: { url }, note };
+  return guessed(dir, binding.binding, `has no localConnectionString in ${basename(file)}`);
 }
 
 /**
@@ -62,9 +71,6 @@ export function init(dir: string, named: boolean): InitResult {
     };
   }
   if (!named) return undefined;
-  const url = guessedUrl(dir);
-  return {
-    databases: { DATABASE_URL: { url } },
-    notes: [`its url is a guess (${url}); set it to your local database`],
-  };
+  const { entry, note } = guessed(dir, "DATABASE_URL");
+  return { databases: { DATABASE_URL: entry }, notes: [note] };
 }
