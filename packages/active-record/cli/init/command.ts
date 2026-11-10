@@ -83,7 +83,9 @@ async function pluginsAdding(inFile: CliAdapter[], adapter: string | undefined) 
   if (adapter === undefined) return inFile;
   if (!adapterNames.includes(adapter))
     return `--adapter takes ${listed(adapterNames)}, not ${adapter}`;
-  return [await pluginOf(adapter)];
+  // Once the file names it, every command loads it, so one this Node can't run adds nothing.
+  const plugin = await pluginOf(adapter);
+  return plugin.unsupported?.() ?? [plugin];
 }
 
 /** A database init adds: its binding and adapter, its entry as the plugin wrote it, and any note on it. */

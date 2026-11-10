@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { describe, expect, test } from "vite-plus/test";
+import { describe, expect, test, vi } from "vite-plus/test";
 import { runInit } from "../../../packages/active-record/cli/init/command.ts";
 import { loadDatabases } from "../../../packages/active-record/cli/project/adapters.ts";
 import { parseJsonc } from "../../../packages/active-record/cli/project/config-file.ts";
@@ -319,6 +319,33 @@ describe("active-record init", () => {
           CACHE: { adapter: "postgresql", url: "postgres://localhost/cache" },
         },
       });
+    });
+
+    // Once the file names it, every command would load it, and refuse.
+    test("--adapter naming an adapter this Node can't run adds nothing, saying why", async () => {
+      const builtin = process.getBuiltinModule.bind(process);
+      const spy = vi
+        .spyOn(process, "getBuiltinModule")
+        .mockImplementation(((id: string) =>
+          id === "node:sqlite" ? undefined : builtin(id)) as never);
+      const text =
+        '{ "databases": { "HYPERDRIVE": { "adapter": "postgresql", "url": "postgres://x/y" } } }';
+      const cwd = project({
+        "active-record.jsonc": text,
+        "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB" }] }),
+      });
+
+      try {
+        expect(await init(cwd, { adapter: "d1" })).toEqual({
+          code: 1,
+          output:
+            "The D1 adapter needs Node 22.13 or later (23.4 on Node 23), for node:sqlite " +
+            `(this is Node ${process.versions.node})`,
+        });
+      } finally {
+        spy.mockRestore();
+      }
+      expect(readFileSync(join(cwd, "active-record.jsonc"), "utf8")).toBe(text);
     });
 
     test("an --adapter that isn't one says which there are", async () => {
