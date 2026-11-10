@@ -2,7 +2,7 @@
 // One per database. Commands plan from a snapshot, so what they decide is testable without a
 // folder on disk (#95).
 import { existsSync, readFileSync, statSync } from "node:fs";
-import type { LoadedProject } from "./adapters.ts";
+import type { LoadedProject } from "./databases.ts";
 import { hasNestedMigrations, migrationsOf, type Migration } from "./migrations.ts";
 import { targetsOf, type ProjectOptions, type Target } from "./targets.ts";
 import { toolsWithFiles, type Tool } from "./tools.ts";
