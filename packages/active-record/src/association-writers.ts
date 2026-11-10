@@ -1,6 +1,7 @@
 // The belongsTo and hasOne accessors: `post.author()` and its `set`, `build`, and `create`.
 import { cachedRead } from "./associations.ts";
 import { RecordNotSaved } from "./errors.ts";
+import type { Executor } from "./executor.ts";
 import { buildRecord, type Model } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
@@ -15,8 +16,9 @@ export function belongsToAccessor(owner: Model, association: ResolvedAssociation
       association.all(owner[state].executor).findBy({ [association.targetAttribute]: key }),
     );
   const set = (record: Model | null) => pointOwnerAt(owner, association, record);
+  // On the target's database, which is the owner's unless the association crosses to another.
   const make = (attributes: Record<string, unknown>) =>
-    buildRecord(association.target, attributes, owner[state].executor);
+    buildRecord(association.target, attributes, targetDatabase(owner, association));
   // Saved first, so the owner points at its new key (the owner itself isn't saved).
   const create =
     (save: (record: Model) => Promise<unknown>) =>
@@ -117,8 +119,13 @@ function buildOne(
   // The foreign key is the owner's, written as a key (#94): one given with the attributes is
   // ignored, as it always was, rather than cast and refused as an assigned value.
   const { [definition.foreignKey]: _given, ...rest } = attributes;
-  const record = buildRecord(target, rest, owner[state].executor);
+  const record = buildRecord(target, rest, targetDatabase(owner, association));
   record[state].writeKey(definition.foreignKey, key, name);
   owner[state].associations.set(name, ownerAttribute, record);
   return record;
+}
+
+/** Where a record built through `association` for `owner` is saved: its target's database. */
+function targetDatabase(owner: Model, association: ResolvedAssociation): Executor {
+  return association.targetExecutor(owner[state].executor);
 }

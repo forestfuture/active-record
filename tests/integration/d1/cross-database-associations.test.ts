@@ -151,3 +151,53 @@ describe("reading an association to another database", () => {
     expect(bodies).toEqual(["DB"]);
   });
 });
+
+/** The rows of `sql` on `binding`, read past the library. */
+async function rows(binding: TestDatabase, sql: string): Promise<Record<string, unknown>[]> {
+  return (await binding.prepare(sql).all()).results;
+}
+
+describe("writing through an association to another database", () => {
+  test("creating through a hasMany writes the record to the target's database", async () => {
+    await inRequest(async () => (await User.find(1)).entries().create({ id: 2, message: "new" }));
+
+    expect(await rows(logs, "SELECT user_id FROM entries WHERE id = 2")).toEqual([{ user_id: 1 }]);
+    expect(await rows(db, "SELECT id FROM entries WHERE id = 2")).toEqual([]);
+  });
+
+  test("creating through a hasOne writes the record to the target's database", async () => {
+    await inRequest(async () => (await User.find(1)).badge.create({ id: 2, label: "new" }));
+
+    expect(await rows(logs, "SELECT user_id FROM badges WHERE id = 2")).toEqual([{ user_id: 1 }]);
+    expect(await rows(db, "SELECT id FROM badges WHERE id = 2")).toEqual([]);
+  });
+
+  test("creating through a belongsTo writes the record to the target's database", async () => {
+    const userId = await inRequest(async () => {
+      const entry = await Entry.find(1);
+      await entry.user.create({ id: 2, email: "grace@DB" });
+      return entry.userId;
+    });
+
+    expect(userId).toBe(2);
+    expect(await rows(db, "SELECT email FROM users WHERE id = 2")).toEqual([{ email: "grace@DB" }]);
+    expect(await rows(logs, "SELECT id FROM users WHERE id = 2")).toEqual([]);
+  });
+
+  test("a record loaded through the association saves to the target's database", async () => {
+    await inRequest(async () => {
+      const entry = await (await User.find(1)).entries().first();
+      await entry!.update({ message: "changed" });
+    });
+
+    expect(await rows(logs, "SELECT message FROM entries")).toEqual([{ message: "changed" }]);
+    expect(await rows(db, "SELECT message FROM entries")).toEqual([{ message: "DB" }]);
+  });
+
+  test("a bulk write through a hasMany goes to the target's database", async () => {
+    await inRequest(async () => (await User.find(1)).entries().updateAll({ message: "bulk" }));
+
+    expect(await rows(logs, "SELECT message FROM entries")).toEqual([{ message: "bulk" }]);
+    expect(await rows(db, "SELECT message FROM entries")).toEqual([{ message: "DB" }]);
+  });
+});
