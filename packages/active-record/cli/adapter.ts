@@ -160,7 +160,8 @@ export interface CliAdapter {
   /**
    * The entries `init` writes, from what's in `dir` (the folder `active-record.jsonc` goes in),
    * such as another tool's config. Undefined when nothing there points to this adapter, unless
-   * `--adapter` `named` it, when it writes what it can.
+   * `--adapter` `named` it as an adapter the file doesn't use yet, when it writes what it can (a
+   * guess included).
    */
   init(dir: string, named: boolean): InitResult;
   /**
