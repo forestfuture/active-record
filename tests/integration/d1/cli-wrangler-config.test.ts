@@ -1,10 +1,11 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
 import {
   chosenDatabase,
   loadDatabases,
 } from "../../../packages/active-record/cli/project/databases.ts";
+import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
 const scratch = scratchDirs();
@@ -140,5 +141,62 @@ describe("a D1 database's wranglerConfig", () => {
     expect(typeof loaded === "string" ? loaded : loaded.notes).toEqual([
       '../worker/wrangler.jsonc has the D1 database LOGS, which active-record.jsonc doesn\'t name; add it with "wranglerConfig": "../worker/wrangler.jsonc"',
     ]);
+  });
+});
+
+/** Runs `active-record schema` in `cwd`: its code, and what it printed. */
+async function schema(cwd: string) {
+  const output: string[] = [];
+  const code = await runSchema({ cwd }, (line) => output.push(line));
+  return { code, output };
+}
+
+describe("active-record schema, with a database's wranglerConfig", () => {
+  test("reads the migrations beside that config, as its migrations_pattern finds them", async () => {
+    const root = project({
+      "app/active-record.jsonc": config({
+        DB: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
+      }),
+      "worker/wrangler.jsonc": wrangler({
+        binding: "DB",
+        database_id: "x",
+        migrations_pattern: "migrations/*/migration.sql",
+      }),
+      "worker/migrations/0001_users/migration.sql": "CREATE TABLE users (id TEXT PRIMARY KEY);",
+    });
+    const app = join(root, "app");
+
+    const { code, output } = await schema(app);
+
+    expect([code, output[0]]).toEqual([
+      0,
+      "Wrote src/db/schema.ts (1 table) from ../worker/migrations/",
+    ]);
+    expect(readFileSync(join(app, "src/db/schema.ts"), "utf8")).toContain(
+      "/** users — last changed by 0001_users/migration.sql */",
+    );
+  });
+
+  // Drizzle is found from each database's own folder, not only from the first one's.
+  test("notes Drizzle's migrations for the database whose config's folder has drizzle.config.ts", async () => {
+    const root = project({
+      "app/active-record.jsonc": config({
+        DB: { adapter: "d1" },
+        LOGS: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
+      }),
+      "app/wrangler.jsonc": wrangler({ binding: "DB", database_id: "x" }),
+      "app/migrations/0001_posts.sql": "CREATE TABLE posts (id INTEGER PRIMARY KEY);",
+      "worker/wrangler.jsonc": wrangler({ binding: "LOGS", database_id: "y" }),
+      "worker/drizzle.config.ts": "export default {};",
+      "worker/migrations/0000_init.sql":
+        "CREATE TABLE events (id INTEGER PRIMARY KEY, logged_at INTEGER);",
+    });
+
+    const { code, output } = await schema(join(root, "app"));
+
+    expect(code).toBe(0);
+    expect(output).toContainEqual(
+      expect.stringMatching(/^Note: events\.logged_at: read as an integer/),
+    );
   });
 });
