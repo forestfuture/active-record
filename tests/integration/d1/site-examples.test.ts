@@ -671,7 +671,7 @@ describe("Multiple databases: each Model on its own binding", () => {
       .prepare("INSERT INTO entries (user_id, level, message) VALUES (1, 'error', 'failed')")
       .run();
 
-    const errors = await several.errorsOf(1);
+    const errors = await several.errorEntriesOf(1);
 
     expect(errors.map((entry) => entry.message)).toEqual(["failed"]);
   });

@@ -43,7 +43,7 @@ export async function signUp(email: string) {
 // #endregion sign-up
 
 // #region reading-associations
-export async function errorsOf(userId: number) {
+export async function errorEntriesOf(userId: number) {
   const user = await User.find(userId); // on DB
   return user.entries().where({ level: "error" }).toArray(); // on LOGS
 }

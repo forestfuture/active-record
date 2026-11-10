@@ -144,9 +144,9 @@ function planStep(planning: Planning, start: Start, level: Level, name: string):
   const { model, owners, tree, written } = start;
   const { ownersAt, path } = level;
   const association = resolveAssociation(model, name);
-  const elsewhere = association.targetExecutor(planning.executor);
-  if (elsewhere !== planning.executor) {
-    leaveForAfterwards(planning, { ...onlyOne(start, name), ownersAt, elsewhere });
+  const targetDatabase = association.targetExecutor(planning.executor);
+  if (targetDatabase !== planning.executor) {
+    leaveForAfterwards(planning, { ...onlyOne(start, name), ownersAt, elsewhere: targetDatabase });
     return;
   }
   const query = linkedQuery(association, owners, planning.executor);

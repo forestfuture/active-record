@@ -55,7 +55,7 @@ export async function prepareDependents(owner: Model, claimed: Claimed): Promise
   }
   for (const association of dependencies) {
     const statement = statementFor(owner, association);
-    if (statement !== undefined) (association.crossesDatabases ? elsewhere : here).push(statement);
+    if (statement !== undefined) (association.isCrossDatabase ? elsewhere : here).push(statement);
   }
   const [together = noDependents.here] = combine(here.map((stage) => [stage]));
   return { status: "ready", here: together, elsewhere };
@@ -76,7 +76,7 @@ export function dependentsElsewhere(
     .filter(([, { dependent }]) => dependent !== undefined && !dependent.startsWith("restrict"))
     .map(([name]) => resolveAssociation(model, name))
     .flatMap((association) => {
-      if (association.crossesDatabases) return [association];
+      if (association.isCrossDatabase) return [association];
       const { dependent } = association.definition;
       return dependent === "destroy" ? dependentsElsewhere(association.target, visited) : [];
     });
@@ -124,7 +124,7 @@ async function destroyRecords(
   for (const record of await recordsOf(owner, association).toArray()) {
     const plan = await prepareDestroy(record, claimed);
     if (plan.status !== "ready") throw refusalError(record, plan, "destroy");
-    if (association.crossesDatabases) {
+    if (association.isCrossDatabase) {
       destroyed.elsewhere.push(...stagesOf(plan));
     } else {
       destroyed.here.push(...plan.stages);

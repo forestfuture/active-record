@@ -1,4 +1,4 @@
-// An association resolved for one owner: which attributes link the records, and in what order.
+// An association resolved for one owner: which attributes link the records, in what order, and which database its records are on.
 // associations.ts imports this module too; both uses are at call time, never at load.
 import { readyModel, type AssociationDefinition } from "./associations.ts";
 import { currentExecutorOf } from "./current-database.ts";
@@ -50,7 +50,7 @@ export class ResolvedAssociation {
    * Whether its target is on another database than its owner (#228): both Models' schemas name
    * a database, and not the same one. Then its records are read and written there.
    */
-  readonly crossesDatabases: boolean;
+  readonly isCrossDatabase: boolean;
 
   constructor(owner: ModelClass, name: string) {
     this.owner = owner;
@@ -64,7 +64,7 @@ export class ResolvedAssociation {
       owner,
       this.target,
     ));
-    this.crossesDatabases = onDifferentDatabases(owner, this.target);
+    this.isCrossDatabase = onDifferentDatabases(owner, this.target);
   }
 
   /** `User.posts`: how the association is named in messages. */
@@ -77,7 +77,7 @@ export class ResolvedAssociation {
    * association to another database, the target's current one, as its statics find it.
    */
   targetExecutor(executor: Executor): Executor {
-    return this.crossesDatabases ? currentExecutorOf(this.target) : executor;
+    return this.isCrossDatabase ? currentExecutorOf(this.target) : executor;
   }
 
   /** The target's records for an owner on `executor`, with the association's scope applied. */
