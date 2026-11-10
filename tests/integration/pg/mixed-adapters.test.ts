@@ -53,14 +53,19 @@ describe("migrate and console on a mixed project's Postgres database", pgliteTim
   });
   afterAll(() => schema.dispose());
 
-  test("--database HYPERDRIVE migrates it, and opens it, with the PostgreSQL adapter", async () => {
-    const output = new PassThrough();
-    let applied = "";
-    output.on("data", (chunk: Buffer) => (applied += chunk.toString()));
-    const io = { input: new PassThrough(), output, terminal: false };
+  test("migrate --database HYPERDRIVE applies its migrations with the PostgreSQL adapter", async () => {
+    const { code, applied } = await migrating();
 
-    const migrated = await runMigrate({ cwd, database: "HYPERDRIVE" }, quiet, io);
+    expect([code, applied]).toEqual([
+      0,
+      "Local database HYPERDRIVE (active_record_test on localhost)\nApplied 1_users.sql\n",
+    ]);
+  });
+
+  test("console --database HYPERDRIVE opens it, with every Model", async () => {
+    await migrating();
     const streams = capturedStreams();
+
     const opened = await runConsole(
       {
         cwd,
@@ -71,10 +76,6 @@ describe("migrate and console on a mixed project's Postgres database", pgliteTim
       streams,
     );
 
-    expect([migrated, applied]).toEqual([
-      0,
-      "Local database HYPERDRIVE (active_record_test on localhost)\nApplied 1_users.sql\n",
-    ]);
     expect([opened, streams.seen.stdout]).toEqual([0, "1\n"]);
     expect(streams.seen.stderr).toBe(
       "Local database HYPERDRIVE (active_record_test on localhost)\nModels: Post, User\n",
@@ -82,6 +83,16 @@ describe("migrate and console on a mixed project's Postgres database", pgliteTim
     const { rows } = await schema.pool.query({ text: "SELECT name FROM users" });
     expect(rows).toEqual([{ name: "Ada" }]);
   });
+
+  /** `migrate --database HYPERDRIVE`: its code, and what the runner printed. */
+  async function migrating() {
+    const output = new PassThrough();
+    let applied = "";
+    output.on("data", (chunk: Buffer) => (applied += chunk.toString()));
+    const io = { input: new PassThrough(), output, terminal: false };
+    const code = await runMigrate({ cwd, database: "HYPERDRIVE" }, quiet, io);
+    return { code, applied };
+  }
 });
 
 abstract class D1Record extends Model {
