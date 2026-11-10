@@ -333,10 +333,30 @@ export function compileCount(
     const inner = compileSelect(dialect, toCount);
     return { ...inner, sql: `SELECT COUNT(*) AS count FROM (${inner.sql}) AS counted` };
   }
-  const inner = compileSelect(dialect, { ...toCount, select: undefined, distinct: false });
   const column = quoteIdentifier(attributeFor(query.model, attribute).column);
+  if (query.distinct && picksRows(query)) return compileDistinctCount(dialect, toCount, column);
+  const inner = compileSelect(dialect, { ...toCount, select: undefined, distinct: false });
   const counted = query.distinct ? `DISTINCT ${column}` : column;
   return { ...inner, sql: `SELECT COUNT(${counted}) AS count FROM (${inner.sql}) AS counted` };
+}
+
+/**
+ * `count(attr)` after `distinct()` with a limit or offset, as Rails counts it: the limit and
+ * offset pick from the distinct values, the ones `pluck(attr)` returns, and the non-null ones
+ * are counted (#250). A `DISTINCT` on the outer `COUNT` would count what's left of every row.
+ */
+function compileDistinctCount(
+  dialect: Dialect,
+  query: QueryDescription,
+  column: string,
+): CompiledSql {
+  const inner = compileSelect(dialect, query, column);
+  return { ...inner, sql: `SELECT COUNT(${column}) AS count FROM (${inner.sql}) AS counted` };
+}
+
+/** Whether a limit or offset picks which rows `query` describes. */
+function picksRows(query: QueryDescription): boolean {
+  return query.limit !== undefined || query.offset !== undefined;
 }
 
 /**
@@ -344,7 +364,7 @@ export function compileCount(
  * so SQLite doesn't sort every match only to count it (#215).
  */
 function queryToCount(query: QueryDescription): QueryDescription {
-  if (query.limit !== undefined || query.offset !== undefined) return query;
+  if (picksRows(query)) return query;
   return { ...query, order: [] };
 }
 

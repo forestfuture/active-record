@@ -116,3 +116,22 @@ describe("exists() with distinct() and an offset reads the rows toArray() would 
   // SQL text, though not a safety property: #222 asks that every other Relation's exists() send
   // the same SQL as before, and the rows D1 reads can't tell the two queries apart.
 });
+
+describe("count(attribute) after distinct() counts within the limit and offset (#250)", () => {
+  let harness: Harness;
+  const posts = () => harness.connect().model(Post);
+
+  beforeAll(async () => {
+    harness = await openHarness();
+    await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+    await harness.exec(
+      "INSERT INTO posts (id, user_id, title) VALUES (1, 1, 'A'), (2, 1, 'A'), (3, 1, 'B')",
+    );
+  });
+  afterAll(() => harness.dispose());
+
+  test("past an offset, it counts the distinct values left", async () => {
+    expect(await posts().select("title").distinct().offset(1).count("title")).toBe(1);
+    expect(await posts().distinct().offset(1).count("title")).toBe(1);
+  });
+});
