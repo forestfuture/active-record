@@ -191,7 +191,7 @@ describe("the adapter the command uses", () => {
     symlinkSync(join(cwd, "migrations"), join(cwd, "pg-migrations"));
 
     expect(await found(cwd)).toBe(
-      "DB and HYPERDRIVE both read pg-migrations/, on different adapters (d1 and postgresql); give each its own migrations folder",
+      "DB's migrations/ and HYPERDRIVE's pg-migrations/ are one folder, on different adapters (d1 and postgresql); give each its own migrations folder",
     );
   });
 

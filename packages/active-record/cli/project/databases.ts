@@ -63,16 +63,22 @@ function onDisk(folder: string): string {
 function sharedMigrations(cwd: string, databases: readonly LoadedDatabase[]): string | undefined {
   const seen = new Map<string, LoadedDatabase>();
   for (const each of databases) {
-    const folder = migrationsFolderOf(each);
-    const other = seen.get(onDisk(folder));
+    const other = seen.get(onDisk(migrationsFolderOf(each)));
     if (other !== undefined && other.adapter.name !== each.adapter.name) {
-      const names = `${other.database.binding} and ${each.database.binding}`;
-      const adapters = `${other.adapter.name} and ${each.adapter.name}`;
-      return `${names} both read ${shown(cwd, folder)}/, on different adapters (${adapters}); give each its own migrations folder`;
+      return `${sharing(cwd, other, each)}, on different adapters (${other.adapter.name} and ${each.adapter.name}); give each its own migrations folder`;
     }
-    seen.set(onDisk(folder), each);
+    seen.set(onDisk(migrationsFolderOf(each)), each);
   }
   return undefined;
+}
+
+/** That two databases both read one folder, or each one's path when a link makes them one. */
+function sharing(cwd: string, first: LoadedDatabase, second: LoadedDatabase): string {
+  const [one, two] = [first, second].map((each) => `${shown(cwd, migrationsFolderOf(each))}/`);
+  const [a, b] = [first.database.binding, second.database.binding];
+  return one === two
+    ? `${a} and ${b} both read ${one}`
+    : `${a}'s ${one} and ${b}'s ${two} are one folder`;
 }
 
 /**
