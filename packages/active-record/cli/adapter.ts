@@ -123,7 +123,7 @@ export interface OpenBinding {
 /**
  * The databases `init` writes for an adapter, as `active-record.jsonc` entries (its `adapter` is
  * added), and notes for a person; or why it can't write them; or undefined when nothing in the
- * project points to this adapter and it wasn't chosen.
+ * project points to this adapter and `--adapter` didn't name it.
  */
 export type InitResult =
   | { databases: Record<string, Record<string, unknown>>; notes?: string[] }
@@ -149,9 +149,9 @@ export interface CliAdapter {
   /**
    * The entries `init` writes, from what's in `dir` (the folder `active-record.jsonc` goes in),
    * such as another tool's config. Undefined when nothing there points to this adapter, unless
-   * it's `chosen` (`--adapter`), when it writes what it can.
+   * `--adapter` `named` it, when it writes what it can.
    */
-  init(dir: string, chosen: boolean): InitResult;
+  init(dir: string, named: boolean): InitResult;
   /**
    * The project's databases, from the entries its `active-record.jsonc` has for this adapter (and
    * the adapter's own config, if it reads one), or why they can't be read.
