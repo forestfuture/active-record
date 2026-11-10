@@ -69,12 +69,21 @@ const built = Object.fromEntries(
 for (const [file, text] of Object.entries(built)) {
   if (/class PGlite\b|class Client extends/.test(text)) fail(`${file} bundles PGlite or pg`);
 }
-const importsOf = (file) =>
-  new Set([...built[file].matchAll(/(?:from|import\() ?"([^".][^"]*)"/g)].map(([, name]) => name));
-const outside = (file) => [...importsOf(file)].filter((name) => name !== "cloudflare:workers");
-if (outside("d1.mjs").length > 0) fail(`dist/d1.mjs imports ${outside("d1.mjs").join(", ")}`);
+/** The packages a file imports by name, with those of every chunk it imports, and theirs. */
+function packagesOf(file, seen = new Set()) {
+  if (seen.has(file)) return new Set();
+  seen.add(file);
+  const statements =
+    /^(?:import|export)\b[^;"]*?(?:\bfrom\s*)?"([^"]+)"|\bimport\(\s*"([^"]+)"\s*\)/gm;
+  const names = [...built[file].matchAll(statements)].map(([, from, loaded]) => from ?? loaded);
+  const chunks = names.filter((name) => name.startsWith("./")).map((name) => name.slice(2));
+  const packages = names.filter((name) => !name.startsWith("."));
+  return new Set([...packages, ...chunks.flatMap((chunk) => [...packagesOf(chunk, seen)])]);
+}
+const outside = (file) => [...packagesOf(file)].filter((name) => name !== "cloudflare:workers");
+if (outside("d1.mjs").length > 0) fail(`dist/d1.mjs reaches ${outside("d1.mjs").join(", ")}`);
 if (outside("postgresql.mjs").join() !== "pg") {
-  fail(`dist/postgresql.mjs imports ${outside("postgresql.mjs").join(", ")}, not pg alone`);
+  fail(`dist/postgresql.mjs reaches ${outside("postgresql.mjs").join(", ")}, not pg alone`);
 }
 const manifest = JSON.parse(
   readFileSync(new URL("../packages/active-record/package.json", import.meta.url), "utf8"),
