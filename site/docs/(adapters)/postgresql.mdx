@@ -110,6 +110,8 @@ Postgres sorts text by your database’s collation, usually its locale’s, wher
 
 Postgres refuses to order `distinct()` records by a column they don’t select, and throws its own error. Select the column, or order by one you select.
 
+After `distinct()`, `pluck("title")` selects only `title`. So does `count("title")` with a `limit` or `offset`. Order them by `title`, or leave the order out.
+
 ## NUL characters
 
 Postgres text, and strings in a `jsonb` value, can’t hold the NUL character (`\u0000`). A value with one fails with Postgres’s own error.
