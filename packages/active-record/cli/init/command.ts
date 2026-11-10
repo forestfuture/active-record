@@ -1,5 +1,5 @@
 // `active-record init`: writes the project's `active-record.jsonc`, naming its databases and their adapter, from what that adapter's plugin finds (#301).
-import { existsSync } from "node:fs";
+import { existsSync, lstatSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import type { InitResult } from "../adapter.ts";
 import { apply, printed, printing, written, type Plan, type Print } from "../plan.ts";
@@ -83,8 +83,10 @@ async function planInit(options: InitOptions): Promise<Plan> {
   const cwd = resolve(options.cwd ?? process.cwd());
   const path = resolve(cwd, options.config ?? configFileName);
   const name = shown(cwd, path);
-  if (existsSync(path))
+  // lstat, not exists: a link is a file that's there, even one to nothing, and never written through.
+  if (lstatSync(path, { throwIfNoEntry: false }) !== undefined) {
     return printing([`${name} is already here; init writes nothing over it`], 1);
+  }
   const dir = dirname(path);
   const found =
     options.adapter === undefined

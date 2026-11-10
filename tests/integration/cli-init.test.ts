@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
 import { runInit } from "../../packages/active-record/cli/init/command.ts";
@@ -156,6 +156,21 @@ describe("active-record init", () => {
       output: "active-record.jsonc is already here; init writes nothing over it",
     });
     expect(readFileSync(join(cwd, "active-record.jsonc"), "utf8")).toBe("// mine\n{}");
+  });
+
+  // A link where the file goes, even to nothing yet, is a file that's there: init never follows it.
+  test("never writes through a link that's there, though it points at nothing", async () => {
+    const cwd = project({
+      "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB" }] }),
+    });
+    const target = join(cwd, "..", "elsewhere.jsonc");
+    symlinkSync(target, join(cwd, "active-record.jsonc"));
+
+    expect(await init(cwd)).toEqual({
+      code: 1,
+      output: "active-record.jsonc is already here; init writes nothing over it",
+    });
+    expect(existsSync(target)).toBe(false);
   });
 
   test("--config writes another file, reading Wrangler's config beside it", async () => {
