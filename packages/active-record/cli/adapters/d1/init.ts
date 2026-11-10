@@ -5,18 +5,18 @@ import { d1Entries, wranglerConfigIn } from "./wrangler.ts";
 
 /**
  * The D1 databases in the Wrangler config in `dir`, each as an entry with nothing but its
- * adapter: Wrangler's config keeps the rest. Undefined when there are none, unless D1 was chosen.
+ * adapter: Wrangler's config keeps the rest. Undefined when there are none, unless `--adapter` named D1.
  */
-export function init(dir: string, chosen: boolean): InitResult {
+export function init(dir: string, named: boolean): InitResult {
   const file = wranglerConfigIn(dir);
   if (file === undefined) {
-    if (!chosen) return undefined;
+    if (!named) return undefined;
     return "No wrangler.jsonc, wrangler.json or wrangler.toml here: declare your D1 database in one first";
   }
   const entries = d1Entries(file);
   if (typeof entries === "string") return entries;
   if (entries.length === 0) {
-    return chosen
+    return named
       ? `${basename(file)} has no d1_databases: declare your database there first`
       : undefined;
   }

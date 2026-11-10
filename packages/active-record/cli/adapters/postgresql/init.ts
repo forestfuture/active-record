@@ -47,9 +47,9 @@ function entryOf(dir: string, file: string, binding: Hyperdrive) {
 
 /**
  * The Postgres databases for `init`: each Hyperdrive binding in the Wrangler config in `dir`, or,
- * when Postgres was chosen and there's none, `DATABASE_URL` with a guessed local database.
+ * when `--adapter` named PostgreSQL and there's none, `DATABASE_URL` with a guessed local database.
  */
-export function init(dir: string, chosen: boolean): InitResult {
+export function init(dir: string, named: boolean): InitResult {
   const found = hyperdriveIn(dir);
   if (typeof found === "string") return found;
   if (found !== undefined && found.bindings.length > 0) {
@@ -61,7 +61,7 @@ export function init(dir: string, chosen: boolean): InitResult {
       notes: made.flatMap(([, { note }]) => (note === undefined ? [] : [note])),
     };
   }
-  if (!chosen) return undefined;
+  if (!named) return undefined;
   const url = guessedUrl(dir);
   return {
     databases: { DATABASE_URL: { url } },
