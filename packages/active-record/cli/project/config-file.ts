@@ -8,21 +8,38 @@ export const configFileName = "active-record.jsonc";
 
 /** JSON with `//` and `/* *\/` comments and trailing commas. */
 export function parseJsonc(text: string): unknown {
-  let out = "";
+  const kept = new KeptText();
   for (let index = 0; index < text.length; index++) {
     const char = text[index]!;
     if (char === '"') {
       const end = endOfString(text, index);
-      out += text.slice(index, end);
+      kept.add(text.slice(index, end));
       index = end - 1;
     } else if (text.startsWith("//", index) || text.startsWith("/*", index)) {
       index = endOfComment(text, index) - 1;
-    } else {
-      if (char === "}" || char === "]") out = withoutTrailingComma(out);
-      out += char;
-    }
+    } else kept.add(char);
   }
-  return JSON.parse(out);
+  return JSON.parse(kept.text());
+}
+
+/** The text JSON.parse reads: what's kept of JSONC, without its comments or trailing commas. */
+class KeptText {
+  #parts: string[] = [];
+  /** Where the last comma is, while only whitespace has come after it. */
+  #trailingComma = -1;
+
+  /** Keeps a string literal or a character outside one. */
+  add(part: string): void {
+    if ((part === "}" || part === "]") && this.#trailingComma >= 0) {
+      this.#parts[this.#trailingComma] = "";
+    }
+    if (!/^\s$/.test(part)) this.#trailingComma = part === "," ? this.#parts.length : -1;
+    this.#parts.push(part);
+  }
+
+  text(): string {
+    return this.#parts.join("");
+  }
 }
 
 /** Just past the comment starting at `start`, keeping a line comment's newline. */
@@ -34,13 +51,6 @@ function endOfComment(text: string, start: number): number {
   const end = text.indexOf("*/", start + 2);
   if (end < 0) throw new SyntaxError("Unterminated /* comment");
   return end + 2;
-}
-
-/** `out` without a comma that only whitespace follows, which a `}` or `]` is about to close. */
-function withoutTrailingComma(out: string): string {
-  let index = out.length - 1;
-  while (index >= 0 && /\s/.test(out[index]!)) index--;
-  return out[index] === "," ? out.slice(0, index) + out.slice(index + 1) : out;
 }
 
 /** Just past the string literal starting at `start`. */
