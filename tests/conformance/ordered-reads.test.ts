@@ -134,4 +134,27 @@ describe("count(attribute) after distinct() counts within the limit and offset (
     expect(await posts().select("title").distinct().offset(1).count("title")).toBe(1);
     expect(await posts().distinct().offset(1).count("title")).toBe(1);
   });
+
+  // Guards from here: they pass once the limit and offset pick from the distinct values.
+  test("within a limit, it counts that many distinct values, not that many rows", async () => {
+    // The first two rows by title are both A; the first two distinct titles are A and B.
+    expect(await posts().distinct().order({ title: "asc" }).limit(2).count("title")).toBe(2);
+    expect(await posts().distinct().order({ title: "asc" }).limit(1).count("title")).toBe(1);
+  });
+
+  test("past the last distinct value, it counts none", async () => {
+    expect(await posts().distinct().offset(2).count("title")).toBe(0);
+    expect(await posts().distinct().limit(1).offset(2).count("title")).toBe(0);
+  });
+
+  test("a NULL takes its place among the values, but isn't counted", async () => {
+    await harness.exec("UPDATE posts SET created_at = '2026-01-01T00:00:00.000Z' WHERE id = 1");
+    const dates = posts()
+      .distinct()
+      .order({ createdAt: { direction: "asc", nulls: "first" } });
+
+    expect(await dates.pluck("createdAt")).toEqual([null, new Date("2026-01-01T00:00:00.000Z")]);
+    expect(await dates.limit(1).count("createdAt")).toBe(0);
+    expect(await dates.offset(1).count("createdAt")).toBe(1);
+  });
 });
