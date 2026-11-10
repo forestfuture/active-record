@@ -2,17 +2,16 @@
 import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createJiti } from "jiti";
+import { resolveWrangler } from "./installed-wrangler.ts";
 import type { ChosenDatabase, MigrateOutput } from "@forestfuture/active-record/cli";
 
-/** The project's own Wrangler's command line script, or why there's none. */
-function wranglerBin(cwd: string): string | string[] {
-  try {
-    const manifest = fileURLToPath(createJiti(`${cwd}/`).esmResolve("wrangler/package.json"));
-    return join(dirname(manifest), "bin", "wrangler.js");
-  } catch {
+/** The project's own Wrangler's command line script (the Worker's, beside its config, first), or why there's none. */
+function wranglerBin(cwd: string, configFile: string): string | string[] {
+  const manifest = resolveWrangler(cwd, configFile, "wrangler/package.json");
+  if (manifest === undefined) {
     return ["wrangler isn't installed here (install it, then run active-record migrate again)"];
   }
+  return join(dirname(fileURLToPath(manifest)), "bin", "wrangler.js");
 }
 
 /**
@@ -25,7 +24,7 @@ export function migrate(
   { remote }: { remote: boolean },
   io: MigrateOutput,
 ): Promise<number> {
-  const bin = wranglerBin(cwd);
+  const bin = wranglerBin(cwd, configFile);
   if (Array.isArray(bin)) {
     io.output(`${bin[0]}\n`);
     return Promise.resolve(1);

@@ -4,10 +4,10 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createJiti } from "jiti";
 import type { ChosenDatabase, OpenBinding } from "@forestfuture/active-record/cli";
 import { remoteTarget } from "./remote.ts";
 import { accountIdIn } from "./wrangler.ts";
+import { resolveWrangler } from "./installed-wrangler.ts";
 
 interface Wrangler {
   getPlatformProxy: (options: {
@@ -35,12 +35,10 @@ function d1OnlyConfig(
   return { file, remove: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
-/** The project's own wrangler, loaded; or why it can't be. */
-async function projectWrangler(cwd: string): Promise<Wrangler | string> {
-  let file: string;
-  try {
-    file = createJiti(`${cwd}/`).esmResolve("wrangler");
-  } catch {
+/** The project's own wrangler, loaded (the Worker's, beside its config, first); or why it can't be. */
+async function projectWrangler(cwd: string, configFile: string): Promise<Wrangler | string> {
+  const file = resolveWrangler(cwd, configFile, "wrangler");
+  if (file === undefined) {
     return "wrangler isn't installed here (install it, then run active-record console again)";
   }
   try {
@@ -67,7 +65,7 @@ async function open(
   { binding, configFile }: ChosenDatabase,
   opening: Opening,
 ): Promise<OpenBinding | string> {
-  const wrangler = await projectWrangler(cwd);
+  const wrangler = await projectWrangler(cwd, configFile);
   if (typeof wrangler === "string") return wrangler;
   const config = d1OnlyConfig(opening.entry, accountIdIn(configFile));
   let proxy: Awaited<ReturnType<Wrangler["getPlatformProxy"]>>;
