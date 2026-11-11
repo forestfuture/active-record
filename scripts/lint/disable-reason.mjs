@@ -22,9 +22,9 @@ function problem(text) {
   if (optOut === null) return null;
   if (optOut.names.includes("d1-record/disable-reason")) return "turnsItselfOff";
   // Naming no rule turns off every rule, the repo's own included. A reason has a letter in it.
-  const coversOwn =
+  const isOwnRuleOff =
     optOut.names.length === 0 || optOut.names.some((n) => n.startsWith("d1-record/"));
-  return coversOwn && !/\p{L}/u.test(optOut.reason) ? "noReason" : null;
+  return isOwnRuleOff && !/\p{L}/u.test(optOut.reason) ? "noReason" : null;
 }
 
 export default defineRule({
