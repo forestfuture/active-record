@@ -870,6 +870,57 @@ describe("statements", () => {
       expect(await db.model(User).pluck("email")).toEqual(["a@example.com"]);
     });
 
+    test("every bulk write has a Batch method, resolving as it does alone", async () => {
+      const db = harness.connect();
+      await db.model(User).insertAll([
+        { id: 1, email: "a@example.com" },
+        { id: 2, email: "b@example.com" },
+      ]);
+
+      const results = await db.batch((b) => [
+        b.insertAll(User, [
+          { id: 3, email: "c@example.com" },
+          { id: 4, email: "d@example.com" },
+        ]),
+        b.upsert(User, { id: 1, email: "a2@example.com" }),
+        b.upsertAll(User, [{ id: 2, email: "b2@example.com" }], { returning: ["email"] }),
+        b.updateAll(User, { role: "member" }),
+        b.deleteAll(db.model(User).where({ id: 4 })),
+      ]);
+
+      expect(results).toEqual([
+        { rowsAffected: 2, rows: [{ id: 3 }, { id: 4 }] },
+        { rowsAffected: 1, rows: [{ id: 1 }] },
+        { rowsAffected: 1, rows: [{ email: "b2@example.com" }] },
+        { rowsAffected: 4, rows: [] },
+        { rowsAffected: 1, rows: [] },
+      ]);
+      const users = await db.model(User).order({ id: "asc" }).pluck("email", "role");
+      expect(users).toEqual([
+        ["a2@example.com", "member"],
+        ["b2@example.com", "member"],
+        ["c@example.com", "member"],
+      ]);
+    });
+
+    test("a Relation's writes keep its conditions and owner, as they do alone", async () => {
+      const db = harness.connect();
+      await db.model(User).insert({ id: 1, email: "a@example.com" });
+      await db.model(Post).insert({ id: 1, userId: 1, title: "Old", published: false });
+      const user = await db.model(User).find(1);
+
+      await db.batch((b) => [
+        b.insert(user.posts(), { id: 2, title: "New", published: true }),
+        b.updateAll(user.posts().where({ published: false }), { title: "Draft" }),
+      ]);
+
+      const posts = await db.model(Post).order({ id: "asc" }).pluck("userId", "title");
+      expect(posts).toEqual([
+        [1, "Draft"],
+        [1, "New"],
+      ]);
+    });
+
     test("runs the statements in order, atomically, and resolves to each one's result", async () => {
       const db = harness.connect();
       const userId = 7;
