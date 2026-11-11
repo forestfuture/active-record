@@ -12,6 +12,8 @@ const tester = new RuleTester({ languageOptions: { parserOptions: { lang: "ts" }
 tester.run("standalone-test-name", standaloneTestName, {
   valid: [
     'test("redirects HEAD", () => {});',
+    // "as well as" joins two things the one test shows.
+    'test("redirects HEAD as well as GET", () => {});',
     // A string that isn't a test's name: an assertion's value, and a test.each() table.
     'expect(message).toBe("too many");',
     'test.each(["too"])("reads %s", () => {});',
@@ -20,6 +22,26 @@ tester.run("standalone-test-name", standaloneTestName, {
     {
       name: '"too" in a test name',
       code: 'test("redirects HEAD too", () => {});',
+      errors: [{ messageId: "leans" }],
+    },
+    {
+      name: '"also"',
+      code: 'test("also redirects HEAD", () => {});',
+      errors: [{ messageId: "leans" }],
+    },
+    {
+      name: '"as well"',
+      code: 'test("redirects HEAD as well", () => {});',
+      errors: [{ messageId: "leans" }],
+    },
+    {
+      name: '"so do"',
+      code: 'test("so do HEAD requests", () => {});',
+      errors: [{ messageId: "leans" }],
+    },
+    {
+      name: '"so does"',
+      code: 'test("so does a HEAD request", () => {});',
       errors: [{ messageId: "leans" }],
     },
     {
