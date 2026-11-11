@@ -1098,5 +1098,18 @@ describe("statements", () => {
       ).rejects.toThrow(IncompatibleRelation);
       expect(await db.model(User).count()).toBe(0);
     });
+
+    test("in db.batch, a Relation from a Model's statics stays on the current database", async () => {
+      const db = harness.connect();
+      const current = harness.connect();
+      await db.model(User).insert({ id: 1, email: "a@example.com" });
+
+      const writing = withDatabase(current, () =>
+        db.batch((b) => [b.updateAll(User.where({ id: 1 }), { role: "admin" })]),
+      );
+
+      await expect(writing).rejects.toThrow(IncompatibleRelation);
+      expect(await db.model(User).pluck("role")).toEqual([null]);
+    });
   });
 });
