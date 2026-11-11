@@ -1,3 +1,6 @@
+# Checks a commit's message: its title's length, and that a tests-only commit
+# says its tests are guards.
+
 # Commit titles: aim for 50 characters, warn past 60, never more than 72.
 # See "Commit messages" in docs/agents/workflow.md.
 title=$(grep -v '^#' "$1" | sed -n '/[^[:space:]]/{p;q;}')
