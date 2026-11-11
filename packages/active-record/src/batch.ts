@@ -35,32 +35,29 @@ function refuseElsewhere(entry: BatchEntry, needs: string): void {
   if (kind === "destroy") {
     const [elsewhere] = dependentsElsewhere(modelOf(record));
     if (elsewhere === undefined) return;
-    throw writesElsewhere(needs, record, `writes its dependent ${elsewhere.label}, on`);
+    const writes = `writes its dependent ${elsewhere.label}, on another database`;
+    throw writesElsewhere(needs, record, writes, "destroy");
   }
   const [, elsewhere] = savingGroups(record);
   if (elsewhere === undefined) return;
-  throw writesElsewhere(
-    needs,
-    record,
-    `autosaves records through ${elsewhere.through!.label}, on`,
-    "save",
-  );
+  const autosaves = `autosaves records through ${elsewhere.through!.label}, on another database`;
+  throw writesElsewhere(needs, record, autosaves, "save");
 }
 
 /**
  * The error for a batch entry that would write on another database: saving or destroying
- * `record` "`does` another database".
+ * `record` "`does`", a clause naming that database.
  */
 function writesElsewhere(
   needs: string,
   record: Model,
   does: string,
-  kind: "save" | "destroy" = "destroy",
+  kind: "save" | "destroy",
 ): IncompatibleRelation {
   const doing = kind === "save" ? "saving" : "destroying";
   return new IncompatibleRelation(
-    `${needs} on one database, and ${doing} this ${modelOf(record).name} ${does} another ` +
-      `database; ${kind} it outside the batch`,
+    `${needs} on one database, and ${doing} this ${modelOf(record).name} ${does}; ` +
+      `${kind} it outside the batch`,
   );
 }
 
@@ -154,7 +151,7 @@ async function recordEntry(
   if (plan.status !== "ready") throw refusalError(record, plan, kind);
   // Records on another database a callback brought in, refused before anything is written.
   if (plan.before.length + plan.after.length > 0) {
-    throw writesElsewhere(needs, record, "writes records on", kind);
+    throw writesElsewhere(needs, record, "writes records on another database", kind);
   }
   const stages = stagesOf(plan);
   if (stages.length > 1) {

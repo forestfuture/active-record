@@ -48,7 +48,8 @@ export async function runAfter(writes: readonly PreparedWrite[]): Promise<void> 
  * One atomic batch of a save's or destroy's writes, on one database: the records it writes, the
  * handles of any statements it sends besides (a dependent's bulk write), and its writes, built
  * when it runs so foreign keys can be linked first. Its database is theirs, and the same as every
- * other stage of its `group`'s: a record's own database, or an association's to another (#228).
+ * other stage of its `group`'s: a record's own database, or an association's to another (#228),
+ * which every record of the save writing through that association shares.
  */
 export interface Stage {
   group: object;
