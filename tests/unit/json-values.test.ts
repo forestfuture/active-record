@@ -71,7 +71,7 @@ describe("a value JSON can't write, assigned to a json attribute (#146)", () => 
     );
   });
 
-  test("undefined still says to use null", () => {
+  test("undefined is refused, saying to use null", () => {
     expect(() => docs.build({ settings: undefined as never })).toThrow(
       /got undefined for "settings"; use null to store NULL/,
     );

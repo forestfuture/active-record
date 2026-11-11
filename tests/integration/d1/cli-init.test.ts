@@ -73,7 +73,7 @@ describe("active-record init", () => {
     });
   });
 
-  test("on Postgres, reads Hyperdrive bindings from wrangler.toml too", async () => {
+  test("on Postgres, reads Hyperdrive bindings from a wrangler.toml", async () => {
     const cwd = project({
       "wrangler.toml": [
         'name = "shop"',

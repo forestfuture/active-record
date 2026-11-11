@@ -168,7 +168,7 @@ describe("generated ids", () => {
   });
 
   describe("declaring one", () => {
-    test("with a default too is an InvalidModel", () => {
+    test("alongside a default is an InvalidModel", () => {
       class Both extends Model.define({
         // @ts-expect-error a compile error too; this checks plain JavaScript
         id: { type: "string", null: false, generateId: true, default: () => "x" },

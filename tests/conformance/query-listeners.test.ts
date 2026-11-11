@@ -49,7 +49,7 @@ beforeEach(() => {
 });
 
 describe("an app-wide onQuery on the base class", () => {
-  test("runs after a database's own listener, which sees the Model too", async () => {
+  test("runs after a database's own listener, and both see the Model", async () => {
     const order: string[] = [];
     class Ordered extends User {
       static override onQuery = ({ model }: QueryEvent) => {

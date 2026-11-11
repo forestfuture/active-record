@@ -120,7 +120,7 @@ export const schema = {
     expect(fingerprintOf(modeled)).not.toBe(fingerprintOf(first));
   });
 
-  test("a list of Models too long for a line has one a line, as the formatter writes it", () => {
+  test("a list of Models longer than a line has one a line, as the formatter writes it", () => {
     const tables = tablesOf("CREATE TABLE line_items (id INTEGER PRIMARY KEY);");
     const models = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf"].map(
       (name) => ({

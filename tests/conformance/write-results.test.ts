@@ -46,7 +46,7 @@ describe("what a bulk write resolves to", () => {
     expect(result).toEqual({ rowsAffected: 1, rows: [{ id: stored }] });
   });
 
-  test("a key the database generates comes back too", async () => {
+  test("insert resolves to a key the database generates", async () => {
     const comments = harness.connect().model(Comment);
 
     const { rows } = await comments.insert({ body: "First" });
@@ -90,7 +90,7 @@ describe("what a bulk write resolves to", () => {
     );
   });
 
-  test("returning: [] returns no rows too, and a returning that isn't a list throws", async () => {
+  test("returning: [] resolves to no rows, and a returning that isn't a list throws", async () => {
     const keys = harness.connect().model(ApiKey);
 
     expect(await keys.insert({ label: "deploy" }, { returning: [] })).toEqual({

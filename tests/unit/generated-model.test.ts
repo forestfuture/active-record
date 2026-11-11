@@ -394,7 +394,7 @@ describe("a generated Model's static {} blocks", () => {
 });
 
 describe("a generated Model's primary key", () => {
-  test("can still be set, and must name an attribute that isn't ignored", () => {
+  test("can be set, and must name an attribute that isn't ignored", () => {
     class Keyed extends AppRecord {
       static override table = "products";
       static override primaryKey = "sku";

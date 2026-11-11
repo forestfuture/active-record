@@ -115,7 +115,7 @@ describe("timestamps", () => {
     expect(queries).toHaveLength(0);
   });
 
-  test("saving a partial record also moves updatedAt forward", async () => {
+  test("saving a partial record moves updatedAt forward", async () => {
     await harness
       .connect()
       .model(ApiKey)

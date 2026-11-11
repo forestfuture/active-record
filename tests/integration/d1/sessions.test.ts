@@ -104,7 +104,7 @@ describe("sessions", () => {
     expect(loading.bookmark()).not.toBeNull();
   });
 
-  test("statements and batches go through the session too", async () => {
+  test("statements and batches go through the session", async () => {
     const running = connect(binding, { session: "first-primary" });
     await running.model(User).insert({ id: 1, email: "a@example.com" });
     expect(running.bookmark()).not.toBeNull();

@@ -101,7 +101,7 @@ describe("what is typed behind the answer", () => {
     expect(await leftOver("await User.deleteAll()\n", "await User.count()\n")).toEqual([]);
   });
 
-  test("is still dropped when it arrives while the database is opening", async () => {
+  test("is dropped when it arrives while the database is opening", async () => {
     expect(await leftOver("1 + 1\n")).toEqual([]);
   });
 });

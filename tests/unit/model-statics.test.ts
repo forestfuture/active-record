@@ -86,7 +86,7 @@ describe("none() with no database", () => {
     await expect(none.find(1)).rejects.toThrow("User with id 1 not found");
   });
 
-  test("their arguments are still checked: an unknown attribute rejects", async () => {
+  test("finders' arguments are checked: an unknown attribute rejects", async () => {
     const none = User.none();
 
     await expect(none.count("nope" as never)).rejects.toThrow(UnknownAttribute);
