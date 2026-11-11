@@ -129,6 +129,16 @@ describe("the commit-msg hook on a commit that only adds tests", () => {
     expect(output).toContain('say "guard" in the body');
   });
 
+  test("warns when a test file's name holds a quote", () => {
+    const { output } = runHook(
+      { 'tests/unit/a"b.test.ts': oneTest },
+      { 'tests/unit/a"b.test.ts': twoTests },
+      "Test finding none (#1)\n",
+    );
+
+    expect(output).toContain('say "guard" in the body');
+  });
+
   test("warns when git colors its diffs", () => {
     const { output } = runHook(
       { "tests/unit/a.test.ts": oneTest },
