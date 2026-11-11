@@ -18,12 +18,13 @@ function parse(text) {
  * from this rule, so tests/unit/lint-opt-outs.test.ts runs the rule over the repo to see it.
  */
 function problem(text) {
-  const opt = parse(text);
-  if (opt === null) return null;
-  if (opt.names.includes("d1-record/disable-reason")) return "turnsItselfOff";
+  const optOut = parse(text);
+  if (optOut === null) return null;
+  if (optOut.names.includes("d1-record/disable-reason")) return "turnsItselfOff";
   // Naming no rule turns off every rule, the repo's own included. A reason has a letter in it.
-  const coversOwn = opt.names.length === 0 || opt.names.some((n) => n.startsWith("d1-record/"));
-  return coversOwn && !/\p{L}/u.test(opt.reason) ? "noReason" : null;
+  const coversOwn =
+    optOut.names.length === 0 || optOut.names.some((n) => n.startsWith("d1-record/"));
+  return coversOwn && !/\p{L}/u.test(optOut.reason) ? "noReason" : null;
 }
 
 export default defineRule({
