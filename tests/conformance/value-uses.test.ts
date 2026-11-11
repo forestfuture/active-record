@@ -100,7 +100,7 @@ describe("values by their use", () => {
       expect(note.label).toBe("9");
     });
 
-    test("and a key the database generates, filled in when the owner is saved with its records", async () => {
+    test("a key the database generates is written as its digits when the owner is saved with its records", async () => {
       const owner = db().model(Owner).build({ email: "grace@example.com" });
       const note = owner.notes().build({ id: 3 });
 
