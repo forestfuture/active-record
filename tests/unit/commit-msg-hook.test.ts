@@ -72,3 +72,19 @@ describe("the commit-msg hook on a commit that only adds tests", () => {
     expect(output).toBe("");
   });
 });
+
+describe("the commit-msg hook on a commit that adds tests and other files", () => {
+  test.each(["packages/active-record/src/finders.ts", "scripts/lint/rule.mjs"])(
+    "says nothing when it stages %s beside them",
+    (path) => {
+      const { status, output } = runHook(
+        { "tests/unit/a.test.ts": oneTest },
+        { "tests/unit/a.test.ts": twoTests, [path]: "export {};\n" },
+        "Find none (#1)\n",
+      );
+
+      expect(status).toBe(0);
+      expect(output).toBe("");
+    },
+  );
+});
