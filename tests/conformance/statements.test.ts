@@ -1,4 +1,12 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  onTestFinished,
+  test,
+} from "vite-plus/test";
 import {
   batch,
   column,
@@ -961,6 +969,7 @@ describe("statements", () => {
       const unhandled: unknown[] = [];
       const onUnhandled = (reason: unknown) => void unhandled.push(reason);
       process.on("unhandledRejection", onUnhandled);
+      onTestFinished(() => void process.off("unhandledRejection", onUnhandled));
       const asyncCallback = (async (b: Batch) => {
         await Promise.resolve();
         return [b.insert(User, { id: 1, email: "a@example.com" })];
@@ -969,7 +978,6 @@ describe("statements", () => {
       await expect(db.batch(asyncCallback)).rejects.toThrow(TypeError);
       // oxlint-disable-next-line d1-record/no-fixed-delay -- Node reports an unhandled rejection a macrotask later, and nothing signals that none came
       await new Promise((resolve) => setTimeout(resolve, 10));
-      process.off("unhandledRejection", onUnhandled);
 
       expect(unhandled).toEqual([]);
       expect(await db.model(User).count()).toBe(0);
