@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
@@ -7,11 +7,16 @@ import { describe, expect, test } from "vite-plus/test";
 // The commit-msg hook's note that a tests-only commit says it adds guards (#322).
 const hook = new URL("../../.vite-hooks/commit-msg", import.meta.url).pathname;
 
-type Files = Record<string, string>;
+/** Each file's text, or null for a file to delete. */
+type Files = Record<string, string | null>;
 
-/** Writes each file under the repository at dir. */
+/** Writes or deletes each file under the repository at dir. */
 function write(dir: string, files: Files): void {
   for (const [path, text] of Object.entries(files)) {
+    if (text === null) {
+      rmSync(join(dir, path));
+      continue;
+    }
     mkdirSync(dirname(join(dir, path)), { recursive: true });
     writeFileSync(join(dir, path), text);
   }
@@ -127,6 +132,16 @@ describe("the commit-msg hook on a commit that renames or moves tests", () => {
       { "tests/unit/a.test.ts": twoTests },
       { "tests/unit/a.test.ts": oneTest, "tests/unit/b.test.ts": twoTests.replace(oneTest, "") },
       "Move the empty-table test (#1)\n",
+    );
+
+    expect(output).toBe("");
+  });
+
+  test("says nothing when it moves one into tests/ from another folder", () => {
+    const { output } = runHook(
+      { "packages/active-record/src/finders.test.ts": oneTest },
+      { "packages/active-record/src/finders.test.ts": null, "tests/unit/finders.test.ts": oneTest },
+      "Move the finder test (#1)\n",
     );
 
     expect(output).toBe("");
