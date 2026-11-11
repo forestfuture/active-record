@@ -88,3 +88,26 @@ describe("the commit-msg hook on a commit that adds tests and other files", () =
     },
   );
 });
+
+describe("the commit-msg hook on a commit that renames or moves tests", () => {
+  test("says nothing when it renames one", () => {
+    const renamed = oneTest.replace("finds a record", "finds the record");
+    const { output } = runHook(
+      { "tests/unit/a.test.ts": oneTest },
+      { "tests/unit/a.test.ts": renamed },
+      "Name the finder test (#1)\n",
+    );
+
+    expect(output).toBe("");
+  });
+
+  test("says nothing when it moves one to another file", () => {
+    const { output } = runHook(
+      { "tests/unit/a.test.ts": twoTests },
+      { "tests/unit/a.test.ts": oneTest, "tests/unit/b.test.ts": twoTests.replace(oneTest, "") },
+      "Move the empty-table test (#1)\n",
+    );
+
+    expect(output).toBe("");
+  });
+});
