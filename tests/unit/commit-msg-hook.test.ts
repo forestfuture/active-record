@@ -32,12 +32,19 @@ function git(dir: string, ...args: string[]): void {
 }
 
 /**
- * Commits `before` in a new repository, stages `after` on top of it, and
- * runs the hook on `message` as git would: what it prints, and its status.
+ * Commits `before` in a new repository with `config` set, stages `after` on
+ * top of it, and runs the hook on `message` as git would: what it prints,
+ * and its status.
  */
-function runHook(before: Files, after: Files, message: string) {
+function runHook(
+  before: Files,
+  after: Files,
+  message: string,
+  config: Record<string, string> = {},
+) {
   const dir = mkdtempSync(join(tmpdir(), "commit-msg-hook-"));
   git(dir, "init", "-q");
+  for (const [key, value] of Object.entries(config)) git(dir, "config", key, value);
   write(dir, { "README.md": "x\n", ...before });
   git(dir, "add", ".");
   git(dir, "commit", "-q", "--no-gpg-sign", "-m", "Start");
@@ -93,6 +100,17 @@ describe("the commit-msg hook on a commit that only adds tests", () => {
       { "tests/unit/a.test.ts": oneTest },
       { "tests/unit/a.test.ts": twoTests },
       message,
+    );
+
+    expect(output).toContain('say "guard" in the body');
+  });
+
+  test("warns when git colors its diffs", () => {
+    const { output } = runHook(
+      { "tests/unit/a.test.ts": oneTest },
+      { "tests/unit/a.test.ts": twoTests },
+      "Test finding none (#1)\n",
+      { "color.diff": "always" },
     );
 
     expect(output).toContain('say "guard" in the body');
