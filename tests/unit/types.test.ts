@@ -1,5 +1,6 @@
 import { describe, expectTypeOf, test } from "vite-plus/test";
 import {
+  batch,
   type AttributeConversions,
   belongsTo,
   between,
@@ -309,6 +310,16 @@ describe("types", () => {
       void db.model(User).toInsert;
       // @ts-expect-error a save is prepared by a Batch, not by the record
       void user.toSave;
+      // @ts-expect-error nor by a Model's statics
+      void User.toInsert;
+      // @ts-expect-error the free batch's callback can't await either
+      await batch(async (b) => [b.save(user)]);
+      await db.batch((b) => {
+        const write = b.insert(User, { id: 1 });
+        // @ts-expect-error a prepared write has no toSql(): onQuery shows what was sent
+        void write.toSql;
+        return [write];
+      });
     };
     expectTypeOf(typeOnly).toBeFunction();
   });
