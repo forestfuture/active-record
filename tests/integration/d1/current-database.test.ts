@@ -121,7 +121,7 @@ describe("Product.find(id): a query started from a Model", () => {
   });
 });
 
-describe("batch([...]): atomic writes on the current database", () => {
+describe("batch((b) => [...]): atomic writes on the current database", () => {
   test("statements and records from a Model's statics are written together, on its database", async () => {
     const events: QueryEvent[] = [];
     const user = User.build({ id: 3, email: "linus@example.com", role: "guest" });
@@ -144,7 +144,7 @@ describe("batch([...]): atomic writes on the current database", () => {
     ).rejects.toThrow(IncompatibleRelation);
   });
 
-  test("batch([]) writes nothing", async () => {
+  test("a batch of no writes sends nothing", async () => {
     expect(await batch(() => [])).toEqual([]);
   });
 

@@ -10,7 +10,7 @@ import { values } from "../support/values.ts";
 // An attribute's conversions (#148) are the ones a record uses: for a value of any shape, `cast`,
 // `serialize` and assigning it accept the same values and refuse the same ones, `serialize` is
 // what an insert binds, and `deserialize` reads it back as `cast` gave it.
-// No D1 needed: `toInsert` compiles the statement and never runs it.
+// No D1 needed: preparing an insert compiles its statement and never runs it.
 const samples = connect({} as never).model(Sample);
 
 const attributes = sampleAttributes;

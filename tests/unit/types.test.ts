@@ -271,9 +271,11 @@ describe("types", () => {
     const typeOnly = (user: User) => {
       // @ts-expect-error Relations come from db.model() and other Relations
       void new Relation();
-      // @ts-expect-error a record statement keeps its record's type
-      const statement: RecordStatement<Other> = user.toSave();
-      void statement;
+      void db.batch((b) => {
+        // @ts-expect-error a record statement keeps its record's type
+        const statement: RecordStatement<Other> = b.save(user);
+        return [statement];
+      });
     };
     expectTypeOf(typeOnly).toBeFunction();
   });
