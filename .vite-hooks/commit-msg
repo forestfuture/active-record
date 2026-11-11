@@ -13,3 +13,13 @@ fi
 if [ "$length" -gt 60 ]; then
   echo "Warning: commit title is $length characters; aim for 50 or less."
 fi
+
+# A commit that stages only tests and adds one adds a guard: a test that
+# passed on its first run. See CODING_STANDARDS.md.
+outside_tests=$(git diff --cached --name-only | grep -v '^tests/' || true)
+test_call='(^|[^A-Za-z0-9_.$])(test|it)(\.[A-Za-z]+)*\('
+added=$(git diff --cached -U0 -- tests/ | grep -E '^\+' | grep -cE "$test_call" || true)
+
+if [ -z "$outside_tests" ] && [ "$added" -gt 0 ]; then
+  echo 'Warning: this commit only adds tests. If they passed on their first run, say "guard" in the body.'
+fi
