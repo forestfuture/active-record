@@ -86,7 +86,7 @@ Act on every other finding without asking, and keep working while an escalated o
 
 ### Converge
 
-After the fixes, review once more, over the fix commits only (`git diff <last-commit-before-fixes>..HEAD`), and verify any new findings the same way. Two rounds is the cap: a finding still open after the second round goes to the human, as a sign the approach needs rethinking. A finding already handled isn't raised again.
+After the fixes, review once more, over the fix commits only (`git diff <last-commit-before-fixes>..HEAD`), and verify any new findings the same way. Start this round once every first-round fix has landed, an escalated finding's fix included, so no fix merges unreviewed. Two rounds is the cap: a finding still open after the second round goes to the human, as a sign the approach needs rethinking. A finding already handled isn't raised again.
 
 Keep a **findings log** as you go: each finding, its tag, and its outcome (the fixing commit, the rejection reason, or the deferred issue). It becomes the pull request's Review section.
 
