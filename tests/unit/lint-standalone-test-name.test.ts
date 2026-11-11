@@ -85,6 +85,16 @@ tester.run("standalone-test-name", standaloneTestName, {
       errors: [{ messageId: "leans" }],
     },
     {
+      name: "a focused test's name",
+      code: 'test.only("redirects HEAD too", () => {});',
+      errors: [{ messageId: "leans" }],
+    },
+    {
+      name: "a describe.each() name",
+      code: 'describe.each(["GET", "HEAD"])("%s requests too", () => {});',
+      errors: [{ messageId: "leans" }],
+    },
+    {
       name: "a name given as a template literal",
       code: "test(`redirects ${method} too`, () => {});",
       errors: [{ messageId: "leans" }],
