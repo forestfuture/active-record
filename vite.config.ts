@@ -87,6 +87,8 @@ export default defineConfig({
       "max-depth": ["error", { max: 3 }],
       "max-params": ["error", { max: 4 }],
       "max-lines-per-function": ["error", { max: 60, skipBlankLines: true, skipComments: true }],
+      // Turning off one of the repo's own rules says why, after `--` (scripts/lint/).
+      "d1-record/disable-reason": "error",
     },
     jsPlugins: ["./scripts/lint/plugin.mjs"],
     overrides: [
