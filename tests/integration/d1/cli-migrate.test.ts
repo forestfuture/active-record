@@ -79,6 +79,18 @@ describe("migrate", () => {
     expect(printed).not.toContain("0001_create_users.sql │");
   }, 120_000);
 
+  test("first notes a D1 database active-record.jsonc doesn't name", async () => {
+    const cwd = project();
+    const databases = [{ binding: "DB", database_name: "shop" }, { binding: "LOGS" }];
+    writeFileSync(join(cwd, "wrangler.jsonc"), JSON.stringify({ d1_databases: databases }));
+
+    const { lines } = await migrated(cwd, { remote: true });
+
+    expect(lines[0]).toBe(
+      "Note: wrangler.jsonc has the D1 database LOGS, which active-record.jsonc doesn't name; run `npx active-record init` to add it",
+    );
+  });
+
   test("--remote asks for the database's name first, and does nothing when it isn't typed", async () => {
     const { code, printed, lines } = await migrated(project(), { remote: true }, "nope");
 

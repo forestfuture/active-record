@@ -12,7 +12,7 @@ import { Miniflare } from "miniflare";
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { runGenerate } from "../../../packages/active-record/cli/generate/command.ts";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
-import { withD1Config } from "../../support/d1-config.ts";
+import { d1Config, withD1Config } from "../../support/d1-config.ts";
 
 // Inside tests/ (gitignored), so a generated project's imports of the library resolve as they
 // do in the repo, through tsconfig.json's paths.
@@ -279,6 +279,21 @@ describe("active-record g migration", () => {
       "/** products — last changed by 20261108090504_remove_sku_from_products.sql */",
     );
     expect(read(cwd, "src/db/schema.ts")).not.toContain("sku:");
+  });
+
+  test("first notes a D1 database active-record.jsonc doesn't name", async () => {
+    const cwd = project({
+      "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB" }, { binding: "LOGS" }] }),
+      "active-record.jsonc": d1Config("DB"),
+      "migrations/.keep": "",
+    });
+
+    const { code, output } = await generate(cwd, ["migration", "BackfillPrices"]);
+
+    expect(code).toBe(0);
+    expect(output.split("\n")[0]).toBe(
+      "Note: wrangler.jsonc has the D1 database LOGS, which active-record.jsonc doesn't name; run `npx active-record init` to add it",
+    );
   });
 
   test("an empty migration for any other name; a NOT NULL column without a default is refused", async () => {
