@@ -56,5 +56,13 @@ ruleTester.run("disable-reason over the repo", disableReason, {
     code: codeOf(file),
     languageOptions: { parserOptions: { lang: langOf(file) } },
   })),
-  invalid: [],
+  invalid: [
+    {
+      // If RuleTester ever applied opt-outs, this one would hide its own report, and every
+      // file above would pass whatever it held. This case going red is what shows it.
+      name: "an opt-out from every rule for the whole file, which Oxlint hides",
+      code: "/* oxlint-disable */\nwait();",
+      errors: [{ messageId: "noReason" }],
+    },
+  ],
 });
