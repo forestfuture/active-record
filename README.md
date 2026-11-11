@@ -137,12 +137,12 @@ export default {
 
 ### 5. Write several things at once, or not at all
 
-D1 can’t keep a transaction open while your code awaits, so there’s no `transaction()` block. Instead, `batch([...])` sends a prepared set of writes that all succeed or all fail. `toSave()`, `toDestroy()`, and the bulk writes’ `to…` forms (`toUpdateAll`, `toDeleteAll`, …) prepare a write for the batch instead of running it:
+D1 can’t keep a transaction open while your code awaits, so there’s no `transaction()` block. Instead, prepare the writes in `batch`’s callback, and they’re sent together, all succeeding or all failing:
 
 ```ts
-await batch([
-  Post.where({ publishedAt: null }).toUpdateAll({ publishedAt: new Date() }),
-  user.toDestroy(), // and its posts, since posts are dependent: "destroy"
+await batch((b) => [
+  b.updateAll(Post.where({ publishedAt: null }), { publishedAt: new Date() }),
+  b.destroy(user), // and its posts, since posts are dependent: "destroy"
 ]);
 ```
 
@@ -153,7 +153,7 @@ await batch([
 - **Persistence**: `save`/`create`/`update`/`destroy` with `…OrThrow` variants, validations (`presence`, `length`, `format`, `inclusion`, `numericality`, `uniqueness`) with error messages you can change, the full Rails callback lifecycle with `abort()`, dirty tracking (`changes`, `attributeWas`, `savedChangeTo`, …).
 - **Associations**: `belongsTo`, `hasMany`, `hasOne` with scopes, `dependent:` strategies, preloading with `includes` (one query per association, never N+1, and on D1 the whole tree on one database in one round trip), caching until reload, autosave, and `build`/`create`/`set` through the association, between Models on one database or on two.
 - **Queries from the Model**, as in Rails: `User.find(id)`, `User.where(…)`, `User.active()`, on the Model’s binding with no setup.
-- **Bulk writes**: `insert`, `insertAll`, `upsert`, `updateAll`, `deleteAll`, and `batch([...])` mixing those with records’ `toSave()`/`toDestroy()`.
+- **Bulk writes**: `insert`, `insertAll`, `upsert`, `updateAll`, `deleteAll`, and `batch((b) => [...])` mixing those with records’ saves and destroys.
 - **Read replicas**: a request run in `withSession(request, env.DB, fn)` sends every query through one D1 Session, so it reads its own writes, and the Session’s bookmark goes to the user’s next request in a cookie or a header.
 - **Observability**: `connect(env.DB, { onQuery })` sees every statement with its SQL, bound values, timing, and D1’s `meta`. `toSql()` shows a query’s SQL and values without sending it.
 
@@ -161,7 +161,7 @@ await batch([
 
 The D1 adapter follows Rails wherever D1 allows, and says so where it can’t:
 
-- **No interactive transactions.** D1 can’t hold a transaction open across `await`s, so there’s no `transaction(async tx => …)`. Instead, `batch([...])` writes a prepared set of statements and records atomically, and a record with `dependent: "destroy"` or new associated records is written in one batch when its keys are known in advance and they’re on one database.
+- **No interactive transactions.** D1 can’t hold a transaction open across `await`s, so there’s no `transaction(async tx => …)`. Instead, `batch((b) => [...])` writes a prepared set of bulk writes and records atomically, and a record with `dependent: "destroy"` or new associated records is written in one batch when its keys are known in advance and they’re on one database.
 - **Keys generated in code are first-class.** A generated `TEXT` key is a UUID made at `build()` (or whatever your `generateId` makes), so records can be linked and saved together atomically before D1 has seen them.
 - **D1’s limits are handled for you.** Lists of any length bind as one value (`json_each`), so a list never runs into the 100-bound-parameter limit. Preloads take one query per association, and the whole tree on one database goes together in one round trip. A nested query that would bind more than 100 values takes one more, and so does a level on another database.
 - **Constraint errors become typed errors** (`RecordNotUnique`, `InvalidForeignKey`, `NotNullViolation`, `CheckViolation`) naming the table, columns, and attributes.

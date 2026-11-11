@@ -32,7 +32,7 @@ Leave with `quit`, `exit`, or Ctrl-D. Ctrl-C stops a line that’s still running
 ## What you can use
 
 - **Your Models,** by class name, from every file in `src/models`. They query your database, local unless you pass `--remote`, with no `db` to pass.
-- **`db`,** your connected database, for `db.batch([...])` and `db.model(...)`.
+- **`db`,** your connected database, for `db.batch(...)` and `db.model(...)`.
 - **Top-level `await`,** and `const` and `let`, which last until you leave.
 
 A record prints as it does in a log: its class and attributes, with a filtered attribute as `[FILTERED]` and an unsaved change next to the value it had. [Printing records](./models#printing-records) has the details.

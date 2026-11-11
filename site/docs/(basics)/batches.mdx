@@ -1,6 +1,6 @@
 ---
 title: Bulk writes and batches
-description: "Reference for bulk writes (insert, insertAll, upsert, updateAll, deleteAll) and atomic batch([...]) of their to… forms and records' toSave()/toDestroy()."
+description: "Reference for bulk writes (insert, insertAll, upsert, updateAll, deleteAll) and atomic batches of them and of records' saves and destroys, prepared with batch((b) => [...])."
 ---
 
 Bulk writes change many rows in one SQL statement. A batch sends several writes to D1 at once, and they’re all written, or none of them.
@@ -43,23 +43,31 @@ These are Rails’ `insert_all`, `upsert_all`, `update_all`, and `delete_all`, w
 
 ## Batching writes
 
-Each bulk write has a `to…` form that prepares it instead of running it: `toInsert`, `toInsertAll`, `toUpsert`, `toUpsertAll`, `toUpdateAll`, and `toDeleteAll`. Pass them to `batch` to write them atomically:
+Prepare several writes in `batch`’s callback to write them atomically:
 
 <include>/_excerpts/guide/batches/batch.ts</include>
 
-`batch` resolves to each entry’s result, in order. A prepared write gives the same `{ rowsAffected, rows }` it resolves to when it runs alone, and `rows` is empty for `toUpdateAll` and `toDeleteAll`.
+The callback gets `b`, with a method for each bulk write: `insert`, `insertAll`, `upsert`, `upsertAll`, `updateAll`, and `deleteAll`. Each takes what it writes to, then the same arguments as the write itself. Pass a Model to write to its table, or a Relation to write to its rows, such as `Article.where(…)` or `author.articles()`.
+
+`batch` resolves to each write’s result, in order. A bulk write gives the same `{ rowsAffected, rows }` it resolves to when it runs alone, and `rows` is empty for `updateAll` and `deleteAll`.
 
 - **Keys:** rows in one batch can only point at each other through keys that exist before it’s sent, so generate keys in code, with [`generateId`](./models#generating-ids).
-- **Inspecting:** a prepared write’s `toSql()` shows the SQL and values it will send, [without sending them](./querying#seeing-a-querys-sql).
-- **Databases:** a batch runs on the database its entries were built on. Entries from two databases throw `IncompatibleRelation`.
+- **Errors:** a write that can’t be prepared, such as one with an unknown attribute, rejects the batch before anything is sent.
+- **Databases:** `batch` writes a Model’s rows on the current database, and `db.batch` on `db`. A Relation or a record writes on the database it came from. Writes on two databases throw `IncompatibleRelation`.
 
 :::note
-D1 can’t keep a transaction open across `await`s, so there’s no `transaction()` block. A batch is how you make writes atomic.
+The callback returns its writes without awaiting anything, since the batch is sent to D1 as one. Load what the writes need before you call `batch`.
 :::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+A batch reads like a `transaction do … end` block, but its callback only prepares writes. They’re sent together when it returns, so it can’t read in between. D1 can’t keep a transaction open across `await`s, so a batch is how you make writes atomic.
+
+</Callout>
 
 ## Batching records
 
-Add a record’s save or destroy to a batch with `toSave()` and `toDestroy()`. Its validations and callbacks still run:
+Add a record’s save or destroy to a batch with `b.save(record)` and `b.destroy(record)`. Its validations and callbacks still run:
 
 <include>/_excerpts/guide/batches/records.ts</include>
 
@@ -77,6 +85,6 @@ In a Rails transaction, one record’s `after_save` runs before the next record�
 
 </Callout>
 
-Statements and records mix in one batch. From the [Getting started](./getting-started) project, this publishes every draft and destroys a user with their posts:
+Bulk writes and records mix in one batch. From the [Getting started](./getting-started) project, this publishes every draft and destroys a user with their posts:
 
 <include>/_excerpts/getting-started/src/publish/batch.ts</include>

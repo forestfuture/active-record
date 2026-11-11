@@ -1,5 +1,7 @@
 # Writes run when called; `to…` forms prepare them for a batch
 
+**Superseded in part by ADR-0020** (#332): a batch's writes are prepared in its callback, `batch((b) => [b.insert(Post, …), b.save(user)])`, and the `to…` forms below are gone. Writes still run when called.
+
 **Amended by ADR-0016** (#266): the insert family resolves to `{ rowsAffected, rows }`, each written row's `returning` attributes (the primary key by default), not D1's `meta`, and a batch's statements resolve to the same.
 
 A Relation's bulk writes run when they're called, as Rails' do: `await posts.deleteAll()` and `updateAll(…)` resolve to the number of rows, and `insert`, `insertAll`, `upsert` and `upsertAll` to D1's `meta`. Each has a `to…` form (`toInsert`, `toUpdateAll`, `toDeleteAll`, …) that returns a Statement for `db.batch([...])` instead of running it, as records have `save()` and `toSave()`. One rule covers both: methods do things, and `to…` methods hand you the thing to do, for a batch.
