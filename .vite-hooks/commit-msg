@@ -17,7 +17,7 @@ fi
 # A commit that stages only tests and adds more than it removes adds
 # guards: tests that passed on their first run. See CODING_STANDARDS.md.
 # A rename or a move adds as many test calls as it removes.
-outside_tests=$(git diff --cached --name-only | grep -v '^tests/' || true)
+outside_tests=$(git diff --cached --name-only --no-renames | grep -v '^tests/' || true)
 test_call='(^|[^A-Za-z0-9_.$])(test|it)(\.[A-Za-z]+)*\('
 test_diff=$(git diff --cached -U0 -- tests/)
 added=$(printf '%s\n' "$test_diff" | grep '^+' | grep -cE "$test_call" || true)
