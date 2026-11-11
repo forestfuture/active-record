@@ -4,7 +4,9 @@
 # Lines that open with git's comment character aren't part of the message,
 # which ends at git commit -v's scissors line; the diff follows it. With
 # commentChar set to auto, git's choice isn't known here, so # stands in.
-comment=$(git config core.commentString || git config core.commentChar || true)
+# git reads commentChar and commentString as one setting, the last one wins,
+# and --get-regexp lists them in the order git reads them.
+comment=$(git config --get-regexp '^core\.comment(char|string)$' | tail -n 1 | cut -s -d ' ' -f 2-)
 case "$comment" in '' | auto) comment='#' ;; esac
 message=$(awk -v c="$comment" '
   $0 == c " ------------------------ >8 ------------------------" { exit }
