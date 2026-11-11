@@ -199,7 +199,7 @@ Without a strategy, it’s up to the database. If the table declares the foreign
 
 ## Writing many rows
 
-`insert`, `updateAll`, and `deleteAll` work through a `hasMany`, scoped to the owner’s records, and so do their `to…` forms for a batch:
+`insert`, `updateAll`, and `deleteAll` work through a `hasMany`, scoped to the owner’s records. So do a batch’s, given the association, as in `b.deleteAll(article.comments())`:
 
 <include>/_excerpts/guide/associations/statements.ts</include>
 

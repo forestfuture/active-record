@@ -74,8 +74,8 @@ To name your Models once, use `db.models`:
 
 ## Batching writes
 
-`batch` writes statements and records atomically, on the database they were built on:
+`batch` writes bulk writes and records atomically:
 
 <include>/_excerpts/guide/connecting/batch.ts</include>
 
-Entries from a Model’s statics use the current database. `db.batch([...])` uses an explicit one. See [Bulk writes and batches](./batches).
+`batch` writes a Model’s rows on the current database. `db.batch` uses an explicit one. See [Bulk writes and batches](./batches).

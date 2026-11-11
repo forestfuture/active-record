@@ -181,13 +181,13 @@ See the SQL a Relation’s `toArray()` would send, without sending it, with `toS
 
 The values come back in `params`, apart from the SQL.
 
-A Statement from `toInsert`, `toUpdateAll`, `toDeleteAll`, and the other `to…` methods has `toSql()` too. A `none()` Relation shows `1 = 0`, the condition that matches nothing.
+A `none()` Relation shows `1 = 0`, the condition that matches nothing.
 
 :::note
 `toSql()` returns the real values, filtered attributes included. To see what a query sent, with those filtered, use [`onQuery`](./logging).
 :::
 
-A record’s `toSave()` and `toDestroy()` have no `toSql()`. Their SQL depends on validations and callbacks that only run inside `db.batch`.
+Bulk writes and [batches](./batches#batching-writes) have no `toSql()`. Use [`onQuery`](./logging) to see what they sent.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 

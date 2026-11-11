@@ -102,7 +102,7 @@ Saving a record also saves the records built through it, each on its own databas
 [`dependent` strategies](./associations#destroying-dependent-records) work the same way. With `dependent: "destroy"` on a user’s entries, destroying the user destroys its entries on `LOGS`, then deletes the user from `DB`.
 
 :::warning[Each database is written on its own]
-A save or a destroy that reaches two databases writes to each one separately. If the second write fails, the first stays written. A batch writes to one database, so `batch([...])` throws `IncompatibleRelation` for a record whose writes reach another one.
+A save or a destroy that reaches two databases writes to each one separately. If the second write fails, the first stays written. A batch writes to one database, so `batch` throws `IncompatibleRelation` for a record whose writes reach another one.
 :::
 
 ## Reading your own writes on each

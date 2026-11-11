@@ -76,7 +76,7 @@ Rails sets no limit, so opening a connection waits as long as it takes unless yo
 
 ## Batches are transactions
 
-[`batch([...])`](./batches#batching-writes) writes all its entries or none, as on D1. On Postgres it runs them between `BEGIN` and `COMMIT`, on a client of its own. A query your request sends while the batch runs stays outside the transaction, so a failed batch never rolls it back.
+[`batch`](./batches#batching-writes) writes all its writes or none, as on D1. On Postgres it runs them between `BEGIN` and `COMMIT`, on a client of its own. A query your request sends while the batch runs stays outside the transaction, so a failed batch never rolls it back.
 
 ## Reads run one after another
 

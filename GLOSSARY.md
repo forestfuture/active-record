@@ -185,7 +185,7 @@ Where a **Session** has got to, from `db.bookmark()`. The next request's Session
 _Avoid_: Token, cursor, version
 
 **Statement**:
-A bulk write prepared for a **Batch** rather than run (`toInsert`, `toUpdateAll`, `toDeleteAll`, …), skipping validations and callbacks. It runs only with its **Batch**, and is never run by being awaited. Its SQL can be read with `toSql()`, unsent.
+A bulk write prepared in a **Batch**'s callback rather than run (`b.insert(…)`, `b.updateAll(…)`, `b.deleteAll(…)`, …), skipping validations and callbacks. It runs only with its **Batch**, and is never run by being awaited.
 _Avoid_: Query, command
 
 **Write result**:
@@ -193,7 +193,7 @@ What a bulk write resolves to, alone or in a **Batch**: `{ rowsAffected, rows }`
 _Avoid_: Meta, last insert ID
 
 **Batch**:
-An atomic group of **Statements** and **Record statements** run together with D1's `batch()`: all are written, or none.
+An atomic group of **Statements** and **Record statements**, prepared in `batch((b) => [...])`'s callback, where `b` (a `Batch`) has a method for each write. They're sent together once it returns, with D1's `batch()` or in one transaction: all are written, or none.
 _Avoid_: Transaction
 
 **Autosave**:
@@ -201,5 +201,5 @@ Saving a **Record** also saves the new records of its **Associations**, validate
 _Avoid_: Nested save, cascade save
 
 **Record statement**:
-A **Record**'s save or destroy as part of a **Batch** (`user.toSave()`). Unlike a **Statement**, it isn't compiled in advance: the record's validations and callbacks run when the batch runs. It's never run by being awaited.
+A **Record**'s save or destroy as part of a **Batch** (`b.save(user)`, `b.destroy(post)`). Unlike a **Statement**, it isn't compiled in advance: the record's validations and callbacks run when the batch runs. It's never run by being awaited.
 _Avoid_: Pending save, deferred write
