@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { UnknownAssociation, UnknownAttribute } from "../../packages/active-record/src/index.ts";
+import {
+  batch,
+  UnknownAssociation,
+  UnknownAttribute,
+} from "../../packages/active-record/src/index.ts";
 import { User } from "../fixtures/models/user.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -73,11 +77,11 @@ describe("a name that every object inherits isn't an attribute or association", 
     expect(() => users().whereNot(keyed)).toThrow(UnknownAttribute);
     await expect(users().findBy(keyed)).rejects.toThrow(UnknownAttribute);
     await expect(users().exists(keyed)).rejects.toThrow(UnknownAttribute);
-    expect(() => users().toUpdateAll(keyed)).toThrow(UnknownAttribute);
-    expect(() => users().toInsert(keyed)).toThrow(UnknownAttribute);
-    expect(() => users().toUpsert({ id: 1, email: "x" }, { uniqueBy: name as never })).toThrow(
-      UnknownAttribute,
-    );
+    await expect(batch((b) => [b.updateAll(users(), keyed)])).rejects.toThrow(UnknownAttribute);
+    await expect(batch((b) => [b.insert(users(), keyed)])).rejects.toThrow(UnknownAttribute);
+    await expect(
+      batch((b) => [b.upsert(users(), { id: 1, email: "x" }, { uniqueBy: name as never })]),
+    ).rejects.toThrow(UnknownAttribute);
     expect(() => users().build(keyed)).toThrow(UnknownAttribute);
     expect(() => user.assign(keyed)).toThrow(UnknownAttribute);
     expect(() => User.permit({}, name as never)).toThrow(UnknownAttribute);

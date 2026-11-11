@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
+  batch,
   belongsTo,
   between,
   gte,
@@ -275,9 +276,15 @@ describe("values assigned to attributes are cast to the attribute's type (#81)",
       const error = new TypeError(`Sample: "no" isn't a boolean for "enabled"`);
 
       await expect(samples().insert({ id: 1, enabled: untyped("no") })).rejects.toThrow(error);
-      expect(() => samples().toInsertAll([{ id: 1, enabled: untyped("no") }])).toThrow(error);
-      expect(() => samples().toUpsert({ id: 1, enabled: untyped("no") })).toThrow(error);
-      expect(() => samples().toUpdateAll({ enabled: untyped("no") })).toThrow(error);
+      await expect(
+        batch((b) => [b.insertAll(samples(), [{ id: 1, enabled: untyped("no") }])]),
+      ).rejects.toThrow(error);
+      await expect(
+        batch((b) => [b.upsert(samples(), { id: 1, enabled: untyped("no") })]),
+      ).rejects.toThrow(error);
+      await expect(
+        batch((b) => [b.updateAll(samples(), { enabled: untyped("no") })]),
+      ).rejects.toThrow(error);
       expect(await samples().count()).toBe(0);
     });
   });

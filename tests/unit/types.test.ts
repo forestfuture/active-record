@@ -281,15 +281,32 @@ describe("types", () => {
   test("db.batch resolves to each entry's result: the record, or the statement's WriteResult", () => {
     // Checked by the type checker only; never called.
     const typeOnly = async (user: User) => {
-      const [saved, deleted, inserted] = await db.batch([
-        user.toSave(),
-        db.model(User).where({ id: 1 }).toDeleteAll(),
-        db.model(User).toInsert({ id: 2 }, { returning: ["id", "email"] }),
+      const [saved, deleted, inserted] = await db.batch((b) => [
+        b.save(user),
+        b.deleteAll(db.model(User).where({ id: 1 })),
+        b.insert(User, { id: 2 }, { returning: ["id", "email"] }),
       ]);
       expectTypeOf(saved).toEqualTypeOf<User>();
       expectTypeOf(deleted.rowsAffected).toEqualTypeOf<number>();
       expectTypeOf(deleted.rows).toEqualTypeOf<never[]>();
       expectTypeOf(inserted.rows).toEqualTypeOf<{ id: number; email: string }[]>();
+    };
+    expectTypeOf(typeOnly).toBeFunction();
+  });
+
+  test("a batch's callback can't be async, and a Batch's writes check their Model's attributes", () => {
+    // Checked by the type checker only; never called.
+    const typeOnly = async (user: User) => {
+      // @ts-expect-error a batch is sent as one, so its callback can't await
+      await db.batch(async (b) => [b.save(user)]);
+      // @ts-expect-error an unknown attribute
+      await db.batch((b) => [b.insert(User, { nope: 1 })]);
+      // @ts-expect-error an unknown attribute, through a Relation
+      await db.batch((b) => [b.updateAll(db.model(User).where({ id: 1 }), { nope: 1 })]);
+      // @ts-expect-error writes are prepared by a Batch, not by the Relation
+      void db.model(User).toInsert;
+      // @ts-expect-error a save is prepared by a Batch, not by the record
+      void user.toSave;
     };
     expectTypeOf(typeOnly).toBeFunction();
   });
@@ -315,12 +332,12 @@ describe("types", () => {
 
     // Checked by the type checker only; never called.
     const typeOnly = () => {
-      users.toUpsertAll([{ email: "a@example.com" }], { uniqueBy: "email" });
-      users.toUpsert({ id: 1 }, { uniqueBy: ["id", "email"] });
+      void users.upsertAll([{ email: "a@example.com" }], { uniqueBy: "email" });
+      void db.batch((b) => [b.upsert(users, { id: 1 }, { uniqueBy: ["id", "email"] })]);
       // @ts-expect-error unknown attribute
-      users.toUpsert({ id: 1 }, { uniqueBy: "nope" });
+      void db.batch((b) => [b.upsert(User, { id: 1 }, { uniqueBy: "nope" })]);
       // @ts-expect-error onDuplicate only skips; updating is upsert
-      users.toInsert({ id: 1 }, { onDuplicate: "update" });
+      void db.batch((b) => [b.insert(User, { id: 1 }, { onDuplicate: "update" })]);
     };
     expectTypeOf(typeOnly).toBeFunction();
   });
@@ -502,11 +519,10 @@ describe("types", () => {
     expectTypeOf(typeOnly).toBeFunction();
   });
 
-  test("toSql gives the SQL and its bound values, of a Relation, a Model, or a Statement", () => {
+  test("toSql gives the SQL and its bound values, of a Relation or a Model", () => {
     const typeOnly = () => {
       expectTypeOf(db.model(User).where({ isActive: true }).toSql()).toEqualTypeOf<QuerySql>();
       expectTypeOf(User.toSql()).toEqualTypeOf<QuerySql>();
-      expectTypeOf(db.model(User).toDeleteAll().toSql()).toEqualTypeOf<QuerySql>();
       expectTypeOf<QuerySql>().toEqualTypeOf<{ sql: string; params: unknown[] }>();
     };
     expectTypeOf(typeOnly).toBeFunction();

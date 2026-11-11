@@ -2,6 +2,8 @@ import fc from "fast-check";
 import { describe, expect, test } from "vite-plus/test";
 import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 import { attempt, Sample, sampleAttributes } from "../support/attribute-samples.ts";
+import { preparedWrites } from "../../packages/active-record/src/prepared-writes.ts";
+import { statementParts } from "../../packages/active-record/src/statement.ts";
 import { PURE_RUNS } from "../support/properties.ts";
 import { values } from "../support/values.ts";
 
@@ -36,7 +38,9 @@ describe("an attribute's conversions, for a value of any shape", () => {
       fc.property(fc.constantFrom(...attributes), values, (attribute, value) => {
         const serialized = attempt(() => Sample.typeForAttribute(attribute).serialize(value));
         const inserted = attempt(
-          () => samples.toInsert({ [attribute]: value } as never).toSql().params,
+          () =>
+            samples[preparedWrites].insert({ [attribute]: value } as never)[statementParts].query
+              .params,
         );
 
         expect(inserted.ok).toBe(serialized.ok);

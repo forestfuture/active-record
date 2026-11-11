@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
+  batch,
   type FilterAttribute,
   gte,
   Model,
@@ -144,19 +145,15 @@ describe("filterAttributes", () => {
     ]);
   });
 
-  test("a cast error from a bulk write hides a filtered value", () => {
+  test("a cast error from a bulk write hides a filtered value", async () => {
     const error = new TypeError('User: [FILTERED] isn\'t a string for "email"');
 
-    expect(() =>
-      db()
-        .model(User)
-        .toInsert({ id: 1, email: 42 as never }),
-    ).toThrow(error);
-    expect(() =>
-      db()
-        .model(User)
-        .toUpdateAll({ email: 42 as never }),
-    ).toThrow(error);
+    await expect(
+      batch((b) => [b.insert(db().model(User), { id: 1, email: 42 as never })]),
+    ).rejects.toThrow(error);
+    await expect(
+      batch((b) => [b.updateAll(db().model(User), { email: 42 as never })]),
+    ).rejects.toThrow(error);
   });
 
   test("a cast error shows a filtered attribute's value as [FILTERED]", () => {

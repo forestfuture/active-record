@@ -128,7 +128,7 @@ describe("batch([...]): atomic writes on the current database", () => {
 
     const [, saved] = await withDatabase(
       connect(binding, { onQuery: (event) => events.push(event) }),
-      () => batch([User.where({ id: 1 }).toUpdateAll({ role: "lead" }), user.toSave()]),
+      () => batch((b) => [b.updateAll(User.where({ id: 1 }), { role: "lead" }), b.save(user)]),
     );
 
     expect(saved.isPersisted()).toBe(true);
@@ -140,26 +140,23 @@ describe("batch([...]): atomic writes on the current database", () => {
     const explicit = connect(binding);
 
     await expect(
-      batch([User.toUpdateAll(sql`role = role`), explicit.model(User).toDeleteAll()]),
+      batch((b) => [b.updateAll(User, sql`role = role`), b.deleteAll(explicit.model(User))]),
     ).rejects.toThrow(IncompatibleRelation);
   });
 
   test("batch([]) writes nothing", async () => {
-    expect(await batch([])).toEqual([]);
+    expect(await batch(() => [])).toEqual([]);
   });
 
   test("a Model's statics and db.model(…) on the request's database are one database to a batch", async () => {
     const db = connect(binding);
 
     const results = await withDatabase(db, async () => {
-      await batch([
-        User.where({ id: 2 }).toUpdateAll(sql`role = role`),
-        db
-          .model(User)
-          .where({ id: 1 })
-          .toUpdateAll(sql`role = role`),
+      await batch((b) => [
+        b.updateAll(User.where({ id: 2 }), sql`role = role`),
+        b.updateAll(db.model(User).where({ id: 1 }), sql`role = role`),
       ]);
-      return db.batch([User.where({ id: 2 }).toUpdateAll(sql`role = role`)]);
+      return db.batch((b) => [b.updateAll(User.where({ id: 2 }), sql`role = role`)]);
     });
 
     expect(results).toHaveLength(1);

@@ -411,7 +411,9 @@ describe("autosaving records on another database", () => {
 
 describe("a batch with records on another database", () => {
   test("refuses a save whose callback builds them, writing nothing", async () => {
-    const saving = inRequest(() => batch([Greeter.build({ id: 2, email: "grace@DB" }).toSave()]));
+    const saving = inRequest(() =>
+      batch((b) => [b.save(Greeter.build({ id: 2, email: "grace@DB" }))]),
+    );
 
     await expect(saving).rejects.toThrow(
       new IncompatibleRelation(
@@ -427,7 +429,7 @@ describe("a batch with records on another database", () => {
     const saving = inRequest(async () => {
       const user = User.build({ id: 2, email: "grace@DB" });
       user.entries().build({ id: 2, message: "built" });
-      return batch([user.toSave()]);
+      return batch((b) => [b.save(user)]);
     });
 
     await expect(saving).rejects.toThrow(
@@ -443,7 +445,7 @@ describe("a batch with records on another database", () => {
     const saving = inRequest(async () => {
       const user = User.build({ id: 2, email: "grace@DB" });
       user.entries().build({ id: 2, message: "built" });
-      return connect(db).batch([user.toSave()]);
+      return connect(db).batch((b) => [b.save(user)]);
     });
 
     await expect(saving).rejects.toThrow(IncompatibleRelation);
@@ -503,7 +505,10 @@ describe("destroying an owner whose dependents are on another database", () => {
   });
 
   test("a batch refuses a destroy whose dependents' dependents are there, before any callback runs", async () => {
-    const destroying = inRequest(async () => batch([(await Founder.find(1)).toDestroy()]));
+    const destroying = inRequest(async () => {
+      const record = await Founder.find(1);
+      return batch((b) => [b.destroy(record)]);
+    });
 
     await expect(destroying).rejects.toThrow(
       new IncompatibleRelation(
@@ -516,7 +521,10 @@ describe("destroying an owner whose dependents are on another database", () => {
   });
 
   test("a batch refuses the destroy before any callback runs", async () => {
-    const destroying = inRequest(async () => batch([(await Leaving.find(1)).toDestroy()]));
+    const destroying = inRequest(async () => {
+      const record = await Leaving.find(1);
+      return batch((b) => [b.destroy(record)]);
+    });
 
     await expect(destroying).rejects.toThrow(
       new IncompatibleRelation(

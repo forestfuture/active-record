@@ -214,13 +214,12 @@ describe("caching lazily loaded associations", () => {
     expect(queries).toHaveLength(0);
   });
 
-  test("a statement built through a hasMany clears the owner's loaded collection when its batch is written", async () => {
+  test("a write prepared through a hasMany clears the owner's loaded collection when its batch is written", async () => {
     const database = db();
     const user = await database.model(User).find(1);
-    const statement = user.posts().toUpdateAll({ title: "Changed" });
     await user.posts().toArray();
 
-    await database.batch([statement]);
+    await database.batch((b) => [b.updateAll(user.posts(), { title: "Changed" })]);
 
     expect(user.isLoaded("posts")).toBe(false);
     expect(await user.posts().pluck("title")).toEqual(["Changed", "Changed"]);

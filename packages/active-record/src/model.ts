@@ -21,7 +21,6 @@ import {
 } from "./errors.ts";
 import { destroyLifecycle, reloadRecord, saveLifecycle, validateRecord } from "./lifecycle.ts";
 import { associationOf, newRecord } from "./association-fields.ts";
-import { RecordStatement } from "./record-statement.ts";
 import { inferTableNames } from "./table-names.ts";
 import {
   attributesSettled,
@@ -464,19 +463,6 @@ export class Model extends ModelStatics {
    */
   async destroy(): Promise<this | false> {
     return (await destroyLifecycle(this)).status === "destroyed" ? this : false;
-  }
-
-  /**
-   * This record's save, for `db.batch([...])`: its validations and callbacks run when the batch
-   * runs, and every record in the batch is written atomically.
-   */
-  toSave(): RecordStatement<this> {
-    return new RecordStatement(this, "save");
-  }
-
-  /** This record's destroy, dependents included, for `db.batch([...])`. */
-  toDestroy(): RecordStatement<this> {
-    return new RecordStatement(this, "destroy");
   }
 
   /** Like `destroy()`, but throws `RecordNotDestroyed` instead of returning `false`. */

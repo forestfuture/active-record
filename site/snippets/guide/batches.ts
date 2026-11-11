@@ -43,10 +43,10 @@ export async function returningExample(articleId: string) {
 export async function batchExample() {
   // #region batch
   const authorId = crypto.randomUUID(); // generated in code, so rows can point at it
-  await batch([
-    Author.toInsert({ id: authorId, name: "Grace" }),
-    Article.toInsert({ authorId, title: "Hello" }),
-    Article.where({ authorId: "author-1" }).toDeleteAll(),
+  await batch((b) => [
+    b.insert(Author, { id: authorId, name: "Grace" }),
+    b.insert(Article, { authorId, title: "Hello" }),
+    b.deleteAll(Article.where({ authorId: "author-1" })),
   ]);
   // #endregion batch
   return authorId;
@@ -59,11 +59,11 @@ export async function recordsExample(articleId: string, oldAuthorId: string) {
   const author = Author.build({ name: "Hedy" });
   const old = await Author.find(oldAuthorId);
 
-  const [savedArticle, savedAuthor] = await batch([
-    article.toSave(),
-    author.toSave(),
-    old.toDestroy(), // with its dependents
-    Comment.where({ articleId }).toDeleteAll(),
+  const [savedArticle, savedAuthor] = await batch((b) => [
+    b.save(article),
+    b.save(author),
+    b.destroy(old), // with its dependents
+    b.deleteAll(Comment.where({ articleId })),
   ]);
   // #endregion records
   return { savedArticle, savedAuthor };

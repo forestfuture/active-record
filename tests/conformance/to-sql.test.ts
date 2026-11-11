@@ -1,6 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import { Model } from "../../packages/active-record/src/index.ts";
-import { Post } from "../fixtures/models/post.ts";
 import { User } from "../fixtures/models/user.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
@@ -101,64 +100,5 @@ describe("toSql", () => {
     const posts = user.posts().toSql();
     expect(posts.params).toEqual([1]);
     expect(posts.sql).toContain('FROM "posts"');
-  });
-
-  describe("a Statement", () => {
-    test("shows a filtered column's real values in an insert, a multi-row insert, and an update", async () => {
-      const users = db().model(User);
-
-      const one = users.toInsert({ id: 3, email: "c@example.com" }).toSql();
-      const many = users
-        .toInsertAll([
-          { id: 4, email: "d@example.com" },
-          { id: 5, email: "e@example.com" },
-        ])
-        .toSql();
-      const update = users.where({ id: 1 }).toUpdateAll({ email: "f@example.com" }).toSql();
-
-      expect(JSON.stringify(one.params)).toContain("c@example.com");
-      expect(JSON.stringify(many.params)).toContain("d@example.com");
-      expect(JSON.stringify(many.params)).toContain("e@example.com");
-      expect(update.params).toContain("f@example.com");
-      expect(JSON.stringify([one, many, update])).not.toContain("FILTERED");
-    });
-
-    test("is the SQL db.batch sends for it, and building or inspecting it sends nothing", async () => {
-      const database = db();
-      const posts = database.model(Post);
-      const statements = [
-        posts.toInsert({ userId: 1, title: "Hello" }),
-        posts.toInsertAll([
-          { userId: 1, title: "A" },
-          { userId: 1, title: "B" },
-        ]),
-        posts.where({ userId: 1 }).toUpdateAll({ title: "Renamed" }),
-        posts.where({ userId: 2 }).toDeleteAll(),
-      ];
-
-      const shown = statements.map((statement) => statement.toSql());
-
-      expect(events).toEqual([]);
-      expect(shown.map(({ sql }) => sql)).toEqual([
-        expect.stringMatching(/^INSERT INTO "posts"/),
-        expect.stringMatching(/^INSERT INTO "posts"/),
-        expect.stringMatching(/^UPDATE "posts"/),
-        expect.stringMatching(/^DELETE FROM "posts"/),
-      ]);
-      await database.batch(statements);
-      expect(sent()).toEqual(shown);
-    });
-  });
-
-  describe("a record statement", () => {
-    test("throws, saying why: its SQL depends on callbacks that only run in a batch", () => {
-      const user = User.build({ email: "c@example.com" });
-      const statements = [user.toSave(), user.toDestroy()] as unknown as { toSql(): unknown }[];
-
-      for (const statement of statements) {
-        expect(() => statement.toSql()).toThrow(TypeError);
-        expect(() => statement.toSql()).toThrow(/validations and callbacks.*db\.batch/);
-      }
-    });
   });
 });

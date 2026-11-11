@@ -42,22 +42,19 @@ export class AnyDatabase {
   }
 
   /**
-   * Runs statements and record statements atomically: all of them are written, or none. Record
-   * statements (`user.toSave()`, `post.toDestroy()`) run their validations and before-callbacks
-   * first, in order; the first record that's invalid or
+   * Runs the writes `build` prepares atomically, on this Database: all of them are written, or
+   * none. `db.batch((b) => [b.insert(Post, { title }), b.save(user)])`. The callback can't await,
+   * since the batch is sent as one. Saves and destroys (`b.save(user)`, `b.destroy(post)`) run
+   * their validations and before-callbacks first, in order; the first record that's invalid or
    * aborts throws (`RecordInvalid`, `RecordNotSaved`, `RecordNotDestroyed`) and nothing is sent.
    * After the batch, each record takes its saved state and runs its after-callbacks, in order.
-   * Resolves to each entry's result: a statement's `{ rowsAffected, rows }`, the record for a
-   * record statement.
+   * Resolves to each write's result: a bulk write's `{ rowsAffected, rows }`, or the record.
    */
   async batch<const T extends readonly BatchEntry[]>(
-    entries: T | ((b: Batch) => T),
+    build: (b: Batch) => T,
   ): Promise<BatchResults<T>> {
-    const listed =
-      typeof entries === "function"
-        ? batchEntries(entries, (model) => relationFor(this.#executor, model))
-        : entries;
+    const entries = batchEntries(build, (model) => relationFor(this.#executor, model));
     // Every entry on this Database: built on it, or on the current one when it's this.
-    return runBatch(listed, "db.batch() needs its statements and records", [this.#executor]);
+    return runBatch(entries, "db.batch() needs its statements and records", [this.#executor]);
   }
 }

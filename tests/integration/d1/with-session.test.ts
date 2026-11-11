@@ -243,9 +243,9 @@ describe("withSession(request, env.DB, fn)", () => {
 
     const response = await withSession(request, binding, async (db) => {
       const users = db.model(User);
-      await db.batch([
-        users.toInsert({ id: 2, email: "bob@example.com" }),
-        users.toInsert({ id: 3, email: "carol@example.com" }),
+      await db.batch((b) => [
+        b.insert(users, { id: 2, email: "bob@example.com" }),
+        b.insert(users, { id: 3, email: "carol@example.com" }),
       ]);
       return Response.json(await users.count());
     });

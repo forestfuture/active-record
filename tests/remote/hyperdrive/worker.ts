@@ -57,10 +57,10 @@ const routes: Record<string, (env: Env) => Promise<unknown>> = {
     const users = db.model(User);
     return withDatabase(db, async () => {
       const failed = db
-        .batch([
-          users.toInsert({ email: "in-batch@example.com" }),
-          users.where({ email: "nobody@example.com" }).toUpdateAll({ role: "x" }),
-          users.toInsert({ email: "in-batch@example.com" }),
+        .batch((b) => [
+          b.insert(users, { email: "in-batch@example.com" }),
+          b.updateAll(users.where({ email: "nobody@example.com" }), { role: "x" }),
+          b.insert(users, { email: "in-batch@example.com" }),
         ])
         .then(
           () => "written",

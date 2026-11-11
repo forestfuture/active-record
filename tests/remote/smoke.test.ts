@@ -58,7 +58,7 @@ describe.skipIf(!configured)("remote D1 smoke", () => {
   afterAll(() => remote?.dispose());
   beforeEach(async () => {
     const db = connect(remote.binding);
-    await db.batch([db.model(Post).toDeleteAll(), db.model(User).toDeleteAll()]);
+    await db.batch((b) => [b.deleteAll(Post), b.deleteAll(User)]);
   });
 
   test("create, find, update and destroy a record, with values converted both ways", async () => {
@@ -128,10 +128,10 @@ describe.skipIf(!configured)("remote D1 smoke", () => {
     const db = connect(remote.binding);
 
     const error: unknown = await db
-      .batch([
-        db.model(User).toInsert({ id: 1, email: "a@example.com" }),
-        db.model(Post).toInsert({ userId: 1, title: "Hello" }),
-        db.model(User).toInsert({ id: 2, email: "a@example.com" }),
+      .batch((b) => [
+        b.insert(User, { id: 1, email: "a@example.com" }),
+        b.insert(Post, { userId: 1, title: "Hello" }),
+        b.insert(User, { id: 2, email: "a@example.com" }),
       ])
       .catch((caught: unknown) => caught);
 
@@ -234,7 +234,7 @@ describe.skipIf(!configured)("remote D1 smoke", () => {
     const first = db.model(User).build({ email: "a@example.com" });
     const second = db.model(User).build({ email: "b@example.com" });
 
-    await db.batch([first.toSave(), second.toSave()]);
+    await db.batch((b) => [b.save(first), b.save(second)]);
 
     expect([first.isPersisted(), second.isPersisted()]).toEqual([true, true]);
     expect(first.id).not.toBe(second.id);
@@ -247,12 +247,8 @@ describe.skipIf(!configured)("remote D1 smoke", () => {
     // In batches of 25, under D1's per-invocation query limit (50 on the Free plan).
     for (let start = 0; start < ids.length; start += 25) {
       const group = ids.slice(start, start + 25);
-      await db.batch(
-        group.map((id) => db.model(User).toInsert({ id, email: `u${id}@example.com` })),
-      );
-      await db.batch(
-        group.map((id) => db.model(Post).toInsert({ userId: id, title: `Post ${id}` })),
-      );
+      await db.batch((b) => group.map((id) => b.insert(User, { id, email: `u${id}@example.com` })));
+      await db.batch((b) => group.map((id) => b.insert(Post, { userId: id, title: `Post ${id}` })));
     }
 
     // A 150-value list is one bound value (json_each), well within D1's 100-parameter limit.

@@ -1,5 +1,6 @@
 // Batch: what `batch((b) => [...])` hands its callback, to prepare each write the batch runs.
 import type { AttributesOf, Model, ModelClass } from "./model.ts";
+import { preparedWrites } from "./prepared-writes.ts";
 import { RecordStatement } from "./record-statement.ts";
 import { Relation } from "./relation.ts";
 import type { InsertOptions, Returning, UpsertOptions } from "./relation-checks.ts";
@@ -51,7 +52,7 @@ export class Batch {
     attributes: Partial<AttributesOf<M>>,
     options: InsertOptions<M> & { returning?: R } = {},
   ): Statement<ReturnedRow<M, R>> {
-    return this.#rows(target).toInsert(attributes, options);
+    return this.#rows(target)[preparedWrites].insert(attributes, options);
   }
 
   /** Inserts several rows with the same attributes, in one statement, as `insertAll` does. */
@@ -60,7 +61,7 @@ export class Batch {
     rows: readonly Partial<AttributesOf<M>>[],
     options: InsertOptions<M> & { returning?: R } = {},
   ): Statement<ReturnedRow<M, R>> {
-    return this.#rows(target).toInsertAll(rows, options);
+    return this.#rows(target)[preparedWrites].insertAll(rows, options);
   }
 
   /** Inserts a row, or updates the one it clashes with, as `upsert` does. */
@@ -69,7 +70,7 @@ export class Batch {
     attributes: Partial<AttributesOf<M>>,
     options: UpsertOptions<M> & { returning?: R } = {},
   ): Statement<ReturnedRow<M, R>> {
-    return this.#rows(target).toUpsert(attributes, options);
+    return this.#rows(target)[preparedWrites].upsert(attributes, options);
   }
 
   /** `upsert` for several rows with the same attributes, as `upsertAll` does. */
@@ -78,7 +79,7 @@ export class Batch {
     rows: readonly Partial<AttributesOf<M>>[],
     options: UpsertOptions<M> & { returning?: R } = {},
   ): Statement<ReturnedRow<M, R>> {
-    return this.#rows(target).toUpsertAll(rows, options);
+    return this.#rows(target)[preparedWrites].upsertAll(rows, options);
   }
 
   /** Updates every row `target` matches, as `updateAll` does: `b.updateAll(Post, { published: true })`. */
@@ -86,12 +87,12 @@ export class Batch {
     target: BatchTarget<M>,
     changes: Partial<AttributesOf<M>> | SafeSql,
   ): Statement {
-    return this.#rows(target).toUpdateAll(changes);
+    return this.#rows(target)[preparedWrites].updateAll(changes);
   }
 
   /** Deletes every row `target` matches, as `deleteAll` does (through a hasMany, it may nullify). */
   deleteAll<M extends Model>(target: BatchTarget<M>): Statement {
-    return this.#rows(target).toDeleteAll();
+    return this.#rows(target)[preparedWrites].deleteAll();
   }
 
   /** The Relation a write goes through: `target` itself, or all of a Model's rows. */

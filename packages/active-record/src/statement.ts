@@ -1,16 +1,13 @@
-// Statement: a bulk write (`toInsert`, `toUpdateAll`, …) built to run on its own or in a batch, and what runs once it's written.
+// Statement: a bulk write (`insert`, `updateAll`, …) built to run on its own or in a batch, and what runs once it's written.
 import {
   compileInsert,
   compileInsertRows,
   type Assignment,
   type CompiledSql,
-  querySql,
   type Conflict,
-  type QuerySql,
 } from "./compiler.ts";
 import type { StatementResult } from "./driver.ts";
 import type { Executor } from "./executor.ts";
-import { withPlaceholders } from "./dialect.ts";
 import { attributeFor } from "./attribute.ts";
 import { attributeOf, initialValues, requireDefined } from "./metadata.ts";
 import type { AttributesOf, ModelClass } from "./model.ts";
@@ -44,9 +41,9 @@ type RowReader = (rows: readonly Record<string, unknown>[]) => object[];
 const noRows: RowReader = () => [];
 
 /**
- * A write prepared for `db.batch([...])`, from a Relation's `to…` methods (`toInsert`,
- * `toUpdateAll`, `toDeleteAll`, …). It runs on the Database it was built from, and skips
- * validations, callbacks and hydration. It has no `then`, so it's never run by being awaited.
+ * A bulk write prepared in a batch, by a Batch's methods (`b.insert`, `b.updateAll`,
+ * `b.deleteAll`, …). It runs on the Database it was built from, and skips validations,
+ * callbacks and hydration. It has no `then`, so it's never run by being awaited.
  */
 export class Statement<Row = never> {
   declare readonly [rowType]?: Row;
@@ -56,7 +53,7 @@ export class Statement<Row = never> {
   readonly #rows: RowReader;
 
   /**
-   * @internal Statements are built by Relations' `to…` methods. `landed` runs once D1 has
+   * @internal Statements are built by a Relation's bulk writes. `landed` runs once D1 has
    * written it, alone or in a batch (a hasMany's clears what its owner has loaded, #187), and
    * `rows` reads what it returned.
    */
@@ -70,11 +67,6 @@ export class Statement<Row = never> {
     this.#query = query;
     this.#landed = landed;
     this.#rows = rows;
-  }
-
-  /** The SQL this Statement sends and its bound values, unsent: see `Relation#toSql`. */
-  toSql(): QuerySql {
-    return querySql(withPlaceholders(this.#executor.dialect, this.#query));
   }
 
   /**

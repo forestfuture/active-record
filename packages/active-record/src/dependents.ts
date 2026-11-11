@@ -8,6 +8,7 @@ import { modelOf, type Model, type ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { Scoped } from "./relation.ts";
 import { statementParts, type Statement } from "./statement.ts";
+import { preparedWrites } from "./prepared-writes.ts";
 import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
 import { combine, stageOf, statementWrite, type Stage } from "./unit-of-work.ts";
 
@@ -139,10 +140,12 @@ function statementFor(owner: Model, association: ResolvedAssociation): Stage | u
   const { dependent, foreignKey } = association.definition;
   let statement: Statement;
   if (dependent === "deleteAll" || dependent === "delete") {
-    statement = recordsOf(owner, association).toDeleteAll();
+    statement = recordsOf(owner, association)[preparedWrites].deleteAll();
   } else if (dependent === "nullify") {
     // The foreign key was checked as a target attribute when the Model was prepared.
-    statement = recordsOf(owner, association).toUpdateAll({ [foreignKey]: null } as never);
+    statement = recordsOf(owner, association)[preparedWrites].updateAll({
+      [foreignKey]: null,
+    } as never);
   } else {
     return undefined;
   }

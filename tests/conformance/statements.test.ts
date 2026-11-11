@@ -107,23 +107,31 @@ describe("statements", () => {
       expect(user.role).toBeNull(); // presence validation skipped
     });
 
-    test("an unknown attribute rejects the immediate forms, and throws from the to… forms", async () => {
+    test("an unknown attribute rejects the immediate forms and the batch preparing it", async () => {
       const users = harness.connect().model(User);
 
       await expect(users.insert({ nope: 1 } as never)).rejects.toThrow(UnknownAttribute);
       await expect(users.updateAll({ nope: 1 } as never)).rejects.toThrow(UnknownAttribute);
-      expect(() => users.toInsert({ nope: 1 } as never)).toThrow(UnknownAttribute);
-      expect(() => users.toUpdateAll({ nope: 1 } as never)).toThrow(UnknownAttribute);
+      await expect(batch((b) => [b.insert(users, { nope: 1 } as never)])).rejects.toThrow(
+        UnknownAttribute,
+      );
+      await expect(batch((b) => [b.updateAll(users, { nope: 1 } as never)])).rejects.toThrow(
+        UnknownAttribute,
+      );
     });
 
-    test("building a statement doesn't query; attribute values are converted when it's built", async () => {
+    test("preparing a write doesn't query; attribute values are converted when it's prepared", async () => {
       const events: QueryEvent[] = [];
       const db = harness.connect({ onQuery: (event) => events.push(event) });
+      let sentWhilePreparing: number | undefined;
 
-      const statement = db.model(ApiKey).toInsert({ label: "deploy", scopes: ["read"] });
-      expect(events).toEqual([]);
-      await db.batch([statement]);
+      await db.batch((b) => {
+        const write = b.insert(ApiKey, { label: "deploy", scopes: ["read"] });
+        sentWhilePreparing = events.length;
+        return [write];
+      });
 
+      expect(sentWhilePreparing).toBe(0);
       expect(events).toHaveLength(1);
       const key = await db.model(ApiKey).findByOrThrow({ label: "deploy" });
       expect(key.scopes).toEqual(["read"]);
@@ -173,10 +181,12 @@ describe("statements", () => {
       ]);
     });
 
-    test("inserting through the posts of an unsaved user throws RecordNotSaved", () => {
+    test("inserting through the posts of an unsaved user throws RecordNotSaved", async () => {
       const user = harness.connect().model(User).build({ email: "a@example.com" });
 
-      expect(() => user.posts().toInsert({ title: "Hello" })).toThrow(RecordNotSaved);
+      await expect(batch((b) => [b.insert(user.posts(), { title: "Hello" })])).rejects.toThrow(
+        RecordNotSaved,
+      );
     });
 
     test("the immediate forms reject for an unsaved owner, distinct() and no changes", async () => {
@@ -190,11 +200,15 @@ describe("statements", () => {
       await expect(db.model(User).updateAll({})).rejects.toThrow(TypeError);
     });
 
-    test("unknown attributes and undefined values throw when the statement is built", () => {
+    test("unknown attributes and undefined values throw when the statement is built", async () => {
       const users = harness.connect().model(User);
 
-      expect(() => users.toInsert({ nope: 1 } as never)).toThrow(UnknownAttribute);
-      expect(() => users.toInsert({ email: undefined } as never)).toThrow(TypeError);
+      await expect(batch((b) => [b.insert(users, { nope: 1 } as never)])).rejects.toThrow(
+        UnknownAttribute,
+      );
+      await expect(batch((b) => [b.insert(users, { email: undefined } as never)])).rejects.toThrow(
+        TypeError,
+      );
     });
 
     test("a constraint failure throws the matching ConstraintViolation", async () => {
@@ -206,13 +220,15 @@ describe("statements", () => {
       );
     });
 
-    test("a statement isn't awaitable, so returning one from an async function doesn't run it", async () => {
+    test("a prepared write isn't awaitable, and is only sent with its batch", async () => {
       const events: QueryEvent[] = [];
       const db = harness.connect({ onQuery: (event) => events.push(event) });
 
-      const statement = await (async () => db.model(User).toInsert({ email: "a@example.com" }))();
+      await db.batch((b) => {
+        expect("then" in b.insert(User, { email: "a@example.com" })).toBe(false);
+        return [];
+      });
 
-      expect("then" in statement).toBe(false);
       expect(events).toEqual([]);
       expect(await db.model(User).count()).toBe(0);
     });
@@ -275,13 +291,19 @@ describe("statements", () => {
       expect(await db.model(User).order({ id: "asc" }).pluck("age")).toEqual([21, 21, 20, 20]);
     });
 
-    test("updateAll refuses no changes, unknown attributes, undefined and plain strings", () => {
+    test("updateAll refuses no changes, unknown attributes, undefined and plain strings", async () => {
       const users = harness.connect().model(User);
 
-      expect(() => users.toUpdateAll({})).toThrow(TypeError);
-      expect(() => users.toUpdateAll({ nope: 1 } as never)).toThrow(UnknownAttribute);
-      expect(() => users.toUpdateAll({ role: undefined })).toThrow(TypeError);
-      expect(() => users.toUpdateAll("role = 'x'" as never)).toThrow(TypeError);
+      await expect(batch((b) => [b.updateAll(users, {})])).rejects.toThrow(TypeError);
+      await expect(batch((b) => [b.updateAll(users, { nope: 1 } as never)])).rejects.toThrow(
+        UnknownAttribute,
+      );
+      await expect(batch((b) => [b.updateAll(users, { role: undefined })])).rejects.toThrow(
+        TypeError,
+      );
+      await expect(batch((b) => [b.updateAll(users, "role = 'x'" as never)])).rejects.toThrow(
+        TypeError,
+      );
     });
 
     test("deleteAll deletes the matching rows and resolves to how many", async () => {
@@ -349,11 +371,13 @@ describe("statements", () => {
       expect(await roles(db)).toEqual([[1, "owner"]]);
     });
 
-    test("distinct can't be written through", () => {
+    test("distinct can't be written through", async () => {
       const users = harness.connect().model(User).select("role").distinct();
 
-      expect(() => users.toDeleteAll()).toThrow(IncompatibleRelation);
-      expect(() => users.toUpdateAll({ role: "x" })).toThrow(IncompatibleRelation);
+      await expect(batch((b) => [b.deleteAll(users)])).rejects.toThrow(IncompatibleRelation);
+      await expect(batch((b) => [b.updateAll(users, { role: "x" })])).rejects.toThrow(
+        IncompatibleRelation,
+      );
     });
 
     test("on none(), deleteAll and updateAll send nothing and resolve to 0, as in Rails", async () => {
@@ -376,7 +400,7 @@ describe("statements", () => {
       await seedUsers(db);
       events.length = 0;
 
-      const [result] = await db.batch([db.model(User).none().toDeleteAll()]);
+      const [result] = await db.batch((b) => [b.deleteAll(db.model(User).none())]);
 
       expect(result).toEqual({ rowsAffected: 0, rows: [] });
       expect(events.map((event) => event.sql)).toEqual([expect.stringContaining("1 = 0")]);
@@ -448,14 +472,14 @@ describe("statements", () => {
         ]);
       });
 
-      test("the to… forms go in a batch, scoped to the owner's records", async () => {
+      test("writes through the association go in a batch, scoped to the owner's records", async () => {
         const db = harness.connect();
         await seedComments(db);
         const post = await db.model(Post).find(1);
 
-        await db.batch([
-          post.comments().toUpdateAll({ body: "edited" }),
-          post.comments().where({ id: 2 }).toDeleteAll(),
+        await db.batch((b) => [
+          b.updateAll(post.comments(), { body: "edited" }),
+          b.deleteAll(post.comments().where({ id: 2 })),
         ]);
 
         expect(await db.model(Comment).order({ id: "asc" }).pluck("id", "body")).toEqual([
@@ -551,26 +575,6 @@ describe("statements", () => {
         release();
 
         expect(bodies(await reading)).toEqual(["one", "two", "draft"]);
-        expect(post.isLoaded("comments")).toBe(false);
-      });
-
-      test("a collection read sent after a statement is built and answered after its batch isn't kept", async () => {
-        const { db, arm, held, release } = holdStatements(
-          harness,
-          reads("comments"),
-          "afterRunning",
-        );
-        await seedComments(db);
-        const post = await db.model(Post).find(1);
-        const statement = post.comments().toUpdateAll({ body: "new" });
-        arm();
-
-        const reading = post.comments().toArray();
-        await held;
-        await db.batch([statement]);
-        release();
-
-        expect(bodies(await reading)).toEqual(["one", "two"]);
         expect(post.isLoaded("comments")).toBe(false);
       });
 
@@ -807,18 +811,20 @@ describe("statements", () => {
       expect(await posts.order({ id: "asc" }).pluck("title")).toEqual(["A", "B"]);
     });
 
-    test("rows are compared as given, in any key order", () => {
+    test("rows are compared as given, in any key order", async () => {
       const posts = harness.connect().model(Post);
 
-      expect(() =>
-        posts.toInsertAll([
+      await expect(
+        posts.insertAll([
           { id: 1, userId: 1, title: "A", published: false },
           { published: true, title: "B", userId: 1, id: 2 },
         ]),
-      ).not.toThrow();
-      expect(() =>
-        posts.toInsertAll([{ ...post(1, "A"), createdAt: past }, { ...post(2, "B") }]),
-      ).toThrow(TypeError);
+      ).resolves.toMatchObject({ rowsAffected: 2 });
+      await expect(
+        batch((b) => [
+          b.insertAll(posts, [{ ...post(1, "A"), createdAt: past }, { ...post(2, "B") }]),
+        ]),
+      ).rejects.toThrow(TypeError);
     });
 
     test("with nothing to insert, a skip, an upsert or several rows throw; insert({}) writes defaults", async () => {
@@ -827,30 +833,32 @@ describe("statements", () => {
       }
       const bare = harness.connect().model(Bare);
 
-      expect(() => bare.toInsert({}, { onDuplicate: "skip" })).toThrow(TypeError);
-      expect(() => bare.toUpsert({})).toThrow(TypeError);
-      expect(() => bare.toInsertAll([{}, {}])).toThrow(TypeError);
+      await expect(batch((b) => [b.insert(bare, {}, { onDuplicate: "skip" })])).rejects.toThrow(
+        TypeError,
+      );
+      await expect(batch((b) => [b.upsert(bare, {})])).rejects.toThrow(TypeError);
+      await expect(batch((b) => [b.insertAll(bare, [{}, {}])])).rejects.toThrow(TypeError);
       expect((await bare.insert({})).rowsAffected).toBe(1);
     });
 
-    test("rows must share their attributes; an empty list and unknown attributes throw", () => {
+    test("rows must share their attributes; an empty list and unknown attributes throw", async () => {
       const posts = harness.connect().model(Post);
 
-      expect(() => posts.toInsertAll([post(1, "A"), { id: 2, userId: 1, title: "B" }])).toThrow(
-        TypeError,
-      );
-      expect(() => posts.toInsertAll([])).toThrow(TypeError);
-      expect(() => posts.toUpsertAll([post(1, "A")], { uniqueBy: "nope" as never })).toThrow(
-        UnknownAttribute,
-      );
+      await expect(
+        batch((b) => [b.insertAll(posts, [post(1, "A"), { id: 2, userId: 1, title: "B" }])]),
+      ).rejects.toThrow(TypeError);
+      await expect(batch((b) => [b.insertAll(posts, [])])).rejects.toThrow(TypeError);
+      await expect(
+        batch((b) => [b.upsertAll(posts, [post(1, "A")], { uniqueBy: "nope" as never })]),
+      ).rejects.toThrow(UnknownAttribute);
     });
 
     test("through an association, every row gets the owner's key, and it can go in a batch", async () => {
       const db = harness.connect();
       const user = await db.model(User).find(1);
 
-      await db.batch([
-        user.posts().toInsertAll([
+      await db.batch((b) => [
+        b.insertAll(user.posts(), [
           { id: 1, title: "A", published: true },
           { id: 2, title: "B", published: false },
         ]),
@@ -967,10 +975,10 @@ describe("statements", () => {
       const db = harness.connect();
       const userId = 7;
 
-      const results = await db.batch([
-        db.model(User).toInsert({ id: userId, email: "a@example.com", role: "member" }),
-        db.model(Post).toInsert({ userId, title: "Hello", published: true }),
-        db.model(User).where({ id: userId }).toUpdateAll({ role: "author" }),
+      const results = await db.batch((b) => [
+        b.insert(User, { id: userId, email: "a@example.com", role: "member" }),
+        b.insert(Post, { userId, title: "Hello", published: true }),
+        b.updateAll(db.model(User).where({ id: userId }), { role: "author" }),
       ]);
 
       expect(results.map((result) => result.rowsAffected)).toEqual([1, 1, 1]);
@@ -984,9 +992,9 @@ describe("statements", () => {
       const db = harness.connect();
       const keyId = crypto.randomUUID();
 
-      await db.batch([
-        db.model(ApiKey).toInsert({ id: keyId, label: "deploy" }),
-        db.model(Account).toInsert({ externalAccountId: keyId }),
+      await db.batch((b) => [
+        b.insert(ApiKey, { id: keyId, label: "deploy" }),
+        b.insert(Account, { externalAccountId: keyId }),
       ]);
 
       const account = await db.model(Account).findByOrThrow({ externalAccountId: keyId });
@@ -998,10 +1006,10 @@ describe("statements", () => {
       await db.model(User).insert({ id: 1, email: "a@example.com" });
 
       const error: unknown = await db
-        .batch([
-          db.model(User).toInsert({ id: 2, email: "b@example.com" }),
-          db.model(Post).toInsert({ userId: 2, title: "Hello", published: true }),
-          db.model(User).toInsert({ id: 3, email: "a@example.com" }),
+        .batch((b) => [
+          b.insert(User, { id: 2, email: "b@example.com" }),
+          b.insert(Post, { userId: 2, title: "Hello", published: true }),
+          b.insert(User, { id: 3, email: "a@example.com" }),
         ])
         .catch((caught: unknown) => caught);
 
@@ -1015,7 +1023,7 @@ describe("statements", () => {
       const db = harness.connect();
 
       const error: unknown = await db
-        .batch([db.model(Post).toInsert({ userId: 99, title: "Orphan", published: true })])
+        .batch((b) => [b.insert(Post, { userId: 99, title: "Orphan", published: true })])
         .catch((caught: unknown) => caught);
 
       expect(error).toBeInstanceOf(InvalidForeignKey);
@@ -1026,9 +1034,9 @@ describe("statements", () => {
       const db = harness.connect();
 
       const error: unknown = await db
-        .batch([
-          db.model(User).toInsert({ id: 1, email: "a@example.com" }),
-          db.model(Post).toInsert({ userId: 99, title: "Orphan", published: true }),
+        .batch((b) => [
+          b.insert(User, { id: 1, email: "a@example.com" }),
+          b.insert(Post, { userId: 99, title: "Orphan", published: true }),
         ])
         .catch((caught: unknown) => caught);
 
@@ -1042,9 +1050,9 @@ describe("statements", () => {
       const db = harness.connect({ onQuery: (event) => events.push(event) });
 
       await db
-        .batch([
-          db.model(User).toInsert({ id: 1, email: "a@example.com" }),
-          db.model(User).toInsert({ id: 2, email: "a@example.com" }),
+        .batch((b) => [
+          b.insert(User, { id: 1, email: "a@example.com" }),
+          b.insert(User, { id: 2, email: "a@example.com" }),
         ])
         .catch(() => undefined);
 
@@ -1058,7 +1066,7 @@ describe("statements", () => {
       const events: QueryEvent[] = [];
       const db = harness.connect({ onQuery: (event) => events.push(event) });
 
-      expect(await db.batch([])).toEqual([]);
+      expect(await db.batch(() => [])).toEqual([]);
       expect(events).toEqual([]);
     });
 
@@ -1067,7 +1075,7 @@ describe("statements", () => {
       const other = harness.connect();
 
       await expect(
-        db.batch([other.model(User).toInsert({ email: "a@example.com" })]),
+        db.batch((b) => [b.insert(other.model(User), { email: "a@example.com" })]),
       ).rejects.toThrow(IncompatibleRelation);
       expect(await db.model(User).count()).toBe(0);
     });
