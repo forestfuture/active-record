@@ -102,6 +102,24 @@ export function configNotes(project: LoadedProject): string[] {
 }
 
 /**
+ * The project's databases, as a command loads them: having printed what their adapters note about
+ * them, or, when they can't be loaded, `undefined`, having printed why.
+ */
+export async function loadForCommand(
+  cwd: string,
+  options: { config?: string },
+  print: (line: string) => void,
+): Promise<LoadedProject | undefined> {
+  const loaded = await loadDatabases(cwd, options.config);
+  if (typeof loaded === "string") {
+    print(loaded);
+    return undefined;
+  }
+  for (const note of configNotes(loaded)) print(note);
+  return loaded;
+}
+
+/**
  * The database a command works on: the only one, or the one `--database` names; or, as a message
  * to print, why there isn't one (several and none named, or a name no binding has).
  */

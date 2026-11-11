@@ -4,7 +4,7 @@ import type { Readable, Writable } from "node:stream";
 import { WriteStream } from "node:tty";
 import type { ChosenDatabase, CliAdapter, OpenBinding } from "../adapter.ts";
 import { adapterEntry } from "../project/adapters.ts";
-import { chosenDatabase, configNotes, loadDatabases } from "../project/databases.ts";
+import { chosenDatabase, loadForCommand, type LoadedProject } from "../project/databases.ts";
 import { consoleCommands } from "./commands.ts";
 import { confirmRemote } from "./confirm.ts";
 import { loadProject, type ConsoleProject } from "./project.ts";
@@ -129,17 +129,17 @@ function runOnce(code: string, opened: Opened, io: ConsoleIo, errors: Writable):
 interface Prepared {
   /** The adapter's folder for the command's local files: the history's. */
   stateFolder: string;
-  /** What the adapter notes about the project's databases, said as the session opens. */
-  notes: string[];
   project: ConsoleProject;
   opened: OpenBinding;
 }
 
-/** Everything that has to be true before a session starts, or why it isn't. */
-async function prepare(options: ConsoleOptions, io: ConsoleIo): Promise<Prepared | string> {
-  const cwd = options.cwd ?? process.cwd();
-  const loaded = await loadDatabases(cwd, options.config);
-  if (typeof loaded === "string") return loaded;
+/** Everything else that has to be true before a session starts, or why it isn't. */
+async function prepare(
+  loaded: LoadedProject,
+  cwd: string,
+  options: ConsoleOptions,
+  io: ConsoleIo,
+): Promise<Prepared | string> {
   const found = chosenDatabase(loaded, options);
   if (typeof found === "string") return found;
   const { adapter, chosen } = found;
@@ -149,7 +149,7 @@ async function prepare(options: ConsoleOptions, io: ConsoleIo): Promise<Prepared
     ? openRemote(adapter, { cwd, chosen }, options, io)
     : adapter.open(cwd, chosen, { remote: false }));
   if (typeof opened === "string") return opened;
-  return { stateFolder: adapter.stateFolder(chosen), notes: configNotes(loaded), project, opened };
+  return { stateFolder: adapter.stateFolder(chosen), project, opened };
 }
 
 /** Where a console talks: its own ends, what it says besides results, and its error stream. */
@@ -162,7 +162,7 @@ interface Talk {
 /** The session, or the one piece of code, on the open database; the exit code. */
 async function converse(
   options: ConsoleOptions,
-  { stateFolder, notes, project, opened }: Prepared,
+  { stateFolder, project, opened }: Prepared,
   { io, say, errors }: Talk,
 ): Promise<Finished> {
   const scripted = options.eval !== undefined;
@@ -176,7 +176,6 @@ async function converse(
   const database = library.connect(opened.binding, { onQuery });
   say(opened.description);
   say(`Models: ${Object.keys(models).join(", ")}`);
-  for (const note of notes) say(note);
   const inside: Opened = {
     scope: { ...models, db: database },
     commands,
@@ -203,7 +202,10 @@ export async function runConsole(
   const errors = io.error ?? process.stderr;
   // A script's output is its result alone: all else it says (even a refusal) goes to stderr.
   const say = options.eval === undefined ? print : (line: string) => void errors.write(`${line}\n`);
-  const prepared = await prepare(options, io);
+  const cwd = options.cwd ?? process.cwd();
+  const loaded = await loadForCommand(cwd, options, say);
+  if (loaded === undefined) return 1;
+  const prepared = await prepare(loaded, cwd, options, io);
   if (typeof prepared === "string") return refused(say, prepared);
   let finished: Finished;
   let closing: unknown;
