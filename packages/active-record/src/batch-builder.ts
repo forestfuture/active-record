@@ -11,7 +11,7 @@ import type { ReturnedRow, Statement } from "./statement.ts";
 const closeBatch = Symbol("closeBatch");
 
 /** What a Batch writes to: a Model's table, or a Relation's rows (`Post.where(…)`, `user.posts()`). */
-export type BatchTarget<M extends Model> = ModelClass<M> | Relation<M>;
+type BatchTarget<M extends Model> = ModelClass<M> | Relation<M>;
 
 /**
  * The writes of one batch, prepared inside its callback: `b.insert(Author, { name })`. Each is
@@ -99,7 +99,7 @@ export class Batch {
   #rows<M extends Model>(target: BatchTarget<M>): Relation<M> {
     this.#requireOpen();
     if (target instanceof Relation) return target;
-    return this.#relationOf(target) as unknown as Relation<M>;
+    return this.#relationOf(target);
   }
 
   #requireOpen(): void {
@@ -110,7 +110,7 @@ export class Batch {
 }
 
 /** How a Batch finds a Model's rows: on the batch's database. */
-type RelationOf = (model: ModelClass) => Relation<Model>;
+type RelationOf = <M extends Model>(model: ModelClass<M>) => Relation<M>;
 
 /**
  * The entries `build` returns for a batch, given a Batch that closes once it has returned. A
