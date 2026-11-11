@@ -82,7 +82,7 @@ describe("filterAttributes", () => {
     expect(params()).toEqual([["[FILTERED]", "admin"]]);
   });
 
-  test("conditions, lists and comparisons on a filtered attribute are hidden", async () => {
+  test("conditions, lists and comparisons on a filtered attribute hide its values", async () => {
     const users = db().model(User);
 
     await users.findBy({ email: "ada@example.com", role: "admin" });
