@@ -4,8 +4,11 @@ import { defineRule } from "vite-plus/lint/plugins";
 /** The functions that take a test's name. */
 const testFunctions = new Set(["test", "it"]);
 
-/** Words that make a name lean on the test before it: "redirects HEAD too". */
-const leaningWords = [/\btoo\b/, /\balso\b/, /\bas well\b(?! as\b)/, /\bso do(es)?\b/];
+/**
+ * Words that make a name lean on the test before it: "redirects HEAD too", and a name that opens
+ * with "…", going on from that test's name.
+ */
+const leaningWords = [/\btoo\b/, /\balso\b/, /\bas well\b(?! as\b)/, /\bso do(es)?\b/, /^…/];
 
 /**
  * The function a call's chain starts from: `test` in `test("…")`, `test.skip("…")` and
