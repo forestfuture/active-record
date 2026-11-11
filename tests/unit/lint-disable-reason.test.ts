@@ -15,6 +15,8 @@ tester.run("disable-reason", disableReason, {
     // Another tool's rule, and a comment that only mentions one of the repo's rules.
     "// oxlint-disable-next-line max-lines\nwait();",
     "// d1-record/no-fixed-delay flags a timer used as a wait\nwait();",
+    // Not a directive Oxlint reads.
+    "// oxlint-disable-nextline d1-record/no-fixed-delay\nwait();",
     // Oxlint reads the reason after any `--`, spaced or not, and on the next line of a block.
     "// oxlint-disable-next-line d1-record/no-fixed-delay --the delay is what's tested\nwait();",
     "// oxlint-disable-next-line d1-record/no-fixed-delay\t--\tthe delay is what's tested\nwait();",
