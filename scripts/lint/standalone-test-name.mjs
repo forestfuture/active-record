@@ -6,7 +6,7 @@ const testFunctions = new Set(["test", "it", "describe"]);
 
 /**
  * Words that make a name lean on the test before it: "redirects HEAD too", and a name that opens
- * with "…", going on from that test's name.
+ * with "…" or "and", going on from that test's name.
  */
 const leaningWords = [
   /\btoo\b/i,
@@ -14,6 +14,7 @@ const leaningWords = [
   /\bas well\b(?! as\b)/i,
   /\bso do(es)?\b/i,
   /^(…|\.\.\.)/,
+  /^and\b/i,
 ];
 
 /**
