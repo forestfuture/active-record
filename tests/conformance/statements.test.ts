@@ -951,7 +951,7 @@ describe("statements", () => {
       ]) as unknown as (b: Batch) => [];
 
       await expect(db.batch(asyncCallback)).rejects.toThrow(
-        "batch()'s callback must return its writes in an array, without awaiting anything",
+        "A batch's callback must return its writes in an array, without awaiting anything",
       );
       expect(events).toEqual([]);
     });
