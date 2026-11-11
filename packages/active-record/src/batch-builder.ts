@@ -6,6 +6,9 @@ import type { InsertOptions, Returning, UpsertOptions } from "./relation-checks.
 import type { SafeSql } from "./sql.ts";
 import type { ReturnedRow, Statement } from "./statement.ts";
 
+/** The library's key for closing a Batch once its callback has returned. */
+const closeBatch = Symbol("closeBatch");
+
 /** What a Batch writes to: a Model's table, or a Relation's rows (`Post.where(…)`, `user.posts()`). */
 export type BatchTarget<M extends Model> = ModelClass<M> | Relation<M>;
 
@@ -14,11 +17,17 @@ export type BatchTarget<M extends Model> = ModelClass<M> | Relation<M>;
  * written when the batch runs, atomically with the rest, and none is sent on its own.
  */
 export class Batch {
-  readonly #relationOf: (model: ModelClass) => Relation<Model>;
+  readonly #relationOf: RelationOf;
+  #open = true;
 
   /** @internal Built by `batch()` and `db.batch()`, which look up a Model's rows with `relationOf`. */
-  constructor(relationOf: (model: ModelClass) => Relation<Model>) {
+  constructor(relationOf: RelationOf) {
     this.#relationOf = relationOf;
+  }
+
+  /** @internal Called once its callback has returned, so a write prepared later can't be lost. */
+  [closeBatch](): void {
+    this.#open = false;
   }
 
   /**
@@ -26,11 +35,13 @@ export class Batch {
    * run when the batch runs, before anything is written, and its after-callbacks once it is.
    */
   save<R extends Model>(record: R): RecordStatement<R> {
+    this.#requireOpen();
     return new RecordStatement(record, "save");
   }
 
   /** Destroys `record`, with its dependents, its callbacks running as `save`'s do. */
   destroy<R extends Model>(record: R): RecordStatement<R> {
+    this.#requireOpen();
     return new RecordStatement(record, "destroy");
   }
 
@@ -85,7 +96,38 @@ export class Batch {
 
   /** The Relation a write goes through: `target` itself, or all of a Model's rows. */
   #rows<M extends Model>(target: BatchTarget<M>): Relation<M> {
+    this.#requireOpen();
     if (target instanceof Relation) return target;
     return this.#relationOf(target) as unknown as Relation<M>;
   }
+
+  #requireOpen(): void {
+    if (!this.#open) {
+      throw new TypeError("This Batch's callback has returned: prepare each write inside it");
+    }
+  }
+}
+
+/** How a Batch finds a Model's rows: on the batch's database. */
+type RelationOf = (model: ModelClass) => Relation<Model>;
+
+/**
+ * The entries `build` returns for a batch, given a Batch that closes once it has returned. A
+ * callback can't await (D1 can't hold a batch open across one), so it must return an array.
+ */
+export function batchEntries<T>(build: (b: Batch) => T, relationOf: RelationOf): T {
+  const b = new Batch(relationOf);
+  let entries: T;
+  try {
+    entries = build(b);
+  } finally {
+    b[closeBatch]();
+  }
+  if (!Array.isArray(entries)) {
+    throw new TypeError(
+      "batch()'s callback must return its writes in an array, without awaiting anything: " +
+        "a batch is sent as one, so it can't wait for a read",
+    );
+  }
+  return entries;
 }
