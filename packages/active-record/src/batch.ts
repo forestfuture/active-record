@@ -1,4 +1,4 @@
-// A Batch's steps, and the free `batch()`: its one database pinned, before-callbacks, one atomic write, then after-callbacks.
+// A batch's steps, and the free `batch()`: its one database pinned, before-callbacks, one atomic write, then after-callbacks.
 import { savingGroups } from "./autosave.ts";
 import { batchEntries, type Batch } from "./batch-builder.ts";
 import { currentRelation } from "./current-database.ts";
@@ -105,7 +105,7 @@ export async function batch<const T extends readonly BatchEntry[]>(
   build: (b: Batch) => T,
 ): Promise<BatchResults<T>> {
   const entries = batchEntries(build, currentRelation);
-  // The database they're on now: entries from a Model's statics and from db.model(…) can be one.
+  // A Model's rows on the current database; a Relation or record on the one it came from.
   return runBatch(entries, "batch() needs its statements and records");
 }
 
