@@ -31,7 +31,7 @@ message=$(awk -v c="$comment" '
   $0 == c " ------------------------ >8 ------------------------" { exit }
   index($0, c) == 1 { next }
   { print }' "$1")
-says_guard=$(printf '%s\n' "$message" | grep -i guard || true)
+says_guard=$(printf '%s\n' "$message" | grep -iE '(^|[^a-z])guard' || true)
 
 if [ -z "$outside_tests" ] && [ "$added" -gt "$removed" ] && [ -z "$says_guard" ]; then
   echo 'Warning: this commit only adds tests. If they passed on their first run, say "guard" in the body.'
