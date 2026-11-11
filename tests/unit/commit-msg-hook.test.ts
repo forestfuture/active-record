@@ -66,11 +66,19 @@ const verboseDiff = [
   "",
 ].join("\n");
 
+/** Runs the hook on a commit that adds a second test to tests/unit/a.test.ts. */
+function runHookAddingATest(message: string, config: Record<string, string> = {}) {
+  return runHook(
+    { "tests/unit/a.test.ts": oneTest },
+    { "tests/unit/a.test.ts": twoTests },
+    message,
+    config,
+  );
+}
+
 describe("the commit-msg hook on a commit that only adds tests", () => {
   test("warns when the message doesn't say guard", () => {
-    const { status, output } = runHook(
-      { "tests/unit/a.test.ts": oneTest },
-      { "tests/unit/a.test.ts": twoTests },
+    const { status, output } = runHookAddingATest(
       "Test finding none (#1)\n\nCovers the empty table.\n",
     );
 
@@ -82,11 +90,7 @@ describe("the commit-msg hook on a commit that only adds tests", () => {
     "Guard finding none (#1)\n",
     "Test finding none (#1)\n\nA GUARD: it passed on its first run.\n",
   ])("says nothing when the message says guard: %j", (message) => {
-    const { status, output } = runHook(
-      { "tests/unit/a.test.ts": oneTest },
-      { "tests/unit/a.test.ts": twoTests },
-      message,
-    );
+    const { status, output } = runHookAddingATest(message);
 
     expect(status).toBe(0);
     expect(output).toBe("");
@@ -96,11 +100,7 @@ describe("the commit-msg hook on a commit that only adds tests", () => {
     ["a comment", "Test finding none (#1)\n\n# guard\n"],
     ["git commit -v's diff", `Test finding none (#1)\n\n${verboseDiff}`],
   ])("warns when guard is only in %s", (_where, message) => {
-    const { output } = runHook(
-      { "tests/unit/a.test.ts": oneTest },
-      { "tests/unit/a.test.ts": twoTests },
-      message,
-    );
+    const { output } = runHookAddingATest(message);
 
     expect(output).toContain('say "guard" in the body');
   });
@@ -109,20 +109,13 @@ describe("the commit-msg hook on a commit that only adds tests", () => {
     ["a comment", "Test finding none (#1)\n\n; guard\n"],
     ["git commit -v's diff", `Test finding none (#1)\n\n${verboseDiff.replaceAll("# ", "; ")}`],
   ])("warns when guard is only in %s with ; as git's comment character", (_where, message) => {
-    const { output } = runHook(
-      { "tests/unit/a.test.ts": oneTest },
-      { "tests/unit/a.test.ts": twoTests },
-      message,
-      { "core.commentChar": ";" },
-    );
+    const { output } = runHookAddingATest(message, { "core.commentChar": ";" });
 
     expect(output).toContain('say "guard" in the body');
   });
 
   test("warns when guard is only part of a longer word", () => {
-    const { output } = runHook(
-      { "tests/unit/a.test.ts": oneTest },
-      { "tests/unit/a.test.ts": twoTests },
+    const { output } = runHookAddingATest(
       "Test finding none (#1)\n\nA safeguard for empty tables.\n",
     );
 
@@ -140,12 +133,7 @@ describe("the commit-msg hook on a commit that only adds tests", () => {
   });
 
   test("warns when git colors its diffs", () => {
-    const { output } = runHook(
-      { "tests/unit/a.test.ts": oneTest },
-      { "tests/unit/a.test.ts": twoTests },
-      "Test finding none (#1)\n",
-      { "color.diff": "always" },
-    );
+    const { output } = runHookAddingATest("Test finding none (#1)\n", { "color.diff": "always" });
 
     expect(output).toContain('say "guard" in the body');
   });
