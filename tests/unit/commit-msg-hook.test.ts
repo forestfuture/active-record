@@ -225,13 +225,17 @@ describe("the commit-msg hook on a commit's title", () => {
     expect(output).toContain("the limit is 72");
   });
 
-  test("reads comments with whichever of commentString and commentChar git reads last", () => {
-    const { status } = runHookEditingTheReadme(`; ${"x".repeat(80)}\nEdit the README (#1)\n`, {
-      "core.commentString": "//",
-      "core.commentChar": ";",
-    });
+  test.each([
+    ["commentChar", ";", { "core.commentString": "//", "core.commentChar": ";" }],
+    ["commentString", "//", { "core.commentChar": ";", "core.commentString": "//" }],
+  ])("skips comment lines in %s's %s when git reads it last", (_key, comment, config) => {
+    const { status, output } = runHookEditingTheReadme(
+      `${comment} ${"x".repeat(80)}\nEdit the README (#1)\n`,
+      config,
+    );
 
     expect(status).toBe(0);
+    expect(output).toBe("");
   });
 
   test("skips a long # comment line by default", () => {
