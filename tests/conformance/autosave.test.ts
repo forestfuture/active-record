@@ -165,7 +165,7 @@ describe("autosave: records built through a hasMany are saved with their owner",
     expect(await db().model(Account).pluck("id")).toEqual([1]);
   });
 
-  test("with a key generated in code, the records get the owner's key before anything is written", async () => {
+  test("with a key generated in code, the records get the owner's key", async () => {
     const key = db().model(ApiKey).build({ label: "deploy" });
     const account = key.accounts().build({ id: 1 });
 
