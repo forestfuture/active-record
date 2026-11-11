@@ -1,5 +1,6 @@
 // Batch: what `batch((b) => [...])` hands its callback, to prepare each write the batch runs.
 import type { AttributesOf, Model, ModelClass } from "./model.ts";
+import { RecordStatement } from "./record-statement.ts";
 import { Relation } from "./relation.ts";
 import type { InsertOptions, Returning, UpsertOptions } from "./relation-checks.ts";
 import type { SafeSql } from "./sql.ts";
@@ -18,6 +19,19 @@ export class Batch {
   /** @internal Built by `batch()` and `db.batch()`, which look up a Model's rows with `relationOf`. */
   constructor(relationOf: (model: ModelClass) => Relation<Model>) {
     this.#relationOf = relationOf;
+  }
+
+  /**
+   * Saves `record`, its autosaved associations included. Its validations and before-callbacks
+   * run when the batch runs, before anything is written, and its after-callbacks once it is.
+   */
+  save<R extends Model>(record: R): RecordStatement<R> {
+    return new RecordStatement(record, "save");
+  }
+
+  /** Destroys `record`, with its dependents, its callbacks running as `save`'s do. */
+  destroy<R extends Model>(record: R): RecordStatement<R> {
+    return new RecordStatement(record, "destroy");
   }
 
   /** Inserts one row, as `insert` does when it runs alone. */

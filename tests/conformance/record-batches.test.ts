@@ -112,6 +112,25 @@ describe("saving and destroying records in a batch", () => {
     expect(await database.model(Post).pluck("title")).toEqual(["Renamed"]);
   });
 
+  test("b.save and b.destroy write records in the batch, resolving to each record", async () => {
+    const database = db();
+    const user = database.model(User).build({ email: "b@example.com" });
+    const post = await database.model(Post).find(10);
+
+    const [saved, destroyed] = await database.batch((b) => [b.save(user), b.destroy(post)]);
+
+    expect(saved).toBe(user);
+    expect(destroyed).toBe(post);
+    expect(user.isPersisted()).toBe(true);
+    expect(post.isDestroyed()).toBe(true);
+    expect(log).toEqual([
+      "before save b@example.com",
+      "after save b@example.com",
+      "after destroy First",
+    ]);
+    expect(await database.model(Post).pluck("id")).toEqual([11]);
+  });
+
   test("every before-callback runs before anything is written, and the after-callbacks after, in order", async () => {
     const database = db();
     const user = database.model(User).build({ email: "b@example.com" });
