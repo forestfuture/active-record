@@ -48,7 +48,7 @@ Tidy permit's docs, types and tests (#82)
 Rules that matter here:
 
 - Assert **results**, such as the records that come back. Assert SQL text only for safety properties (bound values, quoted identifiers). Assert query counts through `onQuery`.
-- A test that passes on first run is a **guard**, not a red. Say so. A commit that stages nothing outside `tests/` holds only guards, and the `commit-msg` hook warns when it adds more tests than it removes and doesn't say "guard".
+- A test that passes on first run is a **guard**, not a red. Say so. A commit that stages nothing outside `tests/` and adds more tests than it removes holds only guards, and the `commit-msg` hook warns when it doesn't say "guard".
 - Behavior that depends on a **terminal** (typing, a paste, Ctrl-C or Ctrl-D, colors, a prompt) is checked in a `tests/integration/d1/*-pty.test.ts` through `tests/support/pty.ts`, which plays steps at a real pseudo-terminal. Piped streams can't show it: a paste reaches a process a line at a time, and typing triggers completion. Write one-off terminal scripts there instead of in a scratch folder.
 - If a size or complexity limit trips, split the code. Don't raise the limit.
 - When a change falsifies a claim ("local only", "never", "only", "alone"), grep the guide, README, help text, ADRs, glossary and changeset for that **stale claim** before the docs commit.
