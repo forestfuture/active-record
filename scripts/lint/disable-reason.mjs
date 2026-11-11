@@ -31,8 +31,8 @@ export default defineRule({
   meta: {
     messages: {
       noReason:
-        "Say why the repo's own rule is turned off here, after `--`: " +
-        "`// oxlint-disable-next-line d1-record/<rule> -- <why>`.",
+        "Say why this turns off the repo's own rules, after `--`. Naming no rule turns them all " +
+        "off. `// oxlint-disable-next-line d1-record/<rule> -- <why>`.",
       turnsItselfOff: "Leave d1-record/disable-reason on: it's what makes an opt-out say why.",
     },
   },
