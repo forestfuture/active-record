@@ -75,6 +75,11 @@ tester.run("standalone-test-name", standaloneTestName, {
       errors: [{ messageId: "leans" }],
     },
     {
+      name: "a test.each name after a tagged table",
+      code: 'test.each`method\n${"HEAD"}`("redirects $method too", () => {});',
+      errors: [{ messageId: "leans" }],
+    },
+    {
       name: "a describe() name",
       code: 'describe("HEAD requests too", () => {});',
       errors: [{ messageId: "leans" }],
