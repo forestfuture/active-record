@@ -189,7 +189,7 @@ describe("one database", () => {
       }
     });
 
-    test("a target a callback points it at on another database is refused before anything is written", async () => {
+    test("a new author a callback builds on another database is refused before anything is written", async () => {
       authorsElsewhere = two;
       const reply = connect(one).model(Reply).build({ id: 42, title: "Sneaky" });
 
