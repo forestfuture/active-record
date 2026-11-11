@@ -19,6 +19,7 @@ tester.run("disable-reason", disableReason, {
     "// oxlint-disable-next-line d1-record/no-fixed-delay --the delay is what's tested\nwait();",
     "// oxlint-disable-next-line d1-record/no-fixed-delay\t--\tthe delay is what's tested\nwait();",
     "/* oxlint-disable-next-line d1-record/no-fixed-delay --\n   the delay is what's tested */\nwait();",
+    "// oxlint-disable-next-line -- generated code\nwait();",
   ],
   invalid: [
     {
@@ -29,6 +30,11 @@ tester.run("disable-reason", disableReason, {
     {
       name: "an opt-out with nothing after --",
       code: "// oxlint-disable-next-line d1-record/standalone-test-name --\ntest();",
+      errors: [{ messageId: "noReason" }],
+    },
+    {
+      name: "an opt-out naming no rule, so turning off every rule",
+      code: "// oxlint-disable-next-line\nwait();",
       errors: [{ messageId: "noReason" }],
     },
     {
