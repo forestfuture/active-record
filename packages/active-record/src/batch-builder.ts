@@ -125,7 +125,8 @@ export function batchEntries<T>(build: (b: Batch) => T, relationOf: RelationOf):
     b[closeBatch]();
   }
   if (!Array.isArray(entries)) {
-    // An async callback may still prepare a write on the closed Batch; that rejection is this one.
+    // An async callback may go on to use the closed Batch and reject; the TypeError below already
+    // reports that, so its rejection is muted.
     if (isThenable(entries)) entries.then(undefined, () => {});
     throw new TypeError(
       "A batch's callback must return its writes in an array, without awaiting anything: " +
