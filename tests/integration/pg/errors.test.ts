@@ -85,9 +85,9 @@ describe("the PostgreSQL adapter's constraint errors", () => {
     const db = connect(schema.url);
 
     const error: unknown = await db
-      .batch([
-        db.model(User).toInsert({ id: 1, email: "a@example.com" }),
-        db.model(Post).toInsert({ userId: 99, title: "Orphan" }),
+      .batch((b) => [
+        b.insert(User, { id: 1, email: "a@example.com" }),
+        b.insert(Post, { userId: 99, title: "Orphan" }),
       ])
       .catch((caught: unknown) => caught);
 
@@ -137,7 +137,10 @@ describe("the PostgreSQL adapter's constraint errors", () => {
     const codes = db.model(Code);
 
     const error: unknown = await db
-      .batch([codes.toInsert({ code: "kept-secret" }), codes.toInsert({ code: "kept-secret" })])
+      .batch((b) => [
+        b.insert(codes, { code: "kept-secret" }),
+        b.insert(codes, { code: "kept-secret" }),
+      ])
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(RecordNotUnique);

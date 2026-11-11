@@ -47,7 +47,7 @@ describe("statements on D1", () => {
 
     try {
       const error: unknown = await db
-        .batch([db.model(Post).toInsert({ userId: 1, title: "Hello", published: true })])
+        .batch((b) => [b.insert(Post, { userId: 1, title: "Hello", published: true })])
         .catch((caught: unknown) => caught);
 
       expect(error).toBeInstanceOf(RecordNotUnique);
@@ -61,9 +61,9 @@ describe("statements on D1", () => {
     const events: QueryEvent[] = [];
     const db = connect(binding, { onQuery: (event) => events.push(event) });
 
-    await db.batch([
-      db.model(User).toInsert({ id: 1, email: "a@example.com" }),
-      db.model(User).where({ id: 1 }).toDeleteAll(),
+    await db.batch((b) => [
+      b.insert(User, { id: 1, email: "a@example.com" }),
+      b.deleteAll(db.model(User).where({ id: 1 })),
     ]);
 
     expect(events.map((event) => event.meta?.changes)).toEqual([1, 1]);

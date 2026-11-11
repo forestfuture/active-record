@@ -71,7 +71,7 @@ describe("an app-wide onQuery on the base class", () => {
 
   test("in a batch, each statement reports its own Model", async () => {
     await withDatabase(harness.connect(), () =>
-      batch([User.where({ id: 0 }).toDeleteAll(), Post.where({ id: 0 }).toDeleteAll()]),
+      batch((b) => [b.deleteAll(User.where({ id: 0 })), b.deleteAll(Post.where({ id: 0 }))]),
     );
 
     expect(logged.map(({ model }) => model)).toEqual(["User", "Post"]);
@@ -135,9 +135,9 @@ describe("a listener that throws", () => {
         };
       }
       await expect(
-        db.batch([
-          db.model(Watched).where({ id: 0 }).toDeleteAll(),
-          db.model(Watched).toInsert({ id: 2, email: null }),
+        db.batch((b) => [
+          b.deleteAll(db.model(Watched).where({ id: 0 })),
+          b.insert(Watched, { id: 2, email: null }),
         ]),
       ).rejects.toThrow(NotNullViolation);
       expect(seen.map(({ error }) => error !== undefined)).toEqual([true, true]);

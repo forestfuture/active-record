@@ -161,7 +161,7 @@ export async function batched(): Promise<void> {
   const post = Post.build({ userId: user.id, title: "Hello" });
 
   // Atomic: all written, or none.
-  await batch([user.toSave(), post.toSave(), Post.where({ userId: "old" }).toDeleteAll()]);
+  await batch((b) => [b.save(user), b.save(post), b.deleteAll(Post.where({ userId: "old" }))]);
   // #endregion batch
 }
 

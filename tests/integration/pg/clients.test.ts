@@ -323,10 +323,10 @@ describe("the PostgreSQL adapter's clients, from a connection string (#269)", ()
 
     const outcome = await withDatabase(db, async () => {
       const batch = db
-        .batch([
-          users.toInsert({ email: "in-batch@example.com" }),
-          users.where(sql`(SELECT true FROM pg_sleep(0.2))`).toUpdateAll({ role: "slow" }),
-          users.toInsert({ email: "in-batch@example.com" }),
+        .batch((b) => [
+          b.insert(users, { email: "in-batch@example.com" }),
+          b.updateAll(users.where(sql`(SELECT true FROM pg_sleep(0.2))`), { role: "slow" }),
+          b.insert(users, { email: "in-batch@example.com" }),
         ])
         .catch((error: unknown) => error);
       await sleeping();

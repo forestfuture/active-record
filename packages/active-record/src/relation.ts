@@ -59,6 +59,7 @@ import { alsoClearing, unowned, type OwnedCollection } from "./owned-collection.
 import { atMostOne, reversed } from "./finder-order.ts";
 import { insertStatement, runAlone, Statement } from "./statement.ts";
 import type { ReturnedRow, WriteResult } from "./statement.ts";
+import { preparedWrites, type PreparedWrites } from "./prepared-writes.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
 
 declare const scopeTypes: unique symbol;
@@ -266,21 +267,13 @@ export class Relation<M extends Model, S = {}> {
    * wrote and the `returning` attributes of each (the primary key by default; `false` for none).
    * Skips validations and callbacks; declared defaults, generated ids, and timestamps apply, and
    * this Relation's equality conditions are inserted too, as with `build()`. A duplicate throws,
-   * unless `onDuplicate: "skip"` (Rails' `insert`). `toInsert` is the same write, for a batch.
+   * unless `onDuplicate: "skip"` (Rails' `insert`). `b.insert` is the same write, for a batch.
    */
   async insert<const R extends Returning<M> | undefined = undefined>(
     attributes: Partial<AttributesOf<M>>,
     options: InsertOptions<M> & { returning?: R } = {},
   ): Promise<WriteResult<ReturnedRow<M, R>>> {
-    return runAlone(this.toInsert(attributes, options));
-  }
-
-  /** `insert`, as a Statement for `db.batch([...])`. */
-  toInsert<const R extends Returning<M> | undefined = undefined>(
-    attributes: Partial<AttributesOf<M>>,
-    options: InsertOptions<M> & { returning?: R } = {},
-  ): Statement<ReturnedRow<M, R>> {
-    return this.#insertStatement([attributes], skipOn(options, "insert"), "insert", options);
+    return runAlone(this[preparedWrites].insert(attributes, options));
   }
 
   /** Inserts several rows with the same attributes now, in one statement (Rails' `insert_all!`). */
@@ -288,15 +281,7 @@ export class Relation<M extends Model, S = {}> {
     rows: readonly Partial<AttributesOf<M>>[],
     options: InsertOptions<M> & { returning?: R } = {},
   ): Promise<WriteResult<ReturnedRow<M, R>>> {
-    return runAlone(this.toInsertAll(rows, options));
-  }
-
-  /** `insertAll`, as a Statement for `db.batch([...])`. */
-  toInsertAll<const R extends Returning<M> | undefined = undefined>(
-    rows: readonly Partial<AttributesOf<M>>[],
-    options: InsertOptions<M> & { returning?: R } = {},
-  ): Statement<ReturnedRow<M, R>> {
-    return this.#insertStatement(rows, skipOn(options, "insertAll"), "insertAll", options);
+    return runAlone(this[preparedWrites].insertAll(rows, options));
   }
 
   /**
@@ -308,15 +293,7 @@ export class Relation<M extends Model, S = {}> {
     attributes: Partial<AttributesOf<M>>,
     options: UpsertOptions<M> & { returning?: R } = {},
   ): Promise<WriteResult<ReturnedRow<M, R>>> {
-    return runAlone(this.toUpsert(attributes, options));
-  }
-
-  /** `upsert`, as a Statement for `db.batch([...])`. */
-  toUpsert<const R extends Returning<M> | undefined = undefined>(
-    attributes: Partial<AttributesOf<M>>,
-    options: UpsertOptions<M> & { returning?: R } = {},
-  ): Statement<ReturnedRow<M, R>> {
-    return this.#insertStatement([attributes], updateOn(this.#model, options), "upsert", options);
+    return runAlone(this[preparedWrites].upsert(attributes, options));
   }
 
   /** `upsert` for several rows with the same attributes, now (Rails' `upsert_all`). */
@@ -324,15 +301,24 @@ export class Relation<M extends Model, S = {}> {
     rows: readonly Partial<AttributesOf<M>>[],
     options: UpsertOptions<M> & { returning?: R } = {},
   ): Promise<WriteResult<ReturnedRow<M, R>>> {
-    return runAlone(this.toUpsertAll(rows, options));
+    return runAlone(this[preparedWrites].upsertAll(rows, options));
   }
 
-  /** `upsertAll`, as a Statement for `db.batch([...])`. */
-  toUpsertAll<const R extends Returning<M> | undefined = undefined>(
-    rows: readonly Partial<AttributesOf<M>>[],
-    options: UpsertOptions<M> & { returning?: R } = {},
-  ): Statement<ReturnedRow<M, R>> {
-    return this.#insertStatement(rows, updateOn(this.#model, options), "upsertAll", options);
+  /** @internal Each bulk write as a Statement, unsent: what a Batch's methods prepare. */
+  get [preparedWrites](): PreparedWrites<M> {
+    const model = this.#model;
+    return {
+      insert: (attributes, options = {}) =>
+        this.#insertStatement([attributes], skipOn(options, "insert"), "insert", options),
+      insertAll: (rows, options = {}) =>
+        this.#insertStatement(rows, skipOn(options, "insertAll"), "insertAll", options),
+      upsert: (attributes, options = {}) =>
+        this.#insertStatement([attributes], updateOn(model, options), "upsert", options),
+      upsertAll: (rows, options = {}) =>
+        this.#insertStatement(rows, updateOn(model, options), "upsertAll", options),
+      updateAll: (changes) => this.#updateAllStatement(changes),
+      deleteAll: () => this.#deleteAllStatement(),
+    };
   }
 
   #insertStatement<Row>(
@@ -371,11 +357,10 @@ export class Relation<M extends Model, S = {}> {
   async updateAll(changes: Partial<AttributesOf<M>> | SafeSql): Promise<number> {
     checkChanges(this.#model, changes);
     writableQuery(this.#query, "updateAll");
-    return this.#countOf(() => this.toUpdateAll(changes));
+    return this.#countOf(() => this.#updateAllStatement(changes));
   }
 
-  /** `updateAll`, as a Statement for `db.batch([...])`. */
-  toUpdateAll(changes: Partial<AttributesOf<M>> | SafeSql): Statement {
+  #updateAllStatement(changes: Partial<AttributesOf<M>> | SafeSql): Statement {
     const checked = checkChanges(this.#model, changes);
     const query = compileUpdateAll(this.#dialect, writableQuery(this.#query, "updateAll"), checked);
     return new Statement(this.#executor, query, this.#clearCollectionUntilWritten());
@@ -389,11 +374,10 @@ export class Relation<M extends Model, S = {}> {
    */
   async deleteAll(): Promise<number> {
     writableQuery(this.#query, "deleteAll");
-    return this.#countOf(() => this.toDeleteAll());
+    return this.#countOf(() => this.#deleteAllStatement());
   }
 
-  /** `deleteAll`, as a Statement for `db.batch([...])`. */
-  toDeleteAll(): Statement {
+  #deleteAllStatement(): Statement {
     const query = writableQuery(this.#query, "deleteAll");
     const landed = this.#clearCollectionUntilWritten();
     const nullifies = this.#collection.nullifies;

@@ -161,7 +161,7 @@ describe("one database", () => {
       await withDatabase(connect(one, { onQuery: (event) => seen.push(event) }), async () => {
         const user = User.build({ id: 3, email: "linus@example.com" });
         post = user.posts().build({ id: 30, title: "Draft" });
-        await batch([user.toSave()]);
+        await batch((b) => [b.save(user)]);
       });
 
       seen.length = 0;
@@ -377,13 +377,13 @@ describe("one database", () => {
     test("db.batch() names itself, and a static outside withDatabase is on the binding's database", async () => {
       const db = connect(one);
 
-      await expect(db.batch([Post.where({ id: 10 }).toDeleteAll()])).rejects.toThrow(
+      await expect(db.batch((b) => [b.deleteAll(Post.where({ id: 10 }))])).rejects.toThrow(
         new IncompatibleRelation(
           "db.batch() needs its statements and records on one database; these are on a connect() database and the DB binding's database",
         ),
       );
       expect(
-        await withDatabase(db, () => db.batch([Post.where({ id: 10 }).toDeleteAll()])),
+        await withDatabase(db, () => db.batch((b) => [b.deleteAll(Post.where({ id: 10 }))])),
       ).toHaveLength(1);
     });
   });

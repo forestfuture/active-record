@@ -47,7 +47,7 @@ describe("model declaration", () => {
     // Both start now, so each gets its handler now: one left unhandled while the other is
     // asserted on would be reported as an unhandled rejection if it settled first (#106).
     const errors = await Promise.all(
-      [db.model(e).toArray(), db.batch([db.model(e).toInsert({ id: 1 })])].map((attempt) =>
+      [db.model(e).toArray(), db.batch((b) => [b.insert(e, { id: 1 })])].map((attempt) =>
         attempt.then(
           () => undefined,
           (error: unknown) => error,

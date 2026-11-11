@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, hasOne, Model } from "../../packages/active-record/src/index.ts";
+import {
+  batch,
+  belongsTo,
+  hasMany,
+  hasOne,
+  Model,
+} from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Sample extends Model.define({
@@ -247,17 +253,13 @@ describe("values by their use", () => {
       },
     );
 
-    test("a bulk write refuses a value that can't be assigned, before sending anything", () => {
-      expect(() =>
-        db()
-          .model(Sample)
-          .toInsert({ id: 1, label: 7 as never }),
-      ).toThrow(new TypeError('Sample: 7 isn\'t a string for "label"'));
-      expect(() =>
-        db()
-          .model(Sample)
-          .toUpdateAll({ enabled: "no" as never }),
-      ).toThrow(TypeError);
+    test("a bulk write refuses a value that can't be assigned, before sending anything", async () => {
+      await expect(
+        batch((b) => [b.insert(db().model(Sample), { id: 1, label: 7 as never })]),
+      ).rejects.toThrow(new TypeError('Sample: 7 isn\'t a string for "label"'));
+      await expect(
+        batch((b) => [b.updateAll(db().model(Sample), { enabled: "no" as never })]),
+      ).rejects.toThrow(TypeError);
     });
   });
 });

@@ -110,7 +110,9 @@ describe("sessions", () => {
     expect(running.bookmark()).not.toBeNull();
 
     const batching = connect(binding, { session: "first-primary" });
-    await batching.batch([batching.model(User).where({ id: 1 }).toUpdateAll({ role: "admin" })]);
+    await batching.batch((b) => [
+      b.updateAll(batching.model(User).where({ id: 1 }), { role: "admin" }),
+    ]);
     expect(batching.bookmark()).not.toBeNull();
   });
 

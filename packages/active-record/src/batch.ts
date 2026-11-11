@@ -97,16 +97,16 @@ export async function runBatch<const T extends readonly BatchEntry[]>(
 }
 
 /**
- * `db.batch`, on the database the entries were built on: the current one, for statements and
- * records from a Model's statics (`Product.toUpdateAll(…)`, `Product.build(…).toSave()`), or one
- * explicit `db`. Atomic, as `db.batch` is; entries from two databases throw `IncompatibleRelation`.
+ * `db.batch`, on the current database: `batch((b) => [b.updateAll(Product, …), b.save(product)])`.
+ * A Model's rows are looked up on the current database, and a Relation or record runs on the one
+ * it came from. Atomic, as `db.batch` is; writes on two databases throw `IncompatibleRelation`.
  */
 export async function batch<const T extends readonly BatchEntry[]>(
-  entries: T | ((b: Batch) => T),
+  build: (b: Batch) => T,
 ): Promise<BatchResults<T>> {
-  const listed = typeof entries === "function" ? batchEntries(entries, currentRelation) : entries;
+  const entries = batchEntries(build, currentRelation);
   // The database they're on now: entries from a Model's statics and from db.model(…) can be one.
-  return runBatch(listed, "batch() needs its statements and records");
+  return runBatch(entries, "batch() needs its statements and records");
 }
 
 /** What `db.batch` accepts: statements, and records' save or destroy. */

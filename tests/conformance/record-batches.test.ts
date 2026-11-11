@@ -93,11 +93,11 @@ describe("saving and destroying records in a batch", () => {
     post.title = "Renamed";
     events.length = 0;
 
-    const [saved, updated, destroyed, meta] = await database.batch([
-      user.toSave(),
-      post.toSave(),
-      other.toDestroy(),
-      database.model(User).where({ id: 1 }).toUpdateAll({ role: "admin" }),
+    const [saved, updated, destroyed, meta] = await database.batch((b) => [
+      b.save(user),
+      b.save(post),
+      b.destroy(other),
+      b.updateAll(database.model(User).where({ id: 1 }), { role: "admin" }),
     ]);
 
     expect(saved).toBe(user);
@@ -136,7 +136,7 @@ describe("saving and destroying records in a batch", () => {
     const user = database.model(User).build({ email: "b@example.com" });
     const post = database.model(Post).build({ userId: 1, title: "Hello" });
 
-    await database.batch([user.toSave(), post.toSave()]);
+    await database.batch((b) => [b.save(user), b.save(post)]);
 
     expect(log).toEqual([
       "before save b@example.com",
@@ -153,7 +153,7 @@ describe("saving and destroying records in a batch", () => {
     const post = database.model(Post).build({ userId: 1, title: "Hello" });
 
     const error: unknown = await database
-      .batch([valid.toSave(), invalid.toSave(), post.toSave()])
+      .batch((b) => [b.save(valid), b.save(invalid), b.save(post)])
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(RecordInvalid);
@@ -170,8 +170,8 @@ describe("saving and destroying records in a batch", () => {
     const kept = await database.model(User).find(1);
     kept.role = "keep";
 
-    await expect(database.batch([blocked.toSave()])).rejects.toThrow(RecordNotSaved);
-    await expect(database.batch([kept.toDestroy()])).rejects.toThrow(RecordNotDestroyed);
+    await expect(database.batch((b) => [b.save(blocked)])).rejects.toThrow(RecordNotSaved);
+    await expect(database.batch((b) => [b.destroy(kept)])).rejects.toThrow(RecordNotDestroyed);
     expect(await database.model(User).count()).toBe(1);
   });
 
@@ -182,10 +182,10 @@ describe("saving and destroying records in a batch", () => {
     post.title = "Renamed";
 
     await expect(
-      database.batch([
-        user.toSave(),
-        post.toSave(),
-        database.model(User).toInsert({ id: 2, email: "a@example.com" }),
+      database.batch((b) => [
+        b.save(user),
+        b.save(post),
+        b.insert(User, { id: 2, email: "a@example.com" }),
       ]),
     ).rejects.toThrow(RecordNotUnique);
 
@@ -201,7 +201,7 @@ describe("saving and destroying records in a batch", () => {
     const key = database.model(ApiKey).build({ label: "deploy" });
     const account = database.model(Account).build({ externalAccountId: key.id });
 
-    await database.batch([key.toSave(), account.toSave()]);
+    await database.batch((b) => [b.save(key), b.save(account)]);
 
     const stored = await database.model(Account).findByOrThrow({ externalAccountId: key.id });
     expect(stored.id).toBe(account.id);
@@ -212,7 +212,7 @@ describe("saving and destroying records in a batch", () => {
     const post = await database.model(Post).find(11);
     events.length = 0;
 
-    await database.batch([post.toDestroy(), post.toDestroy()]);
+    await database.batch((b) => [b.destroy(post), b.destroy(post)]);
 
     expect(events).toHaveLength(1);
     expect(log).toEqual(["after destroy Second"]);
@@ -222,7 +222,7 @@ describe("saving and destroying records in a batch", () => {
     const database = db();
     const user = await database.model(User).find(1);
 
-    await database.batch([user.toDestroy()]);
+    await database.batch((b) => [b.destroy(user)]);
 
     expect(user.isDestroyed()).toBe(true);
     expect(await database.model(Post).count()).toBe(0);
@@ -231,17 +231,19 @@ describe("saving and destroying records in a batch", () => {
   test("a record from another Database is refused before any callback runs", async () => {
     const user = db().model(User).build({ email: "b@example.com" });
 
-    await expect(db().batch([user.toSave()])).rejects.toThrow(IncompatibleRelation);
+    await expect(db().batch((b) => [b.save(user)])).rejects.toThrow(IncompatibleRelation);
     expect(log).toEqual([]);
   });
 
-  test("a record statement isn't awaitable, so returning one from an async function doesn't save", async () => {
+  test("a prepared save isn't awaitable, and saves only with its batch", async () => {
     const database = db();
     const user = database.model(User).build({ email: "b@example.com" });
 
-    const statement = await (async () => user.toSave())();
+    await database.batch((b) => {
+      expect("then" in b.save(user)).toBe(false);
+      return [];
+    });
 
-    expect("then" in statement).toBe(false);
     expect(user.isNewRecord()).toBe(true);
   });
 });

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model, UnknownAttribute } from "../../packages/active-record/src/index.ts";
+import { batch, Model, UnknownAttribute } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -85,9 +85,6 @@ describe("what a bulk write resolves to", () => {
 
     expect(result).toEqual({ rowsAffected: 1, rows: [] });
     expect(events[0]?.sql).not.toContain("RETURNING");
-    expect(keys.toInsert({ label: "x" }, { returning: false }).toSql().sql).not.toContain(
-      "RETURNING",
-    );
   });
 
   test("returning: [] resolves to no rows, and a returning that isn't a list throws", async () => {
@@ -97,8 +94,12 @@ describe("what a bulk write resolves to", () => {
       rowsAffected: 1,
       rows: [],
     });
-    expect(() => keys.toInsert({ label: "x" }, { returning: "id" as never })).toThrow(TypeError);
-    expect(() => keys.toInsert({ label: "x" }, { returning: true as never })).toThrow(TypeError);
+    await expect(
+      batch((b) => [b.insert(keys, { label: "x" }, { returning: "id" as never })]),
+    ).rejects.toThrow(TypeError);
+    await expect(
+      batch((b) => [b.insert(keys, { label: "x" }, { returning: true as never })]),
+    ).rejects.toThrow(TypeError);
   });
 
   test("a row skipped as a duplicate isn't returned", async () => {
@@ -144,11 +145,11 @@ describe("what a bulk write resolves to", () => {
     expect((await comments.insert({}, { returning: false })).rows).toEqual([]);
   });
 
-  test("an attribute returning names that the Model doesn't have throws when the write is built", () => {
+  test("an attribute returning names that the Model doesn't have throws when the write is built", async () => {
     const keys = harness.connect().model(ApiKey);
 
-    expect(() => keys.toInsert({ label: "x" }, { returning: ["nope" as never] })).toThrow(
-      UnknownAttribute,
-    );
+    await expect(
+      batch((b) => [b.insert(keys, { label: "x" }, { returning: ["nope" as never] })]),
+    ).rejects.toThrow(UnknownAttribute);
   });
 });
