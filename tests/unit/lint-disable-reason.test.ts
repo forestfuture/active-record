@@ -1,15 +1,8 @@
-import { describe, test } from "vite-plus/test";
-import { RuleTester } from "vite-plus/lint/plugins-dev";
 import disableReason from "../../scripts/lint/disable-reason.mjs";
-
-RuleTester.describe = describe;
-RuleTester.it = test;
-RuleTester.itOnly = test.only;
-
-const tester = new RuleTester({ languageOptions: { parserOptions: { lang: "ts" } } });
+import { ruleTester } from "../support/rule-tester.ts";
 
 // Turning off one of the repo's own rules says why, after `--` (CODING_STANDARDS.md, Tests; #302).
-tester.run("disable-reason", disableReason, {
+ruleTester.run("disable-reason", disableReason, {
   valid: [
     "// oxlint-disable-next-line d1-record/no-fixed-delay -- the delay is what's tested\nwait();",
     // Another tool's rule, and a comment that only mentions one of the repo's rules.

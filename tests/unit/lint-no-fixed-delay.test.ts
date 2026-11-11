@@ -1,15 +1,8 @@
-import { describe, test } from "vite-plus/test";
-import { RuleTester } from "vite-plus/lint/plugins-dev";
 import noFixedDelay from "../../scripts/lint/no-fixed-delay.mjs";
-
-RuleTester.describe = describe;
-RuleTester.it = test;
-RuleTester.itOnly = test.only;
-
-const tester = new RuleTester({ languageOptions: { parserOptions: { lang: "ts" } } });
+import { ruleTester } from "../support/rule-tester.ts";
 
 // A test that waits a fixed delay passes until a slow run doesn't (#293).
-tester.run("no-fixed-delay", noFixedDelay, {
+ruleTester.run("no-fixed-delay", noFixedDelay, {
   valid: [
     // Not waits: a write scheduled for later, and a race's bound that resolves with a value.
     "setTimeout(() => input.write(line), 20);",
