@@ -1,5 +1,7 @@
 // A Batch's steps, and the free `batch()`: its one database pinned, before-callbacks, one atomic write, then after-callbacks.
 import { savingGroups } from "./autosave.ts";
+import { batchEntries, type Batch } from "./batch-builder.ts";
+import { currentRelation } from "./current-database.ts";
 import { IncompatibleRelation, RecordNotSaved } from "./errors.ts";
 import { prepareDestroy, prepareSave, refusalError, stagesOf, type Claimed } from "./lifecycle.ts";
 import { RecordStatement, recordStatementParts } from "./record-statement.ts";
@@ -100,10 +102,11 @@ export async function runBatch<const T extends readonly BatchEntry[]>(
  * explicit `db`. Atomic, as `db.batch` is; entries from two databases throw `IncompatibleRelation`.
  */
 export async function batch<const T extends readonly BatchEntry[]>(
-  entries: T,
+  entries: T | ((b: Batch) => T),
 ): Promise<BatchResults<T>> {
+  const listed = typeof entries === "function" ? batchEntries(entries, currentRelation) : entries;
   // The database they're on now: entries from a Model's statics and from db.model(…) can be one.
-  return runBatch(entries, "batch() needs its statements and records");
+  return runBatch(listed, "batch() needs its statements and records");
 }
 
 /** What `db.batch` accepts: statements, and records' save or destroy. */

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
+  batch,
   column,
   hasMany,
   IncompatibleRelation,
@@ -10,6 +11,8 @@ import {
   RecordNotUnique,
   sql,
   UnknownAttribute,
+  withDatabase,
+  type Batch,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import type { AnyDatabase } from "../../packages/active-record/src/database.ts";
@@ -919,6 +922,45 @@ describe("statements", () => {
         [1, "Draft"],
         [1, "New"],
       ]);
+    });
+
+    test("batch's callback writes a Model's rows on the current database", async () => {
+      const db = harness.connect();
+
+      const [result] = await withDatabase(db, () =>
+        batch((b) => [b.insert(User, { id: 1, email: "a@example.com" })]),
+      );
+
+      expect(result.rowsAffected).toBe(1);
+      expect(await db.model(User).count()).toBe(1);
+    });
+
+    test("an async callback is refused with a TypeError, and nothing is sent", async () => {
+      const events: QueryEvent[] = [];
+      const db = harness.connect({ onQuery: (event) => events.push(event) });
+      const asyncCallback = (async (b: Batch) => [
+        b.insert(User, { id: 1, email: "a@example.com" }),
+      ]) as unknown as (b: Batch) => [];
+
+      await expect(db.batch(asyncCallback)).rejects.toThrow(
+        "batch()'s callback must return its writes in an array, without awaiting anything",
+      );
+      expect(events).toEqual([]);
+    });
+
+    test("a Batch used after its callback returned throws", async () => {
+      const db = harness.connect();
+      let kept: Batch | undefined;
+
+      await db.batch((b) => {
+        kept = b;
+        return [];
+      });
+
+      expect(() => kept!.insert(User, { id: 1, email: "a@example.com" })).toThrow(
+        "This Batch's callback has returned: prepare each write inside it",
+      );
+      expect(() => kept!.save(new User())).toThrow(TypeError);
     });
 
     test("runs the statements in order, atomically, and resolves to each one's result", async () => {
