@@ -45,6 +45,14 @@ function runHook(before: Files, after: Files, message: string) {
 
 const oneTest = 'test("finds a record", () => {});\n';
 const twoTests = `${oneTest}test("finds none", () => {});\n`;
+/** What `git commit -v` puts below a message: a scissors line, then the diff. */
+const verboseDiff = [
+  "# ------------------------ >8 ------------------------",
+  "# Do not modify or remove the line above.",
+  "diff --git a/tests/unit/a.test.ts b/tests/unit/a.test.ts",
+  '+test("guards none", () => {});',
+  "",
+].join("\n");
 
 describe("the commit-msg hook on a commit that only adds tests", () => {
   test("warns when the message doesn't say guard", () => {
@@ -70,6 +78,19 @@ describe("the commit-msg hook on a commit that only adds tests", () => {
 
     expect(status).toBe(0);
     expect(output).toBe("");
+  });
+
+  test.each([
+    ["a comment", "Test finding none (#1)\n\n# guard\n"],
+    ["git commit -v's diff", `Test finding none (#1)\n\n${verboseDiff}`],
+  ])("warns when guard is only in %s", (_where, message) => {
+    const { output } = runHook(
+      { "tests/unit/a.test.ts": oneTest },
+      { "tests/unit/a.test.ts": twoTests },
+      message,
+    );
+
+    expect(output).toContain('say "guard" in the body');
   });
 });
 
