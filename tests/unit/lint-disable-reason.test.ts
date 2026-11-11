@@ -43,5 +43,10 @@ ruleTester.run("disable-reason", disableReason, {
       code: "/* oxlint-disable d1-record/no-fixed-delay */\nwait();",
       errors: [{ messageId: "noReason" }],
     },
+    {
+      name: "an opt-out from this rule itself, even with a reason",
+      code: "/* oxlint-disable d1-record/disable-reason, d1-record/no-fixed-delay -- legacy */\nwait();",
+      errors: [{ messageId: "turnsItselfOff" }],
+    },
   ],
 });
