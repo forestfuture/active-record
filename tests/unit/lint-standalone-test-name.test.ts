@@ -30,6 +30,11 @@ tester.run("standalone-test-name", standaloneTestName, {
       errors: [{ messageId: "leans" }],
     },
     {
+      name: "a word capitalised at the start",
+      code: 'test("Also redirects HEAD", () => {});',
+      errors: [{ messageId: "leans" }],
+    },
+    {
       name: '"as well"',
       code: 'test("redirects HEAD as well", () => {});',
       errors: [{ messageId: "leans" }],
