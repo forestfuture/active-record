@@ -84,8 +84,10 @@ describe("migrate", () => {
     const databases = [{ binding: "DB", database_name: "shop" }, { binding: "LOGS" }];
     writeFileSync(join(cwd, "wrangler.jsonc"), JSON.stringify({ d1_databases: databases }));
 
-    const { lines } = await migrated(cwd, { remote: true });
+    // --remote from a pipe refuses before Wrangler starts, after the notes.
+    const { code, lines } = await migrated(cwd, { remote: true });
 
+    expect(code).toBe(1);
     expect(lines[0]).toBe(
       "Note: wrangler.jsonc has the D1 database LOGS, which active-record.jsonc doesn't name; run `npx active-record init` to add it",
     );
