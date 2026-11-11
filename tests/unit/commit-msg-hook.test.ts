@@ -213,4 +213,22 @@ describe("the commit-msg hook on a commit's title", () => {
     expect(status).toBe(0);
     expect(output).toBe("");
   });
+
+  test("refuses a long title that opens with # when git's comment character is ;", () => {
+    const { status, output } = runHookWithSemicolonComments(`#1 ${"x".repeat(80)}\nShort (#1)\n`);
+
+    expect(status).toBe(1);
+    expect(output).toContain("the limit is 72");
+  });
+
+  test("skips a long # comment line by default", () => {
+    const { status, output } = runHook(
+      {},
+      { "README.md": "y\n" },
+      `# ${"x".repeat(80)}\nEdit the README (#1)\n`,
+    );
+
+    expect(status).toBe(0);
+    expect(output).toBe("");
+  });
 });
