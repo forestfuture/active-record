@@ -14,7 +14,7 @@ const leaningWords = [
   /\bas well\b(?! as\b)/i,
   /\bso do(es)?\b/i,
   /^(…|\.\.\.)/,
-  /^and\b/i,
+  /^[Aa]nd\s/,
 ];
 
 /** For each kind of link in a call's chain, the node it goes on from, toward the chain's start. */
