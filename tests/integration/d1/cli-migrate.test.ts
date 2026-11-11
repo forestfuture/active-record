@@ -81,16 +81,20 @@ describe("migrate", () => {
 
   test("first notes a D1 database active-record.jsonc doesn't name", async () => {
     const cwd = project();
-    const databases = [{ binding: "DB", database_name: "shop" }, { binding: "LOGS" }];
+    const db = { binding: "DB", database_name: "shop", database_id: "local-shop" };
+    const databases = [db, { binding: "LOGS" }];
     writeFileSync(join(cwd, "wrangler.jsonc"), JSON.stringify({ d1_databases: databases }));
 
     // --remote from a pipe refuses before Wrangler starts, after the notes.
     const { code, lines } = await migrated(cwd, { remote: true });
 
-    expect(code).toBe(1);
-    expect(lines[0]).toBe(
-      "Note: wrangler.jsonc has the D1 database LOGS, which active-record.jsonc doesn't name; run `npx active-record init` to add it",
-    );
+    expect([code, lines]).toEqual([
+      1,
+      [
+        "Note: wrangler.jsonc has the D1 database LOGS, which active-record.jsonc doesn't name; run `npx active-record init` to add it",
+        "Migrating a remote database asks you to confirm it: run this on a terminal, or add --yes",
+      ],
+    ]);
   });
 
   test("--remote asks for the database's name first, and does nothing when it isn't typed", async () => {
