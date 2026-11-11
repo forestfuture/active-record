@@ -18,7 +18,7 @@ import {
   type ProjectSnapshot,
 } from "../project/snapshot.ts";
 import { defaultModels, oneModelsFile } from "../project/targets.ts";
-import { chooseDatabase, configNotes, loadDatabases } from "../project/databases.ts";
+import { chooseDatabase, loadForCommand } from "../project/databases.ts";
 import { byVersion, type Migration } from "../project/migrations.ts";
 import { withModels } from "../schema/models.ts";
 import type { GeneratedTable } from "../adapter.ts";
@@ -291,12 +291,8 @@ export async function planGenerate(
 export async function runGenerate(options: GenerateOptions, print: Print): Promise<number> {
   const cwd = resolve(options.cwd ?? process.cwd());
   const { config, models, out } = options;
-  const loaded = await loadDatabases(cwd, options.config);
-  if (typeof loaded === "string") {
-    print(loaded);
-    return 1;
-  }
-  for (const note of configNotes(loaded)) print(note);
+  const loaded = await loadForCommand(cwd, options, print);
+  if (loaded === undefined) return 1;
   const model = options.kind === "model" ? modelName(options.name) : undefined;
   const files = model?.ok === true ? [modelPathOf(cwd, options, model.className)] : [];
   const read = readProject(loaded, cwd, { config, models, out }, files);

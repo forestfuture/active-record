@@ -3,7 +3,7 @@ import { watch } from "node:fs";
 import { resolve } from "node:path";
 import { apply, combined, printing, type Plan, type Print } from "../plan.ts";
 import { shown } from "../project/paths.ts";
-import { configNotes, loadDatabases } from "../project/databases.ts";
+import { loadDatabases, loadForCommand } from "../project/databases.ts";
 import { readProject, type DatabaseSnapshot, type ProjectSnapshot } from "../project/snapshot.ts";
 import { modelsFolders, type ProjectOptions } from "../project/targets.ts";
 import { fingerprintIn, fingerprintOf } from "./render.ts";
@@ -73,12 +73,8 @@ export async function planSchema(project: ProjectSnapshot, check: boolean): Prom
  */
 export async function runSchema(options: SchemaOptions, print: Print): Promise<number> {
   const cwd = resolve(options.cwd ?? process.cwd());
-  const loaded = await loadDatabases(cwd, options.config);
-  if (typeof loaded === "string") {
-    print(loaded);
-    return 1;
-  }
-  for (const note of configNotes(loaded)) print(note);
+  const loaded = await loadForCommand(cwd, options, print);
+  if (loaded === undefined) return 1;
   const read = readProject(loaded, cwd, options);
   if (typeof read === "string") {
     print(read);

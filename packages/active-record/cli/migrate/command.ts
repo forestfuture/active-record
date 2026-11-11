@@ -2,7 +2,7 @@
 import type { Readable, Writable } from "node:stream";
 import { WriteStream } from "node:tty";
 import { confirmRemote } from "../console/confirm.ts";
-import { chosenDatabase, configNotes, loadDatabases } from "../project/databases.ts";
+import { chosenDatabase, loadForCommand } from "../project/databases.ts";
 
 export interface MigrateOptions {
   /** The project's folder; the current one by default. */
@@ -58,12 +58,8 @@ export async function runMigrate(
   io: MigrateTerminal = standardIo(),
 ): Promise<number> {
   const cwd = options.cwd ?? process.cwd();
-  const project = await loadDatabases(cwd, options.config);
-  if (typeof project === "string") {
-    print(project);
-    return 1;
-  }
-  for (const note of configNotes(project)) print(note);
+  const project = await loadForCommand(cwd, options, print);
+  if (project === undefined) return 1;
   const found = chosenDatabase(project, options);
   if (typeof found === "string") {
     print(found);
