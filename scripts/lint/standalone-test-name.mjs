@@ -1,8 +1,8 @@
 // The repo's lint rule that a test's name stands alone, with no word leaning on a sibling (#302).
 import { defineRule } from "vite-plus/lint/plugins";
 
-/** The functions that take a test's name. */
-const testFunctions = new Set(["test", "it"]);
+/** The functions that take a test's or a suite's name. */
+const testFunctions = new Set(["test", "it", "describe"]);
 
 /**
  * Words that make a name lean on the test before it: "redirects HEAD too", and a name that opens

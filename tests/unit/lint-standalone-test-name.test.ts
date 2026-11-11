@@ -60,6 +60,11 @@ tester.run("standalone-test-name", standaloneTestName, {
       errors: [{ messageId: "leans" }],
     },
     {
+      name: "a describe() name",
+      code: 'describe("HEAD requests too", () => {});',
+      errors: [{ messageId: "leans" }],
+    },
+    {
       name: "a name given as a template literal",
       code: "test(`redirects ${method} too`, () => {});",
       errors: [{ messageId: "leans" }],
