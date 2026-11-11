@@ -22,6 +22,12 @@ A new record is inserted, and a persisted one updates only the attributes that c
 
 When a failure is exceptional, use the `OrThrow` version of each method:
 
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+A TypeScript method name can’t contain `!`, so the `OrThrow` suffix takes its place. `saveOrThrow`, `createOrThrow`, `updateOrThrow`, and `destroyOrThrow` are Rails’ `save!`, `create!`, `update!`, and `destroy!`.
+
+</Callout>
+
 <include>/_excerpts/guide/persistence/or-throw.ts</include>
 
 Instead of returning `false`, they throw:
@@ -29,12 +35,6 @@ Instead of returning `false`, they throw:
 - `RecordInvalid` when validation failed, with the record on `error.record`.
 - `RecordNotSaved` when a callback aborted a save, with the abort’s reason as its message.
 - `RecordNotDestroyed` from `destroyOrThrow()`, when a callback aborted the destroy or a `restrictWithError` association refused it.
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-A TypeScript method name can’t contain `!`, so the `OrThrow` suffix takes its place. `saveOrThrow`, `createOrThrow`, `updateOrThrow`, and `destroyOrThrow` are Rails’ `save!`, `create!`, `update!`, and `destroy!`.
-
-</Callout>
 
 ### What each method returns
 
