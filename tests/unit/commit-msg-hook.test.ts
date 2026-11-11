@@ -199,15 +199,18 @@ describe("the commit-msg hook on a commit that renames or moves tests", () => {
   });
 });
 
-/** Runs the hook on a commit that edits the README, with ; as git's comment character. */
-function runHookWithSemicolonComments(message: string) {
-  return runHook({}, { "README.md": "y\n" }, message, { "core.commentChar": ";" });
+/** Runs the hook on a commit that edits only the README. */
+function runHookEditingTheReadme(message: string, config: Record<string, string> = {}) {
+  return runHook({}, { "README.md": "y\n" }, message, config);
 }
+
+const semicolonComments = { "core.commentChar": ";" };
 
 describe("the commit-msg hook on a commit's title", () => {
   test("skips a long comment line that opens with git's comment character", () => {
-    const { status, output } = runHookWithSemicolonComments(
+    const { status, output } = runHookEditingTheReadme(
       `; ${"x".repeat(80)}\nEdit the README (#1)\n`,
+      semicolonComments,
     );
 
     expect(status).toBe(0);
@@ -215,16 +218,17 @@ describe("the commit-msg hook on a commit's title", () => {
   });
 
   test("refuses a long title that opens with # when git's comment character is ;", () => {
-    const { status, output } = runHookWithSemicolonComments(`#1 ${"x".repeat(80)}\nShort (#1)\n`);
+    const { status, output } = runHookEditingTheReadme(
+      `#1 ${"x".repeat(80)}\nShort (#1)\n`,
+      semicolonComments,
+    );
 
     expect(status).toBe(1);
     expect(output).toContain("the limit is 72");
   });
 
   test("skips a long # comment line by default", () => {
-    const { status, output } = runHook(
-      {},
-      { "README.md": "y\n" },
+    const { status, output } = runHookEditingTheReadme(
       `# ${"x".repeat(80)}\nEdit the README (#1)\n`,
     );
 
