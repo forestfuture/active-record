@@ -4,13 +4,18 @@ import { defineRule } from "vite-plus/lint/plugins";
 /** A comment that turns rules off, and what follows the directive: the rules, then any reason. */
 const directive = /^\s*(?:oxlint|eslint)-disable(?:-next-line|-line)?\b(.*)$/s;
 
+/** Whether a directive's list of rules takes in the repo's own: naming one, or naming none, so all. */
+function coversOwnRule(rules) {
+  return rules.trim() === "" || rules.includes("d1-record/");
+}
+
 /** Whether a directive's text turns off one of the repo's own rules with no reason after `--`. */
 function lacksReason(text) {
   const match = directive.exec(text);
   if (match === null) return false;
   // Oxlint takes the reason from after the first `--`, spaced or not. A reason has a word in it.
   const [rules, reason = ""] = match[1].split(/--(.*)/s);
-  return rules.includes("d1-record/") && !/\p{L}/u.test(reason);
+  return coversOwnRule(rules) && !/\p{L}/u.test(reason);
 }
 
 export default defineRule({
