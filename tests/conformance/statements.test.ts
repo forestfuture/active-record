@@ -956,6 +956,25 @@ describe("statements", () => {
       expect(events).toEqual([]);
     });
 
+    test("an async callback that prepares a write after awaiting leaves no unhandled rejection", async () => {
+      const db = harness.connect();
+      const unhandled: unknown[] = [];
+      const onUnhandled = (reason: unknown) => void unhandled.push(reason);
+      process.on("unhandledRejection", onUnhandled);
+      const asyncCallback = (async (b: Batch) => {
+        await Promise.resolve();
+        return [b.insert(User, { id: 1, email: "a@example.com" })];
+      }) as unknown as (b: Batch) => [];
+
+      await expect(db.batch(asyncCallback)).rejects.toThrow(TypeError);
+      // oxlint-disable-next-line d1-record/no-fixed-delay -- Node reports an unhandled rejection a macrotask later, and nothing signals that none came
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      process.off("unhandledRejection", onUnhandled);
+
+      expect(unhandled).toEqual([]);
+      expect(await db.model(User).count()).toBe(0);
+    });
+
     test("a Batch used after its callback returned throws", async () => {
       const db = harness.connect();
       let kept: Batch | undefined;

@@ -125,10 +125,17 @@ export function batchEntries<T>(build: (b: Batch) => T, relationOf: RelationOf):
     b[closeBatch]();
   }
   if (!Array.isArray(entries)) {
+    // An async callback may still prepare a write on the closed Batch; that rejection is this one.
+    if (isThenable(entries)) entries.then(undefined, () => {});
     throw new TypeError(
       "batch()'s callback must return its writes in an array, without awaiting anything: " +
         "a batch is sent as one, so it can't wait for a read",
     );
   }
   return entries;
+}
+
+/** Whether `value` is a Promise or another thenable, as an async callback returns. */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return typeof (value as { then?: unknown } | null)?.then === "function";
 }
