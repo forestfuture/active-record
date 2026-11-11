@@ -54,14 +54,15 @@ The callback gets `b`, with a method for each bulk write: `insert`, `insertAll`,
 - **Keys:** rows in one batch can only point at each other through keys that exist before it’s sent, so generate keys in code, with [`generateId`](./models#generating-ids).
 - **Errors:** a write that can’t be prepared, such as one with an unknown attribute, rejects the batch before anything is sent.
 - **Databases:** `batch` writes a Model’s rows on the current database, and `db.batch` on `db`. A Relation or a record writes on the database it came from. Writes on two databases throw `IncompatibleRelation`.
+- **Queries in `db.batch`:** a query built from a Model, such as `Article.where(…)`, uses the current database. Build it with `db.model(Article).where(…)` to write on `db`.
 
 :::note
-The callback returns its writes without awaiting anything, since the batch is sent to D1 as one. Load what the writes need before you call `batch`.
+The callback returns its writes without awaiting anything, since the batch is sent to D1 as one. Load what the writes need before you call `batch`. D1 can’t keep a transaction open across `await`s, so a batch is how you make writes atomic.
 :::
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-A batch reads like a `transaction do … end` block, but its callback only prepares writes. They’re sent together when it returns, so it can’t read in between. D1 can’t keep a transaction open across `await`s, so a batch is how you make writes atomic.
+A batch reads like a `transaction do … end` block, but its callback only prepares writes. They’re sent together when it returns, so it can’t read in between.
 
 </Callout>
 

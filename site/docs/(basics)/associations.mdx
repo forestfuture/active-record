@@ -199,9 +199,11 @@ Without a strategy, it’s up to the database. If the table declares the foreign
 
 ## Writing many rows
 
-`insert`, `updateAll`, and `deleteAll` work through a `hasMany`, scoped to the owner’s records. So do a batch’s, given the association, as in `b.deleteAll(article.comments())`:
+`insert`, `updateAll`, and `deleteAll` work through a `hasMany`, scoped to the owner’s records:
 
 <include>/_excerpts/guide/associations/statements.ts</include>
+
+In a batch, pass the association to the write: `b.deleteAll(article.comments())`.
 
 `deleteAll()` on the association follows its `dependent` strategy: it deletes the records for `"destroy"` or `"deleteAll"`, and otherwise sets their foreign keys to `NULL`. See [Bulk writes and batches](./batches).
 

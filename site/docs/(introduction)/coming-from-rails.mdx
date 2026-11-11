@@ -51,7 +51,7 @@ A Model names its table, since TypeScript can’t derive a class’s types from 
 
 ## Writing atomically
 
-There’s no `transaction do … end`, since D1 can’t keep a transaction open across awaits. Instead, [`batch`](./batches) takes a block of its own, `batch((b) => [...])`, where `b.save(user)`, `b.destroy(post)`, `b.updateAll(…)`, and the other bulk writes prepare writes that are sent together, atomically, once it returns. Generating keys in code makes whole graphs of new records atomic too. See [D1’s limits](./d1).
+There’s no `transaction do … end`, since D1 can’t keep a transaction open across awaits. Use [`batch((b) => [...])`](./batches) instead. In its callback, `b.save(user)`, `b.destroy(post)`, and bulk writes like `b.updateAll(…)` prepare writes. They’re sent atomically once the callback returns. Generating keys in code makes whole graphs of new records atomic too. See [D1’s limits](./d1).
 
 ## Primary keys
 
