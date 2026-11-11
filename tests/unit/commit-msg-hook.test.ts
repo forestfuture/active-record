@@ -57,4 +57,18 @@ describe("the commit-msg hook on a commit that only adds tests", () => {
     expect(status).toBe(0);
     expect(output).toContain('say "guard" in the body');
   });
+
+  test.each([
+    "Guard finding none (#1)\n",
+    "Test finding none (#1)\n\nA GUARD: it passed on its first run.\n",
+  ])("says nothing when the message says guard: %j", (message) => {
+    const { status, output } = runHook(
+      { "tests/unit/a.test.ts": oneTest },
+      { "tests/unit/a.test.ts": twoTests },
+      message,
+    );
+
+    expect(status).toBe(0);
+    expect(output).toBe("");
+  });
 });

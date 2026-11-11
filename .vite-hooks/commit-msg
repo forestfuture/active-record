@@ -19,7 +19,8 @@ fi
 outside_tests=$(git diff --cached --name-only | grep -v '^tests/' || true)
 test_call='(^|[^A-Za-z0-9_.$])(test|it)(\.[A-Za-z]+)*\('
 added=$(git diff --cached -U0 -- tests/ | grep -E '^\+' | grep -cE "$test_call" || true)
+says_guard=$(grep -v '^#' "$1" | grep -i guard || true)
 
-if [ -z "$outside_tests" ] && [ "$added" -gt 0 ]; then
+if [ -z "$outside_tests" ] && [ "$added" -gt 0 ] && [ -z "$says_guard" ]; then
   echo 'Warning: this commit only adds tests. If they passed on their first run, say "guard" in the body.'
 fi
