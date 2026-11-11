@@ -55,6 +55,11 @@ tester.run("standalone-test-name", standaloneTestName, {
       errors: [{ messageId: "leans" }],
     },
     {
+      name: 'a name that opens with "...", typed as three dots',
+      code: 'test("...and HEAD requests", () => {});',
+      errors: [{ messageId: "leans" }],
+    },
+    {
       name: "an it() name",
       code: 'it("redirects HEAD too", () => {});',
       errors: [{ messageId: "leans" }],
