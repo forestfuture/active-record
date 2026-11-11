@@ -8,7 +8,7 @@ const testFunctions = new Set(["test", "it", "describe"]);
  * Words that make a name lean on the test before it: "redirects HEAD too", and a name that opens
  * with "…", going on from that test's name.
  */
-const leaningWords = [/\btoo\b/, /\balso\b/, /\bas well\b(?! as\b)/, /\bso do(es)?\b/, /^…/];
+const leaningWords = [/\btoo\b/i, /\balso\b/i, /\bas well\b(?! as\b)/i, /\bso do(es)?\b/i, /^…/];
 
 /**
  * The function a call's chain starts from: `test` in `test("…")`, `test.skip("…")` and
