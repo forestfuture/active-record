@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
 
-// The commit-msg hook's warning when a tests-only commit doesn't say it adds guards (#322).
+// The commit-msg hook: its title length check, read past git's comments, and its guard warning (#322, #329).
 const hook = new URL("../../.vite-hooks/commit-msg", import.meta.url).pathname;
 
 /** Each file's text, or null for a file to delete. */
