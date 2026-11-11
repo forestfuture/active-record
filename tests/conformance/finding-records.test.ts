@@ -87,7 +87,7 @@ describe("finding records", () => {
       );
     });
 
-    test("the Relation's conditions still apply, so an excluded id is missing", async () => {
+    test("the Relation's conditions apply, so an excluded id is missing", async () => {
       const members = harness.connect().model(User).where({ role: "member" });
 
       await expect(members.find([1, 2])).rejects.toThrow(RecordNotFound);
@@ -109,7 +109,7 @@ describe("finding records", () => {
       expect((await users.find("1", "01", 1)).map((user) => user.id)).toEqual([1]);
     });
 
-    test("on none() nothing is found without a query, and [] is still []", async () => {
+    test("on none() nothing is found without a query, and [] gives []", async () => {
       let queries = 0;
       const users = harness
         .connect({ onQuery: () => queries++ })

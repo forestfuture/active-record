@@ -348,7 +348,7 @@ describe("error messages", () => {
     ]);
   });
 
-  test("a class's calls add up for an attribute too, type by type", async () => {
+  test("a class's calls add up for an attribute, type by type", async () => {
     class Twice extends PostRecord {
       static {
         this.errorMessages({ attributes: { title: { blank: "first", tooShort: "short" } } });

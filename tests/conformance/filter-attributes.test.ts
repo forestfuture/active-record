@@ -82,7 +82,7 @@ describe("filterAttributes", () => {
     expect(params()).toEqual([["[FILTERED]", "admin"]]);
   });
 
-  test("conditions, lists and comparisons on a filtered attribute are hidden too", async () => {
+  test("conditions, lists and comparisons on a filtered attribute are hidden", async () => {
     const users = db().model(User);
 
     await users.findBy({ email: "ada@example.com", role: "admin" });
@@ -129,7 +129,7 @@ describe("filterAttributes", () => {
     );
   });
 
-  test("upsert and a limited updateAll are hidden too", async () => {
+  test("upsert and a limited updateAll hide a filtered attribute's values", async () => {
     await db().model(User).upsert({ id: 1, email: "ada@example.com" }, { uniqueBy: "id" });
     await db()
       .model(User)
@@ -144,7 +144,7 @@ describe("filterAttributes", () => {
     ]);
   });
 
-  test("a cast error from a bulk write hides a filtered value too", () => {
+  test("a cast error from a bulk write hides a filtered value", () => {
     const error = new TypeError('User: [FILTERED] isn\'t a string for "email"');
 
     expect(() =>

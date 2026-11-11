@@ -98,7 +98,7 @@ describe("constraint errors", () => {
     );
   });
 
-  test("constraint errors are translated on update too", async () => {
+  test("constraint errors are translated on update", async () => {
     const product = await harness.connect().model(Product).create({ name: "Pen", priceCents: 100 });
 
     product.priceCents = -5;

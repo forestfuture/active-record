@@ -63,7 +63,7 @@ describe("ordering extras", () => {
     expect(await adminsFirst.pluck("id")).toEqual([3, 1, 2, 4]);
   });
 
-  test("a fragment order's values bind in place, alongside where and limit values, in count too", async () => {
+  test("a fragment order's values bind in place, alongside where and limit values, in pluck and in count", async () => {
     const users = harness
       .connect()
       .model(User)
@@ -86,7 +86,7 @@ describe("ordering extras", () => {
     expect(await nullsFirst.pluck("id")).toEqual([2, 4, 1, 3]);
   });
 
-  test("last() reverses nulls too, as Rails' reverse_order does", async () => {
+  test("last() reverses the nulls placement along with the direction, as Rails' reverse_order does", async () => {
     const users = harness.connect().model(User);
 
     const nullsLast = users.order({ role: { direction: "asc", nulls: "last" }, id: "asc" });

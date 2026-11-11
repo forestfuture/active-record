@@ -73,7 +73,7 @@ describe("toSql", () => {
     expect(events[0]?.params).toEqual(["[FILTERED]"]);
   });
 
-  test("is a static on a Model too, with no database", () => {
+  test("is a static on a Model, with no database", () => {
     const { sql, params } = User.where({ role: "admin" }).toSql();
 
     expect(sql).toContain("WHERE");

@@ -106,7 +106,7 @@ describe("values assigned to attributes are cast to the attribute's type (#81)",
       expect(sample.enabled).toBe(false);
     });
 
-    test("assign, update and create cast too", async () => {
+    test("assign, update and create cast", async () => {
       const created = await samples().create({ enabled: untyped("false") });
       expect(created.enabled).toBe(false);
 
@@ -117,7 +117,7 @@ describe("values assigned to attributes are cast to the attribute's type (#81)",
       expect((await samples().find(created.id)).enabled).toBe(false);
     });
 
-    test("null is still NULL", async () => {
+    test("null round-trips as NULL", async () => {
       expect(await roundTrip("enabled", null)).toEqual([null, null]);
     });
   });

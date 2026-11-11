@@ -141,7 +141,7 @@ describe("paginate", () => {
       },
     );
 
-    test("a page too far to be skipped to exactly throws TypeError", async () => {
+    test("a page whose offset is past the largest safe integer throws TypeError", async () => {
       const posts = db().model(Post);
       const page = String(Number.MAX_SAFE_INTEGER);
 

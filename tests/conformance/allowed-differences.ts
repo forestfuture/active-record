@@ -50,7 +50,7 @@ export const allowedDifferences: readonly AllowedDifference[] = [
     tests: [
       "conditions > distinct removes duplicate rows, and count counts distinct values",
       "ordering extras > order takes an sql fragment for expressions, and appends like any order",
-      "ordering extras > a fragment order's values bind in place, alongside where and limit values, in count too",
+      "ordering extras > a fragment order's values bind in place, alongside where and limit values, in pluck and in count",
     ],
   },
   {
@@ -116,7 +116,9 @@ export const allowedDifferences: readonly AllowedDifference[] = [
       "Postgres's constraint errors name their table and columns, so a batch's foreign-key " +
       "failure has them too, where D1's names neither.",
     contract: "A batch that writes to several then has `.table` `null`",
-    tests: ["statements > db.batch > …and no table when the batch writes to several"],
+    tests: [
+      "statements > db.batch > a constraint error that names no table names none when the batch writes to several Models",
+    ],
   },
   {
     id: "jsonb-text",

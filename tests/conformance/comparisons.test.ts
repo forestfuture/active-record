@@ -88,7 +88,7 @@ describe("comparison conditions", () => {
     expect(() => samples.where({ settings: gt(1) })).toThrow(TypeError);
   });
 
-  test("a json attribute's object value is still compared for equality", async () => {
+  test("a json attribute's object value is compared for equality, not read as a comparison", async () => {
     const samples = harness.connect().model(Sample);
     await samples.insert({ id: 1, settings: { gt: 1 } });
 

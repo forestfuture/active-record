@@ -44,7 +44,7 @@ describe("a name that every object inherits isn't an attribute or association", 
     expect(() => user.restoreAttributes([unknown])).toThrow(UnknownAttribute);
   });
 
-  test("the real names still work", async () => {
+  test("the real names work", async () => {
     expect(user.savedChangeTo("email")).toEqual(["ada@example.com", "ada@lovelace.dev"]);
     expect(await user.reloadAssociation("posts")).toEqual([]);
   });

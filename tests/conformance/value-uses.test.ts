@@ -90,7 +90,7 @@ describe("values by their use", () => {
       expect(await owner.notes().pluck("id")).toEqual([1]);
     });
 
-    test("so do a hasOne build and a belongsTo set", async () => {
+    test("a hasOne build and a belongsTo set write an integer key into a text foreign key as its digits", async () => {
       const owner = await db().model(Owner).create({ id: 9, email: "ada@example.com" });
 
       expect(owner.note.build({ id: 1 }).label).toBe("9");

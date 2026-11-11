@@ -238,7 +238,7 @@ describe("dependent: strategies", () => {
     expect(await count("users")).toBe(1);
   });
 
-  test("…so if the owner's DELETE fails, the records's deletion is rolled back too", async () => {
+  test("with deleteAll, if the owner's DELETE fails, the records' deletion is rolled back", async () => {
     await harness.reset("comments");
     await harness.exec("INSERT INTO profiles (id, user_id) VALUES (1, 1)");
     const user = await db().model(DeletingAll).find(1);

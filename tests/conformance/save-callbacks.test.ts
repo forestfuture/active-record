@@ -182,7 +182,7 @@ describe("save callbacks", () => {
     expect(await users().count()).toBe(1);
   });
 
-  test("abort() in beforeCreate or beforeUpdate refuses the save too", async () => {
+  test("abort() in beforeCreate or beforeUpdate refuses the save", async () => {
     hooks.beforeCreate = () => {
       throw abort("no creates");
     };

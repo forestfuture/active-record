@@ -212,7 +212,7 @@ describe("active-record console", () => {
       await end();
     }, 90_000);
 
-    test("the database still works for the reloaded Models", async () => {
+    test("the reloaded Models read from the database", async () => {
       const { cwd, send, end } = await running();
       writeFileSync(join(cwd, "src/models/user.ts"), edited);
       await send("reload!");

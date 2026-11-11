@@ -40,13 +40,13 @@ describe("conditions", () => {
     expect(await ids(users.where({ id: [] }))).toEqual([]);
   });
 
-  test("an array containing null also matches NULL", async () => {
+  test("an array containing null matches its values and NULL", async () => {
     const users = harness.connect().model(User);
 
     expect(await ids(users.where({ role: ["member", null] }))).toEqual([2, 3]);
   });
 
-  test("whereNot follows SQL semantics, so a NULL value is excluded too", async () => {
+  test("whereNot follows SQL semantics, so a NULL value is excluded", async () => {
     const users = harness.connect().model(User);
 
     expect(await ids(users.whereNot({ role: "admin" }))).toEqual([2]);

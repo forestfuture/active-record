@@ -43,7 +43,7 @@ describe("preloading with includes", () => {
     expect(queries).toHaveLength(0);
   });
 
-  test("belongsTo and hasOne preload too, with null where there's nothing", async () => {
+  test("belongsTo and hasOne preload, with null where there's nothing", async () => {
     const posts = await db().model(Post).includes("user").order({ id: "asc" }).toArray();
     const users = await db().model(User).includes("profile").order({ id: "asc" }).toArray();
     expect(queries).toHaveLength(4);
@@ -116,7 +116,7 @@ describe("preloading with includes", () => {
     expect(() => plain?.loaded("posts")).toThrow(/User.*"posts".*includes/);
   });
 
-  test("first, find and findBy preload too", async () => {
+  test("first, find and findBy preload", async () => {
     const users = db().model(User).includes("posts");
 
     const first = await users.order({ id: "asc" }).first();
@@ -128,7 +128,7 @@ describe("preloading with includes", () => {
     expect(foundBy?.loaded("posts")).toHaveLength(2);
   });
 
-  test("find with several ids preloads too, in two queries", async () => {
+  test("find with several ids preloads, in two queries", async () => {
     const users = await db().model(User).includes("posts").find(2, 1);
 
     expect(users.map((user) => user.loaded("posts").length)).toEqual([1, 2]);

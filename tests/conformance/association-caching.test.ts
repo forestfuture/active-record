@@ -90,7 +90,7 @@ describe("caching lazily loaded associations", () => {
     expect(queries).toHaveLength(2);
   });
 
-  test("a null result is cached too", async () => {
+  test("a null result is cached", async () => {
     const user = await db().model(User).find(2);
     queries.length = 0;
 
@@ -171,7 +171,7 @@ describe("caching lazily loaded associations", () => {
     expect(queries).toHaveLength(1);
   });
 
-  test("…preloaded associations too", async () => {
+  test("changing the foreign key makes a preloaded association stale, so the next read queries", async () => {
     const post = await db().model(Post).includes("author").find(10);
     queries.length = 0;
 
@@ -203,7 +203,7 @@ describe("caching lazily loaded associations", () => {
     expect(queries).toHaveLength(0);
   });
 
-  test("create through a narrowed association appends too, as Rails' association relation does", async () => {
+  test("create through a narrowed association appends the new record to a loaded hasMany, as Rails' association relation does", async () => {
     const user = await db().model(User).find(1);
     await user.posts().toArray();
 

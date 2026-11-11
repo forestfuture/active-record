@@ -155,7 +155,7 @@ describe("one database", () => {
       expect(seen.map((event) => event.sql.split(" ")[0])).toEqual(["UPDATE"]);
     });
 
-    test("so do records autosaved in a batch", async () => {
+    test("records autosaved in a batch stay on the request's database", async () => {
       const seen: QueryEvent[] = [];
       let post!: Post;
       await withDatabase(connect(one, { onQuery: (event) => seen.push(event) }), async () => {

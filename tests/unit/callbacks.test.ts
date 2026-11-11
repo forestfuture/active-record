@@ -151,7 +151,7 @@ describe("declaration timing", () => {
 });
 
 describe("abort in afterValidation", () => {
-  test("refuses too: isValid is false with the reason", async () => {
+  test("makes the record invalid: isValid is false with the reason", async () => {
     class Gate extends Model.define({ id: "integer", email: "string" }) {
       static table = "users";
       static {

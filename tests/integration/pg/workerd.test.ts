@@ -86,7 +86,7 @@ describe("the PostgreSQL adapter in workerd", { timeout: 60_000 }, () => {
     },
   );
 
-  test("opening a client to a host that never answers times out, a binding's too (#292)", async () => {
+  test("opening a client to a host that never answers times out, through connect() and through a Model's binding (#292)", async () => {
     expect(await get("/unanswered")).toEqual({
       connected: "timeout expired",
       statics: "timeout expired",

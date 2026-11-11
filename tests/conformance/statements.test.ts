@@ -156,7 +156,7 @@ describe("statements", () => {
       expect(then.updatedAt?.getTime()).toBeGreaterThanOrEqual(before);
     });
 
-    test("a Relation's equality conditions are inserted too, as build() uses them", async () => {
+    test("a Relation's equality conditions are inserted, as build() uses them", async () => {
       const db = harness.connect();
       await db.model(User).insert({ id: 1, email: "a@example.com" });
       const user = await db.model(User).find(1);
@@ -409,7 +409,7 @@ describe("statements", () => {
         ]);
       });
 
-      test("…so a NOT NULL foreign key raises instead of losing rows", async () => {
+      test("deleteAll on the association raises on a NOT NULL foreign key instead of losing rows", async () => {
         const db = harness.connect();
         await seedComments(db);
         const user = await db.model(User).find(1);
@@ -917,7 +917,7 @@ describe("statements", () => {
       expect(error).toMatchObject({ table: "posts" });
     });
 
-    test("…and no table when the batch writes to several", async () => {
+    test("a constraint error that names no table names none when the batch writes to several Models", async () => {
       const db = harness.connect();
 
       const error: unknown = await db
@@ -932,7 +932,7 @@ describe("statements", () => {
       expect((error as Error).message).toMatch(/^batch: /);
     });
 
-    test("…and when the batch fails, every statement is reported with the error", async () => {
+    test("when a batch fails, every statement is reported with the error", async () => {
       const events: QueryEvent[] = [];
       const db = harness.connect({ onQuery: (event) => events.push(event) });
 

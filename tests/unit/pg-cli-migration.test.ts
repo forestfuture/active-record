@@ -102,7 +102,7 @@ CREATE INDEX index_line_items_on_user_id ON line_items (user_id);
     });
   });
 
-  test("adds columns, NOT NULL ones without a default too, and a reference that can be NULL", () => {
+  test("adds columns, including NOT NULL ones without a default, and a reference that can be NULL", () => {
     expect(
       sqlFor("AddSkuToProducts", ["sku:string!:unique", "user:references"], { users: "uuid" }),
     ).toEqual({

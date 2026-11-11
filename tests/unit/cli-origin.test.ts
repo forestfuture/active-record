@@ -137,7 +137,7 @@ describe("notes for another tool's migrations", () => {
     );
   });
 
-  test("Drizzle's migrations get the date text note too (#143)", () => {
+  test("Drizzle's migrations get the date text note (#143)", () => {
     expect(originNotes("Drizzle", tables, ["posts.created_at"]).join("\n")).toContain(
       "posts.created_at: its default writes the database's own date text",
     );

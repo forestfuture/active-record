@@ -56,7 +56,7 @@ describe("a Model is ready however it's first reached", () => {
     expect((await comment!.post())?.title).toBe("Hello");
   });
 
-  test("so does one reached only through a preload", async () => {
+  test("a Model reached only through a preload has its own association accessors", async () => {
     const [post] = await harness.connect().model(Post).includes("comments").toArray();
 
     expect((await post!.loaded("comments")[0]!.post())?.id).toBe(10);

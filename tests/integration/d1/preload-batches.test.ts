@@ -384,7 +384,7 @@ describe("preloading sends the records' query and its associations together", ()
     expect(recording.batches).toEqual([4]);
   });
 
-  test("a scope including itself, written out a level down too, plans that level and ends", async () => {
+  test("a scope including itself and written out again a level down plans that level and ends", async () => {
     await binding
       .prepare("INSERT INTO accounts (id, user_id) VALUES (1, NULL), (2, 1), (3, 2), (4, 3)")
       .run();
