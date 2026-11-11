@@ -1,4 +1,4 @@
-// The repo's lint rule that turning off one of its own rules says why, after `--` (#302).
+// The repo's lint rule that an opt-out from one of its own rules gives a reason after `--` (#302).
 import { defineRule } from "vite-plus/lint/plugins";
 
 /** A comment that turns rules off, and what follows the directive: the rules, then any reason. */
