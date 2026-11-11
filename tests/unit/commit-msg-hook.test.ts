@@ -10,6 +10,9 @@ const hook = new URL("../../.vite-hooks/commit-msg", import.meta.url).pathname;
 /** Each file's text, or null for a file to delete. */
 type Files = Record<string, string | null>;
 
+/** git config settings, set in the order given. */
+type GitConfig = Record<string, string>;
+
 /** Writes or deletes each file under the repository at dir. */
 function write(dir: string, files: Files): void {
   for (const [path, text] of Object.entries(files)) {
@@ -36,12 +39,7 @@ function git(dir: string, ...args: string[]): void {
  * top of it, and runs the hook on `message` as git would: what it prints,
  * and its status.
  */
-function runHook(
-  before: Files,
-  after: Files,
-  message: string,
-  config: Record<string, string> = {},
-) {
+function runHook(before: Files, after: Files, message: string, config: GitConfig = {}) {
   const dir = mkdtempSync(join(tmpdir(), "commit-msg-hook-"));
   git(dir, "init", "-q");
   for (const [key, value] of Object.entries(config)) git(dir, "config", key, value);
@@ -67,7 +65,7 @@ const verboseDiff = [
 ].join("\n");
 
 /** Runs the hook on a commit that adds a second test to tests/unit/a.test.ts. */
-function runHookAddingATest(message: string, config: Record<string, string> = {}) {
+function runHookAddingATest(message: string, config: GitConfig = {}) {
   return runHook(
     { "tests/unit/a.test.ts": oneTest },
     { "tests/unit/a.test.ts": twoTests },
@@ -200,7 +198,7 @@ describe("the commit-msg hook on a commit that renames or moves tests", () => {
 });
 
 /** Runs the hook on a commit that edits only the README. */
-function runHookEditingTheReadme(message: string, config: Record<string, string> = {}) {
+function runHookEditingTheReadme(message: string, config: GitConfig = {}) {
   return runHook({}, { "README.md": "y\n" }, message, config);
 }
 
