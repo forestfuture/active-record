@@ -238,6 +238,16 @@ describe("the commit-msg hook on a commit's title", () => {
     expect(output).toBe("");
   });
 
+  test("skips a long # comment line when commentChar is AUTO", () => {
+    const { status, output } = runHookEditingTheReadme(
+      `# ${"x".repeat(80)}\nEdit the README (#1)\n`,
+      { "core.commentChar": "AUTO" },
+    );
+
+    expect(status).toBe(0);
+    expect(output).toBe("");
+  });
+
   test("skips a long # comment line by default", () => {
     const { status, output } = runHookEditingTheReadme(
       `# ${"x".repeat(80)}\nEdit the README (#1)\n`,

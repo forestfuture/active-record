@@ -7,7 +7,8 @@
 # git reads commentChar and commentString as one setting, the last one wins,
 # and --get-regexp lists them in the order git reads them.
 comment=$(git config --get-regexp '^core\.comment(char|string)$' | tail -n 1 | cut -s -d ' ' -f 2-)
-case "$comment" in '' | auto) comment='#' ;; esac
+# git reads auto in any case.
+case "$comment" in '' | [Aa][Uu][Tt][Oo]) comment='#' ;; esac
 message=$(awk -v c="$comment" '
   $0 == c " ------------------------ >8 ------------------------" { exit }
   index($0, c) == 1 { next }
