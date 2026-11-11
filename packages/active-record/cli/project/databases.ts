@@ -96,11 +96,6 @@ export async function loadDatabases(
   return sharedMigrations(cwd, loaded.databases) ?? loaded;
 }
 
-/** The notes the project's adapters have about its databases, as the command prints them. */
-export function configNotes(project: LoadedProject): string[] {
-  return project.notes.map((note) => `Note: ${note}`);
-}
-
 /**
  * The project's databases, as a command loads them: having printed what their adapters note about
  * them, or, when they can't be loaded, `undefined`, having printed why.
@@ -115,7 +110,7 @@ export async function loadForCommand(
     print(loaded);
     return undefined;
   }
-  for (const note of configNotes(loaded)) print(note);
+  for (const note of loaded.notes) print(`Note: ${note}`);
   return loaded;
 }
 
