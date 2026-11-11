@@ -917,7 +917,7 @@ describe("statements", () => {
       expect(error).toMatchObject({ table: "posts" });
     });
 
-    test("a constraint error that names no table names none when the batch writes to several Models", async () => {
+    test("a constraint error names no table when the batch writes to several Models", async () => {
       const db = harness.connect();
 
       const error: unknown = await db

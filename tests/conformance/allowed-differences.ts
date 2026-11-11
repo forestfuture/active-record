@@ -117,7 +117,7 @@ export const allowedDifferences: readonly AllowedDifference[] = [
       "failure has them too, where D1's names neither.",
     contract: "A batch that writes to several then has `.table` `null`",
     tests: [
-      "statements > db.batch > a constraint error that names no table names none when the batch writes to several Models",
+      "statements > db.batch > a constraint error names no table when the batch writes to several Models",
     ],
   },
   {
