@@ -22,7 +22,9 @@ test_call='(^|[^A-Za-z0-9_.$])(test|it)(\.[A-Za-z]+)*\('
 test_diff=$(git diff --cached -U0 -- tests/)
 added=$(printf '%s\n' "$test_diff" | grep '^+' | grep -cE "$test_call" || true)
 removed=$(printf '%s\n' "$test_diff" | grep '^-' | grep -cE "$test_call" || true)
-says_guard=$(grep -v '^#' "$1" | grep -i guard || true)
+# The message ends at git commit -v's scissors line; the diff follows it.
+message=$(sed -n '/^# -* >8 -*$/q;/^#/d;p' "$1")
+says_guard=$(printf '%s\n' "$message" | grep -i guard || true)
 
 if [ -z "$outside_tests" ] && [ "$added" -gt "$removed" ] && [ -z "$says_guard" ]; then
   echo 'Warning: this commit only adds tests. If they passed on their first run, say "guard" in the body.'
