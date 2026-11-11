@@ -1,5 +1,7 @@
 # Where a query's database comes from
 
+**Amended by ADR-0020** (#332): a batch's writes are prepared in its callback, `batch((b) => [...])`, and a Model given to `b` is written on the batch's database: `db` for `db.batch`, the current one for `batch`. A Relation or a record still writes on the database it resolves to.
+
 Supersedes ADR-0003. A query finds its database one of three ways, and nothing about a request is ever stored on a Model class:
 
 1. **The Model's binding,** with no setup, as Rails' `Product.find(id)`: the generated schema its base class holds (ADR-0015; `static binding = "DB"` before it) names a D1 binding, read from `import { env } from "cloudflare:workers"` when a query runs. Each binding gets one Database with no Session or listener, shared by every request: the binding is the same object for all of them, so sharing it leaks nothing.

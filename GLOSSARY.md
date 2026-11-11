@@ -193,7 +193,7 @@ What a bulk write resolves to, alone or in a **Batch**: `{ rowsAffected, rows }`
 _Avoid_: Meta, last insert ID
 
 **Batch**:
-An atomic group of **Statements** and **Record statements**, prepared in `batch((b) => [...])`'s callback, where `b` (a `Batch`) has a method for each write. They're sent together once it returns, with D1's `batch()` or in one transaction: all are written, or none.
+An atomic group of **Statements** and **Record statements**, prepared in `batch((b) => [...])`'s callback. There `b`, a `Batch`, is the batch being prepared, with a method for each write. They're sent together once it returns, with D1's `batch()` or in one transaction: all are written, or none.
 _Avoid_: Transaction
 
 **Autosave**:
