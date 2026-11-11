@@ -4,19 +4,26 @@ import { defineRule } from "vite-plus/lint/plugins";
 /** A comment that turns rules off, and what follows the directive: the rules, then any reason. */
 const directive = /^\s*(?:oxlint|eslint)-disable(?:-next-line|-line)?(\s.*)?$/s;
 
-/** Whether a directive's list of rules takes in the repo's own: naming one, or naming none, so all. */
-function coversOwnRule(rules) {
-  const names = rules.split(/[\s,]+/).filter(Boolean);
-  return names.length === 0 || names.some((name) => name.startsWith("d1-record/"));
+/** A directive's rule names and its reason, or null for a comment that isn't one. */
+function parse(text) {
+  const match = directive.exec(text);
+  if (match === null) return null;
+  // Oxlint takes the reason from after the first `--`, spaced or not.
+  const [rules, reason = ""] = (match[1] ?? "").split(/--(.*)/s);
+  return { names: rules.split(/[\s,]+/).filter(Boolean), reason };
 }
 
-/** Whether a directive's text turns off one of the repo's own rules with no reason after `--`. */
-function lacksReason(text) {
-  const match = directive.exec(text);
-  if (match === null) return false;
-  // Oxlint takes the reason from after the first `--`, spaced or not. A reason has a word in it.
-  const [rules, reason = ""] = (match[1] ?? "").split(/--(.*)/s);
-  return coversOwnRule(rules) && !/\p{L}/u.test(reason);
+/**
+ * What's wrong with a comment, as a message id, or null. Oxlint hides the report on an opt-out
+ * from this rule, so tests/unit/lint-opt-outs.test.ts runs the rule over the repo to see it.
+ */
+function problem(text) {
+  const opt = parse(text);
+  if (opt === null) return null;
+  if (opt.names.includes("d1-record/disable-reason")) return "turnsItselfOff";
+  // Naming no rule turns off every rule, the repo's own included. A reason has a word in it.
+  const coversOwn = opt.names.length === 0 || opt.names.some((n) => n.startsWith("d1-record/"));
+  return coversOwn && !/\p{L}/u.test(opt.reason) ? "noReason" : null;
 }
 
 export default defineRule({
@@ -25,14 +32,15 @@ export default defineRule({
       noReason:
         "Say why the repo's own rule is turned off here, after `--`: " +
         "`// oxlint-disable-next-line d1-record/<rule> -- <why>`.",
+      turnsItselfOff: "Leave d1-record/disable-reason on: it's what makes an opt-out say why.",
     },
   },
   create(context) {
     return {
       Program() {
         for (const comment of context.sourceCode.getAllComments()) {
-          if (lacksReason(comment.value))
-            context.report({ loc: comment.loc, messageId: "noReason" });
+          const messageId = problem(comment.value);
+          if (messageId !== null) context.report({ loc: comment.loc, messageId });
         }
       },
     };
