@@ -1,5 +1,6 @@
 // A `Database`, on any adapter: `db.model()` and `db.batch`.
 import { runBatch, type BatchEntry, type BatchResults } from "./batch.ts";
+import { Batch } from "./batch-builder.ts";
 import type { DatabaseExecutor } from "./executor.ts";
 import type { Model, ModelClass, ScopesOf } from "./model.ts";
 import type { Scoped } from "./relation.ts";
@@ -49,8 +50,14 @@ export class AnyDatabase {
    * Resolves to each entry's result: a statement's `{ rowsAffected, rows }`, the record for a
    * record statement.
    */
-  async batch<const T extends readonly BatchEntry[]>(entries: T): Promise<BatchResults<T>> {
+  async batch<const T extends readonly BatchEntry[]>(
+    entries: T | ((b: Batch) => T),
+  ): Promise<BatchResults<T>> {
+    const listed =
+      typeof entries === "function"
+        ? entries(new Batch((model) => relationFor(this.#executor, model)))
+        : entries;
     // Every entry on this Database: built on it, or on the current one when it's this.
-    return runBatch(entries, "db.batch() needs its statements and records", [this.#executor]);
+    return runBatch(listed, "db.batch() needs its statements and records", [this.#executor]);
   }
 }

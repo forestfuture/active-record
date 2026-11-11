@@ -858,6 +858,18 @@ describe("statements", () => {
   });
 
   describe("db.batch", () => {
+    test("b.insert writes a Model's row on the batch's database, resolving to its result", async () => {
+      const db = harness.connect();
+
+      const [result] = await db.batch((b) => [
+        b.insert(User, { id: 1, email: "a@example.com", role: "member" }),
+      ]);
+
+      expect(result).toEqual({ rowsAffected: 1, rows: [{ id: 1 }] });
+      expect(log).toEqual([]);
+      expect(await db.model(User).pluck("email")).toEqual(["a@example.com"]);
+    });
+
     test("runs the statements in order, atomically, and resolves to each one's result", async () => {
       const db = harness.connect();
       const userId = 7;
