@@ -8,8 +8,9 @@ const directive = /^\s*(?:oxlint|eslint)-disable(?:-next-line|-line)?\b(.*)$/s;
 function lacksReason(text) {
   const match = directive.exec(text);
   if (match === null) return false;
-  const [rules, ...reason] = match[1].split(" -- ");
-  return rules.includes("d1-record/") && reason.join(" -- ").trim() === "";
+  // Oxlint takes the reason from after the first `--`, spaced or not.
+  const [rules, reason = ""] = match[1].split(/--(.*)/s);
+  return rules.includes("d1-record/") && reason.trim() === "";
 }
 
 export default defineRule({
