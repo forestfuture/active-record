@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
 import { runConsole } from "../../../packages/active-record/cli/console/command.ts";
@@ -55,6 +55,19 @@ describe("active-record console -e", () => {
     const run = await evaluating("1 + 1");
 
     expect(run.stderr).toBe("Local database DB (.wrangler/state)\nModels: User\n");
+  }, 90_000);
+
+  test("first notes a D1 database active-record.jsonc doesn't name, on stderr", async () => {
+    const cwd = await shop(scratch);
+    const databases = [{ binding: "DB", database_name: "shop", database_id: "local-shop" }];
+    const wrangler = { d1_databases: [...databases, { binding: "LOGS" }] };
+    writeFileSync(join(cwd, "wrangler.jsonc"), JSON.stringify(wrangler));
+
+    const run = await evaluating("1 + 1", { cwd });
+
+    expect(run.stderr).toBe(
+      "Note: wrangler.jsonc has the D1 database LOGS, which active-record.jsonc doesn't name; run `npx active-record init` to add it\nLocal database DB (.wrangler/state)\nModels: User\n",
+    );
   }, 90_000);
 
   test("a failure prints its stack on stderr, nothing on stdout, and exits 1", async () => {
