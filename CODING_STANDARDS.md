@@ -4,7 +4,7 @@ Judgement calls the `code-review` skill's Standards axis checks, beyond what `vp
 
 ## Tests
 
-- **A test's name reads as a sentence after its `describe`**, and says only what that example shows. Read "describe › test" aloud. Under `describe("none() with no database")`, write "finders and counts answer", not "answers without one": the `describe` already says it. A name stands alone, so no "so do…", "too", "also" or opening "…" leaning on a sibling. Lint flags one (`d1-record/standalone-test-name`). When the word belongs to what the test shows, opt out on the line before it with the reason: `// oxlint-disable-next-line d1-record/standalone-test-name -- <why>`.
+- **A test's name reads as a sentence after its `describe`**, and says only what that example shows. Read "describe › test" aloud. Under `describe("none() with no database")`, write "finders and counts answer", not "answers without one": the `describe` already says it. A name stands alone, so no "so do…", "too", "also", "as well", or opening "and" or "…", leaning on a sibling. Lint flags one (`d1-record/standalone-test-name`). When the word belongs to what the test shows, opt out on the line before it with the reason: `// oxlint-disable-next-line d1-record/standalone-test-name -- <why>`.
 - **Assert results**, such as the records that come back. Assert SQL text only for safety properties, and query counts through `onQuery`.
 - **One behavior per test.** A second `await` of a different Model in the same test, or a `DELETE` between assertions, means two tests.
 - **A test that passes on first run is a guard.** Say so in the commit body.
