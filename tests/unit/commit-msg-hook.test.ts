@@ -198,3 +198,19 @@ describe("the commit-msg hook on a commit that renames or moves tests", () => {
     expect(output).toBe("");
   });
 });
+
+/** Runs the hook on a commit that edits the README, with ; as git's comment character. */
+function runHookWithSemicolonComments(message: string) {
+  return runHook({}, { "README.md": "y\n" }, message, { "core.commentChar": ";" });
+}
+
+describe("the commit-msg hook on a commit's title", () => {
+  test("skips a long comment line that opens with git's comment character", () => {
+    const { status, output } = runHookWithSemicolonComments(
+      `; ${"x".repeat(80)}\nEdit the README (#1)\n`,
+    );
+
+    expect(status).toBe(0);
+    expect(output).toBe("");
+  });
+});
