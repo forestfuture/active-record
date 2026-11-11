@@ -37,7 +37,7 @@ The rules that matter most:
 - **Examples are neutral.** Tests, comments, docs, commit messages and changesets use neutral names (`User`, `Post`, `Product`). Nothing in them comes from a project you tried d1-record in.
 - **Rails is the precedent.** When a behavior is open, d1-record does what Rails' Active Record does, unless D1 or TypeScript gets in the way.
 
-The pre-commit hook runs `vp check --fix` on the staged files, and the commit-msg hook checks the title's length. Run `vp test` yourself before pushing.
+The pre-commit hook runs `vp check --fix` on the staged files. The commit-msg hook checks the title's length, and warns when a commit adds tests, stages nothing outside `tests/`, and doesn't say "guard". Run `vp test` yourself before pushing.
 
 ## What a public change touches
 
