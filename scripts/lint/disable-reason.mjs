@@ -21,7 +21,7 @@ function problem(text) {
   const opt = parse(text);
   if (opt === null) return null;
   if (opt.names.includes("d1-record/disable-reason")) return "turnsItselfOff";
-  // Naming no rule turns off every rule, the repo's own included. A reason has a word in it.
+  // Naming no rule turns off every rule, the repo's own included. A reason has a letter in it.
   const coversOwn = opt.names.length === 0 || opt.names.some((n) => n.startsWith("d1-record/"));
   return coversOwn && !/\p{L}/u.test(opt.reason) ? "noReason" : null;
 }
