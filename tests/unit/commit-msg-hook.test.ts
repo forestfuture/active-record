@@ -115,6 +115,17 @@ describe("the commit-msg hook on a commit that only adds tests", () => {
 
     expect(output).toContain('say "guard" in the body');
   });
+
+  test("warns when git quotes a test file's non-ASCII name", () => {
+    const { output } = runHook(
+      { "tests/unit/café.test.ts": oneTest },
+      { "tests/unit/café.test.ts": twoTests },
+      "Test finding none (#1)\n",
+      { "core.quotePath": "true" },
+    );
+
+    expect(output).toContain('say "guard" in the body');
+  });
 });
 
 describe("the commit-msg hook on a commit that adds tests and other files", () => {
