@@ -20,6 +20,8 @@ fi
 # A commit that stages only tests and adds more than it removes adds
 # guards: tests that passed on their first run. See CODING_STANDARDS.md.
 # A rename or a move adds as many test calls as it removes.
+# On git commit --amend, HEAD is the commit being amended, so the hook sees
+# only what the amend changes; git doesn't tell a commit-msg hook it's one.
 outside_tests=$(git -c core.quotePath=false diff --cached --name-only --no-renames | grep -v '^tests/' || true)
 test_call='(^|[^A-Za-z0-9_.$])(test|it)(\.[A-Za-z]+)*\('
 test_diff=$(git diff --cached -U0 --no-color --no-ext-diff -- tests/)
