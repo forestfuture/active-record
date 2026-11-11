@@ -6,7 +6,7 @@ const testFunctions = new Set(["test", "it", "describe"]);
 
 /**
  * Words that make a name lean on the test before it: "redirects HEAD too", and a name that opens
- * with "…" or "and", going on from that test's name.
+ * with "…", "..." or "and", going on from that test's name.
  */
 const leaningWords = [
   /\btoo\b/i,
@@ -26,7 +26,7 @@ const chainLinks = {
 
 /**
  * The function a call's chain starts from: `test` in `test("…")`, `test.skip("…")`,
- * `test.each(table)("…")` and `test.each`table`("…")`.
+ * `test.each(table)("…")`, and `test.each` followed by a tagged template table.
  */
 function chainRoot(callee) {
   let node = callee;
