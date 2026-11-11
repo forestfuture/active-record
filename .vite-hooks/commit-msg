@@ -22,8 +22,15 @@ test_call='(^|[^A-Za-z0-9_.$])(test|it)(\.[A-Za-z]+)*\('
 test_diff=$(git diff --cached -U0 --no-color --no-ext-diff -- tests/)
 added=$(printf '%s\n' "$test_diff" | grep '^+' | grep -cE "$test_call" || true)
 removed=$(printf '%s\n' "$test_diff" | grep '^-' | grep -cE "$test_call" || true)
-# The message ends at git commit -v's scissors line; the diff follows it.
-message=$(sed -n '/^# -* >8 -*$/q;/^#/d;p' "$1")
+# Lines that open with git's comment character aren't part of the message,
+# and it ends at git commit -v's scissors line; the diff follows it. With
+# commentChar set to auto, git's choice isn't known here, so # stands in.
+comment=$(git config core.commentString || git config core.commentChar || true)
+case "$comment" in '' | auto) comment='#' ;; esac
+message=$(awk -v c="$comment" '
+  $0 == c " ------------------------ >8 ------------------------" { exit }
+  index($0, c) == 1 { next }
+  { print }' "$1")
 says_guard=$(printf '%s\n' "$message" | grep -i guard || true)
 
 if [ -z "$outside_tests" ] && [ "$added" -gt "$removed" ] && [ -z "$says_guard" ]; then

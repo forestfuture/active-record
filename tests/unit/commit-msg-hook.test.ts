@@ -105,6 +105,20 @@ describe("the commit-msg hook on a commit that only adds tests", () => {
     expect(output).toContain('say "guard" in the body');
   });
 
+  test.each([
+    ["a comment", "Test finding none (#1)\n\n; guard\n"],
+    ["git commit -v's diff", `Test finding none (#1)\n\n${verboseDiff.replaceAll("# ", "; ")}`],
+  ])("warns when guard is only in %s with ; as git's comment character", (_where, message) => {
+    const { output } = runHook(
+      { "tests/unit/a.test.ts": oneTest },
+      { "tests/unit/a.test.ts": twoTests },
+      message,
+      { "core.commentChar": ";" },
+    );
+
+    expect(output).toContain('say "guard" in the body');
+  });
+
   test("warns when git colors its diffs", () => {
     const { output } = runHook(
       { "tests/unit/a.test.ts": oneTest },
