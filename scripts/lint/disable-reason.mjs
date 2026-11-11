@@ -6,7 +6,8 @@ const directive = /^\s*(?:oxlint|eslint)-disable(?:-next-line|-line)?(\s.*)?$/s;
 
 /** Whether a directive's list of rules takes in the repo's own: naming one, or naming none, so all. */
 function coversOwnRule(rules) {
-  return rules.trim() === "" || rules.includes("d1-record/");
+  const names = rules.split(/[\s,]+/).filter(Boolean);
+  return names.length === 0 || names.some((name) => name.startsWith("d1-record/"));
 }
 
 /** Whether a directive's text turns off one of the repo's own rules with no reason after `--`. */
