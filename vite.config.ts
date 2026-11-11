@@ -81,8 +81,8 @@ export default defineConfig({
       typeAware: true,
       typeCheck: true,
     },
-    // Size and complexity limits: small, understandable internals (brief, principle 5).
     rules: {
+      // Size and complexity limits: small, understandable internals (brief, principle 5).
       complexity: ["error", { max: 10 }],
       "max-depth": ["error", { max: 3 }],
       "max-params": ["error", { max: 4 }],
