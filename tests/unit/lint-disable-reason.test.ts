@@ -32,6 +32,11 @@ tester.run("disable-reason", disableReason, {
       errors: [{ messageId: "noReason" }],
     },
     {
+      name: "an opt-out whose reason is only dashes",
+      code: "// oxlint-disable-next-line d1-record/no-fixed-delay -- --\nwait();",
+      errors: [{ messageId: "noReason" }],
+    },
+    {
       name: "a block comment turning a rule off for the file",
       code: "/* oxlint-disable d1-record/no-fixed-delay */\nwait();",
       errors: [{ messageId: "noReason" }],
