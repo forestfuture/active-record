@@ -14,6 +14,9 @@ tester.run("standalone-test-name", standaloneTestName, {
     'test("redirects HEAD", () => {});',
     // "as well as" joins two things the one test shows.
     'test("redirects HEAD as well as GET", () => {});',
+    // A method named and(), and SQL's AND: not the word.
+    'test("and() keeps both relations\' conditions", () => {});',
+    'test("AND binds tighter than OR", () => {});',
     // A string that isn't a test's name: an assertion's value, and a test.each() table.
     'expect(message).toBe("too many");',
     'test.each(["too"])("reads %s", () => {});',
