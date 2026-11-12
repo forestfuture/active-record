@@ -6,6 +6,7 @@ import {
   fullName,
   unknownTests,
 } from "../conformance/allowed-differences.ts";
+import { conformanceTestNames } from "../support/conformance-names.ts";
 
 // A second adapter, as #269 adds one, so a difference can name it.
 const nullOrdering = {
@@ -57,4 +58,11 @@ describe("allowed differences", () => {
       unknownTests([nullOrdering, stale], ["ordering > puts nulls first", "ordering > by name"]),
     ).toEqual([{ difference: "null-ordering", test: "ordering > renamed long ago" }]);
   });
+
+  test("every test a difference lists is a conformance test that exists", async () => {
+    const names = await conformanceTestNames();
+
+    expect(names.length).toBeGreaterThan(0);
+    expect(unknownTests(allowedDifferences, names)).toEqual([]);
+  }, 30_000);
 });
