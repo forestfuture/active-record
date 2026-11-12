@@ -218,6 +218,18 @@ describe("a belongsTo requires its record", () => {
     );
   });
 
+  test("it runs before the declared validations", async () => {
+    class Remark extends Comment {
+      static {
+        this.validates("body", { presence: true });
+      }
+    }
+    const remark = harness.connect().model(Remark).build({ id: 1, body: "" });
+
+    expect(await remark.save()).toBe(false);
+    expect(remark.errors.fullMessages()).toEqual(["Post must exist", "Body can't be blank"]);
+  });
+
   test("its message is the app's when it gives one", async () => {
     class Reply extends Comment {
       static {
