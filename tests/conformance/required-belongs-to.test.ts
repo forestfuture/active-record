@@ -111,9 +111,11 @@ describe("a belongsTo requires its record", () => {
   test("a new owner saves with the records built through it", async () => {
     const db = harness.connect();
     const user = db.model(User).build({ id: 2, email: "b@example.com" });
-    user.posts().build({ id: 20, title: "Hello" });
+    const post = user.posts().build({ id: 20, title: "Hello" });
 
     expect(await user.save()).toBe(true);
+    expect(post.isPersisted()).toBe(true);
+    expect(post.userId).toBe(2);
   });
 
   test("a record created through a hasMany points back at its owner, with no query to check it", async () => {
