@@ -111,6 +111,15 @@ describe("a belongsTo requires its record", () => {
     expect(queries).toHaveLength(1);
   });
 
+  test("a record built through a hasMany with another key doesn't point back at the owner", async () => {
+    const user = await harness.connect().model(User).find(1);
+
+    const post = user.posts().build({ id: 20, userId: 99, title: "Elsewhere" });
+
+    expect(await post.isValid()).toBe(false);
+    expect(post.errors.get("author")).toEqual(["must exist"]);
+  });
+
   test("a key that points at no row fails the same way, after one read", async () => {
     const queries: QueryEvent[] = [];
     const db = harness.connect({ onQuery: (event) => queries.push(event) });
