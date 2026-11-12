@@ -88,7 +88,7 @@ export default defineConfig({
       "max-params": ["error", { max: 4 }],
       "max-lines-per-function": ["error", { max: 60, skipBlankLines: true, skipComments: true }],
       // Turning off one of the repo's own rules says why, after `--` (scripts/lint/).
-      "d1-record/disable-reason": "error",
+      "active-record/disable-reason": "error",
     },
     jsPlugins: ["./scripts/lint/plugin.mjs"],
     overrides: [
@@ -97,7 +97,7 @@ export default defineConfig({
         // small enough to read: a module that outgrows the limit is split, not exempted.
         files: ["packages/*/src/**/*.ts", "packages/*/cli/**/*.ts"],
         rules: {
-          "d1-record/module-header": "error",
+          "active-record/module-header": "error",
           "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }],
         },
       },
@@ -182,8 +182,8 @@ export default defineConfig({
         files: ["tests/**"],
         rules: {
           "max-lines-per-function": "off",
-          "d1-record/no-fixed-delay": "error",
-          "d1-record/standalone-test-name": "error",
+          "active-record/no-fixed-delay": "error",
+          "active-record/standalone-test-name": "error",
         },
       },
     ],

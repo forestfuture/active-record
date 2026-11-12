@@ -6,7 +6,7 @@ import noFixedDelay from "./no-fixed-delay.mjs";
 import standaloneTestName from "./standalone-test-name.mjs";
 
 export default definePlugin({
-  meta: { name: "d1-record" },
+  meta: { name: "active-record" },
   rules: {
     "disable-reason": disableReason,
     "module-header": moduleHeader,
