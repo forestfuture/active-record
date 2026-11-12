@@ -17,6 +17,7 @@ class User extends Model.define({
   static table = "users";
 
   posts = hasMany(Post, { foreignKey: "userId" });
+  drafts = hasMany(Post, { foreignKey: "userId", scope: (q) => q.where({ title: "Draft" }) });
   profile = hasOne(Profile, { foreignKey: "userId" });
 }
 
@@ -118,6 +119,18 @@ describe("a belongsTo requires its record", () => {
 
     expect(await post.isValid()).toBe(false);
     expect(post.errors.get("author")).toEqual(["must exist"]);
+  });
+
+  test("a record built through a scoped association doesn't point back, so its owner is read", async () => {
+    const queries: QueryEvent[] = [];
+    const db = harness.connect({ onQuery: (event) => queries.push(event) });
+    const user = await db.model(User).find(1);
+    queries.length = 0;
+
+    const draft = user.drafts().build({ id: 20 });
+
+    expect((await draft.author())?.id).toBe(1);
+    expect(queries).toHaveLength(1);
   });
 
   test("a key that points at no row fails the same way, after one read", async () => {
