@@ -133,7 +133,7 @@ A named, reusable change to a Relation, declared on a **Model**, that may take a
 _Avoid_: Filter, named query
 
 **Association**:
-A named link from one **Model** to another through a foreign-key **Attribute**: `belongsTo`, `hasMany` or `hasOne`.
+A named link from one **Model** to another through a foreign-key **Attribute**: `belongsTo`, `hasMany` or `hasOne`. A `belongsTo` is **required** (saving checks that its record exists) unless it's **optional** (`optional: true`).
 _Avoid_: Relationship, relation (a Relation is a query)
 
 **Preload**:

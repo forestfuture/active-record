@@ -121,7 +121,7 @@ export class Category extends Model.define({
     foreignKey: "parentId",
     scope: (q) => q.top(),
   });
-  parent = belongsTo(Category, { foreignKey: "parentId" });
+  parent = belongsTo(Category, { foreignKey: "parentId", optional: true });
 }
 // #endregion self-referencing
 
