@@ -4,6 +4,7 @@ import {
   allowedDifferences,
   differenceSkipping,
   fullName,
+  unknownTests,
 } from "../conformance/allowed-differences.ts";
 
 // A second adapter, as #269 adds one, so a difference can name it.
@@ -44,5 +45,16 @@ describe("allowed differences", () => {
     const suite = { name: "ordering", suite: { name: "" } };
 
     expect(fullName({ name: "puts nulls first", suite })).toBe("ordering > puts nulls first");
+  });
+
+  test("unknownTests names each difference and each test it lists that no test has", () => {
+    const stale = {
+      ...nullOrdering,
+      avoidedBy: ["ordering > by name", "ordering > renamed long ago"],
+    } as unknown as AllowedDifference;
+
+    expect(
+      unknownTests([nullOrdering, stale], ["ordering > puts nulls first", "ordering > by name"]),
+    ).toEqual([{ difference: "null-ordering", test: "ordering > renamed long ago" }]);
   });
 });

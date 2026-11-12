@@ -155,6 +155,19 @@ export function differenceSkipping(
   );
 }
 
+/** Each test the differences list that no test of `known` has, with the id of the difference listing it. */
+export function unknownTests(
+  differences: readonly AllowedDifference[],
+  known: readonly string[],
+): { difference: string; test: string }[] {
+  const names = new Set(known);
+  return differences.flatMap(({ id, tests, avoidedBy = [] }) =>
+    [...tests, ...avoidedBy]
+      .filter((test) => !names.has(test))
+      .map((test) => ({ difference: id, test })),
+  );
+}
+
 /** A test's full name, as an allowed difference lists it: its describes and title, joined by " > ". */
 export function fullName(task: { name: string; suite?: Suite | undefined }): string {
   const names = [task.name];
