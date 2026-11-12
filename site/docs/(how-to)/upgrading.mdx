@@ -1,9 +1,39 @@
 ---
 title: Upgrading
-description: "Move an app to a new release: from 0.6 to 0.7, swap the D1 package for the core's /d1 entry and write active-record.jsonc; from d1-record 0.5 to 0.6, install the core beside the adapter and run npx active-record."
+description: "Move an app to a new release: from 0.7 to 0.8, mark optional belongsTo associations and prepare batch writes in a callback; from 0.6 to 0.7, swap the D1 package for the core's /d1 entry and write active-record.jsonc; from d1-record 0.5 to 0.6, install the core beside the adapter and run npx active-record."
 ---
 
 Each section moves an app up one release. Start from the release you’re on.
+
+## Upgrading from 0.7 to 0.8
+
+In 0.8, a `belongsTo` requires its record, and a batch prepares its writes in a callback. Upgrade in two steps.
+
+### Marking optional associations
+
+Saving now fails with “must exist” when a `belongsTo` points at nothing. Add `optional: true` to each one whose foreign key can be `null`:
+
+```ts
+import { belongsTo } from "@forestfuture/active-record";
+
+export class Category extends ApplicationRecord {
+  parent = belongsTo(Category, { optional: true });
+}
+```
+
+A record built through its owner’s `hasMany` or `hasOne` passes without it.
+
+### Preparing batch writes in a callback
+
+Pass `batch` and `db.batch` a callback that returns the writes, instead of an array:
+
+```ts
+import { batch } from "@forestfuture/active-record";
+
+await batch((b) => [b.save(user), b.deleteAll(Post.where({ userId: user.id }))]);
+```
+
+Records’ `toSave()` and `toDestroy()`, and the `to…` methods such as `toInsert` and `toDeleteAll`, are gone. Call `b.save`, `b.destroy`, `b.insert`, and the rest instead.
 
 ## Upgrading from 0.6 to 0.7
 

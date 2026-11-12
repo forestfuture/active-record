@@ -29,6 +29,23 @@ Use `belongsTo` on the Model whose table holds the foreign key. A post belongs t
 | `foreignKey` | The attribute on this record that holds the link. Defaults to the association’s name + `Id` |
 | `primaryKey` | The attribute on the target it points at. Defaults to the target’s primary key              |
 | `scope`      | Narrows the target, `(q) => q.where(…)`. See [Scoping associations](#scoping-associations)  |
+| `optional`   | Lets the record point at nothing. See [Requiring the record](#requiring-the-record)         |
+
+### Requiring the record
+
+Saving a record checks that each `belongsTo` points at a record that exists. If the foreign key is `null`, or no row has that key, the save fails with “must exist” on the association, such as `author`. The record it finds stays loaded. A saved record whose foreign key hasn’t changed isn’t checked again.
+
+If a record may point at nothing, pass `optional: true`. A top-level category has no parent:
+
+<include>/_excerpts/guide/generators/self-reference.ts</include>
+
+A record built through a `hasMany` or `hasOne` already points at its owner, so it passes the check before either is saved. See [Autosaving](#autosaving).
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails requires a `belongs_to` record by default too, and `optional: true` works the same. As in Rails 7.1, an unchanged foreign key isn’t checked. There’s no setting to turn the check off for every association, like Rails’ `belongs_to_required_by_default`.
+
+</Callout>
 
 ## hasMany
 
@@ -151,7 +168,7 @@ A record built through an association is saved with its owner. Build a whole gra
 
 <include>/_excerpts/guide/associations/autosave.ts</include>
 
-The built records are validated with the owner. An invalid article makes the author invalid (“Articles is invalid”), with its own errors on the article.
+The built records are validated with the owner. An invalid article makes the author invalid (“Articles is invalid”), with its own errors on the article. Each built article’s `author` is the owner, without a query, even before either is saved.
 
 When the owner’s key is generated in code, as here, everything is written in one atomic batch. Records on [another database](./several-databases#associating-models-on-different-databases) are written there separately.
 

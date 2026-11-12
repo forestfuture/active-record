@@ -91,13 +91,13 @@ SQLite can’t add a required column without a default, so the generator refuses
    parent_id TEXT REFERENCES categories (id),
    ```
 
-2. In the Model, use `Category` itself, and add the other direction if you want it.
+2. In the Model, use `Category` itself, make it optional too, and add the other direction if you want it.
 
 <include>/_excerpts/guide/generators/self-reference.ts</include>
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-Rails writes `belongs_to :parent, class_name: "Category", optional: true`. Here the association takes the class itself, so there’s no `class_name`, and whether a parent is required comes from the column: `parentId` can be `null` because the migration allows it.
+Rails writes `belongs_to :parent, class_name: "Category", optional: true`. Here the association takes the class itself, so there’s no `class_name`. `optional: true` is the same.
 
 </Callout>
 

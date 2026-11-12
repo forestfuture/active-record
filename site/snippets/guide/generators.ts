@@ -9,7 +9,8 @@ abstract class ApplicationRecord extends Model {
 
 // #region self-reference
 export class Category extends ApplicationRecord {
-  parent = belongsTo(Category); // foreign key: parentId, from the association's name
+  // foreign key: parentId, from the association's name; optional, since a top-level category has none
+  parent = belongsTo(Category, { optional: true });
   children = hasMany(Category, { foreignKey: "parentId" }); // not the default, categoryId
 }
 // #endregion self-reference
