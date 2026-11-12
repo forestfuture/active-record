@@ -99,6 +99,18 @@ describe("a belongsTo requires its record", () => {
     expect(await db.model(Post).where({ userId: 2 }).pluck("title")).toEqual(["Hello"]);
   });
 
+  test("a record created through a hasMany points back at its owner, with no query to check it", async () => {
+    const queries: QueryEvent[] = [];
+    const db = harness.connect({ onQuery: (event) => queries.push(event) });
+    const user = await db.model(User).find(1);
+    queries.length = 0;
+
+    const post = await user.posts().create({ id: 20, title: "Hello" });
+
+    expect(await post.author()).toBe(user);
+    expect(queries).toHaveLength(1);
+  });
+
   test("a key that points at no row fails the same way, after one read", async () => {
     const queries: QueryEvent[] = [];
     const db = harness.connect({ onQuery: (event) => queries.push(event) });

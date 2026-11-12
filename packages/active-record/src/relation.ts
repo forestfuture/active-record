@@ -400,6 +400,7 @@ export class Relation<M extends Model, S = {}> {
   async create(attributes: Partial<AttributesOf<M>> = {}): Promise<M> {
     this.#requireSavedOwner();
     const record = this.#build(attributes);
+    this.#collection.pointBack(record);
     if (await record.save()) this.#collection.created(record);
     return record;
   }
@@ -408,6 +409,7 @@ export class Relation<M extends Model, S = {}> {
   async createOrThrow(attributes: Partial<AttributesOf<M>> = {}): Promise<M> {
     this.#requireSavedOwner();
     const record = this.#build(attributes);
+    this.#collection.pointBack(record);
     await record.saveOrThrow();
     this.#collection.created(record);
     return record;
