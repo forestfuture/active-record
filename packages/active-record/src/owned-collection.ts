@@ -1,5 +1,5 @@
 // A hasMany's Relation as its owner sees it (records built through it join the owner), or no owner.
-import { pointBackAtOwner } from "./inverse-of.ts";
+import { pointBackAtOwner } from "./point-back-at-owner.ts";
 import type { Model } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";

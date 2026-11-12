@@ -1,4 +1,4 @@
-// A record built through its owner's hasMany or hasOne points back at the owner, as Rails' automatic inverse_of does (#339).
+// A record built or created through its owner's hasMany or hasOne points back at the owner (#339).
 import { associationsOf } from "./association-fields.ts";
 import type { Model } from "./model.ts";
 import { state } from "./record-state.ts";
@@ -7,9 +7,10 @@ import { resolveAssociation, type ResolvedAssociation } from "./resolved-associa
 /**
  * Makes `owner` the loaded record of the belongsTo on `record` that is `association`'s inverse:
  * the first of the target's belongsTo associations that links the same foreign key to the
- * owner's Model, through the same key. Neither may have a scope, which could leave the owner out. So `await post.author()` on a post built through
- * `user.posts()` is the user, with no query, even before either is saved, and a required
- * belongsTo passes. The rest of Rails' inverse associations (preloads, `inverseOf:`) is #62.
+ * owner's Model, through the same key. Neither may have a scope, which could leave the owner
+ * out. So `await post.author()` on a post built through `user.posts()` is the user, with no
+ * query, even before either is saved, and a required belongsTo passes, as Rails' automatic
+ * `inverse_of` does. The rest of inverse associations (preloads, `inverseOf:`) is #62.
  */
 export function pointBackAtOwner(
   owner: Model,

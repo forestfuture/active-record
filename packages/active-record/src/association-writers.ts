@@ -2,7 +2,7 @@
 import { cachedRead } from "./associations.ts";
 import { RecordNotSaved } from "./errors.ts";
 import type { Executor } from "./executor.ts";
-import { pointBackAtOwner } from "./inverse-of.ts";
+import { pointBackAtOwner } from "./point-back-at-owner.ts";
 import { buildRecord, type Model } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
