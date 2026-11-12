@@ -12,7 +12,7 @@ import { state } from "./record-state.ts";
  */
 export async function validateRequiredAssociations(record: Model): Promise<void> {
   for (const [name, definition] of associationsOf(modelOf(record))) {
-    if (!needsCheck(record, definition)) continue;
+    if (!isCheckDue(record, definition)) continue;
     const read = (record as unknown as Record<string, () => Promise<Model | null>>)[name]!;
     if ((await read.call(record)) === null) {
       record[state].errors.add(name, { type: "required" });
@@ -20,8 +20,8 @@ export async function validateRequiredAssociations(record: Model): Promise<void>
   }
 }
 
-/** A required belongsTo whose key is loaded, and null or changed. */
-function needsCheck(record: Model, { kind, optional, foreignKey }: AssociationDefinition): boolean {
+/** Whether it's a required belongsTo whose key is loaded, and null or changed. */
+function isCheckDue(record: Model, { kind, optional, foreignKey }: AssociationDefinition): boolean {
   if (kind !== "belongsTo" || optional === true) return false;
   const recordState = record[state];
   if (!Object.hasOwn(recordState.attributes(), foreignKey)) return false;
