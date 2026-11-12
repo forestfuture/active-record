@@ -211,6 +211,22 @@ describe("reading an association to another database", () => {
     expect(email).toBe("ada@DB");
   });
 
+  test("a required belongsTo looks for its record on its target's database", async () => {
+    // User 2 is only on LOGS, the entry's own database: a decoy.
+    await logs.prepare("INSERT INTO users (id, email) VALUES (2, 'decoy@LOGS')").run();
+
+    const [found, missing] = await inRequest(async () => {
+      const onDb = Entry.build({ id: 2, userId: 1, message: "found" });
+      const onLogsOnly = Entry.build({ id: 3, userId: 2, message: "missing" });
+      expect(await onLogsOnly.isValid()).toBe(false);
+      return [await onDb.isValid(), onLogsOnly.errors.get("user")] as const;
+    });
+
+    expect(found).toBe(true);
+    expect(missing).toEqual(["must exist"]);
+    expect(reads).toEqual(["DB users", "DB users"]);
+  });
+
   test("a hasMany reads its target's database", async () => {
     const messages = await inRequest(async () => (await User.find(1)).entries().pluck("message"));
 

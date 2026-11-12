@@ -5,6 +5,7 @@ import {
   hasOne,
   InvalidModel,
   Model,
+  RecordInvalid,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
@@ -149,6 +150,20 @@ describe("a belongsTo requires its record", () => {
     comment.postId = 11;
     expect(await comment.save()).toBe(false);
     expect(comment.errors.get("post")).toEqual(["must exist"]);
+  });
+
+  test("in a batch, a missing record stops it: RecordInvalid, and nothing is written", async () => {
+    const db = harness.connect();
+    const valid = db.model(Comment).build({ id: 1, postId: 10, body: "on topic" });
+    const orphan = db.model(Comment).build({ id: 2, body: "orphan" });
+
+    const error: unknown = await db
+      .batch((b) => [b.save(valid), b.save(orphan)])
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(RecordInvalid);
+    expect(orphan.errors.get("post")).toEqual(["must exist"]);
+    expect(await db.model(Comment).count()).toBe(0);
   });
 
   test("optional: true saves a null key", async () => {
