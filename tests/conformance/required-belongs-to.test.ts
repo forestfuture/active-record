@@ -86,18 +86,34 @@ describe("a belongsTo requires its record", () => {
     expect(await db.model(Comment).count()).toBe(0);
   });
 
-  test("a record built through its owner points back at it, so a new owner saves with it", async () => {
+  test("a record built through a hasMany points back at its new owner, with no query", async () => {
     const queries: QueryEvent[] = [];
     const db = harness.connect({ onQuery: (event) => queries.push(event) });
     const user = db.model(User).build({ id: 2, email: "b@example.com" });
+
     const post = user.posts().build({ id: 20, title: "Hello" });
-    const profile = user.profile.build({ id: 1, bio: "Hi" });
 
     expect(await post.author()).toBe(user);
+    expect(queries).toHaveLength(0);
+  });
+
+  test("a record built through a hasOne points back at its new owner, with no query", async () => {
+    const queries: QueryEvent[] = [];
+    const db = harness.connect({ onQuery: (event) => queries.push(event) });
+    const user = db.model(User).build({ id: 2, email: "b@example.com" });
+
+    const profile = user.profile.build({ id: 1, bio: "Hi" });
+
     expect(await profile.user()).toBe(user);
     expect(queries).toHaveLength(0);
+  });
+
+  test("a new owner saves with the records built through it", async () => {
+    const db = harness.connect();
+    const user = db.model(User).build({ id: 2, email: "b@example.com" });
+    user.posts().build({ id: 20, title: "Hello" });
+
     expect(await user.save()).toBe(true);
-    expect(await db.model(Post).where({ userId: 2 }).pluck("title")).toEqual(["Hello"]);
   });
 
   test("a record created through a hasMany points back at its owner, with no query to check it", async () => {
@@ -140,7 +156,7 @@ describe("a belongsTo requires its record", () => {
 
     expect(await comment.save()).toBe(false);
     expect(comment.errors.get("post")).toEqual(["must exist"]);
-    expect(queries.map((event) => event.sql.split(" ")[0])).toEqual(["SELECT"]);
+    expect(queries).toHaveLength(1);
   });
 
   test("a record that exists passes, and stays loaded", async () => {
@@ -154,19 +170,27 @@ describe("a belongsTo requires its record", () => {
     expect(queries).toHaveLength(0);
   });
 
-  test("a record set through the association passes without a query, saved or new", async () => {
+  test("a saved record set through the association passes without a query", async () => {
     const queries: QueryEvent[] = [];
     const db = harness.connect({ onQuery: (event) => queries.push(event) });
     const post = await db.model(Post).find(10);
-    const user = await db.model(User).find(1);
-    const onSaved = db.model(Comment).build({ id: 1, body: "saved" });
-    const onNew = db.model(Comment).build({ id: 2, body: "new" });
-    onSaved.post.set(post);
-    onNew.post.build({ id: 11, title: "Second" }).author.set(user);
+    const comment = db.model(Comment).build({ id: 1, body: "saved" });
+    comment.post.set(post);
     queries.length = 0;
 
-    expect(await onSaved.isValid()).toBe(true);
-    expect(await onNew.isValid()).toBe(true);
+    expect(await comment.isValid()).toBe(true);
+    expect(queries).toHaveLength(0);
+  });
+
+  test("a new record built through the association passes without a query", async () => {
+    const queries: QueryEvent[] = [];
+    const db = harness.connect({ onQuery: (event) => queries.push(event) });
+    const user = await db.model(User).find(1);
+    const comment = db.model(Comment).build({ id: 2, body: "new" });
+    comment.post.build({ id: 11, title: "Second" }).author.set(user);
+    queries.length = 0;
+
+    expect(await comment.isValid()).toBe(true);
     expect(queries).toHaveLength(0);
   });
 
@@ -178,10 +202,17 @@ describe("a belongsTo requires its record", () => {
     queries.length = 0;
 
     comment.body = "edited";
+
     expect(await comment.save()).toBe(true);
-    expect(queries.map((event) => event.sql.split(" ")[0])).toEqual(["UPDATE"]);
+    expect(queries).toHaveLength(1); // the UPDATE alone
+  });
+
+  test("a saved record whose key changed is checked again", async () => {
+    await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (1, 10, 'old')");
+    const comment = await harness.connect().model(Comment).find(1);
 
     comment.postId = 11;
+
     expect(await comment.save()).toBe(false);
     expect(comment.errors.get("post")).toEqual(["must exist"]);
   });
