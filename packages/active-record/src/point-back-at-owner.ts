@@ -19,21 +19,23 @@ export function pointBackAtOwner(
 ): void {
   const inverse = inverseOf(owner, association);
   if (inverse === undefined) return;
-  // A key given to `build` that isn't the owner's points elsewhere, so the owner isn't its
-  // record. A null one is filled in with the owner's when the owner is saved.
-  const key = record[state].read(inverse.ownerAttribute) as Key | null;
-  const ownerKey = owner[state].read(association.ownerAttribute) as Key | null;
-  if (key !== null && !isSameKey(key, ownerKey)) return;
+  if (!isOwnersKey(record[state].read(inverse.ownerAttribute), owner, association)) return;
   record[state].associations.set(inverse.name, inverse.ownerAttribute, owner);
+}
+
+/**
+ * Whether the record's foreign key is its owner's: the same key (an integer matching a text
+ * key's digits, #94), or null while the owner has none yet, which saving the owner fills in. A
+ * key given to `build` or `create` that isn't the owner's, null included, points elsewhere.
+ */
+function isOwnersKey(key: unknown, owner: Model, association: ResolvedAssociation): boolean {
+  if (key === null) return association.keyOf(owner) === null;
+  const ownerKey = owner[state].read(association.ownerAttribute) as Key | null;
+  return ownerKey !== null && String(key as Key) === String(ownerKey);
 }
 
 /** A key's value: what an integer or string key attribute holds. */
 type Key = string | number;
-
-/** Whether a key is the owner's, an integer matching a text key's digits (#94). */
-function isSameKey(key: Key, ownerKey: Key | null): boolean {
-  return ownerKey !== null && String(key) === String(ownerKey);
-}
 
 function inverseOf(
   owner: Model,

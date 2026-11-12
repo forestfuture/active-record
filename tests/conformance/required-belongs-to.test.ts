@@ -137,6 +137,15 @@ describe("a belongsTo requires its record", () => {
     expect(post.errors.get("author")).toEqual(["must exist"]);
   });
 
+  test("a record given a null key through a saved owner doesn't point back, so it fails", async () => {
+    const user = await harness.connect().model(User).find(1);
+
+    const post = await user.posts().create({ id: 20, title: "Keyless", userId: null as never });
+
+    expect(post.isPersisted()).toBe(false);
+    expect(post.errors.get("author")).toEqual(["must exist"]);
+  });
+
   test("a record built through a scoped association doesn't point back, so its owner is read", async () => {
     const queries: QueryEvent[] = [];
     const db = harness.connect({ onQuery: (event) => queries.push(event) });
