@@ -159,12 +159,12 @@ export function differenceSkipping(
 export function unknownTests(
   differences: readonly AllowedDifference[],
   known: readonly string[],
-): { difference: string; test: string }[] {
+): { differenceId: string; test: string }[] {
   const names = new Set(known);
   return differences.flatMap(({ id, tests, avoidedBy = [] }) =>
     [...tests, ...avoidedBy]
       .filter((test) => !names.has(test))
-      .map((test) => ({ difference: id, test })),
+      .map((test) => ({ differenceId: id, test })),
   );
 }
 
