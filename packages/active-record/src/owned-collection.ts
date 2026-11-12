@@ -24,8 +24,10 @@ export interface OwnedCollection {
   startFill?<M extends Model>(): (records: readonly M[]) => M[];
   /** A record created through it joins the loaded records, as in Rails. */
   created(record: Model): void;
-  /** A record built through it, for autosave. */
+  /** A record built through it, for autosave. It points back at the owner, as one created does. */
   built(record: Model): void;
+  /** A record built or created through it points back at its owner, if it has one (#339). */
+  pointBack(record: Model): void;
   /** A statement was built through it, so what's loaded is no longer known. */
   invalidate(): void;
   /** How many records were built through it and not yet saved, which `size()` counts. */
@@ -48,6 +50,7 @@ export const unowned: OwnedCollection = {
   loaded: () => undefined,
   created: () => {},
   built: () => {},
+  pointBack: () => {},
   invalidate: () => {},
   unsavedCount: () => 0,
   refusal: undefined,
@@ -104,9 +107,10 @@ function withKey(owner: Model, association: ResolvedAssociation, key: unknown): 
       );
     },
     built(record) {
-      pointBackAtOwner(owner, association, record);
+      collection.pointBack(record);
       autosaves.addBuilt(name, record);
     },
+    pointBack: (record) => pointBackAtOwner(owner, association, record),
     invalidate: () => loadedAssociations.clear(name),
     unsavedCount: () => built().filter((record) => record[state].isNew).length,
     refusal: undefined,
@@ -133,9 +137,10 @@ function withoutKey(owner: Model, association: ResolvedAssociation): OwnedCollec
     loaded: () => [...owner[state].autosaves.built(name)],
     created: () => {},
     built(record) {
-      pointBackAtOwner(owner, association, record);
+      collection.pointBack(record);
       owner[state].autosaves.addBuilt(name, record);
     },
+    pointBack: (record) => pointBackAtOwner(owner, association, record),
     invalidate: () => {},
     unsavedCount: () => 0,
     refusal: association.refusalFor(owner),
@@ -177,6 +182,7 @@ function narrowedOf(collection: OwnedCollection): OwnedCollection {
     loaded: () => undefined,
     created: (record) => collection.created(record),
     built: (record) => collection.built(record),
+    pointBack: (record) => collection.pointBack(record),
     invalidate: () => collection.invalidate(),
     unsavedCount: () => 0,
     refusal: collection.refusal,
