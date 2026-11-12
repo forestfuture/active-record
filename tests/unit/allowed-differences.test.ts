@@ -56,7 +56,7 @@ describe("allowed differences", () => {
 
     expect(
       unknownTests([nullOrdering, stale], ["ordering > puts nulls first", "ordering > by name"]),
-    ).toEqual([{ difference: "null-ordering", test: "ordering > renamed long ago" }]);
+    ).toEqual([{ differenceId: "null-ordering", test: "ordering > renamed long ago" }]);
   });
 
   test("every test a difference lists is a conformance test that exists", async () => {
