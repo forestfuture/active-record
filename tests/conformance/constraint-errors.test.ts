@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
+  belongsTo,
   CheckViolation,
   ActiveRecordError,
   InvalidForeignKey,
@@ -9,6 +10,16 @@ import {
 } from "../../packages/active-record/src/index.ts";
 import { Post } from "../fixtures/models/post.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+
+class LoosePost extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  user = belongsTo(User, { optional: true });
+}
 
 class User extends Model.define({
   id: { type: "integer", null: false },
@@ -67,7 +78,8 @@ describe("constraint errors", () => {
   });
 
   test("a FOREIGN KEY violation throws InvalidForeignKey", async () => {
-    const post = harness.connect().model(Post).build({ userId: 999, title: "Orphan" });
+    // An optional belongsTo leaves a key that points at no row to the database.
+    const post = harness.connect().model(LoosePost).build({ userId: 999, title: "Orphan" });
 
     await expect(post.save()).rejects.toThrow(InvalidForeignKey);
     expect(post.isNewRecord()).toBe(true);

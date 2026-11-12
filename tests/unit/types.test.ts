@@ -372,6 +372,22 @@ describe("types", () => {
     expectTypeOf(typeOnly).toBeFunction();
   });
 
+  test("only a belongsTo takes optional", () => {
+    // Checked by the type checker only; never called.
+    const typeOnly = () => {
+      class Owner extends Model.define({ id: "integer" }) {
+        static table = "users";
+        parent = belongsTo(Owner, { foreignKey: "id", optional: true });
+        // @ts-expect-error a hasMany never requires its records
+        posts = hasMany(Owner, { foreignKey: "id", optional: true });
+        // @ts-expect-error a hasOne never requires its record
+        profile = hasOne(Owner, { foreignKey: "id", optional: true });
+      }
+      return Owner;
+    };
+    expectTypeOf(typeOnly).toBeFunction();
+  });
+
   test("an association scope's q is typed from the target, its scopes included", () => {
     class Article extends Model.define({ id: "integer", authorId: "integer", live: "boolean" }) {
       static live = this.scope((q) => q.where({ live: true }));

@@ -63,6 +63,8 @@ export type AssociationKind = "belongsTo" | "hasMany" | "hasOne";
 /** One declared association: its kind, its target Model, and its options. */
 export interface AssociationDeclaration extends AssociationOptions {
   kind: AssociationKind;
+  /** A belongsTo that may point at nothing: its record isn't required (#339). */
+  optional?: boolean;
   /** The target Model, read when the association is first used (the field holds the class). */
   target: () => ModelClass;
 }
@@ -129,6 +131,14 @@ function checkAssociation(
   const target = checkTarget(label, definition);
   checkKeys(label, model, target, definition);
   checkDependent(label, definition);
+  checkOptional(label, definition);
+}
+
+/** Only a belongsTo can be optional: the others never require their records. */
+function checkOptional(label: string, { optional, kind }: AssociationDefinition): void {
+  if (optional !== undefined && kind !== "belongsTo") {
+    throw new InvalidModel(`${label}: only a belongsTo can be optional`);
+  }
 }
 
 /** Its name can't be an attribute's, or a record method's or property's. */

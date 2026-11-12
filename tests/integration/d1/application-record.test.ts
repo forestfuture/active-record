@@ -119,9 +119,11 @@ describe("Models extending the app's base class", () => {
   });
 
   test("a class marked abstract shares its callbacks, and the classes below it have tables", async () => {
+    const user = await User.create({ email: "abstract@example.com" });
+    const post = await Post.create({ userId: user.id, title: "Commented" });
     audited.length = 0;
 
-    await Comment.create({ body: "Agreed" });
+    await Comment.create({ postId: post.id, body: "Agreed" });
 
     expect(audited).toEqual(["Comment"]);
     expect(Comment.table).toBe("comments");
