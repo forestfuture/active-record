@@ -195,7 +195,7 @@ describe("withDatabase, request by request", () => {
         connect(binding, { onQuery: (event) => seen[name].push(event.sql) }),
         async () => {
           await User.find(1);
-          // oxlint-disable-next-line d1-record/no-fixed-delay -- the delays interleave the two requests' awaits
+          // oxlint-disable-next-line active-record/no-fixed-delay -- the delays interleave the two requests' awaits
           await new Promise((resolve) => setTimeout(resolve, delay));
           await User.count();
         },

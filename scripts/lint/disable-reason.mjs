@@ -20,10 +20,10 @@ function parse(text) {
 function problem(text) {
   const optOut = parse(text);
   if (optOut === null) return null;
-  if (optOut.names.includes("d1-record/disable-reason")) return "turnsItselfOff";
+  if (optOut.names.includes("active-record/disable-reason")) return "turnsItselfOff";
   // Naming no rule turns off every rule, the repo's own included. A reason has a letter in it.
   const isOwnRuleOff =
-    optOut.names.length === 0 || optOut.names.some((n) => n.startsWith("d1-record/"));
+    optOut.names.length === 0 || optOut.names.some((n) => n.startsWith("active-record/"));
   return isOwnRuleOff && !/\p{L}/u.test(optOut.reason) ? "noReason" : null;
 }
 
@@ -32,8 +32,8 @@ export default defineRule({
     messages: {
       noReason:
         "Say why this turns off the repo's own rules, after `--`. Naming no rule turns them all " +
-        "off. `// oxlint-disable-next-line d1-record/<rule> -- <why>`.",
-      turnsItselfOff: "Leave d1-record/disable-reason on: it's what makes an opt-out say why.",
+        "off. `// oxlint-disable-next-line active-record/<rule> -- <why>`.",
+      turnsItselfOff: "Leave active-record/disable-reason on: it's what makes an opt-out say why.",
     },
   },
   create(context) {

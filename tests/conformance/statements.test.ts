@@ -976,7 +976,7 @@ describe("statements", () => {
       }) as unknown as (b: Batch) => [];
 
       await expect(db.batch(asyncCallback)).rejects.toThrow(TypeError);
-      // oxlint-disable-next-line d1-record/no-fixed-delay -- Node reports an unhandled rejection a macrotask later, and nothing signals that none came
+      // oxlint-disable-next-line active-record/no-fixed-delay -- Node reports an unhandled rejection a macrotask later, and nothing signals that none came
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(unhandled).toEqual([]);

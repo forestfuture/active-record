@@ -185,7 +185,7 @@ describe("the console session", () => {
     // to offer completions: a person typing gives it the time to, a burst or a pipe does not.
     for (const key of "await Sample.find(1)") {
       terminal.input.write(key);
-      // oxlint-disable-next-line d1-record/no-fixed-delay -- typing speed: completion runs between keys
+      // oxlint-disable-next-line active-record/no-fixed-delay -- typing speed: completion runs between keys
       await new Promise((resolve) => setTimeout(resolve, 30));
     }
     terminal.input.write("\n");
@@ -217,7 +217,7 @@ describe("the console session", () => {
     await terminal.ready();
 
     terminal.input.write("quit\n.ping\n");
-    // oxlint-disable-next-line d1-record/no-fixed-delay -- a bound, in case quit never closes the session
+    // oxlint-disable-next-line active-record/no-fixed-delay -- a bound, in case quit never closes the session
     await Promise.race([session.closed, new Promise((resolve) => setTimeout(resolve, 2000))]);
 
     expect(ran).toEqual([]);
@@ -236,7 +236,7 @@ describe("the console session", () => {
     terminal.input.write("await new Promise((resolve) => setTimeout(resolve, 400))\n");
     // Typed once the first line is awaiting: the REPL holds it back, then runs it from inside
     // the first line's async context.
-    // oxlint-disable-next-line d1-record/no-fixed-delay -- the console prints nothing while a line awaits
+    // oxlint-disable-next-line active-record/no-fixed-delay -- the console prints nothing while a line awaits
     await new Promise((resolve) => setTimeout(resolve, 100));
     terminal.input.write("await Sample.find(1)\n");
     await waitFor(() => /Sample \{|NoDatabase/.test(terminal.transcript()), 4);
