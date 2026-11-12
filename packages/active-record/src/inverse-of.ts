@@ -7,7 +7,7 @@ import { resolveAssociation, type ResolvedAssociation } from "./resolved-associa
 /**
  * Makes `owner` the loaded record of the belongsTo on `record` that is `association`'s inverse:
  * the first of the target's belongsTo associations that links the same foreign key to the
- * owner's Model, through the same key. So `await post.author()` on a post built through
+ * owner's Model, through the same key. Neither may have a scope, which could leave the owner out. So `await post.author()` on a post built through
  * `user.posts()` is the user, with no query, even before either is saved, and a required
  * belongsTo passes. The rest of Rails' inverse associations (preloads, `inverseOf:`) is #62.
  */
@@ -39,8 +39,11 @@ function inverseOf(
   association: ResolvedAssociation,
 ): ResolvedAssociation | undefined {
   const { target, targetAttribute, ownerAttribute } = association;
+  // A scope on either side may leave the owner out, so neither has an inverse.
+  if (association.definition.scope !== undefined) return undefined;
   for (const [name, definition] of associationsOf(target)) {
     if (definition.kind !== "belongsTo" || definition.foreignKey !== targetAttribute) continue;
+    if (definition.scope !== undefined) continue;
     if (!(owner instanceof definition.target())) continue;
     const candidate = resolveAssociation(target, name);
     if (candidate.targetAttribute === ownerAttribute) return candidate;
