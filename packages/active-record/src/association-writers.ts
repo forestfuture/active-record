@@ -2,6 +2,7 @@
 import { cachedRead } from "./associations.ts";
 import { RecordNotSaved } from "./errors.ts";
 import type { Executor } from "./executor.ts";
+import { pointBackAtOwner } from "./inverse-of.ts";
 import { buildRecord, type Model } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
@@ -122,6 +123,7 @@ function buildOne(
   const record = buildRecord(target, rest, targetDatabase(owner, association));
   record[state].writeKey(definition.foreignKey, key, name);
   owner[state].associations.set(name, ownerAttribute, record);
+  pointBackAtOwner(owner, association, record);
   return record;
 }
 

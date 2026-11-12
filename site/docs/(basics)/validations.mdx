@@ -164,6 +164,7 @@ Each error type has a built-in message. To replace one, use its type as the key 
 | `lessThan`                 | `numericality: { lessThan }`                     | must be less than `%{count}`                                |
 | `lessThanOrEqualTo`        | `numericality: { lessThanOrEqualTo }`            | must be less than or equal to `%{count}`                    |
 | `taken`                    | `uniqueness`                                     | has already been taken                                      |
+| `required`                 | a `belongsTo` whose record doesn’t exist         | must exist                                                  |
 | `restrictDependentDestroy` | a has-one with `dependent: "restrictWithError"`  | Cannot delete record because a dependent `%{record}` exists |
 | `restrictDependentDestroy` | a has-many with `dependent: "restrictWithError"` | Cannot delete record because dependent `%{record}` exist    |
 

@@ -33,6 +33,7 @@ import {
   type CallbackKind,
 } from "./declarations.ts";
 import { modelOf, type Model } from "./model.ts";
+import { validateRequiredAssociations } from "./required-associations.ts";
 import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
@@ -124,6 +125,7 @@ async function validation(record: Model, claimed: Claimed): Promise<Validity> {
   recordState.errors[clearErrors]();
   recordState.abortReason = undefined;
   if (!(await runAbortableCallbacks(record, "beforeValidation"))) return "aborted";
+  await validateRequiredAssociations(record);
   await runValidations(declared(modelOf(record), "validations"), {
     record,
     read: (attribute) => recordState.read(attribute),

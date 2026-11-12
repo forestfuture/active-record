@@ -1,4 +1,5 @@
 // A hasMany's Relation as its owner sees it (records built through it join the owner), or no owner.
+import { pointBackAtOwner } from "./inverse-of.ts";
 import type { Model } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
@@ -102,7 +103,10 @@ function withKey(owner: Model, association: ResolvedAssociation, key: unknown): 
           : loaded.map((each, at) => (at === index ? record : each)),
       );
     },
-    built: (record) => autosaves.addBuilt(name, record),
+    built(record) {
+      pointBackAtOwner(owner, association, record);
+      autosaves.addBuilt(name, record);
+    },
     invalidate: () => loadedAssociations.clear(name),
     unsavedCount: () => built().filter((record) => record[state].isNew).length,
     refusal: undefined,
@@ -128,7 +132,10 @@ function withoutKey(owner: Model, association: ResolvedAssociation): OwnedCollec
   const collection: OwnedCollection = {
     loaded: () => [...owner[state].autosaves.built(name)],
     created: () => {},
-    built: (record) => owner[state].autosaves.addBuilt(name, record),
+    built(record) {
+      pointBackAtOwner(owner, association, record);
+      owner[state].autosaves.addBuilt(name, record);
+    },
     invalidate: () => {},
     unsavedCount: () => 0,
     refusal: association.refusalFor(owner),

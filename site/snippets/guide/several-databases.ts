@@ -18,7 +18,7 @@ export class User extends DbRecord {
 }
 
 export class Entry extends LogsRecord {
-  user = belongsTo(User); // on DB
+  user = belongsTo(User, { optional: true }); // on DB; an entry may have no user
 }
 // #endregion associations
 

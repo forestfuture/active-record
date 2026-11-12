@@ -35,6 +35,7 @@ export interface ErrorMessages<N extends string = string> {
 export const builtInMessages: ErrorMessages = {
   blank: "can't be blank",
   invalid: "is invalid",
+  required: "must exist",
   inclusion: "is not included in the list",
   taken: "has already been taken",
   tooShort: {
