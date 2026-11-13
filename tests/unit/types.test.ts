@@ -384,6 +384,8 @@ describe("types", () => {
           this.defaultScope((q) => q.where({ nope: true }));
         }
       }
+      // @ts-expect-error unscoped() is a Model static, not a Relation method
+      void Article.where({ live: true }).unscoped();
       return Article.unscoped().live();
     };
     expectTypeOf(typeOnly).toBeFunction();
