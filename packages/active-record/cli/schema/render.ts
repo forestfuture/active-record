@@ -69,7 +69,7 @@ ${attributes}
  */
 export interface ListedModel {
   className: string;
-  /** Its `modelName`, when it isn't its class name. */
+  /** Its `modelName`; left out, its class name. */
   modelName?: string;
   table: string;
   module: string;
@@ -93,12 +93,13 @@ export interface SchemaSource {
 export function fingerprintOf({ adapter, tables, binding, models }: SchemaSource): string {
   // In the order the file lists them, whichever order they were found in.
   // A modelName that's the class name is left out, so a schema from before it keeps its hash.
-  const listed = byName(models, (model) => model.className).map(
-    ({ className, modelName = className, table, module }) =>
-      modelName === className
-        ? { className, table, module }
-        : { className, modelName, table, module },
-  );
+  const listed = byName(models, (model) => model.className).map((model) => {
+    const { className, table, module } = model;
+    const modelName = listedName(model);
+    return modelName === className
+      ? { className, table, module }
+      : { className, modelName, table, module };
+  });
   const hash = createHash("sha256").update(
     JSON.stringify({ format, adapter, tables, binding, models: listed }),
   );

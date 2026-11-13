@@ -7,7 +7,7 @@ const db = connect({} as never);
 class User extends Model.define({ id: "integer" }) {}
 
 describe("modelName", () => {
-  test("is the class name unless set, a subclass's its own", () => {
+  test("is the class name, and a subclass's is its own", () => {
     class Admin extends User {}
 
     expect([User.modelName, Admin.modelName]).toEqual(["User", "Admin"]);
