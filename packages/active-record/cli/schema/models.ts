@@ -35,6 +35,8 @@ interface LoadedClass {
 /** The Models found so far, by class, and why any couldn't be. */
 interface Found {
   models: Map<object, FoundModel>;
+  /** The database each Model found is on. */
+  databases: Map<object, DatabaseSnapshot>;
   errors: string[];
 }
 
@@ -100,22 +102,24 @@ function declares(file: string, name: string): boolean {
   return new RegExp(`\\bclass\\s+${name}\\b`).test(readFileSync(file, "utf8"));
 }
 
-/** A class a file exports, by the name it's exported as. */
+/** A class a file exports, by the name it's exported as, and the database it's on. */
 interface Exported {
   name: string;
   model: LoadedClass;
+  database: DatabaseSnapshot;
 }
 
 /**
  * What's wrong with a Model's `modelName`, which the schema lists it by, if anything: one that
  * isn't a string, or one another Model found already has.
  */
-function modelNameProblem(found: Found, model: LoadedClass): string | undefined {
+function modelNameProblem(found: Found, { model, database }: Exported): string | undefined {
   if (typeof model.modelName !== "string") {
     return `${model.name}'s modelName must be a string; remove it to use the class name`;
   }
   for (const [other, each] of found.models) {
-    if (other !== model && each.modelName === model.modelName) {
+    const sameDatabase = found.databases.get(other) === database;
+    if (other !== model && sameDatabase && each.modelName === model.modelName) {
       return `${model.name}'s modelName is ${model.modelName}, as ${each.className}'s is; give each Model its own`;
     }
   }
@@ -123,7 +127,8 @@ function modelNameProblem(found: Found, model: LoadedClass): string | undefined 
 }
 
 /** Adds a class from `file` if it's a Model directly below a base: one whose table it is. */
-function addModel(cwd: string, file: string, { name, model }: Exported, found: Found): void {
+function addModel(cwd: string, file: string, exported: Exported, found: Found): void {
+  const { name, model } = exported;
   if (isBase(model) || !isBase(Object.getPrototypeOf(model) as object)) return;
   if (name === "default") {
     found.errors.push(
@@ -142,7 +147,7 @@ function addModel(cwd: string, file: string, { name, model }: Exported, found: F
   }
   const earlier = found.models.get(model);
   if (earlier !== undefined && !declares(file, model.name)) return;
-  const problem = modelNameProblem(found, model);
+  const problem = modelNameProblem(found, exported);
   if (problem !== undefined) {
     found.errors.push(`${shown(cwd, file)}: ${problem}`);
     return;
@@ -159,6 +164,7 @@ function addModel(cwd: string, file: string, { name, model }: Exported, found: F
     table: model.table,
     file,
   });
+  found.databases.set(model, exported.database);
 }
 
 /** Imports a Model file, or says why it couldn't be loaded. */
@@ -185,8 +191,10 @@ function addExported(
 ): void {
   for (const [name, value] of Object.entries(exported)) {
     const isModel = typeof value === "function" && value.prototype instanceof context.library.Model;
-    if (isModel && databaseOf(value, context.schemas) !== undefined) {
-      addModel(cwd, file, { name, model: value as unknown as LoadedClass }, context.found);
+    const database = isModel ? databaseOf(value, context.schemas) : undefined;
+    if (database !== undefined) {
+      const model = value as unknown as LoadedClass;
+      addModel(cwd, file, { name, model, database }, context.found);
     }
   }
 }
@@ -198,7 +206,7 @@ async function modelsIn(
   files: readonly string[],
   schemas: ReadonlyMap<unknown, DatabaseSnapshot>,
 ): Promise<{ found: Found; library: Library | string }> {
-  const found: Found = { models: new Map(), errors: [] };
+  const found: Found = { models: new Map(), databases: new Map(), errors: [] };
   // Finding Models takes only the core's Model, whichever adapter they're on.
   const library = await loadLibrary<Library>(cwd, jiti, {
     command: "schema",

@@ -119,6 +119,37 @@ migrations_table = "seen"
     );
   });
 
+  test("Models on different databases can share a modelName, as each lists its own", async () => {
+    const cwd = project({
+      "wrangler.json": JSON.stringify({
+        d1_databases: [
+          { binding: "DB", database_name: "app" },
+          { binding: "ANALYTICS", database_name: "stats", migrations_dir: "analytics-migrations" },
+        ],
+      }),
+      "migrations/0001.sql": "CREATE TABLE events (id INTEGER PRIMARY KEY);",
+      "analytics-migrations/0001.sql": "CREATE TABLE events (id INTEGER PRIMARY KEY);",
+    });
+    await run(cwd);
+    writeFileSync(
+      join(cwd, "src/models/event.ts"),
+      'import { DbRecord } from "./db-record";\nexport class Event extends DbRecord {}\n',
+    );
+    writeFileSync(
+      join(cwd, "src/models/analytics-event.ts"),
+      'import { AnalyticsRecord } from "./analytics-record";\n' +
+        'export class AnalyticsEvent extends AnalyticsRecord {\n  static override modelName = "Event";\n}\n',
+    );
+
+    expect((await run(cwd)).code).toBe(0);
+    expect(readFileSync(join(cwd, "src/db/DB.ts"), "utf8")).toContain(
+      '  models: { Event: "events" },',
+    );
+    expect(readFileSync(join(cwd, "src/db/ANALYTICS.ts"), "utf8")).toContain(
+      '  models: { Event: "events" },',
+    );
+  });
+
   test("a missing base class is written even when the schema is up to date; --check writes nothing", async () => {
     const cwd = project({
       "wrangler.jsonc": wranglerJsonc,
