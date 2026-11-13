@@ -10,12 +10,15 @@ import { oneModelsFile } from "./targets.ts";
  * A jiti based in the project: it reads TypeScript, extensionless imports and `tsconfig.json`
  * paths, and resolves the library (`@forestfuture/active-record` and its adapter's package)
  * from the project's `node_modules`, so the Models and the command share a single copy of it.
- * What it compiles is cached by content in the project's `node_modules/.cache/jiti` (or the
- * system's temporary folder without `node_modules`), so a run after the first loads the library
- * about ten times faster, and an edited file is compiled again (#251).
+ * What it compiles is cached by content in the project's `node_modules/.cache/jiti`, so a run
+ * after the first loads the library about ten times faster, and an edited file is compiled again
+ * (#251). Without `node_modules` it isn't cached: jiti would use the system's temporary folder,
+ * which on a shared machine another user could write compiled code into for this one to run.
  */
 export function projectJiti(cwd: string): Jiti {
-  return createJiti(`${cwd}/`, { tsconfigPaths: true, fsCache: true, moduleCache: true });
+  const modules = join(cwd, "node_modules");
+  const fsCache = existsSync(modules) ? join(modules, ".cache/jiti") : false;
+  return createJiti(`${cwd}/`, { tsconfigPaths: true, fsCache, moduleCache: true });
 }
 
 /** The Model files: the folder's `.ts` files, or the one file `--models` names. */

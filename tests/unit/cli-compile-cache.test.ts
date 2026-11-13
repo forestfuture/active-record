@@ -24,6 +24,22 @@ describe("the command's compiled TypeScript", () => {
     expect(existsSync(cache) && readdirSync(cache).length > 0).toBe(true);
   });
 
+  test("isn't cached in the shared temporary folder when the project has no node_modules", async () => {
+    const dir = scratch("compile-cache-bare-");
+    writeFileSync(join(dir, "note.ts"), 'export const note: string = "uncached";');
+    const temporary = scratch("compile-cache-tmp-");
+    const outer = process.env["TMPDIR"];
+    process.env["TMPDIR"] = temporary;
+    try {
+      await projectJiti(dir).import(join(dir, "note.ts"));
+    } finally {
+      if (outer === undefined) delete process.env["TMPDIR"];
+      else process.env["TMPDIR"] = outer;
+    }
+
+    expect(existsSync(join(temporary, "jiti"))).toBe(false);
+  });
+
   test("an edited file is compiled again, once it's forgotten", async () => {
     const dir = project('export const note: string = "before";');
     const jiti = projectJiti(dir);
