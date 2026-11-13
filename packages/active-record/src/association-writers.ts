@@ -67,9 +67,7 @@ function pointOwnerAt(owner: Model, association: ResolvedAssociation, record: Mo
  */
 export function hasOneAccessor(owner: Model, association: ResolvedAssociation): unknown {
   const read = () =>
-    cachedRead(owner, association, (key) =>
-      association.inOrder(association.linkedTo(owner[state].executor, key)).first(),
-    );
+    cachedRead(owner, association, (key) => association.firstLinkedTo(owner[state].executor, key));
   return Object.assign(read, {
     set: (record: Model | null) => setOne(owner, association, record),
     build: (attributes: Record<string, unknown> = {}) => buildOne(owner, association, attributes),
@@ -105,7 +103,7 @@ async function setOne(
   }
   takeReplaced(owner, association);
   owner[state].associations.set(name, ownerAttribute, null);
-  owner[state].autosaves.setBuilt(name, undefined);
+  owner[state].autosaves.clear(name);
 }
 
 /**

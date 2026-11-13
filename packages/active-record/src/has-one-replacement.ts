@@ -120,9 +120,7 @@ async function replacedRecord(
   const found =
     replaced !== undefined
       ? replaced
-      : await association
-          .inOrder(association.linkedTo(owner[state].executor, association.keyOf(owner)))
-          .first();
+      : await association.firstLinkedTo(owner[state].executor, association.keyOf(owner));
   if (found === null || found === record || found[state].isNew || found[state].isDestroyed) {
     return null;
   }
@@ -148,6 +146,7 @@ async function prepareRemoval(
     return plan;
   }
   if (dependent === "delete") {
+    if (claimed.has(old)) return { status: "ready", stages: [], before: [], after: [] };
     claimed.add(old);
     const deletion = compileDelete(modelOf(old), old[state].storedKey);
     const write: PreparedWrite = {

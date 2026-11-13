@@ -21,10 +21,9 @@ export class PendingAutosaves {
     this.#built.set(name, kept);
   }
 
-  /** A hasOne's one record to save with this record, replacing any before it; undefined clears it. */
-  setBuilt(name: string, record: Model | undefined): void {
-    if (record === undefined) this.#built.delete(name);
-    else this.#built.set(name, [record]);
+  /** A hasOne's one record to save with this record, replacing any before it. */
+  setBuilt(name: string, record: Model): void {
+    this.#built.set(name, [record]);
   }
 
   /** The records built through the association, in the order they were built. */

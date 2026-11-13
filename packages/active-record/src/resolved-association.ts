@@ -118,6 +118,11 @@ export class ResolvedAssociation {
     return relation.order({ [this.target.primaryKey]: "asc" });
   }
 
+  /** A hasOne's record for `key`: the first linked to it, in the association's order. */
+  firstLinkedTo(executor: Executor, key: unknown): Promise<Model | null> {
+    return this.inOrder(this.linkedTo(executor, key)).first();
+  }
+
   /**
    * The owner's value its targets are linked by: a belongsTo's foreign key, or for a
    * hasMany/hasOne the owner's key, null while the owner is new (it has no stored records).
