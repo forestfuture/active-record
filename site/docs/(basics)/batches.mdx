@@ -75,8 +75,9 @@ Add a record’s save or destroy to a batch with `b.save(record)` and `b.destroy
 When the batch runs:
 
 1. Each record, in order, is validated and runs its before-callbacks. The first that’s invalid or aborts throws `RecordInvalid`, `RecordNotSaved`, or `RecordNotDestroyed`, and nothing is sent.
-2. Every write goes to D1 as one atomic batch. If D1 refuses it with a constraint error, nothing is written, and every record keeps its unsaved state.
+2. Every write goes to D1 as one atomic batch. If D1 refuses it with a constraint error, nothing is written, every record keeps its unsaved state, and each record’s `afterRollback` runs.
 3. Each record takes its saved state, then its after-callbacks run.
+4. Every record’s [commit callbacks](./callbacks#running-code-after-the-commit) run, in the same order.
 
 A record’s autosaved associations and `dependent` strategies join the same batch. A record listed twice, or already saved by its owner’s autosave, is written once.
 
