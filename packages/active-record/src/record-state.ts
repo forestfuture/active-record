@@ -333,10 +333,13 @@ export class RecordState {
    * each from its value before: a declared default the record kept isn't one (#41).
    */
   commitInsert(row: Record<string, unknown> | undefined): void {
-    const written = this.changes();
-    const before = new Map(Object.keys(this.#values).map((name) => [name, this.#storedForm(name)]));
-    const valuesBefore = new Map(
-      Object.keys(this.#values).map((name) => [name, this.#valueBefore(name)]),
+    const written = new Set(this.changedNames());
+    // Each attribute before the insert: as stored, and its value before any change.
+    const before = new Map(
+      Object.keys(this.#values).map((name) => [
+        name,
+        { stored: this.#storedForm(name), value: this.#valueBefore(name) },
+      ]),
     );
     if (row === undefined) {
       this.#settle();
@@ -346,8 +349,8 @@ export class RecordState {
     }
     this.#savedChanges = Object.fromEntries(
       Object.keys(this.#values)
-        .filter((name) => name in written || this.#storedForm(name) !== before.get(name))
-        .map((name) => [name, [valuesBefore.get(name) ?? null, this.#copyOf(name)]]),
+        .filter((name) => written.has(name) || this.#storedForm(name) !== before.get(name)!.stored)
+        .map((name) => [name, [before.get(name)!.value, this.#copyOf(name)]]),
     );
   }
 
@@ -396,7 +399,6 @@ export class RecordState {
     return attributeFor(this.#model, name);
   }
 
-  /** An attribute's current value in its stored form, for comparing with the Snapshot. */
   /** A new record's initial value as stored: its declared default or generated id, else null. */
   #initialOf(name: string): unknown {
     return this.#initialValues.has(name)
@@ -410,6 +412,7 @@ export class RecordState {
     return this.#attribute(name).read(this.#initialOf(name));
   }
 
+  /** An attribute's current value in its stored form, for comparing with the Snapshot. */
   #storedForm(name: string): unknown {
     return this.#attribute(name).write(this.#values[name]);
   }
