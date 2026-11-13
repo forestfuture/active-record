@@ -3,7 +3,7 @@ import { savingGroups } from "./autosave.ts";
 import { pinBefore } from "./executor.ts";
 import { prepareDestroy, prepareSave, refusalError, type Ready } from "./lifecycle.ts";
 import { Model, modelOf } from "./model.ts";
-import type { OwnedCollection } from "./owned-collection.ts";
+import type { AssociationCollection } from "./owned-collection.ts";
 import { isOwnersKey } from "./point-back-at-owner.ts";
 import { linksOf, state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
@@ -64,7 +64,7 @@ interface OwnersHasMany {
   owner: Model;
   association: ResolvedAssociation;
   /** What the owner holds of it. */
-  collection: OwnedCollection;
+  collection: AssociationCollection;
   /** Its Relation, whose `deleteAll()` follows `dependent:`. */
   relation: { deleteAll(): Promise<number> };
 }
@@ -157,8 +157,9 @@ function requireTargets(association: ResolvedAssociation, records: readonly unkn
  * Throws `TypeError` for a record the association doesn't hold: not built or pushed through it,
  * and with a foreign key that isn't its owner's.
  */
-function requireMembers({ owner, association }: OwnersHasMany, records: readonly Model[]): void {
-  const added = owner[state].autosaves.built(association.name);
+function requireMembers(hasMany: OwnersHasMany, records: readonly Model[]): void {
+  const { owner, association, collection } = hasMany;
+  const added = collection.added();
   for (const record of records) {
     if (added.includes(record)) continue;
     const linked = record[state].read(association.targetAttribute);
