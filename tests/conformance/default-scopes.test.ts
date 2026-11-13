@@ -55,6 +55,20 @@ class Leaving extends Model.define({ id: { type: "integer", null: false } }) {
   posts = hasMany(Post, { foreignKey: "userId", dependent: "destroy" });
 }
 
+/** Posts whose default scope starts from the Model itself, which runs without its default scope. */
+class SelfScopedPost extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+  published: "boolean",
+}) {
+  static table = "posts";
+
+  static {
+    this.defaultScope((q) => q.merge(SelfScopedPost.where({ published: true })));
+  }
+}
+
 /** Posts newest first, by default. */
 class RecentPost extends Model.define({
   id: { type: "integer", null: false },
@@ -133,6 +147,14 @@ describe("default scopes", () => {
 
   test("a subclass's default scope doesn't change its parent's", async () => {
     expect(await harness.connect().model(Post).count()).toBe(3);
+  });
+
+  test("a default scope that queries its own Model runs without itself", async () => {
+    const titlesFound = await withDatabase(harness.connect(), () =>
+      SelfScopedPost.where({ userId: 1 }).pluck("title"),
+    );
+
+    expect(titlesFound.sort()).toEqual(["Also live", "Live"]);
   });
 
   test("its order is the Relation's order", async () => {
