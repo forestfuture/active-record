@@ -312,6 +312,43 @@ describe("writing through an association to another database", () => {
     expect(await rows(db, "SELECT message FROM entries")).toEqual([{ message: "DB" }]);
   });
 
+  test("push saves the records to the target's database", async () => {
+    await inRequest(async () => {
+      const user = await User.find(1);
+      await user.entries().push(Entry.build({ id: 2, message: "pushed" }));
+    });
+
+    expect(await rows(logs, "SELECT user_id FROM entries WHERE id = 2")).toEqual([{ user_id: 1 }]);
+    expect(await rows(db, "SELECT id FROM entries WHERE id = 2")).toEqual([]);
+  });
+
+  test("delete nullifies the records on the target's database", async () => {
+    await inRequest(async () => {
+      const user = await User.find(1);
+      await user.entries().delete(await Entry.find(1));
+    });
+
+    expect(await rows(logs, "SELECT user_id FROM entries")).toEqual([{ user_id: null }]);
+    expect(await rows(db, "SELECT user_id FROM entries")).toEqual([{ user_id: 1 }]);
+  });
+
+  test("destroy destroys the records on the target's database", async () => {
+    await inRequest(async () => {
+      const user = await User.find(1);
+      await user.entries().destroy(await Entry.find(1));
+    });
+
+    expect(await rows(logs, "SELECT id FROM entries")).toEqual([]);
+    expect(await rows(db, "SELECT id FROM entries")).toEqual([{ id: 1 }]);
+  });
+
+  test("clear removes the records on the target's database", async () => {
+    await inRequest(async () => (await Purging.find(1)).entries().clear());
+
+    expect(await rows(logs, "SELECT id FROM entries")).toEqual([]);
+    expect(await rows(db, "SELECT id FROM entries")).toEqual([{ id: 1 }]);
+  });
+
   test("a bulk write through a hasMany goes to the target's database", async () => {
     await inRequest(async () => (await User.find(1)).entries().updateAll({ message: "bulk" }));
 
