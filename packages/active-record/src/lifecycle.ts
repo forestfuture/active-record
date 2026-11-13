@@ -24,7 +24,12 @@ import {
   RecordNotSaved,
 } from "./errors.ts";
 import { clearErrors } from "./errors-collection.ts";
-import { rollbackOf, runAfterCallbacks, runCallbacks, runCommitCallbacks } from "./callbacks.ts";
+import {
+  afterRollbackOf,
+  runAfterCallbacks,
+  runCallbacks,
+  runCommitCallbacks,
+} from "./callbacks.ts";
 import { pinBefore } from "./executor.ts";
 import { declared, type BeforeCallbackKind } from "./declarations.ts";
 import { modelOf, type Model } from "./model.ts";
@@ -382,7 +387,7 @@ function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
     await runAfterCallbacks(record, isInsert ? "afterCreate" : "afterUpdate", "save");
     await runAfterCallbacks(record, "afterSave", "save");
   };
-  const afterRollback = rollbackOf(record);
+  const afterRollback = afterRollbackOf(record);
   const afterCommit = () => runCommitCallbacks(record, isInsert ? "create" : "update");
   if (isInsert) {
     const own = recordState.insertAssignments();
@@ -442,7 +447,7 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
       statements: deletion,
       commit: () => recordState.markDestroyed(),
       after: () => runAfterCallbacks(record, "afterDestroy", "destroy"),
-      afterRollback: rollbackOf(record),
+      afterRollback: afterRollbackOf(record),
       ...(hasRow && { afterCommit: () => runCommitCallbacks(record, "destroy") }),
     },
   ]);
