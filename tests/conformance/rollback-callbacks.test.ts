@@ -209,4 +209,15 @@ describe("rollback callbacks", () => {
     expect(failure.cause).toBeInstanceOf(NotNullViolation);
     expect(log).toEqual(["afterRollback post null"]);
   });
+
+  test("a frozen error thrown in afterRollback reaches the caller as it is", async () => {
+    const failure = Object.freeze(new Error("logger is down"));
+    hooks.afterRollback = () => {
+      throw failure;
+    };
+
+    await expect(db().model(User).build({ email: "taken@example.com" }).save()).rejects.toBe(
+      failure,
+    );
+  });
 });
