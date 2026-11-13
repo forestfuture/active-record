@@ -106,6 +106,14 @@ interface Exported {
   model: LoadedClass;
 }
 
+/** Another Model found already with the same `modelName`, which the schema lists it by. */
+function sameName(found: Found, model: LoadedClass): FoundModel | undefined {
+  for (const [other, each] of found.models) {
+    if (other !== model && each.modelName === model.modelName) return each;
+  }
+  return undefined;
+}
+
 /** Adds a class from `file` if it's a Model directly below a base: one whose table it is. */
 function addModel(cwd: string, file: string, { name, model }: Exported, found: Found): void {
   if (isBase(model) || !isBase(Object.getPrototypeOf(model) as object)) return;
@@ -130,6 +138,14 @@ function addModel(cwd: string, file: string, { name, model }: Exported, found: F
     void model.attributeDefinitions;
   } catch (error) {
     found.errors.push(`${shown(cwd, file)}: ${(error as Error).message}`);
+    return;
+  }
+  const other = sameName(found, model);
+  if (other !== undefined) {
+    found.errors.push(
+      `${shown(cwd, file)}: ${model.name}'s modelName is ${model.modelName}, as ` +
+        `${other.className}'s is; give each Model its own`,
+    );
     return;
   }
   found.models.set(model, {

@@ -522,6 +522,24 @@ export class FeaturedPost extends Post {}
     );
   });
 
+  test("two Models with one modelName fail, and the last good file is kept", async () => {
+    const cwd = await withModels({
+      "user.ts": `${base}export class User extends ApplicationRecord {}\n`,
+      "writer.ts": `${base}export class Writer extends ApplicationRecord {
+  static override modelName = "User";
+}
+`,
+    });
+
+    const { code, output } = await run(cwd);
+
+    expect(code).toBe(1);
+    expect(output).toBe(
+      "src/models/writer.ts: Writer's modelName is User, as User's is; give each Model its own\n" +
+        "Kept src/db/schema.ts as it was",
+    );
+  });
+
   test("doesn't list classes Models are built on, or Models declaring their own attributes", async () => {
     const cwd = await withModels({
       "shared.ts": `${base}export abstract class Shared extends ApplicationRecord {
