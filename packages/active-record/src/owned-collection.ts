@@ -28,6 +28,8 @@ export interface OwnedCollection {
   built(record: Model): void;
   /** A record built or created through it points back at its owner, if it has one (#339). */
   pointBack(record: Model): void;
+  /** Records removed from it (`delete`, `destroy`): they leave what's loaded and built. */
+  removed(records: readonly Model[]): void;
   /** A statement was built through it, so what's loaded is no longer known. */
   invalidate(): void;
   /** How many records were built through it and not yet saved, which `size()` counts. */
@@ -51,6 +53,7 @@ export const unowned: OwnedCollection = {
   created: () => {},
   built: () => {},
   pointBack: () => {},
+  removed: () => {},
   invalidate: () => {},
   unsavedCount: () => 0,
   refusal: undefined,
@@ -111,6 +114,17 @@ function withKey(owner: Model, association: ResolvedAssociation, key: unknown): 
       autosaves.addBuilt(name, record);
     },
     pointBack: (record) => pointBackAtOwner(owner, association, record),
+    removed(records) {
+      autosaves.removeBuilt(name, records);
+      const stored = loadedAssociations.get(name)?.value as Model[] | undefined;
+      // Not loaded: a load already sent mustn't land with the records.
+      if (stored === undefined) return loadedAssociations.clear(name);
+      const { primaryKey } = association.target;
+      const kept = stored.filter(
+        (each) => !records.some((record) => sameRow(each, record, primaryKey)),
+      );
+      loadedAssociations.set(name, ownerAttribute, kept);
+    },
     invalidate: () => loadedAssociations.clear(name),
     unsavedCount: () => built().filter((record) => record[state].isNew).length,
     refusal: undefined,
@@ -126,8 +140,12 @@ function withKey(owner: Model, association: ResolvedAssociation, key: unknown): 
  * record's INSERT and answered before its create finished loaded its own copy of the row (#181).
  */
 function indexOfRow(records: readonly Model[], record: Model, primaryKey: string): number {
-  const key = record[state].read(primaryKey);
-  return records.findIndex((loaded) => Object.is(loaded[state].read(primaryKey), key));
+  return records.findIndex((loaded) => sameRow(loaded, record, primaryKey));
+}
+
+/** Whether two records hold the same row: the same primary key. */
+function sameRow(one: Model, other: Model, primaryKey: string): boolean {
+  return one === other || Object.is(one[state].read(primaryKey), other[state].read(primaryKey));
 }
 
 /** An owner without a key: no stored records, just what was built through it. */
@@ -141,6 +159,7 @@ function withoutKey(owner: Model, association: ResolvedAssociation): OwnedCollec
       owner[state].autosaves.addBuilt(name, record);
     },
     pointBack: (record) => pointBackAtOwner(owner, association, record),
+    removed: (records) => owner[state].autosaves.removeBuilt(name, records),
     invalidate: () => {},
     unsavedCount: () => 0,
     refusal: association.refusalFor(owner),
@@ -183,6 +202,7 @@ function narrowedOf(collection: OwnedCollection): OwnedCollection {
     created: (record) => collection.created(record),
     built: (record) => collection.built(record),
     pointBack: (record) => collection.pointBack(record),
+    removed: (records) => collection.removed(records),
     invalidate: () => collection.invalidate(),
     unsavedCount: () => 0,
     refusal: collection.refusal,

@@ -14,6 +14,12 @@ export class PendingAutosaves {
     this.#built.set(name, [...(this.#built.get(name) ?? []), record]);
   }
 
+  /** Takes `records` out of those built through the association (`delete`, `destroy`). */
+  removeBuilt(name: string, records: readonly Model[]): void {
+    const kept = this.built(name).filter((record) => !records.includes(record));
+    this.#built.set(name, kept);
+  }
+
   /** The records built through the association, in the order they were built. */
   built(name: string): readonly Model[] {
     return this.#built.get(name) ?? [];

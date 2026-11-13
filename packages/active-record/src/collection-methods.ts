@@ -1,9 +1,10 @@
 // A hasMany's collection methods on `user.posts()`: `push`, `delete`, `destroy` and `clear`, kept in step with what the owner holds.
 import { savingGroups } from "./autosave.ts";
 import { pinBefore } from "./executor.ts";
-import { prepareSave, type Ready } from "./lifecycle.ts";
+import { prepareDestroy, prepareSave, refusalError, type Ready } from "./lifecycle.ts";
 import { Model, modelOf } from "./model.ts";
 import type { OwnedCollection } from "./owned-collection.ts";
+import { isOwnersKey } from "./point-back-at-owner.ts";
 import { linksOf, state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
 import { combine, inGroup, runStages, type Stage } from "./unit-of-work.ts";
@@ -15,6 +16,12 @@ export interface CollectionMethods<M extends Model> {
    * together, resolving to `false`, with nothing written, if one can't be saved.
    */
   push(...records: M[]): Promise<boolean>;
+  /**
+   * Removes records from the association by its `dependent:` strategy, as Rails' collection
+   * `delete`: destroys them with `"destroy"`, deletes their rows with `"deleteAll"`, and
+   * otherwise sets their foreign key to NULL. Resolves to the records.
+   */
+  delete(...records: M[]): Promise<M[]>;
 }
 
 /** The collection methods of `owner`'s hasMany `association`, which `collection` holds. */
@@ -23,22 +30,59 @@ export function collectionMethods<M extends Model>(
   association: ResolvedAssociation,
   collection: OwnedCollection,
 ): CollectionMethods<M> {
+  const held: Held = { owner, association, collection };
   return {
-    async push(...records) {
-      requireTargets(association, records);
-      // A new owner saves them with it, as it saves the records built through it.
-      if (owner[state].isNew) {
-        for (const record of records) collection.built(record);
-        return true;
-      }
-      const key = association.keyOf(owner);
-      const { name, definition } = association;
-      for (const record of records) record[state].writeKey(definition.foreignKey, key, name);
-      if (!(await saveTogether(records, "push() needs its records"))) return false;
-      for (const record of records) collection.created(record);
-      return true;
-    },
+    push: (...records) => push(held, records),
+    delete: (...records) => remove(held, records, association.definition.dependent),
   };
+}
+
+/** An owner's hasMany, as its collection methods use it. */
+interface Held {
+  owner: Model;
+  association: ResolvedAssociation;
+  collection: OwnedCollection;
+}
+
+async function push({ owner, association, collection }: Held, records: Model[]): Promise<boolean> {
+  requireTargets(association, records);
+  // A new owner saves them with it, as it saves the records built through it.
+  if (owner[state].isNew) {
+    for (const record of records) collection.built(record);
+    return true;
+  }
+  const key = association.keyOf(owner);
+  const { name, definition } = association;
+  for (const record of records) record[state].writeKey(definition.foreignKey, key, name);
+  if (!(await saveTogether(records, "push() needs its records"))) return false;
+  for (const record of records) collection.created(record);
+  return true;
+}
+
+/**
+ * Removes `records` from the association by `dependent`. Those with no row of their own to change
+ * (new records, or any of a new owner's) just leave it, as in Rails.
+ */
+async function remove<M extends Model>(held: Held, records: M[], dependent: unknown): Promise<M[]> {
+  const { owner, association, collection } = held;
+  requireTargets(association, records);
+  requireMembers(held, records);
+  const stored = owner[state].isNew ? [] : records.filter((record) => !record[state].isNew);
+  if (dependent === "destroy") await destroyTogether(stored, "delete() needs its records");
+  else if (stored.length > 0) await removeRows(held, stored, dependent === "deleteAll");
+  collection.removed(records);
+  return records;
+}
+
+/** Deletes the records' rows, or sets their foreign key to NULL, in one statement. */
+async function removeRows({ owner, association }: Held, records: Model[], deletes: boolean) {
+  const { target, definition } = association;
+  const keys = records.map((record) => record[state].read(target.primaryKey));
+  const rows = association
+    .linkedTo(owner[state].executor, association.keyOf(owner))
+    .where({ [target.primaryKey]: keys });
+  // The foreign key was checked as a target attribute when the Model was prepared.
+  await (deletes ? rows.deleteAll() : rows.updateAll({ [definition.foreignKey]: null } as never));
 }
 
 /** Throws `TypeError` for a record that isn't of the association's Model, as Rails raises. */
@@ -50,6 +94,40 @@ function requireTargets(association: ResolvedAssociation, records: readonly unkn
       `${association.label} takes ${association.target.name} records, not ${given}`,
     );
   }
+}
+
+/**
+ * Throws `TypeError` for a record the association doesn't hold: not built or pushed through it,
+ * and with a foreign key that isn't its owner's.
+ */
+function requireMembers({ owner, association }: Held, records: readonly Model[]): void {
+  const added = owner[state].autosaves.built(association.name);
+  for (const record of records) {
+    if (added.includes(record)) continue;
+    const linked = record[state].read(association.targetAttribute);
+    if (linked !== null && isOwnersKey(linked, owner, association)) continue;
+    const ownerName = association.owner.name;
+    const whose = linked === null ? `no ${ownerName}` : `another ${ownerName}`;
+    throw new TypeError(
+      `${association.label} doesn't hold this ${association.target.name}: it belongs to ${whose}`,
+    );
+  }
+}
+
+/**
+ * Destroys `records` as one write, callbacks and dependents included, as Rails' collection does
+ * in a transaction: if one refuses, it throws, with nothing written.
+ */
+async function destroyTogether(records: readonly Model[], needs: string): Promise<void> {
+  await pinBefore(linksOf(records), needs);
+  const claimed = new Set<Model>();
+  const plans: Ready[] = [];
+  for (const record of records) {
+    const plan = await prepareDestroy(record, claimed);
+    if (plan.status !== "ready") throw refusalError(record, plan, "destroy");
+    plans.push(plan);
+  }
+  await runStages(together(plans), needs);
 }
 
 /**
