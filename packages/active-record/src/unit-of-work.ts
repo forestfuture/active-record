@@ -78,7 +78,8 @@ async function whileHandling(error: unknown, callbacks: () => Promise<void>): Pr
   try {
     await callbacks();
   } catch (thrown) {
-    if (thrown instanceof Error && !Object.hasOwn(thrown, "cause")) {
+    // A frozen error can't take one, and trying would throw a TypeError in its place.
+    if (thrown instanceof Error && Object.isExtensible(thrown) && !Object.hasOwn(thrown, "cause")) {
       Object.defineProperty(thrown, "cause", { value: error, writable: true, configurable: true });
     }
     throw thrown;
