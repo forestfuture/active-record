@@ -1,4 +1,4 @@
-// Scopes: a Model's scope statics, and the Relations that carry them as methods.
+// Scopes and default scopes: a Model's scope statics, and the Relations that carry them as methods.
 import { declared } from "./declarations.ts";
 import { InvalidModel } from "./errors.ts";
 import type { Executor } from "./executor.ts";
@@ -133,11 +133,25 @@ export function relationFor<C extends ModelClass>(
   return unscoped ? relation : withDefaultScopes(model, relation);
 }
 
+/**
+ * Models whose default scopes are being applied now, so a body that queries its own Model
+ * (`Post.where(…)`) gets a Relation without them, as Rails' `ignore_default_scope` does,
+ * rather than applying them again forever. Module-level, but not request state (ADR-0003): it's
+ * emptied before `withDefaultScopes` returns, with no await in between.
+ */
+const applyingDefaultScopes = new Set<ModelClass>();
+
 /** `relation` narrowed by each of `model`'s default scopes, in the order they were declared. */
 function withDefaultScopes<R>(model: ModelClass, relation: R): R {
-  let scoped = relation as unknown as Relation<Model>;
-  for (const body of declared(model, "defaultScopes")) {
-    scoped = scoped[applyScope]("defaultScope", body, []);
+  if (applyingDefaultScopes.has(model)) return relation;
+  applyingDefaultScopes.add(model);
+  try {
+    let scoped = relation as unknown as Relation<Model>;
+    for (const body of declared(model, "defaultScopes")) {
+      scoped = scoped[applyScope]("defaultScope", body, []);
+    }
+    return scoped as unknown as R;
+  } finally {
+    applyingDefaultScopes.delete(model);
   }
-  return scoped as unknown as R;
 }
