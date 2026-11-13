@@ -1,7 +1,8 @@
-// The belongsTo and hasOne accessors: `post.author()` and its `set`, `build`, and `create`.
+// The belongsTo and hasOne accessors: `post.author()` and `user.profile()`, and their `set`, `build`, and `create`.
 import { cachedRead } from "./associations.ts";
 import { RecordNotSaved } from "./errors.ts";
 import type { Executor } from "./executor.ts";
+import { markReplacing, removeReplaced, takeReplaced } from "./has-one-replacement.ts";
 import { pointBackAtOwner } from "./point-back-at-owner.ts";
 import { buildRecord, type Model } from "./model.ts";
 import { state } from "./record-state.ts";
@@ -60,9 +61,9 @@ function pointOwnerAt(owner: Model, association: ResolvedAssociation, record: Mo
 }
 
 /**
- * A hasOne's accessor for `owner`: `await user.profile()`, plus `build`, `create` and
- * `createOrThrow`, as Rails' `build_profile` and `create_profile`. An existing record is left
- * as it is (Rails' replacement rules are #40).
+ * A hasOne's accessor for `owner`: `await user.profile()`, plus `set`, `build`, `create` and
+ * `createOrThrow`, as Rails' `user.profile =`, `build_profile` and `create_profile`. A new record
+ * replaces the owner's old one, removed by `dependent:` when the new one is written (#40).
  */
 export function hasOneAccessor(owner: Model, association: ResolvedAssociation): unknown {
   const read = () =>
@@ -70,14 +71,39 @@ export function hasOneAccessor(owner: Model, association: ResolvedAssociation): 
       association.inOrder(association.linkedTo(owner[state].executor, key)).first(),
     );
   return Object.assign(read, {
-    build(attributes: Record<string, unknown> = {}) {
-      const record = buildOne(owner, association, attributes);
-      owner[state].autosaves.addBuilt(association.name, record);
-      return record;
-    },
+    set: (record: Model | null) => setOne(owner, association, record),
+    build: (attributes: Record<string, unknown> = {}) => buildOne(owner, association, attributes),
     create: createOne(owner, association, (record) => record.save()),
     createOrThrow: createOne(owner, association, (record) => record.saveOrThrow()),
   });
+}
+
+/**
+ * A hasOne's `set`: on a saved owner, `record` is saved at once, pointing at it, and the old
+ * record removed in the same batch, as Rails' `user.profile =` does; on an unsaved owner, both
+ * wait for its save. `null` removes the old record.
+ */
+async function setOne(
+  owner: Model,
+  association: ResolvedAssociation,
+  record: Model | null,
+): Promise<void> {
+  const { target, name, ownerAttribute } = association;
+  if (record !== null && !(record instanceof target)) {
+    throw new TypeError(`${association.label}.set() takes a ${target.name} record or null`);
+  }
+  if (record !== null) {
+    const replaced = takeReplaced(owner, association);
+    adopt(owner, association, record);
+    if (owner[state].isNew) return;
+    markReplacing(record, { owner, association, replaced });
+    await record.save();
+    return;
+  }
+  const replaced = takeReplaced(owner, association);
+  if (!owner[state].isNew) await removeReplaced(owner, association, replaced);
+  owner[state].associations.set(name, ownerAttribute, null);
+  owner[state].autosaves.setBuilt(name, undefined);
 }
 
 /**
@@ -92,11 +118,7 @@ function createOne(
   return async (attributes: Record<string, unknown> = {}) => {
     requireSavedOwner(owner, association);
     const record = buildOne(owner, association, attributes);
-    try {
-      await save(record);
-    } finally {
-      if (record[state].isNew) owner[state].autosaves.addBuilt(association.name, record);
-    }
+    await save(record);
     return record;
   };
 }
@@ -109,22 +131,30 @@ function requireSavedOwner(owner: Model, association: ResolvedAssociation): void
   );
 }
 
-/** A new record of a hasOne, pointing at its owner and loaded as the association. */
+/** A new record of a hasOne, made the owner's (`adopt`). */
 function buildOne(
   owner: Model,
   association: ResolvedAssociation,
   attributes: Record<string, unknown>,
 ): Model {
-  const { name, target, ownerAttribute, definition } = association;
-  const key = owner[state].read(ownerAttribute);
   // The foreign key is the owner's, written as a key (#94): one given with the attributes is
   // ignored, as it always was, rather than cast and refused as an assigned value.
-  const { [definition.foreignKey]: _given, ...rest } = attributes;
-  const record = buildRecord(target, rest, targetDatabase(owner, association));
-  record[state].writeKey(definition.foreignKey, key, name);
-  owner[state].associations.set(name, ownerAttribute, record);
-  pointBackAtOwner(owner, association, record);
+  const { [association.definition.foreignKey]: _given, ...rest } = attributes;
+  const record = buildRecord(association.target, rest, targetDatabase(owner, association));
+  adopt(owner, association, record);
   return record;
+}
+
+/**
+ * Makes `record` the owner's hasOne record: pointing at the owner, loaded as the association,
+ * and saved with it.
+ */
+function adopt(owner: Model, association: ResolvedAssociation, record: Model): void {
+  const { name, ownerAttribute, definition } = association;
+  record[state].writeKey(definition.foreignKey, owner[state].read(ownerAttribute), name);
+  owner[state].associations.set(name, ownerAttribute, record);
+  owner[state].autosaves.setBuilt(name, record);
+  pointBackAtOwner(owner, association, record);
 }
 
 /** Where a record built through `association` for `owner` is saved: its target's database. */

@@ -114,6 +114,7 @@ describe("association declarations", () => {
       () => note.user.build(),
       () => note.user.create(),
       () => user.profile.createOrThrow(),
+      () => user.profile.set(null),
     ]) {
       expect(call).toThrow(NoDatabase);
     }

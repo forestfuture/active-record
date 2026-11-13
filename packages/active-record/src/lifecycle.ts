@@ -16,6 +16,7 @@ import {
   type Linked,
 } from "./autosave.ts";
 import { noDependents, prepareDependents } from "./dependents.ts";
+import { prepareReplacement, withRemoval } from "./has-one-replacement.ts";
 import {
   CallbackAbort,
   RecordInvalid,
@@ -246,6 +247,8 @@ async function prepareWrites(record: Model, claimed: Claimed): Promise<SavePlan>
   if (!Array.isArray(first)) return first;
   const isInsert = record[state].isNew;
   if (!(await beforeWrite(record, isInsert))) return aborted(record);
+  // A hasOne's new record removes the one it replaces in its own batch (#40).
+  const removal = await prepareReplacement(record, claimed);
   const own = stageOf(record, [record], () => {
     linkBelongsTo(record, pointedAt);
     return [saveWrite(record, isInsert)];
@@ -253,7 +256,11 @@ async function prepareWrites(record: Model, claimed: Claimed): Promise<SavePlan>
   const autosaves = autosavesOf(record, claimed);
   const children = await prepareEach(linkedRecords(autosaves), claimed);
   if (!Array.isArray(children)) return children;
-  return assemble({ record, own, pointedAt, first, autosaves, children });
+  return withRemoval(
+    assemble({ record, own, pointedAt, first, autosaves, children }),
+    removal,
+    record,
+  );
 }
 
 /** A record's prepared writes, and the association its owner writes it through. */
