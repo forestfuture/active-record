@@ -315,7 +315,7 @@ Records know what’s changed since they were loaded or last saved:
 
 <include>/_excerpts/guide/models/dirty.ts</include>
 
-- `isChanged()`, `changed()`, `changedAttributes()`, and `changes()` describe the unsaved changes.
+- `isChanged()`, `changed()`, `changedAttributes()`, and `changes()` describe the unsaved changes. A new record’s changes run from its defaults, so a default it keeps isn’t a change.
 - `attributeWas`, `isAttributeChanged`, and `willSaveChangeTo` look at one attribute’s unsaved change. Use them in before-callbacks.
 - `savedChanges()`, `savedChangeTo`, `hasSavedChangeTo`, and `attributeBeforeLastSave` look at the last save. Use them in after-callbacks, where the record is already clean.
 - `restoreAttributes()` undoes unsaved changes, to every attribute or the ones you name.

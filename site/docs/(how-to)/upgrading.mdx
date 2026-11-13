@@ -1,13 +1,13 @@
 ---
 title: Upgrading
-description: "Move an app to a new release: from 0.7 to 0.8, mark optional belongsTo associations and prepare batch writes in a callback; from 0.6 to 0.7, swap the D1 package for the core's /d1 entry and write active-record.jsonc; from d1-record 0.5 to 0.6, install the core beside the adapter and run npx active-record."
+description: "Move an app to a new release: from 0.7 to 0.8, mark optional belongsTo associations, check code that reads a new record's changes, and prepare batch writes in a callback; from 0.6 to 0.7, swap the D1 package for the core's /d1 entry and write active-record.jsonc; from d1-record 0.5 to 0.6, install the core beside the adapter and run npx active-record."
 ---
 
 Each section moves an app up one release. Start from the release you’re on.
 
 ## Upgrading from 0.7 to 0.8
 
-In 0.8, a `belongsTo` requires its record, and a batch prepares its writes in a callback. Upgrade in two steps.
+In 0.8, a `belongsTo` requires its record, a batch prepares its writes in a callback, and a new record’s changes run from its defaults. Upgrade in three steps.
 
 ### Marking optional associations
 
@@ -22,6 +22,10 @@ export class Category extends ApplicationRecord {
 ```
 
 A record built through its owner’s `hasMany` or `hasOne` passes without it.
+
+### Reading a new record’s changes
+
+A new record’s `changes()`, `changed()`, and `isChanged()` no longer list its declared defaults or generated id, and `savedChanges()` after a create leaves out the defaults it kept. Check code that reads them on new records, such as a callback that tests `isChanged()` before an insert. Use `isNewRecord()` to ask whether a record is new.
 
 ### Preparing batch writes in a callback
 
