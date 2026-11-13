@@ -103,13 +103,16 @@ describe("rollback callbacks", () => {
     expect(existing.isDestroyed()).toBe(false);
   });
 
-  test("a save refused before anything is sent runs no afterRollback: an invalid record, or an abort()", async () => {
-    const database = db();
+  test("an invalid record runs no afterRollback: nothing was sent", async () => {
+    expect(await db().model(User).build({ email: "" }).save()).toBe(false);
 
-    expect(await database.model(User).build({ email: "" }).save()).toBe(false);
-    expect(
-      await database.model(User).build({ email: "c@example.com", role: "blocked" }).save(),
-    ).toBe(false);
+    expect(log).toEqual([]);
+  });
+
+  test("a save stopped by abort() runs no afterRollback: nothing was sent", async () => {
+    const blocked = db().model(User).build({ email: "c@example.com", role: "blocked" });
+
+    expect(await blocked.save()).toBe(false);
 
     expect(log).toEqual([]);
   });

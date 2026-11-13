@@ -57,12 +57,11 @@ describe("commit callbacks", () => {
     ]);
   });
 
-  test("updating runs the update commit callbacks, even with nothing to write", async () => {
+  test("updating runs the update commit callbacks", async () => {
     const user = await users().create({ email: "a@example.com" });
     log.length = 0;
 
     await user.update({ role: "admin" });
-    await user.save();
 
     expect(log).toEqual([
       "UPDATE",
@@ -70,6 +69,16 @@ describe("commit callbacks", () => {
       "afterCommit a@example.com",
       "afterUpdateCommit a@example.com",
       "afterSaveCommit a@example.com",
+    ]);
+  });
+
+  test("a clean save, with nothing to write, runs the update commit callbacks", async () => {
+    const user = await users().create({ email: "a@example.com" });
+    log.length = 0;
+
+    await user.save();
+
+    expect(log).toEqual([
       "afterSave a@example.com",
       "afterCommit a@example.com",
       "afterUpdateCommit a@example.com",
