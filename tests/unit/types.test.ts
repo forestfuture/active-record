@@ -372,6 +372,23 @@ describe("types", () => {
     expectTypeOf(typeOnly).toBeFunction();
   });
 
+  test("a default scope's q is the Model's Relation, and unscoped() has its scopes", () => {
+    // Checked by the type checker only; never called.
+    const typeOnly = () => {
+      class Article extends Model.define({ id: "integer", live: "boolean" }) {
+        static live = this.scope((q) => q.where({ live: true }));
+
+        static {
+          this.defaultScope((q) => q.where({ live: true }));
+          // @ts-expect-error not an attribute of Article
+          this.defaultScope((q) => q.where({ nope: true }));
+        }
+      }
+      return Article.unscoped().live();
+    };
+    expectTypeOf(typeOnly).toBeFunction();
+  });
+
   test("only a belongsTo takes optional", () => {
     // Checked by the type checker only; never called.
     const typeOnly = () => {
