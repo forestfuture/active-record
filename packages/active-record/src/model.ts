@@ -21,7 +21,7 @@ import {
 } from "./errors.ts";
 import { destroyLifecycle, reloadRecord, saveLifecycle, validateRecord } from "./lifecycle.ts";
 import { associationOf, newRecord } from "./association-fields.ts";
-import { inferTableNames } from "./table-names.ts";
+import { defineModelName, inferTableNames } from "./table-names.ts";
 import {
   attributesSettled,
   defineAttributeAccessors,
@@ -115,6 +115,11 @@ export type AttributesOf<M> = M extends { readonly [attributeTypes]?: infer A } 
 export class Model extends ModelStatics {
   /** The table's name: inferred from the class name (`BlogPost` → `blog_posts`) unless set. */
   declare static table: string;
+  /**
+   * The Model's name, as Rails' `model_name`: its class name unless set (`static modelName =
+   * "BlogPost"`), so names inferred from it survive a bundler that renames classes.
+   */
+  declare static modelName: string;
   /** The primary key attribute: the generated table's, or `"id"` unless set. */
   declare static primaryKey: string;
   declare static attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
@@ -552,6 +557,7 @@ export type QueryableClass<M extends Model = Model> = ModelClass<
 
 defineStatics(Model);
 defineGeneratedStatics(Model);
+defineModelName(Model);
 
 // Model and its statics are all defined now: scopes stop at it, and can't take its names;
 // and relationFor makes each Model ready with readyModel (hoisted, so it exists already).

@@ -28,16 +28,47 @@ const boundTables = new WeakMap<object, BoundTable>();
 const ignoring = new WeakMap<object, boolean>();
 
 /**
- * The name of the class that extends `base` directly, the one a table is named after, as in
- * Rails; empty when it has none (anonymous, `export default`, or `Model.define({...})` itself).
+ * A class's `modelName`: its own name, unless it (or a class it extends) sets one. Empty when
+ * it has none (anonymous, or `export default`).
+ */
+export function modelNameOf(model: object): string {
+  const { modelName } = model as { modelName: string };
+  return modelName === "default" && !hasModelNameSet(model) ? "" : modelName;
+}
+
+/** Whether a class, or one it extends, sets `static modelName`. */
+function hasModelNameSet(model: object): boolean {
+  // The library's base class holds the default, as a getter; a set one is a value.
+  return ancestors(model).some((each) => {
+    const own = Object.getOwnPropertyDescriptor(each, "modelName");
+    return own !== undefined && "value" in own;
+  });
+}
+
+/**
+ * Gives the library's base class `modelName`: each class's own name, as Rails' `model_name`,
+ * unless it sets `static modelName = "…"`, which the classes extending it inherit.
+ */
+export function defineModelName(root: object): void {
+  Object.defineProperty(root, "modelName", {
+    configurable: true,
+    get(this: { name: string }) {
+      return this.name;
+    },
+    set: ownValueSetter("modelName"),
+  });
+}
+
+/**
+ * The `modelName` of the class that extends `base` directly, the one a table is named after, as
+ * in Rails; empty when it has none (anonymous, `export default`, or `Model.define({...})` itself).
  */
 function className(base: object, model: object): string {
   let current = model;
   while (current !== base && Object.getPrototypeOf(current) !== base) {
     current = Object.getPrototypeOf(current);
   }
-  const { name } = current as { name: string };
-  return current === base || name === "default" ? "" : name;
+  return current === base ? "" : modelNameOf(current);
 }
 
 /**
@@ -177,11 +208,11 @@ export function explainMissingTable(
 }
 
 /**
- * The class name a Model's names are inferred from, its foreign keys': the class whose table it
- * is (`Post`, for `class FeaturedPost extends Post {}`).
+ * The name a Model's foreign keys are inferred from: the `modelName` of the class whose table
+ * it is (`Post`, for `class FeaturedPost extends Post {}`).
  */
-export function modelClassName(model: object): string {
+export function inferenceName(model: object): string {
   const base = ancestors(model).find((each) => bases.has(each));
   if (base !== undefined) return className(base, model);
-  return ((boundTableOf(model)?.owner ?? model) as { name: string }).name;
+  return modelNameOf(boundTableOf(model)?.owner ?? model);
 }
