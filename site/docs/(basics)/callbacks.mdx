@@ -1,6 +1,6 @@
 ---
 title: Callbacks
-description: "Registering callbacks, the order they run in, abort() to stop a save or destroy, and the callbacks not built yet."
+description: "Registering callbacks, the order they run in, commit and rollback callbacks, abort() to stop a save or destroy, and the callbacks not built yet."
 ---
 
 Callbacks run your code at points in a record’s lifecycle, such as before it’s validated or after it’s saved.
@@ -19,22 +19,30 @@ Once a Model has been used, registering another callback throws `InvalidModel`, 
 
 ## Callback order
 
-| Order          | Callback           | Runs                                                     | `abort()`                         |
-| -------------- | ------------------ | -------------------------------------------------------- | --------------------------------- |
-| **Saving**     |                    |                                                          |                                   |
-| 1              | `beforeValidation` | Before the validators, on every save, and on `isValid()` | Stops the save                    |
-| 2              | `afterValidation`  | After the validators                                     | Stops the save                    |
-| 3              | `beforeSave`       | Before every write, new or persisted                     | Stops the save                    |
-| 4              | `beforeCreate`     | Before inserting a new record                            | Stops the save                    |
-| 4              | `beforeUpdate`     | Before updating a persisted record                       | Stops the save                    |
-|                | _The write to D1_  | Skipped when a persisted record has no changes           |                                   |
-| 5              | `afterCreate`      | After inserting a new record                             | Too late: `AbortAfterPersistence` |
-| 5              | `afterUpdate`      | After updating a persisted record                        | Too late: `AbortAfterPersistence` |
-| 6              | `afterSave`        | After every successful save                              | Too late: `AbortAfterPersistence` |
-| **Destroying** |                    |                                                          |                                   |
-| 1              | `beforeDestroy`    | Before the `dependent` strategies and the DELETE         | Stops the destroy                 |
-|                | _The delete in D1_ | With the dependents, in one batch                        |                                   |
-| 2              | `afterDestroy`     | After the record is destroyed                            | Too late: `AbortAfterPersistence` |
+| Order          | Callback             | Runs                                                     | `abort()`                         |
+| -------------- | -------------------- | -------------------------------------------------------- | --------------------------------- |
+| **Saving**     |                      |                                                          |                                   |
+| 1              | `beforeValidation`   | Before the validators, on every save, and on `isValid()` | Stops the save                    |
+| 2              | `afterValidation`    | After the validators                                     | Stops the save                    |
+| 3              | `beforeSave`         | Before every write, new or persisted                     | Stops the save                    |
+| 4              | `beforeCreate`       | Before inserting a new record                            | Stops the save                    |
+| 4              | `beforeUpdate`       | Before updating a persisted record                       | Stops the save                    |
+|                | _The write to D1_    | Skipped when a persisted record has no changes           |                                   |
+| 5              | `afterCreate`        | After inserting a new record                             | Too late: `AbortAfterPersistence` |
+| 5              | `afterUpdate`        | After updating a persisted record                        | Too late: `AbortAfterPersistence` |
+| 6              | `afterSave`          | After every successful save                              | Too late: `AbortAfterPersistence` |
+| 7              | `afterCommit`        | Last, after every after-callback                         | Too late: `AbortAfterPersistence` |
+| 7              | `afterCreateCommit`  | Last, after inserting a new record                       | Too late: `AbortAfterPersistence` |
+| 7              | `afterUpdateCommit`  | Last, after updating a persisted record                  | Too late: `AbortAfterPersistence` |
+| 7              | `afterSaveCommit`    | Last, after every successful save                        | Too late: `AbortAfterPersistence` |
+| **Destroying** |                      |                                                          |                                   |
+| 1              | `beforeDestroy`      | Before the `dependent` strategies and the DELETE         | Stops the destroy                 |
+|                | _The delete in D1_   | With the dependents, in one batch                        |                                   |
+| 2              | `afterDestroy`       | After the record is destroyed                            | Too late: `AbortAfterPersistence` |
+| 3              | `afterCommit`        | Last, after every after-callback                         | Too late: `AbortAfterPersistence` |
+| 3              | `afterDestroyCommit` | Last, after the record is destroyed                      | Too late: `AbortAfterPersistence` |
+| **Refused**    |                      |                                                          |                                   |
+| 1              | `afterRollback`      | When the database refuses the save or destroy            | Nothing to stop                   |
 
 A save runs either the create pair or the update pair, never both.
 
@@ -43,8 +51,42 @@ A save runs either the create pair or the update pair, never both.
 - **An after-callback that changes an attribute** leaves the record dirty. Nothing is written again.
 
 :::warning[Nothing is rolled back]
-D1 has committed a save’s writes before any after-callback runs. An error thrown by an after-callback reaches the caller, but the record stays saved.
+The database has kept a save’s writes before any after-callback runs. An error thrown by an after-callback or a commit callback reaches the caller, but the record stays saved. The callbacks after it don’t run, in a batch the other records’ included.
 :::
+
+## Running code after the commit
+
+Every after-callback already runs once the write is kept. Commit callbacks run last of all: after every after-callback of the save, or of every record in a [batch](./batches#batching-records). Register one to run code once everything is written:
+
+```ts
+this.afterCreateCommit(async (user) => {
+  await sendWelcomeEmail(user.email);
+});
+```
+
+- **`afterCommit`** runs after a create, an update, or a destroy.
+- **`afterCreateCommit`**, **`afterUpdateCommit`**, and **`afterDestroyCommit`** run after one kind of write. **`afterSaveCommit`** runs after a create or an update.
+- **Commit callbacks of every kind** run in the order you declared them.
+
+:::note
+Destroying a record that was never saved runs no commit callback, since there was no row to delete.
+:::
+
+## Handling a refused write
+
+`afterRollback` runs when the database refuses a record’s save or destroy:
+
+```ts
+this.afterRollback((order) => {
+  console.warn(`Order ${order.id} wasn’t saved`);
+});
+```
+
+- **A constraint error** refuses the record’s write, and the save then throws the [constraint error](./errors#constraint-errors).
+- **In a batch**, one refused write refuses them all, so `afterRollback` runs for every record in it.
+- **A failed validation or an `abort()`** sends nothing, so `afterRollback` doesn’t run.
+
+The record keeps its unsaved state, and no after-callback or commit callback runs for it.
 
 ## Stopping a save
 
@@ -79,7 +121,9 @@ These callbacks aren’t in Active Record yet. The code shows the shape they’r
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-There’s no `after_commit` or `after_rollback`. In Rails, `after_save` runs before the save’s transaction commits. Here, D1 has already committed before any after-callback runs, so every after-callback is already “after commit”. In a [batch](./batches#batching-records), they run once the whole batch is written. When D1 refuses a write, nothing was written, and the save throws the [constraint error](./errors#constraint-errors).
+`after_commit` and its `on:` forms are `afterCommit`, `afterCreateCommit`, `afterUpdateCommit`, `afterSaveCommit`, and `afterDestroyCommit`, run in the order declared, as Rails 7.1 runs them. In Rails, `after_save` runs before the save’s transaction commits. Here, the database has already kept the write before any after-callback runs, so every after-callback is already “after commit”. An error in `afterSave` rolls a Rails save back; here the record stays saved, and its commit callbacks don’t run.
+
+`after_rollback` is `afterRollback`. Rails also runs it for a save that fails inside a transaction. Here it runs only when the database refuses a write, since validation and the before-callbacks run before anything is sent.
 
 Rails’ `if:` and `unless:` options for callbacks aren’t needed: write the condition inside the callback.
 

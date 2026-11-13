@@ -431,9 +431,9 @@ Default messages (Rails' English, replaced through `errorMessages`): `blank` "ca
 
 _Portable._
 
-_Guide:_ [callbacks](<../site/docs/(basics)/callbacks.mdx>). _Code:_ `active-record/src/lifecycle.ts`, `active-record/src/declarations.ts`.
+_Guide:_ [callbacks](<../site/docs/(basics)/callbacks.mdx>). _Code:_ `active-record/src/lifecycle.ts`, `active-record/src/after-write.ts`, `active-record/src/declarations.ts`.
 
-Declared in `static {}`: `this.beforeValidation(fn)`, `afterValidation`, `beforeSave`, `beforeCreate`, `beforeUpdate`, `afterCreate`, `afterUpdate`, `afterSave`, `beforeDestroy`, `afterDestroy`. Each takes a function that receives the record, typed as the Model's record, and may be async; callbacks of one kind run in declaration order. A subclass runs its parent's callbacks and validations plus its own, and declaring on it never changes the parent. Declarations belong in the class's `static {}` block: once a Model has been used (`db.model(X)`), declaring on it throws `InvalidModel`, so request code can never add callbacks that leak into later requests.
+Declared in `static {}`: `this.beforeValidation(fn)`, `afterValidation`, `beforeSave`, `beforeCreate`, `beforeUpdate`, `afterCreate`, `afterUpdate`, `afterSave`, `beforeDestroy`, `afterDestroy`, the commit callbacks `afterCommit`, `afterCreateCommit`, `afterUpdateCommit`, `afterSaveCommit` and `afterDestroyCommit` (#341), and `afterRollback`. Each takes a function that receives the record, typed as the Model's record, and may be async; callbacks of one kind run in declaration order. A subclass runs its parent's callbacks and validations plus its own, and declaring on it never changes the parent. Declarations belong in the class's `static {}` block: once a Model has been used (`db.model(X)`), declaring on it throws `InvalidModel`, so request code can never add callbacks that leak into later requests.
 
 ```text
 beforeValidation → validators → afterValidation
@@ -441,11 +441,14 @@ beforeValidation → validators → afterValidation
 → D1 write (skipped when a persisted record is still clean)
 → record becomes persisted and clean
 → afterCreate | afterUpdate → afterSave
+→ afterCommit, afterCreateCommit | afterUpdateCommit, afterSaveCommit (in declaration order)
 ```
 
 - `after*` callbacks run after a **successful persistence lifecycle**, which isn't necessarily a D1 write. Saving a clean persisted record runs every callback, issues no UPDATE and leaves `updatedAt` unchanged, as in Rails. If a `before*` callback changes an attribute, the record is dirty again and the UPDATE happens.
 - An `after*` callback that changes the record makes it dirty again, and no second write happens automatically.
-- Nothing rolls back after a successful write.
+- Nothing rolls back after a successful write. An error thrown by an after-callback or a commit callback reaches the caller with every write kept, and the callbacks after it don't run (a batch's other records' included). So an error in `afterSave` skips the record's commit callbacks, where Rails would roll the save back.
+- **Commit callbacks (#341)** run last, once the write is kept: after every after-callback of the save (its autosaved records' included), or of every record in a batch. They're one list, as Rails 7.1's `after_commit` with `on:`, so they run in declaration order whatever their kind: `afterCommit` for a create, an update or a destroy; `afterCreateCommit`, `afterUpdateCommit` and `afterDestroyCommit` for one; `afterSaveCommit` for a create or an update. A clean save runs the update ones. Destroying a never-saved record runs none, since there was no row. An `abort()` in one is `AbortAfterPersistence`.
+- **`afterRollback` (#341)** runs for each record whose save or destroy reached the database and was refused: a constraint error, or another write in its batch. It runs as the database refuses, the record keeping its unsaved state, and no after- or commit callback runs for it; then the database's error is thrown. A validation failure or an `abort()` sends nothing, so it doesn't run (Rails also runs it for a save that fails inside its transaction). A save written in stages (autosaved records waiting for a key the database generates) whose later stage is refused runs it for that stage's records only: the earlier stages stay kept, and their after- and commit callbacks run.
 
 ## Abort
 
@@ -561,8 +564,8 @@ await db.model(Post).updateAll(sql`${column("views")} = ${column("views")} + ${1
 - `db.batch` runs statements atomically with D1's `batch()`: all of them are written, or none. (Postgres) On Postgres it's a transaction, on a client of its own, so a write sent beside it on the request's client never joins it, nor is lost when it rolls back (ADR-0017). It resolves to each entry's result, in order: a statement's `WriteResult` (its `rows` empty for `updateAll` and `deleteAll`), or a record statement's record. A callback returning `[]` resolves to `[]` without a query. A statement or record from another Database rejects with `IncompatibleRelation`, before any callback runs.
 - Records join a batch through **record statements**: `db.batch((b) => [b.save(user), b.destroy(post), b.insert(Log, {…})])`. Unlike statements, their validations and callbacks run, when the batch runs:
   1. Each record, in order, runs its validation and before-callbacks, exactly as `save()` or `destroy()` would (a destroy brings in its `dependent:` strategies). The first that's invalid or aborts throws `RecordInvalid` (with `.record`), `RecordNotSaved` or `RecordNotDestroyed`, as saving with `save!` inside a Rails transaction does, and nothing is sent.
-  2. Every write goes out as one atomic batch. If D1 refuses it (a constraint error, thrown as usual), nothing is written and every record keeps its unsaved state.
-  3. Each record takes its saved state (loading what `RETURNING` gave back, or becoming destroyed), then its after-callbacks run, in order.
+  2. Every write goes out as one atomic batch. If D1 refuses it (a constraint error, thrown as usual), nothing is written, every record keeps its unsaved state, and each record's `afterRollback` runs.
+  3. Each record takes its saved state (loading what `RETURNING` gave back, or becoming destroyed), then its after-callbacks run, in order, then every record's commit callbacks, in order.
      This differs from a Rails transaction, where one record's `after_save` runs before the next record's `before_save`: here every before-callback runs before any write, much like Rails' `after_commit`.
 - Records in one batch can't point at each other's database-generated keys, which don't exist until the batch is written. Keys generated in code (`generateId`, or a `default`) exist from `build()`, so records can be linked by them, or through autosave (#29).
 - (D1) There's no interactive `transaction(async tx => …)`. D1 can't hold a transaction open across awaits, so a callback that reads and then decides what to write can't be made atomic; a batch of statements and record statements, prepared in its callback without awaiting, can.
