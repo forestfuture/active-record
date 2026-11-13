@@ -38,7 +38,8 @@ function printedValue(model: ModelClass, name: string, value: unknown, changes: 
 
 /** `Name { attribute: value, … }`, its values printed by the runtime's own `inspect`. */
 export function inspectRecord(model: ModelClass, record: RecordState, args: InspectArgs): string {
-  // A new record's attributes are all unsaved, so only a persisted record flags its changes.
+  // Everything on a new record is unsaved, so only a persisted record flags its changes; a
+  // new record's changes from its defaults (#41) aren't marked either.
   const changes = record.isPersisted ? record.changesSinceLoad() : {};
   const body = () =>
     Object.fromEntries(
