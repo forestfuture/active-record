@@ -63,9 +63,14 @@ ${attributes}
 } as const;`;
 }
 
-/** A Model the schema lists: its class, its table, and its module as the schema imports it. */
+/**
+ * A Model the schema lists: its class, the `modelName` it's listed by, its table, and its
+ * module as the schema imports it.
+ */
 export interface ListedModel {
   className: string;
+  /** Its `modelName`, when it isn't its class name. */
+  modelName?: string;
   table: string;
   module: string;
 }
@@ -87,11 +92,22 @@ export interface SchemaSource {
 /** A short hash of the schema itself, so `--check` ignores how the file is formatted. */
 export function fingerprintOf({ adapter, tables, binding, models }: SchemaSource): string {
   // In the order the file lists them, whichever order they were found in.
-  const listed = byName(models, (model) => model.className);
+  // A modelName that's the class name is left out, so a schema from before it keeps its hash.
+  const listed = byName(models, (model) => model.className).map(
+    ({ className, modelName = className, table, module }) =>
+      modelName === className
+        ? { className, table, module }
+        : { className, modelName, table, module },
+  );
   const hash = createHash("sha256").update(
     JSON.stringify({ format, adapter, tables, binding, models: listed }),
   );
   return hash.digest("hex").slice(0, 12);
+}
+
+/** The name the schema lists a Model by: its `modelName`, or else its class name. */
+function listedName(model: ListedModel): string {
+  return model.modelName ?? model.className;
 }
 
 /** Items sorted by a name, as `localeCompare` doesn't: the same on every machine. */
@@ -106,7 +122,7 @@ function modelsSource(entries: readonly string[]): string {
   return `{\n${entries.map((entry) => `    ${entry},`).join("\n")}\n  }`;
 }
 
-/** The `schema` value: its adapter and binding, every table by name, and every Model's table by class. */
+/** The `schema` value: its adapter and binding, every table by name, and every Model's table by modelName. */
 function schemaValueSource({ adapter, tables, binding, models }: SchemaSource): string {
   const entries = tables
     .map((table) => {
@@ -114,8 +130,8 @@ function schemaValueSource({ adapter, tables, binding, models }: SchemaSource): 
       return `    ${keySource(table.name)}: { attributes: ${table.exportName}, primaryKey: ${primaryKey} },`;
     })
     .join("\n");
-  const listed = byName(models, (model) => model.className).map(
-    (model) => `${keySource(model.className)}: ${JSON.stringify(model.table)}`,
+  const listed = byName(models, listedName).map(
+    (model) => `${keySource(listedName(model))}: ${JSON.stringify(model.table)}`,
   );
   return `/** The database's adapter and binding, its tables (with their primary keys), and the Models built on them. */
 export const schema = {

@@ -56,8 +56,9 @@ export function schemaAdapterOf(adapter: Pick<CliAdapter, "name">): SchemaSource
 /** What a database's schema is rendered from: its adapter, tables and binding, and the Models found. */
 export function schemaSourceOf(db: DatabaseSnapshot, tables: SchemaSource["tables"]): SchemaSource {
   const { target } = db;
-  const models = db.models.map(({ className, table, file }) => ({
+  const models = db.models.map(({ className, modelName, table, file }) => ({
     className,
+    modelName,
     table,
     module: importPath(dirname(target.out), file),
   }));

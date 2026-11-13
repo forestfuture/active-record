@@ -505,6 +505,23 @@ export class FeaturedPost extends Post {}
     expect(schema).not.toContain("FeaturedPost");
   });
 
+  test("lists a Model by its modelName, and adds its attributes to its class", async () => {
+    const cwd = await withModels({
+      "writer.ts": `${base}export class Writer extends ApplicationRecord {
+  static override modelName = "User";
+}
+`,
+    });
+
+    await run(cwd);
+
+    const schema = generatedSchema(cwd);
+    expect(schema).toContain('  models: { User: "users" },');
+    expect(schema).toContain(
+      'declare module "../models/writer" {\n  interface Writer extends TableAttributes<typeof users',
+    );
+  });
+
   test("doesn't list classes Models are built on, or Models declaring their own attributes", async () => {
     const cwd = await withModels({
       "shared.ts": `${base}export abstract class Shared extends ApplicationRecord {

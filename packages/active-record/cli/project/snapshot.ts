@@ -10,6 +10,8 @@ import { toolsWithFiles, type Tool } from "./tools.ts";
 /** A Model built on a database's base class, as its files define it. */
 export interface FoundModel {
   className: string;
+  /** Its `modelName`, when it sets one: what the schema lists it by, in place of its class name. */
+  modelName?: string;
   /** Its table: from its class name, or its `static table`. */
   table: string;
   /** The file that declares it. */
