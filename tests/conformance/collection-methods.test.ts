@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { hasMany, Model, RecordNotUnique } from "../../packages/active-record/src/index.ts";
+import {
+  abort,
+  hasMany,
+  Model,
+  RecordNotDestroyed,
+  RecordNotUnique,
+} from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -12,6 +18,9 @@ class Comment extends Model.define({
 
   static {
     this.validates("body", { presence: true });
+    this.beforeDestroy((comment) => {
+      if (comment.body === "keep") throw abort("this comment is kept");
+    });
     this.afterDestroy((comment) => void destroyed.push(comment.body));
   }
 }
@@ -210,6 +219,50 @@ describe("a hasMany's collection methods", () => {
       );
       await expect(post.comments().delete(post as never)).rejects.toThrow(TypeError);
       expect(queries).toHaveLength(0);
+    });
+  });
+
+  describe("destroy", () => {
+    test("destroys the records, whatever dependent: is, and resolves to them", async () => {
+      const post = await db().model(Post).find(1);
+      const comments = await db().model(Comment).find(10, 11);
+
+      expect(await post.comments().destroy(...comments)).toEqual(comments);
+
+      expect(comments.every((comment) => comment.isDestroyed())).toBe(true);
+      expect(destroyed).toEqual(["a", "b"]);
+      expect(await db().model(Comment).pluck("id")).toEqual([20]);
+    });
+
+    test("destroys nothing if one record's destroy aborts", async () => {
+      await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (12, 1, 'keep')");
+      const post = await db().model(Post).find(1);
+      const comments = await db().model(Comment).find(10, 12);
+
+      await expect(post.comments().destroy(...comments)).rejects.toThrow(RecordNotDestroyed);
+
+      expect(destroyed).toEqual([]);
+      expect(await bodies(1)).toEqual(["a", "b", "keep"]);
+    });
+
+    test("on a loaded collection, the records leave it", async () => {
+      const post = await db().model(Post).find(1);
+      const [, second] = await post.comments().toArray();
+      queries.length = 0;
+
+      await post.comments().destroy(second!);
+      const loaded = await post.comments().toArray();
+
+      expect(loaded.map((comment) => comment.body)).toEqual(["a"]);
+      expect(queries).toHaveLength(1);
+    });
+
+    test("throws TypeError for another owner's record", async () => {
+      const post = await db().model(Post).find(1);
+      const others = await db().model(Comment).find(20);
+
+      await expect(post.comments().destroy(others)).rejects.toThrow(TypeError);
+      expect(others.isDestroyed()).toBe(false);
     });
   });
 });

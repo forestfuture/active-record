@@ -22,6 +22,12 @@ export interface CollectionMethods<M extends Model> {
    * otherwise sets their foreign key to NULL. Resolves to the records.
    */
   delete(...records: M[]): Promise<M[]>;
+  /**
+   * Destroys records of the association, callbacks and dependents included, whatever its
+   * `dependent:` is, in one write: if one refuses, it throws `RecordNotDestroyed` and nothing
+   * is destroyed. Resolves to the records.
+   */
+  destroy(...records: M[]): Promise<M[]>;
 }
 
 /** The collection methods of `owner`'s hasMany `association`, which `collection` holds. */
@@ -33,8 +39,17 @@ export function collectionMethods<M extends Model>(
   const held: Held = { owner, association, collection };
   return {
     push: (...records) => push(held, records),
-    delete: (...records) => remove(held, records, association.definition.dependent),
+    delete: (...records) => remove(held, records, removalOf(association), "delete"),
+    destroy: (...records) => remove(held, records, "destroy", "destroy"),
   };
+}
+
+/** How records leave the association. */
+type Removal = "destroy" | "deleteAll" | "nullify";
+
+/** How `delete` removes records: by the association's `dependent:`, nullifying by default. */
+function removalOf({ definition: { dependent } }: ResolvedAssociation): Removal {
+  return dependent === "destroy" || dependent === "deleteAll" ? dependent : "nullify";
 }
 
 /** An owner's hasMany, as its collection methods use it. */
@@ -60,16 +75,21 @@ async function push({ owner, association, collection }: Held, records: Model[]):
 }
 
 /**
- * Removes `records` from the association by `dependent`. Those with no row of their own to change
- * (new records, or any of a new owner's) just leave it, as in Rails.
+ * Removes `records` from the association, as `method` does. Those with no row of their own to
+ * change (new records, or any of a new owner's) just leave it, as in Rails.
  */
-async function remove<M extends Model>(held: Held, records: M[], dependent: unknown): Promise<M[]> {
+async function remove<M extends Model>(
+  held: Held,
+  records: M[],
+  removal: Removal,
+  method: string,
+): Promise<M[]> {
   const { owner, association, collection } = held;
   requireTargets(association, records);
   requireMembers(held, records);
   const stored = owner[state].isNew ? [] : records.filter((record) => !record[state].isNew);
-  if (dependent === "destroy") await destroyTogether(stored, "delete() needs its records");
-  else if (stored.length > 0) await removeRows(held, stored, dependent === "deleteAll");
+  if (removal === "destroy") await destroyTogether(stored, `${method}() needs its records`);
+  else if (stored.length > 0) await removeRows(held, stored, removal === "deleteAll");
   collection.removed(records);
   return records;
 }
