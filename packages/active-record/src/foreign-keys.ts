@@ -8,7 +8,7 @@ import { camelize, underscore } from "./naming.ts";
 
 /** Where an inferred foreign key came from, for the error when it isn't declared. */
 export interface Inference {
-  source: "associationName" | "className";
+  source: "associationName" | "modelName";
   name: string;
 }
 
@@ -18,26 +18,26 @@ export interface Inference {
  */
 export function withForeignKeys(
   declarations: Record<string, AssociationDeclaration>,
-  className: string,
+  modelName: string,
 ): Record<string, AssociationDefinition> {
   return Object.fromEntries(
     Object.entries(declarations).map(([name, declaration]) => [
       name,
       declaration.foreignKey === undefined
-        ? { ...declaration, ...inferForeignKey(declaration.kind, name, className) }
+        ? { ...declaration, ...inferForeignKey(declaration.kind, name, modelName) }
         : { ...declaration, foreignKey: declaration.foreignKey },
     ]),
   );
 }
 
 /**
- * A belongsTo's name + `Id` (`author` → `authorId`); for a hasMany or hasOne, the declaring
- * class's name + `Id`, through `underscore` (`User` → `userId`, `APIKey` → `apiKeyId`).
+ * A belongsTo's name + `Id` (`author` → `authorId`); for a hasMany or hasOne, the owner's
+ * `modelName` + `Id`, through `underscore` (`User` → `userId`, `APIKey` → `apiKeyId`).
  */
 function inferForeignKey(
   kind: AssociationKind,
   associationName: string,
-  className: string,
+  modelName: string,
 ): { foreignKey: string; inferredFrom: Inference } {
   return kind === "belongsTo"
     ? {
@@ -45,8 +45,8 @@ function inferForeignKey(
         inferredFrom: { source: "associationName", name: associationName },
       }
     : {
-        foreignKey: `${camelize(underscore(className))}Id`,
-        inferredFrom: { source: "className", name: className },
+        foreignKey: `${camelize(underscore(modelName))}Id`,
+        inferredFrom: { source: "modelName", name: modelName },
       };
 }
 

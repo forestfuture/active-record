@@ -84,7 +84,7 @@ export interface DatabaseSchema {
   readonly adapter: SchemaAdapter;
   readonly tables: TableSchemas;
   /**
-   * The Models the schema was generated for: each one's class name, and its table. Absent only
+   * The Models the schema was generated for: each one's `modelName`, and its table. Absent only
    * while `active-record schema` loads the Models, before it has found them; then nothing is checked.
    */
   readonly models?: Readonly<Record<string, string>>;

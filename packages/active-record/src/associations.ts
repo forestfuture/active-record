@@ -23,7 +23,7 @@ export interface AssociationOptions<C extends ModelClass = ModelClass> {
   /**
    * The attribute holding the link: on the owner for belongsTo, on the target otherwise.
    * Inferred when left out, as Rails does: a belongsTo's name + `Id` (`author` → `authorId`),
-   * or for a hasMany/hasOne the owner's class name + `Id` (`User` → `userId`).
+   * or for a hasMany/hasOne the owner's `modelName` + `Id` (`User` → `userId`).
    */
   foreignKey?: string;
   /** The attribute the foreign key points at; defaults to the pointed-at Model's primary key. */
@@ -167,7 +167,7 @@ function checkKeys(
   target: ModelClass,
   definition: AssociationDefinition,
 ): void {
-  if (definition.inferredFrom?.source === "className" && definition.inferredFrom.name === "") {
+  if (definition.inferredFrom?.source === "modelName" && definition.inferredFrom.name === "") {
     throw new InvalidModel(
       `${label} has no class name to infer its foreign key from; pass foreignKey, or set static modelName`,
     );

@@ -13,7 +13,7 @@ import type {
 import { NoDatabase, UnknownAssociation } from "./errors.ts";
 import { withForeignKeys } from "./foreign-keys.ts";
 import type { Model, ModelClass } from "./model.ts";
-import { inferenceName } from "./table-names.ts";
+import { tableOwnerModelName } from "./table-names.ts";
 
 /**
  * How many `newRecord` calls are constructing a record now. Module-level, but not request state
@@ -131,7 +131,7 @@ export function associationsOf(model: ModelClass): ReadonlyMap<string, Associati
       const field = declarationIn(probe[name]);
       if (field !== undefined) declared[name] = field;
     }
-    found = new Map(Object.entries(withForeignKeys(declared, inferenceName(model))));
+    found = new Map(Object.entries(withForeignKeys(declared, tableOwnerModelName(model))));
     definitions.set(model, found);
   }
   return found;

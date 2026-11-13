@@ -52,7 +52,7 @@ export function defineModelName(root: object): void {
  * The `modelName` of the class that extends `base` directly, the one a table is named after, as
  * in Rails; empty when it has none (anonymous, `export default`, or `Model.define({...})` itself).
  */
-function className(base: object, model: object): string {
+function modelNameBelow(base: object, model: object): string {
   let current = model;
   while (current !== base && Object.getPrototypeOf(current) !== base) {
     current = Object.getPrototypeOf(current);
@@ -93,7 +93,7 @@ export function inferTableNames(base: object): void {
   Object.defineProperty(base, "table", {
     configurable: true,
     get(this: object) {
-      const name = className(base, this);
+      const name = modelNameBelow(base, this);
       return name === "" ? "" : tableize(name);
     },
     set: ownValueSetter("table"),
@@ -104,7 +104,7 @@ export function inferTableNames(base: object): void {
 function tableNameSource(model: object): string | undefined {
   const owner = ancestors(model).find((each) => Object.hasOwn(each, "table"));
   return owner !== undefined && bases.has(owner) && !boundTables.has(owner)
-    ? className(owner, model)
+    ? modelNameBelow(owner, model)
     : undefined;
 }
 
@@ -208,8 +208,8 @@ export function explainMissingTable(
  * The name a Model's foreign keys are inferred from: the `modelName` of the class whose table
  * it is (`Post`, for `class FeaturedPost extends Post {}`).
  */
-export function inferenceName(model: object): string {
+export function tableOwnerModelName(model: object): string {
   const base = ancestors(model).find((each) => bases.has(each));
-  if (base !== undefined) return className(base, model);
+  if (base !== undefined) return modelNameBelow(base, model);
   return modelNameOf(boundTableOf(model)?.owner ?? model);
 }
