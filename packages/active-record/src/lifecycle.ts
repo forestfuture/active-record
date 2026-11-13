@@ -435,15 +435,15 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
   const dependents = recordState.isNew ? noDependents : await prepareDependents(record, claimed);
   if (dependents.status !== "ready") return dependents;
   // A record that was never saved has no row, so no DELETE and no commit callbacks, as in Rails.
-  const hadRow = !recordState.isNew;
-  const deletion = hadRow ? [compileDelete(modelOf(record), recordState.storedKey)] : [];
+  const hasRow = !recordState.isNew;
+  const deletion = hasRow ? [compileDelete(modelOf(record), recordState.storedKey)] : [];
   const own = stageOf(record, [record], () => [
     {
       statements: deletion,
       commit: () => recordState.markDestroyed(),
       after: () => runAfterCallbacks(record, "afterDestroy", "destroy"),
       afterRollback: () => runCallbacks(record, "afterRollback"),
-      ...(hadRow && { afterCommit: () => runCommitCallbacks(record, "destroy") }),
+      ...(hasRow && { afterCommit: () => runCommitCallbacks(record, "destroy") }),
     },
   ]);
   // Dependents first: their records go before the owner's row, which they may point at. Those
