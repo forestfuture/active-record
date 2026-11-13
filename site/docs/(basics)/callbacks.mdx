@@ -51,12 +51,12 @@ A save runs either the create pair or the update pair, never both.
 - **An after-callback that changes an attribute** leaves the record dirty. Nothing is written again.
 
 :::warning[Nothing is rolled back]
-The database has kept a save’s writes before any after-callback runs. An error thrown by an after-callback or a commit callback reaches the caller, but the record stays saved. The callbacks after it don’t run, in a batch the other records’ included.
+The database has kept a save’s writes before any after-callback runs. An error thrown by an after-callback or a commit callback reaches the caller, but the record stays saved. The callbacks after it don’t run. In a batch, that includes the other records’ callbacks.
 :::
 
 ## Running code after the commit
 
-Every after-callback already runs once the write is kept. Commit callbacks run last of all: after every after-callback of the save, or of every record in a [batch](./batches#batching-records). Register one to run code once everything is written:
+Commit callbacks run last, after every after-callback of the save. In a [batch](./batches#batching-records), they wait for every record’s after-callbacks. Register one to run code once everything is written:
 
 ```ts
 this.afterCreateCommit(async (user) => {
