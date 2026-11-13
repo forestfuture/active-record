@@ -7,6 +7,7 @@ import type { OwnedCollection } from "./owned-collection.ts";
 import { isOwnersKey } from "./point-back-at-owner.ts";
 import { linksOf, state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
+import { RecordNotSaved } from "./errors.ts";
 import { combine, inGroup, runStages, type Stage } from "./unit-of-work.ts";
 
 /** What `user.posts()` has besides its Relation's methods, as Rails' collection proxy does. */
@@ -73,6 +74,10 @@ async function push({ owner, association, collection }: Held, records: Model[]):
   if (owner[state].isNew) {
     for (const record of records) collection.built(record);
     return true;
+  }
+  const reason = collection.refusal;
+  if (reason !== undefined) {
+    throw new RecordNotSaved(`You cannot push a ${association.target.name} here: ${reason}`);
   }
   const key = association.keyOf(owner);
   const { name, definition } = association;
