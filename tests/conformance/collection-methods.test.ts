@@ -55,6 +55,9 @@ class DestroyingPost extends Model.define(postAttributes) {
   comments = hasMany(Comment, { foreignKey: "postId", dependent: "destroy" });
 }
 
+/** Owners of the same comments: without dependent:, and with each strategy that deletes. */
+const owners = [Post, DeletingPost, DestroyingPost] as unknown as (typeof Post)[];
+
 describe("a hasMany's collection methods", () => {
   let harness: Harness;
   const queries: QueryEvent[] = [];
@@ -239,12 +242,24 @@ describe("a hasMany's collection methods", () => {
       expect(await bodies(1)).toEqual(["b"]);
     });
 
-    test("on a loaded collection, the records leave it", async () => {
-      const post = await db().model(Post).find(1);
+    test.each(owners)("on a loaded collection, the records leave it ($name)", async (Owner) => {
+      const post = await db().model(Owner).find(1);
       const [first] = await post.comments().toArray();
       queries.length = 0;
 
       await post.comments().delete(first!);
+      const loaded = await post.comments().toArray();
+
+      expect(loaded.map((comment) => comment.body)).toEqual(["b"]);
+      expect(queries).toHaveLength(1);
+    });
+
+    test.each(owners)("on an unloaded collection, the next read queries ($name)", async (Owner) => {
+      const post = await db().model(Owner).find(1);
+      const first = await db().model(Comment).find(10);
+      await post.comments().delete(first);
+      queries.length = 0;
+
       const loaded = await post.comments().toArray();
 
       expect(loaded.map((comment) => comment.body)).toEqual(["b"]);
@@ -263,7 +278,7 @@ describe("a hasMany's collection methods", () => {
       expect(await bodies(1)).toEqual(["a", "b"]);
     });
 
-    test("throws TypeError for another owner's record, or another Model's, sending nothing", async () => {
+    test("throws TypeError for another owner's record, sending nothing", async () => {
       const post = await db().model(Post).find(1);
       const others = await db().model(Comment).find(20);
       queries.length = 0;
@@ -271,22 +286,32 @@ describe("a hasMany's collection methods", () => {
       await expect(post.comments().delete(others)).rejects.toThrow(
         new TypeError("Post.comments doesn't hold this Comment: it belongs to another Post"),
       );
-      await expect(post.comments().delete(post as never)).rejects.toThrow(TypeError);
       expect(queries).toHaveLength(0);
+    });
+
+    test("throws TypeError for a record of another Model", async () => {
+      const post = await db().model(Post).find(1);
+
+      await expect(post.comments().delete(post as never)).rejects.toThrow(
+        new TypeError("Post.comments takes Comment records, not a Post"),
+      );
     });
   });
 
   describe("destroy", () => {
-    test("destroys the records, whatever dependent: is, and resolves to them", async () => {
-      const post = await db().model(Post).find(1);
-      const comments = await db().model(Comment).find(10, 11);
+    test.each(owners)(
+      "destroys the records, callbacks included, and resolves to them ($name)",
+      async (Owner) => {
+        const post = await db().model(Owner).find(1);
+        const comments = await db().model(Comment).find(10, 11);
 
-      expect(await post.comments().destroy(...comments)).toEqual(comments);
+        expect(await post.comments().destroy(...comments)).toEqual(comments);
 
-      expect(comments.every((comment) => comment.isDestroyed())).toBe(true);
-      expect(destroyed).toEqual(["a", "b"]);
-      expect(await db().model(Comment).pluck("id")).toEqual([20]);
-    });
+        expect(comments.every((comment) => comment.isDestroyed())).toBe(true);
+        expect(destroyed).toEqual(["a", "b"]);
+        expect(await db().model(Comment).pluck("id")).toEqual([20]);
+      },
+    );
 
     test("destroys nothing if one record's destroy aborts", async () => {
       await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (12, 1, 'keep')");
@@ -300,7 +325,7 @@ describe("a hasMany's collection methods", () => {
     });
 
     test("on a loaded collection, the records leave it", async () => {
-      const post = await db().model(Post).find(1);
+      const post = await db().model(DeletingPost).find(1);
       const [, second] = await post.comments().toArray();
       queries.length = 0;
 
@@ -331,26 +356,39 @@ describe("a hasMany's collection methods", () => {
       expect(await bodies(2)).toEqual(["c"]);
     });
 
-    test("with dependent: destroy, deletes the rows without callbacks, as deleteAll() does", async () => {
-      const post = await db().model(DestroyingPost).find(1);
+    test.each([DeletingPost, DestroyingPost])(
+      "with dependent: deleteAll or destroy, deletes the rows without callbacks ($name)",
+      async (Owner) => {
+        const post = await db().model(Owner).find(1);
 
-      await post.comments().clear();
+        await post.comments().clear();
 
-      expect(await db().model(Comment).pluck("id")).toEqual([20]);
-      expect(destroyed).toEqual([]);
-    });
+        expect(await db().model(Comment).pluck("id")).toEqual([20]);
+        expect(destroyed).toEqual([]);
+      },
+    );
 
-    test("leaves the collection loaded and empty, without the records built through it", async () => {
+    test.each([true, false])(
+      "leaves the collection loaded and empty (loaded before: %s)",
+      async (loadFirst) => {
+        const post = await db().model(Post).find(1);
+        if (loadFirst) await post.comments().toArray();
+        queries.length = 0;
+
+        await post.comments().clear();
+
+        expect(await post.comments().toArray()).toEqual([]);
+        expect(queries).toHaveLength(1);
+      },
+    );
+
+    test("forgets the records built through it, so saving the owner doesn't save them", async () => {
       const post = await db().model(Post).find(1);
-      await post.comments().toArray();
       post.comments().build({ body: "new" });
-      queries.length = 0;
 
       await post.comments().clear();
-
-      expect(await post.comments().toArray()).toEqual([]);
-      expect(queries).toHaveLength(1);
       await post.saveOrThrow();
+
       expect(await bodies(1)).toEqual([]);
     });
 
