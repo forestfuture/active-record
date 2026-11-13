@@ -17,7 +17,6 @@ import {
 } from "./autosave.ts";
 import { noDependents, prepareDependents } from "./dependents.ts";
 import {
-  AbortAfterPersistence,
   CallbackAbort,
   RecordInvalid,
   RecordNotDestroyed,
@@ -25,13 +24,9 @@ import {
   RecordNotSaved,
 } from "./errors.ts";
 import { clearErrors } from "./errors-collection.ts";
+import { runAfterCallbacks, runCallbacks, runCommitCallbacks } from "./after-write.ts";
 import { pinBefore } from "./executor.ts";
-import {
-  declared,
-  type AfterCallbackKind,
-  type BeforeCallbackKind,
-  type CallbackKind,
-} from "./declarations.ts";
+import { declared, type BeforeCallbackKind } from "./declarations.ts";
 import { modelOf, type Model } from "./model.ts";
 import { validateRequiredAssociations } from "./required-associations.ts";
 import { Negated, type Condition } from "./query.ts";
@@ -90,13 +85,6 @@ async function isTaken(
   const { executor } = recordState;
   const query = compileSelect(executor.dialect, { model, conditions, order: [], limit: 1 }, "1");
   return (await executor.all(query)).length > 0;
-}
-
-/** Runs the Model's callbacks of `kind` in declaration order, awaiting each. */
-async function runCallbacks(record: Model, kind: CallbackKind): Promise<void> {
-  for (const callback of declared(modelOf(record), kind)) {
-    await callback(record);
-  }
 }
 
 /** Runs callbacks of `kind`; an `abort()` from one sets `abortReason` and returns `false`. */
@@ -374,23 +362,6 @@ function builtElsewhere(
   return [afterLinking(first, () => linkRecords(owner, crossing)), ...rest];
 }
 
-/**
- * Runs after-write callbacks. The write already succeeded, so an `abort()` here can't refuse
- * anything: it becomes `AbortAfterPersistence`. Any other error propagates unchanged.
- */
-async function runAfterCallbacks(
-  record: Model,
-  kind: AfterCallbackKind,
-  lifecycle: "save" | "destroy",
-): Promise<void> {
-  try {
-    await runCallbacks(record, kind);
-  } catch (error) {
-    if (error instanceof CallbackAbort) throw new AbortAfterPersistence(kind, lifecycle, error);
-    throw error;
-  }
-}
-
 /** beforeSave, then beforeCreate or beforeUpdate; `false` if one aborted. */
 async function beforeWrite(record: Model, isInsert: boolean): Promise<boolean> {
   return (
@@ -411,6 +382,7 @@ function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
     await runAfterCallbacks(record, isInsert ? "afterCreate" : "afterUpdate", "save");
     await runAfterCallbacks(record, "afterSave", "save");
   };
+  const afterCommit = () => runCommitCallbacks(record, isInsert ? "create" : "update");
   if (isInsert) {
     const own = recordState.insertAssignments();
     const insert = compileInsert(model, [...own, ...timestampsFor(model, "insert", own)]);
@@ -418,15 +390,19 @@ function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
       statements: [insert],
       commit: ([result]) => recordState.commitInsert(result?.rows[0]),
       after,
+      afterCommit,
     };
   }
   const own = recordState.updateAssignments();
-  if (own.length === 0) return { statements: [], commit: () => recordState.commitClean(), after };
+  if (own.length === 0) {
+    return { statements: [], commit: () => recordState.commitClean(), after, afterCommit };
+  }
   const stamps = timestampsFor(model, "update", own);
   return {
     statements: [compileUpdate(model, [...own, ...stamps], recordState.storedKey)],
     commit: () => recordState.commitUpdate(stamps),
     after,
+    afterCommit,
   };
 }
 
@@ -454,12 +430,15 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
   if (!(await runAbortableCallbacks(record, "beforeDestroy"))) return aborted(record);
   const dependents = recordState.isNew ? noDependents : await prepareDependents(record, claimed);
   if (dependents.status !== "ready") return dependents;
-  const deletion = recordState.isNew ? [] : [compileDelete(modelOf(record), recordState.storedKey)];
+  // A record that was never saved has no row, so no DELETE and no commit callbacks, as in Rails.
+  const hadRow = !recordState.isNew;
+  const deletion = hadRow ? [compileDelete(modelOf(record), recordState.storedKey)] : [];
   const own = stageOf(record, [record], () => [
     {
       statements: deletion,
       commit: () => recordState.markDestroyed(),
       after: () => runAfterCallbacks(record, "afterDestroy", "destroy"),
+      ...(hadRow && { afterCommit: () => runCommitCallbacks(record, "destroy") }),
     },
   ]);
   // Dependents first: their records go before the owner's row, which they may point at. Those

@@ -14,6 +14,8 @@ export interface PreparedWrite {
   /** Called with the results of its own statements, in order, once the batch succeeded. */
   commit(results: readonly StatementResult[]): void;
   after(): Promise<void>;
+  /** Its commit callbacks, run once every write's after-callbacks have. */
+  afterCommit?(): Promise<void>;
 }
 
 /** A prepared write for plain statements: nothing to commit, no callbacks. */
@@ -39,9 +41,10 @@ export async function writeAll(
   return results;
 }
 
-/** Runs the after-callbacks of written writes, in order. */
+/** Runs the after-callbacks of written writes, in order, then their commit callbacks. */
 export async function runAfter(writes: readonly PreparedWrite[]): Promise<void> {
   for (const write of writes) await write.after();
+  for (const write of writes) await write.afterCommit?.();
 }
 
 /**
@@ -103,10 +106,10 @@ export function afterLinking(stage: Stage, first: () => void): Stage {
 
 /**
  * Writes `stages` one after another, each as one atomic batch on its database, then runs the
- * written writes' after-callbacks in order. Each group's database is found, and its records pinned
+ * written writes' after-callbacks in order, then their commit callbacks. Each group's database is found, and its records pinned
  * to it, before anything is written: a group on two databases throws `IncompatibleRelation`
  * ("`needs` on one database", #93). If a later stage fails, the earlier ones stay written, so
- * their after-callbacks still run before the error is thrown.
+ * their after-callbacks and commit callbacks still run before the error is thrown.
  */
 export async function runStages(stages: readonly Stage[], needs: string): Promise<void> {
   const databases = await pinGroups(stages, needs);
