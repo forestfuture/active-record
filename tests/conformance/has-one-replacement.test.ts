@@ -309,6 +309,16 @@ describe("replacing a hasOne's record", () => {
       expect((await bios()).map((row) => row.bio)).toEqual(["Old"]);
     });
 
+    test("an old record whose nullify the database refuses keeps its key", async () => {
+      const user = await db().model(KeepingUser).find(1);
+      const old = await user.profile();
+
+      await expect(user.profile.createOrThrow({ bio: "New" })).rejects.toThrow(RecordNotSaved);
+
+      expect(old?.userId).toBe(1);
+      expect(old?.isChanged()).toBe(false);
+    });
+
     test("an old record its validations refuse throws RecordNotSaved, keeping its key", async () => {
       const user = await db().model(KeepingUser).find(1);
       const old = await user.ownProfile();

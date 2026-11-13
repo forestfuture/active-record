@@ -174,23 +174,33 @@ async function nullify(
   const key = old[state].read(definition.foreignKey);
   old[state].writeKey(definition.foreignKey, null, name);
   const plan = await prepareSave(old, claimed);
-  if (plan.status === "ready") return explainingNotNull(plan, old, association);
+  if (plan.status === "ready") return undoneOnFailure(plan, old, association, key);
   old[state].writeKey(definition.foreignKey, key, name);
   throw new RecordNotSaved(failedToRemove(name));
 }
 
-/** A nullify's plan whose writes explain the database refusing its null foreign key. */
-function explainingNotNull(plan: Ready, old: Model, association: ResolvedAssociation): Ready {
+/**
+ * A nullify's plan whose batch, if it fails, gives the old record its key back, and turns the
+ * database refusing its null foreign key into `RecordNotSaved`.
+ */
+function undoneOnFailure(
+  plan: Ready,
+  old: Model,
+  association: ResolvedAssociation,
+  key: unknown,
+): Ready {
   const { name, definition } = association;
-  const explain = (error: unknown) =>
-    error instanceof NotNullViolation &&
-    error.table === modelOf(old).table &&
-    error.attributes.includes(definition.foreignKey)
-      ? new RecordNotSaved(failedToRemove(name), { cause: error })
-      : undefined;
+  const failed = (error: unknown) => {
+    old[state].writeKey(definition.foreignKey, key, name);
+    const refused =
+      error instanceof NotNullViolation &&
+      error.table === modelOf(old).table &&
+      error.attributes.includes(definition.foreignKey);
+    return refused ? new RecordNotSaved(failedToRemove(name), { cause: error }) : undefined;
+  };
   const stages = plan.stages.map((stage) => ({
     ...stage,
-    writes: () => stage.writes().map((write) => ({ ...write, explain })),
+    writes: () => stage.writes().map((write) => ({ ...write, failed })),
   }));
   return { ...plan, stages };
 }
