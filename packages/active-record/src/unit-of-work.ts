@@ -52,9 +52,27 @@ async function sendOrRollBack(
 ): Promise<StatementResult[]> {
   try {
     return await executor.write(statements);
-  } catch (error) {
-    for (const write of writes) await write.afterRollback?.();
-    throw error;
+  } catch (refusal) {
+    await whileHandling(refusal, async () => {
+      for (const write of writes) await write.afterRollback?.();
+    });
+    throw refusal;
+  }
+}
+
+/**
+ * Runs `callbacks` while `error` is being handled. An error one throws replaces it, and when
+ * that's an `Error` without a cause of its own, `error` becomes its cause, as Ruby sets an
+ * exception's cause when it's raised while another is handled.
+ */
+async function whileHandling(error: unknown, callbacks: () => Promise<void>): Promise<void> {
+  try {
+    await callbacks();
+  } catch (thrown) {
+    if (thrown instanceof Error && !Object.hasOwn(thrown, "cause")) {
+      Object.defineProperty(thrown, "cause", { value: error, writable: true, configurable: true });
+    }
+    throw thrown;
   }
 }
 
@@ -142,8 +160,9 @@ export async function runStages(stages: readonly Stage[], needs: string): Promis
   } catch (error) {
     failure = { error };
   }
-  await runAfter(written);
-  if (failure !== undefined) throw failure.error;
+  if (failure === undefined) return runAfter(written);
+  await whileHandling(failure.error, () => runAfter(written));
+  throw failure.error;
 }
 
 /** Each group's one database, its stages' records pinned to it. */

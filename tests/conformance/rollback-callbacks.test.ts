@@ -9,6 +9,7 @@ import {
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const log: string[] = [];
+const hooks: { afterRollback?: () => void; afterCommit?: () => void } = {};
 
 class User extends Model.define({
   id: { type: "integer", null: false },
@@ -25,9 +26,13 @@ class User extends Model.define({
       if (user.role === "blocked") throw abort("blocked users can't be saved");
     });
     this.afterSave((user) => void log.push(`afterSave ${user.email}`));
-    this.afterCommit((user) => void log.push(`afterCommit ${user.email}`));
+    this.afterCommit((user) => {
+      log.push(`afterCommit ${user.email}`);
+      hooks.afterCommit?.();
+    });
     this.afterRollback((user) => {
       log.push(`afterRollback ${user.email} (new: ${user.isNewRecord()})`);
+      hooks.afterRollback?.();
     });
   }
 }
@@ -57,6 +62,8 @@ describe("rollback callbacks", () => {
     await harness.reset("posts", "users");
     await harness.exec("INSERT INTO users (id, email) VALUES (1, 'taken@example.com')");
     log.length = 0;
+    delete hooks.afterRollback;
+    delete hooks.afterCommit;
   });
 
   test("a save the database refuses runs afterRollback, and no after- or commit callback", async () => {
@@ -134,5 +141,50 @@ describe("rollback callbacks", () => {
       "b@example.com",
       "taken@example.com",
     ]);
+  });
+
+  test("an error in afterRollback reaches the caller, with the database's error as its cause, and skips the callbacks after it", async () => {
+    const failure = new Error("logger is down");
+    hooks.afterRollback = () => {
+      throw failure;
+    };
+    const database = db();
+    const first = database.model(User).build({ email: "b@example.com" });
+    const second = database.model(User).build({ email: "c@example.com" });
+
+    const error: unknown = await database
+      .batch((b) => [b.save(first), b.save(second), b.insert(User, { id: 1, email: "x" })])
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBe(failure);
+    expect(failure.cause).toBeInstanceOf(RecordNotUnique);
+    expect(log).toEqual(["afterRollback b@example.com (new: true)"]);
+  });
+
+  test("a callback error that has a cause of its own keeps it", async () => {
+    const own = new Error("socket closed");
+    const failure = new Error("logger is down", { cause: own });
+    hooks.afterRollback = () => {
+      throw failure;
+    };
+
+    await expect(db().model(User).build({ email: "taken@example.com" }).save()).rejects.toBe(
+      failure,
+    );
+
+    expect(failure.cause).toBe(own);
+  });
+
+  test("a save written in two stages, its second refused: an error in the first stage's commit callback reaches the caller, with the database's error as its cause", async () => {
+    const failure = new Error("mailer is down");
+    hooks.afterCommit = () => {
+      throw failure;
+    };
+    const user = db().model(User).build({ email: "b@example.com" });
+    user.posts().build({ title: null });
+
+    await expect(user.save()).rejects.toBe(failure);
+
+    expect(failure.cause).toBeInstanceOf(NotNullViolation);
   });
 });
