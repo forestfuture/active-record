@@ -3,7 +3,7 @@ import { abort, AbortAfterPersistence, Model } from "../../packages/active-recor
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const log: string[] = [];
-const hooks: { afterCommit?: () => void } = {};
+const hooks: { afterCommit?: (user: User) => void; afterSave?: () => void } = {};
 
 class User extends Model.define({
   id: { type: "integer", null: false },
@@ -15,9 +15,12 @@ class User extends Model.define({
   static {
     this.afterCommit((user) => {
       log.push(`afterCommit ${user.email}`);
-      hooks.afterCommit?.();
+      hooks.afterCommit?.(user);
     });
-    this.afterSave((user) => void log.push(`afterSave ${user.email}`));
+    this.afterSave((user) => {
+      log.push(`afterSave ${user.email}`);
+      hooks.afterSave?.();
+    });
     this.afterCreateCommit((user) => void log.push(`afterCreateCommit ${user.email}`));
     this.afterUpdateCommit((user) => void log.push(`afterUpdateCommit ${user.email}`));
     this.afterSaveCommit((user) => void log.push(`afterSaveCommit ${user.email}`));
@@ -39,6 +42,7 @@ describe("commit callbacks", () => {
     await harness.reset("users");
     log.length = 0;
     delete hooks.afterCommit;
+    delete hooks.afterSave;
   });
 
   test("creating runs the create commit callbacks after every after-callback, in declaration order", async () => {
@@ -137,6 +141,37 @@ describe("commit callbacks", () => {
 
     expect(error).toBeInstanceOf(AbortAfterPersistence);
     expect((error as AbortAfterPersistence).callback).toBe("afterCommit");
+    expect(await users().count()).toBe(1);
+  });
+
+  test("in a batch, an error in one record's commit callback skips the callbacks after it; every write is kept", async () => {
+    const failure = new Error("mailer is down");
+    hooks.afterCommit = (user) => {
+      if (user.email === "a@example.com") throw failure;
+    };
+    const database = harness.connect();
+    const first = database.model(User).build({ email: "a@example.com" });
+    const second = database.model(User).build({ email: "b@example.com" });
+
+    await expect(database.batch((b) => [b.save(first), b.save(second)])).rejects.toBe(failure);
+
+    expect(log).toEqual([
+      "afterSave a@example.com",
+      "afterSave b@example.com",
+      "afterCommit a@example.com",
+    ]);
+    expect(await users().count()).toBe(2);
+  });
+
+  test("an error in an after-callback skips the commit callbacks, though the write is kept", async () => {
+    const failure = new Error("cache is down");
+    hooks.afterSave = () => {
+      throw failure;
+    };
+
+    await expect(users().create({ email: "a@example.com" })).rejects.toBe(failure);
+
+    expect(log).toEqual(["INSERT", "afterSave a@example.com"]);
     expect(await users().count()).toBe(1);
   });
 });

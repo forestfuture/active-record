@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { abort, Model, RecordNotUnique } from "../../packages/active-record/src/index.ts";
+import {
+  abort,
+  hasMany,
+  Model,
+  NotNullViolation,
+  RecordNotUnique,
+} from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const log: string[] = [];
@@ -10,6 +16,8 @@ class User extends Model.define({
   role: "string",
 }) {
   static table = "users";
+
+  posts = hasMany(Post, { foreignKey: "userId" });
 
   static {
     this.validates("email", { presence: true });
@@ -24,6 +32,19 @@ class User extends Model.define({
   }
 }
 
+class Post extends Model.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+  title: "string",
+}) {
+  static table = "posts";
+
+  static {
+    this.afterCommit((post) => void log.push(`afterCommit post ${post.title}`));
+    this.afterRollback((post) => void log.push(`afterRollback post ${post.title}`));
+  }
+}
+
 describe("rollback callbacks", () => {
   let harness: Harness;
   const db = () => harness.connect();
@@ -33,7 +54,7 @@ describe("rollback callbacks", () => {
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
-    await harness.reset("users");
+    await harness.reset("posts", "users");
     await harness.exec("INSERT INTO users (id, email) VALUES (1, 'taken@example.com')");
     log.length = 0;
   });
@@ -91,5 +112,24 @@ describe("rollback callbacks", () => {
     ).toBe(false);
 
     expect(log).toEqual([]);
+  });
+
+  test("a save written in two stages, its second refused: the first stays kept, and only the second's records roll back", async () => {
+    const user = db().model(User).build({ email: "b@example.com" });
+    // The user's key comes from the database, so its posts are written in a second batch.
+    user.posts().build({ title: null });
+
+    await expect(user.save()).rejects.toThrow(NotNullViolation);
+
+    // afterRollback runs as the database refuses; the kept stage's callbacks run after it.
+    expect(log).toEqual([
+      "afterRollback post null",
+      "afterSave b@example.com",
+      "afterCommit b@example.com",
+    ]);
+    expect(await db().model(User).order({ email: "asc" }).pluck("email")).toEqual([
+      "b@example.com",
+      "taken@example.com",
+    ]);
   });
 });
