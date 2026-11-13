@@ -62,7 +62,7 @@ describe("model declaration", () => {
       expect(error).toHaveProperty(
         "message",
         expect.stringMatching(
-          /e's table "es" doesn't exist in \S+ \(inferred from the class name e; create it, set static table, or keep class names if your bundler renames them\)/,
+          /e's table "es" doesn't exist in \S+ \(inferred from the modelName e; create it, set static table, or set static modelName if your bundler renames classes\)/,
         ),
       );
     }

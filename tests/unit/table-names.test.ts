@@ -110,6 +110,15 @@ describe("inferred table names", () => {
     expect(e.table).toBe("es");
   });
 
+  test("a set modelName is what its table is inferred from, and a subclass shares it", () => {
+    class E extends Model.define({ id: "integer" }) {
+      static modelName = "BlogPost";
+    }
+    class F extends E {}
+
+    expect([E.table, F.table]).toEqual(["blog_posts", "blog_posts"]);
+  });
+
   test("assigning table sets it for that class, as compiled class fields and static blocks do", () => {
     class User extends Model.define({ id: "integer" }) {}
     class Admin extends User {}
@@ -134,7 +143,7 @@ describe("inferred table names", () => {
     for (const model of [anonymous, defaultExport, direct]) {
       expect(() => db.model(model)).toThrow(InvalidModel);
       expect(() => db.model(model)).toThrow(
-        /has no class name to infer its table from; set static table/,
+        /has no class name to infer its table from; set static table, or static modelName/,
       );
     }
   });

@@ -111,7 +111,7 @@ export function inferTableNames(base: object): void {
   });
 }
 
-/** The class name a Model's table name was inferred from, or undefined when it's declared. */
+/** The modelName a Model's table name was inferred from, or undefined when it's declared. */
 function tableNameSource(model: object): string | undefined {
   const owner = ancestors(model).find((each) => Object.hasOwn(each, "table"));
   return owner !== undefined && bases.has(owner) && !boundTables.has(owner)
@@ -168,7 +168,7 @@ export function rejectAbstract(model: ModelClass): void {
   );
 }
 
-/** A Model must have a table name: its own, or one inferred from its class name. */
+/** A Model must have a table name: its own, or one inferred from its modelName. */
 export function requireTableName(model: ModelClass): void {
   const { table } = model;
   const bound = boundTableOf(model);
@@ -181,8 +181,8 @@ export function requireTableName(model: ModelClass): void {
   if (typeof table === "string" && table !== "") return;
   throw new InvalidModel(
     tableNameSource(model) === ""
-      ? `${model.name || "A Model class"} has no class name to infer its table from; set static table`
-      : `${model.name}'s table must be a table's name; remove it to use the one inferred from the class name`,
+      ? `${model.name || "A Model class"} has no class name to infer its table from; set static table, or static modelName`
+      : `${model.name}'s table must be a table's name; remove it to use the one inferred from its modelName`,
   );
 }
 
@@ -200,9 +200,9 @@ export function explainMissingTable(
   const source = model && tableNameSource(model);
   if (table === undefined || model === undefined) return error;
   return new InvalidModel(
-    `${model.name}'s table "${table}" doesn't exist in ${adapter.name} (inferred from the class name ` +
-      `${source}; create it, set static table, or keep class names if your ` +
-      "bundler renames them)",
+    `${model.name}'s table "${table}" doesn't exist in ${adapter.name} (inferred from the modelName ` +
+      `${source}; create it, set static table, or set static modelName if your ` +
+      "bundler renames classes)",
     { cause: error },
   );
 }
