@@ -9,31 +9,15 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  # Everything but the tests, beside them (#365).
+  static:
     runs-on: ubuntu-latest
-    # The Postgres projects (conformance:pg and pg-record's own tests) run against it, through
-    # DATABASE_URL; without it, they're left out (#269).
-    services:
-      postgres:
-        image: postgres:17@sha256:748a18a54d3842d43bc156f0840d78029b8d349e0feca98c12b9c4ce3404a6b3
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: active_record_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
-    env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/active_record_test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-vp
       - run: vp check
-      # Every test, and branch coverage of the library and command line above its floor
-      # (vite.config.ts), which the Best Practices dynamic analysis criterion relies on.
-      - run: vp run coverage
       # Both packages: the core first, since the D1 adapter's types are built against its.
       - run: vp run build
       # The published types show only the public interface, no library internals.
@@ -58,6 +42,58 @@ jobs:
         working-directory: site
       - run: wrangler deploy --dry-run --config redirect/wrangler.jsonc
         working-directory: site
+
+  # The tests, in 4 shards that run at once (#365). Each saves its results and coverage as a blob
+  # report for check to merge; the coverage floor applies to the merged coverage, not a shard's.
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    # The Postgres projects (conformance:pg and pg-record's own tests) run against it, through
+    # DATABASE_URL; without it, they're left out (#269).
+    services:
+      postgres:
+        image: postgres:17@sha256:748a18a54d3842d43bc156f0840d78029b8d349e0feca98c12b9c4ce3404a6b3
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: active_record_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/active_record_test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-vp
+      - run: vp test --shard=${{ matrix.shard }}/4 --coverage --coverage.thresholds.branches=0 --reporter=blob --outputFile=blob/shard-${{ matrix.shard }}.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: blob-${{ matrix.shard }}
+          path: blob/
+          retention-days: 1
+
+  # The ruleset's required check, and what later jobs wait on: every test passed, and branch
+  # coverage of the library and command line, merged from the shards, is above its floor
+  # (vite.config.ts), which the Best Practices dynamic analysis criterion relies on.
+  check:
+    runs-on: ubuntu-latest
+    needs: [static, test]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-vp
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: blob-*
+          path: blob/
+          merge-multiple: true
+      - run: vp test --merge-reports=blob --coverage
 
   # Packs the package as release-pack does (#80): dependencies installed without their install
   # scripts or the shared cache. A release that couldn't be built that way fails here first.

@@ -107,3 +107,33 @@ describe("CI's release jobs, and every job that can write", () => {
     }
   });
 });
+
+describe("CI's tests (#365)", () => {
+  const ci = () => new Map(partsOf(join(github, "workflows/ci.yml")).jobs);
+
+  test("run in 4 shards, each with Postgres, saving its results without the coverage floor", () => {
+    const job = ci().get("test") ?? "";
+
+    expect(job).toMatch(/shard: \[1, 2, 3, 4\]/);
+    expect(job).toMatch(/services:\n\s+postgres:/);
+    expect(job).toContain(
+      "--shard=${{ matrix.shard }}/4 --coverage --coverage.thresholds.branches=0 --reporter=blob",
+    );
+  });
+
+  test("are merged by check, the required job, which holds the coverage floor", () => {
+    const job = ci().get("check") ?? "";
+
+    expect(job).toMatch(/needs: \[static, test\]/);
+    expect(job).toContain("vp test --merge-reports");
+    expect(job).toContain("--coverage");
+  });
+
+  test("leave the static checks to a job of their own, beside them", () => {
+    const job = ci().get("static") ?? "";
+
+    expect(job).toContain("vp check");
+    expect(job).toContain("vp run docs:build");
+    expect(job).not.toContain("needs:");
+  });
+});
