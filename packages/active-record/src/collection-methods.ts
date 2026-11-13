@@ -36,13 +36,14 @@ export interface CollectionMethods<M extends Model> {
   clear(): Promise<void>;
 }
 
-/** The collection methods of an owner's hasMany, which `held` describes. */
-export function collectionMethods<M extends Model>(held: Held): CollectionMethods<M> {
-  const { association, collection, relation } = held;
+/** The collection methods of `hasMany`, one owner's hasMany association. */
+export function collectionMethods<M extends Model>(hasMany: OwnersHasMany): CollectionMethods<M> {
+  const { association, collection, relation } = hasMany;
   return {
-    push: (...records) => push(held, records),
-    delete: (...records) => remove(held, records, removalOf(association), "delete"),
-    destroy: (...records) => remove(held, records, "destroy", "destroy"),
+    push: (...records) => push(hasMany, records),
+    delete: (...records) =>
+      remove(hasMany, records, removalOf(association), "delete() needs its records"),
+    destroy: (...records) => remove(hasMany, records, "destroy", "destroy() needs its records"),
     async clear() {
       await relation.deleteAll();
       collection.emptied();
@@ -59,7 +60,7 @@ function removalOf({ definition: { dependent } }: ResolvedAssociation): Removal 
 }
 
 /** An owner's hasMany, as its collection methods use it. */
-interface Held {
+interface OwnersHasMany {
   owner: Model;
   association: ResolvedAssociation;
   /** What the owner holds of it. */
@@ -68,8 +69,8 @@ interface Held {
   relation: { deleteAll(): Promise<number> };
 }
 
-async function push(held: Held, records: Model[]): Promise<boolean> {
-  const { owner, association, collection } = held;
+async function push(hasMany: OwnersHasMany, records: Model[]): Promise<boolean> {
+  const { owner, association, collection } = hasMany;
   requireTargets(association, records);
   // A new owner saves them with it, as it saves the records built through it.
   if (owner[state].isNew) {
@@ -86,14 +87,14 @@ async function push(held: Held, records: Model[]): Promise<boolean> {
   for (const record of records) {
     for (const group of savingGroups(record)) await pinBefore(linksOf(group.records), needs);
   }
-  link(held, records);
+  link(hasMany, records);
   if (!(await saveTogether(records, needs))) return false;
   for (const record of records) collection.created(record);
   return true;
 }
 
 /** Writes the owner's key into each record, which then has the owner loaded as its belongsTo. */
-function link({ owner, association, collection }: Held, records: readonly Model[]): void {
+function link({ owner, association, collection }: OwnersHasMany, records: readonly Model[]): void {
   const key = association.keyOf(owner);
   const { name, definition } = association;
   for (const record of records) {
@@ -104,29 +105,36 @@ function link({ owner, association, collection }: Held, records: readonly Model[
 }
 
 /**
- * Removes `records` from the association, as `method` does. Those with no row of their own to
+ * Removes `records` from the association, as `removal` says (`needs` begins the error for records
+ * on two databases). Those with no row of their own to
  * change (new records, or any of a new owner's) just leave it, as in Rails.
  */
 async function remove<M extends Model>(
-  held: Held,
+  hasMany: OwnersHasMany,
   records: M[],
   removal: Removal,
-  method: string,
+  needs: string,
 ): Promise<M[]> {
-  const { owner, association, collection } = held;
+  const { owner, association, collection } = hasMany;
   requireTargets(association, records);
-  requireMembers(held, records);
+  requireMembers(hasMany, records);
   const stored = owner[state].isNew ? [] : records.filter((record) => !record[state].isNew);
-  if (removal === "destroy") await destroyTogether(stored, `${method}() needs its records`);
-  else if (stored.length > 0) await removeRows(held, stored, removal === "deleteAll");
+  if (removal === "destroy") await destroyTogether(stored, needs);
+  else if (stored.length > 0) await removeRows(hasMany, stored, removal === "deleteAll");
   collection.removed(records);
   return records;
 }
 
 /** Deletes the records' rows, or sets their foreign key to NULL, in one statement. */
-async function removeRows({ owner, association }: Held, records: Model[], deletes: boolean) {
+async function removeRows(
+  { owner, association }: OwnersHasMany,
+  records: Model[],
+  deletes: boolean,
+) {
   const { target, definition } = association;
   const keys = records.map((record) => record[state].read(target.primaryKey));
+  // A plain query of the owner's records, not the association's own Relation: a Relation
+  // narrowed from that deletes rather than nullifying, and clears what the owner has loaded.
   const rows = association
     .linkedTo(owner[state].executor, association.keyOf(owner))
     .where({ [target.primaryKey]: keys });
@@ -149,7 +157,7 @@ function requireTargets(association: ResolvedAssociation, records: readonly unkn
  * Throws `TypeError` for a record the association doesn't hold: not built or pushed through it,
  * and with a foreign key that isn't its owner's.
  */
-function requireMembers({ owner, association }: Held, records: readonly Model[]): void {
+function requireMembers({ owner, association }: OwnersHasMany, records: readonly Model[]): void {
   const added = owner[state].autosaves.built(association.name);
   for (const record of records) {
     if (added.includes(record)) continue;
