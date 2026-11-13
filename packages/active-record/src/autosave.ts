@@ -12,7 +12,7 @@ export interface Autosave {
 /**
  * What saving `owner` autosaves after it: the records built through its hasMany and hasOne
  * associations that are still new, leaving out any already claimed by the write being prepared.
- * While the owner is new, that's every record added to them, saved ones pushed onto a hasMany
+ * While the owner is new, a hasMany's are every record added to it, saved ones pushed onto it
  * included, as Rails saves a new owner's whole collection.
  */
 export function autosavesOf(owner: Model, claimed: ReadonlySet<Model>): Autosave[] {
@@ -20,12 +20,14 @@ export function autosavesOf(owner: Model, claimed: ReadonlySet<Model>): Autosave
   const ownerIsNew = owner[state].isNew;
   return owner[state].autosaves
     .allBuilt()
-    .map(([name, built]) => ({
-      association: resolveAssociation(model, name),
-      records: built.filter(
-        (record) => (ownerIsNew || record[state].isNew) && !claimed.has(record),
-      ),
-    }))
+    .map(([name, built]) => {
+      const association = resolveAssociation(model, name);
+      const wholeCollection = ownerIsNew && association.definition.kind === "hasMany";
+      const records = built.filter(
+        (record) => (wholeCollection || record[state].isNew) && !claimed.has(record),
+      );
+      return { association, records };
+    })
     .filter(({ records }) => records.length > 0);
 }
 

@@ -243,6 +243,19 @@ describe("building and setting hasOne and belongsTo", () => {
       expect(events).toHaveLength(0);
     });
 
+    test("saving a new owner leaves a record built through it, then saved on its own, as it is", async () => {
+      const user = db().model(User).build({ email: "new@example.com" });
+      const elsewhere = user.profile.build({ bio: "Elsewhere" });
+      elsewhere.userId = 1;
+      await elsewhere.saveOrThrow();
+      user.profile.build({ bio: "Mine" });
+
+      await user.saveOrThrow();
+
+      expect(elsewhere.userId).toBe(1);
+      expect(await db().model(Profile).where({ userId: 1 }).pluck("bio")).toEqual(["Elsewhere"]);
+    });
+
     test("a create() that fails is kept, so saving the owner tries it again, as in Rails", async () => {
       const user = await db().model(User).find(1);
       const profile = await user.profile.create({ bio: "" });
