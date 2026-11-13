@@ -1,5 +1,5 @@
 // The statics every Model gets from Model: its Relation methods (`Product.where(…)`) and callbacks (`this.beforeSave(…)`), typed and defined from their lists.
-import { declare, type CallbackKind } from "./declarations.ts";
+import { declare, type CallbackKind, type CommitAction, type CommitKind } from "./declarations.ts";
 import type {
   AbstractModelClass,
   AttributesOf,
@@ -134,6 +134,35 @@ interface CallbackStatics {
   afterDestroy: CallbackStatic;
 }
 
+/** The commit callbacks as statics: each runs after every after-callback of its write. */
+interface CommitStatics {
+  /** Runs once a create, update or destroy is kept, after every after-callback. */
+  afterCommit: CallbackStatic;
+  /** Runs once a create is kept, after every after-callback. */
+  afterCreateCommit: CallbackStatic;
+  /** Runs once an update is kept, after every after-callback. */
+  afterUpdateCommit: CallbackStatic;
+  /** Runs once a create or update is kept, after every after-callback. */
+  afterSaveCommit: CallbackStatic;
+  /** Runs once a destroy is kept, after every after-callback. */
+  afterDestroyCommit: CallbackStatic;
+}
+
+/**
+ * The writes each commit callback runs for. Both `satisfies` make the list, `CommitKind` and
+ * `CommitStatics` name the same kinds.
+ */
+const commitKinds = {
+  afterCommit: ["create", "update", "destroy"],
+  afterCreateCommit: ["create"],
+  afterUpdateCommit: ["update"],
+  afterSaveCommit: ["create", "update"],
+  afterDestroyCommit: ["destroy"],
+} satisfies Record<CommitKind, readonly CommitAction[]> satisfies Record<
+  keyof CommitStatics,
+  readonly CommitAction[]
+>;
+
 /**
  * The callback kinds, one static each. Both `satisfies` make the list, `CallbackKind` and
  * `CallbackStatics` name the same kinds: none missing from any, and none extra.
@@ -162,7 +191,8 @@ const callbackKinds = Object.keys({
 export const ModelStatics = class {} as unknown as (abstract new () => object) &
   RelationStatics &
   OverloadedStatics &
-  CallbackStatics;
+  CallbackStatics &
+  CommitStatics;
 
 /**
  * Defines the statics on `base`: every Relation method, as Rails delegates them to `all`, and
@@ -172,6 +202,11 @@ export function defineStatics(base: typeof Model): void {
   for (const kind of callbackKinds) {
     defineStatic(base, kind, function (this: object, callback: Callback<Model>): void {
       declare(this, kind, callback);
+    });
+  }
+  for (const [kind, on] of Object.entries(commitKinds) as [CommitKind, CommitAction[]][]) {
+    defineStatic(base, kind, function (this: object, callback: Callback<Model>): void {
+      declare(this, "commitCallbacks", { kind, on, callback });
     });
   }
   for (const name of [...relationMethods, "find", "pluck", "paginate"]) {

@@ -48,6 +48,27 @@ export type AfterCallbackKind = "afterCreate" | "afterUpdate" | "afterSave" | "a
 
 export type CallbackKind = BeforeCallbackKind | AfterCallbackKind;
 
+/** Callbacks that run last, once their record's write is kept. */
+export type CommitKind =
+  | "afterCommit"
+  | "afterCreateCommit"
+  | "afterUpdateCommit"
+  | "afterSaveCommit"
+  | "afterDestroyCommit";
+
+/** The write a commit callback runs for. */
+export type CommitAction = "create" | "update" | "destroy";
+
+/**
+ * A commit callback (`afterCommit`, `afterCreateCommit`, …): runs last, once its record's write is
+ * kept, for the writes in `on`. They're one list, so they run in the order they were declared.
+ */
+export interface CommitCallback {
+  kind: CommitKind;
+  on: readonly CommitAction[];
+  callback: Callback<Model>;
+}
+
 /** Every kind of per-Model declaration, and what one entry of it is. */
 export type Declarations = {
   validations: Validation;
@@ -55,6 +76,7 @@ export type Declarations = {
   humanAttributeNames: Readonly<Record<string, string>>;
   /** Default scopes (#25): applied, in order, to every Relation the Model starts. */
   defaultScopes: Scope<Model>;
+  commitCallbacks: CommitCallback;
 } & {
   [K in CallbackKind]: Callback<Model>;
 };
