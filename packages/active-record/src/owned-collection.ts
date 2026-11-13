@@ -28,10 +28,6 @@ export interface OwnedCollection {
   built(record: Model): void;
   /** A record built or created through it points back at its owner, if it has one (#339). */
   pointBack(record: Model): void;
-  /** Records removed from it (`delete`, `destroy`): they leave what's loaded and built. */
-  removed(records: readonly Model[]): void;
-  /** Every record left it (`clear`): it holds none, loaded, and forgets those built through it. */
-  emptied(): void;
   /** A statement was built through it, so what's loaded is no longer known. */
   invalidate(): void;
   /** How many records were built through it and not yet saved, which `size()` counts. */
@@ -55,8 +51,6 @@ export const unowned: OwnedCollection = {
   created: () => {},
   built: () => {},
   pointBack: () => {},
-  removed: () => {},
-  emptied: () => {},
   invalidate: () => {},
   unsavedCount: () => 0,
   refusal: undefined,
@@ -65,14 +59,34 @@ export const unowned: OwnedCollection = {
   narrowed: () => unowned,
 };
 
+/**
+ * A hasMany as the association itself holds it (`user.posts()`, not a Relation narrowed from it),
+ * with what its collection methods (`push`, `delete`, `destroy`, `clear`) need besides.
+ */
+export interface AssociationCollection extends OwnedCollection {
+  /** The records built or pushed through it and not saved with the owner yet, or kept since. */
+  added(): readonly Model[];
+  /** Records removed from it (`delete`, `destroy`): they leave what's loaded and added. */
+  removed(records: readonly Model[]): void;
+  /** Every record left it (`clear`): it holds none, loaded, and forgets those added. */
+  emptied(): void;
+}
+
 /** `owner`'s hasMany `association`, as its Relation sees it. */
-export function ownedCollection(owner: Model, association: ResolvedAssociation): OwnedCollection {
+export function ownedCollection(
+  owner: Model,
+  association: ResolvedAssociation,
+): AssociationCollection {
   const key = association.keyOf(owner);
   return key === null ? withoutKey(owner, association) : withKey(owner, association, key);
 }
 
 /** An owner with a key: its loaded records live in its association cache. */
-function withKey(owner: Model, association: ResolvedAssociation, key: unknown): OwnedCollection {
+function withKey(
+  owner: Model,
+  association: ResolvedAssociation,
+  key: unknown,
+): AssociationCollection {
   const { associations: loadedAssociations, autosaves } = owner[state];
   const { name, ownerAttribute, definition } = association;
   const built = () => autosaves.built(name);
@@ -83,7 +97,8 @@ function withKey(owner: Model, association: ResolvedAssociation, key: unknown): 
     // Built through this association, so they're of its target Model, as the stored ones are.
     ...(built().filter((record) => !stored.includes(record as M)) as M[]),
   ];
-  const collection: OwnedCollection = {
+  const collection: AssociationCollection = {
+    added: built,
     loaded() {
       const stored = loadedAssociations.get(name)?.value as Model[] | undefined;
       return stored === undefined ? undefined : withBuilt(stored);
@@ -152,9 +167,10 @@ function sameRow(one: Model, other: Model, primaryKey: string): boolean {
 }
 
 /** An owner without a key: no stored records, just what was built through it. */
-function withoutKey(owner: Model, association: ResolvedAssociation): OwnedCollection {
+function withoutKey(owner: Model, association: ResolvedAssociation): AssociationCollection {
   const { name, definition } = association;
-  const collection: OwnedCollection = {
+  const collection: AssociationCollection = {
+    added: () => owner[state].autosaves.built(name),
     loaded: () => [...owner[state].autosaves.built(name)],
     created: () => {},
     built(record) {
@@ -206,8 +222,6 @@ function narrowedOf(collection: OwnedCollection): OwnedCollection {
     created: (record) => collection.created(record),
     built: (record) => collection.built(record),
     pointBack: (record) => collection.pointBack(record),
-    removed: (records) => collection.removed(records),
-    emptied: () => collection.emptied(),
     invalidate: () => collection.invalidate(),
     unsavedCount: () => 0,
     refusal: collection.refusal,
