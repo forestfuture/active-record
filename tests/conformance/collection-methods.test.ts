@@ -3,6 +3,7 @@ import {
   abort,
   belongsTo,
   hasMany,
+  IncompatibleRelation,
   Model,
   RecordNotDestroyed,
   RecordNotSaved,
@@ -183,6 +184,17 @@ describe("a hasMany's collection methods", () => {
 
       expect(moved.postId).toBe(2);
       expect(moved.changes()).toEqual({});
+    });
+
+    test("refuses records from two databases before changing any record", async () => {
+      const post = await db().model(Post).find(1);
+      const moved = await db().model(Comment).find(20);
+      const fromAnother = await harness.connect().model(Comment).find(11);
+
+      await expect(post.comments().push(moved, fromAnother)).rejects.toThrow(IncompatibleRelation);
+
+      expect(moved.changes()).toEqual({});
+      expect(fromAnother.changes()).toEqual({});
     });
 
     test("on a saved owner whose key is null, throws RecordNotSaved and writes nothing", async () => {
