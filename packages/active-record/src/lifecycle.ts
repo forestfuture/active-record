@@ -24,7 +24,7 @@ import {
   RecordNotSaved,
 } from "./errors.ts";
 import { clearErrors } from "./errors-collection.ts";
-import { rollbackOf, runAfterCallbacks, runCallbacks, runCommitCallbacks } from "./after-write.ts";
+import { rollbackOf, runAfterCallbacks, runCallbacks, runCommitCallbacks } from "./callbacks.ts";
 import { pinBefore } from "./executor.ts";
 import { declared, type BeforeCallbackKind } from "./declarations.ts";
 import { modelOf, type Model } from "./model.ts";

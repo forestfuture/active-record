@@ -431,7 +431,7 @@ Default messages (Rails' English, replaced through `errorMessages`): `blank` "ca
 
 _Portable._
 
-_Guide:_ [callbacks](<../site/docs/(basics)/callbacks.mdx>). _Code:_ `active-record/src/lifecycle.ts`, `active-record/src/after-write.ts`, `active-record/src/declarations.ts`.
+_Guide:_ [callbacks](<../site/docs/(basics)/callbacks.mdx>). _Code:_ `active-record/src/lifecycle.ts`, `active-record/src/callbacks.ts`, `active-record/src/declarations.ts`.
 
 Declared in `static {}`: `this.beforeValidation(fn)`, `afterValidation`, `beforeSave`, `beforeCreate`, `beforeUpdate`, `afterCreate`, `afterUpdate`, `afterSave`, `beforeDestroy`, `afterDestroy`, the commit callbacks `afterCommit`, `afterCreateCommit`, `afterUpdateCommit`, `afterSaveCommit` and `afterDestroyCommit` (#341), and `afterRollback`. Each takes a function that receives the record, typed as the Model's record, and may be async; callbacks of one kind run in declaration order. A subclass runs its parent's callbacks and validations plus its own, and declaring on it never changes the parent. Declarations belong in the class's `static {}` block: once a Model has been used (`db.model(X)`), declaring on it throws `InvalidModel`, so request code can never add callbacks that leak into later requests.
 
