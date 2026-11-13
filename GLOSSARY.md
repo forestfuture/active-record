@@ -133,7 +133,7 @@ A named, reusable change to a Relation, declared on a **Model**, that may take a
 _Avoid_: Filter, named query
 
 **Default scope**:
-A **Scope** without a name, declared with `this.defaultScope(…)`, that every **Relation** of its **Model** starts from: its queries, its **Associations**' reads and preloads, and the values of its new records. `unscoped()` starts a Relation without it. Reloading, uniqueness and a record's own writes, which work by primary key, ignore it.
+A **Scope** without a name, declared with `this.defaultScope(…)`, that every **Relation** of its **Model** starts from: its queries, its **Associations**' reads and preloads, and the values of its new records. `unscoped()` starts a Relation without it. Reloading, uniqueness, and a record's own writes, which work by primary key, ignore it.
 _Avoid_: Global scope, base scope
 
 **Association**:
