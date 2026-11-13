@@ -158,3 +158,13 @@ export async function hasOneExample(authorId: string) {
   // #endregion has-one
   return profile;
 }
+
+export async function replaceProfileExample(authorId: string) {
+  // #region has-one-replace
+  const author = await Author.find(authorId);
+  const profile = Profile.build({ bio: "Novelist" });
+
+  await author.profile.set(profile); // saves it, and deletes the old profile in the same batch
+  // #endregion has-one-replace
+  return profile;
+}

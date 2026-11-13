@@ -76,10 +76,33 @@ Use `hasOne` like `hasMany`, when there’s at most one record. A user has one p
 <include>/_excerpts/guide/associations/has-one.ts</include>
 
 - **`await record.profile()`** reads the associated record, or `null`. If several records point at the owner, it’s the first by the scope’s order, then the primary key.
+- **`await record.profile.set(profile)`** gives the owner another record, and `set(null)` removes it. On a saved owner, the record is saved at once, so await it. On an unsaved owner, it’s saved with the owner.
 - **`record.profile.build(attrs)`** builds a record with the owner’s key, saved with the owner.
 - **`record.profile.create(attrs)`** and **`createOrThrow(attrs)`** save a new record at once. The owner must already be saved.
 
 `hasOne` takes the same options as `hasMany`.
+
+### Replacing the record
+
+Giving a saved owner a new record removes its old one, by the association’s `dependent` strategy:
+
+<include>/_excerpts/guide/associations/has-one-replace.ts</include>
+
+| `dependent`                               | What happens to the old record                   |
+| ----------------------------------------- | ------------------------------------------------ |
+| `"destroy"`                               | It’s destroyed, with its own callbacks           |
+| `"delete"`                                | It’s deleted, without callbacks                  |
+| `"nullify"`, a restrict strategy, or none | Its foreign key is set to `NULL`, and it’s saved |
+
+The old record is removed in the same atomic batch that writes the new one. That’s at once for `set` and `create`, and when the owner is saved for `build`.
+
+If the old record can’t be saved with a `NULL` foreign key, the write throws `RecordNotSaved`, and nothing is written. If the new record doesn’t save, the old one stays. `set` throws `RecordNotSaved`, and `create` returns the unsaved record. Saving the owner tries again.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`await user.profile.set(profile)` is Rails’ `user.profile = profile`. Rails removes the old record as soon as you build a new one, so a build that’s never saved still loses it. Here, `build` waits for the owner’s save.
+
+</Callout>
 
 ## Naming foreign keys
 

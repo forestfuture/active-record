@@ -35,6 +35,7 @@ Most names are Rails’ own, in camelCase:
 | `has_many :posts, dependent: :destroy`   | `posts = hasMany(Post, { dependent: "destroy" })` |
 | `post.author = user`                     | `post.author.set(user)`                           |
 | `build_profile`                          | `user.profile.build()`                            |
+| `user.profile = profile`                 | `await user.profile.set(profile)`                 |
 | `reload_author`                          | `post.reloadAssociation("author")`                |
 | `throw :abort`                           | `throw abort("reason")`                           |
 | `to_json`                                | `toJSON()`                                        |
