@@ -80,8 +80,9 @@ export function hasOneAccessor(owner: Model, association: ResolvedAssociation): 
 
 /**
  * A hasOne's `set`: on a saved owner, `record` is saved at once, pointing at it, and the old
- * record removed in the same batch, as Rails' `user.profile =` does; on an unsaved owner, both
- * wait for its save. `null` removes the old record.
+ * record removed in the same batch, as Rails' `user.profile =` does, which throws
+ * `RecordNotSaved` if `record` doesn't save; on an unsaved owner, both wait for its save.
+ * `null` removes the old record.
  */
 async function setOne(
   owner: Model,
@@ -93,12 +94,10 @@ async function setOne(
     throw new TypeError(`${association.label}.set() takes a ${target.name} record or null`);
   }
   if (record !== null) {
-    const replaced = takeReplaced(owner, association);
     adopt(owner, association, record);
-    if (owner[state].isNew) return;
-    markReplacing(record, { owner, association, replaced });
-    await record.save();
-    return;
+    if (owner[state].isNew || (await record.save())) return;
+    // Kept as the owner's record, as a failed create() is, so saving the owner tries again.
+    throw new RecordNotSaved(`Failed to save the new associated ${name}`);
   }
   const replaced = takeReplaced(owner, association);
   if (!owner[state].isNew) await removeReplaced(owner, association, replaced);
@@ -147,10 +146,12 @@ function buildOne(
 
 /**
  * Makes `record` the owner's hasOne record: pointing at the owner, loaded as the association,
- * and saved with it.
+ * and saved with it. On a saved owner, it replaces the record the association held (#40).
  */
 function adopt(owner: Model, association: ResolvedAssociation, record: Model): void {
   const { name, ownerAttribute, definition } = association;
+  const replaced = takeReplaced(owner, association);
+  if (!owner[state].isNew) markReplacing(record, { owner, association, replaced });
   record[state].writeKey(definition.foreignKey, owner[state].read(ownerAttribute), name);
   owner[state].associations.set(name, ownerAttribute, record);
   owner[state].autosaves.setBuilt(name, record);

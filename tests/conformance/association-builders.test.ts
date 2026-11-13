@@ -300,16 +300,6 @@ describe("building and setting hasOne and belongsTo", () => {
       expect(await user.profile()).toBe(created);
       await expect(unsaved.profile.create({ bio: "Hi" })).rejects.toThrow(RecordNotSaved);
     });
-
-    test("building a replacement leaves the existing record untouched", async () => {
-      await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (1, 1, 'Old')");
-      const user = await db().model(User).find(1);
-
-      user.profile.build({ bio: "New" });
-      await user.saveOrThrow();
-
-      expect(await db().model(Profile).order({ id: "asc" }).pluck("bio")).toEqual(["Old", "New"]);
-    });
   });
 
   test("in a batch, a new belongsTo record is saved when its key is known, and refused when the database generates it", async () => {

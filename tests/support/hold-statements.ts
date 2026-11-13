@@ -11,9 +11,9 @@ export const reads = (table: string) => (sql: string) =>
 type Hold = "beforeRunning" | "afterRunning";
 
 /**
- * A Database that, once armed, holds each statement sent on its own whose SQL `matches` until
- * released: ordered, not timed, so whatever runs meanwhile always lands first. `held` resolves
- * when one is held.
+ * A Database that, once armed, holds the first statement sent on its own whose SQL `matches`
+ * until released: ordered, not timed, so whatever runs meanwhile always lands first, its own
+ * reads included. `held` resolves when it's held.
  */
 export function holdStatements(
   harness: Harness,
@@ -31,6 +31,7 @@ export function holdStatements(
     recover: (error) => driver.recover(error),
     async send(statement) {
       if (!armed || !matches(statement.sql)) return driver.send(statement);
+      armed = false;
       const result = hold === "afterRunning" ? await driver.send(statement) : undefined;
       isHeld();
       await released;

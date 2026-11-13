@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { hasOne, Model, RecordNotUnique } from "../../packages/active-record/src/index.ts";
+import {
+  hasOne,
+  Model,
+  RecordNotSaved,
+  RecordNotUnique,
+} from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -23,6 +28,10 @@ class Comment extends Model.define({
   body: "string",
 }) {
   static table = "comments";
+
+  static {
+    this.validates("body", { presence: true });
+  }
 }
 
 const userAttributes = {
@@ -155,6 +164,23 @@ describe("replacing a hasOne's record", () => {
       expect((await bios()).map((row) => row.bio)).toEqual(["Old", "Taken"]);
     });
 
+    test("a record that doesn't save throws RecordNotSaved, removes nothing, and is kept for the owner's save", async () => {
+      const post = await db().model(Keeping).find(10);
+      const comment = db().model(Comment).build({ body: "" });
+
+      await expect(post.pinned.set(comment)).rejects.toThrow(
+        new RecordNotSaved("Failed to save the new associated pinned"),
+      );
+      expect((await comments()).map((row) => [row.post_id, row.body])).toEqual([[10, "Old"]]);
+      comment.body = "Fixed";
+      await post.saveOrThrow();
+
+      expect((await comments()).map((row) => [row.post_id, row.body])).toEqual([
+        [null, "Old"],
+        [10, "Fixed"],
+      ]);
+    });
+
     test("on an unsaved owner, a saved record is saved with it, taking its key", async () => {
       const comment = await db().model(Comment).find(1);
       const post = db().model(Keeping).build({ userId: 1, title: "New" });
@@ -165,6 +191,59 @@ describe("replacing a hasOne's record", () => {
 
       expect(comment.postId).toBe(post.id);
       expect((await comments()).map((row) => row.post_id)).toEqual([post.id]);
+    });
+  });
+  describe("build() and create()", () => {
+    test("build() on a saved owner removes the old record when the owner is saved, not before", async () => {
+      const user = await db().model(Destroying).find(1);
+
+      const profile = user.profile.build({ bio: "New" });
+      expect((await bios()).map((row) => row.bio)).toEqual(["Old"]);
+      await user.saveOrThrow();
+
+      expect(log).toEqual(["destroyed Old"]);
+      expect(await bios()).toEqual([{ id: profile.id, user_id: 1, bio: "New" }]);
+    });
+
+    test("building twice saves the last record, and removes the old one once", async () => {
+      const post = await db().model(Nullifying).find(10);
+
+      post.pinned.build({ body: "First" });
+      post.pinned.build({ body: "Second" });
+      await post.saveOrThrow();
+
+      expect((await comments()).map((row) => [row.post_id, row.body])).toEqual([
+        [null, "Old"],
+        [10, "Second"],
+      ]);
+    });
+
+    test("create() on a saved owner removes the old record at once, by dependent", async () => {
+      const user = await db().model(Deleting).find(1);
+      const post = await db().model(Keeping).find(10);
+
+      await user.profile.createOrThrow({ bio: "New" });
+      await post.pinned.createOrThrow({ body: "New" });
+
+      expect((await bios()).map((row) => row.bio)).toEqual(["New"]);
+      expect((await comments()).map((row) => [row.post_id, row.body])).toEqual([
+        [null, "Old"],
+        [10, "New"],
+      ]);
+    });
+
+    test("a create() that fails removes nothing, and saving the owner tries both again", async () => {
+      const post = await db().model(Keeping).find(10);
+
+      const comment = await post.pinned.create({ body: "" });
+      expect((await comments()).map((row) => [row.post_id, row.body])).toEqual([[10, "Old"]]);
+      comment.body = "Fixed";
+      await post.saveOrThrow();
+
+      expect((await comments()).map((row) => [row.post_id, row.body])).toEqual([
+        [null, "Old"],
+        [10, "Fixed"],
+      ]);
     });
   });
 });
