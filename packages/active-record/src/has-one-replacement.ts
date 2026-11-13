@@ -72,12 +72,20 @@ export async function prepareReplacement(
   return { ...removal, stages: combine([removal.stages, [done]]) };
 }
 
-/** A save's plan with `removal` written before its own writes, in its first batch. */
+/**
+ * A save's plan with `removal` written in the batch that writes `record`, before it: after any
+ * new record it points at whose key the database generates, which is written a batch earlier.
+ */
 export function withRemoval(plan: Ready, removal: Ready | undefined, record: Model): Ready {
   if (removal === undefined) return plan;
+  const own = plan.stages.findIndex((stage) => stage.records.includes(record));
+  const stages = [
+    ...plan.stages.slice(0, own),
+    ...combine([removal.stages, plan.stages.slice(own)]),
+  ];
   return {
     status: "ready",
-    stages: inGroup(combine([removal.stages, plan.stages]), record),
+    stages: inGroup(stages, record),
     before: [...removal.before, ...plan.before],
     after: [...plan.after, ...removal.after],
   };

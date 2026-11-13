@@ -65,6 +65,23 @@ class OwnedProfile extends Model.define({
   user = belongsTo(KeepingUser, { foreignKey: "userId" });
 }
 
+class Holder extends Model.define({
+  id: { type: "string", null: false },
+  label: { type: "string", null: false },
+}) {
+  static table = "api_keys";
+  account = hasOne(Member, { foreignKey: "externalAccountId", dependent: "delete" });
+}
+
+class Member extends Model.define({
+  id: { type: "integer", null: false },
+  externalAccountId: "string",
+  userId: "integer",
+}) {
+  static table = "accounts";
+  user = belongsTo(KeepingUser, { foreignKey: "userId", optional: true });
+}
+
 const postAttributes = {
   id: { type: "integer", null: false },
   userId: { type: "integer", null: false },
@@ -95,7 +112,7 @@ describe("replacing a hasOne's record", () => {
   afterAll(() => harness.dispose());
   beforeEach(async () => {
     log.length = 0;
-    await harness.reset("comments", "posts", "profiles", "users");
+    await harness.reset("comments", "posts", "profiles", "users", "accounts", "api_keys");
     await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'Hello')");
     await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (1, 1, 'Old')");
@@ -195,6 +212,21 @@ describe("replacing a hasOne's record", () => {
         [null, "Old"],
         [10, "Fixed"],
       ]);
+    });
+
+    test("the old record stays when the new one's write fails after a new record it points at", async () => {
+      await harness.exec("INSERT INTO api_keys (id, label) VALUES ('k1', 'Deploy')");
+      await harness.exec(
+        "INSERT INTO accounts (id, external_account_id) VALUES (1, 'k1'), (2, 'other')",
+      );
+      const holder = await db().model(Holder).find("k1");
+      const account = db().model(Member).build({ id: 2 });
+      account.user.build({ email: "new@example.com" });
+
+      await expect(holder.account.set(account)).rejects.toThrow(RecordNotUnique);
+
+      const rows = await harness.exec("SELECT id FROM accounts ORDER BY id");
+      expect(rows.map((row) => row.id)).toEqual([1, 2]);
     });
 
     test("on an unsaved owner, a saved record is saved with it, taking its key", async () => {
