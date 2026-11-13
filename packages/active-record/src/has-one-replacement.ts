@@ -211,7 +211,12 @@ function undoneOnFailure(
   };
   const stages = plan.stages.map((stage) => ({
     ...stage,
-    writes: () => stage.writes().map((write) => ({ ...write, failed })),
+    writes: () =>
+      stage.writes().map((write) => ({
+        ...write,
+        // Its own hook too: a write of the old record's may undo something of its own.
+        failed: (error: unknown) => failed(error) ?? write.failed?.(error),
+      })),
   }));
   return { ...plan, stages };
 }
