@@ -209,6 +209,18 @@ describe("a generated Model", () => {
       ),
     );
   });
+
+  test("is found in the schema by its modelName, and infers its table from it", () => {
+    // As a bundler that renames classes leaves it: named e, but still the Product Model.
+    const e = class extends AppRecord {
+      static override modelName = "Product";
+    };
+
+    db.model(e).build();
+
+    expect(e.table).toBe("products");
+    expect(e.attributeDefinitions.has("sku")).toBe(true);
+  });
 });
 
 describe("a generated Model's static attributes", () => {

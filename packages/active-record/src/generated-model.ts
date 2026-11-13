@@ -20,7 +20,7 @@ import {
   specProblem,
   type SpecOverride,
 } from "./spec-keys.ts";
-import { bindTable, ownValueSetter, tableize } from "./table-names.ts";
+import { bindTable, modelNameOf, ownValueSetter, tableize } from "./table-names.ts";
 
 /** One table in a generated schema: its attributes, and which is the primary key. */
 export interface TableSchema {
@@ -181,10 +181,14 @@ function rejectUngenerated(name: string, table: string, schema: DatabaseSchema):
   }
 }
 
-/** Finds a generated Model's table in its schema, and its attributes after its overrides. */
+/**
+ * Finds a generated Model's table in its schema, and its attributes after its overrides. The
+ * schema lists it by its `modelName`, which its table is inferred from too.
+ */
 function find(owner: GeneratedClass, schema: DatabaseSchema): Generated {
-  const table = Object.hasOwn(owner, "table") ? owner.table! : tableize(owner.name);
-  rejectUngenerated(owner.name, table, schema);
+  const name = modelNameOf(owner);
+  const table = Object.hasOwn(owner, "table") ? owner.table! : tableize(name);
+  rejectUngenerated(name, table, schema);
   const tableSchema = Object.hasOwn(schema.tables, table) ? schema.tables[table] : undefined;
   if (tableSchema === undefined) {
     throw new InvalidModel(`${owner.name}'s table, ${table}, isn't in the generated schema`);
