@@ -112,12 +112,12 @@ export class BlogPost extends ApplicationRecord {
 A subclass inherits a `modelName` its parent sets. Otherwise, each class has its own: `Admin.modelName` is `"Admin"`, though `Admin` shares `User`’s table. Printing a record shows its class name.
 
 :::note
-Wrangler keeps class names by default, even when minifying. Without `modelName`, a bundler that renames `User` to `e` makes the first query throw `InvalidModel`, because no Model named `e` is in the generated schema.
+Wrangler keeps class names by default, even when minifying. Without `modelName`, a bundler that renames `User` to `e` makes the first query throw `InvalidModel`, because no Model named `e` is in the generated schema. Keeping class names in your bundler’s settings works too.
 :::
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-`modelName` is a string, where Rails’ `model_name` is an object. The plural and human forms are made where they’re used.
+`modelName` is a string, where Rails’ `model_name` is an object.
 
 </Callout>
 
