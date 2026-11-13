@@ -18,7 +18,9 @@ import {
   createThroughExample,
   hasManyExample,
   hasOneExample,
+  Profile,
   preloadExample,
+  replaceProfileExample,
   readExample,
   statementsExample,
   writersExample,
@@ -333,6 +335,9 @@ describe("the guide's examples", () => {
     expect(author?.name).toBe("Mary");
     expect(await db.model(Article).pluck("authorId", "title")).toEqual([[editor.id, "On Nothing"]]);
     expect(profile?.bio).toBe("Poet");
+
+    await withDatabase(db, () => replaceProfileExample("mary"));
+    expect(await db.model(Profile).where({ authorId: "mary" }).pluck("bio")).toEqual(["Novelist"]);
   });
 
   test("Associations: autosave writes the graph in one batch; set() links new and saved authors", async () => {
