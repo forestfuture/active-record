@@ -4,6 +4,7 @@ import {
   type AfterCallbackKind,
   type CallbackKind,
   type CommitAction,
+  type CommitCallbackKind,
 } from "./declarations.ts";
 import { AbortAfterPersistence, CallbackAbort } from "./errors.ts";
 import { modelOf, type Model } from "./model.ts";
@@ -16,20 +17,29 @@ export async function runCallbacks(record: Model, kind: CallbackKind): Promise<v
 }
 
 /**
- * Runs after-write callbacks. The write already succeeded, so an `abort()` here can't refuse
- * anything: it becomes `AbortAfterPersistence`. Any other error propagates unchanged.
+ * Runs `run`, a callback of `kind` that runs once the write is kept. An `abort()` there can't
+ * refuse anything: it becomes `AbortAfterPersistence`. Any other error propagates unchanged.
  */
+async function tooLateToAbort(
+  run: () => unknown,
+  kind: AfterCallbackKind | CommitCallbackKind,
+  lifecycle: "save" | "destroy",
+): Promise<void> {
+  try {
+    await run();
+  } catch (error) {
+    if (error instanceof CallbackAbort) throw new AbortAfterPersistence(kind, lifecycle, error);
+    throw error;
+  }
+}
+
+/** Runs after-write callbacks; an `abort()` in one is `AbortAfterPersistence`. */
 export async function runAfterCallbacks(
   record: Model,
   kind: AfterCallbackKind,
   lifecycle: "save" | "destroy",
 ): Promise<void> {
-  try {
-    await runCallbacks(record, kind);
-  } catch (error) {
-    if (error instanceof CallbackAbort) throw new AbortAfterPersistence(kind, lifecycle, error);
-    throw error;
-  }
+  await tooLateToAbort(() => runCallbacks(record, kind), kind, lifecycle);
 }
 
 /** A write's rollback callbacks: the record's `afterRollback`, to run if the database refuses it. */
@@ -44,11 +54,7 @@ export function rollbackOf(record: Model): () => Promise<void> {
 export async function runCommitCallbacks(record: Model, action: CommitAction): Promise<void> {
   for (const { kind, on, callback } of declared(modelOf(record), "commitCallbacks")) {
     if (!on.includes(action)) continue;
-    try {
-      await callback(record);
-    } catch (error) {
-      if (!(error instanceof CallbackAbort)) throw error;
-      throw new AbortAfterPersistence(kind, action === "destroy" ? "destroy" : "save", error);
-    }
+    const lifecycle = action === "destroy" ? "destroy" : "save";
+    await tooLateToAbort(() => callback(record), kind, lifecycle);
   }
 }
