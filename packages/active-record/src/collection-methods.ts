@@ -90,11 +90,10 @@ async function push(hasMany: OwnersHasMany, records: Model[]): Promise<boolean> 
   const needs = "push() needs its records";
   // Every check that can throw comes first, so a refused push leaves the records as they were.
   for (const record of records) record[state].requireLive("be saved");
-  for (const record of records) {
-    for (const group of savingGroups(record)) await pinBefore(linksOf(group.records), needs);
-  }
+  await pinForSaving(records, needs);
   link(hasMany, records);
-  if (!(await saveTogether(records, needs))) return false;
+  // Saved as one write, as Rails' collection saves in a transaction: none if one refuses.
+  if ((await writeTogether(records, prepareSave, needs)) !== undefined) return false;
   for (const record of records) collection.created(record);
   return true;
 }
@@ -189,11 +188,16 @@ async function destroyTogether(records: readonly Model[], needs: string): Promis
 }
 
 /**
- * Saves `records`, already pinned to their database, as one write, as Rails' collection does in a transaction: `false`, with nothing
- * written, if one is invalid or a callback aborts it.
+ * Pins `records`, and what saving them writes, to their databases before anything changes (#93):
+ * the records with what they autosave on theirs, all together, so records from two databases
+ * throw `IncompatibleRelation`; then each group reached through an association to another one.
  */
-async function saveTogether(records: readonly Model[], needs: string): Promise<boolean> {
-  return (await writeTogether(records, prepareSave, needs)) === undefined;
+async function pinForSaving(records: readonly Model[], needs: string): Promise<void> {
+  const groups = records.map((record) => savingGroups(record));
+  await pinBefore(linksOf(groups.flatMap(([own]) => own?.records ?? [])), needs);
+  for (const [, ...elsewhere] of groups) {
+    for (const group of elsewhere) await pinBefore(linksOf(group.records), needs);
+  }
 }
 
 /**
