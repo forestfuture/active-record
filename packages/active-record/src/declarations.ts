@@ -52,7 +52,7 @@ type RollbackCallbackKind = "afterRollback";
 export type CallbackKind = BeforeCallbackKind | AfterCallbackKind | RollbackCallbackKind;
 
 /** Callbacks that run last, once their record's write is kept. */
-export type CommitKind =
+export type CommitCallbackKind =
   | "afterCommit"
   | "afterCreateCommit"
   | "afterUpdateCommit"
@@ -67,7 +67,7 @@ export type CommitAction = "create" | "update" | "destroy";
  * kept, for the writes in `on`. They're one list, so they run in the order they were declared.
  */
 interface CommitCallback {
-  kind: CommitKind;
+  kind: CommitCallbackKind;
   on: readonly CommitAction[];
   callback: Callback<Model>;
 }

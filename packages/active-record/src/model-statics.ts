@@ -1,5 +1,10 @@
 // The statics every Model gets from Model: its Relation methods (`Product.where(…)`) and callbacks (`this.beforeSave(…)`), typed and defined from their lists.
-import { declare, type CallbackKind, type CommitAction, type CommitKind } from "./declarations.ts";
+import {
+  declare,
+  type CallbackKind,
+  type CommitAction,
+  type CommitCallbackKind,
+} from "./declarations.ts";
 import type {
   AbstractModelClass,
   AttributesOf,
@@ -154,7 +159,7 @@ interface CommitStatics {
 }
 
 /**
- * The writes each commit callback runs for. Both `satisfies` make the list, `CommitKind` and
+ * The writes each commit callback runs for. Both `satisfies` make the list, `CommitCallbackKind` and
  * `CommitStatics` name the same kinds.
  */
 const commitKinds = {
@@ -163,7 +168,7 @@ const commitKinds = {
   afterUpdateCommit: ["update"],
   afterSaveCommit: ["create", "update"],
   afterDestroyCommit: ["destroy"],
-} satisfies Record<CommitKind, readonly CommitAction[]> satisfies Record<
+} satisfies Record<CommitCallbackKind, readonly CommitAction[]> satisfies Record<
   keyof CommitStatics,
   readonly CommitAction[]
 >;
@@ -210,7 +215,7 @@ export function defineStatics(base: typeof Model): void {
       declare(this, kind, callback);
     });
   }
-  for (const [kind, on] of Object.entries(commitKinds) as [CommitKind, CommitAction[]][]) {
+  for (const [kind, on] of Object.entries(commitKinds) as [CommitCallbackKind, CommitAction[]][]) {
     defineStatic(base, kind, function (this: object, callback: Callback<Model>): void {
       declare(this, "commitCallbacks", { kind, on, callback });
     });
