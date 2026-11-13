@@ -96,7 +96,7 @@ Giving a saved owner a new record removes its old one, by the association’s `d
 
 The old record is removed in the same atomic batch that writes the new one. That’s at once for `set` and `create`, and when the owner is saved for `build`.
 
-If the old record can’t be saved with a `NULL` foreign key, the write throws `RecordNotSaved`, and nothing is written. If the new record doesn’t save, the old one stays. `set` throws `RecordNotSaved`, and `create` returns the unsaved record. Saving the owner tries again.
+If the old record can’t be saved with a `NULL` foreign key, the write throws `RecordNotSaved`, and nothing is written. If the new record doesn’t save, the old one stays. `set` throws `RecordNotSaved` and leaves the association as it was. `create` returns the unsaved record, and saving the owner tries again.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 

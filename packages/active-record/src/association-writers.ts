@@ -2,7 +2,14 @@
 import { cachedRead } from "./associations.ts";
 import { RecordNotSaved } from "./errors.ts";
 import type { Executor } from "./executor.ts";
-import { markReplacing, removeReplaced, replacedBy, takeReplaced } from "./has-one-replacement.ts";
+import {
+  forgetReplacing,
+  markReplacing,
+  removeReplaced,
+  replacedBy,
+  replacementOf,
+  takeReplaced,
+} from "./has-one-replacement.ts";
 import { pointBackAtOwner } from "./point-back-at-owner.ts";
 import { buildRecord, type Model } from "./model.ts";
 import { state } from "./record-state.ts";
@@ -78,8 +85,9 @@ export function hasOneAccessor(owner: Model, association: ResolvedAssociation): 
 
 /**
  * A hasOne's `set`: on a saved owner, `record` is saved at once, pointing at it, and the old
- * record removed in the same batch, as Rails' `user.profile =` does, which throws
- * `RecordNotSaved` if `record` doesn't save; on an unsaved owner, both wait for its save.
+ * record removed in the same batch, as Rails' `user.profile =` does; if `record` doesn't save,
+ * it throws `RecordNotSaved` and the association stays as it was. On an unsaved owner, both
+ * wait for its save.
  * `null` removes the old record.
  */
 async function setOne(
@@ -92,9 +100,11 @@ async function setOne(
     throw new TypeError(`${association.label}.set() takes a ${target.name} record or null`);
   }
   if (record !== null) {
+    const undo = undoAdopting(owner, association, record);
     adopt(owner, association, record);
     if (owner[state].isNew || (await record.save())) return;
-    // Kept as the owner's record, as a failed create() is, so saving the owner tries again.
+    // As in Rails, the association stays as it was, and the record isn't the owner's.
+    undo();
     throw new RecordNotSaved(`Failed to save the new associated ${name}`);
   }
   // Removed before anything changes here, so a removal that throws leaves the association as it was.
@@ -104,6 +114,27 @@ async function setOne(
   takeReplaced(owner, association);
   owner[state].associations.set(name, ownerAttribute, null);
   owner[state].autosaves.clear(name);
+}
+
+/**
+ * Undoes `adopt(owner, association, record)` when `set` fails: the association loaded and built as
+ * it was, its built record replacing what it did, and `record`'s foreign key as it was.
+ */
+function undoAdopting(owner: Model, association: ResolvedAssociation, record: Model): () => void {
+  const { name, ownerAttribute, definition } = association;
+  const loaded = owner[state].associations.get(name);
+  const [built] = owner[state].autosaves.built(name);
+  const replacement = built === undefined ? undefined : replacementOf(built);
+  const key = record[state].read(definition.foreignKey);
+  return () => {
+    forgetReplacing(record);
+    record[state].writeKey(definition.foreignKey, key, name);
+    owner[state].autosaves.clear(name);
+    if (built !== undefined) owner[state].autosaves.setBuilt(name, built);
+    if (built !== undefined && replacement !== undefined) markReplacing(built, replacement);
+    if (loaded === undefined) owner[state].associations.clear(name);
+    else owner[state].associations.set(name, ownerAttribute, loaded.value);
+  };
 }
 
 /**

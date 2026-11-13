@@ -221,7 +221,18 @@ describe("replacing a hasOne's record", () => {
       expect((await comments()).map((row) => [row.post_id, row.body])).toEqual([[10, "Old"]]);
     });
 
-    test("a record that doesn't save is kept, so saving the owner replaces the old one", async () => {
+    test("a record that doesn't save leaves the association as it was", async () => {
+      const post = await db().model(Keeping).find(10);
+      const old = await post.pinned();
+      const comment = db().model(Comment).build({ body: "" });
+
+      await expect(post.pinned.set(comment)).rejects.toThrow(RecordNotSaved);
+
+      expect(await post.pinned()).toBe(old);
+      expect(comment.postId).toBeNull();
+    });
+
+    test("a record that doesn't save isn't saved with the owner afterwards", async () => {
       const post = await db().model(Keeping).find(10);
       const comment = db().model(Comment).build({ body: "" });
       await expect(post.pinned.set(comment)).rejects.toThrow(RecordNotSaved);
@@ -229,10 +240,7 @@ describe("replacing a hasOne's record", () => {
       comment.body = "Fixed";
       await post.saveOrThrow();
 
-      expect((await comments()).map((row) => [row.post_id, row.body])).toEqual([
-        [null, "Old"],
-        [10, "Fixed"],
-      ]);
+      expect((await comments()).map((row) => [row.post_id, row.body])).toEqual([[10, "Old"]]);
     });
 
     test("the old record stays when the new one's write fails after a new record it points at", async () => {

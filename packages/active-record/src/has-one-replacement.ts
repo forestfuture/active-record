@@ -59,6 +59,16 @@ export function markReplacing(record: Model, replacement: Replacement): void {
   replacing.set(record, replacement);
 }
 
+/** What `record` replaces when it's written, if anything. */
+export function replacementOf(record: Model): Replacement | undefined {
+  return replacing.get(record);
+}
+
+/** `record` replaces nothing any more. */
+export function forgetReplacing(record: Model): void {
+  replacing.delete(record);
+}
+
 /**
  * What writing `record` does to the record it replaces, prepared: its destroy, delete or
  * nullify, by the association's `dependent:`, for the same batch as `record`'s own write, before
@@ -189,6 +199,8 @@ function undoneOnFailure(
   key: unknown,
 ): Ready {
   const { name, definition } = association;
+  // The database doesn't say which statement failed, so in a `db.batch` that also writes a null
+  // into this column, that write's violation reads as this one; the original is the `cause`.
   const failed = (error: unknown) => {
     old[state].writeKey(definition.foreignKey, key, name);
     const refused =
