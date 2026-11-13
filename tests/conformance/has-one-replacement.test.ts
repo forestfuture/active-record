@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { hasOne, Model } from "../../packages/active-record/src/index.ts";
+import { hasOne, Model, RecordNotUnique } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -120,6 +120,51 @@ describe("replacing a hasOne's record", () => {
         [null, "Old"],
         [10, "New"],
       ]);
+    });
+
+    test("set(null) removes the old record by dependent, and reads as null", async () => {
+      const user = await db().model(Destroying).find(1);
+
+      await user.profile.set(null);
+
+      expect(log).toEqual(["destroyed Old"]);
+      expect(await bios()).toEqual([]);
+      events.length = 0;
+      expect(await user.profile()).toBeNull();
+      expect(events).toHaveLength(0);
+    });
+
+    test("setting the record it already has removes nothing", async () => {
+      const post = await db().model(Keeping).find(10);
+      const pinned = await post.pinned();
+
+      await post.pinned.set(pinned);
+
+      expect((await comments()).map((row) => [row.post_id, row.body])).toEqual([[10, "Old"]]);
+    });
+
+    test("the old record stays when the new one's write fails: one batch", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (2, 'b@example.com')");
+      await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (2, 2, 'Taken')");
+      const user = await db().model(Destroying).find(1);
+
+      await expect(
+        user.profile.set(db().model(Profile).build({ id: 2, bio: "New" })),
+      ).rejects.toThrow(RecordNotUnique);
+
+      expect((await bios()).map((row) => row.bio)).toEqual(["Old", "Taken"]);
+    });
+
+    test("on an unsaved owner, a saved record is saved with it, taking its key", async () => {
+      const comment = await db().model(Comment).find(1);
+      const post = db().model(Keeping).build({ userId: 1, title: "New" });
+
+      await post.pinned.set(comment);
+      expect((await comments()).map((row) => row.post_id)).toEqual([10]);
+      await post.saveOrThrow();
+
+      expect(comment.postId).toBe(post.id);
+      expect((await comments()).map((row) => row.post_id)).toEqual([post.id]);
     });
   });
 });
