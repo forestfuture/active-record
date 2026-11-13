@@ -12,7 +12,9 @@ The skills named below are in `.claude/skills/`. Claude Code loads them automati
 
 ## 2. Agree the seams and open decisions — ✋ human checkpoint
 
-Before writing any test, propose to the human, in one message:
+**First, check the issue's comments for one headed `Step-2 decisions (agreed)`.** If there is one, step 2 is done: those are the agreed seams, build order, docs outline, names and decisions. Don't propose them again; go to step 3. Decisions are often agreed for several issues in one sitting, then built in parallel sessions (see [Working in parallel](#working-in-parallel)).
+
+Otherwise, before writing any test, propose to the human, in one message:
 
 - **The seams under test** (see the `tdd` skill). The default for this repo is the **public API against a real Miniflare D1**. Observe queries only through the public `onQuery` hook. There's no fake executor (ADR-0002). Type tests go in `tests/unit/`. Portable behavior goes in `tests/conformance/`: copy the setup in `tests/conformance/to-sql.test.ts`, `openHarness()` from `tests/support/harness.ts`, seeding with `harness.exec` (`?` placeholders, SQL every adapter accepts) and `harness.reset`, an `onQuery` events array, and `order({ email: "asc" })` / `where({ ... })` taking objects (plain strings throw). What only D1 does (Sessions, bookmarks, round trips, its CLI, SQLite's own SQL) goes in `tests/integration/d1/` (`integration:d1`), with `createTestDatabase` from `tests/support/d1.ts`. What only Postgres does (its clients, Hyperdrive, workerd) goes in `tests/integration/pg/`, with `openPgSchema` from `tests/support/pg.ts`; set `DATABASE_URL` to run it and `conformance:pg`. A behavior an adapter does its own way is an allowed difference, listed in `tests/conformance/allowed-differences.ts` with the tests it skips there, or those that avoid it.
 - **The build order**: the list of red → green slices you'll work through.
@@ -20,7 +22,7 @@ Before writing any test, propose to the human, in one message:
 - **Names**: each new public name, option, field, or module, with the phrase it reads in, and any alternative you weighed. A name is cheapest to change here, before tests and docs use it. See the naming rule in `CONTRIBUTING.md`.
 - **Open decisions**: anything the issue or contract leaves unsettled. Number each one, give a recommendation, and say why (the `grilling` skill's format). If a term is fuzzy or new, sharpen it with the `domain-modeling` skill: update `GLOSSARY.md`, and offer an ADR only for decisions that are hard to reverse, surprising, and a real trade-off.
 
-**Wait for the human's answers.** Postponed ideas become `deferred` issues, one per item, not notes in a comment.
+**Wait for the human's answers.** Then post them on the issue as a comment headed `Step-2 decisions (agreed)`, with the seams, build order, docs outline, names and each decision as answered, so another session can pick the issue up. Postponed ideas become `deferred` issues, one per item, not notes in a comment.
 
 ## 3. Build test-first
 
@@ -117,6 +119,17 @@ A **mechanical** finding (a fixed pattern, a banned API, an import shape, a file
 - **Merging is the human's.** Wait for their go-ahead; `main` takes a pull request only, merged by rebase once `check` passes.
 - After the merge, wait for CI on `main` to pass (`gh run watch`), then close the issue with a summary comment (if `Closes` didn't): what was delivered, the decisions made (link any `deferred` issues), and what the review found and fixed.
 - The human may then run `/retro` on the session. It suggests changes to the agent's environment (checks, standards, steering files), not to the code. The Review section's check candidates are its first leads.
+
+## Working in parallel
+
+Several issues can be built at once, one session each, so no session's context holds more than its own issue.
+
+1. **Agree decisions in a batch.** In one session, the human and an agent go through several issues' step 2 back to back. Each issue gets its `Step-2 decisions (agreed)` comment and the `ready-for-agent` label.
+2. **One fresh session per issue.** Its prompt only needs the issue number (`Work on #352`): this file says where the decisions are. The session works in a worktree of its own, never in the main checkout, which may hold the human's work and other sessions' branches: `git worktree add -b <issue>-<slug> .claude/worktrees/<issue>-<slug> origin/main`, then `vp install` there. It builds, reviews, pushes and opens its pull request, then stops (step 5).
+3. **A decision the comment doesn't cover** goes on the issue as a comment, numbered with a recommendation (the `grilling` skill's format), and in the session's reply. The session keeps building the slices it doesn't block, and waits for the answer before the ones it does.
+4. **Merging stays the human's.** One session merges the approved pull requests in turn, rebasing each on `main` and waiting for CI before the next.
+
+Pick issues that touch different modules for the same batch: two that change one core file (`relation.ts`, `record-state.ts`) conflict, so build those one after the other. Shared files (the contract, the upgrading page, the glossary) take a rebase.
 
 ## Shortcuts
 

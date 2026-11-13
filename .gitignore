@@ -12,3 +12,6 @@ site/docs/_excerpts
 
 # Python bytecode from the supply-chain auditor skill
 __pycache__/
+
+# Worktrees for issues built in parallel sessions (docs/agents/workflow.md)
+.claude/worktrees/
