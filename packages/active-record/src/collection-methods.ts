@@ -1,7 +1,13 @@
 // A hasMany's collection methods on `user.posts()`: `push`, `delete`, `destroy` and `clear`, kept in step with what the owner holds.
 import { savingGroups } from "./autosave.ts";
 import { pinBefore } from "./executor.ts";
-import { prepareDestroy, prepareSave, refusalError, type Ready } from "./lifecycle.ts";
+import {
+  prepareDestroy,
+  prepareSave,
+  refusalError,
+  type Claimed,
+  type Ready,
+} from "./lifecycle.ts";
 import { Model, modelOf } from "./model.ts";
 import type { AssociationCollection } from "./owned-collection.ts";
 import { isOwnersKey } from "./point-back-at-owner.ts";
@@ -178,14 +184,8 @@ function requireMembers(hasMany: OwnersHasMany, records: readonly Model[]): void
  */
 async function destroyTogether(records: readonly Model[], needs: string): Promise<void> {
   await pinBefore(linksOf(records), needs);
-  const claimed = new Set<Model>();
-  const plans: Ready[] = [];
-  for (const record of records) {
-    const plan = await prepareDestroy(record, claimed);
-    if (plan.status !== "ready") throw refusalError(record, plan, "destroy");
-    plans.push(plan);
-  }
-  await runStages(together(plans), needs);
+  const refused = await writeTogether(records, prepareDestroy, needs);
+  if (refused !== undefined) throw refusalError(refused.record, refused.plan, "destroy");
 }
 
 /**
@@ -193,15 +193,31 @@ async function destroyTogether(records: readonly Model[], needs: string): Promis
  * written, if one is invalid or a callback aborts it.
  */
 async function saveTogether(records: readonly Model[], needs: string): Promise<boolean> {
-  const claimed = new Set<Model>();
+  return (await writeTogether(records, prepareSave, needs)) === undefined;
+}
+
+/**
+ * Prepares each record's save or destroy, then writes them all as one: or, if one refuses, writes
+ * nothing and returns it, with its plan.
+ */
+async function writeTogether<Refusal>(
+  records: readonly Model[],
+  prepare: (record: Model, claimed: Claimed) => Promise<Ready | Refusal>,
+  needs: string,
+): Promise<{ record: Model; plan: Refusal } | undefined> {
+  const claimed: Claimed = new Set();
   const plans: Ready[] = [];
   for (const record of records) {
-    const plan = await prepareSave(record, claimed);
-    if (plan.status !== "ready") return false;
+    const plan = await prepare(record, claimed);
+    if (!isReady(plan)) return { record, plan };
     plans.push(plan);
   }
   await runStages(together(plans), needs);
-  return true;
+  return undefined;
+}
+
+function isReady(plan: unknown): plan is Ready {
+  return (plan as { status?: unknown }).status === "ready";
 }
 
 /**
