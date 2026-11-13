@@ -236,10 +236,14 @@ To leave the default scope out, start from `unscoped()`:
 `unscoped()` is a Model static only. With a database you hold, call it inside [`withDatabase`](./connecting#using-the-requests-database).
 
 :::warning[Default scopes hide records from associations too]
-A default scope that hides soft-deleted records, such as `where({ deletedAt: null })`, also hides them from every association. A comment on a deleted post then fails to save with “Post must exist”, and `dependent: "destroy"` leaves the deleted post’s comments behind. For soft deletes, prefer a named scope, `static kept = this.scope((q) => q.where({ deletedAt: null }))`, and call `Post.kept()` where it matters.
-:::
+A default scope that hides soft-deleted records also hides them from every association. A comment on a deleted post then fails to save with “Post must exist”. And `dependent: "destroy"` leaves a deleted post’s comments behind. For soft deletes, use a named scope instead:
 
-Keep a default scope to conditions and an order. A `limit` or `select` in one changes every query on the Model.
+```ts
+static kept = this.scope((q) => q.where({ deletedAt: null }));
+```
+
+Then call `Post.kept()` where deleted posts should stay hidden.
+:::
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
