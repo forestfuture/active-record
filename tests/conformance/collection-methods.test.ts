@@ -170,6 +170,18 @@ describe("a hasMany's collection methods", () => {
       expect(queries).toHaveLength(1);
     });
 
+    test("refuses a destroyed record before changing any record", async () => {
+      const post = await db().model(Post).find(1);
+      const moved = await db().model(Comment).find(20);
+      const gone = await db().model(Comment).find(11);
+      await gone.destroy();
+
+      await expect(post.comments().push(moved, gone)).rejects.toThrow(/destroyed/);
+
+      expect(moved.postId).toBe(2);
+      expect(moved.changes()).toEqual({});
+    });
+
     test("on a saved owner whose key is null, throws RecordNotSaved and writes nothing", async () => {
       class Member extends Model.define({ id: { type: "integer", null: false }, age: "integer" }) {
         static table = "users";
