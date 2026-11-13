@@ -47,7 +47,7 @@ export type BeforeCallbackKind =
 export type AfterCallbackKind = "afterCreate" | "afterUpdate" | "afterSave" | "afterDestroy";
 
 /** Callbacks that run when the database refused a write it was sent. */
-export type RollbackCallbackKind = "afterRollback";
+type RollbackCallbackKind = "afterRollback";
 
 export type CallbackKind = BeforeCallbackKind | AfterCallbackKind | RollbackCallbackKind;
 
@@ -66,7 +66,7 @@ export type CommitAction = "create" | "update" | "destroy";
  * A commit callback (`afterCommit`, `afterCreateCommit`, …): runs last, once its record's write is
  * kept, for the writes in `on`. They're one list, so they run in the order they were declared.
  */
-export interface CommitCallback {
+interface CommitCallback {
   kind: CommitKind;
   on: readonly CommitAction[];
   callback: Callback<Model>;
