@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, test } from "vite-plus/test";
+import { describe, expect, onTestFinished, test, vi } from "vite-plus/test";
 import { forgetProjectFiles, projectJiti } from "../../packages/active-record/cli/project/load.ts";
 import { scratchDirs } from "../support/scratch.ts";
 
@@ -28,14 +28,10 @@ describe("the command's compiled TypeScript", () => {
     const dir = scratch("compile-cache-bare-");
     writeFileSync(join(dir, "note.ts"), 'export const note: string = "uncached";');
     const temporary = scratch("compile-cache-tmp-");
-    const outer = process.env["TMPDIR"];
-    process.env["TMPDIR"] = temporary;
-    try {
-      await projectJiti(dir).import(join(dir, "note.ts"));
-    } finally {
-      if (outer === undefined) delete process.env["TMPDIR"];
-      else process.env["TMPDIR"] = outer;
-    }
+    vi.stubEnv("TMPDIR", temporary);
+    onTestFinished(() => void vi.unstubAllEnvs());
+
+    await projectJiti(dir).import(join(dir, "note.ts"));
 
     expect(existsSync(join(temporary, "jiti"))).toBe(false);
   });
