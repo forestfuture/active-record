@@ -8,7 +8,6 @@ import {
   RecordNotFound,
   withDatabase,
 } from "../../packages/active-record/src/index.ts";
-import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class User extends Model.define({
@@ -157,11 +156,12 @@ describe("default scopes", () => {
     expect(titlesFound.sort()).toEqual(["Also live", "Live"]);
   });
 
-  test("its order is the Relation's order", async () => {
-    const posts = harness.connect().model(RecentPost);
+  test("first() takes its order", async () => {
+    expect((await harness.connect().model(RecentPost).first())?.id).toBe(13);
+  });
 
-    expect((await posts.first())?.id).toBe(13);
-    expect((await posts.last())?.id).toBe(10);
+  test("last() reverses its order", async () => {
+    expect((await harness.connect().model(RecentPost).last())?.id).toBe(10);
   });
 
   test("reorder replaces its order", async () => {
@@ -198,14 +198,8 @@ describe("default scopes", () => {
 
     await db.model(Post).updateAll({ title: "Changed" });
 
-    expect(
-      await Post.unscoped()
-        .where({ id: 11 })
-        .pluck("title")
-        .catch(() => null),
-    ).toBeNull();
-    const draft = await withDatabase(db, () => Post.unscoped().find(11));
-    expect(draft.title).toBe("Draft");
+    const byId = await withDatabase(db, () => Post.unscoped().order({ id: "asc" }).pluck("title"));
+    expect(byId).toEqual(["Changed", "Draft", "Changed", "Changed"]);
   });
 
   test("deleteAll deletes only the records it shows", async () => {
@@ -266,19 +260,23 @@ describe("default scopes", () => {
     expect(post.errors.get("title")).toEqual(["has already been taken"]);
   });
 
-  test("a record's own update and destroy ignore it", async () => {
-    const queries: QueryEvent[] = [];
-    const db = harness.connect({ onQuery: (event) => queries.push(event) });
+  test("a record's own update ignores it", async () => {
+    const db = harness.connect();
     const draft = await withDatabase(db, () => Post.unscoped().find(11));
-    queries.length = 0;
 
     draft.title = "Edited draft";
-    expect(await draft.save()).toBe(true);
+    await draft.saveOrThrow();
+
+    expect((await withDatabase(db, () => Post.unscoped().find(11))).title).toBe("Edited draft");
+  });
+
+  test("a record's own destroy ignores it", async () => {
+    const db = harness.connect();
+    const draft = await withDatabase(db, () => Post.unscoped().find(11));
+
     await draft.destroy();
-    expect(draft.isDestroyed()).toBe(true);
-    expect(queries.map((event) => event.sql)).not.toContainEqual(
-      expect.stringContaining("published"),
-    );
+
+    expect(await withDatabase(db, () => Post.unscoped().exists({ id: 11 }))).toBe(false);
   });
 
   test("a named scope starts from it", async () => {
@@ -294,6 +292,63 @@ describe("default scopes", () => {
       .toArray();
 
     expect(titles(found)).toEqual(["Live"]);
+  });
+
+  test("merge keeps it on both sides", async () => {
+    const posts = harness.connect().model(Post);
+
+    expect(await posts.merge(posts.where({ title: "Draft" })).count()).toBe(0);
+  });
+
+  test("none() still matches nothing", async () => {
+    expect(await harness.connect().model(Post).none().count()).toBe(0);
+  });
+
+  test("create takes its equality values", async () => {
+    const post = await harness
+      .connect()
+      .model(Post)
+      .createOrThrow({ id: 20, userId: 1, title: "New" });
+
+    expect(post.published).toBe(true);
+  });
+
+  test("insertAll takes its equality values", async () => {
+    const db = harness.connect();
+
+    await db.model(Post).insertAll([{ id: 20, userId: 1, title: "Inserted" }]);
+
+    expect(await db.model(Post).exists({ id: 20 })).toBe(true);
+  });
+
+  test("upsert takes its equality values", async () => {
+    const db = harness.connect();
+
+    await db.model(Post).upsert({ id: 20, userId: 1, title: "Upserted" });
+
+    expect(await db.model(Post).exists({ id: 20 })).toBe(true);
+  });
+
+  test("a batch's insert takes its equality values", async () => {
+    const db = harness.connect();
+
+    await db.batch((b) => [b.insert(Post, { id: 20, userId: 1, title: "Batched" })]);
+
+    expect(await db.model(Post).exists({ id: 20 })).toBe(true);
+  });
+
+  test("preloading a belongsTo reads its target through it", async () => {
+    await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (1, 11, 'On a draft')");
+
+    const [comment] = await harness.connect().model(Comment).includes("post").toArray();
+
+    expect(comment!.loaded("post")).toBeNull();
+  });
+
+  test("paginate counts and pages only the records it shows", async () => {
+    const page = await harness.connect().model(Post).paginate({ page: 1, perPage: 10 });
+
+    expect(page.total).toBe(3);
   });
 
   test("declaring one once the Model has been used is an InvalidModel", async () => {
