@@ -522,6 +522,23 @@ export class FeaturedPost extends Post {}
     );
   });
 
+  test("a modelName that isn't a string fails, and the last good file is kept", async () => {
+    const cwd = await withModels({
+      "writer.ts": `${base}export class Writer extends ApplicationRecord {
+  static override modelName = 1 as unknown as string;
+}
+`,
+    });
+
+    const { code, output } = await run(cwd);
+
+    expect(code).toBe(1);
+    expect(output).toBe(
+      "src/models/writer.ts: Writer's modelName must be a string; remove it to use the class name\n" +
+        "Kept src/db/schema.ts as it was",
+    );
+  });
+
   test("two Models with one modelName fail, and the last good file is kept", async () => {
     const cwd = await withModels({
       "user.ts": `${base}export class User extends ApplicationRecord {}\n`,

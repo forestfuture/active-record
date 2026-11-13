@@ -157,6 +157,14 @@ export function rejectAbstract(model: ModelClass): void {
   );
 }
 
+/** A Model's `modelName` must be a string, since names are made from it and the schema lists it by it. */
+export function requireModelName(model: ModelClass): void {
+  if (typeof model.modelName === "string") return;
+  throw new InvalidModel(
+    `${model.name}'s modelName must be a string; remove it to use the class name`,
+  );
+}
+
 /** A Model must have a table name: its own, or one inferred from its modelName. */
 export function requireTableName(model: ModelClass): void {
   const { table } = model;
