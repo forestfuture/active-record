@@ -12,8 +12,11 @@ class Comment extends Model.define({
 
   static {
     this.validates("body", { presence: true });
+    this.afterDestroy((comment) => void destroyed.push(comment.body));
   }
 }
+
+const destroyed: (string | null)[] = [];
 
 const postAttributes = {
   id: { type: "integer", null: false },
@@ -25,6 +28,18 @@ class Post extends Model.define(postAttributes) {
   static table = "posts";
 
   comments = hasMany(Comment, { foreignKey: "postId" });
+}
+
+class DeletingPost extends Model.define(postAttributes) {
+  static table = "posts";
+
+  comments = hasMany(Comment, { foreignKey: "postId", dependent: "deleteAll" });
+}
+
+class DestroyingPost extends Model.define(postAttributes) {
+  static table = "posts";
+
+  comments = hasMany(Comment, { foreignKey: "postId", dependent: "destroy" });
 }
 
 describe("a hasMany's collection methods", () => {
@@ -50,6 +65,7 @@ describe("a hasMany's collection methods", () => {
     await harness.exec(
       "INSERT INTO comments (id, post_id, body) VALUES (10, 1, 'a'), (11, 1, 'b'), (20, 2, 'c')",
     );
+    destroyed.length = 0;
     database = harness.connect({ onQuery: (event) => queries.push(event) });
     queries.length = 0;
   });
@@ -125,6 +141,75 @@ describe("a hasMany's collection methods", () => {
       await expect(post.comments().push(other as never)).rejects.toThrow(
         new TypeError("Post.comments takes Comment records, not a Post"),
       );
+    });
+  });
+
+  describe("delete", () => {
+    test("nullifies the records' foreign key by default, and resolves to them", async () => {
+      const post = await db().model(Post).find(1);
+      const comment = await db().model(Comment).find(10);
+
+      expect(await post.comments().delete(comment)).toEqual([comment]);
+
+      expect(await bodies(1)).toEqual(["b"]);
+      expect(await bodies(null)).toEqual(["a"]);
+    });
+
+    test("with dependent: deleteAll, deletes their rows without callbacks", async () => {
+      const post = await db().model(DeletingPost).find(1);
+      const comments = await db().model(Comment).find(10, 11);
+
+      await post.comments().delete(...comments);
+
+      expect(await db().model(Comment).pluck("id")).toEqual([20]);
+      expect(destroyed).toEqual([]);
+    });
+
+    test("with dependent: destroy, destroys them, callbacks included", async () => {
+      const post = await db().model(DestroyingPost).find(1);
+      const comment = await db().model(Comment).find(10);
+
+      await post.comments().delete(comment);
+
+      expect(comment.isDestroyed()).toBe(true);
+      expect(destroyed).toEqual(["a"]);
+      expect(await bodies(1)).toEqual(["b"]);
+    });
+
+    test("on a loaded collection, the records leave it", async () => {
+      const post = await db().model(Post).find(1);
+      const [first] = await post.comments().toArray();
+      queries.length = 0;
+
+      await post.comments().delete(first!);
+      const loaded = await post.comments().toArray();
+
+      expect(loaded.map((comment) => comment.body)).toEqual(["b"]);
+      expect(queries).toHaveLength(1);
+    });
+
+    test("a record built through it leaves it, with no query", async () => {
+      const post = await db().model(Post).find(1);
+      const built = post.comments().build({ body: "new" });
+      queries.length = 0;
+
+      await post.comments().delete(built);
+      await post.save();
+
+      expect(queries).toHaveLength(0);
+      expect(await bodies(1)).toEqual(["a", "b"]);
+    });
+
+    test("throws TypeError for another owner's record, or another Model's, sending nothing", async () => {
+      const post = await db().model(Post).find(1);
+      const others = await db().model(Comment).find(20);
+      queries.length = 0;
+
+      await expect(post.comments().delete(others)).rejects.toThrow(
+        new TypeError("Post.comments doesn't hold this Comment: it belongs to another Post"),
+      );
+      await expect(post.comments().delete(post as never)).rejects.toThrow(TypeError);
+      expect(queries).toHaveLength(0);
     });
   });
 });

@@ -28,7 +28,7 @@ export function pointBackAtOwner(
  * key's digits, #94), or null while the owner has none yet, which saving the owner fills in. A
  * key given to `build` or `create` that isn't the owner's, null included, points elsewhere.
  */
-function isOwnersKey(key: unknown, owner: Model, association: ResolvedAssociation): boolean {
+export function isOwnersKey(key: unknown, owner: Model, association: ResolvedAssociation): boolean {
   if (key === null) return association.keyOf(owner) === null;
   const ownerKey = owner[state].read(association.ownerAttribute) as Key | null;
   return ownerKey !== null && String(key as Key) === String(ownerKey);
