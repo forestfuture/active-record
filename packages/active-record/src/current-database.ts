@@ -135,9 +135,13 @@ export function currentExecutorOf(model: ModelClass): Executor {
   return currentExecutor(schemaAdapter(model));
 }
 
-/** A Relation over all of `model`'s records, on the current database (`Product.all()`). */
+/**
+ * A Relation over all of `model`'s records, on the current database (`Product.all()`), or
+ * without its default scopes (`Product.unscoped()`).
+ */
 export function currentRelation<C extends ModelClass>(
   model: C,
+  options: { unscoped?: boolean } = {},
 ): Scoped<InstanceType<C>, ScopesOf<C>> {
-  return relationFor(currentExecutorOf(model), model);
+  return relationFor(currentExecutorOf(model), model, options);
 }

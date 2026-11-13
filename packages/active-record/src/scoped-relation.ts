@@ -1,4 +1,5 @@
 // Scopes: a Model's scope statics, and the Relations that carry them as methods.
+import { declared } from "./declarations.ts";
 import { InvalidModel } from "./errors.ts";
 import type { Executor } from "./executor.ts";
 import { ancestors } from "./ancestors.ts";
@@ -114,15 +115,29 @@ function relationClassFor(model: ModelClass): RelationClass {
   return ScopedRelation;
 }
 
-/** A fresh Relation over all of `model`'s records, with the Model's scopes as methods. */
+/**
+ * A fresh Relation over `model`'s records, with the Model's scopes as methods, narrowed by its
+ * default scopes (#25) unless it's `unscoped`.
+ */
 export function relationFor<C extends ModelClass>(
   executor: Executor,
   model: C,
+  { unscoped = false }: { unscoped?: boolean } = {},
 ): Scoped<InstanceType<C>, ScopesOf<C>> {
   // Every query starts here, so the Model is made ready here, however it was reached.
   setUp().ready(model);
   const Class = relationClassFor(model) as unknown as new (
     ...args: RelationArgs<InstanceType<C>>
   ) => Scoped<InstanceType<C>, ScopesOf<C>>;
-  return new Class({ executor, model: model as unknown as ModelClass<InstanceType<C>> });
+  const relation = new Class({ executor, model: model as unknown as ModelClass<InstanceType<C>> });
+  return unscoped ? relation : withDefaultScopes(model, relation);
+}
+
+/** `relation` narrowed by each of `model`'s default scopes, in the order they were declared. */
+function withDefaultScopes<R>(model: ModelClass, relation: R): R {
+  let scoped = relation as unknown as Relation<Model>;
+  for (const body of declared(model, "defaultScopes")) {
+    scoped = scoped[applyScope]("defaultScope", body, []);
+  }
+  return scoped as unknown as R;
 }
