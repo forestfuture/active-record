@@ -79,6 +79,18 @@ describe("a hasMany's collection methods", () => {
     queries.length = 0;
   });
 
+  test("only the association itself has them, not a Relation narrowed from it", async () => {
+    const post = await db().model(Post).find(1);
+    const narrowed = post.comments().where({ body: "a" }) as unknown as Record<string, unknown>;
+
+    for (const method of ["push", "delete", "destroy", "clear"]) {
+      expect(typeof (post.comments() as unknown as Record<string, unknown>)[method]).toBe(
+        "function",
+      );
+      expect(narrowed[method]).toBeUndefined();
+    }
+  });
+
   describe("push", () => {
     test("sets each record's foreign key and saves it", async () => {
       const post = await db().model(Post).find(1);

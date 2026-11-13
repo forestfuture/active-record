@@ -10,6 +10,7 @@ import {
   lt,
   Model,
   type HasMany,
+  type HasManyCollection,
   type QuerySql,
   type RecordStatement,
   Relation,
@@ -435,6 +436,33 @@ describe("types", () => {
     const typeOnly = async (category: Category) => {
       expectTypeOf(await category.children().top().toArray()).toEqualTypeOf<Category[]>();
       expectTypeOf(await category.parent()).toEqualTypeOf<Category | null>();
+    };
+    expectTypeOf(typeOnly).toBeFunction();
+  });
+
+  test("a hasMany's collection methods take its records, on the association itself only", () => {
+    class Article extends Model.define({ id: "integer", authorId: "integer", live: "boolean" }) {
+      static live = this.scope((q) => q.where({ live: true }));
+    }
+    class Author extends Model.define({ id: "integer" }) {
+      articles = hasMany(Article, { foreignKey: "authorId" });
+    }
+
+    // Checked by the type checker only; never called.
+    const typeOnly = async (author: Author, article: Article) => {
+      expectTypeOf(author.articles()).toEqualTypeOf<
+        HasManyCollection<Article, { live: (typeof Article)["live"] }>
+      >();
+      expectTypeOf(await author.articles().push(article)).toEqualTypeOf<boolean>();
+      expectTypeOf(await author.articles().delete(article)).toEqualTypeOf<Article[]>();
+      expectTypeOf(await author.articles().destroy(article)).toEqualTypeOf<Article[]>();
+      expectTypeOf(await author.articles().clear()).toEqualTypeOf<void>();
+      // @ts-expect-error a record of another Model
+      await author.articles().push(author);
+      // @ts-expect-error a narrowed Relation has none of them
+      await author.articles().live().push(article);
+      // @ts-expect-error nor one narrowed with where
+      await author.articles().where({ live: true }).clear();
     };
     expectTypeOf(typeOnly).toBeFunction();
   });
