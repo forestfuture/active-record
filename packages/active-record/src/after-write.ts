@@ -32,6 +32,11 @@ export async function runAfterCallbacks(
   }
 }
 
+/** A write's rollback callbacks: the record's `afterRollback`, to run if the database refuses it. */
+export function rollbackOf(record: Model): () => Promise<void> {
+  return () => runCallbacks(record, "afterRollback");
+}
+
 /**
  * Runs the record's commit callbacks for `action`, in the order they were declared. The write is
  * already kept, so an `abort()` in one is `AbortAfterPersistence`; any other error propagates.

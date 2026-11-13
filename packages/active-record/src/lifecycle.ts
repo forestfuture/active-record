@@ -24,7 +24,7 @@ import {
   RecordNotSaved,
 } from "./errors.ts";
 import { clearErrors } from "./errors-collection.ts";
-import { runAfterCallbacks, runCallbacks, runCommitCallbacks } from "./after-write.ts";
+import { rollbackOf, runAfterCallbacks, runCallbacks, runCommitCallbacks } from "./after-write.ts";
 import { pinBefore } from "./executor.ts";
 import { declared, type BeforeCallbackKind } from "./declarations.ts";
 import { modelOf, type Model } from "./model.ts";
@@ -382,8 +382,8 @@ function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
     await runAfterCallbacks(record, isInsert ? "afterCreate" : "afterUpdate", "save");
     await runAfterCallbacks(record, "afterSave", "save");
   };
+  const afterRollback = rollbackOf(record);
   const afterCommit = () => runCommitCallbacks(record, isInsert ? "create" : "update");
-  const afterRollback = () => runCallbacks(record, "afterRollback");
   if (isInsert) {
     const own = recordState.insertAssignments();
     const insert = compileInsert(model, [...own, ...timestampsFor(model, "insert", own)]);
@@ -442,7 +442,7 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
       statements: deletion,
       commit: () => recordState.markDestroyed(),
       after: () => runAfterCallbacks(record, "afterDestroy", "destroy"),
-      afterRollback: () => runCallbacks(record, "afterRollback"),
+      afterRollback: rollbackOf(record),
       ...(hasRow && { afterCommit: () => runCommitCallbacks(record, "destroy") }),
     },
   ]);
