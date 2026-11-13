@@ -27,6 +27,19 @@ describe("model declaration", () => {
     await users.where({ id: 7 }).deleteAll();
   });
 
+  test("a model that sets modelName uses the table inferred from it", async () => {
+    // As a bundler that renames classes leaves it: named e, but still the User Model.
+    const e = class extends Model.define({ id: "integer", email: "string" }) {
+      static modelName = "User";
+    };
+    const users = harness.connect().model(e);
+
+    await users.insert({ id: 8, email: "named@example.com" });
+
+    expect(await users.find(8).then((user) => user.email)).toBe("named@example.com");
+    await users.where({ id: 8 }).deleteAll();
+  });
+
   test("an empty table is rejected when first used", () => {
     class Nameless extends Model.define({ id: "integer" }) {
       static table = "";
