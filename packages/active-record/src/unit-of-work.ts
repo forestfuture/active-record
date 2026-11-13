@@ -1,4 +1,4 @@
-// Writing prepared writes as one atomic batch, then committing each and running its callbacks; and a save's or destroy's stages, each such a batch on its database.
+// Writing prepared writes as one atomic batch, then committing each and running its callbacks, or telling each it failed; and a save's or destroy's stages, each such a batch on its database.
 import type { CompiledSql } from "./compiler.ts";
 import type { StatementResult } from "./driver.ts";
 import { pinBefore, type Executor } from "./executor.ts";
@@ -18,8 +18,11 @@ export interface PreparedWrite {
   afterCommit?(): Promise<void>;
   /** Its rollback callbacks, run when the database refuses the batch it was sent in. */
   afterRollback?(): Promise<void>;
-  /** The error to throw in place of the database's, if this write explains it (#40). */
-  explain?(error: unknown): Error | undefined;
+  /**
+   * Called when its batch fails, before its rollback callbacks: undoes what preparing it changed,
+   * and returns an error to throw in place of the database's, if this write explains it (#40).
+   */
+  failed?(error: unknown): Error | undefined;
 }
 
 /** A prepared write for plain statements: nothing to commit, no callbacks. */
@@ -30,8 +33,9 @@ export function statementWrite(statements: readonly CompiledSql[]): PreparedWrit
 /**
  * Sends every write's statements as one atomic batch (or one statement on its own), then
  * commits each write with its own results. If the database refuses the batch, nothing is
- * committed: each write's rollback callbacks run, then the database's error is thrown (or one
- * a write explains it as), unless a rollback callback throws first (see `whileHandling`).
+ * committed: each write hears it failed, its rollback callbacks run, then the database's error
+ * is thrown (or one a write explains it as), unless a rollback callback throws first (see
+ * `whileHandling`).
  */
 export async function writeAll(
   executor: Executor,
@@ -64,9 +68,12 @@ async function send(
   }
 }
 
-/** The error one of the refused writes explains the database's refusal as, or the refusal. */
+/**
+ * Tells each refused write it failed: the error one of them explains the refusal as, or else the
+ * refusal.
+ */
 function explained(writes: readonly PreparedWrite[], refusal: unknown): unknown {
-  return writes.map((write) => write.explain?.(refusal)).find((each) => each) ?? refusal;
+  return writes.map((write) => write.failed?.(refusal)).find((each) => each) ?? refusal;
 }
 
 /** Commits each written write with its own statements' results, in order. */
