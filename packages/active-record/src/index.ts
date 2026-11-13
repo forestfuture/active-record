@@ -4,6 +4,7 @@ export type {
   AssociationOptions,
   BelongsTo,
   HasMany,
+  HasManyCollection,
   HasManyDependent,
   HasOne,
   HasOneDependent,
