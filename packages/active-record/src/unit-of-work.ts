@@ -123,10 +123,11 @@ export function afterLinking(stage: Stage, first: () => void): Stage {
 
 /**
  * Writes `stages` one after another, each as one atomic batch on its database, then runs the
- * written writes' after-callbacks in order, then their commit callbacks. Each group's database is found, and its records pinned
- * to it, before anything is written: a group on two databases throws `IncompatibleRelation`
- * ("`needs` on one database", #93). If a later stage fails, the earlier ones stay written, so
- * their after-callbacks and commit callbacks still run before the error is thrown.
+ * written writes' after-callbacks in order, then their commit callbacks. Each group's database
+ * is found, and its records pinned to it, before anything is written: a group on two databases
+ * throws `IncompatibleRelation` ("`needs` on one database", #93). If a later stage fails, the
+ * earlier ones stay written, so their after-callbacks and commit callbacks still run before
+ * the error is thrown.
  */
 export async function runStages(stages: readonly Stage[], needs: string): Promise<void> {
   const databases = await pinGroups(stages, needs);
