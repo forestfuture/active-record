@@ -181,7 +181,7 @@ export function messageOf(source: MessageSource, entry: ErrorEntry): string {
   if (text === undefined) throw missingMessage(model, entry);
   return text.replace(/%\{(\w+)\}/g, (placeholder, name: string) => {
     if (name === "attribute") return humanAttributeName(model, entry.attribute);
-    if (name === "model") return inWords(model.name);
+    if (name === "model") return inWords(model.modelName);
     if (name === "value") return shownValue(source, entry.attribute);
     return String(ownValue(entry.values, name) ?? placeholder);
   });

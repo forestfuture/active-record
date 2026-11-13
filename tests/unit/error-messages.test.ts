@@ -318,6 +318,21 @@ describe("error messages", () => {
     ]);
   });
 
+  test("%{model} is the Model's modelName in words, when it sets one", async () => {
+    // As a bundler that renames classes leaves it: named e, but still the BlogAccount Model.
+    const e = class extends AccountRecord {
+      static override modelName = "BlogAccount";
+      static {
+        this.errorMessages({ invalid: "isn't allowed for a %{model}" });
+        this.validates("handle", { format: /^[a-z]+$/ });
+      }
+    };
+
+    expect(await messagesOf(e as never, { handle: "Ada!" })).toEqual([
+      "Handle isn't allowed for a Blog account",
+    ]);
+  });
+
   test("%{value} of a filtered attribute is [FILTERED]", async () => {
     class Contact extends AccountRecord {
       static {
