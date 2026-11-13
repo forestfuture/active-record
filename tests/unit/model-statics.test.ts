@@ -152,6 +152,7 @@ describe("the statics' list", () => {
       "afterUpdateCommit",
       "afterSaveCommit",
       "afterDestroyCommit",
+      "afterRollback",
     ];
     for (const name of [...relationMethods, ...callbackKinds]) {
       expect((User as unknown as Record<string, () => unknown>)[name]?.name).toBe(name);

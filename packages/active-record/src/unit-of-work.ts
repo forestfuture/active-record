@@ -16,6 +16,8 @@ export interface PreparedWrite {
   after(): Promise<void>;
   /** Its commit callbacks, run once every write's after-callbacks have. */
   afterCommit?(): Promise<void>;
+  /** Its rollback callbacks, run when the database refuses the batch it was sent in. */
+  afterRollback?(): Promise<void>;
 }
 
 /** A prepared write for plain statements: nothing to commit, no callbacks. */
@@ -25,20 +27,35 @@ export function statementWrite(statements: readonly CompiledSql[]): PreparedWrit
 
 /**
  * Sends every write's statements as one atomic batch (or one statement on its own), then
- * commits each write with its own results. Nothing is committed if D1 refuses the batch.
+ * commits each write with its own results. If the database refuses the batch, nothing is
+ * committed: each write's rollback callbacks run, then the database's error is thrown.
  */
 export async function writeAll(
   executor: Executor,
   writes: readonly PreparedWrite[],
 ): Promise<StatementResult[]> {
   const statements = writes.flatMap((write) => write.statements);
-  const results = statements.length === 0 ? [] : await executor.write(statements);
+  const results = statements.length === 0 ? [] : await sendOrRollBack(executor, writes, statements);
   let offset = 0;
   for (const write of writes) {
     write.commit(results.slice(offset, offset + write.statements.length));
     offset += write.statements.length;
   }
   return results;
+}
+
+/** Sends `statements`; if the database refuses them, runs `writes`' rollback callbacks and rethrows. */
+async function sendOrRollBack(
+  executor: Executor,
+  writes: readonly PreparedWrite[],
+  statements: readonly CompiledSql[],
+): Promise<StatementResult[]> {
+  try {
+    return await executor.write(statements);
+  } catch (error) {
+    for (const write of writes) await write.afterRollback?.();
+    throw error;
+  }
 }
 
 /** Runs the after-callbacks of written writes, in order, then their commit callbacks. */

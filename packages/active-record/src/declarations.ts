@@ -46,7 +46,10 @@ export type BeforeCallbackKind =
 /** Callbacks that run after a successful write; `abort()` there is `AbortAfterPersistence`. */
 export type AfterCallbackKind = "afterCreate" | "afterUpdate" | "afterSave" | "afterDestroy";
 
-export type CallbackKind = BeforeCallbackKind | AfterCallbackKind;
+/** Callbacks that run when the database refused a write it was sent. */
+export type RollbackCallbackKind = "afterRollback";
+
+export type CallbackKind = BeforeCallbackKind | AfterCallbackKind | RollbackCallbackKind;
 
 /** Callbacks that run last, once their record's write is kept. */
 export type CommitKind =
