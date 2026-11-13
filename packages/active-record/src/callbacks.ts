@@ -1,4 +1,4 @@
-// What runs once a record's write is kept: its after-callbacks, then its commit callbacks (`afterCommit`, …).
+// Running a record's callbacks: each kind's in declaration order, and those a write runs once it's kept (after-callbacks, then commit callbacks) or refused (`afterRollback`).
 import {
   declared,
   type AfterCallbackKind,
