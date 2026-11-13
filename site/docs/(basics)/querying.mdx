@@ -239,7 +239,9 @@ To leave the default scope out, start from `unscoped()`:
 A default scope that hides soft-deleted records also hides them from every association. A comment on a deleted post then fails to save with “Post must exist”. And `dependent: "destroy"` leaves a deleted post’s comments behind. For soft deletes, use a named scope instead:
 
 ```ts
-static kept = this.scope((q) => q.where({ deletedAt: null }));
+class Post extends ApplicationRecord {
+  static kept = this.scope((q) => q.where({ deletedAt: null }));
+}
 ```
 
 Then call `Post.kept()` where deleted posts should stay hidden.
