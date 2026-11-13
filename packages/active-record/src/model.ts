@@ -113,7 +113,7 @@ export type AttributesOf<M> = M extends { readonly [attributeTypes]?: infer A } 
  * It has no table, so it's never used as a Model itself.
  */
 export class Model extends ModelStatics {
-  /** The table's name: inferred from the class name (`BlogPost` → `blog_posts`) unless set. */
+  /** The table's name: inferred from `modelName` (`BlogPost` → `blog_posts`) unless set. */
   declare static table: string;
   /**
    * The Model's name, as Rails' `model_name`: its class name unless set (`static modelName =

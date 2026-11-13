@@ -189,7 +189,7 @@ describe("association declarations", () => {
     ][0]!;
 
     expect(() => db.model(anonymous)).toThrow(
-      /has no class name to infer its foreign key from; pass foreignKey/,
+      /has no class name to infer its foreign key from; pass foreignKey, or set static modelName/,
     );
   });
 });

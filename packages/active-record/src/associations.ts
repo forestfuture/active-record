@@ -169,7 +169,7 @@ function checkKeys(
 ): void {
   if (definition.inferredFrom?.source === "className" && definition.inferredFrom.name === "") {
     throw new InvalidModel(
-      `${label} has no class name to infer its foreign key from; pass foreignKey`,
+      `${label} has no class name to infer its foreign key from; pass foreignKey, or set static modelName`,
     );
   }
   const { ownerAttribute, targetAttribute } = linkOf(definition, model, target);
