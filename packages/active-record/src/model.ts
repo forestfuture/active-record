@@ -242,6 +242,27 @@ export class Model extends ModelStatics {
     return conversionsFor(this, name);
   }
 
+  /**
+   * Declares a default scope (#25), as Rails' `default_scope { … }`, in `static {}`:
+   * `this.defaultScope((q) => q.where({ deletedAt: null }))`. Every query on the Model, its
+   * associations' included, starts from it, and new records take its equality values. Several
+   * are applied in order; a subclass adds to its parent's. `unscoped()` leaves them out.
+   */
+  static defaultScope<C extends AbstractModelClass>(
+    this: C,
+    body: (q: Relation<InstanceType<C>>) => Relation<InstanceType<C>>,
+  ): void {
+    declare(this, "defaultScopes", body as unknown as Scope<Model>);
+  }
+
+  /**
+   * All of this Model's records without its default scopes (#25), as Rails' `Product.unscoped`,
+   * on the current database. Only a static: a Relation keeps what it has.
+   */
+  static unscoped<C extends QueryableClass>(this: C): Scoped<InstanceType<C>, ScopesOf<C>> {
+    return currentRelation(this, { unscoped: true });
+  }
+
   /** Declares a validation, e.g. `this.validates("email", { presence: true })` in `static {}`. */
   static validates<C extends AbstractModelClass>(
     this: C,
