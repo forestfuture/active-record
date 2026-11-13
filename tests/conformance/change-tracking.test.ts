@@ -151,10 +151,26 @@ describe("change tracking", () => {
     expect(key.changed()).toEqual(["id", "label"]);
   });
 
-  test("a before-callback sees a default it kept as unchanged", async () => {
+  test("a before-callback's willSaveChangeTo is false for a default the record kept", async () => {
     const key = await harness.connect().model(ReadKey).createOrThrow({ id: "k2", label: "ci" });
 
     expect(key.label).toBe("ci");
+  });
+
+  test("changing a JSON default in place is a change", () => {
+    const key = harness.connect().model(ReadKey).build({ id: "k2", label: "ci" });
+
+    (key.scopes as string[]).push("write");
+
+    expect(key.changes().scopes).toEqual([["read"], ["read", "write"]]);
+  });
+
+  test("restoring a new record's attributes leaves it unchanged", () => {
+    const draft = harness.connect().model(Draft).build({ email: "b@example.com", role: "admin" });
+
+    draft.restoreAttributes();
+
+    expect(draft.isChanged()).toBe(false);
   });
 
   test("a new record holding only its defaults is still inserted, with them", async () => {
@@ -162,7 +178,7 @@ describe("change tracking", () => {
     const member = db.model(Member).build();
 
     expect(await member.save()).toBe(true);
-    expect(await db.model(User).where({ id: member.id! }).pluck("email", "role")).toEqual([
+    expect(await db.model(Member).where({ id: member.id! }).pluck("email", "role")).toEqual([
       ["new@example.com", "member"],
     ]);
   });

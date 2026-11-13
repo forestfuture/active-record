@@ -47,6 +47,17 @@ describe("timestamps", () => {
     expect(stored.updatedAt).toEqual(past);
   });
 
+  test("after a create, savedChanges includes the timestamps it set", async () => {
+    const key = await harness.connect().model(ApiKey).create({ id: "k1", label: "deploy" });
+
+    expect(key.savedChanges()).toEqual({
+      id: [null, "k1"],
+      label: [null, "deploy"],
+      createdAt: [null, key.createdAt],
+      updatedAt: [null, key.updatedAt],
+    });
+  });
+
   test("saving a change moves updatedAt forward and leaves createdAt alone", async () => {
     await harness
       .connect()
