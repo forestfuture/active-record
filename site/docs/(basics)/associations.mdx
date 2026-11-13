@@ -56,6 +56,10 @@ Use `hasMany` on the Model the other table’s foreign key points at. A user has
 - **`record.posts()`** is a Relation of the associated records, with every Relation method and the target’s scopes.
 - **`record.posts().build(attrs)`** builds a record with the owner’s key, saved with the owner. See [Autosaving](#autosaving).
 - **`record.posts().create(attrs)`** and **`createOrThrow(attrs)`** save a new record at once. The owner must already be saved.
+- **`record.posts().push(...records)`** adds records. It sets their foreign key and saves them in one write, or resolves to `false` and saves none if one can’t be saved. On an unsaved owner, they’re saved with it.
+- **`record.posts().delete(...records)`** removes records by the `dependent` strategy. It destroys them for `"destroy"`, deletes them for `"deleteAll"`, and otherwise sets their foreign key to `NULL`.
+- **`record.posts().destroy(...records)`** destroys records with their callbacks, whatever the strategy.
+- **`record.posts().clear()`** removes every record, as `deleteAll()` does.
 - **`insert`, `updateAll`, and `deleteAll`** write to the owner’s records. See [Writing many rows](#writing-many-rows).
 
 | Option       | Does                                                                                                             |
@@ -110,7 +114,7 @@ A loaded association is cached on the record. Reading `author()` again doesn’t
 
 - Changing a foreign key makes the next read query again.
 - `reload()` clears the cache, and `await record.reloadAssociation("articles")` reloads one association.
-- A write through a `hasMany` clears its loaded collection: `insert`, `upsert`, `updateAll` and `deleteAll`, alone or in `db.batch`, even after `where` or `order`, or with the association joined by `or()`, `merge()` or a scope. `create` through the association itself adds the new record instead, so the next read still doesn’t query.
+- A write through a `hasMany` clears its loaded collection: `insert`, `upsert`, `updateAll` and `deleteAll`, alone or in `db.batch`, even after `where` or `order`, or with the association joined by `or()`, `merge()` or a scope. `create`, `push`, `delete`, `destroy`, and `clear` on the association itself update it instead, so the next read still doesn’t query.
 - A write made another way, such as `Article.where({ authorId: author.id }).deleteAll()`, doesn’t touch a loaded collection: reload the association to see it.
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
