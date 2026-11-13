@@ -102,10 +102,16 @@ async function setOne(
   if (record !== null) {
     const undo = undoAdopting(owner, association, record);
     adopt(owner, association, record);
-    if (owner[state].isNew || (await record.save())) return;
-    // As in Rails, the association stays as it was, and the record isn't the owner's.
-    undo();
-    throw new RecordNotSaved(`Failed to save the new associated ${name}`);
+    if (owner[state].isNew) return;
+    // As in Rails, a save that fails or throws leaves the association as it was.
+    let saved = false;
+    try {
+      saved = await record.save();
+    } finally {
+      if (!saved) undo();
+    }
+    if (!saved) throw new RecordNotSaved(`Failed to save the new associated ${name}`);
+    return;
   }
   // Removed before anything changes here, so a removal that throws leaves the association as it was.
   if (!owner[state].isNew) {
@@ -118,7 +124,8 @@ async function setOne(
 
 /**
  * Undoes `adopt(owner, association, record)` when `set` fails: the association loaded and built as
- * it was, its built record replacing what it did, and `record`'s foreign key as it was.
+ * it was, its built record and `record` replacing what they did, and `record`'s foreign key as
+ * it was.
  */
 function undoAdopting(owner: Model, association: ResolvedAssociation, record: Model): () => void {
   const { name, ownerAttribute, definition } = association;
@@ -126,8 +133,10 @@ function undoAdopting(owner: Model, association: ResolvedAssociation, record: Mo
   const [built] = owner[state].autosaves.built(name);
   const replacement = built === undefined ? undefined : replacementOf(built);
   const key = record[state].read(definition.foreignKey);
+  const own = replacementOf(record);
   return () => {
     forgetReplacing(record);
+    if (own !== undefined) markReplacing(record, own);
     record[state].writeKey(definition.foreignKey, key, name);
     owner[state].autosaves.clear(name);
     if (built !== undefined) owner[state].autosaves.setBuilt(name, built);
