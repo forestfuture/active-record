@@ -217,9 +217,15 @@ export class RecordState {
 
   // Changes
 
-  /** A new record's assigned attributes, or a persisted one's that differ from the Snapshot. */
+  /**
+   * A new record's assigned attributes that differ from their initial values (a declared default
+   * or generated id, else null), as Rails' changes run from defaults (#41); or a persisted
+   * one's that differ from the Snapshot. Both compare stored forms.
+   */
   changedNames(): string[] {
-    if (this.#lifecycle === "new") return [...this.#assigned];
+    if (this.#lifecycle === "new") {
+      return [...this.#assigned].filter((name) => this.#storedForm(name) !== this.#initialOf(name));
+    }
     return Object.keys(this.#values).filter(
       (name) => !this.#inSnapshot(name) || this.#snapshotOf(name) !== this.#storedForm(name),
     );
@@ -229,8 +235,7 @@ export class RecordState {
   changes(): Changes {
     const changes: Changes = {};
     for (const name of this.changedNames()) {
-      const before = this.#inSnapshot(name) ? this.#snapshotValue(name) : null;
-      changes[name] = [before, this.#copyOf(name)];
+      changes[name] = [this.#valueBefore(name), this.#copyOf(name)];
     }
     return changes;
   }
@@ -256,9 +261,7 @@ export class RecordState {
    */
   valueInDatabase(name: string): unknown {
     this.read(name);
-    const attribute = this.#attribute(name);
-    if (this.#inSnapshot(name)) return this.#snapshotValue(name);
-    return this.#initialValues.has(name) ? attribute.read(this.#initialValues.get(name)) : null;
+    return this.#valueBefore(name);
   }
 
   /**
@@ -324,8 +327,17 @@ export class RecordState {
     return this.#attribute(this.#model.primaryKey).read(this.storedKey);
   }
 
-  /** After an insert: load what D1 stored; `savedChanges` is everything the new row holds. */
+  /**
+   * After an insert: load what D1 stored. `savedChanges` is the changes the insert wrote, and
+   * what the write or the database filled in (a generated key, timestamps, a column default),
+   * each from its value before: a declared default the record kept isn't one (#41).
+   */
   commitInsert(row: Record<string, unknown> | undefined): void {
+    const written = this.changes();
+    const before = new Map(Object.keys(this.#values).map((name) => [name, this.#storedForm(name)]));
+    const valuesBefore = new Map(
+      Object.keys(this.#values).map((name) => [name, this.#valueBefore(name)]),
+    );
     if (row === undefined) {
       this.#settle();
       this.#markSaved();
@@ -334,8 +346,8 @@ export class RecordState {
     }
     this.#savedChanges = Object.fromEntries(
       Object.keys(this.#values)
-        .filter((name) => this.#values[name] !== null)
-        .map((name) => [name, [null, this.#copyOf(name)]]),
+        .filter((name) => name in written || this.#storedForm(name) !== before.get(name))
+        .map((name) => [name, [valuesBefore.get(name) ?? null, this.#copyOf(name)]]),
     );
   }
 
@@ -385,6 +397,19 @@ export class RecordState {
   }
 
   /** An attribute's current value in its stored form, for comparing with the Snapshot. */
+  /** A new record's initial value as stored: its declared default or generated id, else null. */
+  #initialOf(name: string): unknown {
+    return this.#initialValues.has(name)
+      ? this.#initialValues.get(name)
+      : this.#attribute(name).write(null);
+  }
+
+  /** The value before the unsaved change: as last loaded or saved, or a new record's initial one. */
+  #valueBefore(name: string): unknown {
+    if (this.#inSnapshot(name)) return this.#snapshotValue(name);
+    return this.#attribute(name).read(this.#initialOf(name));
+  }
+
   #storedForm(name: string): unknown {
     return this.#attribute(name).write(this.#values[name]);
   }

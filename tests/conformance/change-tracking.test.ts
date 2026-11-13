@@ -22,6 +22,15 @@ class Draft extends Model.define({
   static table = "users";
 }
 
+/** A user whose every attribute has a default, or a key the database assigns. */
+class Member extends Model.define({
+  id: "integer",
+  email: { type: "string", null: false, default: () => "new@example.com" },
+  role: { type: "string", default: () => "member" },
+}) {
+  static table = "users";
+}
+
 class ApiKey extends Model.define({
   id: { type: "string", null: false },
   label: { type: "string", null: false },
@@ -86,6 +95,55 @@ describe("change tracking", () => {
 
     expect(user.changed()).toEqual(["email"]);
     expect(user.changes()).toEqual({ email: [null, "b@example.com"] });
+  });
+
+  test("a new record's changes run from its declared defaults, which aren't changes", () => {
+    const draft = harness.connect().model(Draft).build({ email: "b@example.com", role: "admin" });
+
+    expect(draft.changes()).toEqual({
+      email: [null, "b@example.com"],
+      role: ["member", "admin"],
+    });
+  });
+
+  test("a new record holding only its defaults isn't changed", () => {
+    const member = harness.connect().model(Member).build();
+
+    expect(member.isChanged()).toBe(false);
+    expect(member.changed()).toEqual([]);
+  });
+
+  test("assigning a new record its default's value isn't a change", () => {
+    const member = harness.connect().model(Member).build({ role: "member" });
+
+    expect(member.changed()).toEqual([]);
+  });
+
+  test("assigning a new record's default back undoes the change", () => {
+    const member = harness.connect().model(Member).build({ role: "admin" });
+
+    member.role = "member";
+
+    expect(member.isChanged()).toBe(false);
+  });
+
+  test("a new record holding only its defaults is still inserted, with them", async () => {
+    const db = harness.connect();
+    const member = db.model(Member).build();
+
+    expect(await member.save()).toBe(true);
+    expect(await db.model(User).where({ id: member.id! }).pluck("email", "role")).toEqual([
+      ["new@example.com", "member"],
+    ]);
+  });
+
+  test("after create, savedChanges leaves out a default that wasn't changed", async () => {
+    const draft = await harness.connect().model(Draft).createOrThrow({ email: "b@example.com" });
+
+    expect(draft.savedChanges()).toEqual({
+      id: [null, draft.id],
+      email: [null, "b@example.com"],
+    });
   });
 
   test("savedChanges holds the last save's changes, and the record is clean after saving", async () => {
