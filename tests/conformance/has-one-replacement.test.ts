@@ -232,6 +232,19 @@ describe("replacing a hasOne's record", () => {
       expect(comment.postId).toBeNull();
     });
 
+    test("a set() whose write fails leaves the association as it was", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (2, 'b@example.com')");
+      await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (2, 2, 'Taken')");
+      const user = await db().model(Destroying).find(1);
+      const old = await user.profile();
+      const profile = db().model(Profile).build({ id: 2, bio: "New" });
+
+      await expect(user.profile.set(profile)).rejects.toThrow(RecordNotUnique);
+
+      expect(await user.profile()).toBe(old);
+      expect(profile.userId).toBeNull();
+    });
+
     test("a record that doesn't save isn't saved with the owner afterwards", async () => {
       const post = await db().model(Keeping).find(10);
       const comment = db().model(Comment).build({ body: "" });
@@ -281,6 +294,18 @@ describe("replacing a hasOne's record", () => {
 
       expect(log).toEqual(["destroyed Old"]);
       expect(await bios()).toEqual([{ id: profile.id, user_id: 1, bio: "New" }]);
+    });
+
+    test("building twice through an unsaved owner saves only the last record", async () => {
+      const post = db().model(Keeping).build({ userId: 1, title: "New" });
+
+      post.pinned.build({ body: "First" });
+      post.pinned.build({ body: "Second" });
+      await post.saveOrThrow();
+
+      expect(await db().model(Comment).where({ postId: post.id }).pluck("body")).toEqual([
+        "Second",
+      ]);
     });
 
     test("building twice saves the last record, and removes the old one once", async () => {
