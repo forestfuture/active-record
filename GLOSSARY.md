@@ -108,6 +108,10 @@ _Avoid_: Attribute type (that is the declared type, `"datetime"`), codec, serial
 A deliberate refusal raised by a pre-write callback with `abort(reason)`. It cancels the write without being a validation failure.
 _Avoid_: Halt, cancel, returning false
 
+**Commit callback**:
+A callback that runs last, once its record's write is kept: `afterCommit`, or one narrowed to a kind of write (`afterCreateCommit`, `afterUpdateCommit`, `afterSaveCommit`, `afterDestroyCommit`). It runs after every after-callback, a **Batch**'s included. Its counterpart, `afterRollback`, runs when the database refuses a write it was sent.
+_Avoid_: Transaction callback (there's no transaction around the callbacks)
+
 **Database**:
 A wrapper around a `D1Database` binding, made with `connect(env.DB, { session, onQuery })`, that queries go through. It's the **Current database** for a request run in `withDatabase`, or used explicitly with `db.model(User)`; a Model's **Binding** gets one with no per-request options. An error names a database by where it came from: `connect()`, the request, or a binding.
 _Avoid_: Connection, client, context (on its own)
