@@ -18,7 +18,7 @@ import { combine, inGroup, runStages, stageOf, type PreparedWrite } from "./unit
  * A saved owner's new hasOne record, and the record it replaces: the one loaded then, none
  * (`null`), or `undefined` when nothing was loaded, so it's read when the new record is written.
  */
-interface Replacement {
+export interface Replacement {
   owner: Model;
   association: ResolvedAssociation;
   replaced: Model | null | undefined;
@@ -29,9 +29,9 @@ const replacing = new WeakMap<Model, Replacement>();
 
 /**
  * The record `owner`'s hasOne holds now, which a new one replaces: an unsaved one built through it
- * passes on the record it was to replace, and stops replacing it.
+ * passes on the record it was to replace.
  */
-export function takeReplaced(
+export function replacedBy(
   owner: Model,
   association: ResolvedAssociation,
 ): Model | null | undefined {
@@ -40,8 +40,18 @@ export function takeReplaced(
   const record = loaded.value as Model | null;
   if (record === null || !record[state].isNew) return record;
   const replacement = replacing.get(record);
-  replacing.delete(record);
   return replacement === undefined ? null : replacement.replaced;
+}
+
+/** `replacedBy`, and an unsaved record built through the association stops replacing it. */
+export function takeReplaced(
+  owner: Model,
+  association: ResolvedAssociation,
+): Model | null | undefined {
+  const replaced = replacedBy(owner, association);
+  const loaded = owner[state].associations.get(association.name)?.value as Model | null | undefined;
+  if (loaded !== undefined && loaded !== null) replacing.delete(loaded);
+  return replaced;
 }
 
 /** Makes `record`, new for a saved owner, replace `replaced` when it's written. */
@@ -91,18 +101,12 @@ export function withRemoval(plan: Ready, removal: Ready | undefined, record: Mod
   };
 }
 
-/** `set(null)` on a saved owner: its record removed now, by `dependent:`. */
-export async function removeReplaced(
-  owner: Model,
-  association: ResolvedAssociation,
-  replaced: Model | null | undefined,
-): Promise<void> {
-  const old = await replacedRecord(null, { owner, association, replaced });
+/** `set(null)` on a saved owner: the record it replaces removed now, by `dependent:`. */
+export async function removeReplaced(replacement: Replacement): Promise<void> {
+  const old = await replacedRecord(null, replacement);
   if (old === null) return;
-  await runStages(
-    stagesOf(await prepareRemoval(old, association, new Set())),
-    "set() needs its records",
-  );
+  const removal = await prepareRemoval(old, replacement.association, new Set());
+  await runStages(stagesOf(removal), "set() needs its records");
 }
 
 /**

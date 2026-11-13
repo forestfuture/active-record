@@ -2,7 +2,7 @@
 import { cachedRead } from "./associations.ts";
 import { RecordNotSaved } from "./errors.ts";
 import type { Executor } from "./executor.ts";
-import { markReplacing, removeReplaced, takeReplaced } from "./has-one-replacement.ts";
+import { markReplacing, removeReplaced, replacedBy, takeReplaced } from "./has-one-replacement.ts";
 import { pointBackAtOwner } from "./point-back-at-owner.ts";
 import { buildRecord, type Model } from "./model.ts";
 import { state } from "./record-state.ts";
@@ -99,8 +99,11 @@ async function setOne(
     // Kept as the owner's record, as a failed create() is, so saving the owner tries again.
     throw new RecordNotSaved(`Failed to save the new associated ${name}`);
   }
-  const replaced = takeReplaced(owner, association);
-  if (!owner[state].isNew) await removeReplaced(owner, association, replaced);
+  // Removed before anything changes here, so a removal that throws leaves the association as it was.
+  if (!owner[state].isNew) {
+    await removeReplaced({ owner, association, replaced: replacedBy(owner, association) });
+  }
+  takeReplaced(owner, association);
   owner[state].associations.set(name, ownerAttribute, null);
   owner[state].autosaves.setBuilt(name, undefined);
 }

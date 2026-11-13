@@ -320,5 +320,15 @@ describe("replacing a hasOne's record", () => {
       expect(old?.userId).toBe(1);
       expect((await bios()).map((row) => row.bio)).toEqual(["Old"]);
     });
+
+    test("a set(null) that fails leaves a built record replacing the old one", async () => {
+      const user = await db().model(KeepingUser).find(1);
+      user.profile.build({ bio: "New" });
+
+      await expect(user.profile.set(null)).rejects.toThrow(RecordNotSaved);
+      await expect(user.saveOrThrow()).rejects.toThrow(RecordNotSaved);
+
+      expect((await bios()).map((row) => row.bio)).toEqual(["Old"]);
+    });
   });
 });
