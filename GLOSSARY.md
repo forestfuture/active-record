@@ -109,7 +109,7 @@ A deliberate refusal raised by a pre-write callback with `abort(reason)`. It can
 _Avoid_: Halt, cancel, returning false
 
 **Commit callback**:
-A callback that runs last, once its record's write is kept: `afterCommit`, or one narrowed to a kind of write (`afterCreateCommit`, `afterUpdateCommit`, `afterSaveCommit`, `afterDestroyCommit`). It runs after every after-callback, a **Batch**'s included. Its counterpart, `afterRollback`, runs when the database refuses a write it was sent.
+A callback that runs last, once its record's write is kept: `afterCommit`, or one narrowed to a kind of write (`afterCreateCommit`, `afterUpdateCommit`, `afterSaveCommit`, `afterDestroyCommit`). It runs after every after-callback, including those of every record in a **Batch**. Its counterpart, `afterRollback`, runs when the database refuses a write it was sent.
 _Avoid_: Transaction callback (there's no transaction around the callbacks)
 
 **Database**:
