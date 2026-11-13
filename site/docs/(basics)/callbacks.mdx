@@ -88,6 +88,10 @@ this.afterRollback((order) => {
 
 The record keeps its unsaved state, and no after-callback or commit callback runs for it.
 
+:::note
+An error thrown by an `afterRollback` reaches the caller in place of the constraint error, which becomes its `cause`. The `afterRollback` callbacks after it don’t run.
+:::
+
 ## Stopping a save
 
 Throw `abort(reason)` from a before-callback to stop a save or destroy:
