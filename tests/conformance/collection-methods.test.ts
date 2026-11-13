@@ -265,4 +265,52 @@ describe("a hasMany's collection methods", () => {
       expect(others.isDestroyed()).toBe(false);
     });
   });
+
+  describe("clear", () => {
+    test("nullifies every record's foreign key by default", async () => {
+      const post = await db().model(Post).find(1);
+
+      expect(await post.comments().clear()).toBeUndefined();
+
+      expect(await bodies(1)).toEqual([]);
+      expect(await bodies(null)).toEqual(["a", "b"]);
+      expect(await bodies(2)).toEqual(["c"]);
+    });
+
+    test("with dependent: destroy, deletes the rows without callbacks, as deleteAll() does", async () => {
+      const post = await db().model(DestroyingPost).find(1);
+
+      await post.comments().clear();
+
+      expect(await db().model(Comment).pluck("id")).toEqual([20]);
+      expect(destroyed).toEqual([]);
+    });
+
+    test("leaves the collection loaded and empty, without the records built through it", async () => {
+      const post = await db().model(Post).find(1);
+      await post.comments().toArray();
+      post.comments().build({ body: "new" });
+      queries.length = 0;
+
+      await post.comments().clear();
+
+      expect(await post.comments().toArray()).toEqual([]);
+      expect(queries).toHaveLength(1);
+      await post.saveOrThrow();
+      expect(await bodies(1)).toEqual([]);
+    });
+
+    test("on a new owner, forgets the records added to it, sending nothing", async () => {
+      const post = db().model(Post).build({ userId: 1, title: "Third" });
+      const moved = await db().model(Comment).find(20);
+      await post.comments().push(moved, db().model(Comment).build({ body: "new" }));
+      queries.length = 0;
+
+      await post.comments().clear();
+      await post.saveOrThrow();
+
+      expect(queries.filter(({ model }) => model === "Comment")).toEqual([]);
+      expect(await bodies(2)).toEqual(["c"]);
+    });
+  });
 });

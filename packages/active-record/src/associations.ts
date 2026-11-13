@@ -261,10 +261,11 @@ function keepAssignedField(name: string): (this: Model, value: unknown) => void 
 function hasManyRelation(owner: Model, association: ResolvedAssociation) {
   const relation = association.linkedTo(owner[state].executor, association.keyOf(owner));
   const collection = ownedCollection(owner, association);
+  const owned = relation[ofOwner](collection);
   // On this Relation only: one narrowed from it (`where`, a scope, …) is a new Relation without them.
   return Object.assign(
-    relation[ofOwner](collection),
-    collectionMethods(owner, association, collection),
+    owned,
+    collectionMethods({ owner, association, collection, relation: owned }),
   );
 }
 

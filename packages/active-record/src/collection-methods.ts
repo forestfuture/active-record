@@ -28,19 +28,24 @@ export interface CollectionMethods<M extends Model> {
    * is destroyed. Resolves to the records.
    */
   destroy(...records: M[]): Promise<M[]>;
+  /**
+   * Removes every record of the association as `deleteAll()` does, by its `dependent:`, and
+   * forgets the records built through it: afterwards it reads as empty without a query.
+   */
+  clear(): Promise<void>;
 }
 
-/** The collection methods of `owner`'s hasMany `association`, which `collection` holds. */
-export function collectionMethods<M extends Model>(
-  owner: Model,
-  association: ResolvedAssociation,
-  collection: OwnedCollection,
-): CollectionMethods<M> {
-  const held: Held = { owner, association, collection };
+/** The collection methods of an owner's hasMany, which `held` describes. */
+export function collectionMethods<M extends Model>(held: Held): CollectionMethods<M> {
+  const { association, collection, relation } = held;
   return {
     push: (...records) => push(held, records),
     delete: (...records) => remove(held, records, removalOf(association), "delete"),
     destroy: (...records) => remove(held, records, "destroy", "destroy"),
+    async clear() {
+      await relation.deleteAll();
+      collection.emptied();
+    },
   };
 }
 
@@ -56,7 +61,10 @@ function removalOf({ definition: { dependent } }: ResolvedAssociation): Removal 
 interface Held {
   owner: Model;
   association: ResolvedAssociation;
+  /** What the owner holds of it. */
   collection: OwnedCollection;
+  /** Its Relation, whose `deleteAll()` follows `dependent:`. */
+  relation: { deleteAll(): Promise<number> };
 }
 
 async function push({ owner, association, collection }: Held, records: Model[]): Promise<boolean> {
