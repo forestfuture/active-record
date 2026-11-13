@@ -41,10 +41,10 @@ class Post extends Model.define({
   author = belongsTo(User, { foreignKey: "userId" });
 }
 
-/** Comments on post 10 unless told otherwise. */
+/** Comments on post 99 unless told otherwise, a post that doesn't exist. */
 class Reply extends Model.define({
   id: { type: "integer", null: false },
-  postId: { type: "integer", default: () => 10 },
+  postId: { type: "integer", default: () => 99 },
   body: "string",
 }) {
   static table = "comments";

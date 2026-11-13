@@ -348,9 +348,9 @@ export class RecordState {
       this.loadRow(row);
     }
     this.#savedChanges = Object.fromEntries(
-      Object.keys(this.#values)
-        .filter((name) => written.has(name) || this.#storedForm(name) !== before.get(name)!.stored)
-        .map((name) => [name, [before.get(name)!.value, this.#copyOf(name)]]),
+      [...before]
+        .filter(([name, { stored }]) => written.has(name) || this.#storedForm(name) !== stored)
+        .map(([name, { value }]) => [name, [value, this.#copyOf(name)]]),
     );
   }
 
