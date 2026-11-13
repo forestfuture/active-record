@@ -274,3 +274,27 @@ describe("generated ids", () => {
     });
   });
 });
+
+describe("a generated id and change tracking", () => {
+  let harness: Harness;
+
+  beforeAll(async () => {
+    harness = await openHarness({ schema: "generated-ids" });
+  });
+  afterAll(() => harness.dispose());
+
+  test("a generated id isn't a change, as a default isn't", () => {
+    const note = harness.connect().model(Note).build({ body: "Hi" });
+
+    expect(note.changed()).toEqual(["body"]);
+  });
+
+  test("assigning another id is a change from the generated one", () => {
+    const note = harness.connect().model(Note).build({ body: "Hi" });
+    const generated = note.id;
+
+    note.id = "chosen";
+
+    expect(note.changes().id).toEqual([generated, "chosen"]);
+  });
+});

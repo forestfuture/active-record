@@ -31,6 +31,21 @@ class Member extends Model.define({
   static table = "users";
 }
 
+/** A key whose scopes default to a JSON value. */
+class ReadKey extends Model.define({
+  id: { type: "string", null: false },
+  label: { type: "string", null: false },
+  scopes: { type: "json", default: () => ["read"] },
+}) {
+  static table = "api_keys";
+
+  static {
+    this.beforeSave((key) => {
+      if (key.willSaveChangeTo("scopes")) key.label = `${key.label} (custom scopes)`;
+    });
+  }
+}
+
 class ApiKey extends Model.define({
   id: { type: "string", null: false },
   label: { type: "string", null: false },
@@ -125,6 +140,21 @@ describe("change tracking", () => {
     member.role = "member";
 
     expect(member.isChanged()).toBe(false);
+  });
+
+  test("an equal copy of a JSON default isn't a change", () => {
+    const key = harness
+      .connect()
+      .model(ReadKey)
+      .build({ id: "k2", label: "ci", scopes: ["read"] });
+
+    expect(key.changed()).toEqual(["id", "label"]);
+  });
+
+  test("a before-callback sees a default it kept as unchanged", async () => {
+    const key = await harness.connect().model(ReadKey).createOrThrow({ id: "k2", label: "ci" });
+
+    expect(key.label).toBe("ci");
   });
 
   test("a new record holding only its defaults is still inserted, with them", async () => {
