@@ -41,7 +41,7 @@ Records’ `toSave()` and `toDestroy()`, and the `to…` methods such as `toInse
 
 ### Replacing a hasOne’s record
 
-Building or creating a record through a saved owner’s `hasOne` now removes the old record, by the association’s `dependent` strategy. Without one, the old record’s foreign key is set to `NULL`. Check each `hasOne` whose old records you keep, and set `dependent` to say what happens to them. See [Replacing the record](./associations#replacing-the-record).
+Building or creating a record through a saved owner’s `hasOne` now removes the old record, by the association’s `dependent` strategy. Without one, the old record’s foreign key is set to `NULL`, which fails on a `NOT NULL` column. Set `dependent: "destroy"` or `"delete"` where the old record should go instead. Building twice through an unsaved owner now saves only the last record. See [Replacing the record](./associations#replacing-the-record).
 
 ## Upgrading from 0.6 to 0.7
 
