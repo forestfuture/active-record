@@ -9,7 +9,11 @@ import {
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const log: string[] = [];
-const hooks: { afterRollback?: () => void; afterCommit?: () => void } = {};
+const hooks: {
+  afterRollback?: () => void;
+  afterCommit?: () => void;
+  postAfterRollback?: () => void;
+} = {};
 
 class User extends Model.define({
   id: { type: "integer", null: false },
@@ -46,7 +50,10 @@ class Post extends Model.define({
 
   static {
     this.afterCommit((post) => void log.push(`afterCommit post ${post.title}`));
-    this.afterRollback((post) => void log.push(`afterRollback post ${post.title}`));
+    this.afterRollback((post) => {
+      log.push(`afterRollback post ${post.title}`);
+      hooks.postAfterRollback?.();
+    });
   }
 }
 
@@ -64,6 +71,7 @@ describe("rollback callbacks", () => {
     log.length = 0;
     delete hooks.afterRollback;
     delete hooks.afterCommit;
+    delete hooks.postAfterRollback;
   });
 
   test("a save the database refuses runs afterRollback, and no after- or commit callback", async () => {
@@ -186,5 +194,19 @@ describe("rollback callbacks", () => {
     await expect(user.save()).rejects.toBe(failure);
 
     expect(failure.cause).toBeInstanceOf(NotNullViolation);
+  });
+
+  test("a save written in two stages, its second refused: an error in that stage's afterRollback skips the first stage's callbacks", async () => {
+    const failure = new Error("logger is down");
+    hooks.postAfterRollback = () => {
+      throw failure;
+    };
+    const user = db().model(User).build({ email: "b@example.com" });
+    user.posts().build({ title: null });
+
+    await expect(user.save()).rejects.toBe(failure);
+
+    expect(failure.cause).toBeInstanceOf(NotNullViolation);
+    expect(log).toEqual(["afterRollback post null"]);
   });
 });
