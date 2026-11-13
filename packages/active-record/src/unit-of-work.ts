@@ -28,36 +28,45 @@ export function statementWrite(statements: readonly CompiledSql[]): PreparedWrit
 /**
  * Sends every write's statements as one atomic batch (or one statement on its own), then
  * commits each write with its own results. If the database refuses the batch, nothing is
- * committed: each write's rollback callbacks run, then the database's error is thrown.
+ * committed: each write's rollback callbacks run, then the database's error is thrown, unless
+ * a rollback callback throws first (see `whileHandling`).
  */
 export async function writeAll(
   executor: Executor,
   writes: readonly PreparedWrite[],
 ): Promise<StatementResult[]> {
+  let results: StatementResult[];
+  try {
+    results = await send(executor, writes);
+  } catch (refusal) {
+    await whileHandling(refusal, () => rollBack(writes));
+    throw refusal;
+  }
+  commitAll(writes, results);
+  return results;
+}
+
+/** Sends every write's statements as one atomic batch; the database's refusal is thrown. */
+async function send(
+  executor: Executor,
+  writes: readonly PreparedWrite[],
+): Promise<StatementResult[]> {
   const statements = writes.flatMap((write) => write.statements);
-  const results = statements.length === 0 ? [] : await sendOrRollBack(executor, writes, statements);
+  return statements.length === 0 ? [] : executor.write(statements);
+}
+
+/** Commits each written write with its own statements' results, in order. */
+function commitAll(writes: readonly PreparedWrite[], results: readonly StatementResult[]): void {
   let offset = 0;
   for (const write of writes) {
     write.commit(results.slice(offset, offset + write.statements.length));
     offset += write.statements.length;
   }
-  return results;
 }
 
-/** Sends `statements`; if the database refuses them, runs `writes`' rollback callbacks and rethrows. */
-async function sendOrRollBack(
-  executor: Executor,
-  writes: readonly PreparedWrite[],
-  statements: readonly CompiledSql[],
-): Promise<StatementResult[]> {
-  try {
-    return await executor.write(statements);
-  } catch (refusal) {
-    await whileHandling(refusal, async () => {
-      for (const write of writes) await write.afterRollback?.();
-    });
-    throw refusal;
-  }
+/** Runs each refused write's rollback callbacks, in order. */
+async function rollBack(writes: readonly PreparedWrite[]): Promise<void> {
+  for (const write of writes) await write.afterRollback?.();
 }
 
 /**
@@ -144,25 +153,46 @@ export function afterLinking(stage: Stage, first: () => void): Stage {
  * written writes' after-callbacks in order, then their commit callbacks. Each group's database
  * is found, and its records pinned to it, before anything is written: a group on two databases
  * throws `IncompatibleRelation` ("`needs` on one database", #93). If a later stage fails, the
- * earlier ones stay written, so their after-callbacks and commit callbacks still run before
- * the error is thrown.
+ * earlier ones stay written: the refused stage's rollback callbacks run, then the earlier ones'
+ * after- and commit callbacks, then the error is thrown. A callback that throws on the way
+ * skips the callbacks after it, and its error is thrown instead (see `whileHandling`).
  */
 export async function runStages(stages: readonly Stage[], needs: string): Promise<void> {
   const databases = await pinGroups(stages, needs);
   const written: PreparedWrite[] = [];
-  let failure: { error: unknown } | undefined;
-  try {
-    for (const stage of stages) {
-      const writes = stage.writes();
-      await writeAll(databases.get(stage.group)!, writes);
-      written.push(...writes);
-    }
-  } catch (error) {
-    failure = { error };
-  }
+  const failure = await writeStages(stages, databases, written);
   if (failure === undefined) return runAfter(written);
-  await whileHandling(failure.error, () => runAfter(written));
-  throw failure.error;
+  const { error, refused } = failure;
+  await whileHandling(error, () => rollBack(refused));
+  await whileHandling(error, () => runAfter(written));
+  throw error;
+}
+
+/** Why `runStages` stopped: the error, and the writes of the stage it refused (none if unsent). */
+interface StageFailure {
+  error: unknown;
+  refused: readonly PreparedWrite[];
+}
+
+/** Writes each stage in turn, adding its writes to `written`; the first failure stops them. */
+async function writeStages(
+  stages: readonly Stage[],
+  databases: Map<object, Executor>,
+  written: PreparedWrite[],
+): Promise<StageFailure | undefined> {
+  for (const stage of stages) {
+    let writes: PreparedWrite[] = [];
+    let results: StatementResult[];
+    try {
+      writes = stage.writes();
+      results = await send(databases.get(stage.group)!, writes);
+    } catch (error) {
+      return { error, refused: writes };
+    }
+    commitAll(writes, results);
+    written.push(...writes);
+  }
+  return undefined;
 }
 
 /** Each group's one database, its stages' records pinned to it. */
