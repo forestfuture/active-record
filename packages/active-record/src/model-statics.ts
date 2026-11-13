@@ -132,6 +132,11 @@ interface CallbackStatics {
   beforeDestroy: CallbackStatic;
   /** Runs after the row was deleted; the record is already destroyed. */
   afterDestroy: CallbackStatic;
+  /**
+   * Runs when the database refused the record's save or destroy (a constraint, or another write in
+   * its batch). Not for a validation failure or an `abort()`: nothing was sent then.
+   */
+  afterRollback: CallbackStatic;
 }
 
 /** The commit callbacks as statics: each runs after every after-callback of its write. */
@@ -178,6 +183,7 @@ const callbackKinds = Object.keys({
   afterSave: true,
   beforeDestroy: true,
   afterDestroy: true,
+  afterRollback: true,
 } satisfies Record<CallbackKind, true> satisfies Record<
   keyof CallbackStatics,
   true

@@ -383,6 +383,7 @@ function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
     await runAfterCallbacks(record, "afterSave", "save");
   };
   const afterCommit = () => runCommitCallbacks(record, isInsert ? "create" : "update");
+  const afterRollback = () => runCallbacks(record, "afterRollback");
   if (isInsert) {
     const own = recordState.insertAssignments();
     const insert = compileInsert(model, [...own, ...timestampsFor(model, "insert", own)]);
@@ -391,11 +392,13 @@ function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
       commit: ([result]) => recordState.commitInsert(result?.rows[0]),
       after,
       afterCommit,
+      afterRollback,
     };
   }
   const own = recordState.updateAssignments();
   if (own.length === 0) {
-    return { statements: [], commit: () => recordState.commitClean(), after, afterCommit };
+    const commit = () => recordState.commitClean();
+    return { statements: [], commit, after, afterCommit, afterRollback };
   }
   const stamps = timestampsFor(model, "update", own);
   return {
@@ -403,6 +406,7 @@ function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
     commit: () => recordState.commitUpdate(stamps),
     after,
     afterCommit,
+    afterRollback,
   };
 }
 
@@ -438,6 +442,7 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
       statements: deletion,
       commit: () => recordState.markDestroyed(),
       after: () => runAfterCallbacks(record, "afterDestroy", "destroy"),
+      afterRollback: () => runCallbacks(record, "afterRollback"),
       ...(hadRow && { afterCommit: () => runCommitCallbacks(record, "destroy") }),
     },
   ]);
