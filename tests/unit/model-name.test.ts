@@ -1,5 +1,8 @@
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { InvalidModel, Model } from "../../packages/active-record/src/index.ts";
+import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+
+const db = connect({} as never);
 
 class User extends Model.define({ id: "integer" }) {}
 
@@ -35,5 +38,23 @@ describe("modelName", () => {
     E.modelName = "BlogPost";
 
     expect([E.modelName, F.modelName, User.modelName]).toEqual(["BlogPost", "BlogPost", "User"]);
+  });
+
+  test("one that isn't a string is an InvalidModel when the Model is first used", () => {
+    // Past the types: a JavaScript Model file, or a cast.
+    class Numbered extends Model.define({ id: "integer" }) {
+      static modelName = 1 as unknown as string;
+    }
+    class Unset extends Model.define({ id: "integer" }) {
+      static modelName = undefined as unknown as string;
+    }
+
+    for (const model of [Numbered, Unset]) {
+      expect(() => db.model(model)).toThrow(
+        new InvalidModel(
+          `${model.name}'s modelName must be a string; remove it to use the class name`,
+        ),
+      );
+    }
   });
 });
