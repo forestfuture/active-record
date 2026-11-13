@@ -1,5 +1,6 @@
 // A hasMany's collection methods on `user.posts()`: `push`, `delete`, `destroy` and `clear`, kept in step with what the owner holds.
 import { savingGroups } from "./autosave.ts";
+import { RecordNotSaved } from "./errors.ts";
 import { pinBefore } from "./executor.ts";
 import {
   prepareDestroy,
@@ -15,7 +16,6 @@ import type { AssociationCollection } from "./owned-collection.ts";
 import { isOwnersKey } from "./point-back-at-owner.ts";
 import { linksOf, state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
-import { RecordNotSaved } from "./errors.ts";
 import { combine, inGroup, runStages, type Stage } from "./unit-of-work.ts";
 
 /** What `user.posts()` has besides its Relation's methods, as Rails' collection proxy does. */
@@ -113,8 +113,8 @@ function link({ owner, association, collection }: OwnersHasMany, records: readon
 
 /**
  * Removes `records` from the association, as `removal` says (`needs` begins the error for records
- * on two databases). Those with no row of their own to
- * change (new records, or any of a new owner's) just leave it, as in Rails.
+ * on two databases). Those with no row of their own to change (new records, or any of a new
+ * owner's) just leave it, as in Rails.
  */
 async function remove<M extends Model>(
   hasMany: OwnersHasMany,
