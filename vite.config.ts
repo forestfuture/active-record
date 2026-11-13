@@ -11,7 +11,8 @@ export default defineConfig({
   },
   test: {
     // `vp run coverage` fails when branch coverage of the library and command line drops below the
-    // floor, and CI runs it (#121). The Best Practices `dynamic_analysis` criterion asks for 80%.
+    // floor (#121). CI runs the tests in shards and checks the floor on their merged coverage
+    // (#365). The Best Practices `dynamic_analysis` criterion asks for 80%.
     coverage: {
       provider: "v8",
       include: ["packages/*/src/**/*.ts", "packages/*/cli/**/*.ts"],
