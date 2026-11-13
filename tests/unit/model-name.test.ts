@@ -11,6 +11,13 @@ describe("modelName", () => {
     expectTypeOf(User.modelName).toEqualTypeOf<string>();
   });
 
+  test("a class with no name reads an empty one", () => {
+    const anonymous = [class extends Model.define({ id: "integer" }) {}][0]!;
+    const defaultExport = { default: class extends Model.define({ id: "integer" }) {} }.default;
+
+    expect([anonymous.modelName, defaultExport.modelName]).toEqual(["", ""]);
+  });
+
   test("a set one is what it reads, and a subclass inherits it", () => {
     class E extends Model.define({ id: "integer" }) {
       static modelName = "BlogPost";

@@ -27,33 +27,22 @@ const boundTables = new WeakMap<object, BoundTable>();
  */
 const ignoring = new WeakMap<object, boolean>();
 
-/**
- * A class's `modelName`: its own name, unless it (or a class it extends) sets one. Empty when
- * it has none (anonymous, or `export default`).
- */
+/** A class's `modelName`: its own name, unless it (or a class it extends) sets one. */
 export function modelNameOf(model: object): string {
-  const { modelName } = model as { modelName: string };
-  return modelName === "default" && !hasModelNameSet(model) ? "" : modelName;
-}
-
-/** Whether a class, or one it extends, sets `static modelName`. */
-function hasModelNameSet(model: object): boolean {
-  // The library's base class holds the default, as a getter; a set one is a value.
-  return ancestors(model).some((each) => {
-    const own = Object.getOwnPropertyDescriptor(each, "modelName");
-    return own !== undefined && "value" in own;
-  });
+  return (model as { modelName: string }).modelName;
 }
 
 /**
  * Gives the library's base class `modelName`: each class's own name, as Rails' `model_name`,
- * unless it sets `static modelName = "…"`, which the classes extending it inherit.
+ * unless it sets `static modelName = "…"`, which the classes extending it inherit (a set one is
+ * a value, found before this getter). Empty for a class with no name: anonymous, or `export
+ * default`.
  */
 export function defineModelName(root: object): void {
   Object.defineProperty(root, "modelName", {
     configurable: true,
     get(this: { name: string }) {
-      return this.name;
+      return this.name === "default" ? "" : this.name;
     },
     set: ownValueSetter("modelName"),
   });
