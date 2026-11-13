@@ -33,7 +33,7 @@ export class Product extends ApplicationRecord {}
 
 TypeScript can’t give a class types from its name. So `active-record schema` loads your Model files, finds `Product`, and writes a declaration giving the `Product` class the `products` table’s attributes. That’s why the schema is generated from your Models as well as your migrations, and why it changes when you add or rename a Model.
 
-When your Worker runs, `Product` finds its attributes the first time it’s used. Its table comes from its class name, and the table’s attributes from the schema that `ApplicationRecord` holds. A Model missing from the schema’s list throws `InvalidModel`, telling you to run `active-record schema`. Without that check, a development server, which doesn’t type-check, would run a Model whose types were never generated.
+When your Worker runs, `Product` finds its attributes the first time it’s used. Its table comes from its [name](./models#naming-models), and the table’s attributes from the schema that `ApplicationRecord` holds. The schema lists each Model by that name, and a Model missing from the list throws `InvalidModel`, telling you to run `active-record schema`. Without that check, a development server, which doesn’t type-check, would run a Model whose types were never generated.
 
 `ApplicationRecord` itself is a file in your app, `src/models/application-record.ts`, which `active-record schema` writes once. It’s an abstract class that holds the generated schema, and it’s where behavior shared by every Model goes. See [Shared behavior](./shared-behavior).
 

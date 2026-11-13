@@ -98,7 +98,7 @@ Keys are checked the first time a Model is used, and a missing attribute throws 
 
 <Expandable title="Bundlers and class names">
 
-A Model’s name is its class name, unless it sets `static modelName`. Wrangler keeps class names by default, even when minifying. If a bundler renames `Author` to `e`, the inferred `eId` doesn’t exist, and the first use of the Model throws `InvalidModel`, saying where the key came from. Set `static modelName = "Author"` (see [Naming Models](/models#naming-models)), or pass `foreignKey`.
+A Model’s name is its class name, unless it sets `static modelName`. Wrangler keeps class names by default, even when minifying. If a bundler renames `Author` to `e`, the inferred `eId` doesn’t exist, and the first use of the Model throws `InvalidModel`, saying where the key came from. Set `static modelName = "Author"` (see [Naming Models](/models#naming-models)), pass `foreignKey`, or keep class names in your bundler’s settings.
 
 </Expandable>
 
