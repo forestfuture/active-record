@@ -1,6 +1,6 @@
 ---
 title: Querying
-description: "Reference for querying: a Model's statics, Relations, where and comparisons, sql fragments, ordering and paging, paginate, find/findBy/first/count, partial records, none(), merge, scopes, and preloading."
+description: "Reference for querying: a Model's statics, Relations, where and comparisons, sql fragments, ordering and paging, paginate, find/findBy/first/count, partial records, none(), merge, scopes, default scopes, and preloading."
 ---
 
 A query is a **Relation**. Each method that narrows, orders, or pages it returns a new Relation, and nothing runs until you ask for results:
@@ -213,6 +213,39 @@ Call it as a static, or on any Relation of the Model:
 :::note
 A scope whose body names its own class needs its type written out: `static roots: ScopeStatic<[]> = this.scope(…)`.
 :::
+
+## Defining a default scope
+
+A default scope narrows every query on a Model. Declare one in the class’s `static {}` block:
+
+<include>/_excerpts/guide/default-scopes/declare.ts</include>
+
+Queries start from it, and new records take its conditions’ values:
+
+<include>/_excerpts/guide/default-scopes/queries.ts</include>
+
+- It applies to everything that queries the Model: `find`, `count`, `updateAll`, `deleteAll`, its scopes, and associations that read it, preloads included.
+- `reload`, uniqueness validation, and a record’s own `save` and `destroy` ignore it, since they work by primary key.
+- Several default scopes all apply. A subclass adds its own to its parent’s.
+- An order in a default scope is the Relation’s order. `reorder` replaces it.
+
+To leave the default scope out, start from `unscoped()`:
+
+<include>/_excerpts/guide/default-scopes/unscoped.ts</include>
+
+`unscoped()` is a Model static only. With a database you hold, call it inside [`withDatabase`](./connecting#using-the-requests-database).
+
+:::warning[Default scopes hide records from associations too]
+A default scope that hides soft-deleted records, such as `where({ deletedAt: null })`, also hides them from every association. A comment on a deleted post then fails to save with “Post must exist”, and `dependent: "destroy"` leaves the deleted post’s comments behind. For soft deletes, prefer a named scope, `static kept = this.scope((q) => q.where({ deletedAt: null }))`, and call `Post.kept()` where it matters.
+:::
+
+Keep a default scope to conditions and an order. A `limit` or `select` in one changes every query on the Model.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`this.defaultScope` is Rails’ `default_scope`, applied the same way. `unscoped()` is only a static: Rails also has it on a Relation, where `Post.where(…).unscoped` drops every condition, the Relation’s own included. Rails’ block form, `Post.unscoped { … }`, and `all_queries: true` aren’t here.
+
+</Callout>
 
 ## Merging Relations
 

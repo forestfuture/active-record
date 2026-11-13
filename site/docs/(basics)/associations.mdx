@@ -182,7 +182,7 @@ Narrow or order an association’s records with `scope`:
 
 <include>/_excerpts/guide/associations/scoped.ts</include>
 
-The scope applies to reads and preloads alike, and records created through the association take its equality values. `q` is the target’s Relation, with its attributes and scopes.
+The scope applies to reads and preloads alike, and records created through the association take its equality values. `q` is the target’s Relation, with its attributes and scopes. The target’s [default scope](./querying#defining-a-default-scope) applies too.
 
 :::note
 A scope that uses `limit`, `offset`, or `distinct` can’t be preloaded, since it would apply to every owner’s records together. `includes` throws `IncompatibleRelation` before it sends any preload.

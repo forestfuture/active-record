@@ -132,6 +132,10 @@ _Avoid_: Paginator, cursor (that's keyset pagination), batch (that's D1's)
 A named, reusable change to a Relation, declared on a **Model**, that may take arguments. Calling a scope never runs a query. Not a **Database scope**.
 _Avoid_: Filter, named query
 
+**Default scope**:
+A **Scope** without a name, declared with `this.defaultScope(…)`, that every **Relation** of its **Model** starts from: its queries, its **Associations**' reads and preloads, and the values of its new records. `unscoped()` starts a Relation without it. Reloading, uniqueness and a record's own writes, which work by primary key, ignore it.
+_Avoid_: Global scope, base scope
+
 **Association**:
 A named link from one **Model** to another through a foreign-key **Attribute**: `belongsTo`, `hasMany` or `hasOne`. A `belongsTo` is **required** (saving checks that its record exists) unless it's **optional** (`optional: true`).
 _Avoid_: Relationship, relation (a Relation is a query)
