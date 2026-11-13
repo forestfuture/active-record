@@ -82,7 +82,7 @@ Use `hasOne` like `hasMany`, when there’s at most one record. A user has one p
 A foreign key names an attribute, such as `authorId`, rather than a column. By default, it’s inferred:
 
 - **`belongsTo`** uses the association’s name + `Id`. `author = belongsTo(Author)` uses the record’s own `authorId`.
-- **`hasMany` and `hasOne`** use the Model’s class name + `Id`, on the target. `Author`’s associations use `authorId`, `BlogPost`’s use `blogPostId`, and `APIKey`’s use `apiKeyId`.
+- **`hasMany` and `hasOne`** use the Model’s name + `Id`, on the target. `Author`’s associations use `authorId`, `BlogPost`’s use `blogPostId`, and `APIKey`’s use `apiKeyId`.
 
 If the name doesn’t follow the convention, pass `foreignKey`:
 
@@ -98,7 +98,7 @@ Keys are checked the first time a Model is used, and a missing attribute throws 
 
 <Expandable title="Bundlers and class names">
 
-Wrangler keeps class names by default, even when minifying. If a bundler renames `Author` to `e`, the inferred `eId` doesn’t exist, and the first use of the Model throws `InvalidModel`, saying where the key came from. Pass `foreignKey`, or keep class names in your bundler’s settings.
+A Model’s name is its class name, unless it sets `static modelName`. Wrangler keeps class names by default, even when minifying. If a bundler renames `Author` to `e`, the inferred `eId` doesn’t exist, and the first use of the Model throws `InvalidModel`, saying where the key came from. Set `static modelName = "Author"` (see [Naming Models](/models#naming-models)), or pass `foreignKey`.
 
 </Expandable>
 

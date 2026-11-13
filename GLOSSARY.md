@@ -5,8 +5,12 @@ A Rails-inspired Active Record library for Cloudflare Workers: one package, `@fo
 ## Language
 
 **Model**:
-A class extending the app's **Base class** that describes one table: its attributes, validations, callbacks, associations and scopes. Its table is named after its class (`Post` → `posts`), or by `static table`; a subclass of a Model shares its table.
+A class extending the app's **Base class** that describes one table: its attributes, validations, callbacks, associations and scopes. Its table is named after its **Model name** (`Post` → `posts`), or by `static table`; a subclass of a Model shares its table.
 _Avoid_: Record (as the base class; `ApplicationRecord` is the one exception, named as Rails names it), entity, schema
+
+**Model name**:
+A **Model**'s `modelName`: its class name, unless it sets `static modelName = "Post"`. Its table name, its inferred foreign keys, its entry in the **Generated schema**, and `%{model}` in its **Error message**s are made from it, so setting it keeps them when a bundler renames classes.
+_Avoid_: Class name (for this), model label
 
 **Generated Model**:
 A **Model** whose attributes are its table's in the **Generated schema**, after its **Override**s. `active-record schema` must have seen its class: one it hasn't is an `InvalidModel` when used.
