@@ -68,7 +68,8 @@ interface Held {
   relation: { deleteAll(): Promise<number> };
 }
 
-async function push({ owner, association, collection }: Held, records: Model[]): Promise<boolean> {
+async function push(held: Held, records: Model[]): Promise<boolean> {
+  const { owner, association, collection } = held;
   requireTargets(association, records);
   // A new owner saves them with it, as it saves the records built through it.
   if (owner[state].isNew) {
@@ -79,16 +80,27 @@ async function push({ owner, association, collection }: Held, records: Model[]):
   if (reason !== undefined) {
     throw new RecordNotSaved(`You cannot push a ${association.target.name} here: ${reason}`);
   }
+  const needs = "push() needs its records";
+  // Every check that can throw comes first, so a refused push leaves the records as they were.
+  for (const record of records) record[state].requireLive("be saved");
+  for (const record of records) {
+    for (const group of savingGroups(record)) await pinBefore(linksOf(group.records), needs);
+  }
+  link(held, records);
+  if (!(await saveTogether(records, needs))) return false;
+  for (const record of records) collection.created(record);
+  return true;
+}
+
+/** Writes the owner's key into each record, which then has the owner loaded as its belongsTo. */
+function link({ owner, association, collection }: Held, records: readonly Model[]): void {
   const key = association.keyOf(owner);
   const { name, definition } = association;
   for (const record of records) {
     record[state].writeKey(definition.foreignKey, key, name);
-    // Its belongsTo has the owner loaded, so a required one passes without a query (#339).
+    // So a required belongsTo passes without a query, as for a record created through it (#339).
     collection.pointBack(record);
   }
-  if (!(await saveTogether(records, "push() needs its records"))) return false;
-  for (const record of records) collection.created(record);
-  return true;
 }
 
 /**
@@ -168,13 +180,10 @@ async function destroyTogether(records: readonly Model[], needs: string): Promis
 }
 
 /**
- * Saves `records` as one write, as Rails' collection does in a transaction: `false`, with nothing
+ * Saves `records`, already pinned to their database, as one write, as Rails' collection does in a transaction: `false`, with nothing
  * written, if one is invalid or a callback aborts it.
  */
 async function saveTogether(records: readonly Model[], needs: string): Promise<boolean> {
-  for (const record of records) {
-    for (const group of savingGroups(record)) await pinBefore(linksOf(group.records), needs);
-  }
   const claimed = new Set<Model>();
   const plans: Ready[] = [];
   for (const record of records) {
