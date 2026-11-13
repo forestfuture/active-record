@@ -472,6 +472,7 @@ The first time a Model is used, by its first query or `db.model(X)`, its declara
 
 - A Model `active-record schema` hasn’t seen, or whose table has changed since. Run it again.
 - No table name: an empty `table`, or a class with no name to infer one from.
+- A `modelName` that isn’t a string.
 - An override of an attribute the table doesn’t have.
 - A `primaryKey` that isn’t an attribute.
 - An attribute named like a record method, such as `save` or `attributes`.
