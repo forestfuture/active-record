@@ -81,7 +81,11 @@ async function push({ owner, association, collection }: Held, records: Model[]):
   }
   const key = association.keyOf(owner);
   const { name, definition } = association;
-  for (const record of records) record[state].writeKey(definition.foreignKey, key, name);
+  for (const record of records) {
+    record[state].writeKey(definition.foreignKey, key, name);
+    // Its belongsTo has the owner loaded, so a required one passes without a query (#339).
+    collection.pointBack(record);
+  }
   if (!(await saveTogether(records, "push() needs its records"))) return false;
   for (const record of records) collection.created(record);
   return true;

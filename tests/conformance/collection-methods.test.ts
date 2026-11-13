@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
   abort,
+  belongsTo,
   hasMany,
   Model,
   RecordNotDestroyed,
@@ -16,6 +17,8 @@ class Comment extends Model.define({
   body: "string",
 }) {
   static table = "comments";
+
+  post = belongsTo(Post, { foreignKey: "postId", optional: true });
 
   static {
     this.validates("body", { presence: true });
@@ -154,6 +157,17 @@ describe("a hasMany's collection methods", () => {
 
       expect(await bodies(post.id)).toEqual(["c", "new"]);
       expect(moved.postId).toBe(post.id);
+    });
+
+    test("points each record back at its owner", async () => {
+      const post = await db().model(Post).find(1);
+      const moved = await db().model(Comment).find(20);
+      queries.length = 0;
+
+      await post.comments().push(moved);
+
+      expect(await moved.post()).toBe(post);
+      expect(queries).toHaveLength(1);
     });
 
     test("on a saved owner whose key is null, throws RecordNotSaved and writes nothing", async () => {
