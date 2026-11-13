@@ -503,6 +503,11 @@ describe("types", () => {
       article.author.set(article);
       expectTypeOf(article.author.build({ id: 1 })).toEqualTypeOf<Author>();
       expectTypeOf(await author.bio.createOrThrow({ id: 2 })).toEqualTypeOf<Bio>();
+      // A hasOne's set() saves at once on a saved owner, so it's awaited, unlike a belongsTo's.
+      expectTypeOf(author.bio.set(null)).toEqualTypeOf<Promise<void>>();
+      expectTypeOf(article.author.set(null)).toEqualTypeOf<void>();
+      // @ts-expect-error set() takes a record of the association's Model
+      await author.bio.set(author);
       // @ts-expect-error build() takes the target's attributes
       author.bio.build({ nope: 1 });
       expectTypeOf(await author.reloadAssociation("articles")).toEqualTypeOf<Article[]>();

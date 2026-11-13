@@ -90,11 +90,14 @@ export interface BelongsTo<C extends ModelClass> {
 }
 
 /**
- * `await user.profile()`: the one associated record, or null. `user.profile.build(attrs)` and
- * `create(attrs)` make a new one pointing at the user (Rails' `build_profile`).
+ * `await user.profile()`: the one associated record, or null. `await user.profile.set(profile)`
+ * gives the user another (Rails' `user.profile = profile`), and `build(attrs)` and
+ * `create(attrs)` make a new one pointing at the user (Rails' `build_profile`). Each replaces the
+ * old record, removed by `dependent:` when the new one is written.
  */
 export interface HasOne<C extends ModelClass> {
   (): Promise<InstanceType<C> | null>;
+  set(record: InstanceType<C> | null): Promise<void>;
   build(attributes?: Partial<AttributesOf<InstanceType<C>>>): InstanceType<C>;
   create(attributes?: Partial<AttributesOf<InstanceType<C>>>): Promise<InstanceType<C>>;
   createOrThrow(attributes?: Partial<AttributesOf<InstanceType<C>>>): Promise<InstanceType<C>>;
