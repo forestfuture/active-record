@@ -1,6 +1,6 @@
 ---
 title: Models
-description: "Reference for Models: extending ApplicationRecord, overriding and narrowing attributes, declaring attributes yourself with define, table names, attributes and types, casting assigned values, building records, permit, timestamps, change tracking, SQL fragments, serialization, and filtered attributes."
+description: "Reference for Models: extending ApplicationRecord, overriding and narrowing attributes, declaring attributes yourself with define, Model names, table names, attributes and types, casting assigned values, building records, permit, timestamps, change tracking, SQL fragments, serialization, and filtered attributes."
 ---
 
 A Model describes one table. Its attributes come from your migrations, through the generated schema, so the Model only declares behavior.
@@ -89,9 +89,41 @@ For a view, or a table your migrations don’t make, declare the attributes with
 
 An attribute is a type name, or `{ type, column?, null?, default? }`. To share your base class’s behavior and binding, call `define` on it: `ApplicationRecord.define({...})`.
 
+## Naming Models
+
+A Model’s name is its class name. The generated schema lists the Model by it, and its table name, its foreign keys, and its error messages are made from it. Read it with `modelName`:
+
+```ts
+import { BlogPost } from "./blog-post";
+
+BlogPost.modelName; // "BlogPost"
+```
+
+If your bundler renames classes, set `static modelName` to the class name, so the Model keeps its name once bundled:
+
+```ts
+import { ApplicationRecord } from "./application-record";
+
+export class BlogPost extends ApplicationRecord {
+  static override modelName = "BlogPost";
+}
+```
+
+A subclass inherits a `modelName` its parent sets. Otherwise, each class has its own: `Admin.modelName` is `"Admin"`, though `Admin` shares `User`’s table. Printing a record shows its class name.
+
+:::note
+Wrangler keeps class names by default, even when minifying. Without `modelName`, a bundler that renames `User` to `e` makes the first query throw `InvalidModel`, because no Model named `e` is in the generated schema.
+:::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`modelName` is a string, where Rails’ `model_name` is an object. The plural and human forms are made where they’re used.
+
+</Callout>
+
 ## Naming tables
 
-A Model takes its table name from its class: snake_case, pluralized.
+A Model takes its table name from its [name](#naming-models): snake_case, pluralized.
 
 | Class      | Table        |
 | ---------- | ------------ |
@@ -116,12 +148,6 @@ A subclass shares its parent’s table. A class with no name to take one from mu
 :::note
 Pluralization follows English rules, quirks included: `Human` becomes `humen` and `Leaf` becomes `leafs`. There’s no way to add your own rules, so set `table` instead.
 :::
-
-<Expandable title="Bundlers and class names">
-
-Wrangler keeps class names by default, even when minifying. If a bundler renames `User` to `e`, the first query throws `InvalidModel`, because no Model named `e` is in the generated schema. Keep class names in your bundler’s settings.
-
-</Expandable>
 
 ## Mapping columns
 

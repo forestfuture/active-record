@@ -129,7 +129,7 @@ A message can show these values:
 
 - **`%{count}`**: the number in the rule, such as the `minimum` of `tooShort` or the bound of `greaterThan`.
 - **`%{attribute}`**: the attribute’s name, as `fullMessages()` shows it.
-- **`%{model}`**: the Model’s class name in words, so `BlogPost` reads as “Blog post”. A bundler that renames classes changes it too.
+- **`%{model}`**: the Model’s name in words, so `BlogPost` reads as “Blog post”. It’s the class name, unless the Model sets [`static modelName`](/models#naming-models).
 - **`%{value}`**: the attribute’s value. A [filtered attribute](./models#filtering-attributes) shows `[FILTERED]`.
 
 A value passed to `errors.add` with the type, such as `count`, fills in the placeholder of the same name.
