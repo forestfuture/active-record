@@ -6,7 +6,9 @@ import {
   prepareSave,
   refusalError,
   type Claimed,
+  type DestroyPlan,
   type Ready,
+  type SavePlan,
 } from "./lifecycle.ts";
 import { Model, modelOf } from "./model.ts";
 import type { AssociationCollection } from "./owned-collection.ts";
@@ -204,24 +206,20 @@ async function pinForSaving(records: readonly Model[], needs: string): Promise<v
  * Prepares each record's save or destroy, then writes them all as one: or, if one refuses, writes
  * nothing and returns it, with its plan.
  */
-async function writeTogether<Refusal>(
+async function writeTogether(
   records: readonly Model[],
-  prepare: (record: Model, claimed: Claimed) => Promise<Ready | Refusal>,
+  prepare: (record: Model, claimed: Claimed) => Promise<SavePlan | DestroyPlan>,
   needs: string,
-): Promise<{ record: Model; plan: Refusal } | undefined> {
+): Promise<{ record: Model; plan: Exclude<SavePlan | DestroyPlan, Ready> } | undefined> {
   const claimed: Claimed = new Set();
   const plans: Ready[] = [];
   for (const record of records) {
     const plan = await prepare(record, claimed);
-    if (!isReady(plan)) return { record, plan };
+    if (plan.status !== "ready") return { record, plan };
     plans.push(plan);
   }
   await runStages(together(plans), needs);
   return undefined;
-}
-
-function isReady(plan: unknown): plan is Ready {
-  return (plan as { status?: unknown }).status === "ready";
 }
 
 /**
