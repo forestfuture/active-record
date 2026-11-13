@@ -78,7 +78,7 @@ describe("association declarations", () => {
     }
 
     expect(() => db.model(APIKey)).toThrow(
-      /APIKey association "posts": Post has no attribute "apiKeyId" \(inferred from the class name APIKey/,
+      /APIKey association "posts": Post has no attribute "apiKeyId" \(inferred from the modelName APIKey/,
     );
     expect(() => db.model(Draft)).toThrow(
       /Draft association "writer": Draft has no attribute "writerId" \(inferred from the association name writer/,
@@ -94,7 +94,7 @@ describe("association declarations", () => {
     };
 
     expect(() => db.model(e)).toThrow(
-      /e association "posts": Post has no attribute "eId" \(inferred from the class name e; declare it, or pass foreignKey \(and keep class names/,
+      /e association "posts": Post has no attribute "eId" \(inferred from the modelName e; declare it, or pass foreignKey \(and set static modelName/,
     );
   });
 

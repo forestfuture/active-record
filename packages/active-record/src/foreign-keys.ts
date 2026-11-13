@@ -55,5 +55,5 @@ export function inferenceHint({ source, name }: Inference): string {
   if (source === "associationName") {
     return `inferred from the association name ${name}; declare it, or pass foreignKey`;
   }
-  return `inferred from the class name ${name}; declare it, or pass foreignKey (and keep class names if your bundler renames them)`;
+  return `inferred from the modelName ${name}; declare it, or pass foreignKey (and set static modelName if your bundler renames classes)`;
 }

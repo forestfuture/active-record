@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, Model } from "../../packages/active-record/src/index.ts";
+import { belongsTo, hasMany, hasOne, Model } from "../../packages/active-record/src/index.ts";
 import { Post } from "../fixtures/models/post.ts";
+import { Profile } from "../fixtures/models/profile.ts";
 import { User } from "../fixtures/models/user.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -94,6 +95,25 @@ describe("inferred foreign keys", () => {
     const admin = await harness.connect().model(Admin).find(2);
 
     expect(await admin.notes().pluck("title")).toEqual(["B"]);
+  });
+
+  test("hasMany and hasOne infer from the owner's modelName, not its class name", async () => {
+    // As a bundler that renames classes leaves it: named E, but still the User Model.
+    class E extends Model.define({
+      id: { type: "integer", null: false },
+      email: { type: "string", null: false },
+    }) {
+      static table = "users";
+      static modelName = "User";
+
+      posts = hasMany(Post); // userId, from modelName; Post has no eId
+      profile = hasOne(Profile);
+    }
+
+    const user = await harness.connect().model(E).find(1);
+
+    expect(await user.posts().pluck("id")).toEqual([10]);
+    expect((await user.profile())?.bio).toBe("Ay");
   });
 
   test("an inferred key is used for building, preloading and autosave alike", async () => {
