@@ -113,14 +113,21 @@ interface Exported {
  * What's wrong with a Model's `modelName`, which the schema lists it by, if anything: one that
  * isn't a string, or one another Model found already has.
  */
-function modelNameProblem(found: Found, { model, database }: Exported): string | undefined {
+function modelNameProblem(
+  cwd: string,
+  found: Found,
+  { model, database }: Exported,
+): string | undefined {
   if (typeof model.modelName !== "string") {
     return `${model.name}'s modelName must be a string; remove it to use the class name`;
   }
   for (const [other, each] of found.models) {
     const sameDatabase = found.databases.get(other) === database;
     if (other !== model && sameDatabase && each.modelName === model.modelName) {
-      return `${model.name}'s modelName is ${model.modelName}, as ${each.className}'s is; give each Model its own`;
+      return (
+        `${model.name} and ${each.className} (${shown(cwd, each.file)}) both have the modelName ` +
+        `${model.modelName}; give each Model its own`
+      );
     }
   }
   return undefined;
@@ -147,7 +154,7 @@ function addModel(cwd: string, file: string, exported: Exported, found: Found): 
   }
   const earlier = found.models.get(model);
   if (earlier !== undefined && !declares(file, model.name)) return;
-  const problem = modelNameProblem(found, exported);
+  const problem = modelNameProblem(cwd, found, exported);
   if (problem !== undefined) {
     found.errors.push(`${shown(cwd, file)}: ${problem}`);
     return;

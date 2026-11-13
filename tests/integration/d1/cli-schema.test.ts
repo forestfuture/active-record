@@ -583,7 +583,8 @@ export class FeaturedPost extends Post {}
 
     expect(code).toBe(1);
     expect(output).toBe(
-      "src/models/writer.ts: Writer's modelName is User, as User's is; give each Model its own\n" +
+      "src/models/writer.ts: Writer and User (src/models/user.ts) both have the modelName User; " +
+        "give each Model its own\n" +
         "Kept src/db/schema.ts as it was",
     );
   });
