@@ -164,14 +164,28 @@ describe("replacing a hasOne's record", () => {
       ]);
     });
 
-    test("set(null) removes the old record by dependent, and reads as null", async () => {
+    test("set(null) removes the old record by dependent", async () => {
       const user = await db().model(Destroying).find(1);
 
       await user.profile.set(null);
 
       expect(log).toEqual(["destroyed Old"]);
       expect(await bios()).toEqual([]);
+    });
+
+    test("set(null) nullifies the old record without dependent", async () => {
+      const post = await db().model(Keeping).find(10);
+
+      await post.pinned.set(null);
+
+      expect((await comments()).map((row) => [row.post_id, row.body])).toEqual([[null, "Old"]]);
+    });
+
+    test("after set(null), the association reads as null without a query", async () => {
+      const user = await db().model(Destroying).find(1);
+      await user.profile.set(null);
       events.length = 0;
+
       expect(await user.profile()).toBeNull();
       expect(events).toHaveLength(0);
     });
@@ -197,14 +211,21 @@ describe("replacing a hasOne's record", () => {
       expect((await bios()).map((row) => row.bio)).toEqual(["Old", "Taken"]);
     });
 
-    test("a record that doesn't save throws RecordNotSaved, removes nothing, and is kept for the owner's save", async () => {
+    test("a record that doesn't save throws RecordNotSaved and removes nothing", async () => {
       const post = await db().model(Keeping).find(10);
-      const comment = db().model(Comment).build({ body: "" });
 
-      await expect(post.pinned.set(comment)).rejects.toThrow(
+      await expect(post.pinned.set(db().model(Comment).build({ body: "" }))).rejects.toThrow(
         new RecordNotSaved("Failed to save the new associated pinned"),
       );
+
       expect((await comments()).map((row) => [row.post_id, row.body])).toEqual([[10, "Old"]]);
+    });
+
+    test("a record that doesn't save is kept, so saving the owner replaces the old one", async () => {
+      const post = await db().model(Keeping).find(10);
+      const comment = db().model(Comment).build({ body: "" });
+      await expect(post.pinned.set(comment)).rejects.toThrow(RecordNotSaved);
+
       comment.body = "Fixed";
       await post.saveOrThrow();
 
@@ -241,6 +262,7 @@ describe("replacing a hasOne's record", () => {
       expect((await comments()).map((row) => row.post_id)).toEqual([post.id]);
     });
   });
+
   describe("build() and create()", () => {
     test("build() on a saved owner removes the old record when the owner is saved, not before", async () => {
       const user = await db().model(Destroying).find(1);
@@ -266,25 +288,60 @@ describe("replacing a hasOne's record", () => {
       ]);
     });
 
-    test("create() on a saved owner removes the old record at once, by dependent", async () => {
+    test("the old record stays when the owner's save fails to write a built record", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (2, 'b@example.com')");
+      await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (2, 2, 'Taken')");
+      const user = await db().model(Destroying).find(1);
+      user.profile.build({ id: 2, bio: "New" });
+
+      await expect(user.saveOrThrow()).rejects.toThrow(RecordNotUnique);
+
+      expect((await bios()).map((row) => row.bio)).toEqual(["Old", "Taken"]);
+    });
+
+    test('create() on a saved owner removes the old record at once: "delete" deletes it', async () => {
       const user = await db().model(Deleting).find(1);
-      const post = await db().model(Keeping).find(10);
 
       await user.profile.createOrThrow({ bio: "New" });
-      await post.pinned.createOrThrow({ body: "New" });
 
       expect((await bios()).map((row) => row.bio)).toEqual(["New"]);
+    });
+
+    test("create() on a saved owner removes the old record at once: without dependent, nullified", async () => {
+      const post = await db().model(Keeping).find(10);
+
+      await post.pinned.createOrThrow({ body: "New" });
+
       expect((await comments()).map((row) => [row.post_id, row.body])).toEqual([
         [null, "Old"],
         [10, "New"],
       ]);
     });
 
-    test("a create() that fails removes nothing, and saving the owner tries both again", async () => {
+    test("the old record stays when create() fails to write the new one", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (2, 'b@example.com')");
+      await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (2, 2, 'Taken')");
+      const user = await db().model(Destroying).find(1);
+
+      await expect(user.profile.createOrThrow({ id: 2, bio: "New" })).rejects.toThrow(
+        RecordNotUnique,
+      );
+
+      expect((await bios()).map((row) => row.bio)).toEqual(["Old", "Taken"]);
+    });
+
+    test("a create() that doesn't save removes nothing", async () => {
       const post = await db().model(Keeping).find(10);
 
-      const comment = await post.pinned.create({ body: "" });
+      await post.pinned.create({ body: "" });
+
       expect((await comments()).map((row) => [row.post_id, row.body])).toEqual([[10, "Old"]]);
+    });
+
+    test("a create() that doesn't save is kept, so saving the owner replaces the old one", async () => {
+      const post = await db().model(Keeping).find(10);
+      const comment = await post.pinned.create({ body: "" });
+
       comment.body = "Fixed";
       await post.saveOrThrow();
 
@@ -294,6 +351,7 @@ describe("replacing a hasOne's record", () => {
       ]);
     });
   });
+
   describe("an old record that can't be nullified", () => {
     const failed =
       "Failed to remove the existing associated profile. " +
