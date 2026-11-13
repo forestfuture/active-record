@@ -43,7 +43,7 @@ export async function runAfterCallbacks(
 }
 
 /** A write's rollback callbacks: the record's `afterRollback`, to run if the database refuses it. */
-export function rollbackOf(record: Model): () => Promise<void> {
+export function afterRollbackOf(record: Model): () => Promise<void> {
   return () => runCallbacks(record, "afterRollback");
 }
 
