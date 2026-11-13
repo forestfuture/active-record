@@ -4,6 +4,7 @@ import {
   hasMany,
   Model,
   RecordNotDestroyed,
+  RecordNotSaved,
   RecordNotUnique,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
@@ -153,6 +154,21 @@ describe("a hasMany's collection methods", () => {
 
       expect(await bodies(post.id)).toEqual(["c", "new"]);
       expect(moved.postId).toBe(post.id);
+    });
+
+    test("on a saved owner whose key is null, throws RecordNotSaved and writes nothing", async () => {
+      class Member extends Model.define({ id: { type: "integer", null: false }, age: "integer" }) {
+        static table = "users";
+        comments = hasMany(Comment, { foreignKey: "postId", primaryKey: "age" });
+      }
+      const member = await db().model(Member).find(1); // age is NULL
+      const moved = await db().model(Comment).find(20);
+
+      await expect(member.comments().push(moved)).rejects.toThrow(
+        new RecordNotSaved("You cannot push a Comment here: the Member has no age"),
+      );
+      expect(moved.postId).toBe(2);
+      expect(await bodies(2)).toEqual(["c"]);
     });
 
     test("throws TypeError for a record of another Model", async () => {
