@@ -289,6 +289,12 @@ describe("a generated id and change tracking", () => {
     expect(note.changed()).toEqual(["body"]);
   });
 
+  test("attributeWas of a generated id is the generated id", () => {
+    const note = harness.connect().model(Note).build({ body: "Hi" });
+
+    expect(note.attributeWas("id")).toBe(note.id);
+  });
+
   test("assigning another id is a change from the generated one", () => {
     const note = harness.connect().model(Note).build({ body: "Hi" });
     const generated = note.id;

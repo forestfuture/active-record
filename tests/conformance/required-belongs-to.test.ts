@@ -41,6 +41,17 @@ class Post extends Model.define({
   author = belongsTo(User, { foreignKey: "userId" });
 }
 
+/** Comments on post 10 unless told otherwise. */
+class Reply extends Model.define({
+  id: { type: "integer", null: false },
+  postId: { type: "integer", default: () => 10 },
+  body: "string",
+}) {
+  static table = "comments";
+
+  post = belongsTo(Post, { foreignKey: "postId" });
+}
+
 class Note extends Model.define({
   id: { type: "integer", null: false },
   postId: "integer",
@@ -216,6 +227,15 @@ describe("a belongsTo requires its record", () => {
 
     expect(await comment.save()).toBe(true);
     expect(queries).toHaveLength(1); // the UPDATE alone
+  });
+
+  test("a new record whose key holds its declared default isn't checked", async () => {
+    const queries: QueryEvent[] = [];
+    const db = harness.connect({ onQuery: (event) => queries.push(event) });
+    const reply = db.model(Reply).build({ id: 1, body: "On topic" });
+
+    expect(await reply.isValid()).toBe(true);
+    expect(queries).toHaveLength(0);
   });
 
   test("a saved record whose key changed is checked again", async () => {
