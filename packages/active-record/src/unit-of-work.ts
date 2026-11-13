@@ -18,6 +18,8 @@ export interface PreparedWrite {
   afterCommit?(): Promise<void>;
   /** Its rollback callbacks, run when the database refuses the batch it was sent in. */
   afterRollback?(): Promise<void>;
+  /** The error to throw in place of the database's, if this write explains it (#40). */
+  explain?(error: unknown): Error | undefined;
 }
 
 /** A prepared write for plain statements: nothing to commit, no callbacks. */
@@ -28,8 +30,8 @@ export function statementWrite(statements: readonly CompiledSql[]): PreparedWrit
 /**
  * Sends every write's statements as one atomic batch (or one statement on its own), then
  * commits each write with its own results. If the database refuses the batch, nothing is
- * committed: each write's rollback callbacks run, then the database's error is thrown, unless
- * a rollback callback throws first (see `whileHandling`).
+ * committed: each write's rollback callbacks run, then the database's error is thrown (or one
+ * a write explains it as), unless a rollback callback throws first (see `whileHandling`).
  */
 export async function writeAll(
   executor: Executor,
@@ -46,13 +48,25 @@ export async function writeAll(
   return results;
 }
 
-/** Sends every write's statements as one atomic batch; the database's refusal is thrown. */
+/**
+ * Sends every write's statements as one atomic batch. The database's refusal is thrown, or an
+ * error one of the writes explains it as.
+ */
 async function send(
   executor: Executor,
   writes: readonly PreparedWrite[],
 ): Promise<StatementResult[]> {
   const statements = writes.flatMap((write) => write.statements);
-  return statements.length === 0 ? [] : executor.write(statements);
+  try {
+    return statements.length === 0 ? [] : await executor.write(statements);
+  } catch (refusal) {
+    throw explained(writes, refusal);
+  }
+}
+
+/** The error one of the refused writes explains the database's refusal as, or the refusal. */
+function explained(writes: readonly PreparedWrite[], refusal: unknown): unknown {
+  return writes.map((write) => write.explain?.(refusal)).find((each) => each) ?? refusal;
 }
 
 /** Commits each written write with its own statements' results, in order. */

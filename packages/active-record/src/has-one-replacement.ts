@@ -1,5 +1,6 @@
 // Replacing a hasOne's record (#40): what a new record does to the old one, by `dependent:`, written in one batch with the new one.
 import { compileDelete } from "./compiler.ts";
+import { NotNullViolation, RecordNotSaved } from "./errors.ts";
 import {
   prepareDestroy,
   prepareSave,
@@ -147,14 +148,45 @@ async function prepareRemoval(
   return nullify(old, association, claimed);
 }
 
-/** The old record with its foreign key set to null, saved: validated, with its callbacks. */
+/**
+ * The old record with its foreign key set to null, saved: validated, with its callbacks. One that
+ * can't be saved, refused or by a NOT NULL foreign key, throws `RecordNotSaved` as in Rails, and
+ * nothing is written; one refused before writing keeps its key.
+ */
 async function nullify(
   old: Model,
   association: ResolvedAssociation,
   claimed: Claimed,
 ): Promise<Ready> {
-  old[state].writeKey(association.definition.foreignKey, null, association.name);
+  const { name, definition } = association;
+  const key = old[state].read(definition.foreignKey);
+  old[state].writeKey(definition.foreignKey, null, name);
   const plan = await prepareSave(old, claimed);
-  if (plan.status !== "ready") throw refusalError(old, plan, "save");
-  return plan;
+  if (plan.status === "ready") return explainingNotNull(plan, old, association);
+  old[state].writeKey(definition.foreignKey, key, name);
+  throw new RecordNotSaved(failedToRemove(name));
+}
+
+/** A nullify's plan whose writes explain the database refusing its null foreign key. */
+function explainingNotNull(plan: Ready, old: Model, association: ResolvedAssociation): Ready {
+  const { name, definition } = association;
+  const explain = (error: unknown) =>
+    error instanceof NotNullViolation &&
+    error.table === modelOf(old).table &&
+    error.attributes.includes(definition.foreignKey)
+      ? new RecordNotSaved(failedToRemove(name), { cause: error })
+      : undefined;
+  const stages = plan.stages.map((stage) => ({
+    ...stage,
+    writes: () => stage.writes().map((write) => ({ ...write, explain })),
+  }));
+  return { ...plan, stages };
+}
+
+/** Rails' message for an old record that can't be nullified. */
+function failedToRemove(name: string): string {
+  return (
+    `Failed to remove the existing associated ${name}. ` +
+    "The record failed to save after its foreign key was set to null."
+  );
 }

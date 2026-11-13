@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
+  belongsTo,
   hasOne,
   Model,
   RecordNotSaved,
@@ -47,6 +48,21 @@ class Destroying extends Model.define(userAttributes) {
 class Deleting extends Model.define(userAttributes) {
   static table = "users";
   profile = hasOne(Profile, { foreignKey: "userId", dependent: "delete" });
+}
+
+class KeepingUser extends Model.define(userAttributes) {
+  static table = "users";
+  profile = hasOne(Profile, { foreignKey: "userId" });
+  ownProfile = hasOne(OwnedProfile, { foreignKey: "userId" });
+}
+
+class OwnedProfile extends Model.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+  bio: "string",
+}) {
+  static table = "profiles";
+  user = belongsTo(KeepingUser, { foreignKey: "userId" });
 }
 
 const postAttributes = {
@@ -244,6 +260,33 @@ describe("replacing a hasOne's record", () => {
         [null, "Old"],
         [10, "Fixed"],
       ]);
+    });
+  });
+  describe("an old record that can't be nullified", () => {
+    const failed =
+      "Failed to remove the existing associated profile. " +
+      "The record failed to save after its foreign key was set to null.";
+
+    test("a NOT NULL foreign key throws RecordNotSaved, and the new record isn't written", async () => {
+      const user = await db().model(KeepingUser).find(1);
+
+      await expect(user.profile.createOrThrow({ bio: "New" })).rejects.toThrow(
+        new RecordNotSaved(failed),
+      );
+
+      expect((await bios()).map((row) => row.bio)).toEqual(["Old"]);
+    });
+
+    test("an old record its validations refuse throws RecordNotSaved, keeping its key", async () => {
+      const user = await db().model(KeepingUser).find(1);
+      const old = await user.ownProfile();
+
+      await expect(
+        user.ownProfile.set(db().model(OwnedProfile).build({ bio: "New" })),
+      ).rejects.toThrow(new RecordNotSaved(failed.replace("profile.", "ownProfile.")));
+
+      expect(old?.userId).toBe(1);
+      expect((await bios()).map((row) => row.bio)).toEqual(["Old"]);
     });
   });
 });
