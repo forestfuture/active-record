@@ -161,7 +161,7 @@ A change to an **Association**'s **Relation** declared with the association (its
 _Avoid_: Scope (on its own), default scope
 
 **Dependent strategy**:
-What destroying a **Record** does to an **Association**'s records: destroy them, delete them, nullify their foreign key, or refuse while they exist (a restriction, which isn't an **Abort**). On another database, it's written there, separately from the owner's DELETE.
+What destroying a **Record** does to an **Association**'s records: destroy them, delete them, nullify their foreign key, or refuse while they exist (a restriction, which isn't an **Abort**). A has-many's `delete`, `clear` and `deleteAll()` remove records by it too. On another database, it's written there, separately from the owner's DELETE.
 _Avoid_: Cascade (that's the database's), dependent destroy (for all of them)
 
 **Query listener**:
@@ -209,7 +209,7 @@ An atomic group of **Statements** and **Record statements**, prepared in `batch(
 _Avoid_: Transaction
 
 **Autosave**:
-Saving a **Record** also saves the new records of its **Associations**, validated with it: those built through a has-many or has-one, after it and with its key (and theirs, at every level), and a new record it points at through a belongs-to, before it, so it can take that record's key. Records on another database are written there, separately.
+Saving a **Record** also saves the new records of its **Associations**, validated with it: those built through a has-many or has-one, after it and with its key (and theirs, at every level), and, while it's new, every record pushed onto a has-many, saved ones included, and a new record it points at through a belongs-to, before it, so it can take that record's key. Records on another database are written there, separately.
 _Avoid_: Nested save, cascade save
 
 **Record statement**:
