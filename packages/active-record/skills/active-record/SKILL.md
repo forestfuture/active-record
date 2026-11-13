@@ -29,7 +29,7 @@ Active Record (`@forestfuture/active-record`) is a Rails-style Active Record for
 
 ## Shapes to follow
 
-Generated Models extend `ApplicationRecord`, with their attributes from the schema. Associations are fields, scopes are statics, and validations and callbacks go in the `static {}` block:
+Generated Models extend `ApplicationRecord`, with their attributes from the schema. Associations are fields, scopes are statics, and validations, callbacks and a `this.defaultScope((q) => …)` go in the `static {}` block:
 
 ```ts
 import { belongsTo, hasMany } from "@forestfuture/active-record";

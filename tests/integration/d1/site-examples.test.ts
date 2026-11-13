@@ -40,6 +40,7 @@ import * as paginating from "../../../site/snippets/guide/paginating.ts";
 import * as filtering from "../../../site/snippets/guide/filtering.ts";
 import * as hidden from "../../../site/snippets/guide/hidden-attributes.ts";
 import { messagesExample, Product } from "../../../site/snippets/guide/error-messages.ts";
+import { examples as defaultScopeExamples } from "../../../site/snippets/guide/default-scopes.ts";
 import worker from "../../../site/snippets/getting-started/src/index.ts";
 import * as several from "../../../site/snippets/guide/several-databases.ts";
 import { publishDraftsAndRemove } from "../../../site/snippets/getting-started/src/publish.ts";
@@ -278,6 +279,29 @@ describe("the guide's examples", () => {
     ]);
     expect(Product.humanAttributeName("priceCents")).toBe("Price");
     expect(Product.humanAttributeName("createdAt")).toBe("Added on");
+  });
+
+  test("Querying: a default scope hides unavailable products, and unscoped() shows them", async () => {
+    await binding.batch([
+      binding.prepare(
+        "CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL, price_cents INTEGER NOT NULL DEFAULT 0, available INTEGER NOT NULL DEFAULT 1, internal_notes TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+      ),
+      binding.prepare("DELETE FROM products"),
+      binding.prepare(
+        "INSERT INTO products (id, name, price_cents, available, created_at, updated_at) VALUES ('p1', 'Pen', 100, 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'), ('p2', 'Ink', 200, 0, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
+      ),
+    ]);
+
+    // The snippet's Models are on the DB binding, which is this describe's database here.
+    const outer = workers.env.DB;
+    Object.assign(workers.env, { DB: binding });
+    const { listed, draft, everything } = await withDatabase(connect(binding), () =>
+      defaultScopeExamples(),
+    ).finally(() => Object.assign(workers.env, { DB: outer }));
+
+    expect(listed.map((product) => product.name)).toEqual(["Pen"]);
+    expect(draft.available).toBe(1);
+    expect(everything.map((product) => product.name).sort()).toEqual(["Ink", "Pen"]);
   });
 
   test("Associations: reading, creating through, and deleting through an association", async () => {
