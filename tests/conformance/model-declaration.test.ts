@@ -52,6 +52,24 @@ describe("model declaration", () => {
     expect(use).toThrow(ActiveRecordError);
   });
 
+  test("a modelName that isn't a string is rejected when first used", () => {
+    // Past the types: a JavaScript Model file, or a cast.
+    class Numbered extends Model.define({ id: "integer" }) {
+      static modelName = 1 as unknown as string;
+    }
+    class Unset extends Model.define({ id: "integer" }) {
+      static modelName = undefined as unknown as string;
+    }
+
+    for (const model of [Numbered, Unset]) {
+      expect(() => harness.connect().model(model)).toThrow(
+        new InvalidModel(
+          `${model.name}'s modelName must be a string; remove it to use the class name`,
+        ),
+      );
+    }
+  });
+
   test("a missing table whose name was inferred says where the name came from", async () => {
     // What a minifier without keep_names does: the class is now called e, so its table "es".
     const e = class extends Model.define({ id: "integer" }) {};
