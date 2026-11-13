@@ -120,6 +120,16 @@ export const schema = {
     expect(fingerprintOf(modeled)).not.toBe(fingerprintOf(first));
   });
 
+  test("a modelName that's the class name leaves the fingerprint as it was; another changes it", () => {
+    const tables = tablesOf("CREATE TABLE t (id INTEGER PRIMARY KEY)");
+    const model = { className: "T", table: "t", module: "./t" };
+
+    const before = fingerprintOf(schemaFor(tables, [model]));
+
+    expect(fingerprintOf(schemaFor(tables, [{ ...model, modelName: "T" }]))).toBe(before);
+    expect(fingerprintOf(schemaFor(tables, [{ ...model, modelName: "Thing" }]))).not.toBe(before);
+  });
+
   test("a list of Models longer than a line has one a line, as the formatter writes it", () => {
     const tables = tablesOf("CREATE TABLE line_items (id INTEGER PRIMARY KEY);");
     const models = ["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf"].map(

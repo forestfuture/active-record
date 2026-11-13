@@ -27,6 +27,7 @@ interface Library {
 /** A class as loaded, with the statics finding its Models reads. */
 interface LoadedClass {
   name: string;
+  modelName: string;
   table: string;
   attributeDefinitions: unknown;
 }
@@ -131,7 +132,12 @@ function addModel(cwd: string, file: string, { name, model }: Exported, found: F
     found.errors.push(`${shown(cwd, file)}: ${(error as Error).message}`);
     return;
   }
-  found.models.set(model, { className: model.name, table: model.table, file });
+  found.models.set(model, {
+    className: model.name,
+    modelName: model.modelName,
+    table: model.table,
+    file,
+  });
 }
 
 /** Imports a Model file, or says why it couldn't be loaded. */
