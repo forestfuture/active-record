@@ -97,6 +97,17 @@ class Author extends Model.define({
   profile = hasOne(Profile, { foreignKey: "userId", autosave: true });
 }
 
+/** An author whose featured post is also one of its posts. */
+class FeaturingAuthor extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+}) {
+  static table = "users";
+
+  posts = hasMany(Post, { foreignKey: "userId", autosave: true });
+  featured = hasOne(Post, { foreignKey: "userId", autosave: true });
+}
+
 /** The same table, with the default autosave: only new records. */
 class PlainAuthor extends Model.define({
   id: { type: "integer", null: false },
@@ -125,9 +136,9 @@ describe("autosave: true (#37)", () => {
   });
 
   /** An author with two stored posts, its posts loaded. */
-  async function authorWithPosts<M extends typeof Author | typeof PlainAuthor | typeof Moderator>(
-    model: M,
-  ) {
+  async function authorWithPosts<
+    M extends typeof Author | typeof PlainAuthor | typeof Moderator | typeof FeaturingAuthor,
+  >(model: M) {
     await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'One')");
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (11, 1, 'Two')");
@@ -147,6 +158,17 @@ describe("autosave: true (#37)", () => {
 
     expect(posts[0]!.isChanged()).toBe(false);
     expect(await titles()).toEqual(["Changed", "Two"]);
+  });
+
+  test("a changed record two of the owner's associations hold is written once", async () => {
+    const { author, posts } = await authorWithPosts(FeaturingAuthor);
+    await author.featured.set(posts[0]!);
+    posts[0]!.title = "Changed";
+    events.length = 0;
+
+    await author.saveOrThrow();
+
+    expect(events.filter(({ sql }) => sql.startsWith("UPDATE"))).toHaveLength(1);
   });
 
   test("only the changed records are written", async () => {

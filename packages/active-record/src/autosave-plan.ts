@@ -95,7 +95,10 @@ export async function prepareAfter(owner: Model, claimed: Claimed): Promise<Plan
   return prepareEach(owner, autosavedAfter(owner, claimed), claimed);
 }
 
-/** Each record's prepared save or destroy, in order; the first refusal stops them. */
+/**
+ * Each record's prepared save or destroy, in order; the first refusal stops them. A record
+ * another of the owner's associations holds too, already prepared, isn't prepared again.
+ */
 async function prepareEach(
   owner: Model,
   linked: readonly Linked[],
@@ -103,6 +106,7 @@ async function prepareEach(
 ): Promise<Planned[] | Refusal> {
   const plans: Planned[] = [];
   for (const each of linked) {
+    if (claimed.has(each.record)) continue;
     const plan = each.destroys
       ? await prepareMarked(owner, each, claimed)
       : await prepareWrites(each.record, claimed);
