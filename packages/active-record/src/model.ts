@@ -13,13 +13,14 @@ import { defaultFilterAttributes, type FilterAttribute } from "./filtering.ts";
 import type { Errors } from "./errors-collection.ts";
 import { humanAttributeName, type ErrorMessages } from "./error-messages.ts";
 import { declare } from "./declarations.ts";
+import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
-  AssociationNotLoaded,
-  RecordInvalid,
-  RecordNotDestroyed,
-  RecordNotSaved,
-} from "./errors.ts";
-import { destroyLifecycle, reloadRecord, saveLifecycle, validateRecord } from "./lifecycle.ts";
+  destroyLifecycle,
+  refusalError,
+  reloadRecord,
+  saveLifecycle,
+  validateRecord,
+} from "./lifecycle.ts";
 import { associationOf, newRecord } from "./association-fields.ts";
 import { defineModelName, inferTableNames } from "./table-names.ts";
 import {
@@ -466,9 +467,7 @@ export class Model extends ModelStatics {
    */
   async saveOrThrow(): Promise<true> {
     const outcome = await saveLifecycle(this);
-    if (outcome.status === "invalid") throw new RecordInvalid(this);
-    if (outcome.status === "aborted") throw new RecordNotSaved(outcome.reason);
-    if (outcome.status === "notDestroyed") throw new RecordNotDestroyed(outcome.reason);
+    if (outcome.status !== "saved") throw refusalError(this, outcome, "save");
     return true;
   }
 
@@ -517,12 +516,12 @@ export class Model extends ModelStatics {
    * `reload()` clears the mark.
    */
   markForDestruction(): void {
-    this[state].markedForDestruction = true;
+    this[state].isMarkedForDestruction = true;
   }
 
   /** Whether `markForDestruction()` marked it, since it was last loaded. */
   isMarkedForDestruction(): boolean {
-    return this[state].markedForDestruction;
+    return this[state].isMarkedForDestruction;
   }
 
   /** Not yet saved: built, or created but not persisted. */

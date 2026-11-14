@@ -4,10 +4,10 @@ import {
   autosavedBefore,
   dropUnsavedMarked,
   forget,
-  keysKnownBefore,
+  isEveryKeyKnown,
   linkAfter,
   linkBefore,
-  ownerKeyKnown,
+  isOwnerKeyKnown,
   unlink,
   type Linked,
 } from "./autosave.ts";
@@ -167,7 +167,7 @@ export function assemble(
   let stages = combine([withAfter(owner, own, children), ...gone.map(({ plan }) => plan.stages)]);
   if (first.length > 0) {
     const firstStages = combine(first.map(({ plan }) => plan.stages));
-    const known = keysKnownBefore(before.pointedAt.filter(isHere));
+    const known = isEveryKeyKnown(before.pointedAt.filter(isHere));
     stages = known ? combine([firstStages, stages]) : [...firstStages, ...stages];
   }
   const nested = [...first, ...children, ...gone].map(({ plan }) => plan);
@@ -197,7 +197,7 @@ function withAfter(owner: Model, own: Stage, planned: readonly Planned[]): Stage
   if (planned.length === 0) return [own];
   const [first, ...rest] = combine(planned.map(({ plan }) => plan.stages));
   const linked = [afterLinking(first!, () => linkAfter(owner, planned)), ...rest];
-  return ownerKeyKnown(owner, planned) ? combine([[own], linked]) : [own, ...linked];
+  return isOwnerKeyKnown(owner, planned) ? combine([[own], linked]) : [own, ...linked];
 }
 
 /**
