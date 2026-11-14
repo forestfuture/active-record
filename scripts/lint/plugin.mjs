@@ -3,6 +3,7 @@ import { definePlugin } from "vite-plus/lint/plugins";
 import disableReason from "./disable-reason.mjs";
 import moduleHeader from "./module-header.mjs";
 import noFixedDelay from "./no-fixed-delay.mjs";
+import predicateName from "./predicate-name.mjs";
 import standaloneTestName from "./standalone-test-name.mjs";
 
 export default definePlugin({
@@ -11,6 +12,7 @@ export default definePlugin({
     "disable-reason": disableReason,
     "module-header": moduleHeader,
     "no-fixed-delay": noFixedDelay,
+    "predicate-name": predicateName,
     "standalone-test-name": standaloneTestName,
   },
 });
