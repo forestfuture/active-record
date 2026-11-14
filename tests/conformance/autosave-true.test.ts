@@ -471,6 +471,20 @@ describe("autosave: true (#37)", () => {
       return { reply, post };
     }
 
+    test("a new record it points at, then marked, isn't written, and the owner points at nothing", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+      await harness.exec("INSERT INTO comments (id, body) VALUES (1, 'Hi')");
+      const reply = await db().model(Reply).find(1);
+      const post = reply.post.build({ userId: 1, title: "New" });
+      post.markForDestruction();
+
+      await reply.saveOrThrow();
+
+      expect(post.isPersisted()).toBe(false);
+      expect(await db().model(Post).count()).toBe(0);
+      expect(reply.postId).toBeNull();
+    });
+
     test("saving the owner saves its loaded record first when it changed", async () => {
       const { reply, post } = await replyOnPost();
       post.title = "Changed";

@@ -37,19 +37,25 @@ export interface Before {
  */
 export function autosavedBefore(owner: Model, claimed: ReadonlySet<Model>): Before {
   const model = modelOf(owner);
-  const pointedAt = owner[state].autosaves
+  const marked = ({ association, record }: Linked) =>
+    association.definition.autosave === true && record[state].markedForDestruction;
+  const all = owner[state].autosaves
     .allBelongsTo()
     .map(([name, record]) => ({ association: resolveAssociation(model, name), record }));
-  const saved = pointedAt.filter(({ record }) => record[state].isNew && !claimed.has(record));
+  const pointedAt = all.filter((each) => !marked(each));
+  const unsaved = (each: Linked) => each.record[state].isNew && !claimed.has(each.record);
   const loadedSaved = loadedBelongsTo(owner, claimed);
-  const marked = ({ record }: Linked) => record[state].markedForDestruction;
   return {
     pointedAt,
     saved: [
-      ...saved,
+      ...pointedAt.filter(unsaved),
       ...loadedSaved.filter((each) => !marked(each) && changedForAutosave(each.record)),
     ],
-    destroyed: loadedSaved.filter(marked).map((each) => ({ ...each, destroys: true })),
+    // A new one marked is destroyed too, writing nothing, as Rails does.
+    destroyed: [
+      ...all.filter((each) => marked(each) && unsaved(each)),
+      ...loadedSaved.filter(marked),
+    ].map((each) => ({ ...each, destroys: true })),
   };
 }
 
@@ -68,6 +74,7 @@ function loadedBelongsTo(owner: Model, claimed: ReadonlySet<Model>): Linked[] {
 export function unlink(owner: Model, destroyed: readonly Linked[]): void {
   for (const { association } of destroyed) {
     owner[state].writeKey(association.ownerAttribute, null, association.name);
+    owner[state].autosaves.setBelongsTo(association.name, undefined);
   }
 }
 
