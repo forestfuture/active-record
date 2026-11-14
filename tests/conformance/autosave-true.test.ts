@@ -236,7 +236,7 @@ describe("autosave: true (#37)", () => {
     expect(writes[0]!.sql).toMatch(/^UPDATE/);
   });
 
-  test("guard: without autosave: true, a changed loaded record isn't saved", async () => {
+  test("without autosave: true, a changed loaded record isn't saved", async () => {
     const { author, posts } = await authorWithPosts(PlainAuthor);
     posts[0]!.title = "Changed";
 
@@ -246,7 +246,7 @@ describe("autosave: true (#37)", () => {
     expect(await titles()).toEqual(["One", "Two"]);
   });
 
-  test("guard: a record found without loading the association isn't saved", async () => {
+  test("a record found without loading the association isn't saved", async () => {
     await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'One')");
     const author = await db().model(Author).find(1);
@@ -291,7 +291,7 @@ describe("autosave: true (#37)", () => {
     expect(await titles()).toEqual(["One", "Two"]);
   });
 
-  test("guard: unchanged loaded records aren't validated", async () => {
+  test("unchanged loaded records aren't validated", async () => {
     await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, '')");
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (11, 1, 'Two')");
@@ -303,7 +303,7 @@ describe("autosave: true (#37)", () => {
     expect(blank!.errors.isEmpty()).toBe(true);
   });
 
-  test("markForDestruction() marks a record, writing nothing, and reload() clears the mark", async () => {
+  test("markForDestruction() marks a record, writing nothing", async () => {
     const { posts } = await authorWithPosts(Author);
     const [post] = posts;
     expect(post!.isMarkedForDestruction()).toBe(false);
@@ -312,8 +312,15 @@ describe("autosave: true (#37)", () => {
 
     expect(post!.isMarkedForDestruction()).toBe(true);
     expect(events).toHaveLength(0);
-    await post!.reload();
-    expect(post!.isMarkedForDestruction()).toBe(false);
+  });
+
+  test("reload() clears a record's mark", async () => {
+    const { posts } = await authorWithPosts(Author);
+    posts[0]!.markForDestruction();
+
+    await posts[0]!.reload();
+
+    expect(posts[0]!.isMarkedForDestruction()).toBe(false);
   });
 
   test("saving the owner destroys its marked records, and they leave its collection", async () => {
@@ -366,7 +373,7 @@ describe("autosave: true (#37)", () => {
     expect(await author.posts().toArray()).toHaveLength(2);
   });
 
-  test("guard: without autosave: true, a marked record isn't destroyed", async () => {
+  test("without autosave: true, a marked record isn't destroyed", async () => {
     const { author, posts } = await authorWithPosts(PlainAuthor);
     posts[0]!.markForDestruction();
 
@@ -376,7 +383,7 @@ describe("autosave: true (#37)", () => {
     expect(await titles()).toEqual(["One", "Two"]);
   });
 
-  test("guard: a changed record under an unchanged one is saved, at every level", async () => {
+  test("a changed record under an unchanged one is saved, at every level", async () => {
     const { author, posts } = await authorWithPosts(Author);
     await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (1, 10, 'Hi')");
     await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (2, 10, 'Bye')");
@@ -390,7 +397,7 @@ describe("autosave: true (#37)", () => {
     expect(await db().model(Comment).pluck("body")).toEqual(["Changed"]);
   });
 
-  test("guard: in db.batch, b.save(owner) writes its changed and marked records, each once", async () => {
+  test("in db.batch, b.save(owner) writes its changed and marked records, each once", async () => {
     const { author, posts } = await authorWithPosts(Author);
     posts[0]!.markForDestruction();
     posts[1]!.title = "Changed";
@@ -513,7 +520,7 @@ describe("autosave: true (#37)", () => {
       return { author, profile };
     }
 
-    test("guard: saving the owner saves its loaded record when it changed", async () => {
+    test("saving the owner saves its loaded record when it changed", async () => {
       const { author, profile } = await authorWithProfile();
       profile.bio = "Changed";
 
@@ -522,7 +529,7 @@ describe("autosave: true (#37)", () => {
       expect(await db().model(Profile).pluck("bio")).toEqual(["Changed"]);
     });
 
-    test("guard: saving the owner destroys its loaded record when it's marked, and it's no longer loaded", async () => {
+    test("saving the owner destroys its loaded record when it's marked, and it's no longer loaded", async () => {
       const { author, profile } = await authorWithProfile();
       profile.markForDestruction();
 

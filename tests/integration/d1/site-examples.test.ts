@@ -363,25 +363,33 @@ describe("the guide's examples", () => {
     expect(another.authorId).toBe(grace.id);
   });
 
-  test("Associations: autosave: true saves changed articles and destroys marked ones (#37)", async () => {
-    const db = connect(binding);
+  /** An author with a draft and another article, stored. */
+  async function authorWithArticles(db: ReturnType<typeof connect>) {
     const author = await db.model(Author).createOrThrow({ name: "Ed" });
     await db.model(Article).createOrThrow({ authorId: author.id, title: "Draft one" });
     await db.model(Article).createOrThrow({ authorId: author.id, title: "Kept" });
+    return author;
+  }
+
+  test("Associations: autosave: true saves the changed articles (#37)", async () => {
+    const db = connect(binding);
+    const author = await authorWithArticles(db);
 
     await withDatabase(db, () => saveChangedExample(author.id));
-    expect(
-      await db.model(Article).where({ authorId: author.id }).order({ title: "asc" }).pluck("title"),
-    ).toEqual(["DRAFT ONE", "KEPT"]);
 
-    await db
-      .model(Article)
-      .where({ authorId: author.id, title: "DRAFT ONE" })
-      .updateAll({ title: "Draft one" });
+    const titles = db.model(Article).where({ authorId: author.id }).order({ title: "asc" });
+    expect(await titles.pluck("title")).toEqual(["DRAFT ONE", "KEPT"]);
+  });
+
+  test("Associations: autosave: true destroys the marked drafts (#37)", async () => {
+    const db = connect(binding);
+    const author = await authorWithArticles(db);
+
     const articles = await withDatabase(db, () => markForDestructionExample(author.id));
+
     const destroyed = articles.filter((article) => article.isDestroyed());
     expect(destroyed.map((article) => article.title)).toEqual(["Draft one"]);
-    expect(await db.model(Article).where({ authorId: author.id }).pluck("title")).toEqual(["KEPT"]);
+    expect(await db.model(Article).where({ authorId: author.id }).pluck("title")).toEqual(["Kept"]);
   });
 
   test("Associations: the preload takes 4 queries in 1 round trip, and the loop none", async () => {
