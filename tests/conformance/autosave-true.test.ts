@@ -152,6 +152,19 @@ describe("autosave: true (#37)", () => {
     expect(blank!.errors.isEmpty()).toBe(true);
   });
 
+  test("markForDestruction() marks a record, writing nothing, and reload() clears the mark", async () => {
+    const { posts } = await authorWithPosts(Author);
+    const [post] = posts;
+    expect(post!.isMarkedForDestruction()).toBe(false);
+
+    post!.markForDestruction();
+
+    expect(post!.isMarkedForDestruction()).toBe(true);
+    expect(events).toHaveLength(0);
+    await post!.reload();
+    expect(post!.isMarkedForDestruction()).toBe(false);
+  });
+
   test("autosave takes only true: anything else is an InvalidModel", () => {
     class Owner extends Model.define({ id: { type: "integer", null: false } }) {
       static table = "users";

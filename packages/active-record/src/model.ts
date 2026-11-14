@@ -504,6 +504,20 @@ export class Model extends ModelStatics {
     return this;
   }
 
+  /**
+   * Marks the record to be destroyed when its owner is saved, through an association declared
+   * `autosave: true`, as Rails' `mark_for_destruction` does. Nothing is written until then, and
+   * `reload()` clears the mark.
+   */
+  markForDestruction(): void {
+    this[state].markedForDestruction = true;
+  }
+
+  /** Whether `markForDestruction()` marked it, since it was last loaded. */
+  isMarkedForDestruction(): boolean {
+    return this[state].markedForDestruction;
+  }
+
   /** Not yet saved: built, or created but not persisted. */
   isNewRecord(): boolean {
     return this[state].isNew;
