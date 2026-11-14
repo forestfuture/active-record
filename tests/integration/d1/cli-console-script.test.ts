@@ -143,9 +143,12 @@ describe("running one piece of code in the console's scope", () => {
   });
 
   test("a rejection nobody awaits fails the script when it arrives while the code still runs", async () => {
-    // Ordered, not timed: D1 answers the count after the lookup; the tick lets the rejection event fire.
+    // Ordered, not timed: the code waits for the lookup to settle, through `finally`, which passes
+    // its rejection on unhandled; the tick then lets the rejection event fire (#382).
     const result = await run(
-      "Sample.find(99); await Sample.count(); await new Promise((resolve) => setImmediate(resolve)); 1",
+      "let settled; const lookup = new Promise((resolve) => (settled = resolve)); " +
+        "Sample.find(99).finally(settled); await lookup; " +
+        "await new Promise((resolve) => setImmediate(resolve)); 1",
     );
 
     expect(result.exitCode).toBe(1);
