@@ -1,20 +1,8 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
 import { shownKey } from "./filtering.ts";
 import { compileDelete, compileInsert, compileSelect, compileUpdate } from "./compiler.ts";
-import {
-  autosavesOf,
-  linkBelongsTo,
-  linkRecords,
-  linkedRecords,
-  ownerKeysKnown,
-  belongsToKeysKnown,
-  belongsToAutosavesOf,
-  savingGroups,
-  unsavedBelongsTo,
-  type Autosave,
-  type BelongsToAutosave,
-  type Linked,
-} from "./autosave.ts";
+import { linkBefore, savingGroups } from "./autosave.ts";
+import { assemble, prepareAfter, prepareBefore, validateAutosaves } from "./autosave-plan.ts";
 import { noDependents, prepareDependents } from "./dependents.ts";
 import { prepareReplacement, withRemoval } from "./has-one-replacement.ts";
 import {
@@ -37,11 +25,9 @@ import { modelOf, type Model } from "./model.ts";
 import { validateRequiredAssociations } from "./required-associations.ts";
 import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
-import type { ResolvedAssociation } from "./resolved-association.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
 import {
-  afterLinking,
   combine,
   inGroup,
   runStages,
@@ -114,7 +100,7 @@ export async function validateRecord(record: Model): Promise<boolean> {
  * Clears `errors` and `abortReason`, then beforeValidation → validators → afterValidation.
  * An `abort()` in either callback makes the record "aborted" (not valid).
  */
-async function validation(record: Model, claimed: Claimed): Promise<Validity> {
+export async function validation(record: Model, claimed: Claimed): Promise<Validity> {
   const recordState = record[state];
   recordState.errors[clearErrors]();
   recordState.abortReason = undefined;
@@ -184,29 +170,6 @@ function aborted(record: Model): { status: "aborted"; reason: string } {
 }
 
 /**
- * New records built through the record's hasMany associations are validated with it, one
- * after another, as Rails' `validate: true` does: an invalid one adds "is invalid" to the
- * association's name.
- */
-async function validateAutosaves(record: Model, claimed: Claimed): Promise<void> {
-  for (const { association, record: pointedAt } of belongsToAutosavesOf(record)) {
-    const { name } = association;
-    if (!pointedAt[state].isNew || claimed.has(pointedAt)) continue;
-    if ((await validation(pointedAt, claimed)) !== "valid") {
-      record[state].errors.add(name, { type: "invalid" });
-    }
-  }
-  for (const { association, records } of autosavesOf(record, claimed)) {
-    const { name } = association;
-    let valid = true;
-    for (const each of records) {
-      if ((await validation(each, claimed)) !== "valid") valid = false;
-    }
-    if (!valid) record[state].errors.add(name, { type: "invalid" });
-  }
-}
-
-/**
  * The save lifecycle, in the contract's order:
  * can this record be used → beforeValidation → validators → afterValidation
  * → beforeSave → beforeCreate | beforeUpdate → write (skipped when clean) → commit state
@@ -239,139 +202,22 @@ export async function prepareSave(record: Model, claimed: Claimed): Promise<Save
  * at every level). If the owner's key is known, its records join its batch; if D1 generates
  * it, they follow in the next one, once the owner is written.
  */
-async function prepareWrites(record: Model, claimed: Claimed): Promise<SavePlan> {
+export async function prepareWrites(record: Model, claimed: Claimed): Promise<SavePlan> {
   claimed.add(record);
   // New belongsTo records first: the record needs their keys (Rails' belongs_to autosave).
-  const pointedAt = belongsToAutosavesOf(record);
-  const first = await prepareEach(unsavedBelongsTo(pointedAt, claimed), claimed);
-  if (!Array.isArray(first)) return first;
+  const before = await prepareBefore(record, claimed);
+  if ("status" in before) return before;
   const isInsert = record[state].isNew;
   if (!(await beforeWrite(record, isInsert))) return aborted(record);
   // A hasOne's new record removes the one it replaces in its own batch (#40).
   const removal = await prepareReplacement(record, claimed);
   const own = stageOf(record, [record], () => {
-    linkBelongsTo(record, pointedAt);
+    linkBefore(record, before.pointedAt);
     return [saveWrite(record, isInsert)];
   });
-  const autosaves = autosavesOf(record, claimed);
-  const children = await prepareEach(linkedRecords(autosaves), claimed);
-  if (!Array.isArray(children)) return children;
-  return withRemoval(
-    assemble({ record, own, pointedAt, first, autosaves, children }),
-    removal,
-    record,
-  );
-}
-
-/** A record's prepared writes, and the association its owner writes it through. */
-interface Planned {
-  association: ResolvedAssociation;
-  plan: Ready;
-}
-
-/** Each record's prepared writes, in order; the first refusal stops them. */
-async function prepareEach(
-  records: readonly Linked[],
-  claimed: Claimed,
-): Promise<Planned[] | Exclude<SavePlan, Ready>> {
-  const plans: Planned[] = [];
-  for (const { association, record } of records) {
-    const plan = await prepareWrites(record, claimed);
-    if (plan.status !== "ready") return plan;
-    plans.push({ association, plan });
-  }
-  return plans;
-}
-
-/** What a record's save plan is made of: its own stage, and its autosaved records' plans. */
-interface SaveParts {
-  record: Model;
-  own: Stage;
-  pointedAt: readonly BelongsToAutosave[];
-  first: readonly Planned[];
-  autosaves: readonly Autosave[];
-  children: readonly Planned[];
-}
-
-/**
- * A record's save plan. The records it autosaves on its database join its stages: the new
- * records it points at in its batch when their keys are known, else in the one before; those
- * built through it as `withChildren` says. Those on another database (#228) are written there
- * separately, as Rails does, by the association: the ones it points at before it, and the ones
- * built through it after it.
- */
-function assemble(parts: SaveParts): Ready {
-  const { record, own } = parts;
-  const isOnItsDatabase = <T extends { association: ResolvedAssociation }>(each: T) =>
-    !each.association.isCrossDatabase;
-  const first = parts.first.filter(isOnItsDatabase);
-  const autosaves = parts.autosaves.filter(isOnItsDatabase);
-  const children = parts.children.filter(isOnItsDatabase);
-  let stages = withChildren(record, own, autosaves, children);
-  if (first.length > 0) {
-    const firstStages = combine(first.map(({ plan }) => plan.stages));
-    const known = belongsToKeysKnown(parts.pointedAt.filter(isOnItsDatabase));
-    stages = known ? combine([firstStages, stages]) : [...firstStages, ...stages];
-  }
-  const nested = [...first, ...children].map(({ plan }) => plan);
-  const elsewhere = (planned: readonly Planned[]) =>
-    planned.filter((each) => !isOnItsDatabase(each));
-  return {
-    status: "ready",
-    // Every one on its database, the records it autosaves there included, so pinned together.
-    stages: inGroup(stages, record),
-    before: [
-      ...elsewhere(parts.first).flatMap(({ plan }) => stagesOf(plan)),
-      ...nested.flatMap((plan) => plan.before),
-    ],
-    after: [
-      ...nested.flatMap((plan) => plan.after),
-      ...builtElsewhere(record, parts.autosaves, elsewhere(parts.children)),
-    ],
-  };
-}
-
-/**
- * The owner's stage with its autosaved records': in the same batch when the owner's key is
- * known, else in the next one. The records are linked to the owner just before their first
- * stage builds its statements.
- */
-function withChildren(
-  owner: Model,
-  own: Stage,
-  autosaves: readonly Autosave[],
-  planned: readonly Planned[],
-): Stage[] {
-  if (planned.length === 0) return [own];
-  const [first, ...rest] = combine(planned.map(({ plan }) => plan.stages));
-  const linked = [afterLinking(first!, () => linkRecords(owner, autosaves)), ...rest];
-  return ownerKeysKnown(owner, autosaves) ? combine([[own], linked]) : [own, ...linked];
-}
-
-/**
- * The stages of the records built through `owner`'s associations to other databases, written
- * after it: each association's records together, on its database. They're linked to the owner's
- * key, which it has by then, just before the first.
- */
-function builtElsewhere(
-  owner: Model,
-  autosaves: readonly Autosave[],
-  planned: readonly Planned[],
-): Stage[] {
-  const crossing = autosaves.filter(({ association }) => association.isCrossDatabase);
-  const stages = crossing.flatMap(({ association }) => {
-    const plans = planned
-      .filter((each) => each.association === association)
-      .map(({ plan }) => plan);
-    return [
-      ...plans.flatMap((plan) => plan.before),
-      ...inGroup(combine(plans.map((plan) => plan.stages)), association),
-      ...plans.flatMap((plan) => plan.after),
-    ];
-  });
-  const [first, ...rest] = stages;
-  if (first === undefined) return [];
-  return [afterLinking(first, () => linkRecords(owner, crossing)), ...rest];
+  const after = await prepareAfter(record, claimed);
+  if (!Array.isArray(after)) return after;
+  return withRemoval(assemble(record, own, before, after), removal, record);
 }
 
 /** beforeSave, then beforeCreate or beforeUpdate; `false` if one aborted. */
