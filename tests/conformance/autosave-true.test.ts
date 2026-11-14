@@ -166,6 +166,17 @@ class KeyedReply extends Model.define({
   post = belongsTo(KeyedThread, { foreignKey: "postId", autosave: true, optional: true });
 }
 
+/** A comment that requires its post. */
+class StrictReply extends Model.define({
+  id: { type: "integer", null: false },
+  postId: "integer",
+  body: "string",
+}) {
+  static table = "comments";
+
+  post = belongsTo(Post, { foreignKey: "postId", autosave: true });
+}
+
 class Profile extends Model.define({
   id: { type: "integer", null: false },
   userId: { type: "integer", null: false },
@@ -687,6 +698,15 @@ describe("autosave: true (#37)", () => {
 
       expect(await db().model(Reply).pluck("postId")).toEqual([11]);
       expect(reply.loaded("post")).toBe(post);
+    });
+
+    test("a required one whose new record is marked must exist", async () => {
+      const reply = db().model(StrictReply).build({ id: 1, body: "Hi" });
+      reply.post.build({ userId: 1, title: "New" }).markForDestruction();
+
+      expect(await reply.save()).toBe(false);
+
+      expect(reply.errors.fullMessages()).toEqual(["Post must exist"]);
     });
 
     test("saving the owner saves its loaded record first when it changed", async () => {
