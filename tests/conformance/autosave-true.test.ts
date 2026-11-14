@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { abort, hasMany, InvalidModel, Model } from "../../packages/active-record/src/index.ts";
+import {
+  abort,
+  hasMany,
+  hasOne,
+  InvalidModel,
+  Model,
+} from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -31,6 +37,14 @@ class Post extends Model.define({
   }
 }
 
+class Profile extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  bio: "string",
+}) {
+  static table = "profiles";
+}
+
 class Author extends Model.define({
   id: { type: "integer", null: false },
   email: { type: "string", null: false },
@@ -38,6 +52,7 @@ class Author extends Model.define({
   static table = "users";
 
   posts = hasMany(Post, { foreignKey: "userId", autosave: true });
+  profile = hasOne(Profile, { foreignKey: "userId", autosave: true });
 }
 
 /** The same table, with the default autosave: only new records. */
@@ -237,6 +252,38 @@ describe("autosave: true (#37)", () => {
 
     expect(posts[0]!.isDestroyed()).toBe(false);
     expect(await titles()).toEqual(["One", "Two"]);
+  });
+
+  describe("on a hasOne", () => {
+    /** An author with a stored profile, loaded. */
+    async function authorWithProfile() {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+      await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (5, 1, 'Hello')");
+      const author = await db().model(Author).find(1);
+      const profile = (await author.profile())!;
+      events.length = 0;
+      return { author, profile };
+    }
+
+    test("guard: saving the owner saves its loaded record when it changed", async () => {
+      const { author, profile } = await authorWithProfile();
+      profile.bio = "Changed";
+
+      await author.saveOrThrow();
+
+      expect(await db().model(Profile).pluck("bio")).toEqual(["Changed"]);
+    });
+
+    test("guard: saving the owner destroys its loaded record when it's marked, and it's no longer loaded", async () => {
+      const { author, profile } = await authorWithProfile();
+      profile.markForDestruction();
+
+      await author.saveOrThrow();
+
+      expect(profile.isDestroyed()).toBe(true);
+      expect(await db().model(Profile).count()).toBe(0);
+      expect(author.loaded("profile")).toBeNull();
+    });
   });
 
   test("autosave takes only true: anything else is an InvalidModel", () => {
