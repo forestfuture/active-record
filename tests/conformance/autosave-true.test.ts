@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { hasMany, InvalidModel, Model } from "../../packages/active-record/src/index.ts";
+import { abort, hasMany, InvalidModel, Model } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -9,6 +9,13 @@ class Post extends Model.define({
   title: { type: "string", null: false },
 }) {
   static table = "posts";
+
+  static {
+    this.validates("title", { presence: true });
+    this.beforeValidation((post) => {
+      if (post.title === "abort") throw abort("not today");
+    });
+  }
 }
 
 class Author extends Model.define({
@@ -98,6 +105,51 @@ describe("autosave: true (#37)", () => {
     await author.saveOrThrow();
 
     expect(await titles()).toEqual(["One"]);
+  });
+
+  test("an invalid changed record's errors are copied onto the owner, under the association's name", async () => {
+    const { author, posts } = await authorWithPosts(Author);
+    posts[0]!.title = "";
+
+    expect(await author.save()).toBe(false);
+
+    expect(posts[0]!.errors.get("title")).toEqual(["can't be blank"]);
+    expect(author.errors.get("posts.title")).toEqual(["can't be blank"]);
+    expect(author.errors.fullMessages()).toEqual(["Posts title can't be blank"]);
+    expect(await titles()).toEqual(["One", "Two"]);
+  });
+
+  test("a new record built through it reports its errors the same way", async () => {
+    const author = db().model(Author).build({ email: "a@example.com" });
+    author.posts().build({ title: "" });
+
+    expect(await author.save()).toBe(false);
+
+    expect(author.errors.toArray()).toEqual([
+      { attribute: "posts.title", type: "blank", message: "can't be blank" },
+    ]);
+  });
+
+  test('a changed record a callback aborts, with no errors to copy, is "is invalid"', async () => {
+    const { author, posts } = await authorWithPosts(Author);
+    posts[0]!.title = "abort";
+
+    expect(await author.save()).toBe(false);
+
+    expect(author.errors.fullMessages()).toEqual(["Posts is invalid"]);
+    expect(await titles()).toEqual(["One", "Two"]);
+  });
+
+  test("guard: unchanged loaded records aren't validated", async () => {
+    await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, '')");
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (11, 1, 'Two')");
+    const author = await db().model(Author).find(1);
+    const [blank, other] = await author.posts().toArray();
+    other!.title = "Changed";
+
+    expect(await author.save()).toBe(true);
+    expect(blank!.errors.isEmpty()).toBe(true);
   });
 
   test("autosave takes only true: anything else is an InvalidModel", () => {
