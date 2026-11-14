@@ -222,10 +222,10 @@ export interface SavingGroup {
 }
 
 /**
- * The records saving `record` would write, by database (#228): it, the new records it points at
- * through belongsTo, and the new records built through its associations, at every level. A
- * record reached through an association to another database starts a group of its own. Found
- * without running any validation or callback, so a save can be checked before anything runs (#93).
+ * The records saving `record` would write, by database (#228): it, the records it saves or
+ * destroys through its associations, at every level. A record reached through an association to
+ * another database starts a group of its own. Found without running any validation or callback,
+ * so a save can be checked before anything runs (#93).
  */
 export function savingGroups(record: Model): SavingGroup[] {
   const found = new Set<Model>();
@@ -234,8 +234,9 @@ export function savingGroups(record: Model): SavingGroup[] {
     if (found.has(each)) return;
     found.add(each);
     group.records.push(each);
-    const { saved } = autosavedBefore(each, new Set());
-    for (const { association, record: next } of [...saved, ...autosavedAfter(each, found)]) {
+    const { saved, destroyed } = autosavedBefore(each, new Set());
+    const linked = [...saved, ...destroyed, ...autosavedAfter(each, found)];
+    for (const { association, record: next } of linked) {
       visit(next, association.isCrossDatabase ? startGroup(groups, association) : group);
     }
   };
