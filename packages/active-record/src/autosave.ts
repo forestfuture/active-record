@@ -10,7 +10,12 @@ export interface Linked {
   record: Model;
   /** A hasMany's loaded record, saved as it is: Rails doesn't point it at the owner again. */
   keepsKey?: true;
+  /** Marked for destruction (#37): destroyed, not saved. */
+  destroys?: true;
 }
+
+/** A record saved or destroyed through an association already known. */
+type Entry = Omit<Linked, "association">;
 
 /**
  * What saving an owner writes through its belongsTo associations, before it: the records it was
@@ -38,30 +43,77 @@ export function autosavedBefore(owner: Model, claimed: ReadonlySet<Model>): Befo
 
 /**
  * What saving `owner` writes after it, through its hasMany and hasOne associations in the order
- * they're declared, leaving out any record already claimed by the write being prepared: with
- * `autosave: true`, its loaded records that changed (#37), then the records built through it that
- * are still new. While the owner is new, a hasMany's are every record added to it, saved ones
- * pushed onto it included, as Rails saves a new owner's whole collection, and a hasOne's is its
- * record, saved or not.
+ * they're declared, leaving out any record already claimed by the write being prepared: the
+ * records built through each that are still new, or with `autosave: true` what `withAutosave`
+ * says. While the owner is new, a hasMany's are every record added to it, saved ones pushed onto
+ * it included, as Rails saves a new owner's whole collection, and a hasOne's is its record, saved
+ * or not.
  */
 export function autosavedAfter(owner: Model, claimed: ReadonlySet<Model>): Linked[] {
   const model = modelOf(owner);
-  return [...associationsOf(model)].flatMap(([name, definition]) => {
-    if (definition.kind === "belongsTo") return [];
-    const built = builtToSave(owner, name, claimed);
-    const changed = definition.autosave
-      ? loaded(owner, name).filter(
-          (record) => !record[state].isNew && !claimed.has(record) && changedForAutosave(record),
-        )
-      : [];
-    if (built.length + changed.length === 0) return [];
+  return [...associationsOf(model)].flatMap(([name, { kind, autosave }]) => {
+    if (kind === "belongsTo") return [];
+    const entries = autosave
+      ? withAutosave(owner, name, kind, claimed)
+      : builtToSave(owner, name, claimed).map((record) => ({ record }));
+    if (entries.length === 0) return [];
     const association = resolveAssociation(model, name);
-    const keepsKey = definition.kind === "hasMany" ? ({ keepsKey: true } as const) : {};
-    return [
-      ...changed.map((record) => ({ association, record, ...keepsKey })),
-      ...built.map((record) => ({ association, record })),
-    ];
+    return entries.map((entry) => ({ association, ...entry }));
   });
+}
+
+/**
+ * What an `autosave: true` association writes after its owner (#37), as Rails does: its saved
+ * records marked for destruction are destroyed, then its loaded records that changed are saved,
+ * then those built through it. Marked records never saved are left out (`dropUnsavedMarked`).
+ */
+function withAutosave(owner: Model, name: string, kind: string, claimed: ReadonlySet<Model>) {
+  const built = builtToSave(owner, name, claimed);
+  const stored = loaded(owner, name).filter(
+    (record) => !record[state].isNew && !claimed.has(record) && !built.includes(record),
+  );
+  const marked = (record: Model) => record[state].markedForDestruction;
+  const keepsKey = kind === "hasMany" ? ({ keepsKey: true } as const) : {};
+  const destroyed: Entry[] = [...stored, ...built]
+    .filter((record) => marked(record) && !record[state].isNew)
+    .map((record) => ({ record, destroys: true }));
+  return [
+    ...destroyed,
+    ...stored
+      .filter((record) => !marked(record) && changedForAutosave(record))
+      .map((record) => ({ record, ...keepsKey })),
+    ...built.filter((record) => !marked(record)).map((record) => ({ record })),
+  ];
+}
+
+/**
+ * Takes the records marked for destruction that were never saved out of `owner`'s `autosave:
+ * true` associations, writing nothing, as Rails does when it saves the owner.
+ */
+export function dropUnsavedMarked(owner: Model): void {
+  const model = modelOf(owner);
+  for (const [name, { kind, autosave }] of associationsOf(model)) {
+    if (kind === "belongsTo" || autosave !== true) continue;
+    const association = resolveAssociation(model, name);
+    for (const record of owner[state].autosaves.built(name)) {
+      if (record[state].isNew && record[state].markedForDestruction) {
+        forget(owner, association, record);
+      }
+    }
+  }
+}
+
+/** Takes `record` out of what `owner`'s association holds: built through it, or loaded. */
+export function forget(owner: Model, association: ResolvedAssociation, record: Model): void {
+  const { name, ownerAttribute } = association;
+  owner[state].autosaves.removeBuilt(name, [record]);
+  const value = owner[state].associations.get(name)?.value;
+  if (Array.isArray(value)) {
+    const kept = value.filter((each) => each !== record);
+    owner[state].associations.set(name, ownerAttribute, kept);
+  } else if (value === record) {
+    owner[state].associations.set(name, ownerAttribute, null);
+  }
 }
 
 /** The records built through the association that saving `owner` saves after it. */
@@ -81,13 +133,15 @@ function loaded(owner: Model, name: string): readonly Model[] {
 
 /**
  * Whether saving `record` through an `autosave: true` association would write anything, as Rails'
- * `changed_for_autosave?`: it's new or changed, or so is a record of one of its own `autosave:
+ * `changed_for_autosave?`: it's new, changed or marked for destruction, or so is a record of one of its own `autosave:
  * true` associations, at any level. `seen` stops a loop of records loaded through each other.
  */
 function changedForAutosave(record: Model, seen = new Set<Model>()): boolean {
   if (seen.has(record)) return false;
   seen.add(record);
-  if (record[state].isNew || record[state].changedNames().length > 0) return true;
+  const recordState = record[state];
+  if (recordState.isNew || recordState.markedForDestruction) return true;
+  if (recordState.changedNames().length > 0) return true;
   return [...associationsOf(modelOf(record))].some(
     ([name, { autosave }]) =>
       autosave === true && loaded(record, name).some((each) => changedForAutosave(each, seen)),
@@ -120,8 +174,8 @@ export function linkBefore(owner: Model, pointedAt: readonly Linked[]): void {
  * association under the owner's new key.
  */
 export function linkAfter(owner: Model, after: readonly Linked[]): void {
-  for (const { association, record, keepsKey } of after) {
-    if (keepsKey) continue;
+  for (const { association, record, keepsKey, destroys } of after) {
+    if (keepsKey || destroys) continue;
     const { name, definition, ownerAttribute } = association;
     record[state].writeKey(definition.foreignKey, owner[state].read(ownerAttribute), name);
     if (definition.kind === "hasOne") owner[state].associations.set(name, ownerAttribute, record);
