@@ -223,13 +223,15 @@ Marking writes nothing, and the marked articles stay in `author.articles()` unti
 
 `isMarkedForDestruction()` reads the mark, and `reload()` clears it. A marked record that was never saved is dropped from the association, and nothing is written for it. Through a `belongsTo`, the owner’s foreign key is set to `null`, and the owner is written before its record is destroyed.
 
+If a marked record refuses to be destroyed, because its `beforeDestroy` aborts or a `restrictWithError` strategy stops it, nothing is written. `save()` returns `false`, and `saveOrThrow()` throws `RecordNotDestroyed`. The marked record holds the reason, in `abortReason` or `errors`.
+
 :::note
 A mark only counts through an association declared `autosave: true`.
 :::
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-`autosave: true`, `markForDestruction`, and the copied errors work as in Rails. Rails destroys a marked `belongs_to` record before it saves the owner. Here the owner is written first, so a foreign key constraint doesn’t refuse the delete.
+`autosave: true`, `markForDestruction`, and the copied errors work as in Rails. Rails destroys a marked `belongs_to` record before it saves the owner. Here the owner is written first, so a foreign key constraint doesn’t refuse the delete. When a marked record refuses to be destroyed, Rails raises from `save` for a `has_many`, and saves the owner anyway for a `has_one` or `belongs_to`. Here the save is refused the same way for every association.
 
 </Callout>
 

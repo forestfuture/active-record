@@ -44,7 +44,14 @@ import { runValidations, type UniquenessOptions } from "./validations.ts";
 export type Outcome =
   | { status: "saved" }
   | { status: "invalid" }
-  | { status: "aborted"; reason: string };
+  | { status: "aborted"; reason: string }
+  | NotDestroyed;
+
+/** A save refused because a record it destroys (marked for destruction, #37) refused its destroy. */
+export interface NotDestroyed {
+  status: "notDestroyed";
+  reason: string;
+}
 
 /** What a destroy lifecycle run ended with. */
 export type DestroyOutcome =
@@ -141,7 +148,11 @@ export function stagesOf({ before, stages, after }: Ready): Stage[] {
 }
 
 /** A save, prepared: every before-callback has run, autosaved records' included. */
-export type SavePlan = Ready | { status: "invalid" } | { status: "aborted"; reason: string };
+export type SavePlan =
+  | Ready
+  | { status: "invalid" }
+  | { status: "aborted"; reason: string }
+  | NotDestroyed;
 
 /** A destroy, prepared: `beforeDestroy` and its dependents' callbacks and checks have run. */
 export type DestroyPlan =
@@ -162,6 +173,7 @@ export function refusalError(
   kind: "save" | "destroy",
 ): Error {
   if (plan.status === "invalid") return new RecordInvalid(record);
+  if (plan.status === "notDestroyed") return new RecordNotDestroyed(plan.reason);
   return kind === "save" ? new RecordNotSaved(plan.reason) : new RecordNotDestroyed(plan.reason);
 }
 

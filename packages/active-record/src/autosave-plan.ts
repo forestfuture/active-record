@@ -85,9 +85,12 @@ export async function prepareBefore(
   const planned = await prepareEach(owner, before.saved, claimed);
   if (!Array.isArray(planned)) return planned;
   // The owner stops pointing at a record it destroys, before its own callbacks, as in Rails.
-  unlink(owner, before.destroyed);
+  const relink = unlink(owner, before.destroyed);
   const destroyed = await prepareEach(owner, before.destroyed, claimed);
-  if (!Array.isArray(destroyed)) return destroyed;
+  if (!Array.isArray(destroyed)) {
+    relink();
+    return destroyed;
+  }
   return { pointedAt: before.pointedAt, planned, destroyed };
 }
 
@@ -127,7 +130,7 @@ async function prepareMarked(
   claimed: Claimed,
 ): Promise<Ready | Refusal> {
   const plan = await prepareDestroy(record, claimed);
-  if (plan.status !== "ready") return { status: "aborted", reason: plan.reason };
+  if (plan.status !== "ready") return { status: "notDestroyed", reason: plan.reason };
   const left = stageOf(record, [], () => [
     { statements: [], commit: () => forget(owner, association, record), after: async () => {} },
   ]);
