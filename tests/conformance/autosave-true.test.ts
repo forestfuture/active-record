@@ -11,6 +11,25 @@ class Post extends Model.define({
   static table = "posts";
 }
 
+class Author extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+}) {
+  static table = "users";
+
+  posts = hasMany(Post, { foreignKey: "userId", autosave: true });
+}
+
+/** The same table, with the default autosave: only new records. */
+class PlainAuthor extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+}) {
+  static table = "users";
+
+  posts = hasMany(Post, { foreignKey: "userId" });
+}
+
 describe("autosave: true (#37)", () => {
   let harness: Harness;
   const events: QueryEvent[] = [];
@@ -23,6 +42,62 @@ describe("autosave: true (#37)", () => {
   beforeEach(async () => {
     await harness.reset("comments", "profiles", "posts", "users");
     events.length = 0;
+  });
+
+  /** An author with two stored posts, its posts loaded. */
+  async function authorWithPosts<M extends typeof Author | typeof PlainAuthor>(model: M) {
+    await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'One')");
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (11, 1, 'Two')");
+    const author = await db().model(model).find(1);
+    const posts = await author.posts().toArray();
+    events.length = 0;
+    return { author, posts };
+  }
+
+  const titles = () => db().model(Post).order({ id: "asc" }).pluck("title");
+
+  test("saving the owner saves its loaded records that changed, even an owner with no changes", async () => {
+    const { author, posts } = await authorWithPosts(Author);
+    posts[0]!.title = "Changed";
+
+    expect(await author.save()).toBe(true);
+
+    expect(posts[0]!.isChanged()).toBe(false);
+    expect(await titles()).toEqual(["Changed", "Two"]);
+  });
+
+  test("only the changed records are written", async () => {
+    const { author, posts } = await authorWithPosts(Author);
+    posts[1]!.title = "Changed";
+
+    await author.saveOrThrow();
+
+    const writes = events.filter(({ sql }) => !sql.startsWith("SELECT"));
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.sql).toMatch(/^UPDATE/);
+  });
+
+  test("guard: without autosave: true, a changed loaded record isn't saved", async () => {
+    const { author, posts } = await authorWithPosts(PlainAuthor);
+    posts[0]!.title = "Changed";
+
+    await author.saveOrThrow();
+
+    expect(posts[0]!.isChanged()).toBe(true);
+    expect(await titles()).toEqual(["One", "Two"]);
+  });
+
+  test("guard: a record found without loading the association isn't saved", async () => {
+    await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'One')");
+    const author = await db().model(Author).find(1);
+    const post = await author.posts().findByOrThrow({ title: "One" });
+    post.title = "Changed";
+
+    await author.saveOrThrow();
+
+    expect(await titles()).toEqual(["One"]);
   });
 
   test("autosave takes only true: anything else is an InvalidModel", () => {
