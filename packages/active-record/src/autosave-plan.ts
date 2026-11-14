@@ -15,6 +15,7 @@ import {
   type Ready,
   type SavePlan,
 } from "./lifecycle.ts";
+import { addFailure } from "./errors-collection.ts";
 import type { Model } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
@@ -36,20 +37,37 @@ export interface PlannedBefore {
 
 /**
  * The records an owner autosaves are validated with it, one after another, as Rails'
- * `validate: true` does: an invalid one adds "is invalid" to its association's name.
+ * `validate: true` does: an invalid one adds "is invalid" to its association's name, or with
+ * `autosave: true` its errors, each under the association's name (`posts.title`), as Rails does.
  */
 export async function validateAutosaves(owner: Model, claimed: Claimed): Promise<void> {
   await validateEach(owner, autosavedBefore(owner, claimed).saved, claimed);
   await validateEach(owner, autosavedAfter(owner, claimed), claimed);
 }
 
-/** Validates each record, then adds "is invalid" once for each association with an invalid one. */
+/**
+ * Validates each record, then adds "is invalid" once for each association with an invalid one
+ * whose errors aren't copied: one without `autosave: true`, or a record with none to copy, which a
+ * callback aborted.
+ */
 async function validateEach(owner: Model, linked: readonly Linked[], claimed: Claimed) {
   const invalid = new Set<string>();
   for (const { association, record } of linked) {
-    if ((await validation(record, claimed)) !== "valid") invalid.add(association.name);
+    if ((await validation(record, claimed)) === "valid") continue;
+    const copied =
+      association.definition.autosave === true && copyErrors(owner, association, record);
+    if (!copied) invalid.add(association.name);
   }
   for (const name of invalid) owner[state].errors.add(name, { type: "invalid" });
+}
+
+/** Copies the record's errors onto the owner, each under the association's name; `false` if none. */
+function copyErrors(owner: Model, { name }: ResolvedAssociation, record: Model): boolean {
+  const errors = record[state].errors.toArray();
+  for (const { attribute, type, message, values } of errors) {
+    owner[state].errors[addFailure](`${name}.${attribute}`, { type, message, values });
+  }
+  return errors.length > 0;
 }
 
 /** The saves of the new records `owner` points at, prepared before its own. */

@@ -154,7 +154,8 @@ function messageText(template: Template | undefined, entry: ErrorEntry): string 
 
 /** "createdAt" → "Created at" */
 function inWords(name: string): string {
-  const words = underscore(name).replaceAll("_", " ");
+  // A copied error's attribute names its association too: "posts.title" is "Posts title".
+  const words = underscore(name).replaceAll(/[_.]/g, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
