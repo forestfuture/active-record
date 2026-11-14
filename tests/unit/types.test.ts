@@ -408,6 +408,22 @@ describe("types", () => {
     expectTypeOf(typeOnly).toBeFunction();
   });
 
+  test("every association takes autosave: true, and only true (#37)", () => {
+    // Checked by the type checker only; never called.
+    const typeOnly = () => {
+      class Owner extends Model.define({ id: "integer" }) {
+        static table = "users";
+        parent = belongsTo(Owner, { foreignKey: "id", autosave: true });
+        posts = hasMany(Owner, { foreignKey: "id", autosave: true });
+        profile = hasOne(Owner, { foreignKey: "id", autosave: true });
+        // @ts-expect-error autosave: false isn't built yet (#378)
+        others = hasMany(Owner, { foreignKey: "id", autosave: false });
+      }
+      return Owner;
+    };
+    expectTypeOf(typeOnly).toBeFunction();
+  });
+
   test("an association scope's q is typed from the target, its scopes included", () => {
     class Article extends Model.define({ id: "integer", authorId: "integer", live: "boolean" }) {
       static live = this.scope((q) => q.where({ live: true }));
