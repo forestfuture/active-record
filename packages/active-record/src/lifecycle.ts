@@ -48,7 +48,7 @@ export type Outcome =
   | NotDestroyed;
 
 /** A save refused because a record it destroys (marked for destruction, #37) refused its destroy. */
-export interface NotDestroyed {
+interface NotDestroyed {
   status: "notDestroyed";
   reason: string;
 }
