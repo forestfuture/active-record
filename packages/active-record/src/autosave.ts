@@ -18,19 +18,22 @@ export interface Linked {
 type Entry = Omit<Linked, "association">;
 
 /**
- * What saving an owner writes through its belongsTo associations, before it: the records it was
- * pointed at while they were new, linked once they're written, and those of them it saves first.
+ * What saving an owner writes through its belongsTo associations: the records it was pointed at
+ * while they were new, linked once they're written; those it saves first; and with `autosave:
+ * true`, the records marked for destruction, destroyed after it once it no longer points at them.
  */
 export interface Before {
   pointedAt: Linked[];
   saved: Linked[];
+  destroyed: Linked[];
 }
 
 /**
  * The records `owner` was pointed at through belongsTo while they were new. Its foreign keys
  * are linked to them when it's saved, even if they were saved on their own since (Rails links
  * whenever the association was set); the ones still new and not already part of the write
- * (`claimed`) are saved first.
+ * (`claimed`) are saved first. Through an `autosave: true` belongsTo, its loaded record is saved
+ * first too when it changed, or destroyed after it when it's marked (#37).
  */
 export function autosavedBefore(owner: Model, claimed: ReadonlySet<Model>): Before {
   const model = modelOf(owner);
@@ -38,7 +41,34 @@ export function autosavedBefore(owner: Model, claimed: ReadonlySet<Model>): Befo
     .allBelongsTo()
     .map(([name, record]) => ({ association: resolveAssociation(model, name), record }));
   const saved = pointedAt.filter(({ record }) => record[state].isNew && !claimed.has(record));
-  return { pointedAt, saved };
+  const loadedSaved = loadedBelongsTo(owner, claimed);
+  const marked = ({ record }: Linked) => record[state].markedForDestruction;
+  return {
+    pointedAt,
+    saved: [
+      ...saved,
+      ...loadedSaved.filter((each) => !marked(each) && changedForAutosave(each.record)),
+    ],
+    destroyed: loadedSaved.filter(marked).map((each) => ({ ...each, destroys: true })),
+  };
+}
+
+/** The saved records `owner`'s `autosave: true` belongsTo associations have loaded. */
+function loadedBelongsTo(owner: Model, claimed: ReadonlySet<Model>): Linked[] {
+  const model = modelOf(owner);
+  return [...associationsOf(model)].flatMap(([name, { kind, autosave }]) => {
+    if (kind !== "belongsTo" || autosave !== true) return [];
+    return loaded(owner, name)
+      .filter((record) => !record[state].isNew && !claimed.has(record))
+      .map((record) => ({ association: resolveAssociation(model, name), record }));
+  });
+}
+
+/** Clears the foreign keys that point the owner at records it destroys (Rails' `self[fk] = nil`). */
+export function unlink(owner: Model, destroyed: readonly Linked[]): void {
+  for (const { association } of destroyed) {
+    owner[state].writeKey(association.definition.foreignKey, null, association.name);
+  }
 }
 
 /**
