@@ -24,12 +24,13 @@ Use `belongsTo` on the Model whose table holds the foreign key. A post belongs t
 - **`record.author.build(attrs)`** builds a record to point at. It’s validated with the record, and saved before it, so the foreign key can be filled in.
 - **`record.author.create(attrs)`** and **`createOrThrow(attrs)`** save a new record at once, and point at it. The record itself isn’t saved.
 
-| Option       | Does                                                                                        |
-| ------------ | ------------------------------------------------------------------------------------------- |
-| `foreignKey` | The attribute on this record that holds the link. Defaults to the association’s name + `Id` |
-| `primaryKey` | The attribute on the target it points at. Defaults to the target’s primary key              |
-| `scope`      | Narrows the target, `(q) => q.where(…)`. See [Scoping associations](#scoping-associations)  |
-| `optional`   | Lets the record point at nothing. See [Requiring the record](#requiring-the-record)         |
+| Option       | Does                                                                                                      |
+| ------------ | --------------------------------------------------------------------------------------------------------- |
+| `foreignKey` | The attribute on this record that holds the link. Defaults to the association’s name + `Id`               |
+| `primaryKey` | The attribute on the target it points at. Defaults to the target’s primary key                            |
+| `scope`      | Narrows the target, `(q) => q.where(…)`. See [Scoping associations](#scoping-associations)                |
+| `optional`   | Lets the record point at nothing. See [Requiring the record](#requiring-the-record)                       |
+| `autosave`   | `true` saves the record’s changes with this record. See [Saving changed records](#saving-changed-records) |
 
 ### Requiring the record
 
@@ -68,6 +69,7 @@ Use `hasMany` on the Model the other table’s foreign key points at. A user has
 | `primaryKey` | The attribute on this record the foreign key points at. Defaults to the primary key                              |
 | `scope`      | Narrows or orders the records, `(q) => q.order(…)`. See [Scoping associations](#scoping-associations)            |
 | `dependent`  | What destroying the owner does to the records. See [Destroying dependent records](#destroying-dependent-records) |
+| `autosave`   | `true` saves the records’ changes with the owner. See [Saving changed records](#saving-changed-records)          |
 
 ## hasOne
 
@@ -199,6 +201,38 @@ The built records are validated with the owner. An invalid article makes the aut
 
 When the owner’s key is generated in code, as here, everything is written in one atomic batch. Records on [another database](./several-databases#associating-models-on-different-databases) are written there separately.
 
+#### Saving changed records
+
+By default, only new records are saved with their owner. Declare an association with `autosave: true` to save the changes to its loaded records too, as `Author`’s `articles` does above:
+
+<include>/_excerpts/guide/associations/save-changed.ts</include>
+
+Saving the author saves each article that changed, in the same atomic batch. Unchanged articles aren’t validated or written. Only the records the association holds count: those it loaded, and those built through it. A record you found with a query of its own isn’t saved.
+
+The changed records are validated with the owner. An invalid one’s errors are copied to the owner under the association’s name: an article with a blank title gives the author an `articles.title` error, “Articles title can’t be blank”.
+
+`autosave: true` works on a `hasOne` and a `belongsTo` too. A `belongsTo`’s record is saved before its owner.
+
+#### Removing records on save
+
+Mark a record with `markForDestruction()` to destroy it when its owner is saved:
+
+<include>/_excerpts/guide/associations/mark-for-destruction.ts</include>
+
+Marking writes nothing, and the marked articles stay in `author.articles()` until the author is saved. Then each is destroyed with its callbacks and `dependent` strategies, in the same batch as the author, and leaves the association. Changed articles are saved after the destroys.
+
+`isMarkedForDestruction()` reads the mark, and `reload()` clears it. A marked record that was never saved is dropped from the association, and nothing is written for it. Through a `belongsTo`, the owner’s foreign key is set to `null`, and the owner is written before its record is destroyed.
+
+:::note
+A mark only counts through an association declared `autosave: true`.
+:::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`autosave: true`, `markForDestruction`, and the copied errors work as in Rails. Rails destroys a marked `belongs_to` record before it saves the owner. Here the owner is written first, so a foreign key constraint doesn’t refuse the delete.
+
+</Callout>
+
 :::warning[Keys D1 generates]
 When D1 generates the key, with an `INTEGER PRIMARY KEY`, the key doesn’t exist until the owner is written. So the owner is written first, and its records follow in the next batch, a level at a time. The batches aren’t atomic together: if a record fails at the second level, the save throws with the owner already saved. Generate keys in code wherever a graph must save all at once.
 :::
@@ -258,4 +292,6 @@ These features aren’t in Active Record yet. The code shows the shape they’re
 - **Associations through another** ([#59](https://github.com/forestfuture/active-record/issues/59)): `projects = hasMany(Project, { through: "assignments" })`, a user’s projects reached through their assignments.
 - **Polymorphic associations** ([#60](https://github.com/forestfuture/active-record/issues/60)): `commentable = belongsTo([Post, Photo])`, with `comments = hasMany(Comment, { as: "commentable" })` on each.
 - **Counter caches** ([#61](https://github.com/forestfuture/active-record/issues/61)): `post = belongsTo(Post, { counterCache: true })`, keeping a `commentsCount` on each post, updated in the same atomic batch as the write.
+- **Never autosaving** ([#378](https://github.com/forestfuture/active-record/issues/378)): `articles = hasMany(Article, { autosave: false })`, which never saves the association’s records with the owner, not even new ones.
+- **Numbered autosave errors** ([#379](https://github.com/forestfuture/active-record/issues/379)): `hasMany(Article, { autosave: true, indexErrors: true })`, which names a copied error by the record’s position, `articles[1].title`.
 - **Inverse associations** ([#62](https://github.com/forestfuture/active-record/issues/62)): after `await post.comments().toArray()`, each `comment.post()` returns that same post, without a query.

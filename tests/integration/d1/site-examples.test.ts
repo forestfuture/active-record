@@ -18,10 +18,12 @@ import {
   createThroughExample,
   hasManyExample,
   hasOneExample,
+  markForDestructionExample,
   Profile,
   preloadExample,
   replaceProfileExample,
   readExample,
+  saveChangedExample,
   statementsExample,
   writersExample,
 } from "../../../site/snippets/guide/associations.ts";
@@ -359,6 +361,27 @@ describe("the guide's examples", () => {
     expect(draft.authorId).toBe(ada.id);
     expect(grace.isPersisted()).toBe(true);
     expect(another.authorId).toBe(grace.id);
+  });
+
+  test("Associations: autosave: true saves changed articles and destroys marked ones (#37)", async () => {
+    const db = connect(binding);
+    const author = await db.model(Author).createOrThrow({ name: "Ed" });
+    await db.model(Article).createOrThrow({ authorId: author.id, title: "Draft one" });
+    await db.model(Article).createOrThrow({ authorId: author.id, title: "Kept" });
+
+    await withDatabase(db, () => saveChangedExample(author.id));
+    expect(
+      await db.model(Article).where({ authorId: author.id }).order({ title: "asc" }).pluck("title"),
+    ).toEqual(["DRAFT ONE", "KEPT"]);
+
+    await db
+      .model(Article)
+      .where({ authorId: author.id, title: "DRAFT ONE" })
+      .updateAll({ title: "Draft one" });
+    const articles = await withDatabase(db, () => markForDestructionExample(author.id));
+    const destroyed = articles.filter((article) => article.isDestroyed());
+    expect(destroyed.map((article) => article.title)).toEqual(["Draft one"]);
+    expect(await db.model(Article).where({ authorId: author.id }).pluck("title")).toEqual(["KEPT"]);
   });
 
   test("Associations: the preload takes 4 queries in 1 round trip, and the loop none", async () => {

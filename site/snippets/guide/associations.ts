@@ -5,7 +5,7 @@ export class Author extends Model.define({
   id: { type: "string", null: false, generateId: true },
   name: { type: "string", null: false },
 }) {
-  articles = hasMany(Article, { dependent: "destroy" }); // Article's authorId
+  articles = hasMany(Article, { dependent: "destroy", autosave: true }); // Article's authorId
   profile = hasOne(Profile, { dependent: "delete" }); // Profile's authorId
 }
 
@@ -66,6 +66,30 @@ export async function autosaveExample() {
   await ada.saveOrThrow(); // the author, both articles and the profile, in one batch
   // #endregion autosave
   return ada;
+}
+
+export async function saveChangedExample(authorId: string) {
+  // #region save-changed
+  const author = await Author.find(authorId);
+  const articles = await author.articles().toArray();
+
+  for (const article of articles) article.title = article.title.toUpperCase();
+  await author.saveOrThrow(); // every article that changed, in one batch
+  // #endregion save-changed
+  return articles;
+}
+
+export async function markForDestructionExample(authorId: string) {
+  // #region mark-for-destruction
+  const author = await Author.find(authorId);
+  const articles = await author.articles().toArray();
+
+  for (const article of articles) {
+    if (article.title.startsWith("Draft")) article.markForDestruction();
+  }
+  await author.saveOrThrow(); // destroys the drafts, with their comments
+  // #endregion mark-for-destruction
+  return articles;
 }
 
 export async function createThroughExample(articleId: string) {
