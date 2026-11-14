@@ -27,7 +27,7 @@ class Post extends Model.define({
 }) {
   static table = "posts";
 
-  comments = hasMany(Comment, { foreignKey: "postId", dependent: "deleteAll" });
+  comments = hasMany(Comment, { foreignKey: "postId", dependent: "deleteAll", autosave: true });
 
   static {
     this.afterDestroy((post) => void log.push(`destroyed ${post.title}`));
@@ -80,7 +80,8 @@ class PlainAuthor extends Model.define({
 describe("autosave: true (#37)", () => {
   let harness: Harness;
   const events: QueryEvent[] = [];
-  const db = () => harness.connect({ onQuery: (event) => events.push(event) });
+  let database: ReturnType<Harness["connect"]>;
+  const db = () => database;
 
   beforeAll(async () => {
     harness = await openHarness();
@@ -89,6 +90,7 @@ describe("autosave: true (#37)", () => {
   beforeEach(async () => {
     await harness.reset("comments", "profiles", "posts", "users");
     log.length = 0;
+    database = harness.connect({ onQuery: (event) => events.push(event) });
     events.length = 0;
   });
 
@@ -264,6 +266,31 @@ describe("autosave: true (#37)", () => {
 
     expect(posts[0]!.isDestroyed()).toBe(false);
     expect(await titles()).toEqual(["One", "Two"]);
+  });
+
+  test("guard: a changed record under an unchanged one is saved, at every level", async () => {
+    const { author, posts } = await authorWithPosts(Author);
+    await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (1, 10, 'Hi')");
+    await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (2, 10, 'Bye')");
+    const [hi, bye] = await posts[0]!.comments().toArray();
+    hi!.body = "Changed";
+    bye!.markForDestruction();
+
+    await author.saveOrThrow();
+
+    expect(posts[0]!.isChanged()).toBe(false);
+    expect(await db().model(Comment).pluck("body")).toEqual(["Changed"]);
+  });
+
+  test("guard: in db.batch, b.save(owner) writes its changed and marked records, each once", async () => {
+    const { author, posts } = await authorWithPosts(Author);
+    posts[0]!.markForDestruction();
+    posts[1]!.title = "Changed";
+    await db().batch((b) => [b.save(author), b.destroy(posts[0]!), b.save(posts[1]!)]);
+
+    expect(events.filter(({ sql }) => sql.startsWith('DELETE FROM "posts"'))).toHaveLength(1);
+    expect(events.filter(({ sql }) => sql.startsWith("UPDATE"))).toHaveLength(1);
+    expect(await titles()).toEqual(["Changed"]);
   });
 
   describe("on a hasOne", () => {
