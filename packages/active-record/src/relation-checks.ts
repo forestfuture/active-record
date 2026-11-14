@@ -7,7 +7,7 @@ import { attributeOf, type AttributeType } from "./metadata.ts";
 import type { AttributesOf, ModelClass } from "./model.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import type { NullsPlacement, OrderDirection, OrderTerm, QueryDescription } from "./query.ts";
-import { ColumnValue, namesAttribute, SafeSql } from "./sql.ts";
+import { ColumnValue, isAttributeReference, SafeSql } from "./sql.ts";
 
 /**
  * Attribute conditions for `where`/`findBy`: a value, an array meaning "any of these", or a
@@ -101,7 +101,7 @@ function attributeOrder(attribute: string, value: unknown, method: string): Orde
  */
 function checkFragment(model: ModelClass, fragment: SafeSql): void {
   for (const value of fragment.values) {
-    if (!namesAttribute(value)) continue;
+    if (!isAttributeReference(value)) continue;
     attributeOf(model, value.attribute);
     if (value instanceof ColumnValue) {
       attributeFor(model, value.attribute).cast(value.assigned);

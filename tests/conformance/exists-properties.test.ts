@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { Post } from "../fixtures/models/post.ts";
 import { openHarness, providedAdapter, type Harness } from "../support/harness.ts";
 import { SLOW_RUNS, SLOW_TIMEOUT } from "../support/properties.ts";
-import { allows } from "./allowed-differences.ts";
+import { isAllowed } from "./allowed-differences.ts";
 
 /** Repeated titles and published flags, so distinct() changes how many rows there are. */
 const POSTS = [
@@ -62,7 +62,7 @@ describe("exists(), for any Relation", { timeout: SLOW_TIMEOUT }, () => {
     order?: object;
   }) {
     if (!distinct || select === undefined || order === undefined) return true;
-    if (!allows(providedAdapter(), "distinct-order")) return true;
+    if (!isAllowed(providedAdapter(), "distinct-order")) return true;
     return Object.keys(order).every((key) => select.includes(key));
   }
 

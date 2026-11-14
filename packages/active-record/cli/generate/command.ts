@@ -17,7 +17,7 @@ import {
   type FoundModel,
   type ProjectSnapshot,
 } from "../project/snapshot.ts";
-import { defaultModels, oneModelsFile } from "../project/targets.ts";
+import { defaultModels, isOneModelsFile } from "../project/targets.ts";
 import { chooseDatabase, loadForCommand } from "../project/databases.ts";
 import { byVersion, type Migration } from "../project/migrations.ts";
 import { withModels } from "../schema/models.ts";
@@ -135,7 +135,7 @@ function keyTypes(tables: readonly GeneratedTable[]): Map<string, string> {
 /** Where `g model` writes a Model: its own file, or the one file Models are appended to. */
 function modelPathOf(cwd: string, options: GenerateOptions, className: string): string {
   const models = options.models ?? defaultModels;
-  return resolve(cwd, models, oneModelsFile(models) ? "" : modelFileName(className));
+  return resolve(cwd, models, isOneModelsFile(models) ? "" : modelFileName(className));
 }
 
 /** The Model `g model` writes, and where (its own file, or appended to one); or why it can't. */
@@ -144,7 +144,7 @@ function modelFile(request: Request): FileToWrite | Plan {
   const { cwd } = project;
   const { target } = db;
   const className = request.className!;
-  const separateFiles = !oneModelsFile(options.models ?? defaultModels);
+  const separateFiles = !isOneModelsFile(options.models ?? defaultModels);
   const path = modelPathOf(cwd, options, className);
   const model: ModelToWrite = {
     className,

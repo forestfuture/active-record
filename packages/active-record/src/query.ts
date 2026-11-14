@@ -95,48 +95,49 @@ const SHAPE_CLAUSES = ["select", "order", "limit", "offset", "distinct"] as cons
 type ShapeClause = (typeof SHAPE_CLAUSES)[number];
 
 /** Whether two descriptions agree on one shape clause, by that clause's own rule. */
-function sameClause(clause: ShapeClause, a: QueryDescription, b: QueryDescription): boolean {
+function isSameClause(clause: ShapeClause, a: QueryDescription, b: QueryDescription): boolean {
   switch (clause) {
     case "select":
-      return sameList(a.select, b.select, (x, y) => x === y);
+      return isSameList(a.select, b.select, (x, y) => x === y);
     case "order":
-      return sameList(a.order, b.order, sameOrderTerm);
+      return isSameList(a.order, b.order, isSameOrderTerm);
     default:
       return Object.is(a[clause], b[clause]);
   }
 }
 
-function sameOrderTerm(x: OrderTerm, y: OrderTerm): boolean {
+function isSameOrderTerm(x: OrderTerm, y: OrderTerm): boolean {
   if (x instanceof SafeSql || y instanceof SafeSql) {
-    return x instanceof SafeSql && y instanceof SafeSql && sameFragment(x, y);
+    return x instanceof SafeSql && y instanceof SafeSql && isSameFragment(x, y);
   }
   return x.attribute === y.attribute && x.direction === y.direction && x.nulls === y.nulls;
 }
 
 /** Fragments with the same text and the same values. */
-function sameFragment(x: SafeSql, y: SafeSql): boolean {
+function isSameFragment(x: SafeSql, y: SafeSql): boolean {
   return (
-    sameList(x.strings, y.strings, (a, b) => a === b) && sameList(x.values, y.values, sameValue)
+    isSameList(x.strings, y.strings, (a, b) => a === b) &&
+    isSameList(x.values, y.values, isSameValue)
   );
 }
 
 /** Columns by attribute, typed values by attribute and value, dates by time, the rest by identity. */
-function sameValue(a: unknown, b: unknown): boolean {
+function isSameValue(a: unknown, b: unknown): boolean {
   if (a instanceof ColumnReference && b instanceof ColumnReference) {
     return a.attribute === b.attribute;
   }
   if (a instanceof ColumnValue && b instanceof ColumnValue) {
-    return a.attribute === b.attribute && sameInput(a.assigned, b.assigned);
+    return a.attribute === b.attribute && isSameInput(a.assigned, b.assigned);
   }
   if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
   return Object.is(a, b);
 }
 
-/** A typed value's input: an object (a json value) by its JSON text, else as `sameValue`. */
-function sameInput(a: unknown, b: unknown): boolean {
+/** A typed value's input: an object (a json value) by its JSON text, else as `isSameValue`. */
+function isSameInput(a: unknown, b: unknown): boolean {
   const objects = typeof a === "object" && a !== null && typeof b === "object" && b !== null;
   if (!objects || a instanceof Date || b instanceof Date || Object.is(a, b)) {
-    return sameValue(a, b);
+    return isSameValue(a, b);
   }
   try {
     return JSON.stringify(a) === JSON.stringify(b);
@@ -145,7 +146,7 @@ function sameInput(a: unknown, b: unknown): boolean {
   }
 }
 
-function sameList<T>(
+function isSameList<T>(
   a: readonly T[] | undefined,
   b: readonly T[] | undefined,
   same: (x: T, y: T) => boolean,
@@ -172,13 +173,13 @@ export function either(a: QueryDescription, b: QueryDescription): QueryDescripti
   if (a.none) return b;
   if (b.none) return a;
   for (const clause of SHAPE_CLAUSES) {
-    if (!sameClause(clause, a, b)) {
+    if (!isSameClause(clause, a, b)) {
       throw new IncompatibleRelation(
         `or() needs relations that differ only in their conditions, but their ${clause} differs`,
       );
     }
   }
-  if (!sameTree(a.includes ?? {}, b.includes ?? {})) {
+  if (!isSameTree(a.includes ?? {}, b.includes ?? {})) {
     throw new IncompatibleRelation(
       "or() needs relations that differ only in their conditions, but their includes differ",
     );
@@ -235,8 +236,8 @@ export function mergeTrees(a: IncludeTree, b: IncludeTree): IncludeTree {
 }
 
 /** Whether two include trees name the same associations at every level. */
-function sameTree(a: IncludeTree, b: IncludeTree): boolean {
+function isSameTree(a: IncludeTree, b: IncludeTree): boolean {
   const names = Object.keys(a);
   if (names.length !== Object.keys(b).length) return false;
-  return names.every((name) => b[name] !== undefined && sameTree(a[name]!, b[name]!));
+  return names.every((name) => b[name] !== undefined && isSameTree(a[name]!, b[name]!));
 }

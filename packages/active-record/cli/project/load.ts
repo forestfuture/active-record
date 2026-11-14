@@ -4,7 +4,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createJiti } from "jiti";
 import { shown, slashed } from "./paths.ts";
-import { oneModelsFile } from "./targets.ts";
+import { isOneModelsFile } from "./targets.ts";
 
 /**
  * A jiti based in the project: it reads TypeScript, extensionless imports and `tsconfig.json`
@@ -27,7 +27,7 @@ export function modelFiles(cwd: string, models: string): string[] | string {
   if (!existsSync(path)) {
     return `No Models at ${shown(cwd, path)} (run active-record g model, or pass --models)`;
   }
-  if (oneModelsFile(models) || statSync(path).isFile()) return [path];
+  if (isOneModelsFile(models) || statSync(path).isFile()) return [path];
   return readdirSync(path)
     .filter((name) => name.endsWith(".ts") && !name.endsWith(".d.ts"))
     .sort()

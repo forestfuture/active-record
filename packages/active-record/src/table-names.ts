@@ -13,7 +13,7 @@ import { underscore } from "./naming.ts";
 const bases = new WeakSet<object>();
 
 /** A generated Model's table, and whether its overrides ignore some of its columns. */
-type BoundTable = { table: string; ignoresColumns: boolean };
+type BoundTable = { table: string; isIgnoringColumns: boolean };
 
 /**
  * Each generated Model's table, by the class it belongs to, and whether its `static attributes`
@@ -22,7 +22,7 @@ type BoundTable = { table: string; ignoresColumns: boolean };
 const boundTables = new WeakMap<object, BoundTable>();
 
 /**
- * Each Model's answer to `ignoresColumns`, remembered since the compiler asks on every query.
+ * Each Model's answer to `isIgnoringColumns`, remembered since the compiler asks on every query.
  * Module-level, but not request state (ADR-0003): derived only from the class.
  */
 const ignoring = new WeakMap<object, boolean>();
@@ -116,10 +116,10 @@ function tableNameSource(model: object): string | undefined {
 export function bindTable(
   owner: { table?: string },
   table: string,
-  { ignoresColumns }: { ignoresColumns: boolean },
+  { isIgnoringColumns }: { isIgnoringColumns: boolean },
 ): void {
   owner.table = table;
-  boundTables.set(owner, { table, ignoresColumns });
+  boundTables.set(owner, { table, isIgnoringColumns });
 }
 
 /** The table bound to the class `model` is, or extends, if any. */
@@ -134,10 +134,10 @@ function boundTableOf(model: object): (BoundTable & { owner: object }) | undefin
  * Remembered per Model: its table is bound when it's first used, before any query, so the
  * answer can't change.
  */
-export function ignoresColumns(model: object): boolean {
+export function isIgnoringColumns(model: object): boolean {
   let answer = ignoring.get(model);
   if (answer === undefined) {
-    answer = boundTableOf(model)?.ignoresColumns ?? false;
+    answer = boundTableOf(model)?.isIgnoringColumns ?? false;
     ignoring.set(model, answer);
   }
   return answer;

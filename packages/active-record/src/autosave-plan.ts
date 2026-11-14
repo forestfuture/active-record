@@ -62,20 +62,21 @@ async function validateEach(owner: Model, linked: readonly Linked[], claimed: Cl
   const invalid = new Set<string>();
   for (const { association, record, destroys } of linked) {
     if (destroys || (await validation(record, claimed)) === "valid") continue;
-    const copied =
-      association.definition.autosave === true && copyErrors(owner, association, record);
-    if (!copied) invalid.add(association.name);
+    const hasErrors = !record[state].errors.isEmpty();
+    if (association.definition.autosave === true && hasErrors) {
+      copyErrors(owner, association, record);
+    } else {
+      invalid.add(association.name);
+    }
   }
   for (const name of invalid) owner[state].errors.add(name, { type: "invalid" });
 }
 
-/** Copies the record's errors onto the owner, each under the association's name; `false` if none. */
-function copyErrors(owner: Model, { name }: ResolvedAssociation, record: Model): boolean {
-  const errors = record[state].errors.toArray();
-  for (const { attribute, type, message, values } of errors) {
+/** Copies the record's errors onto the owner, each under the association's name. */
+function copyErrors(owner: Model, { name }: ResolvedAssociation, record: Model): void {
+  for (const { attribute, type, message, values } of record[state].errors.toArray()) {
     owner[state].errors[addFailure](`${name}.${attribute}`, { type, message, values });
   }
-  return errors.length > 0;
 }
 
 /** The saves of the new records `owner` points at, prepared before its own. */

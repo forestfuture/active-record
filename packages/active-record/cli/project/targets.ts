@@ -45,14 +45,14 @@ function baseFor(modelsDir: string, binding: string, several: boolean): Target["
 export const defaultModels = "src/models";
 
 /** Whether `--models` names one file all Models go in (`src/models.ts`), not a folder. */
-export function oneModelsFile(models: string): boolean {
+export function isOneModelsFile(models: string): boolean {
   return models.endsWith(".ts");
 }
 
 /** The folder Models and their base class live in: `--models`, or `src/models`. */
 function modelsDirOf(cwd: string, models = defaultModels): string {
   const path = resolve(cwd, models);
-  return oneModelsFile(models) ? dirname(path) : path;
+  return isOneModelsFile(models) ? dirname(path) : path;
 }
 
 /** The Model folder to watch, when it exists: `--models`'s, or the one holding its one file. */

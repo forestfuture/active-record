@@ -141,7 +141,7 @@ export const allowedDifferences: readonly AllowedDifference[] = [
 ];
 
 /** Whether `adapter` keeps its database's own semantics for the difference named `id`. */
-export function allows(adapter: AdapterName, id: string): boolean {
+export function isAllowed(adapter: AdapterName, id: string): boolean {
   return allowedDifferences.some(
     (difference) =>
       difference.id === id && (difference.adapters as readonly AdapterName[]).includes(adapter),

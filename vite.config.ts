@@ -90,6 +90,8 @@ export default defineConfig({
       "max-lines-per-function": ["error", { max: 60, skipBlankLines: true, skipComments: true }],
       // Turning off one of the repo's own rules says why, after `--` (scripts/lint/).
       "active-record/disable-reason": "error",
+      // A predicate starts with 'is' or 'has', where its return type is written (#380).
+      "active-record/predicate-name": "error",
     },
     jsPlugins: ["./scripts/lint/plugin.mjs"],
     overrides: [

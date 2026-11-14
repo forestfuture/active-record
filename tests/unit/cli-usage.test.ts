@@ -72,7 +72,7 @@ describe("active-record's help", () => {
 });
 
 /** Whether `help` mentions `flag` (and not only a longer flag that ends in it). */
-function mentions(help: string, flag: string): boolean {
+function hasFlag(help: string, flag: string): boolean {
   return new RegExp(`(?<![\\w-])${flag}(?![\\w-])`).test(help);
 }
 
@@ -83,7 +83,7 @@ describe.each(everySubcommand.map((subcommand) => [subcommand.usage.trim(), subc
 
     test("every flag it takes is in its help", () => {
       for (const [name, option] of Object.entries(subcommand.options)) {
-        expect(mentions(help, `--${name}`), `--${name}`).toBe(true);
+        expect(hasFlag(help, `--${name}`), `--${name}`).toBe(true);
         if (option.short !== undefined) {
           expect(help, `-${option.short}`).toContain(`-${option.short}, --${name}`);
         }

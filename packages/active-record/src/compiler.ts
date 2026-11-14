@@ -1,6 +1,6 @@
 // Turns a QueryDescription or a write into SQL text and bound values, with what differs per database from a dialect.
 import { type Attribute, attributeFor, noMatch, storedRows } from "./attribute.ts";
-import { ignoresColumns } from "./table-names.ts";
+import { isIgnoringColumns } from "./table-names.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { Comparison, comparisonParts, type Operator } from "./comparisons.ts";
 import { Either, LinkedTo, Negated, type Condition, type QueryDescription } from "./query.ts";
@@ -304,7 +304,7 @@ export function compileDelete(model: ModelClass<Model>, storedKey: unknown): Com
 
 /** A whole row: `*`, or the declared columns when the Model ignores some of its table's. */
 function allColumns(model: ModelClass<Model>): string {
-  return ignoresColumns(model)
+  return isIgnoringColumns(model)
     ? compileColumns(model, [...model.attributeDefinitions.keys()])
     : "*";
 }

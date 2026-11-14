@@ -64,7 +64,7 @@ export class ResolvedAssociation {
       owner,
       this.target,
     ));
-    this.isCrossDatabase = onDifferentDatabases(owner, this.target);
+    this.isCrossDatabase = isOnDifferentDatabases(owner, this.target);
   }
 
   /** `User.posts`: how the association is named in messages. */
@@ -105,7 +105,7 @@ export class ResolvedAssociation {
    * Whether `deleteAll()` on the association itself deletes the records (`dependent:
    * "destroy"` or `"deleteAll"`) rather than nullifying their foreign key, as in Rails.
    */
-  get deletesOnDeleteAll(): boolean {
+  get isDeletingOnDeleteAll(): boolean {
     const { dependent } = this.definition;
     return dependent === "destroy" || dependent === "deleteAll";
   }
@@ -134,7 +134,7 @@ export class ResolvedAssociation {
 }
 
 /** Whether the schemas `owner` and `target` are built on name two different databases. */
-function onDifferentDatabases(owner: ModelClass, target: ModelClass): boolean {
+function isOnDifferentDatabases(owner: ModelClass, target: ModelClass): boolean {
   const [mine, theirs] = [schemaAdapter(owner), schemaAdapter(target)];
   if (mine === undefined || theirs === undefined) return false;
   return mine.adapter !== theirs.adapter || mine.binding !== theirs.binding;

@@ -4,7 +4,7 @@ import { Model, sql } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, providedAdapter, type Harness } from "../support/harness.ts";
 import { SLOW_RUNS, SLOW_TIMEOUT } from "../support/properties.ts";
-import { allows } from "./allowed-differences.ts";
+import { isAllowed } from "./allowed-differences.ts";
 
 class Sample extends Model.define({ id: { type: "integer", null: false }, label: "string" }) {
   static table = "samples";
@@ -17,7 +17,7 @@ class Sample extends Model.define({ id: { type: "integer", null: false }, label:
 // here: the database stores UTF-8, so what comes back isn't the lone half the app sent, and that's
 // not something the library controls.
 // A NUL only where the database stores one (nul-in-text).
-const nul = allows(providedAdapter(), "nul-in-text") ? [] : ["\u0000"];
+const nul = isAllowed(providedAdapter(), "nul-in-text") ? [] : ["\u0000"];
 const sqlCharacters = fc.constantFrom(
   "'",
   '"',

@@ -134,12 +134,12 @@ async function replacedRecord(
   if (found === null || found === record || found[state].isNew || found[state].isDestroyed) {
     return null;
   }
-  if (record !== null && !record[state].isNew && sameRow(found, record)) return null;
+  if (record !== null && !record[state].isNew && isSameRow(found, record)) return null;
   return found;
 }
 
 /** Whether two saved records of one Model are the same row. */
-function sameRow(one: Model, other: Model): boolean {
+function isSameRow(one: Model, other: Model): boolean {
   return modelOf(one) === modelOf(other) && Object.is(one[state].storedKey, other[state].storedKey);
 }
 
