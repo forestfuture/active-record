@@ -5,6 +5,7 @@ import {
   hasMany,
   hasOne,
   InvalidModel,
+  RecordNotDestroyed,
   Model,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
@@ -31,11 +32,34 @@ class Post extends Model.define({
 
   static {
     this.afterDestroy((post) => void log.push(`destroyed ${post.title}`));
+    this.beforeDestroy((post) => {
+      if (post.title === "Pinned") throw abort("pinned posts stay");
+    });
     this.validates("title", { presence: true });
     this.beforeValidation((post) => {
       if (post.title === "abort") throw abort("not today");
     });
   }
+}
+
+/** A post that can't be destroyed while it has comments. */
+class GuardedPost extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  comments = hasMany(Comment, { foreignKey: "postId", dependent: "restrictWithError" });
+}
+
+class Moderator extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+}) {
+  static table = "users";
+
+  posts = hasMany(GuardedPost, { foreignKey: "userId", autosave: true });
 }
 
 /** A comment that saves the post it's on, and destroys it when it's marked. */
@@ -95,7 +119,9 @@ describe("autosave: true (#37)", () => {
   });
 
   /** An author with two stored posts, its posts loaded. */
-  async function authorWithPosts<M extends typeof Author | typeof PlainAuthor>(model: M) {
+  async function authorWithPosts<M extends typeof Author | typeof PlainAuthor | typeof Moderator>(
+    model: M,
+  ) {
     await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'One')");
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (11, 1, 'Two')");
@@ -291,6 +317,57 @@ describe("autosave: true (#37)", () => {
     expect(events.filter(({ sql }) => sql.startsWith('DELETE FROM "posts"'))).toHaveLength(1);
     expect(events.filter(({ sql }) => sql.startsWith("UPDATE"))).toHaveLength(1);
     expect(await titles()).toEqual(["Changed"]);
+  });
+
+  describe("a marked record whose destroy is refused", () => {
+    test("save() is false, and nothing is written", async () => {
+      const { author, posts } = await authorWithPosts(Author);
+      posts[0]!.title = "Pinned";
+      posts[0]!.markForDestruction();
+      posts[1]!.title = "Changed";
+
+      expect(await author.save()).toBe(false);
+
+      expect(posts[0]!.isDestroyed()).toBe(false);
+      expect(events).toHaveLength(0);
+      expect(await titles()).toEqual(["One", "Two"]);
+    });
+
+    test("saveOrThrow() throws RecordNotDestroyed", async () => {
+      const { author, posts } = await authorWithPosts(Author);
+      posts[0]!.title = "Pinned";
+      posts[0]!.markForDestruction();
+
+      await expect(author.saveOrThrow()).rejects.toThrow(
+        new RecordNotDestroyed("pinned posts stay"),
+      );
+    });
+
+    test("a restrictWithError strategy's error stays on the marked record", async () => {
+      const { author, posts } = await authorWithPosts(Moderator);
+      await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (1, 10, 'Hi')");
+      posts[0]!.markForDestruction();
+
+      expect(await author.save()).toBe(false);
+
+      expect(posts[0]!.errors.fullMessages()).toEqual([
+        "Cannot delete record because dependent comments exist",
+      ]);
+      expect(await titles()).toEqual(["One", "Two"]);
+    });
+
+    test("on a belongsTo, the owner keeps pointing at it", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'Pinned')");
+      await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (1, 10, 'Hi')");
+      const reply = await db().model(Reply).find(1);
+      (await reply.post())!.markForDestruction();
+
+      expect(await reply.save()).toBe(false);
+
+      expect(reply.postId).toBe(10);
+      expect(await db().model(Reply).pluck("postId")).toEqual([10]);
+    });
   });
 
   describe("on a hasOne", () => {

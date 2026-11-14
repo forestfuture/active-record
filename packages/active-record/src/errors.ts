@@ -152,7 +152,10 @@ export class AbortAfterPersistence extends ActiveRecordError {
   }
 }
 
-/** A `destroyOrThrow()` was refused by a `beforeDestroy` callback's `abort(reason)`. */
+/**
+ * A `destroyOrThrow()` was refused by a `beforeDestroy` callback's `abort(reason)` or a
+ * `restrictWithError` association; or a `saveOrThrow()`, by a record it destroys (#37).
+ */
 export class RecordNotDestroyed extends ActiveRecordError {
   override name = "RecordNotDestroyed";
 }

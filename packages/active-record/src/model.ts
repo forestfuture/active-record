@@ -452,16 +452,23 @@ export class Model extends ModelStatics {
     this[state].restore(names);
   }
 
-  /** Inserts a new record or updates a persisted one; `false` if it's invalid or a callback aborted. */
+  /**
+   * Inserts a new record or updates a persisted one; `false` if it's invalid, a callback aborted,
+   * or a record it destroys refused (#37).
+   */
   async save(): Promise<boolean> {
     return (await saveLifecycle(this)).status === "saved";
   }
 
-  /** Like `save()`, but throws `RecordInvalid` or `RecordNotSaved` instead of returning `false`. */
+  /**
+   * Like `save()`, but throws `RecordInvalid`, `RecordNotSaved`, or `RecordNotDestroyed` (a
+   * record marked for destruction refused) instead of returning `false`.
+   */
   async saveOrThrow(): Promise<true> {
     const outcome = await saveLifecycle(this);
     if (outcome.status === "invalid") throw new RecordInvalid(this);
     if (outcome.status === "aborted") throw new RecordNotSaved(outcome.reason);
+    if (outcome.status === "notDestroyed") throw new RecordNotDestroyed(outcome.reason);
     return true;
   }
 
