@@ -102,6 +102,48 @@ class Reply extends Model.define({
   }
 }
 
+/** A post whose replies are destroyed with it, and a reply that can destroy its post. */
+class Thread extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  replies = hasMany(ThreadReply, { foreignKey: "postId", dependent: "destroy" });
+}
+
+class ThreadReply extends Model.define({
+  id: { type: "integer", null: false },
+  postId: "integer",
+  body: "string",
+}) {
+  static table = "comments";
+
+  post = belongsTo(Thread, { foreignKey: "postId", autosave: true, optional: true });
+}
+
+/** A post that can't be destroyed while it has replies, and a reply that can destroy it. */
+class LockedThread extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  replies = hasMany(LockedReply, { foreignKey: "postId", dependent: "restrictWithError" });
+}
+
+class LockedReply extends Model.define({
+  id: { type: "integer", null: false },
+  postId: "integer",
+  body: "string",
+}) {
+  static table = "comments";
+
+  post = belongsTo(LockedThread, { foreignKey: "postId", autosave: true, optional: true });
+}
+
 class Profile extends Model.define({
   id: { type: "integer", null: false },
   userId: { type: "integer", null: false },
@@ -565,6 +607,38 @@ describe("autosave: true (#37)", () => {
       expect(post.isPersisted()).toBe(false);
       expect(await db().model(Post).count()).toBe(0);
       expect(reply.postId).toBeNull();
+    });
+
+    /** A stored post with replies 1 and 2, as reply 1 of `model`, its post loaded and marked. */
+    async function replyWithMarkedPost<M extends typeof ThreadReply | typeof LockedReply>(
+      model: M,
+    ) {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'One')");
+      await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (1, 10, 'Hi')");
+      const reply = await db().model(model).find(1);
+      (await reply.post())!.markForDestruction();
+      return reply;
+    }
+
+    test("the marked record's dependent destroy leaves the owner, which no longer points at it", async () => {
+      const reply = await replyWithMarkedPost(ThreadReply);
+      await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (2, 10, 'Bye')");
+
+      await reply.saveOrThrow();
+
+      expect(reply.isDestroyed()).toBe(false);
+      expect(await db().model(ThreadReply).pluck("id")).toEqual([1]);
+      expect(await db().model(Thread).count()).toBe(0);
+    });
+
+    test("the marked record's restriction doesn't count the owner", async () => {
+      const reply = await replyWithMarkedPost(LockedReply);
+
+      expect(await reply.save()).toBe(true);
+
+      expect(await db().model(LockedThread).count()).toBe(0);
+      expect(await db().model(LockedReply).pluck("postId")).toEqual([null]);
     });
 
     test("saving the owner saves its loaded record first when it changed", async () => {

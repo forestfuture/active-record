@@ -83,9 +83,37 @@ export function dependentsElsewhere(
     });
 }
 
-/** The association's records for this owner (a hasOne's first one only), with its scope. */
+/**
+ * The records a destroy leaves out of its dependents: the owner of a belongsTo whose marked record
+ * it is (#37), which stops pointing at it in the same batch. Not request state.
+ */
+const leaving = new WeakMap<Model, Model>();
+
+/** Prepares `record`'s destroy with `owner` left out of its dependents, its restrictions included. */
+export async function destroyLeaving<T>(record: Model, owner: Model, prepare: () => Promise<T>) {
+  leaving.set(record, owner);
+  try {
+    return await prepare();
+  } finally {
+    leaving.delete(record);
+  }
+}
+
+/**
+ * The association's records for this owner (a hasOne's first one only), with its scope, leaving
+ * out a record that's leaving it (`destroyLeaving`).
+ */
 function recordsOf(owner: Model, association: ResolvedAssociation): Scoped<Model> {
-  const records = association.linkedTo(owner[state].executor, association.keyOf(owner));
+  let records = association.linkedTo(owner[state].executor, association.keyOf(owner));
+  const left = leaving.get(owner);
+  if (
+    left !== undefined &&
+    modelOf(left).table === association.target.table &&
+    !left[state].isNew
+  ) {
+    const { primaryKey } = association.target;
+    records = records.whereNot({ [primaryKey]: left[state].storedKeyValue } as never);
+  }
   return association.definition.kind === "hasOne" ? association.inOrder(records).limit(1) : records;
 }
 
