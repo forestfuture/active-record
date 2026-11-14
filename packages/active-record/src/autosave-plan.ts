@@ -20,7 +20,7 @@ import {
   type Ready,
   type SavePlan,
 } from "./lifecycle.ts";
-import { destroyLeaving } from "./dependents.ts";
+import { prepareLeaving } from "./dependents.ts";
 import { addFailure } from "./errors-collection.ts";
 import type { Model } from "./model.ts";
 import { state } from "./record-state.ts";
@@ -129,7 +129,9 @@ async function prepareMarked(
   // A belongsTo's owner no longer points at the record, so its dependents leave the owner out.
   const plan =
     association.definition.kind === "belongsTo"
-      ? await destroyLeaving(record, owner, () => prepareDestroy(record, claimed))
+      ? await prepareLeaving(record, { owner, foreignKey: association.definition.foreignKey }, () =>
+          prepareDestroy(record, claimed),
+        )
       : await prepareDestroy(record, claimed);
   if (plan.status !== "ready") return { status: "notDestroyed", reason: plan.reason };
   const left = stageOf(record, [], () => [

@@ -144,6 +144,28 @@ class LockedReply extends Model.define({
   post = belongsTo(LockedThread, { foreignKey: "postId", autosave: true, optional: true });
 }
 
+/** A post linked to a reply twice: by the reply's postId, and by a reply sharing its id. */
+class KeyedThread extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  replies = hasMany(KeyedReply, { foreignKey: "postId" });
+  sameId = hasMany(KeyedReply, { foreignKey: "id", dependent: "restrictWithError" });
+}
+
+class KeyedReply extends Model.define({
+  id: { type: "integer", null: false },
+  postId: "integer",
+  body: "string",
+}) {
+  static table = "comments";
+
+  post = belongsTo(KeyedThread, { foreignKey: "postId", autosave: true, optional: true });
+}
+
 class Profile extends Model.define({
   id: { type: "integer", null: false },
   userId: { type: "integer", null: false },
@@ -639,6 +661,18 @@ describe("autosave: true (#37)", () => {
 
       expect(await db().model(LockedThread).count()).toBe(0);
       expect(await db().model(LockedReply).pluck("postId")).toEqual([null]);
+    });
+
+    test("the owner still counts for the marked record's other associations to it", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'One')");
+      await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (10, 10, 'Hi')");
+      const reply = await db().model(KeyedReply).find(10);
+      (await reply.post())!.markForDestruction();
+
+      expect(await reply.save()).toBe(false);
+
+      expect(await db().model(KeyedThread).count()).toBe(1);
     });
 
     test("saving the owner saves its loaded record first when it changed", async () => {
