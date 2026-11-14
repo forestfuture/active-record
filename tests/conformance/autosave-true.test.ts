@@ -5,7 +5,10 @@ import {
   hasMany,
   hasOne,
   InvalidModel,
+  DeleteRestriction,
   RecordNotDestroyed,
+  RecordNotSaved,
+  RecordNotUnique,
   Model,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
@@ -53,6 +56,26 @@ class GuardedPost extends Model.define({
   comments = hasMany(Comment, { foreignKey: "postId", dependent: "restrictWithError" });
 }
 
+/** A post that throws while it has comments. */
+class LockedPost extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  comments = hasMany(Comment, { foreignKey: "postId", dependent: "restrictWithException" });
+}
+
+class Locker extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+}) {
+  static table = "users";
+
+  posts = hasMany(LockedPost, { foreignKey: "userId", autosave: true });
+}
+
 class Moderator extends Model.define({
   id: { type: "integer", null: false },
   email: { type: "string", null: false },
@@ -85,6 +108,12 @@ class Profile extends Model.define({
   bio: "string",
 }) {
   static table = "profiles";
+
+  static {
+    this.beforeDestroy((profile) => {
+      if (profile.bio === "Pinned") throw abort("pinned profiles stay");
+    });
+  }
 }
 
 class Author extends Model.define({
@@ -137,7 +166,12 @@ describe("autosave: true (#37)", () => {
 
   /** An author with two stored posts, its posts loaded. */
   async function authorWithPosts<
-    M extends typeof Author | typeof PlainAuthor | typeof Moderator | typeof FeaturingAuthor,
+    M extends
+      | typeof Author
+      | typeof PlainAuthor
+      | typeof Moderator
+      | typeof FeaturingAuthor
+      | typeof Locker,
   >(model: M) {
     await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'One')");
@@ -169,6 +203,26 @@ describe("autosave: true (#37)", () => {
     await author.saveOrThrow();
 
     expect(events.filter(({ sql }) => sql.startsWith("UPDATE"))).toHaveLength(1);
+  });
+
+  test("the destroys and saves are one atomic batch: a write that fails leaves them all", async () => {
+    const { author, posts } = await authorWithPosts(Author);
+    await harness.exec("INSERT INTO users (id, email) VALUES (2, 'b@example.com')");
+    author.email = "b@example.com";
+    posts[0]!.markForDestruction();
+    posts[1]!.title = "Changed";
+
+    await expect(author.saveOrThrow()).rejects.toThrow(RecordNotUnique);
+
+    expect(posts[0]!.isDestroyed()).toBe(false);
+    expect(await titles()).toEqual(["One", "Two"]);
+  });
+
+  test("in db.batch, a new owner whose key the database generates can't autosave its records", async () => {
+    const author = db().model(Author).build({ email: "a@example.com" });
+    author.posts().build({ title: "One" });
+
+    await expect(db().batch((b) => [b.save(author)])).rejects.toThrow(RecordNotSaved);
   });
 
   test("only the changed records are written", async () => {
@@ -411,6 +465,27 @@ describe("autosave: true (#37)", () => {
       expect(await author.save()).toBe(false);
 
       expect(await author.posts().toArray()).toContain(draft);
+    });
+
+    test("on a hasOne, save() is false, and nothing is written", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+      await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (5, 1, 'Pinned')");
+      const author = await db().model(Author).find(1);
+      (await author.profile())!.markForDestruction();
+
+      expect(await author.save()).toBe(false);
+
+      expect(await db().model(Profile).count()).toBe(1);
+    });
+
+    test("restrictWithException throws DeleteRestriction, writing nothing", async () => {
+      const { author, posts } = await authorWithPosts(Locker);
+      await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (1, 10, 'Hi')");
+      posts[0]!.markForDestruction();
+
+      await expect(author.save()).rejects.toThrow(DeleteRestriction);
+
+      expect(await titles()).toEqual(["One", "Two"]);
     });
 
     test("on a belongsTo, the owner keeps pointing at it", async () => {
