@@ -48,6 +48,8 @@ export class RecordState {
   readonly associations = new LoadedAssociations((attribute) => this.#values[attribute]);
   /** The new records saving it also saves, built through or pointed at by its associations. */
   readonly autosaves = new PendingAutosaves();
+  /** Destroyed when its owner is saved through an `autosave: true` association (#37). */
+  markedForDestruction = false;
 
   constructor(model: ModelClass) {
     this.#model = model;

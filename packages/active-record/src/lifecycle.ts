@@ -330,5 +330,6 @@ export async function reloadRecord(record: Model): Promise<void> {
     );
   }
   recordState.clearAssociations();
+  recordState.markedForDestruction = false;
   recordState.loadRow(row);
 }
