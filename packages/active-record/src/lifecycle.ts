@@ -1,8 +1,14 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
 import { shownKey } from "./filtering.ts";
 import { compileDelete, compileInsert, compileSelect, compileUpdate } from "./compiler.ts";
-import { linkBefore, savingGroups } from "./autosave.ts";
-import { assemble, prepareAfter, prepareBefore, validateAutosaves } from "./autosave-plan.ts";
+import { savingGroups } from "./autosave.ts";
+import {
+  assemble,
+  linkOwner,
+  prepareAfter,
+  prepareBefore,
+  validateAutosaves,
+} from "./autosave-plan.ts";
 import { noDependents, prepareDependents } from "./dependents.ts";
 import { prepareReplacement, withRemoval } from "./has-one-replacement.ts";
 import {
@@ -224,7 +230,7 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
   // A hasOne's new record removes the one it replaces in its own batch (#40).
   const removal = await prepareReplacement(record, claimed);
   const own = stageOf(record, [record], () => {
-    linkBefore(record, before.pointedAt);
+    linkOwner(record, before);
     return [saveWrite(record, isInsert)];
   });
   const after = await prepareAfter(record, claimed);

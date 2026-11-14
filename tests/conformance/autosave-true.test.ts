@@ -71,6 +71,12 @@ class Reply extends Model.define({
   static table = "comments";
 
   post = belongsTo(Post, { foreignKey: "postId", autosave: true, optional: true });
+
+  static {
+    this.beforeSave((reply) => {
+      if (reply.body === "abort") throw abort("not now");
+    });
+  }
 }
 
 class Profile extends Model.define({
@@ -354,6 +360,35 @@ describe("autosave: true (#37)", () => {
         "Cannot delete record because dependent comments exist",
       ]);
       expect(await titles()).toEqual(["One", "Two"]);
+    });
+
+    test("an owner whose own callback refuses keeps pointing at its marked record, and destroys it once saved", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'One')");
+      await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (1, 10, 'abort')");
+      const reply = await db().model(Reply).find(1);
+      const post = (await reply.post())!;
+      post.markForDestruction();
+
+      expect(await reply.save()).toBe(false);
+      expect(reply.postId).toBe(10);
+      reply.body = "Hi";
+      await reply.saveOrThrow();
+
+      expect(post.isDestroyed()).toBe(true);
+      expect(await db().model(Post).count()).toBe(0);
+    });
+
+    test("a marked record never saved stays in the association when the save is refused", async () => {
+      const { author, posts } = await authorWithPosts(Author);
+      const draft = author.posts().build({ title: "Draft" });
+      draft.markForDestruction();
+      posts[0]!.title = "Pinned";
+      posts[0]!.markForDestruction();
+
+      expect(await author.save()).toBe(false);
+
+      expect(await author.posts().toArray()).toContain(draft);
     });
 
     test("on a belongsTo, the owner keeps pointing at it", async () => {
