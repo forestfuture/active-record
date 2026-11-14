@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
   abort,
+  belongsTo,
   hasMany,
   hasOne,
   InvalidModel,
@@ -35,6 +36,17 @@ class Post extends Model.define({
       if (post.title === "abort") throw abort("not today");
     });
   }
+}
+
+/** A comment that saves the post it's on, and destroys it when it's marked. */
+class Reply extends Model.define({
+  id: { type: "integer", null: false },
+  postId: "integer",
+  body: "string",
+}) {
+  static table = "comments";
+
+  post = belongsTo(Post, { foreignKey: "postId", autosave: true, optional: true });
 }
 
 class Profile extends Model.define({
@@ -283,6 +295,55 @@ describe("autosave: true (#37)", () => {
       expect(profile.isDestroyed()).toBe(true);
       expect(await db().model(Profile).count()).toBe(0);
       expect(author.loaded("profile")).toBeNull();
+    });
+  });
+
+  describe("on a belongsTo", () => {
+    /** A reply on a stored post, its post loaded. */
+    async function replyOnPost() {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'One')");
+      await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (1, 10, 'Hi')");
+      const reply = await db().model(Reply).find(1);
+      const post = (await reply.post())!;
+      events.length = 0;
+      return { reply, post };
+    }
+
+    test("saving the owner saves its loaded record first when it changed", async () => {
+      const { reply, post } = await replyOnPost();
+      post.title = "Changed";
+      reply.body = "Edited";
+
+      await reply.saveOrThrow();
+
+      expect(events.map(({ sql }) => sql.split(" ")[1])).toEqual(['"posts"', '"comments"']);
+      expect(await titles()).toEqual(["Changed"]);
+    });
+
+    test("an invalid changed record's errors are copied onto the owner", async () => {
+      const { reply, post } = await replyOnPost();
+      post.title = "";
+
+      expect(await reply.save()).toBe(false);
+
+      expect(reply.errors.fullMessages()).toEqual(["Post title can't be blank"]);
+      expect(await titles()).toEqual(["One"]);
+    });
+
+    test("a marked record: the owner's key is cleared and written, then the record is destroyed", async () => {
+      const { reply, post } = await replyOnPost();
+      post.markForDestruction();
+
+      await reply.saveOrThrow();
+
+      expect(reply.postId).toBeNull();
+      expect(post.isDestroyed()).toBe(true);
+      expect(await db().model(Post).count()).toBe(0);
+      expect(await db().model(Reply).pluck("postId")).toEqual([null]);
+      // The post's dependent deleteAll finds no comments: the reply no longer points at it.
+      expect(await db().model(Reply).count()).toBe(1);
+      expect(await reply.post()).toBeNull();
     });
   });
 

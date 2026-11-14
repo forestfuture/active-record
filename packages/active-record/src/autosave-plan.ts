@@ -7,6 +7,7 @@ import {
   keysKnownBefore,
   linkAfter,
   ownerKeyKnown,
+  unlink,
   type Linked,
 } from "./autosave.ts";
 import {
@@ -36,6 +37,8 @@ export interface Planned extends Linked {
 export interface PlannedBefore {
   pointedAt: readonly Linked[];
   planned: readonly Planned[];
+  /** The marked records it destroys after its own write (#37). */
+  destroyed: readonly Planned[];
 }
 
 /**
@@ -78,9 +81,14 @@ export async function prepareBefore(
   owner: Model,
   claimed: Claimed,
 ): Promise<PlannedBefore | Refusal> {
-  const { pointedAt, saved } = autosavedBefore(owner, claimed);
-  const planned = await prepareEach(owner, saved, claimed);
-  return Array.isArray(planned) ? { pointedAt, planned } : planned;
+  const before = autosavedBefore(owner, claimed);
+  const planned = await prepareEach(owner, before.saved, claimed);
+  if (!Array.isArray(planned)) return planned;
+  // The owner stops pointing at a record it destroys, before its own callbacks, as in Rails.
+  unlink(owner, before.destroyed);
+  const destroyed = await prepareEach(owner, before.destroyed, claimed);
+  if (!Array.isArray(destroyed)) return destroyed;
+  return { pointedAt: before.pointedAt, planned, destroyed };
 }
 
 /**
@@ -144,13 +152,15 @@ export function assemble(
 ): Ready {
   const first = before.planned.filter(isHere);
   const children = after.filter(isHere);
-  let stages = withAfter(owner, own, children);
+  const gone = before.destroyed.filter(isHere);
+  // A belongsTo's marked records go in the owner's batch, after it: it no longer points at them.
+  let stages = combine([withAfter(owner, own, children), ...gone.map(({ plan }) => plan.stages)]);
   if (first.length > 0) {
     const firstStages = combine(first.map(({ plan }) => plan.stages));
     const known = keysKnownBefore(before.pointedAt.filter(isHere));
     stages = known ? combine([firstStages, stages]) : [...firstStages, ...stages];
   }
-  const nested = [...first, ...children].map(({ plan }) => plan);
+  const nested = [...first, ...children, ...gone].map(({ plan }) => plan);
   const elsewhere = (planned: readonly Planned[]) => planned.filter((each) => !isHere(each));
   return {
     status: "ready",
@@ -160,7 +170,11 @@ export function assemble(
       ...elsewhere(before.planned).flatMap(({ plan }) => stagesOf(plan)),
       ...nested.flatMap((plan) => plan.before),
     ],
-    after: [...nested.flatMap((plan) => plan.after), ...savedElsewhere(owner, elsewhere(after))],
+    after: [
+      ...nested.flatMap((plan) => plan.after),
+      ...savedElsewhere(owner, elsewhere(after)),
+      ...elsewhere(before.destroyed).flatMap(({ plan }) => stagesOf(plan)),
+    ],
   };
 }
 
