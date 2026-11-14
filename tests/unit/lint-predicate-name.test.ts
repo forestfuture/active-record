@@ -19,6 +19,8 @@ ruleTester.run("predicate-name", predicateName, {
     // A signature without a body names what implementations do; they're checked themselves.
     "interface Driver { recover(error: unknown): boolean; }",
     "declare function ready(): boolean;",
+    // A callback has no name to read.
+    "values.filter((value): value is number => typeof value === 'number');",
     // A name that starts with the letters but not the word.
     "function isolate(): void {}",
   ],
@@ -42,6 +44,16 @@ ruleTester.run("predicate-name", predicateName, {
       name: "a class method",
       code: "class Attribute { same(a: unknown, b: unknown): boolean { return a === b; } }",
       errors: [{ messageId: "predicateName", data: { name: "same" } }],
+    },
+    {
+      name: "a private method",
+      code: "class Attribute { #hidden(): boolean { return true; } }",
+      errors: [{ messageId: "predicateName", data: { name: "hidden" } }],
+    },
+    {
+      name: "an arrow in a class field",
+      code: "class Check { matches = (value: unknown): boolean => value !== null; }",
+      errors: [{ messageId: "predicateName", data: { name: "matches" } }],
     },
     {
       name: "an object method",
