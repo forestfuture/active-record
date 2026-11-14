@@ -209,7 +209,7 @@ An atomic group of **Statements** and **Record statements**, prepared in `batch(
 _Avoid_: Transaction
 
 **Autosave**:
-Saving a **Record** also saves the new records of its **Associations**, validated with it: those built through a has-many or has-one, after it and with its key (and theirs, at every level), and, while it's new, every record pushed onto a has-many, saved ones included, and a new record it points at through a belongs-to, before it, so it can take that record's key. Records on another database are written there, separately.
+Saving a **Record** also saves the new records of its **Associations**, validated with it: those built through a has-many or has-one, after it and with its key (and theirs, at every level), and, while it's new, every record pushed onto a has-many, saved ones included, and a new record it points at through a belongs-to, before it, so it can take that record's key. Records on another database are written there, separately. Through an association declared `autosave: true`, it also saves the association's loaded records that changed, and destroys those marked with `markForDestruction()`.
 _Avoid_: Nested save, cascade save
 
 **Record statement**:
