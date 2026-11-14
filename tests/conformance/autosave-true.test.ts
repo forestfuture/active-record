@@ -675,6 +675,20 @@ describe("autosave: true (#37)", () => {
       expect(await db().model(KeyedThread).count()).toBe(1);
     });
 
+    test("in db.batch, a new marked record the batch saves itself stays linked", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+      await harness.exec("INSERT INTO comments (id, body) VALUES (1, 'Hi')");
+      const reply = await db().model(Reply).find(1);
+      // Its key is given, as one batch can't link a key the database generates.
+      const post = reply.post.build({ id: 11, userId: 1, title: "New" });
+      post.markForDestruction();
+
+      await db().batch((b) => [b.save(post), b.save(reply)]);
+
+      expect(await db().model(Reply).pluck("postId")).toEqual([11]);
+      expect(reply.loaded("post")).toBe(post);
+    });
+
     test("saving the owner saves its loaded record first when it changed", async () => {
       const { reply, post } = await replyOnPost();
       post.title = "Changed";
