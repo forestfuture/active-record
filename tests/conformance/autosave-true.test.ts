@@ -280,7 +280,7 @@ describe("autosave: true (#37)", () => {
     expect(events.filter(({ sql }) => sql.startsWith("UPDATE"))).toHaveLength(1);
   });
 
-  test("the destroys and saves are one atomic batch: a write that fails leaves them all", async () => {
+  test("a write that fails writes none of the destroys and saves, which are one atomic batch", async () => {
     const { author, posts } = await authorWithPosts(Author);
     await harness.exec("INSERT INTO users (id, email) VALUES (2, 'b@example.com')");
     author.email = "b@example.com";
@@ -483,6 +483,36 @@ describe("autosave: true (#37)", () => {
     expect(await titles()).toEqual(["Changed"]);
   });
 
+  /** A reply, whose own beforeSave refuses, on a stored post that's loaded and marked. */
+  async function refusingReplyWithMarkedPost() {
+    await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'One')");
+    await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (1, 10, 'abort')");
+    const reply = await db().model(Reply).find(1);
+    const post = (await reply.post())!;
+    post.markForDestruction();
+    return { reply, post };
+  }
+
+  test("an owner whose own callback refuses still points at its marked record", async () => {
+    const { reply } = await refusingReplyWithMarkedPost();
+
+    expect(await reply.save()).toBe(false);
+
+    expect(reply.postId).toBe(10);
+  });
+
+  test("after a refused save, saving the owner again destroys its marked record", async () => {
+    const { reply, post } = await refusingReplyWithMarkedPost();
+    await reply.save();
+    reply.body = "Hi";
+
+    await reply.saveOrThrow();
+
+    expect(post.isDestroyed()).toBe(true);
+    expect(await db().model(Post).count()).toBe(0);
+  });
+
   describe("a marked record whose destroy is refused", () => {
     test("save() is false, and nothing is written", async () => {
       const { author, posts } = await authorWithPosts(Author);
@@ -518,23 +548,6 @@ describe("autosave: true (#37)", () => {
         "Cannot delete record because dependent comments exist",
       ]);
       expect(await titles()).toEqual(["One", "Two"]);
-    });
-
-    test("an owner whose own callback refuses keeps pointing at its marked record, and destroys it once saved", async () => {
-      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
-      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'One')");
-      await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (1, 10, 'abort')");
-      const reply = await db().model(Reply).find(1);
-      const post = (await reply.post())!;
-      post.markForDestruction();
-
-      expect(await reply.save()).toBe(false);
-      expect(reply.postId).toBe(10);
-      reply.body = "Hi";
-      await reply.saveOrThrow();
-
-      expect(post.isDestroyed()).toBe(true);
-      expect(await db().model(Post).count()).toBe(0);
     });
 
     test("a marked record never saved stays in the association when the save is refused", async () => {
