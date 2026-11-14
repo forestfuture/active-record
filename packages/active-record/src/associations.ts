@@ -33,6 +33,11 @@ export interface AssociationOptions<C extends ModelClass = ModelClass> {
   scope?: AssociationScope<C>;
   /** What destroying the owner does to this association's records (hasMany and hasOne). */
   dependent?: Dependent;
+  /**
+   * Saving the owner also saves this association's loaded records that changed, and destroys
+   * those marked with `markForDestruction()`, as Rails' `autosave: true` does (#37).
+   */
+  autosave?: true;
 }
 
 /** Rails' `dependent:` strategies for a hasMany. */
@@ -142,6 +147,14 @@ function checkAssociation(
   checkKeys(label, model, target, definition);
   checkDependent(label, definition);
   checkOptional(label, definition);
+  checkAutosave(label, definition);
+}
+
+/** `autosave` is `true` or left out: `false` isn't built (#378). */
+function checkAutosave(label: string, { autosave }: AssociationDefinition): void {
+  if (autosave !== undefined && autosave !== true) {
+    throw new InvalidModel(`${label}: autosave takes true`);
+  }
 }
 
 /** Only a belongsTo can be optional: the others never require their records. */
