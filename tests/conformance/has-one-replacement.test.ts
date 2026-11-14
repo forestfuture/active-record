@@ -10,6 +10,8 @@ import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const log: string[] = [];
+/** Commit and rollback callbacks run, apart from `log`. */
+const transactions: string[] = [];
 
 class Profile extends Model.define({
   id: { type: "integer", null: false },
@@ -20,6 +22,8 @@ class Profile extends Model.define({
 
   static {
     this.afterDestroy((profile) => void log.push(`destroyed ${String(profile.bio)}`));
+    this.afterCommit((profile) => void transactions.push(`committed ${String(profile.bio)}`));
+    this.afterRollback((profile) => void transactions.push(`rolled back ${String(profile.bio)}`));
   }
 }
 
@@ -32,6 +36,7 @@ class Comment extends Model.define({
 
   static {
     this.validates("body", { presence: true });
+    this.afterCommit((comment) => void transactions.push(`committed ${String(comment.body)}`));
   }
 }
 
@@ -112,6 +117,7 @@ describe("replacing a hasOne's record", () => {
   afterAll(() => harness.dispose());
   beforeEach(async () => {
     log.length = 0;
+    transactions.length = 0;
     await harness.reset("comments", "posts", "profiles", "users", "accounts", "api_keys");
     await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'Hello')");
@@ -430,6 +436,32 @@ describe("replacing a hasOne's record", () => {
       await expect(user.saveOrThrow()).rejects.toThrow(RecordNotSaved);
 
       expect((await bios()).map((row) => row.bio)).toEqual(["Old"]);
+    });
+  });
+
+  describe("the old record's commit and rollback callbacks", () => {
+    test("a destroyed old record's commit callbacks run with the new one's", async () => {
+      const user = await db().model(Destroying).find(1);
+
+      await user.profile.set(db().model(Profile).build({ bio: "New" }));
+
+      expect(transactions).toEqual(["committed Old", "committed New"]);
+    });
+
+    test("a nullified old record's commit callbacks run with the new one's", async () => {
+      const post = await db().model(Keeping).find(10);
+
+      await post.pinned.set(db().model(Comment).build({ body: "New" }));
+
+      expect(transactions).toEqual(["committed Old", "committed New"]);
+    });
+
+    test("a refused nullify runs both records' rollback callbacks", async () => {
+      const user = await db().model(KeepingUser).find(1);
+
+      await expect(user.profile.createOrThrow({ bio: "New" })).rejects.toThrow(RecordNotSaved);
+
+      expect(transactions).toEqual(["rolled back Old", "rolled back New"]);
     });
   });
 });
