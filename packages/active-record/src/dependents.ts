@@ -84,14 +84,23 @@ export function dependentsElsewhere(
 }
 
 /**
- * The records a destroy leaves out of its dependents: the owner of a belongsTo whose marked record
- * it is (#37), which stops pointing at it in the same batch. Not request state.
+ * A record a destroy leaves out of its dependents: the owner of a belongsTo whose marked record
+ * it is (#37), which stops pointing at it through `foreignKey` in the same batch.
  */
-const leaving = new WeakMap<Model, Model>();
+interface Leaving {
+  owner: Model;
+  foreignKey: string;
+}
 
-/** Prepares `record`'s destroy with `owner` left out of its dependents, its restrictions included. */
-export async function destroyLeaving<T>(record: Model, owner: Model, prepare: () => Promise<T>) {
-  leaving.set(record, owner);
+/** Each destroy being prepared with a record leaving it. Not request state. */
+const leaving = new WeakMap<Model, Leaving>();
+
+/**
+ * Prepares `record`'s destroy with `owner` left out of the dependents it holds through
+ * `owner`'s foreign key, restrictions included; its other associations still count it.
+ */
+export async function prepareLeaving<T>(record: Model, left: Leaving, prepare: () => Promise<T>) {
+  leaving.set(record, left);
   try {
     return await prepare();
   } finally {
@@ -101,20 +110,25 @@ export async function destroyLeaving<T>(record: Model, owner: Model, prepare: ()
 
 /**
  * The association's records for this owner (a hasOne's first one only), with its scope, leaving
- * out a record that's leaving it (`destroyLeaving`).
+ * out a record that's leaving it (`prepareLeaving`).
  */
 function recordsOf(owner: Model, association: ResolvedAssociation): Scoped<Model> {
   let records = association.linkedTo(owner[state].executor, association.keyOf(owner));
   const left = leaving.get(owner);
-  if (
-    left !== undefined &&
-    modelOf(left).table === association.target.table &&
-    !left[state].isNew
-  ) {
+  if (left !== undefined && isLeftThrough(left, association)) {
     const { primaryKey } = association.target;
-    records = records.whereNot({ [primaryKey]: left[state].storedKeyValue } as never);
+    records = records.whereNot({ [primaryKey]: left.owner[state].storedKeyValue } as never);
   }
   return association.definition.kind === "hasOne" ? association.inOrder(records).limit(1) : records;
+}
+
+/** Whether `association` reaches the leaving owner's row through the key it stops holding. */
+function isLeftThrough({ owner, foreignKey }: Leaving, association: ResolvedAssociation): boolean {
+  return (
+    !owner[state].isNew &&
+    modelOf(owner).table === association.target.table &&
+    association.definition.foreignKey === foreignKey
+  );
 }
 
 /** Why a restrict strategy refuses the destroy, if it does (Rails' wording). */
