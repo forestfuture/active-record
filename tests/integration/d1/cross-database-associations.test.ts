@@ -145,6 +145,27 @@ class Greeter extends DbRecord.define({
   }
 }
 
+/** Users who save their loaded entries, on LOGS, and destroy the marked ones (#37). */
+class Keeper extends DbRecord.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+}) {
+  static override table = "users";
+
+  entries = hasMany(Entry, { foreignKey: "userId", autosave: true });
+}
+
+/** Entries, on LOGS, that save the user they belong to, on DB, and destroy it when it's marked. */
+class Stamp extends LogsRecord.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+  message: { type: "string", null: false },
+}) {
+  static override table = "entries";
+
+  user = belongsTo(User, { foreignKey: "userId", autosave: true, optional: true });
+}
+
 const schema = new URL("../../fixtures/cross-database/schema.sql", import.meta.url);
 
 let db: TestDatabase;
@@ -655,5 +676,73 @@ describe("preloading an association to another database", () => {
     });
 
     expect(await rows(logs, "SELECT message FROM entries")).toEqual([{ message: "changed" }]);
+  });
+});
+
+describe("autosave: true on another database (#37)", () => {
+  test("a hasMany's changed loaded records are saved there", async () => {
+    await inRequest(async () => {
+      const keeper = await Keeper.find(1);
+      const [entry] = await keeper.entries().toArray();
+      entry!.message = "changed";
+      await keeper.saveOrThrow();
+    });
+
+    expect(log).toEqual(["before save changed", "write LOGS", "after save changed"]);
+    expect(await rows(logs, "SELECT message FROM entries")).toEqual([{ message: "changed" }]);
+    expect(await rows(db, "SELECT message FROM entries")).toEqual([{ message: "DB" }]);
+  });
+
+  test("a hasMany's marked records are destroyed there", async () => {
+    await inRequest(async () => {
+      const keeper = await Keeper.find(1);
+      const [entry] = await keeper.entries().toArray();
+      entry!.markForDestruction();
+      await keeper.saveOrThrow();
+    });
+
+    expect(log).toEqual(["write LOGS", "after destroy LOGS"]);
+    expect(await rows(logs, "SELECT id FROM entries")).toEqual([]);
+    expect(await rows(db, "SELECT id FROM entries")).toEqual([{ id: 1 }]);
+  });
+
+  test("a belongsTo's marked record is destroyed there, after the owner stops pointing at it", async () => {
+    await inRequest(async () => {
+      const stamp = await Stamp.find(1);
+      (await stamp.user())!.markForDestruction();
+      await stamp.saveOrThrow();
+    });
+
+    expect(log).toEqual(["write LOGS", "write DB"]);
+    expect(await rows(logs, "SELECT user_id FROM entries")).toEqual([{ user_id: null }]);
+    expect(await rows(db, "SELECT id FROM users")).toEqual([]);
+  });
+
+  test("a batch refuses a save whose changed records are there, before any callback runs", async () => {
+    const saving = inRequest(async () => {
+      const keeper = await Keeper.find(1);
+      const [entry] = await keeper.entries().toArray();
+      entry!.message = "changed";
+      return batch((b) => [b.save(keeper)]);
+    });
+
+    await expect(saving).rejects.toThrow(IncompatibleRelation);
+    expect(log).toEqual([]);
+  });
+
+  test("a batch refuses a save that destroys a belongsTo's marked record there", async () => {
+    const saving = inRequest(async () => {
+      const stamp = await Stamp.find(1);
+      (await stamp.user())!.markForDestruction();
+      return batch((b) => [b.save(stamp)]);
+    });
+
+    await expect(saving).rejects.toThrow(
+      new IncompatibleRelation(
+        "batch() needs its statements and records on one database, and saving this Stamp " +
+          "autosaves records through Stamp.user, on another database; save it outside the batch",
+      ),
+    );
+    expect(await rows(db, "SELECT id FROM users")).toEqual([{ id: 1 }]);
   });
 });
