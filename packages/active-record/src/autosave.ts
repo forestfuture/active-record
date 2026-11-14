@@ -71,7 +71,10 @@ function loadedBelongsTo(owner: Model, claimed: ReadonlySet<Model>): Linked[] {
   });
 }
 
-/** Clears the foreign keys that point the owner at records it destroys (Rails' `self[fk] = nil`). */
+/**
+ * Clears the foreign keys that point the owner at records it destroys (Rails' `self[fk] = nil`),
+ * and forgets a new one it was to save first.
+ */
 export function unlink(owner: Model, destroyed: readonly Linked[]): void {
   for (const { association } of destroyed) {
     owner[state].writeKey(association.ownerAttribute, null, association.name);
