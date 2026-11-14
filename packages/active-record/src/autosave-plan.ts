@@ -6,6 +6,7 @@ import {
   forget,
   keysKnownBefore,
   linkAfter,
+  linkBefore,
   ownerKeyKnown,
   unlink,
   type Linked,
@@ -84,22 +85,13 @@ export async function prepareBefore(
   const before = autosavedBefore(owner, claimed);
   const planned = await prepareEach(owner, before.saved, claimed);
   if (!Array.isArray(planned)) return planned;
-  // The owner stops pointing at a record it destroys, before its own callbacks, as in Rails.
-  const relink = unlink(owner, before.destroyed);
   const destroyed = await prepareEach(owner, before.destroyed, claimed);
-  if (!Array.isArray(destroyed)) {
-    relink();
-    return destroyed;
-  }
+  if (!Array.isArray(destroyed)) return destroyed;
   return { pointedAt: before.pointedAt, planned, destroyed };
 }
 
-/**
- * The saves and destroys of the records `owner` writes after itself, prepared once its own is.
- * Marked records it never saved are dropped from its associations first, writing nothing.
- */
+/** The saves and destroys of the records `owner` writes after itself, prepared once its own is. */
 export async function prepareAfter(owner: Model, claimed: Claimed): Promise<Planned[] | Refusal> {
-  dropUnsavedMarked(owner);
   return prepareEach(owner, autosavedAfter(owner, claimed), claimed);
 }
 
@@ -135,6 +127,17 @@ async function prepareMarked(
     { statements: [], commit: () => forget(owner, association, record), after: async () => {} },
   ]);
   return { ...plan, stages: combine([plan.stages, [left]]) };
+}
+
+/**
+ * Readies the owner's links just before its write is built, once nothing can refuse the save: it
+ * points at the new records it saved first, stops pointing at the ones it destroys after it, and
+ * drops the marked records it never saved from its associations (#37).
+ */
+export function linkOwner(owner: Model, before: PlannedBefore): void {
+  linkBefore(owner, before.pointedAt);
+  unlink(owner, before.destroyed);
+  dropUnsavedMarked(owner);
 }
 
 /** Whether a record is written on its owner's database. */
