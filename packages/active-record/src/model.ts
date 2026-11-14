@@ -24,7 +24,7 @@ import {
 import { associationOf, newRecord } from "./association-fields.ts";
 import { defineModelName, inferTableNames } from "./table-names.ts";
 import {
-  attributesSettled,
+  hasSettledAttributes,
   defineAttributeAccessors,
   defineGeneratedStatics,
   type AsSpecs,
@@ -277,7 +277,7 @@ export class Model extends ModelStatics {
   ): void {
     const validation: Validation = { attribute, options: options as ValidationOptions<never> };
     // A generated Model's attributes are fixed when it's first used, and checked then.
-    if (attributesSettled(this)) checkValidatedNames(this, validation);
+    if (hasSettledAttributes(this)) checkValidatedNames(this, validation);
     declare(this, "validations", validation);
   }
 
@@ -407,6 +407,7 @@ export class Model extends ModelStatics {
   }
 
   /** Whether saving now would write a change to the attribute (for before-callbacks). */
+  // oxlint-disable-next-line active-record/predicate-name -- public, named as Rails' will_save_change_to_attribute?
   willSaveChangeTo<R extends Model, K extends AttributeKey<R>>(
     this: R,
     name: K,

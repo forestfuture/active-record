@@ -52,7 +52,7 @@ export class ColumnValue {
 }
 
 /** Whether a fragment's interpolated value names an attribute: a column, or a typed value. */
-export function namesAttribute(value: unknown): value is ColumnReference | ColumnValue {
+export function isAttributeReference(value: unknown): value is ColumnReference | ColumnValue {
   return value instanceof ColumnReference || value instanceof ColumnValue;
 }
 

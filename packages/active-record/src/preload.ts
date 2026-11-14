@@ -152,7 +152,7 @@ function planStep(planning: Planning, start: Start, level: Level, name: string):
   const query = linkedQuery(association, owners, planning.executor);
   const targets =
     query && targetsOf(planning.executor.dialect, association, query, tree[name] ?? {});
-  if (overBoundValues(owners, targets, planning.executor.adapter.maxBoundValues)) {
+  if (hasTooManyBoundValues(owners, targets, planning.executor.adapter.maxBoundValues)) {
     leaveForAfterwards(planning, { ...onlyOne(start, name), ownersAt });
     return;
   }
@@ -182,7 +182,7 @@ function onlyOne(
  * Whether `targets`' SELECT, selecting the keys of `owners`' query with a subquery, binds more
  * values than `limit`, what the database allows in one statement.
  */
-function overBoundValues(
+function hasTooManyBoundValues(
   owners: Owners,
   targets: { select: CompiledSql } | undefined,
   limit: number,

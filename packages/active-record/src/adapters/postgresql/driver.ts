@@ -91,6 +91,7 @@ export class PgDriver implements Driver<ClientScope | undefined> {
   }
 
   /** Postgres's errors are final: nothing is sent again. */
+  // oxlint-disable-next-line active-record/predicate-name -- an action: it recovers, then says whether it did
   recover(): boolean {
     return false;
   }

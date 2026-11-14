@@ -89,7 +89,7 @@ const format: Check = (value, { format: rule }) => {
 };
 
 /** Equality for inclusion: dates match by their time, everything else by identity. */
-function sameValue(a: unknown, b: unknown): boolean {
+function isSameValue(a: unknown, b: unknown): boolean {
   if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
   return Object.is(a, b);
 }
@@ -97,7 +97,7 @@ function sameValue(a: unknown, b: unknown): boolean {
 const inclusion: Check = (value, { inclusion: rule }) => {
   if (rule === undefined) return [];
   const allowed = Array.isArray(rule) ? rule : (rule as { in: readonly unknown[] }).in;
-  const included = allowed.some((item) => sameValue(item, value));
+  const included = allowed.some((item) => isSameValue(item, value));
   return included ? [] : [{ type: "inclusion" }];
 };
 

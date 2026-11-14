@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { Post } from "../fixtures/models/post.ts";
 import { openHarness, providedAdapter, type Harness } from "../support/harness.ts";
 import { SLOW_RUNS, SLOW_TIMEOUT } from "../support/properties.ts";
-import { allows } from "./allowed-differences.ts";
+import { isAllowed } from "./allowed-differences.ts";
 
 const JAN = "2026-01-01T00:00:00.000Z";
 const FEB = "2026-02-01T00:00:00.000Z";
@@ -74,7 +74,7 @@ describe("count(attribute), for any Relation", { timeout: SLOW_TIMEOUT }, () => 
     order?: object;
   }) {
     if (!distinct || order === undefined) return true;
-    if (!allows(providedAdapter(), "distinct-order")) return true;
+    if (!isAllowed(providedAdapter(), "distinct-order")) return true;
     return Object.keys(order).every((key) => key === attribute);
   }
 

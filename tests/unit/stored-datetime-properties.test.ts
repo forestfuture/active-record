@@ -37,7 +37,7 @@ const storedText = fc
 const stamp = Sample.typeForAttribute("stamp");
 
 /** Whether `toISOString` writes `text` back for the date it parses to. */
-function roundTrips(text: string): boolean {
+function isRoundTrip(text: string): boolean {
   const date = new Date(text);
   return !Number.isNaN(date.getTime()) && date.toISOString() === text;
 }
@@ -61,7 +61,7 @@ describe("reading a datetime cell in the stored form", () => {
   test("gives the instant the text names when toISOString writes it back", () => {
     fc.assert(
       fc.property(writtenText, (text) => {
-        fc.pre(roundTrips(text));
+        fc.pre(isRoundTrip(text));
 
         expect(stamp.deserialize(text)).toEqual(new Date(text));
       }),
@@ -72,7 +72,7 @@ describe("reading a datetime cell in the stored form", () => {
   test("gives what casting gives when toISOString writes other text", () => {
     fc.assert(
       fc.property(storedText, (text) => {
-        fc.pre(!roundTrips(text));
+        fc.pre(!isRoundTrip(text));
         const read = attempt(() => stamp.deserialize(text));
         const cast = attempt(() => stamp.cast(text));
 

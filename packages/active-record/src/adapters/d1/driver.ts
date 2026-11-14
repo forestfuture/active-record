@@ -94,6 +94,7 @@ export class D1Driver implements Driver {
    * Whether D1 rejected the bookmark and the Session has started again, once, so a statement it
    * rejected can be sent anew. Statements sent at once all fail; each is sent again.
    */
+  // oxlint-disable-next-line active-record/predicate-name -- an action: it recovers, then says whether it did
   recover(error: unknown): boolean {
     if (!isRejectedBookmark(error)) return false;
     if (this.#rejectedOn.get(error as Error) !== this.#source) return true;

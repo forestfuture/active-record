@@ -98,7 +98,7 @@ function databaseOf(
 }
 
 /** Whether `file` declares the class itself, rather than exporting it from another file. */
-function declares(file: string, name: string): boolean {
+function isDeclaredIn(file: string, name: string): boolean {
   return new RegExp(`\\bclass\\s+${name}\\b`).test(readFileSync(file, "utf8"));
 }
 
@@ -153,7 +153,7 @@ function addModel(cwd: string, file: string, exported: Exported, found: Found): 
     return;
   }
   const earlier = found.models.get(model);
-  if (earlier !== undefined && !declares(file, model.name)) return;
+  if (earlier !== undefined && !isDeclaredIn(file, model.name)) return;
   const problem = modelNameProblem(cwd, found, exported);
   if (problem !== undefined) {
     found.errors.push(`${shown(cwd, file)}: ${problem}`);

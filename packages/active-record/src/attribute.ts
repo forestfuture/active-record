@@ -127,7 +127,7 @@ export class Attribute {
   }
 
   /** Whether two values are the same as stored (dates by time, json by content). */
-  same(a: unknown, b: unknown): boolean {
+  isSame(a: unknown, b: unknown): boolean {
     return writeValue(this.#definition, a) === writeValue(this.#definition, b);
   }
 
@@ -142,7 +142,7 @@ export class Attribute {
    * time, since `filterAttributes` is a static a Model may set after this was resolved.
    */
   bindCells(params: unknown[], ...cells: unknown[]): void {
-    const hidden = this.#hidden();
+    const hidden = this.#isHidden();
     for (const cell of cells) params.push(hidden ? new Filtered(cell) : cell);
   }
 
@@ -152,7 +152,7 @@ export class Attribute {
   }
 
   /** Whether the attribute's values are hidden from listeners and errors (#83). */
-  #hidden(): boolean {
+  #isHidden(): boolean {
     return isFiltered(this.#model, this.name);
   }
 
@@ -165,7 +165,7 @@ export class Attribute {
     const { type } = this.#definition;
     const noun = nouns[type] ?? type;
     const article = /^[aeiou]/.test(noun) ? "an" : "a";
-    const text = this.#hidden() ? FILTERED : shown(value);
+    const text = this.#isHidden() ? FILTERED : shown(value);
     const from = association === undefined ? "" : `, the key of ${association}`;
     return new TypeError(
       `${this.#model.name}: ${text} isn't ${article} ${noun} for "${this.name}"${from}`,

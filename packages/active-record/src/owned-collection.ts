@@ -137,7 +137,7 @@ function withKey(
     invalidate: () => loadedAssociations.clear(name),
     unsavedCount: () => built().filter((record) => record[state].isNew).length,
     refusal: undefined,
-    nullifies: association.deletesOnDeleteAll ? undefined : definition.foreignKey,
+    nullifies: association.isDeletingOnDeleteAll ? undefined : definition.foreignKey,
     link: { attribute: definition.foreignKey, association: name },
     narrowed: () => narrowedOf(collection),
   };
@@ -150,18 +150,18 @@ function withKey(
  * its create finished loaded its own copy of the row (#181).
  */
 function joined(loaded: readonly Model[], record: Model, primaryKey: string): Model[] {
-  const index = loaded.findIndex((each) => sameRow(each, record, primaryKey));
+  const index = loaded.findIndex((each) => isSameRow(each, record, primaryKey));
   if (index === -1) return [...loaded, record];
   return loaded.map((each, at) => (at === index ? record : each));
 }
 
 /** `stored` without the rows of `records`. */
 function without(stored: readonly Model[], records: readonly Model[], primaryKey: string) {
-  return stored.filter((each) => !records.some((record) => sameRow(each, record, primaryKey)));
+  return stored.filter((each) => !records.some((record) => isSameRow(each, record, primaryKey)));
 }
 
 /** Whether two records hold the same row: the same primary key (a new record's none is no row). */
-function sameRow(one: Model, other: Model, primaryKey: string): boolean {
+function isSameRow(one: Model, other: Model, primaryKey: string): boolean {
   const key = one[state].read(primaryKey);
   return one === other || (key !== null && Object.is(key, other[state].read(primaryKey)));
 }

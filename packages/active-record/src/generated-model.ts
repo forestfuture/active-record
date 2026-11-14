@@ -106,7 +106,7 @@ interface Generated {
   readonly table: string;
   readonly primaryKey: string;
   readonly definitions: ReadonlyMap<string, AttributeDefinition>;
-  readonly ignoresColumns: boolean;
+  readonly isIgnoringColumns: boolean;
 }
 
 const noAttributes: ReadonlyMap<string, AttributeDefinition> = new Map();
@@ -193,14 +193,14 @@ function find(owner: GeneratedClass, schema: DatabaseSchema): Generated {
   if (tableSchema === undefined) {
     throw new InvalidModel(`${owner.name}'s table, ${table}, isn't in the generated schema`);
   }
-  const { specs, ignoresColumns } = specsFor(owner.name, tableSchema, owner.attributes ?? {});
+  const { specs, isIgnoringColumns } = specsFor(owner.name, tableSchema, owner.attributes ?? {});
   const definitions = new Map(
     Object.entries(specs).map(([name, spec]) => [name, define(name, spec)]),
   );
   const primaryKey = Object.hasOwn(owner, "primaryKey")
     ? owner.primaryKey!
     : tableSchema.primaryKey;
-  return { table, primaryKey, definitions, ignoresColumns };
+  return { table, primaryKey, definitions, isIgnoringColumns };
 }
 
 /**
@@ -227,7 +227,7 @@ export function settleGenerated(model: object): void {
   let found = settled.get(owner);
   if (found === undefined) {
     found = find(owner, place.schema);
-    bindTable(owner, found.table, { ignoresColumns: found.ignoresColumns });
+    bindTable(owner, found.table, { isIgnoringColumns: found.isIgnoringColumns });
     defineAttributeAccessors(owner.prototype, found.definitions.keys());
     settled.set(owner, found);
   }
@@ -238,7 +238,7 @@ export function settleGenerated(model: object): void {
  * Whether a class's attributes are fixed: a hand-declared Model's are when it's defined, and a
  * generated Model's when it's first used. A base class has none, which is fixed too.
  */
-export function attributesSettled(model: object): boolean {
+export function hasSettledAttributes(model: object): boolean {
   return settled.has(model) || tableOwnerOf(model) === undefined;
 }
 
@@ -309,7 +309,7 @@ function specsFor(
   name: string,
   table: TableSchema,
   overrides: Readonly<Record<string, unknown>>,
-): { specs: AttributeSpecs; ignoresColumns: boolean } {
+): { specs: AttributeSpecs; isIgnoringColumns: boolean } {
   const changes = new Map<string, ReturnType<typeof checked>>();
   for (const [attribute, override] of Object.entries(overrides)) {
     if (override === undefined) continue;
@@ -328,5 +328,5 @@ function specsFor(
     specs[attribute] =
       change === undefined ? spec : checkedOverride(`${name}.${attribute}`, spec, change);
   }
-  return { specs, ignoresColumns: [...changes.values()].includes(false) };
+  return { specs, isIgnoringColumns: [...changes.values()].includes(false) };
 }

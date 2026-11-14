@@ -118,7 +118,7 @@ export class RecordState {
   /** A persisted record needs its primary key to be found by; one from `distinct()` has none. */
   requireKey(action: string): void {
     const { name, primaryKey } = this.#model;
-    if (this.#lifecycle === "persisted" && !this.#inSnapshot(primaryKey)) {
+    if (this.#lifecycle === "persisted" && !this.#isInSnapshot(primaryKey)) {
       throw new MissingAttribute(
         `${name} record has no primary key loaded (it came from select(...).distinct()); ` +
           `it can't ${action}`,
@@ -229,7 +229,7 @@ export class RecordState {
       return [...this.#assigned].filter((name) => this.#storedForm(name) !== this.#initialOf(name));
     }
     return Object.keys(this.#values).filter(
-      (name) => !this.#inSnapshot(name) || this.#snapshotOf(name) !== this.#storedForm(name),
+      (name) => !this.#isInSnapshot(name) || this.#snapshotOf(name) !== this.#storedForm(name),
     );
   }
 
@@ -247,7 +247,7 @@ export class RecordState {
     return Object.fromEntries(
       Object.entries(this.changes()).map(([name, [before, after]]) => [
         name,
-        [this.#inSnapshot(name) ? before : undefined, after],
+        [this.#isInSnapshot(name) ? before : undefined, after],
       ]),
     );
   }
@@ -273,14 +273,14 @@ export class RecordState {
   isAttributeChanged(name: string, options: ChangeOptions = {}): boolean {
     this.read(name);
     if (!this.changedNames().includes(name)) return false;
-    return this.#matches(name, this.valueInDatabase(name), this.#values[name], options);
+    return this.#isMatching(name, this.valueInDatabase(name), this.#values[name], options);
   }
 
   /** Whether the last save changed the attribute, optionally `from` and `to` given values. */
   hasSavedChangeTo(name: string, options: ChangeOptions = {}): boolean {
     this.read(name);
     const change = this.#savedChanges[name];
-    return change !== undefined && this.#matches(name, change[0], change[1], options);
+    return change !== undefined && this.#isMatching(name, change[0], change[1], options);
   }
 
   /** Puts unsaved changes back: to the Snapshot, or to a new record's initial values (or null). */
@@ -289,7 +289,7 @@ export class RecordState {
     for (const name of names) {
       const attribute = this.#attribute(name);
       if (this.#lifecycle !== "new") {
-        if (this.#inSnapshot(name)) this.#values[name] = this.#snapshotValue(name);
+        if (this.#isInSnapshot(name)) this.#values[name] = this.#snapshotValue(name);
       } else if (this.#initialValues.has(name)) {
         this.#values[name] = attribute.read(this.#initialValues.get(name));
       } else {
@@ -299,8 +299,8 @@ export class RecordState {
     }
   }
 
-  #matches(name: string, before: unknown, after: unknown, options: ChangeOptions): boolean {
-    const same = (a: unknown, b: unknown) => this.#attribute(name).same(a, b);
+  #isMatching(name: string, before: unknown, after: unknown, options: ChangeOptions): boolean {
+    const same = (a: unknown, b: unknown) => this.#attribute(name).isSame(a, b);
     return (
       (!("from" in options) || same(options.from, before)) &&
       (!("to" in options) || same(options.to, after))
@@ -410,7 +410,7 @@ export class RecordState {
 
   /** The value before the unsaved change: as last loaded or saved, or a new record's initial one. */
   #valueBefore(name: string): unknown {
-    if (this.#inSnapshot(name)) return this.#snapshotValue(name);
+    if (this.#isInSnapshot(name)) return this.#snapshotValue(name);
     return this.#attribute(name).read(this.#initialOf(name));
   }
 
@@ -445,7 +445,7 @@ export class RecordState {
     // Values the row didn't hold (none, unless a column is missing from it) are stored now.
     if (names.length !== loadedCount) {
       for (const name of names) {
-        if (!this.#inRow(name)) this.#snapshot.set(name, this.#storedForm(name));
+        if (!this.#isInRow(name)) this.#snapshot.set(name, this.#storedForm(name));
       }
     }
     this.#lifecycle = "persisted";
@@ -453,15 +453,15 @@ export class RecordState {
   }
 
   /** Whether the Snapshot has `name`: it was loaded or saved. */
-  #inSnapshot(name: string): boolean {
-    return this.#snapshot.has(name) || this.#inRow(name);
+  #isInSnapshot(name: string): boolean {
+    return this.#snapshot.has(name) || this.#isInRow(name);
   }
 
   /** `name`'s Snapshot entry, its stored form, made from the loaded row's cell on first use. */
   #snapshotOf(name: string): unknown {
-    if (this.#snapshot.has(name) || !this.#inRow(name)) return this.#snapshot.get(name);
+    if (this.#snapshot.has(name) || !this.#isInRow(name)) return this.#snapshot.get(name);
     const attribute = this.#attribute(name);
-    // #inRow said the row is held and has the cell.
+    // #isInRow said the row is held and has the cell.
     const stored = attribute.write(
       attribute.read(this.#snapshotRow![this.#definition(name).column]),
     );
@@ -475,7 +475,7 @@ export class RecordState {
   }
 
   /** Whether the row the Snapshot was loaded from has a cell for `name`. */
-  #inRow(name: string): boolean {
+  #isInRow(name: string): boolean {
     return this.#snapshotRow !== undefined && this.#definition(name).column in this.#snapshotRow;
   }
 }
