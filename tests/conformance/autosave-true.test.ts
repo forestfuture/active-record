@@ -3,6 +3,16 @@ import { abort, hasMany, InvalidModel, Model } from "../../packages/active-recor
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
+const log: string[] = [];
+
+class Comment extends Model.define({
+  id: { type: "integer", null: false },
+  postId: "integer",
+  body: "string",
+}) {
+  static table = "comments";
+}
+
 class Post extends Model.define({
   id: { type: "integer", null: false },
   userId: { type: "integer", null: false },
@@ -10,7 +20,10 @@ class Post extends Model.define({
 }) {
   static table = "posts";
 
+  comments = hasMany(Comment, { foreignKey: "postId", dependent: "deleteAll" });
+
   static {
+    this.afterDestroy((post) => void log.push(`destroyed ${post.title}`));
     this.validates("title", { presence: true });
     this.beforeValidation((post) => {
       if (post.title === "abort") throw abort("not today");
@@ -48,6 +61,7 @@ describe("autosave: true (#37)", () => {
   afterAll(() => harness.dispose());
   beforeEach(async () => {
     await harness.reset("comments", "profiles", "posts", "users");
+    log.length = 0;
     events.length = 0;
   });
 
@@ -163,6 +177,66 @@ describe("autosave: true (#37)", () => {
     expect(events).toHaveLength(0);
     await post!.reload();
     expect(post!.isMarkedForDestruction()).toBe(false);
+  });
+
+  test("saving the owner destroys its marked records, and they leave its collection", async () => {
+    const { author, posts } = await authorWithPosts(Author);
+    posts[0]!.markForDestruction();
+    expect(await author.posts().toArray()).toEqual(posts);
+
+    expect(await author.save()).toBe(true);
+
+    expect(posts[0]!.isDestroyed()).toBe(true);
+    expect(await titles()).toEqual(["Two"]);
+    expect(author.loaded("posts")).toEqual([posts[1]]);
+  });
+
+  test("a marked record's destroy runs its callbacks and its dependent: strategies", async () => {
+    const { author, posts } = await authorWithPosts(Author);
+    await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (1, 10, 'Hi')");
+    posts[0]!.markForDestruction();
+
+    await author.saveOrThrow();
+
+    expect(log).toEqual(["destroyed One"]);
+    expect(await db().model(Comment).count()).toBe(0);
+  });
+
+  test("the marked records are destroyed before the changed ones are saved", async () => {
+    const { author, posts } = await authorWithPosts(Author);
+    posts[1]!.title = "Changed";
+    posts[0]!.markForDestruction();
+
+    await author.saveOrThrow();
+
+    const writes = events.map(({ sql }) => sql.split(" ").slice(0, 3).join(" "));
+    expect(writes).toEqual([
+      expect.stringMatching(/^DELETE FROM .?comments/),
+      expect.stringMatching(/^DELETE FROM .?posts/),
+      expect.stringMatching(/^UPDATE .?posts/),
+    ]);
+  });
+
+  test("a marked record that was never saved is dropped from the collection, and nothing is written", async () => {
+    const { author } = await authorWithPosts(Author);
+    const post = author.posts().build({ title: "Draft" });
+    post.markForDestruction();
+
+    await author.saveOrThrow();
+
+    expect(post.isNewRecord()).toBe(true);
+    expect(events).toHaveLength(0);
+    expect(await author.posts().toArray()).toHaveLength(2);
+  });
+
+  test("guard: without autosave: true, a marked record isn't destroyed", async () => {
+    const { author, posts } = await authorWithPosts(PlainAuthor);
+    posts[0]!.markForDestruction();
+
+    await author.saveOrThrow();
+
+    expect(posts[0]!.isDestroyed()).toBe(false);
+    expect(await titles()).toEqual(["One", "Two"]);
   });
 
   test("autosave takes only true: anything else is an InvalidModel", () => {

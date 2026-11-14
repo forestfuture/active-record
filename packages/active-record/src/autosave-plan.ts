@@ -2,12 +2,15 @@
 import {
   autosavedAfter,
   autosavedBefore,
+  dropUnsavedMarked,
+  forget,
   keysKnownBefore,
   linkAfter,
   ownerKeyKnown,
   type Linked,
 } from "./autosave.ts";
 import {
+  prepareDestroy,
   prepareWrites,
   stagesOf,
   validation,
@@ -19,7 +22,7 @@ import { addFailure } from "./errors-collection.ts";
 import type { Model } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
-import { afterLinking, combine, inGroup, type Stage } from "./unit-of-work.ts";
+import { afterLinking, combine, inGroup, stageOf, type Stage } from "./unit-of-work.ts";
 
 /** A save that won't be written: a record it autosaves was refused. */
 type Refusal = Exclude<SavePlan, Ready>;
@@ -52,8 +55,8 @@ export async function validateAutosaves(owner: Model, claimed: Claimed): Promise
  */
 async function validateEach(owner: Model, linked: readonly Linked[], claimed: Claimed) {
   const invalid = new Set<string>();
-  for (const { association, record } of linked) {
-    if ((await validation(record, claimed)) === "valid") continue;
+  for (const { association, record, destroys } of linked) {
+    if (destroys || (await validation(record, claimed)) === "valid") continue;
     const copied =
       association.definition.autosave === true && copyErrors(owner, association, record);
     if (!copied) invalid.add(association.name);
@@ -76,27 +79,51 @@ export async function prepareBefore(
   claimed: Claimed,
 ): Promise<PlannedBefore | Refusal> {
   const { pointedAt, saved } = autosavedBefore(owner, claimed);
-  const planned = await prepareEach(saved, claimed);
+  const planned = await prepareEach(owner, saved, claimed);
   return Array.isArray(planned) ? { pointedAt, planned } : planned;
 }
 
-/** The saves of the records `owner` writes after itself, prepared once its own is. */
+/**
+ * The saves and destroys of the records `owner` writes after itself, prepared once its own is.
+ * Marked records it never saved are dropped from its associations first, writing nothing.
+ */
 export async function prepareAfter(owner: Model, claimed: Claimed): Promise<Planned[] | Refusal> {
-  return prepareEach(autosavedAfter(owner, claimed), claimed);
+  dropUnsavedMarked(owner);
+  return prepareEach(owner, autosavedAfter(owner, claimed), claimed);
 }
 
-/** Each record's prepared writes, in order; the first refusal stops them. */
+/** Each record's prepared save or destroy, in order; the first refusal stops them. */
 async function prepareEach(
+  owner: Model,
   linked: readonly Linked[],
   claimed: Claimed,
 ): Promise<Planned[] | Refusal> {
   const plans: Planned[] = [];
   for (const each of linked) {
-    const plan = await prepareWrites(each.record, claimed);
+    const plan = each.destroys
+      ? await prepareMarked(owner, each, claimed)
+      : await prepareWrites(each.record, claimed);
     if (plan.status !== "ready") return plan;
     plans.push({ ...each, plan });
   }
   return plans;
+}
+
+/**
+ * A marked record's destroy, with its callbacks and `dependent:` strategies, as any destroy's;
+ * once it's written, the record leaves the owner's association.
+ */
+async function prepareMarked(
+  owner: Model,
+  { association, record }: Linked,
+  claimed: Claimed,
+): Promise<Ready | Refusal> {
+  const plan = await prepareDestroy(record, claimed);
+  if (plan.status !== "ready") return { status: "aborted", reason: plan.reason };
+  const left = stageOf(record, [], () => [
+    { statements: [], commit: () => forget(owner, association, record), after: async () => {} },
+  ]);
+  return { ...plan, stages: combine([plan.stages, [left]]) };
 }
 
 /** Whether a record is written on its owner's database. */
