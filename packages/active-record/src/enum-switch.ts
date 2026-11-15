@@ -2,6 +2,7 @@
 // schema leaves off, or the column without them.
 import { InvalidModel } from "./errors.ts";
 import type { SpecObject } from "./metadata.ts";
+import { withoutEnum } from "./spec-keys.ts";
 
 /** An override as written, with its `enum` switch apart from its other changes. */
 export interface SwitchedOverride {
@@ -20,7 +21,8 @@ export function takeEnumSwitch(override: object): SwitchedOverride {
 /**
  * A generated spec as an override's switch leaves it: `enum: true` lifts the `scopes: false` and
  * `instanceMethods: false` the schema wrote, so an enum's defaults apply, and the override's own
- * switches, applied after, win. Either is an `InvalidModel` on a column without a generated enum.
+ * switches, applied after, win; `enum: false` drops the enum and its keys. Either is an
+ * `InvalidModel` on a column without a generated enum.
  */
 export function switchedSpec(
   where: string,
@@ -29,6 +31,7 @@ export function switchedSpec(
 ): SpecObject {
   if (switched === undefined) return spec;
   if (spec.enum === undefined) throw new InvalidModel(nothingToSwitch(where, switched));
+  if (!switched) return withoutEnum(spec);
   const { scopes: _scopes, instanceMethods: _instanceMethods, ...lifted } = spec;
   return lifted;
 }
