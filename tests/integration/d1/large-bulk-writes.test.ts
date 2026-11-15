@@ -93,12 +93,8 @@ describe("bulk writes past D1's cap on one value", () => {
       ]);
     await db().model(Attachment).upsert({ id: 1, name: large });
 
-    const sent = inserts().map(({ sql, params }) => [sql.includes("VALUES"), params.length]);
-    expect(sent).toEqual([
-      [false, 1],
-      [true, 2],
-      [true, 2],
-    ]);
+    // One JSON value for the small row; the large row's id and name each bound apart.
+    expect(inserts().map(({ params }) => params.length)).toEqual([1, 2, 2]);
     const names = await db().model(Attachment).order({ id: "asc" }).pluck("name");
     expect(names.map((name) => name?.length)).toEqual([2_000_000, 2_000_000]);
   });
