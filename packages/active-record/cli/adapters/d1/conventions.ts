@@ -1,6 +1,7 @@
 // Reads a column as an attribute by the conventions (#66): name, type, nullability, default.
 import {
   attributeName,
+  castDefault,
   storageOverride,
   underscore,
   withGeneratedEnum,
@@ -29,7 +30,10 @@ export interface Column {
 
 const declaredTypes: readonly (readonly [RegExp, AttributeType])[] = [
   [/^BOOL/, "boolean"],
-  [/^(DATETIME|TIMESTAMP|DATE)$/, "datetime"],
+  [/^(DATETIME|TIMESTAMP)$/, "datetime"],
+  [/^DATE$/, "date"],
+  [/^TIME$/, "time"],
+  [/^(NUMERIC|DECIMAL)$/, "decimal"],
   [/^JSON$/, "json"],
   [/^BLOB$/, "binary"],
   [/INT/, "integer"],
@@ -43,13 +47,6 @@ function baseType(declared: string): string {
     .toUpperCase()
     .replace(/\(.*\)/, "")
     .trim();
-}
-
-/** Why a declared type can't be an attribute, if it can't. */
-function unsupported(declared: string, name: string, where: string): string | undefined {
-  return /^(NUMERIC|DECIMAL)$/.test(declared)
-    ? `${where}: ${declared} loses precision as a number; store money as integer cents (${name}_cents INTEGER)`
-    : undefined;
 }
 
 /** A default that's a number or an epoch function, which a datetime in ISO text wouldn't hold. */
@@ -66,12 +63,9 @@ function epochDefaultNote(column: Column, type: AttributeType): string | undefin
 }
 
 /** A column's attribute type: its declared type first, then its name for plain TEXT/INTEGER. */
-function typeOf(column: Column): { type?: AttributeType; error?: string; note?: string } {
+function typeOf(column: Column): { type: AttributeType; note?: string } {
   const declared = baseType(column.declaredType || (column.referencedType ?? ""));
-  const where = `${column.table}.${column.name}`;
-  const error = unsupported(declared, column.name, where);
-  if (error !== undefined) return { error };
-  return typeOfDeclared(column, declared, where);
+  return typeOfDeclared(column, declared, `${column.table}.${column.name}`);
 }
 
 /** The attribute type for a supported declared type; a guess (`string`) comes with a note (#159). */
@@ -135,6 +129,7 @@ function numberDefault(value: string, type: AttributeType): Default | undefined 
 /** A quoted default for a json column (its JSON) or a datetime column (its date). */
 function textDefault(text: string, type: AttributeType): Default | undefined {
   if (type === "string") return { literal: text };
+  if (type === "date" || type === "time") return castDefault(type, text);
   if (type === "datetime") return Number.isNaN(Date.parse(text)) ? undefined : { date: text };
   try {
     return { literal: JSON.parse(text) as unknown };
@@ -150,6 +145,7 @@ function literalDefault(sql: string | null, type: AttributeType): Default | unde
   const value = sql.trim();
   if (type === "boolean") return booleanDefault(value);
   if (type === "integer" || type === "real") return numberDefault(value, type);
+  if (type === "decimal") return castDefault(type, quoted(value) ?? value);
   const text = quoted(value);
   return text === undefined ? undefined : textDefault(text, type);
 }
@@ -176,8 +172,7 @@ function specOf(column: Column, type: AttributeType, attribute: string): Spec {
 
 /** A column as an attribute, by the conventions (#66): name, type, nullability and default. */
 export function convert(column: Column): Converted {
-  const { type, error, note: typeNote } = typeOf(column);
-  if (type === undefined) return { ok: false, error: error! };
+  const { type, note: typeNote } = typeOf(column);
   const note = typeNote ?? epochDefaultNote(column, type);
   const attribute = attributeName(column.name);
   return {
