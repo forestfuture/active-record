@@ -155,6 +155,7 @@ Each error type has a built-in message. To replace one, use its type as the key 
 | `blank`                    | `presence`                                       | can’t be blank                                              |
 | `invalid`                  | `format` and an invalid autosaved association    | is invalid                                                  |
 | `inclusion`                | `inclusion`                                      | is not included in the list                                 |
+| `exclusion`                | `exclusion`                                      | is reserved                                                 |
 | `tooShort`                 | `length: { minimum }`                            | is too short (minimum is `%{count}` characters)             |
 | `tooLong`                  | `length: { maximum }`                            | is too long (maximum is `%{count}` characters)              |
 | `wrongLength`              | `length: { is }`                                 | is the wrong length (should be `%{count}` characters)       |
