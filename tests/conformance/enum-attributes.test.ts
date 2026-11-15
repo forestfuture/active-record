@@ -157,4 +157,19 @@ describe("enum attributes (#340)", () => {
       expect(priority.deserialize(0)).toBe("low");
     });
   });
+
+  describe("a record's predicates", () => {
+    test("say whether the attribute holds each name", () => {
+      const article = articles().build({ status: "published", priority: "high" });
+
+      expect([article.isDraft(), article.isPublished()]).toEqual([false, true]);
+      expect([article.isLow(), article.isNormal(), article.isHigh()]).toEqual([false, false, true]);
+    });
+
+    test("are all false while the attribute is null", () => {
+      const article = articles().build();
+
+      expect([article.isDraft(), article.isPublished()]).toEqual([false, false]);
+    });
+  });
 });

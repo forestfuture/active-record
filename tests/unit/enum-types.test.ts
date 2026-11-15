@@ -17,6 +17,17 @@ describe("an enum attribute's types (#340)", () => {
     expectTypeOf<Article["code"]>().toEqualTypeOf<"draft" | "published" | null>();
   });
 
+  test("a record has a predicate for each name, in camelCase", () => {
+    class Task extends Model.define({
+      state: { type: "string", enum: ["to_do", "in_progress"] },
+    }) {}
+
+    expectTypeOf<Article["isDraft"]>().toEqualTypeOf<() => boolean>();
+    expectTypeOf<Article["isHigh"]>().toEqualTypeOf<() => boolean>();
+    expectTypeOf<Task["isInProgress"]>().toEqualTypeOf<() => boolean>();
+    expectTypeOf<Article>().not.toHaveProperty("isArchived");
+  });
+
   test("an enum is a string's or an integer's, stored as that type", () => {
     Model.define({
       // @ts-expect-error a list of names is stored as text, so only a string has one
