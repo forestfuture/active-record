@@ -46,3 +46,28 @@ describe("exclusion", () => {
     expect(await errorsOf(handle)).toEqual(["slug exclusion: is reserved"]);
   });
 });
+
+describe("absence", () => {
+  class Signup extends Model.define({ id: "integer", trap: "string", flagged: "boolean" }) {
+    static table = "signups";
+    static {
+      this.validates("trap", { absence: true });
+      this.validates("flagged", { absence: true });
+    }
+  }
+  const signups = connect({} as never).model(Signup);
+
+  test("passes null and a string that's only whitespace", async () => {
+    expect(await errorsOf(signups.build({ trap: null, flagged: null }))).toEqual([]);
+    expect(await errorsOf(signups.build({ trap: "  ", flagged: null }))).toEqual([]);
+  });
+
+  test("fails any other value as must be blank, false included", async () => {
+    const signup = signups.build({ trap: "bot", flagged: false });
+
+    expect(await errorsOf(signup)).toEqual([
+      "trap present: must be blank",
+      "flagged present: must be blank",
+    ]);
+  });
+});

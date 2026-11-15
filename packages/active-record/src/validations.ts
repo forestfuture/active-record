@@ -30,6 +30,8 @@ export interface UniquenessOptions<R = never> {
 export interface ValidationOptions<R = never> {
   /** Not null, and not blank after trimming a string. */
   presence?: boolean;
+  /** Null, or blank after trimming a string: what `presence` fails ("must be blank"). */
+  absence?: boolean;
   length?: LengthOptions;
   format?: RegExp | { with: RegExp };
   inclusion?: readonly unknown[] | { in: readonly unknown[] };
@@ -64,6 +66,9 @@ function isBlank(value: unknown): boolean {
 
 const presence: Check = (value, { presence: required }) =>
   required && isBlank(value) ? [{ type: "blank" }] : [];
+
+const absence: Check = (value, { absence: required }) =>
+  required && !isBlank(value) ? [{ type: "present" }] : [];
 
 const length: Check = (value, { length: rule }) => {
   if (rule === undefined) return [];
@@ -132,7 +137,15 @@ const numericality: Check = (value, { numericality: rule }) => {
 };
 
 /** Applied in this order within one `validates` call. */
-const CHECKS: readonly Check[] = [presence, length, format, inclusion, exclusion, numericality];
+const CHECKS: readonly Check[] = [
+  presence,
+  absence,
+  length,
+  format,
+  inclusion,
+  exclusion,
+  numericality,
+];
 
 /** What running validations needs from the record being validated. */
 export interface ValidationTarget {
