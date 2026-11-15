@@ -6,8 +6,7 @@ import {
   type ComparisonOptions,
 } from "./comparison-validation.ts";
 import { isBlank } from "./blank.ts";
-import { castDecimal, compareDecimals } from "./decimal-values.ts";
-import { uncastable } from "./conversion.ts";
+import { orderDecimal } from "./decimal-values.ts";
 import { addFailure, type Errors, type Failure } from "./errors-collection.ts";
 import { attributeOf } from "./metadata.ts";
 import type { AttributesOf } from "./model.ts";
@@ -156,16 +155,11 @@ interface Numeric {
  */
 function numericOf(value: unknown, { isDecimal }: ValidationSubject): Numeric | undefined {
   if (isDecimal && typeof value === "string") {
-    return { isInteger: !value.includes("."), orderTo: (bound) => decimalOrder(value, bound) };
+    // A finite number is always a decimal, so a bound orders as a number or as NaN.
+    return { isInteger: !value.includes("."), orderTo: (bound) => orderDecimal(value, bound)! };
   }
   if (typeof value !== "number" || Number.isNaN(value)) return undefined;
   return { isInteger: Number.isInteger(value), orderTo: (bound) => orderOf(value, bound) };
-}
-
-/** Where a decimal falls against a bound; NaN for a bound that isn't a finite number. */
-function decimalOrder(value: string, bound: number): number {
-  const decimal = castDecimal(bound);
-  return decimal === uncastable ? Number.NaN : compareDecimals(value, decimal as string);
 }
 
 /** Only numbers pass, and a decimal's text; a numeric string like "12" is not a number. */

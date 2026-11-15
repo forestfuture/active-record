@@ -1,8 +1,7 @@
 // The `comparison` validator (#342): a value against bounds given as values or functions of the record, and the order checks it shares with `numericality`.
 import { withArticle } from "./attribute.ts";
 import { isBlank } from "./blank.ts";
-import { uncastable } from "./conversion.ts";
-import { castDecimal, compareDecimals } from "./decimal-values.ts";
+import { orderDecimal } from "./decimal-values.ts";
 import { FILTERED } from "./filtering.ts";
 import type { Failure } from "./errors-collection.ts";
 import type { ValidationSubject } from "./validations.ts";
@@ -98,13 +97,13 @@ function orderAgainst(value: unknown, bound: Comparable, subject: ValidationSubj
     requireComparable(value, bound, subject);
     return orderOf(value as Comparable, bound);
   }
-  const decimal = bound instanceof Date ? uncastable : castDecimal(bound);
-  if (decimal === uncastable) {
+  const order = bound instanceof Date ? undefined : orderDecimal(value, bound);
+  if (order === undefined) {
     const described =
       typeof bound === "string" ? "a string that isn't a decimal" : withArticle(kindOf(bound));
     throw incomparable(subject, "a decimal", described);
   }
-  return compareDecimals(value, decimal as string);
+  return order;
 }
 
 /**

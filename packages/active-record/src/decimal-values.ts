@@ -93,3 +93,16 @@ function compareMagnitudes(a: string, b: string): number {
   if (left === right) return 0;
   return left < right ? -1 : 1;
 }
+
+/**
+ * Where a decimal falls against a bound given as a number or decimal text: exactly, as
+ * `compareDecimals` does. A bound of `NaN` orders against nothing (NaN), and `±Infinity` beyond
+ * every decimal; `undefined` for a bound that isn't a number (text that isn't a decimal).
+ */
+export function orderDecimal(value: string, bound: number | string): number | undefined {
+  if (typeof bound === "number" && !Number.isFinite(bound)) {
+    return Number.isNaN(bound) ? Number.NaN : -Math.sign(bound);
+  }
+  const decimal = castDecimal(bound);
+  return decimal === uncastable ? undefined : compareDecimals(value, decimal as string);
+}
