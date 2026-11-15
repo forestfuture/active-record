@@ -44,6 +44,7 @@ describe("date attributes", () => {
       ["a date and time", "2026-01-02T10:00:00Z", '"2026-01-02T10:00:00Z"'],
       ["a day that doesn't exist", "2026-02-30", '"2026-02-30"'],
       ["a month that doesn't exist", "2026-13-01", '"2026-13-01"'],
+      ["year 0, which Postgres has no day in", "0000-01-01", '"0000-01-01"'],
       ["text with spaces", " 2026-01-02", '" 2026-01-02"'],
       ["a number", 20260102, "20260102"],
     ])("%s is a TypeError", (_, value, shown) => {

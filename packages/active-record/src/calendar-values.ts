@@ -1,8 +1,8 @@
 // Date and time attributes' values (#391): a day as `"2026-01-02"` and a time of day as `"14:30:00"`, text with no zone, from what an app assigns and what each database returns.
 import { uncastable } from "./conversion.ts";
 
-/** A day: a four-digit year, a month and a day. */
-const dayText = /^(\d{4})-(\d{2})-(\d{2})$/;
+/** A day: a four-digit year from 0001 (Postgres has no year 0), a month and a day. */
+const dayText = /^(?!0000)(\d{4})-(\d{2})-(\d{2})$/;
 
 /**
  * Text naming a day that exists (`"2026-01-02"`), as it is; anything else, a `Date` included
