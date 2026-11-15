@@ -42,6 +42,8 @@ function schema(p: string): string[] {
       published INTEGER NOT NULL DEFAULT 0,
       views INTEGER NOT NULL DEFAULT 0 CHECK (views >= 0)
     )`,
+    // Bytes (#20): bulk rows and list conditions carry them as hex, read with unhex.
+    `CREATE TABLE ${p}attachments (id INTEGER PRIMARY KEY, name TEXT, digest BLOB)`,
   ];
 }
 

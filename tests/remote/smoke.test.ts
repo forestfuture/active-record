@@ -41,7 +41,15 @@ function modelsFor(prefix: string) {
     static table = `${prefix}posts`;
   }
 
-  return { User, Post };
+  class Attachment extends Model.define({
+    id: { type: "integer", null: false },
+    name: "string",
+    digest: "binary",
+  }) {
+    static table = `${prefix}attachments`;
+  }
+
+  return { User, Post, Attachment };
 }
 
 // Against a real remote D1: catches what Miniflare's local D1 can't show, such as error message
@@ -50,15 +58,39 @@ describe.skipIf(!configured)("remote D1 smoke", () => {
   let remote: RemoteDatabase;
   let User: ReturnType<typeof modelsFor>["User"];
   let Post: ReturnType<typeof modelsFor>["Post"];
+  let Attachment: ReturnType<typeof modelsFor>["Attachment"];
 
   beforeAll(async () => {
     remote = await remoteDatabase();
-    ({ User, Post } = modelsFor(remote.prefix));
+    ({ User, Post, Attachment } = modelsFor(remote.prefix));
   });
   afterAll(() => remote?.dispose());
   beforeEach(async () => {
     const db = connect(remote.binding);
-    await db.batch((b) => [b.deleteAll(Post), b.deleteAll(User)]);
+    await db.batch((b) => [b.deleteAll(Post), b.deleteAll(User), b.deleteAll(Attachment)]);
+  });
+
+  // D1 allows only listed SQL functions; Miniflare's list may not be production's (#20).
+  test("insertAll writes bytes as hex, which unhex reads back", async () => {
+    const attachments = connect(remote.binding).model(Attachment);
+
+    await attachments.insertAll([
+      { id: 1, name: "a", digest: new Uint8Array([0, 1, 255]) },
+      { id: 2, name: "b", digest: new Uint8Array([]) },
+    ]);
+
+    const digests = await attachments.order({ id: "asc" }).pluck("digest");
+    expect(digests.map((digest) => [...digest!])).toEqual([[0, 1, 255], []]);
+  });
+
+  test("where finds records by a list of bytes, sent as hex", async () => {
+    const attachments = connect(remote.binding).model(Attachment);
+    await attachments.create({ id: 1, name: "a", digest: new Uint8Array([1, 2]) });
+    await attachments.create({ id: 2, name: "b", digest: new Uint8Array([3]) });
+
+    const found = attachments.where({ digest: [new Uint8Array([3]), new Uint8Array([9])] });
+
+    expect(await found.pluck("name")).toEqual(["b"]);
   });
 
   test("create, find, update and destroy a record, with values converted both ways", async () => {
