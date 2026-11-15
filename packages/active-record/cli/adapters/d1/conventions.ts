@@ -3,6 +3,7 @@ import {
   attributeName,
   storageOverride,
   underscore,
+  withGeneratedEnum,
   type Converted,
   type Default,
   type Spec,
@@ -170,15 +171,6 @@ function specOf(column: Column, type: AttributeType, attribute: string): Spec {
   if (defaultValue !== undefined) spec.default = defaultValue;
   else if (column.primaryKey && type === "string") spec.generateId = true;
   return withGeneratedEnum(spec, column.checkedNames);
-}
-
-/**
- * A string spec with the names its column is restricted to, as a generated enum: its methods
- * are off until the Model's override turns them on (#64, ADR-0021).
- */
-function withGeneratedEnum(spec: Spec, names: readonly string[] | undefined): Spec {
-  if (names === undefined || spec.type !== "string") return spec;
-  return { ...spec, enum: names, scopes: false, instanceMethods: false };
 }
 
 /** A column as an attribute, by the conventions (#66): name, type, nullability and default. */

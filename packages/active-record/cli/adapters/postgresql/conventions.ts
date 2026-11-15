@@ -2,6 +2,7 @@
 import {
   attributeName,
   underscore,
+  withGeneratedEnum,
   type Converted,
   type Default,
   type Spec,
@@ -101,7 +102,7 @@ function specOf(column: Column, type: AttributeType, attribute: string): Spec {
   const defaultValue = literalDefault(column.defaultValue, type);
   if (defaultValue !== undefined) spec.default = defaultValue;
   else if (column.primaryKey && type === "string") spec.generateId = true;
-  return spec;
+  return withGeneratedEnum(spec, column.labels);
 }
 
 /** A column as an attribute: its type, nullability and literal default, or why it can't be one. */
