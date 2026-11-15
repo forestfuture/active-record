@@ -144,7 +144,7 @@ describe("enum attributes (#340)", () => {
   });
 
   describe("an unknown value", () => {
-    test("a number in a condition on a string enum is read as its digits, and else matches nothing", async () => {
+    test("a number in a condition on a string enum is read as its digits", async () => {
       class Coded extends Model.define({
         id: { type: "integer", null: false },
         status: { type: "string", enum: { low: "1", high: "2" } },
@@ -155,6 +155,9 @@ describe("enum attributes (#340)", () => {
       const coded = harness.connect().model(Coded);
 
       expect(await coded.where({ status: 1 as never }).pluck("id")).toEqual([1]);
+    });
+
+    test("a number in a condition on a string enum that's none of its values matches nothing", async () => {
       expect(
         await articles()
           .where({ status: 7 as never })
