@@ -70,7 +70,7 @@ Name them on your app’s base class, spreading in the defaults:
 
 <include>/_excerpts/guide/filtering/add.ts</include>
 
-A string matches any attribute whose snake_case name contains it, so `"iban"` also covers `ibanNumber`. Use a RegExp to match one name exactly.
+A string matches any attribute whose snake_case name contains it, so `"iban"` also covers `ibanNumber`. A string can be in camelCase or snake_case: `"ibanNumber"` and `"iban_number"` both match `ibanNumber`. Use a RegExp to match one name exactly.
 
 ### Seeing a filtered attribute
 
