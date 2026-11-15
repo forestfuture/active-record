@@ -32,13 +32,14 @@ export const defaultFilterAttributes: readonly FilterAttribute[] = [
 
 /**
  * Whether `attribute`'s values are hidden from listeners: its snake_case name holds a string
- * entry (in any case), or a RegExp entry matches the attribute or its snake_case name.
+ * entry read in snake_case (`"apiKey"` as `api_key`, in any case; #397), or a RegExp entry
+ * matches the attribute or its snake_case name.
  */
 export function isFiltered(model: ModelClass, attribute: string): boolean {
   const name = underscore(attribute); // already lowercase
   return model.filterAttributes.some((entry) =>
     typeof entry === "string"
-      ? name.includes(entry.toLowerCase())
+      ? name.includes(underscore(entry))
       : attribute.search(entry) !== -1 || name.search(entry) !== -1,
   );
 }

@@ -188,6 +188,14 @@ describe("filterAttributes", () => {
       ]);
     });
 
+    test("a string written as the attribute is matches it", async () => {
+      expect(await hiddenNames(named(["apiKey"]))).toEqual(["apiKey"]);
+    });
+
+    test("a string written in snake_case matches the attribute", async () => {
+      expect(await hiddenNames(named(["api_key"]))).toEqual(["apiKey"]);
+    });
+
     test("a RegExp matches the attribute or its snake_case name", async () => {
       expect(await hiddenNames(named([/^nick/]))).toEqual(["nickname"]);
       expect(await hiddenNames(named([/_digest$/]))).toEqual(["passwordDigest"]);
