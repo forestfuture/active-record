@@ -1,4 +1,5 @@
 // What an adapter's plugin gives the `active-record` command (#278): its project config, schema reader, migrations and console database.
+import type { AttributeType } from "../src/metadata.ts";
 import type { ColumnArg } from "./generate/columns.ts";
 import type { Migration } from "./project/migrations.ts";
 
@@ -46,8 +47,6 @@ export type ConfigResult =
       notes?: string[];
     }
   | { ok: false; error: string };
-
-type AttributeType = "string" | "integer" | "real" | "boolean" | "datetime" | "json";
 
 /** A default the generated spec carries: a literal value, or a date. */
 export type Default = { literal: unknown } | { date: string };

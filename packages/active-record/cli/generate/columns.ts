@@ -2,7 +2,15 @@
 import { pluralize } from "../../src/inflections.ts";
 import { camelize, underscore } from "../../src/naming.ts";
 
-type ColumnType = "string" | "integer" | "real" | "boolean" | "datetime" | "json" | "references";
+type ColumnType =
+  | "string"
+  | "integer"
+  | "real"
+  | "boolean"
+  | "datetime"
+  | "json"
+  | "binary"
+  | "references";
 
 /** One column as the generators' syntax gives it: `email:string!:unique`, `user:references`. */
 export interface ColumnArg {
@@ -25,6 +33,7 @@ const types: readonly ColumnType[] = [
   "boolean",
   "datetime",
   "json",
+  "binary",
   "references",
 ];
 

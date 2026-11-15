@@ -18,7 +18,7 @@ describe("schemaOf: from migrations to table schemas", () => {
     expect(
       attributes(`CREATE TABLE things (
         id INTEGER PRIMARY KEY, a INTEGER, b INT, c BIGINT, d TEXT, e VARCHAR(40), f CHAR(2),
-        g REAL, h FLOAT, i DOUBLE, j BOOLEAN, k DATETIME, l TIMESTAMP, m DATE, n JSON
+        g REAL, h FLOAT, i DOUBLE, j BOOLEAN, k DATETIME, l TIMESTAMP, m DATE, n JSON, o BLOB
       )`),
     ).toMatchObject({
       a: { type: "integer" },
@@ -35,6 +35,7 @@ describe("schemaOf: from migrations to table schemas", () => {
       l: { type: "datetime" },
       m: { type: "datetime" },
       n: { type: "json" },
+      o: { type: "binary" },
     });
   });
 
@@ -237,6 +238,14 @@ describe("schemaOf: from migrations to table schemas", () => {
     });
   });
 
+  test("a BLOB's default stays with D1: a spec has no literal for bytes (#20)", () => {
+    const { i, j } = attributes(
+      "CREATE TABLE things (id INTEGER PRIMARY KEY, i BLOB DEFAULT '[1]', j BLOB DEFAULT x'00')",
+    );
+
+    expect([i, j]).toEqual([{ type: "binary" }, { type: "binary" }]);
+  });
+
   test("a TEXT primary key is generated in code; an INTEGER one is left to D1", () => {
     expect(attributes("CREATE TABLE things (id TEXT PRIMARY KEY)").id).toEqual({
       type: "string",
@@ -339,7 +348,7 @@ describe("schemaOf: from migrations to table schemas", () => {
     const result = schemaOf([
       {
         name: "0001_m.sql",
-        sql: `CREATE TABLE things (id INTEGER PRIMARY KEY, price NUMERIC, photo BLOB);
+        sql: `CREATE TABLE things (id INTEGER PRIMARY KEY, price NUMERIC);
           CREATE TABLE pairs (a INTEGER, b INTEGER, PRIMARY KEY (a, b));`,
       },
     ]);
@@ -349,7 +358,6 @@ describe("schemaOf: from migrations to table schemas", () => {
       errors: [
         "pairs: a composite primary key (a, b) isn't supported; give the table a single key",
         "things.price: NUMERIC loses precision as a number; store money as integer cents (price_cents INTEGER)",
-        "things.photo: BLOB columns aren't supported yet (#20)",
       ],
     });
   });

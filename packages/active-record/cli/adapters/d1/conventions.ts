@@ -31,6 +31,7 @@ const declaredTypes: readonly (readonly [RegExp, AttributeType])[] = [
   [/^BOOL/, "boolean"],
   [/^(DATETIME|TIMESTAMP|DATE)$/, "datetime"],
   [/^JSON$/, "json"],
+  [/^BLOB$/, "binary"],
   [/INT/, "integer"],
   [/CHAR|CLOB|TEXT/, "string"],
   [/REAL|FLOA|DOUB/, "real"],
@@ -46,10 +47,9 @@ function baseType(declared: string): string {
 
 /** Why a declared type can't be an attribute, if it can't. */
 function unsupported(declared: string, name: string, where: string): string | undefined {
-  if (/^(NUMERIC|DECIMAL)$/.test(declared)) {
-    return `${where}: ${declared} loses precision as a number; store money as integer cents (${name}_cents INTEGER)`;
-  }
-  return declared === "BLOB" ? `${where}: BLOB columns aren't supported yet (#20)` : undefined;
+  return /^(NUMERIC|DECIMAL)$/.test(declared)
+    ? `${where}: ${declared} loses precision as a number; store money as integer cents (${name}_cents INTEGER)`
+    : undefined;
 }
 
 /** A default that's a number or an epoch function, which a datetime in ISO text wouldn't hold. */
@@ -145,7 +145,8 @@ function textDefault(text: string, type: AttributeType): Default | undefined {
 
 /** A SQL literal default as a value of the attribute's type; undefined for anything else. */
 function literalDefault(sql: string | null, type: AttributeType): Default | undefined {
-  if (sql === null) return undefined;
+  // A spec has no literal for bytes, so a binary column's default stays with D1 (#20).
+  if (sql === null || type === "binary") return undefined;
   const value = sql.trim();
   if (type === "boolean") return booleanDefault(value);
   if (type === "integer" || type === "real") return numberDefault(value, type);
