@@ -70,8 +70,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-vp
-      # The blob saves the results for check; github-actions names each failing test in this log, and
-      # on the pull request's files, since the blob prints nothing (#402).
+      # The blob saves the results for check; github-actions names each failing test in this log, on
+      # the pull request's files, and in the run's summary, since the blob prints nothing (#402).
       - run: vp test --shard=${{ matrix.shard }}/4 --coverage --coverage.thresholds.branches=0 --reporter=blob --outputFile.blob=blob/shard-${{ matrix.shard }}.json --reporter=github-actions
       # Saved when the tests fail too, so check can merge every shard's results and list the
       # failures (#402).
