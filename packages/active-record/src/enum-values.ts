@@ -1,4 +1,5 @@
 // An enum attribute's values (#340): its names, the value each is stored as, and validating them.
+import { UnknownAttribute } from "./errors.ts";
 import type { AttributeDefinition } from "./metadata.ts";
 import type { Validation } from "./validations.ts";
 
@@ -97,4 +98,37 @@ export function enumValidations(
     const names = enumEntries(values).map(([name]) => name);
     return [{ attribute, options: { inclusion: names, allowNull } }];
   });
+}
+
+/** An enum's names, each with the value it's stored as, as `enumValues` gives them. */
+export type EnumMapping<E> = E extends readonly string[]
+  ? { readonly [N in E[number]]: N }
+  : Readonly<E>;
+
+/** Each enum's mapping, made once: `enumValues` gives the same frozen object each time. */
+const mappings = new WeakMap<EnumValues, Readonly<Record<string, string | number>>>();
+
+/** An enum's names and the value each is stored as, frozen: `{ draft: "draft" }`, `{ low: 0 }`. */
+export function mappingOf(values: EnumValues): Readonly<Record<string, string | number>> {
+  let mapping = mappings.get(values);
+  if (mapping === undefined) {
+    mapping = Object.freeze(Object.fromEntries(enumEntries(values)));
+    mappings.set(values, mapping);
+  }
+  return mapping;
+}
+
+/** `model`'s enum `attribute`'s mapping, or `UnknownAttribute` for a name that isn't an enum's. */
+export function enumValuesOf(
+  model: {
+    readonly name: string;
+    readonly attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
+  },
+  attribute: string,
+): Readonly<Record<string, string | number>> {
+  const values = model.attributeDefinitions.get(attribute)?.enum;
+  if (values === undefined) {
+    throw new UnknownAttribute(`${model.name} has no enum attribute "${attribute}"`);
+  }
+  return mappingOf(values);
 }
