@@ -91,7 +91,7 @@ function referencedTypes(db: DatabaseSync, table: string): Map<string, string> {
 /** A table's columns, as the conventions read them. */
 function columnsOf(db: DatabaseSync, table: string, definition: string): Column[] {
   const json = jsonChecked(definition);
-  const checked = checkedNames(definition);
+  const lists = checkedNames(definition);
   const referenced = referencedTypes(db, table);
   return db
     .prepare('SELECT name, type, "notnull", dflt_value, pk FROM pragma_table_info(?)')
@@ -105,7 +105,7 @@ function columnsOf(db: DatabaseSync, table: string, definition: string): Column[
       primaryKey: Number(row.pk) > 0,
       jsonChecked: json.has(String(row.name)),
       referencedType: referenced.get(String(row.name)),
-      checkedNames: checked.get(String(row.name).toLowerCase()),
+      restrictedTo: lists.get(String(row.name).toLowerCase()),
     }));
 }
 

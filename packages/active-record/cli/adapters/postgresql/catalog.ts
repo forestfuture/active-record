@@ -91,10 +91,12 @@ export async function definitions(query: Query): Promise<Map<string, string>> {
 export async function columnsByTable(query: Query): Promise<Map<string, Column[]>> {
   const byTable = new Map<string, Column[]>();
   const checks = await checksByTable(query);
-  const checked = new Map([...checks].map(([table, each]) => [table, checkedNames(each)]));
+  const listsByTable = new Map(
+    [...checks].map(([table, constraints]) => [table, checkedNames(constraints)]),
+  );
   for (const row of await query(columnsQuery)) {
     const column = row as unknown as Column;
-    column.restrictedTo ??= checked.get(column.table)?.get(column.name) ?? null;
+    column.restrictedTo ??= listsByTable.get(column.table)?.get(column.name) ?? null;
     const columns = byTable.get(column.table) ?? [];
     columns.push(column);
     byTable.set(column.table, columns);
