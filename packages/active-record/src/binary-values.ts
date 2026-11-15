@@ -34,7 +34,9 @@ const decoder = new TextDecoder();
  */
 export function hexOf(bytes: Uint8Array): string {
   const text = new Uint8Array(bytes.length * 2);
-  for (const [index, byte] of bytes.entries()) {
+  // An index loop: entries() would make a pair for every byte.
+  for (let index = 0; index < bytes.length; index++) {
+    const byte = bytes[index]!;
     text[index * 2] = digitCodes[byte >> 4]!;
     text[index * 2 + 1] = digitCodes[byte & 15]!;
   }
