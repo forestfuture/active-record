@@ -50,6 +50,26 @@ describe("bulk writes past D1's cap on one value", () => {
     expect(await stored()).toEqual([1, 2, 3, 4, 5].map((id) => [id, 300_000, id]));
   });
 
+  // [[1,"…"],[2,"…"]] is 15 bytes around the names; the first name is 1,000,000 bytes of UTF-8,
+  // in two- and four-byte characters, so the cap is counted in bytes, not characters.
+  test.each([
+    [999_985, 1],
+    [999_986, 2],
+  ])("with a second name of %i bytes, the rows take %i statements", async (size, statements) => {
+    const multibyte = "é".repeat(250_000) + "😀".repeat(125_000);
+
+    await db()
+      .model(Attachment)
+      .insertAll([
+        { id: 1, name: multibyte },
+        { id: 2, name: "b".repeat(size) },
+      ]);
+
+    expect(inserts()).toHaveLength(statements);
+    const names = await db().model(Attachment).order({ id: "asc" }).pluck("name");
+    expect(names).toEqual([multibyte, "b".repeat(size)]);
+  });
+
   test("a duplicate in the last statement writes none of the rows", async () => {
     await db().model(Attachment).insert({ id: 5, name: "taken" });
     events = [];
