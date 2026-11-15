@@ -134,21 +134,24 @@ describe("binary attributes", () => {
       await attachments().create({ id: 3, name: "c", digest: bytes(2) });
     });
 
-    test("where finds a record by its bytes, or by a list of them", async () => {
+    test("where finds a record by its bytes", async () => {
       expect(
         await attachments()
           .where({ digest: bytes(1, 10) })
           .pluck("name"),
       ).toEqual(["b"]);
-      expect(
-        await attachments()
-          .where({ digest: [bytes(2), bytes(1, 2)] })
-          .order({ id: "asc" })
-          .pluck("name"),
-      ).toEqual(["a", "c"]);
-      expect(
-        await attachments().findBy({ digest: new Uint8Array([1, 2]).buffer as never }),
-      ).toMatchObject({ name: "a" });
+    });
+
+    test("where finds records by a list of bytes", async () => {
+      const found = attachments().where({ digest: [bytes(2), bytes(1, 2)] });
+
+      expect(await found.order({ id: "asc" }).pluck("name")).toEqual(["a", "c"]);
+    });
+
+    test("findBy takes an ArrayBuffer as its bytes", async () => {
+      const digest = untyped(new Uint8Array([1, 2]).buffer);
+
+      expect(await attachments().findBy({ digest })).toMatchObject({ name: "a" });
     });
 
     test("a value that isn't bytes matches nothing", async () => {
