@@ -12,6 +12,9 @@ export const declared = {
   seconds: { type: "datetime", storage: "unixSeconds" },
   milliseconds: { type: "datetime", storage: "unixMilliseconds" },
   settings: "json",
+  amount: "decimal",
+  day: "date",
+  opensAt: "time",
 } as const;
 
 export class Sample extends Model.define({ id: { type: "integer", null: false }, ...declared }) {
@@ -45,8 +48,27 @@ export function assignedRefusal(attribute: SampleAttribute): RegExp {
 export const readRefusal = (attribute: SampleAttribute): RegExp =>
   new RegExp(`^Sample: ${notOfType(attribute)}$`, "s");
 
+/**
+ * The one form of each type held as text (#391), written apart from the library's own patterns:
+ * a decimal has no exponent, no `+`, no leading zeros but one before the point and no trailing
+ * zeros after it; a time has its seconds, and a fraction only when it isn't zero.
+ */
+const textForms: Readonly<Record<string, RegExp>> = {
+  decimal: /^(?:-?(?:[1-9]\d*|0\.\d*[1-9]|[1-9]\d*\.\d*[1-9])|0)$/,
+  date: /^\d{4}-\d{2}-\d{2}$/,
+  time: /^\d{2}:\d{2}:\d{2}(?:\.\d{0,5}[1-9])?$/,
+};
+
 /** Whether `value` is a JavaScript value of the attribute's declared type. */
 export function isOfType(attribute: SampleAttribute, value: unknown): boolean {
+  const form = textForms[typeOf(attribute)];
+  return form === undefined
+    ? isOfOtherType(attribute, value)
+    : typeof value === "string" && form.test(value);
+}
+
+/** Whether `value` is a JavaScript value of a type that isn't held as text in one form. */
+function isOfOtherType(attribute: SampleAttribute, value: unknown): boolean {
   switch (typeOf(attribute)) {
     case "string":
       return typeof value === "string";
