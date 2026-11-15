@@ -291,6 +291,10 @@ function shown(value: unknown): string {
 }
 
 function textOf(value: unknown): string {
+  // Bytes by their kind and size: as JSON, a large array would cost far more than it shows (#20).
+  if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) {
+    return `<${value.constructor.name} of ${value.byteLength} bytes>`;
+  }
   if (typeof value === "number" || isInvalidDate(value)) return String(value);
   try {
     return JSON.stringify(value) ?? String(value);
