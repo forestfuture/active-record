@@ -1,4 +1,5 @@
 // Reads tables and their columns from Postgres's catalog, in the current schema: the same queries on PGlite and on a server.
+import { checkedNames, type CheckConstraint } from "./checks.ts";
 
 /** Sends one statement and returns its rows: PGlite's or a `pg` client's, wrapped alike. */
 export type Query = (sql: string) => Promise<Record<string, unknown>[]>;
@@ -15,8 +16,11 @@ export interface Column {
   kind: string;
   /** Its base type's category: `A` for an array. */
   category: string;
-  /** An enum type's labels, in their order (#64); `null` for any other type. */
-  labels: string[] | null;
+  /**
+   * The names the database restricts it to (#64): an enum type's labels, in their order, or the
+   * list one `CHECK (… IN …)` gives it; `null` for any other column.
+   */
+  restrictedTo: string[] | null;
   notNull: boolean;
   /** Its default as Postgres writes it back: `'it''s'::text`, `now()`. */
   defaultValue: string | null;
@@ -32,7 +36,7 @@ SELECT c.relname AS "table", a.attname AS "name",
   format_type(a.atttypid, a.atttypmod) AS "declared",
   b.typname AS "base", b.typtype AS "kind", b.typcategory AS "category",
   (SELECT array_agg(e.enumlabel::text ORDER BY e.enumsortorder) FROM pg_enum e
-    WHERE e.enumtypid = b.oid) AS "labels",
+    WHERE e.enumtypid = b.oid) AS "restrictedTo",
   a.attnotnull AS "notNull", pg_get_expr(d.adbin, d.adrelid) AS "defaultValue",
   COALESCE(a.attnum = ANY (k.conkey), false) AS "primaryKey"
 FROM pg_class c
@@ -43,6 +47,26 @@ LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
 LEFT JOIN pg_constraint k ON k.conrelid = c.oid AND k.contype = 'p'
 WHERE ${ownTables}
 ORDER BY c.relname, a.attnum`;
+
+/** Each CHECK constraint of the current schema's tables: its table, its columns, its definition. */
+const checksQuery = `
+SELECT c.relname AS "table", pg_get_constraintdef(k.oid) AS "definition",
+  ARRAY(SELECT a.attname::text FROM pg_attribute a
+    WHERE a.attrelid = k.conrelid AND a.attnum = ANY (k.conkey)) AS "columns"
+FROM pg_constraint k
+JOIN pg_class c ON c.oid = k.conrelid
+WHERE k.contype = 'c' AND ${ownTables}`;
+
+/** Each table's CHECK constraints, by table. */
+async function checksByTable(query: Query): Promise<Map<string, CheckConstraint[]>> {
+  const byTable = new Map<string, CheckConstraint[]>();
+  for (const row of await query(checksQuery)) {
+    const checks = byTable.get(String(row.table)) ?? [];
+    checks.push(row as unknown as CheckConstraint);
+    byTable.set(String(row.table), checks);
+  }
+  return byTable;
+}
 
 /** Each table's columns and constraints as one line of text, to tell when a migration changed it. */
 const definitionsQuery = `
@@ -66,8 +90,11 @@ export async function definitions(query: Query): Promise<Map<string, string>> {
 /** Every column of the current schema's tables, by table, in column order. */
 export async function columnsByTable(query: Query): Promise<Map<string, Column[]>> {
   const byTable = new Map<string, Column[]>();
+  const checks = await checksByTable(query);
+  const checked = new Map([...checks].map(([table, each]) => [table, checkedNames(each)]));
   for (const row of await query(columnsQuery)) {
     const column = row as unknown as Column;
+    column.restrictedTo ??= checked.get(column.table)?.get(column.name) ?? null;
     const columns = byTable.get(column.table) ?? [];
     columns.push(column);
     byTable.set(column.table, columns);
