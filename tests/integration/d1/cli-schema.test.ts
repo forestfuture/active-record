@@ -589,6 +589,32 @@ export class FeaturedPost extends Post {}
     );
   });
 
+  test("an enum whose method names clash fails, and the last good file is kept (#340)", async () => {
+    const cwd = await withModels({
+      "user.ts": `${base}export class User extends ApplicationRecord {
+  static override attributes = { email: { enum: ["first", "second"] } } as const;
+}
+`,
+      "writer.ts": `${base}export class Writer extends ApplicationRecord {
+  static override table = "users";
+  static override attributes = { email: { enum: ["sent"] } } as const;
+  static override sent = this.scope((q) => q.where({ email: "sent" }));
+}
+`,
+    });
+
+    const { code, output } = await run(cwd);
+
+    expect(code).toBe(1);
+    expect(output).toBe(
+      'src/models/user.ts: User\'s enum email gives a scope named "first", which is the name of a ' +
+        "Relation method or a Model static; give email a prefix or a suffix\n" +
+        'src/models/writer.ts: Writer declares "sent", which is also the name of a scope its enum ' +
+        "email gives; rename it, or give email a prefix or a suffix\n" +
+        "Kept src/db/schema.ts as it was",
+    );
+  });
+
   test("doesn't list classes Models are built on, or Models declaring their own attributes", async () => {
     const cwd = await withModels({
       "shared.ts": `${base}export abstract class Shared extends ApplicationRecord {
