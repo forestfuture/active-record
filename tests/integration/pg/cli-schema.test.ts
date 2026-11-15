@@ -69,7 +69,13 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
           isAdmin: { type: "boolean", null: false, default: { literal: false } },
           settings: { type: "json", null: false, default: { literal: { theme: "dark" } } },
           payload: { type: "json" },
-          feeling: { type: "string", default: { literal: "happy" } },
+          feeling: {
+            type: "string",
+            default: { literal: "happy" },
+            enum: ["happy", "sad"],
+            scopes: false,
+            instanceMethods: false,
+          },
           bornOn: { type: "datetime" },
           seenAt: { type: "datetime" },
           createdAt: { type: "datetime", null: false },
@@ -77,6 +83,28 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
         },
       },
     ]);
+  });
+
+  test("an enum type's column, or a domain over one, is a generated enum, its labels in their order (#64)", async () => {
+    const { tables } = await tablesOf({
+      "1_create.sql": `
+        CREATE TYPE mood AS ENUM ('sad', 'ok', 'happy');
+        ALTER TYPE mood ADD VALUE 'meh' BEFORE 'ok';
+        CREATE DOMAIN calm AS mood;
+        CREATE TABLE notes (id INTEGER PRIMARY KEY, feeling mood NOT NULL, quiet calm);`,
+    });
+    const generated = {
+      type: "string",
+      enum: ["sad", "meh", "ok", "happy"],
+      scopes: false,
+      instanceMethods: false,
+    };
+
+    expect(tables[0]!.attributes).toEqual({
+      id: { type: "integer", null: false },
+      feeling: { ...generated, null: false },
+      quiet: generated,
+    });
   });
 
   test("a string key is made in code, unless it has a literal default; tables are alphabetical", async () => {

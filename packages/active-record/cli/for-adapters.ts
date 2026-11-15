@@ -6,6 +6,7 @@ export { migrationSql, quotedName, type MigrationDialect } from "./generate/migr
 export { byName, byVersion, type Migration } from "./project/migrations.ts";
 export { configFileName, parseJsonc } from "./project/config-file.ts";
 export { attributeName, exportName, listed } from "./project/names.ts";
+export { withGeneratedEnum } from "./schema/generated-enum.ts";
 export { storageOverride } from "./schema/storage-override.ts";
 export {
   generatedSchema,

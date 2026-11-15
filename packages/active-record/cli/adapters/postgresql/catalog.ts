@@ -15,6 +15,8 @@ export interface Column {
   kind: string;
   /** Its base type's category: `A` for an array. */
   category: string;
+  /** An enum type's labels, in their order (#64); `null` for any other type. */
+  labels: string[] | null;
   notNull: boolean;
   /** Its default as Postgres writes it back: `'it''s'::text`, `now()`. */
   defaultValue: string | null;
@@ -29,6 +31,8 @@ const columnsQuery = `
 SELECT c.relname AS "table", a.attname AS "name",
   format_type(a.atttypid, a.atttypmod) AS "declared",
   b.typname AS "base", b.typtype AS "kind", b.typcategory AS "category",
+  (SELECT array_agg(e.enumlabel::text ORDER BY e.enumsortorder) FROM pg_enum e
+    WHERE e.enumtypid = b.oid) AS "labels",
   a.attnotnull AS "notNull", pg_get_expr(d.adbin, d.adrelid) AS "defaultValue",
   COALESCE(a.attnum = ANY (k.conkey), false) AS "primaryKey"
 FROM pg_class c
