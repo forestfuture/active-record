@@ -173,8 +173,8 @@ export class Model extends ModelStatics {
 
   /**
    * Attributes whose values listeners and errors show as "[FILTERED]", as Rails'
-   * `filter_attributes`: an attribute whose snake_case name holds a string entry (in any
-   * case), or matches a RegExp. Rails' defaults; replace them on the app's base class (#83).
+   * `filter_attributes`: an attribute whose snake_case name holds a string entry, lowercased
+   * or read in snake_case (`"apiKey"` as `api_key`), or matches a RegExp. Rails' defaults; replace them on the app's base class (#83).
    */
   static filterAttributes: readonly FilterAttribute[] = defaultFilterAttributes;
 
