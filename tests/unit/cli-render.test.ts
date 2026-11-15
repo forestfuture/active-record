@@ -134,6 +134,16 @@ export const schema = defineSchema({
     expect(fingerprintOf(without)).not.toBe(fingerprintOf(schemaFor(tables, models)));
   });
 
+  test("writes a generated enum's names with its methods turned off (#64)", () => {
+    const tables = tablesOf(
+      "CREATE TABLE posts (id INTEGER PRIMARY KEY, status TEXT CHECK (status IN ('draft', 'it''s')))",
+    );
+
+    expect(renderSchema(schemaFor(tables), "migrations/")).toContain(
+      `  status: { type: "string", enum: ["draft", "it's"], scopes: false, instanceMethods: false },`,
+    );
+  });
+
   test("a table named like a JavaScript keyword gets a name that's allowed", () => {
     const source = renderSchema(
       schemaFor(tablesOf('CREATE TABLE "default" (id INTEGER PRIMARY KEY)')),

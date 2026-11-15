@@ -38,6 +38,14 @@ function defaultSource(value: Default): string {
   return `() => ${source.startsWith("{") ? `(${source})` : source}`;
 }
 
+/** A generated enum's names, and the switches that keep its methods off until an override (#64). */
+function generatedEnumSource(spec: Spec): string[] {
+  const parts = [`enum: ${valueSource(spec.enum)}`];
+  if (spec.scopes === false) parts.push("scopes: false");
+  if (spec.instanceMethods === false) parts.push("instanceMethods: false");
+  return parts;
+}
+
 /** An attribute's spec: just its type when that's all it has, as Models are written by hand. */
 function specSource(spec: Spec): string {
   const parts = [`type: ${JSON.stringify(spec.type)}`];
@@ -45,6 +53,7 @@ function specSource(spec: Spec): string {
   if (spec.column !== undefined) parts.push(`column: ${JSON.stringify(spec.column)}`);
   if (spec.default !== undefined) parts.push(`default: ${defaultSource(spec.default)}`);
   if (spec.generateId) parts.push("generateId: true");
+  if (spec.enum !== undefined) parts.push(...generatedEnumSource(spec));
   return parts.length === 1 ? JSON.stringify(spec.type) : `{ ${parts.join(", ")} }`;
 }
 
