@@ -204,4 +204,24 @@ describe("enum attributes (#340)", () => {
       expect(await harness.exec("SELECT id FROM articles")).toEqual([]);
     });
   });
+
+  describe("a Model's scopes", () => {
+    beforeEach(async () => {
+      await articles().insertAll([
+        { id: 1, status: "draft", priority: "high" },
+        { id: 2, status: "published", priority: "low" },
+        { id: 3, status: "published", priority: "high" },
+      ]);
+    });
+    const ids = (records: readonly Article[]) => records.map((each) => each.id);
+
+    test("find the records with each name, or without it, and chain", async () => {
+      const byId = articles().order({ id: "asc" });
+
+      expect(ids(await byId.published().toArray())).toEqual([2, 3]);
+      expect(ids(await byId.notPublished().toArray())).toEqual([1]);
+      expect(ids(await byId.where({ priority: "high" }).published().toArray())).toEqual([3]);
+      expect(ids(await byId.notLow().draft().toArray())).toEqual([1]);
+    });
+  });
 });

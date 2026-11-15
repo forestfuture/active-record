@@ -1,5 +1,10 @@
 // `Model.define({...})` and `Model`: the record class, its attribute accessors and its declarations (validations, error messages); its shared statics are in model-statics.ts.
-import { defineEnumMethods, type EnumMethods } from "./enum-methods.ts";
+import {
+  defineEnumMethods,
+  defineEnumStatics,
+  type EnumMethods,
+  type EnumStatics,
+} from "./enum-methods.ts";
 import type { Executor, QueryListener } from "./executor.ts";
 import {
   define,
@@ -615,7 +620,8 @@ export type ModelBaseFor<
 > = (new () => InstanceType<B> &
   AttributeProperties<A> &
   EnumMethods<A> & { readonly [attributeTypes]: AttributeProperties<A> }) &
-  Omit<B, "prototype">;
+  Omit<B, "prototype"> &
+  EnumStatics<A>;
 
 /** `Model.define({...})` on `base`: a class with the attributes' accessors, extending `base`. */
 function defineModel<const A extends AttributeSpecs, B extends BaseClass>(
@@ -631,6 +637,7 @@ function defineModel<const A extends AttributeSpecs, B extends BaseClass>(
   inferTableNames(DefinedModel);
   defineAttributeAccessors(DefinedModel.prototype, Object.keys(specs));
   defineEnumMethods(DefinedModel.prototype, DefinedModel.attributeDefinitions);
+  defineEnumStatics(DefinedModel, DefinedModel.attributeDefinitions);
   return DefinedModel as never;
 }
 
