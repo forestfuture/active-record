@@ -22,13 +22,17 @@ export function castDay(value: unknown): unknown {
 /** A time of day: hours and minutes, then optionally seconds and up to six digits of a fraction. */
 const timeText = /^([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d)(?:\.(\d{1,6}))?)?$/;
 
+/** The end of a day, which Postgres's `time` holds as `24:00:00`, with no time past it. */
+const endOfDay = /^24:00(?::00(?:\.0{1,6})?)?$/;
+
 /**
  * Text naming a time of day (`"09:30"`, `"09:30:15.5"`) in its one form, as Postgres writes a
- * `time`: seconds always, a fraction without trailing zeros (`"09:30:00"`, `"09:30:15.5"`).
- * Anything else, a `Date` included, is `uncastable`.
+ * `time`: seconds always, a fraction without trailing zeros (`"09:30:00"`, `"09:30:15.5"`). The
+ * end of the day is `"24:00:00"`. Anything else, a `Date` included, is `uncastable`.
  */
 export function castTime(value: unknown): unknown {
   if (typeof value !== "string") return uncastable;
+  if (endOfDay.test(value)) return "24:00:00";
   const match = timeText.exec(value);
   if (match === null) return uncastable;
   const [, hours, minutes, seconds = "00", fraction = ""] = match;

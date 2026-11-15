@@ -40,6 +40,7 @@ describe("time attributes", () => {
       ["seconds", "23:59:59", "23:59:59"],
       ["a fraction, without its trailing zeros", "09:30:15.250000", "09:30:15.25"],
       ["a fraction of zeros", "09:30:15.000", "09:30:15"],
+      ["the end of the day, as Postgres keeps it", "24:00", "24:00:00"],
     ])("%s is its time's text", (_, value, expected) => {
       expect(Line.build({ startsAt: value }).startsAt).toBe(expected);
     });
@@ -51,7 +52,8 @@ describe("time attributes", () => {
         '"2026-01-02T09:30:00.000Z"',
       ],
       ["a time with a zone", "09:30:00Z", '"09:30:00Z"'],
-      ["an hour past the day", "24:00:00", '"24:00:00"'],
+      ["a time past the end of the day", "24:00:01", '"24:00:01"'],
+      ["a fraction past the end of the day", "24:00:00.5", '"24:00:00.5"'],
       ["a minute that doesn't exist", "09:60", '"09:60"'],
       ["an hour without two digits", "9:30", '"9:30"'],
       ["more than six digits of a fraction", "09:30:15.1234567", '"09:30:15.1234567"'],
