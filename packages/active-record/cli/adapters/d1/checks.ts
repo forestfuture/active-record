@@ -1,28 +1,48 @@
 // The names a `CHECK (… IN …)` restricts a column to, from a table's definition (#64).
 
 /** A column name as SQLite takes it: bare, or quoted with "", ``, or []. */
-const columnName = String.raw`(?:"([^"]+)"|\x60([^\x60]+)\x60|\[([^\]]+)\]|(\w+))`;
+const columnName = String.raw`(?:"[^"]+"|\x60[^\x60]+\x60|\[[^\]]+\]|\w+)`;
 
 /** A list of SQL string literals: `'draft', 'it''s'`. */
 const stringList = String.raw`'(?:[^']|'')*'(?:\s*,\s*'(?:[^']|'')*')*`;
 
-/** `CHECK (status IN ('draft', 'published'))`, with the column and the list captured. */
+/**
+ * `CHECK (status IN ('draft', 'published'))`, or with `status IS NULL OR` before it or
+ * `OR status IS NULL` after it: the columns named, and the list.
+ */
 const inCheck = new RegExp(
-  String.raw`CHECK\s*\(\s*${columnName}\s+IN\s*\(\s*(${stringList})\s*\)\s*\)`,
+  String.raw`CHECK\s*\(\s*(?:(${columnName})\s+IS\s+NULL\s+OR\s+)?(${columnName})\s+IN\s*\(\s*(${stringList})\s*\)(?:\s+OR\s+(${columnName})\s+IS\s+NULL)?\s*\)`,
   "gi",
 );
 
-/** A list's literals as their text: `'a', 'it''s'` → `["a", "it's"]`. */
-function literals(list: string): string[] {
-  return [...list.matchAll(/'((?:[^']|'')*)'/g)].map((match) => match[1]!.replaceAll("''", "'"));
+/** A column name as a key, as SQLite compares them: unquoted, any case. `"Status"` → `status`. */
+function unquoted(name: string): string {
+  return (/^["`[]/.test(name) ? name.slice(1, -1) : name).toLowerCase();
 }
 
-/** Each column a table's definition restricts to a list of strings, with the list. */
+/** A list's literals as their text, each once: `'a', 'it''s', 'a'` → `["a", "it's"]`. */
+function literals(list: string): string[] {
+  const texts = [...list.matchAll(/'((?:[^']|'')*)'/g)].map((match) => match[1]!);
+  return [...new Set(texts.map((text) => text.replaceAll("''", "'")))];
+}
+
+/** The column a match restricts, unless its `IS NULL` names another one. */
+function restricted(match: RegExpMatchArray): string | undefined {
+  const column = unquoted(match[2]!);
+  const nullable = [match[1], match[4]].filter((name) => name !== undefined).map(unquoted);
+  return nullable.every((name) => name === column) ? column : undefined;
+}
+
+/**
+ * Each column a table's definition restricts to a list of strings, with the list, by its name in
+ * lower case. A column two lists restrict isn't one: which list holds isn't the schema's to say.
+ */
 export function checkedNames(definition: string): Map<string, string[]> {
-  const lists = new Map<string, string[]>();
+  const lists = new Map<string, string[] | undefined>();
   for (const match of definition.matchAll(inCheck)) {
-    const column = match.slice(1, 5).find(Boolean)!;
-    lists.set(column, literals(match[5]!));
+    const column = restricted(match);
+    if (column === undefined) continue;
+    lists.set(column, lists.has(column) ? undefined : literals(match[3]!));
   }
-  return lists;
+  return new Map([...lists].filter((entry): entry is [string, string[]] => entry[1] !== undefined));
 }
