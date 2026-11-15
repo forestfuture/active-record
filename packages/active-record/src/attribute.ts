@@ -62,7 +62,16 @@ export class Attribute {
    */
   cast(value: unknown): unknown {
     requireDefined(this.#model, this.name, value);
-    return this.#orRefuse(castValue(this.#definition, value), value);
+    const cast = castValue(this.#definition, value);
+    // A validated enum keeps an unknown value for its validation to refuse (#340).
+    if (cast === uncastable && this.#isValidatedEnum()) return value;
+    return this.#orRefuse(cast, value);
+  }
+
+  /** Whether it's an enum declared `validate: true`, which keeps an unknown value it's given. */
+  #isValidatedEnum(): boolean {
+    const { enum: values, validate = false } = this.#definition;
+    return values !== undefined && validate !== false;
   }
 
   /**

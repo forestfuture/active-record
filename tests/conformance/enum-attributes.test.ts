@@ -264,4 +264,44 @@ describe("enum attributes (#340)", () => {
     expect(typeof quiet.low).toBe("function");
     expect("draft" in quiet).toBe(false);
   });
+
+  describe("validate: true", () => {
+    class Validated extends Model.define({
+      id: { type: "integer", null: false },
+      status: { type: "string", enum: ["draft", "published"], validate: true },
+      priority: { type: "integer", enum: { low: 0, high: 10 }, validate: { allowNull: true } },
+    }) {
+      static override table = "articles";
+    }
+    const validated = () => harness.connect().model(Validated);
+
+    test("keeps an unknown value, and the record is invalid with an inclusion error", async () => {
+      const article = validated().build({ id: 1, status: "archived" as never, priority: "low" });
+
+      expect(article.status).toBe("archived");
+      expect(await article.save()).toBe(false);
+      expect(article.errors.fullMessages()).toEqual(["Status is not included in the list"]);
+      expect(await harness.exec("SELECT id FROM articles")).toEqual([]);
+    });
+
+    test("refuses null unless it says allowNull", async () => {
+      const article = validated().build({ id: 1 });
+
+      expect(await article.isValid()).toBe(false);
+      expect(article.errors.fullMessages()).toEqual(["Status is not included in the list"]);
+      article.status = "draft";
+      expect(await article.saveOrThrow()).toBe(true);
+    });
+
+    test("still refuses an unknown value in a bulk write, and matches nothing with one", async () => {
+      await expect(validated().insertAll([{ id: 1, status: "archived" as never }])).rejects.toThrow(
+        TypeError,
+      );
+      expect(
+        await validated()
+          .where({ priority: "zzz" as never })
+          .count(),
+      ).toBe(0);
+    });
+  });
 });

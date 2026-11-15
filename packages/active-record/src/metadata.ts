@@ -32,7 +32,15 @@ export interface SpecObject {
   scopes?: boolean;
   /** `false` to give records no predicate or `saveAs…` setter for each enum name (#340). */
   instanceMethods?: boolean;
+  /**
+   * Validates an enum's value instead of refusing an unknown one when it's assigned, as Rails'
+   * `validate: true` does: a record holding another value, or null unless `allowNull`, is invalid.
+   */
+  validate?: EnumValidation;
 }
+
+/** How an enum's value is validated: `true`, or `{ allowNull: true }` to let it be null. */
+export type EnumValidation = boolean | { readonly allowNull?: boolean };
 
 /** Where a string attribute's value comes from when it isn't given: a default or `generateId`, never both. */
 export type ValueSource =
@@ -61,6 +69,7 @@ export type AttributeSpec =
       suffix?: never;
       scopes?: never;
       instanceMethods?: never;
+      validate?: never;
     })
   | (Omit<SpecObject, "type" | "generateId" | "enum"> & {
       type: "datetime";
@@ -70,6 +79,7 @@ export type AttributeSpec =
       suffix?: never;
       scopes?: never;
       instanceMethods?: never;
+      validate?: never;
     });
 
 export type AttributeSpecs = Record<string, AttributeSpec>;
@@ -96,6 +106,7 @@ export interface AttributeDefinition {
   suffix?: boolean | string;
   scopes?: boolean;
   instanceMethods?: boolean;
+  validate?: EnumValidation;
 }
 
 type JsType<T extends AttributeType> = T extends "string"

@@ -171,6 +171,9 @@ describe("an override's shape", () => {
     "enum",
     "prefix",
     "suffix",
+    "scopes",
+    "instanceMethods",
+    "validate",
   );
 
   test("refuses anything that isn't an object, and any key that isn't a spec key but the column", () => {
@@ -211,6 +214,7 @@ describe("a spec's keys", () => {
       suffix: true,
       scopes: true,
       instanceMethods: true,
+      validate: true,
     } satisfies Record<keyof SpecObject, true>;
 
     expect(overridableKeyNames.split(", ")).toEqual(
