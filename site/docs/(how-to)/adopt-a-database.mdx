@@ -93,6 +93,8 @@ Fix a column’s type with an override in its Model. It changes how the column i
 
 <include>/_excerpts/guide/adopt/overrides.ts</include>
 
+A column the database already restricts to a list of names, with a Postgres enum type or a `CHECK (column IN (…))`, becomes an enum of those names. Its type and its checks come from the database, and its methods stay off until you turn them on with `enum: true`. See [Reading enums from the database](./models#reading-enums-from-the-database).
+
 ## Reading Unix timestamps
 
 Read a Unix timestamp column as a `Date` by overriding it as a `datetime` with the matching `storage`. Drizzle’s `integer({ mode: "timestamp" })` stores seconds, and `"timestamp_ms"` stores milliseconds:

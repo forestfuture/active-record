@@ -54,12 +54,13 @@ Write the object `as const`, so TypeScript keeps each type name. Without it, the
 
 An override is one of these:
 
-| Override                                  | Does                                                                                                  |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `"boolean"` (a type name)                 | Reads and writes the attribute as that type                                                           |
-| `{ type?, null?, default?, generateId? }` | Replaces those parts of the generated attribute; `null: false` makes it non-null in TypeScript        |
-| `{ enum, prefix?, suffix?, … }`           | Makes the attribute an [enum](#declaring-enums), of its column’s type                                 |
-| `false`                                   | Ignores the column: it’s never typed, read, or written, and queries name their columns instead of `*` |
+| Override                                  | Does                                                                                                    |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `"boolean"` (a type name)                 | Reads and writes the attribute as that type                                                             |
+| `{ type?, null?, default?, generateId? }` | Replaces those parts of the generated attribute; `null: false` makes it non-null in TypeScript          |
+| `{ enum, prefix?, suffix?, … }`           | Makes the attribute an [enum](#declaring-enums), of its column’s type                                   |
+| `{ enum: true }`, `{ enum: false }`       | Turns on the methods of an [enum read from the database](#reading-enums-from-the-database), or drops it |
+| `false`                                   | Ignores the column: it’s never typed, read, or written, and queries name their columns instead of `*`   |
 
 An override of an attribute the table doesn’t have throws `InvalidModel`, and `active-record schema` reports it. So does an override that changes a column or ignores the primary key.
 
@@ -246,6 +247,40 @@ A survey answered `"maybe"` is then invalid, with an `inclusion` error, and so i
   the names, so reordering it changes nothing. `published?` is `isPublished()`, `published!` is
   `saveAsPublished()` or `saveAsPublishedOrThrow()`, `not_published` is `notPublished()`, and
   `Post.statuses` is `Post.enumValues("status")`. Two names stored as one value are refused.
+</Callout>
+
+### Reading enums from the database
+
+When the database restricts a column to a list of names, `active-record schema` writes the list into the generated schema. A Postgres enum type does it, and so does a `CHECK` like this one:
+
+```sql
+CREATE TABLE tasks (
+  id TEXT PRIMARY KEY,
+  state TEXT NOT NULL CHECK (state IN ('open', 'done'))
+);
+```
+
+The generated spec holds the names, with the enum’s methods turned off:
+
+<include>/_excerpts/db/schema/generated-enum.ts</include>
+
+The attribute’s type is `"open" | "done"`, assigning any other value throws `TypeError`, and `enumValues` works as for any enum. The predicates, setters, and scopes wait until you turn them on.
+
+Turn them on by overriding the attribute with `enum: true`:
+
+<include>/_excerpts/guide/enums/generated-on.ts</include>
+
+`enum: true` keeps the database’s names, so a name a later migration adds gets its methods the next time you run `active-record schema`. A `scopes: false` or `instanceMethods: false` beside it still leaves those out, and `scopes: true` or `instanceMethods: true` alone turns on one kind. Names that clash only matter once their methods are on, and you fix them as in [Keeping names apart](#keeping-names-apart).
+
+If you’d rather keep the column a plain string, override it with `enum: false`. A list of your own, such as `enum: ["open", "done", "archived"]`, replaces the database’s.
+
+:::note
+`active-record schema` reads a `CHECK` whose only condition is `column IN (…)` with text values, or `column IS NULL OR column IN (…)`. Any other `CHECK` leaves the column as it was, and a list of numbers stays an `integer`.
+:::
+
+<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
+  Rails reads no enums from the database: each one is declared in its Model. Here the database gives
+  an enum its names and its type, and the Model still declares its methods, with `enum: true`.
 </Callout>
 
 ## Casting assigned values
