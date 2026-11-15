@@ -6,6 +6,7 @@ class Article extends Model.define({
   id: { type: "integer", null: false },
   title: "string",
   status: { type: "string", enum: ["draft", "published"] },
+  priority: { type: "integer", enum: { low: 0, normal: 5, high: 10 } },
 }) {}
 
 describe("enum attributes (#340)", () => {
@@ -41,6 +42,34 @@ describe("enum attributes (#340)", () => {
         article.status = "archived" as never;
       }).toThrow(
         new TypeError('Article: "archived" isn\'t one of "draft", "published" for "status"'),
+      );
+    });
+  });
+
+  describe("an integer enum", () => {
+    test("is written and read by name, and its column holds the value the name is stored as", async () => {
+      const article = await articles().createOrThrow({ id: 1, priority: "high" });
+      article.priority = "low";
+      await article.saveOrThrow();
+
+      const rows = await harness.exec("SELECT priority FROM articles");
+      const found = await articles().find(1);
+
+      expect(rows).toEqual([{ priority: 0 }]);
+      expect(found.priority).toBe("low");
+    });
+
+    test("takes a stored value for its name, as a form posts it", () => {
+      const article = articles().build({ id: 1, priority: 10 as never });
+
+      expect(article.priority).toBe("high");
+      article.assign({ priority: "5" as never });
+      expect(article.priority).toBe("normal");
+    });
+
+    test("refuses a value it doesn't store", () => {
+      expect(() => articles().build({ priority: 7 as never })).toThrow(
+        new TypeError('Article: 7 isn\'t one of "low", "normal", "high" for "priority"'),
       );
     });
   });
