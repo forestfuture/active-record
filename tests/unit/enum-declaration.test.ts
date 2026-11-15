@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 import { InvalidModel, Model } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { connect, d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
 
 // connect() never touches the binding until a query runs, and these tests run none.
 const db = connect({} as never);
@@ -126,5 +126,40 @@ describe("an enum's method names, when the Model is first used (#340)", () => {
         'Post declares "published", which is also the name of a scope its enum status gives; rename it, or give status a prefix or a suffix',
       ),
     );
+  });
+
+  describe("on a generated Model", () => {
+    const schema = {
+      adapter: d1({ binding: "DB" }),
+      tables: { posts: { attributes: { id: "integer", status: "string" }, primaryKey: "id" } },
+    } as const;
+    abstract class AppRecord extends Model {
+      static override schema = schema;
+    }
+
+    test("a static it declares with an enum scope's name is an InvalidModel, not replaced", () => {
+      class Post extends AppRecord {
+        static override attributes = { status: { enum: ["draft", "published"] } } as const;
+        static published = this.scope((q) => q.where({ id: 1 }));
+      }
+
+      expect(firstUse(Post)).toThrow(
+        new InvalidModel(
+          'Post declares "published", which is also the name of a scope its enum status gives; rename it, or give status a prefix or a suffix',
+        ),
+      );
+    });
+
+    test("a record method it declares with an enum method's name is its own", () => {
+      class Post extends AppRecord {
+        static override attributes = { status: { enum: ["draft"] } } as const;
+
+        isDraft(): boolean {
+          return true;
+        }
+      }
+
+      expect(db.model(Post).build().isDraft()).toBe(true);
+    });
   });
 });

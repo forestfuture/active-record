@@ -162,8 +162,10 @@ function defineMethod(
   method: (...args: never[]) => unknown,
   { named = true } = {},
 ): void {
-  // An attribute's accessor can't be replaced: the clash is refused when the Model is first used.
-  if (Object.getOwnPropertyDescriptor(target, name)?.configurable === false) return;
+  // What's there already is never replaced: an attribute's accessor, or a static or method a
+  // generated Model declares itself, whose class is where its enum's methods go. A clashing
+  // static or attribute is refused when the Model is first used; a record method is its own.
+  if (Object.hasOwn(target, name)) return;
   if (named) Object.defineProperty(method, "name", { value: name });
   Object.defineProperty(target, name, { value: method, writable: true, configurable: true });
 }
