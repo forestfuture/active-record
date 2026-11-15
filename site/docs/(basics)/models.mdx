@@ -227,7 +227,7 @@ Two enums that share a name would give the same methods. Add a `prefix` or a `su
 
 <include>/_excerpts/guide/enums/affixes.ts</include>
 
-A method name that’s taken, by another enum, an attribute, a record method, or a static, throws `InvalidModel` when the Model is first used, and `active-record schema` reports it. To leave an enum’s methods out, declare it with `scopes: false` or `instanceMethods: false`.
+A method name that’s taken, by another enum, an attribute, a record method, or a static, throws `InvalidModel` when the Model is first used, and `active-record schema` reports it. So does a name TypeScript can’t declare, such as `in-progress` or `new`. Map a readable name to the stored value instead: `enum: { inProgress: "in-progress" }`. To leave an enum’s methods out, declare it with `scopes: false` or `instanceMethods: false`.
 
 ### Reading and assigning other values
 
