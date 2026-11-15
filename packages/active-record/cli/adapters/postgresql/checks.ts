@@ -49,7 +49,9 @@ function unquoted(name: string): string {
  * `status = 'draft'`, as Postgres writes back a one-name `IN ('draft')`: a restriction that
  * counts against a list on the same column, though it isn't read as one.
  */
-const oneName = new RegExp(String.raw`^CHECK (${columnName}) = '(?:[^']|'')*'$`);
+const oneName = new RegExp(
+  String.raw`^CHECK (?:(${columnName}) IS NULL OR )?(${columnName}) = '(?:[^']|'')*'(?: OR (${columnName}) IS NULL)?$`,
+);
 
 /** What a constraint restricts: its one column, and the names it lists, if it lists any. */
 interface Restriction {
@@ -57,19 +59,24 @@ interface Restriction {
   names?: string[];
 }
 
+/** The column a list or a single name restricts, unless its `IS NULL` names another one. */
+function restrictedColumn(match: RegExpExecArray): string | undefined {
+  const column = unquoted(match[2]!);
+  const nullable = [match[1], match[match.length - 1]]
+    .filter((name) => name !== undefined)
+    .map(unquoted);
+  return nullable.every((name) => name === column) ? column : undefined;
+}
+
 /** The column a constraint restricts to a list of strings, or to one, if it's that and on that column. */
 function restriction({ columns, definition }: CheckConstraint): Restriction | undefined {
   const text = bare(definition);
-  const match = inList.exec(text);
-  if (match === null) {
-    const single = oneName.exec(text);
-    return single === null ? undefined : onItsColumn(unquoted(single[1]!), columns);
-  }
-  const column = unquoted(match[2]!);
-  const nullable = [match[1], match[4]].filter((name) => name !== undefined).map(unquoted);
-  if (!nullable.every((name) => name === column)) return undefined;
-  const found = onItsColumn(column, columns);
-  return found === undefined ? undefined : { ...found, names: listedNames(match[3]!) };
+  const list = inList.exec(text);
+  const match = list ?? oneName.exec(text);
+  const column = match === null ? undefined : restrictedColumn(match);
+  const found = column === undefined ? undefined : onItsColumn(column, columns);
+  if (found === undefined || list === null) return found;
+  return { ...found, names: listedNames(list[3]!) };
 }
 
 /** A restriction of `column`, if that's the only column the constraint names. */
