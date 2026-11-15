@@ -19,8 +19,12 @@ const inCheck = new RegExp(
   "gi",
 );
 
-/** A string literal or quoted name, kept, or a comment, dropped: whichever starts first. */
-const literalOrComment = /'(?:[^']|'')*'|"(?:[^"]|"")*"|--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)/g;
+/**
+ * A string literal or a name quoted any of SQLite's ways, kept, or a comment, dropped: whichever
+ * starts first, so a `'` or `--` inside a name doesn't start or hide anything.
+ */
+const literalOrComment =
+  /'(?:[^']|'')*'|"(?:[^"]|"")*"|`(?:[^`]|``)*`|\[[^\]]*\]|--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)/g;
 
 /** A definition without its comments, which SQLite keeps in it: `a TEXT -- CHECK (…)` → `a TEXT `. */
 function withoutComments(definition: string): string {

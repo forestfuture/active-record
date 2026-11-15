@@ -129,6 +129,23 @@ describe("schemaOf: from migrations to table schemas", () => {
     });
   });
 
+  test("a name quoted with [] or `` that holds ' or -- doesn't hide or reveal a CHECK (#64)", () => {
+    expect(
+      attributes(`CREATE TABLE posts (
+        id INTEGER PRIMARY KEY,
+        [it's] TEXT, -- CHECK (s IN ('z', 'q'))
+        s TEXT,
+        \`x--y\` TEXT,
+        t TEXT CHECK (t IN ('a', 'b'))
+      )`),
+    ).toMatchObject({ s: { type: "string" }, t: { enum: ["a", "b"] } });
+    expect(
+      attributes(
+        "CREATE TABLE p (id INTEGER PRIMARY KEY, [it's] TEXT, -- CHECK (s IN ('z'))\n s TEXT)",
+      ).s,
+    ).toEqual({ type: "string" });
+  });
+
   test("an unclosed name in a comment or a string doesn't slow reading CHECKs (#64)", () => {
     const comment = "CHECK ([".repeat(16_000);
     const started = performance.now();
