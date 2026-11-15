@@ -28,6 +28,11 @@ describe("an enum attribute's types (#340)", () => {
     expectTypeOf<Article>().not.toHaveProperty("isArchived");
   });
 
+  test("a record has a saveAs… setter and its OrThrow for each name", () => {
+    expectTypeOf<Article["saveAsPublished"]>().toEqualTypeOf<() => Promise<boolean>>();
+    expectTypeOf<Article["saveAsHighOrThrow"]>().toEqualTypeOf<() => Promise<true>>();
+  });
+
   test("an enum is a string's or an integer's, stored as that type", () => {
     Model.define({
       // @ts-expect-error a list of names is stored as text, so only a string has one

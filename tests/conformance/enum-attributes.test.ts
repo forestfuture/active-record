@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { Model, RecordInvalid } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Article extends Model.define({
@@ -170,6 +170,34 @@ describe("enum attributes (#340)", () => {
       const article = articles().build();
 
       expect([article.isDraft(), article.isPublished()]).toEqual([false, false]);
+    });
+  });
+
+  describe("a record's saveAs… setters", () => {
+    test("assign the name and save the record, with its other changes", async () => {
+      const article = await articles().createOrThrow({ id: 1, title: "Draft", status: "draft" });
+      article.title = "Ready";
+
+      expect(await article.saveAsPublished()).toBe(true);
+      const rows = await harness.exec("SELECT title, status FROM articles");
+
+      expect(rows).toEqual([{ title: "Ready", status: "published" }]);
+      expect(article.isChanged()).toBe(false);
+    });
+
+    test("return false, or throw with OrThrow, when the record is invalid", async () => {
+      class Checked extends Article {
+        static {
+          this.validates("title", { presence: true });
+        }
+      }
+      const checked = harness.connect().model(Checked);
+      const article = checked.build({ id: 1, status: "draft" });
+
+      expect(await article.saveAsPublished()).toBe(false);
+      expect(article.status).toBe("published");
+      await expect(article.saveAsDraftOrThrow()).rejects.toThrow(RecordInvalid);
+      expect(await harness.exec("SELECT id FROM articles")).toEqual([]);
     });
   });
 });
