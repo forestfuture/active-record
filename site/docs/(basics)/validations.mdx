@@ -166,6 +166,8 @@ Each error type has a built-in message. To replace one, use its type as the key 
 | `greaterThanOrEqualTo`     | `numericality: { greaterThanOrEqualTo }`         | must be greater than or equal to `%{count}`                 |
 | `lessThan`                 | `numericality: { lessThan }`                     | must be less than `%{count}`                                |
 | `lessThanOrEqualTo`        | `numericality: { lessThanOrEqualTo }`            | must be less than or equal to `%{count}`                    |
+| `equalTo`                  | `comparison: { equalTo }`                        | must be equal to `%{count}`                                 |
+| `otherThan`                | `comparison: { otherThan }`                      | must be other than `%{count}`                               |
 | `taken`                    | `uniqueness`                                     | has already been taken                                      |
 | `required`                 | a `belongsTo` whose record doesn’t exist         | must exist                                                  |
 | `restrictDependentDestroy` | a has-one with `dependent: "restrictWithError"`  | Cannot delete record because a dependent `%{record}` exists |

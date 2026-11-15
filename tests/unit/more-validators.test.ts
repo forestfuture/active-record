@@ -71,3 +71,56 @@ describe("absence", () => {
     ]);
   });
 });
+
+describe("comparison with a value", () => {
+  const launch = new Date(Date.UTC(2026, 0, 1));
+  class Listing extends Model.define({
+    id: "integer",
+    price: "real",
+    stock: "integer",
+    code: "string",
+    opensAt: "datetime",
+  }) {
+    static table = "listings";
+    static {
+      this.validates("price", { comparison: { greaterThan: 0, lessThanOrEqualTo: 100 } });
+      this.validates("stock", { comparison: { greaterThanOrEqualTo: 1, lessThan: 10 } });
+      this.validates("code", { comparison: { otherThan: "none", greaterThan: "B" } });
+      this.validates("opensAt", { comparison: { equalTo: launch } });
+    }
+  }
+  const listings = connect({} as never).model(Listing);
+  const valid = { price: 5, stock: 3, code: "C1", opensAt: new Date(launch.getTime()) };
+
+  test("passes values that meet every bound, a Date equal to another by its time", async () => {
+    expect(await errorsOf(listings.build(valid))).toEqual([]);
+  });
+
+  test("fails each bound a number misses, with numericality's messages", async () => {
+    expect(await errorsOf(listings.build({ ...valid, price: 0, stock: 10 }))).toEqual([
+      "price greaterThan: must be greater than 0",
+      "stock lessThan: must be less than 10",
+    ]);
+    expect(await errorsOf(listings.build({ ...valid, price: 101, stock: 0 }))).toEqual([
+      "price lessThanOrEqualTo: must be less than or equal to 100",
+      "stock greaterThanOrEqualTo: must be greater than or equal to 1",
+    ]);
+  });
+
+  test("compares strings in JavaScript's order, and otherThan fails an equal value", async () => {
+    expect(await errorsOf(listings.build({ ...valid, code: "A9" }))).toEqual([
+      "code greaterThan: must be greater than B",
+    ]);
+    expect(await errorsOf(listings.build({ ...valid, code: "none" }))).toEqual([
+      "code otherThan: must be other than none",
+    ]);
+  });
+
+  test("equalTo fails a different Date, showing the bound as an ISO string", async () => {
+    const listing = listings.build({ ...valid, opensAt: new Date(Date.UTC(2026, 0, 2)) });
+
+    expect(await errorsOf(listing)).toEqual([
+      "opensAt equalTo: must be equal to 2026-01-01T00:00:00.000Z",
+    ]);
+  });
+});
