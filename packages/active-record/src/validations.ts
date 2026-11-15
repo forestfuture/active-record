@@ -6,6 +6,7 @@ import {
   type Compared,
   type ComparisonOptions,
 } from "./comparison-validation.ts";
+import { isBlank } from "./blank.ts";
 import { addFailure, type Errors, type Failure } from "./errors-collection.ts";
 import { attributeOf } from "./metadata.ts";
 import type { AttributesOf } from "./model.ts";
@@ -75,10 +76,6 @@ export interface Validation {
 }
 
 type Check = (value: unknown, options: ValidationOptions<never>, compared: Compared) => Failure[];
-
-function isBlank(value: unknown): boolean {
-  return value === null || (typeof value === "string" && value.trim() === "");
-}
 
 const presence: Check = (value, { presence: required }) =>
   required && isBlank(value) ? [{ type: "blank" }] : [];

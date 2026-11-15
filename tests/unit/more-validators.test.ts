@@ -174,6 +174,20 @@ describe("comparison with null, and values it can't compare", () => {
     expect(await errorsOf(shift)).toEqual(["endsAt blank: can't be blank"]);
   });
 
+  test("a string that's only whitespace is blank, as null is", async () => {
+    class Grade extends Model.define({ id: "integer", letter: "string" }) {
+      static table = "grades";
+      static {
+        this.validates("letter", { comparison: { lessThanOrEqualTo: "F" } });
+      }
+    }
+    const grade = connect({} as never)
+      .model(Grade)
+      .build({ letter: "  " });
+
+    expect(await errorsOf(grade)).toEqual(["letter blank: can't be blank"]);
+  });
+
   test("a bound that's null is skipped", async () => {
     const shift = shifts.build({ startsAt: null, endsAt, breakAt: null });
 

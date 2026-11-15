@@ -1,5 +1,6 @@
 // The `comparison` validator (#342): a value against bounds given as values or functions of the record, and the order checks it shares with `numericality`.
 import { withArticle } from "./attribute.ts";
+import { isBlank } from "./blank.ts";
 import type { Failure } from "./errors-collection.ts";
 
 /** What `comparison` compares: numbers with numbers, strings with strings, Dates by their time. */
@@ -68,7 +69,7 @@ function requireComparable(value: unknown, bound: unknown, { record, attribute }
 
 /**
  * @internal The failures of a value against each bound of `rule`, in `ORDER_CHECKS`' order: `blank` once
- * for a null value, as Rails does, and none for a bound that's null.
+ * for a blank value (null, or only whitespace), as Rails does, and none for a bound that's null.
  */
 export function comparisonFailures(
   value: unknown,
@@ -76,7 +77,7 @@ export function comparisonFailures(
   compared: Compared,
 ): Failure[] {
   const bounds = ORDER_CHECKS.filter(([type]) => rule[type] !== undefined);
-  if (value === null) return bounds.length === 0 ? [] : [{ type: "blank" }];
+  if (isBlank(value)) return bounds.length === 0 ? [] : [{ type: "blank" }];
   return bounds.flatMap(([type, holds]) => {
     const given = rule[type];
     const bound = typeof given === "function" ? given(compared.record) : given;
