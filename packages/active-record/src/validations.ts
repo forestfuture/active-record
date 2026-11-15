@@ -1,4 +1,10 @@
 // Validators (`presence`, `length`, `uniqueness`, …) and running them on a record.
+import {
+  comparisonFailures,
+  orderOf,
+  RANGE_CHECKS,
+  type ComparisonOptions,
+} from "./comparison-validation.ts";
 import { addFailure, type Errors, type Failure } from "./errors-collection.ts";
 import { attributeOf } from "./metadata.ts";
 import type { AttributesOf } from "./model.ts";
@@ -38,6 +44,10 @@ export interface ValidationOptions<R = never> {
   /** Not one of these values ("is reserved"); null passes unless the list holds it. */
   exclusion?: readonly unknown[] | { in: readonly unknown[] };
   numericality?: boolean | NumericalityOptions;
+  /**
+   * Bounds the value must meet: numbers, strings (in JavaScript's order) or Dates (by time).
+   */
+  comparison?: ComparisonOptions;
   /**
    * No other row has this value (checked in D1 through the record's Database). `scope` adds
    * attributes that must match too; `caseSensitive: false` compares with `lower()` (ASCII only).
@@ -113,13 +123,6 @@ const inclusion: Check = (value, { inclusion: rule }) =>
 const exclusion: Check = (value, { exclusion: rule }) =>
   rule !== undefined && isListed(rule, value) ? [{ type: "exclusion" }] : [];
 
-const COMPARISONS = [
-  ["greaterThan", (a: number, b: number) => a > b],
-  ["greaterThanOrEqualTo", (a: number, b: number) => a >= b],
-  ["lessThan", (a: number, b: number) => a < b],
-  ["lessThanOrEqualTo", (a: number, b: number) => a <= b],
-] as const;
-
 /** Only real numbers pass; a numeric string like "12" is not a number (convert input first). */
 const numericality: Check = (value, { numericality: rule }) => {
   if (rule === undefined || rule === false) return [];
@@ -130,11 +133,16 @@ const numericality: Check = (value, { numericality: rule }) => {
   if (options.onlyInteger && !Number.isInteger(value)) {
     return [{ type: "notAnInteger" }];
   }
-  return COMPARISONS.flatMap(([type, holds]) => {
+  return RANGE_CHECKS.flatMap(([type, holds]) => {
     const bound = options[type];
-    return bound === undefined || holds(value, bound) ? [] : [{ type, values: { count: bound } }];
+    return bound === undefined || holds(orderOf(value, bound))
+      ? []
+      : [{ type, values: { count: bound } }];
   });
 };
+
+const comparison: Check = (value, { comparison: rule }) =>
+  rule === undefined ? [] : comparisonFailures(value, rule);
 
 /** Applied in this order within one `validates` call. */
 const CHECKS: readonly Check[] = [
@@ -145,6 +153,7 @@ const CHECKS: readonly Check[] = [
   inclusion,
   exclusion,
   numericality,
+  comparison,
 ];
 
 /** What running validations needs from the record being validated. */
