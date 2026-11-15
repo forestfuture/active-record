@@ -27,12 +27,22 @@ export function permitted(
   );
 }
 
-/** A permitted value, cast; a file (from a form) is refused, since no attribute stores one. */
+/**
+ * A permitted value, cast. A file (from a form) is refused: its bytes are read asynchronously,
+ * which casting can't wait for, and only a binary attribute holds bytes (#20).
+ */
 function castPermitted(model: ModelClass, name: string, value: unknown): unknown {
-  if (value instanceof Blob) {
-    throw new TypeError(`${model.name}: "${name}" is a file, and no attribute stores one`);
-  }
+  if (value instanceof Blob) throw fileRefusal(model, name);
   return attributeFor(model, name).cast(value);
+}
+
+function fileRefusal(model: ModelClass, name: string): TypeError {
+  const { type } = attributeOf(model, name);
+  return new TypeError(
+    type === "binary"
+      ? `${model.name}: "${name}" is a file; assign its bytes: new Uint8Array(await file.arrayBuffer())`
+      : `${model.name}: "${name}" is a file, which ${/^[aeiou]/.test(type) ? "an" : "a"} ${type} attribute can't hold`,
+  );
 }
 
 /**

@@ -133,12 +133,12 @@ describe("Model.permit", () => {
     );
   });
 
-  test("a file from a form is a TypeError: no attribute stores one", () => {
+  test("a file from a form is a TypeError: a string attribute can't hold one", () => {
     const form = new FormData();
     form.append("email", new File(["x"], "x.txt"));
 
     expect(() => User.permit(form, "email")).toThrow(
-      new TypeError('User: "email" is a file, and no attribute stores one'),
+      new TypeError('User: "email" is a file, which a string attribute can\'t hold'),
     );
   });
 });
