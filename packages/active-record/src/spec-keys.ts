@@ -1,7 +1,7 @@
 // The rules for each key of an attribute's spec: what it may hold, where it's allowed, what it conflicts with (#164).
 // A key's rules are written here once, and the override merge, the override check, a Model's check
 // and the attribute's definition all read them.
-import { isEnumValues } from "./enum-values.ts";
+import { enumProblem, isEnumValues } from "./enum-values.ts";
 import { epochStorages } from "./epoch-storage.ts";
 import type { AttributeDefinition, AttributeType, SpecObject } from "./metadata.ts";
 
@@ -39,6 +39,11 @@ interface KeyRule {
   allowedValues?: readonly string[];
   /** The only types that may have it, and why. */
   onlyFor?: { types: readonly AttributeType[]; because: string };
+  /**
+   * What's wrong with a value for an attribute of `type`, past the types, as the words after the
+   * attribute's name, or undefined: checked once its type may have the key.
+   */
+  problemFor?: (value: unknown, type: AttributeType) => string | undefined;
   /**
    * Keys it can't be given with. Declared on one of the two: it holds both ways, and a message
    * names the declaring key first. An override that gives one replaces the other.
@@ -96,6 +101,7 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     isWellFormed: isEnumValues,
     describedAs: "an enum",
     onlyFor: { types: ["string", "integer"], because: "an enum is stored as text or integers" },
+    problemFor: enumProblem,
     onRetype: "drop",
   },
 };
@@ -163,7 +169,7 @@ function valueProblem(
   spec: SpecOverride & Pick<SpecObject, "type">,
   key: SpecKey,
 ): string | undefined {
-  const { allowedValues, onlyFor } = rules[key];
+  const { allowedValues, onlyFor, problemFor } = rules[key];
   const value = givenValue(spec, key);
   if (allowedValues !== undefined && !allowedValues.includes(value as string)) {
     const names = allowedValues.map((each) => `"${each}"`).join(" or ");
@@ -172,7 +178,8 @@ function valueProblem(
   if (onlyFor !== undefined && !onlyFor.types.includes(spec.type)) {
     return `${where} is "${spec.type}", so it can't have ${readsAs(key)}: ${onlyFor.because}`;
   }
-  return undefined;
+  const problem = problemFor?.(value, spec.type);
+  return problem === undefined ? undefined : `${where}${problem}`;
 }
 
 /** Why a spec can't be as it is, or undefined if it can. `where` names it (`User.id`). */
