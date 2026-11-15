@@ -93,7 +93,7 @@ Fix a column’s type with an override in its Model. It changes how the column i
 
 <include>/_excerpts/guide/adopt/overrides.ts</include>
 
-A Postgres enum type or a `CHECK (column IN (…))` makes its column an enum of those names. Its type and its checks come from the database. Its methods stay off until you turn them on with `enum: true`. See [Reading enums from the database](./models#reading-enums-from-the-database).
+A Postgres enum type or a `CHECK (column IN (…))` makes its column an enum of the names it lists. Its type and its checks come from the database. Its methods stay off until you turn them on with `enum: true`. See [Reading enums from the database](./models#reading-enums-from-the-database).
 
 ## Reading Unix timestamps
 
