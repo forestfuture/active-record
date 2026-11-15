@@ -609,6 +609,27 @@ export class FeaturedPost extends Post {}
     });
   });
 
+  test("a Model whose override is a custom type is found, and the schema is written (#20)", async () => {
+    const cwd = await withModels({
+      "user.ts": `import { defineType } from "@forestfuture/active-record";
+${base}const address = defineType({
+  storedAs: "string",
+  cast: (input: unknown) => ({ address: String(input) }),
+  serialize: (value) => value.address,
+  deserialize: (stored) => ({ address: stored }),
+});
+export class User extends ApplicationRecord {
+  static override attributes = { email: address } as const;
+}
+`,
+    });
+
+    const { code } = await run(cwd);
+
+    expect(code).toBe(0);
+    expect(generatedSchema(cwd)).toContain('models: { User: "users" }');
+  });
+
   test("an enum whose method names clash fails, and the last good file is kept (#340)", async () => {
     const cwd = await withModels({
       "user.ts": `${base}export class User extends ApplicationRecord {
