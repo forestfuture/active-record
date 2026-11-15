@@ -37,7 +37,7 @@ function git(dir: string, ...args: string[]): void {
 /**
  * Commits `before` in a new repository with `config` set, stages `after` on
  * top of it, and runs the hook on `message` as git would: what it prints,
- * and its status.
+ * and its status. It runs in the C locale.
  */
 function runHook(before: Files, after: Files, message: string, config: GitConfig = {}) {
   const dir = mkdtempSync(join(tmpdir(), "commit-msg-hook-"));
@@ -49,7 +49,9 @@ function runHook(before: Files, after: Files, message: string, config: GitConfig
   write(dir, after);
   git(dir, "add", ...Object.keys(after));
   writeFileSync(join(dir, ".git", "COMMIT_EDITMSG"), message);
-  const result = spawnSync("sh", ["-e", hook, ".git/COMMIT_EDITMSG"], { cwd: dir });
+  // In the C locale, as dash in any locale, the shell measures text in bytes.
+  const env = { ...process.env, LC_ALL: "C" };
+  const result = spawnSync("sh", ["-e", hook, ".git/COMMIT_EDITMSG"], { cwd: dir, env });
   return { status: result.status, output: String(result.stdout) };
 }
 
@@ -283,6 +285,15 @@ describe("the commit-msg hook on a commit's body", () => {
   test("passes a body line of 72 characters", () => {
     const { status, output } = runHookEditingTheReadme(`Edit the README (#1)\n\n${words(72)}\n`);
 
+    expect(status).toBe(0);
+    expect(output).toBe("");
+  });
+
+  test("counts a body line's characters, not its bytes", () => {
+    const line = `${words(68)} — —`;
+    const { status, output } = runHookEditingTheReadme(`Edit the README (#1)\n\n${line}\n`);
+
+    expect(line).toHaveLength(72);
     expect(status).toBe(0);
     expect(output).toBe("");
   });

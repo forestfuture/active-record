@@ -33,6 +33,12 @@ fi
 # Commit bodies wrap at 72, since git shows them as written. Each line past
 # 72 is listed, so one amend fixes them all. Lines count from the title, as
 # git stores the message, without its comments.
+# How many characters $1 holds, in any locale. wc -c counts bytes, so this
+# drops UTF-8's continuation bytes first.
+characters() {
+  printf '%s' "$1" | LC_ALL=C tr -d '\200-\277' | wc -c | tr -d ' '
+}
+
 long_lines=$(printf '%s\n' "$message" | {
   number=0
   past_title=no
@@ -45,12 +51,16 @@ long_lines=$(printf '%s\n' "$message" | {
       case "$line" in (*[![:space:]]*) past_title=yes ;; esac
       continue
     fi
+    # ${#line} counts characters or bytes, by shell and locale. A line holds
+    # no more characters than bytes, so a short one passes either way.
     [ "${#line}" -gt 72 ] || continue
     # A line can't wrap when it holds a URL, or no space after its indent.
     case "$line" in (*://*) continue ;; esac
     indent=${line%%[![:space:]]*}
     case "${line#"$indent"}" in (*[[:space:]]*) ;; (*) continue ;; esac
-    echo "Commit body line $number is ${#line} characters; wrap the body at 72:"
+    line_length=$(characters "$line")
+    [ "$line_length" -gt 72 ] || continue
+    echo "Commit body line $number is $line_length characters; wrap the body at 72:"
     # printf, unlike echo, shows the line's backslashes as written.
     printf '  %s\n' "$line"
   done
