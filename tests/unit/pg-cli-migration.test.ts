@@ -34,6 +34,9 @@ describe("the PostgreSQL adapter's migrations, for g model and g migration", () 
         "settings:json",
         "photo:binary",
         "note:string=it's",
+        "cost:decimal=0.10",
+        "starts_on:date",
+        "opens_at:time=09:00",
       ]),
     ).toEqual({
       ok: true,
@@ -48,6 +51,9 @@ describe("the PostgreSQL adapter's migrations, for g model and g migration", () 
   settings JSONB,
   photo BYTEA,
   note TEXT DEFAULT 'it''s',
+  cost NUMERIC DEFAULT '0.1',
+  starts_on DATE,
+  opens_at TIME DEFAULT '09:00:00',
   created_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL
 );

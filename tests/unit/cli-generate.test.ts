@@ -45,6 +45,16 @@ describe("the column syntax", () => {
     ]);
   });
 
+  test("a decimal's, a date's and a time's default is written in its one form (#391)", () => {
+    expect(columns("price:decimal=1.50", "startsOn:date=2026-01-02", "opensAt:time=09:00")).toEqual(
+      [
+        { name: "price", type: "decimal", notNull: false, index: "none", default: "1.5" },
+        { name: "starts_on", type: "date", notNull: false, index: "none", default: "2026-01-02" },
+        { name: "opens_at", type: "time", notNull: false, index: "none", default: "09:00:00" },
+      ],
+    );
+  });
+
   test("references name the table they point at, and are indexed", () => {
     expect(columns("user:references", "blogPost:references:unique")).toEqual([
       {
@@ -78,6 +88,8 @@ describe("the column syntax", () => {
       parseColumns([
         "price:money",
         "count:integer=many",
+        "price:decimal=cheap",
+        "on:date=2026-02-30",
         "at:datetime=now",
         "x:string:uniq",
         "9lives",
@@ -85,9 +97,11 @@ describe("the column syntax", () => {
     ).toEqual({
       ok: false,
       errors: [
-        "price:money: money isn't a type; use string, integer, real, boolean, datetime, json or references",
+        "price:money: money isn't a type; use string, integer, real, decimal, boolean, datetime, date, time, json, binary or references",
         "count:integer=many: many isn't an integer",
-        "at:datetime=now: only string, integer, real and boolean columns can have a default here",
+        "price:decimal=cheap: cheap isn't a decimal",
+        "on:date=2026-02-30: 2026-02-30 isn't a date",
+        "at:datetime=now: only string, integer, real, decimal, boolean, date and time columns can have a default here",
         "x:string:uniq: write a column as name:type, with ! for NOT NULL, =value for a default, and :unique or :index",
         "9lives: write a column as name:type, with ! for NOT NULL, =value for a default, and :unique or :index",
       ],
@@ -196,6 +210,9 @@ ALTER TABLE products DROP COLUMN code;
       "settings:json",
       "price:real=1.5",
       "photo:binary",
+      "cost:decimal=0.10",
+      "startsOn:date=2026-01-02",
+      "opensAt:time=09:00",
     ]);
     const result = schemaOf([{ name: "0001_create_products.sql", sql }]);
 
@@ -206,6 +223,9 @@ ALTER TABLE products DROP COLUMN code;
       settings: { type: "json" },
       price: { type: "real", default: { literal: 1.5 } },
       photo: { type: "binary" },
+      cost: { type: "decimal", default: { literal: "0.1" } },
+      startsOn: { type: "date", default: { literal: "2026-01-02" } },
+      opensAt: { type: "time", default: { literal: "09:00:00" } },
       createdAt: { type: "datetime", null: false },
       updatedAt: { type: "datetime", null: false },
     });

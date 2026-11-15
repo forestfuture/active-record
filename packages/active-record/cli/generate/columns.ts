@@ -1,4 +1,5 @@
 // Parses a generator's `name:type` column arguments.
+import { castValue, uncastable } from "../../src/conversion.ts";
 import { pluralize } from "../../src/inflections.ts";
 import { camelize, underscore } from "../../src/naming.ts";
 
@@ -6,8 +7,11 @@ type ColumnType =
   | "string"
   | "integer"
   | "real"
+  | "decimal"
   | "boolean"
   | "datetime"
+  | "date"
+  | "time"
   | "json"
   | "binary"
   | "references";
@@ -30,12 +34,18 @@ const types: readonly ColumnType[] = [
   "string",
   "integer",
   "real",
+  "decimal",
   "boolean",
   "datetime",
+  "date",
+  "time",
   "json",
   "binary",
   "references",
 ];
+
+/** The types, as a message lists them: `string, integer, … or references`. */
+const typeList = `${types.slice(0, -1).join(", ")} or ${types.at(-1)}`;
 
 // name[:type][!][=default][:unique|:index]…, where a missing type is string (`slug:index`),
 // and a default runs to the index modifiers, so it may hold a `:` (`starts:string=09:00`).
@@ -44,33 +54,48 @@ const syntax =
 
 type Literal = string | number | boolean;
 
+type Parsed = { ok: true; value: Literal } | { ok: false; error: string };
+
+/** A decimal's, a date's or a time's default, in its one form (`1.50` → `"1.5"`, #391). */
+const castDefault =
+  (type: "decimal" | "date" | "time") =>
+  (value: string): Parsed => {
+    const cast = castValue({ type }, value);
+    return cast === uncastable
+      ? { ok: false, error: `${value} isn't a ${type}` }
+      : { ok: true, value: cast as string };
+  };
+
+/** How each type that can have a default reads a `=value` as its literal. */
+const defaultParsers: Partial<Record<ColumnType, (value: string) => Parsed>> = {
+  string: (value) => ({ ok: true, value }),
+  boolean: (value) =>
+    value === "true" || value === "false"
+      ? { ok: true, value: value === "true" }
+      : { ok: false, error: `${value} isn't true or false` },
+  integer: (value) =>
+    /^-?\d+$/.test(value) && Number.isSafeInteger(Number(value))
+      ? { ok: true, value: Number(value) }
+      : { ok: false, error: `${value} isn't an integer` },
+  real: (value) =>
+    /^-?\d+(\.\d+)?$/.test(value)
+      ? { ok: true, value: Number(value) }
+      : { ok: false, error: `${value} isn't a number` },
+  decimal: castDefault("decimal"),
+  date: castDefault("date"),
+  time: castDefault("time"),
+};
+
 /** A `=value` default as its type's literal, or why it can't be one. */
-function defaultOf(
-  type: ColumnType,
-  value: string,
-): { ok: true; value: Literal } | { ok: false; error: string } {
-  const number = Number(value);
-  switch (type) {
-    case "string":
-      return { ok: true, value };
-    case "boolean":
-      return value === "true" || value === "false"
-        ? { ok: true, value: value === "true" }
-        : { ok: false, error: `${value} isn't true or false` };
-    case "integer":
-      return /^-?\d+$/.test(value) && Number.isSafeInteger(number)
-        ? { ok: true, value: number }
-        : { ok: false, error: `${value} isn't an integer` };
-    case "real":
-      return /^-?\d+(\.\d+)?$/.test(value)
-        ? { ok: true, value: number }
-        : { ok: false, error: `${value} isn't a number` };
-    default:
-      return {
+function defaultOf(type: ColumnType, value: string): Parsed {
+  const parse = defaultParsers[type];
+  return parse === undefined
+    ? {
         ok: false,
-        error: "only string, integer, real and boolean columns can have a default here",
-      };
-  }
+        error:
+          "only string, integer, real, decimal, boolean, date and time columns can have a default here",
+      }
+    : parse(value);
 }
 
 /** The index `:unique` or `:index` asks for. */
@@ -88,7 +113,7 @@ function parseColumn(arg: string): ColumnArg | string {
   const [, given, typeName = "string", bang, value, indexes = ""] = match;
   const type = typeName as ColumnType;
   if (!types.includes(type)) {
-    return `${arg}: ${typeName} isn't a type; use string, integer, real, boolean, datetime, json or references`;
+    return `${arg}: ${typeName} isn't a type; use ${typeList}`;
   }
   const name = underscore(given!);
   const index = indexOf(indexes);
