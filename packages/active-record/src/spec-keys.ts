@@ -19,6 +19,9 @@ const typeNames = {
 
 const attributeTypes: readonly unknown[] = Object.keys(typeNames);
 
+/** The built-in types' names, as a message lists them: `"string", "integer", …`. */
+const typeNameList = attributeTypes.map((name) => `"${String(name)}"`).join(", ");
+
 /** Whether `value` names an attribute type. */
 export function isAttributeType(value: unknown): value is AttributeType {
   return attributeTypes.includes(value);
@@ -293,6 +296,9 @@ export function specProblem(
   where: string,
   spec: SpecOverride & Pick<SpecObject, "type">,
 ): string | undefined {
+  if (!rules.type.isWellFormed(spec.type)) {
+    return `${where} has type ${shown(spec.type)}; use a type's name (${typeNameList}), or a type defineType made`;
+  }
   for (const [key] of entries) {
     if (givenValue(spec, key) === undefined) continue;
     const problem =
