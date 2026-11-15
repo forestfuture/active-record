@@ -1,13 +1,13 @@
 ---
 title: Upgrading
-description: "Move an app to a new release: from 0.7 to 0.8, mark optional belongsTo associations, check code that reads a new record's changes, prepare batch writes in a callback, check what replacing a hasOne record does, and regenerate the schema; from 0.6 to 0.7, swap the D1 package for the core's /d1 entry and write active-record.jsonc; from d1-record 0.5 to 0.6, install the core beside the adapter and run npx active-record."
+description: "Move an app to a new release: from 0.7 to 0.8, mark optional belongsTo associations, check code that reads a new record's changes, prepare batch writes in a callback, check what replacing a hasOne record does, regenerate the schema, and widen the type of serialized values; from 0.6 to 0.7, swap the D1 package for the core's /d1 entry and write active-record.jsonc; from d1-record 0.5 to 0.6, install the core beside the adapter and run npx active-record."
 ---
 
 Each section moves an app up one release. Start from the release you’re on.
 
 ## Upgrading from 0.7 to 0.8
 
-In 0.8, a `belongsTo` requires its record, a batch prepares its writes in a callback, a new record’s changes run from its defaults, a `hasOne`’s new record replaces its old one, and the generated schema is a `defineSchema` call. Upgrade in five steps.
+In 0.8, a `belongsTo` requires its record, a batch prepares its writes in a callback, a new record’s changes run from its defaults, a `hasOne`’s new record replaces its old one, the generated schema is a `defineSchema` call, and `serialize` can give bytes. Upgrade in six steps.
 
 ### Marking optional associations
 
@@ -52,6 +52,10 @@ npx active-record schema
 ```
 
 The generated `schema.ts` now declares `schema` with `defineSchema({ … })`, which an [enum](./models#declaring-enums)’s scopes need. Until you regenerate it, `active-record schema --check` reports it as out of date.
+
+### Typing serialized values
+
+`typeForAttribute(name).serialize` now returns `string | number | Uint8Array | null`, since a [`binary` attribute](./models#storing-bytes) is stored as bytes. Code that gives its result a narrower type, such as `string | number | null`, needs the wider one.
 
 ## Upgrading from 0.6 to 0.7
 

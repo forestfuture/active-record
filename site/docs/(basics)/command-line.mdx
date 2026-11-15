@@ -212,7 +212,7 @@ On D1, each column becomes an attribute by the first of these that applies:
    | `TEXT` with `CHECK (json_valid(column))`            | `json`                                                         |
    | `JSON`                                              | `json`                                                         |
    | `NUMERIC`, `DECIMAL`                                | An error: store money as integer cents (`price_cents INTEGER`) |
-   | `BLOB`                                              | An error: not supported yet                                    |
+   | `BLOB`                                              | `binary`                                                       |
    | anything else                                       | `string`                                                       |
 
 3. **The column’s name**, only for a column declared exactly `TEXT` or `INTEGER`: `…_at` `TEXT` is a `datetime`, and `is_…` or `has_…` `INTEGER` is a `boolean` (with a note, since it’s a guess).
@@ -246,10 +246,11 @@ On Postgres, an override in the Model still comes first. Otherwise each column�
 | `boolean`                                   | `boolean`                                                     |
 | `timestamptz`, `timestamp`, `date`          | `datetime`                                                    |
 | `json`, `jsonb`                             | `json`                                                        |
+| `bytea`                                     | `binary`                                                      |
 | `text`, `varchar`, `char`, `citext`, `uuid` | `string`                                                      |
 | an enum type                                | `string`, with the enum’s labels as its `enum`                |
 | `numeric`                                   | An error: store money as integer cents (`price_cents BIGINT`) |
-| `bytea`, an array                           | An error: not supported                                       |
+| an array                                    | An error: not supported                                       |
 | anything else (`inet`, `interval`)          | `string`, with a note                                         |
 
 A domain maps as the type it’s built on. Names, `NOT NULL`, keys, and `CHECK (column IN (…))` work as on D1, and an enum type’s labels keep their order. A string key gets `generateId: true` unless it has a literal default, even when Postgres has a default such as `gen_random_uuid()`. Literal defaults (`'draft'`, `0`, `true`, `'{}'::jsonb`) are copied, and functions such as `now()` are left to Postgres. Views, other schemas, and `schema_migrations` are left out.
@@ -294,6 +295,7 @@ npx active-record g migration <Name> [columns] [options]
 | `boolean`              | `BOOLEAN`                         | `BOOLEAN`          |
 | `datetime`             | `DATETIME`                        | `TIMESTAMPTZ`      |
 | `json`                 | `TEXT CHECK (json_valid(column))` | `JSONB`            |
+| `binary`               | `BLOB`                            | `BYTEA`            |
 
 A `references` column is `<name>_id`, typed like the referenced table’s key, with `REFERENCES <plural> (id)` and an index.
 

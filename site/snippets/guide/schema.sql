@@ -47,3 +47,18 @@ CREATE TABLE invitations (
   token TEXT, -- NULL once the invitation is accepted
   accepted_at TEXT
 );
+
+CREATE TABLE products (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  price_cents INTEGER NOT NULL DEFAULT 0,
+  available INTEGER NOT NULL DEFAULT 1,
+  internal_notes TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE shirts (
+  id INTEGER PRIMARY KEY,
+  sizes TEXT NOT NULL DEFAULT ''
+);
