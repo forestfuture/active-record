@@ -145,4 +145,14 @@ describe("a generated enum's types (#64)", () => {
     expectTypeOf<Post>().not.toHaveProperty("isDraft");
     expectTypeOf<Post>().not.toHaveProperty("saveAsPublished");
   });
+
+  test("enum: true gives the database's names their predicates and setters; a switch with it wins", () => {
+    type Post = GeneratedRecord<{ status: { enum: true } }>;
+    type Quiet = GeneratedRecord<{ status: { enum: true; instanceMethods: false } }>;
+
+    expectTypeOf<Post["status"]>().toEqualTypeOf<"draft" | "published" | null>();
+    expectTypeOf<Post["isDraft"]>().toEqualTypeOf<() => boolean>();
+    expectTypeOf<Post>().toHaveProperty("saveAsPublishedOrThrow");
+    expectTypeOf<Quiet>().not.toHaveProperty("isDraft");
+  });
 });

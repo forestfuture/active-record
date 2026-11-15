@@ -87,6 +87,45 @@ interface Memo extends TableAttributes<
 > {}
 /* oxlint-enable typescript/no-unsafe-declaration-merging */
 
+/* oxlint-disable typescript/no-unsafe-declaration-merging, typescript/no-namespace, no-unused-vars -- stands in for schema.ts's declarations */
+// Turns the generated enum's methods on: the database's list, with its predicates, setters and scopes.
+class Note extends GeneratedEnumRecord {
+  static override table = "articles";
+  static override attributes = { status: { enum: true } } as const;
+}
+interface Note extends TableAttributes<
+  typeof generatedEnumSchema.tables.articles.attributes,
+  (typeof Note)["attributes"]
+> {}
+declare namespace Note {
+  const published: ScopeStatic<[]>;
+  const notPublished: ScopeStatic<[]>;
+}
+
+// Turns them on with the two switches instead, leaving out the scopes.
+class Jotting extends GeneratedEnumRecord {
+  static override table = "articles";
+  static override attributes = { status: { enum: true, scopes: false } } as const;
+}
+interface Jotting extends TableAttributes<
+  typeof generatedEnumSchema.tables.articles.attributes,
+  (typeof Jotting)["attributes"]
+> {}
+
+class Entry extends GeneratedEnumRecord {
+  static override table = "articles";
+  static override attributes = { status: { scopes: true, instanceMethods: true } } as const;
+}
+interface Entry extends TableAttributes<
+  typeof generatedEnumSchema.tables.articles.attributes,
+  (typeof Entry)["attributes"]
+> {}
+declare namespace Entry {
+  const published: ScopeStatic<[]>;
+  const notPublished: ScopeStatic<[]>;
+}
+/* oxlint-enable typescript/no-unsafe-declaration-merging, typescript/no-namespace, no-unused-vars */
+
 // As active-record schema writes it: the schema lists each Model's enum scopes, so they're
 // statics from the start, and a namespace types them.
 const listingSchema = defineSchema({
@@ -477,6 +516,38 @@ describe("enum attributes (#340)", () => {
       expect(methodsOf(memo)["saveAsPublished"]).toBeUndefined();
       expect(methodsOf(Memo)["draft"]).toBeUndefined();
       expect(methodsOf(memos())["draft"]).toBeUndefined();
+    });
+  });
+
+  describe("a generated enum's override (#64)", () => {
+    test("enum: true gives the database's names their predicates, setters and scopes", async () => {
+      const notes = harness.connect().model(Note);
+      const note = await notes.createOrThrow({ id: 1, status: "draft" });
+
+      expect(note.isDraft()).toBe(true);
+      await note.saveAsPublishedOrThrow();
+      expect(await notes.published().pluck("id")).toEqual([1]);
+      expect(await notes.notPublished().pluck("id")).toEqual([]);
+    });
+
+    test("a switch given with enum: true wins: scopes: false leaves out only the scopes", async () => {
+      const jotting = await harness
+        .connect()
+        .model(Jotting)
+        .createOrThrow({ id: 1, status: "draft" });
+
+      expect(jotting.isDraft()).toBe(true);
+      expect(
+        (harness.connect().model(Jotting) as unknown as Record<string, unknown>)["draft"],
+      ).toBeUndefined();
+    });
+
+    test("scopes: true and instanceMethods: true turn them on as enum: true does", async () => {
+      const entries = harness.connect().model(Entry);
+      const entry = await entries.createOrThrow({ id: 1, status: "published" });
+
+      expect(entry.isPublished()).toBe(true);
+      expect(await entries.published().pluck("id")).toEqual([1]);
     });
   });
 

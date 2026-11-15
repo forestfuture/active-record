@@ -5,6 +5,7 @@ import type { SchemaAdapter } from "./adapter.ts";
 import { ancestors } from "./ancestors.ts";
 import type { IntegerEnum, TextEnum } from "./enum-values.ts";
 import { defineEnumMethods, defineEnumStatics } from "./enum-methods.ts";
+import { switchedSpec, takeEnumSwitch, type SwitchedOverride } from "./enum-switch.ts";
 import { InvalidModel } from "./errors.ts";
 import {
   define,
@@ -49,7 +50,8 @@ type AttributeOverride =
   | (Pick<SpecOverride, "null"> & {
       type?: "string";
       storage?: never;
-      enum?: TextEnum;
+      /** Or `true`: a generated enum's names, with its methods (#64). */
+      enum?: TextEnum | true;
     } & EnumOptions &
       ValueSource)
   | (Pick<SpecOverride, "null" | "default"> & {
@@ -78,15 +80,27 @@ type NullOf<S> = S extends { null: false } ? false : true;
 /** An enum and its options: the keys an override carries into the merged spec's type (#340). */
 type EnumKey = "enum" | keyof EnumOptions;
 
+/** The switches a generated enum's methods are off by, which `enum: true` lifts (#64). */
+type MethodSwitch = "scopes" | "instanceMethods";
+
 /**
  * A spec's enum keys an override keeps: none when it gives a new type (they were for the old one),
- * and none it gives itself.
+ * none it gives itself, and not the switches `enum: true` lifts.
  */
 type KeptEnumKeys<S, O> = O extends { type: infer T }
   ? T extends TypeOf<S>
-    ? Omit<Pick<S, EnumKey & keyof S>, keyof O>
+    ? Omit<Pick<S, EnumKey & keyof S>, OwnKeys<O>>
     : {}
-  : Omit<Pick<S, EnumKey & keyof S>, keyof O>;
+  : Omit<Pick<S, EnumKey & keyof S>, OwnKeys<O>>;
+
+/** The keys an override replaces: its own, but for `enum: true`, which keeps the spec's names. */
+type OwnKeys<O> = O extends { enum: true } ? Exclude<keyof O, "enum"> | MethodSwitch : keyof O;
+
+/** The enum keys an override gives the merged spec: all it gives, but `enum: true` (#64). */
+type GivenEnumKeys<O> = Pick<
+  O,
+  Exclude<EnumKey & keyof O, O extends { enum: true } ? "enum" : never>
+>;
 
 /** An attribute's spec with its override applied. */
 type Overridden<S, O> = O extends AttributeType
@@ -96,7 +110,7 @@ type Overridden<S, O> = O extends AttributeType
         type: O extends { type: infer T extends AttributeType } ? T : TypeOf<S>;
         null: O extends { null: infer N extends boolean } ? N : NullOf<S>;
       } & KeptEnumKeys<S, O> &
-        Pick<O, EnumKey & keyof O>
+        GivenEnumKeys<O>
     : S;
 
 /** A table's attributes after its overrides: changed ones merged, ignored ones gone. */
@@ -321,16 +335,23 @@ export function defineGeneratedStatics(root: object): void {
  * An override as given, checked (TypeScript checks it too, but not in plain JavaScript or past
  * a cast): `false` to ignore the column, or the spec changes.
  */
-function checked(where: string, attribute: string, override: unknown): SpecOverride | false {
+function checked(where: string, attribute: string, override: unknown): Checked | false {
   if (override === false) return false;
-  if (isAttributeType(override)) return { type: override };
-  if (!isSpecOverride(override)) {
+  if (isAttributeType(override)) return { change: { type: override } };
+  const { switched, change } =
+    typeof override === "object" && override !== null
+      ? takeEnumSwitch(override)
+      : { change: override };
+  if (!isSpecOverride(change)) {
     throw new InvalidModel(
       `${where}.${attribute}: an override is a type name, { ${overridableKeyNames} }, or false`,
     );
   }
-  return override;
+  return { switched, change };
 }
+
+/** An override, checked: its spec changes, and its `enum` switch (#64). */
+type Checked = SwitchedOverride & { change: SpecOverride };
 
 /**
  * A generated spec with an override applied, refused if it leaves a spec a type can't have (#99,
@@ -339,9 +360,10 @@ function checked(where: string, attribute: string, override: unknown): SpecOverr
 function checkedOverride(
   where: string,
   spec: AttributeSpecs[string],
-  change: SpecOverride,
+  { switched, change }: Checked,
 ): AttributeSpecs[string] {
-  const changed = applyOverride(typeof spec === "string" ? { type: spec } : spec, change);
+  const base = switchedSpec(typeof spec === "string" ? { type: spec } : spec, switched);
+  const changed = applyOverride(base, change);
   const problem = specProblem(where, changed);
   if (problem !== undefined) throw new InvalidModel(problem);
   return changed as AttributeSpecs[string];
