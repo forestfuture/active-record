@@ -1,4 +1,4 @@
-// Converting values between attribute types and what D1 stores, per attribute type.
+// Converting values between attribute types and what D1 stores, per attribute type and for enums.
 import { enumEntries, type EnumValues } from "./enum-values.ts";
 import type { EpochStorage } from "./epoch-storage.ts";
 import type { AttributeDefinition, AttributeType } from "./metadata.ts";
@@ -116,7 +116,8 @@ export function castValue(attribute: Convertible, value: unknown): unknown {
  */
 export function castCondition(attribute: Convertible, value: unknown): unknown {
   if (attribute.type === "string" && typeof value === "number" && Number.isFinite(value)) {
-    return String(value);
+    // An enum casts the digits too: they're a name, or a stored value, or match nothing (#340).
+    return attribute.enum === undefined ? String(value) : castValue(attribute, String(value));
   }
   return castValue(attribute, value);
 }

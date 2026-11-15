@@ -144,6 +144,24 @@ describe("enum attributes (#340)", () => {
   });
 
   describe("an unknown value", () => {
+    test("a number in a condition on a string enum is read as its digits, and else matches nothing", async () => {
+      class Coded extends Model.define({
+        id: { type: "integer", null: false },
+        status: { type: "string", enum: { low: "1", high: "2" } },
+      }) {
+        static override table = "articles";
+      }
+      await harness.exec("INSERT INTO articles (id, status) VALUES (1, '1')");
+      const coded = harness.connect().model(Coded);
+
+      expect(await coded.where({ status: 1 as never }).pluck("id")).toEqual([1]);
+      expect(
+        await articles()
+          .where({ status: 7 as never })
+          .count(),
+      ).toBe(0);
+    });
+
     test("in a condition matches nothing", async () => {
       await articles().createOrThrow({ id: 1, status: "draft", priority: "low" });
 
