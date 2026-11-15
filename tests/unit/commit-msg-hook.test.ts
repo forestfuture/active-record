@@ -258,9 +258,11 @@ describe("the commit-msg hook on a commit's title", () => {
   test.each([
     ["em dashes, counting characters", `${lineOfWords(68)} — —`],
     ["trailing spaces, which git strips", `${lineOfWords(72)}   `],
+    ["a carriage return, which git strips", `${lineOfWords(72)}\r`],
   ])("passes a 72-character title with %s", (_what, title) => {
     const { status, output } = runHookEditingTheReadme(`${title}\n`);
 
+    expect(title.trimEnd()).toHaveLength(72);
     expect(status).toBe(0);
     expect(output).not.toContain("the limit is 72");
   });
