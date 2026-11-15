@@ -1,4 +1,5 @@
 // Converting values between attribute types and what D1 stores, per attribute type.
+import { enumEntries, type EnumValues } from "./enum-values.ts";
 import type { EpochStorage } from "./epoch-storage.ts";
 import type { AttributeDefinition, AttributeType } from "./metadata.ts";
 
@@ -25,10 +26,11 @@ interface Converter {
 const identity = (value: unknown) => value;
 
 /**
- * What an attribute's values convert by: its type, and for a datetime kept as a Unix time, its
- * storage (#73). Passed whole, so a caller can't convert by the type alone and skip the storage.
+ * What an attribute's values convert by: its type, for a datetime kept as a Unix time its
+ * storage (#73), and for an enum its values (#340). Passed whole, so a caller can't convert by
+ * the type alone and skip the others.
  */
-export type Convertible = Pick<AttributeDefinition, "type" | "storage">;
+export type Convertible = Pick<AttributeDefinition, "type" | "storage" | "enum">;
 
 /** The key of the converter for an attribute: its storage if it has one, else its type. */
 type ConversionKey = AttributeType | EpochStorage;
@@ -58,9 +60,48 @@ const converters: Record<ConversionKey, Converter> = {
   json: { cast: castJson, read: readJson, write: (value) => JSON.stringify(value) },
 };
 
+/** Each enum's converter, over the converter of the type its values are stored as. */
+const enumConverters = new WeakMap<EnumValues, Map<Converter, Converter>>();
+
+/** The converter for an attribute: its type's (or storage's), or for an enum, one over it. */
+function converterOf(attribute: Convertible): Converter {
+  const stored = converters[keyOf(attribute)];
+  if (attribute.enum === undefined) return stored;
+  let byType = enumConverters.get(attribute.enum);
+  if (byType === undefined) {
+    byType = new Map();
+    enumConverters.set(attribute.enum, byType);
+  }
+  let converter = byType.get(stored);
+  if (converter === undefined) {
+    converter = enumConverter(attribute.enum, stored);
+    byType.set(stored, converter);
+  }
+  return converter;
+}
+
+/**
+ * An enum's values are its names (#340). A name is cast as itself, and so is the value it's
+ * stored as (`1`, or `"1"` from a form), as Rails accepts; anything else is `uncastable`, and so
+ * is a stored cell that's none of its values.
+ */
+function enumConverter(values: EnumValues, stored: Converter): Converter {
+  const entries = enumEntries(values);
+  const storedValues = new Map<unknown, unknown>(entries);
+  const names = new Map<unknown, string>(entries.map(([name, value]) => [value, name]));
+  return {
+    cast: (value) =>
+      typeof value === "string" && storedValues.has(value)
+        ? value
+        : (names.get(stored.cast(value)) ?? uncastable),
+    read: (cell) => names.get(stored.read(cell)) ?? uncastable,
+    write: (name) => storedValues.get(name),
+  };
+}
+
 /** `value` as the attribute's type (null stays null), or `uncastable`. */
 export function castValue(attribute: Convertible, value: unknown): unknown {
-  return value === null ? null : converters[keyOf(attribute)].cast(value);
+  return value === null ? null : converterOf(attribute).cast(value);
 }
 
 /**
@@ -80,11 +121,11 @@ export function castCondition(attribute: Convertible, value: unknown): unknown {
  * attribute.ts, is how a cell D1 returned is read, so it fails naming its attribute.
  */
 export function readValue(attribute: Convertible, value: unknown): unknown {
-  return value === null || value === undefined ? null : converters[keyOf(attribute)].read(value);
+  return value === null || value === undefined ? null : converterOf(attribute).read(value);
 }
 
 export function writeValue(attribute: Convertible, value: unknown): unknown {
-  return value === null || value === undefined ? null : converters[keyOf(attribute)].write(value);
+  return value === null || value === undefined ? null : converterOf(attribute).write(value);
 }
 
 /**

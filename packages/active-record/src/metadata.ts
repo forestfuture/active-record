@@ -1,5 +1,6 @@
 // Attribute metadata: each attribute's type, column and default, resolved from its spec.
 import { copiedKeys } from "./spec-keys.ts";
+import type { EnumNames, EnumValues } from "./enum-values.ts";
 import type { EpochStorage } from "./epoch-storage.ts";
 import { UnknownAttribute } from "./errors.ts";
 import type { ModelClass } from "./model.ts";
@@ -21,6 +22,8 @@ export interface SpecObject {
    * app-generated key (#99). Generated ids are strings, so only a string attribute has one.
    */
   generateId?: boolean;
+  /** Its only values, by name, and what each is stored as (#340). */
+  enum?: EnumValues;
 }
 
 /** Where a string attribute's value comes from when it isn't given: a default or `generateId`, never both. */
@@ -60,6 +63,7 @@ export interface AttributeDefinition {
   default?: () => unknown;
   generateId?: true;
   storage?: EpochStorage;
+  enum?: EnumValues;
 }
 
 type JsType<T extends AttributeType> = T extends "string"
@@ -72,12 +76,19 @@ type JsType<T extends AttributeType> = T extends "string"
         ? Date
         : unknown;
 
+/** A spec's value, not null: an enum's names (#340), or its type's JavaScript value. */
+type SpecValue<S> = S extends { enum: infer E extends EnumValues }
+  ? EnumNames<E>
+  : S extends { type: infer T extends AttributeType }
+    ? JsType<T>
+    : never;
+
 type AttributeValue<S> = S extends AttributeType
   ? JsType<S> | null
-  : S extends { type: infer T extends AttributeType; null: false }
-    ? JsType<T>
-    : S extends { type: infer T extends AttributeType }
-      ? JsType<T> | null
+  : S extends { type: AttributeType; null: false }
+    ? SpecValue<S>
+    : S extends { type: AttributeType }
+      ? SpecValue<S> | null
       : never;
 
 export type AttributeProperties<A extends AttributeSpecs> = {
