@@ -142,6 +142,15 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
     });
   });
 
+  test("a CHECK's names keep their own spaces and parentheses (#64)", async () => {
+    const { tables } = await tablesOf({
+      "1_create.sql":
+        "CREATE TABLE posts (id INTEGER PRIMARY KEY, s TEXT CHECK (s IN ('a  b', 'c (d)')));",
+    });
+
+    expect(tables[0]!.attributes["s"]).toMatchObject({ enum: ["a  b", "c (d)"] });
+  });
+
   test("a string key is made in code, unless it has a literal default; tables are alphabetical", async () => {
     const { tables } = await tablesOf({
       "1_create.sql": `
