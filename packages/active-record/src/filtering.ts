@@ -6,8 +6,9 @@ import { underscore } from "./naming.ts";
 export const FILTERED = "[FILTERED]";
 
 /**
- * An entry of `filterAttributes`: a string the attribute's snake_case name contains (in any
- * case), or a RegExp the attribute or its snake_case name matches.
+ * An entry of `filterAttributes`: a string the attribute's snake_case name contains, lowercased
+ * or read in snake_case (`"apiKey"` as `api_key`), or a RegExp the attribute or its snake_case
+ * name matches.
  */
 export type FilterAttribute = string | RegExp;
 
