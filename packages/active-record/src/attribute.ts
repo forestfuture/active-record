@@ -4,7 +4,7 @@
 // D1 stores, read a cell back, and bind it hidden from listeners when the attribute is filtered.
 // Records, Relations, associations, preloads, and the compiler all go through here, so no caller
 // has to cast or bind a value its own way.
-import { isSameCell } from "./binary-values.ts";
+import { hexOf, isSameCell } from "./binary-values.ts";
 import {
   castCondition,
   castValue,
@@ -223,7 +223,9 @@ export function storedRows(
   rows: readonly (readonly unknown[])[],
 ): unknown {
   const attributes = names.map((name) => attributeFor(model, name));
-  const stored = rows.map((row) => row.map((value, index) => attributes[index]!.store(value)));
+  const stored = rows.map((row) =>
+    row.map((value, index) => inJson(attributes[index]!.store(value))),
+  );
   const json = JSON.stringify(stored);
   const filtered = names.map((attribute) => isFiltered(model, attribute));
   if (!filtered.includes(true)) return json;
@@ -231,6 +233,11 @@ export function storedRows(
     row.map((value, index) => (filtered[index] ? FILTERED : value)),
   );
   return new Filtered(json, JSON.stringify(shown));
+}
+
+/** A stored cell as a bulk write's JSON holds it: bytes as hex text, which JSON has no form for (#20). */
+function inJson(cell: unknown): unknown {
+  return cell instanceof Uint8Array ? hexOf(cell) : cell;
 }
 
 /**

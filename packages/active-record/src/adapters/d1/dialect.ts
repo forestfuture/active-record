@@ -16,7 +16,13 @@ export const sqlite: Dialect = {
     return ` LIMIT ${valueMark} OFFSET ${valueMark}`;
   },
   bulkRows: (_table, attributes) => ({
-    select: attributes.map((_, index) => `value ->> '$[${index}]'`).join(", "),
+    select: attributes
+      .map(({ isBinary }, index) => {
+        const cell = `value ->> '$[${index}]'`;
+        // Bytes are hex text in the JSON (#20).
+        return isBinary ? `unhex(${cell})` : cell;
+      })
+      .join(", "),
     from: `json_each(${valueMark})`,
   }),
   // A key that isn't text, selected for a text attribute, is cast to text: SQLite would compare
