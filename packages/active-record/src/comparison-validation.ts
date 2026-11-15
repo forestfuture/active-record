@@ -19,7 +19,8 @@ export interface ComparisonOptions<R = never> {
   otherThan?: ComparisonBound<R>;
 }
 
-type Order = -1 | 0 | 1;
+/** -1, 0 or 1; NaN when the two don't order (NaN, or an invalid Date), so only `otherThan` holds. */
+type Order = number;
 
 /** @internal The bounds `numericality` shares: error type, and whether the value's order meets it. */
 export const RANGE_CHECKS = [
@@ -40,12 +41,14 @@ export function orderOf(a: Comparable, b: Comparable): Order {
   const left = a instanceof Date ? a.getTime() : a;
   const right = b instanceof Date ? b.getTime() : b;
   if (left < right) return -1;
-  return left > right ? 1 : 0;
+  if (left > right) return 1;
+  return left === right ? 0 : Number.NaN;
 }
 
 /** A bound as its message shows it: a Date as an ISO string. */
 function shown(bound: Comparable): string | number {
-  return bound instanceof Date ? bound.toISOString() : bound;
+  if (!(bound instanceof Date)) return bound;
+  return Number.isNaN(bound.getTime()) ? "Invalid Date" : bound.toISOString();
 }
 
 /** What a value is called when it can't be compared: `a number`, `a Date`, `a boolean`. */
