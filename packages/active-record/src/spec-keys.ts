@@ -22,6 +22,9 @@ const attributeTypes: readonly unknown[] = Object.keys(typeNames);
 /** The built-in types' names, as a message lists them: `"string", "integer", …`. */
 const typeNameList = attributeTypes.map((name) => `"${String(name)}"`).join(", ");
 
+/** The built-in types' names as a list to choose from: `"string", …, or "binary"`. */
+export const attributeTypeNames = typeNameList.replace(/, ([^,]+)$/, ", or $1");
+
 /** Whether `value` names an attribute type. */
 export function isAttributeType(value: unknown): value is AttributeType {
   return attributeTypes.includes(value);
