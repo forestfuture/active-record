@@ -275,7 +275,7 @@ Turn them on by overriding the attribute with `enum: true`:
 If you’d rather keep the column a plain string, override it with `enum: false`. A list of your own, such as `enum: ["open", "done", "archived"]`, replaces the database’s, with its methods on.
 
 :::note
-`active-record schema` reads a `CHECK` whose only condition is `column IN (…)` with text values, or `column IS NULL OR column IN (…)`. Any other `CHECK` leaves the column as it was, and a list of numbers stays an `integer`.
+`active-record schema` reads a `CHECK` whose only condition is `column IN (…)` with text values, or `column IS NULL OR column IN (…)`. Any other `CHECK` leaves the column as it was, and a list of numbers stays an `integer`. Postgres stores a one-name `IN ('open')` as `= 'open'`, so it isn’t read there.
 :::
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">

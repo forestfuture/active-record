@@ -119,7 +119,12 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
           e TEXT CHECK (e NOT IN ('x', 'y')),
           f TEXT CHECK (f IN ('x', 'y') AND length(f) > 0),
           g INTEGER CHECK (g IN (0, 1)),
-          h TEXT CHECK (h IN ('x', 'y')) CHECK (h IN ('x'))
+          h TEXT CHECK (h IN ('x', 'y')) CHECK (h IN ('x')),
+          i TEXT CHECK (i IN ('draft', 'it''s')) CHECK (length(i) > 0),
+          lower TEXT,
+          "lowerj" TEXT CHECK (lowerj > ''),
+          j TEXT,
+          CHECK (lower(j) = ANY (ARRAY['x']))
         );`,
     });
     const generated = {
@@ -139,6 +144,10 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
       f: { type: "string" },
       g: { type: "integer" },
       h: { type: "string" },
+      i: generated,
+      lower: { type: "string" },
+      lowerj: { type: "string" },
+      j: { type: "string" },
     });
   });
 
