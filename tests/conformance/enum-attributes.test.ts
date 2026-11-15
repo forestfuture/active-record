@@ -520,9 +520,9 @@ describe("enum attributes (#340)", () => {
     const memos = () => harness.connect().model(Memo);
 
     test("reads and writes its names", async () => {
-      const memo = await memos().createOrThrow({ id: 1, status: "published" });
+      await memos().createOrThrow({ id: 1, status: "published" });
 
-      expect((await memos().find(1)).status).toBe(memo.status);
+      expect((await memos().find(1)).status).toBe("published");
     });
 
     test("refuses a value it doesn't list", () => {
