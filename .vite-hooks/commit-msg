@@ -1,6 +1,10 @@
 # Checks a commit's message: the length of its title and body lines, and that
 # a tests-only commit says its tests are guards.
 
+# The C locale, as dash has in any: [[:space:]] means ASCII whitespace, as
+# for git, ${#x} counts bytes, and sed reads a byte that isn't UTF-8.
+export LC_ALL=C
+
 # Lines that open with git's comment character aren't part of the message,
 # which ends at git commit -v's scissors line; the diff follows it. With
 # commentChar set to auto, git's choice isn't known here, so # stands in.
@@ -14,10 +18,10 @@ message=$(awk -v c="$comment" '
   index($0, c) == 1 { next }
   { print }' "$1")
 
-# How many characters $1 holds, in any locale. wc -c counts bytes, so this
-# drops UTF-8's continuation bytes first.
+# How many characters $1 holds. wc -c counts bytes, so this drops UTF-8's
+# continuation bytes first.
 characters() {
-  printf '%s' "$1" | LC_ALL=C tr -d '\200-\277' | wc -c | tr -d ' '
+  printf '%s' "$1" | tr -d '\200-\277' | wc -c | tr -d ' '
 }
 
 # Commit titles: aim for 50 characters, warn past 60, never more than 72.
@@ -62,8 +66,7 @@ long_lines=$(printf '%s\n' "$message" | {
       past_title=yes
       continue
     fi
-    # ${#line} counts characters or bytes, by shell and locale. A line holds
-    # no more characters than bytes, so a short one passes either way.
+    # ${#line} counts bytes, and a line holds no more characters than that.
     [ "${#line}" -gt 72 ] || continue
     # A line can't wrap when it holds a URL, or no space after its indent.
     # Each pattern's opening ( keeps bash from closing $( at its ).

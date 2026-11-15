@@ -10,6 +10,9 @@ const hook = new URL("../../.vite-hooks/commit-msg", import.meta.url).pathname;
 /** Each file's text, or null for a file to delete. */
 type Files = Record<string, string | null>;
 
+/** A commit message: text, or bytes that needn't be UTF-8. */
+type Message = string | Uint8Array;
+
 /** git config settings, set in the order given. */
 type GitConfig = Record<string, string>;
 
@@ -37,9 +40,9 @@ function git(dir: string, ...args: string[]): void {
 /**
  * Commits `before` in a new repository with `config` set, stages `after` on
  * top of it, and runs the hook on `message` as git would: what it prints,
- * and its status. It runs in the C locale.
+ * and its status. It runs in a UTF-8 locale.
  */
-function runHook(before: Files, after: Files, message: string, config: GitConfig = {}) {
+function runHook(before: Files, after: Files, message: Message, config: GitConfig = {}) {
   const dir = mkdtempSync(join(tmpdir(), "commit-msg-hook-"));
   git(dir, "init", "-q");
   for (const [key, value] of Object.entries(config)) git(dir, "config", key, value);
@@ -49,8 +52,9 @@ function runHook(before: Files, after: Files, message: string, config: GitConfig
   write(dir, after);
   git(dir, "add", ...Object.keys(after));
   writeFileSync(join(dir, ".git", "COMMIT_EDITMSG"), message);
-  // In the C locale, as dash in any locale, the shell measures text in bytes.
-  const env = { ...process.env, LC_ALL: "C" };
+  // A UTF-8 locale, where bash's [[:space:]] matches a non-breaking space and
+  // ${#line} counts characters; dash, Linux's sh, does neither in any locale.
+  const env = { ...process.env, LC_ALL: "en_US.UTF-8" };
   const result = spawnSync("sh", ["-e", hook, ".git/COMMIT_EDITMSG"], { cwd: dir, env });
   return { status: result.status, output: String(result.stdout) };
 }
@@ -200,7 +204,7 @@ describe("the commit-msg hook on a commit that renames or moves tests", () => {
 });
 
 /** Runs the hook on a commit that edits only the README. */
-function runHookEditingTheReadme(message: string, config: GitConfig = {}) {
+function runHookEditingTheReadme(message: Message, config: GitConfig = {}) {
   return runHook({}, { "README.md": "y\n" }, message, config);
 }
 
@@ -267,6 +271,14 @@ describe("the commit-msg hook on a commit's title", () => {
     expect(output).not.toContain("the limit is 72");
   });
 
+  test("reads a title that opens with a byte that isn't UTF-8", () => {
+    const message = Buffer.concat([Buffer.from([0xff]), Buffer.from("Edit the README (#1)\n")]);
+    const { status, output } = runHookEditingTheReadme(message);
+
+    expect(status).toBe(0);
+    expect(output).toBe("");
+  });
+
   test("shows a refused title's backslashes as written", () => {
     const title = `${lineOfWords(70)} a\\c b \\n c`;
     const { output } = runHookEditingTheReadme(`${title}\n`);
@@ -327,6 +339,21 @@ describe("the commit-msg hook on a commit's body", () => {
     expect(line).toHaveLength(72);
     expect(status).toBe(0);
     expect(output).toBe("");
+  });
+
+  test("passes a long line whose only spaces are non-breaking, as dash does", () => {
+    const line = lineOfWords(80).replaceAll(" ", "\u00a0");
+    const { status } = runHookEditingTheReadme(`Edit the README (#1)\n\n${line}\n`);
+
+    expect(status).toBe(0);
+  });
+
+  test("counts a trailing non-breaking space, which git keeps", () => {
+    const { status } = runHookEditingTheReadme(
+      `Edit the README (#1)\n\n${lineOfWords(72)}\u00a0\n`,
+    );
+
+    expect(status).toBe(1);
   });
 
   test.each([
