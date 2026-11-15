@@ -1,4 +1,4 @@
-// Converting values between attribute types and what D1 stores, per attribute type and for enums.
+// Converting values between attribute types and what D1 stores, per attribute type, for enums, and for custom types (#20).
 import { castBinary, readBinary } from "./binary-values.ts";
 import { enumEntries, type EnumValues } from "./enum-values.ts";
 import type { EpochStorage } from "./epoch-storage.ts";
