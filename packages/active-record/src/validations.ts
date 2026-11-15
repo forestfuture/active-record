@@ -3,7 +3,6 @@ import {
   comparisonFailures,
   orderOf,
   RANGE_CHECKS,
-  type Compared,
   type ComparisonOptions,
 } from "./comparison-validation.ts";
 import { isBlank } from "./blank.ts";
@@ -25,6 +24,9 @@ export interface NumericalityOptions {
   lessThanOrEqualTo?: number;
 }
 
+/** The values `inclusion` and `exclusion` list: an array, or `{ in: [...] }`. */
+type ValueList = readonly unknown[] | { in: readonly unknown[] };
+
 /** The Model's attribute names for record type `R` (any string where `R` isn't known). */
 type AttributeName<R> = [R] extends [never] ? string : keyof AttributesOf<R> & string;
 
@@ -42,9 +44,9 @@ export interface ValidationOptions<R = never> {
   absence?: boolean;
   length?: LengthOptions;
   format?: RegExp | { with: RegExp };
-  inclusion?: readonly unknown[] | { in: readonly unknown[] };
+  inclusion?: ValueList;
   /** Not one of these values ("is reserved"); null passes unless the list holds it. */
-  exclusion?: readonly unknown[] | { in: readonly unknown[] };
+  exclusion?: ValueList;
   numericality?: boolean | NumericalityOptions;
   /**
    * Bounds the value must meet: numbers, strings (in JavaScript's order) or Dates (by time).
@@ -75,7 +77,17 @@ export interface Validation {
   options: ValidationOptions<never>;
 }
 
-type Check = (value: unknown, options: ValidationOptions<never>, compared: Compared) => Failure[];
+/** @internal The record being validated, and the attribute a check reads. */
+export interface ValidationSubject {
+  record: object;
+  attribute: string;
+}
+
+type Check = (
+  value: unknown,
+  options: ValidationOptions<never>,
+  subject: ValidationSubject,
+) => Failure[];
 
 const presence: Check = (value, { presence: required }) =>
   required && isBlank(value) ? [{ type: "blank" }] : [];
@@ -115,7 +127,7 @@ function isSameValue(a: unknown, b: unknown): boolean {
 }
 
 /** Whether `value` is in a list given as an array or as `{ in: [...] }`. */
-function isListed(list: readonly unknown[] | { in: readonly unknown[] }, value: unknown): boolean {
+function isListed(list: ValueList, value: unknown): boolean {
   const items = Array.isArray(list) ? list : (list as { in: readonly unknown[] }).in;
   return items.some((item) => isSameValue(item, value));
 }
@@ -144,8 +156,8 @@ const numericality: Check = (value, { numericality: rule }) => {
   });
 };
 
-const comparison: Check = (value, { comparison: rule }, compared) =>
-  rule === undefined ? [] : comparisonFailures(value, rule as ComparisonOptions<unknown>, compared);
+const comparison: Check = (value, { comparison: rule }, subject) =>
+  rule === undefined ? [] : comparisonFailures(value, rule as ComparisonOptions<unknown>, subject);
 
 const DEFAULT_ACCEPTED = [true, "1"];
 

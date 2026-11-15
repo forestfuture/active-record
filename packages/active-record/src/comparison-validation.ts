@@ -2,6 +2,7 @@
 import { withArticle } from "./attribute.ts";
 import { isBlank } from "./blank.ts";
 import type { Failure } from "./errors-collection.ts";
+import type { ValidationSubject } from "./validations.ts";
 
 /** What `comparison` compares: numbers with numbers, strings with strings, Dates by their time. */
 export type Comparable = number | string | Date;
@@ -51,23 +52,22 @@ function shown(bound: Comparable): string | number {
   return Number.isNaN(bound.getTime()) ? "Invalid Date" : bound.toISOString();
 }
 
-/** What a value is called when it can't be compared: `a number`, `a Date`, `a boolean`. */
-function kindOf(value: unknown): string {
-  return withArticle(value instanceof Date ? "Date" : typeof value);
-}
+/** The kinds of value `comparison` orders. */
+const COMPARABLE_KINDS: ReadonlySet<string> = new Set(["number", "string", "Date"]);
 
-/** @internal The record being validated, and the attribute whose value is compared. */
-export interface Compared {
-  record: object;
-  attribute: string;
+/** A value's kind: `Date` for a Date, or its `typeof` (`number`, `boolean`, …). */
+function kindOf(value: unknown): string {
+  return value instanceof Date ? "Date" : typeof value;
 }
 
 /** Throws `TypeError` unless `value` and `bound` are both numbers, strings or Dates. */
-function requireComparable(value: unknown, bound: unknown, { record, attribute }: Compared): void {
-  const kind = kindOf(value);
-  if (kind === kindOf(bound) && ["a number", "a string", "a Date"].includes(kind)) return;
-  const model = record.constructor.name;
-  throw new TypeError(`${model}: "${attribute}" (${kind}) can't be compared with ${kindOf(bound)}`);
+function requireComparable(value: unknown, bound: unknown, subject: ValidationSubject): void {
+  const [kind, boundKind] = [kindOf(value), kindOf(bound)];
+  if (kind === boundKind && COMPARABLE_KINDS.has(kind)) return;
+  const model = subject.record.constructor.name;
+  throw new TypeError(
+    `${model}: "${subject.attribute}" (${withArticle(kind)}) can't be compared with ${withArticle(boundKind)}`,
+  );
 }
 
 /**
@@ -77,15 +77,15 @@ function requireComparable(value: unknown, bound: unknown, { record, attribute }
 export function comparisonFailures(
   value: unknown,
   rule: ComparisonOptions<unknown>,
-  compared: Compared,
+  subject: ValidationSubject,
 ): Failure[] {
   const bounds = ORDER_CHECKS.filter(([type]) => rule[type] !== undefined);
   if (isBlank(value)) return bounds.length === 0 ? [] : [{ type: "blank" }];
   return bounds.flatMap(([type, holds]) => {
     const given = rule[type];
-    const bound = typeof given === "function" ? given(compared.record) : given;
+    const bound = typeof given === "function" ? given(subject.record) : given;
     if (bound === null || bound === undefined) return [];
-    requireComparable(value, bound, compared);
+    requireComparable(value, bound, subject);
     return holds(orderOf(value as Comparable, bound))
       ? []
       : [{ type, values: { count: shown(bound) } }];
