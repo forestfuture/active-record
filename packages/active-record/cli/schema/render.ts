@@ -8,7 +8,7 @@ import { isIdentifier } from "../project/names.ts";
  * The generated file's format. Bump it when the output changes, so `--check` reports files an
  * older version of the command wrote (its fingerprint covers the format as well as the schema).
  */
-const format = 6;
+const format = 7;
 
 /**
  * An object key: bare when it's an identifier, quoted otherwise (`"first name"`). `__proto__` is
@@ -73,6 +73,8 @@ export interface ListedModel {
   modelName?: string;
   table: string;
   module: string;
+  /** Its enum scopes (#340), which the schema lists so they're statics from the start. */
+  enumScopes?: readonly string[];
 }
 
 /** An adapter as a generated schema imports it: its factory, named for it, and its package. */
@@ -94,11 +96,12 @@ export function fingerprintOf({ adapter, tables, binding, models }: SchemaSource
   // In the order the file lists them, whichever order they were found in.
   // A modelName that's the class name is left out, so a schema from before it keeps its hash.
   const listed = byName(models, (model) => model.className).map((model) => {
-    const { className, table, module } = model;
+    const { className, table, module, enumScopes = [] } = model;
     const modelName = listedName(model);
+    const scopes = enumScopes.length === 0 ? {} : { enumScopes };
     return modelName === className
-      ? { className, table, module }
-      : { className, modelName, table, module };
+      ? { className, table, module, ...scopes }
+      : { className, modelName, table, module, ...scopes };
   });
   const hash = createHash("sha256").update(
     JSON.stringify({ format, adapter, tables, binding, models: listed }),
@@ -116,14 +119,25 @@ function byName<T>(items: readonly T[], name: (item: T) => string): T[] {
   return [...items].sort((a, b) => (name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0));
 }
 
-/** The Models' entries as an object: on one line, or one a line when that would be too long. */
-function modelsSource(entries: readonly string[]): string {
+/** A key's entries as an object: on one line, or one a line when that would be too long. */
+function modelsSource(entries: readonly string[], key: string): string {
   const line = entries.length === 0 ? "{}" : `{ ${entries.join(", ")} }`;
-  if (`  models: ${line},`.length <= 100) return line;
+  if (`  ${key}: ${line},`.length <= 100) return line;
   return `{\n${entries.map((entry) => `    ${entry},`).join("\n")}\n  }`;
 }
 
-/** The `schema` value: its adapter and binding, every table by name, and every Model's table by modelName. */
+/** Each Model's enum scopes, by the name it's listed by, if any has some (#340). */
+function enumScopesSource(models: readonly ListedModel[]): string {
+  const entries = byName(models, listedName)
+    .filter((model) => (model.enumScopes ?? []).length > 0)
+    .map((model) => `${keySource(listedName(model))}: ${valueSource(model.enumScopes)}`);
+  return entries.length === 0 ? "" : `\n  enumScopes: ${modelsSource(entries, "enumScopes")},`;
+}
+
+/**
+ * The `schema` value: its adapter and binding, every table by name, every Model's table by
+ * modelName, and their enum scopes, through `defineSchema`, which makes those statics (#340).
+ */
 function schemaValueSource({ adapter, tables, binding, models }: SchemaSource): string {
   const entries = tables
     .map((table) => {
@@ -135,13 +149,13 @@ function schemaValueSource({ adapter, tables, binding, models }: SchemaSource): 
     (model) => `${keySource(listedName(model))}: ${JSON.stringify(model.table)}`,
   );
   return `/** The database's adapter and binding, its tables (with their primary keys), and the Models built on them. */
-export const schema = {
+export const schema = defineSchema({
   adapter: ${adapter.factory}({ binding: ${stringLiteral(binding)} }),
   tables: {
 ${entries}
   },
-  models: ${modelsSource(listed)},
-} as const;`;
+  models: ${modelsSource(listed, "models")},${enumScopesSource(models)}
+});`;
 }
 
 /** A Model's declaration: its class, with its table's attributes after its own overrides. */
@@ -150,6 +164,14 @@ function interfaceSource(model: ListedModel, exportName: string): string {
   const heritage = `extends TableAttributes<typeof ${exportName}, (typeof ${name})["attributes"]> {}`;
   const line = `  interface ${name} ${heritage}`;
   return line.length <= 100 ? line : `  interface ${name}\n    ${heritage}`;
+}
+
+/** A Model's enum scopes as statics, typed (#340): a namespace merged with its class. */
+function namespaceLines(model: ListedModel): string[] {
+  const scopes = model.enumScopes ?? [];
+  if (scopes.length === 0) return [];
+  const statics = scopes.map((scope) => `    const ${scope}: ScopeStatic<[]>;`);
+  return [`  namespace ${model.className} {`, ...statics, "  }"];
 }
 
 /** One `declare module` block per Model file, adding each class's attributes to it. */
@@ -161,7 +183,10 @@ function declarationsSource({ tables, models }: SchemaSource): string {
   }
   return byName([...modules], ([module]) => module)
     .map(([module, inModule]) => {
-      const lines = inModule.map((model) => interfaceSource(model, exportNames.get(model.table)!));
+      const lines = inModule.flatMap((model) => [
+        interfaceSource(model, exportNames.get(model.table)!),
+        ...namespaceLines(model),
+      ]);
       return `declare module ${stringLiteral(module)} {\n${lines.join("\n")}\n}`;
     })
     .join("\n\n");
@@ -174,8 +199,14 @@ function declarationsSource({ tables, models }: SchemaSource): string {
  */
 export function renderSchema(schema: SchemaSource, source: string): string {
   const hasModels = schema.models.length > 0;
+  const hasScopes = schema.models.some((model) => (model.enumScopes ?? []).length > 0);
+  const names = [
+    "defineSchema",
+    ...(hasScopes ? ["type ScopeStatic"] : []),
+    ...(hasModels ? ["type TableAttributes"] : []),
+  ];
   const imports =
-    (hasModels ? 'import type { TableAttributes } from "@forestfuture/active-record";\n' : "") +
+    `import { ${names.join(", ")} } from "@forestfuture/active-record";\n` +
     `import { ${schema.adapter.factory} } from ${stringLiteral(schema.adapter.from)};\n\n`;
   const declarations = hasModels ? `\n\n${declarationsSource(schema)}` : "";
   return `// Generated by \`active-record schema\` from ${source} — don't edit.

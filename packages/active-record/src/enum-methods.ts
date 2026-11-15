@@ -79,6 +79,13 @@ function affix(attribute: string, option: boolean | string | undefined): string 
   return typeof option === "string" ? methodPart(option) : "";
 }
 
+/** The scopes the enums of `definitions` give a Model, as `EnumStatics` types them. */
+export function enumScopeNames(definitions: ReadonlyMap<string, AttributeDefinition>): string[] {
+  return enumNames(definitions)
+    .filter((each) => each.hasScopes)
+    .flatMap(({ stem }) => [uncapitalized(stem), `not${stem}`]);
+}
+
 /** How a word reads inside a method's name, as `MethodPart` types it. */
 function methodPart(word: string): string {
   const [head = "", ...rest] = word.split("_");
