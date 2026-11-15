@@ -1,4 +1,5 @@
 // Attribute metadata: each attribute's type, column and default, resolved from its spec.
+import { type AnyCustomType, type CustomType, isCustomType } from "./custom-types.ts";
 import { copiedKeys } from "./spec-keys.ts";
 import type { EnumNames, EnumValues, IntegerEnum, TextEnum } from "./enum-values.ts";
 import type { EpochStorage } from "./epoch-storage.ts";
@@ -17,7 +18,8 @@ export type AttributeType =
 
 /** An attribute's spec written out: its type, and optionally nullability, column and default. */
 export interface SpecObject {
-  type: AttributeType;
+  /** A built-in type's name, or a type `defineType` made (#20). */
+  type: AttributeType | AnyCustomType;
   null?: boolean;
   column?: string;
   /** A `datetime` held as a Unix epoch integer, as Drizzle's timestamp modes write it (#73). */
@@ -66,6 +68,7 @@ type NoEnum = {
 
 export type AttributeSpec =
   | AttributeType
+  | AnyCustomType
   | (Omit<SpecObject, "default" | "generateId" | "storage" | "enum"> & {
       type: "string";
       storage?: never;
@@ -87,6 +90,12 @@ export type AttributeSpec =
       NoEnum & {
         type: "datetime";
         generateId?: false;
+      })
+  | (Omit<SpecObject, "type" | "generateId" | "storage" | "enum"> &
+      NoEnum & {
+        type: AnyCustomType;
+        generateId?: false;
+        storage?: never;
       });
 
 export type AttributeSpecs = Record<string, AttributeSpec>;
@@ -96,14 +105,19 @@ export type AttributeSpecs = Record<string, AttributeSpec>;
  * compile error: a generic parameter skips TypeScript's own check for unknown keys (#102).
  */
 export type ExactSpecs<A> = {
-  [K in keyof A]: A[K] extends object
-    ? A[K] & Record<Exclude<keyof A[K], keyof SpecObject>, never>
-    : A[K];
+  [K in keyof A]: A[K] extends AnyCustomType
+    ? A[K]
+    : A[K] extends object
+      ? A[K] & Record<Exclude<keyof A[K], keyof SpecObject>, never>
+      : A[K];
 };
 
 /** An attribute's resolved metadata. */
 export interface AttributeDefinition {
+  /** Its built-in type: for a custom type, the type it's stored as. */
   type: AttributeType;
+  /** The type `defineType` made, whose values it holds, kept as `type`'s (#20). */
+  customType?: AnyCustomType;
   column: string;
   default?: () => unknown;
   generateId?: true;
@@ -116,7 +130,8 @@ export interface AttributeDefinition {
   validate?: EnumValidation;
 }
 
-type JsType<T extends AttributeType> = T extends "string"
+/** The JavaScript value an attribute of a built-in type holds: a `Date` for a `datetime`. */
+export type ValueOfType<T extends AttributeType> = T extends "string"
   ? string
   : T extends "integer" | "real"
     ? number
@@ -128,18 +143,25 @@ type JsType<T extends AttributeType> = T extends "string"
           ? Uint8Array
           : unknown;
 
+/** A type's JavaScript value: a built-in type's, or a custom type's own (#20). */
+type TypeValue<T> = T extends AttributeType
+  ? ValueOfType<T>
+  : T extends CustomType<infer V, AttributeType>
+    ? V
+    : never;
+
 /** A spec's value, not null: an enum's names (#340), or its type's JavaScript value. */
 type SpecValue<S> = S extends { enum: infer E extends EnumValues }
   ? EnumNames<E>
-  : S extends { type: infer T extends AttributeType }
-    ? JsType<T>
+  : S extends { type: infer T }
+    ? TypeValue<T>
     : never;
 
-type AttributeValue<S> = S extends AttributeType
-  ? JsType<S> | null
-  : S extends { type: AttributeType; null: false }
+type AttributeValue<S> = S extends AttributeType | AnyCustomType
+  ? TypeValue<S> | null
+  : S extends { type: unknown; null: false }
     ? SpecValue<S>
-    : S extends { type: AttributeType }
+    : S extends { type: unknown }
       ? SpecValue<S> | null
       : never;
 
@@ -147,11 +169,21 @@ export type AttributeProperties<A extends AttributeSpecs> = {
   -readonly [K in keyof A]: AttributeValue<A[K]>;
 };
 
+/** A spec written out: a type alone (a name, or a custom type) as `{ type }`. */
+export function specObjectOf(spec: AttributeSpec): SpecObject {
+  return typeof spec === "string" || isCustomType(spec) ? { type: spec } : spec;
+}
+
 /** Resolves an attribute's spec into its type, column and default. */
 export function define(name: string, spec: AttributeSpec): AttributeDefinition {
-  return typeof spec === "string"
-    ? { type: spec, column: underscore(name) }
-    : { type: spec.type, column: spec.column ?? underscore(name), ...copiedKeys(spec) };
+  if (typeof spec === "string") return { type: spec, column: underscore(name) };
+  if (isCustomType(spec)) return { ...typeOf(spec), column: underscore(name) };
+  return { ...typeOf(spec.type), column: spec.column ?? underscore(name), ...copiedKeys(spec) };
+}
+
+/** A spec's type as a definition holds it: a custom type as the type it's stored as, and itself. */
+function typeOf(type: SpecObject["type"]): Pick<AttributeDefinition, "type" | "customType"> {
+  return isCustomType(type) ? { type: type.storedAs, customType: type } : { type };
 }
 
 /** Looks up a declared attribute; throws `UnknownAttribute` for any other name. */

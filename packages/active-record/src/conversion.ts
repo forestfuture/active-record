@@ -2,6 +2,7 @@
 import { castBinary, readBinary } from "./binary-values.ts";
 import { enumEntries, type EnumValues } from "./enum-values.ts";
 import type { EpochStorage } from "./epoch-storage.ts";
+import type { AnyCustomType } from "./custom-types.ts";
 import type { AttributeDefinition, AttributeType } from "./metadata.ts";
 
 /** A value that can't be read as the attribute's type. */
@@ -31,7 +32,7 @@ const identity = (value: unknown) => value;
  * storage (#73), and for an enum its values (#340). Passed whole, so a caller can't convert by
  * the type alone and skip the others.
  */
-export type Convertible = Pick<AttributeDefinition, "type" | "storage" | "enum">;
+export type Convertible = Pick<AttributeDefinition, "type" | "storage" | "enum" | "customType">;
 
 /** The key of the converter for an attribute: its storage if it has one, else its type. */
 type ConversionKey = AttributeType | EpochStorage;
@@ -65,9 +66,16 @@ const converters: Record<ConversionKey, Converter> = {
 /** Each enum's converter, over the converter of the type its values are stored as. */
 const enumConverters = new WeakMap<EnumValues, Map<Converter, Converter>>();
 
-/** The converter for an attribute: its type's (or storage's), or for an enum, one over it. */
+/** Each custom type's converter, over the converter of the type it's stored as (#20). */
+const customConverters = new WeakMap<AnyCustomType, Converter>();
+
+/**
+ * The converter for an attribute: its type's (or storage's), or for an enum or a custom type, one
+ * over it.
+ */
 function converterOf(attribute: Convertible): Converter {
   const stored = converters[keyOf(attribute)];
+  if (attribute.customType !== undefined) return customConverterOf(attribute.customType, stored);
   if (attribute.enum === undefined) return stored;
   let byType = enumConverters.get(attribute.enum);
   if (byType === undefined) {
@@ -80,6 +88,38 @@ function converterOf(attribute: Convertible): Converter {
     byType.set(stored, converter);
   }
   return converter;
+}
+
+function customConverterOf(type: AnyCustomType, stored: Converter): Converter {
+  let converter = customConverters.get(type);
+  if (converter === undefined) {
+    converter = customConverter(type, stored);
+    customConverters.set(type, converter);
+  }
+  return converter;
+}
+
+/**
+ * A custom type's values (#20): cast by the type, and kept as the stored type's. What the type's
+ * `serialize` gives is cast as the stored type's value, so it can't store what that type
+ * couldn't hold; a cell is read strictly as the stored type's, then by `deserialize`. The type's
+ * own errors are thrown as they are, for `Attribute` to name its attribute and keep them as the
+ * cause.
+ */
+function customConverter(type: AnyCustomType, stored: Converter): Converter {
+  return {
+    cast: (value) => type.cast(value),
+    read: (cell) => {
+      const value = stored.read(cell);
+      return value === uncastable ? uncastable : type.deserialize(value);
+    },
+    write: (value) => {
+      const serialized = stored.cast(type.serialize(value));
+      if (serialized === uncastable)
+        throw new TypeError("serialize gave a value its stored type can't hold");
+      return stored.write(serialized);
+    },
+  };
 }
 
 /**
