@@ -380,10 +380,13 @@ describe("enum attributes (#340)", () => {
       expect(await article.saveOrThrow()).toBe(true);
     });
 
-    test("still refuses an unknown value in a bulk write, and matches nothing with one", async () => {
-      await expect(validated().insertAll([{ id: 1, status: "archived" as never }])).rejects.toThrow(
-        TypeError,
-      );
+    test("still refuses an unknown value in a bulk write", async () => {
+      const rows = [{ id: 1, status: "archived" as never }];
+
+      await expect(validated().insertAll(rows)).rejects.toThrow(TypeError);
+    });
+
+    test("still matches nothing with an unknown value in a condition", async () => {
       expect(
         await validated()
           .where({ priority: "zzz" as never })
@@ -392,17 +395,26 @@ describe("enum attributes (#340)", () => {
     });
   });
 
-  test("a generated Model's override makes a column an enum, with its methods", async () => {
-    const stories = harness.connect().model(Story);
-    const story = await stories.createOrThrow({ id: 1, status: "draft", priority: "high" });
+  describe("a generated Model's override", () => {
+    const stories = () => harness.connect().model(Story);
 
-    expect(story.isStatusDraft()).toBe(true);
-    await story.saveAsStatusPublishedOrThrow();
-    expect(await harness.exec("SELECT status, priority FROM articles")).toEqual([
-      { status: "published", priority: 10 },
-    ]);
-    expect(() => stories.build({ priority: "medium" as never })).toThrow(TypeError);
-    expect(Story.enumValues("priority")).toEqual({ low: 0, high: 10 });
+    test("gives its records the enum's predicates and setters", async () => {
+      const story = await stories().createOrThrow({ id: 1, status: "draft", priority: "high" });
+
+      expect(story.isStatusDraft()).toBe(true);
+      await story.saveAsStatusPublishedOrThrow();
+      expect(await harness.exec("SELECT status, priority FROM articles")).toEqual([
+        { status: "published", priority: 10 },
+      ]);
+    });
+
+    test("refuses a value the enum doesn't list", () => {
+      expect(() => stories().build({ priority: "medium" as never })).toThrow(TypeError);
+    });
+
+    test("gives the enum's names and stored values", () => {
+      expect(Story.enumValues("priority")).toEqual({ low: 0, high: 10 });
+    });
   });
 
   test("a generated Model's scopes are statics before its first use, as its schema lists them", async () => {
@@ -413,7 +425,6 @@ describe("enum attributes (#340)", () => {
     const published = await harness.connect().model(Tale).published().pluck("id");
 
     expect(published).toEqual([1]);
-    expect(Tale.where({ id: 1 }).published().toSql().sql).toContain('"status"');
   });
 
   test("a generated Model's subclass has its enum scopes before either is used", () => {

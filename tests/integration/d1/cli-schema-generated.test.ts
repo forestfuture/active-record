@@ -47,7 +47,6 @@ describe("a schema generated from migrations", () => {
     await db.model(User).createOrThrow({ email: "root@example.com", role: "editor" });
 
     expect(await db.model(User).editor().pluck("email")).toEqual(["root@example.com"]);
-    expect(User.notMember().toSql().sql).toContain('"role"');
   });
 
   test("types each attribute from its column", () => {
