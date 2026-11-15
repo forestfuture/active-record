@@ -20,6 +20,14 @@ export async function closeFirstUrgent() {
   // #endregion methods
 }
 
+// #region generated-on
+export class Task extends ApplicationRecord {
+  static override attributes = { state: { enum: true } } as const;
+}
+
+// task.isDone(), task.saveAsDone(), Task.open()
+// #endregion generated-on
+
 // #region values
 const priorities = Ticket.enumValues("priority"); // { low: 0, normal: 1, high: 2 }
 // #endregion values

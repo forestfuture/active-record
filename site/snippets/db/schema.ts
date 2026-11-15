@@ -45,6 +45,20 @@ export const tickets = {
   priority: "integer",
 } as const;
 
+// #region generated-enum
+/** tasks — state TEXT NOT NULL CHECK (state IN ('open', 'done')) */
+export const tasks = {
+  id: { type: "string", null: false, generateId: true },
+  state: {
+    type: "string",
+    null: false,
+    enum: ["open", "done"],
+    scopes: false,
+    instanceMethods: false,
+  },
+} as const;
+// #endregion generated-enum
+
 /** categories */
 export const categories = {
   id: { type: "string", null: false, generateId: true },
@@ -67,6 +81,7 @@ export const schema = defineSchema({
     posts: { attributes: posts, primaryKey: "id" },
     articles: { attributes: articles, primaryKey: "id" },
     tickets: { attributes: tickets, primaryKey: "id" },
+    tasks: { attributes: tasks, primaryKey: "id" },
     categories: { attributes: categories, primaryKey: "id" },
     users: { attributes: users, primaryKey: "id" },
   },
@@ -76,10 +91,12 @@ export const schema = defineSchema({
     Category: "categories",
     Post: "posts",
     Product: "products",
+    Task: "tasks",
     Ticket: "tickets",
     User: "users",
   },
   enumScopes: {
+    Task: ["open", "notOpen", "done", "notDone"],
     Ticket: [
       "open",
       "notOpen",
@@ -152,5 +169,12 @@ declare module "../guide/enums" {
     export const notNormal: ScopeStatic<[]>;
     export const high: ScopeStatic<[]>;
     export const notHigh: ScopeStatic<[]>;
+  }
+  interface Task extends TableAttributes<typeof tasks, (typeof Task)["attributes"]> {}
+  namespace Task {
+    export const open: ScopeStatic<[]>;
+    export const notOpen: ScopeStatic<[]>;
+    export const done: ScopeStatic<[]>;
+    export const notDone: ScopeStatic<[]>;
   }
 }

@@ -224,6 +224,7 @@ Also:
 - **Primary keys:** the key column is the Model’s `primaryKey`. A `TEXT` key gets `generateId: true`, so the Model’s [`generateId`](./models#generating-ids) makes it; an `INTEGER PRIMARY KEY` is left to D1. A table with no key, or a key of several columns, is an error.
 - **Defaults:** literal defaults (numbers, strings, `TRUE`/`FALSE`, JSON) are copied, so a new record shows them before it’s saved. Expressions such as `CURRENT_TIMESTAMP` are left to D1.
 - **Foreign keys** take the referenced column’s type. They don’t create associations, which are behavior you declare.
+- **Enums:** a `TEXT` column with `CHECK (column IN ('open', 'done'))` gets `enum: ["open", "done"]`, with its methods off until the Model turns them on. See [Reading enums from the database](./models#reading-enums-from-the-database).
 - **Left out:** SQLite’s own tables, Cloudflare’s (`_cf_…`), the migrations table, and virtual tables.
 
 **Notes it prints** when the schema is written:
@@ -238,19 +239,20 @@ Also:
 
 On Postgres, an override in the Model still comes first. Otherwise each column’s type decides, since Postgres’s types are real:
 
-| Type                                                 | Attribute                                                     |
-| ---------------------------------------------------- | ------------------------------------------------------------- |
-| `smallint`, `integer`, `bigint`                      | `integer`                                                     |
-| `real`, `double precision`                           | `real`                                                        |
-| `boolean`                                            | `boolean`                                                     |
-| `timestamptz`, `timestamp`, `date`                   | `datetime`                                                    |
-| `json`, `jsonb`                                      | `json`                                                        |
-| `text`, `varchar`, `char`, `citext`, `uuid`, an enum | `string`                                                      |
-| `numeric`                                            | An error: store money as integer cents (`price_cents BIGINT`) |
-| `bytea`, an array                                    | An error: not supported                                       |
-| anything else (`inet`, `interval`)                   | `string`, with a note                                         |
+| Type                                        | Attribute                                                     |
+| ------------------------------------------- | ------------------------------------------------------------- |
+| `smallint`, `integer`, `bigint`             | `integer`                                                     |
+| `real`, `double precision`                  | `real`                                                        |
+| `boolean`                                   | `boolean`                                                     |
+| `timestamptz`, `timestamp`, `date`          | `datetime`                                                    |
+| `json`, `jsonb`                             | `json`                                                        |
+| `text`, `varchar`, `char`, `citext`, `uuid` | `string`                                                      |
+| an enum type                                | `string`, with the enum’s labels as its `enum`                |
+| `numeric`                                   | An error: store money as integer cents (`price_cents BIGINT`) |
+| `bytea`, an array                           | An error: not supported                                       |
+| anything else (`inet`, `interval`)          | `string`, with a note                                         |
 
-A domain maps as the type it’s built on. Names, `NOT NULL`, and keys work as on D1. A string key gets `generateId: true` unless it has a literal default, even when Postgres has a default such as `gen_random_uuid()`. Literal defaults (`'draft'`, `0`, `true`, `'{}'::jsonb`) are copied, and functions such as `now()` are left to Postgres. Views, other schemas, and `schema_migrations` are left out.
+A domain maps as the type it’s built on. Names, `NOT NULL`, keys, and `CHECK (column IN (…))` work as on D1, and an enum type’s labels keep their order. A string key gets `generateId: true` unless it has a literal default, even when Postgres has a default such as `gen_random_uuid()`. Literal defaults (`'draft'`, `0`, `true`, `'{}'::jsonb`) are copied, and functions such as `now()` are left to Postgres. Views, other schemas, and `schema_migrations` are left out.
 
 **Extensions:** a migration can `CREATE EXTENSION` any of the extensions PGlite has its own build of, such as `citext`, `uuid-ossp`, `pg_trgm`, `pgcrypto`, `hstore`, and `ltree`. For any other, such as PostGIS, set `schemaUrl` to a Postgres server that has it, such as a local one. The schema is then read there, in a database of its own:
 
