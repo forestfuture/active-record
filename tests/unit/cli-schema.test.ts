@@ -18,7 +18,8 @@ describe("schemaOf: from migrations to table schemas", () => {
     expect(
       attributes(`CREATE TABLE things (
         id INTEGER PRIMARY KEY, a INTEGER, b INT, c BIGINT, d TEXT, e VARCHAR(40), f CHAR(2),
-        g REAL, h FLOAT, i DOUBLE, j BOOLEAN, k DATETIME, l TIMESTAMP, m DATE, n JSON, o BLOB
+        g REAL, h FLOAT, i DOUBLE, j BOOLEAN, k DATETIME, l TIMESTAMP, m DATE, n JSON, o BLOB,
+        p NUMERIC, q DECIMAL(10, 2), r TIME
       )`),
     ).toMatchObject({
       a: { type: "integer" },
@@ -33,9 +34,12 @@ describe("schemaOf: from migrations to table schemas", () => {
       j: { type: "boolean" },
       k: { type: "datetime" },
       l: { type: "datetime" },
-      m: { type: "datetime" },
+      m: { type: "date" },
       n: { type: "json" },
       o: { type: "binary" },
+      p: { type: "decimal" },
+      q: { type: "decimal" },
+      r: { type: "time" },
     });
   });
 
@@ -287,6 +291,26 @@ describe("schemaOf: from migrations to table schemas", () => {
     expect(plain.f).not.toHaveProperty("default");
   });
 
+  test("a decimal's, a date's and a time's literal defaults are copied in their one form (#391)", () => {
+    expect(
+      attributes(`CREATE TABLE things (
+        id INTEGER PRIMARY KEY, a DECIMAL DEFAULT 1.50, b DECIMAL DEFAULT '0.10', c DATE DEFAULT '2026-01-02',
+        d TIME DEFAULT '09:30', e DATE DEFAULT CURRENT_DATE, f TIME DEFAULT CURRENT_TIME,
+        g DATE DEFAULT '2026-02-30', h DECIMAL DEFAULT 'abc'
+      )`),
+    ).toEqual({
+      id: { type: "integer", null: false },
+      a: { type: "decimal", default: { literal: "1.5" } },
+      b: { type: "decimal", default: { literal: "0.1" } },
+      c: { type: "date", default: { literal: "2026-01-02" } },
+      d: { type: "time", default: { literal: "09:30:00" } },
+      e: { type: "date" },
+      f: { type: "time" },
+      g: { type: "date" },
+      h: { type: "decimal" },
+    });
+  });
+
   test("attributes are camelCase; a column whose name doesn't round-trip keeps it", () => {
     expect(
       attributes("CREATE TABLE things (id INTEGER PRIMARY KEY, price_cents INTEGER, htmlURL TEXT)"),
@@ -348,8 +372,7 @@ describe("schemaOf: from migrations to table schemas", () => {
     const result = schemaOf([
       {
         name: "0001_m.sql",
-        sql: `CREATE TABLE things (id INTEGER PRIMARY KEY, price NUMERIC);
-          CREATE TABLE pairs (a INTEGER, b INTEGER, PRIMARY KEY (a, b));`,
+        sql: `CREATE TABLE pairs (a INTEGER, b INTEGER, PRIMARY KEY (a, b));`,
       },
     ]);
 
@@ -357,7 +380,6 @@ describe("schemaOf: from migrations to table schemas", () => {
       ok: false,
       errors: [
         "pairs: a composite primary key (a, b) isn't supported; give the table a single key",
-        "things.price: NUMERIC loses precision as a number; store money as integer cents (price_cents INTEGER)",
       ],
     });
   });
