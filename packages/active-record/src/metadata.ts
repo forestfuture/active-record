@@ -47,6 +47,16 @@ export type ValueSource =
   | { default?: () => unknown; generateId?: false }
   | { default?: never; generateId: true };
 
+/** An attribute that isn't an enum: no type but a string or an integer has one (#340). */
+type NoEnum = {
+  enum?: never;
+  prefix?: never;
+  suffix?: never;
+  scopes?: never;
+  instanceMethods?: never;
+  validate?: never;
+};
+
 export type AttributeSpec =
   | AttributeType
   | (Omit<SpecObject, "default" | "generateId" | "storage" | "enum"> & {
@@ -60,27 +70,17 @@ export type AttributeSpec =
       storage?: never;
       enum?: IntegerEnum;
     })
-  | (Omit<SpecObject, "type" | "generateId" | "storage" | "enum"> & {
-      type: Exclude<AttributeType, "string" | "integer" | "datetime">;
-      generateId?: false;
-      storage?: never;
-      enum?: never;
-      prefix?: never;
-      suffix?: never;
-      scopes?: never;
-      instanceMethods?: never;
-      validate?: never;
-    })
-  | (Omit<SpecObject, "type" | "generateId" | "enum"> & {
-      type: "datetime";
-      generateId?: false;
-      enum?: never;
-      prefix?: never;
-      suffix?: never;
-      scopes?: never;
-      instanceMethods?: never;
-      validate?: never;
-    });
+  | (Omit<SpecObject, "type" | "generateId" | "storage" | "enum"> &
+      NoEnum & {
+        type: Exclude<AttributeType, "string" | "integer" | "datetime">;
+        generateId?: false;
+        storage?: never;
+      })
+  | (Omit<SpecObject, "type" | "generateId" | "enum"> &
+      NoEnum & {
+        type: "datetime";
+        generateId?: false;
+      });
 
 export type AttributeSpecs = Record<string, AttributeSpec>;
 

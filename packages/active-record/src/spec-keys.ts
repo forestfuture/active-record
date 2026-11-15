@@ -112,22 +112,8 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     onRetype: "drop",
   },
   // Words around an enum's names in its methods' names, as Rails' `prefix:` and `suffix:` (#340).
-  prefix: {
-    isWellFormed: isAffix,
-    describedAs: "a prefix",
-    wellFormedAs: "use true for the attribute's name, or a word",
-    isGiven: (value) => value !== undefined && value !== false,
-    requires: "enum",
-    onRetype: "drop",
-  },
-  suffix: {
-    isWellFormed: isAffix,
-    describedAs: "a suffix",
-    wellFormedAs: "use true for the attribute's name, or a word",
-    isGiven: (value) => value !== undefined && value !== false,
-    requires: "enum",
-    onRetype: "drop",
-  },
+  prefix: affixRule("prefix"),
+  suffix: affixRule("suffix"),
   // Rails' `scopes: false` and `instance_methods: false`: `true`, the default, gives nothing.
   scopes: methodsSwitch("scopes"),
   instanceMethods: methodsSwitch("instanceMethods"),
@@ -136,7 +122,7 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     isWellFormed: isEnumValidation,
     describedAs: "validate",
     wellFormedAs: "use true, or { allowNull: true }",
-    isGiven: (value) => value !== undefined && value !== false,
+    isGiven: isGivenUnless(false),
     requires: "enum",
     onRetype: "drop",
   },
@@ -157,7 +143,24 @@ function methodsSwitch(key: string): KeyRule {
     isWellFormed: (value) => typeof value === "boolean",
     describedAs: key,
     wellFormedAs: "use false to leave them out",
-    isGiven: (value) => value !== undefined && value !== true,
+    isGiven: isGivenUnless(true),
+    requires: "enum",
+    onRetype: "drop",
+  };
+}
+
+/** `isGiven` for a key whose `off` value (and `undefined`) leaves it as if it weren't given. */
+function isGivenUnless(off: boolean): (value: unknown) => boolean {
+  return (value) => value !== undefined && value !== off;
+}
+
+/** The rule for a prefix or a suffix: a word around an enum's names in its methods' names. */
+function affixRule(key: "prefix" | "suffix"): KeyRule {
+  return {
+    isWellFormed: isAffix,
+    describedAs: `a ${key}`,
+    wellFormedAs: "use true for the attribute's name, or a word",
+    isGiven: isGivenUnless(false),
     requires: "enum",
     onRetype: "drop",
   };
@@ -301,7 +304,7 @@ export function applyOverride(base: SpecObject, override: SpecOverride): SpecObj
   return { ...Object.fromEntries(kept), ...given } as SpecObject;
 }
 
-/** The keys of `spec` that go into its attribute's definition as given: `default`, `generateId`, `storage`, `enum`. */
+/** The keys of `spec` that go into its attribute's definition as given: all but its type, nullability and column. */
 export function copiedKeys(
   spec: SpecObject,
 ): Partial<
