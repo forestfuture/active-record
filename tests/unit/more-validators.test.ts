@@ -249,3 +249,57 @@ describe("acceptance", () => {
     ]);
   });
 });
+
+describe("the new rules within one validates call", () => {
+  test("apply after inclusion and numericality, in a fixed order whatever the keys' order", async () => {
+    class Seat extends Model.define({ id: "integer", row: "string", kept: "string" }) {
+      static table = "seats";
+      static {
+        this.validates("row", {
+          acceptance: { accept: ["A"] },
+          comparison: { lessThan: "C" },
+          exclusion: ["Z"],
+          inclusion: ["A", "B"],
+          absence: true,
+          presence: true,
+        });
+      }
+    }
+    const seat = connect({} as never)
+      .model(Seat)
+      .build({ row: "Z" });
+
+    expect(await errorsOf(seat)).toEqual([
+      "row present: must be blank",
+      "row inclusion: is not included in the list",
+      "row exclusion: is reserved",
+      "row lessThan: must be less than C",
+      "row accepted: must be accepted",
+    ]);
+  });
+
+  test("their options are typed, and a bound's function gets the Model's record", () => {
+    const declare = () => {
+      class Trip extends Model.define({
+        id: "integer",
+        leavesAt: "datetime",
+        returnsAt: "datetime",
+      }) {
+        static table = "trips";
+        static {
+          // @ts-expect-error a comparison bound is named greaterThan, not after
+          this.validates("returnsAt", { comparison: { after: (trip) => trip.leavesAt } });
+          // @ts-expect-error a Trip has leavesAt, not leaves
+          this.validates("returnsAt", { comparison: { greaterThan: (trip) => trip.leaves } });
+          // @ts-expect-error acceptance takes true or { accept: [...] }
+          this.validates("leavesAt", { acceptance: ["yes"] });
+          // @ts-expect-error absence takes a boolean
+          this.validates("leavesAt", { absence: "yes" });
+        }
+      }
+      return Trip;
+    };
+
+    expect(declare).toBeTypeOf("function");
+  });
+});
