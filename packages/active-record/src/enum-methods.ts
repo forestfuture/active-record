@@ -1,6 +1,7 @@
 // An enum attribute's methods (#340): a record's predicates (`isPublished()`) and `saveAs…` setters,
 // a Model's scopes (`published()`, `notPublished()`), and their names.
 import { enumEntries, type EnumModel, type EnumNames, type EnumValues } from "./enum-values.ts";
+import { isIdentifier, reservedWords } from "./identifiers.ts";
 import type { AttributeDefinition } from "./metadata.ts";
 import type { ScopeStatic } from "./model.ts";
 
@@ -214,19 +215,6 @@ export function enumNameProblem(model: EnumModel, taken: TakenNames): string | u
   return undefined;
 }
 
-/** A JavaScript identifier, which `active-record schema` can declare a static by. */
-const identifier = /^[A-Za-z_$][\w$]*$/;
-
-/** Words a declaration can't be named, in a module (strict mode). */
-const reservedWords = new Set(
-  (
-    "await break case catch class const continue debugger default delete do else enum export " +
-    "extends false finally for function if implements import in instanceof interface let new " +
-    "null package private protected public return static super switch this throw true try " +
-    "typeof var void while with yield arguments eval"
-  ).split(" "),
-);
-
 /**
  * A method name an enum's name gives that TypeScript can't declare (#340): one that isn't an
  * identifier (`isIn-progress`), or a scope that's a reserved word (`new`), which the generated
@@ -234,13 +222,15 @@ const reservedWords = new Set(
  */
 function declarableProblem(
   model: EnumModel,
-  { attribute, name }: EnumName,
+  { attribute, name, scopes }: EnumName,
   methods: readonly string[],
 ): string | undefined {
-  const undeclarable = methods.find((method) => !identifier.test(method));
+  const undeclarable = methods.find((method) => !isIdentifier(method));
   if (undeclarable !== undefined) {
-    const suggested = uncapitalized(methodPart(name.split(/[^\w$]+/).join("_")));
-    return `${model.name}'s enum ${attribute} gives a method named "${undeclarable}", which isn't a name TypeScript can declare; name it with letters, digits, _ and $, and map it to the value it's stored as ({ ${suggested}: ${JSON.stringify(name)} })`;
+    const kind = scopes.includes(undeclarable) ? "scope" : "method";
+    const suggested = uncapitalized(methodPart(name.split(/[^\p{L}\p{N}_$]+/u).join("_")));
+    const example = isIdentifier(suggested) ? ` ({ ${suggested}: ${JSON.stringify(name)} })` : "";
+    return `${model.name}'s enum ${attribute} gives a ${kind} named "${undeclarable}", which isn't a name TypeScript can declare; name it with letters, digits, _ and $, and map it to the value it's stored as${example}`;
   }
   const reserved = methods.find((method) => reservedWords.has(method));
   return reserved === undefined
@@ -283,8 +273,14 @@ function staticProblem(
 ): string | undefined {
   for (const scope of scopes) {
     // A Function method too: every class has it, and a scope would hide it.
-    if (taken.isReservedStatic(scope) || scope in Function.prototype) {
-      return `${model.name}'s enum ${attribute} gives a scope named "${scope}", which is the name of a Relation method or a Model static; ${remedy(attribute)}`;
+    const what =
+      scope in Function.prototype
+        ? "a Function method"
+        : taken.isReservedStatic(scope)
+          ? "a Relation method or a Model static"
+          : undefined;
+    if (what !== undefined) {
+      return `${model.name}'s enum ${attribute} gives a scope named "${scope}", which is the name of ${what}; ${remedy(attribute)}`;
     }
     const declared = taken.staticOf(scope);
     const isEnumScope = typeof declared?.value === "function" && enumScopes.has(declared.value);

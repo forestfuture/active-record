@@ -106,11 +106,15 @@ describe("an enum's method names, when the Model is first used (#340)", () => {
     ],
     [
       ["bind"],
-      'Step\'s enum place gives a scope named "bind", which is the name of a Relation method or a Model static; give place a prefix or a suffix',
+      'Step\'s enum place gives a scope named "bind", which is the name of a Function method; give place a prefix or a suffix',
     ],
     [
       ["in-progress"],
       'Step\'s enum place gives a method named "isIn-progress", which isn\'t a name TypeScript can declare; name it with letters, digits, _ and $, and map it to the value it\'s stored as ({ inProgress: "in-progress" })',
+    ],
+    [
+      ["1st"],
+      "Step's enum place gives a scope named \"1st\", which isn't a name TypeScript can declare; name it with letters, digits, _ and $, and map it to the value it's stored as",
     ],
   ])("a name %j whose methods can't be declared is an InvalidModel", (names, message) => {
     class Step extends Model.define({
@@ -119,6 +123,12 @@ describe("an enum's method names, when the Model is first used (#340)", () => {
     }) {}
 
     expect(firstUse(Step)).toThrow(new InvalidModel(message));
+  });
+
+  test("a name in any script's letters is declared", () => {
+    class Café extends Model.define({ id: "integer", menu: { type: "string", enum: ["café"] } }) {}
+
+    expect(db.model(Café).build({ menu: "café" }).isCafé()).toBe(true);
   });
 
   test("a name that gives an attribute's name is an InvalidModel", () => {

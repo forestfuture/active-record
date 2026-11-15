@@ -1,10 +1,8 @@
 // Attribute, export, class and module names for generated code.
+import { isIdentifier, reservedWords } from "../../src/identifiers.ts";
 import { camelize, underscore } from "../../src/naming.ts";
 
-/** Whether a name can be written bare: as a `const`, or as an object key without quotes. */
-export function isIdentifier(name: string): boolean {
-  return /^[\p{L}_$][\p{L}\p{N}_$]*$/u.test(name);
-}
+export { isIdentifier };
 
 /** A column's attribute: camelCase, keeping any leading underscores (`_secret` stays). */
 export function attributeName(column: string): string {
@@ -13,14 +11,7 @@ export function attributeName(column: string): string {
 }
 
 /** Words JavaScript doesn't allow as a `const` name, and the generated file's own names. */
-const reserved = new Set(
-  (
-    "break case catch class const continue debugger default delete do else enum export extends " +
-    "false finally for function if import in instanceof new null return super switch this throw " +
-    "true try typeof var void while with yield let static implements interface package private " +
-    "protected public await arguments eval tables"
-  ).split(" "),
-);
+const reserved = new Set([...reservedWords, "tables"]);
 
 /**
  * The `const` a table is exported as: its words in camelCase (`line_items` → `lineItems`),
