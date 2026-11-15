@@ -107,6 +107,41 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
     });
   });
 
+  test("a text or varchar column checked IN a list of strings is a generated enum; other checks aren't (#64)", async () => {
+    const { tables } = await tablesOf({
+      "1_create.sql": `
+        CREATE TABLE posts (
+          id INTEGER PRIMARY KEY,
+          a TEXT NOT NULL CHECK (a IN ('draft', 'it''s')),
+          b VARCHAR(20) CHECK (b IN ('draft', 'it''s')),
+          c TEXT CHECK (c IS NULL OR c IN ('draft', 'it''s')),
+          "Dee" TEXT CHECK ("Dee" IN ('draft', 'it''s')),
+          e TEXT CHECK (e NOT IN ('x', 'y')),
+          f TEXT CHECK (f IN ('x', 'y') AND length(f) > 0),
+          g INTEGER CHECK (g IN (0, 1)),
+          h TEXT CHECK (h IN ('x', 'y')) CHECK (h IN ('x'))
+        );`,
+    });
+    const generated = {
+      type: "string",
+      enum: ["draft", "it's"],
+      scopes: false,
+      instanceMethods: false,
+    };
+
+    expect(tables[0]!.attributes).toEqual({
+      id: { type: "integer", null: false },
+      a: { ...generated, null: false },
+      b: generated,
+      c: generated,
+      Dee: { ...generated, column: "Dee" },
+      e: { type: "string" },
+      f: { type: "string" },
+      g: { type: "integer" },
+      h: { type: "string" },
+    });
+  });
+
   test("a string key is made in code, unless it has a literal default; tables are alphabetical", async () => {
     const { tables } = await tablesOf({
       "1_create.sql": `
