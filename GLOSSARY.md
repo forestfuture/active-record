@@ -69,7 +69,7 @@ An attribute type an app makes with `defineType`, for values no built-in type ho
 _Avoid_: Custom attribute, codec, serializer, registered type
 
 **Stored cell**:
-A value D1 returned for one column of a row: a number, text, or NULL. It's read as its **Attribute**'s type or refused with a `TypeError` naming the Model and attribute, and never coerced, as a **Cast** value may be. A record load, `pluck`, and `deserialize` read it the same way.
+A value the database returned for one column of a row: a number, text, bytes, or NULL. It's read as its **Attribute**'s type or refused with a `TypeError` naming the Model and attribute, and never coerced, as a **Cast** value may be. A record load, `pluck`, and `deserialize` read it the same way.
 _Avoid_: Raw value, database value, value from D1
 
 **Filtered attribute**:
