@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { Model, UnknownAttribute } from "../../packages/active-record/src/index.ts";
 
 class Article extends Model.define({
   id: { type: "integer", null: false },
@@ -80,6 +80,24 @@ describe("an enum attribute's types (#340)", () => {
     expectTypeOf<Quiet>().not.toHaveProperty("saveAsLow");
     expectTypeOf(Quiet.low).toBeFunction();
     expectTypeOf(Quiet).not.toHaveProperty("draft");
+  });
+
+  test("enumValues gives an enum's names and what each is stored as, typed", () => {
+    const statuses = Article.enumValues("status");
+    const priorities = Article.enumValues("priority");
+
+    expect(statuses).toEqual({ draft: "draft", published: "published" });
+    expect(priorities).toEqual({ low: 0, high: 10 });
+    expect(Object.isFrozen(priorities)).toBe(true);
+    expectTypeOf(statuses).toEqualTypeOf<{
+      readonly draft: "draft";
+      readonly published: "published";
+    }>();
+    expectTypeOf(priorities).toEqualTypeOf<{ readonly low: 0; readonly high: 10 }>();
+    // @ts-expect-error id isn't an enum
+    expect(() => Article.enumValues("id")).toThrow(
+      new UnknownAttribute('Article has no enum attribute "id"'),
+    );
   });
 
   test("an enum is a string's or an integer's, stored as that type", () => {

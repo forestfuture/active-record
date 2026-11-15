@@ -1,4 +1,6 @@
 // `Model.define({...})` and `Model`: the record class, its attribute accessors and its declarations (validations, error messages); its shared statics are in model-statics.ts.
+import { enumValuesOf } from "./enum-values.ts";
+import type { EnumMapping, EnumValues } from "./enum-values.ts";
 import {
   defineEnumMethods,
   defineEnumStatics,
@@ -93,6 +95,21 @@ export type Callback<R> = (record: R) => unknown;
 
 /** Type-only key carrying a record's declared attribute types; never set at runtime. */
 declare const attributeTypes: unique symbol;
+
+/** Type-only key carrying a record's attribute specs, for what reads more than their types (#340). */
+declare const attributeSpecs: unique symbol;
+
+/** A record type's attribute specs. */
+type SpecsOf<M> = M extends { readonly [attributeSpecs]?: infer S } ? S : never;
+
+/** The names of a record type's enum attributes. */
+type EnumAttributeKey<M> = {
+  [K in keyof SpecsOf<M>]: SpecsOf<M>[K] extends { enum: EnumValues } ? K : never;
+}[keyof SpecsOf<M>] &
+  string;
+
+/** The enum of attribute `K` of record type `M`. */
+type EnumOf<M, K extends keyof SpecsOf<M>> = SpecsOf<M>[K] extends { enum: infer E } ? E : never;
 
 /** An attribute's name on record type `R`. */
 type AttributeKey<R> = keyof AttributesOf<R> & string;
@@ -247,6 +264,17 @@ export class Model extends ModelStatics {
    * `Post.typeForAttribute("publishedAt").serialize(date)` is what `publishedAt` stores a `Date`
    * as, whatever its `storage`; `cast` and `deserialize` go the other way.
    */
+  /**
+   * An enum's names, each with the value it's stored as, frozen (#340), as Rails' `Post.statuses`:
+   * `Post.enumValues("status")` is `{ draft: "draft", published: "published" }`.
+   */
+  static enumValues<C extends QueryableClass, K extends EnumAttributeKey<InstanceType<C>>>(
+    this: C,
+    attribute: K,
+  ): EnumMapping<EnumOf<InstanceType<C>, K>> {
+    return enumValuesOf(this, attribute) as EnumMapping<EnumOf<InstanceType<C>, K>>;
+  }
+
   static typeForAttribute<C extends QueryableClass, K extends AttributeKey<InstanceType<C>>>(
     this: C,
     name: K,
@@ -598,6 +626,7 @@ export type TableAttributes<A extends AttributeSpecs, O = {}> = AttributePropert
   AsSpecs<OverriddenSpecs<A, O>>
 > &
   EnumMethods<OverriddenSpecs<A, O>> & {
+    readonly [attributeSpecs]: OverriddenSpecs<A, O>;
     readonly [attributeTypes]: AttributeProperties<AsSpecs<OverriddenSpecs<A, O>>>;
   };
 
@@ -620,7 +649,10 @@ export type ModelBaseFor<
   B extends BaseClass = typeof Model,
 > = (new () => InstanceType<B> &
   AttributeProperties<A> &
-  EnumMethods<A> & { readonly [attributeTypes]: AttributeProperties<A> }) &
+  EnumMethods<A> & {
+    readonly [attributeTypes]: AttributeProperties<A>;
+    readonly [attributeSpecs]: A;
+  }) &
   Omit<B, "prototype"> &
   EnumStatics<A>;
 

@@ -355,5 +355,6 @@ describe("enum attributes (#340)", () => {
       { status: "published", priority: 10 },
     ]);
     expect(() => stories.build({ priority: "medium" as never })).toThrow(TypeError);
+    expect(Story.enumValues("priority")).toEqual({ low: 0, high: 10 });
   });
 });
