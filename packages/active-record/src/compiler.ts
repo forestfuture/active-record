@@ -192,10 +192,10 @@ export function compileInsertRows(
   const { select, from } = dialect.bulkRows(table, attributes);
   const end = compileConflict(model, names, conflict) + compileReturning(model, returning);
   return rowGroups(model, names, rows, dialect.maxValueBytes).map((group) => {
-    if ("json" in group) {
+    if (group.kind === "json") {
       // `WHERE true` keeps SQLite from reading ON CONFLICT as part of the SELECT.
       const sql = `INSERT INTO ${table} (${columns}) SELECT ${select} FROM ${from} WHERE true${end}`;
-      return { sql, params: [group.json], model };
+      return { sql, params: [group.value], model };
     }
     const params: unknown[] = [];
     for (const [index, value] of group.row.entries()) attributes[index]!.bind(params, value);
