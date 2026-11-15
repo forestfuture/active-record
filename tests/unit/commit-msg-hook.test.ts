@@ -275,6 +275,16 @@ describe("the commit-msg hook on a commit's body", () => {
     expect(output).toContain(line);
   });
 
+  test.each([
+    ["blank lines before the title", `\n\nEdit the README (#1)\n\n${words(73)}\n`],
+    ["a run of blank lines", `Edit the README (#1)\n\n\n \n${words(73)}\n`],
+    ["a comment", `# A comment\nEdit the README (#1)\n\n${words(73)}\n`],
+  ])("numbers a refused line as git stores the message, past %s", (_what, message) => {
+    const { output } = runHookEditingTheReadme(message);
+
+    expect(output).toContain("Commit body line 3 is 73 characters");
+  });
+
   test("shows a refused line's backslashes as written", () => {
     const line = `${words(70)} a\\c b \\n c`;
     const { output } = runHookEditingTheReadme(`Edit the README (#1)\n\n${line}\n`);
