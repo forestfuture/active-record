@@ -52,15 +52,16 @@ function isSame(a: unknown, b: Comparable): boolean {
   return kindOf(a) === kindOf(b) && orderOf(a as Comparable, b) === 0;
 }
 
-/**
- * A bound as its message's `%{count}` shows it: a function's result as `[FILTERED]` when one of
- * the record's filtered attributes holds it, and a Date as an ISO string.
- */
-function shown(given: unknown, bound: Comparable, subject: ValidationSubject): string | number {
-  const fromRecord = typeof given === "function";
-  if (fromRecord && subject.filteredValues().some((value) => isSame(value, bound))) return FILTERED;
+/** A bound as its message's `%{count}` shows it: a Date as an ISO string. */
+function shown(bound: Comparable): string | number {
   if (!(bound instanceof Date)) return bound;
   return Number.isNaN(bound.getTime()) ? "Invalid Date" : bound.toISOString();
+}
+
+/** A function bound's result as `%{count}` shows it: `[FILTERED]` if a filtered attribute holds it. */
+function shownFromRecord(bound: Comparable, subject: ValidationSubject): string | number {
+  const isFilteredValue = subject.filteredValues().some((value) => isSame(value, bound));
+  return isFilteredValue ? FILTERED : shown(bound);
 }
 
 /** The kinds of value `comparison` orders. */
@@ -94,11 +95,12 @@ export function comparisonFailures(
   if (isBlank(value)) return bounds.length === 0 ? [] : [{ type: "blank" }];
   return bounds.flatMap(([type, holds]) => {
     const given = rule[type];
-    const bound = typeof given === "function" ? given(subject.record) : given;
+    const fromRecord = typeof given === "function";
+    const bound = fromRecord ? given(subject.record) : given;
     if (bound === null || bound === undefined) return [];
     requireComparable(value, bound, subject);
     return holds(orderOf(value as Comparable, bound))
       ? []
-      : [{ type, values: { count: shown(given, bound, subject) } }];
+      : [{ type, values: { count: fromRecord ? shownFromRecord(bound, subject) : shown(bound) } }];
   });
 }

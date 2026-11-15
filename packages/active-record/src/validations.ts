@@ -213,14 +213,9 @@ export async function runValidations(
     if (options.if && !options.if(target.record as never)) continue;
     const value = target.read(attribute);
     if (options.allowNull && value === null) continue;
+    const subject = { record: target.record, attribute, filteredValues: target.filteredValues };
     const failures = [
-      ...CHECKS.flatMap((check) =>
-        check(value, options, {
-          record: target.record,
-          attribute,
-          filteredValues: target.filteredValues,
-        }),
-      ),
+      ...CHECKS.flatMap((check) => check(value, options, subject)),
       ...(await uniquenessFailures(target, attribute, value, options)),
     ];
     for (const failure of failures) {
