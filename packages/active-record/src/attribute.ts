@@ -143,15 +143,26 @@ export class Attribute {
     return this.read(this.write(value));
   }
 
-  /** Whether two values are the same as stored (dates by time, json and bytes by content). */
+  /**
+   * Whether two values are the same as stored (dates by time, json and bytes by content). Each is
+   * cast as a condition's value first, so `isAttributeChanged`'s `from` and `to` compare as
+   * Rails' do, and one that can't be cast is the same as nothing (#20).
+   */
   isSame(a: unknown, b: unknown): boolean {
-    try {
-      return isSameCell(writeValue(this.#definition, a), writeValue(this.#definition, b));
-    } catch (error) {
-      // A value its custom type can't write is the same as nothing, as in a condition (#20).
-      if (this.#definition.customType === undefined) throw error;
-      return false;
-    }
+    const [x, y] = [this.#comparable(a), this.#comparable(b)];
+    if (x === noMatch || y === noMatch) return false;
+    // Written as is, not through write, which refuses a validated enum's unknown value.
+    return isSameCell(writeValue(this.#definition, x), writeValue(this.#definition, y));
+  }
+
+  /**
+   * A value to compare, cast as a condition's: `null` stays `null`, and a validated enum's
+   * unknown value, which a record may hold, stays as it is (#340).
+   */
+  #comparable(value: unknown): unknown {
+    if (value === null || value === undefined) return value ?? null;
+    const cast = this.condition(value);
+    return cast === noMatch && this.#isValidatedEnum() ? value : cast;
   }
 
   /** An assigned value, cast and written, bound hidden from `onQuery` if filtered (#83). */
