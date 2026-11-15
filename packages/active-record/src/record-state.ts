@@ -1,5 +1,6 @@
 // A record's private state: its values, changes, errors, and lifecycle flags.
 import { type Attribute, attributeFor } from "./attribute.ts";
+import { isSameCell } from "./binary-values.ts";
 import type { Assignment } from "./compiler.ts";
 import { Errors } from "./errors-collection.ts";
 import { MissingAttribute, NoDatabase, RecordDestroyed } from "./errors.ts";
@@ -226,10 +227,13 @@ export class RecordState {
    */
   changedNames(): string[] {
     if (this.#lifecycle === "new") {
-      return [...this.#assigned].filter((name) => this.#storedForm(name) !== this.#initialOf(name));
+      return [...this.#assigned].filter(
+        (name) => !isSameCell(this.#storedForm(name), this.#initialOf(name)),
+      );
     }
     return Object.keys(this.#values).filter(
-      (name) => !this.#isInSnapshot(name) || this.#snapshotOf(name) !== this.#storedForm(name),
+      (name) =>
+        !this.#isInSnapshot(name) || !isSameCell(this.#snapshotOf(name), this.#storedForm(name)),
     );
   }
 
@@ -351,7 +355,9 @@ export class RecordState {
     }
     this.#savedChanges = Object.fromEntries(
       [...before]
-        .filter(([name, { stored }]) => written.has(name) || this.#storedForm(name) !== stored)
+        .filter(
+          ([name, { stored }]) => written.has(name) || !isSameCell(this.#storedForm(name), stored),
+        )
         .map(([name, { value }]) => [name, [value, this.#copyOf(name)]]),
     );
   }
