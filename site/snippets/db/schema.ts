@@ -1,6 +1,6 @@
 // As `active-record schema` generates it, for the guide's examples (their Models are declared in
 // several files, so it's kept by hand rather than generated).
-import type { TableAttributes } from "@forestfuture/active-record";
+import { defineSchema, type ScopeStatic, type TableAttributes } from "@forestfuture/active-record";
 import { d1 } from "@forestfuture/active-record/d1";
 
 /** billing_accounts */
@@ -38,6 +38,13 @@ export const articles = {
   updatedAt: "integer",
 } as const;
 
+/** tickets */
+export const tickets = {
+  id: { type: "string", null: false, generateId: true },
+  status: "string",
+  priority: "integer",
+} as const;
+
 /** categories */
 export const categories = {
   id: { type: "string", null: false, generateId: true },
@@ -52,13 +59,14 @@ export const users = {
 } as const;
 
 /** The database's adapter and binding, its tables (with their primary keys), and the Models built on them. */
-export const schema = {
+export const schema = defineSchema({
   adapter: d1({ binding: "DB" }),
   tables: {
     billing_accounts: { attributes: billingAccounts, primaryKey: "id" },
     products: { attributes: products, primaryKey: "id" },
     posts: { attributes: posts, primaryKey: "id" },
     articles: { attributes: articles, primaryKey: "id" },
+    tickets: { attributes: tickets, primaryKey: "id" },
     categories: { attributes: categories, primaryKey: "id" },
     users: { attributes: users, primaryKey: "id" },
   },
@@ -68,9 +76,26 @@ export const schema = {
     Category: "categories",
     Post: "posts",
     Product: "products",
+    Ticket: "tickets",
     User: "users",
   },
-} as const;
+  enumScopes: {
+    Ticket: [
+      "open",
+      "notOpen",
+      "inProgress",
+      "notInProgress",
+      "closed",
+      "notClosed",
+      "low",
+      "notLow",
+      "normal",
+      "notNormal",
+      "high",
+      "notHigh",
+    ],
+  },
+});
 
 declare module "../guide/adopt" {
   interface Article extends TableAttributes<typeof articles, (typeof Article)["attributes"]> {}
@@ -110,4 +135,22 @@ declare module "../guide/several-databases" {
 
 declare module "../guide/overrides" {
   interface Product extends TableAttributes<typeof products, (typeof Product)["attributes"]> {}
+}
+
+declare module "../guide/enums" {
+  interface Ticket extends TableAttributes<typeof tickets, (typeof Ticket)["attributes"]> {}
+  namespace Ticket {
+    export const open: ScopeStatic<[]>;
+    export const notOpen: ScopeStatic<[]>;
+    export const inProgress: ScopeStatic<[]>;
+    export const notInProgress: ScopeStatic<[]>;
+    export const closed: ScopeStatic<[]>;
+    export const notClosed: ScopeStatic<[]>;
+    export const low: ScopeStatic<[]>;
+    export const notLow: ScopeStatic<[]>;
+    export const normal: ScopeStatic<[]>;
+    export const notNormal: ScopeStatic<[]>;
+    export const high: ScopeStatic<[]>;
+    export const notHigh: ScopeStatic<[]>;
+  }
 }

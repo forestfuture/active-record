@@ -46,6 +46,7 @@ The default messages are in English: “can’t be blank”, “is too short (mi
 ### Validator details
 
 - **`presence`** fails a string that’s only whitespace. For a boolean, use `inclusion: [true, false]`, since `false` is a value.
+- **`inclusion`** is added for you by an [enum](./models#reading-and-assigning-other-values) declared `validate: true`.
 - **`numericality`** only accepts numbers, so a numeric string such as `"12"` is `notANumber`.
 - **`uniqueness`** leaves the record itself out when updating, and never treats `null` as taken, as SQLite’s UNIQUE does. `caseSensitive: false` compares with SQLite’s `lower()`, which only lowercases ASCII letters.
 
