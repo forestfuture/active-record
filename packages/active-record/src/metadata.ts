@@ -40,7 +40,7 @@ export interface SpecObject {
 }
 
 /** How an enum's value is validated: `true`, or `{ allowNull: true }` to let it be null. */
-export type EnumValidation = boolean | { readonly allowNull?: boolean };
+type EnumValidation = boolean | { readonly allowNull?: boolean };
 
 /** Where a string attribute's value comes from when it isn't given: a default or `generateId`, never both. */
 export type ValueSource =
