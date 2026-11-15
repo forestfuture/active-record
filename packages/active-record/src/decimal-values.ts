@@ -12,6 +12,12 @@ const decimalText = /^\s*([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:e([+-]?\d+))?\s*
 const maxWholeDigits = 131072;
 const maxFractionDigits = 16383;
 
+/**
+ * The longest text that can be a decimal: every digit Postgres holds, with room for a sign, a
+ * point, an exponent and spaces. Longer text is refused before it's read.
+ */
+const maxTextLength = maxWholeDigits + maxFractionDigits + 64;
+
 /** A number's significant digits when it's cast, as Rails casts a float to a decimal. */
 const numberPrecision = 16;
 
@@ -45,17 +51,38 @@ function castNumber(value: number): unknown {
  * no trailing zeros after it, and `"0"` for any zero; `uncastable` for anything else.
  */
 function canonical(text: string): unknown {
-  const match = decimalText.exec(text);
-  if (match === null) return uncastable;
-  const [, sign, whole = "", pointed, unpointed, exponent = "0"] = match;
-  const fraction = pointed ?? unpointed ?? "";
-  const digits = whole + fraction;
-  const point = whole.length + Number(exponent);
+  const parts = partsOf(text);
+  if (parts === undefined) return uncastable;
+  const { negative, digits, point } = parts;
   const first = digits.search(/[1-9]/);
   if (first === -1) return "0";
-  const last = digits.length - /0*$/.exec(digits)![0].length;
+  const last = lastNonZero(digits) + 1;
   if (point - first > maxWholeDigits || last - point > maxFractionDigits) return uncastable;
-  return (sign === "-" ? "-" : "") + placePoint(digits.slice(first, last), point - first);
+  return (negative ? "-" : "") + placePoint(digits.slice(first, last), point - first);
+}
+
+/** Decimal text's sign, its digits, and how many of them its point follows; undefined if it isn't one. */
+function partsOf(text: string): { negative: boolean; digits: string; point: number } | undefined {
+  if (text.length > maxTextLength) return undefined;
+  const match = decimalText.exec(text);
+  if (match === null) return undefined;
+  const [, sign, whole = "", pointed, unpointed, exponent = "0"] = match;
+  const fraction = pointed ?? unpointed ?? "";
+  return {
+    negative: sign === "-",
+    digits: whole + fraction,
+    point: whole.length + Number(exponent),
+  };
+}
+
+/**
+ * Where `digits`' last non-zero digit is, found by a loop: `/0*$/` tries every place in turn, so
+ * on a long run of zeros it takes quadratic time.
+ */
+function lastNonZero(digits: string): number {
+  let index = digits.length - 1;
+  while (digits[index] === "0") index--;
+  return index;
 }
 
 /** Significant `digits` with the point `point` digits after the first, padded with zeros. */
