@@ -24,7 +24,7 @@ export interface Column {
   /** The declared type of the column a foreign key references, if it has one. */
   referencedType: string | undefined;
   /** The names a `CHECK (… IN …)` in the table's definition restricts it to (#64). */
-  checkedNames?: readonly string[];
+  restrictedTo?: readonly string[];
 }
 
 const declaredTypes: readonly (readonly [RegExp, AttributeType])[] = [
@@ -170,7 +170,7 @@ function specOf(column: Column, type: AttributeType, attribute: string): Spec {
   const defaultValue = literalDefault(column.defaultValue, type);
   if (defaultValue !== undefined) spec.default = defaultValue;
   else if (column.primaryKey && type === "string") spec.generateId = true;
-  return withGeneratedEnum(spec, column.checkedNames);
+  return withGeneratedEnum(spec, column.restrictedTo);
 }
 
 /** A column as an attribute, by the conventions (#66): name, type, nullability and default. */

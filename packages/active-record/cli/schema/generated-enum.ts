@@ -2,7 +2,7 @@
 import type { Spec } from "../adapter.ts";
 
 /** A string spec with the names its column is restricted to, as a generated enum; any other spec as it is. */
-export function withGeneratedEnum(spec: Spec, names: readonly string[] | null | undefined): Spec {
-  if (names === undefined || names === null || spec.type !== "string") return spec;
+export function withGeneratedEnum(spec: Spec, names: readonly string[] | undefined): Spec {
+  if (names === undefined || spec.type !== "string") return spec;
   return { ...spec, enum: names, scopes: false, instanceMethods: false };
 }
