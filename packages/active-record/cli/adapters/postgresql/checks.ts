@@ -29,12 +29,14 @@ const inList = new RegExp(
 function bare(definition: string): string {
   return definition
     .split(/('(?:[^']|'')*')/)
-    .map((part, index) =>
-      index % 2 === 1 ? part : part.replace(/::(?:character varying|[a-z_]+)(?:\[\])?|[()]/g, ""),
-    )
+    .map((part, index) => (index % 2 === 1 ? part : bareCode(part)))
     .join("")
-    .replace(/\s+/g, " ")
     .trim();
+}
+
+/** A part of a definition outside its literals, without parentheses or casts, its spaces collapsed. */
+function bareCode(part: string): string {
+  return part.replace(/::(?:character varying|[a-z_]+)(?:\[\])?|[()]/g, "").replace(/\s+/g, " ");
 }
 
 /** A column name without its quotes: `"Dee"` → `Dee`. */
