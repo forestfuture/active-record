@@ -134,7 +134,7 @@ describe("CI's tests (#365)", () => {
     expect(upload).toContain("if: ${{ !cancelled() }}");
   });
 
-  test("are merged by check before it fails for a failed job, so it lists every failure (#402)", () => {
+  test("are merged by check before its gate fails it for a failed job (#402)", () => {
     const job = ci().get("check") ?? "";
     const merge = job.indexOf("vp test --merge-reports");
     const gate = job.indexOf("needs.test.result");
@@ -143,7 +143,7 @@ describe("CI's tests (#365)", () => {
     expect(gate).toBeGreaterThan(merge);
   });
 
-  test("still check every job it needs when the merge fails (#402)", () => {
+  test("leave check's gate to run after a failed merge (#402)", () => {
     const job = ci().get("check") ?? "";
     const gate = job.slice(job.indexOf("- name: Every job it needs passed"));
 
