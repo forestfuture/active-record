@@ -121,6 +121,12 @@ describe("CI's tests (#365)", () => {
     );
   });
 
+  test("name each failing test in a shard's log, beside its saved results (#402)", () => {
+    const job = ci().get("test") ?? "";
+
+    expect(job).toMatch(/--reporter=blob --outputFile\.blob=.+\.json --reporter=github-actions/);
+  });
+
   test("are merged by check, the required job, which holds the coverage floor", () => {
     const job = ci().get("check") ?? "";
 
