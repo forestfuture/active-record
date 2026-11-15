@@ -49,6 +49,8 @@ const schema = {
     Early: "products",
     Article: "products",
     Misspelled: "products",
+    Listless: "products",
+    Switchless: "products",
   },
 } as const;
 
@@ -253,6 +255,26 @@ describe("a generated Model's static attributes", () => {
 
     expect(() => db.model(Strange).build()).toThrow(
       new InvalidModel("Strange has no attribute nmae to override"),
+    );
+  });
+
+  test("enum: true or false on a column without an enum from the database is an InvalidModel (#64)", () => {
+    class Listless extends AppRecord {
+      static override table = "products";
+      static override attributes = { sku: { enum: true } } as const;
+    }
+    class Switchless extends AppRecord {
+      static override table = "products";
+      static override attributes = { sku: { enum: false } } as const;
+    }
+
+    expect(() => db.model(Listless).build()).toThrow(
+      new InvalidModel(
+        'Listless.sku has no enum from the database to turn on; list its names instead (enum: ["…", …])',
+      ),
+    );
+    expect(() => db.model(Switchless).build()).toThrow(
+      new InvalidModel("Switchless.sku has no enum from the database to turn off"),
     );
   });
 

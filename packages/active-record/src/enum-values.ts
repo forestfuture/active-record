@@ -45,7 +45,12 @@ export function listedNames(values: EnumValues): string {
  */
 export function enumProblem(values: unknown, type: string): string | undefined {
   if (!isEnumValues(values)) {
-    return ` has an enum ${JSON.stringify(values)}; give it a list of names, or an object of names and the values they're stored as`;
+    // `enum: true` and `enum: false` are a generated Model's override's (#64).
+    const given =
+      typeof values === "boolean"
+        ? `enum: ${values}, which only a generated Model's override gives, for the names its database lists`
+        : `an enum ${JSON.stringify(values)}`;
+    return ` has ${given}; give it a list of names, or an object of names and the values they're stored as`;
   }
   if (Array.isArray(values) && type !== "string") {
     return ` is "${type}", so its enum gives each name the integer it's stored as, not a list of names`;

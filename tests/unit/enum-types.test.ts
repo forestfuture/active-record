@@ -126,6 +126,17 @@ describe("an enum attribute's types (#340)", () => {
       at: { type: "datetime", enum: ["now"] },
     });
   });
+
+  test("enum: true and enum: false are an override's, never a declared spec's (#64)", () => {
+    Model.define({
+      // @ts-expect-error only a generated enum's override turns one on
+      status: { type: "string", enum: true },
+    });
+    Model.define({
+      // @ts-expect-error only a generated enum's override turns one off
+      status: { type: "string", enum: false },
+    });
+  });
 });
 
 // A generated schema's posts table with a generated enum (#64), as active-record schema writes it.
