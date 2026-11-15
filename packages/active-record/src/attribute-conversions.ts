@@ -18,10 +18,11 @@ export interface AttributeConversions<T> {
   readonly cast: (input: unknown) => T;
   /**
    * `input`, cast, as D1 stores it: an ISO string, an integer for a `storage` attribute (seconds
-   * are floored), `0` or `1`, JSON text. The value `column(attribute).value(input)` binds inside
+   * are floored), `0` or `1`, JSON text, bytes for a `binary` attribute, or a custom type's value
+   * as its stored type keeps it (#20). The value `column(attribute).value(input)` binds inside
    * an `sql` fragment; `undefined` throws as assigning it does.
    */
-  readonly serialize: (input: unknown) => string | number | null;
+  readonly serialize: (input: unknown) => string | number | Uint8Array | null;
   /**
    * A cell D1 returned, as the attribute's JavaScript value; `null` for NULL and `undefined`.
    * It reads as a record load does, so a cell that can't be read throws `TypeError` naming the
@@ -36,7 +37,7 @@ export function conversionsFor<T>(model: ModelClass, attribute: string): Attribu
   const resolved = attributeFor(model, attribute);
   return Object.freeze({
     cast: (input: unknown) => resolved.cast(input) as T,
-    serialize: (input: unknown) => resolved.store(input) as string | number | null,
+    serialize: (input: unknown) => resolved.store(input) as string | number | Uint8Array | null,
     deserialize: (stored: unknown) => resolved.read(stored) as T,
   });
 }

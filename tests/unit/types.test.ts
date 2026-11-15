@@ -656,8 +656,9 @@ describe("types", () => {
       >();
       expectTypeOf(User.typeForAttribute("id").cast("1")).toEqualTypeOf<number>();
       expectTypeOf(User.typeForAttribute("email").deserialize("a")).toEqualTypeOf<string>();
+      // A binary attribute's stored form is bytes (#20).
       expectTypeOf(User.typeForAttribute("isActive").serialize(true)).toEqualTypeOf<
-        string | number | null
+        string | number | Uint8Array | null
       >();
       // @ts-expect-error not an attribute of User
       User.typeForAttribute("nope");

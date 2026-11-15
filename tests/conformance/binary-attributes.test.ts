@@ -180,4 +180,24 @@ describe("binary attributes", () => {
       expect(await stored()).toEqual([["a", [5, 6]]]);
     });
   });
+
+  describe("typeForAttribute", () => {
+    const { cast, serialize, deserialize } = Attachment.typeForAttribute("data");
+
+    test("serialize gives bytes a raw statement binds, and deserialize reads its cell back", async () => {
+      const stored = serialize(new Uint8Array([4, 5]).buffer);
+      await harness.exec("INSERT INTO attachments (id, data) VALUES (1, ?)", [stored]);
+
+      const [row] = await harness.exec("SELECT data FROM attachments");
+
+      expect([...deserialize(row!["data"])!]).toEqual([4, 5]);
+      expect([...(await attachments().find(1)).data!]).toEqual([4, 5]);
+    });
+
+    test("cast refuses what assigning refuses", () => {
+      expect(() => cast("abc")).toThrow(
+        new TypeError('Attachment: "abc" isn\'t binary data for "data"'),
+      );
+    });
+  });
 });

@@ -218,4 +218,27 @@ describe("custom types", () => {
       expect(prices.map((price) => price?.cents)).toEqual([500, 1500, 900]);
     });
   });
+
+  describe("typeForAttribute", () => {
+    const { cast, serialize, deserialize } = Listing.typeForAttribute("price");
+
+    test("its conversions are the type's, through its stored type", () => {
+      expect(cast(1250)).toEqual(new Money(1250));
+      expect(serialize(new Money(1250))).toBe(1250);
+      expect(serialize(1250)).toBe(1250);
+      expect(deserialize(1250)).toEqual(new Money(1250));
+    });
+
+    test("each refuses as a record does, the type's error the cause", () => {
+      expect(() => cast("abc")).toThrow(
+        new TypeError('Listing: "abc" isn\'t a valid value for "price"'),
+      );
+      expect(() => deserialize(-5)).toThrow(
+        new TypeError('Listing: -5 isn\'t a valid value for "price"'),
+      );
+      expect(() => deserialize("abc")).toThrow(
+        new TypeError('Listing: "abc" isn\'t a valid value for "price"'),
+      );
+    });
+  });
 });
