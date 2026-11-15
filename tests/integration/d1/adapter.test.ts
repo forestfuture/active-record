@@ -19,8 +19,8 @@ const otherAdapter: Adapter = {
   ...d1Adapter,
   dialect: {
     ...d1Adapter.dialect,
-    inList(column, cells) {
-      const list = d1Adapter.dialect.inList(column, cells);
+    inList(column, cells, attribute) {
+      const list = d1Adapter.dialect.inList(column, cells, attribute);
       return { ...list, sql: `${list.sql} ${mark}` };
     },
   },

@@ -21,3 +21,8 @@ export function isSameCell(a: unknown, b: unknown): boolean {
   if (!(a instanceof Uint8Array && b instanceof Uint8Array)) return a === b;
   return a.length === b.length && a.every((byte, index) => byte === b[index]);
 }
+
+/** Bytes as hex text, two digits each, for SQL that reads bytes from JSON (`unhex`, `\\x…`). */
+export function hexOf(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}

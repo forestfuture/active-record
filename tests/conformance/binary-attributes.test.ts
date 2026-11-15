@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { gt, Model } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 /** A value the property's type doesn't name, as one from a request would arrive. */
@@ -86,6 +86,51 @@ describe("binary attributes", () => {
       expect(attachment.isChanged()).toBe(true);
       await attachment.save();
       expect([...(await attachments().find(id)).data!]).toEqual([9, 2]);
+    });
+  });
+
+  describe("conditions", () => {
+    const bytes = (...values: number[]) => new Uint8Array(values);
+
+    beforeEach(async () => {
+      await attachments().create({ id: 1, name: "a", digest: bytes(1, 2) });
+      await attachments().create({ id: 2, name: "b", digest: bytes(1, 10) });
+      await attachments().create({ id: 3, name: "c", digest: bytes(2) });
+    });
+
+    test("where finds a record by its bytes, or by a list of them", async () => {
+      expect(
+        await attachments()
+          .where({ digest: bytes(1, 10) })
+          .pluck("name"),
+      ).toEqual(["b"]);
+      expect(
+        await attachments()
+          .where({ digest: [bytes(2), bytes(1, 2)] })
+          .order({ id: "asc" })
+          .pluck("name"),
+      ).toEqual(["a", "c"]);
+      expect(
+        await attachments().findBy({ digest: new Uint8Array([1, 2]).buffer as never }),
+      ).toMatchObject({ name: "a" });
+    });
+
+    test("a value that isn't bytes matches nothing", async () => {
+      expect(
+        await attachments()
+          .where({ digest: untyped("\u0001\u0002") })
+          .count(),
+      ).toBe(0);
+    });
+
+    test("bytes compare and order byte by byte", async () => {
+      expect(
+        await attachments()
+          .where({ digest: gt(bytes(1, 2)) })
+          .order({ digest: "asc" })
+          .pluck("name"),
+      ).toEqual(["b", "c"]);
+      expect(await attachments().order({ digest: "desc" }).pluck("name")).toEqual(["c", "b", "a"]);
     });
   });
 });
