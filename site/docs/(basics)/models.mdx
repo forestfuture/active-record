@@ -1,6 +1,6 @@
 ---
 title: Models
-description: "Reference for Models: extending ApplicationRecord, overriding and narrowing attributes, declaring attributes yourself with define, Model names, table names, attributes and types, casting assigned values, building records, permit, timestamps, change tracking, SQL fragments, serialization, and filtered attributes."
+description: "Reference for Models: extending ApplicationRecord, overriding and narrowing attributes, declaring attributes yourself with define, Model names, table names, attributes and types, enums, casting assigned values, building records, permit, timestamps, change tracking, SQL fragments, serialization, and filtered attributes."
 ---
 
 A Model describes one table. Its attributes come from your migrations, through the generated schema, so the Model only declares behavior.
@@ -58,6 +58,7 @@ An override is one of these:
 | ----------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `"boolean"` (a type name)                 | Reads and writes the attribute as that type                                                           |
 | `{ type?, null?, default?, generateId? }` | Replaces those parts of the generated attribute; `null: false` makes it non-null in TypeScript        |
+| `{ enum, prefix?, suffix?, … }`           | Makes the attribute an [enum](#declaring-enums), of its column’s type                                 |
 | `false`                                   | Ignores the column: it’s never typed, read, or written, and queries name their columns instead of `*` |
 
 An override of an attribute the table doesn’t have throws `InvalidModel`, and `active-record schema` reports it. So does an override that changes a column or ignores the primary key.
@@ -79,7 +80,7 @@ export class Post extends ApplicationRecord {
 }
 ```
 
-`post.status` is now typed `"draft" | "published"`, when you read it and when you assign it. `where` and `build` still take any string, and nothing checks the value read from D1. To check what’s saved, add a [validation](./validations): `this.validates("status", { inclusion: ["draft", "published"] })`.
+`post.status` is now typed `"draft" | "published"`, when you read it and when you assign it. `where` and `build` still take any string, and nothing checks the value read from D1. To have the values checked, and get a method for each, declare an [enum](#declaring-enums) instead.
 
 ## Declaring attributes yourself
 
@@ -189,6 +190,63 @@ Store `json` attributes in a `TEXT` column, as [D1 recommends](https://developer
 :::note
 A `datetime` can be kept as a Unix time in an `INTEGER` column, as Drizzle writes it. Declare it with `storage: "unixSeconds"` or `"unixMilliseconds"`; [Reading Unix timestamps](./adopt-a-database#reading-unix-timestamps) shows how.
 :::
+
+## Declaring enums
+
+An enum gives an attribute a fixed set of names. Declare one with `enum` in an override:
+
+<include>/_excerpts/guide/enums/declare.ts</include>
+
+The attribute’s type is the union of its names, here `"open" | "in_progress" | "closed" | null`. A list of names stores each name as itself, as text. An object stores each name as the value you give it, an integer for an `INTEGER` column or text for a `TEXT` one. A Model declared with `define` gives the type too: `status: { type: "string", enum: ["open", "closed"] }`.
+
+### Using an enum’s methods
+
+Each name gets a predicate and a setter on records, and two scopes on the Model:
+
+<include>/_excerpts/guide/enums/methods.ts</include>
+
+| Method                                              | Does                                                                   |
+| --------------------------------------------------- | ---------------------------------------------------------------------- |
+| `ticket.isOpen()`                                   | Whether `status` is `"open"`                                           |
+| `ticket.saveAsOpen()`, `ticket.saveAsOpenOrThrow()` | Sets `status` to `"open"` and saves the record, with its other changes |
+| `Ticket.open()`, `Ticket.notOpen()`                 | Scopes of the records whose `status` is, or isn’t, `"open"`            |
+
+A name in snake_case reads in camelCase: `in_progress` gives `isInProgress()` and `Ticket.inProgress()`. `saveAsOpen()` returns `false` when the record is invalid, as `save` does, and `saveAsOpenOrThrow()` throws.
+
+`where`, `whereNot`, `pluck`, and every write take and give names, too. To read the names with their stored values, call `enumValues`:
+
+<include>/_excerpts/guide/enums/values.ts</include>
+
+:::note
+Record methods follow your override as soon as you save it. The scopes are typed in the generated schema, so run `active-record schema` (or keep `--watch` running) after you add an enum.
+:::
+
+### Keeping names apart
+
+Two enums that share a name would give the same methods. Add a `prefix` or a `suffix`, `true` for the attribute’s name or a word of your own:
+
+<include>/_excerpts/guide/enums/affixes.ts</include>
+
+A method name that’s taken, by another enum, an attribute, a record method, or a static, throws `InvalidModel` when the Model is first used, and `active-record schema` reports it. To leave an enum’s methods out, declare it with `scopes: false` or `instanceMethods: false`.
+
+### Reading and assigning other values
+
+Assigning a value that isn’t one of an enum’s names, or one of its stored values, throws `TypeError`, and a condition with one matches nothing. A stored value that the enum doesn’t list reads as `null`, so rows written by a newer deploy don’t break an older one. This holds even for an attribute declared `null: false`.
+
+To rename a name without touching stored rows, map the new name to the old value: `enum: { drafted: "draft" }`. Otherwise, migrate the rows in the same deploy.
+
+To report an unknown value as a validation error instead of throwing, declare the enum with `validate: true`:
+
+<include>/_excerpts/guide/enums/validate.ts</include>
+
+A survey answered `"maybe"` is then invalid, with an `inclusion` error, and so is one with no answer, unless you declare `validate: { allowNull: true }`.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+  Rails declares `enum :status, [:open, :closed]` and stores a list by position. Here a list stores
+  the names, so reordering it changes nothing. `published?` is `isPublished()`, `published!` is
+  `saveAsPublished()` or `saveAsPublishedOrThrow()`, `not_published` is `notPublished()`, and
+  `Post.statuses` is `Post.enumValues("status")`. Two names stored as one value are refused.
+</Callout>
 
 ## Casting assigned values
 
