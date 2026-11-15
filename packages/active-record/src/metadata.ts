@@ -11,6 +11,7 @@ export type AttributeType =
   | "string"
   | "integer"
   | "real"
+  | "decimal"
   | "boolean"
   | "datetime"
   | "json"
@@ -141,7 +142,9 @@ export type BuiltInValue<T extends AttributeType> = T extends "string"
         ? Date
         : T extends "binary"
           ? Uint8Array
-          : unknown;
+          : T extends "decimal"
+            ? string
+            : unknown;
 
 /** A type's JavaScript value: a built-in type's, or a custom type's own (#20). */
 type ValueOf<T> = T extends AttributeType

@@ -1,5 +1,6 @@
 // Converting values between attribute types and what D1 stores, per attribute type, for enums, and for custom types (#20).
 import { castBinary, readBinary } from "./binary-values.ts";
+import { castDecimal, readDecimal } from "./decimal-values.ts";
 import { enumEntries, type EnumValues } from "./enum-values.ts";
 import type { EpochStorage } from "./epoch-storage.ts";
 import type { AnyCustomType } from "./custom-types.ts";
@@ -67,6 +68,7 @@ const converters: Record<ConversionKey, Converter> = {
     read: readBinary,
     write: (value) => Uint8Array.from(value as Uint8Array),
   },
+  decimal: { cast: castDecimal, read: readDecimal, write: identity },
 };
 
 /** Each enum's converter, over the converter of the type its values are stored as. */

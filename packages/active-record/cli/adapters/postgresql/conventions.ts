@@ -92,6 +92,7 @@ function literalDefault(sql: string | null, type: AttributeType): Default | unde
   if (type === "boolean")
     return /^(true|false)$/i.test(text) ? { literal: /^true$/i.test(text) } : undefined;
   if (type === "integer" || type === "real") return numberDefault(text, type);
+  if (type === "decimal") return undefined;
   return type === "string" ? { literal: text } : parsedDefault(text, type);
 }
 
