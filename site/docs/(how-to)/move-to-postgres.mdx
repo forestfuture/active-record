@@ -90,12 +90,13 @@ npx active-record schema
 Its attributes come out the same as on D1. Only its adapter changes:
 
 ```ts src/db/schema.ts
+import { defineSchema } from "@forestfuture/active-record";
 import { postgresql } from "@forestfuture/active-record/postgresql";
 
-export const schema = {
+export const schema = defineSchema({
   adapter: postgresql({ binding: "HYPERDRIVE" }),
   // …
-};
+});
 ```
 
 ## Copying the data
