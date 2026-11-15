@@ -59,6 +59,7 @@ export type {
 export type { EpochStorage } from "./epoch-storage.ts";
 export type { AttributeConversions } from "./attribute-conversions.ts";
 export type { AttributeSpec, AttributeSpecs, AttributeType } from "./metadata.ts";
+export { type CustomType, defineType } from "./custom-types.ts";
 export { Relation, type Scope, type ScopeMethods, type Scoped } from "./relation.ts";
 export type {
   Conditions,

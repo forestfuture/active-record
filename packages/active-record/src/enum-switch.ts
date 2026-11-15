@@ -2,7 +2,12 @@
 // `enum: false` drops it, and what a clash's message says to remove to leave them off again.
 import { InvalidModel } from "./errors.ts";
 import type { DatabaseSchema } from "./generated-model.ts";
-import type { AttributeDefinition, AttributeSpecs, SpecObject } from "./metadata.ts";
+import {
+  specObjectOf,
+  type AttributeDefinition,
+  type AttributeSpecs,
+  type SpecObject,
+} from "./metadata.ts";
 import { withoutEnum } from "./spec-keys.ts";
 
 /** An override as written, with its `enum: true` or `false` apart from its other changes. */
@@ -82,7 +87,7 @@ function methodsOffFix(
   definition: AttributeDefinition,
   override: Readonly<Record<string, unknown>>,
 ): string | undefined {
-  const isFromDatabase = typeof spec === "object" && spec.enum !== undefined;
+  const isFromDatabase = spec !== undefined && specObjectOf(spec).enum !== undefined;
   if (!isFromDatabase || definition.enum === undefined || typeof override["enum"] === "object") {
     return undefined;
   }

@@ -1,6 +1,7 @@
 // The rules for each key of an attribute's spec: what it may hold, where it's allowed, what it conflicts with (#164).
 // A key's rules are written here once, and the override merge, the override check, a Model's check
 // and the attribute's definition all read them.
+import { isCustomType } from "./custom-types.ts";
 import { enumProblem, isEnumValues } from "./enum-values.ts";
 import { epochStorages } from "./epoch-storage.ts";
 import type { AttributeDefinition, AttributeType, SpecObject } from "./metadata.ts";
@@ -76,7 +77,10 @@ interface KeyRule {
  * added there is a compile error until it has its rules here.
  */
 const rules: { readonly [K in SpecKey]: KeyRule } = {
-  type: { isWellFormed: isAttributeType, copiedToDefinition: false },
+  type: {
+    isWellFormed: (value) => isAttributeType(value) || isCustomType(value),
+    copiedToDefinition: false,
+  },
   null: { isWellFormed: (value) => typeof value === "boolean", copiedToDefinition: false },
   column: {
     isWellFormed: (value) => typeof value === "string",
@@ -208,6 +212,11 @@ function givenValue(spec: Partial<SpecObject>, key: SpecKey): unknown {
   return isGiven(value) ? value : undefined;
 }
 
+/** How a spec's type reads in a message: `"integer"`, or `a custom type` (#20). */
+function typeNamed(type: SpecObject["type"]): string {
+  return isAttributeType(type) ? `"${type}"` : "a custom type";
+}
+
 /** How a key reads in a message. */
 const readsAs = (key: SpecKey): string => rules[key].describedAs ?? key;
 
@@ -270,10 +279,12 @@ function valueProblem(
     const names = allowedValues.map((each) => `"${each}"`).join(" or ");
     return `${where} has ${key} ${shown(value)}; use ${names}`;
   }
-  if (onlyFor !== undefined && !onlyFor.types.includes(spec.type)) {
-    return `${where} is "${spec.type}", so it can't have ${readsAs(key)}: ${onlyFor.because}`;
+  const { type } = spec;
+  if (onlyFor !== undefined && !(isAttributeType(type) && onlyFor.types.includes(type))) {
+    return `${where} is ${typeNamed(type)}, so it can't have ${readsAs(key)}: ${onlyFor.because}`;
   }
-  const problem = problemFor?.(value, spec.type);
+  // A key with no onlyFor goes with any type, so its problemFor reads only a built-in one.
+  const problem = isAttributeType(type) ? problemFor?.(value, type) : undefined;
   return problem === undefined ? undefined : `${where}${problem}`;
 }
 

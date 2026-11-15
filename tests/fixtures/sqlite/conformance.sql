@@ -18,3 +18,6 @@ CREATE TABLE articles (id INTEGER PRIMARY KEY, title TEXT, status TEXT, priority
 
 -- Bytes (#20): a file's contents (data) and a hash to look one up by (digest).
 CREATE TABLE attachments (id INTEGER PRIMARY KEY, name TEXT, data BLOB, digest BLOB);
+
+-- Custom types (#20): a price kept as integer cents, and a list of sizes kept as text.
+CREATE TABLE listings (id INTEGER PRIMARY KEY, title TEXT, price INTEGER, sizes TEXT);

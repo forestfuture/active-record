@@ -9,6 +9,7 @@ import { generatedEnumBase, takeEnumSwitch, type SplitOverride } from "./enum-sw
 import { InvalidModel } from "./errors.ts";
 import {
   define,
+  specObjectOf,
   type AttributeDefinition,
   type AttributeSpecs,
   type AttributeType,
@@ -368,7 +369,7 @@ function checkedOverride(
   spec: AttributeSpecs[string],
   override: Checked,
 ): AttributeSpecs[string] {
-  const base = generatedEnumBase(where, typeof spec === "string" ? { type: spec } : spec, override);
+  const base = generatedEnumBase(where, specObjectOf(spec), override);
   const { change } = override;
   const changed = applyOverride(base, change);
   const problem = specProblem(where, changed);
