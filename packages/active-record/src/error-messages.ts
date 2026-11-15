@@ -34,6 +34,7 @@ export interface ErrorMessages<N extends string = string> {
 /** @internal Rails' English messages, used where no class has its own (listed in the guide). */
 export const builtInMessages: ErrorMessages = {
   blank: "can't be blank",
+  present: "must be blank",
   invalid: "is invalid",
   required: "must exist",
   inclusion: "is not included in the list",
