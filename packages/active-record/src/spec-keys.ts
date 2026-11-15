@@ -13,6 +13,7 @@ const typeNames = {
   boolean: true,
   datetime: true,
   json: true,
+  binary: true,
 } satisfies Record<AttributeType, true>;
 
 const attributeTypes: readonly unknown[] = Object.keys(typeNames);
