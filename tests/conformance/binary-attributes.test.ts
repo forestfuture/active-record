@@ -47,11 +47,20 @@ describe("binary attributes", () => {
     test.each([
       ["text", "abc", '"abc"'],
       ["an array of numbers", [1, 2], "[1,2]"],
-      ["another typed array", new Uint16Array([1]), '{"0":1}'],
-      ["a DataView", new DataView(new ArrayBuffer(1)), "{}"],
+      ["another typed array", new Uint16Array([1]), "<Uint16Array of 2 bytes>"],
+      ["a DataView", new DataView(new ArrayBuffer(1)), "<DataView of 1 bytes>"],
     ])("%s is a TypeError", (_, value, shown) => {
       expect(() => Attachment.build({ data: untyped(value) })).toThrow(
         new TypeError(`Attachment: ${shown} isn't binary data for "data"`),
+      );
+    });
+
+    // Writing a large array as JSON to show 60 characters of it would take hundreds of megabytes.
+    test("a large refused array shows its size, not its contents", () => {
+      const huge = new Uint16Array(4 * 1024 * 1024);
+
+      expect(() => Attachment.build({ data: untyped(huge) })).toThrow(
+        new TypeError('Attachment: <Uint16Array of 8388608 bytes> isn\'t binary data for "data"'),
       );
     });
 

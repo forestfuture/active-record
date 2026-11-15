@@ -117,7 +117,7 @@ class User extends ApplicationRecord.define({
   - `real`: a finite number, or a string that's wholly a decimal number (`"1.5"`, `".5"`, `"-2e3"`).
   - `string`: a string only (not `5`, `true` or a `Date`).
   - `datetime`: a valid `Date`, an ISO-8601 date (`"2026-01-02"`, midnight UTC), or a date and time with `Z` or an `±HH:MM` offset (`T` or a space between them; `T` and `Z` uppercase). Not a time without an offset, a day that doesn't exist (`"2026-02-30"`, with or without a time), other formats or numbers (#73).
-  - `binary`: a `Uint8Array` (a `Buffer` is one), kept as it is, or an `ArrayBuffer`, as its bytes. Not text (which has no one encoding), an array of numbers, another typed array or a `DataView` (`Attachment: "abc" isn't binary data for "data"`).
+  - `binary`: a `Uint8Array` (a `Buffer` is one), kept as it is, or an `ArrayBuffer`, as its bytes. Not text (which has no one encoding), an array of numbers, another typed array or a `DataView` (`Attachment: "abc" isn't binary data for "data"`). An error shows a typed array, a `DataView` or an `ArrayBuffer` by its kind and size (`<Uint16Array of 2 bytes>`), never as JSON, which for a large one would cost far more than the 60 characters it shows.
   - `json`: any value JSON can write, unchanged (#146).
     - A value JSON can't write (`JSON.stringify` throws, as for a BigInt or a cycle, or gives nothing, as for a function or a symbol) is `uncastable`: an assigned value throws `TypeError` (`Doc: 10 isn't a JSON value for "settings"`), a condition matches nothing, and a bulk write refuses it.
     - A value JSON writes lossily (a `Map` as `{}`, `NaN` as `null`) is kept as JSON writes it.
