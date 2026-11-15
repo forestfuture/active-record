@@ -72,31 +72,48 @@ describe("time attributes", () => {
   });
 
   describe("querying", () => {
-    test("conditions, lists, comparisons and order compare times of day", async () => {
+    beforeEach(async () => {
       await lines().insertAll([
         { label: "early", startsAt: "07:05" },
         { label: "noon", startsAt: "12:00" },
         { label: "late", startsAt: "21:45:30.5" },
       ]);
+    });
 
-      const exactly = await lines().where({ startsAt: "12:00" }).pluck("label");
-      const listed = await lines()
-        .where({ startsAt: ["07:05:00", "21:45:30.50", untyped("never")] })
-        .order({ startsAt: "desc" })
-        .pluck("label");
-      const after = await lines()
-        .where({ startsAt: gt("07:05") })
-        .order({ startsAt: "asc" })
-        .pluck("label");
-      const within = await lines()
-        .where({ startsAt: between("07:00", "12:00") })
-        .order({ startsAt: "asc" })
-        .pluck("startsAt");
+    test("a condition finds the time, however it's written", async () => {
+      expect(await lines().where({ startsAt: "12:00" }).pluck("label")).toEqual(["noon"]);
+    });
 
-      expect(exactly).toEqual(["noon"]);
-      expect(listed).toEqual(["late", "early"]);
-      expect(after).toEqual(["noon", "late"]);
-      expect(within).toEqual(["07:05:00", "12:00:00"]);
+    test("a list finds each time, and leaves out text that isn't one", async () => {
+      const listed = lines().where({ startsAt: ["07:05:00", "21:45:30.50", untyped("never")] });
+
+      expect(await listed.order({ startsAt: "desc" }).pluck("label")).toEqual(["late", "early"]);
+    });
+
+    test("comparisons and order follow the clock", async () => {
+      const within = lines().where({ startsAt: between("07:00", "12:00") });
+
+      expect(await within.order({ startsAt: "asc" }).pluck("startsAt")).toEqual([
+        "07:05:00",
+        "12:00:00",
+      ]);
+    });
+
+    test("gt finds the later times", async () => {
+      const after = lines().where({ startsAt: gt("07:05") });
+
+      expect(await after.order({ startsAt: "asc" }).pluck("label")).toEqual(["noon", "late"]);
+    });
+  });
+
+  describe("change tracking", () => {
+    test("the same time written without seconds isn't a change", async () => {
+      const { id } = await lines().create({ startsAt: "09:30:00" });
+      const line = await lines().find(id);
+
+      line.startsAt = "09:30";
+
+      expect(line.isChanged()).toBe(false);
     });
   });
 

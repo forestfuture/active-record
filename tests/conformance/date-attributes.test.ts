@@ -59,35 +59,40 @@ describe("date attributes", () => {
   });
 
   describe("querying", () => {
-    const seed = async () => {
+    beforeEach(async () => {
       await lines().insertAll([
         { label: "new year", bookedOn: "2026-01-01" },
         { label: "spring", bookedOn: "2026-03-20" },
         { label: "winter", bookedOn: "2026-12-21" },
       ]);
-    };
+    });
 
-    test("conditions, lists, comparisons and order compare days", async () => {
-      await seed();
+    test("a condition finds the day", async () => {
+      expect(await lines().where({ bookedOn: "2026-03-20" }).pluck("label")).toEqual(["spring"]);
+    });
 
-      const exactly = await lines().where({ bookedOn: "2026-03-20" }).pluck("label");
-      const listed = await lines()
-        .where({ bookedOn: ["2026-01-01", "2026-12-21", untyped("never")] })
-        .order({ bookedOn: "desc" })
-        .pluck("label");
-      const after = await lines()
-        .where({ bookedOn: gt("2026-01-01") })
-        .order({ bookedOn: "asc" })
-        .pluck("label");
-      const within = await lines()
-        .where({ bookedOn: between("2026-01-01", "2026-06-30") })
-        .order({ bookedOn: "asc" })
-        .pluck("bookedOn");
+    test("a list finds each day, and leaves out text that isn't one", async () => {
+      const listed = lines().where({ bookedOn: ["2026-01-01", "2026-12-21", untyped("never")] });
 
-      expect(exactly).toEqual(["spring"]);
-      expect(listed).toEqual(["winter", "new year"]);
-      expect(after).toEqual(["spring", "winter"]);
-      expect(within).toEqual(["2026-01-01", "2026-03-20"]);
+      expect(await listed.order({ bookedOn: "desc" }).pluck("label")).toEqual([
+        "winter",
+        "new year",
+      ]);
+    });
+
+    test("comparisons and order follow the calendar", async () => {
+      const within = lines().where({ bookedOn: between("2026-01-01", "2026-06-30") });
+
+      expect(await within.order({ bookedOn: "asc" }).pluck("bookedOn")).toEqual([
+        "2026-01-01",
+        "2026-03-20",
+      ]);
+    });
+
+    test("gt finds the later days", async () => {
+      const after = lines().where({ bookedOn: gt("2026-01-01") });
+
+      expect(await after.order({ bookedOn: "asc" }).pluck("label")).toEqual(["spring", "winter"]);
     });
   });
 
