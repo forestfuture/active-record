@@ -126,7 +126,10 @@ function numberDefault(value: string, type: AttributeType): Default | undefined 
   return type === "integer" && !Number.isSafeInteger(number) ? undefined : { literal: number };
 }
 
-/** A quoted default for a json column (its JSON) or a datetime column (its date). */
+/**
+ * A quoted default's text as the attribute's: a string's as it is, a date's or a time's in its
+ * one form (#391), a datetime's as its date, and a json column's as its JSON.
+ */
 function textDefault(text: string, type: AttributeType): Default | undefined {
   if (type === "string") return { literal: text };
   if (type === "date" || type === "time") return castDefault(type, text);
