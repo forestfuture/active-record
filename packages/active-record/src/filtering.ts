@@ -43,6 +43,13 @@ export function isFiltered(model: ModelClass, attribute: string): boolean {
   );
 }
 
+/** The values of `attributes` that `model` filters, so a message can tell not to show them. */
+export function filteredValues(model: ModelClass, attributes: Record<string, unknown>): unknown[] {
+  return Object.entries(attributes)
+    .filter(([name]) => isFiltered(model, name))
+    .map(([, value]) => value);
+}
+
 /** A bound value D1 gets as `value`, and listeners see as `shown`. */
 export class Filtered {
   readonly value: unknown;

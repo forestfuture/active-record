@@ -81,6 +81,8 @@ export interface Validation {
 export interface ValidationSubject {
   record: object;
   attribute: string;
+  /** The values of the record's loaded filtered attributes, which messages mustn't show. */
+  filteredValues: () => unknown[];
 }
 
 type Check = (
@@ -184,6 +186,8 @@ const CHECKS: readonly Check[] = [
 /** What running validations needs from the record being validated. */
 export interface ValidationTarget {
   record: object;
+  /** The values of the record's loaded filtered attributes. */
+  filteredValues: () => unknown[];
   read: (attribute: string) => unknown;
   errors: Errors;
   /** Whether another row already has `value` for `attribute` (the uniqueness check, in D1). */
@@ -211,7 +215,13 @@ export async function runValidations(
     const value = target.read(attribute);
     if (options.allowNull && value === null) continue;
     const failures = [
-      ...CHECKS.flatMap((check) => check(value, options, { record: target.record, attribute })),
+      ...CHECKS.flatMap((check) =>
+        check(value, options, {
+          record: target.record,
+          attribute,
+          filteredValues: target.filteredValues,
+        }),
+      ),
       ...(await uniquenessFailures(target, attribute, value, options)),
     ];
     for (const failure of failures) {
