@@ -260,11 +260,6 @@ export class Model extends ModelStatics {
   }
 
   /**
-   * An attribute's conversions, for SQL d1-record doesn't write, as Rails' `type_for_attribute`:
-   * `Post.typeForAttribute("publishedAt").serialize(date)` is what `publishedAt` stores a `Date`
-   * as, whatever its `storage`; `cast` and `deserialize` go the other way.
-   */
-  /**
    * An enum's names, each with the value it's stored as, frozen (#340), as Rails' `Post.statuses`:
    * `Post.enumValues("status")` is `{ draft: "draft", published: "published" }`.
    */
@@ -275,6 +270,11 @@ export class Model extends ModelStatics {
     return enumValuesOf(this, attribute) as EnumMapping<EnumOf<InstanceType<C>, K>>;
   }
 
+  /**
+   * An attribute's conversions, for SQL d1-record doesn't write, as Rails' `type_for_attribute`:
+   * `Post.typeForAttribute("publishedAt").serialize(date)` is what `publishedAt` stores a `Date`
+   * as, whatever its `storage`; `cast` and `deserialize` go the other way.
+   */
   static typeForAttribute<C extends QueryableClass, K extends AttributeKey<InstanceType<C>>>(
     this: C,
     name: K,

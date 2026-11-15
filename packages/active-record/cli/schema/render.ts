@@ -119,8 +119,8 @@ function byName<T>(items: readonly T[], name: (item: T) => string): T[] {
   return [...items].sort((a, b) => (name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0));
 }
 
-/** A key's entries as an object: on one line, or one a line when that would be too long. */
-function modelsSource(entries: readonly string[], key: string): string {
+/** The entries of the schema's `key` as an object: on one line, or one a line when that would be too long. */
+function objectSource(entries: readonly string[], key: string): string {
   const line = entries.length === 0 ? "{}" : `{ ${entries.join(", ")} }`;
   if (`  ${key}: ${line},`.length <= 100) return line;
   return `{\n${entries.map((entry) => `    ${entry},`).join("\n")}\n  }`;
@@ -131,7 +131,7 @@ function enumScopesSource(models: readonly ListedModel[]): string {
   const entries = byName(models, listedName)
     .filter((model) => (model.enumScopes ?? []).length > 0)
     .map((model) => `${keySource(listedName(model))}: ${valueSource(model.enumScopes)}`);
-  return entries.length === 0 ? "" : `\n  enumScopes: ${modelsSource(entries, "enumScopes")},`;
+  return entries.length === 0 ? "" : `\n  enumScopes: ${objectSource(entries, "enumScopes")},`;
 }
 
 /**
@@ -154,7 +154,7 @@ export const schema = defineSchema({
   tables: {
 ${entries}
   },
-  models: ${modelsSource(listed, "models")},${enumScopesSource(models)}
+  models: ${objectSource(listed, "models")},${enumScopesSource(models)}
 });`;
 }
 
