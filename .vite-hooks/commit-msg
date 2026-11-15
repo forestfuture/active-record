@@ -44,6 +44,10 @@ long_lines=$(printf '%s\n' "$message" | {
       continue
     fi
     [ "${#line}" -gt 72 ] || continue
+    # A line can't wrap when it holds a URL, or no space after its indent.
+    case "$line" in (*://*) continue ;; esac
+    indent=${line%%[![:space:]]*}
+    case "${line#"$indent"}" in (*[[:space:]]*) ;; (*) continue ;; esac
     echo "Commit body line $number is ${#line} characters; wrap the body at 72:"
     echo "  $line"
   done
