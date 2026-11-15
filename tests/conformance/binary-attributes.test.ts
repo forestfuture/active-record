@@ -232,11 +232,11 @@ describe("binary attributes", () => {
     // Past D1's 2,000,000-byte cap on one bound value as hex JSON, in all and in one row (#392).
     test("insertAll and upsertAll write megabytes of bytes, in all and in one row", async () => {
       const filled = (size: number, fill: number) => new Uint8Array(size).fill(fill);
-      const rows = [1, 2, 3, 4, 5].map((id) => ({ id, name: `${id}`, data: filled(300_000, id) }));
-      rows.push({ id: 6, name: "6", data: filled(1_500_000, 6) });
+      const rows = [1, 2, 3].map((id) => ({ id, name: `${id}`, data: filled(350_000, id) }));
+      rows.push({ id: 4, name: "4", data: filled(1_000_001, 4) });
 
       await attachments().insertAll(rows);
-      await attachments().upsertAll([{ id: 1, name: "1", data: filled(1_500_000, 9) }]);
+      await attachments().upsertAll([{ id: 1, name: "1", data: filled(1_000_001, 9) }]);
 
       const sizes = (await attachments().order({ id: "asc" }).toArray()).map(({ data }) => [
         data!.length,
@@ -244,9 +244,10 @@ describe("binary attributes", () => {
         data!.at(-1),
       ]);
       expect(sizes).toEqual([
-        [1_500_000, 9, 9],
-        ...[2, 3, 4, 5].map((id) => [300_000, id, id]),
-        [1_500_000, 6, 6],
+        [1_000_001, 9, 9],
+        [350_000, 2, 2],
+        [350_000, 3, 3],
+        [1_000_001, 4, 4],
       ]);
     });
 
