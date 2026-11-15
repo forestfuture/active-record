@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
 
-// The commit-msg hook: its title length check, read past git's comments, and its guard warning (#322, #329).
+// The commit-msg hook: its title and body length checks, read past git's comments, and its guard warning (#322, #329, #386).
 const hook = new URL("../../.vite-hooks/commit-msg", import.meta.url).pathname;
 
 /** Each file's text, or null for a file to delete. */
@@ -255,5 +255,21 @@ describe("the commit-msg hook on a commit's title", () => {
 
     expect(status).toBe(0);
     expect(output).toBe("");
+  });
+});
+
+/** A line of `length` characters, made of words. */
+function words(length: number): string {
+  return "word ".repeat(length).slice(0, length - 1) + "x";
+}
+
+describe("the commit-msg hook on a commit's body", () => {
+  test("refuses a body line past 72 characters, naming it", () => {
+    const line = words(73);
+    const { status, output } = runHookEditingTheReadme(`Edit the README (#1)\n\n${line}\n`);
+
+    expect(status).toBe(1);
+    expect(output).toContain("Commit body line 3 is 73 characters; wrap the body at 72:");
+    expect(output).toContain(line);
   });
 });
