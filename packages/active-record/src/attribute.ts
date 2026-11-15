@@ -68,7 +68,7 @@ export class Attribute {
    */
   cast(value: unknown): unknown {
     requireDefined(this.#model, this.name, value);
-    const cast = this.#byItsType(value, () => castValue(this.#definition, value));
+    const cast = this.#convertOrRefuse(value, () => castValue(this.#definition, value));
     // A validated enum keeps an unknown value for its validation to refuse (#340).
     if (cast === uncastable && this.#isValidatedEnum()) return value;
     return this.#orRefuse(cast, value);
@@ -133,7 +133,7 @@ export class Attribute {
    * attribute, with the cell hidden if it's filtered, not the parser's own error (#73, #146).
    */
   read(cell: unknown): unknown {
-    const value = this.#byItsType(cell, () => readValue(this.#definition, cell));
+    const value = this.#convertOrRefuse(cell, () => readValue(this.#definition, cell));
     if (value === uncastable) throw this.#refusal(cell);
     return value;
   }
@@ -178,7 +178,7 @@ export class Attribute {
    * `convert`'s result. What a custom type's own function throws for `value` is refused as any
    * value its type can't hold, with the type's error as the cause (#20).
    */
-  #byItsType(value: unknown, convert: () => unknown): unknown {
+  #convertOrRefuse(value: unknown, convert: () => unknown): unknown {
     try {
       return convert();
     } catch (error) {

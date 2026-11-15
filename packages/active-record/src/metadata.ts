@@ -131,7 +131,7 @@ export interface AttributeDefinition {
 }
 
 /** The JavaScript value an attribute of a built-in type holds: a `Date` for a `datetime`. */
-export type ValueOfType<T extends AttributeType> = T extends "string"
+export type BuiltInValue<T extends AttributeType> = T extends "string"
   ? string
   : T extends "integer" | "real"
     ? number
@@ -144,8 +144,8 @@ export type ValueOfType<T extends AttributeType> = T extends "string"
           : unknown;
 
 /** A type's JavaScript value: a built-in type's, or a custom type's own (#20). */
-type TypeValue<T> = T extends AttributeType
-  ? ValueOfType<T>
+type ValueOf<T> = T extends AttributeType
+  ? BuiltInValue<T>
   : T extends CustomType<infer V, AttributeType>
     ? V
     : never;
@@ -154,11 +154,11 @@ type TypeValue<T> = T extends AttributeType
 type SpecValue<S> = S extends { enum: infer E extends EnumValues }
   ? EnumNames<E>
   : S extends { type: infer T }
-    ? TypeValue<T>
+    ? ValueOf<T>
     : never;
 
 type AttributeValue<S> = S extends AttributeType | AnyCustomType
-  ? TypeValue<S> | null
+  ? ValueOf<S> | null
   : S extends { type: unknown; null: false }
     ? SpecValue<S>
     : S extends { type: unknown }
@@ -177,12 +177,16 @@ export function specObjectOf(spec: AttributeSpec): SpecObject {
 /** Resolves an attribute's spec into its type, column and default. */
 export function define(name: string, spec: AttributeSpec): AttributeDefinition {
   if (typeof spec === "string") return { type: spec, column: underscore(name) };
-  if (isCustomType(spec)) return { ...typeOf(spec), column: underscore(name) };
-  return { ...typeOf(spec.type), column: spec.column ?? underscore(name), ...copiedKeys(spec) };
+  if (isCustomType(spec)) return { ...resolvedType(spec), column: underscore(name) };
+  return {
+    ...resolvedType(spec.type),
+    column: spec.column ?? underscore(name),
+    ...copiedKeys(spec),
+  };
 }
 
 /** A spec's type as a definition holds it: a custom type as the type it's stored as, and itself. */
-function typeOf(type: SpecObject["type"]): Pick<AttributeDefinition, "type" | "customType"> {
+function resolvedType(type: SpecObject["type"]): Pick<AttributeDefinition, "type" | "customType"> {
   return isCustomType(type) ? { type: type.storedAs, customType: type } : { type };
 }
 
