@@ -20,7 +20,10 @@ const money = defineType({
     throw new TypeError("not an amount of cents");
   },
   serialize: (value) => value.cents,
-  deserialize: (cents) => new Money(cents),
+  deserialize(cents) {
+    if (cents < 0) throw new RangeError("a price can't be negative");
+    return new Money(cents);
+  },
 });
 
 class Listing extends Model.define({
@@ -29,6 +32,36 @@ class Listing extends Model.define({
   price: money,
 }) {
   static table = "listings";
+}
+
+// The same price, filtered (#83): its values, and its type's errors, stay out of messages.
+class SecretListing extends Listing {
+  static override filterAttributes = ["price"];
+}
+
+/** A type whose serialize gives text, which its stored type, integer, can't hold. */
+const broken = defineType({
+  storedAs: "integer",
+  cast: (input: unknown) => input as number,
+  serialize: () => "five" as unknown as number,
+  deserialize: (stored) => stored,
+});
+
+class BrokenListing extends Model.define({
+  id: { type: "integer", null: false },
+  price: broken,
+}) {
+  static table = "listings";
+}
+
+/** What a function throws. */
+function thrown(run: () => unknown): unknown {
+  try {
+    run();
+  } catch (error) {
+    return error;
+  }
+  throw new Error("expected it to throw");
 }
 
 describe("custom types", () => {
@@ -51,5 +84,56 @@ describe("custom types", () => {
     const { price } = await listings().find(1);
     expect(price).toBeInstanceOf(Money);
     expect(price?.cents).toBe(1250);
+  });
+
+  describe("refusing", () => {
+    test("a value its cast throws for is a TypeError, the type's error its cause", () => {
+      const error = thrown(() => Listing.build({ price: "abc" as never }));
+
+      expect(error).toEqual(new TypeError('Listing: "abc" isn\'t a valid value for "price"'));
+      expect((error as Error).cause).toEqual(new TypeError("not an amount of cents"));
+    });
+
+    test("permit refuses it the same way", () => {
+      expect(() => Listing.permit({ price: "abc" }, "price")).toThrow(
+        new TypeError('Listing: "abc" isn\'t a valid value for "price"'),
+      );
+    });
+
+    test("a cell its deserialize throws for fails the load, the type's error its cause", async () => {
+      await harness.exec("INSERT INTO listings (id, price) VALUES (1, -5)");
+
+      const error = await listings()
+        .find(1)
+        .catch((caught: unknown) => caught);
+
+      expect(error).toEqual(new TypeError('Listing: -5 isn\'t a valid value for "price"'));
+      expect((error as Error).cause).toEqual(new RangeError("a price can't be negative"));
+    });
+
+    // A guard: NULL is null before any type reads it.
+    test("a NULL cell is null, never given to deserialize", async () => {
+      await harness.exec("INSERT INTO listings (id, price) VALUES (1, NULL)");
+
+      expect((await listings().find(1)).price).toBeNull();
+    });
+
+    test("a serialize that gives what its stored type can't hold fails the save", async () => {
+      const record = harness.connect().model(BrokenListing).build({ id: 1, price: 5 });
+
+      const error = await record.save().catch((caught: unknown) => caught);
+
+      expect(error).toEqual(new TypeError('BrokenListing: 5 isn\'t a valid value for "price"'));
+      expect(await harness.exec("SELECT id FROM listings")).toEqual([]);
+    });
+
+    test("a filtered attribute's refusal shows neither its value nor its type's error", () => {
+      const error = thrown(() => SecretListing.build({ price: "abc" as never }));
+
+      expect(error).toEqual(
+        new TypeError('SecretListing: [FILTERED] isn\'t a valid value for "price"'),
+      );
+      expect((error as Error).cause).toBeUndefined();
+    });
   });
 });
