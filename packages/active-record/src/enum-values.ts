@@ -35,3 +35,49 @@ export function listedNames(values: EnumValues): string {
     .map(([name]) => JSON.stringify(name))
     .join(", ");
 }
+
+/**
+ * What's wrong with `values` as the enum of an attribute of `type`, as the words that follow the
+ * attribute's name (`is "integer", so …`), or undefined. Past the types, so it checks the shape too.
+ */
+export function enumProblem(values: unknown, type: string): string | undefined {
+  if (!isEnumValues(values)) {
+    return ` has an enum ${JSON.stringify(values)}; give it a list of names, or an object of names and the values they're stored as`;
+  }
+  if (Array.isArray(values) && type !== "string") {
+    return ` is "${type}", so its enum gives each name the integer it's stored as, not a list of names`;
+  }
+  const entries = enumEntries(values);
+  if (entries.length === 0) return " has an enum with no names; give it at least one";
+  return storedTypeProblem(entries, type) ?? repeatProblem(entries);
+}
+
+/** A stored value that isn't of the attribute's type: text for a string, a safe integer for an integer. */
+function storedTypeProblem(
+  entries: readonly [string, string | number][],
+  type: string,
+): string | undefined {
+  const fits = type === "string" ? isText : Number.isSafeInteger;
+  const wrong = entries.find(([, stored]) => !fits(stored));
+  if (wrong === undefined) return undefined;
+  const kind = type === "string" ? "text" : "integers";
+  return ` is "${type}", so its enum stores ${kind}, not ${JSON.stringify(wrong[1])} for "${wrong[0]}"`;
+}
+
+const isText = (value: unknown): boolean => typeof value === "string";
+
+/** A name given twice, or a value two names are stored as: a stored cell would read as either. */
+function repeatProblem(entries: readonly [string, string | number][]): string | undefined {
+  const names = new Set<string>();
+  const stored = new Map<string | number, string>();
+  for (const [name, value] of entries) {
+    if (names.has(name)) return `'s enum names "${name}" twice`;
+    const other = stored.get(value);
+    if (other !== undefined) {
+      return `'s enum stores ${JSON.stringify(value)} for both "${other}" and "${name}"`;
+    }
+    names.add(name);
+    stored.set(value, name);
+  }
+  return undefined;
+}
