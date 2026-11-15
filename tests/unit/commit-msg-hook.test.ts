@@ -345,6 +345,15 @@ describe("the commit-msg hook on a commit's body", () => {
     expect(output).toBe("");
   });
 
+  test("refuses a long indented line that has spaces", () => {
+    const { status, output } = runHookEditingTheReadme(
+      `Edit the README (#1)\n\n    ${words(73)}\n`,
+    );
+
+    expect(status).toBe(1);
+    expect(output).toContain("Commit body line 3 is 77 characters");
+  });
+
   test("lists every long line", () => {
     const { status, output } = runHookEditingTheReadme(
       `Edit the README (#1)\n\n${words(73)}\nShort.\n${words(80)}\n`,
