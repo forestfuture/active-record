@@ -415,4 +415,22 @@ describe("enum attributes (#340)", () => {
     expect(published).toEqual([1]);
     expect(Tale.where({ id: 1 }).published().toSql().sql).toContain('"status"');
   });
+
+  test("a generated Model's subclass has its enum scopes before either is used", () => {
+    const yarns = defineSchema({
+      ...schema,
+      models: { Yarn: "articles" },
+      enumScopes: { Yarn: ["draft", "notDraft"] },
+    });
+    abstract class YarnRecord extends Model {
+      static override schema = yarns;
+    }
+    class Yarn extends YarnRecord {
+      static override table = "articles";
+      static override attributes = { status: { enum: ["draft"] } } as const;
+    }
+    class LongYarn extends Yarn {}
+
+    expect(typeof (LongYarn as unknown as Record<string, unknown>)["draft"]).toBe("function");
+  });
 });

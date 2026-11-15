@@ -48,13 +48,20 @@ function enumScopeOf(model: ModelClass, name: string): unknown {
   return undefined;
 }
 
-/** Whether the schema `model`'s base holds lists `name` among its enum scopes. */
+/**
+ * Whether the schema `model`'s base holds lists `name` among the enum scopes of `model`, or of a
+ * class it extends: a subclass of a generated Model has its scopes, by the Model's `modelName`.
+ */
 function isListedFor(model: ModelClass, name: string): boolean {
   const holder = ancestors(model).find((each) => Object.hasOwn(each, "schema")) as
     | { schema?: DatabaseSchema }
     | undefined;
   const scopes = holder?.schema?.enumScopes;
   if (scopes === undefined) return false;
-  const modelName = modelNameOf(model);
-  return Object.hasOwn(scopes, modelName) && scopes[modelName]!.includes(name);
+  return ancestors(model)
+    .filter((each) => each !== holder)
+    .some((each) => {
+      const modelName = modelNameOf(each);
+      return Object.hasOwn(scopes, modelName) && scopes[modelName]!.includes(name);
+    });
 }
