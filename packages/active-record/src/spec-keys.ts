@@ -11,6 +11,7 @@ const typeNames = {
   string: true,
   integer: true,
   real: true,
+  decimal: true,
   boolean: true,
   datetime: true,
   json: true,
