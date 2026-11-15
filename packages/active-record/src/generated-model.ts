@@ -5,7 +5,7 @@ import type { SchemaAdapter } from "./adapter.ts";
 import { ancestors } from "./ancestors.ts";
 import type { IntegerEnum, TextEnum } from "./enum-values.ts";
 import { defineEnumMethods, defineEnumStatics } from "./enum-methods.ts";
-import { switchedSpec, takeEnumSwitch, type SplitOverride } from "./enum-switch.ts";
+import { generatedEnumBase, takeEnumSwitch, type SplitOverride } from "./enum-switch.ts";
 import { InvalidModel } from "./errors.ts";
 import {
   define,
@@ -368,7 +368,7 @@ function checkedOverride(
   spec: AttributeSpecs[string],
   override: Checked,
 ): AttributeSpecs[string] {
-  const base = switchedSpec(where, typeof spec === "string" ? { type: spec } : spec, override);
+  const base = generatedEnumBase(where, typeof spec === "string" ? { type: spec } : spec, override);
   const { change } = override;
   const changed = applyOverride(base, change);
   const problem = specProblem(where, changed);

@@ -5,8 +5,7 @@ import { dirname, resolve, sep } from "node:path";
 import { ancestors, staticBelow } from "../../src/ancestors.ts";
 import { enumNameProblem, enumScopeNames, type TakenNames } from "../../src/enum-methods.ts";
 import { methodsOffFixes } from "../../src/enum-switch.ts";
-import type { DatabaseSchema } from "../../src/generated-model.ts";
-import { isBase } from "../../src/generated-model.ts";
+import { isBase, type DatabaseSchema } from "../../src/generated-model.ts";
 import type { AttributeDefinition } from "../../src/metadata.ts";
 import {
   forgetProjectFiles,
