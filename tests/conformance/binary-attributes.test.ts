@@ -121,6 +121,16 @@ describe("binary attributes", () => {
       expect(stamped.changed()).toEqual(["data"]);
     });
 
+    test("a change's from that isn't bytes matches nothing, however it would copy", async () => {
+      const { id } = await attachments().create({ data: new Uint8Array([0, 0, 0]) });
+      const attachment = await attachments().find(id);
+
+      attachment.data = new Uint8Array([1]);
+
+      expect(attachment.isAttributeChanged("data", { from: untyped("abc") })).toBe(false);
+      expect(attachment.isAttributeChanged("data", { from: new Uint8Array([0, 0, 0]) })).toBe(true);
+    });
+
     test("a byte changed in place is a change, and saving writes it", async () => {
       const { id } = await attachments().create({ data: new Uint8Array([1, 2]) });
       const attachment = await attachments().find(id);

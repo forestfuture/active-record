@@ -55,6 +55,9 @@ class ApiKey extends Model.define({
   static table = "api_keys";
 }
 
+/** A value the attribute's type doesn't name, as one from a request would arrive. */
+const untypedValue = (value: unknown) => value as never;
+
 describe("change tracking", () => {
   let harness: Harness;
 
@@ -250,6 +253,15 @@ describe("change tracking", () => {
       expect(key.isAttributeChanged("expiresAt", { from: new Date(0) })).toBe(false);
       expect(key.willSaveChangeTo("expiresAt")).toBe(true);
       expect(key.willSaveChangeTo("label")).toBe(false);
+    });
+
+    test("a from or to is cast as a condition's value, and one that can't be matches nothing", async () => {
+      const key = await harness.connect().model(ApiKey).find("k1");
+
+      key.expiresAt = new Date("2027-01-01T00:00:00.000Z");
+
+      expect(key.isAttributeChanged("expiresAt", { from: untypedValue("2026-01-01") })).toBe(true);
+      expect(key.isAttributeChanged("expiresAt", { to: untypedValue("not a date") })).toBe(false);
     });
 
     test("after a save: savedChangeTo(), hasSavedChangeTo() and attributeBeforeLastSave()", async () => {
