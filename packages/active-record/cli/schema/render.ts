@@ -170,7 +170,7 @@ function interfaceSource(model: ListedModel, exportName: string): string {
 function namespaceLines(model: ListedModel): string[] {
   const scopes = model.enumScopes ?? [];
   if (scopes.length === 0) return [];
-  const statics = scopes.map((scope) => `    const ${scope}: ScopeStatic<[]>;`);
+  const statics = scopes.map((scope) => `    export const ${scope}: ScopeStatic<[]>;`);
   return [`  namespace ${model.className} {`, ...statics, "  }"];
 }
 
