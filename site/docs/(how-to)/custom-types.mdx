@@ -19,7 +19,11 @@ A type has three functions:
 | `serialize`   | the type’s value                   | a value of the type it’s stored as |
 | `deserialize` | a value of the type it’s stored as | the type’s value                   |
 
-None of them is called with `null`, which is always NULL. The attribute’s TypeScript type is what `cast` returns, so `Money` here.
+The attribute’s TypeScript type is what `cast` returns, so `Money` here.
+
+:::note
+None of them is called with `null`, which is always NULL.
+:::
 
 ## Using a type
 
@@ -35,7 +39,7 @@ A Model that declares its attributes itself takes the type in place of a type’
 
 ## Refusing values
 
-Throw from `cast` for a value the type can’t hold. Assigning it, or permitting it, throws a `TypeError` naming the Model and attribute, with your error as its `cause`:
+Throw from `cast` for a value the type can’t hold. Assigning or permitting that value then throws a `TypeError` naming the Model and attribute, with your error as its `cause`:
 
 ```ts
 import { Product } from "./models/product";

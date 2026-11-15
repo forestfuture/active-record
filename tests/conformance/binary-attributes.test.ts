@@ -64,6 +64,14 @@ describe("binary attributes", () => {
       );
     });
 
+    test("a File is a TypeError: its bytes can only be read asynchronously", () => {
+      const file = new File(["x"], "x.txt");
+
+      expect(() => Attachment.build({ data: untyped(file) })).toThrow(
+        new TypeError('Attachment: <File of 1 bytes> isn\'t binary data for "data"'),
+      );
+    });
+
     test("a file from a form is a TypeError saying how to read its bytes", () => {
       const form = new FormData();
       form.append("data", new File(["x"], "x.txt"));
