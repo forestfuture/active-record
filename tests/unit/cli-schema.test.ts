@@ -64,6 +64,57 @@ describe("schemaOf: from migrations to table schemas", () => {
     });
   });
 
+  test("a generated enum's CHECK may be the table's, quote its column, let NULL through, or repeat a name (#64)", () => {
+    const names = ["draft", "published"];
+    const generated = { type: "string", enum: names, scopes: false, instanceMethods: false };
+
+    expect(
+      attributes(`CREATE TABLE posts (
+        id INTEGER PRIMARY KEY, a TEXT, b TEXT, c TEXT, d TEXT, e TEXT, f TEXT,
+        CHECK (a IN ('draft', 'published')),
+        CONSTRAINT b_named check ("b" in ('draft','published')),
+        CHECK ([c] IN ('draft', 'published')),
+        CHECK (d IS NULL OR d IN ('draft', 'published')),
+        CHECK (e IN ('draft', 'published') OR e IS NULL),
+        CHECK (F IN ('draft', 'published', 'draft'))
+      )`),
+    ).toMatchObject({
+      a: generated,
+      b: generated,
+      c: generated,
+      d: generated,
+      e: generated,
+      f: generated,
+    });
+  });
+
+  test("any other CHECK leaves its column as it was: NOT IN, more conditions, numbers, two lists (#64)", () => {
+    const result = attributes(`CREATE TABLE posts (
+      id INTEGER PRIMARY KEY,
+      a TEXT CHECK (a NOT IN ('x')),
+      b TEXT CHECK (b IN ('x', 'y') AND length(b) > 0),
+      c TEXT CHECK (c IN ('x', 1)),
+      d INTEGER CHECK (d IN (0, 1)),
+      e INTEGER CHECK (e IN ('1', '2')),
+      f TEXT CHECK (f IN ('x', 'y')) CHECK (f IN ('x')),
+      g TEXT,
+      h TEXT,
+      CHECK (g IS NULL OR h IN ('x'))
+    )`);
+
+    expect(result).toEqual({
+      id: { type: "integer", null: false },
+      a: { type: "string" },
+      b: { type: "string" },
+      c: { type: "string" },
+      d: { type: "integer" },
+      e: { type: "integer" },
+      f: { type: "string" },
+      g: { type: "string" },
+      h: { type: "string" },
+    });
+  });
+
   test("names refine only a plain TEXT or INTEGER: …_at is a datetime in TEXT, is_/has_ a boolean in INTEGER", () => {
     const result = tables(`CREATE TABLE things (
       id INTEGER PRIMARY KEY, published_at TEXT, synced_at INTEGER, is_active INTEGER,

@@ -105,7 +105,7 @@ function columnsOf(db: DatabaseSync, table: string, definition: string): Column[
       primaryKey: Number(row.pk) > 0,
       jsonChecked: json.has(String(row.name)),
       referencedType: referenced.get(String(row.name)),
-      checkedNames: checked.get(String(row.name)),
+      checkedNames: checked.get(String(row.name).toLowerCase()),
     }));
 }
 
