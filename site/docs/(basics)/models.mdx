@@ -214,8 +214,8 @@ It reads back as a `Uint8Array`, and prints as `<3 bytes of binary data>`, so lo
 A D1 row holds at most 2 MB. Keep larger files in [R2](https://developers.cloudflare.com/r2/), and store their keys.
 :::
 
-:::note
-On D1, `insert`, `insertAll`, `upsert`, and `upsertAll` send all their rows as one value, with each byte written as two hex digits. D1 takes a value of at most 2 MB, so keep a bulk write’s bytes under 1 MB in all. `create` and `save` send bytes as they are.
+:::tip
+`insertAll` and `upsertAll` take as many bytes as you give them. On D1, rows larger than its 2 MB limit on one value go as several statements in one batch, which writes all of them or none. D1 counts the batch as one query.
 :::
 
 ## Declaring enums
