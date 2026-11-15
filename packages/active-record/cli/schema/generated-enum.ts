@@ -8,7 +8,7 @@ export function withGeneratedEnum(spec: Spec, names: readonly string[] | undefin
 }
 
 /** A CHECK's list of SQL string literals as their text, each once: `'a', 'it''s', 'a'` → `["a", "it's"]`. */
-export function listedNames(list: string): string[] {
+export function namesInList(list: string): string[] {
   const texts = [...list.matchAll(/'((?:[^']|'')*)'/g)].map((match) => match[1]!);
   return [...new Set(texts.map((text) => text.replaceAll("''", "'")))];
 }

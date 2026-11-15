@@ -18,9 +18,9 @@ export interface Column {
   category: string;
   /**
    * The names the database restricts it to (#64): an enum type's labels, in their order, or the
-   * list one `CHECK (… IN …)` gives it; `null` for any other column.
+   * list one `CHECK (… IN …)` gives it; undefined for any other column.
    */
-  restrictedTo: string[] | null;
+  restrictedTo?: string[];
   notNull: boolean;
   /** Its default as Postgres writes it back: `'it''s'::text`, `now()`. */
   defaultValue: string | null;
@@ -96,7 +96,9 @@ export async function columnsByTable(query: Query): Promise<Map<string, Column[]
   );
   for (const row of await query(columnsQuery)) {
     const column = row as unknown as Column;
-    column.restrictedTo ??= listsByTable.get(column.table)?.get(column.name) ?? null;
+    // The catalog reads no labels as null.
+    column.restrictedTo =
+      column.restrictedTo ?? listsByTable.get(column.table)?.get(column.name) ?? undefined;
     const columns = byTable.get(column.table) ?? [];
     columns.push(column);
     byTable.set(column.table, columns);

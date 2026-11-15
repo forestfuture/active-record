@@ -1,5 +1,5 @@
-// An override's `enum: true` and `enum: false` (#64): a generated enum's names with the methods its
-// schema leaves off, or the column without them; and which enums' names a Model's schema gave it.
+// An override and a generated enum (#64): `enum: true` or an override's own list turns its methods on,
+// `enum: false` drops it, and what a clash's message says to remove to leave them off again.
 import { InvalidModel } from "./errors.ts";
 import type { DatabaseSchema } from "./generated-model.ts";
 import type { AttributeDefinition, AttributeSpecs, SpecObject } from "./metadata.ts";
@@ -27,7 +27,7 @@ export function takeEnumSwitch(override: unknown): SplitOverride {
  * `enum: false` drops the enum and its keys. Either switch is an `InvalidModel` on a column
  * without a generated enum.
  */
-export function switchedSpec(
+export function generatedEnumBase(
   where: string,
   spec: SpecObject,
   { useDatabaseEnum, change }: SplitOverride<object>,

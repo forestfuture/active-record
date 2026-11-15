@@ -1,5 +1,5 @@
 // The names a `CHECK (… IN …)` restricts a column to, from the definitions `pg_get_constraintdef` writes back (#64).
-import { listedNames } from "@forestfuture/active-record/cli";
+import { namesInList } from "@forestfuture/active-record/cli";
 
 /** A table's CHECK constraint: the columns it names, and its definition as Postgres writes it. */
 export interface CheckConstraint {
@@ -76,7 +76,7 @@ function restriction({ columns, definition }: CheckConstraint): Restriction | un
   const column = match === null ? undefined : restrictedColumn(match);
   const found = column === undefined ? undefined : onItsColumn(column, columns);
   if (found === undefined || list === null) return found;
-  return { ...found, names: listedNames(list[3]!) };
+  return { ...found, names: namesInList(list[3]!) };
 }
 
 /** A restriction of `column`, if that's the only column the constraint names. */
