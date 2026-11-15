@@ -68,11 +68,18 @@ export function scopeName(model: ModelClass, scoped: object): string {
   return name;
 }
 
+/**
+ * Whether no scope may be named `name`: a Relation method or a Model static, or "then", which
+ * would make Relations awaitable. A Model's own statics are taken too, besides the Relation
+ * methods it mirrors.
+ */
+export function isReservedScopeName(name: string): boolean {
+  return name === "then" || name in Relation.prototype || setUp().statics.has(name);
+}
+
 /** Rejects a scope named like a Relation method or a Model static, or "then". */
 function requireScopeName(model: ModelClass, name: string): void {
-  // "then" would make Relations awaitable.
-  // A Model's own statics are taken too, besides the Relation methods it mirrors.
-  if (name === "then" || name in Relation.prototype || setUp().statics.has(name)) {
+  if (isReservedScopeName(name)) {
     throw new InvalidModel(
       `${model.name} declares a scope "${name}", which is the name of a Relation method or a Model static; rename the scope`,
     );

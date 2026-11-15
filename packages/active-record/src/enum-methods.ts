@@ -128,6 +128,8 @@ export function defineEnumStatics(
   for (const { attribute, name, stem } of enumNames(definitions)) {
     const only = declaring.scope((q) => q.where({ [attribute]: name }));
     const without = declaring.scope((q) => q.whereNot({ [attribute]: name }));
+    enumScopes.add(only);
+    enumScopes.add(without);
     defineMethod(model, uncapitalized(stem), only, { named: false });
     defineMethod(model, `not${stem}`, without, { named: false });
   }
@@ -140,6 +142,95 @@ function defineMethod(
   method: (...args: never[]) => unknown,
   { named = true } = {},
 ): void {
+  // An attribute's accessor can't be replaced: the clash is refused when the Model is first used.
+  if (Object.getOwnPropertyDescriptor(target, name)?.configurable === false) return;
   if (named) Object.defineProperty(method, "name", { value: name });
   Object.defineProperty(target, name, { value: method, writable: true, configurable: true });
+}
+
+/** The scope statics `defineEnumStatics` made, so a static a Model declares itself is told apart. */
+const enumScopes = new WeakSet<object>();
+
+/** What an enum's method names mustn't take, besides each other's. */
+export interface TakenNames {
+  /** Whether a record already has `name`: a record method or property. */
+  isRecordName(name: string): boolean;
+  /** Whether a scope can't be named `name`: a Relation method or a Model static. */
+  isReservedStatic(name: string): boolean;
+  /** The static `model` (or a class it extends) reads for `name`, if any. */
+  staticOf(name: string): unknown;
+}
+
+/** A Model, as the check on its enums' names reads it. */
+interface NamedModel {
+  readonly name: string;
+  readonly attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
+}
+
+/**
+ * Why an enum's method names can't be as they are, or undefined: two enums give one name, or one
+ * takes the name of a record method, an attribute, a Relation method, a Model static, or a static
+ * the Model declares itself. Rails refuses the same when an enum is declared.
+ */
+export function enumNameProblem(model: NamedModel, taken: TakenNames): string | undefined {
+  const givenBy = new Map<string, string>();
+  for (const { attribute, stem } of enumNames(model.attributeDefinitions)) {
+    const records = [`is${stem}`, `saveAs${stem}`, `saveAs${stem}OrThrow`];
+    const statics = [uncapitalized(stem), `not${stem}`];
+    for (const method of [...records, ...statics]) {
+      const other = givenBy.get(method);
+      if (other !== undefined) return repeated(model.name, other, attribute, method);
+      givenBy.set(method, attribute);
+    }
+    const problem =
+      recordProblem(model, attribute, records, taken) ??
+      staticProblem(model, attribute, statics, taken);
+    if (problem !== undefined) return problem;
+  }
+  return undefined;
+}
+
+function repeated(model: string, first: string, second: string, method: string): string {
+  return first === second
+    ? `${model}'s enum ${first} gives "${method}" for two of its names; rename one`
+    : `${model}'s enums ${first} and ${second} both give a method named "${method}"; give one a prefix or a suffix`;
+}
+
+const remedy = (attribute: string) => `give ${attribute} a prefix or a suffix`;
+
+function recordProblem(
+  model: NamedModel,
+  attribute: string,
+  methods: readonly string[],
+  taken: TakenNames,
+): string | undefined {
+  for (const method of methods) {
+    const what = model.attributeDefinitions.has(method)
+      ? "an attribute"
+      : taken.isRecordName(method)
+        ? "a record method"
+        : undefined;
+    if (what !== undefined) {
+      return `${model.name}'s enum ${attribute} gives a method named "${method}", which is the name of ${what}; ${remedy(attribute)}`;
+    }
+  }
+  return undefined;
+}
+
+function staticProblem(
+  model: NamedModel,
+  attribute: string,
+  scopes: readonly string[],
+  taken: TakenNames,
+): string | undefined {
+  for (const scope of scopes) {
+    if (taken.isReservedStatic(scope)) {
+      return `${model.name}'s enum ${attribute} gives a scope named "${scope}", which is the name of a Relation method or a Model static; ${remedy(attribute)}`;
+    }
+    const found = taken.staticOf(scope);
+    if (typeof found !== "function" || !enumScopes.has(found)) {
+      return `${model.name} declares "${scope}", which is also the name of a scope its enum ${attribute} gives; rename it, or ${remedy(attribute)}`;
+    }
+  }
+  return undefined;
 }

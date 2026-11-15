@@ -55,3 +55,76 @@ describe("an enum's declaration, past the types (#340)", () => {
     expect(() => db.model(withSpec(spec)).build()).toThrow(new InvalidModel(message));
   });
 });
+
+describe("an enum's method names, when the Model is first used (#340)", () => {
+  const firstUse = (model: Parameters<typeof db.model>[0]) => () => db.model(model).build();
+
+  test("two enums giving one method name is an InvalidModel suggesting a prefix or a suffix", () => {
+    class Conversation extends Model.define({
+      id: "integer",
+      status: { type: "string", enum: ["active", "archived"] },
+      comments: { type: "string", enum: ["active", "closed"] },
+    }) {}
+
+    expect(firstUse(Conversation)).toThrow(
+      new InvalidModel(
+        'Conversation\'s enums status and comments both give a method named "isActive"; give one a prefix or a suffix',
+      ),
+    );
+  });
+
+  test("a name that gives a record method's name is an InvalidModel", () => {
+    class Doc extends Model.define({
+      id: "integer",
+      state: { type: "string", enum: ["changed"] },
+    }) {}
+
+    expect(firstUse(Doc)).toThrow(
+      new InvalidModel(
+        'Doc\'s enum state gives a method named "isChanged", which is the name of a record method; give state a prefix or a suffix',
+      ),
+    );
+  });
+
+  test("a name that gives a Relation method's or a Model static's name is an InvalidModel", () => {
+    class Step extends Model.define({
+      id: "integer",
+      place: { type: "string", enum: ["first"] },
+    }) {}
+
+    expect(firstUse(Step)).toThrow(
+      new InvalidModel(
+        'Step\'s enum place gives a scope named "first", which is the name of a Relation method or a Model static; give place a prefix or a suffix',
+      ),
+    );
+  });
+
+  test("a name that gives an attribute's name is an InvalidModel", () => {
+    class Light extends Model.define({
+      id: "integer",
+      isOn: "boolean",
+      state: { type: "string", enum: ["on"] },
+    }) {}
+
+    expect(firstUse(Light)).toThrow(
+      new InvalidModel(
+        'Light\'s enum state gives a method named "isOn", which is the name of an attribute; give state a prefix or a suffix',
+      ),
+    );
+  });
+
+  test("a static the Model declares with an enum's method name is an InvalidModel", () => {
+    class Post extends Model.define({
+      id: "integer",
+      status: { type: "string", enum: ["draft", "published"] },
+    }) {
+      static override published = this.scope((q) => q.where({ id: 1 }));
+    }
+
+    expect(firstUse(Post)).toThrow(
+      new InvalidModel(
+        'Post declares "published", which is also the name of a scope its enum status gives; rename it, or give status a prefix or a suffix',
+      ),
+    );
+  });
+});
