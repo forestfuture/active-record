@@ -19,14 +19,15 @@ message=$(awk -v c="$comment" '
 title=$(printf '%s\n' "$message" | sed -n '/[^[:space:]]/{p;q;}')
 length=${#title}
 
+# A refused title doesn't stop the body check, so one amend fixes both.
+refused=no
+
 if [ "$length" -gt 72 ]; then
   echo "Commit title is $length characters; the limit is 72 (aim for 50):"
   echo "  $title"
   echo "Put the detail in the body, after a blank line."
-  exit 1
-fi
-
-if [ "$length" -gt 60 ]; then
+  refused=yes
+elif [ "$length" -gt 60 ]; then
   echo "Warning: commit title is $length characters; aim for 50 or less."
 fi
 
@@ -76,6 +77,10 @@ long_lines=$(printf '%s\n' "$message" | {
 
 if [ -n "$long_lines" ]; then
   printf '%s\n' "$long_lines"
+  refused=yes
+fi
+
+if [ "$refused" = yes ]; then
   exit 1
 fi
 
