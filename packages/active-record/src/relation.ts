@@ -276,7 +276,10 @@ export class Relation<M extends Model, S = {}> {
     return runAlone(this[preparedWrites].insert(attributes, options));
   }
 
-  /** Inserts several rows with the same attributes now, in one statement (Rails' `insert_all!`). */
+  /**
+   * Inserts several rows with the same attributes now (Rails' `insert_all!`): in one statement,
+   * or several in one atomic batch when they pass the database's cap on one value.
+   */
   async insertAll<const R extends Returning<M> | undefined = undefined>(
     rows: readonly Partial<AttributesOf<M>>[],
     options: InsertOptions<M> & { returning?: R } = {},

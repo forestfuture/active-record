@@ -55,7 +55,7 @@ export class Batch {
     return this.#rows(target)[preparedWrites].insert(attributes, options);
   }
 
-  /** Inserts several rows with the same attributes, in one statement, as `insertAll` does. */
+  /** Inserts several rows with the same attributes, as `insertAll` does. */
   insertAll<M extends Model, const R extends Returning<M> | undefined = undefined>(
     target: BatchTarget<M>,
     rows: readonly Partial<AttributesOf<M>>[],
