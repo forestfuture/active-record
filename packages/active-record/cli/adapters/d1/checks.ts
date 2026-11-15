@@ -30,14 +30,14 @@ function withoutComments(definition: string): string {
 }
 
 /** A column name as a key, as SQLite compares them: unquoted, any case. `"Status"` → `status`. */
-function unquoted(name: string): string {
+function columnKey(name: string): string {
   return (/^["`[]/.test(name) ? name.slice(1, -1) : name).toLowerCase();
 }
 
 /** The column a match restricts, unless its `IS NULL` names another one. */
 function restricted(match: RegExpMatchArray): string | undefined {
-  const column = unquoted(match[2]!);
-  const nullable = [match[1], match[4]].filter((name) => name !== undefined).map(unquoted);
+  const column = columnKey(match[2]!);
+  const nullable = [match[1], match[4]].filter((name) => name !== undefined).map(columnKey);
   return nullable.every((name) => name === column) ? column : undefined;
 }
 
