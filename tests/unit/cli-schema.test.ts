@@ -49,6 +49,21 @@ describe("schemaOf: from migrations to table schemas", () => {
     ).toMatchObject({ settings: { type: "json" }, meta: { type: "json" } });
   });
 
+  test("a TEXT column checked IN a list of strings is a generated enum, without methods (#64)", () => {
+    expect(
+      attributes(`CREATE TABLE posts (
+        id INTEGER PRIMARY KEY,
+        status TEXT NOT NULL CHECK (status IN ('draft', 'published'))
+      )`).status,
+    ).toEqual({
+      type: "string",
+      null: false,
+      enum: ["draft", "published"],
+      scopes: false,
+      instanceMethods: false,
+    });
+  });
+
   test("names refine only a plain TEXT or INTEGER: …_at is a datetime in TEXT, is_/has_ a boolean in INTEGER", () => {
     const result = tables(`CREATE TABLE things (
       id INTEGER PRIMARY KEY, published_at TEXT, synced_at INTEGER, is_active INTEGER,

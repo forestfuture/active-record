@@ -60,6 +60,12 @@ export interface Spec {
   default?: Default;
   /** A key made in code by the Model's `generateId` (#99). */
   generateId?: true;
+  /** A generated enum's names, which the database restricts the column to (#64). */
+  enum?: readonly string[];
+  /** `false` on a generated enum: its scopes wait for the Model's override (#64). */
+  scopes?: false;
+  /** `false` on a generated enum: its record methods wait for the Model's override (#64). */
+  instanceMethods?: false;
 }
 
 /** One table, ready to generate: its attributes in column order. */
