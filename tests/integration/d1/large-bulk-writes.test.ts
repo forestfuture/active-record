@@ -60,7 +60,7 @@ describe("bulk writes past D1's cap on one value", () => {
     expect(await stored()).toEqual([[5, 0, undefined]]);
   });
 
-  test("in db.batch, the statements are one entry's result, written with the others or not at all", async () => {
+  test("in db.batch, the statements are one entry's result", async () => {
     const results = await db().batch((b) => [
       b.insertAll(Attachment, largeRows()),
       b.insert(Attachment, { id: 6, name: "small" }),
@@ -69,12 +69,14 @@ describe("bulk writes past D1's cap on one value", () => {
     expect(inserts()).toHaveLength(3);
     expect(results.map(({ rowsAffected }) => rowsAffected)).toEqual([5, 1]);
     expect(results[0].rows).toHaveLength(5);
+  });
 
-    await binding.prepare("DELETE FROM attachments").run();
+  test("in db.batch, the statements are written with the other entries or not at all", async () => {
     const failing = db().batch((b) => [
       b.insertAll(Attachment, largeRows()),
       b.insert(Attachment, { id: 1, name: "duplicate" }),
     ]);
+
     await expect(failing).rejects.toThrow();
     expect(await stored()).toEqual([]);
   });
