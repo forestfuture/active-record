@@ -17,8 +17,6 @@ interface JsonRow {
   shown: string;
 }
 
-const encoder = new TextEncoder();
-
 /**
  * `rows` of `names`' values, assigned, in groups whose JSON value is at most `maxBytes` long in
  * UTF-8 (all in one when it's undefined); listeners see a filtered attribute as "[FILTERED]".
@@ -39,7 +37,7 @@ export function rowGroups(
     pending = [];
   };
   for (const row of jsonRows) {
-    const size = encoder.encode(row.text).length;
+    const size = utf8Length(row.text);
     if (size + 2 > maxBytes) {
       flush();
       groups.push({ row: row.values });
@@ -72,6 +70,21 @@ function jsonValue(rows: readonly JsonRow[]): unknown {
   const json = `[${rows.map(({ text }) => text).join(",")}]`;
   if (rows.every(({ text, shown }) => text === shown)) return json;
   return new Filtered(json, `[${rows.map(({ shown }) => shown).join(",")}]`);
+}
+
+/**
+ * `text`'s length in UTF-8 bytes, counted without encoding a copy of it. A code unit below
+ * U+0080 is one byte, below U+0800 two, and any other three, except that a surrogate pair is four
+ * between its two units. JSON text has no lone surrogates: `JSON.stringify` escapes them.
+ */
+function utf8Length(text: string): number {
+  let bytes = text.length;
+  for (let index = 0; index < text.length; index++) {
+    const unit = text.charCodeAt(index);
+    if (unit < 0x80) continue;
+    bytes += unit < 0x800 || (unit >= 0xd800 && unit <= 0xdfff) ? 1 : 2;
+  }
+  return bytes;
 }
 
 /** A stored cell as a bulk write's JSON holds it: bytes as hex text, which JSON has no form for (#20). */
