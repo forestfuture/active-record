@@ -1,12 +1,17 @@
 // SQLite's SQL, which is D1's.
 import { type Dialect, hexOf, valueMark } from "@forestfuture/active-record/adapter";
 
+/** A binary attribute's cells, each bytes, as hex text: what JSON can hold. */
+function hexCells(cells: readonly unknown[]): string[] {
+  return (cells as readonly Uint8Array[]).map(hexOf);
+}
+
 export const sqlite: Dialect = {
   placeholder: () => "?",
   // JSON has no bytes, so a list of them is bound as hex text, read back with unhex (#20).
   inList: (column, cells, { isBinary }) => ({
     sql: `${column} IN (SELECT ${isBinary ? "unhex(value)" : "value"} FROM json_each(${valueMark}))`,
-    value: JSON.stringify(isBinary ? cells.map((cell) => hexOf(cell as Uint8Array)) : cells),
+    value: JSON.stringify(isBinary ? hexCells(cells) : cells),
   }),
   pagination(limit, offset, params) {
     // SQLite only accepts OFFSET after a LIMIT; -1 means "no limit".
