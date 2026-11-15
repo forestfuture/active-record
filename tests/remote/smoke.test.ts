@@ -83,6 +83,50 @@ describe.skipIf(!configured)("remote D1 smoke", () => {
     expect(digests.map((digest) => [...digest!])).toEqual([[0, 1, 255], []]);
   });
 
+  // D1 caps a value at 2,000,000 bytes; Miniflare's cap is higher (#392).
+  describe("bulk writes past D1's cap on one value", () => {
+    let events: QueryEvent[];
+    const attachments = () =>
+      connect(remote.binding, { onQuery: (event) => events.push(event) }).model(Attachment);
+    const inserts = () => events.filter(({ sql }) => sql.startsWith("INSERT"));
+    beforeEach(() => {
+      events = [];
+    });
+
+    test("a value of exactly 2,000,000 bytes is one statement's JSON", async () => {
+      // [[1,"…"],[2,"…"]]: 15 bytes of JSON around the two names.
+      await attachments().insertAll([
+        { id: 1, name: "a".repeat(1_000_000) },
+        { id: 2, name: "b".repeat(999_985) },
+      ]);
+
+      expect(inserts().map(({ sql }) => sql.includes("json_each"))).toEqual([true]);
+      const names = await attachments().order({ id: "asc" }).pluck("name");
+      expect(names.map((name) => name!.length)).toEqual([1_000_000, 999_985]);
+    });
+
+    test("insertAll and upsert write megabytes of bytes, in all and in one row", async () => {
+      const filled = (size: number, fill: number) => new Uint8Array(size).fill(fill);
+      const rows = [1, 2, 3, 4, 5].map((id) => ({
+        id,
+        name: `${id}`,
+        digest: filled(300_000, id),
+      }));
+      rows.push({ id: 6, name: "6", digest: filled(1_500_000, 6) });
+
+      await attachments().insertAll(rows);
+      await attachments().upsert({ id: 1, name: "1", digest: filled(1_500_000, 9) });
+
+      expect(inserts()).toHaveLength(4);
+      const digests = await attachments().order({ id: "asc" }).pluck("digest");
+      expect(digests.map((digest) => [digest!.length, digest![0]])).toEqual([
+        [1_500_000, 9],
+        ...[2, 3, 4, 5].map((id) => [300_000, id]),
+        [1_500_000, 6],
+      ]);
+    });
+  });
+
   test("where finds records by a list of bytes, sent as hex", async () => {
     const attachments = connect(remote.binding).model(Attachment);
     await attachments.create({ id: 1, name: "a", digest: new Uint8Array([1, 2]) });
