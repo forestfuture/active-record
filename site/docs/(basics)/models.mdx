@@ -57,6 +57,7 @@ An override is one of these:
 | Override                                  | Does                                                                                                    |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `"boolean"` (a type name)                 | Reads and writes the attribute as that type                                                             |
+| `money` (a [custom type](./custom-types)) | Reads and writes the attribute as that type                                                             |
 | `{ type?, null?, default?, generateId? }` | Replaces those parts of the generated attribute; `null: false` makes it non-null in TypeScript          |
 | `{ enum, prefix?, suffix?, … }`           | Makes the attribute an [enum](#declaring-enums), of its column’s type                                   |
 | `{ enum: true }`, `{ enum: false }`       | Turns on the methods of an [enum read from the database](#reading-enums-from-the-database), or drops it |
@@ -175,6 +176,7 @@ To map an attribute to a column with another name, give it `{ column: "..." }`. 
 | `boolean`  | `boolean`      | `INTEGER`, `0` or `1`                       |
 | `datetime` | `Date`         | `TEXT`, ISO-8601, or an `INTEGER` Unix time |
 | `json`     | any JSON value | `TEXT`, as JSON                             |
+| `binary`   | `Uint8Array`   | `BLOB`                                      |
 
 An attribute can be `null` unless it’s declared `null: false`, and its TypeScript type includes `| null` to match.
 
@@ -190,6 +192,26 @@ Store `json` attributes in a `TEXT` column, as [D1 recommends](https://developer
 
 :::note
 A `datetime` can be kept as a Unix time in an `INTEGER` column, as Drizzle writes it. Declare it with `storage: "unixSeconds"` or `"unixMilliseconds"`; [Reading Unix timestamps](./adopt-a-database#reading-unix-timestamps) shows how.
+:::
+
+For a value none of these hold, such as money, define a [custom type](./custom-types).
+
+### Storing bytes
+
+A `binary` attribute holds bytes, such as a thumbnail or a hash. A file from a form is read asynchronously, so read its bytes before you assign them:
+
+```ts
+import { Attachment } from "./models/attachment";
+
+const file = form.get("file") as File;
+const data = new Uint8Array(await file.arrayBuffer());
+const attachment = await Attachment.create({ name: file.name, data });
+```
+
+It reads back as a `Uint8Array`, and prints as `<3 bytes of binary data>`, so logs never hold the bytes.
+
+:::note
+A D1 row holds at most 2 MB. Keep larger files in [R2](https://developers.cloudflare.com/r2/), and store their keys.
 :::
 
 ## Declaring enums
@@ -299,6 +321,7 @@ Values are cast wherever they’re assigned: `build`, `create`, `assign`, `updat
 | `string`   | a string                                                                                                                               |
 | `datetime` | a valid `Date`; a date, `"2026-01-02"` (midnight UTC); or a date and time with `Z` or a `±HH:MM` offset: `"2026-01-02T09:30:00+02:00"` |
 | `json`     | any value JSON can write                                                                                                               |
+| `binary`   | a `Uint8Array`, or an `ArrayBuffer`                                                                                                    |
 
 Anything else throws `TypeError` naming the Model and the attribute, and the attribute keeps its value. The error shows at most 60 characters of the value, and none of a [filtered attribute](#filtering-attributes)’s. Among the values refused:
 
@@ -308,6 +331,7 @@ Anything else throws `TypeError` naming the Model and the attribute, and the att
 - A number, boolean, or `Date` for a `string`.
 - For a `datetime`: a time without an offset, a lowercase `t` or `z`, a day that doesn’t exist (`"2026-02-30"`), other formats, and numbers.
 - For a `json`: a value JSON can’t write, such as a `BigInt`, an object that refers to itself, a function, or a symbol.
+- For a `binary`: text, an array of numbers, or another typed array.
 
 :::note
 A `json` attribute stores what `JSON.stringify` writes: a `Map` becomes `{}` and `NaN` becomes `null`. Convert them before assigning. After a save, the record holds what was stored.
@@ -322,6 +346,7 @@ A stored cell is checked the same way, when the record loads or `pluck` reads it
 - For a `datetime`: text that isn’t a date or a date and time (`"garbage"`, `"12"`), or a number. A number is a [Unix time](./adopt-a-database#reading-unix-timestamps), which needs a `storage`.
 - For a `datetime` with a `storage`: anything but a number, or one past what a `Date` can hold.
 - For a `json`: text that isn’t JSON.
+- For a `binary`: anything but bytes.
 
 See [Fixing cells of the wrong type](./adopt-a-database#fixing-cells-of-the-wrong-type).
 
@@ -374,7 +399,7 @@ It reads three kinds of input:
 
 - **Keys you don’t name** are dropped. A named attribute the input doesn’t have is left out, and a `null` is kept.
 - **A name that isn’t an attribute** is a compile error, and throws `UnknownAttribute`.
-- **`TypeError`** is thrown for a value that can’t be cast, a file from a form, and any other input: an array, a `Map`, `Headers`, a class instance, `null`, or a string.
+- **`TypeError`** is thrown for a value that can’t be cast, a file from a form (read a file’s bytes for a [`binary` attribute](#storing-bytes)), and any other input: an array, a `Map`, `Headers`, a class instance, `null`, or a string.
 
 [Untrusted input](./untrusted-input) shows `permit` in a Worker.
 
@@ -442,7 +467,7 @@ Records know what’s changed since they were loaded or last saved:
 An update writes only the attributes that changed, and a save with nothing changed sends nothing.
 
 :::note
-Changes are found by comparing stored values, so editing a `json` value or a `Date` in place counts as a change.
+Changes are found by comparing stored values, so editing a `json` value, a `Date`, or a `binary` attribute’s bytes in place counts as a change.
 :::
 
 ## Writing SQL fragments
@@ -516,6 +541,7 @@ User { id: 1, name: 'Johnny' (was 'Alice'), email: [FILTERED], role: 'admin' }
 - **Filtered attributes** print as `[FILTERED]`, without quotes so it can’t be mistaken for a string, and in a distinct color when the terminal shows colors. An attribute with no value still prints `null`.
 - **Unsaved changes** print the new value and the old one: `'Johnny' (was 'Alice')`. Once the record is saved, the flag goes. A changed filtered attribute prints `[FILTERED] (changed)`, and so does a column a partial record never loaded: `'Johnny' (changed)`. A new record flags nothing, since all of it is unsaved.
 - **A partial record** prints only the columns it loaded.
+- **Bytes** print as how many there are: `<3 bytes of binary data>`.
 
 A Relation prints the SELECT it would send, without sending it:
 

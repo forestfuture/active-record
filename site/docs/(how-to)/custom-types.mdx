@@ -1,0 +1,73 @@
+---
+title: Custom types
+description: "Define an attribute type once, for a value the built-in types don’t hold, such as money or a list of sizes, and use it on any Model."
+---
+
+A custom type holds a value the built-in types don’t, such as money or a list of sizes. Its values are stored in their column as one of the built-in types.
+
+## Defining a type
+
+Define a type with `defineType`, naming the built-in type it’s stored as. This one keeps money as whole cents in an integer column:
+
+<include>/_excerpts/guide/custom-types/money.ts</include>
+
+A type has three functions:
+
+| Function      | Takes                              | Returns                            |
+| ------------- | ---------------------------------- | ---------------------------------- |
+| `cast`        | a value given to the attribute     | the type’s value, or throws        |
+| `serialize`   | the type’s value                   | a value of the type it’s stored as |
+| `deserialize` | a value of the type it’s stored as | the type’s value                   |
+
+None of them is called with `null`, which is always NULL. The attribute’s TypeScript type is what `cast` returns, so `Money` here.
+
+## Using a type
+
+Give the type to a generated attribute in `static attributes`:
+
+<include>/_excerpts/guide/custom-types/override.ts</include>
+
+Changing an attribute’s type drops its generated default, as any [override](./models#overriding-attributes) of a type does. Give it a `default` if it needs one.
+
+A Model that declares its attributes itself takes the type in place of a type’s name:
+
+<include>/_excerpts/guide/custom-types/declare.ts</include>
+
+## Refusing values
+
+Throw from `cast` for a value the type can’t hold. Assigning it, or permitting it, throws a `TypeError` naming the Model and attribute, with your error as its `cause`:
+
+```ts
+import { Product } from "./models/product";
+
+Product.permit({ priceCents: "abc" }, "priceCents");
+// TypeError: Product: "abc" isn't a valid value for "priceCents"
+```
+
+The same happens when `deserialize` throws for a stored value, and when `serialize` returns a value its stored type can’t hold. For a [filtered attribute](./models#filtering-attributes), the error has no `cause`, since yours may show the value.
+
+## Querying by a type
+
+Conditions take the type’s values, and anything `cast` takes:
+
+<include>/_excerpts/guide/custom-types/query.ts</include>
+
+Values compare and sort as their stored values do, so money sorts by cents. A value `cast` throws for matches nothing.
+
+## Changing values in place
+
+A type can hold a value you change in place. This one keeps a list of sizes as text:
+
+<include>/_excerpts/guide/custom-types/sizes.ts</include>
+
+Changes are found by comparing what `serialize` returns, so a size pushed onto the list is a change, and `save()` writes it:
+
+<include>/_excerpts/guide/custom-types/in-place.ts</include>
+
+An equal value in another object, such as a new `Money` of the same cents, isn’t a change.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails registers a type by name, with `ActiveRecord::Type.register(:money, MoneyType)`, and a Model writes `attribute :price, :money`. Here you pass the type itself, so TypeScript knows the attribute’s type. Rails’ types read the database’s values directly. Here a type is always stored as a built-in type, which reads and compares its values the same way on every database.
+
+</Callout>

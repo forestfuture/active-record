@@ -8,6 +8,7 @@ export default defineMeta({
     "change-a-table",
     "adopt-a-database",
     "shared-behavior",
+    "custom-types",
     "untrusted-input",
     "logging",
     "read-your-own-writes",

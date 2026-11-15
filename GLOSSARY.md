@@ -64,6 +64,10 @@ _Avoid_: Saved, deleted, frozen
 Reading a value given to an attribute as the attribute's type, by how it reaches the attribute (its use), accepting only what's unambiguous: `"false"` is `false` for a boolean, `"42"` is 42 for an integer. **Assigned** values (set, built, given to a bulk write or `permit`) are strict. **Condition** values also read a number as its digits for a string attribute. **Key** values (copied from another record through an association, or inherited from a Relation's conditions) are cast as condition values are. A value that can't be cast is **uncastable**: an assigned or key value is an error, and a condition with one matches nothing.
 _Avoid_: Coerce, convert (D1's storage form is conversion), parse
 
+**Custom type**:
+An attribute type an app makes with `defineType`, for values no built-in type holds (money, a list of sizes), kept in its column as a built-in type's value: its `storedAs`. Its `cast` reads a given value, and its `serialize` and `deserialize` turn a value into the stored type's and back (ADR-0022).
+_Avoid_: Custom attribute, codec, serializer, registered type
+
 **Stored cell**:
 A value D1 returned for one column of a row: a number, text, or NULL. It's read as its **Attribute**'s type or refused with a `TypeError` naming the Model and attribute, and never coerced, as a **Cast** value may be. A record load, `pluck`, and `deserialize` read it the same way.
 _Avoid_: Raw value, database value, value from D1
