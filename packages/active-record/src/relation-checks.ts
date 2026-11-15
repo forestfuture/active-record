@@ -22,10 +22,11 @@ export type Conditions<M> = {
 };
 
 /**
- * Numbers, strings, dates and bytes (byte by byte, #20) are ordered, so they can be compared;
- * booleans and json can't.
+ * Values that can be compared: numbers, strings, dates, bytes (byte by byte), and a custom
+ * type's values, compared as their stored values are (#20). Booleans and json (`unknown`) can't
+ * be, nor a custom type stored as either, which `where` refuses when it's called.
  */
-type ComparisonOf<V> = [V] extends [number | string | Date | Uint8Array] ? Comparison<V> : never;
+type ComparisonOf<V> = [V] extends [boolean] ? never : unknown extends V ? never : Comparison<V>;
 
 /**
  * The attributes a bulk insert or upsert returns of each row it writes: the primary key by
