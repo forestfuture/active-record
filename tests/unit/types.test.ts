@@ -579,6 +579,30 @@ describe("types", () => {
     Model.define({ at: { type: "datetime", storage: "minutes" } });
   });
 
+  test("a binary attribute is a Uint8Array, compared and ordered as one (#20)", () => {
+    class Attachment extends Model.define({
+      id: { type: "integer", null: false },
+      data: "binary",
+      digest: { type: "binary", null: false },
+    }) {}
+    expectTypeOf<Attachment["data"]>().toEqualTypeOf<Uint8Array | null>();
+    expectTypeOf<Attachment["digest"]>().toEqualTypeOf<Uint8Array>();
+    db.model(Attachment).where({ digest: gte(new Uint8Array([1])) });
+    db.model(Attachment).order({ digest: "asc" });
+
+    const typeOnly = () => {
+      // @ts-expect-error bytes are a Uint8Array, not text
+      Attachment.build({ data: "abc" });
+    };
+    void typeOnly;
+    // @ts-expect-error a binary attribute has no enum
+    Model.define({ data: { type: "binary", enum: ["a"] } });
+    // @ts-expect-error nor a storage
+    Model.define({ data: { type: "binary", storage: "unixSeconds" } });
+    // @ts-expect-error nor a generated id
+    Model.define({ data: { type: "binary", generateId: true } });
+  });
+
   test("a misspelled key in a spec or override is a compile error", () => {
     // Compile-time checks only: the misspelled override also throws at runtime.
     const typeOnly = () => {
