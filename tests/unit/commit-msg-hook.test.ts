@@ -279,4 +279,19 @@ describe("the commit-msg hook on a commit's body", () => {
     expect(status).toBe(0);
     expect(output).toBe("");
   });
+
+  const url = `https://example.com/${"x".repeat(80)}`;
+
+  test.each([
+    ["a URL alone", url],
+    ["an indented URL alone", `    ${url}`],
+    ["a URL among words", `See ${url} for why.`],
+    ["a line with no space", "x".repeat(80)],
+    ["an indented line with no space", `  -${"x".repeat(80)}`],
+  ])("passes a long line that can't wrap: %s", (_what, line) => {
+    const { status, output } = runHookEditingTheReadme(`Edit the README (#1)\n\n${line}\n`);
+
+    expect(status).toBe(0);
+    expect(output).toBe("");
+  });
 });
