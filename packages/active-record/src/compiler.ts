@@ -1,5 +1,6 @@
 // Turns a QueryDescription or a write into SQL text and bound values, with what differs per database from a dialect.
-import { type Attribute, attributeFor, noMatch, storedRows } from "./attribute.ts";
+import { type Attribute, attributeFor, noMatch } from "./attribute.ts";
+import { rowGroups } from "./bulk-rows.ts";
 import { isIgnoringColumns } from "./table-names.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { Comparison, comparisonParts, type Operator } from "./comparisons.ts";
@@ -175,25 +176,32 @@ export interface BulkInsert {
 
 /**
  * `INSERT` of several rows, all with the attributes `names`, bound as one JSON parameter, which
- * the dialect reads them from. One statement and one bound value, whatever the number of rows,
- * within D1's limit of 100 bound parameters per statement.
+ * the dialect reads them from: one statement and one bound value, whatever the number of rows,
+ * within D1's limit of 100 bound parameters per statement. Rows whose JSON would pass the
+ * dialect's `maxValueBytes` take several statements, and a row whose JSON alone would pass it
+ * binds each of its values apart, as `compileInsert` does (#392).
  */
 export function compileInsertRows(
   dialect: Dialect,
   model: ModelClass<Model>,
   { names, rows, conflict, returning }: BulkInsert,
-): CompiledSql {
+): CompiledSql[] {
   const attributes = names.map((name) => attributeFor(model, name));
   const columns = attributes.map(({ column }) => quoteIdentifier(column)).join(", ");
   const table = quoteIdentifier(model.table);
   const { select, from } = dialect.bulkRows(table, attributes);
-  const json = storedRows(model, names, rows);
-  // `WHERE true` keeps SQLite from reading ON CONFLICT as part of the SELECT.
-  const sql =
-    `INSERT INTO ${table} (${columns}) ` +
-    `SELECT ${select} FROM ${from} WHERE true${compileConflict(model, names, conflict)}` +
-    compileReturning(model, returning);
-  return { sql, params: [json], model };
+  const end = compileConflict(model, names, conflict) + compileReturning(model, returning);
+  return rowGroups(model, names, rows, dialect.maxValueBytes).map((group) => {
+    if ("json" in group) {
+      // `WHERE true` keeps SQLite from reading ON CONFLICT as part of the SELECT.
+      const sql = `INSERT INTO ${table} (${columns}) SELECT ${select} FROM ${from} WHERE true${end}`;
+      return { sql, params: [group.json], model };
+    }
+    const params: unknown[] = [];
+    for (const [index, value] of group.row.entries()) attributes[index]!.bind(params, value);
+    const values = attributes.map(() => valueMark).join(", ");
+    return { sql: `INSERT INTO ${table} (${columns}) VALUES (${values})${end}`, params, model };
+  });
 }
 
 /**

@@ -4,7 +4,7 @@
 // D1 stores, read a cell back, and bind it hidden from listeners when the attribute is filtered.
 // Records, Relations, associations, preloads, and the compiler all go through here, so no caller
 // has to cast or bind a value its own way.
-import { hexOf, isSameCell } from "./binary-values.ts";
+import { isSameCell } from "./binary-values.ts";
 import {
   castCondition,
   castValue,
@@ -246,33 +246,6 @@ export function attributeFor(model: ModelClass, name: string): Attribute {
     attributes.set(name, attribute);
   }
   return attribute;
-}
-
-/**
- * Rows of `names`' values, assigned, as one JSON value the dialect reads them from; listeners see
- * a filtered attribute's column as "[FILTERED]" in every row.
- */
-export function storedRows(
-  model: ModelClass,
-  names: readonly string[],
-  rows: readonly (readonly unknown[])[],
-): unknown {
-  const attributes = names.map((name) => attributeFor(model, name));
-  const stored = rows.map((row) =>
-    row.map((value, index) => inJson(attributes[index]!.store(value))),
-  );
-  const json = JSON.stringify(stored);
-  const filtered = names.map((attribute) => isFiltered(model, attribute));
-  if (!filtered.includes(true)) return json;
-  const shown = stored.map((row) =>
-    row.map((value, index) => (filtered[index] ? FILTERED : value)),
-  );
-  return new Filtered(json, JSON.stringify(shown));
-}
-
-/** A stored cell as a bulk write's JSON holds it: bytes as hex text, which JSON has no form for (#20). */
-function inJson(cell: unknown): unknown {
-  return cell instanceof Uint8Array ? hexOf(cell) : cell;
 }
 
 /**

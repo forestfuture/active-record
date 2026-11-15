@@ -48,51 +48,53 @@ const noRows: RowReader = () => [];
 export class Statement<Row = never> {
   declare readonly [rowType]?: Row;
   readonly #executor: Executor;
-  readonly #query: CompiledSql;
+  readonly #queries: readonly CompiledSql[];
   readonly #landed: () => void;
   readonly #rows: RowReader;
 
   /**
-   * @internal Statements are built by a Relation's bulk writes. `landed` runs once D1 has
-   * written it, alone or in a batch (a hasMany's clears what its owner has loaded, #187), and
-   * `rows` reads what it returned.
+   * @internal Statements are built by a Relation's bulk writes, as one query or several sent
+   * together (a bulk write past the database's cap on one value, #392). `landed` runs once D1
+   * has written it, alone or in a batch (a hasMany's clears what its owner has loaded, #187),
+   * and `rows` reads what it returned.
    */
   constructor(
     executor: Executor,
-    query: CompiledSql,
+    queries: CompiledSql | readonly CompiledSql[],
     landed: () => void = () => {},
     rows: RowReader = noRows,
   ) {
     this.#executor = executor;
-    this.#query = query;
+    this.#queries = Array.isArray(queries) ? queries : [queries as CompiledSql];
     this.#landed = landed;
     this.#rows = rows;
   }
 
   /**
-   * @internal The Database's Executor it runs on, its compiled SQL, what runs once written, and
-   * its `WriteResult` from what the database returned.
+   * @internal The Database's Executor it runs on, its compiled SQL (written together, in one
+   * atomic batch), what runs once written, and its `WriteResult` from what the database
+   * returned for each query.
    */
   get [statementParts](): {
     executor: Executor;
-    query: CompiledSql;
+    queries: readonly CompiledSql[];
     landed: () => void;
-    resultOf: (result: StatementResult) => WriteResult<Row>;
+    resultOf: (results: readonly StatementResult[]) => WriteResult<Row>;
   } {
-    const resultOf = ({ rowsAffected, rows }: StatementResult) => ({
-      rowsAffected,
-      rows: this.#rows(rows) as Row[],
+    const resultOf = (results: readonly StatementResult[]) => ({
+      rowsAffected: results.reduce((sum, { rowsAffected }) => sum + rowsAffected, 0),
+      rows: results.flatMap(({ rows }) => this.#rows(rows)) as Row[],
     });
-    return { executor: this.#executor, query: this.#query, landed: this.#landed, resultOf };
+    return { executor: this.#executor, queries: this.#queries, landed: this.#landed, resultOf };
   }
 }
 
 /** Runs a statement on its own, then its `landed`, resolving to its `WriteResult`: what a Relation's write methods do. */
 export async function runAlone<Row>(statement: Statement<Row>): Promise<WriteResult<Row>> {
-  const { executor, query, landed, resultOf } = statement[statementParts];
-  const result = await executor.run(query);
+  const { executor, queries, landed, resultOf } = statement[statementParts];
+  const results = await executor.write(queries);
   landed();
-  return resultOf(result);
+  return resultOf(results);
 }
 
 /** Reads the attributes `names` of each returned row, each as its type. */

@@ -191,6 +191,6 @@ function statementFor(owner: Model, association: ResolvedAssociation): Stage | u
   } else {
     return undefined;
   }
-  const { executor, query } = statement[statementParts];
-  return stageOf({}, [], () => [statementWrite([query])], [executor]);
+  const { executor, queries } = statement[statementParts];
+  return stageOf({}, [], () => [statementWrite(queries)], [executor]);
 }
