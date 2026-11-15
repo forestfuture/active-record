@@ -3,6 +3,7 @@ import {
   defineSchema,
   Model,
   RecordInvalid,
+  UnknownAttribute,
   type ScopeStatic,
   type TableAttributes,
 } from "../../packages/active-record/src/index.ts";
@@ -124,6 +125,16 @@ declare namespace Entry {
   const published: ScopeStatic<[]>;
   const notPublished: ScopeStatic<[]>;
 }
+
+// Drops the generated enum: status is a plain string again.
+class Draft extends GeneratedEnumRecord {
+  static override table = "articles";
+  static override attributes = { status: { enum: false } } as const;
+}
+interface Draft extends TableAttributes<
+  typeof generatedEnumSchema.tables.articles.attributes,
+  (typeof Draft)["attributes"]
+> {}
 /* oxlint-enable typescript/no-unsafe-declaration-merging, typescript/no-namespace, no-unused-vars */
 
 // As active-record schema writes it: the schema lists each Model's enum scopes, so they're
@@ -540,6 +551,16 @@ describe("enum attributes (#340)", () => {
       expect(
         (harness.connect().model(Jotting) as unknown as Record<string, unknown>)["draft"],
       ).toBeUndefined();
+    });
+
+    test("enum: false makes the column a plain string, which takes any text", async () => {
+      const draft = await harness
+        .connect()
+        .model(Draft)
+        .createOrThrow({ id: 1, status: "archived" });
+
+      expect(draft.status).toBe("archived");
+      expect(() => Draft.enumValues("status" as never)).toThrow(UnknownAttribute);
     });
 
     test("scopes: true and instanceMethods: true turn them on as enum: true does", async () => {

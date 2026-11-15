@@ -182,6 +182,18 @@ for (const [key, { conflictsWith = [] }] of entries) {
   }
 }
 
+/** An enum's keys: `enum`, and those it means nothing without (`prefix`, `scopes`, …). */
+const enumKeys = new Set<string>(
+  entries.filter(([key, rule]) => key === "enum" || rule.requires === "enum").map(([key]) => key),
+);
+
+/** A spec without its enum and the keys that go with one (#64). */
+export function withoutEnum(spec: SpecObject): SpecObject {
+  return Object.fromEntries(
+    Object.entries(spec).filter(([key]) => !enumKeys.has(key)),
+  ) as SpecObject;
+}
+
 /** The keys an override may hold, as a message lists them: `type, null, default, …`. */
 export const overridableKeyNames = entries
   .filter(([, rule]) => rule.overridable !== false)

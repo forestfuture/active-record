@@ -166,4 +166,10 @@ describe("a generated enum's types (#64)", () => {
     expectTypeOf<Post>().toHaveProperty("saveAsPublishedOrThrow");
     expectTypeOf<Quiet>().not.toHaveProperty("isDraft");
   });
+
+  test("enum: false makes the property a plain string", () => {
+    type Post = GeneratedRecord<{ status: { enum: false } }>;
+
+    expectTypeOf<Post["status"]>().toEqualTypeOf<string | null>();
+  });
 });

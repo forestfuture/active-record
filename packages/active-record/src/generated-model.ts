@@ -84,22 +84,24 @@ type EnumKey = "enum" | keyof EnumOptions;
 type MethodSwitch = "scopes" | "instanceMethods";
 
 /**
- * A spec's enum keys an override keeps: none when it gives a new type (they were for the old one),
- * none it gives itself, and not the switches `enum: true` lifts.
+ * A spec's enum keys an override keeps: none when it gives a new type (they were for the old one)
+ * or `enum: false`, none it gives itself, and not the switches `enum: true` lifts.
  */
-type KeptEnumKeys<S, O> = O extends { type: infer T }
-  ? T extends TypeOf<S>
-    ? Omit<Pick<S, EnumKey & keyof S>, OwnKeys<O>>
-    : {}
-  : Omit<Pick<S, EnumKey & keyof S>, OwnKeys<O>>;
+type KeptEnumKeys<S, O> = O extends { enum: false }
+  ? {}
+  : O extends { type: infer T }
+    ? T extends TypeOf<S>
+      ? Omit<Pick<S, EnumKey & keyof S>, OwnKeys<O>>
+      : {}
+    : Omit<Pick<S, EnumKey & keyof S>, OwnKeys<O>>;
 
 /** The keys an override replaces: its own, but for `enum: true`, which keeps the spec's names. */
 type OwnKeys<O> = O extends { enum: true } ? Exclude<keyof O, "enum"> | MethodSwitch : keyof O;
 
-/** The enum keys an override gives the merged spec: all it gives, but `enum: true` (#64). */
+/** The enum keys an override gives the merged spec: all it gives, but `enum: true` or `false` (#64). */
 type GivenEnumKeys<O> = Pick<
   O,
-  Exclude<EnumKey & keyof O, O extends { enum: true } ? "enum" : never>
+  Exclude<EnumKey & keyof O, O extends { enum: boolean } ? "enum" : never>
 >;
 
 /** An attribute's spec with its override applied. */
