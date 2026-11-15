@@ -183,8 +183,7 @@ export class Attribute {
   #described(): string {
     const { type, enum: values } = this.#definition;
     if (values !== undefined) return `one of ${listedNames(values)}`;
-    const noun = nouns[type] ?? type;
-    return `${/^[aeiou]/.test(noun) ? "an" : "a"} ${noun}`;
+    return valueNames[type] ?? `${/^[aeiou]/.test(type) ? "an" : "a"} ${type}`;
   }
 }
 
@@ -248,8 +247,11 @@ export function castInherited(
 /** How much of a value an error shows: it came from outside, and errors are often logged. */
 const SHOWN_LENGTH = 60;
 
-/** What an attribute type is called in a refusal, where its name isn't it. */
-const nouns: Partial<Record<AttributeType, string>> = { json: "JSON value" };
+/** What a value of an attribute type is called in a refusal, where `a`/`an` and its name isn't it. */
+const valueNames: Partial<Record<AttributeType, string>> = {
+  json: "a JSON value",
+  binary: "binary data",
+};
 
 /** A value as an error shows it: JSON where it has one, numbers as written, and at most 60 characters. */
 function shown(value: unknown): string {
