@@ -100,7 +100,7 @@ describe.skipIf(!configured)("remote D1 smoke", () => {
         { id: 2, name: "b".repeat(999_985) },
       ]);
 
-      expect(inserts().map(({ sql }) => sql.includes("json_each"))).toEqual([true]);
+      expect(inserts().map(({ params }) => params.length)).toEqual([1]);
       const names = await attachments().order({ id: "asc" }).pluck("name");
       expect(names.map((name) => name!.length)).toEqual([1_000_000, 999_985]);
     });
