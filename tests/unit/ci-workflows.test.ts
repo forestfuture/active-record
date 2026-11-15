@@ -155,7 +155,7 @@ describe("CI's tests (#365)", () => {
 
     expect(job).toMatch(/needs: \[static, test\]/);
     // A skipped required check counts as passing, so check runs and fails when a job it needs did.
-    expect(job).toContain("if: ${{ !cancelled() }}");
+    expect(job).toMatch(/needs: \[static, test\]\n(?:\s+#.*\n)*\s+if: \$\{\{ !cancelled\(\) \}\}/);
     expect(job).toContain("needs.static.result");
     expect(job).toContain("needs.test.result");
     expect(job).toContain("vp test --merge-reports");
