@@ -20,7 +20,7 @@ message=$(awk -v c="$comment" '
 
 # How many characters $1 holds. wc -c counts bytes, so this drops UTF-8's
 # continuation bytes first.
-characters() {
+character_count() {
   printf '%s' "$1" | tr -d '\200-\277' | wc -c | tr -d ' '
 }
 
@@ -29,7 +29,7 @@ characters() {
 # trailing whitespace, a carriage return included, after the hook runs.
 title=$(printf '%s\n' "$message" | sed -n '/[^[:space:]]/{p;q;}')
 title=${title%"${title##*[![:space:]]}"}
-length=$(characters "$title")
+length=$(character_count "$title")
 
 # A refused title doesn't stop the body check, so one amend fixes both.
 refused=no
@@ -73,7 +73,7 @@ long_lines=$(printf '%s\n' "$message" | {
     case "$line" in (*://*) continue ;; esac
     indent=${line%%[![:space:]]*}
     case "${line#"$indent"}" in (*[[:space:]]*) ;; (*) continue ;; esac
-    line_length=$(characters "$line")
+    line_length=$(character_count "$line")
     [ "$line_length" -gt 72 ] || continue
     echo "Commit body line $number is $line_length characters; wrap the body at 72:"
     printf '  %s\n' "$line"
