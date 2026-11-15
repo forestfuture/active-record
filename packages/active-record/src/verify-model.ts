@@ -1,6 +1,6 @@
 // Checks a Model's declaration the first time it's used, then seals its declarations.
 // It checks the table, the primary key, the attribute names, the spec keys, hidden attributes, message names, and page sizes.
-import { databaseEnumsOf } from "./enum-switch.ts";
+import { methodsOffFixes } from "./enum-switch.ts";
 import { ancestors, staticBelow } from "./ancestors.ts";
 import { associationsOf, declarationIn, probeOf } from "./association-fields.ts";
 import { attributesNamedInMessages } from "./error-messages.ts";
@@ -80,7 +80,7 @@ function rejectEnumNameClashes(model: ModelClass): void {
     isReservedStatic: isReservedScopeName,
     staticOf: (name: string) => staticBelow(model, Model, name),
   };
-  const problem = enumNameProblem(model, taken, databaseEnumsOf(model));
+  const problem = enumNameProblem(model, taken, methodsOffFixes(model));
   if (problem !== undefined) throw new InvalidModel(problem);
 }
 
