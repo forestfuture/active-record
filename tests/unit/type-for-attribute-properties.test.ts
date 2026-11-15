@@ -39,8 +39,8 @@ describe("an attribute's conversions, for a value of any shape", () => {
         const serialized = attempt(() => Sample.typeForAttribute(attribute).serialize(value));
         const inserted = attempt(
           () =>
-            samples[preparedWrites].insert({ [attribute]: value } as never)[statementParts].query
-              .params,
+            samples[preparedWrites].insert({ [attribute]: value } as never)[statementParts]
+              .queries[0]!.params,
         );
 
         expect(inserted.ok).toBe(serialized.ok);

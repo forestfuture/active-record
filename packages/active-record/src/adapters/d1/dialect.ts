@@ -30,6 +30,8 @@ export const sqlite: Dialect = {
       .join(", "),
     from: `json_each(${valueMark})`,
   }),
+  // D1 caps a string or BLOB at 2,000,000 bytes, a bound one too (#392).
+  maxValueBytes: 2_000_000,
   // A key that isn't text, selected for a text attribute, is cast to text: SQLite would compare
   // them by number, which can't search the attribute's index, and which '09' matches.
   linkedKey: (key, keyAttribute, linked) =>

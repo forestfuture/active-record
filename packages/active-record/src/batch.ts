@@ -129,11 +129,11 @@ interface PreparedEntry {
 
 function statementEntry(statement: Statement<unknown>): PreparedEntry {
   let written: WriteResult<unknown> | undefined;
-  const { query, landed, resultOf } = statement[statementParts];
+  const { queries, landed, resultOf } = statement[statementParts];
   const write: PreparedWrite = {
-    statements: [query],
-    commit: ([result]) => {
-      if (result !== undefined) written = resultOf(result);
+    statements: queries,
+    commit: (results) => {
+      written = resultOf(results);
       landed();
     },
     after: async () => {},

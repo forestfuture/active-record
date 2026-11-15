@@ -30,6 +30,11 @@ export interface Dialect {
    */
   bulkRows(table: string, attributes: readonly Attribute[]): { select: string; from: string };
   /**
+   * The most UTF-8 bytes one bound value may hold, when the database caps it: a bulk write whose
+   * rows would pass it is sent as several statements, in one atomic batch (#392).
+   */
+  maxValueBytes?: number;
+  /**
    * The owners' `key` (a quoted column, of `keyAttribute`) as a linked condition selects it, so
    * it matches `linked`'s column as a condition on `linked` would: by text for a text attribute.
    */
