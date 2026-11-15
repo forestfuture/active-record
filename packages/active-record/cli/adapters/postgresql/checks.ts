@@ -1,4 +1,5 @@
 // The names a `CHECK (… IN …)` restricts a column to, from the definitions `pg_get_constraintdef` writes back (#64).
+import { listedNames } from "@forestfuture/active-record/cli";
 
 /** A table's CHECK constraint: the columns it names, and its definition as Postgres writes it. */
 export interface CheckConstraint {
@@ -44,12 +45,6 @@ function unquoted(name: string): string {
   return name.startsWith('"') ? name.slice(1, -1).replaceAll('""', '"') : name;
 }
 
-/** A list's literals as their text, each once: `'a', 'it''s', 'a'` → `["a", "it's"]`. */
-function literals(list: string): string[] {
-  const texts = [...list.matchAll(/'((?:[^']|'')*)'/g)].map((match) => match[1]!);
-  return [...new Set(texts.map((text) => text.replaceAll("''", "'")))];
-}
-
 /**
  * `status = 'draft'`, as Postgres writes back a one-name `IN ('draft')`: a restriction that
  * counts against a list on the same column, though it isn't read as one.
@@ -74,7 +69,7 @@ function restriction({ columns, definition }: CheckConstraint): Restriction | un
   const nullable = [match[1], match[4]].filter((name) => name !== undefined).map(unquoted);
   if (!nullable.every((name) => name === column)) return undefined;
   const found = onItsColumn(column, columns);
-  return found === undefined ? undefined : { ...found, names: literals(match[3]!) };
+  return found === undefined ? undefined : { ...found, names: listedNames(match[3]!) };
 }
 
 /** A restriction of `column`, if that's the only column the constraint names. */

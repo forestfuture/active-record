@@ -1,4 +1,5 @@
 // The names a `CHECK (… IN …)` restricts a column to, from a table's definition (#64).
+import { listedNames } from "@forestfuture/active-record/cli";
 
 /**
  * A column name as SQLite takes it: bare, or quoted with "", ``, or [], on one line and at most
@@ -33,12 +34,6 @@ function unquoted(name: string): string {
   return (/^["`[]/.test(name) ? name.slice(1, -1) : name).toLowerCase();
 }
 
-/** A list's literals as their text, each once: `'a', 'it''s', 'a'` → `["a", "it's"]`. */
-function literals(list: string): string[] {
-  const texts = [...list.matchAll(/'((?:[^']|'')*)'/g)].map((match) => match[1]!);
-  return [...new Set(texts.map((text) => text.replaceAll("''", "'")))];
-}
-
 /** The column a match restricts, unless its `IS NULL` names another one. */
 function restricted(match: RegExpMatchArray): string | undefined {
   const column = unquoted(match[2]!);
@@ -55,7 +50,7 @@ export function checkedNames(definition: string): Map<string, string[]> {
   for (const match of withoutComments(definition).matchAll(inCheck)) {
     const column = restricted(match);
     if (column === undefined) continue;
-    lists.set(column, lists.has(column) ? undefined : literals(match[3]!));
+    lists.set(column, lists.has(column) ? undefined : listedNames(match[3]!));
   }
   return new Map([...lists].filter((entry): entry is [string, string[]] => entry[1] !== undefined));
 }
