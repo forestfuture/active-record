@@ -44,9 +44,9 @@ describe("decimal attributes", () => {
       ["a number, at 16 significant digits", 0.1 + 0.2, "0.3"],
       ["a large number", 1e21, "1000000000000000000000"],
       [
-        "the largest whole decimal a double holds",
-        "1.797693134862315e308",
-        `1797693134862315${"0".repeat(293)}`,
+        "Number.MAX_VALUE, at 17 digits where 16 would round past a double",
+        Number.MAX_VALUE,
+        `17976931348623157${"0".repeat(292)}`,
       ],
       ["a small number", 1e-7, "0.0000001"],
       ["a bigint", 12345678901234567890n, "12345678901234567890"],
@@ -68,11 +68,6 @@ describe("decimal attributes", () => {
       ["a boolean", true, "true"],
       ["a number past a double's range", "1e400", '"1e400"'],
       ["a number too small for a double", "-1e-400", '"-1e-400"'],
-      [
-        "Number.MAX_VALUE, which 16 digits round past a double",
-        Number.MAX_VALUE,
-        "1.7976931348623157e+308",
-      ],
     ])("%s is a TypeError", (_, value, shown) => {
       expect(() => Line.build({ amount: untyped(value) })).toThrow(
         new TypeError(`Line: ${shown} isn't a decimal for "amount"`),
@@ -159,6 +154,12 @@ describe("decimal attributes", () => {
 
       expect(amounts).toEqual(["9", "10.5", "100"]);
     });
+  });
+
+  test("a cell at the top of a double's range reads back", () => {
+    const { deserialize } = Line.typeForAttribute("amount");
+
+    expect(deserialize(Number.MAX_VALUE)).toBe(`17976931348623157${"0".repeat(292)}`);
   });
 
   test("typeForAttribute casts, serializes and reads a decimal", () => {
