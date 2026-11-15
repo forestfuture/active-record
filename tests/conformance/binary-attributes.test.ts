@@ -66,4 +66,26 @@ describe("binary attributes", () => {
       );
     });
   });
+
+  describe("change tracking", () => {
+    test("assigning the same bytes in another array isn't a change", async () => {
+      const { id } = await attachments().create({ data: new Uint8Array([1, 2]) });
+      const attachment = await attachments().find(id);
+
+      attachment.data = new Uint8Array([1, 2]);
+
+      expect(attachment.isChanged()).toBe(false);
+    });
+
+    test("a byte changed in place is a change, and saving writes it", async () => {
+      const { id } = await attachments().create({ data: new Uint8Array([1, 2]) });
+      const attachment = await attachments().find(id);
+
+      attachment.data![0] = 9;
+
+      expect(attachment.isChanged()).toBe(true);
+      await attachment.save();
+      expect([...(await attachments().find(id)).data!]).toEqual([9, 2]);
+    });
+  });
 });

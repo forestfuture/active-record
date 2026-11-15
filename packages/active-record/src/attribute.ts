@@ -4,6 +4,7 @@
 // D1 stores, read a cell back, and bind it hidden from listeners when the attribute is filtered.
 // Records, Relations, associations, preloads, and the compiler all go through here, so no caller
 // has to cast or bind a value its own way.
+import { isSameCell } from "./binary-values.ts";
 import {
   castCondition,
   castValue,
@@ -136,9 +137,9 @@ export class Attribute {
     return this.read(this.write(value));
   }
 
-  /** Whether two values are the same as stored (dates by time, json by content). */
+  /** Whether two values are the same as stored (dates by time, json and bytes by content). */
   isSame(a: unknown, b: unknown): boolean {
-    return writeValue(this.#definition, a) === writeValue(this.#definition, b);
+    return isSameCell(writeValue(this.#definition, a), writeValue(this.#definition, b));
   }
 
   /** An assigned value, cast and written, bound hidden from `onQuery` if filtered (#83). */

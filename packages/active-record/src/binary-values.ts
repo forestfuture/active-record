@@ -15,3 +15,9 @@ export function readBinary(cell: unknown): unknown {
   if (cell instanceof Uint8Array) return Uint8Array.from(cell);
   return Array.isArray(cell) ? Uint8Array.from(cell as number[]) : uncastable;
 }
+
+/** Whether two stored cells are the same: bytes by content (#20), anything else by `===`. */
+export function isSameCell(a: unknown, b: unknown): boolean {
+  if (!(a instanceof Uint8Array && b instanceof Uint8Array)) return a === b;
+  return a.length === b.length && a.every((byte, index) => byte === b[index]);
+}
