@@ -1,6 +1,7 @@
 // Reads a Postgres column as an attribute: its type from the catalog, its nullability, and its literal default.
 import {
   attributeName,
+  castDefault,
   underscore,
   withGeneratedEnum,
   type Converted,
@@ -19,7 +20,9 @@ const attributeTypes: Readonly<Record<string, AttributeType>> = {
   float4: "real",
   float8: "real",
   bool: "boolean",
-  date: "datetime",
+  date: "date",
+  time: "time",
+  numeric: "decimal",
   timestamp: "datetime",
   timestamptz: "datetime",
   json: "json",
@@ -35,11 +38,8 @@ const attributeTypes: Readonly<Record<string, AttributeType>> = {
 
 /** Why a column's type can't be an attribute, if it can't. */
 function refusal(column: Column, where: string): string | undefined {
-  if (column.category === "A") {
-    return `${where}: arrays (${column.declared}) aren't supported; use a jsonb column, or a table`;
-  }
-  return column.base === "numeric"
-    ? `${where}: numeric loses precision as a number; store money as integer cents (${column.name}_cents BIGINT)`
+  return column.category === "A"
+    ? `${where}: arrays (${column.declared}) aren't supported; use a jsonb column, or a table`
     : undefined;
 }
 
@@ -83,26 +83,20 @@ function parsedDefault(text: string, type: "json" | "datetime"): Default | undef
   }
 }
 
-/**
- * The types whose default stays with Postgres: a spec has no literal for bytes (#20), and
- * decimals', days' and times' defaults aren't read yet (#391).
- */
-const unliteral: readonly AttributeType[] = ["binary", "decimal", "date", "time"];
-
-function hasLiteral<T extends AttributeType>(
-  type: T,
-): type is Exclude<T, "binary" | "decimal" | "date" | "time"> {
-  return !unliteral.includes(type);
-}
-
 /** A literal default as a value of the attribute's type; undefined for a function or anything else. */
 function literalDefault(sql: string | null, type: AttributeType): Default | undefined {
-  if (sql === null || !hasLiteral(type)) return undefined;
+  // A spec has no literal for bytes, so a binary column's default stays with Postgres (#20).
+  if (sql === null || type === "binary") return undefined;
   const text = literalText(sql.trim());
-  if (text === undefined) return undefined;
+  return text === undefined ? undefined : defaultOf(text, type);
+}
+
+/** A literal's text, its casts taken off, as a value of the attribute's type. */
+function defaultOf(text: string, type: Exclude<AttributeType, "binary">): Default | undefined {
   if (type === "boolean")
     return /^(true|false)$/i.test(text) ? { literal: /^true$/i.test(text) } : undefined;
   if (type === "integer" || type === "real") return numberDefault(text, type);
+  if (type === "decimal" || type === "date" || type === "time") return castDefault(type, text);
   return type === "string" ? { literal: text } : parsedDefault(text, type);
 }
 
