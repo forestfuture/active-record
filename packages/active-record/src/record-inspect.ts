@@ -5,7 +5,9 @@ import {
   inspectCustom,
   printed,
   type Inspect,
+  styled,
   type InspectArgs,
+  type InspectOptions,
 } from "./inspect-support.ts";
 import type { ModelClass } from "./model.ts";
 import type { Changes, RecordState } from "./record-state.ts";
@@ -28,12 +30,30 @@ class Unsaved {
   }
 }
 
+/** Bytes as they print: how many, not what they are, as they may be large or unreadable (#20). */
+class BinaryMark {
+  readonly #length: number;
+
+  constructor(length: number) {
+    this.#length = length;
+  }
+
+  [inspectCustom](_depth: number, options: InspectOptions): string {
+    return styled(options, `<${this.#length} bytes of binary data>`);
+  }
+}
+
+/** A value as it prints: bytes as a BinaryMark, anything else as itself. */
+function shownValue(value: unknown): unknown {
+  return value instanceof Uint8Array ? new BinaryMark(value.length) : value;
+}
+
 /** One attribute as it prints: filtered values marked, unsaved changes flagged. */
 function printedValue(model: ModelClass, name: string, value: unknown, changes: Changes): unknown {
   const change = changes[name];
   // A null has nothing to hide, but becoming null is a change worth flagging.
   if (isFiltered(model, name) && (value !== null || change)) return new FilteredMark(!!change);
-  return change ? new Unsaved(value, change[0]) : value;
+  return change ? new Unsaved(shownValue(value), shownValue(change[0])) : shownValue(value);
 }
 
 /** `Name { attribute: value, … }`, its values printed by the runtime's own `inspect`. */
