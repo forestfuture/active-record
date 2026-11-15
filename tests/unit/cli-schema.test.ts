@@ -115,6 +115,30 @@ describe("schemaOf: from migrations to table schemas", () => {
     });
   });
 
+  test("a CHECK in a SQL comment isn't read (#64)", () => {
+    expect(
+      attributes(`CREATE TABLE posts (
+        id INTEGER PRIMARY KEY,
+        a TEXT, -- CHECK (a IN ('x', 'y'))
+        b TEXT /* CHECK (b IN ('x', 'y')) */
+      )`),
+    ).toEqual({
+      id: { type: "integer", null: false },
+      a: { type: "string" },
+      b: { type: "string" },
+    });
+  });
+
+  test("an unclosed name in a comment or a string doesn't slow reading CHECKs (#64)", () => {
+    const comment = "CHECK ([".repeat(16_000);
+    const started = performance.now();
+
+    attributes(`CREATE TABLE posts (id INTEGER PRIMARY KEY, a TEXT -- ${comment}\n)`);
+    attributes(`CREATE TABLE posts (id INTEGER PRIMARY KEY, a TEXT DEFAULT '${comment}')`);
+
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
+
   test("names refine only a plain TEXT or INTEGER: …_at is a datetime in TEXT, is_/has_ a boolean in INTEGER", () => {
     const result = tables(`CREATE TABLE things (
       id INTEGER PRIMARY KEY, published_at TEXT, synced_at INTEGER, is_active INTEGER,

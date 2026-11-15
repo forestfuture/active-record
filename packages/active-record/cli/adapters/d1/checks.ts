@@ -1,7 +1,10 @@
 // The names a `CHECK (… IN …)` restricts a column to, from a table's definition (#64).
 
-/** A column name as SQLite takes it: bare, or quoted with "", ``, or []. */
-const columnName = String.raw`(?:"[^"]+"|\x60[^\x60]+\x60|\[[^\]]+\]|\w+)`;
+/**
+ * A column name as SQLite takes it: bare, or quoted with "", ``, or [], on one line and at most
+ * 128 characters, so an unclosed quote can't make a search scan the rest of the text each time.
+ */
+const columnName = String.raw`(?:"[^"\n]{1,128}"|\x60[^\x60\n]{1,128}\x60|\[[^\]\n]{1,128}\]|\w+)`;
 
 /** A list of SQL string literals: `'draft', 'it''s'`. */
 const stringList = String.raw`'(?:[^']|'')*'(?:\s*,\s*'(?:[^']|'')*')*`;
@@ -14,6 +17,16 @@ const inCheck = new RegExp(
   String.raw`CHECK\s*\(\s*(?:(${columnName})\s+IS\s+NULL\s+OR\s+)?(${columnName})\s+IN\s*\(\s*(${stringList})\s*\)(?:\s+OR\s+(${columnName})\s+IS\s+NULL)?\s*\)`,
   "gi",
 );
+
+/** A string literal or quoted name, kept, or a comment, dropped: whichever starts first. */
+const literalOrComment = /'(?:[^']|'')*'|"(?:[^"]|"")*"|--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)/g;
+
+/** A definition without its comments, which SQLite keeps in it: `a TEXT -- CHECK (…)` → `a TEXT `. */
+function withoutComments(definition: string): string {
+  return definition.replace(literalOrComment, (token) =>
+    token.startsWith("--") || token.startsWith("/*") ? " " : token,
+  );
+}
 
 /** A column name as a key, as SQLite compares them: unquoted, any case. `"Status"` → `status`. */
 function unquoted(name: string): string {
@@ -39,7 +52,7 @@ function restricted(match: RegExpMatchArray): string | undefined {
  */
 export function checkedNames(definition: string): Map<string, string[]> {
   const lists = new Map<string, string[] | undefined>();
-  for (const match of definition.matchAll(inCheck)) {
+  for (const match of withoutComments(definition).matchAll(inCheck)) {
     const column = restricted(match);
     if (column === undefined) continue;
     lists.set(column, lists.has(column) ? undefined : literals(match[3]!));
