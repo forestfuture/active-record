@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model, RecordInvalid } from "../../packages/active-record/src/index.ts";
+import {
+  Model,
+  RecordInvalid,
+  type TableAttributes,
+} from "../../packages/active-record/src/index.ts";
+import { d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Article extends Model.define({
@@ -8,6 +13,41 @@ class Article extends Model.define({
   status: { type: "string", enum: ["draft", "published"] },
   priority: { type: "integer", enum: { low: 0, normal: 5, high: 10 } },
 }) {}
+
+// A generated schema's articles table, whose Model makes two of its columns enums by overrides.
+const schema = {
+  adapter: d1({ binding: "DB" }),
+  tables: {
+    articles: {
+      attributes: {
+        id: { type: "integer", null: false },
+        title: "string",
+        status: "string",
+        priority: "integer",
+      },
+      primaryKey: "id",
+    },
+  },
+} as const;
+
+abstract class ApplicationRecord extends Model {
+  static override schema = schema;
+}
+
+// The interface stands in for the declarations active-record schema generates in another file.
+/* oxlint-disable typescript/no-unsafe-declaration-merging */
+class Story extends ApplicationRecord {
+  static override table = "articles";
+  static override attributes = {
+    status: { enum: ["draft", "published"], prefix: true },
+    priority: { enum: { low: 0, high: 10 } },
+  } as const;
+}
+interface Story extends TableAttributes<
+  typeof schema.tables.articles.attributes,
+  (typeof Story)["attributes"]
+> {}
+/* oxlint-enable typescript/no-unsafe-declaration-merging */
 
 describe("enum attributes (#340)", () => {
   let harness: Harness;
@@ -303,5 +343,17 @@ describe("enum attributes (#340)", () => {
           .count(),
       ).toBe(0);
     });
+  });
+
+  test("a generated Model's override makes a column an enum, with its methods", async () => {
+    const stories = harness.connect().model(Story);
+    const story = await stories.createOrThrow({ id: 1, status: "draft", priority: "high" });
+
+    expect(story.isStatusDraft()).toBe(true);
+    await story.saveAsStatusPublishedOrThrow();
+    expect(await harness.exec("SELECT status, priority FROM articles")).toEqual([
+      { status: "published", priority: 10 },
+    ]);
+    expect(() => stories.build({ priority: "medium" as never })).toThrow(TypeError);
   });
 });

@@ -3,6 +3,8 @@
 // settled on first use, and its binding (#232).
 import type { SchemaAdapter } from "./adapter.ts";
 import { ancestors } from "./ancestors.ts";
+import type { IntegerEnum, TextEnum } from "./enum-values.ts";
+import { defineEnumMethods, defineEnumStatics } from "./enum-methods.ts";
 import { InvalidModel } from "./errors.ts";
 import {
   define,
@@ -31,27 +33,60 @@ export interface TableSchema {
 /** A generated schema's tables, by name (`tables` in `src/db/schema.ts`). */
 export type TableSchemas = Readonly<Record<string, TableSchema>>;
 
+/** The keys an enum's override may give, besides its values (#340). */
+type EnumOptions = Pick<
+  SpecOverride,
+  "prefix" | "suffix" | "scopes" | "instanceMethods" | "validate"
+>;
+
 /**
  * A change to a generated attribute: its type alone, or its type, nullability, default and
- * `generateId`, typed so `generateId` goes only with a string, and never with a default (#99).
+ * `generateId`, typed so `generateId` goes only with a string, and never with a default (#99); and
+ * an enum on a string or an integer, whose stored values are of its type (#340).
  */
 type AttributeOverride =
   | AttributeType
-  | (Pick<SpecOverride, "null"> & { type?: "string"; storage?: never } & ValueSource)
+  | (Pick<SpecOverride, "null"> & {
+      type?: "string";
+      storage?: never;
+      enum?: TextEnum;
+    } & EnumOptions &
+      ValueSource)
+  | (Pick<SpecOverride, "null" | "default"> & {
+      type?: "integer";
+      generateId?: false;
+      storage?: never;
+      enum: IntegerEnum;
+    } & EnumOptions)
   | (Pick<SpecOverride, "null" | "default"> & {
       type: Exclude<AttributeType, "string" | "datetime">;
       generateId?: false;
       storage?: never;
+      enum?: never;
     })
   | (Pick<SpecOverride, "null" | "default" | "storage"> & {
       type: "datetime";
       generateId?: false;
+      enum?: never;
     });
 
 /** The type a spec declares, written either way. */
 type TypeOf<S> = S extends AttributeType ? S : S extends { type: infer T } ? T : never;
 /** Whether a spec's attribute can be `null`. */
 type NullOf<S> = S extends { null: false } ? false : true;
+
+/** An enum and its options: the keys an override carries into the merged spec's type (#340). */
+type EnumKey = "enum" | keyof EnumOptions;
+
+/**
+ * A spec's enum keys an override keeps: none when it gives a new type (they were for the old one),
+ * and none it gives itself.
+ */
+type KeptEnumKeys<S, O> = O extends { type: infer T }
+  ? T extends TypeOf<S>
+    ? Omit<Pick<S, EnumKey & keyof S>, keyof O>
+    : {}
+  : Omit<Pick<S, EnumKey & keyof S>, keyof O>;
 
 /** An attribute's spec with its override applied. */
 type Overridden<S, O> = O extends AttributeType
@@ -60,7 +95,8 @@ type Overridden<S, O> = O extends AttributeType
     ? {
         type: O extends { type: infer T extends AttributeType } ? T : TypeOf<S>;
         null: O extends { null: infer N extends boolean } ? N : NullOf<S>;
-      }
+      } & KeptEnumKeys<S, O> &
+        Pick<O, EnumKey & keyof O>
     : S;
 
 /** A table's attributes after its overrides: changed ones merged, ignored ones gone. */
@@ -229,6 +265,8 @@ export function settleGenerated(model: object): void {
     found = find(owner, place.schema);
     bindTable(owner, found.table, { isIgnoringColumns: found.isIgnoringColumns });
     defineAttributeAccessors(owner.prototype, found.definitions.keys());
+    defineEnumMethods(owner.prototype, found.definitions);
+    defineEnumStatics(owner, found.definitions);
     settled.set(owner, found);
   }
   settled.set(model, found);
