@@ -36,6 +36,20 @@ describe("a schema generated from migrations", () => {
     ).toBe(0);
   });
 
+  test("an override's enum scopes are listed in the schema and typed as statics (#340)", async () => {
+    expectTypeOf(User.editor).toBeFunction();
+    expectTypeOf<User["role"]>().toEqualTypeOf<"member" | "editor">();
+    expect(readFileSync(`${projectDir}schema.ts`, "utf8")).toContain(
+      'enumScopes: { User: ["member", "notMember", "editor", "notEditor"] }',
+    );
+
+    const db = connect(binding);
+    await db.model(User).createOrThrow({ email: "root@example.com", role: "editor" });
+
+    expect(await db.model(User).editor().pluck("email")).toEqual(["root@example.com"]);
+    expect(User.notMember().toSql().sql).toContain('"role"');
+  });
+
   test("types each attribute from its column", () => {
     expectTypeOf<Product["id"]>().toEqualTypeOf<string>();
     expectTypeOf<Product["priceCents"]>().toEqualTypeOf<number>();

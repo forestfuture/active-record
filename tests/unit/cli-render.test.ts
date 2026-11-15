@@ -121,10 +121,10 @@ export const schema = defineSchema({
     expect(source).toContain(`declare module "../models/post" {
   interface Post extends TableAttributes<typeof posts, (typeof Post)["attributes"]> {}
   namespace Post {
-    const draft: ScopeStatic<[]>;
-    const notDraft: ScopeStatic<[]>;
-    const published: ScopeStatic<[]>;
-    const notPublished: ScopeStatic<[]>;
+    export const draft: ScopeStatic<[]>;
+    export const notDraft: ScopeStatic<[]>;
+    export const published: ScopeStatic<[]>;
+    export const notPublished: ScopeStatic<[]>;
   }
 }`);
     expect(source).toContain(`declare module "../models/user" {
