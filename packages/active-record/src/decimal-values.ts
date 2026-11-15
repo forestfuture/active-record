@@ -64,3 +64,32 @@ function placePoint(digits: string, point: number): string {
   if (point >= digits.length) return digits + "0".repeat(point - digits.length);
   return `${digits.slice(0, point)}.${digits.slice(point)}`;
 }
+
+/**
+ * Where decimal `a` falls against decimal `b`, both in their one form: -1, 0 or 1. By sign, then
+ * by the digits before the point (more is larger), then digit by digit, which is exact.
+ */
+export function compareDecimals(a: string, b: string): number {
+  const [signA, signB] = [signOf(a), signOf(b)];
+  if (signA !== signB) return Math.sign(signA - signB);
+  const order = compareMagnitudes(a.replace("-", ""), b.replace("-", ""));
+  return signA < 0 ? -order : order;
+}
+
+function signOf(decimal: string): number {
+  if (decimal === "0") return 0;
+  return decimal.startsWith("-") ? -1 : 1;
+}
+
+function compareMagnitudes(a: string, b: string): number {
+  const [wholeA = "", fractionA = ""] = a.split(".");
+  const [wholeB = "", fractionB = ""] = b.split(".");
+  if (wholeA.length !== wholeB.length) return Math.sign(wholeA.length - wholeB.length);
+  const width = Math.max(fractionA.length, fractionB.length);
+  const [left, right] = [
+    wholeA + fractionA.padEnd(width, "0"),
+    wholeB + fractionB.padEnd(width, "0"),
+  ];
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
