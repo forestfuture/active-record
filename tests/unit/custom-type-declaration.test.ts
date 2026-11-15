@@ -63,7 +63,7 @@ describe("a custom type's declaration (#20)", () => {
 
     expect(() => db.model(withSpec({ type: lookalike })).build()).toThrow(
       new InvalidModel(
-        'Sample.value has type {"storedAs":"integer"}; use a type\'s name ("string", "integer", "real", "decimal", "boolean", "datetime", "json", "binary"), or a type defineType made',
+        'Sample.value has type {"storedAs":"integer"}; use a type\'s name ("string", "integer", "real", "decimal", "boolean", "datetime", "date", "json", "binary"), or a type defineType made',
       ),
     );
   });
@@ -73,7 +73,7 @@ describe("a custom type's declaration (#20)", () => {
   test("defineType refuses a storedAs that isn't a built-in type's name", () => {
     expect(() => defineType({ ...parts, storedAs: "text" } as never)).toThrow(
       new TypeError(
-        'defineType: storedAs "text" isn\'t a type\'s name; use "string", "integer", "real", "decimal", "boolean", "datetime", "json", or "binary"',
+        'defineType: storedAs "text" isn\'t a type\'s name; use "string", "integer", "real", "decimal", "boolean", "datetime", "date", "json", or "binary"',
       ),
     );
   });

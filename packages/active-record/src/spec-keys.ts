@@ -14,6 +14,7 @@ const typeNames = {
   decimal: true,
   boolean: true,
   datetime: true,
+  date: true,
   json: true,
   binary: true,
 } satisfies Record<AttributeType, true>;
