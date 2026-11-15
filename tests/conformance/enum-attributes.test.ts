@@ -224,4 +224,26 @@ describe("enum attributes (#340)", () => {
       expect(ids(await byId.notLow().draft().toArray())).toEqual([1]);
     });
   });
+
+  describe("prefix and suffix", () => {
+    // Two enums sharing names, kept apart by a prefix and a suffix, as Rails' options do.
+    class Conversation extends Model.define({
+      id: { type: "integer", null: false },
+      status: { type: "string", enum: ["active", "archived"], prefix: true },
+      priority: { type: "integer", enum: { active: 1, idle: 0 }, suffix: "level" },
+    }) {
+      static override table = "articles";
+    }
+    const conversations = () => harness.connect().model(Conversation);
+
+    test("name every method with the attribute, or the given word, around each name", async () => {
+      const conversation = await conversations().createOrThrow({ id: 1, status: "active" });
+
+      expect(conversation.isStatusActive()).toBe(true);
+      await conversation.saveAsActiveLevelOrThrow();
+      expect(conversation.isActiveLevel()).toBe(true);
+      expect(await conversations().statusActive().activeLevel().count()).toBe(1);
+      expect(await conversations().notStatusArchived().notIdleLevel().count()).toBe(1);
+    });
+  });
 });

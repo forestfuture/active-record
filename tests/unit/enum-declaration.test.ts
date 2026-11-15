@@ -40,6 +40,14 @@ describe("an enum's declaration, past the types (#340)", () => {
       'Sample.value has an enum "draft"; give it a list of names, or an object of names and the values they\'re stored as',
     ],
     [
+      { type: "string", prefix: true },
+      "Sample.value has a prefix but no enum; give it an enum, or remove a prefix",
+    ],
+    [
+      { type: "string", enum: ["a"], suffix: "" },
+      'Sample.value has a suffix ""; use true for the attribute\'s name, or a word',
+    ],
+    [
       { type: "boolean", enum: { on: 1 } },
       'Sample.value is "boolean", so it can\'t have an enum: an enum is stored as text or integers',
     ],

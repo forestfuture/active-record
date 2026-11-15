@@ -44,6 +44,13 @@ interface KeyRule {
    * attribute's name, or undefined: checked once its type may have the key.
    */
   problemFor?: (value: unknown, type: AttributeType) => string | undefined;
+  /** A key it's only given with, which it means nothing without. */
+  requires?: SpecKey;
+  /**
+   * What a well-formed value is, for a message: given for a key whose shape a Model's check
+   * refuses past the types (`use true for the attribute's name, or a word`).
+   */
+  wellFormedAs?: string;
   /**
    * Keys it can't be given with. Declared on one of the two: it holds both ways, and a message
    * names the declaring key first. An override that gives one replaces the other.
@@ -104,7 +111,29 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     problemFor: enumProblem,
     onRetype: "drop",
   },
+  // Words around an enum's names in its methods' names, as Rails' `prefix:` and `suffix:` (#340).
+  prefix: {
+    isWellFormed: isAffix,
+    describedAs: "a prefix",
+    wellFormedAs: "use true for the attribute's name, or a word",
+    isGiven: (value) => value !== undefined && value !== false,
+    requires: "enum",
+    onRetype: "drop",
+  },
+  suffix: {
+    isWellFormed: isAffix,
+    describedAs: "a suffix",
+    wellFormedAs: "use true for the attribute's name, or a word",
+    isGiven: (value) => value !== undefined && value !== false,
+    requires: "enum",
+    onRetype: "drop",
+  },
 };
+
+/** A prefix or suffix: `true` for the attribute's name, `false` for none, or a word. */
+function isAffix(value: unknown): boolean {
+  return typeof value === "boolean" || (typeof value === "string" && value !== "");
+}
 
 const entries = Object.entries(rules) as [SpecKey, KeyRule][];
 
@@ -163,6 +192,23 @@ function shown(value: unknown): string {
   }
 }
 
+/** The problem with a given key's shape, past the types, or with it given without the key it needs. */
+function shapeProblem(
+  where: string,
+  spec: SpecOverride & Pick<SpecObject, "type">,
+  key: SpecKey,
+): string | undefined {
+  const { requires, isWellFormed, wellFormedAs } = rules[key];
+  const value = givenValue(spec, key);
+  if (wellFormedAs !== undefined && !isWellFormed(value)) {
+    return `${where} has ${readsAs(key)} ${shown(value)}; ${wellFormedAs}`;
+  }
+  if (requires !== undefined && givenValue(spec, requires) === undefined) {
+    return `${where} has ${readsAs(key)} but no ${requires}; give it ${readsAs(requires)}, or remove ${readsAs(key)}`;
+  }
+  return undefined;
+}
+
 /** The problem with a given key's value, or with its attribute's type. */
 function valueProblem(
   where: string,
@@ -189,7 +235,10 @@ export function specProblem(
 ): string | undefined {
   for (const [key] of entries) {
     if (givenValue(spec, key) === undefined) continue;
-    const problem = conflictProblem(where, spec, key) ?? valueProblem(where, spec, key);
+    const problem =
+      conflictProblem(where, spec, key) ??
+      shapeProblem(where, spec, key) ??
+      valueProblem(where, spec, key);
     if (problem !== undefined) return problem;
   }
   return undefined;
@@ -222,7 +271,9 @@ export function applyOverride(base: SpecObject, override: SpecOverride): SpecObj
 /** The keys of `spec` that go into its attribute's definition as given: `default`, `generateId`, `storage`, `enum`. */
 export function copiedKeys(
   spec: SpecObject,
-): Partial<Pick<AttributeDefinition, "default" | "generateId" | "storage" | "enum">> {
+): Partial<
+  Pick<AttributeDefinition, "default" | "generateId" | "storage" | "enum" | "prefix" | "suffix">
+> {
   const copied = entries
     .filter(
       ([key, rule]) => rule.copiedToDefinition !== false && givenValue(spec, key) !== undefined,
