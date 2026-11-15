@@ -45,7 +45,7 @@ export function listedNames(values: EnumValues): string {
  */
 export function enumProblem(values: unknown, type: string): string | undefined {
   if (!isEnumValues(values)) {
-    // `enum: true` and `enum: false` are a generated Model's override's (#64).
+    // Only a generated Model's override takes `enum: true` or `enum: false` (#64).
     const given =
       typeof values === "boolean"
         ? `enum: ${values}, which only a generated Model's override gives, for the names its database lists`
