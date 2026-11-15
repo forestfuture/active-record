@@ -58,13 +58,19 @@ The default messages are in English: “can’t be blank”, “is too short (mi
 - **`acceptance`** is for a box that must be ticked. It passes `true` and `"1"`, or the values you give in `{ accept: [...] }`. It passes `null` too, since a form may leave the field out. To fail `null`, add `allowNull: false`.
 - **`uniqueness`** leaves the record itself out when updating, and never treats `null` as taken, as SQLite’s UNIQUE does. `caseSensitive: false` compares with SQLite’s `lower()`, which only lowercases ASCII letters.
 
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails treats `false` as blank, so it passes `absence`. Here it fails `absence`, as it passes `presence`. Rails’ `confirmation` isn’t here yet.
+
+</Callout>
+
 :::warning[Uniqueness isn’t a guarantee]
 Two requests can both check that an email is free, then both insert it. `uniqueness` gives a friendly error early, but only a UNIQUE index in the table prevents duplicates, so declare both. When the index catches a duplicate, the save throws [`RecordNotUnique`](./errors#constraint-errors).
 :::
 
 ### Comparing with another attribute
 
-Give `comparison` a function to compare with another attribute. It gets the record being validated:
+Give `comparison` a function of the record to compare with another attribute:
 
 <include>/_excerpts/guide/validations/comparison.ts</include>
 
@@ -72,7 +78,7 @@ When the function returns `null`, that bound is skipped. Validate the other attr
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-Rails names the other attribute with a symbol, `comparison: { greater_than: :starts_at }`. Here a function does it, so the attribute’s name is typed. Rails treats `false` as blank, so it passes `absence`; here it fails. `confirmation` isn’t here yet.
+Rails names the other attribute with a symbol, `comparison: { greater_than: :starts_at }`. Here a function does it, so the attribute’s name is typed.
 
 </Callout>
 
@@ -150,7 +156,7 @@ In a Model, `attributes` and `humanAttributeNames` can only name the Model’s a
 
 A message can show these values:
 
-- **`%{count}`**: the number in the rule, such as the `minimum` of `tooShort` or the bound of `greaterThan`.
+- **`%{count}`**: the rule’s number or bound, such as the `minimum` of `tooShort` or the bound of `greaterThan`. A Date bound shows as an ISO string.
 - **`%{attribute}`**: the attribute’s name, as `fullMessages()` shows it.
 - **`%{model}`**: the Model’s name in words, so `BlogPost` reads as “Blog post”. It’s the class name, unless the Model sets [`static modelName`](/models#naming-models).
 - **`%{value}`**: the attribute’s value. A [filtered attribute](./models#filtering-attributes) shows `[FILTERED]`.
@@ -172,29 +178,29 @@ A type with no message anywhere throws a `TypeError` when the error is added.
 
 Each error type has a built-in message. To replace one, use its type as the key in `errorMessages`:
 
-| Type                       | Added by                                         | Message                                                     |
-| -------------------------- | ------------------------------------------------ | ----------------------------------------------------------- |
-| `blank`                    | `presence`                                       | can’t be blank                                              |
-| `present`                  | `absence`                                        | must be blank                                               |
-| `invalid`                  | `format` and an invalid autosaved association    | is invalid                                                  |
-| `inclusion`                | `inclusion`                                      | is not included in the list                                 |
-| `exclusion`                | `exclusion`                                      | is reserved                                                 |
-| `tooShort`                 | `length: { minimum }`                            | is too short (minimum is `%{count}` characters)             |
-| `tooLong`                  | `length: { maximum }`                            | is too long (maximum is `%{count}` characters)              |
-| `wrongLength`              | `length: { is }`                                 | is the wrong length (should be `%{count}` characters)       |
-| `notANumber`               | `numericality`                                   | is not a number                                             |
-| `notAnInteger`             | `numericality: { onlyInteger }`                  | must be an integer                                          |
-| `greaterThan`              | `numericality: { greaterThan }`                  | must be greater than `%{count}`                             |
-| `greaterThanOrEqualTo`     | `numericality: { greaterThanOrEqualTo }`         | must be greater than or equal to `%{count}`                 |
-| `lessThan`                 | `numericality: { lessThan }`                     | must be less than `%{count}`                                |
-| `lessThanOrEqualTo`        | `numericality: { lessThanOrEqualTo }`            | must be less than or equal to `%{count}`                    |
-| `equalTo`                  | `comparison: { equalTo }`                        | must be equal to `%{count}`                                 |
-| `otherThan`                | `comparison: { otherThan }`                      | must be other than `%{count}`                               |
-| `accepted`                 | `acceptance`                                     | must be accepted                                            |
-| `taken`                    | `uniqueness`                                     | has already been taken                                      |
-| `required`                 | a `belongsTo` whose record doesn’t exist         | must exist                                                  |
-| `restrictDependentDestroy` | a has-one with `dependent: "restrictWithError"`  | Cannot delete record because a dependent `%{record}` exists |
-| `restrictDependentDestroy` | a has-many with `dependent: "restrictWithError"` | Cannot delete record because dependent `%{record}` exist    |
+| Type                       | Added by                                                   | Message                                                     |
+| -------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------- |
+| `blank`                    | `presence`, and `comparison` for a blank value             | can’t be blank                                              |
+| `present`                  | `absence`                                                  | must be blank                                               |
+| `invalid`                  | `format` and an invalid autosaved association              | is invalid                                                  |
+| `inclusion`                | `inclusion`                                                | is not included in the list                                 |
+| `exclusion`                | `exclusion`                                                | is reserved                                                 |
+| `tooShort`                 | `length: { minimum }`                                      | is too short (minimum is `%{count}` characters)             |
+| `tooLong`                  | `length: { maximum }`                                      | is too long (maximum is `%{count}` characters)              |
+| `wrongLength`              | `length: { is }`                                           | is the wrong length (should be `%{count}` characters)       |
+| `notANumber`               | `numericality`                                             | is not a number                                             |
+| `notAnInteger`             | `numericality: { onlyInteger }`                            | must be an integer                                          |
+| `greaterThan`              | `numericality` or `comparison`: `{ greaterThan }`          | must be greater than `%{count}`                             |
+| `greaterThanOrEqualTo`     | `numericality` or `comparison`: `{ greaterThanOrEqualTo }` | must be greater than or equal to `%{count}`                 |
+| `lessThan`                 | `numericality` or `comparison`: `{ lessThan }`             | must be less than `%{count}`                                |
+| `lessThanOrEqualTo`        | `numericality` or `comparison`: `{ lessThanOrEqualTo }`    | must be less than or equal to `%{count}`                    |
+| `equalTo`                  | `comparison: { equalTo }`                                  | must be equal to `%{count}`                                 |
+| `otherThan`                | `comparison: { otherThan }`                                | must be other than `%{count}`                               |
+| `accepted`                 | `acceptance`                                               | must be accepted                                            |
+| `taken`                    | `uniqueness`                                               | has already been taken                                      |
+| `required`                 | a `belongsTo` whose record doesn’t exist                   | must exist                                                  |
+| `restrictDependentDestroy` | a has-one with `dependent: "restrictWithError"`            | Cannot delete record because a dependent `%{record}` exists |
+| `restrictDependentDestroy` | a has-many with `dependent: "restrictWithError"`           | Cannot delete record because dependent `%{record}` exist    |
 
 With a count of 1, the three `length` messages say “1 character”. `restrictDependentDestroy` goes on `"base"`, and `%{record}` is the association’s name in lowercase. To replace it, give both forms: `restrictDependentDestroy: { hasOne: "…", hasMany: "…" }`.
 
