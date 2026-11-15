@@ -215,7 +215,7 @@ A D1 row holds at most 2 MB. Keep larger files in [R2](https://developers.cloudf
 :::
 
 :::tip
-`insert`, `insertAll`, `upsert`, and `upsertAll` write rows of any total size. On D1, rows larger than its 2 MB limit on one value go as several statements in one batch, which writes all of them or none. D1 counts the batch as one query.
+`insertAll` and `upsertAll` take any number of rows of bytes. On D1, rows that add up to more than its 2 MB limit on one value go as several statements in one batch, which writes all of them or none. D1 counts the batch as one query.
 :::
 
 ## Declaring enums

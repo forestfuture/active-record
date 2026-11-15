@@ -54,9 +54,9 @@ describe("bulk writes past D1's cap on one value", { timeout: 20_000 }, () => {
   // [[1,"…"],[2,"…"]] is 15 bytes around the names; the first name is 1,000,000 bytes of UTF-8,
   // in two-, three- and four-byte characters, so the cap is counted in bytes, not characters.
   test.each([
-    [999_985, 1],
-    [999_986, 2],
-  ])("with a second name of %i bytes, the rows take %i statements", async (size, statements) => {
+    [999_985, "one statement", 1],
+    [999_986, "two statements", 2],
+  ])("with a second name of %i bytes, the rows go as %s", async (size, _, statements) => {
     const multibyte = "é".repeat(200_000) + "€".repeat(100_000) + "😀".repeat(75_000);
 
     await db()

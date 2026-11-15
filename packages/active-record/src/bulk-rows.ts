@@ -39,7 +39,7 @@ export function rowGroups(
   if (maxBytes === undefined) return [{ kind: "json", value: jsonValue(jsonRows) }];
   const groups: RowGroup[] = [];
   let pending: JsonRow[] = [];
-  let bytes = brackets; // The pending rows' JSON value.
+  let bytes = brackets; // The pending rows' JSON value's length in bytes, brackets included.
   const flush = () => {
     if (pending.length > 0) groups.push({ kind: "json", value: jsonValue(pending) });
     pending = [];
