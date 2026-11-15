@@ -246,4 +246,22 @@ describe("enum attributes (#340)", () => {
       expect(await conversations().notStatusArchived().notIdleLevel().count()).toBe(1);
     });
   });
+
+  test("scopes: false and instanceMethods: false leave those methods out", () => {
+    class Quiet extends Model.define({
+      id: { type: "integer", null: false },
+      status: { type: "string", enum: ["draft", "first"], scopes: false },
+      priority: { type: "integer", enum: { low: 0, changed: 1 }, instanceMethods: false },
+    }) {
+      static override table = "articles";
+    }
+    const quiet = harness.connect().model(Quiet);
+    const record = quiet.build({ status: "first", priority: "changed" });
+
+    expect(typeof record.isFirst).toBe("function");
+    expect("isLow" in record).toBe(false);
+    expect("first" in Quiet).toBe(true); // the Relation method's, not a scope
+    expect(typeof quiet.low).toBe("function");
+    expect("draft" in quiet).toBe(false);
+  });
 });

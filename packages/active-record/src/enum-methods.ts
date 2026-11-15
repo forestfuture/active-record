@@ -26,27 +26,36 @@ type Stems<K, S> = S extends { enum: infer E extends EnumValues }
   ? `${Affix<K, OptionOf<S, "prefix">>}${MethodPart<EnumNames<E>>}${Affix<K, OptionOf<S, "suffix">>}`
   : never;
 
-/** Every stem the enums of the specs `A` give their methods. */
-type AllStems<A> = { [K in keyof A]: Stems<K, A[K]> }[keyof A];
+/** Every stem the enums of the specs `A` give a record's methods, unless one says `instanceMethods: false`. */
+type RecordStems<A> = {
+  [K in keyof A]: A[K] extends { instanceMethods: false } ? never : Stems<K, A[K]>;
+}[keyof A];
+
+/** Every stem the enums of the specs `A` give a Model's scopes, unless one says `scopes: false`. */
+type ScopeStems<A> = {
+  [K in keyof A]: A[K] extends { scopes: false } ? never : Stems<K, A[K]>;
+}[keyof A];
 
 /**
  * What the enums of the specs `A` add to a record: a predicate for each name, and a setter that
  * assigns it and saves, with its `OrThrow`, as Rails' `published!` updates the record.
  */
-export type EnumMethods<A> = { [P in `is${AllStems<A>}`]: () => boolean } & {
-  [P in `saveAs${AllStems<A>}`]: () => Promise<boolean>;
-} & { [P in `saveAs${AllStems<A>}OrThrow`]: () => Promise<true> };
+export type EnumMethods<A> = { [P in `is${RecordStems<A>}`]: () => boolean } & {
+  [P in `saveAs${RecordStems<A>}`]: () => Promise<boolean>;
+} & { [P in `saveAs${RecordStems<A>}OrThrow`]: () => Promise<true> };
 
 /** What the enums of the specs `A` add to a Model: a scope for each name, and a `not…` scope. */
 export type EnumStatics<A> = {
-  [P in Uncapitalize<AllStems<A>> | `not${AllStems<A>}`]: ScopeStatic<[]>;
+  [P in Uncapitalize<ScopeStems<A>> | `not${ScopeStems<A>}`]: ScopeStatic<[]>;
 };
 
-/** One name of an enum attribute, and the stem of its methods' names. */
+/** One name of an enum attribute, the stem of its methods' names, and which methods it gets. */
 interface EnumName {
   attribute: string;
   name: string;
   stem: string;
+  hasScopes: boolean;
+  hasInstanceMethods: boolean;
 }
 
 /** Each name of every enum attribute, with its stem, as `Stems` types it. */
@@ -59,6 +68,8 @@ export function enumNames(definitions: ReadonlyMap<string, AttributeDefinition>)
       attribute,
       name,
       stem: `${before}${methodPart(name)}${after}`,
+      hasScopes: definition.scopes !== false,
+      hasInstanceMethods: definition.instanceMethods !== false,
     }));
   });
 }
@@ -92,7 +103,8 @@ export function defineEnumMethods(
   prototype: object,
   definitions: ReadonlyMap<string, AttributeDefinition>,
 ): void {
-  for (const { attribute, name, stem } of enumNames(definitions)) {
+  for (const { attribute, name, stem, hasInstanceMethods } of enumNames(definitions)) {
+    if (!hasInstanceMethods) continue;
     defineMethod(prototype, `is${stem}`, function (this: Record<string, unknown>) {
       return this[attribute] === name;
     });
@@ -125,7 +137,8 @@ export function defineEnumStatics(
   definitions: ReadonlyMap<string, AttributeDefinition>,
 ): void {
   const declaring = model as ScopeDeclaring;
-  for (const { attribute, name, stem } of enumNames(definitions)) {
+  for (const { attribute, name, stem, hasScopes } of enumNames(definitions)) {
+    if (!hasScopes) continue;
     const only = declaring.scope((q) => q.where({ [attribute]: name }));
     const without = declaring.scope((q) => q.whereNot({ [attribute]: name }));
     enumScopes.add(only);
@@ -174,9 +187,12 @@ interface NamedModel {
  */
 export function enumNameProblem(model: NamedModel, taken: TakenNames): string | undefined {
   const givenBy = new Map<string, string>();
-  for (const { attribute, stem } of enumNames(model.attributeDefinitions)) {
-    const records = [`is${stem}`, `saveAs${stem}`, `saveAs${stem}OrThrow`];
-    const statics = [uncapitalized(stem), `not${stem}`];
+  for (const each of enumNames(model.attributeDefinitions)) {
+    const { attribute, stem } = each;
+    const records = each.hasInstanceMethods
+      ? [`is${stem}`, `saveAs${stem}`, `saveAs${stem}OrThrow`]
+      : [];
+    const statics = each.hasScopes ? [uncapitalized(stem), `not${stem}`] : [];
     for (const method of [...records, ...statics]) {
       const other = givenBy.get(method);
       if (other !== undefined) return repeated(model.name, other, attribute, method);

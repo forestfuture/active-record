@@ -128,7 +128,22 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     requires: "enum",
     onRetype: "drop",
   },
+  // Rails' `scopes: false` and `instance_methods: false`: `true`, the default, gives nothing.
+  scopes: methodsSwitch("scopes"),
+  instanceMethods: methodsSwitch("instanceMethods"),
 };
+
+/** The rule for a switch that leaves an enum's methods out when it's `false`. */
+function methodsSwitch(key: string): KeyRule {
+  return {
+    isWellFormed: (value) => typeof value === "boolean",
+    describedAs: key,
+    wellFormedAs: "use false to leave them out",
+    isGiven: (value) => value !== undefined && value !== true,
+    requires: "enum",
+    onRetype: "drop",
+  };
+}
 
 /** A prefix or suffix: `true` for the attribute's name, `false` for none, or a word. */
 function isAffix(value: unknown): boolean {
@@ -272,7 +287,17 @@ export function applyOverride(base: SpecObject, override: SpecOverride): SpecObj
 export function copiedKeys(
   spec: SpecObject,
 ): Partial<
-  Pick<AttributeDefinition, "default" | "generateId" | "storage" | "enum" | "prefix" | "suffix">
+  Pick<
+    AttributeDefinition,
+    | "default"
+    | "generateId"
+    | "storage"
+    | "enum"
+    | "prefix"
+    | "suffix"
+    | "scopes"
+    | "instanceMethods"
+  >
 > {
   const copied = entries
     .filter(
