@@ -139,17 +139,25 @@ export function compileInsert(
   if (assignments.length === 0) {
     return { sql: `INSERT INTO ${table} DEFAULT VALUES${returned}`, params: [], model };
   }
-  const columns = assignments
-    .map(([name]) => quoteIdentifier(attributeFor(model, name).column))
-    .join(", ");
-  const placeholders = assignments.map(() => valueMark).join(", ");
+  const attributes = assignments.map(([name]) => attributeFor(model, name));
   const params: unknown[] = [];
-  for (const [name, value] of assignments) attributeFor(model, name).bind(params, value);
-  return {
-    sql: `INSERT INTO ${table} (${columns}) VALUES (${placeholders})${returned}`,
+  const values = compileValues(
+    attributes,
+    assignments.map(([, value]) => value),
     params,
-    model,
-  };
+  );
+  return { sql: `INSERT INTO ${table} ${values}${returned}`, params, model };
+}
+
+/** `("col", …) VALUES (?, …)`: one row of `attributes`' values, each bound as itself. */
+function compileValues(
+  attributes: readonly Attribute[],
+  values: readonly unknown[],
+  params: unknown[],
+): string {
+  const columns = attributes.map(({ column }) => quoteIdentifier(column)).join(", ");
+  for (const [index, attribute] of attributes.entries()) attribute.bind(params, values[index]);
+  return `(${columns}) VALUES (${attributes.map(() => valueMark).join(", ")})`;
 }
 
 /** ` RETURNING` the whole row, or the columns of `attributes`, or nothing when there are none. */
@@ -198,9 +206,8 @@ export function compileInsertRows(
       return { sql, params: [group.value], model };
     }
     const params: unknown[] = [];
-    for (const [index, value] of group.row.entries()) attributes[index]!.bind(params, value);
-    const values = attributes.map(() => valueMark).join(", ");
-    return { sql: `INSERT INTO ${table} (${columns}) VALUES (${values})${end}`, params, model };
+    const values = compileValues(attributes, group.row, params);
+    return { sql: `INSERT INTO ${table} ${values}${end}`, params, model };
   });
 }
 
