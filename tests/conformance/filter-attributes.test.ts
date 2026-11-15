@@ -188,7 +188,7 @@ describe("filterAttributes", () => {
       ]);
     });
 
-    test("a string written as the attribute is matches it", async () => {
+    test("a string written in camelCase matches the attribute", async () => {
       expect(await hiddenNames(named(["apiKey"]))).toEqual(["apiKey"]);
     });
 
