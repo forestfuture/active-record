@@ -107,7 +107,7 @@ function placePoint(digits: string, point: number): string {
  * Where decimal `a` falls against decimal `b`, both in their one form: -1, 0 or 1. By sign, then
  * by the digits before the point (more is larger), then digit by digit, which is exact.
  */
-export function compareDecimals(a: string, b: string): number {
+function compareDecimals(a: string, b: string): number {
   const [signA, signB] = [signOf(a), signOf(b)];
   if (signA !== signB) return Math.sign(signA - signB);
   const order = compareMagnitudes(a.replace("-", ""), b.replace("-", ""));
