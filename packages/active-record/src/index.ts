@@ -49,6 +49,7 @@ export type {
 export { Model, type ScopeStatic, type TableAttributes } from "./model.ts";
 export { withDatabase } from "./current-database.ts";
 export type { DatabaseSchema, TableSchema, TableSchemas } from "./generated-model.ts";
+export { defineSchema } from "./define-schema.ts";
 export type {
   LengthOptions,
   NumericalityOptions,

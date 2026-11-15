@@ -124,6 +124,11 @@ export interface DatabaseSchema {
    * while `active-record schema` loads the Models, before it has found them; then nothing is checked.
    */
   readonly models?: Readonly<Record<string, string>>;
+  /**
+   * Each Model's enum scopes, by its `modelName` (#340): the statics `defineSchema` makes every
+   * Model have from the start, where a Model's other attributes wait for its first use.
+   */
+  readonly enumScopes?: Readonly<Record<string, readonly string[]>>;
 }
 
 /** The statics a generated Model, or a class it's built on, may declare. */

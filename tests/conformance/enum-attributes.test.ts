@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
+  defineSchema,
   Model,
   RecordInvalid,
+  type ScopeStatic,
   type TableAttributes,
 } from "../../packages/active-record/src/index.ts";
 import { d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
@@ -48,6 +50,33 @@ interface Story extends TableAttributes<
   (typeof Story)["attributes"]
 > {}
 /* oxlint-enable typescript/no-unsafe-declaration-merging */
+
+// As active-record schema writes it: the schema lists each Model's enum scopes, so they're
+// statics from the start, and a namespace types them.
+const listingSchema = defineSchema({
+  ...schema,
+  models: { Tale: "articles" },
+  enumScopes: { Tale: ["published", "notPublished", "draft", "notDraft"] },
+});
+
+abstract class ListingRecord extends Model {
+  static override schema = listingSchema;
+}
+
+/* oxlint-disable typescript/no-unsafe-declaration-merging, typescript/no-namespace, no-unused-vars -- stands in for schema.ts's declarations */
+class Tale extends ListingRecord {
+  static override table = "articles";
+  static override attributes = { status: { enum: ["draft", "published"] } } as const;
+}
+interface Tale extends TableAttributes<
+  typeof schema.tables.articles.attributes,
+  (typeof Tale)["attributes"]
+> {}
+declare namespace Tale {
+  const published: ScopeStatic<[]>;
+  const notPublished: ScopeStatic<[]>;
+}
+/* oxlint-enable typescript/no-unsafe-declaration-merging, typescript/no-namespace, no-unused-vars */
 
 describe("enum attributes (#340)", () => {
   let harness: Harness;
@@ -356,5 +385,16 @@ describe("enum attributes (#340)", () => {
     ]);
     expect(() => stories.build({ priority: "medium" as never })).toThrow(TypeError);
     expect(Story.enumValues("priority")).toEqual({ low: 0, high: 10 });
+  });
+
+  test("a generated Model's scopes are statics before its first use, as its schema lists them", async () => {
+    await harness.exec("INSERT INTO articles (id, status) VALUES (1, 'published'), (2, 'draft')");
+
+    // Read before anything else has used Tale.
+    expect(typeof Tale.published).toBe("function");
+    const published = await harness.connect().model(Tale).published().pluck("id");
+
+    expect(published).toEqual([1]);
+    expect(Tale.where({ id: 1 }).published().toSql().sql).toContain('"status"');
   });
 });
