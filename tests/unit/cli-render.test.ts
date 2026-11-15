@@ -144,6 +144,25 @@ export const schema = defineSchema({
     );
   });
 
+  test("writes a generated enum's names as escaped literals, whatever they hold (#64)", () => {
+    const names = ['say "hi"', "back\\slash", "two\nlines", "*/ end", "${x}"];
+    const table: GeneratedTable = {
+      name: "posts",
+      exportName: "posts",
+      primaryKey: "id",
+      lastChangedBy: "0001_create.sql",
+      attributes: {
+        id: { type: "integer", null: false },
+        status: { type: "string", enum: names, scopes: false, instanceMethods: false },
+      },
+    };
+
+    const source = renderSchema(schemaFor([table]), "migrations/");
+
+    expect(source).toContain(`enum: ${JSON.stringify(names).replaceAll(",", ", ")}`);
+    expect(source.split("\n").filter((line) => line.includes("*/ end"))).toHaveLength(1);
+  });
+
   test("a table named like a JavaScript keyword gets a name that's allowed", () => {
     const source = renderSchema(
       schemaFor(tablesOf('CREATE TABLE "default" (id INTEGER PRIMARY KEY)')),
