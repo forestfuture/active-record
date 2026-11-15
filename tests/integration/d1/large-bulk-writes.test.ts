@@ -79,27 +79,26 @@ describe("bulk writes past D1's cap on one value", () => {
     expect(await stored()).toEqual([]);
   });
 
+  // Text, which Miniflare moves faster than bytes; the conformance suite writes a large row of bytes.
   test("a row whose JSON alone passes the cap binds its values apart, through insertAll and upsert", async () => {
-    const large = bytes(1_500_000, 9);
+    const large = "x".repeat(2_000_000);
 
     await db()
       .model(Attachment)
       .insertAll([
-        { id: 1, name: "small", data: bytes(3, 1) },
-        { id: 2, name: "large", data: large },
+        { id: 1, name: "small" },
+        { id: 2, name: large },
       ]);
-    await db().model(Attachment).upsert({ id: 1, name: "replaced", data: large });
+    await db().model(Attachment).upsert({ id: 1, name: large });
 
     const sent = inserts().map(({ sql, params }) => [sql.includes("VALUES"), params.length]);
     expect(sent).toEqual([
       [false, 1],
-      [true, 3],
-      [true, 3],
+      [true, 2],
+      [true, 2],
     ]);
-    expect(await stored()).toEqual([
-      [1, 1_500_000, 9],
-      [2, 1_500_000, 9],
-    ]);
+    const names = await db().model(Attachment).order({ id: "asc" }).pluck("name");
+    expect(names.map((name) => name?.length)).toEqual([2_000_000, 2_000_000]);
   });
 
   test("listeners see a filtered attribute hidden in every statement", async () => {
