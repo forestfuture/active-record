@@ -24,6 +24,10 @@ export interface SpecObject {
   generateId?: boolean;
   /** Its only values, by name, and what each is stored as (#340). */
   enum?: EnumValues;
+  /** A word before each enum name in its methods' names: the attribute's name for `true` (#340). */
+  prefix?: boolean | string;
+  /** A word after each enum name in its methods' names: the attribute's name for `true` (#340). */
+  suffix?: boolean | string;
 }
 
 /** Where a string attribute's value comes from when it isn't given: a default or `generateId`, never both. */
@@ -49,11 +53,15 @@ export type AttributeSpec =
       generateId?: false;
       storage?: never;
       enum?: never;
+      prefix?: never;
+      suffix?: never;
     })
   | (Omit<SpecObject, "type" | "generateId" | "enum"> & {
       type: "datetime";
       generateId?: false;
       enum?: never;
+      prefix?: never;
+      suffix?: never;
     });
 
 export type AttributeSpecs = Record<string, AttributeSpec>;
@@ -76,6 +84,8 @@ export interface AttributeDefinition {
   generateId?: true;
   storage?: EpochStorage;
   enum?: EnumValues;
+  prefix?: boolean | string;
+  suffix?: boolean | string;
 }
 
 type JsType<T extends AttributeType> = T extends "string"

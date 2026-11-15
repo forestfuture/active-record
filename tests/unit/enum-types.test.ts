@@ -48,6 +48,27 @@ describe("an enum attribute's types (#340)", () => {
     expect(typeof Task.notInProgress).toBe("function");
   });
 
+  test("prefix and suffix put a word around each name in every method's name", () => {
+    class Conversation extends Model.define({
+      status: { type: "string", enum: ["active", "archived"], prefix: true },
+      comments: { type: "integer", enum: { open: 1, closed: 0 }, prefix: "comments" },
+      priority: { type: "integer", enum: { active: 1 }, suffix: "level" },
+    }) {}
+
+    expectTypeOf<Conversation["isStatusActive"]>().toEqualTypeOf<() => boolean>();
+    expectTypeOf<Conversation["saveAsCommentsClosedOrThrow"]>().toEqualTypeOf<
+      () => Promise<true>
+    >();
+    expectTypeOf<Conversation["isActiveLevel"]>().toEqualTypeOf<() => boolean>();
+    expectTypeOf(Conversation.notStatusArchived).toBeFunction();
+    expectTypeOf(Conversation.activeLevel).toBeFunction();
+    expectTypeOf<Conversation>().not.toHaveProperty("isActive");
+    Model.define({
+      // @ts-expect-error only an enum's attribute has a prefix
+      flag: { type: "boolean", prefix: true },
+    });
+  });
+
   test("an enum is a string's or an integer's, stored as that type", () => {
     Model.define({
       // @ts-expect-error a list of names is stored as text, so only a string has one
