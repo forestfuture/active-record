@@ -1,6 +1,6 @@
 // Attribute metadata: each attribute's type, column and default, resolved from its spec.
 import { copiedKeys } from "./spec-keys.ts";
-import type { EnumNames, EnumValues } from "./enum-values.ts";
+import type { EnumNames, EnumValues, IntegerEnum, TextEnum } from "./enum-values.ts";
 import type { EpochStorage } from "./epoch-storage.ts";
 import { UnknownAttribute } from "./errors.ts";
 import type { ModelClass } from "./model.ts";
@@ -33,16 +33,28 @@ export type ValueSource =
 
 export type AttributeSpec =
   | AttributeType
-  | (Omit<SpecObject, "default" | "generateId" | "storage"> & {
+  | (Omit<SpecObject, "default" | "generateId" | "storage" | "enum"> & {
       type: "string";
       storage?: never;
+      enum?: TextEnum;
     } & ValueSource)
-  | (Omit<SpecObject, "type" | "generateId" | "storage"> & {
-      type: Exclude<AttributeType, "string" | "datetime">;
+  | (Omit<SpecObject, "type" | "generateId" | "storage" | "enum"> & {
+      type: "integer";
       generateId?: false;
       storage?: never;
+      enum?: IntegerEnum;
     })
-  | (Omit<SpecObject, "type" | "generateId"> & { type: "datetime"; generateId?: false });
+  | (Omit<SpecObject, "type" | "generateId" | "storage" | "enum"> & {
+      type: Exclude<AttributeType, "string" | "integer" | "datetime">;
+      generateId?: false;
+      storage?: never;
+      enum?: never;
+    })
+  | (Omit<SpecObject, "type" | "generateId" | "enum"> & {
+      type: "datetime";
+      generateId?: false;
+      enum?: never;
+    });
 
 export type AttributeSpecs = Record<string, AttributeSpec>;
 

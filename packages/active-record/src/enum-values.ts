@@ -6,6 +6,12 @@
  */
 export type EnumValues = readonly string[] | { readonly [name: string]: string | number };
 
+/** A `string` attribute's enum: names stored as themselves, or each with the text it's stored as. */
+export type TextEnum = readonly string[] | { readonly [name: string]: string };
+
+/** An `integer` attribute's enum: each name with the integer it's stored as. */
+export type IntegerEnum = { readonly [name: string]: number };
+
 /** The names an enum's values give its attribute: `"draft" | "published"`. */
 export type EnumNames<E> = E extends readonly (infer N extends string)[] ? N : keyof E & string;
 
