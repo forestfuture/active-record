@@ -5,7 +5,7 @@ import type { SchemaAdapter } from "./adapter.ts";
 import { ancestors } from "./ancestors.ts";
 import type { IntegerEnum, TextEnum } from "./enum-values.ts";
 import { defineEnumMethods, defineEnumStatics } from "./enum-methods.ts";
-import { switchedSpec, takeEnumSwitch, type SwitchedOverride } from "./enum-switch.ts";
+import { switchedSpec, takeEnumSwitch, type SplitOverride } from "./enum-switch.ts";
 import { InvalidModel } from "./errors.ts";
 import {
   define,
@@ -347,20 +347,17 @@ export function defineGeneratedStatics(root: object): void {
 function checked(where: string, attribute: string, override: unknown): Checked | false {
   if (override === false) return false;
   if (isAttributeType(override)) return { change: { type: override } };
-  const { switched, change } =
-    typeof override === "object" && override !== null
-      ? takeEnumSwitch(override)
-      : { change: override };
+  const { useDatabaseEnum, change } = takeEnumSwitch(override);
   if (!isSpecOverride(change)) {
     throw new InvalidModel(
       `${where}.${attribute}: an override is a type name, { ${overridableKeyNames} }, or false`,
     );
   }
-  return { switched, change };
+  return { useDatabaseEnum, change };
 }
 
-/** An override, checked: its spec changes, and its `enum` switch (#64). */
-type Checked = SwitchedOverride & { change: SpecOverride };
+/** An override, checked: its spec changes, and its `enum: true` or `false` (#64). */
+type Checked = SplitOverride<SpecOverride>;
 
 /**
  * A generated spec with an override applied, refused if it leaves a spec a type can't have (#99,
@@ -369,12 +366,10 @@ type Checked = SwitchedOverride & { change: SpecOverride };
 function checkedOverride(
   where: string,
   spec: AttributeSpecs[string],
-  { switched, change }: Checked,
+  override: Checked,
 ): AttributeSpecs[string] {
-  const base = switchedSpec(where, typeof spec === "string" ? { type: spec } : spec, {
-    switched,
-    change,
-  });
+  const base = switchedSpec(where, typeof spec === "string" ? { type: spec } : spec, override);
+  const { change } = override;
   const changed = applyOverride(base, change);
   const problem = specProblem(where, changed);
   if (problem !== undefined) throw new InvalidModel(problem);

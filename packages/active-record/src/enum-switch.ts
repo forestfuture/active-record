@@ -5,18 +5,19 @@ import type { DatabaseSchema } from "./generated-model.ts";
 import type { AttributeDefinition, SpecObject } from "./metadata.ts";
 import { withoutEnum } from "./spec-keys.ts";
 
-/** An override as written, with its `enum` switch apart from its other changes. */
-export interface SwitchedOverride {
-  /** `true` to turn a generated enum's methods on, `false` to drop the enum. */
-  switched?: boolean;
-  change: object;
+/** An override as written, with its `enum: true` or `false` apart from its other changes. */
+export interface SplitOverride<C = unknown> {
+  /** `enum: true`: use the database's names, methods on; `enum: false`: drop them. */
+  useDatabaseEnum?: boolean;
+  change: C;
 }
 
 /** Takes an override's `enum: true` or `false` out of it, so its other changes are checked as any override's. */
-export function takeEnumSwitch(override: object): SwitchedOverride {
+export function takeEnumSwitch(override: unknown): SplitOverride {
+  if (typeof override !== "object" || override === null) return { change: override };
   if (!("enum" in override) || typeof override.enum !== "boolean") return { change: override };
-  const { enum: switched, ...change } = override;
-  return { switched, change };
+  const { enum: useDatabaseEnum, ...change } = override;
+  return { useDatabaseEnum, change };
 }
 
 /**
@@ -29,11 +30,11 @@ export function takeEnumSwitch(override: object): SwitchedOverride {
 export function switchedSpec(
   where: string,
   spec: SpecObject,
-  { switched, change }: SwitchedOverride,
+  { useDatabaseEnum, change }: SplitOverride<object>,
 ): SpecObject {
-  if (switched === undefined) return hasOwnNames(change) ? withMethodsOn(spec) : spec;
-  if (spec.enum === undefined) throw new InvalidModel(nothingToSwitch(where, switched));
-  return switched ? withMethodsOn(spec) : withoutEnum(spec);
+  if (useDatabaseEnum === undefined) return hasOwnNames(change) ? withMethodsOn(spec) : spec;
+  if (spec.enum === undefined) throw new InvalidModel(nothingToSwitch(where, useDatabaseEnum));
+  return useDatabaseEnum ? withMethodsOn(spec) : withoutEnum(spec);
 }
 
 /** Whether an override gives an enum's names itself: a list or a mapping, not `undefined`. */
@@ -48,8 +49,8 @@ function withMethodsOn(spec: SpecObject): SpecObject {
 }
 
 /** Why a switch has nothing to act on, and what to write instead of `enum: true`. */
-function nothingToSwitch(where: string, switched: boolean): string {
-  return switched
+function nothingToSwitch(where: string, useDatabaseEnum: boolean): string {
+  return useDatabaseEnum
     ? `${where} has no enum from the database to turn on; list its names instead (enum: ["…", …])`
     : `${where} has no enum from the database to turn off`;
 }
