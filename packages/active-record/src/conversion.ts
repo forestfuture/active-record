@@ -60,7 +60,13 @@ const converters: Record<ConversionKey, Converter> = {
     write: (value) => (value as Date).getTime(),
   },
   json: { cast: castJson, read: readJson, write: (value) => JSON.stringify(value) },
-  binary: { cast: castBinary, read: readBinary, write: identity },
+  // A copy, so a stored form (a snapshot, an initial value) never shares the record's bytes,
+  // and a byte changed in place is a change (#20).
+  binary: {
+    cast: castBinary,
+    read: readBinary,
+    write: (value) => Uint8Array.from(value as Uint8Array),
+  },
 };
 
 /** Each enum's converter, over the converter of the type its values are stored as. */

@@ -77,6 +77,33 @@ describe("binary attributes", () => {
       expect(attachment.isChanged()).toBe(false);
     });
 
+    test("a byte changed in place after a save is a change, and the next save writes it", async () => {
+      const { id } = await attachments().create({ name: "a", data: new Uint8Array([1, 2]) });
+      const attachment = await attachments().find(id);
+      attachment.name = "b";
+      await attachment.save();
+
+      attachment.data![1] = 7;
+
+      expect(attachment.isChanged()).toBe(true);
+      await attachment.save();
+      expect([...(await attachments().find(id)).data!]).toEqual([1, 7]);
+    });
+
+    test("a new record's default bytes changed in place are a change from the default", () => {
+      class Stamped extends Model.define({
+        id: { type: "integer", null: false },
+        data: { type: "binary", default: () => new Uint8Array([1]) },
+      }) {
+        static table = "attachments";
+      }
+      const stamped = Stamped.build({});
+
+      stamped.data![0] = 9;
+
+      expect(stamped.changed()).toEqual(["data"]);
+    });
+
     test("a byte changed in place is a change, and saving writes it", async () => {
       const { id } = await attachments().create({ data: new Uint8Array([1, 2]) });
       const attachment = await attachments().find(id);
