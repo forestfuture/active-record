@@ -15,9 +15,10 @@ function generated(source: string): Record<string, { attributes: Record<string, 
     .replace(/^import .*$/gm, "")
     .replace(/^export const /gm, "const ")
     .replace(/ as const;/g, ";");
-  // `d1({ binding })` is the adapter's; the tables don't depend on it.
+  // `d1({ binding })` is the adapter's, and `defineSchema` gives its schema back; the tables
+  // depend on neither.
   return runInThisContext(
-    `(() => {\nconst d1 = (x) => x;\n${code}\nreturn schema.tables;\n})()`,
+    `(() => {\nconst d1 = (x) => x;\nconst defineSchema = (x) => x;\n${code}\nreturn schema.tables;\n})()`,
   ) as never;
 }
 

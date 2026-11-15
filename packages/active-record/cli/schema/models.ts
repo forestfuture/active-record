@@ -3,7 +3,9 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 import { ancestors } from "../../src/ancestors.ts";
+import { enumScopeNames } from "../../src/enum-methods.ts";
 import { isBase } from "../../src/generated-model.ts";
+import type { AttributeDefinition } from "../../src/metadata.ts";
 import {
   forgetProjectFiles,
   corePackage,
@@ -29,7 +31,7 @@ interface LoadedClass {
   name: string;
   modelName: string;
   table: string;
-  attributeDefinitions: unknown;
+  attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
 }
 
 /** The Models found so far, by class, and why any couldn't be. */
@@ -159,8 +161,9 @@ function addModel(cwd: string, file: string, exported: Exported, found: Found): 
     found.errors.push(`${shown(cwd, file)}: ${problem}`);
     return;
   }
+  let enumScopes: string[];
   try {
-    void model.attributeDefinitions;
+    enumScopes = enumScopeNames(model.attributeDefinitions);
   } catch (error) {
     found.errors.push(`${shown(cwd, file)}: ${(error as Error).message}`);
     return;
@@ -170,6 +173,7 @@ function addModel(cwd: string, file: string, exported: Exported, found: Found): 
     modelName: model.modelName,
     table: model.table,
     file,
+    ...(enumScopes.length === 0 ? {} : { enumScopes }),
   });
   found.databases.set(model, exported.database);
 }

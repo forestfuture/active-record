@@ -16,6 +16,8 @@ export interface FoundModel {
   table: string;
   /** The file that declares it. */
   file: string;
+  /** Its enum scopes (#340), which its schema lists so they're statics from the start. */
+  enumScopes?: string[];
 }
 
 /** One database, and what's on disk for it. */
