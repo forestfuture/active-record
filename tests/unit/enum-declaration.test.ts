@@ -40,6 +40,14 @@ describe("an enum's declaration, past the types (#340)", () => {
       'Sample.value has an enum "draft"; give it a list of names, or an object of names and the values they\'re stored as',
     ],
     [
+      { type: "string", enum: true },
+      "Sample.value has enum: true, which only a generated Model's override gives, for the names its database lists; give it a list of names, or an object of names and the values they're stored as",
+    ],
+    [
+      { type: "string", enum: false },
+      "Sample.value has enum: false, which only a generated Model's override gives, for the names its database lists; give it a list of names, or an object of names and the values they're stored as",
+    ],
+    [
       { type: "string", prefix: true },
       "Sample.value has a prefix but no enum; give it an enum, or remove a prefix",
     ],

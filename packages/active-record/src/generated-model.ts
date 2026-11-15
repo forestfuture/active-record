@@ -50,8 +50,8 @@ type AttributeOverride =
   | (Pick<SpecOverride, "null"> & {
       type?: "string";
       storage?: never;
-      /** Or `true`: a generated enum's names, with its methods (#64). */
-      enum?: TextEnum | true;
+      /** Or `true`: a generated enum's names, with its methods; `false`: none of it (#64). */
+      enum?: TextEnum | boolean;
     } & EnumOptions &
       ValueSource)
   | (Pick<SpecOverride, "null" | "default"> & {
@@ -362,7 +362,7 @@ function checkedOverride(
   spec: AttributeSpecs[string],
   { switched, change }: Checked,
 ): AttributeSpecs[string] {
-  const base = switchedSpec(typeof spec === "string" ? { type: spec } : spec, switched);
+  const base = switchedSpec(where, typeof spec === "string" ? { type: spec } : spec, switched);
   const changed = applyOverride(base, change);
   const problem = specProblem(where, changed);
   if (problem !== undefined) throw new InvalidModel(problem);
