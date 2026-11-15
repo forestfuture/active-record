@@ -252,13 +252,20 @@ function repeated(
   { first, second, method }: { first: string; second: string; method: string },
   checks: NameChecks,
 ): string {
-  const off = offFix(second, checks);
   if (first !== second) {
+    const off = [first, second].map((attribute) => namedOffFix(attribute, checks)).join("");
     return `${model}'s enums ${first} and ${second} both give a method named "${method}"; give one a prefix or a suffix${off}`;
   }
+  const off = offFix(second, checks);
   // A database's label can't be renamed here, but it can be mapped (#64).
   const rename = off === "" ? "rename one" : "map one to a name of your own";
   return `${model}'s enum ${first} gives "${method}" for two of its names; ${rename}${off}`;
+}
+
+/** `offFix`, naming the enum: for a message about two of them. */
+function namedOffFix(attribute: string, checks: NameChecks): string {
+  const fix = checks.methodsOffFix(attribute);
+  return fix === undefined ? "" : `, or leave ${attribute}'s methods off (remove ${fix})`;
 }
 
 /** What an enum's name checks know: the names taken, and how to leave a database enum's methods off. */

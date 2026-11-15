@@ -45,9 +45,16 @@ const doors = {
   id: { type: "integer", null: false },
   state: { type: "string", enum: ["open", "Open"], scopes: false, instanceMethods: false },
 } as const;
+// A database enum beside a plain column an override makes an enum with a shared name (#64).
+const signs = {
+  id: { type: "integer", null: false },
+  state: { type: "string", enum: ["open", "closed"], scopes: false, instanceMethods: false },
+  kind: "string",
+} as const;
 const schema = {
   adapter: d1({ binding: "DB" }),
   tables: {
+    signs: { attributes: signs, primaryKey: "id" },
     tasks: { attributes: tasks, primaryKey: "id" },
     stages: { attributes: stages, primaryKey: "id" },
     doors: { attributes: doors, primaryKey: "id" },
@@ -77,6 +84,7 @@ const schema = {
     Switched: "stages",
     OwnList: "stages",
     Door: "doors",
+    Sign: "signs",
     Switchless: "products",
   },
 } as const;
@@ -359,6 +367,22 @@ describe("a generated Model's static attributes", () => {
     expect(() => db.model(Door).build()).toThrow(
       new InvalidModel(
         `Door's enum state gives "isOpen" for two of its names; map one to a name of your own, or leave its methods off (remove enum: true)`,
+      ),
+    );
+  });
+
+  test("two enums giving one method name say which one's methods to leave off, whichever comes first (#64)", () => {
+    class Sign extends AppRecord {
+      static override table = "signs";
+      static override attributes = {
+        state: { enum: true },
+        kind: { enum: ["open", "shut"] },
+      } as const;
+    }
+
+    expect(() => db.model(Sign).build()).toThrow(
+      new InvalidModel(
+        `Sign's enums state and kind both give a method named "isOpen"; give one a prefix or a suffix, or leave state's methods off (remove enum: true)`,
       ),
     );
   });
