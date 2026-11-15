@@ -15,6 +15,7 @@ export type AttributeType =
   | "boolean"
   | "datetime"
   | "date"
+  | "time"
   | "json"
   | "binary";
 
@@ -143,7 +144,7 @@ export type BuiltInValue<T extends AttributeType> = T extends "string"
         ? Date
         : T extends "binary"
           ? Uint8Array
-          : T extends "decimal" | "date"
+          : T extends "decimal" | "date" | "time"
             ? string
             : unknown;
 
