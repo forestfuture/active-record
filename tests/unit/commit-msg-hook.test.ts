@@ -250,6 +250,23 @@ describe("the commit-msg hook on a commit's title", () => {
     expect(output).toBe("");
   });
 
+  test.each([
+    ["em dashes, counting characters", `${lineOfWords(68)} — —`],
+    ["trailing spaces, which git strips", `${lineOfWords(72)}   `],
+  ])("passes a 72-character title with %s", (_what, title) => {
+    const { status, output } = runHookEditingTheReadme(`${title}\n`);
+
+    expect(status).toBe(0);
+    expect(output).not.toContain("the limit is 72");
+  });
+
+  test("shows a refused title's backslashes as written", () => {
+    const title = `${lineOfWords(70)} a\\c b \\n c`;
+    const { output } = runHookEditingTheReadme(`${title}\n`);
+
+    expect(output).toContain(`  ${title}\n`);
+  });
+
   test("skips a long # comment line by default", () => {
     const { status, output } = runHookEditingTheReadme(
       `# ${"x".repeat(80)}\nEdit the README (#1)\n`,

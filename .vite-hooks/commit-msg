@@ -14,28 +14,31 @@ message=$(awk -v c="$comment" '
   index($0, c) == 1 { next }
   { print }' "$1")
 
+# How many characters $1 holds, in any locale. wc -c counts bytes, so this
+# drops UTF-8's continuation bytes first.
+characters() {
+  printf '%s' "$1" | LC_ALL=C tr -d '\200-\277' | wc -c | tr -d ' '
+}
+
 # Commit titles: aim for 50 characters, warn past 60, never more than 72.
-# See "Commit messages" in docs/agents/workflow.md.
+# See "Commit messages" in docs/agents/workflow.md. git strips a line's
+# trailing whitespace, a carriage return included, after the hook runs.
 title=$(printf '%s\n' "$message" | sed -n '/[^[:space:]]/{p;q;}')
-length=${#title}
+title=${title%"${title##*[![:space:]]}"}
+length=$(characters "$title")
 
 # A refused title doesn't stop the body check, so one amend fixes both.
 refused=no
 
 if [ "$length" -gt 72 ]; then
   echo "Commit title is $length characters; the limit is 72 (aim for 50):"
-  echo "  $title"
+  # printf, unlike echo, shows the title's backslashes as written.
+  printf '  %s\n' "$title"
   echo "Put the detail in the body, after a blank line."
   refused=yes
 elif [ "$length" -gt 60 ]; then
   echo "Warning: commit title is $length characters; aim for 50 or less."
 fi
-
-# How many characters $1 holds, in any locale. wc -c counts bytes, so this
-# drops UTF-8's continuation bytes first.
-characters() {
-  printf '%s' "$1" | LC_ALL=C tr -d '\200-\277' | wc -c | tr -d ' '
-}
 
 # Commit bodies wrap at 72, since git shows them as written. Each line past
 # 72 is listed, so one amend fixes them all. Lines are numbered as git
@@ -46,7 +49,7 @@ long_lines=$(printf '%s\n' "$message" | {
   past_title=no
   blank=no
   while IFS= read -r line; do
-    # git strips each line's trailing whitespace, a carriage return included.
+    # Without its trailing whitespace, as for the title.
     line=${line%"${line##*[![:space:]]}"}
     if [ -z "$line" ]; then
       [ "$past_title" = no ] || [ "$blank" = yes ] || number=$((number + 1))
@@ -70,7 +73,6 @@ long_lines=$(printf '%s\n' "$message" | {
     line_length=$(characters "$line")
     [ "$line_length" -gt 72 ] || continue
     echo "Commit body line $number is $line_length characters; wrap the body at 72:"
-    # printf, unlike echo, shows the line's backslashes as written.
     printf '  %s\n' "$line"
   done
 })
