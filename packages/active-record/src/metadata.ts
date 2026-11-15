@@ -28,6 +28,10 @@ export interface SpecObject {
   prefix?: boolean | string;
   /** A word after each enum name in its methods' names: the attribute's name for `true` (#340). */
   suffix?: boolean | string;
+  /** `false` to give the Model no scope for each enum name (#340). */
+  scopes?: boolean;
+  /** `false` to give records no predicate or `saveAs…` setter for each enum name (#340). */
+  instanceMethods?: boolean;
 }
 
 /** Where a string attribute's value comes from when it isn't given: a default or `generateId`, never both. */
@@ -55,6 +59,8 @@ export type AttributeSpec =
       enum?: never;
       prefix?: never;
       suffix?: never;
+      scopes?: never;
+      instanceMethods?: never;
     })
   | (Omit<SpecObject, "type" | "generateId" | "enum"> & {
       type: "datetime";
@@ -62,6 +68,8 @@ export type AttributeSpec =
       enum?: never;
       prefix?: never;
       suffix?: never;
+      scopes?: never;
+      instanceMethods?: never;
     });
 
 export type AttributeSpecs = Record<string, AttributeSpec>;
@@ -86,6 +94,8 @@ export interface AttributeDefinition {
   enum?: EnumValues;
   prefix?: boolean | string;
   suffix?: boolean | string;
+  scopes?: boolean;
+  instanceMethods?: boolean;
 }
 
 type JsType<T extends AttributeType> = T extends "string"

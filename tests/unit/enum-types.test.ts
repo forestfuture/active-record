@@ -69,6 +69,19 @@ describe("an enum attribute's types (#340)", () => {
     });
   });
 
+  test("scopes: false and instanceMethods: false leave those methods out of the types", () => {
+    class Quiet extends Model.define({
+      status: { type: "string", enum: ["draft"], scopes: false },
+      priority: { type: "integer", enum: { low: 0 }, instanceMethods: false },
+    }) {}
+
+    expectTypeOf<Quiet["isDraft"]>().toEqualTypeOf<() => boolean>();
+    expectTypeOf<Quiet>().not.toHaveProperty("isLow");
+    expectTypeOf<Quiet>().not.toHaveProperty("saveAsLow");
+    expectTypeOf(Quiet.low).toBeFunction();
+    expectTypeOf(Quiet).not.toHaveProperty("draft");
+  });
+
   test("an enum is a string's or an integer's, stored as that type", () => {
     Model.define({
       // @ts-expect-error a list of names is stored as text, so only a string has one

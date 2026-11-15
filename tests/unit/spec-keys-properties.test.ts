@@ -209,6 +209,8 @@ describe("a spec's keys", () => {
       enum: true,
       prefix: true,
       suffix: true,
+      scopes: true,
+      instanceMethods: true,
     } satisfies Record<keyof SpecObject, true>;
 
     expect(overridableKeyNames.split(", ")).toEqual(
