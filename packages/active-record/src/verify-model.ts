@@ -6,6 +6,8 @@ import { attributesNamedInMessages } from "./error-messages.ts";
 import { declared, seal } from "./declarations.ts";
 import { InvalidModel } from "./errors.ts";
 import { Model, type ModelClass } from "./model.ts";
+import { enumNameProblem } from "./enum-methods.ts";
+import { isReservedScopeName } from "./scoped-relation.ts";
 import { specProblem } from "./spec-keys.ts";
 import { isGenerated, settleGenerated } from "./generated-model.ts";
 import { checkValidatedNames } from "./validations.ts";
@@ -25,6 +27,7 @@ export function verifyModel(model: ModelClass): void {
   requirePrimaryKeyAttribute(model);
   rejectReservedAttributeNames(model);
   rejectBadSpecs(model);
+  rejectEnumNameClashes(model);
   for (const validation of declared(model, "validations")) checkValidatedNames(model, validation);
   rejectUnknownHiddenAttributes(model);
   rejectUnknownMessageNames(model);
@@ -67,6 +70,16 @@ function rejectBadSpecs(model: ModelClass): void {
     const problem = specProblem(`${model.name}.${name}`, definition);
     if (problem !== undefined) throw new InvalidModel(problem);
   }
+}
+
+/** An enum whose methods' names clash with each other's or with names already taken (#340). */
+function rejectEnumNameClashes(model: ModelClass): void {
+  const problem = enumNameProblem(model, {
+    isRecordName: (name) => name in Model.prototype,
+    isReservedStatic: isReservedScopeName,
+    staticOf: (name) => (model as unknown as Record<string, unknown>)[name],
+  });
+  if (problem !== undefined) throw new InvalidModel(problem);
 }
 
 /** `perPage` and `maxPerPage` are page sizes: whole numbers from 1, so the cap always holds. */
