@@ -166,7 +166,7 @@ describe("comparison's message", () => {
     floor: "string",
   }) {
     static table = "members";
-    static override filterAttributes = ["pin"];
+    static override filterAttributes = ["pin", "old_pin"];
     static {
       this.validates("pin", {
         comparison: { otherThan: (member) => member.oldPin, greaterThan: (member) => member.floor },
@@ -193,6 +193,24 @@ describe("comparison's message", () => {
     const member = members.build({ pin: "1234", oldPin: "9999", floor: "5000" });
 
     expect(await errorsOf(member)).toEqual(["pin greaterThan: must be greater than 5000"]);
+  });
+
+  test("matches a Date bound with a filtered Date by its time", async () => {
+    class Visit extends Model.define({ id: "integer", at: "datetime", secretAt: "datetime" }) {
+      static table = "visits";
+      static override filterAttributes = ["secret_at"];
+      static {
+        // A copy, so it matches by time rather than as the same object.
+        const copyOf = (date: Date | null) => date && new Date(date.getTime());
+        this.validates("at", { comparison: { otherThan: (visit) => copyOf(visit.secretAt) } });
+      }
+    }
+    const at = new Date(Date.UTC(2026, 0, 1));
+    const visit = connect({} as never)
+      .model(Visit)
+      .build({ at, secretAt: new Date(at.getTime()) });
+
+    expect(await errorsOf(visit)).toEqual(["at otherThan: must be other than [FILTERED]"]);
   });
 });
 
@@ -224,7 +242,7 @@ describe("comparison with null, and values it can't compare", () => {
     expect(await errorsOf(shift)).toEqual(["endsAt blank: can't be blank"]);
   });
 
-  test("a string that's only whitespace is blank, as null is", async () => {
+  test("a string that's only whitespace is blank", async () => {
     class Grade extends Model.define({ id: "integer", letter: "string" }) {
       static table = "grades";
       static {
@@ -244,24 +262,48 @@ describe("comparison with null, and values it can't compare", () => {
     expect(await errorsOf(shift)).toEqual([]);
   });
 
-  test("no bound but otherThan holds against NaN or an invalid Date", async () => {
-    class Reading extends Model.define({ id: "integer", level: "real", takenAt: "datetime" }) {
+  test("a NaN bound fails greaterThanOrEqualTo", async () => {
+    class Reading extends Model.define({ id: "integer", level: "real" }) {
       static table = "readings";
       static {
-        this.validates("level", {
-          comparison: { greaterThanOrEqualTo: Number.NaN, otherThan: Number.NaN },
-        });
-        this.validates("takenAt", { comparison: { equalTo: new Date(Number.NaN) } });
+        this.validates("level", { comparison: { greaterThanOrEqualTo: Number.NaN } });
       }
     }
     const reading = connect({} as never)
       .model(Reading)
-      .build({ level: 1, takenAt: new Date(0) });
+      .build({ level: 1 });
 
     expect(await errorsOf(reading)).toEqual([
       "level greaterThanOrEqualTo: must be greater than or equal to NaN",
-      "takenAt equalTo: must be equal to Invalid Date",
     ]);
+  });
+
+  test("a NaN bound passes otherThan", async () => {
+    class Gauge extends Model.define({ id: "integer", level: "real" }) {
+      static table = "gauges";
+      static {
+        this.validates("level", { comparison: { otherThan: Number.NaN } });
+      }
+    }
+    const gauge = connect({} as never)
+      .model(Gauge)
+      .build({ level: 1 });
+
+    expect(await errorsOf(gauge)).toEqual([]);
+  });
+
+  test("an invalid Date bound fails equalTo, shown as Invalid Date", async () => {
+    class Sample extends Model.define({ id: "integer", takenAt: "datetime" }) {
+      static table = "samples";
+      static {
+        this.validates("takenAt", { comparison: { equalTo: new Date(Number.NaN) } });
+      }
+    }
+    const sample = connect({} as never)
+      .model(Sample)
+      .build({ takenAt: new Date(0) });
+
+    expect(await errorsOf(sample)).toEqual(["takenAt equalTo: must be equal to Invalid Date"]);
   });
 
   test("a value of another type than its bound throws TypeError", async () => {
