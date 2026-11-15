@@ -261,13 +261,13 @@ describe("the commit-msg hook on a commit's title", () => {
 });
 
 /** A line of `length` characters, made of words. */
-function words(length: number): string {
+function lineOfWords(length: number): string {
   return "word ".repeat(length).slice(0, length - 1) + "x";
 }
 
 describe("the commit-msg hook on a commit's body", () => {
   test("refuses a body line past 72 characters, naming it", () => {
-    const line = words(73);
+    const line = lineOfWords(73);
     const { status, output } = runHookEditingTheReadme(`Edit the README (#1)\n\n${line}\n`);
 
     expect(status).toBe(1);
@@ -276,9 +276,9 @@ describe("the commit-msg hook on a commit's body", () => {
   });
 
   test.each([
-    ["blank lines before the title", `\n\nEdit the README (#1)\n\n${words(73)}\n`],
-    ["a run of blank lines", `Edit the README (#1)\n\n\n \n${words(73)}\n`],
-    ["a comment", `# A comment\nEdit the README (#1)\n\n${words(73)}\n`],
+    ["blank lines before the title", `\n\nEdit the README (#1)\n\n${lineOfWords(73)}\n`],
+    ["a run of blank lines", `Edit the README (#1)\n\n\n \n${lineOfWords(73)}\n`],
+    ["a comment", `# A comment\nEdit the README (#1)\n\n${lineOfWords(73)}\n`],
   ])("numbers a refused line as git stores the message, past %s", (_what, message) => {
     const { output } = runHookEditingTheReadme(message);
 
@@ -286,21 +286,23 @@ describe("the commit-msg hook on a commit's body", () => {
   });
 
   test("shows a refused line's backslashes as written", () => {
-    const line = `${words(70)} a\\c b \\n c`;
+    const line = `${lineOfWords(70)} a\\c b \\n c`;
     const { output } = runHookEditingTheReadme(`Edit the README (#1)\n\n${line}\n`);
 
     expect(output).toContain(`  ${line}\n`);
   });
 
   test("passes a body line of 72 characters", () => {
-    const { status, output } = runHookEditingTheReadme(`Edit the README (#1)\n\n${words(72)}\n`);
+    const { status, output } = runHookEditingTheReadme(
+      `Edit the README (#1)\n\n${lineOfWords(72)}\n`,
+    );
 
     expect(status).toBe(0);
     expect(output).toBe("");
   });
 
   test("counts a body line's characters, not its bytes", () => {
-    const line = `${words(68)} — —`;
+    const line = `${lineOfWords(68)} — —`;
     const { status, output } = runHookEditingTheReadme(`Edit the README (#1)\n\n${line}\n`);
 
     expect(line).toHaveLength(72);
@@ -313,7 +315,7 @@ describe("the commit-msg hook on a commit's body", () => {
     ["a carriage return", "\r"],
   ])("passes a 72-character body line followed by %s, which git strips", (_what, end) => {
     const { status, output } = runHookEditingTheReadme(
-      `Edit the README (#1)\n\n${words(72)}${end}\n`,
+      `Edit the README (#1)\n\n${lineOfWords(72)}${end}\n`,
     );
 
     expect(status).toBe(0);
@@ -336,8 +338,8 @@ describe("the commit-msg hook on a commit's body", () => {
   });
 
   test.each([
-    ["a comment", `Edit the README (#1)\n\n# ${words(80)}\n`],
-    ["git commit -v's diff", `Edit the README (#1)\n\n${verboseDiff}+${words(80)}\n`],
+    ["a comment", `Edit the README (#1)\n\n# ${lineOfWords(80)}\n`],
+    ["git commit -v's diff", `Edit the README (#1)\n\n${verboseDiff}+${lineOfWords(80)}\n`],
   ])("skips a long line in %s", (_where, message) => {
     const { status, output } = runHookEditingTheReadme(message);
 
@@ -346,7 +348,9 @@ describe("the commit-msg hook on a commit's body", () => {
   });
 
   test("lists long body lines beside a long title", () => {
-    const { status, output } = runHookEditingTheReadme(`${words(73)}\n\n${words(73)}\n`);
+    const { status, output } = runHookEditingTheReadme(
+      `${lineOfWords(73)}\n\n${lineOfWords(73)}\n`,
+    );
 
     expect(status).toBe(1);
     expect(output).toContain("Commit title is 73 characters");
@@ -355,7 +359,7 @@ describe("the commit-msg hook on a commit's body", () => {
 
   test("refuses a long indented line that has spaces", () => {
     const { status, output } = runHookEditingTheReadme(
-      `Edit the README (#1)\n\n    ${words(73)}\n`,
+      `Edit the README (#1)\n\n    ${lineOfWords(73)}\n`,
     );
 
     expect(status).toBe(1);
@@ -364,7 +368,7 @@ describe("the commit-msg hook on a commit's body", () => {
 
   test("lists every long line", () => {
     const { status, output } = runHookEditingTheReadme(
-      `Edit the README (#1)\n\n${words(73)}\nShort.\n${words(80)}\n`,
+      `Edit the README (#1)\n\n${lineOfWords(73)}\nShort.\n${lineOfWords(80)}\n`,
     );
 
     expect(status).toBe(1);
