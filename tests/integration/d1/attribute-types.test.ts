@@ -67,3 +67,36 @@ describe("attribute types", () => {
     expect(await records.order({ id: "asc" }).pluck("value")).toEqual(jsonValues);
   });
 });
+
+class Amount extends Model.define({ id: { type: "integer", null: false }, value: "decimal" }) {
+  static table = "amounts";
+}
+
+// SQLite keeps decimal text in a DECIMAL column as a REAL or an INTEGER (#391).
+describe("decimal attributes on D1", () => {
+  let binding: TestDatabase;
+  let dispose: () => Promise<void>;
+  const amounts = () => connect(binding).model(Amount);
+
+  beforeAll(async () => {
+    ({ db: binding, dispose } = await createTestDatabase());
+    await binding.exec("CREATE TABLE amounts (id INTEGER PRIMARY KEY, value DECIMAL)");
+  });
+  afterAll(() => dispose());
+
+  test("a decimal keeps about 15 significant digits", async () => {
+    const { id } = await amounts().create({ value: "1.2345678901234567891" });
+
+    const { value } = await amounts().find(id);
+
+    expect(value).toBe("1.234567890123457");
+  });
+
+  test("a whole number past a safe integer is a TypeError when read: its digits are lost", async () => {
+    await binding.exec("INSERT INTO amounts (id, value) VALUES (7, '12345678901234567890')");
+
+    await expect(amounts().find(7)).rejects.toThrow(
+      new TypeError('Amount: 12345678901234567000 isn\'t a decimal for "value"'),
+    );
+  });
+});
