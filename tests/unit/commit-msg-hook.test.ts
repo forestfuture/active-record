@@ -294,4 +294,24 @@ describe("the commit-msg hook on a commit's body", () => {
     expect(status).toBe(0);
     expect(output).toBe("");
   });
+
+  test.each([
+    ["a comment", `Edit the README (#1)\n\n# ${words(80)}\n`],
+    ["git commit -v's diff", `Edit the README (#1)\n\n${verboseDiff}+${words(80)}\n`],
+  ])("skips a long line in %s", (_where, message) => {
+    const { status, output } = runHookEditingTheReadme(message);
+
+    expect(status).toBe(0);
+    expect(output).toBe("");
+  });
+
+  test("lists every long line, numbered as git stores the message", () => {
+    const { status, output } = runHookEditingTheReadme(
+      `# A comment\nEdit the README (#1)\n\n${words(73)}\nShort.\n${words(80)}\n`,
+    );
+
+    expect(status).toBe(1);
+    expect(output).toContain("Commit body line 3 is 73 characters");
+    expect(output).toContain("Commit body line 5 is 80 characters");
+  });
 });
