@@ -1,5 +1,5 @@
-# Checks a commit's message: its title's length, and that a tests-only commit
-# says its tests are guards.
+# Checks a commit's message: the length of its title and body lines, and that
+# a tests-only commit says its tests are guards.
 
 # Lines that open with git's comment character aren't part of the message,
 # which ends at git commit -v's scissors line; the diff follows it. With
