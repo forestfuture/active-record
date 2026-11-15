@@ -92,11 +92,11 @@ describe("decimal attributes on D1", () => {
     expect(value).toBe("1.234567890123457");
   });
 
-  test("a whole number past a safe integer is a TypeError when read: its digits are lost", async () => {
-    await binding.exec("INSERT INTO amounts (id, value) VALUES (7, '12345678901234567890')");
+  test("a whole number past a safe integer saves, and reads rounded as any decimal is", async () => {
+    const { id } = await amounts().create({ value: "12345678901234567890" });
 
-    await expect(amounts().find(7)).rejects.toThrow(
-      new TypeError('Amount: 12345678901234567000 isn\'t a decimal for "value"'),
-    );
+    const { value } = await amounts().find(id);
+
+    expect(value).toBe("12345678901234570000");
   });
 });
