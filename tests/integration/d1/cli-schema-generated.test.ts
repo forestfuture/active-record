@@ -67,7 +67,7 @@ describe("a schema generated from migrations", () => {
     expectTypeOf<Product["priceCents"]>().toEqualTypeOf<number>();
     expectTypeOf<Product["rating"]>().toEqualTypeOf<number | null>();
     expectTypeOf<Product["available"]>().toEqualTypeOf<boolean>();
-    expectTypeOf<Product["releasedOn"]>().toEqualTypeOf<Date | null>();
+    expectTypeOf<Product["releasedOn"]>().toEqualTypeOf<string | null>();
     expectTypeOf<Product["tagline"]>().toEqualTypeOf<string | null>();
   });
 
@@ -81,7 +81,7 @@ describe("a schema generated from migrations", () => {
     await built.update({
       rating: 4.5,
       settings: { colour: "brass", sizes: [1, 2] },
-      releasedOn: new Date("2026-01-02T00:00:00.000Z"),
+      releasedOn: "2026-01-02",
     });
 
     const read = await db.model(Product).find(built.id);
@@ -93,7 +93,7 @@ describe("a schema generated from migrations", () => {
       rating: 4.5,
       available: true,
       settings: { colour: "brass", sizes: [1, 2] },
-      releasedOn: new Date("2026-01-02T00:00:00.000Z"),
+      releasedOn: "2026-01-02",
       createdAt: expect.any(Date),
       updatedAt: expect.any(Date),
       tagline: "New!",
