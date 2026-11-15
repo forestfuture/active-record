@@ -1,6 +1,8 @@
-// An enum attribute's methods (#340): a record's predicates (`isPublished()`) and `saveAs…` setters, and their names.
+// An enum attribute's methods (#340): a record's predicates (`isPublished()`) and `saveAs…` setters,
+// a Model's scopes (`published()`, `notPublished()`), and their names.
 import { enumEntries, type EnumNames, type EnumValues } from "./enum-values.ts";
 import type { AttributeDefinition } from "./metadata.ts";
+import type { ScopeStatic } from "./model.ts";
 
 /** `S` in camelCase, as a method names it: `in_progress` → `inProgress`. */
 type CamelCase<S extends string> = S extends `${infer Head}_${infer Tail}`
@@ -76,3 +78,55 @@ function defineMethod(target: object, name: string, method: (...args: never[]) =
   Object.defineProperty(method, "name", { value: name });
   Object.defineProperty(target, name, { value: method, writable: true, configurable: true });
 }
+
+/** How an enum's name reads as a scope: `in_progress` → `inProgress`. */
+type ScopePart<N extends string> = Uncapitalize<MethodPart<N>>;
+
+/** Every scope name the enums of the specs `A` give a Model: `draft`, `notDraft`, … */
+type ScopeNames<A> = {
+  [K in keyof A]: ScopePart<NamesOf<A[K]>> | `not${MethodPart<NamesOf<A[K]>>}`;
+}[keyof A];
+
+/** What the enums of the specs `A` add to a Model: a scope for each name, and a `not…` scope. */
+export type EnumStatics<A> = { [P in ScopeNames<A>]: ScopeStatic<[]> };
+
+/** The class an enum's scopes are declared on: what `this.scope(…)` is called on. */
+interface ScopeDeclaring {
+  scope(body: (relation: Conditioned) => Conditioned): unknown;
+}
+
+/** The part of a Relation an enum's scopes use. */
+interface Conditioned {
+  where(conditions: Record<string, unknown>): Conditioned;
+  whereNot(conditions: Record<string, unknown>): Conditioned;
+}
+
+/**
+ * Defines each enum attribute's scopes on `model`, as `this.scope(…)` statics: `published()` is
+ * `where({ status: "published" })`, and `notPublished()` is `whereNot(…)`, as Rails' are.
+ */
+export function defineEnumStatics(
+  model: object,
+  definitions: ReadonlyMap<string, AttributeDefinition>,
+): void {
+  const declaring = model as ScopeDeclaring;
+  for (const [attribute, { enum: values }] of definitions) {
+    if (values === undefined) continue;
+    for (const [name] of enumEntries(values)) {
+      const part = methodPart(name);
+      const scopes = {
+        [uncapitalized(part)]: declaring.scope((q) => q.where({ [attribute]: name })),
+        [`not${part}`]: declaring.scope((q) => q.whereNot({ [attribute]: name })),
+      };
+      for (const [scopeName, scope] of Object.entries(scopes)) {
+        Object.defineProperty(model, scopeName, {
+          value: scope,
+          writable: true,
+          configurable: true,
+        });
+      }
+    }
+  }
+}
+
+const uncapitalized = (text: string): string => text.charAt(0).toLowerCase() + text.slice(1);
