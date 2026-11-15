@@ -192,6 +192,10 @@ describe("filterAttributes", () => {
       expect(await hiddenNames(named(["apiKey"]))).toEqual(["apiKey"]);
     });
 
+    test("a string with capitals inside a word still matches it lowercased", async () => {
+      expect(await hiddenNames(named(["NickName"]))).toEqual(["nickname"]);
+    });
+
     test("a string written in snake_case matches the attribute", async () => {
       expect(await hiddenNames(named(["api_key"]))).toEqual(["apiKey"]);
     });
