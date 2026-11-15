@@ -118,12 +118,15 @@ function mappingOf(values: EnumValues): Readonly<Record<string, string | number>
   return mapping;
 }
 
+/** A Model, as its enums are read from it: its name, and its attributes' definitions. */
+export interface EnumModel {
+  readonly name: string;
+  readonly attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
+}
+
 /** `model`'s enum `attribute`'s mapping, or `UnknownAttribute` for a name that isn't an enum's. */
 export function enumValuesOf(
-  model: {
-    readonly name: string;
-    readonly attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
-  },
+  model: EnumModel,
   attribute: string,
 ): Readonly<Record<string, string | number>> {
   const values = model.attributeDefinitions.get(attribute)?.enum;

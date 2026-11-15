@@ -1,6 +1,6 @@
 // An enum attribute's methods (#340): a record's predicates (`isPublished()`) and `saveAs…` setters,
 // a Model's scopes (`published()`, `notPublished()`), and their names.
-import { enumEntries, type EnumNames, type EnumValues } from "./enum-values.ts";
+import { enumEntries, type EnumModel, type EnumNames, type EnumValues } from "./enum-values.ts";
 import type { AttributeDefinition } from "./metadata.ts";
 import type { ScopeStatic } from "./model.ts";
 
@@ -49,28 +49,36 @@ export type EnumStatics<A> = {
   [P in Uncapitalize<ScopeStems<A>> | `not${ScopeStems<A>}`]: ScopeStatic<[]>;
 };
 
-/** One name of an enum attribute, the stem of its methods' names, and which methods it gets. */
+/**
+ * One name of an enum attribute, and the methods it gives (#340): on records, its predicate and
+ * setters, and on its Model, its scope and `not…` scope; none of either it's declared without.
+ */
 interface EnumName {
   attribute: string;
   name: string;
-  stem: string;
-  hasScopes: boolean;
-  hasInstanceMethods: boolean;
+  /** `isPublished`, `saveAsPublished`, `saveAsPublishedOrThrow`, as `EnumMethods` types them. */
+  records: string[];
+  /** `published`, `notPublished`, as `EnumStatics` types them. */
+  scopes: string[];
 }
 
-/** Each name of every enum attribute, with its stem, as `Stems` types it. */
+/** Each name of every enum attribute, with the methods it gives. */
 function enumNames(definitions: ReadonlyMap<string, AttributeDefinition>): EnumName[] {
   return [...definitions].flatMap(([attribute, definition]) => {
     if (definition.enum === undefined) return [];
     const before = affix(attribute, definition.prefix);
     const after = affix(attribute, definition.suffix);
-    return enumEntries(definition.enum).map(([name]) => ({
-      attribute,
-      name,
-      stem: `${before}${methodPart(name)}${after}`,
-      hasScopes: definition.scopes !== false,
-      hasInstanceMethods: definition.instanceMethods !== false,
-    }));
+    return enumEntries(definition.enum).map(([name]) => {
+      const stem = `${before}${methodPart(name)}${after}`;
+      const records = [`is${stem}`, `saveAs${stem}`, `saveAs${stem}OrThrow`];
+      const scopes = [uncapitalized(stem), `not${stem}`];
+      return {
+        attribute,
+        name,
+        records: definition.instanceMethods === false ? [] : records,
+        scopes: definition.scopes === false ? [] : scopes,
+      };
+    });
   });
 }
 
@@ -81,9 +89,7 @@ function affix(attribute: string, option: boolean | string | undefined): string 
 
 /** The scopes the enums of `definitions` give a Model, as `EnumStatics` types them. */
 export function enumScopeNames(definitions: ReadonlyMap<string, AttributeDefinition>): string[] {
-  return enumNames(definitions)
-    .filter((each) => each.hasScopes)
-    .flatMap(({ stem }) => [uncapitalized(stem), `not${stem}`]);
+  return enumNames(definitions).flatMap(({ scopes }) => scopes);
 }
 
 /** How a word reads inside a method's name, as `MethodPart` types it. */
@@ -110,15 +116,16 @@ export function defineEnumMethods(
   prototype: object,
   definitions: ReadonlyMap<string, AttributeDefinition>,
 ): void {
-  for (const { attribute, name, stem, hasInstanceMethods } of enumNames(definitions)) {
-    if (!hasInstanceMethods) continue;
-    defineMethod(prototype, `is${stem}`, function (this: Record<string, unknown>) {
+  for (const { attribute, name, records } of enumNames(definitions)) {
+    const [predicate, setter, throwingSetter] = records;
+    if (predicate === undefined) continue;
+    defineMethod(prototype, predicate, function (this: Record<string, unknown>) {
       return this[attribute] === name;
     });
-    defineMethod(prototype, `saveAs${stem}`, function (this: Updatable) {
+    defineMethod(prototype, setter!, function (this: Updatable) {
       return this.update({ [attribute]: name });
     });
-    defineMethod(prototype, `saveAs${stem}OrThrow`, function (this: Updatable) {
+    defineMethod(prototype, throwingSetter!, function (this: Updatable) {
       return this.updateOrThrow({ [attribute]: name });
     });
   }
@@ -144,14 +151,15 @@ export function defineEnumStatics(
   definitions: ReadonlyMap<string, AttributeDefinition>,
 ): void {
   const declaring = model as ScopeDeclaring;
-  for (const { attribute, name, stem, hasScopes } of enumNames(definitions)) {
-    if (!hasScopes) continue;
-    const only = declaring.scope((q) => q.where({ [attribute]: name }));
-    const without = declaring.scope((q) => q.whereNot({ [attribute]: name }));
-    enumScopes.add(only);
-    enumScopes.add(without);
-    defineMethod(model, uncapitalized(stem), only, { named: false });
-    defineMethod(model, `not${stem}`, without, { named: false });
+  for (const { attribute, name, scopes } of enumNames(definitions)) {
+    const [only, without] = scopes;
+    if (only === undefined) continue;
+    const onlyScope = declaring.scope((q) => q.where({ [attribute]: name }));
+    const withoutScope = declaring.scope((q) => q.whereNot({ [attribute]: name }));
+    enumScopes.add(onlyScope);
+    enumScopes.add(withoutScope);
+    defineMethod(model, only, onlyScope, { named: false });
+    defineMethod(model, without!, withoutScope, { named: false });
   }
 }
 
@@ -183,34 +191,24 @@ export interface TakenNames {
   staticOf(name: string): unknown;
 }
 
-/** A Model, as the check on its enums' names reads it. */
-interface NamedModel {
-  readonly name: string;
-  readonly attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
-}
-
 /**
  * Why an enum's method names can't be as they are, or undefined: two enums give one name, or one
  * takes the name of a record method, an attribute, a Relation method, a Model static, or a static
  * the Model declares itself. Rails refuses the same when an enum is declared.
  */
-export function enumNameProblem(model: NamedModel, taken: TakenNames): string | undefined {
+export function enumNameProblem(model: EnumModel, taken: TakenNames): string | undefined {
   const givenBy = new Map<string, string>();
   for (const each of enumNames(model.attributeDefinitions)) {
-    const { attribute, stem } = each;
-    const records = each.hasInstanceMethods
-      ? [`is${stem}`, `saveAs${stem}`, `saveAs${stem}OrThrow`]
-      : [];
-    const statics = each.hasScopes ? [uncapitalized(stem), `not${stem}`] : [];
-    for (const method of [...records, ...statics]) {
+    const { attribute, records, scopes } = each;
+    for (const method of [...records, ...scopes]) {
       const other = givenBy.get(method);
       if (other !== undefined) return repeated(model.name, other, attribute, method);
       givenBy.set(method, attribute);
     }
     const problem =
-      declarableProblem(model, each, [...records, ...statics]) ??
+      declarableProblem(model, each, [...records, ...scopes]) ??
       recordProblem(model, attribute, records, taken) ??
-      staticProblem(model, attribute, statics, taken);
+      staticProblem(model, attribute, scopes, taken);
     if (problem !== undefined) return problem;
   }
   return undefined;
@@ -235,7 +233,7 @@ const reservedWords = new Set(
  * schema couldn't declare as a static.
  */
 function declarableProblem(
-  model: NamedModel,
+  model: EnumModel,
   { attribute, name }: EnumName,
   methods: readonly string[],
 ): string | undefined {
@@ -259,7 +257,7 @@ function repeated(model: string, first: string, second: string, method: string):
 const remedy = (attribute: string) => `give ${attribute} a prefix or a suffix`;
 
 function recordProblem(
-  model: NamedModel,
+  model: EnumModel,
   attribute: string,
   methods: readonly string[],
   taken: TakenNames,
@@ -278,7 +276,7 @@ function recordProblem(
 }
 
 function staticProblem(
-  model: NamedModel,
+  model: EnumModel,
   attribute: string,
   scopes: readonly string[],
   taken: TakenNames,
