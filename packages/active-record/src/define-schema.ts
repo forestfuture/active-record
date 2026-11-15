@@ -1,5 +1,5 @@
 // `defineSchema`: a generated schema, whose Models' enum scopes are statics from the start (#340).
-import { ancestors } from "./ancestors.ts";
+import { ancestors, staticBelow } from "./ancestors.ts";
 import { readyModel } from "./associations.ts";
 import type { DatabaseSchema } from "./generated-model.ts";
 import { Model, type ModelClass } from "./model.ts";
@@ -41,12 +41,7 @@ function enumScopeOf(model: ModelClass, name: string): unknown {
   if (!isListedFor(model, name)) return undefined;
   readyModel(model);
   // The scope readying defined, on the Model or a class it extends: never this getter again.
-  for (const each of ancestors(model)) {
-    if (each === Model) break;
-    const found = Object.getOwnPropertyDescriptor(each, name);
-    if (found !== undefined) return found.value;
-  }
-  return undefined;
+  return staticBelow(model, Model, name)?.value;
 }
 
 /**
