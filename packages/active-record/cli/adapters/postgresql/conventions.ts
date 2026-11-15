@@ -83,16 +83,26 @@ function parsedDefault(text: string, type: "json" | "datetime"): Default | undef
   }
 }
 
+/**
+ * The types whose default stays with Postgres: a spec has no literal for bytes (#20), and
+ * decimals' and days' defaults aren't read yet (#391).
+ */
+const unliteral: readonly AttributeType[] = ["binary", "decimal", "date"];
+
+function hasLiteral<T extends AttributeType>(
+  type: T,
+): type is Exclude<T, "binary" | "decimal" | "date"> {
+  return !unliteral.includes(type);
+}
+
 /** A literal default as a value of the attribute's type; undefined for a function or anything else. */
 function literalDefault(sql: string | null, type: AttributeType): Default | undefined {
-  // A spec has no literal for bytes, so a binary column's default stays with Postgres (#20).
-  if (sql === null || type === "binary") return undefined;
+  if (sql === null || !hasLiteral(type)) return undefined;
   const text = literalText(sql.trim());
   if (text === undefined) return undefined;
   if (type === "boolean")
     return /^(true|false)$/i.test(text) ? { literal: /^true$/i.test(text) } : undefined;
   if (type === "integer" || type === "real") return numberDefault(text, type);
-  if (type === "decimal") return undefined;
   return type === "string" ? { literal: text } : parsedDefault(text, type);
 }
 

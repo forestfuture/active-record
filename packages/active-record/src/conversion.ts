@@ -1,5 +1,6 @@
 // Converting values between attribute types and what D1 stores, per attribute type, for enums, and for custom types (#20).
 import { castBinary, readBinary } from "./binary-values.ts";
+import { castDay } from "./calendar-values.ts";
 import { castDecimal, readDecimal } from "./decimal-values.ts";
 import { enumEntries, type EnumValues } from "./enum-values.ts";
 import type { EpochStorage } from "./epoch-storage.ts";
@@ -68,6 +69,7 @@ const converters: Record<ConversionKey, Converter> = {
     read: readBinary,
     write: (value) => Uint8Array.from(value as Uint8Array),
   },
+  date: { cast: castDay, read: castDay, write: identity },
   decimal: { cast: castDecimal, read: readDecimal, write: identity },
 };
 
