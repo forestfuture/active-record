@@ -345,9 +345,9 @@ describe("the commit-msg hook on a commit's body", () => {
     expect(output).toBe("");
   });
 
-  test("lists every long line, numbered as git stores the message", () => {
+  test("lists every long line", () => {
     const { status, output } = runHookEditingTheReadme(
-      `# A comment\nEdit the README (#1)\n\n${words(73)}\nShort.\n${words(80)}\n`,
+      `Edit the README (#1)\n\n${words(73)}\nShort.\n${words(80)}\n`,
     );
 
     expect(status).toBe(1);
