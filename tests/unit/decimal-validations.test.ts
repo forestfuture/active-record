@@ -115,3 +115,33 @@ describe("comparison on a decimal", () => {
     );
   });
 });
+
+// A bound of NaN or Infinity orders against a decimal as it does against a number (#391).
+describe("a decimal against a bound of NaN or Infinity", () => {
+  async function failures(rules: Record<string, unknown>, total = "5") {
+    class Sample extends Model.define({ id: "integer", total: "decimal" }) {
+      static table = "samples";
+      static {
+        this.validates("total", rules as never);
+      }
+    }
+    const sample = connect({} as never)
+      .model(Sample)
+      .build({ total });
+    await sample.isValid();
+    return sample.errors.toArray().map(({ type }) => type);
+  }
+
+  test("against NaN, only comparison's otherThan holds", async () => {
+    expect(await failures({ comparison: { otherThan: Number.NaN } })).toEqual([]);
+    expect(await failures({ comparison: { greaterThan: Number.NaN } })).toEqual(["greaterThan"]);
+  });
+
+  test("Infinity bounds every decimal, in numericality and comparison", async () => {
+    expect(await failures({ numericality: { lessThan: Number.POSITIVE_INFINITY } })).toEqual([]);
+    expect(await failures({ comparison: { greaterThan: Number.NEGATIVE_INFINITY } })).toEqual([]);
+    expect(await failures({ comparison: { greaterThan: Number.POSITIVE_INFINITY } })).toEqual([
+      "greaterThan",
+    ]);
+  });
+});
