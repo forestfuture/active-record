@@ -28,7 +28,12 @@ import {
   writersExample,
 } from "../../../site/snippets/guide/associations.ts";
 import * as batches from "../../../site/snippets/guide/batches.ts";
-import { addExample, Booking, errorsExample } from "../../../site/snippets/guide/validations.ts";
+import {
+  addExample,
+  Booking,
+  errorsExample,
+  Event,
+} from "../../../site/snippets/guide/validations.ts";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runGenerate } from "../../../packages/active-record/cli/generate/command.ts";
@@ -254,23 +259,34 @@ describe("the guide's examples", () => {
   });
 
   test("Validations: a custom rule added in afterValidation makes the record invalid", async () => {
-    const at = new Date("2026-05-01T10:00:00Z");
-    const booking = connect(binding).model(Booking).build({ startsAt: at, endsAt: at });
+    const startsAt = new Date("2026-05-01T10:15:00Z");
+    const endsAt = new Date("2026-05-01T11:00:00Z");
+    const booking = connect(binding).model(Booking).build({ startsAt, endsAt });
 
     expect(await booking.isValid()).toBe(false);
-    expect(booking.errors.fullMessages()).toEqual(["Ends at must be after the start"]);
+    expect(booking.errors.fullMessages()).toEqual(["Starts at must be on the hour"]);
   });
 
   test("Validations: errors added in a callback read as the add example shows", async () => {
     const booking = await withDatabase(connect(binding), () => addExample());
 
     expect(booking.errors.toArray()).toEqual([
-      { attribute: "endsAt", type: "afterStart", message: "must be after the start" },
+      { attribute: "startsAt", type: "onTheHour", message: "must be on the hour" },
       { attribute: "base", type: "invalid", message: "The room is closed on Sundays" },
     ]);
     expect(booking.errors.fullMessages()).toEqual([
-      "Ends at must be after the start",
+      "Starts at must be on the hour",
       "The room is closed on Sundays",
+    ]);
+  });
+
+  test("Validations: comparison with another attribute refuses an end before the start", async () => {
+    const startsAt = new Date("2026-05-01T10:00:00Z");
+    const event = connect(binding).model(Event).build({ startsAt, endsAt: startsAt });
+
+    expect(await event.isValid()).toBe(false);
+    expect(event.errors.fullMessages()).toEqual([
+      "Ends at must be greater than 2026-05-01T10:00:00.000Z",
     ]);
   });
 

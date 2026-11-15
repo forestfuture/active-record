@@ -26,6 +26,18 @@ export class Account extends Model.define({
 }
 // #endregion validates
 
+// #region comparison
+export class Event extends Model.define({
+  id: { type: "integer", null: false },
+  startsAt: { type: "datetime", null: false },
+  endsAt: { type: "datetime", null: false },
+}) {
+  static {
+    this.validates("endsAt", { comparison: { greaterThan: (event) => event.startsAt } });
+  }
+}
+// #endregion comparison
+
 // #region custom
 export class Booking extends Model.define({
   id: { type: "integer", null: false },
@@ -33,11 +45,11 @@ export class Booking extends Model.define({
   endsAt: { type: "datetime", null: false },
 }) {
   static {
-    this.errorMessages({ afterStart: "must be after the start" });
+    this.errorMessages({ onTheHour: "must be on the hour" });
 
     this.afterValidation((booking) => {
-      if (booking.endsAt <= booking.startsAt) {
-        booking.errors.add("endsAt", { type: "afterStart" });
+      if (booking.startsAt.getUTCMinutes() !== 0) {
+        booking.errors.add("startsAt", { type: "onTheHour" });
       }
       if (booking.startsAt.getUTCDay() === 0) {
         booking.errors.add("base", "The room is closed on Sundays");
@@ -49,14 +61,15 @@ export class Booking extends Model.define({
 
 export async function addExample() {
   // #region add
-  const sunday = new Date("2026-05-03T10:00:00Z");
-  const booking = Booking.build({ startsAt: sunday, endsAt: sunday });
+  const startsAt = new Date("2026-05-03T10:30:00Z"); // a Sunday
+  const endsAt = new Date("2026-05-03T11:30:00Z");
+  const booking = Booking.build({ startsAt, endsAt });
   await booking.isValid(); // false
 
   booking.errors.toArray();
-  // [{ attribute: "endsAt", type: "afterStart", message: "must be after the start" },
+  // [{ attribute: "startsAt", type: "onTheHour", message: "must be on the hour" },
   //  { attribute: "base", type: "invalid", message: "The room is closed on Sundays" }]
-  booking.errors.fullMessages(); // ["Ends at must be after the start", "The room is closed on Sundays"]
+  booking.errors.fullMessages(); // ["Starts at must be on the hour", "The room is closed on Sundays"]
   // #endregion add
   return booking;
 }

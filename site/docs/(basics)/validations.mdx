@@ -1,6 +1,6 @@
 ---
 title: Validations
-description: "validates with presence, length, format, inclusion, numericality, and uniqueness, their options, the errors collection, adding errors with errors.add in a callback, and changing error messages."
+description: "validates with presence, absence, length, format, inclusion, exclusion, numericality, comparison, acceptance, and uniqueness, their options, the errors collection, adding errors with errors.add in a callback, and changing error messages."
 ---
 
 Validations check a record before it’s saved. An invalid record isn’t saved, and its `errors` say why.
@@ -29,15 +29,19 @@ const valid = await account.isValid();
 | Rule           | Options                                                                                      | Error type                                     |
 | -------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | `presence`     | `true`                                                                                       | `blank`                                        |
+| `absence`      | `true`                                                                                       | `present`                                      |
 | `length`       | `{ minimum, maximum, is }`                                                                   | `tooShort`, `tooLong`, `wrongLength`           |
 | `format`       | `{ with: /re/ }`, or a regex                                                                 | `invalid`                                      |
 | `inclusion`    | `{ in: [...] }`, or an array                                                                 | `inclusion`                                    |
+| `exclusion`    | `{ in: [...] }`, or an array                                                                 | `exclusion`                                    |
 | `numericality` | `{ onlyInteger, greaterThan, greaterThanOrEqualTo, lessThan, lessThanOrEqualTo }`, or `true` | `notANumber`, `notAnInteger`, `greaterThan`, … |
+| `comparison`   | `{ greaterThan, greaterThanOrEqualTo, lessThan, lessThanOrEqualTo, equalTo, otherThan }`     | `blank`, `greaterThan`, …                      |
+| `acceptance`   | `true`, or `{ accept: [...] }`                                                               | `accepted`                                     |
 | `uniqueness`   | `{ scope: [...], caseSensitive }`, or `true`                                                 | `taken`                                        |
 
-Every validation runs, in the order declared, so one attribute can collect several errors. Every rule also accepts these options:
+Every validation runs, in the order declared, so one attribute can collect several errors. Within one `validates` call, the rules run in the table’s order. Every rule also accepts these options:
 
-- **`allowNull`** skips the rule when the value is `null`. Otherwise `null` fails `presence`, `format`, `inclusion`, and `numericality`, counts as length 0, and is never taken.
+- **`allowNull`** skips the rule when the value is `null`. Otherwise `null` fails `presence`, `format`, `inclusion`, `numericality`, and `comparison`, counts as length 0, and is never taken.
 - **`message`** replaces the default messages from that call.
 - **`if: (record) => boolean`** validates only when it returns `true`.
 
@@ -46,13 +50,31 @@ The default messages are in English: “can’t be blank”, “is too short (mi
 ### Validator details
 
 - **`presence`** fails a string that’s only whitespace. For a boolean, use `inclusion: [true, false]`, since `false` is a value.
+- **`absence`** passes what `presence` fails: `null` and a string that’s only whitespace. So `false` fails it.
 - **`inclusion`** is added for you by an [enum](./models#reading-and-assigning-other-values) declared `validate: true`.
+- **`exclusion`** passes `null` unless the list holds it.
 - **`numericality`** only accepts numbers, so a numeric string such as `"12"` is `notANumber`.
+- **`comparison`** compares a number with a number, a string with a string, or a Date with a Date by its time. A bound is a value, or a function of the record (see [Comparing with another attribute](#comparing-with-another-attribute)). A `null` value fails once, as `blank`. Comparing a number with a Date, or any two different kinds, throws `TypeError`.
+- **`acceptance`** is for a box that must be ticked. It passes `true` and `"1"`, or the values you give in `{ accept: [...] }`. It passes `null` too, since a form may leave the field out. To fail `null`, add `allowNull: false`.
 - **`uniqueness`** leaves the record itself out when updating, and never treats `null` as taken, as SQLite’s UNIQUE does. `caseSensitive: false` compares with SQLite’s `lower()`, which only lowercases ASCII letters.
 
 :::warning[Uniqueness isn’t a guarantee]
 Two requests can both check that an email is free, then both insert it. `uniqueness` gives a friendly error early, but only a UNIQUE index in the table prevents duplicates, so declare both. When the index catches a duplicate, the save throws [`RecordNotUnique`](./errors#constraint-errors).
 :::
+
+### Comparing with another attribute
+
+Give `comparison` a function to compare with another attribute. It gets the record being validated:
+
+<include>/_excerpts/guide/validations/comparison.ts</include>
+
+When the function returns `null`, that bound is skipped. Validate the other attribute’s presence to report it.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails names the other attribute with a symbol, `comparison: { greater_than: :starts_at }`. Here a function does it, so the attribute’s name is typed. Rails treats `false` as blank, so it passes `absence`; here it fails. `confirmation` isn’t here yet.
+
+</Callout>
 
 ## Reading errors
 
@@ -74,7 +96,7 @@ For a rule the validators don’t cover, add errors in a `beforeValidation` or `
 
 <include>/_excerpts/guide/validations/custom.ts</include>
 
-`errors.add` takes the attribute, or `"base"`, then either a `type` or a message. A `type` takes its message from the Model’s `errorMessages`, as `afterStart` does above. See [Changing error messages](#changing-error-messages). A message is used as written, and its type is `"invalid"`:
+`errors.add` takes the attribute, or `"base"`, then either a `type` or a message. A `type` takes its message from the Model’s `errorMessages`, as `onTheHour` does above. See [Changing error messages](#changing-error-messages). A message is used as written, and its type is `"invalid"`:
 
 <include>/_excerpts/guide/validations/add.ts</include>
 
@@ -94,7 +116,7 @@ Each validation run, from `isValid()`, `save()`, or `saveOrThrow()`, starts by c
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-Rails’ `errors.add(:ends_at, :after_start)` is `errors.add("endsAt", { type: "afterStart" })` here, since a type and a message are both strings in TypeScript. When Rails is given a message instead, that text is the type too; here the type is `"invalid"`. Rails’ `message:` and `strict:` options and its procs aren’t here.
+Rails’ `errors.add(:starts_at, :on_the_hour)` is `errors.add("startsAt", { type: "onTheHour" })` here, since a type and a message are both strings in TypeScript. When Rails is given a message instead, that text is the type too; here the type is `"invalid"`. Rails’ `message:` and `strict:` options and its procs aren’t here.
 
 </Callout>
 
