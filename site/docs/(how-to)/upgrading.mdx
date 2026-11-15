@@ -1,13 +1,13 @@
 ---
 title: Upgrading
-description: "Move an app to a new release: from 0.7 to 0.8, mark optional belongsTo associations, check code that reads a new record's changes, prepare batch writes in a callback, check what replacing a hasOne record does, regenerate the schema, and widen the type of serialized values; from 0.6 to 0.7, swap the D1 package for the core's /d1 entry and write active-record.jsonc; from d1-record 0.5 to 0.6, install the core beside the adapter and run npx active-record."
+description: "Move an app to a new release: from 0.7 to 0.8, mark optional belongsTo associations, check code that reads a new record's changes, prepare batch writes in a callback, check what replacing a hasOne record does, regenerate the schema, read DATE columns as dates, and widen the type of serialized values; from 0.6 to 0.7, swap the D1 package for the core's /d1 entry and write active-record.jsonc; from d1-record 0.5 to 0.6, install the core beside the adapter and run npx active-record."
 ---
 
 Each section moves an app up one release. Start from the release you’re on.
 
 ## Upgrading from 0.7 to 0.8
 
-In 0.8, a `belongsTo` requires its record, a batch prepares its writes in a callback, a new record’s changes run from its defaults, a `hasOne`’s new record replaces its old one, the generated schema is a `defineSchema` call, and `serialize` can give bytes. Upgrade in six steps.
+In 0.8, a `belongsTo` requires its record, a batch prepares its writes in a callback, a new record’s changes run from its defaults, a `hasOne`’s new record replaces its old one, the generated schema is a `defineSchema` call and reads a `DATE` column as a `date`, and `serialize` can give bytes. Upgrade in seven steps.
 
 ### Marking optional associations
 
@@ -52,6 +52,33 @@ npx active-record schema
 ```
 
 The generated `schema.ts` now declares `schema` with `defineSchema({ … })`, which an [enum](./models#declaring-enums)’s scopes need. Until you regenerate it, `active-record schema --check` reports it as out of date.
+
+### Reading `DATE` columns
+
+The generated schema now reads a `DATE` column as a [`date`](./models#storing-exact-numbers-days-and-times), a day’s text such as `"2026-01-02"`, where it was a `datetime`. Update code that reads one as a `Date`, or keep the attribute a `datetime` with an override:
+
+```ts
+export class Event extends ApplicationRecord {
+  static override attributes = { startsOn: "datetime" } as const;
+}
+```
+
+On D1, a `DATE` column that a `datetime` wrote holds a date and time, such as `"2026-01-02T00:00:00.000Z"`, and a `date` can’t read it. Count the rows whose time isn’t midnight:
+
+```sql
+SELECT count(*) FROM events
+WHERE length(starts_on) > 10 AND substr(starts_on, 11) <> 'T00:00:00.000Z';
+```
+
+If there are none, keep only each day:
+
+```sql
+UPDATE events SET starts_on = substr(starts_on, 1, 10) WHERE length(starts_on) > 10;
+```
+
+Postgres stores a `date` without a time, so its rows need no change.
+
+A `TIME` column is now a [`time`](./models#storing-exact-numbers-days-and-times), where it was a `string`, and reads as `"09:30:00"`. A `NUMERIC` or `DECIMAL` column is now a `decimal`, where it was an error.
 
 ### Typing serialized values
 

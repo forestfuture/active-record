@@ -72,3 +72,7 @@ D1 enforces the foreign keys a table declares with `REFERENCES`. Destroying a re
 ## Nothing rolls back after a write
 
 Once D1 has accepted a write, it’s done. An error thrown by an after-callback reaches the caller, but the record stays saved.
+
+## Decimals keep about 15 digits
+
+SQLite stores a [`decimal`](./models#storing-exact-numbers-days-and-times) as a number, so D1 keeps about 15 significant digits of it and rounds the rest: `"1.2345678901234567891"` reads back as `"1.234567890123457"`. Postgres keeps every digit.
