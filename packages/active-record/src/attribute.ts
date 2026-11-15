@@ -68,7 +68,7 @@ export class Attribute {
    */
   cast(value: unknown): unknown {
     requireDefined(this.#model, this.name, value);
-    const cast = castValue(this.#definition, value);
+    const cast = this.#byItsType(value, () => castValue(this.#definition, value));
     // A validated enum keeps an unknown value for its validation to refuse (#340).
     if (cast === uncastable && this.#isValidatedEnum()) return value;
     return this.#orRefuse(cast, value);
@@ -113,6 +113,7 @@ export class Attribute {
     try {
       stored = writeValue(this.#definition, value);
     } catch (error) {
+      if (this.#definition.customType !== undefined) throw this.#refusal(value, undefined, error);
       if (this.#definition.type !== "json") throw error;
       throw this.#refusal(value);
     }
@@ -132,7 +133,7 @@ export class Attribute {
    * attribute, with the cell hidden if it's filtered, not the parser's own error (#73, #146).
    */
   read(cell: unknown): unknown {
-    const value = readValue(this.#definition, cell);
+    const value = this.#byItsType(cell, () => readValue(this.#definition, cell));
     if (value === uncastable) throw this.#refusal(cell);
     return value;
   }
@@ -167,6 +168,19 @@ export class Attribute {
     return cast;
   }
 
+  /**
+   * `convert`'s result. What a custom type's own function throws for `value` is refused as any
+   * value its type can't hold, with the type's error as the cause (#20).
+   */
+  #byItsType(value: unknown, convert: () => unknown): unknown {
+    try {
+      return convert();
+    } catch (error) {
+      if (this.#definition.customType === undefined) throw error;
+      throw this.#refusal(value, undefined, error);
+    }
+  }
+
   /** Whether the attribute's values are hidden from listeners and errors (#83). */
   #isHidden(): boolean {
     return isFiltered(this.#model, this.name);
@@ -175,20 +189,24 @@ export class Attribute {
   /**
    * "Sample: "no" isn't a boolean for "enabled"", the value hidden for a filtered attribute. Also
    * what a stored value that can't be read says: a Unix time that isn't one (#73), or a json
-   * cell that isn't JSON (#146).
+   * cell that isn't JSON (#146). A custom type's own error is its cause, unless the attribute is
+   * filtered: the error may show the value (#20).
    */
-  #refusal(value: unknown, association?: string): TypeError {
-    const text = this.#isHidden() ? FILTERED : shown(value);
+  #refusal(value: unknown, association?: string, cause?: unknown): TypeError {
+    const hidden = this.#isHidden();
+    const text = hidden ? FILTERED : shown(value);
     const from = association === undefined ? "" : `, the key of ${association}`;
     return new TypeError(
       `${this.#model.name}: ${text} isn't ${this.#described()} for "${this.name}"${from}`,
+      hidden || cause === undefined ? undefined : { cause },
     );
   }
 
   /** What a value of the attribute is, as a refusal says it: `a boolean`, `one of "draft", "published"`. */
   #described(): string {
-    const { type, enum: values } = this.#definition;
+    const { type, enum: values, customType } = this.#definition;
     if (values !== undefined) return `one of ${listedNames(values)}`;
+    if (customType !== undefined) return "a valid value";
     return valueNames[type] ?? `${/^[aeiou]/.test(type) ? "an" : "a"} ${type}`;
   }
 }

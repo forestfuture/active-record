@@ -157,11 +157,22 @@ export function castValue(attribute: Convertible, value: unknown): unknown {
  * for a text key and as Rails does, so a foreign key of another type still finds its target.
  */
 export function castCondition(attribute: Convertible, value: unknown): unknown {
+  // A value a custom type can't hold matches nothing, as for any type (#20).
+  if (attribute.customType !== undefined) return castOrUncastable(attribute, value);
   if (attribute.type === "string" && typeof value === "number" && Number.isFinite(value)) {
     // An enum casts the digits too: they're a name, or a stored value, or match nothing (#340).
     return attribute.enum === undefined ? String(value) : castValue(attribute, String(value));
   }
   return castValue(attribute, value);
+}
+
+/** `value` cast by a custom type, or `uncastable` where the type throws. */
+function castOrUncastable(attribute: Convertible, value: unknown): unknown {
+  try {
+    return castValue(attribute, value);
+  } catch {
+    return uncastable;
+  }
 }
 
 /**
