@@ -363,7 +363,7 @@ export class Relation<M extends Model, S = {}> {
   #updateAllStatement(changes: Partial<AttributesOf<M>> | SafeSql): Statement {
     const checked = checkChanges(this.#model, changes);
     const query = compileUpdateAll(this.#dialect, writableQuery(this.#query, "updateAll"), checked);
-    return new Statement(this.#executor, query, this.#clearCollectionUntilWritten());
+    return new Statement(this.#executor, [query], this.#clearCollectionUntilWritten());
   }
 
   /**
@@ -385,7 +385,7 @@ export class Relation<M extends Model, S = {}> {
       nullifies === undefined
         ? compileDeleteAll(this.#dialect, query)
         : compileUpdateAll(this.#dialect, query, [[nullifies, null]]);
-    return new Statement(this.#executor, compiled, landed);
+    return new Statement(this.#executor, [compiled], landed);
   }
 
   /**
