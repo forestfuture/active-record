@@ -1,17 +1,20 @@
-// The `comparison` validator (#342): a value against bounds given as values, and the order checks it shares with `numericality`.
+// The `comparison` validator (#342): a value against bounds given as values or functions of the record, and the order checks it shares with `numericality`.
 import type { Failure } from "./errors-collection.ts";
 
 /** What `comparison` compares: numbers with numbers, strings with strings, Dates by their time. */
 export type Comparable = number | string | Date;
 
-/** The bounds of a `comparison` rule, with Rails' error types as keys. */
-export interface ComparisonOptions {
-  greaterThan?: Comparable;
-  greaterThanOrEqualTo?: Comparable;
-  lessThan?: Comparable;
-  lessThanOrEqualTo?: Comparable;
-  equalTo?: Comparable;
-  otherThan?: Comparable;
+/** A bound: a value, or a function of the record being validated (`(event) => event.startsAt`). */
+export type ComparisonBound<R = never> = Comparable | ((record: R) => Comparable | null);
+
+/** The bounds of a `comparison` rule, with Rails' error types as keys. `R` is the record type. */
+export interface ComparisonOptions<R = never> {
+  greaterThan?: ComparisonBound<R>;
+  greaterThanOrEqualTo?: ComparisonBound<R>;
+  lessThan?: ComparisonBound<R>;
+  lessThanOrEqualTo?: ComparisonBound<R>;
+  equalTo?: ComparisonBound<R>;
+  otherThan?: ComparisonBound<R>;
 }
 
 type Order = -1 | 0 | 1;
@@ -43,10 +46,16 @@ function shown(bound: Comparable): string | number {
   return bound instanceof Date ? bound.toISOString() : bound;
 }
 
-/** The failures of `value` against each bound of `rule`, in the order of `ORDER_CHECKS`. */
-export function comparisonFailures(value: unknown, rule: ComparisonOptions): Failure[] {
+/** The failures of `record`'s `value` against each bound of `rule`, in `ORDER_CHECKS`' order. */
+export function comparisonFailures(
+  value: unknown,
+  rule: ComparisonOptions<unknown>,
+  record: unknown,
+): Failure[] {
   return ORDER_CHECKS.flatMap(([type, holds]) => {
-    const bound = rule[type];
+    const given = rule[type];
+    const bound = typeof given === "function" ? given(record) : given;
+    if (bound === null) return [];
     if (bound === undefined || holds(orderOf(value as Comparable, bound))) return [];
     return [{ type, values: { count: shown(bound) } }];
   });

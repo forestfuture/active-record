@@ -124,3 +124,24 @@ describe("comparison with a value", () => {
     ]);
   });
 });
+
+describe("comparison with a function of the record", () => {
+  class Booking extends Model.define({ id: "integer", startsAt: "datetime", endsAt: "datetime" }) {
+    static table = "bookings";
+    static {
+      this.validates("endsAt", { comparison: { greaterThan: (booking) => booking.startsAt } });
+    }
+  }
+  const bookings = connect({} as never).model(Booking);
+  const startsAt = new Date(Date.UTC(2026, 2, 1));
+
+  test("compares with what the function returns for the record being validated", async () => {
+    const valid = bookings.build({ startsAt, endsAt: new Date(Date.UTC(2026, 2, 4)) });
+    const invalid = bookings.build({ startsAt, endsAt: new Date(startsAt.getTime()) });
+
+    expect(await errorsOf(valid)).toEqual([]);
+    expect(await errorsOf(invalid)).toEqual([
+      "endsAt greaterThan: must be greater than 2026-03-01T00:00:00.000Z",
+    ]);
+  });
+});

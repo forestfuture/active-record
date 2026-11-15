@@ -47,7 +47,7 @@ export interface ValidationOptions<R = never> {
   /**
    * Bounds the value must meet: numbers, strings (in JavaScript's order) or Dates (by time).
    */
-  comparison?: ComparisonOptions;
+  comparison?: ComparisonOptions<R>;
   /**
    * No other row has this value (checked in D1 through the record's Database). `scope` adds
    * attributes that must match too; `caseSensitive: false` compares with `lower()` (ASCII only).
@@ -68,7 +68,7 @@ export interface Validation {
   options: ValidationOptions<never>;
 }
 
-type Check = (value: unknown, options: ValidationOptions<never>) => Failure[];
+type Check = (value: unknown, options: ValidationOptions<never>, record: unknown) => Failure[];
 
 function isBlank(value: unknown): boolean {
   return value === null || (typeof value === "string" && value.trim() === "");
@@ -141,8 +141,8 @@ const numericality: Check = (value, { numericality: rule }) => {
   });
 };
 
-const comparison: Check = (value, { comparison: rule }) =>
-  rule === undefined ? [] : comparisonFailures(value, rule);
+const comparison: Check = (value, { comparison: rule }, record) =>
+  rule === undefined ? [] : comparisonFailures(value, rule as ComparisonOptions<unknown>, record);
 
 /** Applied in this order within one `validates` call. */
 const CHECKS: readonly Check[] = [
@@ -186,7 +186,7 @@ export async function runValidations(
     const value = target.read(attribute);
     if (options.allowNull && value === null) continue;
     const failures = [
-      ...CHECKS.flatMap((check) => check(value, options)),
+      ...CHECKS.flatMap((check) => check(value, options, target.record)),
       ...(await uniquenessFailures(target, attribute, value, options)),
     ];
     for (const failure of failures) {
