@@ -194,6 +194,26 @@ describe("comparison with null, and values it can't compare", () => {
     expect(await errorsOf(shift)).toEqual([]);
   });
 
+  test("no bound but otherThan holds against NaN or an invalid Date", async () => {
+    class Reading extends Model.define({ id: "integer", level: "real", takenAt: "datetime" }) {
+      static table = "readings";
+      static {
+        this.validates("level", {
+          comparison: { greaterThanOrEqualTo: Number.NaN, otherThan: Number.NaN },
+        });
+        this.validates("takenAt", { comparison: { equalTo: new Date(Number.NaN) } });
+      }
+    }
+    const reading = connect({} as never)
+      .model(Reading)
+      .build({ level: 1, takenAt: new Date(0) });
+
+    expect(await errorsOf(reading)).toEqual([
+      "level greaterThanOrEqualTo: must be greater than or equal to NaN",
+      "takenAt equalTo: must be equal to Invalid Date",
+    ]);
+  });
+
   test("a value of another type than its bound throws TypeError", async () => {
     class Rota extends Model.define({ id: "integer", startsAt: "datetime", hours: "integer" }) {
       static table = "rotas";
