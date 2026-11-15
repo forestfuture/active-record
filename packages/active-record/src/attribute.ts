@@ -213,7 +213,7 @@ export class Attribute {
     const { type, enum: values, customType } = this.#definition;
     if (values !== undefined) return `one of ${listedNames(values)}`;
     if (customType !== undefined) return "a valid value";
-    return valueNames[type] ?? `${/^[aeiou]/.test(type) ? "an" : "a"} ${type}`;
+    return valueNames[type] ?? withArticle(type);
   }
 }
 
@@ -279,6 +279,11 @@ export function castInherited(
       return [attribute, attributeFor(model, attribute).key(value, association)];
     }),
   );
+}
+
+/** A word with `a` or `an` before it, as a message reads it: `an integer`, `a string`. */
+export function withArticle(word: string): string {
+  return `${/^[aeiou]/.test(word) ? "an" : "a"} ${word}`;
 }
 
 /** How much of a value an error shows: it came from outside, and errors are often logged. */

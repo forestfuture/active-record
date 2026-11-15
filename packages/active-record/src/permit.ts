@@ -1,5 +1,5 @@
 // `permit`: keeps only the named attributes from untrusted input, each cast to its type (#82).
-import { attributeFor } from "./attribute.ts";
+import { attributeFor, withArticle } from "./attribute.ts";
 import { attributeOf } from "./metadata.ts";
 import type { AttributesOf, ModelClass } from "./model.ts";
 
@@ -41,7 +41,7 @@ function fileRefusal(model: ModelClass, name: string): TypeError {
   return new TypeError(
     type === "binary"
       ? `${model.name}: "${name}" is a file; assign its bytes: new Uint8Array(await file.arrayBuffer())`
-      : `${model.name}: "${name}" is a file, which ${/^[aeiou]/.test(type) ? "an" : "a"} ${type} attribute can't hold`,
+      : `${model.name}: "${name}" is a file, which ${withArticle(type)} attribute can't hold`,
   );
 }
 
