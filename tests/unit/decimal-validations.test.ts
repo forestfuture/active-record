@@ -58,3 +58,60 @@ describe("numericality on a decimal", () => {
     ]);
   });
 });
+
+class Order extends Model.define({
+  id: { type: "integer", null: false },
+  total: "decimal",
+  limit: "decimal",
+}) {
+  static table = "orders";
+
+  static {
+    this.validates("total", {
+      comparison: { greaterThan: "9", lessThan: 1000, lessThanOrEqualTo: (order) => order.limit },
+    });
+  }
+}
+
+const orders = connect({} as never).model(Order);
+
+async function orderErrorsFor(total: string, limit: string | null = null) {
+  const order = orders.build({ total, limit });
+  await order.isValid();
+  return order.errors.toArray().map(({ type, message }) => `${type}: ${message}`);
+}
+
+// comparison compares a decimal's text as a number, exactly, as numericality does (#391).
+describe("comparison on a decimal", () => {
+  test("text and number bounds compare as numbers, not as text", async () => {
+    expect(await orderErrorsFor("10")).toEqual([]);
+    expect(await orderErrorsFor("8.5")).toEqual(["greaterThan: must be greater than 9"]);
+    expect(await orderErrorsFor("1000.01")).toEqual(["lessThan: must be less than 1000"]);
+  });
+
+  test("a bound from the record compares as a number", async () => {
+    expect(await orderErrorsFor("100", "99.5")).toEqual([
+      "lessThanOrEqualTo: must be less than or equal to 99.5",
+    ]);
+    expect(await orderErrorsFor("99.5", "100")).toEqual([]);
+  });
+
+  test.each([
+    ["text that isn't a decimal", "abc", "a string that isn't a decimal"],
+    ["a Date", new Date(0), "a Date"],
+  ])("a bound that's %s throws TypeError", async (_, bound, described) => {
+    class Sample extends Model.define({ id: "integer", total: "decimal" }) {
+      static table = "samples";
+      static {
+        this.validates("total", { comparison: { greaterThan: bound } });
+      }
+    }
+    const sample = connect({} as never)
+      .model(Sample)
+      .build({ total: "1" });
+
+    await expect(sample.isValid()).rejects.toThrow(
+      new TypeError(`Sample: "total" (a decimal) can't be compared with ${described}`),
+    );
+  });
+});

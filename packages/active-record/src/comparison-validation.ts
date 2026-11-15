@@ -1,6 +1,8 @@
 // The `comparison` validator (#342): a value against bounds given as values or functions of the record, and the order checks it shares with `numericality`.
 import { withArticle } from "./attribute.ts";
 import { isBlank } from "./blank.ts";
+import { uncastable } from "./conversion.ts";
+import { castDecimal, compareDecimals } from "./decimal-values.ts";
 import { FILTERED } from "./filtering.ts";
 import type { Failure } from "./errors-collection.ts";
 import type { ValidationSubject } from "./validations.ts";
@@ -76,10 +78,33 @@ function kindOf(value: unknown): string {
 function requireComparable(value: unknown, bound: unknown, subject: ValidationSubject): void {
   const [kind, boundKind] = [kindOf(value), kindOf(bound)];
   if (kind === boundKind && COMPARABLE_KINDS.has(kind)) return;
+  throw incomparable(subject, withArticle(kind), withArticle(boundKind));
+}
+
+/** `Rota: "hours" (a number) can't be compared with a Date`. */
+function incomparable(subject: ValidationSubject, value: string, bound: string): TypeError {
   const model = subject.record.constructor.name;
-  throw new TypeError(
-    `${model}: "${subject.attribute}" (${withArticle(kind)}) can't be compared with ${withArticle(boundKind)}`,
+  return new TypeError(
+    `${model}: "${subject.attribute}" (${value}) can't be compared with ${bound}`,
   );
+}
+
+/**
+ * Where a value falls against a bound, throwing `TypeError` for two that can't be compared. A
+ * decimal attribute's text compares exactly with a number or decimal text, as a number (#391).
+ */
+function orderAgainst(value: unknown, bound: Comparable, subject: ValidationSubject): Order {
+  if (!(subject.isDecimal && typeof value === "string")) {
+    requireComparable(value, bound, subject);
+    return orderOf(value as Comparable, bound);
+  }
+  const decimal = bound instanceof Date ? uncastable : castDecimal(bound);
+  if (decimal === uncastable) {
+    const described =
+      typeof bound === "string" ? "a string that isn't a decimal" : withArticle(kindOf(bound));
+    throw incomparable(subject, "a decimal", described);
+  }
+  return compareDecimals(value, decimal as string);
 }
 
 /**
@@ -98,8 +123,7 @@ export function comparisonFailures(
     const fromRecord = typeof given === "function";
     const bound = fromRecord ? given(subject.record) : given;
     if (bound === null || bound === undefined) return [];
-    requireComparable(value, bound, subject);
-    return holds(orderOf(value as Comparable, bound))
+    return holds(orderAgainst(value, bound, subject))
       ? []
       : [{ type, values: { count: fromRecord ? shownFromRecord(bound, subject) : shown(bound) } }];
   });
