@@ -21,17 +21,27 @@ export function takeEnumSwitch(override: object): SwitchedOverride {
 /**
  * A generated spec as an override's switch leaves it: `enum: true` lifts the `scopes: false` and
  * `instanceMethods: false` the schema wrote, so an enum's defaults apply, and the override's own
- * switches, applied after, win; `enum: false` drops the enum and its keys. Either is an
- * `InvalidModel` on a column without a generated enum.
+ * switches, applied after, win; so does an override's own list, which replaces the names.
+ * `enum: false` drops the enum and its keys. Either switch is an `InvalidModel` on a column
+ * without a generated enum.
  */
 export function switchedSpec(
   where: string,
   spec: SpecObject,
-  switched: boolean | undefined,
+  { switched, change }: SwitchedOverride,
 ): SpecObject {
-  if (switched === undefined) return spec;
+  if (switched === undefined) return hasOwnNames(change) ? withMethodsOn(spec) : spec;
   if (spec.enum === undefined) throw new InvalidModel(nothingToSwitch(where, switched));
-  if (!switched) return withoutEnum(spec);
+  return switched ? withMethodsOn(spec) : withoutEnum(spec);
+}
+
+/** Whether an override gives an enum's names itself: a list or a mapping, not `undefined`. */
+function hasOwnNames(change: object): boolean {
+  return "enum" in change && change.enum !== undefined;
+}
+
+/** A spec without the switches a generated enum's methods are off by, so an enum's defaults apply. */
+function withMethodsOn(spec: SpecObject): SpecObject {
   const { scopes: _scopes, instanceMethods: _instanceMethods, ...lifted } = spec;
   return lifted;
 }

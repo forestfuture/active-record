@@ -95,8 +95,15 @@ type KeptEnumKeys<S, O> = O extends { enum: false }
       : {}
     : Omit<Pick<S, EnumKey & keyof S>, OwnKeys<O>>;
 
-/** The keys an override replaces: its own, but for `enum: true`, which keeps the spec's names. */
-type OwnKeys<O> = O extends { enum: true } ? Exclude<keyof O, "enum"> | MethodSwitch : keyof O;
+/**
+ * The keys an override replaces: its own, but for `enum: true`, which keeps the spec's names; and
+ * with `enum: true` or a list of its own, the switches a generated enum's methods are off by.
+ */
+type OwnKeys<O> = O extends { enum: true }
+  ? Exclude<keyof O, "enum"> | MethodSwitch
+  : O extends { enum: object }
+    ? keyof O | MethodSwitch
+    : keyof O;
 
 /** The enum keys an override gives the merged spec: all it gives, but `enum: true` or `false` (#64). */
 type GivenEnumKeys<O> = Pick<
@@ -364,7 +371,10 @@ function checkedOverride(
   spec: AttributeSpecs[string],
   { switched, change }: Checked,
 ): AttributeSpecs[string] {
-  const base = switchedSpec(where, typeof spec === "string" ? { type: spec } : spec, switched);
+  const base = switchedSpec(where, typeof spec === "string" ? { type: spec } : spec, {
+    switched,
+    change,
+  });
   const changed = applyOverride(base, change);
   const problem = specProblem(where, changed);
   if (problem !== undefined) throw new InvalidModel(problem);
