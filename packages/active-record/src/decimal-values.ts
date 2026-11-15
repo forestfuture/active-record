@@ -58,7 +58,18 @@ function canonical(text: string): unknown {
   if (first === -1) return "0";
   const last = lastNonZero(digits) + 1;
   if (point - first > maxWholeDigits || last - point > maxFractionDigits) return uncastable;
-  return (negative ? "-" : "") + placePoint(digits.slice(first, last), point - first);
+  const decimal = (negative ? "-" : "") + placePoint(digits.slice(first, last), point - first);
+  return isWithinDouble(decimal) ? decimal : uncastable;
+}
+
+/**
+ * Whether a double holds a non-zero decimal's magnitude: it doesn't overflow to Infinity or
+ * underflow to 0. D1 keeps a decimal as a double, and stores one past either end as Infinity,
+ * which reads as NULL, or as 0, so every database refuses one alike (#391).
+ */
+function isWithinDouble(decimal: string): boolean {
+  const number = Number(decimal);
+  return Number.isFinite(number) && number !== 0;
 }
 
 /** Decimal text's sign, its digits, and how many of them its point follows; undefined if it isn't one. */

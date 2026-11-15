@@ -43,6 +43,11 @@ describe("decimal attributes", () => {
       ["a negative zero", "-0.00", "0"],
       ["a number, at 16 significant digits", 0.1 + 0.2, "0.3"],
       ["a large number", 1e21, "1000000000000000000000"],
+      [
+        "the largest whole decimal a double holds",
+        "1.797693134862315e308",
+        `1797693134862315${"0".repeat(293)}`,
+      ],
       ["a small number", 1e-7, "0.0000001"],
       ["a bigint", 12345678901234567890n, "12345678901234567890"],
       [
@@ -61,7 +66,13 @@ describe("decimal attributes", () => {
       ["NaN", Number.NaN, "NaN"],
       ["Infinity", Number.POSITIVE_INFINITY, "Infinity"],
       ["a boolean", true, "true"],
-      ["an exponent past what Postgres holds", "1e200000", '"1e200000"'],
+      ["a number past a double's range", "1e400", '"1e400"'],
+      ["a number too small for a double", "-1e-400", '"-1e-400"'],
+      [
+        "Number.MAX_VALUE, which 16 digits round past a double",
+        Number.MAX_VALUE,
+        "1.7976931348623157e+308",
+      ],
     ])("%s is a TypeError", (_, value, shown) => {
       expect(() => Line.build({ amount: untyped(value) })).toThrow(
         new TypeError(`Line: ${shown} isn't a decimal for "amount"`),
