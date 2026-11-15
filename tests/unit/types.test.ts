@@ -579,6 +579,18 @@ describe("types", () => {
     Model.define({ at: { type: "datetime", storage: "minutes" } });
   });
 
+  test("a decimal, a date and a time are text (#391)", () => {
+    class Shift extends Model.define({
+      id: { type: "integer", null: false },
+      pay: "decimal",
+      startsOn: { type: "date", null: false },
+      opensAt: "time",
+    }) {}
+    expectTypeOf<Shift["pay"]>().toEqualTypeOf<string | null>();
+    expectTypeOf<Shift["startsOn"]>().toEqualTypeOf<string>();
+    expectTypeOf<Shift["opensAt"]>().toEqualTypeOf<string | null>();
+  });
+
   test("a binary attribute is a Uint8Array, compared and ordered as one (#20)", () => {
     class Attachment extends Model.define({
       id: { type: "integer", null: false },
