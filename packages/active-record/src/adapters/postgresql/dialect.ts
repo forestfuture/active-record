@@ -1,6 +1,9 @@
 // Postgres's SQL: numbered placeholders, lists as arrays, and bulk rows read into the table's own column types.
 import { type Dialect, valueMark } from "@forestfuture/active-record/adapter";
 
+/** An attribute, as a dialect is given one. */
+type Attribute = Parameters<Dialect["linkedKey"]>[1];
+
 /** A text literal, as an escape string, so it reads the same whatever `standard_conforming_strings` is. */
 const literal = (text: string) => `E'${text.replaceAll("\\", "\\\\").replaceAll("'", "''")}'`;
 
@@ -17,6 +20,15 @@ function jsonObject(pairs: readonly string[]): string {
     parts.push(`jsonb_build_object(${pairs.slice(start, start + pairsPerObject).join(", ")})`);
   }
   return parts.join(" || ");
+}
+
+/**
+ * An attribute's cell in a bulk row: bytes are hex text in the JSON (#20), read as `bytea`,
+ * whose JSON form (`"\\x0102"`) the row reads back as bytes.
+ */
+function rowCell(table: string, { column, isJson, isBinary }: Attribute, index: number): string {
+  if (isBinary) return `to_jsonb(decode(cells ->> ${index}, 'hex'))`;
+  return isJson ? jsonCell(table, column, index) : `cells -> ${index}`;
 }
 
 /**
@@ -61,9 +73,8 @@ export const postgres: Dialect = {
    * value converts to its column's own type as an insert's would.
    */
   bulkRows(table, attributes) {
-    const pairs = attributes.map(({ column, isJson }, index) => {
-      const cell = isJson ? jsonCell(table, column, index) : `cells -> ${index}`;
-      return `${literal(column)}, ${cell}`;
+    const pairs = attributes.map((attribute, index) => {
+      return `${literal(attribute.column)}, ${rowCell(table, attribute, index)}`;
     });
     return {
       select: attributes.map(({ column }) => `row.${quoted(column)}`).join(", "),

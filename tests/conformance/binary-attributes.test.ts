@@ -133,4 +133,51 @@ describe("binary attributes", () => {
       expect(await attachments().order({ digest: "desc" }).pluck("name")).toEqual(["c", "b", "a"]);
     });
   });
+
+  describe("bulk writes", () => {
+    const stored = async () =>
+      (await attachments().order({ id: "asc" }).toArray()).map(({ name, data }) => [
+        name,
+        data === null ? null : [...data],
+      ]);
+
+    test("insertAll writes each row's bytes, an empty array and NULL included", async () => {
+      await attachments().insertAll([
+        { id: 1, name: "a", data: new Uint8Array([0, 255]) },
+        { id: 2, name: "b", data: new Uint8Array([]) },
+        { id: 3, name: "c", data: null },
+      ]);
+
+      expect(await stored()).toEqual([
+        ["a", [0, 255]],
+        ["b", []],
+        ["c", null],
+      ]);
+    });
+
+    test("upsertAll replaces a row's bytes", async () => {
+      await attachments().create({ id: 1, name: "a", data: new Uint8Array([1]) });
+
+      await attachments().upsertAll(
+        [
+          { id: 1, name: "a", data: new Uint8Array([2, 3]) },
+          { id: 2, name: "b", data: new Uint8Array([4]) },
+        ],
+        { uniqueBy: ["id"] },
+      );
+
+      expect(await stored()).toEqual([
+        ["a", [2, 3]],
+        ["b", [4]],
+      ]);
+    });
+
+    test("updateAll sets every row's bytes", async () => {
+      await attachments().create({ id: 1, name: "a", data: new Uint8Array([1]) });
+
+      await attachments().updateAll({ data: new Uint8Array([5, 6]) });
+
+      expect(await stored()).toEqual([["a", [5, 6]]]);
+    });
+  });
 });
