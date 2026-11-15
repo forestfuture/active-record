@@ -58,6 +58,8 @@ The generated `schema.ts` now declares `schema` with `defineSchema({ … })`, wh
 The generated schema now reads a `DATE` column as a [`date`](./models#storing-exact-numbers-days-and-times), a day’s text such as `"2026-01-02"`, where it was a `datetime`. Update code that reads one as a `Date`, or keep the attribute a `datetime` with an override:
 
 ```ts
+import { ApplicationRecord } from "./application-record";
+
 export class Event extends ApplicationRecord {
   static override attributes = { startsOn: "datetime" } as const;
 }
