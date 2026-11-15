@@ -43,7 +43,10 @@ export function readDecimal(cell: unknown): unknown {
 }
 
 function castNumber(value: number): unknown {
-  return Number.isFinite(value) ? canonical(value.toPrecision(numberPrecision)) : uncastable;
+  if (!Number.isFinite(value)) return uncastable;
+  const decimal = canonical(value.toPrecision(numberPrecision));
+  // At the top of a double's range, 16 digits round past it; 17 hold any double exactly.
+  return decimal === uncastable ? canonical(value.toPrecision(numberPrecision + 1)) : decimal;
 }
 
 /**
