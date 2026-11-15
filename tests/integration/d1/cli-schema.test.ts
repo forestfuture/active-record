@@ -589,6 +589,26 @@ export class FeaturedPost extends Post {}
     );
   });
 
+  test("--check reports the schema out of date once a Model's enum changes (#340)", async () => {
+    const enumOf = (names: string) =>
+      `${base}export class User extends ApplicationRecord {
+  static override attributes = { email: { enum: [${names}] } } as const;
+}
+`;
+    const cwd = await withModels({ "user.ts": enumOf('"sent"') });
+    await run(cwd);
+    const current = await run(cwd, { check: true });
+    writeFileSync(join(cwd, "src/models/user.ts"), enumOf('"sent", "bounced"'));
+
+    const stale = await run(cwd, { check: true });
+
+    expect(current.code).toBe(0);
+    expect(stale).toEqual({
+      code: 1,
+      output: "src/db/schema.ts is out of date: run `active-record schema`",
+    });
+  });
+
   test("an enum whose method names clash fails, and the last good file is kept (#340)", async () => {
     const cwd = await withModels({
       "user.ts": `${base}export class User extends ApplicationRecord {
