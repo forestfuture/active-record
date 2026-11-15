@@ -1,4 +1,4 @@
-// An enum attribute's methods (#340): a record's predicates (`isPublished()`), and their names.
+// An enum attribute's methods (#340): a record's predicates (`isPublished()`) and `saveAs…` setters, and their names.
 import { enumEntries, type EnumNames, type EnumValues } from "./enum-values.ts";
 import type { AttributeDefinition } from "./metadata.ts";
 
@@ -18,8 +18,24 @@ type PredicateNames<A> = {
   [K in keyof A]: `is${MethodPart<NamesOf<A[K]>>}`;
 }[keyof A];
 
-/** What the enums of the specs `A` add to a record: a predicate for each name. */
-export type EnumMethods<A> = { [P in PredicateNames<A>]: () => boolean };
+/** Every setter name the enums of the specs `A` give a record: `saveAsDraft`, `saveAsPublished`. */
+type SetterNames<A> = {
+  [K in keyof A]: `saveAs${MethodPart<NamesOf<A[K]>>}`;
+}[keyof A];
+
+/**
+ * What the enums of the specs `A` add to a record: a predicate for each name, and a setter that
+ * assigns it and saves, with its `OrThrow`, as Rails' `published!` updates the record.
+ */
+export type EnumMethods<A> = { [P in PredicateNames<A>]: () => boolean } & {
+  [P in SetterNames<A>]: () => Promise<boolean>;
+} & { [P in `${SetterNames<A>}OrThrow`]: () => Promise<true> };
+
+/** What a record's setters call: its `update` and `updateOrThrow`. */
+interface Updatable {
+  update(attributes: Record<string, unknown>): Promise<boolean>;
+  updateOrThrow(attributes: Record<string, unknown>): Promise<true>;
+}
 
 /** How an enum's name reads inside a method's name, as `MethodPart` types it. */
 export function methodPart(name: string): string {
@@ -30,7 +46,11 @@ export function methodPart(name: string): string {
 
 const capitalized = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
 
-/** Defines each enum attribute's predicates on `prototype`: `isPublished()` is `status === "published"`. */
+/**
+ * Defines each enum attribute's methods on `prototype`: `isPublished()` is `status === "published"`,
+ * and `saveAsPublished()` is `update({ status: "published" })`, so it saves the record's other
+ * changes too, as Rails' `published!` does.
+ */
 export function defineEnumMethods(
   prototype: object,
   definitions: ReadonlyMap<string, AttributeDefinition>,
@@ -38,8 +58,15 @@ export function defineEnumMethods(
   for (const [attribute, { enum: values }] of definitions) {
     if (values === undefined) continue;
     for (const [name] of enumEntries(values)) {
-      defineMethod(prototype, `is${methodPart(name)}`, function (this: Record<string, unknown>) {
+      const part = methodPart(name);
+      defineMethod(prototype, `is${part}`, function (this: Record<string, unknown>) {
         return this[attribute] === name;
+      });
+      defineMethod(prototype, `saveAs${part}`, function (this: Updatable) {
+        return this.update({ [attribute]: name });
+      });
+      defineMethod(prototype, `saveAs${part}OrThrow`, function (this: Updatable) {
+        return this.updateOrThrow({ [attribute]: name });
       });
     }
   }
