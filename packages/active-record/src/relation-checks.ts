@@ -21,8 +21,11 @@ export type Conditions<M> = {
     | ComparisonOf<NonNullable<AttributesOf<M>[K]>>;
 };
 
-/** Numbers, strings and dates are ordered, so they can be compared; booleans and json can't. */
-type ComparisonOf<V> = [V] extends [number | string | Date] ? Comparison<V> : never;
+/**
+ * Numbers, strings, dates and bytes (byte by byte, #20) are ordered, so they can be compared;
+ * booleans and json can't.
+ */
+type ComparisonOf<V> = [V] extends [number | string | Date | Uint8Array] ? Comparison<V> : never;
 
 /**
  * The attributes a bulk insert or upsert returns of each row it writes: the primary key by

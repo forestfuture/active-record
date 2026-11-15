@@ -423,7 +423,7 @@ function compileEquality(
     .filter((item) => item !== noMatch);
   const parts: string[] = [];
   if (present.length > 0) {
-    const list = dialect.inList(column, present);
+    const list = dialect.inList(column, present, attribute);
     attribute.bindCells(params, list.value);
     parts.push(list.sql);
   }

@@ -13,8 +13,15 @@ export const valueMark = "\u0000";
 export interface Dialect {
   /** The placeholder for the `index`th bound value, from 1: `?`, or `$1`. */
   placeholder(index: number): string;
-  /** `column` in a list of `cells` bound as one value, so any length fits a statement's limits. */
-  inList(column: string, cells: readonly unknown[]): { sql: string; value: unknown };
+  /**
+   * `column`, of `attribute`, in a list of `cells` bound as one value, so any length fits a
+   * statement's limits.
+   */
+  inList(
+    column: string,
+    cells: readonly unknown[],
+    attribute: Attribute,
+  ): { sql: string; value: unknown };
   /** `limit` and `offset`, at least one of them set, as this database writes them, their values added to `params`. */
   pagination(limit: number | undefined, offset: number | undefined, params: unknown[]): string;
   /**

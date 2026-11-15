@@ -50,6 +50,11 @@ export class Attribute {
     return this.#definition.type === "string";
   }
 
+  /** Whether it's a `binary` attribute, whose cells are bytes, which JSON can't hold (#20). */
+  get isBinary(): boolean {
+    return this.#definition.type === "binary";
+  }
+
   /** Whether it's a `json` attribute, whose stored text is JSON itself. */
   get isJson(): boolean {
     return this.#definition.type === "json";
