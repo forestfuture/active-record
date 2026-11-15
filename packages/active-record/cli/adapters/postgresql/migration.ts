@@ -30,8 +30,11 @@ const postgres: MigrationDialect = {
     // An integer attribute holds any safe integer, which INTEGER's 32 bits can't.
     integer: "BIGINT",
     real: "DOUBLE PRECISION",
+    decimal: "NUMERIC",
     boolean: "BOOLEAN",
     datetime: "TIMESTAMPTZ",
+    date: "DATE",
+    time: "TIME",
     json: "JSONB",
     binary: "BYTEA",
   },
