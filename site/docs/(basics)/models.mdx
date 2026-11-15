@@ -378,7 +378,7 @@ Anything else throws `TypeError` naming the Model and the attribute, and the att
 - `NaN` and `Infinity`.
 - A number, boolean, or `Date` for a `string`.
 - For a `datetime`: a time without an offset, a lowercase `t` or `z`, a day that doesn’t exist (`"2026-02-30"`), other formats, and numbers.
-- For a `decimal`: text with anything but a number in it, and a number with more digits than Postgres holds.
+- For a `decimal`: text with anything but a number in it, and a number too large or too small for a JavaScript `number`, such as `"1e400"` or `"1e-400"`.
 - For a `date` or a `time`: a `Date`, a time zone, a day or time that doesn’t exist (`"24:00"`), other formats (`"2026-1-2"`, `"9:30"`), and numbers.
 - For a `json`: a value JSON can’t write, such as a `BigInt`, an object that refers to itself, a function, or a symbol.
 - For a `binary`: text, an array of numbers, or another typed array.
