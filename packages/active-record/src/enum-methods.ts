@@ -59,7 +59,7 @@ interface EnumName {
 }
 
 /** Each name of every enum attribute, with its stem, as `Stems` types it. */
-export function enumNames(definitions: ReadonlyMap<string, AttributeDefinition>): EnumName[] {
+function enumNames(definitions: ReadonlyMap<string, AttributeDefinition>): EnumName[] {
   return [...definitions].flatMap(([attribute, definition]) => {
     if (definition.enum === undefined) return [];
     const before = affix(attribute, definition.prefix);

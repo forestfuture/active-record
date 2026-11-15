@@ -109,7 +109,7 @@ export type EnumMapping<E> = E extends readonly string[]
 const mappings = new WeakMap<EnumValues, Readonly<Record<string, string | number>>>();
 
 /** An enum's names and the value each is stored as, frozen: `{ draft: "draft" }`, `{ low: 0 }`. */
-export function mappingOf(values: EnumValues): Readonly<Record<string, string | number>> {
+function mappingOf(values: EnumValues): Readonly<Record<string, string | number>> {
   let mapping = mappings.get(values);
   if (mapping === undefined) {
     mapping = Object.freeze(Object.fromEntries(enumEntries(values)));
