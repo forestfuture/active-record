@@ -49,7 +49,8 @@ long_lines=$(printf '%s\n' "$message" | {
     indent=${line%%[![:space:]]*}
     case "${line#"$indent"}" in (*[[:space:]]*) ;; (*) continue ;; esac
     echo "Commit body line $number is ${#line} characters; wrap the body at 72:"
-    echo "  $line"
+    # printf, unlike echo, shows the line's backslashes as written.
+    printf '  %s\n' "$line"
   done
 })
 
