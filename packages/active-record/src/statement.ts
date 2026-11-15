@@ -60,12 +60,12 @@ export class Statement<Row = never> {
    */
   constructor(
     executor: Executor,
-    queries: CompiledSql | readonly CompiledSql[],
+    queries: readonly CompiledSql[],
     landed: () => void = () => {},
     rows: RowReader = noRows,
   ) {
     this.#executor = executor;
-    this.#queries = Array.isArray(queries) ? queries : [queries as CompiledSql];
+    this.#queries = queries;
     this.#landed = landed;
     this.#rows = rows;
   }
@@ -138,7 +138,7 @@ export function insertStatement<Row>(
   const names = [...(assigned[0]?.keys() ?? [])];
   if (names.length === 0) {
     if (rows.length === 1 && conflict === undefined) {
-      return new Statement(executor, compileInsert(model, [], returning), landed, read);
+      return new Statement(executor, [compileInsert(model, [], returning)], landed, read);
     }
     throw new TypeError(`${method}(): nothing to insert; give each row at least one attribute`);
   }
