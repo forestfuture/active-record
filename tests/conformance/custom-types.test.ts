@@ -170,6 +170,7 @@ describe("custom types", () => {
 
       expect(listing.isAttributeChanged("price", { from: new Money(500) })).toBe(true);
       expect(listing.isAttributeChanged("price", { from: "abc" as never })).toBe(false);
+      expect(listing.isAttributeChanged("price", { to: "abc" as never })).toBe(false);
     });
 
     test("a value changed in place is a change, and saving writes it", async () => {
