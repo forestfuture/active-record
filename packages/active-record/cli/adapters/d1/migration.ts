@@ -35,6 +35,7 @@ const sqlite: MigrationDialect = {
     boolean: "BOOLEAN",
     datetime: "DATETIME",
     json: "TEXT",
+    binary: "BLOB",
   },
   // A TEXT key is made in code (ADR-0013); an INTEGER PRIMARY KEY is D1's rowid.
   key: (integerId) => (integerId ? "id INTEGER PRIMARY KEY" : "id TEXT PRIMARY KEY NOT NULL"),

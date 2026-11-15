@@ -33,6 +33,7 @@ const postgres: MigrationDialect = {
     boolean: "BOOLEAN",
     datetime: "TIMESTAMPTZ",
     json: "JSONB",
+    binary: "BYTEA",
   },
   // A UUID made in code, as `generateId` makes it (ADR-0013), or Postgres's identity.
   key: (integerId) =>

@@ -32,6 +32,7 @@ describe("the PostgreSQL adapter's migrations, for g model and g migration", () 
         "active:boolean!=true",
         "released_at:datetime:index",
         "settings:json",
+        "photo:binary",
         "note:string=it's",
       ]),
     ).toEqual({
@@ -45,6 +46,7 @@ describe("the PostgreSQL adapter's migrations, for g model and g migration", () 
   active BOOLEAN NOT NULL DEFAULT TRUE,
   released_at TIMESTAMPTZ,
   settings JSONB,
+  photo BYTEA,
   note TEXT DEFAULT 'it''s',
   created_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL

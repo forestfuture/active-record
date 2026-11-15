@@ -195,6 +195,7 @@ ALTER TABLE products DROP COLUMN code;
       "active:boolean!=false",
       "settings:json",
       "price:real=1.5",
+      "photo:binary",
     ]);
     const result = schemaOf([{ name: "0001_create_products.sql", sql }]);
 
@@ -204,6 +205,7 @@ ALTER TABLE products DROP COLUMN code;
       active: { type: "boolean", null: false, default: { literal: false } },
       settings: { type: "json" },
       price: { type: "real", default: { literal: 1.5 } },
+      photo: { type: "binary" },
       createdAt: { type: "datetime", null: false },
       updatedAt: { type: "datetime", null: false },
     });
