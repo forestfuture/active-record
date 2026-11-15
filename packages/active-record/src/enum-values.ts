@@ -1,4 +1,6 @@
-// An enum attribute's values (#340): its names, and the value each is stored as.
+// An enum attribute's values (#340): its names, the value each is stored as, and validating them.
+import type { AttributeDefinition } from "./metadata.ts";
+import type { Validation } from "./validations.ts";
 
 /**
  * An enum's values: its names, each stored as itself (a `string` attribute's only), or each name
@@ -80,4 +82,19 @@ function repeatProblem(entries: readonly [string, string | number][]): string | 
     stored.set(value, name);
   }
   return undefined;
+}
+
+/**
+ * The validations an enum declared `validate: true` adds, before a Model's own: its value must be
+ * one of its names, and not null unless `allowNull`, as Rails' `validate: true` adds them.
+ */
+export function enumValidations(
+  definitions: ReadonlyMap<string, AttributeDefinition>,
+): Validation[] {
+  return [...definitions].flatMap(([attribute, { enum: values, validate = false }]) => {
+    if (values === undefined || validate === false) return [];
+    const allowNull = validate !== true && validate.allowNull === true;
+    const names = enumEntries(values).map(([name]) => name);
+    return [{ attribute, options: { inclusion: names, allowNull } }];
+  });
 }

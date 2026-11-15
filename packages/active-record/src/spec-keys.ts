@@ -131,7 +131,25 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
   // Rails' `scopes: false` and `instance_methods: false`: `true`, the default, gives nothing.
   scopes: methodsSwitch("scopes"),
   instanceMethods: methodsSwitch("instanceMethods"),
+  // Rails' `validate: true`: an unknown value is kept, and makes the record invalid.
+  validate: {
+    isWellFormed: isEnumValidation,
+    describedAs: "validate",
+    wellFormedAs: "use true, or { allowNull: true }",
+    isGiven: (value) => value !== undefined && value !== false,
+    requires: "enum",
+    onRetype: "drop",
+  },
 };
+
+/** `true`, `false`, or an object holding only a boolean `allowNull`. */
+function isEnumValidation(value: unknown): boolean {
+  if (typeof value === "boolean") return true;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  return Object.entries(value).every(
+    ([key, each]) => key === "allowNull" && (each === undefined || typeof each === "boolean"),
+  );
+}
 
 /** The rule for a switch that leaves an enum's methods out when it's `false`. */
 function methodsSwitch(key: string): KeyRule {

@@ -357,7 +357,7 @@ describe("a generated Model's static attributes", () => {
         static override attributes = { sku } as never;
       };
     const message = new InvalidModel(
-      "Strange.sku: an override is a type name, { type, null, default, generateId, storage, enum, prefix, suffix, scopes, instanceMethods }, or false",
+      "Strange.sku: an override is a type name, { type, null, default, generateId, storage, enum, prefix, suffix, scopes, instanceMethods, validate }, or false",
     );
 
     for (const sku of [{ column: "code" }, "money", true, { default: "SKU" }, { null: "no" }]) {

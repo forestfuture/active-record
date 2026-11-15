@@ -1,4 +1,5 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
+import { enumValidations } from "./enum-values.ts";
 import { shownKey } from "./filtering.ts";
 import { compileDelete, compileInsert, compileSelect, compileUpdate } from "./compiler.ts";
 import { savingGroups } from "./autosave.ts";
@@ -119,7 +120,12 @@ export async function validation(record: Model, claimed: Claimed): Promise<Valid
   recordState.abortReason = undefined;
   if (!(await runAbortableCallbacks(record, "beforeValidation"))) return "aborted";
   await validateRequiredAssociations(record);
-  await runValidations(declared(modelOf(record), "validations"), {
+  const model = modelOf(record);
+  const validations = [
+    ...enumValidations(model.attributeDefinitions),
+    ...declared(model, "validations"),
+  ];
+  await runValidations(validations, {
     record,
     read: (attribute) => recordState.read(attribute),
     errors: recordState.errors,
