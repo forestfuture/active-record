@@ -69,6 +69,23 @@ describe("decimal attributes", () => {
     });
   });
 
+  // A long value is cast in linear time, so text from a request can't stall a Worker (#391).
+  test("a long value is cast quickly", () => {
+    const long = `0.1${"0".repeat(100_000)}1`;
+    const started = performance.now();
+
+    expect(() => Line.build({ amount: untyped(long) })).toThrow(TypeError);
+    expect(performance.now() - started).toBeLessThan(200);
+  });
+
+  test("text longer than any decimal is refused before it's read", () => {
+    const longest = "1".repeat(200_000);
+    const started = performance.now();
+
+    expect(() => Line.build({ amount: untyped(longest) })).toThrow(TypeError);
+    expect(performance.now() - started).toBeLessThan(200);
+  });
+
   describe("change tracking", () => {
     test("the same number written another way isn't a change", async () => {
       const { id } = await lines().create({ amount: "1.5" });
