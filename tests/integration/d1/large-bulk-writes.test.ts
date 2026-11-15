@@ -24,7 +24,8 @@ const bytes = (size: number, fill: number) => new Uint8Array(size).fill(fill);
 const largeRows = () =>
   [1, 2, 3, 4, 5].map((id) => ({ id, name: `file ${id}`, data: bytes(300_000, id) }));
 
-describe("bulk writes past D1's cap on one value", () => {
+// Megabytes through Miniflare take seconds under coverage, or beside other suites.
+describe("bulk writes past D1's cap on one value", { timeout: 20_000 }, () => {
   let binding: TestDatabase;
   let dispose: () => Promise<void>;
   let events: QueryEvent[];
