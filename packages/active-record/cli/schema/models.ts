@@ -3,7 +3,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
 import { ancestors } from "../../src/ancestors.ts";
-import { enumScopeNames } from "../../src/enum-methods.ts";
+import { enumNameProblem, enumScopeNames, type TakenNames } from "../../src/enum-methods.ts";
 import { isBase } from "../../src/generated-model.ts";
 import type { AttributeDefinition } from "../../src/metadata.ts";
 import {
@@ -104,11 +104,12 @@ function isDeclaredIn(file: string, name: string): boolean {
   return new RegExp(`\\bclass\\s+${name}\\b`).test(readFileSync(file, "utf8"));
 }
 
-/** A class a file exports, by the name it's exported as, and the database it's on. */
+/** A class a file exports, by the name it's exported as, the database it's on, and its library. */
 interface Exported {
   name: string;
   model: LoadedClass;
   database: DatabaseSnapshot;
+  library: Library;
 }
 
 /**
@@ -133,6 +134,39 @@ function modelNameProblem(
     }
   }
   return undefined;
+}
+
+/**
+ * The names a Model's enum methods mustn't take (#340), from the project's own library: a record
+ * method, a Model static (which the Relation methods are too), or a static the app declares.
+ * Its enum scopes aren't defined yet while the schema is generated, so any static is the app's.
+ */
+function takenNames(model: object, library: Library): TakenNames {
+  const base = library.Model as unknown as Record<string, unknown> & { prototype: object };
+  return {
+    isRecordName: (name) => name in base.prototype,
+    isReservedStatic: (name) => name === "then" || name in base,
+    staticOf(name) {
+      for (const each of ancestors(model)) {
+        if (each === base) break;
+        if (Object.hasOwn(each, name)) return (each as Record<string, unknown>)[name];
+      }
+      return undefined;
+    },
+  };
+}
+
+/**
+ * A Model's enum scopes, read from its attributes as overridden, or why they can't be: an
+ * override that isn't one, or an enum whose method names clash (#340).
+ */
+function enumScopesOf({ model, library }: Exported): string[] | string {
+  try {
+    const scopes = enumScopeNames(model.attributeDefinitions);
+    return enumNameProblem(model, takenNames(model, library)) ?? scopes;
+  } catch (error) {
+    return (error as Error).message;
+  }
 }
 
 /** Adds a class from `file` if it's a Model directly below a base: one whose table it is. */
@@ -161,11 +195,9 @@ function addModel(cwd: string, file: string, exported: Exported, found: Found): 
     found.errors.push(`${shown(cwd, file)}: ${problem}`);
     return;
   }
-  let enumScopes: string[];
-  try {
-    enumScopes = enumScopeNames(model.attributeDefinitions);
-  } catch (error) {
-    found.errors.push(`${shown(cwd, file)}: ${(error as Error).message}`);
+  const enumScopes = enumScopesOf(exported);
+  if (typeof enumScopes === "string") {
+    found.errors.push(`${shown(cwd, file)}: ${enumScopes}`);
     return;
   }
   found.models.set(model, {
@@ -205,7 +237,7 @@ function addExported(
     const database = isModel ? databaseOf(value, context.schemas) : undefined;
     if (database !== undefined) {
       const model = value as unknown as LoadedClass;
-      addModel(cwd, file, { name, model, database }, context.found);
+      addModel(cwd, file, { name, model, database, library: context.library }, context.found);
     }
   }
 }

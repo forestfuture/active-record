@@ -177,7 +177,7 @@ export interface TakenNames {
   isRecordName(name: string): boolean;
   /** Whether a scope can't be named `name`: a Relation method or a Model static. */
   isReservedStatic(name: string): boolean;
-  /** The static `model` (or a class it extends) reads for `name`, if any. */
+  /** The static `model` (or a class it extends below the library's) has for `name`, if any. */
   staticOf(name: string): unknown;
 }
 
@@ -251,7 +251,7 @@ function staticProblem(
       return `${model.name}'s enum ${attribute} gives a scope named "${scope}", which is the name of a Relation method or a Model static; ${remedy(attribute)}`;
     }
     const found = taken.staticOf(scope);
-    if (typeof found !== "function" || !enumScopes.has(found)) {
+    if (found !== undefined && !(typeof found === "function" && enumScopes.has(found))) {
       return `${model.name} declares "${scope}", which is also the name of a scope its enum ${attribute} gives; rename it, or ${remedy(attribute)}`;
     }
   }
