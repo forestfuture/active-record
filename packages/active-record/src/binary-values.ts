@@ -22,7 +22,21 @@ export function isSameCell(a: unknown, b: unknown): boolean {
   return a.length === b.length && a.every((byte, index) => byte === b[index]);
 }
 
-/** Bytes as hex text, two digits each, for SQL that reads bytes from JSON (`unhex`, `\\x…`). */
+/** The character codes of the hex digits, `0`–`9` then `a`–`f`. */
+const digitCodes = new TextEncoder().encode("0123456789abcdef");
+
+const decoder = new TextDecoder();
+
+/**
+ * Bytes as hex text, two digits each, for SQL that reads bytes from JSON (`unhex`, `\\x…`). The
+ * digits' character codes are written into one array and decoded once: mapping each byte to a
+ * string of its own takes many times the memory and time, which a large file can't afford.
+ */
 export function hexOf(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const text = new Uint8Array(bytes.length * 2);
+  for (const [index, byte] of bytes.entries()) {
+    text[index * 2] = digitCodes[byte >> 4]!;
+    text[index * 2 + 1] = digitCodes[byte & 15]!;
+  }
+  return decoder.decode(text);
 }
