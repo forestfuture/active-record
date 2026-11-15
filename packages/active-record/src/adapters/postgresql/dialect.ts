@@ -1,8 +1,5 @@
 // Postgres's SQL: numbered placeholders, lists as arrays, and bulk rows read into the table's own column types.
-import { type Dialect, valueMark } from "@forestfuture/active-record/adapter";
-
-/** An attribute, as a dialect is given one. */
-type Attribute = Parameters<Dialect["linkedKey"]>[1];
+import { type Attribute, type Dialect, valueMark } from "@forestfuture/active-record/adapter";
 
 /** A text literal, as an escape string, so it reads the same whatever `standard_conforming_strings` is. */
 const literal = (text: string) => `E'${text.replaceAll("\\", "\\\\").replaceAll("'", "''")}'`;
