@@ -280,7 +280,7 @@ describe("the guide's examples", () => {
     ]);
   });
 
-  test("Validations: comparison with another attribute refuses an end before the start", async () => {
+  test("Validations: comparison with another attribute refuses an end at the start", async () => {
     const startsAt = new Date("2026-05-01T10:00:00Z");
     const event = connect(binding).model(Event).build({ startsAt, endsAt: startsAt });
 

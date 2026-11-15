@@ -21,13 +21,16 @@ describe("exclusion", () => {
     static {
       this.validates("name", { exclusion: ["admin", "root"] });
       this.validates("slug", { exclusion: { in: ["new", null] } });
-      this.validates("nick", { exclusion: ["admin"], allowNull: true });
+      this.validates("nick", { exclusion: ["admin", null], allowNull: true });
     }
   }
   const handles = connect({} as never).model(Handle);
 
-  test("passes a value outside the list, and null unless the list holds it", async () => {
-    expect(await errorsOf(handles.build({ name: "ada", slug: "ada", nick: null }))).toEqual([]);
+  test("passes a value outside the list", async () => {
+    expect(await errorsOf(handles.build({ name: "ada", slug: "ada", nick: "ada" }))).toEqual([]);
+  });
+
+  test("passes null when the list doesn't hold it", async () => {
     expect(await errorsOf(handles.build({ name: null, slug: "ada", nick: "ada" }))).toEqual([]);
   });
 
@@ -40,10 +43,16 @@ describe("exclusion", () => {
     ]);
   });
 
-  test("skips null with allowNull, and fails null when the list holds it", async () => {
-    const handle = handles.build({ name: "ada", slug: null, nick: null });
+  test("fails null when the list holds it", async () => {
+    const handle = handles.build({ name: "ada", slug: null, nick: "ada" });
 
     expect(await errorsOf(handle)).toEqual(["slug exclusion: is reserved"]);
+  });
+
+  test("skips null with allowNull, even when the list holds it", async () => {
+    const handle = handles.build({ name: "ada", slug: "ada", nick: null });
+
+    expect(await errorsOf(handle)).toEqual([]);
   });
 });
 
@@ -107,10 +116,13 @@ describe("comparison with a value", () => {
     ]);
   });
 
-  test("compares strings in JavaScript's order, and otherThan fails an equal value", async () => {
+  test("compares strings in JavaScript's order", async () => {
     expect(await errorsOf(listings.build({ ...valid, code: "A9" }))).toEqual([
       "code greaterThan: must be greater than B",
     ]);
+  });
+
+  test("otherThan fails an equal value", async () => {
     expect(await errorsOf(listings.build({ ...valid, code: "none" }))).toEqual([
       "code otherThan: must be other than none",
     ]);
@@ -249,14 +261,19 @@ describe("acceptance", () => {
   }
   const registrations = connect({} as never).model(Registration);
 
-  test('passes true and "1" by default, a value it\'s told to accept, and null', async () => {
+  test('passes true and "1" by default, or the values it\'s told to accept', async () => {
     const registration = registrations.build({
       terms: true,
       privacy: "1",
       marketing: "yes",
       adult: true,
     });
-    const unanswered = registrations.build({
+
+    expect(await errorsOf(registration)).toEqual([]);
+  });
+
+  test("passes null", async () => {
+    const registration = registrations.build({
       terms: null,
       privacy: null,
       marketing: null,
@@ -264,29 +281,38 @@ describe("acceptance", () => {
     });
 
     expect(await errorsOf(registration)).toEqual([]);
-    expect(await errorsOf(unanswered)).toEqual([]);
   });
 
-  test("fails any other value as must be accepted, and null with allowNull: false", async () => {
+  test("fails any other value as must be accepted", async () => {
     const registration = registrations.build({
       terms: false,
       privacy: "0",
       marketing: "1",
-      adult: null,
+      adult: true,
     });
 
     expect(await errorsOf(registration)).toEqual([
       "terms accepted: must be accepted",
       "privacy accepted: must be accepted",
       "marketing accepted: must be accepted",
-      "adult accepted: must be accepted",
     ]);
+  });
+
+  test("fails null with allowNull: false", async () => {
+    const registration = registrations.build({
+      terms: true,
+      privacy: "1",
+      marketing: "yes",
+      adult: null,
+    });
+
+    expect(await errorsOf(registration)).toEqual(["adult accepted: must be accepted"]);
   });
 });
 
 describe("the new rules within one validates call", () => {
-  test("apply after inclusion and numericality, in a fixed order whatever the keys' order", async () => {
-    class Seat extends Model.define({ id: "integer", row: "string", kept: "string" }) {
+  test("run in a fixed order, whatever the order of the keys", async () => {
+    class Seat extends Model.define({ id: "integer", row: "string" }) {
       static table = "seats";
       static {
         this.validates("row", {
@@ -312,7 +338,26 @@ describe("the new rules within one validates call", () => {
     ]);
   });
 
-  test("their options are typed, and a bound's function gets the Model's record", () => {
+  test("presence and comparison each add blank for null", async () => {
+    class Slot extends Model.define({ id: "integer", position: "integer" }) {
+      static table = "slots";
+      static {
+        this.validates("position", { presence: true, comparison: { greaterThan: 0 } });
+      }
+    }
+    const slot = connect({} as never)
+      .model(Slot)
+      .build({ position: null });
+
+    expect(await errorsOf(slot)).toEqual([
+      "position blank: can't be blank",
+      "position blank: can't be blank",
+    ]);
+  });
+});
+
+describe("the new rules' options", () => {
+  test("are typed, and a bound's function gets the Model's record", () => {
     const declare = () => {
       class Trip extends Model.define({
         id: "integer",
