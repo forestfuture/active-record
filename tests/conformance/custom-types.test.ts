@@ -218,14 +218,20 @@ describe("custom types", () => {
       expect(await listings().order({ price: "desc" }).pluck("title")).toEqual(["b", "a", "c"]);
     });
 
-    test("pluck reads values as a load does, and updateAll writes them", async () => {
+    test("pluck reads values as a load does", async () => {
+      const prices = await listings().order({ id: "asc" }).pluck("price");
+
+      expect(prices.map((price) => price?.cents)).toEqual([500, 1500, 250]);
+    });
+
+    test("updateAll writes a value as its stored value", async () => {
       await listings()
         .where({ id: 3 })
         .updateAll({ price: new Money(900) });
 
-      const prices = await listings().order({ id: "asc" }).pluck("price");
-
-      expect(prices.map((price) => price?.cents)).toEqual([500, 1500, 900]);
+      expect(await harness.exec("SELECT price FROM listings WHERE id = 3")).toEqual([
+        { price: 900 },
+      ]);
     });
   });
 
