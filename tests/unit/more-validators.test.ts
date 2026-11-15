@@ -158,6 +158,44 @@ describe("comparison with a function of the record", () => {
   });
 });
 
+describe("comparison's message", () => {
+  class Member extends Model.define({
+    id: "integer",
+    pin: "string",
+    oldPin: "string",
+    floor: "string",
+  }) {
+    static table = "members";
+    static override filterAttributes = ["pin"];
+    static {
+      this.validates("pin", {
+        comparison: { otherThan: (member) => member.oldPin, greaterThan: (member) => member.floor },
+      });
+      this.validates("floor", { comparison: { otherThan: "0000" } });
+    }
+  }
+  const members = connect({} as never).model(Member);
+
+  test("shows a bound that's a filtered attribute's value as [FILTERED]", async () => {
+    const member = members.build({ pin: "1234", oldPin: "1234", floor: "1000" });
+
+    expect(await errorsOf(member)).toEqual(["pin otherThan: must be other than [FILTERED]"]);
+    expect(member.errors.toArray()[0]?.values).toEqual({ count: "[FILTERED]" });
+  });
+
+  test("shows a bound given as a value as it is, even one a filtered attribute holds", async () => {
+    const member = members.build({ pin: "1234", oldPin: "0000", floor: "0000" });
+
+    expect(await errorsOf(member)).toEqual(["floor otherThan: must be other than 0000"]);
+  });
+
+  test("shows a bound no filtered attribute holds as it is", async () => {
+    const member = members.build({ pin: "1234", oldPin: "9999", floor: "5000" });
+
+    expect(await errorsOf(member)).toEqual(["pin greaterThan: must be greater than 5000"]);
+  });
+});
+
 describe("comparison with null, and values it can't compare", () => {
   class Shift extends Model.define({
     id: "integer",

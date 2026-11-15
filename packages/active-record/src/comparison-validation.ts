@@ -1,6 +1,7 @@
 // The `comparison` validator (#342): a value against bounds given as values or functions of the record, and the order checks it shares with `numericality`.
 import { withArticle } from "./attribute.ts";
 import { isBlank } from "./blank.ts";
+import { FILTERED } from "./filtering.ts";
 import type { Failure } from "./errors-collection.ts";
 import type { ValidationSubject } from "./validations.ts";
 
@@ -46,8 +47,18 @@ export function orderOf(a: Comparable, b: Comparable): Order {
   return left === right ? 0 : Number.NaN;
 }
 
-/** A bound as its message shows it: a Date as an ISO string. */
-function shown(bound: Comparable): string | number {
+/** Whether `a` and `b` are the same value: of one kind, and equal as `equalTo` compares them. */
+function isSame(a: unknown, b: Comparable): boolean {
+  return kindOf(a) === kindOf(b) && orderOf(a as Comparable, b) === 0;
+}
+
+/**
+ * A bound as its message's `%{count}` shows it: a function's result as `[FILTERED]` when one of
+ * the record's filtered attributes holds it, and a Date as an ISO string.
+ */
+function shown(given: unknown, bound: Comparable, subject: ValidationSubject): string | number {
+  const fromRecord = typeof given === "function";
+  if (fromRecord && subject.filteredValues().some((value) => isSame(value, bound))) return FILTERED;
   if (!(bound instanceof Date)) return bound;
   return Number.isNaN(bound.getTime()) ? "Invalid Date" : bound.toISOString();
 }
@@ -88,6 +99,6 @@ export function comparisonFailures(
     requireComparable(value, bound, subject);
     return holds(orderOf(value as Comparable, bound))
       ? []
-      : [{ type, values: { count: shown(bound) } }];
+      : [{ type, values: { count: shown(given, bound, subject) } }];
   });
 }
