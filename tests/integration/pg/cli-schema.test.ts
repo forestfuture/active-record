@@ -107,7 +107,7 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
     });
   });
 
-  test("a text or varchar column checked IN a list of strings is a generated enum; other checks aren't (#64)", async () => {
+  test("a text or varchar column checked IN a list of strings is a generated enum (#64)", async () => {
     const { tables } = await tablesOf({
       "1_create.sql": `
         CREATE TABLE posts (
@@ -116,15 +116,7 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
           b VARCHAR(20) CHECK (b IN ('draft', 'it''s')),
           c TEXT CHECK (c IS NULL OR c IN ('draft', 'it''s')),
           "Dee" TEXT CHECK ("Dee" IN ('draft', 'it''s')),
-          e TEXT CHECK (e NOT IN ('x', 'y')),
-          f TEXT CHECK (f IN ('x', 'y') AND length(f) > 0),
-          g INTEGER CHECK (g IN (0, 1)),
-          h TEXT CHECK (h IN ('x', 'y')) CHECK (h IN ('x')),
-          i TEXT CHECK (i IN ('draft', 'it''s')) CHECK (length(i) > 0),
-          lower TEXT,
-          "lowerj" TEXT CHECK (lowerj > ''),
-          j TEXT,
-          CHECK (lower(j) = ANY (ARRAY['x']))
+          i TEXT CHECK (i IN ('draft', 'it''s')) CHECK (length(i) > 0)
         );`,
     });
     const generated = {
@@ -140,11 +132,32 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
       b: generated,
       c: generated,
       Dee: { ...generated, column: "Dee" },
+      i: generated,
+    });
+  });
+
+  test("NOT IN, more conditions, numbers, two lists, or a function of a column give no enum (#64)", async () => {
+    const { tables } = await tablesOf({
+      "1_create.sql": `
+        CREATE TABLE posts (
+          id INTEGER PRIMARY KEY,
+          e TEXT CHECK (e NOT IN ('x', 'y')),
+          f TEXT CHECK (f IN ('x', 'y') AND length(f) > 0),
+          g INTEGER CHECK (g IN (0, 1)),
+          h TEXT CHECK (h IN ('x', 'y')) CHECK (h IN ('x')),
+          lower TEXT,
+          "lowerj" TEXT CHECK (lowerj > ''),
+          j TEXT,
+          CHECK (lower(j) = ANY (ARRAY['x']))
+        );`,
+    });
+
+    expect(tables[0]!.attributes).toEqual({
+      id: { type: "integer", null: false },
       e: { type: "string" },
       f: { type: "string" },
       g: { type: "integer" },
       h: { type: "string" },
-      i: generated,
       lower: { type: "string" },
       lowerj: { type: "string" },
       j: { type: "string" },

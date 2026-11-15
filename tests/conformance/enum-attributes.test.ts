@@ -519,11 +519,17 @@ describe("enum attributes (#340)", () => {
   describe("a generated enum (#64)", () => {
     const memos = () => harness.connect().model(Memo);
 
-    test("reads and writes its names, and refuses any other value", async () => {
+    test("reads and writes its names", async () => {
       const memo = await memos().createOrThrow({ id: 1, status: "published" });
 
-      expect(memo.status).toBe("published");
+      expect((await memos().find(1)).status).toBe(memo.status);
+    });
+
+    test("refuses a value it doesn't list", () => {
       expect(() => memos().build({ status: "archived" as never })).toThrow(TypeError);
+    });
+
+    test("gives its names to enumValues", () => {
       expect(Memo.enumValues("status")).toEqual({ draft: "draft", published: "published" });
     });
 
