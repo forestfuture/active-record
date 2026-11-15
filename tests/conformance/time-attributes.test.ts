@@ -65,6 +65,14 @@ describe("time attributes", () => {
     });
   });
 
+  test("the end of the day saved reads back", async () => {
+    const { id } = await lines().create({ startsAt: "24:00" });
+
+    const { startsAt } = await lines().find(id);
+
+    expect(startsAt).toBe("24:00:00");
+  });
+
   test("a fraction saved reads back as written", async () => {
     const { id } = await lines().create({ startsAt: "09:30:15.123456" });
 

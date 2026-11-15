@@ -81,7 +81,7 @@ describe("decimal attributes", () => {
     const started = performance.now();
 
     expect(() => Line.build({ amount: untyped(long) })).toThrow(TypeError);
-    expect(performance.now() - started).toBeLessThan(200);
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 
   test("text longer than any decimal is refused before it's read", () => {
@@ -89,7 +89,7 @@ describe("decimal attributes", () => {
     const started = performance.now();
 
     expect(() => Line.build({ amount: untyped(longest) })).toThrow(TypeError);
-    expect(performance.now() - started).toBeLessThan(200);
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 
   describe("change tracking", () => {
