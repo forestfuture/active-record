@@ -127,6 +127,29 @@ describe("CI's tests (#365)", () => {
     expect(job).toMatch(/--reporter=blob --outputFile\.blob=.+\.json --reporter=github-actions/);
   });
 
+  test("save a shard's results even when its tests fail (#402)", () => {
+    const job = ci().get("test") ?? "";
+    const upload = job.slice(job.indexOf("actions/upload-artifact"));
+
+    expect(upload).toContain("if: ${{ !cancelled() }}");
+  });
+
+  test("are merged by check before it fails for a failed job, so it lists every failure (#402)", () => {
+    const job = ci().get("check") ?? "";
+    const merge = job.indexOf("vp test --merge-reports");
+    const gate = job.indexOf("needs.test.result");
+
+    expect(merge).toBeGreaterThan(-1);
+    expect(gate).toBeGreaterThan(merge);
+  });
+
+  test("still check every job it needs when the merge fails (#402)", () => {
+    const job = ci().get("check") ?? "";
+    const gate = job.slice(job.indexOf("- name: Every job it needs passed"));
+
+    expect(gate).toMatch(/^- name: Every job it needs passed\n\s+if: \$\{\{ !cancelled\(\) \}\}/);
+  });
+
   test("are merged by check, the required job, which holds the coverage floor", () => {
     const job = ci().get("check") ?? "";
 
