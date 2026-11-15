@@ -6,6 +6,8 @@ import {
   type ComparisonOptions,
 } from "./comparison-validation.ts";
 import { isBlank } from "./blank.ts";
+import { castDecimal, compareDecimals } from "./decimal-values.ts";
+import { uncastable } from "./conversion.ts";
 import { addFailure, type Errors, type Failure } from "./errors-collection.ts";
 import { attributeOf } from "./metadata.ts";
 import type { AttributesOf } from "./model.ts";
@@ -83,6 +85,8 @@ export interface ValidationSubject {
   attribute: string;
   /** The values of the record's loaded filtered attributes, which messages mustn't show. */
   filteredValues: () => unknown[];
+  /** Whether the attribute is a built-in decimal, which holds a number as text (#391). */
+  isDecimal: boolean;
 }
 
 type Check = (
@@ -140,19 +144,42 @@ const inclusion: Check = (value, { inclusion: rule }) =>
 const exclusion: Check = (value, { exclusion: rule }) =>
   rule !== undefined && isListed(rule, value) ? [{ type: "exclusion" }] : [];
 
-/** Only real numbers pass; a numeric string like "12" is not a number (convert input first). */
-const numericality: Check = (value, { numericality: rule }) => {
-  if (rule === undefined || rule === false) return [];
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return [{ type: "notANumber" }];
+/** A value `numericality` checks: whether it's whole, and where it falls against a bound. */
+interface Numeric {
+  isInteger: boolean;
+  orderTo: (bound: number) => number;
+}
+
+/**
+ * A number, or a decimal attribute's text (#391), compared exactly with a bound as a decimal; any
+ * other value, a numeric string included, is undefined: not a number.
+ */
+function numericOf(value: unknown, { isDecimal }: ValidationSubject): Numeric | undefined {
+  if (isDecimal && typeof value === "string") {
+    return { isInteger: !value.includes("."), orderTo: (bound) => decimalOrder(value, bound) };
   }
+  if (typeof value !== "number" || Number.isNaN(value)) return undefined;
+  return { isInteger: Number.isInteger(value), orderTo: (bound) => orderOf(value, bound) };
+}
+
+/** Where a decimal falls against a bound; NaN for a bound that isn't a finite number. */
+function decimalOrder(value: string, bound: number): number {
+  const decimal = castDecimal(bound);
+  return decimal === uncastable ? Number.NaN : compareDecimals(value, decimal as string);
+}
+
+/** Only numbers pass, and a decimal's text; a numeric string like "12" is not a number. */
+const numericality: Check = (value, { numericality: rule }, subject) => {
+  if (rule === undefined || rule === false) return [];
+  const numeric = numericOf(value, subject);
+  if (numeric === undefined) return [{ type: "notANumber" }];
   const options = rule === true ? {} : rule;
-  if (options.onlyInteger && !Number.isInteger(value)) {
+  if (options.onlyInteger && !numeric.isInteger) {
     return [{ type: "notAnInteger" }];
   }
   return RANGE_CHECKS.flatMap(([type, holds]) => {
     const bound = options[type];
-    return bound === undefined || holds(orderOf(value, bound))
+    return bound === undefined || holds(numeric.orderTo(bound))
       ? []
       : [{ type, values: { count: bound } }];
   });
@@ -213,7 +240,12 @@ export async function runValidations(
     if (options.if && !options.if(target.record as never)) continue;
     const value = target.read(attribute);
     if (options.allowNull && value === null) continue;
-    const subject = { record: target.record, attribute, filteredValues: target.filteredValues };
+    const subject = {
+      record: target.record,
+      attribute,
+      filteredValues: target.filteredValues,
+      isDecimal: isBuiltInDecimal(target.record, attribute),
+    };
     const failures = [
       ...CHECKS.flatMap((check) => check(value, options, subject)),
       ...(await uniquenessFailures(target, attribute, value, options)),
@@ -222,6 +254,12 @@ export async function runValidations(
       target.errors[addFailure](attribute, { ...failure, message: options.message });
     }
   }
+}
+
+/** Whether a record's attribute is a decimal of the built-in type, not a custom type stored as one. */
+function isBuiltInDecimal(record: object, attribute: string): boolean {
+  const { type, customType } = attributeOf(record.constructor as never, attribute);
+  return type === "decimal" && customType === undefined;
 }
 
 /** The attributes a validation names (its own, and a uniqueness `scope`'s) must be the Model's. */
