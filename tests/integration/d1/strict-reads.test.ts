@@ -16,6 +16,7 @@ class Reading extends Model.define({
   settings: "json",
   secret: "integer",
   level: { type: "integer", enum: { low: 0, high: 1 } },
+  data: "binary",
 }) {
   static table = "strict_reads";
   static override filterAttributes = ["secret"];
@@ -36,7 +37,7 @@ describe("a stored cell that isn't the attribute's type fails when it's read (#1
     // No declared types, so SQLite keeps each value as it was bound: no column affinity converts.
     await binding.batch([
       binding.prepare(
-        "CREATE TABLE strict_reads (id INTEGER PRIMARY KEY, owner_id, label, quantity, ratio, enabled, stamp, seconds, milliseconds, settings, secret, level)",
+        "CREATE TABLE strict_reads (id INTEGER PRIMARY KEY, owner_id, label, quantity, ratio, enabled, stamp, seconds, milliseconds, settings, secret, level, data)",
       ),
       binding.prepare("CREATE TABLE strict_owners (id INTEGER PRIMARY KEY)"),
     ]);
@@ -79,6 +80,8 @@ describe("a stored cell that isn't the attribute's type fails when it's read (#1
     ["milliseconds", "abc", `"abc" isn't a datetime`],
     ["settings", "not json {", `"not json {" isn't a JSON value`],
     ["seconds", "1767323045", `"1767323045" isn't a datetime`],
+    ["data", "abc", `"abc" isn't binary data`],
+    ["data", 5, "5 isn't binary data"],
   ] as const;
 
   describe.each(refused)("%s holding %j", (column, cell, shown) => {
