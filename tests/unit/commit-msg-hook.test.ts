@@ -206,6 +206,11 @@ function runHookEditingTheReadme(message: string, config: GitConfig = {}) {
 
 const semicolonComments = { "core.commentChar": ";" };
 
+/** A line of `length` characters, made of words. */
+function lineOfWords(length: number): string {
+  return "word ".repeat(length).slice(0, length - 1) + "x";
+}
+
 describe("the commit-msg hook on a commit's title", () => {
   test("skips a long comment line that opens with git's comment character", () => {
     const { status, output } = runHookEditingTheReadme(
@@ -276,11 +281,6 @@ describe("the commit-msg hook on a commit's title", () => {
     expect(output).toBe("");
   });
 });
-
-/** A line of `length` characters, made of words. */
-function lineOfWords(length: number): string {
-  return "word ".repeat(length).slice(0, length - 1) + "x";
-}
 
 describe("the commit-msg hook on a commit's body", () => {
   test("refuses a body line past 72 characters, naming it", () => {
