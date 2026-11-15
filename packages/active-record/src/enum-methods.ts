@@ -244,7 +244,8 @@ function repeated(model: string, first: string, second: string, method: string):
     : `${model}'s enums ${first} and ${second} both give a method named "${method}"; give one a prefix or a suffix`;
 }
 
-const remedy = (attribute: string) => `give ${attribute} a prefix or a suffix`;
+const remedy = (attribute: string) =>
+  `give ${attribute} a prefix or a suffix, or leave its methods out (scopes: false, instanceMethods: false)`;
 
 function recordProblem(
   model: EnumModel,

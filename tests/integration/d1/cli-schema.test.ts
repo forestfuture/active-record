@@ -628,11 +628,78 @@ export class FeaturedPost extends Post {}
     expect(code).toBe(1);
     expect(output).toBe(
       'src/models/user.ts: User\'s enum email gives a scope named "first", which is the name of a ' +
-        "Relation method or a Model static; give email a prefix or a suffix\n" +
+        "Relation method or a Model static; give email a prefix or a suffix, or leave its methods out (scopes: false, instanceMethods: false)\n" +
         'src/models/writer.ts: Writer declares "sent", which is also the name of a scope its enum ' +
-        "email gives; rename it, or give email a prefix or a suffix\n" +
+        "email gives; rename it, or give email a prefix or a suffix, or leave its methods out (scopes: false, instanceMethods: false)\n" +
         "Kept src/db/schema.ts as it was",
     );
+  });
+
+  test("enum: true lists a generated enum's scopes from the first run that reads its CHECK (#64)", async () => {
+    const cwd = await withModels({});
+    writeMigration(
+      cwd,
+      "CREATE TABLE tasks (id INTEGER PRIMARY KEY, state TEXT CHECK (state IN ('open', 'done')));",
+    );
+    writeFileSync(
+      join(cwd, "src/models/task.ts"),
+      `${base}export class Task extends ApplicationRecord {
+  static override attributes = { state: { enum: true } } as const;
+}
+`,
+    );
+
+    expect((await run(cwd)).code).toBe(0);
+
+    const schema = generatedSchema(cwd);
+    expect(schema).toContain(
+      'state: { type: "string", enum: ["open", "done"], scopes: false, instanceMethods: false },',
+    );
+    expect(schema).toContain('enumScopes: { Task: ["open", "notOpen", "done", "notDone"] }');
+  });
+
+  test("a generated enum whose turned-on methods clash fails, saying how to fix it (#64)", async () => {
+    const cwd = await withModels(
+      {
+        "task.ts": `${base}export class Task extends ApplicationRecord {
+  static override attributes = { state: { enum: true } } as const;
+}
+`,
+        "plain.ts": `${base}export class Plain extends ApplicationRecord {
+  static override table = "tasks";
+}
+`,
+      },
+      {
+        "migrations/0001.sql":
+          "CREATE TABLE tasks (id INTEGER PRIMARY KEY, state TEXT CHECK (state IN ('new', 'done')));",
+      },
+    );
+
+    const { code, output } = await run(cwd);
+
+    expect(code).toBe(1);
+    expect(output).toBe(
+      'src/models/task.ts: Task\'s enum state gives a scope named "new", which is a reserved word; ' +
+        "give state a prefix or a suffix, or leave its methods out (scopes: false, instanceMethods: false)\n" +
+        "Kept src/db/schema.ts as it was",
+    );
+  });
+
+  test("enum: true on a column the database doesn't restrict fails (#64)", async () => {
+    const cwd = await withModels({
+      "user.ts": `${base}export class User extends ApplicationRecord {
+  static override attributes = { email: { enum: true } } as const;
+}
+`,
+    });
+
+    expect(await run(cwd)).toEqual({
+      code: 1,
+      output:
+        'src/models/user.ts: User.email has no enum from the database to turn on; list its names instead (enum: ["…", …])\n' +
+        "Kept src/db/schema.ts as it was",
+    });
   });
 
   test("doesn't list classes Models are built on, or Models declaring their own attributes", async () => {
