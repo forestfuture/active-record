@@ -2,7 +2,7 @@
 // the schema as the migrations make it now standing in for each schema file (#232).
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve, sep } from "node:path";
-import { ancestors } from "../../src/ancestors.ts";
+import { ancestors, staticBelow } from "../../src/ancestors.ts";
 import { enumNameProblem, enumScopeNames, type TakenNames } from "../../src/enum-methods.ts";
 import { isBase } from "../../src/generated-model.ts";
 import type { AttributeDefinition } from "../../src/metadata.ts";
@@ -21,9 +21,10 @@ import { defaultModels } from "../project/targets.ts";
 import { renderSchema } from "./render.ts";
 import { schemaAdapterOf } from "./writes.ts";
 
-/** What finding Models uses of the project's own library: its base class. */
+/** What finding Models uses of the project's own library: its base class, and Relation, whose methods no scope may take. */
 interface Library {
   Model: abstract new (...args: never[]) => unknown;
+  Relation: { prototype: object };
 }
 
 /** A class as loaded, with the statics finding its Models reads. */
@@ -142,17 +143,13 @@ function modelNameProblem(
  * Its enum scopes aren't defined yet while the schema is generated, so any static is the app's.
  */
 function takenNames(model: object, library: Library): TakenNames {
-  const base = library.Model as unknown as Record<string, unknown> & { prototype: object };
+  const base = library.Model;
   return {
     isRecordName: (name) => name in base.prototype,
-    isReservedStatic: (name) => name === "then" || name in base,
-    staticOf(name) {
-      for (const each of ancestors(model)) {
-        if (each === base) break;
-        if (Object.hasOwn(each, name)) return (each as Record<string, unknown>)[name];
-      }
-      return undefined;
-    },
+    // As a scope's name is checked when the Model is first used, from what the library has.
+    isReservedStatic: (name) =>
+      name === "then" || name in library.Relation.prototype || name in base,
+    staticOf: (name) => staticBelow(model, base, name),
   };
 }
 
