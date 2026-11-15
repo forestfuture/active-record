@@ -120,6 +120,10 @@ _Avoid_: Connection, client, context (on its own)
 A value declared on a **Model**, with a camelCase name, the snake_case column it maps to, and a type that says how its value moves between JavaScript and SQLite. Only declared attributes can appear in object-style queries or be written.
 _Avoid_: Field, property
 
+**Enum**:
+An **Attribute** declared with `enum`, whose values are only the names it lists, each stored as itself or as the text or integer it's mapped to (`{ low: 0, high: 10 }`). Each name gives its records a predicate and a `saveAs…` setter, and its **Model** a **Scope** and a `not…` scope. A stored value it doesn't list reads as `null`.
+_Avoid_: Enumeration, enum type (Postgres's is a column type), status field
+
 **Generated id**:
 A string **Attribute** declared with `generateId: true`, whose value, when not given, comes from its **Model**'s `generateId` where a default would: a key made in code, before the row is written. A string primary key without a literal default in the **Generated schema** is one: `TEXT` on D1, `UUID` (or `TEXT`) on Postgres.
 _Avoid_: Generated attribute, auto id
