@@ -2,6 +2,7 @@
 import {
   attributeName,
   castDefault,
+  isCastDefaultType,
   underscore,
   withGeneratedEnum,
   type Converted,
@@ -96,7 +97,7 @@ function defaultOf(text: string, type: Exclude<AttributeType, "binary">): Defaul
   if (type === "boolean")
     return /^(true|false)$/i.test(text) ? { literal: /^true$/i.test(text) } : undefined;
   if (type === "integer" || type === "real") return numberDefault(text, type);
-  if (type === "decimal" || type === "date" || type === "time") return castDefault(type, text);
+  if (isCastDefaultType(type)) return castDefault(type, text);
   return type === "string" ? { literal: text } : parsedDefault(text, type);
 }
 

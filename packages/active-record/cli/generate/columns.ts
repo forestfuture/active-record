@@ -1,6 +1,6 @@
 // Parses a generator's `name:type` column arguments.
-import { castValue, uncastable } from "../../src/conversion.ts";
 import { pluralize } from "../../src/inflections.ts";
+import { castDefault, type CastDefaultType } from "../schema/cast-default.ts";
 import { camelize, underscore } from "../../src/naming.ts";
 
 type ColumnType =
@@ -57,13 +57,13 @@ type Literal = string | number | boolean;
 type Parsed = { ok: true; value: Literal } | { ok: false; error: string };
 
 /** A decimal's, a date's or a time's default, in its one form (`1.50` → `"1.5"`, #391). */
-const castDefault =
-  (type: "decimal" | "date" | "time") =>
+const castParser =
+  (type: CastDefaultType) =>
   (value: string): Parsed => {
-    const cast = castValue({ type }, value);
-    return cast === uncastable
+    const cast = castDefault(type, value);
+    return cast === undefined
       ? { ok: false, error: `${value} isn't a ${type}` }
-      : { ok: true, value: cast as string };
+      : { ok: true, value: cast.literal };
   };
 
 /** How each type that can have a default reads a `=value` as its literal. */
@@ -81,20 +81,20 @@ const defaultParsers: Partial<Record<ColumnType, (value: string) => Parsed>> = {
     /^-?\d+(\.\d+)?$/.test(value)
       ? { ok: true, value: Number(value) }
       : { ok: false, error: `${value} isn't a number` },
-  decimal: castDefault("decimal"),
-  date: castDefault("date"),
-  time: castDefault("time"),
+  decimal: castParser("decimal"),
+  date: castParser("date"),
+  time: castParser("time"),
 };
+
+/** The types that can have a default, as a message lists them: `string, integer, … and time`. */
+const defaultTypes = types.filter((type) => defaultParsers[type] !== undefined);
+const defaultTypeList = `${defaultTypes.slice(0, -1).join(", ")} and ${defaultTypes.at(-1)}`;
 
 /** A `=value` default as its type's literal, or why it can't be one. */
 function defaultOf(type: ColumnType, value: string): Parsed {
   const parse = defaultParsers[type];
   return parse === undefined
-    ? {
-        ok: false,
-        error:
-          "only string, integer, real, decimal, boolean, date and time columns can have a default here",
-      }
+    ? { ok: false, error: `only ${defaultTypeList} columns can have a default here` }
     : parse(value);
 }
 
