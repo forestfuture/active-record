@@ -306,6 +306,7 @@ function textOf(value: unknown): string {
   if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) {
     return `<${value.constructor.name} of ${value.byteLength} bytes>`;
   }
+  if (value instanceof Blob) return `<${value.constructor.name} of ${value.size} bytes>`;
   if (typeof value === "number" || isInvalidDate(value)) return String(value);
   try {
     return JSON.stringify(value) ?? String(value);
