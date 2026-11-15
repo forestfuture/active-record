@@ -67,4 +67,17 @@ describe("a custom type's declaration (#20)", () => {
       ),
     );
   });
+
+  test("defineType refuses a storedAs that isn't a type's name, or a missing function", () => {
+    const parts = { cast: Number, serialize: Number, deserialize: Number };
+
+    expect(() => defineType({ ...parts, storedAs: "text" } as never)).toThrow(
+      new TypeError(
+        'defineType: storedAs "text" isn\'t a type\'s name; use "string", "integer", "real", "boolean", "datetime", "json", or "binary"',
+      ),
+    );
+    expect(() => defineType({ ...parts, storedAs: "integer", cast: undefined } as never)).toThrow(
+      new TypeError("defineType: cast isn't a function"),
+    );
+  });
 });
