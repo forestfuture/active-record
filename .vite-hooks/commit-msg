@@ -30,6 +30,30 @@ if [ "$length" -gt 60 ]; then
   echo "Warning: commit title is $length characters; aim for 50 or less."
 fi
 
+# Commit bodies wrap at 72, since git shows them as written. Each line past
+# 72 is listed, so one amend fixes them all. Lines count from the title, as
+# git stores the message, without its comments.
+long_lines=$(printf '%s\n' "$message" | {
+  number=0
+  past_title=no
+  while IFS= read -r line; do
+    number=$((number + 1))
+    if [ "$past_title" = no ]; then
+      # The pattern's opening ( keeps bash from closing $( at its ).
+      case "$line" in (*[![:space:]]*) past_title=yes ;; esac
+      continue
+    fi
+    [ "${#line}" -gt 72 ] || continue
+    echo "Commit body line $number is ${#line} characters; wrap the body at 72:"
+    echo "  $line"
+  done
+})
+
+if [ -n "$long_lines" ]; then
+  printf '%s\n' "$long_lines"
+  exit 1
+fi
+
 # A commit that stages only tests and adds more than it removes adds
 # guards: tests that passed on their first run. See CODING_STANDARDS.md.
 # A rename or a move adds as many test calls as it removes.
