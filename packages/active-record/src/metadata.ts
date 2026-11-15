@@ -6,7 +6,14 @@ import { UnknownAttribute } from "./errors.ts";
 import type { ModelClass } from "./model.ts";
 import { underscore } from "./naming.ts";
 
-export type AttributeType = "string" | "integer" | "real" | "boolean" | "datetime" | "json";
+export type AttributeType =
+  | "string"
+  | "integer"
+  | "real"
+  | "boolean"
+  | "datetime"
+  | "json"
+  | "binary";
 
 /** An attribute's spec written out: its type, and optionally nullability, column and default. */
 export interface SpecObject {
@@ -117,7 +124,9 @@ type JsType<T extends AttributeType> = T extends "string"
       ? boolean
       : T extends "datetime"
         ? Date
-        : unknown;
+        : T extends "binary"
+          ? Uint8Array
+          : unknown;
 
 /** A spec's value, not null: an enum's names (#340), or its type's JavaScript value. */
 type SpecValue<S> = S extends { enum: infer E extends EnumValues }

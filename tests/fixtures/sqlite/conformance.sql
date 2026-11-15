@@ -15,3 +15,6 @@ CREATE TABLE typed_samples (id INTEGER PRIMARY KEY, label TEXT, enabled INTEGER,
 
 -- An enum stored as text (status) and one stored as integers (priority), #340.
 CREATE TABLE articles (id INTEGER PRIMARY KEY, title TEXT, status TEXT, priority INTEGER);
+
+-- Bytes (#20): a file's contents (data) and a hash to look one up by (digest).
+CREATE TABLE attachments (id INTEGER PRIMARY KEY, name TEXT, data BLOB, digest BLOB);
