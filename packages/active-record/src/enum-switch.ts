@@ -2,7 +2,7 @@
 // schema leaves off, or the column without them; and which enums' names a Model's schema gave it.
 import { InvalidModel } from "./errors.ts";
 import type { DatabaseSchema } from "./generated-model.ts";
-import type { AttributeDefinition, SpecObject } from "./metadata.ts";
+import type { AttributeDefinition, AttributeSpecs, SpecObject } from "./metadata.ts";
 import { withoutEnum } from "./spec-keys.ts";
 
 /** An override as written, with its `enum: true` or `false` apart from its other changes. */
@@ -55,26 +55,49 @@ function nothingToSwitch(where: string, useDatabaseEnum: boolean): string {
     : `${where} has no enum from the database to turn off`;
 }
 
-/** A Model as `databaseEnumsOf` reads it: its schema and table, and its attributes as overridden. */
+/** A Model as `methodsOffFixes` reads it: its schema, table and overrides, and its attributes. */
 interface SchemaModel {
   readonly schema?: DatabaseSchema;
   readonly table: string;
+  readonly attributes?: unknown;
   readonly attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
 }
 
+/** The method switches an override turns on, as written: `enum: true`, or `scopes: true`, … */
+const methodSwitches = ["enum", "scopes", "instanceMethods"] as const;
+
+/** An override as an object of keys, whatever was written: `{}` for a type name, `false` or none. */
+function overrideKeys(override: unknown): Readonly<Record<string, unknown>> {
+  return typeof override === "object" && override !== null
+    ? (override as Record<string, unknown>)
+    : {};
+}
+
 /**
- * The enum attributes whose names the database gave: those whose names are the ones its schema's
- * table lists, not a list of the Model's own (#64).
+ * What to remove from an attribute's override to leave its database enum's methods off again
+ * (`enum: true`), or undefined: no enum from the database, its methods off, or a list of its own.
  */
-export function databaseEnumsOf(model: SchemaModel): ReadonlySet<string> {
-  const table = model.schema?.tables[model.table]?.attributes ?? {};
-  const fromDatabase = new Set<string>();
-  for (const [attribute, definition] of model.attributeDefinitions) {
-    const spec = table[attribute];
-    const listed = typeof spec === "object" ? spec.enum : undefined;
-    if (listed !== undefined && JSON.stringify(listed) === JSON.stringify(definition.enum)) {
-      fromDatabase.add(attribute);
-    }
+function methodsOffFix(
+  spec: AttributeSpecs[string] | undefined,
+  definition: AttributeDefinition,
+  override: Readonly<Record<string, unknown>>,
+): string | undefined {
+  const isFromDatabase = typeof spec === "object" && spec.enum !== undefined;
+  if (!isFromDatabase || definition.enum === undefined || typeof override["enum"] === "object") {
+    return undefined;
   }
-  return fromDatabase;
+  const turnedOn = methodSwitches.filter((key) => override[key] === true);
+  return turnedOn.length === 0 ? undefined : turnedOn.map((key) => `${key}: true`).join(" and ");
+}
+
+/** For each enum whose names the database gave, with its methods on, `methodsOffFix`'s answer (#64). */
+export function methodsOffFixes(model: SchemaModel): ReadonlyMap<string, string> {
+  const table = model.schema?.tables[model.table]?.attributes ?? {};
+  const overrides = overrideKeys(model.attributes);
+  const fixes = new Map<string, string>();
+  for (const [attribute, definition] of model.attributeDefinitions) {
+    const fix = methodsOffFix(table[attribute], definition, overrideKeys(overrides[attribute]));
+    if (fix !== undefined) fixes.set(attribute, fix);
+  }
+  return fixes;
 }

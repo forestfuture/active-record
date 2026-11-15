@@ -36,10 +36,21 @@ const tasks = {
     instanceMethods: false,
   },
 } as const;
+// Tables whose database labels give a scope that's taken (first), or one method twice (#64).
+const stages = {
+  id: { type: "integer", null: false },
+  state: { type: "string", enum: ["first", "done"], scopes: false, instanceMethods: false },
+} as const;
+const doors = {
+  id: { type: "integer", null: false },
+  state: { type: "string", enum: ["open", "Open"], scopes: false, instanceMethods: false },
+} as const;
 const schema = {
   adapter: d1({ binding: "DB" }),
   tables: {
     tasks: { attributes: tasks, primaryKey: "id" },
+    stages: { attributes: stages, primaryKey: "id" },
+    doors: { attributes: doors, primaryKey: "id" },
     products: { attributes: products, primaryKey: "id" },
     events: { attributes: events, primaryKey: "eventId" },
     entries: { attributes: entries, primaryKey: "id" },
@@ -62,6 +73,10 @@ const schema = {
     Misspelled: "products",
     Listless: "products",
     Spaced: "tasks",
+    TurnedOn: "stages",
+    Switched: "stages",
+    OwnList: "stages",
+    Door: "doors",
     Switchless: "products",
   },
 } as const;
@@ -299,6 +314,51 @@ describe("a generated Model's static attributes", () => {
     expect(() => db.model(Spaced).build()).toThrow(
       new InvalidModel(
         `Spaced's enum state gives a method named "isIn progress", which isn't a name TypeScript can declare; name it with letters, digits, _ and $, and map it to the value it's stored as ({ inProgress: "in progress" }), or leave its methods off (remove enum: true)`,
+      ),
+    );
+  });
+
+  test("a database enum's clash says which of its override's keys to remove (#64)", () => {
+    class TurnedOn extends AppRecord {
+      static override table = "stages";
+      static override attributes = { state: { enum: true } } as const;
+    }
+    class Switched extends AppRecord {
+      static override table = "stages";
+      static override attributes = { state: { scopes: true, instanceMethods: true } } as const;
+    }
+    const scopeTaken = `gives a scope named "first", which is the name of a Relation method or a Model static; give state a prefix or a suffix`;
+
+    expect(() => db.model(TurnedOn).build()).toThrow(
+      `TurnedOn's enum state ${scopeTaken}, or leave its methods off (remove enum: true)`,
+    );
+    expect(() => db.model(Switched).build()).toThrow(
+      `Switched's enum state ${scopeTaken}, or leave its methods off (remove scopes: true and instanceMethods: true)`,
+    );
+  });
+
+  test("an override's own list, even the database's, is told only of a prefix or a suffix (#64)", () => {
+    class OwnList extends AppRecord {
+      static override table = "stages";
+      static override attributes = { state: { enum: ["first", "done"] } } as const;
+    }
+
+    expect(() => db.model(OwnList).build()).toThrow(
+      new InvalidModel(
+        `OwnList's enum state gives a scope named "first", which is the name of a Relation method or a Model static; give state a prefix or a suffix`,
+      ),
+    );
+  });
+
+  test("two database labels giving one method suggest a mapping or leaving its methods off (#64)", () => {
+    class Door extends AppRecord {
+      static override table = "doors";
+      static override attributes = { state: { enum: true } } as const;
+    }
+
+    expect(() => db.model(Door).build()).toThrow(
+      new InvalidModel(
+        `Door's enum state gives "isOpen" for two of its names; map one to a name of your own, or leave its methods off (remove enum: true)`,
       ),
     );
   });

@@ -200,21 +200,22 @@ export interface TakenNames {
 export function enumNameProblem(
   model: EnumModel,
   taken: TakenNames,
-  fromDatabase: ReadonlySet<string> = new Set(),
+  methodsOff: ReadonlyMap<string, string> = new Map(),
 ): string | undefined {
-  const context = { ...taken, isFromDatabase: (attribute: string) => fromDatabase.has(attribute) };
+  const checks: NameChecks = { ...taken, methodsOffFix: (attribute) => methodsOff.get(attribute) };
   const givenBy = new Map<string, string>();
   for (const each of enumNames(model.attributeDefinitions)) {
     const { attribute, records, scopes } = each;
     for (const method of [...records, ...scopes]) {
       const other = givenBy.get(method);
-      if (other !== undefined) return repeated(model.name, other, attribute, method);
+      if (other !== undefined)
+        return repeated(model.name, { first: other, second: attribute, method }, checks);
       givenBy.set(method, attribute);
     }
     const problem =
-      declarableProblem(model, each, [...records, ...scopes], context) ??
-      recordProblem(model, attribute, records, context) ??
-      staticProblem(model, attribute, scopes, context);
+      declarableProblem(model, each, [...records, ...scopes], checks) ??
+      recordProblem(model, attribute, records, checks) ??
+      staticProblem(model, attribute, scopes, checks);
     if (problem !== undefined) return problem;
   }
   return undefined;
@@ -229,15 +230,15 @@ function declarableProblem(
   model: EnumModel,
   { attribute, name, scopes }: EnumName,
   methods: readonly string[],
-  context: Context,
+  checks: NameChecks,
 ): string | undefined {
-  const fix = remedy(attribute, context);
+  const fix = remedy(attribute, checks);
   const undeclarable = methods.find((method) => !isIdentifier(method));
   if (undeclarable !== undefined) {
     const kind = scopes.includes(undeclarable) ? "scope" : "method";
     const suggested = uncapitalized(methodPart(name.split(/[^\p{L}\p{N}_$]+/u).join("_")));
     const example = isIdentifier(suggested) ? ` ({ ${suggested}: ${JSON.stringify(name)} })` : "";
-    return `${model.name}'s enum ${attribute} gives a ${kind} named "${undeclarable}", which isn't a name TypeScript can declare; name it with letters, digits, _ and $, and map it to the value it's stored as${example}${offFix(attribute, context)}`;
+    return `${model.name}'s enum ${attribute} gives a ${kind} named "${undeclarable}", which isn't a name TypeScript can declare; name it with letters, digits, _ and $, and map it to the value it's stored as${example}${offFix(attribute, checks)}`;
   }
   const reserved = methods.find((method) => reservedWords.has(method));
   return reserved === undefined
@@ -245,37 +246,51 @@ function declarableProblem(
     : `${model.name}'s enum ${attribute} gives a scope named "${reserved}", which is a reserved word; ${fix}`;
 }
 
-function repeated(model: string, first: string, second: string, method: string): string {
-  return first === second
-    ? `${model}'s enum ${first} gives "${method}" for two of its names; rename one`
-    : `${model}'s enums ${first} and ${second} both give a method named "${method}"; give one a prefix or a suffix`;
+/** Two of an enum's names, or two enums, giving one method name. */
+function repeated(
+  model: string,
+  { first, second, method }: { first: string; second: string; method: string },
+  checks: NameChecks,
+): string {
+  const off = offFix(second, checks);
+  if (first !== second) {
+    return `${model}'s enums ${first} and ${second} both give a method named "${method}"; give one a prefix or a suffix${off}`;
+  }
+  // A database's label can't be renamed here, but it can be mapped (#64).
+  const rename = off === "" ? "rename one" : "map one to a name of your own";
+  return `${model}'s enum ${first} gives "${method}" for two of its names; ${rename}${off}`;
 }
 
-/** What an enum's name checks know: the names taken, and which enums' names the database gave. */
-type Context = TakenNames & { isFromDatabase(attribute: string): boolean };
+/** What an enum's name checks know: the names taken, and how to leave a database enum's methods off. */
+type NameChecks = TakenNames & {
+  /** What to remove from an override to leave a database enum's methods off, if it's one (#64). */
+  methodsOffFix(attribute: string): string | undefined;
+};
 
 /** How to fix an enum whose method name is taken: an affix, or for the database's, its methods off. */
-const remedy = (attribute: string, context: Context) =>
-  `give ${attribute} a prefix or a suffix${offFix(attribute, context)}`;
+const remedy = (attribute: string, checks: NameChecks) =>
+  `give ${attribute} a prefix or a suffix${offFix(attribute, checks)}`;
 
 /** For an enum whose names the database gave (#64): leaving its methods off, as they start. */
-const offFix = (attribute: string, context: Context) =>
-  context.isFromDatabase(attribute) ? ", or leave its methods off (remove enum: true)" : "";
+function offFix(attribute: string, checks: NameChecks): string {
+  const fix = checks.methodsOffFix(attribute);
+  return fix === undefined ? "" : `, or leave its methods off (remove ${fix})`;
+}
 
 function recordProblem(
   model: EnumModel,
   attribute: string,
   methods: readonly string[],
-  taken: Context,
+  checks: NameChecks,
 ): string | undefined {
   for (const method of methods) {
     const what = model.attributeDefinitions.has(method)
       ? "an attribute"
-      : taken.isRecordName(method)
+      : checks.isRecordName(method)
         ? "a record method"
         : undefined;
     if (what !== undefined) {
-      return `${model.name}'s enum ${attribute} gives a method named "${method}", which is the name of ${what}; ${remedy(attribute, taken)}`;
+      return `${model.name}'s enum ${attribute} gives a method named "${method}", which is the name of ${what}; ${remedy(attribute, checks)}`;
     }
   }
   return undefined;
@@ -285,23 +300,23 @@ function staticProblem(
   model: EnumModel,
   attribute: string,
   scopes: readonly string[],
-  taken: Context,
+  checks: NameChecks,
 ): string | undefined {
   for (const scope of scopes) {
     // A Function method too: every class has it, and a scope would hide it.
     const what =
       scope in Function.prototype
         ? "a Function method"
-        : taken.isReservedStatic(scope)
+        : checks.isReservedStatic(scope)
           ? "a Relation method or a Model static"
           : undefined;
     if (what !== undefined) {
-      return `${model.name}'s enum ${attribute} gives a scope named "${scope}", which is the name of ${what}; ${remedy(attribute, taken)}`;
+      return `${model.name}'s enum ${attribute} gives a scope named "${scope}", which is the name of ${what}; ${remedy(attribute, checks)}`;
     }
-    const declared = taken.staticOf(scope);
+    const declared = checks.staticOf(scope);
     const isEnumScope = typeof declared?.value === "function" && enumScopes.has(declared.value);
     if (declared !== undefined && !isEnumScope) {
-      return `${model.name} declares "${scope}", which is also the name of a scope its enum ${attribute} gives; rename it, or ${remedy(attribute, taken)}`;
+      return `${model.name} declares "${scope}", which is also the name of a scope its enum ${attribute} gives; rename it, or ${remedy(attribute, checks)}`;
     }
   }
   return undefined;
