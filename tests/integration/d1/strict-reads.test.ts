@@ -15,6 +15,7 @@ class Reading extends Model.define({
   milliseconds: { type: "datetime", storage: "unixMilliseconds" },
   settings: "json",
   secret: "integer",
+  level: { type: "integer", enum: { low: 0, high: 1 } },
 }) {
   static table = "strict_reads";
   static override filterAttributes = ["secret"];
@@ -35,7 +36,7 @@ describe("a stored cell that isn't the attribute's type fails when it's read (#1
     // No declared types, so SQLite keeps each value as it was bound: no column affinity converts.
     await binding.batch([
       binding.prepare(
-        "CREATE TABLE strict_reads (id INTEGER PRIMARY KEY, owner_id, label, quantity, ratio, enabled, stamp, seconds, milliseconds, settings, secret)",
+        "CREATE TABLE strict_reads (id INTEGER PRIMARY KEY, owner_id, label, quantity, ratio, enabled, stamp, seconds, milliseconds, settings, secret, level)",
       ),
       binding.prepare("CREATE TABLE strict_owners (id INTEGER PRIMARY KEY)"),
     ]);
@@ -225,5 +226,16 @@ describe("a stored cell that isn't the attribute's type fails when it's read (#1
       expect(reading.changes()).toEqual({});
       expect(reading.enabled).toBe(true);
     });
+  });
+
+  // An unlisted stored value reads as null (#340); a cell of another type isn't one at all.
+  test("an integer enum's cell that isn't an integer fails, where an unlisted one reads as null", async () => {
+    await insertCell("level", 7, 1);
+    await insertCell("level", "high", 2);
+
+    expect((await readings().find(1)).level).toBeNull();
+    await expect(readings().find(2)).rejects.toThrow(
+      new TypeError('Reading: "high" isn\'t one of "low", "high" for "level"'),
+    );
   });
 });

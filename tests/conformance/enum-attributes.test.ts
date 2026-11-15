@@ -90,15 +90,19 @@ describe("enum attributes (#340)", () => {
       ).toBe(0);
     });
 
-    test("in a stored cell throws TypeError when the record loads", async () => {
-      await harness.exec("INSERT INTO articles (id, status, priority) VALUES (1, 'archived', 3)");
+    test("in a stored cell reads as null, as Rails reads it, and saving leaves it", async () => {
+      await harness.exec(
+        "INSERT INTO articles (id, title, status, priority) VALUES (1, 'Old', 'archived', 3)",
+      );
 
-      await expect(articles().find(1)).rejects.toThrow(
-        new TypeError('Article: "archived" isn\'t one of "draft", "published" for "status"'),
-      );
-      await expect(articles().pluck("priority")).rejects.toThrow(
-        new TypeError('Article: 3 isn\'t one of "low", "normal", "high" for "priority"'),
-      );
+      const article = await articles().find(1);
+      expect([article.status, article.priority]).toEqual([null, null]);
+      expect(await articles().pluck("status")).toEqual([null]);
+      article.title = "New";
+      await article.saveOrThrow();
+
+      const rows = await harness.exec("SELECT title, status, priority FROM articles");
+      expect(rows).toEqual([{ title: "New", status: "archived", priority: 3 }]);
     });
   });
 

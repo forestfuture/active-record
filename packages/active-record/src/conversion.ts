@@ -82,8 +82,10 @@ function converterOf(attribute: Convertible): Converter {
 
 /**
  * An enum's values are its names (#340). A name is cast as itself, and so is the value it's
- * stored as (`1`, or `"1"` from a form), as Rails accepts; anything else is `uncastable`, and so
- * is a stored cell that's none of its values.
+ * stored as (`1`, or `"1"` from a form), as Rails accepts; anything else is `uncastable`. A stored
+ * cell of its type that's none of its values reads as null, as Rails reads it, so a row written
+ * by code that lists a newer value doesn't fail every list it's in; one of another type is
+ * `uncastable`, as for any attribute of that type (#159).
  */
 function enumConverter(values: EnumValues, stored: Converter): Converter {
   const entries = enumEntries(values);
@@ -94,7 +96,10 @@ function enumConverter(values: EnumValues, stored: Converter): Converter {
       typeof value === "string" && storedValues.has(value)
         ? value
         : (names.get(stored.cast(value)) ?? uncastable),
-    read: (cell) => names.get(stored.read(cell)) ?? uncastable,
+    read: (cell) => {
+      const value = stored.read(cell);
+      return value === uncastable ? uncastable : (names.get(value) ?? null);
+    },
     write: (name) => storedValues.get(name),
   };
 }
