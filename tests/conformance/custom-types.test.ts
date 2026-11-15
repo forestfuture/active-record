@@ -162,6 +162,16 @@ describe("custom types", () => {
       expect(listing.isChanged()).toBe(false);
     });
 
+    test("a change's from or to that the type can't hold matches nothing, as a condition's value", async () => {
+      await listings().create({ id: 1, price: new Money(500) });
+      const listing = await listings().find(1);
+
+      listing.price = new Money(700);
+
+      expect(listing.isAttributeChanged("price", { from: new Money(500) })).toBe(true);
+      expect(listing.isAttributeChanged("price", { from: "abc" as never })).toBe(false);
+    });
+
     test("a value changed in place is a change, and saving writes it", async () => {
       await listings().create({ id: 1, sizes: ["S"] });
       const listing = await listings().find(1);

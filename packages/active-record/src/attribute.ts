@@ -145,7 +145,13 @@ export class Attribute {
 
   /** Whether two values are the same as stored (dates by time, json and bytes by content). */
   isSame(a: unknown, b: unknown): boolean {
-    return isSameCell(writeValue(this.#definition, a), writeValue(this.#definition, b));
+    try {
+      return isSameCell(writeValue(this.#definition, a), writeValue(this.#definition, b));
+    } catch (error) {
+      // A value its custom type can't write is the same as nothing, as in a condition (#20).
+      if (this.#definition.customType === undefined) throw error;
+      return false;
+    }
   }
 
   /** An assigned value, cast and written, bound hidden from `onQuery` if filtered (#83). */
