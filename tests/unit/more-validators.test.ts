@@ -287,46 +287,29 @@ describe("acceptance", () => {
     terms: "boolean",
     privacy: "string",
     marketing: "string",
-    adult: "boolean",
+    newsletter: "boolean",
   }) {
     static table = "registrations";
     static {
       this.validates("terms", { acceptance: true });
       this.validates("privacy", { acceptance: true });
       this.validates("marketing", { acceptance: { accept: ["yes"] } });
-      this.validates("adult", { acceptance: true, allowNull: false });
+      this.validates("newsletter", { acceptance: true, allowNull: true });
     }
   }
   const registrations = connect({} as never).model(Registration);
+  const accepted = { terms: true, privacy: "1", marketing: "yes", newsletter: true };
 
   test('passes true and "1" by default, or the values it\'s told to accept', async () => {
-    const registration = registrations.build({
-      terms: true,
-      privacy: "1",
-      marketing: "yes",
-      adult: true,
-    });
-
-    expect(await errorsOf(registration)).toEqual([]);
-  });
-
-  test("passes null", async () => {
-    const registration = registrations.build({
-      terms: null,
-      privacy: null,
-      marketing: null,
-      adult: true,
-    });
-
-    expect(await errorsOf(registration)).toEqual([]);
+    expect(await errorsOf(registrations.build(accepted))).toEqual([]);
   });
 
   test("fails any other value as must be accepted", async () => {
     const registration = registrations.build({
+      ...accepted,
       terms: false,
       privacy: "0",
       marketing: "1",
-      adult: true,
     });
 
     expect(await errorsOf(registration)).toEqual([
@@ -336,15 +319,16 @@ describe("acceptance", () => {
     ]);
   });
 
-  test("fails null with allowNull: false", async () => {
-    const registration = registrations.build({
-      terms: true,
-      privacy: "1",
-      marketing: "yes",
-      adult: null,
-    });
+  test("fails null, as a checkbox left unticked sends nothing", async () => {
+    const registration = registrations.build({ ...accepted, terms: null });
 
-    expect(await errorsOf(registration)).toEqual(["adult accepted: must be accepted"]);
+    expect(await errorsOf(registration)).toEqual(["terms accepted: must be accepted"]);
+  });
+
+  test("skips null with allowNull: true", async () => {
+    const registration = registrations.build({ ...accepted, newsletter: null });
+
+    expect(await errorsOf(registration)).toEqual([]);
   });
 });
 

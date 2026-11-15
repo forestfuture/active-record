@@ -54,7 +54,7 @@ export interface ValidationOptions<R = never> {
   comparison?: ComparisonOptions<R>;
   /**
    * The value is one of `accept` (`true` and `"1"` unless given): a box that must be ticked.
-   * Null passes unless `allowNull: false`, as a form that left the field out does in Rails.
+   * Null fails, since an unticked checkbox sends nothing; `allowNull: true` lets it pass.
    */
   acceptance?: boolean | { accept: readonly unknown[] };
   /**
@@ -163,9 +163,8 @@ const comparison: Check = (value, { comparison: rule }, subject) =>
 
 const DEFAULT_ACCEPTED = [true, "1"];
 
-const acceptance: Check = (value, { acceptance: rule, allowNull }) => {
+const acceptance: Check = (value, { acceptance: rule }) => {
   if (rule === undefined || rule === false) return [];
-  if (value === null && allowNull !== false) return [];
   const accepted = rule === true ? DEFAULT_ACCEPTED : rule.accept;
   return isListed(accepted, value) ? [] : [{ type: "accepted" }];
 };
