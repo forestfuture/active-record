@@ -19,6 +19,13 @@ class Setting extends Model.define({
   static table = "samples";
 }
 
+class Attachment extends Model.define({
+  id: { type: "integer", null: false },
+  data: "binary",
+}) {
+  static table = "attachments";
+}
+
 // A filtered attribute that can be null: its label.
 class Secret extends Model.define({
   id: { type: "integer", null: false },
@@ -100,6 +107,28 @@ describe("inspect", () => {
     const [sample] = await harness.connect().model(Sample).select("id", "label").toArray();
 
     expect(inspect(sample)).toBe("Sample { id: 1, label: 'bolt' }");
+  });
+
+  describe("a binary attribute (#20)", () => {
+    test("prints how many bytes it holds, not the bytes", () => {
+      const attachment = Attachment.build({ id: 1, data: new Uint8Array([1, 2, 3]) });
+
+      expect(inspect(attachment)).toBe("Attachment { id: 1, data: <3 bytes of binary data> }");
+    });
+
+    test("prints a change as the sizes before and after", async () => {
+      await harness.reset("attachments");
+      const attachment = await harness
+        .connect()
+        .model(Attachment)
+        .create({ id: 1, data: new Uint8Array([1, 2, 3]) });
+
+      attachment.data = new Uint8Array([1]);
+
+      expect(inspect(attachment, { breakLength: Infinity })).toBe(
+        "Attachment { id: 1, data: <1 bytes of binary data> (was <3 bytes of binary data>) }",
+      );
+    });
   });
 
   describe("a filtered attribute", () => {

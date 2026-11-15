@@ -21,7 +21,7 @@ export interface InspectArgs {
 export const inspectCustom = Symbol.for("nodejs.util.inspect.custom");
 
 /** Text in the color of a special value, or plain when colors are off. */
-function styled(options: InspectOptions, text: string): string {
+export function styled(options: InspectOptions, text: string): string {
   return options.stylize ? options.stylize(text, "special") : text;
 }
 
