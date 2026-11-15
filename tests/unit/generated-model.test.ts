@@ -3,6 +3,7 @@
    type are defined when the Model's attributes resolve. */
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
 import {
+  defineType,
   InvalidModel,
   Model,
   sql,
@@ -66,6 +67,7 @@ const schema = {
     Product: "products",
     Event: "events",
     Retyped: "products",
+    CustomTyped: "products",
     Ignoring: "products",
     Dated: "products",
     Entry: "entries",
@@ -132,6 +134,29 @@ class Retyped extends AppRecord {
   } as const;
 }
 interface Retyped extends TableAttributes<typeof products, (typeof Retyped)["attributes"]> {}
+
+// Custom types an override gives generated columns (#20): flags as a set of bits, the key as a code.
+const bits = defineType({
+  storedAs: "integer",
+  cast: (input: unknown) => new Set(input as number[]),
+  serialize: (set) => [...set].reduce((sum, bit) => sum | (1 << bit), 0),
+  deserialize: (stored) => new Set([...Array(31).keys()].filter((bit) => stored & (1 << bit))),
+});
+const code = defineType({
+  storedAs: "string",
+  cast: (input: unknown) => ({ code: String(input) }),
+  serialize: (value) => value.code,
+  deserialize: (stored) => ({ code: stored }),
+});
+
+class CustomTyped extends AppRecord {
+  static override table = "products";
+  static override attributes = { flags: bits, id: { type: code, null: false } } as const;
+}
+interface CustomTyped extends TableAttributes<
+  typeof products,
+  (typeof CustomTyped)["attributes"]
+> {}
 
 class Ignoring extends AppRecord {
   static override table = "products";
@@ -271,6 +296,19 @@ describe("a generated Model's static attributes", () => {
     expectTypeOf<Retyped["sku"]>().toEqualTypeOf<string>();
     expectTypeOf<Retyped["name"]>().toEqualTypeOf<string | null>();
     expectTypeOf<Retyped["id"]>().toEqualTypeOf<string>();
+  });
+
+  test("a custom type is an override, typed as its values, dropping the generated default (#20)", () => {
+    const record = db.model(CustomTyped).build({ flags: new Set([0, 3]) });
+
+    expect(CustomTyped.attributeDefinitions.get("flags")).toMatchObject({
+      type: "integer",
+      customType: bits,
+    });
+    expect(CustomTyped.typeForAttribute("flags").serialize(record.flags)).toBe(9);
+    expect(record.id).toBeNull();
+    expectTypeOf<CustomTyped["flags"]>().toEqualTypeOf<Set<number> | null>();
+    expectTypeOf<CustomTyped["id"]>().toEqualTypeOf<{ code: string }>();
   });
 
   test("false ignores a column: no attribute, so it's never read or written", () => {

@@ -3,6 +3,7 @@
 // settled on first use, and its binding (#232).
 import type { SchemaAdapter } from "./adapter.ts";
 import { ancestors } from "./ancestors.ts";
+import { type AnyCustomType, isCustomType } from "./custom-types.ts";
 import type { IntegerEnum, TextEnum } from "./enum-values.ts";
 import { defineEnumMethods, defineEnumStatics } from "./enum-methods.ts";
 import { generatedEnumBase, takeEnumSwitch, type SplitOverride } from "./enum-switch.ts";
@@ -48,6 +49,7 @@ type EnumOptions = Pick<
  */
 type AttributeOverride =
   | AttributeType
+  | AnyCustomType
   | (Pick<SpecOverride, "null"> & {
       type?: "string";
       storage?: never;
@@ -71,10 +73,20 @@ type AttributeOverride =
       type: "datetime";
       generateId?: false;
       enum?: never;
+    })
+  | (Pick<SpecOverride, "null" | "default"> & {
+      type: AnyCustomType;
+      generateId?: false;
+      storage?: never;
+      enum?: never;
     });
 
 /** The type a spec declares, written either way. */
-type TypeOf<S> = S extends AttributeType ? S : S extends { type: infer T } ? T : never;
+type TypeOf<S> = S extends AttributeType | AnyCustomType
+  ? S
+  : S extends { type: infer T }
+    ? T
+    : never;
 /** Whether a spec's attribute can be `null`. */
 type NullOf<S> = S extends { null: false } ? false : true;
 
@@ -113,11 +125,11 @@ type GivenEnumKeys<O> = Pick<
 >;
 
 /** An attribute's spec with its override applied. */
-type Overridden<S, O> = O extends AttributeType
+type Overridden<S, O> = O extends AttributeType | AnyCustomType
   ? { type: O; null: NullOf<S> }
   : O extends object
     ? {
-        type: O extends { type: infer T extends AttributeType } ? T : TypeOf<S>;
+        type: O extends { type: infer T extends AttributeType | AnyCustomType } ? T : TypeOf<S>;
         null: O extends { null: infer N extends boolean } ? N : NullOf<S>;
       } & KeptEnumKeys<S, O> &
         GivenEnumKeys<O>
@@ -347,7 +359,7 @@ export function defineGeneratedStatics(root: object): void {
  */
 function checked(where: string, attribute: string, override: unknown): Checked | false {
   if (override === false) return false;
-  if (isAttributeType(override)) return { change: { type: override } };
+  if (isAttributeType(override) || isCustomType(override)) return { change: { type: override } };
   const { useDatabaseEnum, change } = takeEnumSwitch(override);
   if (!isSpecOverride(change)) {
     throw new InvalidModel(
