@@ -208,11 +208,46 @@ export function enumNameProblem(model: NamedModel, taken: TakenNames): string | 
       givenBy.set(method, attribute);
     }
     const problem =
+      declarableProblem(model, each, [...records, ...statics]) ??
       recordProblem(model, attribute, records, taken) ??
       staticProblem(model, attribute, statics, taken);
     if (problem !== undefined) return problem;
   }
   return undefined;
+}
+
+/** A JavaScript identifier, which `active-record schema` can declare a static by. */
+const identifier = /^[A-Za-z_$][\w$]*$/;
+
+/** Words a declaration can't be named, in a module (strict mode). */
+const reservedWords = new Set(
+  (
+    "await break case catch class const continue debugger default delete do else enum export " +
+    "extends false finally for function if implements import in instanceof interface let new " +
+    "null package private protected public return static super switch this throw true try " +
+    "typeof var void while with yield arguments eval"
+  ).split(" "),
+);
+
+/**
+ * A method name an enum's name gives that TypeScript can't declare (#340): one that isn't an
+ * identifier (`isIn-progress`), or a scope that's a reserved word (`new`), which the generated
+ * schema couldn't declare as a static.
+ */
+function declarableProblem(
+  model: NamedModel,
+  { attribute, name }: EnumName,
+  methods: readonly string[],
+): string | undefined {
+  const undeclarable = methods.find((method) => !identifier.test(method));
+  if (undeclarable !== undefined) {
+    const suggested = uncapitalized(methodPart(name.split(/[^\w$]+/).join("_")));
+    return `${model.name}'s enum ${attribute} gives a method named "${undeclarable}", which isn't a name TypeScript can declare; name it with letters, digits, _ and $, and map it to the value it's stored as ({ ${suggested}: ${JSON.stringify(name)} })`;
+  }
+  const reserved = methods.find((method) => reservedWords.has(method));
+  return reserved === undefined
+    ? undefined
+    : `${model.name}'s enum ${attribute} gives a scope named "${reserved}", which is a reserved word; ${remedy(attribute)}`;
 }
 
 function repeated(model: string, first: string, second: string, method: string): string {
@@ -249,7 +284,8 @@ function staticProblem(
   taken: TakenNames,
 ): string | undefined {
   for (const scope of scopes) {
-    if (taken.isReservedStatic(scope)) {
+    // A Function method too: every class has it, and a scope would hide it.
+    if (taken.isReservedStatic(scope) || scope in Function.prototype) {
       return `${model.name}'s enum ${attribute} gives a scope named "${scope}", which is the name of a Relation method or a Model static; ${remedy(attribute)}`;
     }
     const found = taken.staticOf(scope);

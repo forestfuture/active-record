@@ -24,7 +24,8 @@ export function defineSchema<const S extends DatabaseSchema>(schema: S): S {
 }
 
 function listScope(name: string): void {
-  if (listed.has(name) || isReservedScopeName(name) || Object.hasOwn(Model, name)) return;
+  // Never in place of what every class has: a Relation method, a Model static, or a Function's.
+  if (listed.has(name) || isReservedScopeName(name) || name in Model) return;
   listed.add(name);
   Object.defineProperty(Model, name, {
     configurable: true,
