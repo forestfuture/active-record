@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { between, gt, Model } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 /** A value the property's type doesn't name, as one from a request would arrive. */
@@ -78,5 +78,64 @@ describe("decimal attributes", () => {
 
       expect(line.isChanged()).toBe(false);
     });
+  });
+
+  describe("querying", () => {
+    const seed = async () => {
+      await lines().insertAll([
+        { label: "nine", amount: "9" },
+        { label: "ten", amount: "10.5" },
+        { label: "hundred", amount: "100" },
+      ]);
+    };
+
+    test("a condition finds the number, however it's written", async () => {
+      await seed();
+
+      const found = await lines().where({ amount: "10.50" }).pluck("label");
+
+      expect(found).toEqual(["ten"]);
+    });
+
+    test("a list finds each number, and leaves out a value that isn't one", async () => {
+      await seed();
+
+      const found = await lines()
+        .where({ amount: untyped(["9.0", 100, "abc"]) })
+        .order({ amount: "asc" })
+        .pluck("label");
+
+      expect(found).toEqual(["nine", "hundred"]);
+    });
+
+    test("comparisons and order compare numbers, not text", async () => {
+      await seed();
+
+      const above = await lines()
+        .where({ amount: gt("9.5") })
+        .order({ amount: "desc" })
+        .pluck("label");
+      const within = await lines()
+        .where({ amount: between("9", "10.5") })
+        .order({ amount: "asc" })
+        .pluck("label");
+
+      expect(above).toEqual(["hundred", "ten"]);
+      expect(within).toEqual(["nine", "ten"]);
+    });
+
+    test("pluck reads each decimal as its text", async () => {
+      await seed();
+
+      const amounts = await lines().order({ amount: "asc" }).pluck("amount");
+
+      expect(amounts).toEqual(["9", "10.5", "100"]);
+    });
+  });
+
+  test("typeForAttribute casts, serializes and reads a decimal", () => {
+    const { cast, serialize, deserialize } = Line.typeForAttribute("amount");
+
+    expect([cast(1.5), serialize("2.50"), deserialize("3.000")]).toEqual(["1.5", "2.5", "3"]);
   });
 });
