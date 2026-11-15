@@ -1,5 +1,9 @@
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import { Model, UnknownAttribute } from "../../packages/active-record/src/index.ts";
+import {
+  Model,
+  UnknownAttribute,
+  type TableAttributes,
+} from "../../packages/active-record/src/index.ts";
 
 class Article extends Model.define({
   id: { type: "integer", null: false },
@@ -121,5 +125,24 @@ describe("an enum attribute's types (#340)", () => {
       // @ts-expect-error only a string or an integer is an enum
       at: { type: "datetime", enum: ["now"] },
     });
+  });
+});
+
+// A generated schema's posts table with a generated enum (#64), as active-record schema writes it.
+const posts = {
+  id: { type: "integer", null: false },
+  status: { type: "string", enum: ["draft", "published"], scopes: false, instanceMethods: false },
+} as const;
+
+/** A generated Model's record type, after its overrides, as its schema.ts declarations give it. */
+type GeneratedRecord<O> = Model & TableAttributes<typeof posts, O>;
+
+describe("a generated enum's types (#64)", () => {
+  test("without an override, its property is the union, with no predicates or setters", () => {
+    type Post = GeneratedRecord<{}>;
+
+    expectTypeOf<Post["status"]>().toEqualTypeOf<"draft" | "published" | null>();
+    expectTypeOf<Post>().not.toHaveProperty("isDraft");
+    expectTypeOf<Post>().not.toHaveProperty("saveAsPublished");
   });
 });

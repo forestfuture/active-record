@@ -51,6 +51,42 @@ interface Story extends TableAttributes<
 > {}
 /* oxlint-enable typescript/no-unsafe-declaration-merging */
 
+// A generated schema whose posts table has a generated enum (#64): the database restricts status
+// to its names, so the schema writes them, with the enum's methods off.
+const generatedEnumSchema = {
+  adapter: d1({ binding: "DB" }),
+  tables: {
+    articles: {
+      attributes: {
+        id: { type: "integer", null: false },
+        title: "string",
+        status: {
+          type: "string",
+          enum: ["draft", "published"],
+          scopes: false,
+          instanceMethods: false,
+        },
+        priority: "integer",
+      },
+      primaryKey: "id",
+    },
+  },
+} as const;
+
+abstract class GeneratedEnumRecord extends Model {
+  static override schema = generatedEnumSchema;
+}
+
+/* oxlint-disable typescript/no-unsafe-declaration-merging -- stands in for schema.ts's declarations */
+class Memo extends GeneratedEnumRecord {
+  static override table = "articles";
+}
+interface Memo extends TableAttributes<
+  typeof generatedEnumSchema.tables.articles.attributes,
+  (typeof Memo)["attributes"]
+> {}
+/* oxlint-enable typescript/no-unsafe-declaration-merging */
+
 // As active-record schema writes it: the schema lists each Model's enum scopes, so they're
 // statics from the start, and a namespace types them.
 const listingSchema = defineSchema({
@@ -417,6 +453,30 @@ describe("enum attributes (#340)", () => {
 
     test("gives the enum's names and stored values", () => {
       expect(Story.enumValues("priority")).toEqual({ low: 0, high: 10 });
+    });
+  });
+
+  describe("a generated enum (#64)", () => {
+    const memos = () => harness.connect().model(Memo);
+
+    test("reads and writes its names, and refuses any other value", async () => {
+      const memo = await memos().createOrThrow({ id: 1, status: "published" });
+
+      expect(memo.status).toBe("published");
+      expect(() => memos().build({ status: "archived" as never })).toThrow(TypeError);
+      expect(Memo.enumValues("status")).toEqual({ draft: "draft", published: "published" });
+    });
+
+    test("gives no predicates, setters or scopes until an override turns them on", async () => {
+      const memo = await memos().createOrThrow({ id: 1, status: "draft" });
+
+      // Read as plain objects: TypeScript knows the methods aren't there.
+      const methodsOf = (value: object) => value as Record<string, unknown>;
+
+      expect(methodsOf(memo)["isDraft"]).toBeUndefined();
+      expect(methodsOf(memo)["saveAsPublished"]).toBeUndefined();
+      expect(methodsOf(Memo)["draft"]).toBeUndefined();
+      expect(methodsOf(memos())["draft"]).toBeUndefined();
     });
   });
 
