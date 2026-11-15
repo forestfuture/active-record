@@ -1,7 +1,8 @@
 // An override's `enum: true` and `enum: false` (#64): a generated enum's names with the methods its
-// schema leaves off, or the column without them.
+// schema leaves off, or the column without them; and which enums' names a Model's schema gave it.
 import { InvalidModel } from "./errors.ts";
-import type { SpecObject } from "./metadata.ts";
+import type { DatabaseSchema } from "./generated-model.ts";
+import type { AttributeDefinition, SpecObject } from "./metadata.ts";
 import { withoutEnum } from "./spec-keys.ts";
 
 /** An override as written, with its `enum` switch apart from its other changes. */
@@ -51,4 +52,28 @@ function nothingToSwitch(where: string, switched: boolean): string {
   return switched
     ? `${where} has no enum from the database to turn on; list its names instead (enum: ["…", …])`
     : `${where} has no enum from the database to turn off`;
+}
+
+/** A Model as `databaseEnumsOf` reads it: its schema and table, and its attributes as overridden. */
+interface SchemaModel {
+  readonly schema?: DatabaseSchema;
+  readonly table: string;
+  readonly attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
+}
+
+/**
+ * The enum attributes whose names the database gave: those whose names are the ones its schema's
+ * table lists, not a list of the Model's own (#64).
+ */
+export function databaseEnumsOf(model: SchemaModel): ReadonlySet<string> {
+  const table = model.schema?.tables[model.table]?.attributes ?? {};
+  const fromDatabase = new Set<string>();
+  for (const [attribute, definition] of model.attributeDefinitions) {
+    const spec = table[attribute];
+    const listed = typeof spec === "object" ? spec.enum : undefined;
+    if (listed !== undefined && JSON.stringify(listed) === JSON.stringify(definition.enum)) {
+      fromDatabase.add(attribute);
+    }
+  }
+  return fromDatabase;
 }

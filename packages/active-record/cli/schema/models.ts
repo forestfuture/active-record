@@ -4,6 +4,8 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { dirname, resolve, sep } from "node:path";
 import { ancestors, staticBelow } from "../../src/ancestors.ts";
 import { enumNameProblem, enumScopeNames, type TakenNames } from "../../src/enum-methods.ts";
+import { databaseEnumsOf } from "../../src/enum-switch.ts";
+import type { DatabaseSchema } from "../../src/generated-model.ts";
 import { isBase } from "../../src/generated-model.ts";
 import type { AttributeDefinition } from "../../src/metadata.ts";
 import {
@@ -32,6 +34,7 @@ interface LoadedClass {
   name: string;
   modelName: string;
   table: string;
+  schema?: DatabaseSchema;
   attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
 }
 
@@ -160,7 +163,7 @@ function takenNames(model: object, library: Library): TakenNames {
 function enumScopesOf({ model, library }: Exported): string[] | string {
   try {
     const scopes = enumScopeNames(model.attributeDefinitions);
-    return enumNameProblem(model, takenNames(model, library)) ?? scopes;
+    return enumNameProblem(model, takenNames(model, library), databaseEnumsOf(model)) ?? scopes;
   } catch (error) {
     return (error as Error).message;
   }

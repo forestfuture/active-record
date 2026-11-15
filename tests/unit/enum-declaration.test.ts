@@ -89,7 +89,7 @@ describe("an enum's method names, when the Model is first used (#340)", () => {
 
     expect(firstUse(Doc)).toThrow(
       new InvalidModel(
-        'Doc\'s enum state gives a method named "isChanged", which is the name of a record method; give state a prefix or a suffix, or leave its methods out (scopes: false, instanceMethods: false)',
+        'Doc\'s enum state gives a method named "isChanged", which is the name of a record method; give state a prefix or a suffix',
       ),
     );
   });
@@ -102,7 +102,7 @@ describe("an enum's method names, when the Model is first used (#340)", () => {
 
     expect(firstUse(Step)).toThrow(
       new InvalidModel(
-        'Step\'s enum place gives a scope named "first", which is the name of a Relation method or a Model static; give place a prefix or a suffix, or leave its methods out (scopes: false, instanceMethods: false)',
+        'Step\'s enum place gives a scope named "first", which is the name of a Relation method or a Model static; give place a prefix or a suffix',
       ),
     );
   });
@@ -110,11 +110,11 @@ describe("an enum's method names, when the Model is first used (#340)", () => {
   test.each([
     [
       ["new"],
-      'Step\'s enum place gives a scope named "new", which is a reserved word; give place a prefix or a suffix, or leave its methods out (scopes: false, instanceMethods: false)',
+      'Step\'s enum place gives a scope named "new", which is a reserved word; give place a prefix or a suffix',
     ],
     [
       ["bind"],
-      'Step\'s enum place gives a scope named "bind", which is the name of a Function method; give place a prefix or a suffix, or leave its methods out (scopes: false, instanceMethods: false)',
+      'Step\'s enum place gives a scope named "bind", which is the name of a Function method; give place a prefix or a suffix',
     ],
     [
       ["in-progress"],
@@ -148,7 +148,7 @@ describe("an enum's method names, when the Model is first used (#340)", () => {
 
     expect(firstUse(Light)).toThrow(
       new InvalidModel(
-        'Light\'s enum state gives a method named "isOn", which is the name of an attribute; give state a prefix or a suffix, or leave its methods out (scopes: false, instanceMethods: false)',
+        'Light\'s enum state gives a method named "isOn", which is the name of an attribute; give state a prefix or a suffix',
       ),
     );
   });
@@ -163,7 +163,7 @@ describe("an enum's method names, when the Model is first used (#340)", () => {
 
     expect(firstUse(Post)).toThrow(
       new InvalidModel(
-        'Post declares "published", which is also the name of a scope its enum status gives; rename it, or give status a prefix or a suffix, or leave its methods out (scopes: false, instanceMethods: false)',
+        'Post declares "published", which is also the name of a scope its enum status gives; rename it, or give status a prefix or a suffix',
       ),
     );
   });
@@ -185,7 +185,7 @@ describe("an enum's method names, when the Model is first used (#340)", () => {
 
       expect(firstUse(Post)).toThrow(
         new InvalidModel(
-          'Post declares "published", which is also the name of a scope its enum status gives; rename it, or give status a prefix or a suffix, or leave its methods out (scopes: false, instanceMethods: false)',
+          'Post declares "published", which is also the name of a scope its enum status gives; rename it, or give status a prefix or a suffix',
         ),
       );
     });
