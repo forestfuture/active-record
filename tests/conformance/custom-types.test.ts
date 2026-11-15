@@ -26,10 +26,24 @@ const money = defineType({
   },
 });
 
+/** A list of sizes, kept as text: `"S,M,L"`. */
+const sizeList = defineType({
+  storedAs: "string",
+  cast(input) {
+    if (Array.isArray(input) && input.every((each) => typeof each === "string")) {
+      return input as string[];
+    }
+    throw new TypeError("not a list of sizes");
+  },
+  serialize: (sizes) => sizes.join(","),
+  deserialize: (text) => (text === "" ? [] : text.split(",")),
+});
+
 class Listing extends Model.define({
   id: { type: "integer", null: false },
   title: "string",
   price: money,
+  sizes: { type: sizeList, null: false, default: () => [] },
 }) {
   static table = "listings";
 }
@@ -134,6 +148,29 @@ describe("custom types", () => {
         new TypeError('SecretListing: [FILTERED] isn\'t a valid value for "price"'),
       );
       expect((error as Error).cause).toBeUndefined();
+    });
+  });
+
+  describe("change tracking", () => {
+    test("assigning an equal value in another object isn't a change", async () => {
+      await listings().create({ id: 1, price: new Money(500), sizes: ["S"] });
+      const listing = await listings().find(1);
+
+      listing.price = new Money(500);
+      listing.sizes = ["S"];
+
+      expect(listing.isChanged()).toBe(false);
+    });
+
+    test("a value changed in place is a change, and saving writes it", async () => {
+      await listings().create({ id: 1, sizes: ["S"] });
+      const listing = await listings().find(1);
+
+      listing.sizes.push("M");
+
+      expect(listing.changes()).toEqual({ sizes: [["S"], ["S", "M"]] });
+      await listing.save();
+      expect(await harness.exec("SELECT sizes FROM listings")).toEqual([{ sizes: "S,M" }]);
     });
   });
 });
