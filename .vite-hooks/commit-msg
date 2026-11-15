@@ -30,31 +30,39 @@ if [ "$length" -gt 60 ]; then
   echo "Warning: commit title is $length characters; aim for 50 or less."
 fi
 
-# Commit bodies wrap at 72, since git shows them as written. Each line past
-# 72 is listed, so one amend fixes them all. Lines count from the title, as
-# git stores the message, without its comments.
 # How many characters $1 holds, in any locale. wc -c counts bytes, so this
 # drops UTF-8's continuation bytes first.
 characters() {
   printf '%s' "$1" | LC_ALL=C tr -d '\200-\277' | wc -c | tr -d ' '
 }
 
+# Commit bodies wrap at 72, since git shows them as written. Each line past
+# 72 is listed, so one amend fixes them all. Lines are numbered as git
+# stores the message: without its comments, from the title, and with each
+# run of blank lines as one.
 long_lines=$(printf '%s\n' "$message" | {
   number=0
   past_title=no
+  blank=no
   while IFS= read -r line; do
     # git strips each line's trailing whitespace, a carriage return included.
     line=${line%"${line##*[![:space:]]}"}
+    if [ -z "$line" ]; then
+      [ "$past_title" = no ] || [ "$blank" = yes ] || number=$((number + 1))
+      blank=yes
+      continue
+    fi
+    blank=no
     number=$((number + 1))
     if [ "$past_title" = no ]; then
-      # The pattern's opening ( keeps bash from closing $( at its ).
-      case "$line" in (*[![:space:]]*) past_title=yes ;; esac
+      past_title=yes
       continue
     fi
     # ${#line} counts characters or bytes, by shell and locale. A line holds
     # no more characters than bytes, so a short one passes either way.
     [ "${#line}" -gt 72 ] || continue
     # A line can't wrap when it holds a URL, or no space after its indent.
+    # Each pattern's opening ( keeps bash from closing $( at its ).
     case "$line" in (*://*) continue ;; esac
     indent=${line%%[![:space:]]*}
     case "${line#"$indent"}" in (*[[:space:]]*) ;; (*) continue ;; esac
