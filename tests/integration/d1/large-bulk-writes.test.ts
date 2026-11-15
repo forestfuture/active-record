@@ -132,6 +132,18 @@ describe("bulk writes past D1's cap on one value", () => {
     expect(shown.flat().map((row) => row.at(-1))).toEqual(Array(5).fill("[FILTERED]"));
   });
 
+  test("listeners see a filtered attribute hidden in a row bound apart", async () => {
+    class Secret extends Attachment {
+      static override filterAttributes = ["name"];
+    }
+
+    await db()
+      .model(Secret)
+      .insertAll([{ id: 1, name: "x".repeat(2_000_000) }]);
+
+    expect(inserts().map(({ params }) => params)).toEqual([[1, "[FILTERED]"]]);
+  });
+
   /** Each stored row's id, and its bytes' length and first byte. */
   async function stored() {
     const records = await db().model(Attachment).order({ id: "asc" }).toArray();
