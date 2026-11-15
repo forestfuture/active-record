@@ -1,5 +1,5 @@
 // Custom attribute types (#20): `defineType`, for a value no built-in type holds, kept in its column as a built-in type's value (ADR-0022).
-import type { AttributeType, ValueOfType } from "./metadata.ts";
+import type { AttributeType, BuiltInValue } from "./metadata.ts";
 import { attributeTypeNames, isAttributeType } from "./spec-keys.ts";
 
 /**
@@ -16,9 +16,9 @@ export interface CustomType<T = unknown, S extends AttributeType = AttributeType
    */
   cast(input: unknown): T;
   /** A value as the stored type's value: `money.cents`. Never called with `null`. */
-  serialize(value: T): ValueOfType<S>;
+  serialize(value: T): BuiltInValue<S>;
   /** A stored type's value, read as the stored type reads a cell, as the type's value. */
-  deserialize(stored: ValueOfType<S>): T;
+  deserialize(stored: BuiltInValue<S>): T;
 }
 
 /** Any custom type, whatever its values: what a spec takes. */
@@ -40,7 +40,7 @@ export function defineType<T, S extends AttributeType>(type: CustomType<T, S>): 
     storedAs: type.storedAs,
     cast: (input: unknown) => type.cast(input),
     serialize: (value: T) => type.serialize(value),
-    deserialize: (stored: ValueOfType<S>) => type.deserialize(stored),
+    deserialize: (stored: BuiltInValue<S>) => type.deserialize(stored),
   });
   defined.add(made);
   return made;
