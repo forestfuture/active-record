@@ -1,4 +1,5 @@
 // The `comparison` validator (#342): a value against bounds given as values or functions of the record, and the order checks it shares with `numericality`.
+import { withArticle } from "./attribute.ts";
 import type { Failure } from "./errors-collection.ts";
 
 /** What `comparison` compares: numbers with numbers, strings with strings, Dates by their time. */
@@ -46,17 +47,43 @@ function shown(bound: Comparable): string | number {
   return bound instanceof Date ? bound.toISOString() : bound;
 }
 
-/** The failures of `record`'s `value` against each bound of `rule`, in `ORDER_CHECKS`' order. */
+/** What a value is called when it can't be compared: `a number`, `a Date`, `a boolean`. */
+function kindOf(value: unknown): string {
+  return withArticle(value instanceof Date ? "Date" : typeof value);
+}
+
+/** The record being validated, and the attribute whose value is compared. */
+export interface Compared {
+  record: object;
+  attribute: string;
+}
+
+/** Throws `TypeError` unless `value` and `bound` are both numbers, strings or Dates. */
+function requireComparable(value: unknown, bound: unknown, { record, attribute }: Compared): void {
+  const kind = kindOf(value);
+  if (kind === kindOf(bound) && ["a number", "a string", "a Date"].includes(kind)) return;
+  const model = record.constructor.name;
+  throw new TypeError(`${model}: "${attribute}" (${kind}) can't be compared with ${kindOf(bound)}`);
+}
+
+/**
+ * The failures of a value against each bound of `rule`, in `ORDER_CHECKS`' order: `blank` once
+ * for a null value, as Rails does, and none for a bound that's null.
+ */
 export function comparisonFailures(
   value: unknown,
   rule: ComparisonOptions<unknown>,
-  record: unknown,
+  compared: Compared,
 ): Failure[] {
-  return ORDER_CHECKS.flatMap(([type, holds]) => {
+  const bounds = ORDER_CHECKS.filter(([type]) => rule[type] !== undefined);
+  if (value === null) return bounds.length === 0 ? [] : [{ type: "blank" }];
+  return bounds.flatMap(([type, holds]) => {
     const given = rule[type];
-    const bound = typeof given === "function" ? given(record) : given;
-    if (bound === null) return [];
-    if (bound === undefined || holds(orderOf(value as Comparable, bound))) return [];
-    return [{ type, values: { count: shown(bound) } }];
+    const bound = typeof given === "function" ? given(compared.record) : given;
+    if (bound === null || bound === undefined) return [];
+    requireComparable(value, bound, compared);
+    return holds(orderOf(value as Comparable, bound))
+      ? []
+      : [{ type, values: { count: shown(bound) } }];
   });
 }

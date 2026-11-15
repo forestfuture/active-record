@@ -3,6 +3,7 @@ import {
   comparisonFailures,
   orderOf,
   RANGE_CHECKS,
+  type Compared,
   type ComparisonOptions,
 } from "./comparison-validation.ts";
 import { addFailure, type Errors, type Failure } from "./errors-collection.ts";
@@ -68,7 +69,7 @@ export interface Validation {
   options: ValidationOptions<never>;
 }
 
-type Check = (value: unknown, options: ValidationOptions<never>, record: unknown) => Failure[];
+type Check = (value: unknown, options: ValidationOptions<never>, compared: Compared) => Failure[];
 
 function isBlank(value: unknown): boolean {
   return value === null || (typeof value === "string" && value.trim() === "");
@@ -141,8 +142,8 @@ const numericality: Check = (value, { numericality: rule }) => {
   });
 };
 
-const comparison: Check = (value, { comparison: rule }, record) =>
-  rule === undefined ? [] : comparisonFailures(value, rule as ComparisonOptions<unknown>, record);
+const comparison: Check = (value, { comparison: rule }, compared) =>
+  rule === undefined ? [] : comparisonFailures(value, rule as ComparisonOptions<unknown>, compared);
 
 /** Applied in this order within one `validates` call. */
 const CHECKS: readonly Check[] = [
@@ -158,7 +159,7 @@ const CHECKS: readonly Check[] = [
 
 /** What running validations needs from the record being validated. */
 export interface ValidationTarget {
-  record: unknown;
+  record: object;
   read: (attribute: string) => unknown;
   errors: Errors;
   /** Whether another row already has `value` for `attribute` (the uniqueness check, in D1). */
@@ -186,7 +187,7 @@ export async function runValidations(
     const value = target.read(attribute);
     if (options.allowNull && value === null) continue;
     const failures = [
-      ...CHECKS.flatMap((check) => check(value, options, target.record)),
+      ...CHECKS.flatMap((check) => check(value, options, { record: target.record, attribute })),
       ...(await uniquenessFailures(target, attribute, value, options)),
     ];
     for (const failure of failures) {

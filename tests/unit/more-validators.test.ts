@@ -145,3 +145,54 @@ describe("comparison with a function of the record", () => {
     ]);
   });
 });
+
+describe("comparison with null, and values it can't compare", () => {
+  class Shift extends Model.define({
+    id: "integer",
+    startsAt: "datetime",
+    endsAt: "datetime",
+    breakAt: "datetime",
+  }) {
+    static table = "shifts";
+    static {
+      this.validates("endsAt", {
+        comparison: { greaterThan: (shift) => shift.startsAt, otherThan: (shift) => shift.breakAt },
+      });
+      this.validates("breakAt", {
+        comparison: { greaterThan: (shift) => shift.startsAt },
+        allowNull: true,
+      });
+    }
+  }
+  const shifts = connect({} as never).model(Shift);
+  const startsAt = new Date(Date.UTC(2026, 2, 1, 9));
+  const endsAt = new Date(Date.UTC(2026, 2, 1, 17));
+
+  test("a null value is blank, once for all its bounds, unless allowNull", async () => {
+    const shift = shifts.build({ startsAt, endsAt: null, breakAt: null });
+
+    expect(await errorsOf(shift)).toEqual(["endsAt blank: can't be blank"]);
+  });
+
+  test("a bound that's null is skipped", async () => {
+    const shift = shifts.build({ startsAt: null, endsAt, breakAt: null });
+
+    expect(await errorsOf(shift)).toEqual([]);
+  });
+
+  test("a value of another type than its bound throws TypeError", async () => {
+    class Rota extends Model.define({ id: "integer", startsAt: "datetime", hours: "integer" }) {
+      static table = "rotas";
+      static {
+        this.validates("hours", { comparison: { lessThan: (rota) => rota.startsAt } });
+      }
+    }
+    const rota = connect({} as never)
+      .model(Rota)
+      .build({ startsAt, hours: 8 });
+
+    await expect(rota.isValid()).rejects.toThrow(
+      new TypeError('Rota: "hours" (a number) can\'t be compared with a Date'),
+    );
+  });
+});
