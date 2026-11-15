@@ -61,7 +61,9 @@ The `uniqueness` validation asks D1 before saving, which gives a friendly error,
 
 ## Bound parameters
 
-D1 allows 100 bound values in one statement. The adapter binds lists as one JSON value (`json_each`), so `where({ id: [...] })`, `find([...])`, preloads, and `insertAll` work with any number of values. A single value can be up to 2 MB.
+D1 allows 100 bound values in one statement. The adapter binds lists as one JSON value (`json_each`), so `where({ id: [...] })`, `find([...])`, preloads, and `insertAll` work with any number of values.
+
+D1 takes at most 2 MB in one value. When a bulk write’s rows add up to more, the adapter sends them as several statements in one batch, which writes all of them or none. D1 counts the batch as one query.
 
 ## Foreign keys are enforced
 

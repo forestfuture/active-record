@@ -21,7 +21,7 @@ Insert many rows in one statement with `insertAll`:
 
 <include>/_excerpts/guide/batches/insert-all.ts</include>
 
-- **`insertAll(rows)`** inserts every row, however many, up to D1’s 2 MB per bound value. Every row must have the same attributes. A duplicate throws and writes nothing.
+- **`insertAll(rows)`** inserts every row, however many and however large. Every row must have the same attributes. A duplicate throws and writes nothing.
 - **`{ onDuplicate: "skip" }`** skips rows that clash with a unique index.
 - **`upsert(attrs)`** and **`upsertAll(rows)`** update a row that clashes with the primary key, or with the unique index named by `uniqueBy`. Only the attributes you give are updated, and `updatedAt` is set.
 
