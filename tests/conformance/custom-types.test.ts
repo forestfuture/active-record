@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { defineType, Model } from "../../packages/active-record/src/index.ts";
+import { defineType, gt, Model } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 /** An amount of money, in cents. */
@@ -171,6 +171,51 @@ describe("custom types", () => {
       expect(listing.changes()).toEqual({ sizes: [["S"], ["S", "M"]] });
       await listing.save();
       expect(await harness.exec("SELECT sizes FROM listings")).toEqual([{ sizes: "S,M" }]);
+    });
+  });
+
+  describe("conditions and bulk writes", () => {
+    beforeEach(async () => {
+      await listings().insertAll([
+        { id: 1, title: "a", price: new Money(500) },
+        { id: 2, title: "b", price: new Money(1500) },
+        { id: 3, title: "c", price: new Money(250) },
+      ]);
+    });
+
+    const titles = (relation: ReturnType<typeof listings>) =>
+      relation.order({ id: "asc" }).pluck("title");
+
+    test("where takes a value, anything its cast takes, or a list", async () => {
+      expect(await titles(listings().where({ price: new Money(500) }))).toEqual(["a"]);
+      expect(await titles(listings().where({ price: 1500 as never }))).toEqual(["b"]);
+      expect(await titles(listings().where({ price: [new Money(250), new Money(500)] }))).toEqual([
+        "a",
+        "c",
+      ]);
+    });
+
+    test("a value its cast throws for matches nothing", async () => {
+      expect(
+        await listings()
+          .where({ price: "abc" as never })
+          .count(),
+      ).toBe(0);
+    });
+
+    test("values compare and order as their stored values do", async () => {
+      expect(await titles(listings().where({ price: gt(new Money(300)) }))).toEqual(["a", "b"]);
+      expect(await listings().order({ price: "desc" }).pluck("title")).toEqual(["b", "a", "c"]);
+    });
+
+    test("pluck reads values as a load does, and updateAll writes them", async () => {
+      await listings()
+        .where({ id: 3 })
+        .updateAll({ price: new Money(900) });
+
+      const prices = await listings().order({ id: "asc" }).pluck("price");
+
+      expect(prices.map((price) => price?.cents)).toEqual([500, 1500, 900]);
     });
   });
 });
