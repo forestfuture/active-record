@@ -121,7 +121,7 @@ A value declared on a **Model**, with a camelCase name, the snake_case column it
 _Avoid_: Field, property
 
 **Enum**:
-An **Attribute** declared with `enum`, whose values are only the names it lists, each stored as itself or as the text or integer it's mapped to (`{ low: 0, high: 10 }`). Each name gives its records a predicate and a `saveAs…` setter, and its **Model** a **Scope** and a `not…` scope. A stored value it doesn't list reads as `null`.
+An **Attribute** declared with `enum`, whose values are only the names it lists, each stored as itself or as the text or integer it's mapped to (`{ low: 0, high: 10 }`). Each name gives its records a predicate and a `saveAs…` setter, and its **Model** a **Scope** and a `not…` scope. A stored value it doesn't list reads as `null`. In the **Generated schema**, a column whose values the database restricts to a set of strings (a Postgres enum type, or `CHECK (… IN …)`) is a generated enum: it checks values but gives no methods until its **Model**'s **Override** turns them on.
 _Avoid_: Enumeration, enum type (Postgres's is a column type), status field
 
 **Generated id**:
