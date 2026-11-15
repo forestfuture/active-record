@@ -272,4 +272,11 @@ describe("the commit-msg hook on a commit's body", () => {
     expect(output).toContain("Commit body line 3 is 73 characters; wrap the body at 72:");
     expect(output).toContain(line);
   });
+
+  test("passes a body line of 72 characters", () => {
+    const { status, output } = runHookEditingTheReadme(`Edit the README (#1)\n\n${words(72)}\n`);
+
+    expect(status).toBe(0);
+    expect(output).toBe("");
+  });
 });
