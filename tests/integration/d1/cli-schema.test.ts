@@ -628,9 +628,9 @@ export class FeaturedPost extends Post {}
     expect(code).toBe(1);
     expect(output).toBe(
       'src/models/user.ts: User\'s enum email gives a scope named "first", which is the name of a ' +
-        "Relation method or a Model static; give email a prefix or a suffix, or leave its methods out (scopes: false, instanceMethods: false)\n" +
+        "Relation method or a Model static; give email a prefix or a suffix\n" +
         'src/models/writer.ts: Writer declares "sent", which is also the name of a scope its enum ' +
-        "email gives; rename it, or give email a prefix or a suffix, or leave its methods out (scopes: false, instanceMethods: false)\n" +
+        "email gives; rename it, or give email a prefix or a suffix\n" +
         "Kept src/db/schema.ts as it was",
     );
   });
@@ -704,7 +704,7 @@ export class FeaturedPost extends Post {}
     expect(code).toBe(1);
     expect(output).toBe(
       'src/models/task.ts: Task\'s enum state gives a scope named "new", which is a reserved word; ' +
-        "give state a prefix or a suffix, or leave its methods out (scopes: false, instanceMethods: false)\n" +
+        "give state a prefix or a suffix, or leave its methods off (remove enum: true)\n" +
         "Kept src/db/schema.ts as it was",
     );
   });

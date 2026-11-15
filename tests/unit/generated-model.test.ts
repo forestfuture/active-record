@@ -26,9 +26,20 @@ const entries = {
   id: { type: "integer", null: false },
   at: { type: "datetime", storage: "unixSeconds" },
 } as const;
+// A table whose state the database restricts to labels, one TypeScript can't name (#64).
+const tasks = {
+  id: { type: "integer", null: false },
+  state: {
+    type: "string",
+    enum: ["open", "in progress"],
+    scopes: false,
+    instanceMethods: false,
+  },
+} as const;
 const schema = {
   adapter: d1({ binding: "DB" }),
   tables: {
+    tasks: { attributes: tasks, primaryKey: "id" },
     products: { attributes: products, primaryKey: "id" },
     events: { attributes: events, primaryKey: "eventId" },
     entries: { attributes: entries, primaryKey: "id" },
@@ -50,6 +61,7 @@ const schema = {
     Article: "products",
     Misspelled: "products",
     Listless: "products",
+    Spaced: "tasks",
     Switchless: "products",
   },
 } as const;
@@ -275,6 +287,19 @@ describe("a generated Model's static attributes", () => {
     );
     expect(() => db.model(Switchless).build()).toThrow(
       new InvalidModel("Switchless.sku has no enum from the database to turn off"),
+    );
+  });
+
+  test("a database label TypeScript can't name, its methods on, suggests a mapping or leaving them off (#64)", () => {
+    class Spaced extends AppRecord {
+      static override table = "tasks";
+      static override attributes = { state: { enum: true } } as const;
+    }
+
+    expect(() => db.model(Spaced).build()).toThrow(
+      new InvalidModel(
+        `Spaced's enum state gives a method named "isIn progress", which isn't a name TypeScript can declare; name it with letters, digits, _ and $, and map it to the value it's stored as ({ inProgress: "in progress" }), or leave its methods off (remove enum: true)`,
+      ),
     );
   });
 
