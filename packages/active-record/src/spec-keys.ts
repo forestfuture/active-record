@@ -1,6 +1,7 @@
 // The rules for each key of an attribute's spec: what it may hold, where it's allowed, what it conflicts with (#164).
 // A key's rules are written here once, and the override merge, the override check, a Model's check
 // and the attribute's definition all read them.
+import { isEnumValues } from "./enum-values.ts";
 import { epochStorages } from "./epoch-storage.ts";
 import type { AttributeDefinition, AttributeType, SpecObject } from "./metadata.ts";
 
@@ -88,6 +89,13 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     describedAs: "a storage",
     allowedValues: epochStorages,
     onlyFor: { types: ["datetime"], because: "only a datetime is stored as an epoch" },
+    onRetype: "drop",
+  },
+  // An enum's names are stored as text or as integers (#340).
+  enum: {
+    isWellFormed: isEnumValues,
+    describedAs: "an enum",
+    onlyFor: { types: ["string", "integer"], because: "an enum is stored as text or integers" },
     onRetype: "drop",
   },
 };
@@ -204,10 +212,10 @@ export function applyOverride(base: SpecObject, override: SpecOverride): SpecObj
   return { ...Object.fromEntries(kept), ...given } as SpecObject;
 }
 
-/** The keys of `spec` that go into its attribute's definition as given: `default`, `generateId`, `storage`. */
+/** The keys of `spec` that go into its attribute's definition as given: `default`, `generateId`, `storage`, `enum`. */
 export function copiedKeys(
   spec: SpecObject,
-): Partial<Pick<AttributeDefinition, "default" | "generateId" | "storage">> {
+): Partial<Pick<AttributeDefinition, "default" | "generateId" | "storage" | "enum">> {
   const copied = entries
     .filter(
       ([key, rule]) => rule.copiedToDefinition !== false && givenValue(spec, key) !== undefined,

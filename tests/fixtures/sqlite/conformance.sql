@@ -12,3 +12,6 @@ CREATE TABLE guarded_stamps (id INTEGER PRIMARY KEY, seconds INTEGER, millisecon
 CREATE TABLE typed_posts (id INTEGER PRIMARY KEY, title TEXT, published_at TEXT, seconds INTEGER, milliseconds INTEGER, featured INTEGER, rating INTEGER, score REAL, meta TEXT, secret TEXT);
 
 CREATE TABLE typed_samples (id INTEGER PRIMARY KEY, label TEXT, enabled INTEGER, settings TEXT, stamp TEXT, secret TEXT);
+
+-- An enum stored as text (status) and one stored as integers (priority), #340.
+CREATE TABLE articles (id INTEGER PRIMARY KEY, title TEXT, status TEXT, priority INTEGER);

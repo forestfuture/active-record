@@ -12,6 +12,7 @@ import {
   uncastable,
   writeValue,
 } from "./conversion.ts";
+import { listedNames } from "./enum-values.ts";
 import { FILTERED, Filtered, isFiltered } from "./filtering.ts";
 import {
   type AttributeDefinition,
@@ -162,14 +163,19 @@ export class Attribute {
    * cell that isn't JSON (#146).
    */
   #refusal(value: unknown, association?: string): TypeError {
-    const { type } = this.#definition;
-    const noun = nouns[type] ?? type;
-    const article = /^[aeiou]/.test(noun) ? "an" : "a";
     const text = this.#isHidden() ? FILTERED : shown(value);
     const from = association === undefined ? "" : `, the key of ${association}`;
     return new TypeError(
-      `${this.#model.name}: ${text} isn't ${article} ${noun} for "${this.name}"${from}`,
+      `${this.#model.name}: ${text} isn't ${this.#described()} for "${this.name}"${from}`,
     );
+  }
+
+  /** What a value of the attribute is, as a refusal says it: `a boolean`, `one of "draft", "published"`. */
+  #described(): string {
+    const { type, enum: values } = this.#definition;
+    if (values !== undefined) return `one of ${listedNames(values)}`;
+    const noun = nouns[type] ?? type;
+    return `${/^[aeiou]/.test(noun) ? "an" : "a"} ${noun}`;
   }
 }
 

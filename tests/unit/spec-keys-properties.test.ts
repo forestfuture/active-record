@@ -162,7 +162,7 @@ describe("a spec's problems", () => {
 });
 
 describe("an override's shape", () => {
-  const keyed = fc.constantFrom("type", "null", "default", "generateId", "storage");
+  const keyed = fc.constantFrom("type", "null", "default", "generateId", "storage", "enum");
 
   test("refuses anything that isn't an object, and any key that isn't a spec key but the column", () => {
     fc.assert(
@@ -197,6 +197,7 @@ describe("a spec's keys", () => {
       default: true,
       generateId: true,
       storage: true,
+      enum: true,
     } satisfies Record<keyof SpecObject, true>;
 
     expect(overridableKeyNames.split(", ")).toEqual(
