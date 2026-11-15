@@ -287,6 +287,18 @@ describe("the commit-msg hook on a commit's body", () => {
     expect(output).toBe("");
   });
 
+  test.each([
+    ["trailing spaces", "   "],
+    ["a carriage return", "\r"],
+  ])("passes a 72-character body line followed by %s, which git strips", (_what, end) => {
+    const { status, output } = runHookEditingTheReadme(
+      `Edit the README (#1)\n\n${words(72)}${end}\n`,
+    );
+
+    expect(status).toBe(0);
+    expect(output).toBe("");
+  });
+
   const url = `https://example.com/${"x".repeat(80)}`;
 
   test.each([

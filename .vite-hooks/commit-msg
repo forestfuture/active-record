@@ -37,6 +37,8 @@ long_lines=$(printf '%s\n' "$message" | {
   number=0
   past_title=no
   while IFS= read -r line; do
+    # git strips each line's trailing whitespace, a carriage return included.
+    line=${line%"${line##*[![:space:]]}"}
     number=$((number + 1))
     if [ "$past_title" = no ]; then
       # The pattern's opening ( keeps bash from closing $( at its ).
