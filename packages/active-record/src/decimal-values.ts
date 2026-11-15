@@ -28,13 +28,11 @@ export function castDecimal(value: unknown): unknown {
 
 /**
  * A stored cell as a decimal's text. Postgres returns `numeric` as text; D1 returns a `DECIMAL`
- * cell as a number, since SQLite keeps decimal text as a REAL or an INTEGER. An integer past a
- * safe one has already lost its digits, so it's `uncastable`.
+ * cell as a number, since SQLite keeps decimal text as a REAL or an INTEGER, so it reads at 16
+ * significant digits, a whole number past a safe integer too, as Rails reads one on SQLite.
  */
 export function readDecimal(cell: unknown): unknown {
-  if (typeof cell === "number") {
-    return Number.isInteger(cell) && !Number.isSafeInteger(cell) ? uncastable : castNumber(cell);
-  }
+  if (typeof cell === "number") return castNumber(cell);
   return typeof cell === "string" ? canonical(cell) : uncastable;
 }
 
