@@ -20,7 +20,7 @@ export interface ComparisonOptions<R = never> {
 
 type Order = -1 | 0 | 1;
 
-/** The bounds `numericality` shares: error type, and whether the value's order meets it. */
+/** @internal The bounds `numericality` shares: error type, and whether the value's order meets it. */
 export const RANGE_CHECKS = [
   ["greaterThan", (order: Order) => order > 0],
   ["greaterThanOrEqualTo", (order: Order) => order >= 0],
@@ -34,7 +34,7 @@ const ORDER_CHECKS = [
   ["otherThan", (order: Order) => order !== 0],
 ] as const;
 
-/** Where `a` falls against `b`: Dates by their time, numbers and strings as `<` orders them. */
+/** @internal Where `a` falls against `b`: Dates by their time, numbers and strings as `<` orders them. */
 export function orderOf(a: Comparable, b: Comparable): Order {
   const left = a instanceof Date ? a.getTime() : a;
   const right = b instanceof Date ? b.getTime() : b;
@@ -52,7 +52,7 @@ function kindOf(value: unknown): string {
   return withArticle(value instanceof Date ? "Date" : typeof value);
 }
 
-/** The record being validated, and the attribute whose value is compared. */
+/** @internal The record being validated, and the attribute whose value is compared. */
 export interface Compared {
   record: object;
   attribute: string;
@@ -67,7 +67,7 @@ function requireComparable(value: unknown, bound: unknown, { record, attribute }
 }
 
 /**
- * The failures of a value against each bound of `rule`, in `ORDER_CHECKS`' order: `blank` once
+ * @internal The failures of a value against each bound of `rule`, in `ORDER_CHECKS`' order: `blank` once
  * for a null value, as Rails does, and none for a bound that's null.
  */
 export function comparisonFailures(
