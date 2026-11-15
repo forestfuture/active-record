@@ -126,6 +126,16 @@ declare namespace Entry {
   const notPublished: ScopeStatic<[]>;
 }
 
+// Replaces the database's names with its own list, whose methods are on, as a declared enum's are.
+class Card extends GeneratedEnumRecord {
+  static override table = "articles";
+  static override attributes = { status: { enum: ["draft", "published", "archived"] } } as const;
+}
+interface Card extends TableAttributes<
+  typeof generatedEnumSchema.tables.articles.attributes,
+  (typeof Card)["attributes"]
+> {}
+
 // Drops the generated enum: status is a plain string again.
 class Draft extends GeneratedEnumRecord {
   static override table = "articles";
@@ -551,6 +561,12 @@ describe("enum attributes (#340)", () => {
       expect(
         (harness.connect().model(Jotting) as unknown as Record<string, unknown>)["draft"],
       ).toBeUndefined();
+    });
+
+    test("an override's own list replaces the database's names, with its methods on", async () => {
+      const card = await harness.connect().model(Card).createOrThrow({ id: 1, status: "archived" });
+
+      expect(card.isArchived()).toBe(true);
     });
 
     test("enum: false makes the column a plain string, which takes any text", async () => {

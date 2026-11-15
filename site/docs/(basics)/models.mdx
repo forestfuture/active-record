@@ -272,7 +272,7 @@ Turn them on by overriding the attribute with `enum: true`:
 
 `enum: true` keeps the database’s names, so a name a later migration adds gets its methods the next time you run `active-record schema`. A `scopes: false` or `instanceMethods: false` beside it still leaves those out, and `scopes: true` or `instanceMethods: true` alone turns on one kind. Names that clash only matter once their methods are on, and you fix them as in [Keeping names apart](#keeping-names-apart).
 
-If you’d rather keep the column a plain string, override it with `enum: false`. A list of your own, such as `enum: ["open", "done", "archived"]`, replaces the database’s.
+If you’d rather keep the column a plain string, override it with `enum: false`. A list of your own, such as `enum: ["open", "done", "archived"]`, replaces the database’s, with its methods on.
 
 :::note
 `active-record schema` reads a `CHECK` whose only condition is `column IN (…)` with text values, or `column IS NULL OR column IN (…)`. Any other `CHECK` leaves the column as it was, and a list of numbers stays an `integer`.
