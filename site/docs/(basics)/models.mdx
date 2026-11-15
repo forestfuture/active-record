@@ -173,8 +173,11 @@ To map an attribute to a column with another name, give it `{ column: "..." }`. 
 | `string`   | `string`       | `TEXT`                                      |
 | `integer`  | `number`       | `INTEGER`                                   |
 | `real`     | `number`       | `REAL`                                      |
+| `decimal`  | `string`       | `DECIMAL`                                   |
 | `boolean`  | `boolean`      | `INTEGER`, `0` or `1`                       |
 | `datetime` | `Date`         | `TEXT`, ISO-8601, or an `INTEGER` Unix time |
+| `date`     | `string`       | `TEXT` in a `DATE` column                   |
+| `time`     | `string`       | `TEXT` in a `TIME` column                   |
 | `json`     | any JSON value | `TEXT`, as JSON                             |
 | `binary`   | `Uint8Array`   | `BLOB`                                      |
 
@@ -217,6 +220,44 @@ A D1 row holds at most 2 MB. Keep larger files in [R2](https://developers.cloudf
 :::tip
 `insertAll` and `upsertAll` take any number of rows of bytes. On D1, rows that add up to more than its 2 MB limit on one value go as several statements in one batch, which writes all of them or none. D1 counts the batch as one query.
 :::
+
+### Storing exact numbers, days, and times
+
+A `decimal` holds an exact number, such as a price, as text. Assign text, a number, or a `bigint`:
+
+```ts
+import { Product } from "./models/product";
+
+const product = Product.build({ price: "12.50" });
+product.price; // "12.5"
+```
+
+A decimal reads in one form, without trailing zeros or an exponent, so `"12.50"` and `"12.5"` are the same value. A number keeps 16 significant digits, so `0.1 + 0.2` is `"0.3"`. Conditions, comparisons, and `order` compare decimals as numbers, and so do the `numericality` and `comparison` validations.
+
+:::tip
+To do arithmetic with decimals, wrap a decimal library in a [custom type](./custom-types) stored as `"decimal"`.
+:::
+
+:::note
+D1 keeps about 15 significant digits of a decimal, and rounds the rest. Postgres keeps every digit. A Postgres column with a scale, such as `NUMERIC(10, 2)`, rounds a value when it’s stored. A created record holds the rounded value, but an updated one keeps yours until you reload it.
+:::
+
+A `date` holds a day, such as `"2026-01-02"`, and a `time` holds a time of day, such as `"09:30:00"`. Neither has a time zone:
+
+```ts
+import { Shift } from "./models/shift";
+
+const shift = Shift.build({ startsOn: "2026-01-02", opensAt: "09:30" });
+shift.opensAt; // "09:30:00"
+```
+
+A time always has its seconds, and a fraction only when it has one: `"09:30:15.25"`. Days and times compare and sort in order. A `Date` can’t be assigned to either, since its day and time depend on the time zone. For today’s date in UTC, assign `new Date().toISOString().slice(0, 10)`.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+  Rails holds a `decimal` as a `BigDecimal`, a `date` as a `Date`, and a `time` as a `Time` on 1
+  January 2000. Here each one is text, which reads the same from every database and goes into JSON
+  as it is.
+</Callout>
 
 ## Declaring enums
 
@@ -322,8 +363,11 @@ Values are cast wherever they’re assigned: `build`, `create`, `assign`, `updat
 | `boolean`  | `true`, `false`, `1`, `0`, `"1"`, `"0"`, and `"true"`, `"false"`, `"on"`, `"off"` in any case                                          |
 | `integer`  | a safe integer, or a string that’s wholly one, with an optional sign and spaces around it: `"42"`, `" -7 "`, `"+3"`                    |
 | `real`     | a finite number, or a string that’s wholly one, with an optional sign, point, and exponent: `"1.5"`, `".5"`, `"5."`, `"-2e3"`          |
+| `decimal`  | a finite number, a `bigint`, or a string that’s wholly a decimal number, as for a `real`: `"12.50"`, `"-2e3"`                          |
 | `string`   | a string                                                                                                                               |
 | `datetime` | a valid `Date`; a date, `"2026-01-02"` (midnight UTC); or a date and time with `Z` or a `±HH:MM` offset: `"2026-01-02T09:30:00+02:00"` |
+| `date`     | a day that exists, as `"YYYY-MM-DD"`: `"2026-01-02"`                                                                                   |
+| `time`     | a time of day, with or without seconds and up to six digits of a fraction: `"09:30"`, `"09:30:15.25"`                                  |
 | `json`     | any value JSON can write                                                                                                               |
 | `binary`   | a `Uint8Array`, or an `ArrayBuffer`                                                                                                    |
 
@@ -334,6 +378,8 @@ Anything else throws `TypeError` naming the Model and the attribute, and the att
 - `NaN` and `Infinity`.
 - A number, boolean, or `Date` for a `string`.
 - For a `datetime`: a time without an offset, a lowercase `t` or `z`, a day that doesn’t exist (`"2026-02-30"`), other formats, and numbers.
+- For a `decimal`: text with anything but a number in it, and a number with more digits than Postgres holds.
+- For a `date` or a `time`: a `Date`, a time zone, a day or time that doesn’t exist (`"24:00"`), other formats (`"2026-1-2"`, `"9:30"`), and numbers.
 - For a `json`: a value JSON can’t write, such as a `BigInt`, an object that refers to itself, a function, or a symbol.
 - For a `binary`: text, an array of numbers, or another typed array.
 
@@ -349,6 +395,9 @@ A stored cell is checked the same way, when the record loads or `pluck` reads it
 - For a `string`: anything but text.
 - For a `datetime`: text that isn’t a date or a date and time (`"garbage"`, `"12"`), or a number. A number is a [Unix time](./adopt-a-database#reading-unix-timestamps), which needs a `storage`.
 - For a `datetime` with a `storage`: anything but a number, or one past what a `Date` can hold.
+- For a `decimal`: anything but a number or a decimal’s text.
+- For a `date`: anything but a day’s text. A date and time, such as `"2026-01-02T00:00:00.000Z"`, fails too; see [Reading `DATE` columns](./upgrading#reading-date-columns).
+- For a `time`: anything but a time of day’s text.
 - For a `json`: text that isn’t JSON.
 - For a `binary`: anything but bytes.
 

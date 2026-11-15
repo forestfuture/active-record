@@ -202,18 +202,20 @@ On D1, each column becomes an attribute by the first of these that applies:
 1. **An override in the Model:** `static override attributes = { available: "boolean" } as const`.
 2. **The column’s declared type:**
 
-   | Declared as                                         | Attribute                                                      |
-   | --------------------------------------------------- | -------------------------------------------------------------- |
-   | `INTEGER`, `INT`, `BIGINT`, … (anything with `INT`) | `integer`                                                      |
-   | `TEXT`, `VARCHAR(…)`, `CHAR(…)`, `CLOB`             | `string`                                                       |
-   | `REAL`, `FLOAT`, `DOUBLE`                           | `real`                                                         |
-   | `BOOLEAN`                                           | `boolean`                                                      |
-   | `DATETIME`, `TIMESTAMP`, `DATE`                     | `datetime`                                                     |
-   | `TEXT` with `CHECK (json_valid(column))`            | `json`                                                         |
-   | `JSON`                                              | `json`                                                         |
-   | `NUMERIC`, `DECIMAL`                                | An error: store money as integer cents (`price_cents INTEGER`) |
-   | `BLOB`                                              | `binary`                                                       |
-   | anything else                                       | `string`                                                       |
+   | Declared as                                         | Attribute  |
+   | --------------------------------------------------- | ---------- |
+   | `INTEGER`, `INT`, `BIGINT`, … (anything with `INT`) | `integer`  |
+   | `TEXT`, `VARCHAR(…)`, `CHAR(…)`, `CLOB`             | `string`   |
+   | `REAL`, `FLOAT`, `DOUBLE`                           | `real`     |
+   | `NUMERIC`, `DECIMAL`                                | `decimal`  |
+   | `BOOLEAN`                                           | `boolean`  |
+   | `DATETIME`, `TIMESTAMP`                             | `datetime` |
+   | `DATE`                                              | `date`     |
+   | `TIME`                                              | `time`     |
+   | `TEXT` with `CHECK (json_valid(column))`            | `json`     |
+   | `JSON`                                              | `json`     |
+   | `BLOB`                                              | `binary`   |
+   | anything else                                       | `string`   |
 
 3. **The column’s name**, only for a column declared exactly `TEXT` or `INTEGER`: `…_at` `TEXT` is a `datetime`, and `is_…` or `has_…` `INTEGER` is a `boolean` (with a note, since it’s a guess).
 
@@ -222,7 +224,7 @@ Also:
 - **Names:** `price_cents` becomes `priceCents`. A column whose name doesn’t come back the same from camelCase gets `column: "…"`.
 - **`NOT NULL`** becomes `null: false`. A primary key is never null.
 - **Primary keys:** the key column is the Model’s `primaryKey`. A `TEXT` key gets `generateId: true`, so the Model’s [`generateId`](./models#generating-ids) makes it; an `INTEGER PRIMARY KEY` is left to D1. A table with no key, or a key of several columns, is an error.
-- **Defaults:** literal defaults (numbers, strings, `TRUE`/`FALSE`, JSON) are copied, so a new record shows them before it’s saved. Expressions such as `CURRENT_TIMESTAMP` are left to D1.
+- **Defaults:** literal defaults (numbers, strings, `TRUE`/`FALSE`, JSON) are copied, so a new record shows them before it’s saved. A decimal’s, a date’s, or a time’s is copied in its type’s form (`1.50` as `"1.5"`). Expressions such as `CURRENT_TIMESTAMP` are left to D1.
 - **Foreign keys** take the referenced column’s type. They don’t create associations, which are behavior you declare.
 - **Enums:** a `TEXT` column with `CHECK (column IN ('open', 'done'))` gets `enum: ["open", "done"]`, with its methods off until the Model turns them on. See [Reading enums from the database](./models#reading-enums-from-the-database).
 - **Left out:** SQLite’s own tables, Cloudflare’s (`_cf_…`), the migrations table, and virtual tables.
@@ -239,19 +241,21 @@ Also:
 
 On Postgres, an override in the Model still comes first. Otherwise each column’s type decides, since Postgres’s types are real:
 
-| Type                                        | Attribute                                                     |
-| ------------------------------------------- | ------------------------------------------------------------- |
-| `smallint`, `integer`, `bigint`             | `integer`                                                     |
-| `real`, `double precision`                  | `real`                                                        |
-| `boolean`                                   | `boolean`                                                     |
-| `timestamptz`, `timestamp`, `date`          | `datetime`                                                    |
-| `json`, `jsonb`                             | `json`                                                        |
-| `bytea`                                     | `binary`                                                      |
-| `text`, `varchar`, `char`, `citext`, `uuid` | `string`                                                      |
-| an enum type                                | `string`, with the enum’s labels as its `enum`                |
-| `numeric`                                   | An error: store money as integer cents (`price_cents BIGINT`) |
-| an array                                    | An error: not supported                                       |
-| anything else (`inet`, `interval`)          | `string`, with a note                                         |
+| Type                                         | Attribute                                      |
+| -------------------------------------------- | ---------------------------------------------- |
+| `smallint`, `integer`, `bigint`              | `integer`                                      |
+| `real`, `double precision`                   | `real`                                         |
+| `numeric`                                    | `decimal`                                      |
+| `boolean`                                    | `boolean`                                      |
+| `timestamptz`, `timestamp`                   | `datetime`                                     |
+| `date`                                       | `date`                                         |
+| `time`                                       | `time`                                         |
+| `json`, `jsonb`                              | `json`                                         |
+| `bytea`                                      | `binary`                                       |
+| `text`, `varchar`, `char`, `citext`, `uuid`  | `string`                                       |
+| an enum type                                 | `string`, with the enum’s labels as its `enum` |
+| an array                                     | An error: not supported                        |
+| anything else (`inet`, `interval`, `timetz`) | `string`, with a note                          |
 
 A domain maps as the type it’s built on. Names, `NOT NULL`, keys, and `CHECK (column IN (…))` work as on D1, and an enum type’s labels keep their order. A string key gets `generateId: true` unless it has a literal default, even when Postgres has a default such as `gen_random_uuid()`. Literal defaults (`'draft'`, `0`, `true`, `'{}'::jsonb`) are copied, and functions such as `now()` are left to Postgres. Views, other schemas, and `schema_migrations` are left out.
 
@@ -292,8 +296,11 @@ npx active-record g migration <Name> [columns] [options]
 | `string` (the default) | `TEXT`                            | `TEXT`             |
 | `integer`              | `INTEGER`                         | `BIGINT`           |
 | `real`                 | `REAL`                            | `DOUBLE PRECISION` |
+| `decimal`              | `DECIMAL`                         | `NUMERIC`          |
 | `boolean`              | `BOOLEAN`                         | `BOOLEAN`          |
 | `datetime`             | `DATETIME`                        | `TIMESTAMPTZ`      |
+| `date`                 | `DATE`                            | `DATE`             |
+| `time`                 | `TIME`                            | `TIME`             |
 | `json`                 | `TEXT CHECK (json_valid(column))` | `JSONB`            |
 | `binary`               | `BLOB`                            | `BYTEA`            |
 
@@ -309,7 +316,7 @@ The key `g model` writes:
 Timestamps are `created_at` and `updated_at`, `NOT NULL`, as `DATETIME` on D1 and `TIMESTAMPTZ` on Postgres.
 
 - **`!`** makes the column `NOT NULL`. A `references` column is `NOT NULL` in a new table, and can be `NULL` when added to an existing one.
-- **`=value`** is a literal default, for `string`, `integer`, `real`, and `boolean` columns (`=draft`, `=0`, `=1.5`, `=true`).
+- **`=value`** is a literal default, for `string`, `integer`, `real`, `decimal`, `boolean`, `date`, and `time` columns (`=draft`, `=0`, `=1.5`, `=true`, `=2026-01-02`, `=09:00`).
 - **`:unique`** adds a unique index, and **`:index`** an index, named like `index_products_on_sku`.
 - **Names** can be written `priceCents` or `price_cents`; columns are always snake_case. Names the database reserves (`order`, `group`, and on Postgres `user`) are quoted.
 
