@@ -15,6 +15,7 @@ const typeNames = {
   boolean: true,
   datetime: true,
   date: true,
+  time: true,
   json: true,
   binary: true,
 } satisfies Record<AttributeType, true>;

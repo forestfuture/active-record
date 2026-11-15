@@ -85,13 +85,13 @@ function parsedDefault(text: string, type: "json" | "datetime"): Default | undef
 
 /**
  * The types whose default stays with Postgres: a spec has no literal for bytes (#20), and
- * decimals' and days' defaults aren't read yet (#391).
+ * decimals', days' and times' defaults aren't read yet (#391).
  */
-const unliteral: readonly AttributeType[] = ["binary", "decimal", "date"];
+const unliteral: readonly AttributeType[] = ["binary", "decimal", "date", "time"];
 
 function hasLiteral<T extends AttributeType>(
   type: T,
-): type is Exclude<T, "binary" | "decimal" | "date"> {
+): type is Exclude<T, "binary" | "decimal" | "date" | "time"> {
   return !unliteral.includes(type);
 }
 
