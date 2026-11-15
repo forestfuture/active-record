@@ -196,3 +196,56 @@ describe("comparison with null, and values it can't compare", () => {
     );
   });
 });
+
+describe("acceptance", () => {
+  class Registration extends Model.define({
+    id: "integer",
+    terms: "boolean",
+    privacy: "string",
+    marketing: "string",
+    adult: "boolean",
+  }) {
+    static table = "registrations";
+    static {
+      this.validates("terms", { acceptance: true });
+      this.validates("privacy", { acceptance: true });
+      this.validates("marketing", { acceptance: { accept: ["yes"] } });
+      this.validates("adult", { acceptance: true, allowNull: false });
+    }
+  }
+  const registrations = connect({} as never).model(Registration);
+
+  test('passes true and "1" by default, a value it\'s told to accept, and null', async () => {
+    const registration = registrations.build({
+      terms: true,
+      privacy: "1",
+      marketing: "yes",
+      adult: true,
+    });
+    const unanswered = registrations.build({
+      terms: null,
+      privacy: null,
+      marketing: null,
+      adult: true,
+    });
+
+    expect(await errorsOf(registration)).toEqual([]);
+    expect(await errorsOf(unanswered)).toEqual([]);
+  });
+
+  test("fails any other value as must be accepted, and null with allowNull: false", async () => {
+    const registration = registrations.build({
+      terms: false,
+      privacy: "0",
+      marketing: "1",
+      adult: null,
+    });
+
+    expect(await errorsOf(registration)).toEqual([
+      "terms accepted: must be accepted",
+      "privacy accepted: must be accepted",
+      "marketing accepted: must be accepted",
+      "adult accepted: must be accepted",
+    ]);
+  });
+});

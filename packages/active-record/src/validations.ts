@@ -50,6 +50,11 @@ export interface ValidationOptions<R = never> {
    */
   comparison?: ComparisonOptions<R>;
   /**
+   * The value is one of `accept` (`true` and `"1"` unless given): a box that must be ticked.
+   * Null passes unless `allowNull: false`, as a form that left the field out does in Rails.
+   */
+  acceptance?: boolean | { accept: readonly unknown[] };
+  /**
    * No other row has this value (checked in D1 through the record's Database). `scope` adds
    * attributes that must match too; `caseSensitive: false` compares with `lower()` (ASCII only).
    * `null` is never taken, as with SQLite's UNIQUE. Not race-safe: the constraint has the final say.
@@ -145,6 +150,15 @@ const numericality: Check = (value, { numericality: rule }) => {
 const comparison: Check = (value, { comparison: rule }, compared) =>
   rule === undefined ? [] : comparisonFailures(value, rule as ComparisonOptions<unknown>, compared);
 
+const DEFAULT_ACCEPTED = [true, "1"];
+
+const acceptance: Check = (value, { acceptance: rule, allowNull }) => {
+  if (rule === undefined || rule === false) return [];
+  if (value === null && allowNull !== false) return [];
+  const accepted = rule === true ? DEFAULT_ACCEPTED : rule.accept;
+  return isListed(accepted, value) ? [] : [{ type: "accepted" }];
+};
+
 /** Applied in this order within one `validates` call. */
 const CHECKS: readonly Check[] = [
   presence,
@@ -155,6 +169,7 @@ const CHECKS: readonly Check[] = [
   exclusion,
   numericality,
   comparison,
+  acceptance,
 ];
 
 /** What running validations needs from the record being validated. */
