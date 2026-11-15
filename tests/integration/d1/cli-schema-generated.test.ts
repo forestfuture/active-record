@@ -5,6 +5,7 @@ import { runSchema } from "../../../packages/active-record/cli/schema/command.ts
 import { connect, type QueryEvent } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import { Listing } from "../../fixtures/schema-project/src/models/listing.ts";
 import { Product } from "../../fixtures/schema-project/src/models/product.ts";
+import { Task } from "../../fixtures/schema-project/src/models/task.ts";
 import { User } from "../../fixtures/schema-project/src/models/user.ts";
 import { Visit } from "../../fixtures/schema-project/src/models/visit.ts";
 
@@ -36,11 +37,23 @@ describe("a schema generated from migrations", () => {
     ).toBe(0);
   });
 
+  test("a CHECK's names are a generated enum, whose methods enum: true turns on (#64)", async () => {
+    expectTypeOf<Task["state"]>().toEqualTypeOf<"open" | "done">();
+    expectTypeOf(Task.done).toBeFunction();
+    const db = connect(binding);
+    const task = await db.model(Task).createOrThrow({ title: "Write the guide" });
+
+    expect(task.isOpen()).toBe(true);
+    await task.saveAsDoneOrThrow();
+    expect(await db.model(Task).done().pluck("title")).toEqual(["Write the guide"]);
+    expect(() => db.model(Task).build({ state: "lost" as never })).toThrow(TypeError);
+  });
+
   test("an override's enum scopes are listed in the schema and typed as statics (#340)", async () => {
     expectTypeOf(User.editor).toBeFunction();
     expectTypeOf<User["role"]>().toEqualTypeOf<"member" | "editor">();
     expect(readFileSync(`${projectDir}schema.ts`, "utf8")).toContain(
-      'enumScopes: { User: ["member", "notMember", "editor", "notEditor"] }',
+      'User: ["member", "notMember", "editor", "notEditor"]',
     );
 
     const db = connect(binding);

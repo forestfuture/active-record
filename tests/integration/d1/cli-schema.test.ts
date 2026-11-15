@@ -658,6 +658,29 @@ export class FeaturedPost extends Post {}
     expect(schema).toContain('enumScopes: { Task: ["open", "notOpen", "done", "notDone"] }');
   });
 
+  test("--check reports the schema out of date once a migration changes a CHECK's list (#64)", async () => {
+    const cwd = await withModels(
+      {},
+      {
+        "migrations/0001.sql":
+          "CREATE TABLE tasks (id INTEGER PRIMARY KEY, state TEXT CHECK (state IN ('open')));",
+      },
+    );
+    const current = await run(cwd, { check: true });
+    writeMigration(
+      cwd,
+      "DROP TABLE tasks; CREATE TABLE tasks (id INTEGER PRIMARY KEY, state TEXT CHECK (state IN ('open', 'done')));",
+    );
+
+    const stale = await run(cwd, { check: true });
+
+    expect(current.code).toBe(0);
+    expect(stale).toEqual({
+      code: 1,
+      output: "src/db/schema.ts is out of date: run `active-record schema`",
+    });
+  });
+
   test("a generated enum whose turned-on methods clash fails, saying how to fix it (#64)", async () => {
     const cwd = await withModels(
       {
