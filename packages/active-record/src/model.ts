@@ -592,13 +592,14 @@ useModelBase(Model, readyModel);
 
 /**
  * What a generated declaration adds to a Model's records: its table's attributes `A`, with the
- * Model's `static attributes` overrides `O` applied, typed.
+ * Model's `static attributes` overrides `O` applied, typed, and its enums' methods (#340).
  */
 export type TableAttributes<A extends AttributeSpecs, O = {}> = AttributeProperties<
   AsSpecs<OverriddenSpecs<A, O>>
-> & {
-  readonly [attributeTypes]: AttributeProperties<AsSpecs<OverriddenSpecs<A, O>>>;
-};
+> &
+  EnumMethods<OverriddenSpecs<A, O>> & {
+    readonly [attributeTypes]: AttributeProperties<AsSpecs<OverriddenSpecs<A, O>>>;
+  };
 
 /**
  * A Model class or a class Models are built on, abstract ones included (the app's base class):
