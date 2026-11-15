@@ -37,6 +37,7 @@ export const builtInMessages: ErrorMessages = {
   invalid: "is invalid",
   required: "must exist",
   inclusion: "is not included in the list",
+  exclusion: "is reserved",
   taken: "has already been taken",
   tooShort: {
     one: "is too short (minimum is 1 character)",

@@ -33,6 +33,8 @@ export interface ValidationOptions<R = never> {
   length?: LengthOptions;
   format?: RegExp | { with: RegExp };
   inclusion?: readonly unknown[] | { in: readonly unknown[] };
+  /** Not one of these values ("is reserved"); null passes unless the list holds it. */
+  exclusion?: readonly unknown[] | { in: readonly unknown[] };
   numericality?: boolean | NumericalityOptions;
   /**
    * No other row has this value (checked in D1 through the record's Database). `scope` adds
@@ -94,12 +96,17 @@ function isSameValue(a: unknown, b: unknown): boolean {
   return Object.is(a, b);
 }
 
-const inclusion: Check = (value, { inclusion: rule }) => {
-  if (rule === undefined) return [];
-  const allowed = Array.isArray(rule) ? rule : (rule as { in: readonly unknown[] }).in;
-  const included = allowed.some((item) => isSameValue(item, value));
-  return included ? [] : [{ type: "inclusion" }];
-};
+/** Whether `value` is in a list given as an array or as `{ in: [...] }`. */
+function isListed(list: readonly unknown[] | { in: readonly unknown[] }, value: unknown): boolean {
+  const items = Array.isArray(list) ? list : (list as { in: readonly unknown[] }).in;
+  return items.some((item) => isSameValue(item, value));
+}
+
+const inclusion: Check = (value, { inclusion: rule }) =>
+  rule === undefined || isListed(rule, value) ? [] : [{ type: "inclusion" }];
+
+const exclusion: Check = (value, { exclusion: rule }) =>
+  rule !== undefined && isListed(rule, value) ? [{ type: "exclusion" }] : [];
 
 const COMPARISONS = [
   ["greaterThan", (a: number, b: number) => a > b],
@@ -125,7 +132,7 @@ const numericality: Check = (value, { numericality: rule }) => {
 };
 
 /** Applied in this order within one `validates` call. */
-const CHECKS: readonly Check[] = [presence, length, format, inclusion, numericality];
+const CHECKS: readonly Check[] = [presence, length, format, inclusion, exclusion, numericality];
 
 /** What running validations needs from the record being validated. */
 export interface ValidationTarget {
