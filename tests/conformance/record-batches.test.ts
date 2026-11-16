@@ -331,18 +331,15 @@ describe("a validation context in a batch", () => {
   test("b.save refuses a context the record's Model doesn't list, before anything runs", async () => {
     const database = harness.connect();
     const member = database.model(Member).build({ email: "a@example.com", role: "reader" });
-    const statements: unknown[] = [];
+    const valid = database.model(Member).build({ email: "b@example.com", role: "reader" });
 
     await expect(
-      database.batch((b) => {
-        statements.push(b.save(member, { context: "singup" }));
-        return [];
-      }),
+      database.batch((b) => [b.save(valid), b.save(member, { context: "singup" })]),
     ).rejects.toThrow(
       new TypeError(
         'Member has no validation context "singup"; list it in static validationContexts',
       ),
     );
-    expect(statements).toEqual([]);
+    expect(await database.model(Member).count()).toBe(0);
   });
 });
