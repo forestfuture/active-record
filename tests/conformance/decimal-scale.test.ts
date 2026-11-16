@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { lt, Model } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Line extends Model.define({
@@ -73,5 +73,15 @@ describe("a decimal's precision and scale", () => {
     for (const value of [largest, `-${largest}`]) {
       expect(() => Wide.build({ n: value })).toThrow(/isn't a decimal for "n"/);
     }
+  });
+
+  test("a condition past the precision still compares: no stored value reaches it", async () => {
+    await lines().create({ label: "a", price: "5" });
+
+    expect(
+      await lines()
+        .where({ price: lt("1e9") })
+        .pluck("label"),
+    ).toEqual(["a"]);
   });
 });

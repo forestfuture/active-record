@@ -200,7 +200,17 @@ export function castCondition(attribute: Convertible, value: unknown): unknown {
     // An enum casts the digits too: they're a name, or a stored value, or match nothing (#340).
     return attribute.enum === undefined ? String(value) : castValue(attribute, String(value));
   }
-  return castValue(attribute, value);
+  return castValue(withoutPrecision(attribute), value);
+}
+
+/**
+ * A decimal as a condition reads it: rounded to its scale (0 for a precision alone), but not
+ * refused past its precision, so `lt("1e9")` still compares (#398). No stored value is past it,
+ * so an equal one matches nothing anyway.
+ */
+function withoutPrecision(attribute: Convertible): Convertible {
+  if (attribute.precision === undefined) return attribute;
+  return { ...attribute, precision: undefined, scale: attribute.scale ?? 0 };
 }
 
 /** `value` cast by a custom type, or `uncastable` where the type throws. */
