@@ -1,4 +1,13 @@
-import { afterAll, beforeAll, describe, expect, expectTypeOf, test, vi } from "vite-plus/test";
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  expectTypeOf,
+  onTestFinished,
+  test,
+  vi,
+} from "vite-plus/test";
 import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
 import { connect, type QueryEvent } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import { audited } from "../../fixtures/models/auditable.ts";
@@ -9,6 +18,7 @@ import { Post } from "../../fixtures/models/post.ts";
 import { saved, DbRecord } from "../../fixtures/models/db-record.ts";
 import { User } from "../../fixtures/models/user.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
+import { shareCompileCacheIn } from "../../support/compile-cache.ts";
 
 // Statics read the Worker's bindings from cloudflare:workers; here it's this test's D1.
 const workers: { env: Record<string, unknown> } = { env: {} };
@@ -27,6 +37,8 @@ describe("Models extending the app's base class", () => {
 
   test("the fixtures' schemas are what their migrations and Models generate", async () => {
     const cwd = new URL("../../fixtures/", import.meta.url).pathname;
+    // The run's compiled library, so the command doesn't compile it in this test (#416).
+    onTestFinished(shareCompileCacheIn(cwd));
     const output: string[] = [];
 
     const options = { cwd, models: "models", out: ".", check: true };

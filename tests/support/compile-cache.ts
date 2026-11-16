@@ -1,5 +1,13 @@
 // The tests' scratch folder, and one compiled-TypeScript cache for the projects made there, so only a run's first load compiles the library (#416).
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, symlinkSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+} from "node:fs";
 import { join } from "node:path";
 import {
   corePackage,
@@ -26,6 +34,20 @@ export function shareCompileCache(dir: string, cache = sharedCacheFolder): void 
   mkdirSync(cache, { recursive: true });
   mkdirSync(join(dir, "node_modules/.cache"), { recursive: true });
   symlinkSync(cache, join(dir, "node_modules/.cache/jiti"), "dir");
+}
+
+/**
+ * Links the shared cache into a folder tracked in git that a test runs the command in, such as
+ * tests/fixtures/, which has no `node_modules` of its own. Returns what removes it again, for
+ * `onTestFinished`; it leaves a `node_modules` it didn't make.
+ */
+export function shareCompileCacheIn(dir: string): () => void {
+  const modules = join(dir, "node_modules");
+  const made = !existsSync(modules);
+  if (!existsSync(join(modules, ".cache/jiti"))) shareCompileCache(dir);
+  return () => {
+    if (made) rmSync(modules, { recursive: true, force: true });
+  };
 }
 
 /** The start of the fill's folder's name, and so of the entry jiti caches for its wrapper. */

@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { describe, expect, test } from "vite-plus/test";
+import { describe, expect, onTestFinished, test } from "vite-plus/test";
 import { runSchema } from "../../packages/active-record/cli/schema/command.ts";
+import { shareCompileCacheIn } from "../support/compile-cache.ts";
 
 // SKILL.md ships in the package as plain Markdown, so its examples can't be included from files.
 // They're kept as type-checked files instead (site/snippets/skill/), and must match them exactly.
@@ -20,6 +21,8 @@ describe("the agent skill (packages/active-record/skills/active-record/SKILL.md)
   test("its examples' schema is what their migrations and Models generate", async () => {
     const output: string[] = [];
     const cwd = new URL("../../site/snippets/skill/", import.meta.url).pathname;
+    // The run's compiled library, so the command doesn't compile it in this test (#416).
+    onTestFinished(shareCompileCacheIn(cwd));
 
     const options = { cwd, models: "models.ts", out: "schema.ts", check: true };
 
