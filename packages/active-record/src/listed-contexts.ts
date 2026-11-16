@@ -11,6 +11,11 @@ import {
   type ValidationContexts,
 } from "./validation-context.ts";
 
+/** The first of `contexts` that isn't `known`, if any. */
+function firstUnknown(contexts: readonly string[], known: readonly string[]): string | undefined {
+  return contexts.find((context) => !known.includes(context));
+}
+
 /** A class's name. */
 function nameOf(model: object): string {
   return (model as { name: string }).name;
@@ -92,7 +97,7 @@ export function rejectUnlistedContexts(model: object): void {
   for (const named of namedContexts(model)) {
     const onBase = isBase(named.from);
     const known = onBase ? BUILT_IN_CONTEXTS : knownBy(model);
-    const name = named.contexts.find((context) => !known.includes(context));
+    const name = firstUnknown(named.contexts, known);
     if (name === undefined) continue;
     throw onBase ? namedOnBase(named, name) : unlisted(model, named.subject, name);
   }
@@ -106,7 +111,7 @@ export function requireKnownContexts(record: object, given: ValidationContexts |
   if (given === undefined) return;
   const model = record.constructor;
   const known = knownBy(model);
-  const name = listOf(given).find((context) => !known.includes(context));
+  const name = firstUnknown(listOf(given), known);
   if (name === undefined) return;
   throw new TypeError(
     `${nameOf(model)} has no validation context "${name}"; list it in static validationContexts`,
