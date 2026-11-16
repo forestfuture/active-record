@@ -518,14 +518,18 @@ describe("validatesAssociated through a cycle", () => {
     expect(member.errors.fullMessages()).toEqual(["Posts is invalid"]);
   });
 
-  test("records loaded on both sides end, the one being validated counting as valid", async () => {
+  test("an owner whose records point back at it, loaded on both sides, ends", async () => {
     await seedAuthor([" "]);
-    const db = harness.connect();
-    const member = await db.model(Member).find(1);
-    const note = await db.model(Note).find(1);
+    const member = await harness.connect().model(Member).find(1);
 
     expect(await member.isValid()).toBe(false);
     expect(member.errors.fullMessages()).toEqual(["Posts is invalid"]);
+  });
+
+  test("a record whose owner validates it back, loaded on both sides, ends", async () => {
+    await seedAuthor([" "]);
+    const note = await harness.connect().model(Note).find(1);
+
     expect(await note.isValid()).toBe(false);
     expect(note.errors.fullMessages()).toEqual(["Title can't be blank"]);
   });
