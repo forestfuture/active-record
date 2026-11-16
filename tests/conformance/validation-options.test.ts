@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
   ActiveRecordError,
+  belongsTo,
   hasMany,
+  hasOne,
   Model,
   RecordInvalid,
   StrictValidationFailed,
@@ -56,7 +58,7 @@ beforeAll(async () => {
   harness = await openHarness();
 });
 afterAll(() => harness.dispose());
-beforeEach(() => harness.reset("posts", "users"));
+beforeEach(() => harness.reset("posts", "profiles", "users"));
 
 describe("unless", () => {
   test("skips the rules when it returns true", async () => {
@@ -241,5 +243,73 @@ describe("validatesAssociated on a hasMany", () => {
     blank!.markForDestruction();
 
     expect(await author.isValid()).toBe(true);
+  });
+});
+
+describe("validatesAssociated on a belongsTo and a hasOne", () => {
+  class Account extends Model.define({
+    id: { type: "integer", null: false },
+    email: "string",
+  }) {
+    static table = "users";
+
+    profile = hasOne(Bio, { foreignKey: "userId" });
+
+    static {
+      this.validates("email", { presence: true });
+      this.validatesAssociated("profile");
+    }
+  }
+
+  class Bio extends Model.define({
+    id: { type: "integer", null: false },
+    userId: { type: "integer", null: false },
+    bio: "string",
+  }) {
+    static table = "profiles";
+
+    static {
+      this.validates("bio", { length: { minimum: 10 } });
+    }
+  }
+
+  class Entry extends Model.define({
+    id: { type: "integer", null: false },
+    userId: "integer",
+    title: { type: "string", null: false },
+  }) {
+    static table = "posts";
+
+    author = belongsTo(Account, { foreignKey: "userId", optional: true });
+
+    static {
+      this.validatesAssociated("author");
+    }
+  }
+
+  test("an invalid belongsTo record makes its owner invalid", async () => {
+    await harness.exec("INSERT INTO users (id, email) VALUES (?, ?)", [1, " "]);
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (?, ?, ?)", [1, 1, "Hi"]);
+    const entry = await harness.connect().model(Entry).find(1);
+
+    expect(await entry.isValid()).toBe(false);
+    expect(entry.errors.fullMessages()).toEqual(["Author is invalid"]);
+  });
+
+  test("an invalid hasOne record makes its owner invalid", async () => {
+    await harness.exec("INSERT INTO users (id, email) VALUES (?, ?)", [1, "a@example.com"]);
+    await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (?, ?, ?)", [1, 1, "short"]);
+    const account = await harness.connect().model(Account).find(1);
+
+    expect(await account.isValid()).toBe(false);
+    expect(account.errors.fullMessages()).toEqual(["Profile is invalid"]);
+  });
+
+  test("an association without a record passes", async () => {
+    await harness.exec("INSERT INTO users (id, email) VALUES (?, ?)", [1, "a@example.com"]);
+    const db = harness.connect();
+
+    expect(await (await db.model(Account).find(1)).isValid()).toBe(true);
+    expect(await db.model(Entry).build({ title: "Hi" }).isValid()).toBe(true);
   });
 });
