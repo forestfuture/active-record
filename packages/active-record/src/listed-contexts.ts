@@ -31,13 +31,15 @@ function knownBy(model: object): readonly string[] {
   return [...BUILT_IN_CONTEXTS, ...listedBy(model)];
 }
 
-/** Why `name`, named by `subject` ("Member validates \"email\""), isn't one of the Model's contexts. */
-function unlisted(model: object, subject: string, name: string): InvalidModel {
+/** Why `name`, named by a validation or callback of `model`'s, isn't one of its contexts. */
+function unlisted(model: object, { from, subject }: Named, name: string): InvalidModel {
   const listed = listedBy(model);
+  // The list checked is the Model's, which a declaration inherited from a parent names apart.
+  const whose = from === model ? "its" : `${nameOf(model)}'s`;
   const among =
     listed.length === 0
       ? `"create" or "update"`
-      : `"create", "update" or one of its validationContexts (${listed.map((each) => `"${each}"`).join(", ")})`;
+      : `"create", "update" or one of ${whose} validationContexts (${listed.map((each) => `"${each}"`).join(", ")})`;
   return new InvalidModel(
     `${subject} on "${name}", which isn't ${among}; list it in static validationContexts`,
   );
@@ -99,7 +101,7 @@ export function rejectUnlistedContexts(model: object): void {
     const known = onBase ? BUILT_IN_CONTEXTS : knownBy(model);
     const name = firstUnknown(named.contexts, known);
     if (name === undefined) continue;
-    throw onBase ? namedOnBase(named, name) : unlisted(model, named.subject, name);
+    throw onBase ? namedOnBase(named, name) : unlisted(model, named, name);
   }
 }
 
