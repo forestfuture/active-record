@@ -1,5 +1,6 @@
 // The repo's lint rule that a test asserts results, not the SQL text it sent (#400).
 import { defineRule } from "vite-plus/lint/plugins";
+import { variableOf } from "./variables.mjs";
 
 // What the rule can't follow, as none is in the tests and review catches the rest: a `let` or
 // `var`, a `sql` key destructured under another name, a helper declared as a function or passed
@@ -86,15 +87,6 @@ function constOf(variable) {
   const [{ node, parent }] = definitions;
   const isConst = node.type === "VariableDeclarator" && parent?.kind === "const";
   return isConst && node.id.type === "Identifier" ? node : undefined;
-}
-
-/** The variable `identifier` names, from the innermost scope it's declared in. */
-function variableOf(scope, identifier) {
-  for (let at = scope; at !== null; at = at.upper) {
-    const variable = at.set.get(identifier.name);
-    if (variable !== undefined) return variable;
-  }
-  return undefined;
 }
 
 /** Whether `callee` is Vitest's `expect`, or its `expect.soft`. */

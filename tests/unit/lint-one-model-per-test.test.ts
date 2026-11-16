@@ -20,5 +20,15 @@ ruleTester.run("one-model-per-test", oneModelPerTest, {
       });`,
       errors: [{ messageId: "secondModel" }],
     },
+    {
+      name: "records kept in consts, one destructured from a list",
+      code: `test("both sides end", async () => {
+        const member = await db.model(Member).find(1);
+        const [note] = await db.model(Note).all().toArray();
+        expect(await member.isValid()).toBe(false);
+        expect(await note!.isValid()).toBe(false);
+      });`,
+      errors: [{ messageId: "secondModel" }],
+    },
   ],
 });

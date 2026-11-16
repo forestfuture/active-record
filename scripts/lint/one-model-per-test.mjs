@@ -1,12 +1,14 @@
 // The repo's lint rule that a test acts on one Model once it starts asserting (#413).
 import { defineRule } from "vite-plus/lint/plugins";
 import { chainRoot } from "./test-calls.mjs";
+import { variableOf } from "./variables.mjs";
 
 /** The functions that take a test's body. */
 const testFunctions = new Set(["test", "it"]);
 
 /** The nodes an awaited value goes back through, toward the Model it came from. */
 const chainLinks = {
+  AwaitExpression: (node) => node.argument,
   CallExpression: (node) => node.callee,
   ChainExpression: (node) => node.expression,
   MemberExpression: (node) => node.object,
@@ -22,15 +24,31 @@ function modelCalled(node) {
   return isModelCall && model?.type === "Identifier" ? model.name : undefined;
 }
 
-/** The Model an awaited value comes from, following its chain back: `db.model(User).build()`. */
-function modelOf(node) {
-  for (let at = node; at !== undefined && at !== null; at = chainLinks[at.type]?.(at)) {
+/**
+ * The Model an awaited value comes from, following its chain back (`db.model(User).build()`),
+ * and through each `const` it names to the value the const was declared with.
+ */
+function modelOf(node, constValue) {
+  for (let at = node; at !== undefined && at !== null;) {
     if (at.type === "CallExpression") {
       const model = modelCalled(at);
       if (model !== undefined) return model;
     }
+    at = at.type === "Identifier" ? constValue(at) : chainLinks[at.type]?.(at);
   }
   return undefined;
+}
+
+/**
+ * The value a `const` was declared with, for one declared alone or destructured from a list:
+ * `const user = …`, `const [user] = …`.
+ */
+function constInit(variable) {
+  const definitions = variable?.defs ?? [];
+  if (definitions.length !== 1) return undefined;
+  const [{ node, parent }] = definitions;
+  if (node.type !== "VariableDeclarator" || parent?.kind !== "const") return undefined;
+  return node.id.type === "Identifier" || node.id.type === "ArrayPattern" ? node.init : undefined;
 }
 
 /** Whether `node` is a call of Vitest's `expect`, or its `expect.soft`. */
@@ -61,7 +79,15 @@ export default defineRule({
       AwaitExpression(node) {
         const test = tests.at(-1);
         if (test === undefined || !test.asserted || test.reported) return;
-        const model = modelOf(node.argument);
+        // Each const is followed once, so consts that name each other can't loop.
+        const followed = new Set();
+        const constValue = (identifier) => {
+          const variable = variableOf(context.sourceCode.getScope(identifier), identifier);
+          if (variable === undefined || followed.has(variable)) return undefined;
+          followed.add(variable);
+          return constInit(variable);
+        };
+        const model = modelOf(node.argument, constValue);
         if (model === undefined) return;
         test.first ??= model;
         if (model === test.first) return;
