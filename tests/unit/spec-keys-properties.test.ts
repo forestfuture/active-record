@@ -209,6 +209,8 @@ describe("a spec's keys", () => {
       default: true,
       generateId: true,
       storage: true,
+      precision: true,
+      scale: true,
       enum: true,
       prefix: true,
       suffix: true,

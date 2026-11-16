@@ -117,6 +117,9 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     onlyFor: { types: ["datetime"], because: "only a datetime is stored as an epoch" },
     onRetype: "drop",
   },
+  // A decimal's digits in all and after the point, as NUMERIC(10, 2) gives them (#398).
+  precision: decimalDigits("a precision"),
+  scale: decimalDigits("a scale"),
   // An enum's names are stored as text or as integers (#340).
   enum: {
     isWellFormed: isEnumValues,
@@ -141,6 +144,17 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     onRetype: "drop",
   },
 };
+
+/** The rule for a decimal's precision or scale: a whole number of digits. */
+function decimalDigits(describedAs: string): KeyRule {
+  return {
+    isWellFormed: (value) => Number.isSafeInteger(value) && (value as number) >= 0,
+    describedAs,
+    wellFormedAs: "use a whole number of digits",
+    onlyFor: { types: ["decimal"], because: "only a decimal has digits to limit" },
+    onRetype: "drop",
+  };
+}
 
 /** `true`, `false`, or an object holding only a boolean `allowNull`. */
 function isEnumValidation(value: unknown): boolean {

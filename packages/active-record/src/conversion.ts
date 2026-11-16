@@ -1,7 +1,7 @@
 // Converting values between attribute types and what D1 stores, per attribute type, for enums, and for custom types (#20).
 import { castBinary, readBinary } from "./binary-values.ts";
 import { castDay, castTime } from "./calendar-values.ts";
-import { castDecimal, readDecimal } from "./decimal-values.ts";
+import { castDecimal, limitDecimal, readDecimal } from "./decimal-values.ts";
 import { enumEntries, type EnumValues } from "./enum-values.ts";
 import type { EpochStorage } from "./epoch-storage.ts";
 import type { AnyCustomType } from "./custom-types.ts";
@@ -34,7 +34,10 @@ const identity = (value: unknown) => value;
  * storage (#73), and for an enum its values (#340). Passed whole, so a caller can't convert by
  * the type alone and skip the others.
  */
-export type Convertible = Pick<AttributeDefinition, "type" | "storage" | "enum" | "customType">;
+export type Convertible = Pick<
+  AttributeDefinition,
+  "type" | "storage" | "enum" | "customType" | "precision" | "scale"
+>;
 
 /** The key of the converter for an attribute: its storage if it has one, else its type. */
 type ConversionKey = AttributeType | EpochStorage;
@@ -87,6 +90,9 @@ const customConverters = new WeakMap<AnyCustomType, Converter>();
 function converterOf(attribute: Convertible): Converter {
   const stored = converters[keyOf(attribute)];
   if (attribute.customType !== undefined) return customConverterOf(attribute.customType, stored);
+  if (attribute.precision !== undefined || attribute.scale !== undefined) {
+    return limitedDecimalConverter(attribute);
+  }
   if (attribute.enum === undefined) return stored;
   let byType = enumConverters.get(attribute.enum);
   if (byType === undefined) {
@@ -97,6 +103,26 @@ function converterOf(attribute: Convertible): Converter {
   if (converter === undefined) {
     converter = enumConverter(attribute.enum, stored);
     byType.set(stored, converter);
+  }
+  return converter;
+}
+
+/** Each precision and scale's decimal converter, by `"precision/scale"` (#398). */
+const limitedDecimalConverters = new Map<string, Converter>();
+
+/** A decimal's converter that rounds a cast value to its scale and refuses one past its precision. */
+function limitedDecimalConverter({ precision, scale }: Convertible): Converter {
+  const key = `${precision}/${scale}`;
+  let converter = limitedDecimalConverters.get(key);
+  if (converter === undefined) {
+    const cast = (value: unknown) => {
+      const decimal = castDecimal(value);
+      return decimal === uncastable
+        ? decimal
+        : limitDecimal(decimal as string, { precision, scale });
+    };
+    converter = { ...converters.decimal, cast };
+    limitedDecimalConverters.set(key, converter);
   }
   return converter;
 }
