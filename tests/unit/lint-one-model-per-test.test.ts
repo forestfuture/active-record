@@ -13,6 +13,7 @@ ruleTester.run("one-model-per-test", oneModelPerTest, {
       expect(await db.model(User).find(1)).toBeDefined();
       expect(await db.model(User).where({ id: 1 }).toArray()).toHaveLength(1);
       expect(await db.model(User).first()).toBeDefined();
+      expect(await db.model(User).find(1).then((user) => user.email)).toBe("a");
     });`,
     // Arranging records of other Models before the first assertion.
     `test("saves the post", async () => {
