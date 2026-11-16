@@ -332,14 +332,21 @@ describe("a validation context in a batch", () => {
     const database = harness.connect();
     const member = database.model(Member).build({ email: "a@example.com", role: "reader" });
     const valid = database.model(Member).build({ email: "b@example.com", role: "reader" });
+    const prepared: unknown[] = [];
 
     await expect(
-      database.batch((b) => [b.save(valid), b.save(member, { context: "singup" })]),
+      database.batch((b) => {
+        prepared.push(b.save(valid));
+        prepared.push(b.save(member, { context: "singup" }));
+        return prepared as [];
+      }),
     ).rejects.toThrow(
       new TypeError(
         'Member has no validation context "singup"; list it in static validationContexts',
       ),
     );
+    // b.save threw while the callback prepared the batch, so only the valid save was prepared.
+    expect(prepared).toHaveLength(1);
     expect(await database.model(Member).count()).toBe(0);
   });
 });
