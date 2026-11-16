@@ -1,11 +1,21 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { column, defineType, Model, sql } from "../../packages/active-record/src/index.ts";
+import {
+  column,
+  defineType,
+  Model,
+  sql,
+  UnknownAttribute,
+} from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+
+/** A name the types don't allow, as one from a request would arrive. */
+const untyped = (value: unknown) => value as never;
 
 class Review extends Model.define({
   id: { type: "integer", null: false },
   title: "string",
+  featured: "boolean",
   rating: "integer",
   score: "real",
 }) {
@@ -258,6 +268,36 @@ describe("calculations (#344)", () => {
       expect(await reviews().minimum(length)).toBe(2);
       expect(await reviews().maximum(length)).toBe(4);
       expect(await reviews().none().maximum(length)).toBeNull();
+    });
+  });
+
+  describe("refusals, before any query", () => {
+    test("an attribute the Model doesn't have rejects with UnknownAttribute, even on none()", async () => {
+      for (const relation of [reviews(), reviews().none()]) {
+        await expect(relation.sum(untyped("missing"))).rejects.toThrow(UnknownAttribute);
+        await expect(relation.maximum(untyped("missing"))).rejects.toThrow(UnknownAttribute);
+        await expect(relation.sum(sql`${column(untyped("missing"))}`)).rejects.toThrow(
+          UnknownAttribute,
+        );
+      }
+      expect(events).toEqual([]);
+    });
+
+    test("sum and average take only number attributes", async () => {
+      await expect(reviews().sum(untyped("title"))).rejects.toThrow(
+        'sum() needs a number attribute: "title" is a string attribute',
+      );
+      await expect(db().model(Article).average(untyped("priority"))).rejects.toThrow(
+        'average() needs a number attribute: "priority" is an enum',
+      );
+      expect(events).toEqual([]);
+    });
+
+    test("minimum and maximum refuse booleans, json and bytes, which don't order", async () => {
+      await expect(reviews().none().minimum(untyped("featured"))).rejects.toThrow(
+        `minimum() can't compare "featured", a boolean attribute`,
+      );
+      expect(events).toEqual([]);
     });
   });
 });
