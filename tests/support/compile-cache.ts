@@ -1,5 +1,5 @@
 // One compiled-TypeScript cache for the test projects, so only a run's first load compiles the library (#416).
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { mkdirSync, readdirSync, rmSync, statSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import {
   corePackage,
@@ -33,9 +33,10 @@ const entries = [corePackage, `${corePackage}/d1`, `${corePackage}/postgresql`];
  * that has loaded it already doesn't compile it again, so this fills the cache only before then.
  */
 export async function fillCompileCache(cache = sharedCompileCache): Promise<void> {
-  const scratch = new URL("../.scratch/", import.meta.url).pathname;
-  mkdirSync(scratch, { recursive: true });
-  const project = mkdtempSync(join(scratch, "compile-cache-"));
+  // One folder every run, so the wrapper jiti caches for it is one entry, not one per run.
+  const project = new URL("../.scratch/compile-cache-fill/", import.meta.url).pathname;
+  rmSync(project, { recursive: true, force: true });
+  mkdirSync(project, { recursive: true });
   try {
     shareCompileCache(project, cache);
     const loaded = await loadLibrary(project, projectJiti(project), {
@@ -48,7 +49,25 @@ export async function fillCompileCache(cache = sharedCompileCache): Promise<void
   }
 }
 
-/** Vitest's globalSetup: the run's first compile happens here, before any test's time limit. */
-export async function setup(): Promise<void> {
+/**
+ * Removes the entries written to `cache` after `since`. The library is compiled before then, by
+ * `setup`, and each of its entries is named by its file's path, so an edited file replaces its
+ * own. What's written later is the test projects' own files, named by their folders' random
+ * paths, which no other run reads.
+ */
+export function pruneCompileCache(cache: string, since: number): void {
+  for (const name of readdirSync(cache)) {
+    const entry = join(cache, name);
+    if (statSync(entry).mtimeMs > since) rmSync(entry, { force: true });
+  }
+}
+
+/**
+ * Vitest's globalSetup: the run's first compile happens here, before any test's time limit, and
+ * its teardown leaves the cache holding only the library.
+ */
+export async function setup(): Promise<() => void> {
   await fillCompileCache();
+  const filled = Date.now();
+  return () => pruneCompileCache(sharedCompileCache, filled);
 }
