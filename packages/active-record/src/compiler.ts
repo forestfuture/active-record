@@ -386,14 +386,28 @@ export function compileCalculation(
       ? compileFragment(of, query.model, params)
       : quoteIdentifier(attributeFor(query.model, of).column);
   const toCalculate = { ...queryToCount(query), select: undefined };
-  const inner = compileSelect(dialect, toCalculate, `${expression} AS value`);
-  const aggregate = `${AGGREGATES[calculation]}(value)`;
+  const alias = quoteIdentifier(valuesAlias(query.model));
+  const inner = compileSelect(dialect, toCalculate, `${expression} AS ${alias}`);
+  const aggregate = `${AGGREGATES[calculation]}(${alias})`;
   const value = calculation === "sum" ? `COALESCE(${aggregate}, 0)` : aggregate;
   return {
     ...inner,
     sql: `SELECT ${value} AS value FROM (${inner.sql}) AS calculated`,
     params: [...params, ...inner.params],
   };
+}
+
+/**
+ * A name for a calculation's values that none of the Model's columns has, in any case: an
+ * `ORDER BY` name matches an output column before a table's, so the order's own would be lost.
+ */
+function valuesAlias(model: ModelClass<Model>): string {
+  const columns = new Set(
+    [...model.attributeDefinitions.values()].map(({ column }) => column.toLowerCase()),
+  );
+  let alias = "value";
+  while (columns.has(alias)) alias = `_${alias}`;
+  return alias;
 }
 
 /** Whether a limit or offset picks which rows `query` describes. */
