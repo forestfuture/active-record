@@ -94,5 +94,18 @@ ruleTester.run("one-model-per-test", oneModelPerTest, {
       });`,
       errors: [{ messageId: "secondModel" }],
     },
+    {
+      // An opt-out goes on the line before the statement, so the report starts there.
+      name: "an expect wrapped over lines, reported where its statement starts",
+      code: [
+        'test("creates", async () => {',
+        '  expect(await db.model(User).create({ email: "a" })).toBeDefined();',
+        "  expect(",
+        '    await db.model(Post).create({ title: "b" }),',
+        "  ).toBeDefined();",
+        "});",
+      ].join("\n"),
+      errors: [{ messageId: "secondModel", line: 3 }],
+    },
   ],
 });

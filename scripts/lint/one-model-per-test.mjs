@@ -152,6 +152,16 @@ function constInit(variable) {
   return node.id.type === "Identifier" || node.id.type === "ArrayPattern" ? node.init : undefined;
 }
 
+/**
+ * The statement `node` is in, where an opt-out on the line before it applies, though the
+ * formatter wraps `expect(` and its `await` onto two lines.
+ */
+function statementOf(node) {
+  let at = node;
+  while (at.parent && !/Statement$|Declaration$/.test(at.type)) at = at.parent;
+  return at;
+}
+
 /** Whether `node` is a call of Vitest's `expect`, or its `expect.soft`. */
 function isExpect({ callee }) {
   const named = callee.type === "MemberExpression" && !callee.computed ? callee : undefined;
@@ -198,7 +208,7 @@ export default defineRule({
         if (model === test.first) return;
         test.reported = true;
         context.report({
-          node,
+          node: statementOf(node),
           messageId: "secondModel",
           data: { first: test.first, second: model },
         });
