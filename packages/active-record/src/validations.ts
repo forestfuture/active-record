@@ -319,6 +319,7 @@ export function checkValidatedNames(
   model: Parameters<typeof attributeOf>[0],
   { attribute, options, associated }: Validation,
 ): void {
+  // `validatesAssociated`'s names are checked once the Model's associations are known.
   if (associated) return;
   attributeOf(model, attribute);
   const { uniqueness } = options;

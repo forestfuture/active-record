@@ -1,5 +1,5 @@
 // Checks a Model's declaration the first time it's used, then seals its declarations.
-// It checks the table, the primary key, the attribute names, the spec keys, hidden attributes, message names, and page sizes.
+// It checks the table, the primary key, the attribute names, the spec keys, hidden attributes, message names, validated associations, and page sizes.
 import { methodsOffFixes } from "./enum-switch.ts";
 import { ancestors, staticBelow } from "./ancestors.ts";
 import { associationsOf, declarationIn, probeOf } from "./association-fields.ts";
@@ -30,6 +30,7 @@ export function verifyModel(model: ModelClass): void {
   rejectBadSpecs(model);
   rejectEnumNameClashes(model);
   for (const validation of declared(model, "validations")) checkValidatedNames(model, validation);
+  rejectUnknownAssociated(model);
   rejectUnknownHiddenAttributes(model);
   rejectUnknownMessageNames(model);
   rejectShadowingFields(model);
@@ -40,6 +41,18 @@ export function verifyModel(model: ModelClass): void {
     seal(each);
   }
   verified.add(model);
+}
+
+/** Each name given to `validatesAssociated` must be one of the Model's associations (#343). */
+function rejectUnknownAssociated(model: ModelClass): void {
+  const associations = associationsOf(model);
+  for (const { attribute, associated } of declared(model, "validations")) {
+    if (associated && !associations.has(attribute)) {
+      throw new InvalidModel(
+        `${model.name} validates the associated "${attribute}", which isn't one of its associations`,
+      );
+    }
+  }
 }
 
 function requirePrimaryKeyAttribute(model: ModelClass): void {
