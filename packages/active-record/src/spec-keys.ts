@@ -327,7 +327,13 @@ export function specProblem(
       valueProblem(where, spec, key);
     if (problem !== undefined) return problem;
   }
-  return undefined;
+  return digitsProblem(where, spec);
+}
+
+/** A scale past its precision, which no `NUMERIC(p, s)` can have (#398). */
+function digitsProblem(where: string, { precision, scale }: SpecOverride): string | undefined {
+  if (precision === undefined || scale === undefined || scale <= precision) return undefined;
+  return `${where} has a scale of ${scale}, past its precision of ${precision}; a scale is at most the precision`;
 }
 
 /**

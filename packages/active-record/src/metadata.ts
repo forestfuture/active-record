@@ -73,33 +73,52 @@ type NoEnum = {
   validate?: never;
 };
 
+/** An attribute that isn't a decimal: only a decimal has a precision and a scale (#398). */
+type NoDigits = { precision?: never; scale?: never };
+
+/** The spec's keys a type's branch below writes for itself. */
+type Written = "type" | "generateId" | "storage" | "enum" | "precision" | "scale";
+
 export type AttributeSpec =
   | AttributeType
   | AnyCustomType
-  | (Omit<SpecObject, "default" | "generateId" | "storage" | "enum"> & {
+  | (Omit<SpecObject, "default" | Written> & {
       type: "string";
       storage?: never;
       enum?: TextEnum;
-    } & ValueSource)
-  | (Omit<SpecObject, "type" | "generateId" | "storage" | "enum"> & {
-      type: "integer";
-      generateId?: false;
-      storage?: never;
-      enum?: IntegerEnum;
-    })
-  | (Omit<SpecObject, "type" | "generateId" | "storage" | "enum"> &
-      NoEnum & {
-        type: Exclude<AttributeType, "string" | "integer" | "datetime">;
+    } & ValueSource &
+      NoDigits)
+  | (Omit<SpecObject, Written> &
+      NoDigits & {
+        type: "integer";
+        generateId?: false;
+        storage?: never;
+        enum?: IntegerEnum;
+      })
+  | (Omit<SpecObject, Written> &
+      NoEnum &
+      NoDigits & {
+        type: Exclude<AttributeType, "string" | "integer" | "datetime" | "decimal">;
         generateId?: false;
         storage?: never;
       })
-  | (Omit<SpecObject, "type" | "generateId" | "enum"> &
+  | (Omit<SpecObject, Written> &
       NoEnum & {
+        type: "decimal";
+        generateId?: false;
+        storage?: never;
+        precision?: number;
+        scale?: number;
+      })
+  | (Omit<SpecObject, Exclude<Written, "storage">> &
+      NoEnum &
+      NoDigits & {
         type: "datetime";
         generateId?: false;
       })
-  | (Omit<SpecObject, "type" | "generateId" | "storage" | "enum"> &
-      NoEnum & {
+  | (Omit<SpecObject, Written> &
+      NoEnum &
+      NoDigits & {
         type: AnyCustomType;
         generateId?: false;
         storage?: never;
