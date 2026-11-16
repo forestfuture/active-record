@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
 import { InvalidModel, Model } from "../../packages/active-record/src/index.ts";
 import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { attributeFor } from "../../packages/active-record/src/attribute.ts";
 
 const db = connect({} as never);
 
@@ -57,5 +58,24 @@ describe("a decimal's precision and scale, declared", () => {
     ],
   ])("%j is an InvalidModel", (spec, message) => {
     expect(() => db.model(withSpec(spec)).build()).toThrow(new InvalidModel(message));
+  });
+});
+
+// A key copied into a decimal is held, so it's refused past the precision as an assigned
+// value is; a condition is only rounded, as no stored value is past the precision (#398).
+describe("a decimal key past its precision", () => {
+  class Tagged extends Model.define({
+    id: "integer",
+    ref: { type: "decimal", precision: 3, scale: 0 },
+  }) {
+    static table = "tagged";
+  }
+
+  test("is refused as a key", () => {
+    expect(() => attributeFor(Tagged, "ref").key(123456)).toThrow(TypeError);
+  });
+
+  test("is rounded as a condition", () => {
+    expect(attributeFor(Tagged, "ref").condition("123456.4")).toBe("123456");
   });
 });
