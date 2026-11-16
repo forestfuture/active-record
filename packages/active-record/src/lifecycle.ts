@@ -113,7 +113,7 @@ export async function validateRecord(
   record: Model,
   context?: ValidationContexts,
 ): Promise<boolean> {
-  return (await validation(record, new Set(), newPass(), context)) === "valid";
+  return (await validation(record, new Set(), newPass(context), context)) === "valid";
 }
 
 /**
@@ -127,7 +127,7 @@ export async function validation(
   pass: ValidationPass = newPass(),
   context?: ValidationContexts,
 ): Promise<Validity> {
-  const contexts = contextsOf(record, context);
+  const contexts = contextsOf(record, context ?? pass.context);
   return whileValidating(pass, record, contexts, async () => {
     const recordState = record[state];
     recordState.errors[clearErrors]();
@@ -241,7 +241,7 @@ export async function prepareSave(
   if (claimed.has(record)) return nothing;
   const recordState = record[state];
   recordState.requireLive("be saved");
-  const validity = await validation(record, claimed, newPass(), context);
+  const validity = await validation(record, claimed, newPass(context), context);
   if (validity === "invalid") return { status: "invalid" };
   if (validity === "aborted") return aborted(record);
   return prepareWrites(record, claimed);
