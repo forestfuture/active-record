@@ -96,6 +96,32 @@ class Writer extends Model.define({
   }
 }
 
+class Chapter extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  static {
+    this.validates("title", { length: { minimum: 4 }, on: "publish" });
+    this.validates("title", { exclusion: ["Draft"], on: "create" });
+  }
+}
+
+class Novelist extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+}) {
+  static table = "users";
+
+  chapters = hasMany(Chapter, { foreignKey: "userId" });
+
+  static {
+    this.validatesAssociated("chapters");
+  }
+}
+
 let harness: Harness;
 
 beforeAll(async () => {
@@ -235,5 +261,36 @@ describe("validatesAssociated with on", () => {
     expect(await writer.isValid()).toBe(true);
     expect(await writer.isValid("publish")).toBe(false);
     expect(writer.errors.fullMessages()).toEqual(["Articles is invalid"]);
+  });
+});
+
+describe("the context of associated records", () => {
+  test("a custom context reaches the records validatesAssociated validates", async () => {
+    await seedPosts(["Hi"]);
+    const novelist = await harness.connect().model(Novelist).find(1);
+    await novelist.chapters().toArray();
+
+    expect(await novelist.isValid()).toBe(true);
+    expect(await novelist.isValid("publish")).toBe(false);
+    expect(novelist.errors.fullMessages()).toEqual(["Chapters is invalid"]);
+  });
+
+  test("a custom context reaches the records a save autosaves", async () => {
+    const novelist = harness.connect().model(Novelist).build({ email: "a@example.com" });
+    const chapter = novelist.chapters().build({ title: "Hi" });
+
+    expect(await novelist.save({ context: "publish" })).toBe(false);
+    expect(chapter.errors.get("title")).toEqual(["is too short (minimum is 4 characters)"]);
+  });
+
+  test('"update" or "create" given to the owner leaves each record its own', async () => {
+    await seedPosts(["Draft"]);
+    const novelist = await harness.connect().model(Novelist).find(1);
+    const [loaded] = await novelist.chapters().toArray();
+    const built = novelist.chapters().build({ title: "Draft" });
+
+    expect(await novelist.isValid("update")).toBe(false);
+    expect(built.errors.get("title")).toEqual(["is reserved"]);
+    expect(loaded!.errors.isEmpty()).toBe(true);
   });
 });

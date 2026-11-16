@@ -38,6 +38,18 @@ export function contextsOf(record: Model, given?: ValidationContexts): readonly 
   return [record[state].isNew ? "create" : "update"];
 }
 
+/**
+ * The contexts given, as a list, if any is custom: not `"create"` or `"update"`. Only such a context
+ * reaches the records validated with a record.
+ */
+export function customContextOf(given?: ValidationContexts): readonly string[] | undefined {
+  if (given === undefined) return undefined;
+  const contexts = listOf(given);
+  return contexts.some((context) => context !== "create" && context !== "update")
+    ? contexts
+    : undefined;
+}
+
 /** The context names a rule's `on` or `exceptOn` gives. */
 function listOf(contexts: ValidationContexts): readonly string[] {
   return typeof contexts === "string" ? [contexts] : contexts;

@@ -2,6 +2,7 @@
 import { validation, type Claimed, type Validity } from "./lifecycle.ts";
 import { modelOf, type Model, type ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
+import { customContextOf, type ValidationContexts } from "./validation-context.ts";
 
 /**
  * One validation of a record, and of the records validated with it at every level: what each
@@ -16,11 +17,20 @@ export interface ValidationPass {
   readonly rowsInProgress: Map<ModelClass, Set<unknown>>;
   /** The associations `validatesAssociated` reported invalid, by owner: autosave doesn't again. */
   readonly reportedInvalid: Map<Model, Set<string>>;
+  /**
+   * The custom context the pass's records are validated in (#51), if it has one; otherwise each
+   * is validated in its own, `"create"` or `"update"`.
+   */
+  readonly context: readonly string[] | undefined;
 }
 
-/** A pass for validating a record and the records validated with it. */
-export function newPass(): ValidationPass {
+/**
+ * A pass for validating a record, in `context` if given, and the records validated with it,
+ * which share the context only if it's custom, as Rails does.
+ */
+export function newPass(context?: ValidationContexts): ValidationPass {
   return {
+    context: customContextOf(context),
     validities: new Map(),
     inProgress: new Set(),
     rowsInProgress: new Map(),
