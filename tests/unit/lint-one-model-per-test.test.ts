@@ -4,6 +4,21 @@ import { ruleTester } from "../support/rule-tester.ts";
 // A test acts on one Model once it starts asserting (CODING_STANDARDS.md, Tests; #413).
 ruleTester.run("one-model-per-test", oneModelPerTest, {
   valid: [
+    // An association read, and a capitalized helper, aren't actions on a Model.
+    `import { Helper } from "./helper";
+    test("reads the author", async () => {
+      expect(await db.model(User).create({ email: "a" })).toBeDefined();
+      const post = db.model(Post).build();
+      expect(await post.author()).toBeNull();
+      expect(await Helper.settle()).toBe(true);
+    });`,
+    // A record read through an association isn't taken for its owner's Model.
+    `test("validates the author", async () => {
+      const post = await db.model(Post).find(1);
+      const author = await post.author();
+      expect(await post.isValid()).toBe(true);
+      expect(await author!.isValid()).toBe(true);
+    });`,
     // Acting on one Model, then reading another's rows to see the effect.
     `test("an invalid author makes the post invalid, and nothing is written", async () => {
       const post = db.model(Post).build();

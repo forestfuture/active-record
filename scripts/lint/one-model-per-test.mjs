@@ -6,37 +6,42 @@ import { variableOf } from "./variables.mjs";
 /** The functions that take a test's body. */
 const testFunctions = new Set(["test", "it"]);
 
+/** The calls that act on a Model: its writes, and validating a record. Any other call looks. */
+const actions = new Set(
+  ["save", "update", "destroy", "create", "insert", "upsert", "updateAll", "deleteAll"]
+    .flatMap((name) => [name, `${name}OrThrow`])
+    .concat(["isValid", "insertAll", "upsertAll", "push", "clear", "delete"]),
+);
+
 /**
- * The Relation's and a record's reads: awaiting one observes a Model's rows rather than acting
- * on it, as a test does to see an action's effect in another table. With them, the query
- * methods, for a Relation awaited as it is.
+ * The calls a value goes back through toward the Model it came from: a Relation's methods, which
+ * give a Relation or its records, and the actions, which give a record. Any other call, such as
+ * an association's accessor, gives a value of a Model the rule can't tell, so it stops there.
  */
-const reads = new Set([
+const throughCalls = new Set([
+  ...actions,
+  "all",
+  "build",
   "count",
+  "distinct",
   "exists",
   "find",
   "findBy",
   "findByOrThrow",
   "first",
-  "hasAny",
-  "isEmpty",
-  "last",
-  "paginate",
-  "pluck",
-  "reload",
-  "size",
-  "take",
-  "toArray",
-  "distinct",
   "includes",
+  "last",
   "limit",
   "merge",
   "none",
   "offset",
   "or",
   "order",
+  "reload",
   "reorder",
   "select",
+  "take",
+  "toArray",
   "where",
   "whereNot",
 ]);
@@ -47,28 +52,32 @@ function methodOf(call) {
   return callee?.type === "MemberExpression" && !callee.computed ? callee.property.name : undefined;
 }
 
-/**
- * Whether an awaited value is a read: a call of one of `reads` (`users.count()`), or a read's
- * promise continued with `then` (`users.find(1).then((user) => user.email)`).
- */
-function isRead(node) {
-  let call = node;
-  while (call?.type === "TSNonNullExpression" || call?.type === "ChainExpression") {
-    call = call.expression;
-  }
-  while (methodOf(call) === "then") call = call.callee.object;
-  return reads.has(methodOf(call));
-}
-
-/** The nodes an awaited value goes back through, toward the Model it came from. */
-const chainLinks = {
+/** The nodes that pass a value on unchanged, toward the expression they wrap. */
+const wrappers = {
   AwaitExpression: (node) => node.argument,
-  CallExpression: (node) => node.callee,
   ChainExpression: (node) => node.expression,
-  MemberExpression: (node) => node.object,
   TSAsExpression: (node) => node.expression,
   TSNonNullExpression: (node) => node.expression,
 };
+
+/** The expression a value comes from, past its wrappers: `user` in `(await user)!`. */
+function unwrapped(node) {
+  let at = node;
+  while (at !== null && at !== undefined && Object.hasOwn(wrappers, at.type)) {
+    at = wrappers[at.type](at);
+  }
+  return at;
+}
+
+/**
+ * The action an awaited value is, if it's one: a call of an action, or one continued with `then`
+ * (`user.save().then(…)`).
+ */
+function actionOf(node) {
+  let call = unwrapped(node);
+  while (methodOf(call) === "then") call = unwrapped(call.callee.object);
+  return actions.has(methodOf(call)) ? call : undefined;
+}
 
 /** Whether `node` is a call of `.model(X)`, as `db.model(User)`: the Model it names, if so. */
 function modelCalled(node) {
@@ -79,22 +88,26 @@ function modelCalled(node) {
 }
 
 /**
- * The Model an awaited value comes from, following its chain back (`db.model(User).build()`) to a
- * Model's class or a `.model(X)` call, through each `const` it names (`named` reads one).
+ * The Model a value comes from, following it back (`db.model(User).find(1)`) to a `.model(X)`
+ * call or a Model's class, through each `const` it names (`resolve` reads one). Undefined past a
+ * call it doesn't know.
  */
-function modelOf(node, named) {
-  for (let at = node; at !== undefined && at !== null;) {
+function modelOf(node, resolve) {
+  for (let at = unwrapped(node); at !== undefined && at !== null; at = unwrapped(at)) {
     if (at.type === "CallExpression") {
       const model = modelCalled(at);
       if (model !== undefined) return model;
+      if (!throughCalls.has(methodOf(at))) return undefined;
+      at = at.callee.object;
+    } else if (at.type === "MemberExpression") {
+      at = at.object;
+    } else if (at.type === "Identifier") {
+      const { model, init } = resolve(at);
+      if (model !== undefined) return model;
+      at = init;
+    } else {
+      return undefined;
     }
-    if (at.type !== "Identifier") {
-      at = chainLinks[at.type]?.(at);
-      continue;
-    }
-    const { model, init } = named(at);
-    if (model !== undefined) return model;
-    at = init;
   }
   return undefined;
 }
@@ -145,16 +158,18 @@ export default defineRule({
       },
       AwaitExpression(node) {
         const test = tests.at(-1);
-        if (test === undefined || !test.asserted || test.reported || isRead(node.argument)) return;
+        if (test === undefined || !test.asserted || test.reported) return;
+        const action = actionOf(node.argument);
+        if (action === undefined) return;
         // Each const is followed once, so consts that name each other can't loop.
         const followed = new Set();
-        const named = (identifier) => {
+        const resolve = (identifier) => {
           const variable = variableOf(context.sourceCode.getScope(identifier), identifier);
           if (variable === undefined || followed.has(variable)) return {};
           followed.add(variable);
           return isClass(variable) ? { model: variable.name } : { init: constInit(variable) };
         };
-        const model = modelOf(node.argument, named);
+        const model = modelOf(action.callee.object, resolve);
         if (model === undefined) return;
         test.first ??= model;
         if (model === test.first) return;
