@@ -1,6 +1,11 @@
 // The repo's lint rule that a test asserts results, not the SQL text it sent (#400).
 import { defineRule } from "vite-plus/lint/plugins";
 
+// What the rule can't follow, as none is in the tests and review catches the rest: a `let` or
+// `var`, a `sql` key destructured under another name, a helper declared as a function or passed
+// by name, a `return` nested in a block, and SQL pushed into an array. An arrow whose own
+// parameter is named `sql` is flagged even when it's given no SQL: opt out with the reason.
+
 /** Whether `node` reads the property `key`: `.key`, or `["key"]`. */
 function isKey(node, key) {
   if (node.type !== "MemberExpression") return false;
