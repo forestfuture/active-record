@@ -217,23 +217,30 @@ function aborted(record: Model): { status: "aborted"; reason: string } {
  * → beforeSave → beforeCreate | beforeUpdate → write (skipped when clean) → commit state
  * → afterCreate | afterUpdate → afterSave.
  */
-export async function saveLifecycle(record: Model): Promise<Outcome> {
+export async function saveLifecycle(record: Model, context?: ValidationContexts): Promise<Outcome> {
   const needs = "save() needs its records";
   // Each database's records pinned to it before anything runs (#93), and each one's again
   // before anything is written, with any a callback added.
   for (const { records } of savingGroups(record)) await pinBefore(linksOf(records), needs);
-  const plan = await prepareSave(record, new Set());
+  const plan = await prepareSave(record, new Set(), context);
   if (plan.status !== "ready") return plan;
   await runStages(stagesOf(plan), needs);
   return { status: "saved" };
 }
 
-/** Everything a save does before writing: validation and the before-callbacks. */
-export async function prepareSave(record: Model, claimed: Claimed): Promise<SavePlan> {
+/**
+ * Everything a save does before writing: validation (in `context`, if given) and the
+ * before-callbacks.
+ */
+export async function prepareSave(
+  record: Model,
+  claimed: Claimed,
+  context?: ValidationContexts,
+): Promise<SavePlan> {
   if (claimed.has(record)) return nothing;
   const recordState = record[state];
   recordState.requireLive("be saved");
-  const validity = await validation(record, claimed);
+  const validity = await validation(record, claimed, newPass(), context);
   if (validity === "invalid") return { status: "invalid" };
   if (validity === "aborted") return aborted(record);
   return prepareWrites(record, claimed);
