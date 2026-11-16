@@ -42,6 +42,15 @@ interface Writing {
   keys: ReadonlyMap<string, string>;
 }
 
+/** A column's type, with a decimal's precision and scale: `NUMERIC(10, 2)` (#398). */
+function sizedType(column: ColumnArg, dialect: MigrationDialect): string {
+  const type = dialect.types[column.type as Exclude<ColumnArg["type"], "references">];
+  if (column.precision === undefined) return type;
+  const size =
+    column.scale === undefined ? `${column.precision}` : `${column.precision}, ${column.scale}`;
+  return `${type}(${size})`;
+}
+
 /** A column's definition, as `CREATE TABLE` and `ADD COLUMN` write it. */
 function definition(column: ColumnArg, { dialect, keys }: Writing, notNull: boolean): string {
   const name = quotedName(dialect, column.name);
@@ -50,7 +59,7 @@ function definition(column: ColumnArg, { dialect, keys }: Writing, notNull: bool
     const target = quotedName(dialect, column.references!);
     return `${name} ${type}${notNull ? " NOT NULL" : ""} REFERENCES ${target} (id)`;
   }
-  const parts = [name, dialect.types[column.type]];
+  const parts = [name, sizedType(column, dialect)];
   if (notNull) parts.push("NOT NULL");
   if (column.default !== undefined) parts.push(`DEFAULT ${literal(column.default)}`);
   const check = dialect.check?.(column, name);

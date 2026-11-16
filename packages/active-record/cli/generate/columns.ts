@@ -1,6 +1,6 @@
 // Parses a generator's `name:type` column arguments.
 import { pluralize } from "../../src/inflections.ts";
-import { castDefault, type CastDefaultType } from "../schema/cast-default.ts";
+import { castDefault, type CastDefaultType, type Digits } from "../schema/cast-default.ts";
 import { camelize, underscore } from "../../src/naming.ts";
 
 type ColumnType =
@@ -25,6 +25,9 @@ export interface ColumnArg {
   index: "none" | "index" | "unique";
   /** A literal default, from `=value`. */
   default?: string | number | boolean;
+  /** A decimal's digits in all and after the point, from `decimal{10,2}` (#398). */
+  precision?: number;
+  scale?: number;
   /** For `references`: the table it points at, and the `belongsTo` it suggests. */
   references?: string;
   association?: string;
@@ -50,7 +53,7 @@ const typeList = `${types.slice(0, -1).join(", ")} or ${types.at(-1)}`;
 // name[:type][!][=default][:unique|:index]…, where a missing type is string (`slug:index`),
 // and a default runs to the index modifiers, so it may hold a `:` (`starts:string=09:00`).
 const syntax =
-  /^([A-Za-z_]\w*)(?::(?!(?:unique|index)\b)(\w+))?(!)?(?:=(.*?))?((?::(?:unique|index))*)$/;
+  /^([A-Za-z_]\w*)(?::(?!(?:unique|index)\b)(\w+)(?:\{(\d+)(?:,(\d+))?\})?)?(!)?(?:=(.*?))?((?::(?:unique|index))*)$/;
 
 type Literal = string | number | boolean;
 
@@ -59,15 +62,15 @@ type Parsed = { ok: true; value: Literal } | { ok: false; error: string };
 /** A decimal's, a date's or a time's default, in its one form (`1.50` → `"1.5"`, #391). */
 const castParser =
   (type: CastDefaultType) =>
-  (value: string): Parsed => {
-    const cast = castDefault(type, value);
+  (value: string, digits: Digits): Parsed => {
+    const cast = castDefault(type, value, digits);
     return cast === undefined
       ? { ok: false, error: `${value} isn't a ${type}` }
       : { ok: true, value: cast.literal };
   };
 
 /** How each type that can have a default reads a `=value` as its literal. */
-const defaultParsers: Partial<Record<ColumnType, (value: string) => Parsed>> = {
+const defaultParsers: Partial<Record<ColumnType, (value: string, digits: Digits) => Parsed>> = {
   string: (value) => ({ ok: true, value }),
   boolean: (value) =>
     value === "true" || value === "false"
@@ -91,11 +94,24 @@ const defaultTypes = types.filter((type) => defaultParsers[type] !== undefined);
 const defaultTypeList = `${defaultTypes.slice(0, -1).join(", ")} and ${defaultTypes.at(-1)}`;
 
 /** A `=value` default as its type's literal, or why it can't be one. */
-function defaultOf(type: ColumnType, value: string): Parsed {
+function defaultOf(type: ColumnType, value: string, digits: Digits): Parsed {
   const parse = defaultParsers[type];
   return parse === undefined
     ? { ok: false, error: `only ${defaultTypeList} columns can have a default here` }
-    : parse(value);
+    : parse(value, digits);
+}
+
+/** A column's `{precision,scale}`, which only a decimal takes, or why it can't have them (#398). */
+function digitsOf(type: ColumnType, precision?: string, scale?: string): Digits | string {
+  if (precision === undefined) return {};
+  if (type !== "decimal") return "only a decimal takes a precision and scale, as decimal{10,2}";
+  const digits = {
+    precision: Number(precision),
+    ...(scale !== undefined && { scale: Number(scale) }),
+  };
+  return (digits.scale ?? 0) > digits.precision
+    ? `its scale, ${digits.scale}, is past its precision, ${digits.precision}`
+    : digits;
 }
 
 /** The index `:unique` or `:index` asks for. */
@@ -110,7 +126,7 @@ function parseColumn(arg: string): ColumnArg | string {
   if (match === null) {
     return `${arg}: write a column as name:type, with ! for NOT NULL, =value for a default, and :unique or :index`;
   }
-  const [, given, typeName = "string", bang, value, indexes = ""] = match;
+  const [, given, typeName = "string", precision, scale, bang, value, indexes = ""] = match;
   const type = typeName as ColumnType;
   if (!types.includes(type)) {
     return `${arg}: ${typeName} isn't a type; use ${typeList}`;
@@ -128,9 +144,11 @@ function parseColumn(arg: string): ColumnArg | string {
       association,
     };
   }
-  const column: ColumnArg = { name, type, notNull: bang !== undefined, index };
+  const digits = digitsOf(type, precision, scale);
+  if (typeof digits === "string") return `${arg}: ${digits}`;
+  const column: ColumnArg = { name, type, notNull: bang !== undefined, index, ...digits };
   if (value === undefined) return column;
-  const literal = defaultOf(type, value);
+  const literal = defaultOf(type, value, digits);
   return literal.ok ? { ...column, default: literal.value } : `${arg}: ${literal.error}`;
 }
 

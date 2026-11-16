@@ -55,6 +55,23 @@ describe("the column syntax", () => {
     );
   });
 
+  test("a decimal takes its precision and scale in braces (#398)", () => {
+    expect(columns("price:decimal{10,2}!", "count:decimal{6}=2.5")).toEqual([
+      { name: "price", type: "decimal", notNull: true, index: "none", precision: 10, scale: 2 },
+      { name: "count", type: "decimal", notNull: false, index: "none", precision: 6, default: "3" },
+    ]);
+  });
+
+  test("braces on another type, or a scale past the precision, are refused (#398)", () => {
+    expect(parseColumns(["n:integer{10}", "p:decimal{2,5}"])).toEqual({
+      ok: false,
+      errors: [
+        "n:integer{10}: only a decimal takes a precision and scale, as decimal{10,2}",
+        "p:decimal{2,5}: its scale, 5, is past its precision, 2",
+      ],
+    });
+  });
+
   test("references name the table they point at, and are indexed", () => {
     expect(columns("user:references", "blogPost:references:unique")).toEqual([
       {
@@ -211,6 +228,7 @@ ALTER TABLE products DROP COLUMN code;
       "price:real=1.5",
       "photo:binary",
       "cost:decimal=0.10",
+      "rate:decimal{5,3}",
       "startsOn:date=2026-01-02",
       "opensAt:time=09:00",
     ]);
@@ -224,6 +242,7 @@ ALTER TABLE products DROP COLUMN code;
       price: { type: "real", default: { literal: 1.5 } },
       photo: { type: "binary" },
       cost: { type: "decimal", default: { literal: "0.1" } },
+      rate: { type: "decimal", precision: 5, scale: 3 },
       startsOn: { type: "date", default: { literal: "2026-01-02" } },
       opensAt: { type: "time", default: { literal: "09:00:00" } },
       createdAt: { type: "datetime", null: false },
