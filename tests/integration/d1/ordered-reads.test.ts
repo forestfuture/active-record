@@ -92,13 +92,13 @@ describe("exists() with distinct() and an offset reads the rows toArray() would 
   });
   afterAll(() => dispose());
 
-  // SQL text, though not a safety property: #222 asks that every other Relation's exists() send
-  // the same SQL as before, and the rows D1 reads can't tell the two queries apart.
+  // #222 asks that every other Relation's exists() send the same SQL as before.
   test("without both distinct() and an offset, it still sends SELECT 1", async () => {
     events.length = 0;
     await titles().offset(1).exists();
     await titles().distinct().exists();
 
+    // oxlint-disable-next-line active-record/no-sql-text -- the rows D1 reads can't tell the two queries apart
     expect(events.map((event) => event.sql)).toEqual([
       'SELECT 1 FROM "posts" LIMIT ? OFFSET ?',
       'SELECT DISTINCT 1 FROM "posts" LIMIT ?',
@@ -117,12 +117,12 @@ describe("count(attribute) after distinct() with a limit or offset (#250)", () =
   });
   afterAll(() => dispose());
 
-  // SQL text, though not a safety property: only a distinct count with a limit or offset changes,
-  // and an empty table can't tell the queries apart.
+  // Only a distinct count with a limit or offset changes.
   test("without both distinct() and a limit or offset, it still counts over whole rows", async () => {
     await posts().offset(1).count("title");
     await posts().distinct().count("title");
 
+    // oxlint-disable-next-line active-record/no-sql-text -- an empty table can't tell the queries apart
     expect(events.map((event) => event.sql)).toEqual([
       'SELECT COUNT("title") AS count FROM (SELECT * FROM "posts" LIMIT ? OFFSET ?) AS counted',
       'SELECT COUNT(DISTINCT "title") AS count FROM (SELECT * FROM "posts") AS counted',

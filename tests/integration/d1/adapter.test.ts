@@ -63,6 +63,7 @@ describe("a statement's adapter", () => {
   afterAll(() => dispose());
 
   test("is its Database's", () => {
+    // oxlint-disable-next-line active-record/no-sql-text -- the mark in the SQL shows which adapter compiled it
     expect(
       other
         .model(Account)
@@ -74,11 +75,13 @@ describe("a statement's adapter", () => {
   test("is the request's Database's, for a Model with no schema", async () => {
     const { sql } = await withDatabase(other, () => Account.where({ id: [1, 2] }).toSql());
 
+    // oxlint-disable-next-line active-record/no-sql-text -- the mark in the SQL shows which adapter compiled it
     expect(sql).toContain(mark);
     expect(await withDatabase(other, () => Account.where({ id: [1, 2] }).toArray())).toEqual([]);
   });
 
   test("is the one its schema names, with no database", () => {
+    // oxlint-disable-next-line active-record/no-sql-text -- the mark in the SQL shows which adapter compiled it
     expect(Member.where({ id: [1, 2] }).toSql().sql).toContain(mark);
   });
 
