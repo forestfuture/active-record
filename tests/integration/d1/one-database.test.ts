@@ -251,6 +251,7 @@ describe("one database", () => {
       });
 
       expect(statementKinds(seen)).toEqual(["SELECT", "SELECT", "DELETE", "DELETE", "DELETE"]);
+      expect(seen.map(({ model }) => model)).toEqual(["User", "Post", "Post", "Post", "User"]);
       expect(await one.prepare("SELECT count(*) AS n FROM posts").first("n")).toBe(0);
     });
 
