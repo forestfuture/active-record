@@ -1,34 +1,19 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Miniflare } from "miniflare";
-import { shareCompileCache } from "../../support/compile-cache.ts";
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { runGenerate } from "../../../packages/active-record/cli/generate/command.ts";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import { d1Config, withD1Config } from "../../support/d1-config.ts";
+import { scratchDirs } from "../../support/scratch.ts";
 
 // Inside tests/ (gitignored), so a generated project's imports of the library resolve as they
 // do in the repo, through tsconfig.json's paths.
-const scratch = new URL("../../.scratch/", import.meta.url).pathname;
-const made: string[] = [];
-afterAll(() => {
-  for (const dir of made) rmSync(dir, { recursive: true, force: true });
-});
+const scratch = scratchDirs();
 
 /** A throwaway project with a Wrangler config: its files, by path. */
 function project(files: Record<string, string> = {}): string {
-  mkdirSync(scratch, { recursive: true });
-  const dir = mkdtempSync(join(scratch, "generate-"));
-  made.push(dir);
-  shareCompileCache(dir);
+  const dir = scratch("generate-");
   const all = {
     "wrangler.jsonc": '{ "d1_databases": [{ "binding": "DB", "database_name": "shop-db" }] }',
     ...files,
