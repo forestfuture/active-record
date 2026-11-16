@@ -106,7 +106,7 @@ declare const attributeTypes: unique symbol;
 declare const attributeSpecs: unique symbol;
 
 /** A record type's attribute specs. */
-type SpecsOf<M> = M extends { readonly [attributeSpecs]?: infer S } ? S : never;
+export type SpecsOf<M> = M extends { readonly [attributeSpecs]?: infer S } ? S : never;
 
 /** The names of a record type's enum attributes. */
 type EnumAttributeKey<M> = {

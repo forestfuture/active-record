@@ -1,6 +1,6 @@
 // Reading values instead of records: `count`, `pluck`, and the calculations `sum`, `average`, `minimum` and `maximum` (#344).
-import { attributeFor } from "./attribute.ts";
-import { attributeOf } from "./metadata.ts";
+import { attributeFor, withArticle } from "./attribute.ts";
+import { attributeOf, type AttributeDefinition, type AttributeType } from "./metadata.ts";
 import {
   compileCalculation,
   compileColumns,
@@ -10,7 +10,9 @@ import {
 } from "./compiler.ts";
 import type { Dialect } from "./dialect.ts";
 import type { QueryRunner } from "./load.ts";
-import type { AttributesOf, Model } from "./model.ts";
+import type { CustomType } from "./custom-types.ts";
+import type { EnumValues } from "./enum-values.ts";
+import type { AttributesOf, Model, SpecsOf } from "./model.ts";
 import type { QueryDescription } from "./query.ts";
 import { checkFragment } from "./relation-checks.ts";
 import { SafeSql } from "./sql.ts";
@@ -68,7 +70,7 @@ export async function calculate(
   calculation: Calculation,
   of: string | SafeSql,
 ): Promise<unknown> {
-  const read = of instanceof SafeSql ? readUntyped(query, of) : readAs(query, of);
+  const read = of instanceof SafeSql ? readUntyped(query, of) : readAs(query, calculation, of);
   const [row] = await runner.rows(() => compileCalculation(dialect(), query, calculation, of));
   const cell = row?.["value"] ?? (calculation === "sum" ? 0 : null);
   if (cell === null) return null;
@@ -81,12 +83,75 @@ function readUntyped(query: QueryDescription, fragment: SafeSql): ResultReader {
   return (calculation, cell) => (calculation === "sum" ? Number(cell) : cell);
 }
 
-/** How an attribute's result reads: as its value. An unknown attribute throws first. */
-function readAs(query: QueryDescription, attribute: string): ResultReader {
+/**
+ * How an attribute's result reads: as its value. An unknown attribute throws first, and so does
+ * one the calculation can't take.
+ */
+function readAs(
+  query: QueryDescription,
+  calculation: Calculation,
+  attribute: string,
+): ResultReader {
   const resolved = attributeFor(query.model, attribute);
-  const isNumber = ["integer", "real"].includes(attributeOf(query.model, attribute).type);
+  const definition = attributeOf(query.model, attribute);
+  if (calculation === "sum" || calculation === "average") {
+    requireNumber(definition, attribute, calculation);
+  } else {
+    requireOrdered(definition, attribute, calculation);
+  }
+  // A decimal reads its text; an integer's sum on Postgres needs its number (a custom type's too).
+  const isNumber = definition.type === "integer" || definition.type === "real";
   return (_calculation, cell) => resolved.read(isNumber ? numberCell(cell) : cell);
 }
+
+/** The types a sum or an average takes; a custom type stored as one of them too. */
+const numberTypes: readonly AttributeType[] = ["integer", "real", "decimal"];
+
+/** Only numbers add up: not text, which SQLite would coerce and Postgres refuse, nor an enum. */
+function requireNumber(definition: AttributeDefinition, name: string, method: string): void {
+  if (definition.enum === undefined && numberTypes.includes(definition.type)) return;
+  const kind =
+    definition.enum === undefined ? `${withArticle(definition.type)} attribute` : "an enum";
+  throw new TypeError(`${method}() needs a number attribute: "${name}" is ${kind}`);
+}
+
+/** Only ordered values have extremes: Postgres has no minimum of a boolean, json or bytes. */
+function requireOrdered(definition: AttributeDefinition, name: string, method: string): void {
+  if (!["boolean", "json", "binary"].includes(definition.type)) return;
+  throw new TypeError(
+    `${method}() can't compare "${name}", ${withArticle(definition.type)} attribute`,
+  );
+}
+
+/** The built-in type a spec is stored as: its type, or its custom type's `storedAs`. */
+type StoredTypeOf<S> = (S extends { type: infer T } ? T : S) extends infer T
+  ? T extends CustomType<unknown, infer B>
+    ? B
+    : T
+  : never;
+
+/**
+ * The attributes of record type `M` a sum or an average takes: those stored as integers, reals
+ * or decimals, a custom type's too, but not an enum's.
+ */
+export type NumberAttribute<M> = {
+  [K in keyof SpecsOf<M>]: SpecsOf<M>[K] extends { enum: EnumValues }
+    ? never
+    : StoredTypeOf<SpecsOf<M>[K]> extends "integer" | "real" | "decimal"
+      ? K
+      : never;
+}[keyof SpecsOf<M>] &
+  keyof AttributesOf<M> &
+  string;
+
+/** The attributes of record type `M` with a minimum and maximum: not booleans, json or bytes. */
+export type OrderedAttribute<M> = {
+  [K in keyof SpecsOf<M>]: StoredTypeOf<SpecsOf<M>[K]> extends "boolean" | "json" | "binary"
+    ? never
+    : K;
+}[keyof SpecsOf<M>] &
+  keyof AttributesOf<M> &
+  string;
 
 /**
  * What a calculation of `K` resolves to besides `null`: an attribute's value, or for an `sql`

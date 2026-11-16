@@ -63,6 +63,8 @@ import {
   pluck,
   type CalculatedValue,
   type CalculationContext,
+  type NumberAttribute,
+  type OrderedAttribute,
 } from "./calculations.ts";
 
 declare const scopeTypes: unique symbol;
@@ -490,26 +492,24 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /** The total of `attribute`'s values over the records, leaving out NULLs; 0 with none. */
-  async sum<K extends (keyof AttributesOf<M> & string) | SafeSql>(
-    attribute: K,
-  ): Promise<CalculatedValue<M, K>> {
+  async sum<K extends NumberAttribute<M> | SafeSql>(attribute: K): Promise<CalculatedValue<M, K>> {
     return (await calculate(this.#calculating(), "sum", attribute)) as never;
   }
 
   /** The mean of `attribute`'s values over the records, leaving out NULLs; null with none. */
-  async average(attribute: (keyof AttributesOf<M> & string) | SafeSql): Promise<number | null> {
+  async average(attribute: NumberAttribute<M> | SafeSql): Promise<number | null> {
     return (await calculate(this.#calculating(), "average", attribute)) as number | null;
   }
 
   /** The least of `attribute`'s values over the records, leaving out NULLs; null with none. */
-  async minimum<K extends (keyof AttributesOf<M> & string) | SafeSql>(
+  async minimum<K extends OrderedAttribute<M> | SafeSql>(
     attribute: K,
   ): Promise<CalculatedValue<M, K, unknown> | null> {
     return (await calculate(this.#calculating(), "minimum", attribute)) as never;
   }
 
   /** The greatest of `attribute`'s values over the records, leaving out NULLs; null with none. */
-  async maximum<K extends (keyof AttributesOf<M> & string) | SafeSql>(
+  async maximum<K extends OrderedAttribute<M> | SafeSql>(
     attribute: K,
   ): Promise<CalculatedValue<M, K, unknown> | null> {
     return (await calculate(this.#calculating(), "maximum", attribute)) as never;
