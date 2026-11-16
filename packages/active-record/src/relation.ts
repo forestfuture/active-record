@@ -515,6 +515,11 @@ export class Relation<M extends Model, S = {}> {
     return (await calculate(this.#calculating(), "sum", attribute)) as never;
   }
 
+  /** The mean of `attribute`'s values over the records, leaving out NULLs; null with none. */
+  async average(attribute: keyof AttributesOf<M> & string): Promise<number | null> {
+    return (await calculate(this.#calculating(), "average", attribute)) as number | null;
+  }
+
   /** What a calculation or `pluck` reads: this Relation's query, database, and loaded records. */
   #calculating(): CalculationContext {
     const [dialect, cached] = [() => this.#dialect, () => this.#cached()];

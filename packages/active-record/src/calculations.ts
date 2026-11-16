@@ -55,7 +55,10 @@ export async function pluck(
   return attributes.length === 1 ? values.map(([value]) => value) : values;
 }
 
-/** A calculation of `attribute` over the rows the query returns, read as the attribute's value. */
+/**
+ * A calculation of `attribute` over the rows the query returns: a sum read as the attribute's
+ * value (0 with no rows), an average as a number, or `null` with no rows.
+ */
 export async function calculate(
   { query, dialect, runner }: CalculationContext,
   calculation: Calculation,
@@ -65,8 +68,9 @@ export async function calculate(
   const [row] = await runner.rows(() =>
     compileCalculation(dialect(), query, calculation, attribute),
   );
-  const cell = row?.["value"] ?? 0;
-  return resolved.read(isNumber(query, attribute) ? numberCell(cell) : cell);
+  const cell = row?.["value"] ?? null;
+  if (calculation === "average") return cell === null ? null : Number(cell);
+  return resolved.read(isNumber(query, attribute) ? numberCell(cell ?? 0) : (cell ?? 0));
 }
 
 /** Whether `attribute` is stored as an integer or a real (a custom type's too). */

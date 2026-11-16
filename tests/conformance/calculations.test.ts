@@ -82,4 +82,30 @@ describe("calculations (#344)", () => {
       expect(events).toEqual([]);
     });
   });
+
+  describe("average", () => {
+    test("is the mean of an attribute's values, leaving out NULLs, as a number", async () => {
+      await seedReviews(["a", 3, 1.5], ["b", 4, 2], ["c", null, 0.25]);
+
+      expect(await reviews().average("rating")).toBe(3.5);
+      expect(await reviews().average("score")).toBe(1.25);
+    });
+
+    test("is null with no rows", async () => {
+      expect(await reviews().average("rating")).toBeNull();
+    });
+
+    test("keeps the Relation's conditions", async () => {
+      await seedReviews(["a", 3, 1], ["b", 4, 1], ["a", 6, 1]);
+
+      expect(await reviews().where({ title: "a" }).average("rating")).toBe(4.5);
+    });
+
+    test("on none() is null, with no query", async () => {
+      await seedReviews(["a", 3, 1]);
+
+      expect(await reviews().none().average("rating")).toBeNull();
+      expect(events).toEqual([]);
+    });
+  });
 });
