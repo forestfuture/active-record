@@ -121,12 +121,41 @@ describe("CI's tests (#365)", () => {
     );
   });
 
+  test("name each failing test in a shard's log, beside its saved results (#402)", () => {
+    const job = ci().get("test") ?? "";
+
+    expect(job).toMatch(/--reporter=blob --outputFile\.blob=.+\.json --reporter=github-actions/);
+  });
+
+  test("save a shard's results even when its tests fail (#402)", () => {
+    const job = ci().get("test") ?? "";
+    const upload = job.slice(job.indexOf("actions/upload-artifact"));
+
+    expect(upload).toContain("if: ${{ !cancelled() }}");
+  });
+
+  test("are merged by check before its gate fails it for a failed job (#402)", () => {
+    const job = ci().get("check") ?? "";
+    const merge = job.indexOf("vp test --merge-reports");
+    const gate = job.indexOf("needs.test.result");
+
+    expect(merge).toBeGreaterThan(-1);
+    expect(gate).toBeGreaterThan(merge);
+  });
+
+  test("leave check's gate to run after a failed merge (#402)", () => {
+    const job = ci().get("check") ?? "";
+    const gate = job.slice(job.indexOf("- name: Every job it needs passed"));
+
+    expect(gate).toMatch(/^- name: Every job it needs passed\n\s+if: \$\{\{ !cancelled\(\) \}\}/);
+  });
+
   test("are merged by check, the required job, which holds the coverage floor", () => {
     const job = ci().get("check") ?? "";
 
     expect(job).toMatch(/needs: \[static, test\]/);
     // A skipped required check counts as passing, so check runs and fails when a job it needs did.
-    expect(job).toContain("if: ${{ !cancelled() }}");
+    expect(job).toMatch(/needs: \[static, test\]\n(?:\s+#.*\n)*\s+if: \$\{\{ !cancelled\(\) \}\}/);
     expect(job).toContain("needs.static.result");
     expect(job).toContain("needs.test.result");
     expect(job).toContain("vp test --merge-reports");
