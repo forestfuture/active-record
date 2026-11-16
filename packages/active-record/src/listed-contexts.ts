@@ -3,10 +3,12 @@ import { ancestors } from "./ancestors.ts";
 import { declaredByClass } from "./declarations.ts";
 import { InvalidModel } from "./errors.ts";
 import { isBase } from "./generated-model.ts";
-import { contextsOfCallback, listOf, type ValidationContexts } from "./validation-context.ts";
-
-/** The contexts every Model has. */
-const BUILT_IN = ["create", "update"];
+import {
+  BUILT_IN_CONTEXTS,
+  contextsOfCallback,
+  listOf,
+  type ValidationContexts,
+} from "./validation-context.ts";
 
 /** The custom contexts a Model lists in `static validationContexts`, if any. */
 function listedBy(model: object): readonly string[] {
@@ -15,7 +17,7 @@ function listedBy(model: object): readonly string[] {
 
 /** The contexts a Model may name: `"create"`, `"update"` and those it lists. */
 function knownBy(model: object): readonly string[] {
-  return [...BUILT_IN, ...listedBy(model)];
+  return [...BUILT_IN_CONTEXTS, ...listedBy(model)];
 }
 
 /** Why `name` isn't one of the Model's contexts, said after what named it. */
@@ -80,7 +82,7 @@ export function rejectUnlistedContexts(model: { name: string }): void {
   }
   for (const named of namedContexts(model)) {
     const onBase = isBase(named.from);
-    const known = onBase ? BUILT_IN : knownBy(model);
+    const known = onBase ? BUILT_IN_CONTEXTS : knownBy(model);
     const name = named.contexts.find((context) => !known.includes(context));
     if (name === undefined) continue;
     throw onBase ? namedOnBase(named, name) : unlisted(model, named.what, name);

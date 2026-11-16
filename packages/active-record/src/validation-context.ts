@@ -5,6 +5,9 @@ import { state } from "./record-state.ts";
 /** A validation context: `"create"`, `"update"`, or a name the app chooses (`"signup"`). */
 export type ValidationContext = "create" | "update" | (string & {});
 
+/** The contexts every Model has: a new record's, and a saved one's. */
+export const BUILT_IN_CONTEXTS: readonly string[] = ["create", "update"];
+
 /** One context, or several: of those `X` names, when it's a Model's. */
 export type ValidationContexts<X extends string = ValidationContext> = X | readonly X[];
 
@@ -64,9 +67,7 @@ export function contextsOf(record: Model, given?: ValidationContexts): readonly 
 export function customContextOf(given?: ValidationContexts): readonly string[] | undefined {
   if (given === undefined) return undefined;
   const contexts = listOf(given);
-  return contexts.some((context) => context !== "create" && context !== "update")
-    ? contexts
-    : undefined;
+  return contexts.some((context) => !BUILT_IN_CONTEXTS.includes(context)) ? contexts : undefined;
 }
 
 /** The context names a rule's `on` or `exceptOn` gives. */
