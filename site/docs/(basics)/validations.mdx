@@ -113,7 +113,7 @@ By default, a rule runs on every save. To run it only when a record is created, 
 
 A new record is validated in the `"create"` context, and a saved one in `"update"`. A rule with `on` runs only in the contexts it names, so `password` is checked when a member is created, and not when one is updated. To name several contexts, pass a list, such as `on: ["create", "signup"]`.
 
-`exceptOn` works the other way: the rule runs in every context except the ones it names.
+`exceptOn` works the other way. The rule runs in every context except the ones it names.
 
 ### Naming your own contexts
 
@@ -121,7 +121,7 @@ For a step of your own, such as a signup form, list its name in the Model’s `s
 
 ```ts
 const member = Member.build({ email: "ada@example.com", password: "secret" });
-await member.isValid("signup"); // false: invite code can’t be blank
+await member.isValid("signup"); // false: invite code can't be blank
 await member.save({ context: "signup" });
 ```
 
