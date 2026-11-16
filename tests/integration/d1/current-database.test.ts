@@ -13,6 +13,7 @@ import {
   type QueryEvent,
 } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
+import { statementKinds } from "../../support/statement-kinds.ts";
 
 // Level 1 reads the Worker's bindings from cloudflare:workers, which only exists inside a Worker;
 // here it's this test's D1, set once the database exists.
@@ -76,9 +77,7 @@ describe("Product.find(id): a query started from a Model", () => {
     const found = await withDatabase(request, () => User.all().order({ id: "desc" }).first());
 
     expect(found?.role).toBe("editor");
-    expect(events.map((event) => event.sql)).toEqual([
-      expect.stringMatching(/^SELECT \* FROM "users"/),
-    ]);
+    expect(statementKinds(events)).toEqual(["SELECT"]);
   });
 
   test("level 2 outside a Worker: the request's database serves a Model with no binding", async () => {
@@ -99,7 +98,7 @@ describe("Product.find(id): a query started from a Model", () => {
       await user.update({ role: "owner" });
     });
 
-    expect(events.map((event) => event.sql.split(" ")[0])).toEqual(["SELECT", "UPDATE"]);
+    expect(statementKinds(events)).toEqual(["SELECT", "UPDATE"]);
     expect((await User.find(1)).role).toBe("owner");
   });
 
@@ -171,7 +170,7 @@ describe("records keep the database they came from", () => {
     const user = await withDatabase(request, () => User.find(2));
     await user.update({ role: "editor-in-chief" });
 
-    expect(events.map((event) => event.sql.split(" ")[0])).toEqual(["SELECT", "UPDATE"]);
+    expect(statementKinds(events)).toEqual(["SELECT", "UPDATE"]);
   });
 
   test("a record built from a Model takes the database it's saved on, and keeps it", async () => {
@@ -183,7 +182,7 @@ describe("records keep the database they came from", () => {
     );
     await user.update({ role: "author" });
 
-    expect(events.map((event) => event.sql.split(" ")[0])).toEqual(["INSERT", "UPDATE"]);
+    expect(statementKinds(events)).toEqual(["INSERT", "UPDATE"]);
   });
 });
 

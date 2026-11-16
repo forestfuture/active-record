@@ -14,6 +14,7 @@ import {
   type QueryEvent,
 } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
+import { statementKinds } from "../../support/statement-kinds.ts";
 
 // Level 1 reads the Worker's bindings from cloudflare:workers; here it's this test's first D1.
 const workers: { env: Record<string, unknown> } = { env: {} };
@@ -152,7 +153,7 @@ describe("one database", () => {
       seen.length = 0;
       await post.update({ title: "Changed" });
 
-      expect(seen.map((event) => event.sql.split(" ")[0])).toEqual(["UPDATE"]);
+      expect(statementKinds(seen)).toEqual(["UPDATE"]);
     });
 
     test("records autosaved in a batch stay on the request's database", async () => {

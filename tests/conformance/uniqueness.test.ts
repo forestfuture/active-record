@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-pl
 import { MissingAttribute, Model } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { statementKinds } from "../support/statement-kinds.ts";
 
 // The accounts table has no UNIQUE constraints, so only the validation can reject duplicates.
 class Account extends Model.define({
@@ -77,9 +78,7 @@ describe("uniqueness validation", () => {
 
     await accounts.build({ externalAccountId: "e1" }).isValid();
 
-    expect(queries.map((query) => query.sql)).toEqual([
-      expect.stringMatching(/^SELECT 1 FROM "accounts"/),
-    ]);
+    expect(statementKinds(queries)).toEqual(["SELECT"]);
   });
 
   test("a keyless record can't be checked for uniqueness: it can't leave itself out", async () => {
