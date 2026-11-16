@@ -552,3 +552,42 @@ describe("autosave's error beside the app's own", () => {
     expect(desk.errors.fullMessages()).toEqual(["Posts need an editor", "Posts is invalid"]);
   });
 });
+
+describe("another copy of a row being validated", () => {
+  class Owner extends Model.define({
+    id: { type: "integer", null: false },
+    email: "string",
+  }) {
+    static table = "users";
+
+    posts = hasMany(Draft, { foreignKey: "userId", autosave: true });
+
+    static {
+      this.validates("email", { length: { minimum: 5 } });
+    }
+  }
+
+  class Draft extends Model.define({
+    id: { type: "integer", null: false },
+    userId: { type: "integer", null: false },
+    title: { type: "string", null: false },
+  }) {
+    static table = "posts";
+
+    author = belongsTo(Owner, { foreignKey: "userId", autosave: true });
+  }
+
+  test("with unsaved changes is validated, so autosave doesn't write it invalid", async () => {
+    await seedAuthor(["Hello"]);
+    const owners = harness.connect().model(Owner);
+    const owner = await owners.find(1);
+    const [draft] = await owner.posts().toArray();
+    draft!.title = "Changed";
+    const copy = await owners.find(1);
+    copy.email = "x";
+    draft!.author.set(copy);
+
+    expect(await owner.save()).toBe(false);
+    expect((await owners.find(1)).email).toBe("a@example.com");
+  });
+});

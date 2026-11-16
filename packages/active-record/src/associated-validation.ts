@@ -1,8 +1,7 @@
 // `validatesAssociated` (#343): an association's records, loaded if they aren't, validated with their owner, each once per validation pass, and a cycle ended.
 import { readAssociation } from "./association-fields.ts";
 import { validation, type Claimed, type Validity } from "./lifecycle.ts";
-import type { Model } from "./model.ts";
-import { modelOf } from "./model.ts";
+import { modelOf, type Model, type ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
 
 /**
@@ -12,15 +11,22 @@ import { state } from "./record-state.ts";
  */
 export interface ValidationPass {
   readonly validities: Map<Model, Validity>;
-  /** Each record being validated, and the row of each saved one, since a load gives a copy. */
-  readonly inProgress: Set<unknown>;
+  /** The records being validated. */
+  readonly inProgress: Set<Model>;
+  /** The rows of those that are saved and unchanged, by Model: a load gives a copy of one. */
+  readonly rowsInProgress: Map<ModelClass, Set<unknown>>;
   /** The associations `validatesAssociated` found invalid, by owner: autosave doesn't add theirs. */
   readonly invalidAssociations: Map<Model, Set<string>>;
 }
 
-/** A pass for validating `record` and the records validated with it. */
+/** A pass for validating a record and the records validated with it. */
 export function newPass(): ValidationPass {
-  return { validities: new Map(), inProgress: new Set(), invalidAssociations: new Map() };
+  return {
+    validities: new Map(),
+    inProgress: new Set(),
+    rowsInProgress: new Map(),
+    invalidAssociations: new Map(),
+  };
 }
 
 /** Runs `validate` with `record` marked as being validated in `pass`. */
@@ -29,20 +35,39 @@ export async function whileValidating<T>(
   record: Model,
   validate: () => Promise<T>,
 ): Promise<T> {
-  const marks = marksOf(record);
-  for (const mark of marks) pass.inProgress.add(mark);
+  const row = rowOf(record);
+  pass.inProgress.add(record);
+  if (row) rowsOf(pass, row.model).add(row.key);
   try {
     return await validate();
   } finally {
-    for (const mark of marks) pass.inProgress.delete(mark);
+    pass.inProgress.delete(record);
+    if (row) rowsOf(pass, row.model).delete(row.key);
   }
 }
 
-/** A record and, once it's saved, its row: its table and key. */
-function marksOf(record: Model): unknown[] {
+/** Whether `record` is being validated in `pass`, or is an unchanged copy of a row that is. */
+function isInProgress(pass: ValidationPass, record: Model): boolean {
+  if (pass.inProgress.has(record)) return true;
+  const row = rowOf(record);
+  return row !== undefined && rowsOf(pass, row.model).has(row.key);
+}
+
+/**
+ * A saved record's Model and key, while it has no unsaved changes: a copy with changes of its
+ * own is validated for them.
+ */
+function rowOf(record: Model): { model: ModelClass; key: unknown } | undefined {
   const recordState = record[state];
-  if (recordState.isNew) return [record];
-  return [record, `${modelOf(record).table}\0${String(recordState.storedKeyValue)}`];
+  const key = recordState.isNew ? undefined : recordState.storedKeyValue;
+  if (key === undefined || key === null || record.isChanged()) return undefined;
+  return { model: modelOf(record), key };
+}
+
+function rowsOf(pass: ValidationPass, model: ModelClass): Set<unknown> {
+  let rows = pass.rowsInProgress.get(model);
+  if (rows === undefined) pass.rowsInProgress.set(model, (rows = new Set()));
+  return rows;
 }
 
 /**
@@ -54,7 +79,7 @@ export async function validityOf(
   claimed: Claimed,
   pass: ValidationPass,
 ): Promise<Validity> {
-  if (marksOf(record).some((mark) => pass.inProgress.has(mark))) return "valid";
+  if (isInProgress(pass, record)) return "valid";
   let validity = pass.validities.get(record);
   if (validity === undefined) {
     validity = await validation(record, claimed, pass);
