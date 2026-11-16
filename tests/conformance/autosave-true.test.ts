@@ -428,12 +428,8 @@ describe("autosave: true (#37)", () => {
 
     await author.saveOrThrow();
 
-    const writes = events.map(({ sql }) => sql.split(" ").slice(0, 3).join(" "));
-    expect(writes).toEqual([
-      expect.stringMatching(/^DELETE FROM .?comments/),
-      expect.stringMatching(/^DELETE FROM .?posts/),
-      expect.stringMatching(/^UPDATE .?posts/),
-    ]);
+    expect(statementKinds(events)).toEqual(["DELETE", "DELETE", "UPDATE"]);
+    expect(events.map(({ model }) => model)).toEqual(["Comment", "Post", "Post"]);
   });
 
   test("a marked record that was never saved is dropped from the collection, and nothing is written", async () => {

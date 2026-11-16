@@ -176,6 +176,7 @@ describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, (
         queries.length = 0;
         await samples().create({ label });
 
+        // oxlint-disable-next-line active-record/no-sql-text -- a value is bound, so it never changes the statement
         expect(inserts()).toEqual(plain);
       }),
       runs,

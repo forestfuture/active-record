@@ -8,6 +8,9 @@ ruleTester.run("no-sql-text", noSqlText, {
     "expect(events).toHaveLength(1);",
     'expect(events[0]?.params).toEqual(["admin", 1]);',
     "expect(await users.count()).toBe(4);",
+    // A const holding values or rows, and a parameter of the same name as a const holding SQL.
+    "const rows = events.map((event) => event.params);\nexpect(rows).toEqual([]);",
+    'const text = events[0]!.sql;\nfunction check(text: string) {\n  expect(text).toBe("done");\n}',
     // startsWith picks out a kind of statement, to count it or read its values.
     'expect(events.filter(({ sql }) => sql.startsWith("UPDATE"))).toHaveLength(1);',
     'expect(events.filter(({ sql }) => !sql.startsWith("SELECT"))).toHaveLength(2);',
@@ -102,6 +105,21 @@ ruleTester.run("no-sql-text", noSqlText, {
     {
       name: "SQL read by its key in brackets",
       code: 'expect(events[0]!["sql"]).toContain("WHERE");',
+      errors: [{ messageId: "sqlText" }],
+    },
+    {
+      name: "SQL held in a const",
+      code: 'const text = events[0]!.sql;\nexpect(text).toContain("WHERE");',
+      errors: [{ messageId: "sqlText" }],
+    },
+    {
+      name: "words of each event's SQL held in a const",
+      code: 'const writes = events.map(({ sql }) => sql.split(" ")[0]);\nexpect(writes).toEqual(["DELETE"]);',
+      errors: [{ messageId: "sqlText" }],
+    },
+    {
+      name: "SQL held in a const read through another",
+      code: 'const text = events[0]!.sql;\nconst words = text.split(" ");\nexpect(words).toContain("WHERE");',
       errors: [{ messageId: "sqlText" }],
     },
     {
