@@ -71,6 +71,12 @@ class Article extends Model.define({
   priority: { type: "integer", enum: { low: 0, normal: 5, high: 10 } },
 }) {}
 
+class Reading extends Model.define({
+  id: { type: "integer", null: false },
+  value: "integer",
+  price: "integer",
+}) {}
+
 describe("calculations (#344)", () => {
   let harness: Harness;
 
@@ -83,7 +89,7 @@ describe("calculations (#344)", () => {
   const reviews = () => harness.connect({ onQuery: (event) => events.push(event) }).model(Review);
   beforeEach(async () => {
     events.length = 0;
-    await harness.reset("typed_posts", "ledger_lines", "listings", "articles");
+    await harness.reset("typed_posts", "ledger_lines", "listings", "articles", "readings");
   });
   const db = () => harness.connect();
 
@@ -127,6 +133,25 @@ describe("calculations (#344)", () => {
 
       expect(await byRating.limit(2).sum("rating")).toBe(7);
       expect(await byRating.offset(1).limit(2).sum("rating")).toBe(5);
+    });
+
+    test("with a limit, the order picks rows by its own column, even one named value", async () => {
+      for (const [value, price] of [
+        [1, 100],
+        [2, 10],
+        [3, 50],
+      ]) {
+        await db().model(Reading).create({ value, price });
+      }
+      const readings = db().model(Reading);
+
+      expect(await readings.order({ value: "asc" }).limit(2).sum("price")).toBe(110);
+      expect(
+        await readings
+          .order(sql`${column("value")} DESC`)
+          .limit(1)
+          .maximum("price"),
+      ).toBe(50);
     });
 
     test("after distinct() with a limit, the limit picks from the distinct values", async () => {
