@@ -157,6 +157,12 @@ class Entry extends Model.define({
   author = belongsTo(Staff, { foreignKey: "userId" });
 }
 
+class Invitee extends Applicant {
+  static {
+    this.validates("email", { exclusion: ["root@example.com"], on: "invite" });
+  }
+}
+
 let harness: Harness;
 
 beforeAll(async () => {
@@ -318,6 +324,15 @@ describe("the context of associated records", () => {
     expect(chapter.errors.get("title")).toEqual(["is too short (minimum is 4 characters)"]);
   });
 
+  test("a list with a custom context reaches associated records whole", async () => {
+    await seedPosts(["Draft"]);
+    const novelist = await harness.connect().model(Novelist).find(1);
+    const [loaded] = await novelist.chapters().toArray();
+
+    expect(await novelist.isValid(["create", "publish"])).toBe(false);
+    expect(loaded!.errors.get("title")).toEqual(["is reserved"]);
+  });
+
   test('"update" or "create" given to the owner leaves each record its own', async () => {
     await seedPosts(["Draft"]);
     const novelist = await harness.connect().model(Novelist).find(1);
@@ -352,6 +367,15 @@ describe("checks that run in every context", () => {
 });
 
 describe("a Model's validation contexts", () => {
+  test("a subclass validates in the contexts its parent lists", async () => {
+    const invitee = harness.connect().model(Invitee).build({ email: "root@example.com" });
+
+    expect(await invitee.isValid("invite")).toBe(false);
+    expect(invitee.errors.toArray().map(({ attribute, type }) => [attribute, type])).toEqual([
+      ["email", "exclusion"],
+    ]);
+  });
+
   test("isValid and save refuse a context the Model doesn't list", async () => {
     const applicant = harness.connect().model(Applicant).build({ email: "a@example.com" });
     const refusal = new TypeError(
