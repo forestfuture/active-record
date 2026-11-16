@@ -163,7 +163,7 @@ Add up, average, or find the extremes of an attribute without loading the record
 
 <include>/_excerpts/guide/calculations/calculations.ts</include>
 
-- `sum` and `average` take number attributes: integers, reals, and decimals. A decimal sums to its exact text, such as `"12.8"`.
+- `sum` and `average` take number attributes: integers, reals, and decimals. A decimal sums to decimal text, such as `"12.8"`.
 - `minimum` and `maximum` take any attribute you can compare. The result has the attribute’s own type, so a datetime’s is a `Date`.
 - NULLs are left out. With no rows, `sum` is 0 and the others are `null`. On `none()`, they answer without a query.
 
