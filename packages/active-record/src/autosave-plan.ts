@@ -19,7 +19,8 @@ import {
   type Ready,
   type SavePlan,
 } from "./lifecycle.ts";
-import { isReportedInvalid, validityOf, type ValidationPass } from "./associated-validation.ts";
+import { isReportedInvalid } from "./associated-validation.ts";
+import { validityOf, type ValidationPass } from "./validation-pass.ts";
 import { prepareLeaving } from "./dependents.ts";
 import { addFailure } from "./errors-collection.ts";
 import type { Model } from "./model.ts";

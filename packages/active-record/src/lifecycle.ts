@@ -1,10 +1,6 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
-import {
-  isAssociationValid,
-  newPass,
-  whileValidating,
-  type ValidationPass,
-} from "./associated-validation.ts";
+import { isAssociationValid } from "./associated-validation.ts";
+import { newPass, whileValidating, type ValidationPass } from "./validation-pass.ts";
 import { enumValidations } from "./enum-values.ts";
 import { filteredValues, shownKey } from "./filtering.ts";
 import { compileDelete, compileInsert, compileSelect, compileUpdate } from "./compiler.ts";
