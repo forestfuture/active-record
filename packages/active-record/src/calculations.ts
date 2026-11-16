@@ -105,19 +105,27 @@ function readAs(
 }
 
 /** The types a sum or an average takes; a custom type stored as one of them too. */
-const numberTypes: readonly AttributeType[] = ["integer", "real", "decimal"];
+const numberTypes = ["integer", "real", "decimal"] as const satisfies readonly AttributeType[];
+
+/** The types with no minimum or maximum: Postgres has none of a boolean, json or bytes. */
+const unorderedTypes = ["boolean", "json", "binary"] as const satisfies readonly AttributeType[];
+
+/** Whether `type` is one of `types`. */
+function isOneOf(types: readonly AttributeType[], type: AttributeType): boolean {
+  return types.includes(type);
+}
 
 /** Only numbers add up: not text, which SQLite would coerce and Postgres refuse, nor an enum. */
 function requireNumber(definition: AttributeDefinition, name: string, method: string): void {
-  if (definition.enum === undefined && numberTypes.includes(definition.type)) return;
+  if (definition.enum === undefined && isOneOf(numberTypes, definition.type)) return;
   const kind =
     definition.enum === undefined ? `${withArticle(definition.type)} attribute` : "an enum";
   throw new TypeError(`${method}() needs a number attribute: "${name}" is ${kind}`);
 }
 
-/** Only ordered values have extremes: Postgres has no minimum of a boolean, json or bytes. */
+/** Only ordered values have extremes. */
 function requireOrdered(definition: AttributeDefinition, name: string, method: string): void {
-  if (!["boolean", "json", "binary"].includes(definition.type)) return;
+  if (!isOneOf(unorderedTypes, definition.type)) return;
   throw new TypeError(
     `${method}() can't compare "${name}", ${withArticle(definition.type)} attribute`,
   );
@@ -151,7 +159,7 @@ type StoredTypeOf<S> = (S extends { type: infer T } ? T : S) extends infer T
 export type NumberAttribute<M> = {
   [K in keyof SpecsOf<M>]: SpecsOf<M>[K] extends { enum: EnumValues }
     ? never
-    : StoredTypeOf<SpecsOf<M>[K]> extends "integer" | "real" | "decimal"
+    : StoredTypeOf<SpecsOf<M>[K]> extends (typeof numberTypes)[number]
       ? K
       : never;
 }[keyof SpecsOf<M>] &
@@ -160,7 +168,7 @@ export type NumberAttribute<M> = {
 
 /** The attributes of record type `M` with a minimum and maximum: not booleans, json or bytes. */
 export type OrderedAttribute<M> = {
-  [K in keyof SpecsOf<M>]: StoredTypeOf<SpecsOf<M>[K]> extends "boolean" | "json" | "binary"
+  [K in keyof SpecsOf<M>]: StoredTypeOf<SpecsOf<M>[K]> extends (typeof unorderedTypes)[number]
     ? never
     : K;
 }[keyof SpecsOf<M>] &
