@@ -21,10 +21,11 @@ const inCheck = new RegExp(
 
 /**
  * A string literal or a name quoted any of SQLite's ways, kept, or a comment, dropped: whichever
- * starts first, so a `'` or `--` inside a name doesn't start or hide anything.
+ * starts first, so a `'` or `--` inside a name doesn't start or hide anything. An unclosed `[`,
+ * like an unclosed block comment, runs to the end, so a run of them isn't rescanned from each.
  */
 const literalOrComment =
-  /'(?:[^']|'')*'|"(?:[^"]|"")*"|`(?:[^`]|``)*`|\[[^\]]*\]|--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)/g;
+  /'(?:[^']|'')*'|"(?:[^"]|"")*"|`(?:[^`]|``)*`|\[[^\]]*(?:\]|$)|--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)/g;
 
 /** A definition without its comments, which SQLite keeps in it: `a TEXT -- CHECK (…)` → `a TEXT `. */
 function withoutComments(definition: string): string {
