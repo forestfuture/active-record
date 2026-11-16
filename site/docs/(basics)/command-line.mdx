@@ -202,20 +202,20 @@ On D1, each column becomes an attribute by the first of these that applies:
 1. **An override in the Model:** `static override attributes = { available: "boolean" } as const`.
 2. **The column’s declared type:**
 
-   | Declared as                                         | Attribute  |
-   | --------------------------------------------------- | ---------- |
-   | `INTEGER`, `INT`, `BIGINT`, … (anything with `INT`) | `integer`  |
-   | `TEXT`, `VARCHAR(…)`, `CHAR(…)`, `CLOB`             | `string`   |
-   | `REAL`, `FLOAT`, `DOUBLE`                           | `real`     |
-   | `NUMERIC`, `DECIMAL`                                | `decimal`  |
-   | `BOOLEAN`                                           | `boolean`  |
-   | `DATETIME`, `TIMESTAMP`                             | `datetime` |
-   | `DATE`                                              | `date`     |
-   | `TIME`                                              | `time`     |
-   | `TEXT` with `CHECK (json_valid(column))`            | `json`     |
-   | `JSON`                                              | `json`     |
-   | `BLOB`                                              | `binary`   |
-   | anything else                                       | `string`   |
+   | Declared as                                         | Attribute                                        |
+   | --------------------------------------------------- | ------------------------------------------------ |
+   | `INTEGER`, `INT`, `BIGINT`, … (anything with `INT`) | `integer`                                        |
+   | `TEXT`, `VARCHAR(…)`, `CHAR(…)`, `CLOB`             | `string`                                         |
+   | `REAL`, `FLOAT`, `DOUBLE`                           | `real`                                           |
+   | `NUMERIC`, `DECIMAL`                                | `decimal`, with a size’s `precision` and `scale` |
+   | `BOOLEAN`                                           | `boolean`                                        |
+   | `DATETIME`, `TIMESTAMP`                             | `datetime`                                       |
+   | `DATE`                                              | `date`                                           |
+   | `TIME`                                              | `time`                                           |
+   | `TEXT` with `CHECK (json_valid(column))`            | `json`                                           |
+   | `JSON`                                              | `json`                                           |
+   | `BLOB`                                              | `binary`                                         |
+   | anything else                                       | `string`                                         |
 
 3. **The column’s name**, only for a column declared exactly `TEXT` or `INTEGER`: `…_at` `TEXT` is a `datetime`, and `is_…` or `has_…` `INTEGER` is a `boolean` (with a note, since it’s a guess).
 
@@ -245,7 +245,7 @@ On Postgres, an override in the Model still comes first. Otherwise each column�
 | -------------------------------------------- | ---------------------------------------------- |
 | `smallint`, `integer`, `bigint`              | `integer`                                      |
 | `real`, `double precision`                   | `real`                                         |
-| `numeric`                                    | `decimal`                                      |
+| `numeric`                                    | `decimal`, with its `precision` and `scale`    |
 | `boolean`                                    | `boolean`                                      |
 | `timestamptz`, `timestamp`                   | `datetime`                                     |
 | `date`                                       | `date`                                         |
@@ -317,6 +317,7 @@ Timestamps are `created_at` and `updated_at`, `NOT NULL`, as `DATETIME` on D1 an
 
 - **`!`** makes the column `NOT NULL`. A `references` column is `NOT NULL` in a new table, and can be `NULL` when added to an existing one.
 - **`=value`** is a literal default, for `string`, `integer`, `real`, `decimal`, `boolean`, `date`, and `time` columns (`=draft`, `=0`, `=1.5`, `=true`, `=2026-01-02`, `=09:00`).
+- **`{precision,scale}`** after `decimal` gives a decimal’s size: `'price:decimal{10,2}'` writes `DECIMAL(10, 2)` on D1 and `NUMERIC(10, 2)` on Postgres, and `decimal{6}` a precision alone. Quote it, so the shell doesn’t expand the braces.
 - **`:unique`** adds a unique index, and **`:index`** an index, named like `index_products_on_sku`.
 - **Names** can be written `priceCents` or `price_cents`; columns are always snake_case. Names the database reserves (`order`, `group`, and on Postgres `user`) are quoted.
 

@@ -239,8 +239,22 @@ To do arithmetic with decimals, wrap a decimal library in a [custom type](./cust
 :::
 
 :::note
-D1 keeps about 15 significant digits of a decimal, and rounds the rest. Postgres keeps every digit. A Postgres column with a scale, such as `NUMERIC(10, 2)`, rounds a value when it’s stored. A created record holds the rounded value, but an updated one keeps yours until you reload it.
+D1 keeps about 15 significant digits of a decimal, and rounds the rest. Postgres keeps every digit.
 :::
+
+To round a decimal to a number of places, give it a `scale`. A `precision` limits its digits in all, so `precision - scale` digits can come before the point:
+
+```ts
+import { Model } from "@forestfuture/active-record";
+
+class Product extends Model.define({
+  price: { type: "decimal", precision: 10, scale: 2 },
+}) {}
+
+Product.build({ price: "1.555" }).price; // "1.56"
+```
+
+A value is rounded half away from zero, as Postgres rounds a `NUMERIC(10, 2)` column, so a record holds what the database stores. A value with too many digits before the point throws `TypeError`. A `precision` without a `scale` rounds to whole numbers. `active-record schema` reads both from a column such as `NUMERIC(10, 2)`.
 
 A `date` holds a day, such as `"2026-01-02"`, and a `time` holds a time of day, such as `"09:30:00"`. Neither has a time zone:
 
