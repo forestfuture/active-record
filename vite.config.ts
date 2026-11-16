@@ -19,6 +19,9 @@ export default defineConfig({
       reporter: ["text-summary"],
       thresholds: { branches: 90 },
     },
+    // Compiles the library into the test projects' shared cache once, before any test's time
+    // limit starts, so a command test that loads it doesn't pay for the compile (#416).
+    globalSetup: ["tests/support/compile-cache.ts"],
     projects: [
       {
         extends: true,
