@@ -1,5 +1,5 @@
 // One compiled-TypeScript cache for the test projects, so only a run's first load compiles the library (#416).
-import { mkdirSync, readdirSync, rmSync, statSync, symlinkSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import {
   corePackage,
@@ -28,6 +28,9 @@ export function shareCompileCache(dir: string, cache = sharedCacheFolder): void 
   symlinkSync(cache, join(dir, "node_modules/.cache/jiti"), "dir");
 }
 
+/** The start of the fill's folder's name, and so of the entry jiti caches for its wrapper. */
+const fillPrefix = "compile-cache-fill";
+
 /** The library's entries a command loads: the core, and each adapter's. */
 const entries = [corePackage, `${corePackage}/d1`, `${corePackage}/postgresql`];
 
@@ -36,10 +39,10 @@ const entries = [corePackage, `${corePackage}/d1`, `${corePackage}/postgresql`];
  * that has loaded it already doesn't compile it again, so this fills the cache only before then.
  */
 export async function fillCompileCache(cache = sharedCacheFolder): Promise<void> {
-  // One folder every run, so the wrapper jiti caches for it is one entry, not one per run.
-  const project = join(scratchFolder, "compile-cache-fill");
-  rmSync(project, { recursive: true, force: true });
-  mkdirSync(project, { recursive: true });
+  // A folder of its own, so runs at once in one checkout don't share it; the entry jiti caches
+  // for its wrapper is named after it, and pruned.
+  mkdirSync(scratchFolder, { recursive: true });
+  const project = mkdtempSync(join(scratchFolder, `${fillPrefix}-`));
   try {
     shareCompileCache(project, cache);
     const loaded = await loadLibrary(project, projectJiti(project), {
@@ -56,12 +59,14 @@ export async function fillCompileCache(cache = sharedCacheFolder): Promise<void>
  * Removes the entries written to `cache` after `since`. The library is compiled before then, by
  * `setup`, and each of its entries is named by its file's path, so an edited file replaces its
  * own. What's written later is the test projects' own files, named by their folders' random
- * paths, which no other run reads.
+ * paths, which no other run reads, and the fill's own wrapper.
  */
 export function pruneCompileCache(cache: string, since: number): void {
   for (const name of readdirSync(cache)) {
     const entry = join(cache, name);
-    if (statSync(entry).mtimeMs > since) rmSync(entry, { force: true });
+    // Another run in this checkout may have pruned it already.
+    const written = statSync(entry, { throwIfNoEntry: false })?.mtimeMs ?? 0;
+    if (written > since || name.startsWith(`${fillPrefix}-`)) rmSync(entry, { force: true });
   }
 }
 

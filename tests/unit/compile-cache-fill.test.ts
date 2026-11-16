@@ -38,4 +38,14 @@ describe("pruning the compile cache", () => {
 
     expect(readdirSync(cache)).toEqual(["src-index.1.mjs"]);
   });
+
+  test("removes the fill's own entry, whenever it was written", () => {
+    const cache = scratch("compile-cache-prune-fill-");
+    writeFileSync(join(cache, "src-index.1.mjs"), "library");
+    writeFileSync(join(cache, "compile-cache-fill-a1b2c3-active-record-test.2.mjs"), "fill");
+
+    pruneCompileCache(cache, Date.now() + 60_000);
+
+    expect(readdirSync(cache)).toEqual(["src-index.1.mjs"]);
+  });
 });
