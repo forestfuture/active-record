@@ -1,6 +1,6 @@
 // The repo's lint rule that a test acts on one Model once it starts asserting (#413).
 import { defineRule } from "vite-plus/lint/plugins";
-import { chainRoot } from "./test-calls.mjs";
+import { chainRoot, isExpect } from "./test-calls.mjs";
 import { constInit, followingOnce } from "./variables.mjs";
 
 /** The functions that take a test's body. */
@@ -148,13 +148,6 @@ function statementOf(node) {
   let at = node;
   while (at.parent && !/Statement$|Declaration$/.test(at.type)) at = at.parent;
   return at;
-}
-
-/** Whether `node` is a call of Vitest's `expect`, or its `expect.soft`. */
-function isExpect({ callee }) {
-  const named = callee.type === "MemberExpression" && !callee.computed ? callee : undefined;
-  const expect = named?.property.name === "soft" ? named.object : callee;
-  return expect.type === "Identifier" && expect.name === "expect";
 }
 
 export default defineRule({

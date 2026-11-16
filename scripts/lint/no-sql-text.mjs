@@ -1,5 +1,6 @@
 // The repo's lint rule that a test asserts results, not the SQL text it sent (#400).
 import { defineRule } from "vite-plus/lint/plugins";
+import { isExpect } from "./test-calls.mjs";
 import { constInit, followingOnce } from "./variables.mjs";
 
 // What the rule can't follow, as none is in the tests and review catches the rest: a `let` or
@@ -80,12 +81,6 @@ function isReadFromSqlText(node, constValue) {
   return isAnyReadFromSqlText(parts[node.type]?.(node) ?? [], constValue);
 }
 
-/** Whether `callee` is Vitest's `expect`, or its `expect.soft`. */
-function isExpect(callee) {
-  const name = isKey(callee, "soft") ? callee.object : callee;
-  return name.type === "Identifier" && name.name === "expect";
-}
-
 export default defineRule({
   meta: {
     messages: {
@@ -97,7 +92,7 @@ export default defineRule({
   create(context) {
     return {
       CallExpression(node) {
-        if (!isExpect(node.callee)) return;
+        if (!isExpect(node)) return;
         const constValue = followingOnce(context, constInit);
         if (isReadFromSqlText(node.arguments[0], constValue))
           context.report({ node, messageId: "sqlText" });
