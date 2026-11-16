@@ -19,6 +19,30 @@ class User extends Model.define({
   }
 }
 
+class Profile extends Model.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+  bio: "string",
+}) {
+  static table = "profiles";
+
+  static {
+    this.validates("bio", { length: { minimum: 10 }, allowBlank: true });
+  }
+}
+
+class Comment extends Model.define({
+  id: { type: "integer", null: false },
+  postId: "integer",
+  body: "string",
+}) {
+  static table = "comments";
+
+  static {
+    this.validates("body", { length: { minimum: 10 }, allowNull: true });
+  }
+}
+
 let harness: Harness;
 
 beforeAll(async () => {
@@ -48,5 +72,24 @@ describe("unless", () => {
     expect(await roleErrors("a@example.com")).toEqual(["is too short (minimum is 4 characters)"]);
     expect(await roleErrors("root@example.com")).toEqual([]);
     expect(await roleErrors(null)).toEqual([]);
+  });
+});
+
+describe("allowBlank and allowNull", () => {
+  test("allowBlank skips null and a string that's only whitespace", async () => {
+    const profiles = harness.connect().model(Profile);
+
+    expect(await profiles.build({ bio: null }).isValid()).toBe(true);
+    expect(await profiles.build({ bio: "  " }).isValid()).toBe(true);
+    expect(await profiles.build({ bio: "short" }).isValid()).toBe(false);
+  });
+
+  test("allowNull skips only null", async () => {
+    const comments = harness.connect().model(Comment);
+
+    expect(await comments.build({ body: null }).isValid()).toBe(true);
+    const blank = comments.build({ body: "  " });
+    expect(await blank.isValid()).toBe(false);
+    expect(blank.errors.get("body")).toEqual(["is too short (minimum is 10 characters)"]);
   });
 });

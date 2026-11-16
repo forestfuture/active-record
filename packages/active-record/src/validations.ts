@@ -66,6 +66,8 @@ export interface ValidationOptions<R = never> {
   uniqueness?: boolean | UniquenessOptions<R>;
   /** Skip these rules when the value is null. */
   allowNull?: boolean;
+  /** Skip these rules when the value is blank: null, or a string that's only whitespace. */
+  allowBlank?: boolean;
   /** Replaces the default message of every failure from these rules. */
   message?: string;
   /** Only run these rules when this returns true. */
@@ -235,7 +237,7 @@ export async function runValidations(
   for (const { attribute, options } of validations) {
     if (!isApplied(target.record, options)) continue;
     const value = target.read(attribute);
-    if (options.allowNull && value === null) continue;
+    if (isAllowed(value, options)) continue;
     const subject = {
       record: target.record,
       attribute,
@@ -256,6 +258,11 @@ export async function runValidations(
 function isApplied(record: object, options: ValidationOptions<never>): boolean {
   if (options.if && !options.if(record as never)) return false;
   return !options.unless?.(record as never);
+}
+
+/** Whether `allowNull` or `allowBlank` skips the rules for this value. */
+function isAllowed(value: unknown, { allowNull, allowBlank }: ValidationOptions<never>): boolean {
+  return (allowNull === true && value === null) || (allowBlank === true && isBlank(value));
 }
 
 /** Whether a record's attribute is a decimal of the built-in type, not a custom type stored as one. */
