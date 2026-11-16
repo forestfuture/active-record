@@ -41,14 +41,23 @@ const reads = new Set([
   "whereNot",
 ]);
 
-/** Whether an awaited value is a read: a call of one of `reads`, as `users.count()`. */
+/** The method a call calls, as `count` in `users.count()`, if it's named. */
+function methodOf(call) {
+  const callee = call?.type === "CallExpression" ? call.callee : undefined;
+  return callee?.type === "MemberExpression" && !callee.computed ? callee.property.name : undefined;
+}
+
+/**
+ * Whether an awaited value is a read: a call of one of `reads` (`users.count()`), or a read's
+ * promise continued with `then` (`users.find(1).then((user) => user.email)`).
+ */
 function isRead(node) {
   let call = node;
   while (call?.type === "TSNonNullExpression" || call?.type === "ChainExpression") {
     call = call.expression;
   }
-  const callee = call?.type === "CallExpression" ? call.callee : undefined;
-  return callee?.type === "MemberExpression" && !callee.computed && reads.has(callee.property.name);
+  while (methodOf(call) === "then") call = call.callee.object;
+  return reads.has(methodOf(call));
 }
 
 /** The nodes an awaited value goes back through, toward the Model it came from. */
