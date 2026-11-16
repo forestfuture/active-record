@@ -7,6 +7,7 @@
 import { isSameCell } from "./binary-values.ts";
 import {
   castCondition,
+  castKey,
   castValue,
   isInvalidDate,
   readValue,
@@ -86,7 +87,7 @@ export class Attribute {
    */
   key(value: unknown, association?: string): unknown {
     requireDefined(this.#model, this.name, value);
-    return this.#orRefuse(castCondition(this.#definition, value), value, association);
+    return this.#orRefuse(castKey(this.#definition, value), value, association);
   }
 
   /**

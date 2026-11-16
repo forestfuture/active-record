@@ -198,13 +198,22 @@ export function castValue(attribute: Convertible, value: unknown): unknown {
  * for a text key and as Rails does, so a foreign key of another type still finds its target.
  */
 export function castCondition(attribute: Convertible, value: unknown): unknown {
+  return castKey(withoutPrecision(attribute), value);
+}
+
+/**
+ * A key's value (copied from another record, or inherited from a Relation's conditions) as the
+ * attribute's type, or `uncastable`: as a condition's, but past a decimal's precision it's
+ * refused, as it will be held as an assigned value is (#398).
+ */
+export function castKey(attribute: Convertible, value: unknown): unknown {
   // A value a custom type can't hold matches nothing, as for any type (#20).
   if (attribute.customType !== undefined) return castOrUncastable(attribute, value);
   if (attribute.type === "string" && typeof value === "number" && Number.isFinite(value)) {
     // An enum casts the digits too: they're a name, or a stored value, or match nothing (#340).
     return attribute.enum === undefined ? String(value) : castValue(attribute, String(value));
   }
-  return castValue(withoutPrecision(attribute), value);
+  return castValue(attribute, value);
 }
 
 /**
