@@ -22,6 +22,9 @@ export interface Column {
    */
   restrictedTo?: string[];
   notNull: boolean;
+  /** A `numeric`'s digits in all and after the point, from its type modifier (#398). */
+  precision?: number;
+  scale?: number;
   /** Its default as Postgres writes it back: `'it''s'::text`, `now()`. */
   defaultValue: string | null;
   primaryKey: boolean;
@@ -31,18 +34,27 @@ export interface Column {
 const ownTables = `c.relnamespace = current_schema()::regnamespace
   AND c.relkind IN ('r', 'p') AND NOT c.relispartition`;
 
+/** A numeric's precision or scale, read from its type modifier, or NULL for a numeric without one. */
+function numericDigits(name: string, fromTypmod: string): string {
+  return `CASE WHEN b.typname = 'numeric' AND m.typmod >= 4 THEN ${fromTypmod} END AS "${name}"`;
+}
+
 const columnsQuery = `
 SELECT c.relname AS "table", a.attname AS "name",
   format_type(a.atttypid, a.atttypmod) AS "declared",
   b.typname AS "base", b.typtype AS "kind", b.typcategory AS "category",
   (SELECT array_agg(e.enumlabel::text ORDER BY e.enumsortorder) FROM pg_enum e
     WHERE e.enumtypid = b.oid) AS "restrictedTo",
+  ${numericDigits("precision", "((m.typmod - 4) >> 16) & 65535")},
+  ${numericDigits("scale", "(m.typmod - 4) & 65535")},
   a.attnotnull AS "notNull", pg_get_expr(d.adbin, d.adrelid) AS "defaultValue",
   COALESCE(a.attnum = ANY (k.conkey), false) AS "primaryKey"
 FROM pg_class c
 JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
 JOIN pg_type t ON t.oid = a.atttypid
 JOIN pg_type b ON b.oid = CASE WHEN t.typtype = 'd' THEN t.typbasetype ELSE t.oid END
+-- A numeric's precision and scale are in its type modifier: the column's, or a domain's.
+CROSS JOIN LATERAL (SELECT CASE WHEN a.atttypmod >= 0 THEN a.atttypmod ELSE t.typtypmod END AS typmod) m
 LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
 LEFT JOIN pg_constraint k ON k.conrelid = c.oid AND k.contype = 'p'
 WHERE ${ownTables}

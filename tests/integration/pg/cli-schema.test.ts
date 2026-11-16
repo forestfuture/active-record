@@ -86,7 +86,7 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
           joinedOn: { type: "date", default: { literal: "2026-01-02" } },
           wakesAt: { type: "time", default: { literal: "07:30:00" } },
           sleepsAt: { type: "string" },
-          balance: { type: "decimal", default: { literal: "0.5" } },
+          balance: { type: "decimal", default: { literal: "0.5" }, precision: 10, scale: 2 },
           limitAmount: { type: "decimal", default: { literal: "100" } },
           seenAt: { type: "datetime" },
           createdAt: { type: "datetime", null: false },
@@ -95,6 +95,23 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
         },
       },
     ]);
+  });
+
+  test("a numeric's precision and scale, on the column or its domain, are its decimal's (#398)", async () => {
+    const { tables } = await tablesOf({
+      "1_create.sql": `
+        CREATE DOMAIN money_amount AS NUMERIC(12, 4);
+        CREATE TABLE prices (
+          id INTEGER PRIMARY KEY, a NUMERIC(6), b NUMERIC, c money_amount
+        );`,
+    });
+
+    expect(tables[0]!.attributes).toEqual({
+      id: { type: "integer", null: false },
+      a: { type: "decimal", precision: 6, scale: 0 },
+      b: { type: "decimal" },
+      c: { type: "decimal", precision: 12, scale: 4 },
+    });
   });
 
   test("an enum type's column, or a domain over one, is a generated enum, its labels in their order (#64)", async () => {
