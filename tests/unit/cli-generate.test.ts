@@ -70,7 +70,6 @@ describe("the column syntax", () => {
         "p:decimal{2,5}",
         "q:decimal{0}",
         "r:decimal{1001}",
-        "s:decimal{4,2}=123.4",
       ]),
     ).toEqual({
       ok: false,
@@ -80,6 +79,14 @@ describe("the column syntax", () => {
         "p:decimal{2,5}: it has a scale of 5, past its precision of 2; a scale is at most the precision",
         "q:decimal{0}: it has a precision of 0; a precision is 1 to 1000 digits",
         "r:decimal{1001}: it has a precision of 1001; a precision is 1 to 1000 digits",
+      ],
+    });
+  });
+
+  test("a decimal's default past its precision is refused, saying so (#398)", () => {
+    expect(parseColumns(["s:decimal{4,2}=123.4"])).toEqual({
+      ok: false,
+      errors: [
         "s:decimal{4,2}=123.4: 123.4 has more digits before the point than decimal{4,2} holds",
       ],
     });
