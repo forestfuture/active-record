@@ -16,6 +16,12 @@ describe("a scratch project", () => {
     expect(realpathSync(join(dir, "node_modules/.cache/jiti"))).toBe(realpathSync(shared));
   });
 
+  test("made outside the repo caches compiled TypeScript in the shared folder", () => {
+    const dir = scratch("sharing-outside-", true);
+
+    expect(realpathSync(join(dir, "node_modules/.cache/jiti"))).toBe(realpathSync(shared));
+  });
+
   test("keeps its node_modules to itself, for the stand-in packages a test writes there", () => {
     const dir = scratch("sharing-");
     mkdirSync(join(dir, "node_modules/wrangler"), { recursive: true });

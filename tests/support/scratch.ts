@@ -10,8 +10,9 @@ const inRepo = new URL("../.scratch/", import.meta.url).pathname;
 /**
  * Throwaway folders for a test file, removed when it finishes. Call once at the top of the file.
  * `outsideTheRepo` makes one in the system's temp folder, out of reach of this repo's node_modules
- * and tsconfig. One in the repo shares the test projects' compiled-TypeScript cache (#416),
- * unless `sharedCompileCache` is false, for the tests of the cache itself.
+ * and tsconfig. Each shares the test projects' compiled-TypeScript cache (#416), which only
+ * adds `node_modules/.cache/jiti`, unless `sharedCompileCache` is false, for the tests of the
+ * cache itself.
  */
 export function scratchDirs({ sharedCompileCache = true } = {}) {
   const made: string[] = [];
@@ -22,7 +23,7 @@ export function scratchDirs({ sharedCompileCache = true } = {}) {
     if (!outsideTheRepo) mkdirSync(inRepo, { recursive: true });
     const dir = mkdtempSync(join(outsideTheRepo ? tmpdir() : inRepo, prefix));
     made.push(dir);
-    if (sharedCompileCache && !outsideTheRepo) shareCompileCache(dir);
+    if (sharedCompileCache) shareCompileCache(dir);
     return dir;
   };
 }
