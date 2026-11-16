@@ -14,6 +14,19 @@ class User extends Model.define({
   }
 }
 
+class Member extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+  role: "string",
+}) {
+  static table = "users";
+
+  static {
+    this.validates("role", { presence: true, on: "update" });
+    this.validates("email", { length: { minimum: 6 }, on: ["create", "update"] });
+  }
+}
+
 let harness: Harness;
 
 beforeAll(async () => {
@@ -35,5 +48,28 @@ describe("on", () => {
     const saved = await users.find(1);
     expect(await saved.isValid()).toBe(true);
     expect(await saved.save()).toBe(true);
+  });
+
+  test('on: "update" runs the rules only once the record is saved', async () => {
+    const members = harness.connect().model(Member);
+
+    const member = members.build({ email: "a@example.com" });
+    expect(await member.isValid()).toBe(true);
+    expect(await member.save()).toBe(true);
+    expect(await member.isValid()).toBe(false);
+    expect(member.errors.get("role")).toEqual(["can't be blank"]);
+    expect(await member.save()).toBe(false);
+  });
+
+  test("a list of contexts runs the rules in each of them", async () => {
+    const members = harness.connect().model(Member);
+
+    const member = members.build({ email: "a@b", role: "admin" });
+    expect(await member.isValid()).toBe(false);
+    member.email = "a@example.com";
+    expect(await member.save()).toBe(true);
+    member.email = "a@b";
+    expect(await member.isValid()).toBe(false);
+    expect(member.errors.get("email")).toEqual(["is too short (minimum is 6 characters)"]);
   });
 });
