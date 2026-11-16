@@ -70,6 +70,8 @@ export interface ValidationOptions<R = never> {
   message?: string;
   /** Only run these rules when this returns true. */
   if?: (record: R) => boolean;
+  /** Skip these rules when this returns true; with `if`, both must allow them. */
+  unless?: (record: R) => boolean;
 }
 
 /** One `validates(attribute, options)` declaration. */
@@ -231,7 +233,7 @@ export async function runValidations(
   target: ValidationTarget,
 ): Promise<void> {
   for (const { attribute, options } of validations) {
-    if (options.if && !options.if(target.record as never)) continue;
+    if (!isApplied(target.record, options)) continue;
     const value = target.read(attribute);
     if (options.allowNull && value === null) continue;
     const subject = {
@@ -248,6 +250,12 @@ export async function runValidations(
       target.errors[addFailure](attribute, { ...failure, message: options.message });
     }
   }
+}
+
+/** Whether a validation's `if` and `unless` let its rules run on `record`. */
+function isApplied(record: object, options: ValidationOptions<never>): boolean {
+  if (options.if && !options.if(record as never)) return false;
+  return !options.unless?.(record as never);
 }
 
 /** Whether a record's attribute is a decimal of the built-in type, not a custom type stored as one. */
