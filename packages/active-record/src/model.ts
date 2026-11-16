@@ -29,7 +29,7 @@ import {
   saveLifecycle,
   validateRecord,
 } from "./lifecycle.ts";
-import { associationOf, newRecord } from "./association-fields.ts";
+import { associationOf, newRecord, readAssociation } from "./association-fields.ts";
 import { defineModelName, inferTableNames } from "./table-names.ts";
 import {
   hasSettledAttributes,
@@ -401,13 +401,9 @@ export class Model extends ModelStatics {
    * `reload_author`, or `user.posts.reload` for a hasMany.
    */
   async reloadAssociation<K extends AssociationName<this>>(name: K): Promise<LoadedValue<this[K]>> {
-    const { kind } = associationOf(this.constructor as ModelClass, name);
+    associationOf(this.constructor as ModelClass, name);
     this[state].resetAssociation(name);
-    // The accessor installed for this association: a Relation for a hasMany, else a promise.
-    const accessor = this[name] as () => Relation<Model> | Promise<Model | null>;
-    const read = accessor.call(this);
-    const value = kind === "hasMany" ? await (read as Relation<Model>).toArray() : await read;
-    return value as LoadedValue<this[K]>;
+    return (await readAssociation(this, name)) as LoadedValue<this[K]>;
   }
 
   /** Why a callback last refused a save or destroy (`abort(reason)`); never copied into `errors`. */

@@ -1,5 +1,5 @@
 // `validatesAssociated` (#343): an association's records, loaded if they aren't, validated with their owner, each once per validation pass, and a cycle ended.
-import { associationsOf } from "./association-fields.ts";
+import { readAssociation } from "./association-fields.ts";
 import { validation, type Claimed, type Validity } from "./lifecycle.ts";
 import type { Model } from "./model.ts";
 import { modelOf } from "./model.ts";
@@ -74,7 +74,9 @@ export async function isAssociationValid(
   pass: ValidationPass,
 ): Promise<boolean> {
   let valid = true;
-  for (const record of await recordsOf(owner, name)) {
+  const read = await readAssociation(owner, name);
+  const records = Array.isArray(read) ? read : read === null ? [] : [read];
+  for (const record of records) {
     if (record[state].isMarkedForDestruction) continue;
     if ((await validityOf(record, claimed, pass)) !== "valid") valid = false;
   }
@@ -88,14 +90,4 @@ export async function isAssociationValid(
 /** Whether `validatesAssociated` found the owner's association invalid in this pass. */
 export function isReportedInvalid(pass: ValidationPass, owner: Model, name: string): boolean {
   return pass.invalidAssociations.get(owner)?.has(name) === true;
-}
-
-/** The association's records: a hasMany's, or a belongsTo's or hasOne's one, if it has one. */
-async function recordsOf(owner: Model, name: string): Promise<readonly Model[]> {
-  const read = (owner as unknown as Record<string, () => unknown>)[name]!();
-  if (associationsOf(modelOf(owner)).get(name)?.kind === "hasMany") {
-    return (read as { toArray: () => Promise<Model[]> }).toArray();
-  }
-  const record = (await read) as Model | null;
-  return record === null ? [] : [record];
 }

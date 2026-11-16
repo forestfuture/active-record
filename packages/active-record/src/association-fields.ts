@@ -1,4 +1,4 @@
-// `belongsTo`, `hasMany`, and `hasOne`: the field declarations, and reading a Model's from them.
+// `belongsTo`, `hasMany`, and `hasOne`: the field declarations, reading a Model's from them, and reading a record's through its accessor.
 import type {
   AssociationDeclaration,
   AssociationDefinition,
@@ -168,4 +168,20 @@ export function associationOf(model: ModelClass, name: string): AssociationDefin
     throw new UnknownAssociation(`${model.name} has no association "${name}"`);
   }
   return definition;
+}
+
+/**
+ * A record's association read through its accessor, as the app reads it (a query when it isn't
+ * loaded): a hasMany's records, else its record or null.
+ */
+export async function readAssociation(
+  record: Model,
+  name: string,
+): Promise<Model[] | Model | null> {
+  const { kind } = associationOf(record.constructor as ModelClass, name);
+  // The accessor installed for this association: a Relation for a hasMany, else a promise.
+  const accessor = (record as unknown as Record<string, () => unknown>)[name]!;
+  const read = accessor.call(record);
+  if (kind === "hasMany") return (read as { toArray(): Promise<Model[]> }).toArray();
+  return read as Promise<Model | null>;
 }
