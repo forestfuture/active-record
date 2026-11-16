@@ -64,10 +64,15 @@ export function pruneCompileCache(cache: string, since: number): void {
 
 /**
  * Vitest's globalSetup: the run's first compile happens here, before any test's time limit, and
- * its teardown leaves the cache holding only the library.
+ * its teardown leaves the cache holding only the library. A library that doesn't load is a
+ * warning here, so the tests run and report it, the ones that don't need it passing.
  */
 export async function setup(): Promise<() => void> {
-  await fillCompileCache();
+  try {
+    await fillCompileCache();
+  } catch (error) {
+    console.warn(`The compile cache wasn't filled: ${(error as Error).message}`);
+  }
   const filled = Date.now();
   return () => pruneCompileCache(sharedCompileCache, filled);
 }
