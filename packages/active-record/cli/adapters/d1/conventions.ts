@@ -8,6 +8,7 @@ import {
   type Converted,
   type Default,
   type Spec,
+  withDigits,
 } from "@forestfuture/active-record/cli";
 
 type AttributeType = Spec["type"];
@@ -172,7 +173,24 @@ function specOf(column: Column, type: AttributeType, attribute: string): Spec {
   const defaultValue = literalDefault(column.defaultValue, type);
   if (defaultValue !== undefined) spec.default = defaultValue;
   else if (column.primaryKey && type === "string") spec.generateId = true;
-  return withGeneratedEnum(spec, column.restrictedTo);
+  return withGeneratedEnum(withSizeDigits(spec, column.declaredType), column.restrictedTo);
+}
+
+/**
+ * A decimal's precision and scale from its declared type's size: `DECIMAL(10, 2)` gives 10 and
+ * 2, `NUMERIC(6)` a precision of 6 (#398). A size that isn't whole numbers gives neither.
+ */
+function withSizeDigits(spec: Spec, declared: string): Spec {
+  const open = declared.indexOf("(");
+  const close = declared.indexOf(")", open);
+  if (open === -1 || close === -1) return spec;
+  const digits = declared
+    .slice(open + 1, close)
+    .split(",")
+    .map((part) => part.trim());
+  if (digits.length > 2 || !digits.every((part) => /^\d+$/.test(part))) return spec;
+  const [precision, scale] = digits.map(Number);
+  return withDigits(spec, precision, scale);
 }
 
 /** A column as an attribute, by the conventions (#66): name, type, nullability and default. */
