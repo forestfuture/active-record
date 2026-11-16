@@ -3,7 +3,7 @@ import { ancestors } from "./ancestors.ts";
 import { declared } from "./declarations.ts";
 import { InvalidModel } from "./errors.ts";
 import { isBase } from "./generated-model.ts";
-import { contextsOfCallback, listOf } from "./validation-context.ts";
+import { contextsOfCallback, listOf, type ValidationContexts } from "./validation-context.ts";
 
 /** The contexts every Model has. */
 const BUILT_IN = ["create", "update"];
@@ -62,4 +62,19 @@ export function rejectUnlistedContexts(model: { name: string }): void {
     const name = contexts.find((context) => !known.includes(context));
     if (name !== undefined) throw unlisted(model, what, name);
   }
+}
+
+/**
+ * Refuses a context given to `isValid` or `save` that the record's Model doesn't list, with a
+ * `TypeError`: a misspelled one would otherwise run none of the rules declared for it.
+ */
+export function requireKnownContexts(record: object, given: ValidationContexts | undefined): void {
+  if (given === undefined) return;
+  const model = record.constructor as { name: string };
+  const known = knownBy(model);
+  const name = listOf(given).find((context) => !known.includes(context));
+  if (name === undefined) return;
+  throw new TypeError(
+    `${model.name} has no validation context "${name}"; list it in static validationContexts`,
+  );
 }
