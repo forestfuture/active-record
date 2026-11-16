@@ -6,6 +6,7 @@ import {
   type QueryEvent,
 } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
+import { statementKinds } from "../../support/statement-kinds.ts";
 
 // Level 1 reads the binding from cloudflare:workers; here, this test's D1.
 const workers: { env: Record<string, unknown> } = { env: {} };
@@ -54,11 +55,8 @@ describe("an app-wide onQuery on the base class", () => {
     await withDatabase(connect(binding), () => Post.count()); // the request's
     await User.count(); // the Model's binding
 
-    expect(logged.map(({ model, sql }) => [model, sql.split(" ")[0]])).toEqual([
-      ["User", "SELECT"],
-      ["Post", "SELECT"],
-      ["User", "SELECT"],
-    ]);
+    expect(logged.map(({ model }) => model)).toEqual(["User", "Post", "User"]);
+    expect(statementKinds(logged)).toEqual(["SELECT", "SELECT", "SELECT"]);
     expect(logged[0]).toMatchObject({ params: [], durationMs: expect.any(Number) });
   });
 });

@@ -13,6 +13,7 @@ import {
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { statementKinds } from "../support/statement-kinds.ts";
 
 const log: string[] = [];
 
@@ -307,8 +308,7 @@ describe("autosave: true (#37)", () => {
     await author.saveOrThrow();
 
     const writes = events.filter(({ sql }) => !sql.startsWith("SELECT"));
-    expect(writes).toHaveLength(1);
-    expect(writes[0]!.sql).toMatch(/^UPDATE/);
+    expect(statementKinds(writes)).toEqual(["UPDATE"]);
   });
 
   test("without autosave: true, a changed loaded record isn't saved", async () => {
