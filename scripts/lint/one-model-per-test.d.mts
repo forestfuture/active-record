@@ -1,0 +1,5 @@
+// The one-model-per-test rule's type, for its tests to import.
+import type { Rule } from "vite-plus/lint/plugins";
+
+declare const oneModelPerTest: Rule;
+export default oneModelPerTest;
