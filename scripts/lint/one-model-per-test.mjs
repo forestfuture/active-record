@@ -153,8 +153,10 @@ function constInit(variable) {
 }
 
 /** Whether `node` is a call of Vitest's `expect`, or its `expect.soft`. */
-function isExpect(node) {
-  return chainRoot(node.callee) === "expect";
+function isExpect({ callee }) {
+  const named = callee.type === "MemberExpression" && !callee.computed ? callee : undefined;
+  const expect = named?.property.name === "soft" ? named.object : callee;
+  return expect.type === "Identifier" && expect.name === "expect";
 }
 
 export default defineRule({

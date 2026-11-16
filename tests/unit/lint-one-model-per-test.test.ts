@@ -4,6 +4,13 @@ import { ruleTester } from "../support/rule-tester.ts";
 // A test acts on one Model once it starts asserting (CODING_STANDARDS.md, Tests; #413).
 ruleTester.run("one-model-per-test", oneModelPerTest, {
   valid: [
+    // expect.assertions() counts assertions to come, so what follows it is still setup.
+    `test("refuses", async () => {
+      expect.assertions(1);
+      await db.model(User).create({ email: "a" });
+      await db.model(Post).create({ title: "b" });
+      expect(await db.model(Post).count()).toBe(1);
+    });`,
     // An association read, and a capitalized helper, aren't actions on a Model.
     `import { Helper } from "./helper";
     test("reads the author", async () => {
