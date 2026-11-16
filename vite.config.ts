@@ -183,13 +183,14 @@ export default defineConfig({
       },
       {
         // A describe() callback holds a whole suite, so it's long by design. A test waits on an
-        // event, a gate, or a polled state, never a fixed delay, its name stands alone, and it
-        // asserts results, not SQL text (CODING_STANDARDS.md, Tests).
+        // event, a gate, or a polled state, never a fixed delay, its name stands alone, it
+        // asserts results, not SQL text, and it acts on one Model (CODING_STANDARDS.md, Tests).
         files: ["tests/**"],
         rules: {
           "max-lines-per-function": "off",
           "active-record/no-fixed-delay": "error",
           "active-record/no-sql-text": "error",
+          "active-record/one-model-per-test": "error",
           "active-record/standalone-test-name": "error",
         },
       },
