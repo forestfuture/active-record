@@ -10,6 +10,7 @@ import { orderDecimal } from "./decimal-values.ts";
 import { addFailure, fullMessageOf, type Errors, type Failure } from "./errors-collection.ts";
 import { StrictValidationFailed } from "./errors.ts";
 import { attributeOf } from "./metadata.ts";
+import { isInContext, type ValidationContexts } from "./validation-context.ts";
 import type { AttributesOf } from "./model.ts";
 
 export interface LengthOptions {
@@ -81,6 +82,11 @@ export interface ValidationOptions<R = never> {
   if?: (record: R) => boolean;
   /** Skip these rules when this returns true; with `if`, both must allow them. */
   unless?: (record: R) => boolean;
+  /**
+   * Only run these rules in this validation context, or these: `"create"` while the record is
+   * new, `"update"` once it's saved, or a name given to `isValid` or `save`.
+   */
+  on?: ValidationContexts;
 }
 
 /** The options of a `validatesAssociated(association, options)` call. */
@@ -235,6 +241,8 @@ export interface ValidationTarget {
   isTaken: (attribute: string, value: unknown, options: UniquenessOptions) => Promise<boolean>;
   /** Whether every record of the association, loaded first if it isn't, is valid. */
   isAssociationValid: (association: string) => Promise<boolean>;
+  /** The validation contexts the record is validated in (#51). */
+  contexts: readonly string[];
 }
 
 async function uniquenessFailures(
@@ -255,7 +263,7 @@ export async function runValidations(
 ): Promise<void> {
   for (const validation of validations) {
     const { attribute, options } = validation;
-    if (!isApplied(target.record, options)) continue;
+    if (!isApplied(target, options)) continue;
     for (const failure of await failuresOf(validation, target)) {
       const added = { ...failure, message: options.message };
       if (options.strict) throw strictFailure(target, attribute, added, options.strict);
@@ -286,8 +294,12 @@ async function failuresOf(
   ];
 }
 
-/** Whether a validation's `if` and `unless` let its rules run on `record`. */
-function isApplied(record: object, options: ValidationOptions<never>): boolean {
+/** Whether a validation's `on`, `if` and `unless` let its rules run on the target's record. */
+function isApplied(
+  { record, contexts }: ValidationTarget,
+  options: ValidationOptions<never>,
+): boolean {
+  if (!isInContext(contexts, options.on)) return false;
   if (options.if && !options.if(record as never)) return false;
   return !options.unless?.(record as never);
 }
