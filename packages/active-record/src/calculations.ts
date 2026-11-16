@@ -123,6 +123,20 @@ function requireOrdered(definition: AttributeDefinition, name: string, method: s
   );
 }
 
+/** An operation `calculate` runs: a count, or a calculation of an attribute's values. */
+export type Operation = "count" | Calculation;
+
+const operations: readonly Operation[] = ["count", "sum", "average", "minimum", "maximum"];
+
+/** `operation`, if `calculate` runs it, or `TypeError`. */
+export function requireOperation(operation: unknown): Operation {
+  if (operations.includes(operation as Operation)) return operation as Operation;
+  const names = operations.map((name) => `"${name}"`);
+  throw new TypeError(
+    `calculate() takes ${names.slice(0, -1).join(", ")} or ${names.at(-1)}, not ${JSON.stringify(operation)}`,
+  );
+}
+
 /** The built-in type a spec is stored as: its type, or its custom type's `storedAs`. */
 type StoredTypeOf<S> = (S extends { type: infer T } ? T : S) extends infer T
   ? T extends CustomType<unknown, infer B>

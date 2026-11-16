@@ -64,7 +64,9 @@ import {
   type CalculatedValue,
   type CalculationContext,
   type NumberAttribute,
+  type Operation,
   type OrderedAttribute,
+  requireOperation,
 } from "./calculations.ts";
 
 declare const scopeTypes: unique symbol;
@@ -513,6 +515,29 @@ export class Relation<M extends Model, S = {}> {
     attribute: K,
   ): Promise<CalculatedValue<M, K, unknown> | null> {
     return (await calculate(this.#calculating(), "maximum", attribute)) as never;
+  }
+
+  /**
+   * The calculation `operation` names, of `attribute`: `calculate("sum", "total")` is
+   * `sum("total")`, and `calculate("count")` is `count()`.
+   */
+  async calculate(operation: "count", attribute?: keyof AttributesOf<M> & string): Promise<number>;
+  async calculate<K extends NumberAttribute<M> | SafeSql>(
+    operation: "sum",
+    attribute: K,
+  ): Promise<CalculatedValue<M, K>>;
+  async calculate(
+    operation: "average",
+    attribute: NumberAttribute<M> | SafeSql,
+  ): Promise<number | null>;
+  async calculate<K extends OrderedAttribute<M> | SafeSql>(
+    operation: "minimum" | "maximum",
+    attribute: K,
+  ): Promise<CalculatedValue<M, K, unknown> | null>;
+  async calculate(operation: Operation, attribute?: string | SafeSql): Promise<unknown> {
+    const named = requireOperation(operation);
+    if (named === "count") return count(this.#calculating(), attribute as string | undefined);
+    return calculate(this.#calculating(), named, attribute as string | SafeSql);
   }
 
   /** What a calculation or `pluck` reads: this Relation's query, database, and loaded records. */

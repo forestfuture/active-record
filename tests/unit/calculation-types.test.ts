@@ -79,4 +79,39 @@ describe("calculation types (#344)", () => {
     };
     expectTypeOf(typeOnly).toBeFunction();
   });
+
+  test("calculate is typed by its operation", () => {
+    const samples = Sample.all();
+
+    expectTypeOf(samples.calculate("count")).resolves.toEqualTypeOf<number>();
+    expectTypeOf(samples.calculate("sum", "amount")).resolves.toEqualTypeOf<string>();
+    expectTypeOf(samples.calculate("average", "quantity")).resolves.toEqualTypeOf<number | null>();
+    expectTypeOf(samples.calculate("maximum", "createdAt")).resolves.toEqualTypeOf<Date | null>();
+    const typeOnly = () => {
+      // @ts-expect-error text can't be added up
+      void samples.calculate("sum", "title");
+      // @ts-expect-error booleans aren't ordered
+      void samples.calculate("minimum", "enabled");
+      // @ts-expect-error a sum needs an attribute
+      void samples.calculate("sum");
+    };
+    expectTypeOf(typeOnly).toBeFunction();
+  });
+
+  test("a Model's statics are typed as its Relation's methods are", () => {
+    expectTypeOf(Sample.sum("amount")).resolves.toEqualTypeOf<string>();
+    expectTypeOf(Sample.sum(sql`quantity * 2`)).resolves.toEqualTypeOf<number>();
+    expectTypeOf(Sample.average("ratio")).resolves.toEqualTypeOf<number | null>();
+    expectTypeOf(Sample.minimum("createdAt")).resolves.toEqualTypeOf<Date | null>();
+    expectTypeOf(Sample.maximum("price")).resolves.toEqualTypeOf<bigint | null>();
+    expectTypeOf(Sample.calculate("sum", "price")).resolves.toEqualTypeOf<bigint>();
+    expectTypeOf(Sample.calculate("count")).resolves.toEqualTypeOf<number>();
+    const typeOnly = () => {
+      // @ts-expect-error text can't be added up
+      void Sample.sum("title");
+      // @ts-expect-error booleans aren't ordered
+      void Sample.calculate("maximum", "enabled");
+    };
+    expectTypeOf(typeOnly).toBeFunction();
+  });
 });
