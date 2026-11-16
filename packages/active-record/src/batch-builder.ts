@@ -1,5 +1,6 @@
 // Batch: what `batch((b) => [...])` hands its callback, to prepare each write the batch runs.
 import type { AttributesOf, Model, ModelClass } from "./model.ts";
+import { requireKnownContexts } from "./listed-contexts.ts";
 import { preparedWrites } from "./prepared-writes.ts";
 import { RecordStatement } from "./record-statement.ts";
 import { Relation } from "./relation.ts";
@@ -35,10 +36,12 @@ export class Batch {
   /**
    * Saves `record`, its autosaved associations included. Its validations and before-callbacks
    * run when the batch runs, before anything is written, and its after-callbacks once it is.
-   * `context` validates it in that context (`"signup"`), as `save({ context })` does.
+   * `context` validates it in that context (`"signup"`), as `save({ context })` does; one its
+   * Model doesn't list throws `TypeError` here.
    */
   save<R extends Model>(record: R, options: SaveOptions = {}): RecordStatement<R> {
     this.#requireOpen();
+    requireKnownContexts(record, options.context);
     return new RecordStatement(record, "save", options.context);
   }
 
