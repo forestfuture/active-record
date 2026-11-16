@@ -399,8 +399,9 @@ export function compileCalculation(
 }
 
 /**
- * A name for a calculation's values that none of the Model's columns has, in any case: an
- * `ORDER BY` name matches an output column before a table's, so the order's own would be lost.
+ * A name for a calculation's values that none of the Model's columns has, whatever its letter
+ * case: an `ORDER BY` name matches an output column before a table's, so the order's own would
+ * be lost. A column the Model doesn't declare, ordered by in a fragment's raw text, isn't seen.
  */
 function valuesAlias(model: ModelClass<Model>): string {
   const columns = new Set(
