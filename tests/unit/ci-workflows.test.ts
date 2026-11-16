@@ -110,6 +110,11 @@ describe("CI's release jobs, and every job that can write", () => {
 
 describe("CI's tests (#365)", () => {
   const ci = () => new Map(partsOf(join(github, "workflows/ci.yml")).jobs);
+  /** The test job's upload of a shard's results, to the end of the job. */
+  const uploadStep = () => {
+    const job = ci().get("test") ?? "";
+    return job.slice(job.indexOf("actions/upload-artifact"));
+  };
 
   test("run in 4 shards, each with Postgres, saving its results without the coverage floor", () => {
     const job = ci().get("test") ?? "";
@@ -128,16 +133,14 @@ describe("CI's tests (#365)", () => {
   });
 
   test("save a shard's results even when its tests fail (#402)", () => {
-    const job = ci().get("test") ?? "";
-    const upload = job.slice(job.indexOf("actions/upload-artifact"));
+    const upload = uploadStep();
 
     expect(upload).toContain("if: ${{ !cancelled() }}");
   });
 
   // A rerun's results take the failed attempt's place, or check can merge the old ones (#410).
   test("replace a failed attempt's results when a shard is rerun (#410)", () => {
-    const job = ci().get("test") ?? "";
-    const upload = job.slice(job.indexOf("actions/upload-artifact"));
+    const upload = uploadStep();
 
     expect(upload).toMatch(/^\s+overwrite: true$/m);
   });
