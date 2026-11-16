@@ -15,7 +15,7 @@ Read a dependency's types and docs from these paths, rather than searching `node
 Dependabot is told to leave `vite-plus` and `@vitest/coverage-v8` alone, because each needs the others to move with it. Bump them together, in one change:
 
 1. In `pnpm-workspace.yaml`, set `vite-plus` and `vite` (`npm:@voidzero-dev/vite-plus-core@…`) in the catalog to the same version, and the same version in each `minimumReleaseAgeExclude` entry.
-2. Run `vp install`, then `vp toolchain` to read the vitest it bundles.
+2. Run `vp install`, then `vp toolchain` to read the vitest it bundles. The install also rewrites the Vite+ section of `AGENTS.md` when the new release changes it. Commit that change on its own.
 3. Pin `@vitest/coverage-v8` in `package.json` to that vitest version, exactly. `vp test --coverage` refuses any other.
 4. Run `vp run validate`.
 
