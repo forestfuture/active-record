@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { Model, type AssociatedValidationOptions } from "../../packages/active-record/src/index.ts";
 
 describe("validation options' types", () => {
   test("unless receives the Model's record", () => {
@@ -27,5 +27,19 @@ describe("validation options' types", () => {
     }
 
     expect(Note.name).toBe("Note");
+  });
+
+  test("validatesAssociated's options type is exported, typed to the record", () => {
+    class Shelf extends Model.define({ id: "integer", label: "string" }) {
+      static table = "shelves";
+    }
+    const options: AssociatedValidationOptions<Shelf> = {
+      if: (shelf) => shelf.label !== null,
+      message: "need labels",
+    };
+    // @ts-expect-error validatesAssociated takes no allowNull
+    const refused: AssociatedValidationOptions<Shelf> = { allowNull: true };
+
+    expect([options.message, refused]).toHaveLength(2);
   });
 });

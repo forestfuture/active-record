@@ -53,6 +53,7 @@ export type { DatabaseSchema, TableSchema, TableSchemas } from "./generated-mode
 export { defineSchema } from "./define-schema.ts";
 export type { Comparable, ComparisonBound, ComparisonOptions } from "./comparison-validation.ts";
 export type {
+  AssociatedValidationOptions,
   LengthOptions,
   NumericalityOptions,
   UniquenessOptions,
