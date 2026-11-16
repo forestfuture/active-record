@@ -78,16 +78,21 @@ describe("caching lazily loaded associations", () => {
     queries.length = 0;
   });
 
-  test("belongsTo and hasOne query once, then answer from the record", async () => {
+  test("a belongsTo queries once, then answers from the record", async () => {
     const post = await db().model(Post).find(10);
-    const user = await db().model(User).find(1);
     queries.length = 0;
 
     const author = await post.author();
     expect(await post.author()).toBe(author);
-    expect(await user.profile()).toBe(await user.profile());
+    expect(queries).toHaveLength(1);
+  });
 
-    expect(queries).toHaveLength(2);
+  test("a hasOne queries once, then answers from the record", async () => {
+    const user = await db().model(User).find(1);
+    queries.length = 0;
+
+    expect(await user.profile()).toBe(await user.profile());
+    expect(queries).toHaveLength(1);
   });
 
   test("a null result is cached", async () => {
@@ -328,18 +333,24 @@ describe("caching lazily loaded associations", () => {
     expect(await user.posts().pluck("title")).toEqual(["A1", "B"]);
   });
 
-  test("reloadAssociation() queries again and returns the fresh value", async () => {
-    const user = await db().model(User).find(1);
+  test("reloadAssociation() queries a belongsTo again and returns the fresh record", async () => {
     const post = await db().model(Post).find(10);
-    await user.posts().toArray();
     await post.author();
     await harness.exec("UPDATE users SET email = 'new@example.com' WHERE id = 1");
-    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (13, 1, 'A3')");
     queries.length = 0;
 
     expect((await post.reloadAssociation("author"))?.email).toBe("new@example.com");
+    expect(queries).toHaveLength(1);
+  });
+
+  test("reloadAssociation() queries a hasMany again and keeps the fresh records", async () => {
+    const user = await db().model(User).find(1);
+    await user.posts().toArray();
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (13, 1, 'A3')");
+    queries.length = 0;
+
     expect((await user.reloadAssociation("posts")).map((each) => each.id)).toEqual([10, 11, 13]);
-    expect(queries).toHaveLength(2);
+    expect(queries).toHaveLength(1);
     expect(user.loaded("posts")).toHaveLength(3);
   });
 
