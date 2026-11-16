@@ -1,7 +1,7 @@
 // Following an identifier to the variable it names and the value a `const` was declared with, for the repo's lint rules.
 
 /** The variable `identifier` names, from the innermost scope it's declared in. */
-export function variableOf(scope, identifier) {
+function variableOf(scope, identifier) {
   for (let at = scope; at !== null; at = at.upper) {
     const variable = at.set.get(identifier.name);
     if (variable !== undefined) return variable;
