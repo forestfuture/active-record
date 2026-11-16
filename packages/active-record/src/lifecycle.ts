@@ -1,5 +1,10 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
-import { isAssociationValid, type Validated } from "./associated-validation.ts";
+import {
+  isAssociationValid,
+  newPass,
+  whileValidating,
+  type ValidationPass,
+} from "./associated-validation.ts";
 import { enumValidations } from "./enum-values.ts";
 import { filteredValues, shownKey } from "./filtering.ts";
 import { compileDelete, compileInsert, compileSelect, compileUpdate } from "./compiler.ts";
@@ -113,31 +118,38 @@ export async function validateRecord(record: Model): Promise<boolean> {
 
 /**
  * Clears `errors` and `abortReason`, then beforeValidation → validators → afterValidation.
- * An `abort()` in either callback makes the record "aborted" (not valid).
+ * An `abort()` in either callback makes the record "aborted" (not valid). `pass` is shared with
+ * the records validated with it (#343).
  */
-export async function validation(record: Model, claimed: Claimed): Promise<Validity> {
-  const recordState = record[state];
-  recordState.errors[clearErrors]();
-  recordState.abortReason = undefined;
-  if (!(await runAbortableCallbacks(record, "beforeValidation"))) return "aborted";
-  await validateRequiredAssociations(record);
-  const model = modelOf(record);
-  const validated: Validated = new Map();
-  const validations = [
-    ...enumValidations(model.attributeDefinitions),
-    ...declared(model, "validations"),
-  ];
-  await runValidations(validations, {
-    record,
-    read: (attribute) => recordState.read(attribute),
-    filteredValues: () => filteredValues(model, recordState.attributes()),
-    errors: recordState.errors,
-    isTaken: (attribute, value, options) => isTaken(record, attribute, value, options),
-    isAssociationValid: (name) => isAssociationValid(record, name, claimed, validated),
+export async function validation(
+  record: Model,
+  claimed: Claimed,
+  pass: ValidationPass = newPass(),
+): Promise<Validity> {
+  return whileValidating(pass, record, async () => {
+    const recordState = record[state];
+    recordState.errors[clearErrors]();
+    recordState.abortReason = undefined;
+    if (!(await runAbortableCallbacks(record, "beforeValidation"))) return "aborted";
+    await validateRequiredAssociations(record);
+    await runValidations(validationsOf(record), {
+      record,
+      read: (attribute) => recordState.read(attribute),
+      filteredValues: () => filteredValues(modelOf(record), recordState.attributes()),
+      errors: recordState.errors,
+      isTaken: (attribute, value, options) => isTaken(record, attribute, value, options),
+      isAssociationValid: (name) => isAssociationValid(record, name, claimed, pass),
+    });
+    await validateAutosaves(record, claimed, pass);
+    if (!(await runAbortableCallbacks(record, "afterValidation"))) return "aborted";
+    return recordState.errors.isEmpty() ? "valid" : "invalid";
   });
-  await validateAutosaves(record, claimed, validated);
-  if (!(await runAbortableCallbacks(record, "afterValidation"))) return "aborted";
-  return recordState.errors.isEmpty() ? "valid" : "invalid";
+}
+
+/** A record's validations: its enums', then its Model's declared ones. */
+function validationsOf(record: Model) {
+  const model = modelOf(record);
+  return [...enumValidations(model.attributeDefinitions), ...declared(model, "validations")];
 }
 
 /**
