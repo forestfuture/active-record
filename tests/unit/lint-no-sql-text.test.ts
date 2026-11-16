@@ -8,6 +8,20 @@ ruleTester.run("no-sql-text", noSqlText, {
     "expect(events).toHaveLength(1);",
     'expect(events[0]?.params).toEqual(["admin", 1]);',
     "expect(await users.count()).toBe(4);",
+    // startsWith picks out a kind of statement, to count it or read its values.
+    'expect(events.filter(({ sql }) => sql.startsWith("UPDATE"))).toHaveLength(1);',
+    'expect(events.filter(({ sql }) => !sql.startsWith("SELECT"))).toHaveLength(2);',
+    'expect(events.find((event) => event.sql.startsWith("INSERT"))?.params).toEqual([1]);',
+    'expect(writes[0]!.sql.startsWith("UPDATE")).toBe(true);',
+    // SQL given to the code under test, and SQL in a fragment.
+    "expect(transactionControl(sql)).toBeUndefined();",
+    'expect(statementLine({ ...event, sql }, false)).toBe("  User  SELECT *");',
+    "expect(await db.query(sql)).toEqual([{ id: 1 }]);",
+    'expect(recognised(dir, [{ name: "a.sql", sql: "CREATE TABLE a (id INTEGER);" }])).toBe("Drizzle");',
+    "expect(await users.where(sql`id = ${1}`).count()).toBe(1);",
+    // SQL in what a matcher expects, and the SQL a generator writes.
+    "const { sql, params } = users.toSql();\nexpect(sent()).toEqual([{ sql, params }]);",
+    'expect(migration).toEqual({ name: "0001_init.sql", sql: "CREATE TABLE a (id INTEGER);" });',
   ],
   invalid: [
     {
