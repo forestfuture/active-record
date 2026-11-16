@@ -39,6 +39,11 @@ ruleTester.run("no-sql-text", noSqlText, {
       errors: [{ messageId: "sqlText" }],
     },
     {
+      name: "SQL kept in a const destructured from a list",
+      code: 'const [first] = events.map((event) => event.sql);\nexpect(first).toContain("WHERE");',
+      errors: [{ messageId: "sqlText" }],
+    },
+    {
       name: "SQL destructured from toSql",
       code: 'const { sql } = User.all().toSql();\nexpect(sql).toContain("1 = 0");',
       errors: [{ messageId: "sqlText" }],

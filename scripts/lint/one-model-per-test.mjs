@@ -1,7 +1,7 @@
 // The repo's lint rule that a test acts on one Model once it starts asserting (#413).
 import { defineRule } from "vite-plus/lint/plugins";
 import { chainRoot } from "./test-calls.mjs";
-import { variableOf } from "./variables.mjs";
+import { constInit, followingOnce } from "./variables.mjs";
 
 /** The functions that take a test's body. */
 const testFunctions = new Set(["test", "it"]);
@@ -123,7 +123,7 @@ function modelOf(node, resolve) {
     } else if (at.type === "MemberExpression") {
       at = at.object;
     } else if (at.type === "Identifier") {
-      const { model, init } = resolve(at);
+      const { model, init } = resolve(at) ?? {};
       if (model !== undefined) return model;
       at = init;
     } else {
@@ -138,18 +138,6 @@ function isClass(variable) {
   const [definition] = variable.defs;
   if (definition?.type === "ClassName") return true;
   return definition?.type === "ImportBinding" && /^[A-Z]/.test(variable.name);
-}
-
-/**
- * The value a `const` was declared with, for one declared alone or destructured from a list:
- * `const user = …`, `const [user] = …`.
- */
-function constInit(variable) {
-  const definitions = variable?.defs ?? [];
-  if (definitions.length !== 1) return undefined;
-  const [{ node, parent }] = definitions;
-  if (node.type !== "VariableDeclarator" || parent?.kind !== "const") return undefined;
-  return node.id.type === "Identifier" || node.id.type === "ArrayPattern" ? node.init : undefined;
 }
 
 /**
@@ -194,14 +182,9 @@ export default defineRule({
         if (test === undefined || !test.asserted || test.reported) return;
         const action = actionOf(node.argument);
         if (action === undefined) return;
-        // Each const is followed once, so consts that name each other can't loop.
-        const followed = new Set();
-        const resolve = (identifier) => {
-          const variable = variableOf(context.sourceCode.getScope(identifier), identifier);
-          if (variable === undefined || followed.has(variable)) return {};
-          followed.add(variable);
-          return isClass(variable) ? { model: variable.name } : { init: constInit(variable) };
-        };
+        const resolve = followingOnce(context, (variable) =>
+          isClass(variable) ? { model: variable.name } : { init: constInit(variable) },
+        );
         const model = modelOf(action.callee.object, resolve);
         if (model === undefined) return;
         test.first ??= model;

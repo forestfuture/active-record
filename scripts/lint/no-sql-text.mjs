@@ -1,6 +1,6 @@
 // The repo's lint rule that a test asserts results, not the SQL text it sent (#400).
 import { defineRule } from "vite-plus/lint/plugins";
-import { variableOf } from "./variables.mjs";
+import { constInit, followingOnce } from "./variables.mjs";
 
 // What the rule can't follow, as none is in the tests and review catches the rest: a `let` or
 // `var`, a `sql` key destructured under another name, a helper declared as a function or passed
@@ -80,15 +80,6 @@ function isReadFromSqlText(node, constValue) {
   return isAnyReadFromSqlText(parts[node.type]?.(node) ?? [], constValue);
 }
 
-/** The declarator of `variable`, when it's a `const` declared alone: `const text = event.sql`. */
-function constOf(variable) {
-  const definitions = variable?.defs ?? [];
-  if (definitions.length !== 1) return undefined;
-  const [{ node, parent }] = definitions;
-  const isConst = node.type === "VariableDeclarator" && parent?.kind === "const";
-  return isConst && node.id.type === "Identifier" ? node : undefined;
-}
-
 /** Whether `callee` is Vitest's `expect`, or its `expect.soft`. */
 function isExpect(callee) {
   const name = isKey(callee, "soft") ? callee.object : callee;
@@ -107,16 +98,7 @@ export default defineRule({
     return {
       CallExpression(node) {
         if (!isExpect(node.callee)) return;
-        // Each const is followed once, so consts that name each other can't loop.
-        const followed = new Set();
-        const constValue = (identifier) => {
-          const declarator = constOf(
-            variableOf(context.sourceCode.getScope(identifier), identifier),
-          );
-          if (declarator === undefined || followed.has(declarator)) return undefined;
-          followed.add(declarator);
-          return declarator.init;
-        };
+        const constValue = followingOnce(context, constInit);
         if (isReadFromSqlText(node.arguments[0], constValue))
           context.report({ node, messageId: "sqlText" });
       },
