@@ -57,6 +57,8 @@ const relationMethods = [
   "count",
   "sum",
   "average",
+  "minimum",
+  "maximum",
   "size",
   "isEmpty",
   "hasAny",

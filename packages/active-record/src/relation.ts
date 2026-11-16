@@ -520,6 +520,20 @@ export class Relation<M extends Model, S = {}> {
     return (await calculate(this.#calculating(), "average", attribute)) as number | null;
   }
 
+  /** The least of `attribute`'s values over the records, leaving out NULLs; null with none. */
+  async minimum<K extends keyof AttributesOf<M> & string>(
+    attribute: K,
+  ): Promise<NonNullable<AttributesOf<M>[K]> | null> {
+    return (await calculate(this.#calculating(), "minimum", attribute)) as never;
+  }
+
+  /** The greatest of `attribute`'s values over the records, leaving out NULLs; null with none. */
+  async maximum<K extends keyof AttributesOf<M> & string>(
+    attribute: K,
+  ): Promise<NonNullable<AttributesOf<M>[K]> | null> {
+    return (await calculate(this.#calculating(), "maximum", attribute)) as never;
+  }
+
   /** What a calculation or `pluck` reads: this Relation's query, database, and loaded records. */
   #calculating(): CalculationContext {
     const [dialect, cached] = [() => this.#dialect, () => this.#cached()];
