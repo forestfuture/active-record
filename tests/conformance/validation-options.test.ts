@@ -4,6 +4,7 @@ import {
   belongsTo,
   hasMany,
   hasOne,
+  InvalidModel,
   Model,
   RecordInvalid,
   StrictValidationFailed,
@@ -365,5 +366,78 @@ describe("validatesAssociated with autosave and loading", () => {
     expect(await writer.isValid()).toBe(false);
     expect(validatedTitles).toEqual([" "]);
     expect(writer.errors.fullMessages()).toEqual(["Posts is invalid"]);
+  });
+});
+
+describe("validatesAssociated's options", () => {
+  test("if, unless and message apply as they do to validates", async () => {
+    class Editor extends Model.define({
+      id: { type: "integer", null: false },
+      email: "string",
+      role: "string",
+    }) {
+      static table = "users";
+
+      posts = hasMany(Post, { foreignKey: "userId" });
+
+      static {
+        this.validatesAssociated("posts", {
+          if: (editor) => editor.email !== null,
+          unless: (editor) => editor.role === "admin",
+          message: "need titles",
+        });
+      }
+    }
+    await seedAuthor([" "]);
+    const editor = await harness.connect().model(Editor).find(1);
+
+    expect(await editor.isValid()).toBe(false);
+    expect(editor.errors.get("posts")).toEqual(["need titles"]);
+    editor.role = "admin";
+    expect(await editor.isValid()).toBe(true);
+    editor.role = null;
+    editor.email = null;
+    expect(await editor.isValid()).toBe(true);
+  });
+
+  test("strict throws with the association's full message", async () => {
+    class StrictAuthor extends Model.define({
+      id: { type: "integer", null: false },
+      email: "string",
+    }) {
+      static table = "users";
+
+      posts = hasMany(Post, { foreignKey: "userId" });
+
+      static {
+        this.validatesAssociated("posts", { strict: true });
+      }
+    }
+    const author = harness.connect().model(StrictAuthor).build({ email: "a@example.com" });
+    author.posts().build({ title: " " });
+
+    await expect(author.isValid()).rejects.toThrow(new StrictValidationFailed("Posts is invalid"));
+  });
+
+  test("a name that isn't one of the Model's associations is InvalidModel when it's first used", () => {
+    class Typo extends Model.define({
+      id: { type: "integer", null: false },
+      email: "string",
+    }) {
+      static table = "users";
+
+      posts = hasMany(Post, { foreignKey: "userId" });
+
+      static {
+        // @ts-expect-error "post" isn't one of Typo's associations
+        this.validatesAssociated("post");
+      }
+    }
+
+    expect(() => harness.connect().model(Typo)).toThrow(
+      new InvalidModel(
+        'Typo validates the associated "post", which isn\'t one of its associations',
+      ),
+    );
   });
 });
