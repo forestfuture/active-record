@@ -8,8 +8,12 @@ export type ValidationContext = "create" | "update" | (string & {});
 /** One context, or several. */
 export type ValidationContexts = ValidationContext | readonly ValidationContext[];
 
-/** The contexts a record is validated in: `"create"` while it's new, `"update"` once saved. */
-export function contextsOf(record: Model): readonly string[] {
+/**
+ * The contexts a record is validated in: those given, or else `"create"` while it's new and
+ * `"update"` once it's saved.
+ */
+export function contextsOf(record: Model, given?: ValidationContexts): readonly string[] {
+  if (given !== undefined) return listOf(given);
   return [record[state].isNew ? "create" : "update"];
 }
 

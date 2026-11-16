@@ -47,6 +47,7 @@ import { readyModel, type BelongsTo, type HasOne } from "./associations.ts";
 import type { Relation, Scope, Scoped } from "./relation.ts";
 import { defineStatics, ModelStatics } from "./model-statics.ts";
 import { currentRelation } from "./current-database.ts";
+import type { ValidationContexts } from "./validation-context.ts";
 import { scopeBodies, scopeName, useModelBase } from "./scoped-relation.ts";
 import {
   checkValidatedNames,
@@ -411,9 +412,13 @@ export class Model extends ModelStatics {
     return this[state].abortReason;
   }
 
-  /** Runs every validation, filling `errors` from scratch; `true` if there are none. */
-  async isValid(): Promise<boolean> {
-    return validateRecord(this);
+  /**
+   * Runs every validation, filling `errors` from scratch; `true` if there are none. A context
+   * (`"signup"`), or several, replaces the record's own: `"create"` while it's new, `"update"`
+   * once it's saved. Rules declared `on` another context don't run.
+   */
+  async isValid(context?: ValidationContexts): Promise<boolean> {
+    return validateRecord(this, context);
   }
 
   /** Whether any attribute differs from its value as last loaded or saved. */

@@ -1,6 +1,6 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
 import { isAssociationValid } from "./associated-validation.ts";
-import { contextsOf } from "./validation-context.ts";
+import { contextsOf, type ValidationContexts } from "./validation-context.ts";
 import { newPass, whileValidating, type ValidationPass } from "./validation-pass.ts";
 import { enumValidations } from "./enum-values.ts";
 import { filteredValues, shownKey } from "./filtering.ts";
@@ -108,9 +108,12 @@ async function runAbortableCallbacks(record: Model, kind: BeforeCallbackKind): P
   }
 }
 
-/** Whether the record is valid: `isValid()`'s answer. */
-export async function validateRecord(record: Model): Promise<boolean> {
-  return (await validation(record, new Set())) === "valid";
+/** Whether the record is valid, in `context` if given: `isValid()`'s answer. */
+export async function validateRecord(
+  record: Model,
+  context?: ValidationContexts,
+): Promise<boolean> {
+  return (await validation(record, new Set(), newPass(), context)) === "valid";
 }
 
 /**
@@ -122,6 +125,7 @@ export async function validation(
   record: Model,
   claimed: Claimed,
   pass: ValidationPass = newPass(),
+  context?: ValidationContexts,
 ): Promise<Validity> {
   return whileValidating(pass, record, async () => {
     const recordState = record[state];
@@ -136,7 +140,7 @@ export async function validation(
       errors: recordState.errors,
       isTaken: (attribute, value, options) => isTaken(record, attribute, value, options),
       isAssociationValid: (name) => isAssociationValid(record, name, claimed, pass),
-      contexts: contextsOf(record),
+      contexts: contextsOf(record, context),
     });
     await validateAutosaves(record, claimed, pass);
     if (!(await runAbortableCallbacks(record, "afterValidation"))) return "aborted";

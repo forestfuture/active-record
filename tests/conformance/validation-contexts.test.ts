@@ -39,6 +39,21 @@ class Guest extends Model.define({
   }
 }
 
+class Applicant extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+  role: "string",
+}) {
+  static table = "users";
+
+  static {
+    this.validates("email", { presence: true });
+    this.validates("role", { presence: true, on: "signup" });
+    this.validates("role", { length: { minimum: 4 }, on: "create" });
+    this.validates("role", { exclusion: ["root"], on: "invite" });
+  }
+}
+
 let harness: Harness;
 
 beforeAll(async () => {
@@ -94,5 +109,29 @@ describe("exceptOn", () => {
     expect(await guest.save()).toBe(true);
     expect(await guest.isValid()).toBe(false);
     expect(guest.errors.get("role")).toEqual(["can't be blank"]);
+  });
+});
+
+describe("a context given to isValid", () => {
+  test("runs its rules and those without on, in place of the record's own context", async () => {
+    const applicants = harness.connect().model(Applicant);
+
+    const applicant = applicants.build({});
+    expect(await applicant.isValid("signup")).toBe(false);
+    expect(applicant.errors.toArray().map(({ attribute, type }) => [attribute, type])).toEqual([
+      ["email", "blank"],
+      ["role", "blank"],
+    ]);
+  });
+
+  test("a list runs the rules of each context in it", async () => {
+    const applicants = harness.connect().model(Applicant);
+
+    const applicant = applicants.build({ email: "a@example.com", role: "root" });
+    expect(await applicant.isValid(["create", "invite"])).toBe(false);
+    expect(applicant.errors.get("role")).toEqual(["is reserved"]);
+    applicant.role = "ab";
+    await applicant.isValid(["create", "invite"]);
+    expect(applicant.errors.get("role")).toEqual(["is too short (minimum is 4 characters)"]);
   });
 });
