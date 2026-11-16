@@ -48,7 +48,12 @@ import type { Relation, Scope, Scoped } from "./relation.ts";
 import { defineStatics, ModelStatics } from "./model-statics.ts";
 import { currentRelation } from "./current-database.ts";
 import { scopeBodies, scopeName, useModelBase } from "./scoped-relation.ts";
-import { checkValidatedNames, type Validation, type ValidationOptions } from "./validations.ts";
+import {
+  checkValidatedNames,
+  type AssociatedValidationOptions,
+  type Validation,
+  type ValidationOptions,
+} from "./validations.ts";
 
 /** Type-only brand on a scope static (`static newest = this.scope(…)`); never set at runtime. */
 declare const scopeBrand: unique symbol;
@@ -313,6 +318,24 @@ export class Model extends ModelStatics {
     const validation: Validation = { attribute, options: options as ValidationOptions<never> };
     // A generated Model's attributes are fixed when it's first used, and checked then.
     if (hasSettledAttributes(this)) checkValidatedNames(this, validation);
+    declare(this, "validations", validation);
+  }
+
+  /**
+   * Declares that an association's records must be valid too, e.g.
+   * `this.validatesAssociated("posts")` in `static {}`: an invalid one adds "is invalid" to the
+   * association's name. It loads the association first if it isn't loaded.
+   */
+  static validatesAssociated<C extends AbstractModelClass>(
+    this: C,
+    association: AssociationName<InstanceType<C>>,
+    options: AssociatedValidationOptions<InstanceType<C>> = {},
+  ): void {
+    const validation: Validation = {
+      attribute: association,
+      options: options as ValidationOptions<never>,
+      associated: true,
+    };
     declare(this, "validations", validation);
   }
 
