@@ -4,6 +4,12 @@ import type { Spec } from "../adapter.ts";
 
 const castDefaultTypes = ["decimal", "date", "time"] as const;
 
+/** A decimal's precision and scale, which round its default and limit it (#398). */
+export interface Digits {
+  precision?: number;
+  scale?: number;
+}
+
 /** The attribute types whose literal default is cast as an assigned value is. */
 export type CastDefaultType = (typeof castDefaultTypes)[number];
 
@@ -13,11 +19,15 @@ export function isCastDefaultType(type: string): type is CastDefaultType {
 }
 
 /**
- * A literal default's text as the attribute's value (`1.50` → `"1.5"`, `'09:30'` → `"09:30:00"`),
+ * A literal default's text as the attribute's value, with a decimal's `digits` (#398) (`1.50` → `"1.5"`, `'09:30'` → `"09:30:00"`),
  * or undefined for text the type can't hold, whose default then stays with the database.
  */
-export function castDefault(type: CastDefaultType, text: string): { literal: string } | undefined {
-  const value = castValue({ type }, text);
+export function castDefault(
+  type: CastDefaultType,
+  text: string,
+  digits: Digits = {},
+): { literal: string } | undefined {
+  const value = castValue({ type, ...digits }, text);
   // Each of these types holds its values as text.
   return value === uncastable ? undefined : { literal: value as string };
 }
