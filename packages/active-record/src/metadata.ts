@@ -76,33 +76,33 @@ type NoEnum = {
 /** An attribute that isn't a decimal: only a decimal has a precision and a scale (#398). */
 type NoDigits = { precision?: never; scale?: never };
 
-/** The spec's keys a type's branch below writes for itself. */
-type Written = "type" | "generateId" | "storage" | "enum" | "precision" | "scale";
+/** The spec's keys that only some types have, each written by the type's own branch below. */
+type PerTypeKeys = "type" | "generateId" | "storage" | "enum" | "precision" | "scale";
 
 export type AttributeSpec =
   | AttributeType
   | AnyCustomType
-  | (Omit<SpecObject, "default" | Written> & {
+  | (Omit<SpecObject, "default" | PerTypeKeys> & {
       type: "string";
       storage?: never;
       enum?: TextEnum;
     } & ValueSource &
       NoDigits)
-  | (Omit<SpecObject, Written> &
+  | (Omit<SpecObject, PerTypeKeys> &
       NoDigits & {
         type: "integer";
         generateId?: false;
         storage?: never;
         enum?: IntegerEnum;
       })
-  | (Omit<SpecObject, Written> &
+  | (Omit<SpecObject, PerTypeKeys> &
       NoEnum &
       NoDigits & {
         type: Exclude<AttributeType, "string" | "integer" | "datetime" | "decimal">;
         generateId?: false;
         storage?: never;
       })
-  | (Omit<SpecObject, Written> &
+  | (Omit<SpecObject, PerTypeKeys> &
       NoEnum & {
         type: "decimal";
         generateId?: false;
@@ -110,13 +110,13 @@ export type AttributeSpec =
         precision?: number;
         scale?: number;
       })
-  | (Omit<SpecObject, Exclude<Written, "storage">> &
+  | (Omit<SpecObject, Exclude<PerTypeKeys, "storage">> &
       NoEnum &
       NoDigits & {
         type: "datetime";
         generateId?: false;
       })
-  | (Omit<SpecObject, Written> &
+  | (Omit<SpecObject, PerTypeKeys> &
       NoEnum &
       NoDigits & {
         type: AnyCustomType;
