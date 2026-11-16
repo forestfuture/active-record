@@ -6,6 +6,7 @@ import {
 } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import { User } from "../../fixtures/models/user.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
+import { statementKinds } from "../../support/statement-kinds.ts";
 
 let database: TestDatabase;
 let dispose: () => Promise<void>;
@@ -372,10 +373,10 @@ describe("withSession(request, env.DB, options, fn)", () => {
   });
 
   test("onQuery hears the request's queries", async () => {
-    const heard: string[] = [];
-    await withSession(getRequest(), binding, { onQuery: ({ sql }) => heard.push(sql) }, count);
+    const heard: QueryEvent[] = [];
+    await withSession(getRequest(), binding, { onQuery: (event) => heard.push(event) }, count);
 
-    expect(heard).toEqual([expect.stringMatching(/^SELECT COUNT\(\*\)/)]);
+    expect(statementKinds(heard)).toEqual(["SELECT"]);
   });
 });
 
