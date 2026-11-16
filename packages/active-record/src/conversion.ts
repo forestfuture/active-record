@@ -90,9 +90,8 @@ const customConverters = new WeakMap<AnyCustomType, Converter>();
 function converterOf(attribute: Convertible): Converter {
   const stored = converters[keyOf(attribute)];
   if (attribute.customType !== undefined) return customConverterOf(attribute.customType, stored);
-  if (attribute.precision !== undefined || attribute.scale !== undefined) {
+  if (attribute.type === "decimal" && hasDigits(attribute))
     return limitedDecimalConverter(attribute);
-  }
   if (attribute.enum === undefined) return stored;
   let byType = enumConverters.get(attribute.enum);
   if (byType === undefined) {
@@ -105,6 +104,11 @@ function converterOf(attribute: Convertible): Converter {
     byType.set(stored, converter);
   }
   return converter;
+}
+
+/** Whether a decimal has a precision or a scale to round and limit it by (#398). */
+function hasDigits({ precision, scale }: Convertible): boolean {
+  return precision !== undefined || scale !== undefined;
 }
 
 /** Each precision and scale's decimal converter, by `"precision/scale"` (#398). */
