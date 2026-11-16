@@ -1,6 +1,6 @@
 ---
 title: Validations
-description: "validates with presence, absence, length, format, inclusion, exclusion, numericality, comparison, acceptance, and uniqueness, their options (allowNull, allowBlank, if, unless, message, and strict), validatesAssociated, the errors collection, adding errors with errors.add in a callback, and changing error messages."
+description: "validates with presence, absence, length, format, inclusion, exclusion, numericality, comparison, acceptance, and uniqueness, their options (allowNull, allowBlank, if, unless, message, and strict), validating only on create, on update, or in a context of your own, validatesAssociated, the errors collection, adding errors with errors.add in a callback, and changing error messages."
 ---
 
 Validations check a record before it’s saved. An invalid record isn’t saved, and its `errors` say why.
@@ -47,6 +47,7 @@ Every validation runs, in the order declared, so one attribute can collect sever
 - **`if: (record) => boolean`** validates only when it returns `true`.
 - **`unless: (record) => boolean`** skips the rule when it returns `true`. With `if` as well, both must allow it.
 - **`strict`** throws instead of adding an error. See [Raising instead of collecting errors](#raising-instead-of-collecting-errors).
+- **`on`** and **`exceptOn`** run the rule only when creating, only when updating, or in a context of your own. See [Validating only when creating or updating](#validating-only-when-creating-or-updating).
 
 The default messages are in English: “can’t be blank”, “is too short (minimum is 3 characters)”, “has already been taken”, and so on. [Finding a built-in message](#finding-a-built-in-message) lists them all, and [Changing error messages](#changing-error-messages) shows how to replace them.
 
@@ -104,6 +105,54 @@ await invoice.isValid(); // throws "Currency is not included in the list"
 
 `isValid()`, `save()`, and `saveOrThrow()` all throw it, and the validations after it don’t run. To throw an error class of your own, pass the class as `strict`, such as `strict: UnknownCurrency`. It’s made with the same message.
 
+## Validating only when creating or updating
+
+By default, a rule runs on every save. To run it only when a record is created, pass `on: "create"`:
+
+<include>/_excerpts/guide/validations/contexts.ts</include>
+
+A new record is validated in the `"create"` context, and a saved one in `"update"`. A rule with `on` runs only in the contexts it names, so `password` is checked when a member is created, and not when one is updated. To name several contexts, pass a list, such as `on: ["create", "signup"]`.
+
+`exceptOn` works the other way: the rule runs in every context except the ones it names.
+
+### Naming your own contexts
+
+For a step of your own, such as a signup form, list its name in the Model’s `static validationContexts`, with `as const`. Then pass it to `isValid` or `save`:
+
+```ts
+const member = Member.build({ email: "ada@example.com", password: "secret" });
+await member.isValid("signup"); // false: invite code can’t be blank
+await member.save({ context: "signup" });
+```
+
+Rules without `on` run in every context. A context you pass takes the place of `"create"` or `"update"`, so the `on: "create"` rules don’t run. To run both, pass both:
+
+```ts
+await member.save({ context: ["create", "signup"] });
+```
+
+`"create"` and `"update"` are always there, so list only your own. A context the Model doesn’t list is a compile error in `on` and `exceptOn`. Passed to `isValid` or `save`, it throws `TypeError`.
+
+:::note
+List contexts on each Model. A Model’s subclass shares its list, and an abstract base class can’t have one.
+:::
+
+### Validating associated records in a context
+
+When you pass a context of your own, the records validated with the owner are validated in it too. These are the records checked by `validatesAssociated`, and the records [saved with their owner](./associations#autosaving). With `"create"` or `"update"`, each record uses its own: a new record is validated in `"create"` even when its owner is updated.
+
+<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
+
+Rails accepts any context name, so a misspelled one quietly runs none of its rules. Here a Model lists its contexts, and a name it doesn’t list is a compile error or a `TypeError`.
+
+</Callout>
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`valid?(:signup)` is `isValid("signup")`, `save(context: :signup)` is `save({ context: "signup" })`, and `except_on:` is `exceptOn`.
+
+</Callout>
+
 ## Validating associated records
 
 To validate an association’s records with their owner, call `this.validatesAssociated`:
@@ -112,7 +161,7 @@ To validate an association’s records with their owner, call `this.validatesAss
 
 An invalid track makes its playlist invalid, with a “Tracks is invalid” error, and keeps its own errors. If the association isn’t loaded, validating the playlist loads it, with one query. A record marked for destruction isn’t validated. Records built through an association are [validated with their owner](./associations#autosaving) even without `validatesAssociated`.
 
-`validatesAssociated` takes `if`, `unless`, `message`, and `strict`, as `validates` does. The association’s name is typed, so a misspelled one is a compile error.
+`validatesAssociated` takes `if`, `unless`, `on`, `exceptOn`, `message`, and `strict`, as `validates` does. The association’s name is typed, so a misspelled one is a compile error.
 
 You can declare `validatesAssociated` on both sides of an association. A record that’s already being validated counts as valid, so validating either side finishes.
 

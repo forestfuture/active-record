@@ -33,6 +33,7 @@ import {
   Booking,
   errorsExample,
   Event,
+  Member,
 } from "../../../site/snippets/guide/validations.ts";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -278,6 +279,24 @@ describe("the guide's examples", () => {
       "Starts at must be on the hour",
       "The room is closed on Sundays",
     ]);
+  });
+
+  test("Validations: contexts run the rules the page says each runs", async () => {
+    const members = connect(binding).model(Member);
+    const member = members.build({ email: "ada@example.com" });
+
+    expect(await member.isValid()).toBe(false);
+    expect(member.errors.fullMessages()).toEqual(["Password can't be blank"]);
+    member.password = "secret";
+    expect(await member.isValid("signup")).toBe(false);
+    expect(member.errors.fullMessages()).toEqual(["Invite code can't be blank"]);
+    member.password = null;
+    member.inviteCode = "WELCOME";
+    expect(await member.save({ context: "signup" })).toBe(true);
+    expect(await member.isValid()).toBe(true);
+    const both = members.build({ email: "bo@example.com", inviteCode: "WELCOME" });
+    expect(await both.isValid(["create", "signup"])).toBe(false);
+    expect(both.errors.fullMessages()).toEqual(["Password can't be blank"]);
   });
 
   test("Validations: comparison with another attribute refuses an end at the start", async () => {

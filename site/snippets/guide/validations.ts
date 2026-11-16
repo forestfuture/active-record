@@ -50,6 +50,23 @@ export class Invoice extends Model.define({
 }
 // #endregion strict
 
+// #region contexts
+export class Member extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+  password: "string",
+  inviteCode: "string",
+}) {
+  static validationContexts = ["signup"] as const;
+
+  static {
+    this.validates("email", { format: /@/ });
+    this.validates("password", { presence: true, on: "create" });
+    this.validates("inviteCode", { presence: true, on: "signup" });
+  }
+}
+// #endregion contexts
+
 // #region associated
 export class Track extends Model.define({
   id: { type: "integer", null: false },
