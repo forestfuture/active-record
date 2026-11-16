@@ -83,14 +83,14 @@ describe("sessions", () => {
   });
 
   // Each of these reads starts a fresh session, so its bookmark shows whether the read used it.
-  describe("record reads go through the session", () => {
+  describe("a record's reads", () => {
     beforeEach(async () => {
       const seed = connect(binding);
       await seed.model(User).insert({ id: 1, email: "a@example.com" });
       await seed.model(Post).insert({ userId: 1, title: "Hello" });
     });
 
-    test("a uniqueness check", async () => {
+    test("a uniqueness check goes through the session", async () => {
       const validating = connect(binding, { session: "first-primary" });
       const user = validating.model(User).build({ email: "a@example.com" });
 
@@ -98,7 +98,7 @@ describe("sessions", () => {
       expect(validating.bookmark()).not.toBeNull();
     });
 
-    test("an association read", async () => {
+    test("an association read goes through the session", async () => {
       const reading = connect(binding, { session: "first-primary" });
       const post = reading.model(Post).build({ userId: 1, title: "Unsaved" });
 
@@ -106,7 +106,7 @@ describe("sessions", () => {
       expect(reading.bookmark()).not.toBeNull();
     });
 
-    test("a preload", async () => {
+    test("a preload goes through the session", async () => {
       const loading = connect(binding, { session: "first-primary" });
       const [loaded] = await loading.model(User).includes("posts").toArray();
 
