@@ -10,7 +10,11 @@ import { orderDecimal } from "./decimal-values.ts";
 import { addFailure, fullMessageOf, type Errors, type Failure } from "./errors-collection.ts";
 import { StrictValidationFailed } from "./errors.ts";
 import { attributeOf } from "./metadata.ts";
-import { isInContext, type ValidationContexts } from "./validation-context.ts";
+import {
+  isInContext,
+  type ValidationContext,
+  type ValidationContexts,
+} from "./validation-context.ts";
 import type { AttributesOf } from "./model.ts";
 
 export interface LengthOptions {
@@ -39,8 +43,11 @@ export interface UniquenessOptions<R = never> {
   caseSensitive?: boolean;
 }
 
-/** The rules for one `validates(attribute, options)` call. `R` is the Model's record type. */
-export interface ValidationOptions<R = never> {
+/**
+ * The rules for one `validates(attribute, options)` call. `R` is the Model's record type, and `X`
+ * the validation contexts it can name.
+ */
+export interface ValidationOptions<R = never, X extends string = ValidationContext> {
   /** Not null, and not blank after trimming a string. */
   presence?: boolean;
   /** Null, or blank after trimming a string: what `presence` fails ("must be blank"). */
@@ -86,14 +93,14 @@ export interface ValidationOptions<R = never> {
    * Only run these rules in this validation context, or these: `"create"` while the record is
    * new, `"update"` once it's saved, or a name given to `isValid` or `save`.
    */
-  on?: ValidationContexts;
+  on?: ValidationContexts<X>;
   /** Skip these rules in this validation context, or these, and run them in any other. */
-  exceptOn?: ValidationContexts;
+  exceptOn?: ValidationContexts<X>;
 }
 
 /** The options of a `validatesAssociated(association, options)` call. */
-export type AssociatedValidationOptions<R = never> = Pick<
-  ValidationOptions<R>,
+export type AssociatedValidationOptions<R = never, X extends string = ValidationContext> = Pick<
+  ValidationOptions<R, X>,
   "message" | "strict" | "if" | "unless" | "on" | "exceptOn"
 >;
 
