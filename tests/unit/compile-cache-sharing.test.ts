@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, mkdirSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
 import { sharedCacheFolder } from "../support/compile-cache.ts";
@@ -26,12 +26,15 @@ describe("a scratch project", () => {
   test("keeps its node_modules to itself, for the stand-in packages a test writes there", () => {
     const dir = scratch("sharing-");
     mkdirSync(join(dir, "node_modules/wrangler"), { recursive: true });
+    mkdirSync(join(dir, "node_modules/.cache/active-record"), { recursive: true });
 
     expect(lstatSync(join(dir, "node_modules")).isSymbolicLink()).toBe(false);
     expect(lstatSync(join(dir, "node_modules/.cache")).isSymbolicLink()).toBe(false);
+    expect(readdirSync(shared)).not.toContain("wrangler");
+    expect(readdirSync(join(shared, ".."))).not.toContain("active-record");
   });
 
-  test("from a file that opts out is bare, with no node_modules", () => {
+  test("is bare, with no node_modules, when its file opts out", () => {
     const dir = bare("sharing-bare-");
 
     expect(existsSync(join(dir, "node_modules"))).toBe(false);
