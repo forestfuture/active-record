@@ -3,6 +3,12 @@ import { defineRule } from "vite-plus/lint/plugins";
 import { chainRoot, isExpect } from "./test-calls.mjs";
 import { constInit, followingOnce } from "./variables.mjs";
 
+// What the rule can't follow, and leaves alone: a record in a `let` or `var`, or destructured
+// from an object; records acted on in a loop or through `Promise.all`; a call through an
+// association (`user.posts().create(…)`); a Model imported under a lowercase name; and an
+// action in a helper declared before the first `expect` and called after it. Awaits count by
+// where they're written, so one in a helper written after the first `expect` counts.
+
 /** The functions that take a test's body. */
 const testFunctions = new Set(["test", "it"]);
 
