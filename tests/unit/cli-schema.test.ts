@@ -315,6 +315,18 @@ describe("schemaOf: from migrations to table schemas", () => {
     });
   });
 
+  test("a sized decimal's default is rounded to its scale, or left to D1 past its precision (#398)", () => {
+    expect(
+      attributes(
+        "CREATE TABLE things (id INTEGER PRIMARY KEY, a DECIMAL(10, 2) DEFAULT 1.555, b DECIMAL(4, 2) DEFAULT 123.4)",
+      ),
+    ).toEqual({
+      id: { type: "integer", null: false },
+      a: { type: "decimal", precision: 10, scale: 2, default: { literal: "1.56" } },
+      b: { type: "decimal", precision: 4, scale: 2 },
+    });
+  });
+
   test("a decimal's, a date's and a time's literal defaults are copied in their one form (#391)", () => {
     expect(
       attributes(`CREATE TABLE things (

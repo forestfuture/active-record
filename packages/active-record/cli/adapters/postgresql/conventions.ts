@@ -86,33 +86,36 @@ function parsedDefault(text: string, type: "json" | "datetime"): Default | undef
 }
 
 /** A literal default as a value of the attribute's type; undefined for a function or anything else. */
-function literalDefault(sql: string | null, type: AttributeType): Default | undefined {
+function literalDefault(sql: string | null, spec: Spec): Default | undefined {
   // A spec has no literal for bytes, so a binary column's default stays with Postgres (#20).
-  if (sql === null || type === "binary") return undefined;
+  if (sql === null || spec.type === "binary") return undefined;
   const text = literalText(sql.trim());
-  return text === undefined ? undefined : defaultOf(text, type);
+  return text === undefined ? undefined : defaultOf(text, { ...spec, type: spec.type });
 }
 
 /** A literal's text, its casts taken off, as a value of the attribute's type. */
-function defaultOf(text: string, type: Exclude<AttributeType, "binary">): Default | undefined {
+function defaultOf(
+  text: string,
+  { type, precision, scale }: Spec & { type: Exclude<AttributeType, "binary"> },
+): Default | undefined {
   if (type === "boolean")
     return /^(true|false)$/i.test(text) ? { literal: /^true$/i.test(text) } : undefined;
   if (type === "integer" || type === "real") return numberDefault(text, type);
-  if (isCastDefaultType(type)) return castDefault(type, text);
+  // A decimal's is rounded to the column's scale, as an assigned value is (#398).
+  if (isCastDefaultType(type)) return castDefault(type, text, { precision, scale });
   return type === "string" ? { literal: text } : parsedDefault(text, type);
 }
 
 /** A column's spec: nullability, a mapped column name, and its default or a key made in code. */
 function specOf(column: Column, type: AttributeType, attribute: string): Spec {
-  const spec: Spec = { type };
+  const spec: Spec = withDigits({ type }, column.precision, column.scale);
   if (column.notNull || column.primaryKey) spec.null = false;
   if (underscore(attribute) !== column.name) spec.column = column.name;
   // A key's own literal default wins; any other string key is made in code (ADR-0013).
-  const defaultValue = literalDefault(column.defaultValue, type);
+  const defaultValue = literalDefault(column.defaultValue, spec);
   if (defaultValue !== undefined) spec.default = defaultValue;
   else if (column.primaryKey && type === "string") spec.generateId = true;
-  const sized = withDigits(spec, column.precision, column.scale);
-  return withGeneratedEnum(sized, column.restrictedTo);
+  return withGeneratedEnum(spec, column.restrictedTo);
 }
 
 /** A column as an attribute: its type, nullability and literal default, or why it can't be one. */
