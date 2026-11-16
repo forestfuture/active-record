@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-pl
 import {
   belongsTo,
   hasMany,
+  InvalidModel,
   Model,
   RecordInvalid,
 } from "../../packages/active-record/src/index.ts";
@@ -50,6 +51,7 @@ class Applicant extends Model.define({
   role: "string",
 }) {
   static table = "users";
+  static validationContexts = ["signup", "invite"] as const;
 
   static {
     this.validates("email", { presence: true });
@@ -68,6 +70,7 @@ class Visitor extends Model.define({
   role: "string",
 }) {
   static table = "users";
+  static validationContexts = ["signup"] as const;
 
   static {
     this.beforeValidation(() => ran.push("before on create"), { on: "create" });
@@ -93,6 +96,7 @@ class Writer extends Model.define({
   email: "string",
 }) {
   static table = "users";
+  static validationContexts = ["publish"] as const;
 
   articles = hasMany(Article, { foreignKey: "userId" });
 
@@ -107,6 +111,7 @@ class Chapter extends Model.define({
   title: { type: "string", null: false },
 }) {
   static table = "posts";
+  static validationContexts = ["publish"] as const;
 
   static {
     this.validates("title", { length: { minimum: 4 }, on: "publish" });
@@ -119,6 +124,7 @@ class Novelist extends Model.define({
   email: "string",
 }) {
   static table = "users";
+  static validationContexts = ["publish"] as const;
 
   chapters = hasMany(Chapter, { foreignKey: "userId" });
 
@@ -340,5 +346,25 @@ describe("checks that run in every context", () => {
 
     expect(await entry.isValid("publish")).toBe(false);
     expect(entry.errors.fullMessages()).toEqual(["Author must exist"]);
+  });
+});
+
+describe("a Model's validation contexts", () => {
+  test("a declaration naming a context the Model doesn't list is InvalidModel on first use", () => {
+    class Typo extends Model.define({ id: { type: "integer", null: false }, role: "string" }) {
+      static table = "users";
+      static validationContexts = ["signup"] as const;
+
+      static {
+        this.validates("role", { presence: true, on: "craete" });
+      }
+    }
+
+    expect(() => harness.connect().model(Typo)).toThrow(
+      new InvalidModel(
+        'Typo validates "role" on "craete", which isn\'t "create", "update" or one of its ' +
+          'validationContexts ("signup"); list it in static validationContexts',
+      ),
+    );
   });
 });

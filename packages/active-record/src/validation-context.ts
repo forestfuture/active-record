@@ -14,13 +14,23 @@ export interface ValidationCallbackOptions {
   on?: ValidationContexts;
 }
 
+/** The contexts each callback `inContext` made runs in, so the Model's first use can check them. */
+const callbackContexts = new WeakMap<object, readonly string[]>();
+
 /** `callback`, run only while its record is validated in one of the contexts in `on`. */
 export function inContext(
   callback: (record: Model) => unknown,
   { on }: ValidationCallbackOptions,
 ): (record: Model) => unknown {
-  return (record) =>
+  const narrowed = (record: Model) =>
     isInContext(record[state].validationContexts, { on }) ? callback(record) : undefined;
+  if (on !== undefined) callbackContexts.set(narrowed, listOf(on));
+  return narrowed;
+}
+
+/** The contexts a validation callback runs in: those of its `on`, if it has one. */
+export function contextsOfCallback(callback: object): readonly string[] {
+  return callbackContexts.get(callback) ?? [];
 }
 
 /** The options of `save` and `saveOrThrow`. */
@@ -51,7 +61,7 @@ export function customContextOf(given?: ValidationContexts): readonly string[] |
 }
 
 /** The context names a rule's `on` or `exceptOn` gives. */
-function listOf(contexts: ValidationContexts): readonly string[] {
+export function listOf(contexts: ValidationContexts): readonly string[] {
   return typeof contexts === "string" ? [contexts] : contexts;
 }
 
