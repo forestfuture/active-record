@@ -70,6 +70,14 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-vp
+      # The test projects' shared compiled-TypeScript cache, kept between runs (#416). jiti checks
+      # each entry against its source, so one restored from another commit is compiled again, not
+      # run. The shards share one key: the first to finish saves it.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: tests/.scratch/jiti-cache
+          key: jiti-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'packages/active-record/src/**', 'packages/active-record/cli/**') }}
+          restore-keys: jiti-${{ runner.os }}-
       # The blob saves the results for check; github-actions names each failing test in this log, on
       # the pull request's files, and in the run's summary, since the blob prints nothing (#402).
       - run: vp test --shard=${{ matrix.shard }}/4 --coverage --coverage.thresholds.branches=0 --reporter=blob --outputFile.blob=blob/shard-${{ matrix.shard }}.json --reporter=github-actions
