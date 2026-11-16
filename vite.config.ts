@@ -1,5 +1,10 @@
 import { defineConfig } from "vite-plus";
 
+// These tests run the `active-record` command, which loads the library through jiti from src/,
+// compiling it in each test file's first test that loads it: about 0.6 s locally, 2–5 s on CI
+// with coverage, past Vitest's 5 s default now and then (#416). An app loads it built.
+const commandTestTimeout = 15_000;
+
 export default defineConfig({
   staged: {
     "*": "vp check --fix",
@@ -27,7 +32,11 @@ export default defineConfig({
       {
         // The D1 adapter's own tests: real D1 via Miniflare, running in Node (see ADR-0002).
         extends: true,
-        test: { name: "integration:d1", include: ["tests/integration/d1/**/*.test.ts"] },
+        test: {
+          name: "integration:d1",
+          include: ["tests/integration/d1/**/*.test.ts"],
+          testTimeout: commandTestTimeout,
+        },
       },
       {
         // The portable conformance suite, once per adapter, each through its harness (#267).
@@ -56,7 +65,11 @@ export default defineConfig({
             {
               // pg-record's own tests: its clients, on Node and in workerd.
               extends: true,
-              test: { name: "integration:pg", include: ["tests/integration/pg/**/*.test.ts"] },
+              test: {
+                name: "integration:pg",
+                include: ["tests/integration/pg/**/*.test.ts"],
+                testTimeout: commandTestTimeout,
+              },
             },
           ]),
       // Real remote D1 through Wrangler's remote bindings (docs/agents/remote-smoke.md): only for
