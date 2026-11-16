@@ -76,7 +76,7 @@ export interface ValidationOptions<R = never> {
    * `errors`: for a value only a bug in the app's own code could give. An Error class is thrown
    * in its place, made with the same message.
    */
-  strict?: boolean | (new (message: string) => Error);
+  strict?: true | (new (message: string) => Error);
   /** Only run these rules when this returns true. */
   if?: (record: R) => boolean;
   /** Skip these rules when this returns true; with `if`, both must allow them. */

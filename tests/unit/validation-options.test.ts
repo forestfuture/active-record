@@ -23,6 +23,8 @@ describe("validation options' types", () => {
         this.validates("body", { presence: true, strict: RangeError });
         // @ts-expect-error a message isn't an Error class
         this.validates("body", { presence: true, strict: "is required" });
+        // @ts-expect-error strict is true or an Error class: leave it out to collect errors
+        this.validates("body", { presence: true, strict: false });
       }
     }
 
