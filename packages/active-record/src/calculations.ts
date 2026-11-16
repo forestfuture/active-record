@@ -121,7 +121,7 @@ function isOneOf(types: readonly AttributeType[], type: AttributeType): boolean 
 }
 
 /** Only numbers add up: not text, which SQLite would coerce and Postgres refuse, nor an enum. */
-function requireNumber(definition: AttributeDefinition, name: string, method: string): void {
+function requireNumber(definition: AttributeDefinition, name: string, method: Calculation): void {
   if (definition.enum === undefined && isOneOf(numberTypes, definition.type)) return;
   const kind =
     definition.enum === undefined ? `${withArticle(definition.type)} attribute` : "an enum";
@@ -129,7 +129,7 @@ function requireNumber(definition: AttributeDefinition, name: string, method: st
 }
 
 /** Only ordered values have extremes. */
-function requireOrdered(definition: AttributeDefinition, name: string, method: string): void {
+function requireOrdered(definition: AttributeDefinition, name: string, method: Calculation): void {
   if (!isOneOf(unorderedTypes, definition.type)) return;
   throw new TypeError(
     `${method}() can't compare "${name}", ${withArticle(definition.type)} attribute`,
