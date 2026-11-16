@@ -1,5 +1,6 @@
 // RecordStatement: a record's save or destroy, prepared for `db.batch`.
 import type { Model } from "./model.ts";
+import type { ValidationContexts } from "./validation-context.ts";
 
 declare const recordType: unique symbol;
 
@@ -17,15 +18,24 @@ export class RecordStatement<R extends Model = Model> {
 
   readonly #record: R;
   readonly #kind: "save" | "destroy";
+  readonly #context: ValidationContexts | undefined;
 
   /** @internal Use a Batch's `save` or `destroy`. */
-  constructor(record: R, kind: "save" | "destroy") {
+  constructor(record: R, kind: "save" | "destroy", context?: ValidationContexts) {
     this.#record = record;
     this.#kind = kind;
+    this.#context = context;
   }
 
-  /** @internal What `db.batch` needs: the record, and whether it's saved or destroyed. */
-  get [recordStatementParts](): { record: R; kind: "save" | "destroy" } {
-    return { record: this.#record, kind: this.#kind };
+  /**
+   * @internal What `db.batch` needs: the record, whether it's saved or destroyed, and the
+   * validation context a save validates it in, if given (#420).
+   */
+  get [recordStatementParts](): {
+    record: R;
+    kind: "save" | "destroy";
+    context: ValidationContexts | undefined;
+  } {
+    return { record: this.#record, kind: this.#kind, context: this.#context };
   }
 }

@@ -147,9 +147,9 @@ async function recordEntry(
   claimed: Claimed,
   needs: string,
 ): Promise<PreparedEntry> {
-  const { record, kind } = statement[recordStatementParts];
+  const { record, kind, context } = statement[recordStatementParts];
   const plan = await (kind === "save"
-    ? prepareSave(record, claimed)
+    ? prepareSave(record, claimed, context)
     : prepareDestroy(record, claimed));
   if (plan.status !== "ready") throw refusalError(record, plan, kind);
   // Records on another database a callback brought in, refused before anything is written.

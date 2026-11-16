@@ -5,6 +5,7 @@ import { RecordStatement } from "./record-statement.ts";
 import { Relation } from "./relation.ts";
 import type { InsertOptions, Returning, UpsertOptions } from "./relation-checks.ts";
 import type { SafeSql } from "./sql.ts";
+import type { SaveOptions } from "./validation-context.ts";
 import type { ReturnedRow, Statement } from "./statement.ts";
 
 /** The library's key for closing a Batch once its callback has returned. */
@@ -34,10 +35,11 @@ export class Batch {
   /**
    * Saves `record`, its autosaved associations included. Its validations and before-callbacks
    * run when the batch runs, before anything is written, and its after-callbacks once it is.
+   * `context` validates it in that context (`"signup"`), as `save({ context })` does.
    */
-  save<R extends Model>(record: R): RecordStatement<R> {
+  save<R extends Model>(record: R, options: SaveOptions = {}): RecordStatement<R> {
     this.#requireOpen();
-    return new RecordStatement(record, "save");
+    return new RecordStatement(record, "save", options.context);
   }
 
   /** Destroys `record`, with its dependents, its callbacks running as `save`'s do. */

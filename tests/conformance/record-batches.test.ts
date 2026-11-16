@@ -247,3 +247,52 @@ describe("saving and destroying records in a batch", () => {
     expect(user.isNewRecord()).toBe(true);
   });
 });
+
+describe("a validation context in a batch", () => {
+  class Draft extends Model.define({
+    id: { type: "integer", null: false },
+    userId: { type: "integer", null: false },
+    title: { type: "string", null: false },
+  }) {
+    static table = "posts";
+    static validationContexts = ["signup"] as const;
+
+    static {
+      this.validates("title", { length: { minimum: 4 }, on: "signup" });
+    }
+  }
+
+  class Member extends Model.define({
+    id: { type: "integer", null: false },
+    email: { type: "string", null: false },
+    role: "string",
+  }) {
+    static table = "users";
+    static validationContexts = ["signup"] as const;
+
+    drafts = hasMany(Draft, { foreignKey: "userId" });
+
+    static {
+      this.validates("role", { presence: true, on: "signup" });
+    }
+  }
+
+  let harness: Harness;
+
+  beforeAll(async () => {
+    harness = await openHarness();
+  });
+  afterAll(() => harness.dispose());
+  beforeEach(() => harness.reset("posts", "users"));
+
+  test("b.save validates its record in the context given", async () => {
+    const database = harness.connect();
+    const member = database.model(Member).build({ email: "a@example.com" });
+
+    await expect(database.batch((b) => [b.save(member, { context: "signup" })])).rejects.toThrow(
+      RecordInvalid,
+    );
+    expect(member.errors.get("role")).toEqual(["can't be blank"]);
+    expect(await database.model(Member).count()).toBe(0);
+  });
+});
