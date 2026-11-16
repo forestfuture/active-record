@@ -377,14 +377,14 @@ export function compileCalculation(
   dialect: Dialect,
   query: QueryDescription,
   calculation: Calculation,
-  of: string | SafeSql,
+  operand: string | SafeSql,
 ): CompiledSql {
   // The fragment's values come first, as its SQL does.
   const params: unknown[] = [];
   const expression =
-    of instanceof SafeSql
-      ? compileFragment(of, query.model, params)
-      : quoteIdentifier(attributeFor(query.model, of).column);
+    operand instanceof SafeSql
+      ? compileFragment(operand, query.model, params)
+      : quoteIdentifier(attributeFor(query.model, operand).column);
   const toCalculate = { ...queryToCount(query), select: undefined };
   const alias = quoteIdentifier(valuesAlias(query.model));
   const inner = compileSelect(dialect, toCalculate, `${expression} AS ${alias}`);

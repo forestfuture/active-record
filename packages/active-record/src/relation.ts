@@ -58,8 +58,8 @@ import type { ReturnedRow, WriteResult } from "./statement.ts";
 import { preparedWrites, type PreparedWrites } from "./prepared-writes.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
 import {
-  calculate,
   count,
+  runCalculation,
   pluck,
   type CalculatedValue,
   type ValueSource,
@@ -495,26 +495,26 @@ export class Relation<M extends Model, S = {}> {
 
   /** The total of `attribute`'s values over the records, leaving out NULLs; 0 with none. */
   async sum<K extends NumberAttribute<M> | SafeSql>(attribute: K): Promise<CalculatedValue<M, K>> {
-    return (await calculate(this.#valueSource(), "sum", attribute)) as never;
+    return (await runCalculation(this.#valueSource(), "sum", attribute)) as never;
   }
 
   /** The mean of `attribute`'s values over the records, leaving out NULLs; null with none. */
   async average(attribute: NumberAttribute<M> | SafeSql): Promise<number | null> {
-    return (await calculate(this.#valueSource(), "average", attribute)) as number | null;
+    return (await runCalculation(this.#valueSource(), "average", attribute)) as number | null;
   }
 
   /** The least of `attribute`'s values over the records, leaving out NULLs; null with none. */
   async minimum<K extends OrderedAttribute<M> | SafeSql>(
     attribute: K,
   ): Promise<CalculatedValue<M, K, unknown> | null> {
-    return (await calculate(this.#valueSource(), "minimum", attribute)) as never;
+    return (await runCalculation(this.#valueSource(), "minimum", attribute)) as never;
   }
 
   /** The greatest of `attribute`'s values over the records, leaving out NULLs; null with none. */
   async maximum<K extends OrderedAttribute<M> | SafeSql>(
     attribute: K,
   ): Promise<CalculatedValue<M, K, unknown> | null> {
-    return (await calculate(this.#valueSource(), "maximum", attribute)) as never;
+    return (await runCalculation(this.#valueSource(), "maximum", attribute)) as never;
   }
 
   /**
@@ -537,7 +537,7 @@ export class Relation<M extends Model, S = {}> {
   async calculate(operation: Operation, attribute?: string | SafeSql): Promise<unknown> {
     const named = requireOperation(operation);
     if (named === "count") return count(this.#valueSource(), attribute as string | undefined);
-    return calculate(this.#valueSource(), named, attribute as string | SafeSql);
+    return runCalculation(this.#valueSource(), named, attribute as string | SafeSql);
   }
 
   /** What `count`, `pluck` and the calculations read values from: this Relation's. */

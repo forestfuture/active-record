@@ -68,14 +68,16 @@ export async function pluck(
  * fragment, a sum is a number, and a minimum or maximum the value the database returned. An
  * average is a number. With no rows, all but a sum are `null`.
  */
-export async function calculate(
+export async function runCalculation(
   { query, dialect, runner }: ValueSource,
   calculation: Calculation,
-  of: string | SafeSql,
+  operand: string | SafeSql,
 ): Promise<unknown> {
   const read =
-    of instanceof SafeSql ? readUntyped(query, calculation, of) : readAs(query, calculation, of);
-  const [row] = await runner.rows(() => compileCalculation(dialect(), query, calculation, of));
+    operand instanceof SafeSql
+      ? readUntyped(query, calculation, operand)
+      : readAs(query, calculation, operand);
+  const [row] = await runner.rows(() => compileCalculation(dialect(), query, calculation, operand));
   const cell = row?.["value"] ?? (calculation === "sum" ? 0 : null);
   if (cell === null) return null;
   return calculation === "average" ? Number(cell) : read(cell);
