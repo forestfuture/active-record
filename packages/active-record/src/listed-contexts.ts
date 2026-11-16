@@ -1,6 +1,6 @@
 // A Model's own validation contexts (#51): `static validationContexts`, and refusing a context it doesn't list.
 import { ancestors } from "./ancestors.ts";
-import { declared } from "./declarations.ts";
+import { declaredByClass } from "./declarations.ts";
 import { InvalidModel } from "./errors.ts";
 import { isBase } from "./generated-model.ts";
 import { contextsOfCallback, listOf, type ValidationContexts } from "./validation-context.ts";
@@ -30,19 +30,40 @@ function unlisted(model: { name: string }, what: string, name: string): InvalidM
   );
 }
 
-/** Each context a Model's validations and validation callbacks name, with what names it. */
-function namedContexts(model: object): { what: string; contexts: readonly string[] }[] {
-  const validations = declared(model, "validations").map(({ attribute, options, associated }) => ({
-    what: associated ? ` validates the associated "${attribute}"` : ` validates "${attribute}"`,
-    contexts: [options.on ?? [], options.exceptOn ?? []].flatMap(listOf),
-  }));
-  const callbacks = (["beforeValidation", "afterValidation"] as const).flatMap((kind) =>
-    declared(model, kind).map((callback) => ({
-      what: `'s ${kind} runs`,
-      contexts: contextsOfCallback(callback),
+/** A context named by a Model's validations or validation callbacks: the class that named it, and how. */
+interface Named {
+  from: { name: string };
+  what: string;
+  contexts: readonly string[];
+}
+
+/** Each context a Model's validations and validation callbacks name, by the class declaring each. */
+function namedContexts(model: object): Named[] {
+  const validations = declaredByClass(model, "validations").flatMap(({ from, values }) =>
+    values.map(({ attribute, options, associated }) => ({
+      from: from as { name: string },
+      what: associated ? ` validates the associated "${attribute}"` : ` validates "${attribute}"`,
+      contexts: [options.on ?? [], options.exceptOn ?? []].flatMap(listOf),
     })),
   );
+  const callbacks = (["beforeValidation", "afterValidation"] as const).flatMap((kind) =>
+    declaredByClass(model, kind).flatMap(({ from, values }) =>
+      values.map((callback) => ({
+        from: from as { name: string },
+        what: `'s ${kind} runs`,
+        contexts: contextsOfCallback(callback),
+      })),
+    ),
+  );
   return [...validations, ...callbacks];
+}
+
+/** A context named on an abstract base class, which has only `"create"` and `"update"`. */
+function namedOnBase({ from, what }: Named, name: string): InvalidModel {
+  return new InvalidModel(
+    `${from.name}${what} on "${name}", but an abstract base class has only "create" and "update"; ` +
+      `declare it on each Model that lists "${name}"`,
+  );
 }
 
 /**
@@ -57,10 +78,12 @@ export function rejectUnlistedContexts(model: { name: string }): void {
       );
     }
   }
-  const known = knownBy(model);
-  for (const { what, contexts } of namedContexts(model)) {
-    const name = contexts.find((context) => !known.includes(context));
-    if (name !== undefined) throw unlisted(model, what, name);
+  for (const named of namedContexts(model)) {
+    const onBase = isBase(named.from);
+    const known = onBase ? BUILT_IN : knownBy(model);
+    const name = named.contexts.find((context) => !known.includes(context));
+    if (name === undefined) continue;
+    throw onBase ? namedOnBase(named, name) : unlisted(model, named.what, name);
   }
 }
 
