@@ -14,11 +14,13 @@ export interface ValidationPass {
   readonly validities: Map<Model, Validity>;
   /** Each record being validated, and the row of each saved one, since a load gives a copy. */
   readonly inProgress: Set<unknown>;
+  /** The associations `validatesAssociated` found invalid, by owner: autosave doesn't add theirs. */
+  readonly invalidAssociations: Map<Model, Set<string>>;
 }
 
 /** A pass for validating `record` and the records validated with it. */
 export function newPass(): ValidationPass {
-  return { validities: new Map(), inProgress: new Set() };
+  return { validities: new Map(), inProgress: new Set(), invalidAssociations: new Map() };
 }
 
 /** Runs `validate` with `record` marked as being validated in `pass`. */
@@ -76,7 +78,16 @@ export async function isAssociationValid(
     if (record[state].isMarkedForDestruction) continue;
     if ((await validityOf(record, claimed, pass)) !== "valid") valid = false;
   }
+  if (!valid) {
+    const names = pass.invalidAssociations.get(owner) ?? new Set();
+    pass.invalidAssociations.set(owner, names.add(name));
+  }
   return valid;
+}
+
+/** Whether `validatesAssociated` found the owner's association invalid in this pass. */
+export function isReportedInvalid(pass: ValidationPass, owner: Model, name: string): boolean {
+  return pass.invalidAssociations.get(owner)?.has(name) === true;
 }
 
 /** The association's records: a hasMany's, or a belongsTo's or hasOne's one, if it has one. */

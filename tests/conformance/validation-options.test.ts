@@ -509,3 +509,25 @@ describe("validatesAssociated through a cycle", () => {
     expect(note.errors.fullMessages()).toEqual(["Title can't be blank"]);
   });
 });
+
+describe("autosave's error beside the app's own", () => {
+  test("an error the app adds to the association doesn't stand in for autosave's", async () => {
+    class Desk extends Model.define({
+      id: { type: "integer", null: false },
+      email: "string",
+    }) {
+      static table = "users";
+
+      posts = hasMany(Post, { foreignKey: "userId" });
+
+      static {
+        this.beforeValidation((desk) => desk.errors.add("posts", "need an editor"));
+      }
+    }
+    const desk = harness.connect().model(Desk).build({ email: "a@example.com" });
+    desk.posts().build({ title: " " });
+
+    expect(await desk.isValid()).toBe(false);
+    expect(desk.errors.fullMessages()).toEqual(["Posts need an editor", "Posts is invalid"]);
+  });
+});

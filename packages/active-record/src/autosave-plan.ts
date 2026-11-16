@@ -19,7 +19,7 @@ import {
   type Ready,
   type SavePlan,
 } from "./lifecycle.ts";
-import { validityOf, type ValidationPass } from "./associated-validation.ts";
+import { isReportedInvalid, validityOf, type ValidationPass } from "./associated-validation.ts";
 import { prepareLeaving } from "./dependents.ts";
 import { addFailure } from "./errors-collection.ts";
 import type { Model } from "./model.ts";
@@ -81,15 +81,10 @@ async function validateEach(
   }
   for (const name of invalid) {
     // Once, though `validatesAssociated` found it invalid too (#343).
-    if (!hasInvalid(owner, name)) owner[state].errors.add(name, { type: "invalid" });
+    if (!isReportedInvalid(pass, owner, name)) {
+      owner[state].errors.add(name, { type: "invalid" });
+    }
   }
-}
-
-/** Whether the owner already has an "invalid" error on the association. */
-function hasInvalid(owner: Model, name: string): boolean {
-  return owner[state].errors
-    .toArray()
-    .some(({ attribute, type }) => attribute === name && type === "invalid");
 }
 
 /** Copies the record's errors onto the owner, each under the association's name. */
