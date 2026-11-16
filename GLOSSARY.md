@@ -229,5 +229,5 @@ Saving a **Record** also saves the new records of its **Associations**, validate
 _Avoid_: Nested save, cascade save
 
 **Record statement**:
-A **Record**'s save or destroy as part of a **Batch** (`b.save(user)`, `b.destroy(post)`; a save can take a **Validation context**, `b.save(user, { context: "signup" })`). Unlike a **Statement**, it isn't compiled in advance: the record's validations and callbacks run when the batch runs. It's never run by being awaited.
+A **Record**'s save or destroy as part of a **Batch** (`b.save(user)`, `b.destroy(post)`). A save can take a **Validation context**: `b.save(user, { context: "signup" })`. Unlike a **Statement**, it isn't compiled in advance: the record's validations and callbacks run when the batch runs. It's never run by being awaited.
 _Avoid_: Pending save, deferred write
