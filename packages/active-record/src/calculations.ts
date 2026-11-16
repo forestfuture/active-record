@@ -70,17 +70,22 @@ export async function calculate(
   calculation: Calculation,
   of: string | SafeSql,
 ): Promise<unknown> {
-  const read = of instanceof SafeSql ? readUntyped(query, of) : readAs(query, calculation, of);
+  const read =
+    of instanceof SafeSql ? readUntyped(query, calculation, of) : readAs(query, calculation, of);
   const [row] = await runner.rows(() => compileCalculation(dialect(), query, calculation, of));
   const cell = row?.["value"] ?? (calculation === "sum" ? 0 : null);
   if (cell === null) return null;
-  return calculation === "average" ? Number(cell) : read(calculation, cell);
+  return calculation === "average" ? Number(cell) : read(cell);
 }
 
 /** How a fragment's result reads: a sum as a number, an extreme as it is; checked first. */
-function readUntyped(query: QueryDescription, fragment: SafeSql): ResultReader {
+function readUntyped(
+  query: QueryDescription,
+  calculation: Calculation,
+  fragment: SafeSql,
+): ResultReader {
   checkFragment(query.model, fragment);
-  return (calculation, cell) => (calculation === "sum" ? Number(cell) : cell);
+  return (cell) => (calculation === "sum" ? Number(cell) : cell);
 }
 
 /**
@@ -101,7 +106,7 @@ function readAs(
   }
   // A decimal reads its text; an integer's sum on Postgres needs its number (a custom type's too).
   const isNumber = definition.type === "integer" || definition.type === "real";
-  return (_calculation, cell) => resolved.read(isNumber ? numberCell(cell) : cell);
+  return (cell) => resolved.read(isNumber ? numberCell(cell) : cell);
 }
 
 /** The types a sum or an average takes; a custom type stored as one of them too. */
@@ -184,7 +189,7 @@ export type CalculatedValue<M, K, Fragment = number> = K extends SafeSql
   : NonNullable<AttributesOf<M>[K & keyof AttributesOf<M>]>;
 
 /** Reads a calculation's result, which isn't null. */
-type ResultReader = (calculation: Calculation, cell: unknown) => unknown;
+type ResultReader = (cell: unknown) => unknown;
 
 /**
  * A number's cell: Postgres sums a `bigint` as `numeric`, which reads as text, so a whole
