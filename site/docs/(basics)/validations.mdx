@@ -102,21 +102,29 @@ const invoice = Invoice.build({ total: 1200, currency: "GBP" });
 await invoice.isValid(); // throws "Currency is not included in the list"
 ```
 
-`isValid()`, `save()`, and `saveOrThrow()` all throw it, and the validations after it don’t run. To throw an error class of your own, pass it: `strict: UnknownCurrency`. It’s made with the same message.
+`isValid()`, `save()`, and `saveOrThrow()` all throw it, and the validations after it don’t run. To throw an error class of your own, pass the class as `strict`, such as `strict: UnknownCurrency`. It’s made with the same message.
 
 ## Validating associated records
 
-Records built through an association are already [validated with their owner](./associations#autosaving). To validate an association’s other records too, such as the ones it loaded, call `this.validatesAssociated`:
+To validate an association’s records with their owner, call `this.validatesAssociated`:
 
 <include>/_excerpts/guide/validations/associated.ts</include>
 
-An invalid track makes its playlist invalid, with a “Tracks is invalid” error, and keeps its own errors. If the association isn’t loaded, validating the playlist loads it, with one query. A record marked for destruction isn’t validated.
+An invalid track makes its playlist invalid, with a “Tracks is invalid” error, and keeps its own errors. If the association isn’t loaded, validating the playlist loads it, with one query. A record marked for destruction isn’t validated. Records built through an association are [validated with their owner](./associations#autosaving) without it.
 
 `validatesAssociated` takes `if`, `unless`, `message`, and `strict`, as `validates` does. The association’s name is typed, so a misspelled one is a compile error.
+
+You can declare `validatesAssociated` on both sides of an association. A record that’s already being validated counts as valid, so validating either side finishes.
+
+:::note
+Each track is validated with its own rules and callbacks, so a `uniqueness` rule on a track sends a query for every track. Use `validatesAssociated` on associations that stay small.
+:::
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
 When `validates_associated` and autosave both check a record, Rails validates it twice and adds “is invalid” twice. Here it’s validated once, with one error.
+
+Rails’ `validates_associated` on both sides of an association recurses until the stack overflows. Here the record already being validated counts as valid.
 
 </Callout>
 
