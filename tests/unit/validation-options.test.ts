@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vite-plus/test";
-import { Model, type AssociatedValidationOptions } from "../../packages/active-record/src/index.ts";
+import {
+  hasMany,
+  Model,
+  type AssociatedValidationOptions,
+} from "../../packages/active-record/src/index.ts";
 
 describe("validation options' types", () => {
   test("unless receives the Model's record", () => {
@@ -43,5 +47,26 @@ describe("validation options' types", () => {
     const refused: AssociatedValidationOptions<Shelf> = { allowNull: true };
 
     expect([options.message, refused]).toHaveLength(2);
+  });
+
+  test("validatesAssociated takes only the Model's association names", () => {
+    class Book extends Model.define({ id: "integer", shelfId: "integer" }) {
+      static table = "books";
+    }
+    class Shelf extends Model.define({ id: "integer", label: "string" }) {
+      static table = "shelves";
+
+      books = hasMany(Book);
+
+      static {
+        this.validatesAssociated("books");
+        // @ts-expect-error "label" is an attribute, not an association
+        this.validatesAssociated("label");
+        // @ts-expect-error "book" isn't one of Shelf's associations
+        this.validatesAssociated("book");
+      }
+    }
+
+    expect(Shelf.name).toBe("Shelf");
   });
 });
