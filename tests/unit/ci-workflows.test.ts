@@ -138,7 +138,7 @@ describe("CI's tests (#365)", () => {
     expect(upload).toContain("if: ${{ !cancelled() }}");
   });
 
-  // A rerun's results take the failed attempt's place, or check can merge the old ones (#410).
+  // Otherwise check can merge the failed attempt's results (#410).
   test("replace a failed attempt's results when a shard is rerun (#410)", () => {
     const upload = uploadStep();
 
