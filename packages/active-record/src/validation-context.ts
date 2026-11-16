@@ -67,7 +67,7 @@ export function contextsOf(record: Model, given?: ValidationContexts): readonly 
  * The contexts given, as a list, if any is custom: not `"create"` or `"update"`. Only such a context
  * reaches the records validated with a record.
  */
-export function customContextOf(given?: ValidationContexts): readonly string[] | undefined {
+export function customContextsOf(given?: ValidationContexts): readonly string[] | undefined {
   if (given === undefined) return undefined;
   const contexts = listOf(given);
   return contexts.some((context) => !BUILT_IN_CONTEXTS.includes(context)) ? contexts : undefined;
