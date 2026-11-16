@@ -36,6 +36,13 @@ export function castTime(value: unknown): unknown {
   const match = timeText.exec(value);
   if (match === null) return uncastable;
   const [, hours, minutes, seconds = "00", fraction = ""] = match;
-  const digits = fraction.replace(/0+$/, "");
+  const digits = withoutTrailingZeros(fraction);
   return `${hours}:${minutes}:${seconds}${digits === "" ? "" : `.${digits}`}`;
+}
+
+/** `digits` without the zeros it ends with, found by a loop rather than an unanchored `0+$`. */
+function withoutTrailingZeros(digits: string): string {
+  let end = digits.length;
+  while (digits[end - 1] === "0") end--;
+  return digits.slice(0, end);
 }
