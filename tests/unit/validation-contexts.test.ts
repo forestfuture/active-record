@@ -108,6 +108,26 @@ describe("a Model's validation contexts", () => {
     );
   });
 
+  test("an inherited declaration's error names the list it was checked against", () => {
+    class Invite extends Model.define({ id: "integer", role: "string" }) {
+      static table = "invites";
+      static validationContexts = ["signup", "invite"] as const;
+      static {
+        this.validates("role", { presence: true, on: "invite" });
+      }
+    }
+    class Signup extends Invite {}
+    // Only plain JavaScript (or a cast) can narrow an inherited list: TypeScript refuses it.
+    Object.defineProperty(Signup, "validationContexts", { value: ["signup"] });
+
+    expect(() => db.model(Signup)).toThrow(
+      new InvalidModel(
+        'Invite validates "role" on "invite", which isn\'t "create", "update" or one of ' +
+          'Signup\'s validationContexts ("signup"); list it in static validationContexts',
+      ),
+    );
+  });
+
   test("a validation callback naming a context the Model doesn't list is InvalidModel", () => {
     class Draft extends Model.define({ id: "integer", body: "string" }) {
       static table = "notes";
