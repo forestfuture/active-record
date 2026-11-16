@@ -362,6 +362,30 @@ function countOver(inner: CompiledSql, counted: string): CompiledSql {
   return { ...inner, sql: `SELECT COUNT(${counted}) AS count FROM (${inner.sql}) AS counted` };
 }
 
+/** The SQL aggregate each calculation compiles to (#344). */
+const AGGREGATES = { sum: "SUM", average: "AVG", minimum: "MIN", maximum: "MAX" } as const;
+
+/** A calculation over an attribute's values: `sum`, `average`, `minimum` or `maximum` (#344). */
+export type Calculation = keyof typeof AGGREGATES;
+
+/**
+ * A calculation over the rows `toArray()` would return, as `count()` counts them: the attribute's
+ * values are selected in a subquery, with the Relation's conditions, its `distinct`, and its order,
+ * limit and offset when a limit or offset picks the rows. A sum of no rows is 0.
+ */
+export function compileCalculation(
+  dialect: Dialect,
+  query: QueryDescription,
+  calculation: Calculation,
+  attribute: string,
+): CompiledSql {
+  const column = quoteIdentifier(attributeFor(query.model, attribute).column);
+  const inner = compileSelect(dialect, { ...queryToCount(query), select: undefined }, column);
+  const aggregate = `${AGGREGATES[calculation]}(${column})`;
+  const value = calculation === "sum" ? `COALESCE(${aggregate}, 0)` : aggregate;
+  return { ...inner, sql: `SELECT ${value} AS value FROM (${inner.sql}) AS calculated` };
+}
+
 /** Whether a limit or offset picks which rows `query` describes. */
 function hasLimitOrOffset(query: QueryDescription): boolean {
   return query.limit !== undefined || query.offset !== undefined;

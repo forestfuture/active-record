@@ -1,13 +1,10 @@
 // Relation: the chainable query (`where`, `order`, …), its finders, terminals, and bulk writes.
 import { jointly } from "./executor.ts";
 import { shownKey } from "./filtering.ts";
-import { attributeFor, castInherited } from "./attribute.ts";
+import { castInherited } from "./attribute.ts";
 import {
-  compileColumns,
-  compileCount,
   compileDeleteAll,
   compileExists,
-  compileSelect,
   compileUpdateAll,
   querySql,
   type Conflict,
@@ -61,6 +58,7 @@ import { insertStatement, runAlone, Statement } from "./statement.ts";
 import type { ReturnedRow, WriteResult } from "./statement.ts";
 import { preparedWrites, type PreparedWrites } from "./prepared-writes.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
+import { calculate, count, pluck, type CalculationContext } from "./calculations.ts";
 
 declare const scopeTypes: unique symbol;
 
@@ -507,10 +505,20 @@ export class Relation<M extends Model, S = {}> {
 
   /** The number of matching records, or of non-null values of `attribute`. */
   async count(attribute?: keyof AttributesOf<M> & string): Promise<number> {
-    if (attribute !== undefined) attributeFor(this.#model, attribute); // on none() too
-    const counting = () => compileCount(this.#dialect, this.#query, attribute);
-    const [row] = await this.#runner.rows(counting);
-    return Number(row?.["count"] ?? 0);
+    return count(this.#calculating(), attribute);
+  }
+
+  /** The total of `attribute`'s values over the records, leaving out NULLs; 0 with none. */
+  async sum<K extends keyof AttributesOf<M> & string>(
+    attribute: K,
+  ): Promise<NonNullable<AttributesOf<M>[K]>> {
+    return (await calculate(this.#calculating(), "sum", attribute)) as never;
+  }
+
+  /** What a calculation or `pluck` reads: this Relation's query, database, and loaded records. */
+  #calculating(): CalculationContext {
+    const [dialect, cached] = [() => this.#dialect, () => this.#cached()];
+    return { query: this.#query, dialect, runner: this.#runner, cached };
   }
 
   /**
@@ -555,21 +563,7 @@ export class Relation<M extends Model, S = {}> {
     ],
   >(...attributes: K): Promise<{ -readonly [I in keyof K]: AttributesOf<M>[K[I]] }[]>;
   async pluck(...attributes: string[]): Promise<unknown[]> {
-    if (attributes.length === 0) throw new TypeError("pluck() needs at least one attribute");
-    const resolved = attributes.map((name) => attributeFor(this.#model, name));
-    const cached = this.#cached();
-    const values =
-      cached === undefined
-        ? (
-            await this.#runner.rows(() =>
-              compileSelect(this.#dialect, this.#query, compileColumns(this.#model, attributes)),
-            )
-          ).map((row) => resolved.map((attribute) => attribute.read(row[attribute.column])))
-        : cached.map((record) =>
-            // Copies, as a query would give, never the records' own objects.
-            resolved.map((attribute) => attribute.copy(Reflect.get(record, attribute.name))),
-          );
-    return attributes.length === 1 ? values.map(([value]) => value) : values;
+    return pluck(this.#calculating(), attributes);
   }
 
   /**
