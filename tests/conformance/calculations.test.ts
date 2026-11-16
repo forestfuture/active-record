@@ -300,4 +300,24 @@ describe("calculations (#344)", () => {
       expect(events).toEqual([]);
     });
   });
+
+  describe("calculate", () => {
+    test("runs the calculation its operation names", async () => {
+      await seedReviews(["a", 3, 1.5], ["b", 4, 2], ["c", null, 0.25]);
+
+      expect(await reviews().calculate("count")).toBe(3);
+      expect(await reviews().calculate("count", "rating")).toBe(2);
+      expect(await reviews().calculate("sum", "rating")).toBe(7);
+      expect(await reviews().calculate("average", "score")).toBe(1.25);
+      expect(await reviews().calculate("minimum", "rating")).toBe(3);
+      expect(await reviews().calculate("maximum", sql`${column("rating")} + 1`)).toBe(5);
+    });
+
+    test("rejects an operation it doesn't know with TypeError, before any query", async () => {
+      await expect(reviews().calculate(untyped("median"), "rating")).rejects.toThrow(
+        'calculate() takes "count", "sum", "average", "minimum" or "maximum", not "median"',
+      );
+      expect(events).toEqual([]);
+    });
+  });
 });
