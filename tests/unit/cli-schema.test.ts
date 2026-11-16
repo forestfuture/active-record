@@ -291,6 +291,14 @@ describe("schemaOf: from migrations to table schemas", () => {
     expect(plain.f).not.toHaveProperty("default");
   });
 
+  test("a declared type's size may span lines (#404)", () => {
+    expect(
+      attributes("CREATE TABLE things (id INTEGER PRIMARY KEY, price DECIMAL(10,\n 2))").price,
+    ).toEqual({
+      type: "decimal",
+    });
+  });
+
   test("a decimal's, a date's and a time's literal defaults are copied in their one form (#391)", () => {
     expect(
       attributes(`CREATE TABLE things (
