@@ -295,4 +295,16 @@ describe("a validation context in a batch", () => {
     expect(member.errors.get("role")).toEqual(["can't be blank"]);
     expect(await database.model(Member).count()).toBe(0);
   });
+
+  test("the context reaches the records a batched save autosaves", async () => {
+    const database = harness.connect();
+    const member = database.model(Member).build({ email: "a@example.com", role: "reader" });
+    const draft = member.drafts().build({ title: "Hi" });
+
+    await expect(database.batch((b) => [b.save(member, { context: "signup" })])).rejects.toThrow(
+      RecordInvalid,
+    );
+    expect(draft.errors.get("title")).toEqual(["is too short (minimum is 4 characters)"]);
+    expect(await database.model(Member).count()).toBe(0);
+  });
 });
