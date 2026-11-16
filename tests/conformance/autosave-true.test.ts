@@ -307,8 +307,7 @@ describe("autosave: true (#37)", () => {
 
     await author.saveOrThrow();
 
-    const writes = events.filter(({ sql }) => !sql.startsWith("SELECT"));
-    expect(statementKinds(writes)).toEqual(["UPDATE"]);
+    expect(statementKinds(events).filter((kind) => kind !== "SELECT")).toEqual(["UPDATE"]);
   });
 
   test("without autosave: true, a changed loaded record isn't saved", async () => {
