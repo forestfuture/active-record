@@ -369,21 +369,31 @@ const AGGREGATES = { sum: "SUM", average: "AVG", minimum: "MIN", maximum: "MAX" 
 export type Calculation = keyof typeof AGGREGATES;
 
 /**
- * A calculation over the rows `toArray()` would return, as `count()` counts them: the attribute's
- * values are selected in a subquery, with the Relation's conditions, its `distinct`, and its order,
+ * A calculation over the rows `toArray()` would return, as `count()` counts them: the values of
+ * the attribute or the fragment's expression are selected in a subquery, with the Relation's conditions, its `distinct`, and its order,
  * limit and offset when a limit or offset picks the rows. A sum of no rows is 0.
  */
 export function compileCalculation(
   dialect: Dialect,
   query: QueryDescription,
   calculation: Calculation,
-  attribute: string,
+  of: string | SafeSql,
 ): CompiledSql {
-  const column = quoteIdentifier(attributeFor(query.model, attribute).column);
-  const inner = compileSelect(dialect, { ...queryToCount(query), select: undefined }, column);
-  const aggregate = `${AGGREGATES[calculation]}(${column})`;
+  // The fragment's values come first, as its SQL does.
+  const params: unknown[] = [];
+  const expression =
+    of instanceof SafeSql
+      ? compileFragment(of, query.model, params)
+      : quoteIdentifier(attributeFor(query.model, of).column);
+  const toCalculate = { ...queryToCount(query), select: undefined };
+  const inner = compileSelect(dialect, toCalculate, `${expression} AS value`);
+  const aggregate = `${AGGREGATES[calculation]}(value)`;
   const value = calculation === "sum" ? `COALESCE(${aggregate}, 0)` : aggregate;
-  return { ...inner, sql: `SELECT ${value} AS value FROM (${inner.sql}) AS calculated` };
+  return {
+    ...inner,
+    sql: `SELECT ${value} AS value FROM (${inner.sql}) AS calculated`,
+    params: [...params, ...inner.params],
+  };
 }
 
 /** Whether a limit or offset picks which rows `query` describes. */
