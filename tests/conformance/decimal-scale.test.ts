@@ -51,10 +51,13 @@ describe("a decimal's precision and scale", () => {
     expect(() => Line.build({ price: "99999999.995" })).toThrow(TypeError);
   });
 
-  test("a precision without a scale rounds to whole numbers", () => {
-    class Count extends Model.define({ id: "integer", n: { type: "decimal", precision: 3 } }) {}
+  class Count extends Model.define({ id: "integer", n: { type: "decimal", precision: 3 } }) {}
 
+  test("a precision without a scale rounds to whole numbers", () => {
     expect([Count.build({ n: "2.5" }).n, Count.build({ n: "-2.5" }).n]).toEqual(["3", "-3"]);
+  });
+
+  test("a precision without a scale refuses a whole number past its digits", () => {
     expect(() => Count.build({ n: "999.5" })).toThrow(TypeError);
   });
 

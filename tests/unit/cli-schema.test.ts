@@ -299,14 +299,21 @@ describe("schemaOf: from migrations to table schemas", () => {
 
   test("a decimal's size gives its precision and scale (#398)", () => {
     expect(
+      attributes("CREATE TABLE things (id INTEGER PRIMARY KEY, a DECIMAL(10, 2), b NUMERIC(6))"),
+    ).toMatchObject({
+      a: { type: "decimal", precision: 10, scale: 2 },
+      b: { type: "decimal", precision: 6 },
+    });
+  });
+
+  test("a bare decimal, or one whose size no NUMERIC(p, s) has, gets no precision or scale (#398)", () => {
+    expect(
       attributes(`CREATE TABLE things (
-        id INTEGER PRIMARY KEY, a DECIMAL(10, 2), b NUMERIC(6), c DECIMAL, d NUMERIC(2, 5), e DECIMAL(10.5),
+        id INTEGER PRIMARY KEY, c DECIMAL, d NUMERIC(2, 5), e DECIMAL(10.5),
         f DECIMAL(99999999999999999999), g NUMERIC(0)
       )`),
     ).toEqual({
       id: { type: "integer", null: false },
-      a: { type: "decimal", precision: 10, scale: 2 },
-      b: { type: "decimal", precision: 6 },
       c: { type: "decimal" },
       d: { type: "decimal" },
       e: { type: "decimal" },
