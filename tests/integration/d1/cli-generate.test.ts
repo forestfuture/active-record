@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { Miniflare } from "miniflare";
+import { shareCompileCache } from "../../support/compile-cache.ts";
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { runGenerate } from "../../../packages/active-record/cli/generate/command.ts";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
@@ -27,6 +28,7 @@ function project(files: Record<string, string> = {}): string {
   mkdirSync(scratch, { recursive: true });
   const dir = mkdtempSync(join(scratch, "generate-"));
   made.push(dir);
+  shareCompileCache(dir);
   const all = {
     "wrangler.jsonc": '{ "d1_databases": [{ "binding": "DB", "database_name": "shop-db" }] }',
     ...files,
@@ -244,6 +246,7 @@ describe("names", () => {
 
   test("a name that isn't letters, digits and _ is refused, and nothing is written", async () => {
     const cwd = project();
+    const before = readdirSync(cwd);
 
     expect(await generate(cwd, ["migration", "../../evil"])).toEqual({
       code: 1,
@@ -254,7 +257,7 @@ describe("names", () => {
       code: 1,
       output: "foo-bar isn't a Model name; use letters and digits, like LineItem\nWrote nothing",
     });
-    expect(readdirSync(cwd)).toEqual(["active-record.jsonc", "wrangler.jsonc"]);
+    expect(readdirSync(cwd)).toEqual(before);
   });
 });
 

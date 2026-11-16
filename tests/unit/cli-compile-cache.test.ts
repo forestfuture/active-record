@@ -4,7 +4,8 @@ import { describe, expect, onTestFinished, test, vi } from "vite-plus/test";
 import { forgetProjectFiles, projectJiti } from "../../packages/active-record/cli/project/load.ts";
 import { scratchDirs } from "../support/scratch.ts";
 
-const scratch = scratchDirs();
+// These projects are bare, with no shared cache, since the cache itself is what they test.
+const scratch = scratchDirs({ sharedCompileCache: false });
 
 /** A project with a `node_modules` folder and one TypeScript file, `note.ts`. */
 function project(source: string): string {
