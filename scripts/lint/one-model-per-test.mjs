@@ -168,8 +168,8 @@ function isClass(variable) {
 }
 
 /**
- * The statement `node` is in, where an opt-out on the line before it applies, though the
- * formatter wraps `expect(` and its `await` onto two lines.
+ * The statement `node` is in. A report starts on its first line, so an opt-out on the line
+ * before it applies even when the formatter puts `expect(` and its `await` on two lines.
  */
 function statementOf(node) {
   let at = node;
