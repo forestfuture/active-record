@@ -1,6 +1,6 @@
 ---
 title: Validations
-description: "validates with presence, absence, length, format, inclusion, exclusion, numericality, comparison, acceptance, and uniqueness, their options, the errors collection, adding errors with errors.add in a callback, and changing error messages."
+description: "validates with presence, absence, length, format, inclusion, exclusion, numericality, comparison, acceptance, and uniqueness, their options (allowNull, allowBlank, if, unless, message, and strict), validatesAssociated, the errors collection, adding errors with errors.add in a callback, and changing error messages."
 ---
 
 Validations check a record before it’s saved. An invalid record isn’t saved, and its `errors` say why.
@@ -42,8 +42,11 @@ const valid = await account.isValid();
 Every validation runs, in the order declared, so one attribute can collect several errors. Within one `validates` call, the rules run in the table’s order. Every rule also accepts these options:
 
 - **`allowNull`** skips the rule when the value is `null`. Otherwise `null` fails `presence`, `format`, `inclusion`, `numericality`, `comparison`, and `acceptance`, counts as length 0, and is never taken.
+- **`allowBlank`** skips the rule when the value is blank: `null`, or a string that’s only whitespace.
 - **`message`** replaces the default messages from that call.
 - **`if: (record) => boolean`** validates only when it returns `true`.
+- **`unless: (record) => boolean`** skips the rule when it returns `true`. With `if` as well, both must allow it.
+- **`strict`** throws instead of adding an error. See [Raising instead of collecting errors](#raising-instead-of-collecting-errors).
 
 The default messages are in English: “can’t be blank”, “is too short (minimum is 3 characters)”, “has already been taken”, and so on. [Finding a built-in message](#finding-a-built-in-message) lists them all, and [Changing error messages](#changing-error-messages) shows how to replace them.
 
@@ -64,6 +67,8 @@ Rails treats `false` as blank, so it passes `absence`. Here `false` passes `pres
 
 Rails’ `acceptance` lets `nil` pass, since its form helpers send `"0"` for an unticked checkbox. A plain HTML checkbox sends nothing, so here `null` fails.
 
+Rails’ `allow_blank` also skips `false`, `[]`, and `{}`. Here `allowBlank` skips what `presence` fails: `null` and a string that’s only whitespace.
+
 Rails’ `confirmation` isn’t here yet.
 
 </Callout>
@@ -83,6 +88,35 @@ When the function returns `null`, that bound is skipped. Validate the other attr
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
 Rails names the other attribute with a symbol, `comparison: { greater_than: :starts_at }`. Here a function does it, so the attribute’s name is typed.
+
+</Callout>
+
+### Raising instead of collecting errors
+
+For a value only a bug in your own code could set, pass `strict: true`. A failing rule then throws `StrictValidationFailed` with its full message, instead of adding an error:
+
+<include>/_excerpts/guide/validations/strict.ts</include>
+
+```ts
+const invoice = Invoice.build({ total: 1200, currency: "GBP" });
+await invoice.isValid(); // throws "Currency is not included in the list"
+```
+
+`isValid()`, `save()`, and `saveOrThrow()` all throw it, and the validations after it don’t run. To throw an error class of your own, pass it: `strict: UnknownCurrency`. It’s made with the same message.
+
+## Validating associated records
+
+Records built through an association are already [validated with their owner](./associations#autosaving). To validate an association’s other records too, such as the ones it loaded, call `this.validatesAssociated`:
+
+<include>/_excerpts/guide/validations/associated.ts</include>
+
+An invalid track makes its playlist invalid, with a “Tracks is invalid” error, and keeps its own errors. If the association isn’t loaded, validating the playlist loads it, with one query. A record marked for destruction isn’t validated.
+
+`validatesAssociated` takes `if`, `unless`, `message`, and `strict`, as `validates` does. The association’s name is typed, so a misspelled one is a compile error.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+When `validates_associated` and autosave both check a record, Rails validates it twice and adds “is invalid” twice. Here it’s validated once, with one error.
 
 </Callout>
 

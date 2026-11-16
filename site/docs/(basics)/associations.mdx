@@ -197,7 +197,7 @@ A record built through an association is saved with its owner. Build a whole gra
 
 <include>/_excerpts/guide/associations/autosave.ts</include>
 
-The built records are validated with the owner. An invalid article makes the author invalid (“Articles is invalid”), with its own errors on the article. Each built article’s `author` is the owner, without a query, even before either is saved.
+The built records are validated with the owner. An invalid article makes the author invalid (“Articles is invalid”), with its own errors on the article. To validate the records an association loaded too, use [`validatesAssociated`](./validations#validating-associated-records). Each built article’s `author` is the owner, without a query, even before either is saved.
 
 When the owner’s key is generated in code, as here, everything is written in one atomic batch. Records on [another database](./several-databases#associating-models-on-different-databases) are written there separately.
 
