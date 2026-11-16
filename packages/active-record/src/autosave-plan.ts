@@ -19,7 +19,7 @@ import {
   type Ready,
   type SavePlan,
 } from "./lifecycle.ts";
-import { validityOf, type Validated } from "./associated-validation.ts";
+import { validityOf, type ValidationPass } from "./associated-validation.ts";
 import { prepareLeaving } from "./dependents.ts";
 import { addFailure } from "./errors-collection.ts";
 import type { Model } from "./model.ts";
@@ -51,9 +51,9 @@ export interface PlannedBefore {
 export async function validateAutosaves(
   owner: Model,
   claimed: Claimed,
-  validated: Validated,
+  pass: ValidationPass,
 ): Promise<void> {
-  const each = (linked: readonly Linked[]) => validateEach(owner, linked, claimed, validated);
+  const each = (linked: readonly Linked[]) => validateEach(owner, linked, claimed, pass);
   await each(autosavedBefore(owner, claimed).saved);
   await each(autosavedAfter(owner, claimed));
 }
@@ -67,11 +67,11 @@ async function validateEach(
   owner: Model,
   linked: readonly Linked[],
   claimed: Claimed,
-  validated: Validated,
+  pass: ValidationPass,
 ) {
   const invalid = new Set<string>();
   for (const { association, record, destroys } of linked) {
-    if (destroys || (await validityOf(record, claimed, validated)) === "valid") continue;
+    if (destroys || (await validityOf(record, claimed, pass)) === "valid") continue;
     const hasErrors = !record[state].errors.isEmpty();
     if (association.definition.autosave === true && hasErrors) {
       copyErrors(owner, association, record);

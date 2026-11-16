@@ -459,3 +459,53 @@ describe("validatesAssociated's options", () => {
     );
   });
 });
+
+describe("validatesAssociated through a cycle", () => {
+  class Member extends Model.define({
+    id: { type: "integer", null: false },
+    email: "string",
+  }) {
+    static table = "users";
+
+    posts = hasMany(Note, { foreignKey: "userId" });
+
+    static {
+      this.validatesAssociated("posts");
+    }
+  }
+
+  class Note extends Model.define({
+    id: { type: "integer", null: false },
+    userId: { type: "integer", null: false },
+    title: { type: "string", null: false },
+  }) {
+    static table = "posts";
+
+    author = belongsTo(Member, { foreignKey: "userId" });
+
+    static {
+      this.validates("title", { presence: true });
+      this.validatesAssociated("author");
+    }
+  }
+
+  test("a record built through its owner, pointing back at it, ends", async () => {
+    const member = harness.connect().model(Member).build({ email: "a@example.com" });
+    member.posts().build({ title: " " });
+
+    expect(await member.isValid()).toBe(false);
+    expect(member.errors.fullMessages()).toEqual(["Posts is invalid"]);
+  });
+
+  test("records loaded on both sides end, the one being validated counting as valid", async () => {
+    await seedAuthor([" "]);
+    const db = harness.connect();
+    const member = await db.model(Member).find(1);
+    const note = await db.model(Note).find(1);
+
+    expect(await member.isValid()).toBe(false);
+    expect(member.errors.fullMessages()).toEqual(["Posts is invalid"]);
+    expect(await note.isValid()).toBe(false);
+    expect(note.errors.fullMessages()).toEqual(["Title can't be blank"]);
+  });
+});
