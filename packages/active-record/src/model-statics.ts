@@ -16,6 +16,7 @@ import type {
 } from "./model.ts";
 import type { PaginateStatic } from "./pagination.ts";
 import { destroyTogether } from "./records-together.ts";
+import type { GroupedRelation, GroupTerm } from "./grouping.ts";
 import {
   inContext,
   VALIDATION_CALLBACK_KINDS,
@@ -128,6 +129,10 @@ interface OverloadedStatics {
     ): Promise<CalculatedValue<InstanceType<C>, K, unknown> | null>;
   };
   paginate: PaginateStatic;
+  group: <C extends QueryableClass, const G extends readonly GroupTerm<InstanceType<C>>[]>(
+    this: C,
+    ...terms: G
+  ) => GroupedRelation<InstanceType<C>, G>;
   find: {
     <C extends QueryableClass>(this: C, id: string | number): Promise<InstanceType<C>>;
     <C extends QueryableClass>(
@@ -318,7 +323,8 @@ export function defineStatics(base: typeof Model): void {
       declare(this, "commitCallbacks", { kind, on, callback });
     });
   }
-  const overloaded = ["find", "pluck", "paginate", "sum", "minimum", "maximum", "calculate"];
+  const overloaded = ["find", "pluck", "paginate", "group", "sum", "minimum", "maximum"];
+  overloaded.push("calculate");
   for (const name of [...relationMethods, ...overloaded]) {
     defineStatic(base, name, function (this: QueryableClass, ...args: unknown[]): unknown {
       const relation = this.all() as unknown as Record<string, (...args: unknown[]) => unknown>;

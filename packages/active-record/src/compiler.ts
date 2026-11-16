@@ -33,17 +33,22 @@ function quoteIdentifier(name: string): string {
   return `"${name.replaceAll('"', '""')}"`;
 }
 
-/** `projection` is the SELECT list; the library builds it, never the caller. */
+/**
+ * `projection` is the SELECT list; the library builds it, never the caller. With `grouping`, the
+ * rows are grouped by the list's first columns, one for each of its terms.
+ */
 export function compileSelect(
   dialect: Dialect,
   query: QueryDescription,
   projection?: string,
+  grouping?: Grouping,
 ): CompiledSql {
   const params: unknown[] = [];
   const list = projection ?? compileColumns(query.model, query.select);
   let sql = `SELECT ${query.distinct ? "DISTINCT " : ""}${list}`;
   sql += ` FROM ${quoteIdentifier(query.model.table)}`;
   sql += compileWhere(dialect, query, params);
+  if (grouping !== undefined) sql += compileGroupBy(grouping);
   sql += compileOrder(query, params);
   sql += compilePagination(dialect, query, params);
   return { sql, params, model: query.model };
@@ -398,12 +403,39 @@ export function compileCalculation(
   };
 }
 
+/** What a Relation is grouped by (#345): its terms, in order. */
+export interface Grouping {
+  readonly terms: readonly string[];
+}
+
+/** `GROUP BY` the list's first columns, by position: one for each term. */
+function compileGroupBy({ terms }: Grouping): string {
+  return ` GROUP BY ${terms.map((_, index) => index + 1).join(", ")}`;
+}
+
+/**
+ * A count of each group's rows (#345): the groups' keys, each term's column, then the count as
+ * `valuesAlias`. The Relation's order and limit pick and order the groups.
+ */
+export function compileGrouped(
+  dialect: Dialect,
+  query: QueryDescription,
+  grouping: Grouping,
+): CompiledSql {
+  const keys = grouping.terms.map((term) =>
+    quoteIdentifier(attributeFor(query.model, term).column),
+  );
+  const projection = [...keys, `COUNT(*) AS ${quoteIdentifier(valuesAlias(query.model))}`];
+  const ungrouped = { ...query, select: undefined, distinct: false };
+  return compileSelect(dialect, ungrouped, projection.join(", "), grouping);
+}
+
 /**
  * A name for a calculation's values that none of the Model's columns has, whatever its letter
  * case: an `ORDER BY` name matches an output column before a table's, so the order's own would
  * be lost. A column the Model doesn't declare, ordered by in a fragment's raw text, isn't seen.
  */
-function valuesAlias(model: ModelClass<Model>): string {
+export function valuesAlias(model: ModelClass<Model>): string {
   const columns = new Set(
     [...model.attributeDefinitions.values()].map(({ column }) => column.toLowerCase()),
   );
