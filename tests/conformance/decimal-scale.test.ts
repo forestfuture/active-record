@@ -63,4 +63,15 @@ describe("a decimal's precision and scale", () => {
 
     expect(await lines().where({ price: "1.5551" }).pluck("label")).toEqual(["a"]);
   });
+
+  test("rounding a value up past a double's range is a TypeError, not a crash", () => {
+    class Wide extends Model.define({ id: "integer", n: { type: "decimal", scale: 0 } }) {}
+    // Half below where a double overflows (Number.MAX_VALUE and half its last place): rounding
+    // it up reaches that place, past a double.
+    const largest = `${BigInt(Number.MAX_VALUE) + 2n ** 970n - 1n}.5`;
+
+    for (const value of [largest, `-${largest}`]) {
+      expect(() => Wide.build({ n: value })).toThrow(/isn't a decimal for "n"/);
+    }
+  });
 });
