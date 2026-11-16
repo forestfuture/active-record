@@ -24,8 +24,8 @@ function returned(fn) {
 }
 
 /** Whether any of `nodes` gives SQL text, or a value read from it. */
-function isAnyReadFromSqlText(nodes, held) {
-  return nodes.some((node) => isReadFromSqlText(node, held));
+function isAnyReadFromSqlText(nodes, constValue) {
+  return nodes.some((node) => isReadFromSqlText(node, constValue));
 }
 
 /**
@@ -33,13 +33,13 @@ function isAnyReadFromSqlText(nodes, held) {
  * of a value read from it, or a callback's value (`events.map((event) => event.sql)`). SQL given
  * to a call, as the code under test, isn't.
  */
-function isCallReadFromSqlText(call, held) {
+function isCallReadFromSqlText(call, constValue) {
   // startsWith picks out a kind of statement (#400).
   if (isKey(call.callee, "startsWith")) return false;
-  if (isReadFromSqlText(call.callee, held)) return true;
+  if (isReadFromSqlText(call.callee, constValue)) return true;
   return (
     call.callee.type === "MemberExpression" &&
-    isAnyReadFromSqlText(call.arguments.filter(isFunction), held)
+    isAnyReadFromSqlText(call.arguments.filter(isFunction), constValue)
   );
 }
 
@@ -62,19 +62,19 @@ const parts = {
 };
 
 /**
- * Whether the value `node` gives is SQL text, or is read from it. `held` gives the value a `const`
- * an identifier names holds, so SQL text kept in one first is seen too.
+ * Whether the value `node` gives is SQL text, or is read from it. For an identifier naming a
+ * `const`, `constValue` gives the value it was declared with, so SQL text kept in one is seen too.
  */
-function isReadFromSqlText(node, held) {
+function isReadFromSqlText(node, constValue) {
   if (node === null || node === undefined) return false;
   if (isSqlText(node)) return true;
-  if (node.type === "Identifier") return isReadFromSqlText(held(node), held);
-  if (isFunction(node)) return isAnyReadFromSqlText(returned(node), held);
-  if (node.type === "CallExpression") return isCallReadFromSqlText(node, held);
-  return isAnyReadFromSqlText(parts[node.type]?.(node) ?? [], held);
+  if (node.type === "Identifier") return isReadFromSqlText(constValue(node), constValue);
+  if (isFunction(node)) return isAnyReadFromSqlText(returned(node), constValue);
+  if (node.type === "CallExpression") return isCallReadFromSqlText(node, constValue);
+  return isAnyReadFromSqlText(parts[node.type]?.(node) ?? [], constValue);
 }
 
-/** The `const` an identifier names, where one declares it alone: `const text = event.sql`. */
+/** The declarator of `variable`, when it's a `const` declared alone: `const text = event.sql`. */
 function constOf(variable) {
   const definitions = variable?.defs ?? [];
   if (definitions.length !== 1) return undefined;
@@ -110,17 +110,17 @@ export default defineRule({
     return {
       CallExpression(node) {
         if (!isExpect(node.callee)) return;
-        // Each const is read once, so consts that name each other can't loop.
-        const read = new Set();
-        const held = (identifier) => {
+        // Each const is followed once, so consts that name each other can't loop.
+        const followed = new Set();
+        const constValue = (identifier) => {
           const declarator = constOf(
             variableOf(context.sourceCode.getScope(identifier), identifier),
           );
-          if (declarator === undefined || read.has(declarator)) return undefined;
-          read.add(declarator);
+          if (declarator === undefined || followed.has(declarator)) return undefined;
+          followed.add(declarator);
           return declarator.init;
         };
-        if (isReadFromSqlText(node.arguments[0], held))
+        if (isReadFromSqlText(node.arguments[0], constValue))
           context.report({ node, messageId: "sqlText" });
       },
     };
