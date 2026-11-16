@@ -39,4 +39,28 @@ describe("a decimal's precision and scale", () => {
 
     expect([line.price, (await lines().find(line.id)).price]).toEqual(["2.35", "2.35"]);
   });
+
+  test("a value with more whole digits than the precision leaves is a TypeError", () => {
+    expect(Line.build({ price: "99999999.99" }).price).toBe("99999999.99");
+    expect(() => Line.build({ price: "123456789" })).toThrow(
+      new TypeError('Line: "123456789" isn\'t a decimal for "price"'),
+    );
+  });
+
+  test("rounding that carries past the precision is a TypeError", () => {
+    expect(() => Line.build({ price: "99999999.995" })).toThrow(TypeError);
+  });
+
+  test("a precision without a scale rounds to whole numbers", () => {
+    class Count extends Model.define({ id: "integer", n: { type: "decimal", precision: 3 } }) {}
+
+    expect([Count.build({ n: "2.5" }).n, Count.build({ n: "-2.5" }).n]).toEqual(["3", "-3"]);
+    expect(() => Count.build({ n: "999.5" })).toThrow(TypeError);
+  });
+
+  test("a condition's value is rounded the same way, so it finds what was stored", async () => {
+    await lines().create({ label: "a", price: "1.555" });
+
+    expect(await lines().where({ price: "1.5551" }).pluck("label")).toEqual(["a"]);
+  });
 });
