@@ -162,22 +162,25 @@ export interface DecimalLimits {
 export function limitDecimal(decimal: string, { precision, scale }: DecimalLimits): unknown {
   const places = scale ?? (precision === undefined ? undefined : 0);
   const rounded = places === undefined ? decimal : roundDecimal(decimal, places);
-  if (precision === undefined) return rounded;
-  const whole = rounded.replace("-", "").split(".")[0]!;
+  if (precision === undefined || rounded === uncastable) return rounded;
+  const whole = (rounded as string).replace("-", "").split(".")[0]!;
   const wholeDigits = whole === "0" ? 0 : whole.length;
   return wholeDigits > precision - (places ?? 0) ? uncastable : rounded;
 }
 
-/** A decimal in its one form, rounded to `places` digits after the point, half away from zero. */
-function roundDecimal(decimal: string, places: number): string {
+/**
+ * A decimal in its one form, rounded to `places` digits after the point, half away from zero; or
+ * `uncastable` when rounding carries it past a double's range.
+ */
+function roundDecimal(decimal: string, places: number): unknown {
   const negative = decimal.startsWith("-");
   const [whole = "", fraction = ""] = decimal.replace("-", "").split(".");
   if (fraction.length <= places) return decimal;
   const kept = whole + fraction.slice(0, places);
   const digits = fraction[places]! >= "5" ? incremented(kept) : kept;
   const point = digits.length - places;
-  const result = canonical(`${digits.slice(0, point)}.${digits.slice(point)}`) as string;
-  return negative && result !== "0" ? `-${result}` : result;
+  // Rounding up can carry past a double's range, which `canonical` refuses as for any value.
+  return canonical(`${negative ? "-" : ""}${digits.slice(0, point)}.${digits.slice(point)}`);
 }
 
 /** A run of digits plus one in its last place: `"199"` → `"200"`, `"99"` → `"100"`. */
