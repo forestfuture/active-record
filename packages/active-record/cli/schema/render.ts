@@ -46,6 +46,14 @@ function generatedEnumSource(spec: Spec): string[] {
   return parts;
 }
 
+/** A decimal's precision and scale, as its spec writes them (#398). */
+function digitsSource({ precision, scale }: Spec): string[] {
+  const parts: string[] = [];
+  if (precision !== undefined) parts.push(`precision: ${precision}`);
+  if (scale !== undefined) parts.push(`scale: ${scale}`);
+  return parts;
+}
+
 /** An attribute's spec: just its type when that's all it has, as Models are written by hand. */
 function specSource(spec: Spec): string {
   const parts = [`type: ${JSON.stringify(spec.type)}`];
@@ -53,6 +61,7 @@ function specSource(spec: Spec): string {
   if (spec.column !== undefined) parts.push(`column: ${JSON.stringify(spec.column)}`);
   if (spec.default !== undefined) parts.push(`default: ${defaultSource(spec.default)}`);
   if (spec.generateId) parts.push("generateId: true");
+  parts.push(...digitsSource(spec));
   if (spec.enum !== undefined) parts.push(...generatedEnumSource(spec));
   return parts.length === 1 ? JSON.stringify(spec.type) : `{ ${parts.join(", ")} }`;
 }

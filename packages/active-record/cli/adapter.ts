@@ -59,6 +59,10 @@ export interface Spec {
   default?: Default;
   /** A key made in code by the Model's `generateId` (#99). */
   generateId?: true;
+  /** A decimal's digits in all, from `NUMERIC(10, 2)` (#398). */
+  precision?: number;
+  /** A decimal's digits after the point, from `NUMERIC(10, 2)` (#398). */
+  scale?: number;
   /** A generated enum's names, which the database restricts the column to (#64). */
   enum?: readonly string[];
   /** `false` on a generated enum: its scopes wait for the Model's override (#64). */

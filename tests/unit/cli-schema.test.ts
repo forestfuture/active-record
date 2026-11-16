@@ -294,8 +294,21 @@ describe("schemaOf: from migrations to table schemas", () => {
   test("a declared type's size may span lines (#404)", () => {
     expect(
       attributes("CREATE TABLE things (id INTEGER PRIMARY KEY, price DECIMAL(10,\n 2))").price,
+    ).toEqual({ type: "decimal", precision: 10, scale: 2 });
+  });
+
+  test("a decimal's size gives its precision and scale (#398)", () => {
+    expect(
+      attributes(`CREATE TABLE things (
+        id INTEGER PRIMARY KEY, a DECIMAL(10, 2), b NUMERIC(6), c DECIMAL, d NUMERIC(2, 5), e DECIMAL(10.5)
+      )`),
     ).toEqual({
-      type: "decimal",
+      id: { type: "integer", null: false },
+      a: { type: "decimal", precision: 10, scale: 2 },
+      b: { type: "decimal", precision: 6 },
+      c: { type: "decimal" },
+      d: { type: "decimal" },
+      e: { type: "decimal" },
     });
   });
 

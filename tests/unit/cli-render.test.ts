@@ -144,6 +144,18 @@ export const schema = defineSchema({
     );
   });
 
+  test("writes a decimal's precision and scale (#398)", () => {
+    const tables = tablesOf(
+      "CREATE TABLE prices (id INTEGER PRIMARY KEY, amount DECIMAL(10, 2) NOT NULL, count NUMERIC(6))",
+    );
+    const schema = renderSchema(schemaFor(tables), "migrations/");
+
+    expect(schema).toContain(
+      `  amount: { type: "decimal", null: false, precision: 10, scale: 2 },`,
+    );
+    expect(schema).toContain(`  count: { type: "decimal", precision: 6 },`);
+  });
+
   test("writes a generated enum's names as escaped literals, whatever they hold (#64)", () => {
     const names = ['say "hi"', "back\\slash", "two\nlines", "*/ end", "${x}"];
     const table: GeneratedTable = {
