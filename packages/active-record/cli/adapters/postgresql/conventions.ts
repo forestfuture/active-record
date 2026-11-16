@@ -111,7 +111,7 @@ function specOf(column: Column, type: AttributeType, attribute: string): Spec {
   const defaultValue = literalDefault(column.defaultValue, type);
   if (defaultValue !== undefined) spec.default = defaultValue;
   else if (column.primaryKey && type === "string") spec.generateId = true;
-  const sized = withDigits(spec, column.precision ?? undefined, column.scale ?? undefined);
+  const sized = withDigits(spec, column.precision, column.scale);
   return withGeneratedEnum(sized, column.restrictedTo);
 }
 

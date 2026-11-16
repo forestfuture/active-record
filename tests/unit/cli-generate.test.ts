@@ -62,12 +62,23 @@ describe("the column syntax", () => {
     ]);
   });
 
-  test("braces on another type, or a scale past the precision, are refused (#398)", () => {
-    expect(parseColumns(["n:integer{10}", "p:decimal{2,5}"])).toEqual({
+  test("braces on another type, or digits no NUMERIC(p, s) has, are refused (#398)", () => {
+    expect(
+      parseColumns([
+        "n:integer{10}",
+        "user:references{5}",
+        "p:decimal{2,5}",
+        "q:decimal{0}",
+        "r:decimal{1001}",
+      ]),
+    ).toEqual({
       ok: false,
       errors: [
         "n:integer{10}: only a decimal takes a precision and scale, as decimal{10,2}",
-        "p:decimal{2,5}: its scale, 5, is past its precision, 2",
+        "user:references{5}: only a decimal takes a precision and scale, as decimal{10,2}",
+        "p:decimal{2,5}: it has a scale of 5, past its precision of 2; a scale is at most the precision",
+        "q:decimal{0}: it has a precision of 0; a precision is 1 to 1000 digits",
+        "r:decimal{1001}: it has a precision of 1001; a precision is 1 to 1000 digits",
       ],
     });
   });

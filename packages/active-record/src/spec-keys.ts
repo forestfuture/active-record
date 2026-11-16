@@ -2,6 +2,7 @@
 // A key's rules are written here once, and the override merge, the override check, a Model's check
 // and the attribute's definition all read them.
 import { isCustomType } from "./custom-types.ts";
+import { digitsProblem } from "./decimal-values.ts";
 import { enumProblem, isEnumValues } from "./enum-values.ts";
 import { epochStorages } from "./epoch-storage.ts";
 import type { AttributeDefinition, AttributeType, SpecObject } from "./metadata.ts";
@@ -327,13 +328,13 @@ export function specProblem(
       valueProblem(where, spec, key);
     if (problem !== undefined) return problem;
   }
-  return digitsProblem(where, spec);
+  return decimalDigitsProblem(where, spec);
 }
 
-/** A scale past its precision, which no `NUMERIC(p, s)` can have (#398). */
-function digitsProblem(where: string, { precision, scale }: SpecOverride): string | undefined {
-  if (precision === undefined || scale === undefined || scale <= precision) return undefined;
-  return `${where} has a scale of ${scale}, past its precision of ${precision}; a scale is at most the precision`;
+/** A precision and scale no `NUMERIC(p, s)` can have (#398). */
+function decimalDigitsProblem(where: string, spec: SpecOverride): string | undefined {
+  const problem = digitsProblem(spec);
+  return problem === undefined ? undefined : `${where} has ${problem}`;
 }
 
 /**

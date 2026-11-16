@@ -22,9 +22,10 @@ export interface Column {
    */
   restrictedTo?: string[];
   notNull: boolean;
-  /** A `numeric`'s digits in all and after the point, from its type modifier (#398). */
-  precision?: number;
-  scale?: number;
+  /** A `numeric`'s digits in all, from its type modifier, or its domain's; null without one (#398). */
+  precision: number | null;
+  /** A `numeric`'s digits after the point, read as its precision is; null without one (#398). */
+  scale: number | null;
   /** Its default as Postgres writes it back: `'it''s'::text`, `now()`. */
   defaultValue: string | null;
   primaryKey: boolean;
