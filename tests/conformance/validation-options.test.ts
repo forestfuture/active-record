@@ -313,3 +313,57 @@ describe("validatesAssociated on a belongsTo and a hasOne", () => {
     expect(await db.model(Entry).build({ title: "Hi" }).isValid()).toBe(true);
   });
 });
+
+describe("validatesAssociated with autosave and loading", () => {
+  const validatedTitles: string[] = [];
+
+  class CountedPost extends Model.define({
+    id: { type: "integer", null: false },
+    userId: { type: "integer", null: false },
+    title: { type: "string", null: false },
+  }) {
+    static table = "posts";
+
+    static {
+      this.beforeValidation((post) => void validatedTitles.push(post.title));
+      this.validates("title", { presence: true });
+    }
+  }
+
+  class Writer extends Model.define({
+    id: { type: "integer", null: false },
+    email: "string",
+  }) {
+    static table = "users";
+
+    posts = hasMany(CountedPost, { foreignKey: "userId" });
+
+    static {
+      this.validatesAssociated("posts");
+    }
+  }
+
+  test("an association that isn't loaded is loaded with one query", async () => {
+    await seedAuthor(["Hello", " "]);
+    const queries: QueryEvent[] = [];
+    const writer = await harness
+      .connect({ onQuery: (event) => queries.push(event) })
+      .model(Writer)
+      .find(1);
+    queries.length = 0;
+
+    expect(await writer.isValid()).toBe(false);
+    expect(queries).toHaveLength(1);
+    expect(writer.errors.fullMessages()).toEqual(["Posts is invalid"]);
+  });
+
+  test("a built record that both autosave and validatesAssociated check is validated once, with one error", async () => {
+    validatedTitles.length = 0;
+    const writer = harness.connect().model(Writer).build({ email: "a@example.com" });
+    writer.posts().build({ title: " " });
+
+    expect(await writer.isValid()).toBe(false);
+    expect(validatedTitles).toEqual([" "]);
+    expect(writer.errors.fullMessages()).toEqual(["Posts is invalid"]);
+  });
+});
