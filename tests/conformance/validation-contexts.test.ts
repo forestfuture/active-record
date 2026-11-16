@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { hasMany, Model, RecordInvalid } from "../../packages/active-record/src/index.ts";
+import {
+  belongsTo,
+  hasMany,
+  Model,
+  RecordInvalid,
+} from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class User extends Model.define({
@@ -120,6 +125,28 @@ class Novelist extends Model.define({
   static {
     this.validatesAssociated("chapters");
   }
+}
+
+class Staff extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+  role: { type: "string", enum: ["admin", "member"], validate: true },
+}) {
+  static table = "users";
+
+  static {
+    this.validates("email", { uniqueness: true });
+  }
+}
+
+class Entry extends Model.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  author = belongsTo(Staff, { foreignKey: "userId" });
 }
 
 let harness: Harness;
@@ -292,5 +319,26 @@ describe("the context of associated records", () => {
     expect(await novelist.isValid("update")).toBe(false);
     expect(built.errors.get("title")).toEqual(["is reserved"]);
     expect(loaded!.errors.isEmpty()).toBe(true);
+  });
+});
+
+describe("checks that run in every context", () => {
+  test("an enum's validate: true and uniqueness run in a custom context", async () => {
+    await harness.exec("INSERT INTO users (id, email) VALUES (1, ?)", ["a@example.com"]);
+    const staff = harness.connect().model(Staff);
+
+    const member = staff.build({ email: "a@example.com", role: "guest" as never });
+    expect(await member.isValid("signup")).toBe(false);
+    expect(member.errors.toArray().map(({ attribute, type }) => [attribute, type])).toEqual([
+      ["role", "inclusion"],
+      ["email", "taken"],
+    ]);
+  });
+
+  test("a required belongsTo runs in a custom context", async () => {
+    const entry = harness.connect().model(Entry).build({ title: "Hello" });
+
+    expect(await entry.isValid("publish")).toBe(false);
+    expect(entry.errors.fullMessages()).toEqual(["Author must exist"]);
   });
 });
