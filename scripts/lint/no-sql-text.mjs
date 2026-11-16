@@ -23,11 +23,18 @@ function anyReads(nodes) {
   return nodes.some((node) => readsSqlText(node));
 }
 
+/** Whether `callee` is a `startsWith` method, which picks out a kind of statement (#400). */
+function isStartsWith(callee) {
+  return callee.type === "MemberExpression" && callee.property.name === "startsWith";
+}
+
 /**
  * Whether a call's value is read from SQL text: a method of SQL text (`sql.split(" ")`), a method
- * of a value read from it, or a callback's value (`events.map((event) => event.sql)`).
+ * of a value read from it, or a callback's value (`events.map((event) => event.sql)`). SQL given
+ * to a call, as the code under test, isn't.
  */
 function callReads(call) {
+  if (isStartsWith(call.callee)) return false;
   if (readsSqlText(call.callee)) return true;
   return call.callee.type === "MemberExpression" && anyReads(call.arguments.filter(isFunction));
 }
