@@ -1,6 +1,7 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
 import { isAssociationValid } from "./associated-validation.ts";
 import { contextsOf, type ValidationContexts } from "./validation-context.ts";
+import { requireKnownContexts } from "./listed-contexts.ts";
 import { newPass, whileValidating, type ValidationPass } from "./validation-pass.ts";
 import { enumValidations } from "./enum-values.ts";
 import { filteredValues, shownKey } from "./filtering.ts";
@@ -113,6 +114,7 @@ export async function validateRecord(
   record: Model,
   context?: ValidationContexts,
 ): Promise<boolean> {
+  requireKnownContexts(record, context);
   return (await validation(record, new Set(), newPass(context), context)) === "valid";
 }
 
@@ -219,6 +221,7 @@ function aborted(record: Model): { status: "aborted"; reason: string } {
  * → afterCreate | afterUpdate → afterSave.
  */
 export async function saveLifecycle(record: Model, context?: ValidationContexts): Promise<Outcome> {
+  requireKnownContexts(record, context);
   const needs = "save() needs its records";
   // Each database's records pinned to it before anything runs (#93), and each one's again
   // before anything is written, with any a callback added.

@@ -139,6 +139,7 @@ class Staff extends Model.define({
   role: { type: "string", enum: ["admin", "member"], validate: true },
 }) {
   static table = "users";
+  static validationContexts = ["signup"] as const;
 
   static {
     this.validates("email", { uniqueness: true });
@@ -151,6 +152,7 @@ class Entry extends Model.define({
   title: { type: "string", null: false },
 }) {
   static table = "posts";
+  static validationContexts = ["publish"] as const;
 
   author = belongsTo(Staff, { foreignKey: "userId" });
 }
@@ -350,6 +352,18 @@ describe("checks that run in every context", () => {
 });
 
 describe("a Model's validation contexts", () => {
+  test("isValid and save refuse a context the Model doesn't list", async () => {
+    const applicant = harness.connect().model(Applicant).build({ email: "a@example.com" });
+    const refusal = new TypeError(
+      'Applicant has no validation context "singup"; list it in static validationContexts',
+    );
+
+    await expect(applicant.isValid("singup")).rejects.toThrow(refusal);
+    await expect(applicant.save({ context: ["create", "singup"] })).rejects.toThrow(refusal);
+    await expect(applicant.saveOrThrow({ context: "singup" })).rejects.toThrow(refusal);
+    expect(applicant.isNewRecord()).toBe(true);
+  });
+
   test("a declaration naming a context the Model doesn't list is InvalidModel on first use", () => {
     class Typo extends Model.define({ id: { type: "integer", null: false }, role: "string" }) {
       static table = "users";
