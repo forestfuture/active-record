@@ -4,6 +4,7 @@ import disableReason from "./disable-reason.mjs";
 import moduleHeader from "./module-header.mjs";
 import noFixedDelay from "./no-fixed-delay.mjs";
 import noSqlText from "./no-sql-text.mjs";
+import oneModelPerTest from "./one-model-per-test.mjs";
 import predicateName from "./predicate-name.mjs";
 import standaloneTestName from "./standalone-test-name.mjs";
 
@@ -14,6 +15,7 @@ export default definePlugin({
     "module-header": moduleHeader,
     "no-fixed-delay": noFixedDelay,
     "no-sql-text": noSqlText,
+    "one-model-per-test": oneModelPerTest,
     "predicate-name": predicateName,
     "standalone-test-name": standaloneTestName,
   },
