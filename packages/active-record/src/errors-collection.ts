@@ -23,6 +23,9 @@ export const clearErrors = Symbol("clearErrors");
 /** @internal The library's key for adding a failure it found, with an optional message to use as it is. */
 export const addFailure = Symbol("addFailure");
 
+/** @internal The library's key for a failure's full message, without adding it (`strict`). */
+export const fullMessageOf = Symbol("fullMessageOf");
+
 /** @internal A failure the library found: its type, the values its message shows, and any message given. */
 export type Failure = Pick<ErrorEntry, "type" | "message" | "form"> & {
   values?: ErrorValues;
@@ -69,11 +72,13 @@ export class Errors {
 
   /** Every message with its attribute's human name first: "Email can't be blank". */
   fullMessages(): string[] {
-    return this.#entries.map((entry) => {
-      const message = messageOf(this.#source, entry);
-      if (entry.attribute === "base") return message;
-      return `${humanAttributeName(this.#source.model, entry.attribute)} ${message}`;
-    });
+    return this.#entries.map((entry) => this.#fullMessage(entry));
+  }
+
+  #fullMessage(entry: ErrorEntry): string {
+    const message = messageOf(this.#source, entry);
+    if (entry.attribute === "base") return message;
+    return `${humanAttributeName(this.#source.model, entry.attribute)} ${message}`;
   }
 
   /** Every error as `{ attribute, type, message }`, with its `values` when it has some (copies). */
@@ -103,6 +108,11 @@ export class Errors {
     const entry = { attribute, values, ...failure };
     this.#entries.push(entry);
     return messageOf(this.#source, entry);
+  }
+
+  /** @internal A failure's full message, as `fullMessages()` would give it, without adding it. */
+  [fullMessageOf](attribute: string, { values = {}, ...failure }: Failure): string {
+    return this.#fullMessage({ attribute, values, ...failure });
   }
 
   /** @internal Called at the start of each validation run. */

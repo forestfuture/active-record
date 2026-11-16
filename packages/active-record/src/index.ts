@@ -34,6 +34,7 @@ export {
   RecordNotFound,
   RecordNotSaved,
   RecordNotUnique,
+  StrictValidationFailed,
   UnknownAssociation,
   UnknownAttribute,
 } from "./errors.ts";

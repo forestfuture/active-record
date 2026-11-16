@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import {
+  ActiveRecordError,
+  Model,
+  RecordInvalid,
+  StrictValidationFailed,
+} from "../../packages/active-record/src/index.ts";
+import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class User extends Model.define({
@@ -91,5 +97,57 @@ describe("allowBlank and allowNull", () => {
     const blank = comments.build({ body: "  " });
     expect(await blank.isValid()).toBe(false);
     expect(blank.errors.get("body")).toEqual(["is too short (minimum is 10 characters)"]);
+  });
+});
+
+/** A user whose email is checked strictly, and whose role is checked after it. */
+class StrictUser extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+  role: "string",
+}) {
+  static table = "users";
+  static readonly log: string[] = [];
+
+  static {
+    this.validates("email", { presence: true, strict: true });
+    this.validates("role", { presence: true });
+    this.afterValidation(() => void StrictUser.log.push("afterValidation"));
+  }
+}
+
+describe("strict", () => {
+  test("isValid throws StrictValidationFailed with the full message, and runs nothing after it", async () => {
+    StrictUser.log.length = 0;
+    const user = harness.connect().model(StrictUser).build();
+
+    const error = await user.isValid().catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(StrictValidationFailed);
+    expect(error).toBeInstanceOf(ActiveRecordError);
+    expect((error as Error).message).toBe("Email can't be blank");
+    expect(user.errors.isEmpty()).toBe(true);
+    expect(StrictUser.log).toEqual([]);
+  });
+
+  test("save and saveOrThrow throw StrictValidationFailed and send no statement", async () => {
+    const queries: QueryEvent[] = [];
+    const users = harness.connect({ onQuery: (event) => queries.push(event) }).model(StrictUser);
+
+    await expect(users.build().save()).rejects.toThrow(StrictValidationFailed);
+    const error = await users
+      .build()
+      .saveOrThrow()
+      .catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(StrictValidationFailed);
+    expect(error).not.toBeInstanceOf(RecordInvalid);
+    expect(queries).toHaveLength(0);
+  });
+
+  test("a rule that passes adds the other rules' errors as usual", async () => {
+    const user = harness.connect().model(StrictUser).build({ email: "a@example.com" });
+
+    expect(await user.isValid()).toBe(false);
+    expect(user.errors.fullMessages()).toEqual(["Role can't be blank"]);
   });
 });

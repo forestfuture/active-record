@@ -113,6 +113,14 @@ export class RecordInvalid extends ActiveRecordError {
 }
 
 /**
+ * A rule declared with `strict: true` failed: thrown at once, with the failure's full message
+ * ("Email can't be blank"), instead of adding it to `record.errors`.
+ */
+export class StrictValidationFailed extends ActiveRecordError {
+  override name = "StrictValidationFailed";
+}
+
+/**
  * Thrown by a callback to refuse a save or destroy: `throw abort("Account is suspended")`.
  * Only this exact class halts a lifecycle; returning `false` never does.
  */
