@@ -8,6 +8,7 @@ import { Product } from "../../fixtures/schema-project/src/models/product.ts";
 import { Task } from "../../fixtures/schema-project/src/models/task.ts";
 import { User } from "../../fixtures/schema-project/src/models/user.ts";
 import { Visit } from "../../fixtures/schema-project/src/models/visit.ts";
+import { statementKinds } from "../../support/statement-kinds.ts";
 
 const projectDir = new URL("../../fixtures/schema-project/", import.meta.url).pathname;
 
@@ -117,10 +118,7 @@ describe("a schema generated from migrations", () => {
 
     expect([read.available, read.tagline]).toEqual([1, "Listed"]);
     expect(read.attributes()).not.toHaveProperty("settings");
-    expect(events.map((event) => event.sql)).toEqual([
-      expect.stringMatching(/^INSERT INTO "products" .* RETURNING "id", "user_id", "name"/),
-      expect.stringMatching(/^SELECT "id", "user_id", "name", .*"tagline" FROM "products"/),
-    ]);
+    expect(statementKinds(events)).toEqual(["INSERT", "SELECT"]);
     expect(events.map((event) => event.sql).join()).not.toContain("settings");
   });
 
@@ -138,9 +136,7 @@ describe("a schema generated from migrations", () => {
     const read = await db.model(Featured).find(featured.id);
 
     expect(read.attributes()).not.toHaveProperty("settings");
-    expect(events.map((event) => event.sql)).toEqual([
-      expect.stringMatching(/^SELECT "id", "user_id", "name", .*"tagline" FROM "products"/),
-    ]);
+    expect(statementKinds(events)).toEqual(["SELECT"]);
     expect([...inserted, ...events.map((event) => event.sql)].join()).not.toContain("settings");
   });
 

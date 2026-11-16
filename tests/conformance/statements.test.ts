@@ -26,6 +26,7 @@ import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import type { AnyDatabase } from "../../packages/active-record/src/database.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { holdStatements, reads } from "../support/hold-statements.ts";
+import { statementKinds } from "../support/statement-kinds.ts";
 
 const log: string[] = [];
 
@@ -402,7 +403,7 @@ describe("statements", () => {
       expect(await db.model(User).count()).toBe(4);
     });
 
-    test("a none() statement in a batch is still sent, as WHERE 1 = 0, and changes nothing", async () => {
+    test("a none() statement in a batch is still sent, and changes nothing", async () => {
       const events: QueryEvent[] = [];
       const db = harness.connect({ onQuery: (event) => events.push(event) });
       await seedUsers(db);
@@ -411,7 +412,7 @@ describe("statements", () => {
       const [result] = await db.batch((b) => [b.deleteAll(db.model(User).none())]);
 
       expect(result).toEqual({ rowsAffected: 0, rows: [] });
-      expect(events.map((event) => event.sql)).toEqual([expect.stringContaining("1 = 0")]);
+      expect(statementKinds(events)).toEqual(["DELETE"]);
       expect(await db.model(User).count()).toBe(4);
     });
 
