@@ -1,4 +1,4 @@
-// One compiled-TypeScript cache for the test projects, so only a run's first load compiles the library (#416).
+// The tests' scratch folder, and one compiled-TypeScript cache for the projects made there, so only a run's first load compiles the library (#416).
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -7,15 +7,15 @@ import {
   projectJiti,
 } from "../../packages/active-record/cli/project/load.ts";
 
+/** Where the test projects are made: inside tests/ (gitignored), as `scratchDirs` makes them. */
+export const scratchFolder = new URL("../.scratch/", import.meta.url).pathname;
+
 /**
  * The folder the test projects' compiled TypeScript is cached in. The command keeps it in a
  * project's `node_modules/.cache/jiti` (#251), and jiti checks each entry against its source, so
  * projects can share one, and a run can start from the last one's.
  */
-export const sharedCacheFolder = new URL("../.scratch/jiti-cache/", import.meta.url).pathname;
-
-/** Where the test projects are made: inside tests/ (gitignored), as `scratchDirs` makes them. */
-export const scratchFolder = new URL("../.scratch/", import.meta.url).pathname;
+export const sharedCacheFolder = join(scratchFolder, "jiti-cache/");
 
 /**
  * Points a project's jiti cache at the shared one. Only that folder is linked: the project's
