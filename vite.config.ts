@@ -93,14 +93,17 @@ export default defineConfig({
       // A predicate starts with 'is' or 'has', where its return type is written (#380).
       "active-record/predicate-name": "error",
     },
-    jsPlugins: ["./scripts/lint/plugin.mjs"],
+    jsPlugins: ["./scripts/lint/plugin.mjs", "eslint-plugin-regexp"],
     overrides: [
       {
         // Each library and command line module opens with what it owns (scripts/lint/), and stays
-        // small enough to read: a module that outgrows the limit is split, not exempted.
+        // small enough to read: a module that outgrows the limit is split, not exempted. Its
+        // regexes take linear time, since an app's or a database's text reaches them (#404).
         files: ["packages/*/src/**/*.ts", "packages/*/cli/**/*.ts"],
         rules: {
           "active-record/module-header": "error",
+          "regexp/no-super-linear-move": "error",
+          "regexp/no-super-linear-backtracking": "error",
           "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }],
         },
       },
