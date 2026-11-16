@@ -3,6 +3,8 @@
 # Wrangler is pinned exactly; Dependabot (.github/dependabot.yml) keeps it current.
 packages:
   - .
+# New releases wait a week (in minutes), as in the root's pnpm-workspace.yaml (#424).
+minimumReleaseAge: 10080
 overrides:
   # Advisories fixed in 7.30.1, in the copy miniflare brings in. wrangler deploy bundles its own HTTP
   # client and doesn't load it; remove once miniflare ships 7.30.1 or later.
