@@ -134,6 +134,14 @@ describe("CI's tests (#365)", () => {
     expect(upload).toContain("if: ${{ !cancelled() }}");
   });
 
+  // A rerun's results take the failed attempt's place, or check can merge the old ones (#410).
+  test("replace a failed attempt's results when a shard is rerun (#410)", () => {
+    const job = ci().get("test") ?? "";
+    const upload = job.slice(job.indexOf("actions/upload-artifact"));
+
+    expect(upload).toMatch(/^\s+overwrite: true$/m);
+  });
+
   test("are merged by check before its gate fails it for a failed job (#402)", () => {
     const job = ci().get("check") ?? "";
     const merge = job.indexOf("vp test --merge-reports");

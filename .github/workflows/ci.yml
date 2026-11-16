@@ -74,13 +74,15 @@ jobs:
       # the pull request's files, and in the run's summary, since the blob prints nothing (#402).
       - run: vp test --shard=${{ matrix.shard }}/4 --coverage --coverage.thresholds.branches=0 --reporter=blob --outputFile.blob=blob/shard-${{ matrix.shard }}.json --reporter=github-actions
       # Saved when the tests fail too, so check can merge every shard's results and list the
-      # failures (#402).
+      # failures (#402). A rerun's results replace the failed attempt's, which check would otherwise
+      # download beside them, onto the same file (#410).
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: blob-${{ matrix.shard }}
           path: blob/
           retention-days: 1
+          overwrite: true
 
   # The ruleset's required check, and what later jobs wait on: every test passed, and branch
   # coverage of the library and command line, merged from the shards, is above its floor
