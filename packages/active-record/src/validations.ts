@@ -73,9 +73,10 @@ export interface ValidationOptions<R = never> {
   message?: string;
   /**
    * Throw `StrictValidationFailed` with a failure's full message instead of adding it to
-   * `errors`: for a value only a bug in the app's own code could give.
+   * `errors`: for a value only a bug in the app's own code could give. An Error class is thrown
+   * in its place, made with the same message.
    */
-  strict?: boolean;
+  strict?: boolean | (new (message: string) => Error);
   /** Only run these rules when this returns true. */
   if?: (record: R) => boolean;
   /** Skip these rules when this returns true; with `if`, both must allow them. */
@@ -256,7 +257,7 @@ export async function runValidations(
     ];
     for (const failure of failures) {
       const added = { ...failure, message: options.message };
-      if (options.strict) throw strictFailure(target, attribute, added);
+      if (options.strict) throw strictFailure(target, attribute, added, options.strict);
       target.errors[addFailure](attribute, added);
     }
   }
@@ -273,8 +274,10 @@ function strictFailure(
   { errors }: ValidationTarget,
   attribute: string,
   failure: Failure,
-): StrictValidationFailed {
-  return new StrictValidationFailed(errors[fullMessageOf](attribute, failure));
+  strict: true | (new (message: string) => Error),
+): Error {
+  const ErrorClass = strict === true ? StrictValidationFailed : strict;
+  return new ErrorClass(errors[fullMessageOf](attribute, failure));
 }
 
 /** Whether `allowNull` or `allowBlank` skips the rules for this value. */
