@@ -125,5 +125,13 @@ ruleTester.run("one-model-per-test", oneModelPerTest, {
       });`,
       errors: [{ messageId: "secondModel" }],
     },
+    {
+      name: "two Models acted on, each first in expect(…).resolves",
+      code: `test("creates", async () => {
+        await expect(db.model(User).create({})).resolves.toBeDefined();
+        await expect(db.model(Post).create({})).resolves.toBeDefined();
+      });`,
+      errors: [{ messageId: "secondModel" }],
+    },
   ],
 });

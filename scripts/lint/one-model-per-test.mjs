@@ -178,6 +178,11 @@ export default defineRule({
       },
       AwaitExpression(node) {
         const test = tests.at(-1);
+        // An await of expect(…).rejects or .resolves is an assertion, though its expect is
+        // visited after it.
+        if (test !== undefined && expectedPromise(unwrapped(node.argument)) !== undefined) {
+          test.asserted = true;
+        }
         if (test === undefined || !test.asserted || test.reported) return;
         const action = actionOf(node.argument);
         if (action === undefined) return;
