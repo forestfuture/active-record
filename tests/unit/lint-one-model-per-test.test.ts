@@ -107,5 +107,23 @@ ruleTester.run("one-model-per-test", oneModelPerTest, {
       ].join("\n"),
       errors: [{ messageId: "secondModel", line: 3 }],
     },
+    {
+      name: "it, in a describe, through harness.connect().model(X)",
+      code: `describe("records", () => {
+        it("saves both", async () => {
+          expect(await harness.connect().model(User).create({})).toBeDefined();
+          expect(await harness.connect().model(Post).create({})).toBeDefined();
+        });
+      });`,
+      errors: [{ messageId: "secondModel" }],
+    },
+    {
+      name: "test.each",
+      code: `test.each([1, 2])("saves %i", async () => {
+        expect(await db.model(User).create({})).toBeDefined();
+        expect(await db.model(Post).create({})).toBeDefined();
+      });`,
+      errors: [{ messageId: "secondModel" }],
+    },
   ],
 });
