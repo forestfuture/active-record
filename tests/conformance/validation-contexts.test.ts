@@ -27,6 +27,18 @@ class Member extends Model.define({
   }
 }
 
+class Guest extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+  role: "string",
+}) {
+  static table = "users";
+
+  static {
+    this.validates("role", { presence: true, exceptOn: "create" });
+  }
+}
+
 let harness: Harness;
 
 beforeAll(async () => {
@@ -71,5 +83,16 @@ describe("on", () => {
     member.email = "a@b";
     expect(await member.isValid()).toBe(false);
     expect(member.errors.get("email")).toEqual(["is too short (minimum is 6 characters)"]);
+  });
+});
+
+describe("exceptOn", () => {
+  test("skips the rules in that context and runs them in any other", async () => {
+    const guests = harness.connect().model(Guest);
+
+    const guest = guests.build({ email: "a@example.com" });
+    expect(await guest.save()).toBe(true);
+    expect(await guest.isValid()).toBe(false);
+    expect(guest.errors.get("role")).toEqual(["can't be blank"]);
   });
 });
