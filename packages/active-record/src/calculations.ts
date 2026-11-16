@@ -17,8 +17,11 @@ import type { QueryDescription } from "./query.ts";
 import { checkFragment } from "./relation-checks.ts";
 import { SafeSql } from "./sql.ts";
 
-/** What a calculation or `pluck` reads: a Relation's query, its database, and its loaded records. */
-export interface CalculationContext {
+/**
+ * What `count`, `pluck` and the calculations read values from: a Relation's query, its database,
+ * and its loaded records.
+ */
+export interface ValueSource {
   readonly query: QueryDescription;
   /** Its database's SQL, read only when a query is compiled: `none()` needs no database. */
   readonly dialect: () => Dialect;
@@ -29,7 +32,7 @@ export interface CalculationContext {
 
 /** The number of rows the query returns, or of their non-null values of `attribute`. */
 export async function count(
-  { query, dialect, runner }: CalculationContext,
+  { query, dialect, runner }: ValueSource,
   attribute?: string,
 ): Promise<number> {
   if (attribute !== undefined) attributeFor(query.model, attribute); // on none() too
@@ -39,7 +42,7 @@ export async function count(
 
 /** Converted values of one attribute, or tuples of several, in the query's order. */
 export async function pluck(
-  { query, dialect, runner, cached }: CalculationContext,
+  { query, dialect, runner, cached }: ValueSource,
   attributes: readonly string[],
 ): Promise<unknown[]> {
   if (attributes.length === 0) throw new TypeError("pluck() needs at least one attribute");
@@ -66,7 +69,7 @@ export async function pluck(
  * average is a number. With no rows, all but a sum are `null`.
  */
 export async function calculate(
-  { query, dialect, runner }: CalculationContext,
+  { query, dialect, runner }: ValueSource,
   calculation: Calculation,
   of: string | SafeSql,
 ): Promise<unknown> {

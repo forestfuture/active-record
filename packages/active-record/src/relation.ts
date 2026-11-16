@@ -62,7 +62,7 @@ import {
   count,
   pluck,
   type CalculatedValue,
-  type CalculationContext,
+  type ValueSource,
   type NumberAttribute,
   type Operation,
   type OrderedAttribute,
@@ -490,31 +490,31 @@ export class Relation<M extends Model, S = {}> {
 
   /** The number of matching records, or of non-null values of `attribute`. */
   async count(attribute?: keyof AttributesOf<M> & string): Promise<number> {
-    return count(this.#calculating(), attribute);
+    return count(this.#valueSource(), attribute);
   }
 
   /** The total of `attribute`'s values over the records, leaving out NULLs; 0 with none. */
   async sum<K extends NumberAttribute<M> | SafeSql>(attribute: K): Promise<CalculatedValue<M, K>> {
-    return (await calculate(this.#calculating(), "sum", attribute)) as never;
+    return (await calculate(this.#valueSource(), "sum", attribute)) as never;
   }
 
   /** The mean of `attribute`'s values over the records, leaving out NULLs; null with none. */
   async average(attribute: NumberAttribute<M> | SafeSql): Promise<number | null> {
-    return (await calculate(this.#calculating(), "average", attribute)) as number | null;
+    return (await calculate(this.#valueSource(), "average", attribute)) as number | null;
   }
 
   /** The least of `attribute`'s values over the records, leaving out NULLs; null with none. */
   async minimum<K extends OrderedAttribute<M> | SafeSql>(
     attribute: K,
   ): Promise<CalculatedValue<M, K, unknown> | null> {
-    return (await calculate(this.#calculating(), "minimum", attribute)) as never;
+    return (await calculate(this.#valueSource(), "minimum", attribute)) as never;
   }
 
   /** The greatest of `attribute`'s values over the records, leaving out NULLs; null with none. */
   async maximum<K extends OrderedAttribute<M> | SafeSql>(
     attribute: K,
   ): Promise<CalculatedValue<M, K, unknown> | null> {
-    return (await calculate(this.#calculating(), "maximum", attribute)) as never;
+    return (await calculate(this.#valueSource(), "maximum", attribute)) as never;
   }
 
   /**
@@ -536,12 +536,12 @@ export class Relation<M extends Model, S = {}> {
   ): Promise<CalculatedValue<M, K, unknown> | null>;
   async calculate(operation: Operation, attribute?: string | SafeSql): Promise<unknown> {
     const named = requireOperation(operation);
-    if (named === "count") return count(this.#calculating(), attribute as string | undefined);
-    return calculate(this.#calculating(), named, attribute as string | SafeSql);
+    if (named === "count") return count(this.#valueSource(), attribute as string | undefined);
+    return calculate(this.#valueSource(), named, attribute as string | SafeSql);
   }
 
-  /** What a calculation or `pluck` reads: this Relation's query, database, and loaded records. */
-  #calculating(): CalculationContext {
+  /** What `count`, `pluck` and the calculations read values from: this Relation's. */
+  #valueSource(): ValueSource {
     const [dialect, cached] = [() => this.#dialect, () => this.#cached()];
     return { query: this.#query, dialect, runner: this.#runner, cached };
   }
@@ -588,7 +588,7 @@ export class Relation<M extends Model, S = {}> {
     ],
   >(...attributes: K): Promise<{ -readonly [I in keyof K]: AttributesOf<M>[K[I]] }[]>;
   async pluck(...attributes: string[]): Promise<unknown[]> {
-    return pluck(this.#calculating(), attributes);
+    return pluck(this.#valueSource(), attributes);
   }
 
   /**
