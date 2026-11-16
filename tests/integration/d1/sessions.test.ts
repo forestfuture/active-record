@@ -82,26 +82,37 @@ describe("sessions", () => {
     expect(written).not.toBeNull();
   });
 
-  test("record reads go through the session: uniqueness checks, association reads and preloads", async () => {
-    const seed = connect(binding);
-    await seed.model(User).insert({ id: 1, email: "a@example.com" });
-    await seed.model(Post).insert({ userId: 1, title: "Hello" });
+  // Each of these reads starts a fresh session, so its bookmark shows whether the read used it.
+  describe("record reads go through the session", () => {
+    beforeEach(async () => {
+      const seed = connect(binding);
+      await seed.model(User).insert({ id: 1, email: "a@example.com" });
+      await seed.model(Post).insert({ userId: 1, title: "Hello" });
+    });
 
-    // Each check starts a fresh session, so its bookmark shows whether that read used it.
-    const validating = connect(binding, { session: "first-primary" });
-    const user = validating.model(User).build({ email: "a@example.com" });
-    expect(await user.isValid()).toBe(false);
-    expect(validating.bookmark()).not.toBeNull();
+    test("a uniqueness check", async () => {
+      const validating = connect(binding, { session: "first-primary" });
+      const user = validating.model(User).build({ email: "a@example.com" });
 
-    const reading = connect(binding, { session: "first-primary" });
-    const post = reading.model(Post).build({ userId: 1, title: "Unsaved" });
-    expect((await post.author())?.email).toBe("a@example.com");
-    expect(reading.bookmark()).not.toBeNull();
+      expect(await user.isValid()).toBe(false);
+      expect(validating.bookmark()).not.toBeNull();
+    });
 
-    const loading = connect(binding, { session: "first-primary" });
-    const [loaded] = await loading.model(User).includes("posts").toArray();
-    expect(loaded?.loaded("posts")).toHaveLength(1);
-    expect(loading.bookmark()).not.toBeNull();
+    test("an association read", async () => {
+      const reading = connect(binding, { session: "first-primary" });
+      const post = reading.model(Post).build({ userId: 1, title: "Unsaved" });
+
+      expect((await post.author())?.email).toBe("a@example.com");
+      expect(reading.bookmark()).not.toBeNull();
+    });
+
+    test("a preload", async () => {
+      const loading = connect(binding, { session: "first-primary" });
+      const [loaded] = await loading.model(User).includes("posts").toArray();
+
+      expect(loaded?.loaded("posts")).toHaveLength(1);
+      expect(loading.bookmark()).not.toBeNull();
+    });
   });
 
   test("statements and batches go through the session", async () => {
