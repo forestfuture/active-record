@@ -91,13 +91,20 @@ describe("associations", () => {
     expect(withoutProfile).toBeNull();
   });
 
-  test("a missing foreign key, or an unsaved owner, resolves to null without querying", async () => {
+  test("a belongsTo with a missing foreign key resolves to null without querying", async () => {
     const queries: QueryEvent[] = [];
     const db = harness.connect({ onQuery: (event) => queries.push(event) });
     const orphan = db.model(Comment).build({ body: "no post" });
-    const newUser = db.model(User).build({ email: "new@example.com" });
 
     expect(await orphan.post()).toBeNull();
+    expect(queries).toHaveLength(0);
+  });
+
+  test("an unsaved owner's hasOne resolves to null without querying", async () => {
+    const queries: QueryEvent[] = [];
+    const db = harness.connect({ onQuery: (event) => queries.push(event) });
+    const newUser = db.model(User).build({ email: "new@example.com" });
+
     expect(await newUser.profile()).toBeNull();
     expect(queries).toHaveLength(0);
   });
