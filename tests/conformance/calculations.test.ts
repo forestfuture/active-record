@@ -6,6 +6,8 @@ import {
   sql,
   UnknownAttribute,
 } from "../../packages/active-record/src/index.ts";
+import { User } from "../fixtures/models/user.ts";
+import { withDatabase } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -318,6 +320,39 @@ describe("calculations (#344)", () => {
         'calculate() takes "count", "sum", "average", "minimum" or "maximum", not "median"',
       );
       expect(events).toEqual([]);
+    });
+  });
+
+  describe("through an association and a Model's statics", () => {
+    beforeEach(async () => {
+      await harness.reset("posts", "users");
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+      await harness.exec(
+        "INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'A'), (11, 1, 'B')",
+      );
+    });
+
+    test("a loaded association still queries, leaving out its unsaved built records", async () => {
+      const user = await db().model(User).find(1);
+      await user.posts().toArray();
+      user.posts().build({ title: "Z" });
+
+      expect(await user.posts().maximum("title")).toBe("B");
+      expect(await user.posts().sum("id")).toBe(21);
+    });
+
+    test("a Model's statics calculate on the current database", async () => {
+      await seedReviews(["a", 3, 1], ["b", 4, 1]);
+
+      const results = await withDatabase(harness.connect(), async () => [
+        await Review.sum("rating"),
+        await Review.average("rating"),
+        await Review.minimum("rating"),
+        await Review.maximum("rating"),
+        await Review.calculate("sum", "rating"),
+      ]);
+
+      expect(results).toEqual([7, 3.5, 3, 4, 7]);
     });
   });
 });

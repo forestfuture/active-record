@@ -4,6 +4,7 @@ import {
   UnknownAttribute,
   NoDatabase,
   Relation,
+  sql,
 } from "../../packages/active-record/src/index.ts";
 import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 
@@ -84,6 +85,17 @@ describe("none() with no database", () => {
     expect(await none.count()).toBe(0);
     expect(await none.exists()).toBe(false);
     await expect(none.find(1)).rejects.toThrow("User with id 1 not found");
+  });
+
+  test("calculations answer, since it never reaches D1", async () => {
+    const none = User.none();
+
+    expect(await none.sum("age")).toBe(0);
+    expect(await none.sum(sql`age * 2`)).toBe(0);
+    expect(await none.average("age")).toBeNull();
+    expect(await none.minimum("age")).toBeNull();
+    expect(await none.calculate("maximum", "age")).toBeNull();
+    expect(await none.calculate("count")).toBe(0);
   });
 
   test("arguments to counts, plucks and bulk writes are checked: an unknown attribute rejects", async () => {
