@@ -83,10 +83,20 @@ export interface ValidationOptions<R = never> {
   unless?: (record: R) => boolean;
 }
 
-/** One `validates(attribute, options)` declaration. */
+/** The options of a `validatesAssociated(association, options)` call. */
+export type AssociatedValidationOptions<R = never> = Pick<
+  ValidationOptions<R>,
+  "message" | "strict" | "if" | "unless"
+>;
+
+/**
+ * One `validates(attribute, options)` declaration, or a `validatesAssociated(association,
+ * options)` one, which names an association.
+ */
 export interface Validation {
   attribute: string;
   options: ValidationOptions<never>;
+  associated?: true;
 }
 
 /** @internal The record being validated, and the attribute a check reads. */
@@ -223,6 +233,8 @@ export interface ValidationTarget {
   errors: Errors;
   /** Whether another row already has `value` for `attribute` (the uniqueness check, in D1). */
   isTaken: (attribute: string, value: unknown, options: UniquenessOptions) => Promise<boolean>;
+  /** Whether every record of the association, loaded first if it isn't, is valid. */
+  isAssociationValid: (association: string) => Promise<boolean>;
 }
 
 async function uniquenessFailures(
@@ -241,26 +253,37 @@ export async function runValidations(
   validations: readonly Validation[],
   target: ValidationTarget,
 ): Promise<void> {
-  for (const { attribute, options } of validations) {
+  for (const validation of validations) {
+    const { attribute, options } = validation;
     if (!isApplied(target.record, options)) continue;
-    const value = target.read(attribute);
-    if (isAllowed(value, options)) continue;
-    const subject = {
-      record: target.record,
-      attribute,
-      filteredValues: target.filteredValues,
-      isDecimal: isBuiltInDecimal(target.record, attribute),
-    };
-    const failures = [
-      ...CHECKS.flatMap((check) => check(value, options, subject)),
-      ...(await uniquenessFailures(target, attribute, value, options)),
-    ];
-    for (const failure of failures) {
+    for (const failure of await failuresOf(validation, target)) {
       const added = { ...failure, message: options.message };
       if (options.strict) throw strictFailure(target, attribute, added, options.strict);
       target.errors[addFailure](attribute, added);
     }
   }
+}
+
+/** A validation's failures: its rules' for the attribute's value, or "invalid" for an association. */
+async function failuresOf(
+  { attribute, options, associated }: Validation,
+  target: ValidationTarget,
+): Promise<Failure[]> {
+  if (associated) {
+    return (await target.isAssociationValid(attribute)) ? [] : [{ type: "invalid" }];
+  }
+  const value = target.read(attribute);
+  if (isAllowed(value, options)) return [];
+  const subject = {
+    record: target.record,
+    attribute,
+    filteredValues: target.filteredValues,
+    isDecimal: isBuiltInDecimal(target.record, attribute),
+  };
+  return [
+    ...CHECKS.flatMap((check) => check(value, options, subject)),
+    ...(await uniquenessFailures(target, attribute, value, options)),
+  ];
 }
 
 /** Whether a validation's `if` and `unless` let its rules run on `record`. */
@@ -294,8 +317,9 @@ function isBuiltInDecimal(record: object, attribute: string): boolean {
 /** The attributes a validation names (its own, and a uniqueness `scope`'s) must be the Model's. */
 export function checkValidatedNames(
   model: Parameters<typeof attributeOf>[0],
-  { attribute, options }: Validation,
+  { attribute, options, associated }: Validation,
 ): void {
+  if (associated) return;
   attributeOf(model, attribute);
   const { uniqueness } = options;
   if (typeof uniqueness === "object") {

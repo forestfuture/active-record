@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
   ActiveRecordError,
+  hasMany,
   Model,
   RecordInvalid,
   StrictValidationFailed,
@@ -55,7 +56,7 @@ beforeAll(async () => {
   harness = await openHarness();
 });
 afterAll(() => harness.dispose());
-beforeEach(() => harness.reset());
+beforeEach(() => harness.reset("posts", "users"));
 
 describe("unless", () => {
   test("skips the rules when it returns true", async () => {
@@ -177,5 +178,68 @@ describe("strict with an Error class", () => {
 
     expect(error).toBeInstanceOf(MissingTenant);
     expect((error as Error).message).toBe("Role can't be blank");
+  });
+});
+
+class Post extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  static {
+    this.validates("title", { presence: true });
+  }
+}
+
+class Author extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+}) {
+  static table = "users";
+
+  posts = hasMany(Post, { foreignKey: "userId" });
+
+  static {
+    this.validatesAssociated("posts");
+  }
+}
+
+/** Seeds an author with a post of each title, and reads the author back. */
+async function seedAuthor(titles: readonly string[]) {
+  await harness.exec("INSERT INTO users (id, email) VALUES (?, ?)", [1, "a@example.com"]);
+  for (const [index, title] of titles.entries()) {
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (?, ?, ?)", [
+      index + 1,
+      1,
+      title,
+    ]);
+  }
+  return harness.connect().model(Author).find(1);
+}
+
+describe("validatesAssociated on a hasMany", () => {
+  test("an invalid loaded record makes its owner invalid", async () => {
+    const author = await seedAuthor(["Hello", " "]);
+    await author.posts().toArray();
+
+    expect(await author.isValid()).toBe(false);
+    expect(author.errors.fullMessages()).toEqual(["Posts is invalid"]);
+  });
+
+  test("an owner whose loaded records are valid is valid", async () => {
+    const author = await seedAuthor(["Hello", "World"]);
+    await author.posts().toArray();
+
+    expect(await author.isValid()).toBe(true);
+  });
+
+  test("a record marked for destruction isn't validated", async () => {
+    const author = await seedAuthor(["Hello", " "]);
+    const [, blank] = await author.posts().toArray();
+    blank!.markForDestruction();
+
+    expect(await author.isValid()).toBe(true);
   });
 });

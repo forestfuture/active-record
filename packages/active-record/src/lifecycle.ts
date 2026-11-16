@@ -1,4 +1,5 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
+import { isAssociationValid, type Validated } from "./associated-validation.ts";
 import { enumValidations } from "./enum-values.ts";
 import { filteredValues, shownKey } from "./filtering.ts";
 import { compileDelete, compileInsert, compileSelect, compileUpdate } from "./compiler.ts";
@@ -66,7 +67,7 @@ export type DestroyOutcome =
   | { status: "aborted"; reason: string }
   | { status: "restricted"; reason: string };
 
-type Validity = "valid" | "invalid" | "aborted";
+export type Validity = "valid" | "invalid" | "aborted";
 
 /**
  * Whether another row already has `value` for `attribute`: a `SELECT 1 … LIMIT 1` through the
@@ -121,6 +122,7 @@ export async function validation(record: Model, claimed: Claimed): Promise<Valid
   if (!(await runAbortableCallbacks(record, "beforeValidation"))) return "aborted";
   await validateRequiredAssociations(record);
   const model = modelOf(record);
+  const validated: Validated = new Map();
   const validations = [
     ...enumValidations(model.attributeDefinitions),
     ...declared(model, "validations"),
@@ -131,8 +133,9 @@ export async function validation(record: Model, claimed: Claimed): Promise<Valid
     filteredValues: () => filteredValues(model, recordState.attributes()),
     errors: recordState.errors,
     isTaken: (attribute, value, options) => isTaken(record, attribute, value, options),
+    isAssociationValid: (name) => isAssociationValid(record, name, claimed, validated),
   });
-  await validateAutosaves(record, claimed);
+  await validateAutosaves(record, claimed, validated);
   if (!(await runAbortableCallbacks(record, "afterValidation"))) return "aborted";
   return recordState.errors.isEmpty() ? "valid" : "invalid";
 }

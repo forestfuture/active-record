@@ -15,11 +15,11 @@ import {
   prepareDestroy,
   prepareWrites,
   stagesOf,
-  validation,
   type Claimed,
   type Ready,
   type SavePlan,
 } from "./lifecycle.ts";
+import { validityOf, type Validated } from "./associated-validation.ts";
 import { prepareLeaving } from "./dependents.ts";
 import { addFailure } from "./errors-collection.ts";
 import type { Model } from "./model.ts";
@@ -48,9 +48,14 @@ export interface PlannedBefore {
  * `validate: true` does: an invalid one adds "is invalid" to its association's name, or with
  * `autosave: true` its errors, each under the association's name (`posts.title`), as Rails does.
  */
-export async function validateAutosaves(owner: Model, claimed: Claimed): Promise<void> {
-  await validateEach(owner, autosavedBefore(owner, claimed).saved, claimed);
-  await validateEach(owner, autosavedAfter(owner, claimed), claimed);
+export async function validateAutosaves(
+  owner: Model,
+  claimed: Claimed,
+  validated: Validated,
+): Promise<void> {
+  const each = (linked: readonly Linked[]) => validateEach(owner, linked, claimed, validated);
+  await each(autosavedBefore(owner, claimed).saved);
+  await each(autosavedAfter(owner, claimed));
 }
 
 /**
@@ -58,10 +63,15 @@ export async function validateAutosaves(owner: Model, claimed: Claimed): Promise
  * whose errors aren't copied: one without `autosave: true`, or a record with none to copy, which a
  * callback aborted.
  */
-async function validateEach(owner: Model, linked: readonly Linked[], claimed: Claimed) {
+async function validateEach(
+  owner: Model,
+  linked: readonly Linked[],
+  claimed: Claimed,
+  validated: Validated,
+) {
   const invalid = new Set<string>();
   for (const { association, record, destroys } of linked) {
-    if (destroys || (await validation(record, claimed)) === "valid") continue;
+    if (destroys || (await validityOf(record, claimed, validated)) === "valid") continue;
     const hasErrors = !record[state].errors.isEmpty();
     if (association.definition.autosave === true && hasErrors) {
       copyErrors(owner, association, record);
@@ -69,7 +79,17 @@ async function validateEach(owner: Model, linked: readonly Linked[], claimed: Cl
       invalid.add(association.name);
     }
   }
-  for (const name of invalid) owner[state].errors.add(name, { type: "invalid" });
+  for (const name of invalid) {
+    // Once, though `validatesAssociated` found it invalid too (#343).
+    if (!hasInvalid(owner, name)) owner[state].errors.add(name, { type: "invalid" });
+  }
+}
+
+/** Whether the owner already has an "invalid" error on the association. */
+function hasInvalid(owner: Model, name: string): boolean {
+  return owner[state].errors
+    .toArray()
+    .some(({ attribute, type }) => attribute === name && type === "invalid");
 }
 
 /** Copies the record's errors onto the owner, each under the association's name. */
