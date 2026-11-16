@@ -25,18 +25,31 @@ function modelCalled(node) {
 }
 
 /**
- * The Model an awaited value comes from, following its chain back (`db.model(User).build()`),
- * and through each `const` it names to the value the const was declared with.
+ * The Model an awaited value comes from, following its chain back (`db.model(User).build()`) to a
+ * Model's class or a `.model(X)` call, through each `const` it names (`named` reads one).
  */
-function modelOf(node, constValue) {
+function modelOf(node, named) {
   for (let at = node; at !== undefined && at !== null;) {
     if (at.type === "CallExpression") {
       const model = modelCalled(at);
       if (model !== undefined) return model;
     }
-    at = at.type === "Identifier" ? constValue(at) : chainLinks[at.type]?.(at);
+    if (at.type !== "Identifier") {
+      at = chainLinks[at.type]?.(at);
+      continue;
+    }
+    const { model, init } = named(at);
+    if (model !== undefined) return model;
+    at = init;
   }
   return undefined;
+}
+
+/** Whether `variable` is a class: one declared in the file, or a capitalized import. */
+function isClass(variable) {
+  const [definition] = variable.defs;
+  if (definition?.type === "ClassName") return true;
+  return definition?.type === "ImportBinding" && /^[A-Z]/.test(variable.name);
 }
 
 /**
@@ -81,13 +94,13 @@ export default defineRule({
         if (test === undefined || !test.asserted || test.reported) return;
         // Each const is followed once, so consts that name each other can't loop.
         const followed = new Set();
-        const constValue = (identifier) => {
+        const named = (identifier) => {
           const variable = variableOf(context.sourceCode.getScope(identifier), identifier);
-          if (variable === undefined || followed.has(variable)) return undefined;
+          if (variable === undefined || followed.has(variable)) return {};
           followed.add(variable);
-          return constInit(variable);
+          return isClass(variable) ? { model: variable.name } : { init: constInit(variable) };
         };
-        const model = modelOf(node.argument, constValue);
+        const model = modelOf(node.argument, named);
         if (model === undefined) return;
         test.first ??= model;
         if (model === test.first) return;
