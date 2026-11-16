@@ -12,12 +12,32 @@ import { constInit, followingOnce } from "./variables.mjs";
 /** The functions that take a test's body. */
 const testFunctions = new Set(["test", "it"]);
 
-/** The calls that act on a Model: its writes, and validating a record. Any other call looks. */
-const actions = new Set(
-  ["save", "update", "destroy", "create", "insert", "upsert", "updateAll", "deleteAll"]
-    .flatMap((name) => [name, `${name}OrThrow`])
-    .concat(["isValid", "insertAll", "upsertAll", "push", "clear", "delete"]),
-);
+/**
+ * The calls that act on a Model: a record's and a Relation's writes, and validating a record.
+ * Any other call looks. An enum's setters (`saveAsPublished()`) are writes too.
+ */
+const actions = new Set([
+  "create",
+  "createOrThrow",
+  "deleteAll",
+  "destroy",
+  "destroyOrThrow",
+  "insert",
+  "insertAll",
+  "isValid",
+  "save",
+  "saveOrThrow",
+  "update",
+  "updateAll",
+  "updateOrThrow",
+  "upsert",
+  "upsertAll",
+]);
+
+/** Whether `method` acts on a Model: one of `actions`, or an enum's setter. */
+function isAction(method) {
+  return actions.has(method) || /^saveAs[A-Z]\w*$/.test(method ?? "");
+}
 
 /**
  * The calls a value goes back through toward the Model it came from: a Relation's methods, which
@@ -27,6 +47,7 @@ const actions = new Set(
 const throughCalls = new Set([
   ...actions,
   "all",
+  "unscoped",
   "build",
   "count",
   "distinct",
@@ -103,7 +124,7 @@ function actionOf(node) {
   let call = unwrapped(node);
   call = unwrapped(expectedPromise(call)) ?? call;
   while (methodOf(call) === "then") call = unwrapped(call.callee.object);
-  return actions.has(methodOf(call)) ? call : undefined;
+  return isAction(methodOf(call)) ? call : undefined;
 }
 
 /** Whether `node` is a call of `.model(X)`, as `db.model(User)`: the Model it names, if so. */

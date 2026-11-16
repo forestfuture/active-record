@@ -133,5 +133,24 @@ ruleTester.run("one-model-per-test", oneModelPerTest, {
       });`,
       errors: [{ messageId: "secondModel" }],
     },
+    {
+      name: "an enum setter after another Model's action",
+      code: `test("publishes", async () => {
+        expect(await db.model(User).create({})).toBeDefined();
+        const post = await db.model(Post).find(1);
+        expect(await post.saveAsPublished()).toBe(true);
+      });`,
+      errors: [{ messageId: "secondModel" }],
+    },
+    {
+      name: "a bulk write through unscoped()",
+      code: `test("deletes", async () => {
+        expect(await User.create({})).toBeDefined();
+        expect(await Post.unscoped().deleteAll()).toBe(2);
+      });
+      class User extends Model {}
+      class Post extends Model {}`,
+      errors: [{ messageId: "secondModel" }],
+    },
   ],
 });
