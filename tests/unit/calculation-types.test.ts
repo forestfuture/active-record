@@ -36,7 +36,7 @@ class Sample extends Model.define({
 
 describe("calculation types (#344)", () => {
   test("sum and average take number attributes, and a sum is the attribute's value", () => {
-    const samples = Sample.all();
+    const samples = Sample.none(); // answers without a database
 
     expectTypeOf(samples.sum("quantity")).resolves.toEqualTypeOf<number>();
     expectTypeOf(samples.sum("amount")).resolves.toEqualTypeOf<string>();
@@ -60,7 +60,7 @@ describe("calculation types (#344)", () => {
   });
 
   test("minimum and maximum take ordered attributes, and are the attribute's value or null", () => {
-    const samples = Sample.all();
+    const samples = Sample.none(); // answers without a database
 
     expectTypeOf(samples.minimum("createdAt")).resolves.toEqualTypeOf<Date | null>();
     expectTypeOf(samples.maximum("amount")).resolves.toEqualTypeOf<string | null>();
@@ -81,7 +81,7 @@ describe("calculation types (#344)", () => {
   });
 
   test("calculate is typed by its operation", () => {
-    const samples = Sample.all();
+    const samples = Sample.none(); // answers without a database
 
     expectTypeOf(samples.calculate("count")).resolves.toEqualTypeOf<number>();
     expectTypeOf(samples.calculate("sum", "amount")).resolves.toEqualTypeOf<string>();
@@ -99,14 +99,15 @@ describe("calculation types (#344)", () => {
   });
 
   test("a Model's statics are typed as its Relation's methods are", () => {
-    expectTypeOf(Sample.sum("amount")).resolves.toEqualTypeOf<string>();
-    expectTypeOf(Sample.sum(sql`quantity * 2`)).resolves.toEqualTypeOf<number>();
-    expectTypeOf(Sample.average("ratio")).resolves.toEqualTypeOf<number | null>();
-    expectTypeOf(Sample.minimum("createdAt")).resolves.toEqualTypeOf<Date | null>();
-    expectTypeOf(Sample.maximum("price")).resolves.toEqualTypeOf<bigint | null>();
-    expectTypeOf(Sample.calculate("sum", "price")).resolves.toEqualTypeOf<bigint>();
-    expectTypeOf(Sample.calculate("count")).resolves.toEqualTypeOf<number>();
+    // Checked by the type checker only; never called, since a static needs a database.
     const typeOnly = () => {
+      expectTypeOf(Sample.sum("amount")).resolves.toEqualTypeOf<string>();
+      expectTypeOf(Sample.sum(sql`quantity * 2`)).resolves.toEqualTypeOf<number>();
+      expectTypeOf(Sample.average("ratio")).resolves.toEqualTypeOf<number | null>();
+      expectTypeOf(Sample.minimum("createdAt")).resolves.toEqualTypeOf<Date | null>();
+      expectTypeOf(Sample.maximum("price")).resolves.toEqualTypeOf<bigint | null>();
+      expectTypeOf(Sample.calculate("sum", "price")).resolves.toEqualTypeOf<bigint>();
+      expectTypeOf(Sample.calculate("count")).resolves.toEqualTypeOf<number>();
       // @ts-expect-error text can't be added up
       void Sample.sum("title");
       // @ts-expect-error booleans aren't ordered
