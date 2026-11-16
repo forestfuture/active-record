@@ -54,11 +54,14 @@ interface Script {
   reset: () => void;
 }
 
-/** A line that is just `quit` or `exit`: leaves the console, as `.exit` does. */
-const leaving = /^\s*(?:quit|exit)\s*;?\s*$/;
+/**
+ * A line that is just `quit` or `exit`, once trimmed: leaves the console, as `.exit` does. Its
+ * spaces are trimmed first, as two `\s*` either side of `;?` backtrack polynomially.
+ */
+const leaving = /^(?:quit|exit)(?:\s*;)?$/;
 
-/** A line that is just `name!`: one of the console's commands, as a bare word. */
-const bangLine = /^\s*([A-Za-z_]\w*)!\s*;?\s*$/;
+/** A line that is just `name!`, once trimmed: one of the console's commands, as a bare word. */
+const bangLine = /^([A-Za-z_]\w*)!(?:\s*;)?$/;
 
 /**
  * Runs a task inside the project's database. While a line awaits, the REPL holds the next one back
@@ -175,7 +178,7 @@ function lineQueue() {
                 void ran.then(done);
                 return;
               }
-              if (leaving.test(code)) {
+              if (leaving.test(code.trim())) {
                 // As `.exit` does: nothing is evaluated, so nothing is printed.
                 stopped = true;
                 server.close();
@@ -243,7 +246,7 @@ function defineCommands(
     });
   }
   return (line) => {
-    const name = bangLine.exec(line)?.[1];
+    const name = bangLine.exec(line.trim())?.[1];
     return name !== undefined && commands[name]?.bang ? runCommand(name, "") : undefined;
   };
 }
