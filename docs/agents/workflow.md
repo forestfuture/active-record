@@ -49,7 +49,7 @@ Tidy permit's docs, types and tests (#82)
 
 Rules that matter here:
 
-- Assert **results**, such as the records that come back. Assert SQL text only for safety properties (bound values, quoted identifiers); lint flags the rest (`active-record/no-sql-text`). Assert query counts through `onQuery`.
+- Assert **results**, such as the records that come back, or the values a statement binds. Assert query counts through `onQuery`, and kinds of statement with `statementKinds`. Assert SQL text only for a safety property (bound values, quoted identifiers) or what only the SQL can show, with an opt-out that says which (`// oxlint-disable-next-line active-record/no-sql-text -- <why>`): lint flags the rest.
 - A test that passes on first run is a **guard**, not a red. Say so. A commit that stages nothing outside `tests/` and adds more tests than it removes holds only guards, and the `commit-msg` hook warns when it doesn't say "guard".
 - Behavior that depends on a **terminal** (typing, a paste, Ctrl-C or Ctrl-D, colors, a prompt) is checked in a `tests/integration/d1/*-pty.test.ts` through `tests/support/pty.ts`, which plays steps at a real pseudo-terminal. Piped streams can't show it: a paste reaches a process a line at a time, and typing triggers completion. Write one-off terminal scripts there instead of in a scratch folder.
 - If a size or complexity limit trips, split the code. Don't raise the limit.

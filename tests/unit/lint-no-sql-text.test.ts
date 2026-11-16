@@ -1,7 +1,7 @@
 import noSqlText from "../../scripts/lint/no-sql-text.mjs";
 import { ruleTester } from "../support/rule-tester.ts";
 
-// A test asserts results, and SQL text only for a safety property it names (#400).
+// A test asserts results, and SQL text only with an opt-out that says why (#400).
 ruleTester.run("no-sql-text", noSqlText, {
   valid: [
     // Results, bound values and counts.
