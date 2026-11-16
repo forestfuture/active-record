@@ -47,7 +47,7 @@ import { readyModel, type BelongsTo, type HasOne } from "./associations.ts";
 import type { Relation, Scope, Scoped } from "./relation.ts";
 import { defineStatics, ModelStatics } from "./model-statics.ts";
 import { currentRelation } from "./current-database.ts";
-import type { ValidationContexts } from "./validation-context.ts";
+import type { SaveOptions, ValidationContexts } from "./validation-context.ts";
 import { scopeBodies, scopeName, useModelBase } from "./scoped-relation.ts";
 import {
   checkValidatedNames,
@@ -515,18 +515,19 @@ export class Model extends ModelStatics {
 
   /**
    * Inserts a new record or updates a persisted one; `false` if it's invalid, a callback aborted,
-   * or a record it destroys refused (#37).
+   * or a record it destroys refused (#37). `context` validates it in that context (`"signup"`), as
+   * `isValid(context)` does.
    */
-  async save(): Promise<boolean> {
-    return (await saveLifecycle(this)).status === "saved";
+  async save(options: SaveOptions = {}): Promise<boolean> {
+    return (await saveLifecycle(this, options.context)).status === "saved";
   }
 
   /**
    * Like `save()`, but throws `RecordInvalid`, `RecordNotSaved`, or `RecordNotDestroyed` (a
    * record marked for destruction refused) instead of returning `false`.
    */
-  async saveOrThrow(): Promise<true> {
-    const outcome = await saveLifecycle(this);
+  async saveOrThrow(options: SaveOptions = {}): Promise<true> {
+    const outcome = await saveLifecycle(this, options.context);
     if (outcome.status !== "saved") throw refusalError(this, outcome, "save");
     return true;
   }

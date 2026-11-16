@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { Model, RecordInvalid } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class User extends Model.define({
@@ -133,5 +133,26 @@ describe("a context given to isValid", () => {
     applicant.role = "ab";
     await applicant.isValid(["create", "invite"]);
     expect(applicant.errors.get("role")).toEqual(["is too short (minimum is 4 characters)"]);
+  });
+});
+
+describe("a context given to save", () => {
+  test("save validates in it", async () => {
+    const applicants = harness.connect().model(Applicant);
+
+    const applicant = applicants.build({ email: "a@example.com", role: "ab" });
+    expect(await applicant.save({ context: "signup" })).toBe(true);
+    applicant.role = null;
+    expect(await applicant.save({ context: "signup" })).toBe(false);
+    expect(applicant.errors.get("role")).toEqual(["can't be blank"]);
+  });
+
+  test("saveOrThrow validates in it", async () => {
+    const applicants = harness.connect().model(Applicant);
+
+    const applicant = applicants.build({ email: "a@example.com", role: "root" });
+    await expect(applicant.saveOrThrow({ context: "invite" })).rejects.toThrow(RecordInvalid);
+    applicant.role = "ab";
+    await expect(applicant.saveOrThrow({ context: "invite" })).resolves.toBe(true);
   });
 });

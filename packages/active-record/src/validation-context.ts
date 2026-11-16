@@ -8,6 +8,12 @@ export type ValidationContext = "create" | "update" | (string & {});
 /** One context, or several. */
 export type ValidationContexts = ValidationContext | readonly ValidationContext[];
 
+/** The options of `save` and `saveOrThrow`. */
+export interface SaveOptions {
+  /** Validate in this context (`"signup"`), or these, in place of `"create"` or `"update"`. */
+  context?: ValidationContexts;
+}
+
 /**
  * The contexts a record is validated in: those given, or else `"create"` while it's new and
  * `"update"` once it's saved.
