@@ -82,13 +82,13 @@ function withPassword(url: string): string {
 
 /**
  * The files in `dir`, by their path in it, leaving out what Wrangler and the test write there:
- * `node_modules` holds the shared compiled-TypeScript cache (#416).
+ * `node_modules/.cache/jiti` links to the shared compiled-TypeScript cache (#416).
  */
 const filesIn = (dir: string) =>
   readdirSync(dir, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => relative(dir, join(entry.parentPath, entry.name)))
-    .filter((file) => !/^(?:\.wrangler|\.bundle|node_modules)\//.test(file))
+    .filter((file) => !/^(?:\.wrangler|\.bundle|node_modules\/\.cache\/jiti)\//.test(file))
     .sort();
 
 /** Expects `file` to read the same in both folders. */
