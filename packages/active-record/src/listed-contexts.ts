@@ -11,6 +11,11 @@ import {
   type ValidationContexts,
 } from "./validation-context.ts";
 
+/** A class's name. */
+function nameOf(model: object): string {
+  return (model as { name: string }).name;
+}
+
 /** The custom contexts a Model lists in `static validationContexts`, if any. */
 function listedBy(model: object): readonly string[] {
   return (model as { validationContexts?: readonly string[] }).validationContexts ?? [];
@@ -21,22 +26,25 @@ function knownBy(model: object): readonly string[] {
   return [...BUILT_IN_CONTEXTS, ...listedBy(model)];
 }
 
-/** Why `name` isn't one of the Model's contexts, said after what named it. */
-function unlisted(model: { name: string }, what: string, name: string): InvalidModel {
+/** Why `name`, named by `subject` ("Member validates \"email\""), isn't one of the Model's contexts. */
+function unlisted(model: object, subject: string, name: string): InvalidModel {
   const listed = listedBy(model);
   const among =
     listed.length === 0
       ? `"create" or "update"`
       : `"create", "update" or one of its validationContexts (${listed.map((each) => `"${each}"`).join(", ")})`;
   return new InvalidModel(
-    `${model.name}${what} on "${name}", which isn't ${among}; list it in static validationContexts`,
+    `${subject} on "${name}", which isn't ${among}; list it in static validationContexts`,
   );
 }
 
-/** A context named by a Model's validations or validation callbacks: the class that named it, and how. */
+/**
+ * Contexts named by one of a Model's validations or validation callbacks: the class that declared
+ * it, and what it is, as an error's subject ("Member validates \"email\"").
+ */
 interface Named {
-  from: { name: string };
-  what: string;
+  from: object;
+  subject: string;
   contexts: readonly string[];
 }
 
@@ -44,16 +52,16 @@ interface Named {
 function namedContexts(model: object): Named[] {
   const validations = declaredByClass(model, "validations").flatMap(({ from, values }) =>
     values.map(({ attribute, options, associated }) => ({
-      from: from as { name: string },
-      what: associated ? ` validates the associated "${attribute}"` : ` validates "${attribute}"`,
+      from,
+      subject: `${nameOf(from)} validates ${associated ? "the associated " : ""}"${attribute}"`,
       contexts: [options.on ?? [], options.exceptOn ?? []].flatMap(listOf),
     })),
   );
   const callbacks = VALIDATION_CALLBACK_KINDS.flatMap((kind) =>
     declaredByClass(model, kind).flatMap(({ from, values }) =>
       values.map((callback) => ({
-        from: from as { name: string },
-        what: `'s ${kind} runs`,
+        from,
+        subject: `${nameOf(from)}'s ${kind} runs`,
         contexts: contextsOfCallback(callback),
       })),
     ),
@@ -62,9 +70,9 @@ function namedContexts(model: object): Named[] {
 }
 
 /** A context named on an abstract base class, which has only `"create"` and `"update"`. */
-function namedOnBase({ from, what }: Named, name: string): InvalidModel {
+function namedOnBase({ subject }: Named, name: string): InvalidModel {
   return new InvalidModel(
-    `${from.name}${what} on "${name}", but an abstract base class has only "create" and "update"; ` +
+    `${subject} on "${name}", but an abstract base class has only "create" and "update"; ` +
       `declare it on each Model that lists "${name}"`,
   );
 }
@@ -73,11 +81,11 @@ function namedOnBase({ from, what }: Named, name: string): InvalidModel {
  * Checks, on a Model's first use, that its validations and validation callbacks name only its
  * contexts, and that no abstract class it extends lists any: `InvalidModel` otherwise.
  */
-export function rejectUnlistedContexts(model: { name: string }): void {
+export function rejectUnlistedContexts(model: object): void {
   for (const each of ancestors(model)) {
     if (isBase(each) && Object.hasOwn(each, "validationContexts")) {
       throw new InvalidModel(
-        `${(each as { name: string }).name} is an abstract base class; list validationContexts on each Model instead`,
+        `${nameOf(each)} is an abstract base class; list validationContexts on each Model instead`,
       );
     }
   }
@@ -86,7 +94,7 @@ export function rejectUnlistedContexts(model: { name: string }): void {
     const known = onBase ? BUILT_IN_CONTEXTS : knownBy(model);
     const name = named.contexts.find((context) => !known.includes(context));
     if (name === undefined) continue;
-    throw onBase ? namedOnBase(named, name) : unlisted(model, named.what, name);
+    throw onBase ? namedOnBase(named, name) : unlisted(model, named.subject, name);
   }
 }
 
@@ -96,11 +104,11 @@ export function rejectUnlistedContexts(model: { name: string }): void {
  */
 export function requireKnownContexts(record: object, given: ValidationContexts | undefined): void {
   if (given === undefined) return;
-  const model = record.constructor as { name: string };
+  const model = record.constructor;
   const known = knownBy(model);
   const name = listOf(given).find((context) => !known.includes(context));
   if (name === undefined) return;
   throw new TypeError(
-    `${model.name} has no validation context "${name}"; list it in static validationContexts`,
+    `${nameOf(model)} has no validation context "${name}"; list it in static validationContexts`,
   );
 }
