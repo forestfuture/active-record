@@ -1,4 +1,4 @@
-import { Model } from "@forestfuture/active-record";
+import { hasMany, Model } from "@forestfuture/active-record";
 
 // #region validates
 export class Account extends Model.define({
@@ -37,6 +37,41 @@ export class Event extends Model.define({
   }
 }
 // #endregion comparison
+
+// #region strict
+export class Invoice extends Model.define({
+  id: { type: "integer", null: false },
+  total: { type: "integer", null: false },
+  currency: { type: "string", null: false },
+}) {
+  static {
+    this.validates("currency", { inclusion: ["USD", "EUR"], strict: true });
+  }
+}
+// #endregion strict
+
+// #region associated
+export class Track extends Model.define({
+  id: { type: "integer", null: false },
+  playlistId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static {
+    this.validates("title", { presence: true });
+  }
+}
+
+export class Playlist extends Model.define({
+  id: { type: "integer", null: false },
+  name: { type: "string", null: false },
+}) {
+  tracks = hasMany(Track);
+
+  static {
+    this.validatesAssociated("tracks");
+  }
+}
+// #endregion associated
 
 // #region custom
 export class Booking extends Model.define({
