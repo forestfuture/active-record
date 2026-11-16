@@ -69,9 +69,13 @@ const castParser =
     return { ok: false, error: defaultRefusal(type, value, digits) };
   };
 
-/** Why a default can't be cast: past a decimal's precision, when it's a decimal without it. */
+/**
+ * Why a default can't be cast: past a decimal's precision, when it's a decimal at its scale
+ * without the precision; else that it isn't one (rounding can carry it past a double, too).
+ */
 function defaultRefusal(type: CastDefaultType, value: string, digits: DecimalDigits): string {
-  if (digits.precision === undefined || castDefault(type, value) === undefined) {
+  const scaled = { ...digits, precision: undefined, scale: digits.scale ?? 0 };
+  if (digits.precision === undefined || castDefault(type, value, scaled) === undefined) {
     return `${value} isn't a ${type}`;
   }
   const size = [digits.precision, digits.scale].filter((digit) => digit !== undefined).join(",");
