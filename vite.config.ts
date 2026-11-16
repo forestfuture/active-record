@@ -183,14 +183,20 @@ export default defineConfig({
       },
       {
         // A describe() callback holds a whole suite, so it's long by design. A test waits on an
-        // event, a gate, or a polled state, never a fixed delay, and its name stands alone
-        // (CODING_STANDARDS.md, Tests).
+        // event, a gate, or a polled state, never a fixed delay, its name stands alone, and it
+        // asserts results, not SQL text (CODING_STANDARDS.md, Tests).
         files: ["tests/**"],
         rules: {
           "max-lines-per-function": "off",
           "active-record/no-fixed-delay": "error",
+          "active-record/no-sql-text": "error",
           "active-record/standalone-test-name": "error",
         },
+      },
+      {
+        // toSql's SQL text is the result its own tests check.
+        files: ["tests/conformance/to-sql.test.ts"],
+        rules: { "active-record/no-sql-text": "off" },
       },
     ],
   },
