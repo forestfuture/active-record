@@ -20,6 +20,9 @@ export type ContextOf<C> =
   | "update"
   | (C extends { validationContexts: readonly (infer N extends string)[] } ? N : never);
 
+/** The callback kinds that take `on`, to run only in some contexts. */
+export const VALIDATION_CALLBACK_KINDS = ["beforeValidation", "afterValidation"] as const;
+
 /** The options of `beforeValidation` and `afterValidation`. */
 export interface ValidationCallbackOptions<X extends string = ValidationContext> {
   /** Only run the callback in this validation context, or these. */

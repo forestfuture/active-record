@@ -7,6 +7,7 @@ import {
   BUILT_IN_CONTEXTS,
   contextsOfCallback,
   listOf,
+  VALIDATION_CALLBACK_KINDS,
   type ValidationContexts,
 } from "./validation-context.ts";
 
@@ -48,7 +49,7 @@ function namedContexts(model: object): Named[] {
       contexts: [options.on ?? [], options.exceptOn ?? []].flatMap(listOf),
     })),
   );
-  const callbacks = (["beforeValidation", "afterValidation"] as const).flatMap((kind) =>
+  const callbacks = VALIDATION_CALLBACK_KINDS.flatMap((kind) =>
     declaredByClass(model, kind).flatMap(({ from, values }) =>
       values.map((callback) => ({
         from: from as { name: string },

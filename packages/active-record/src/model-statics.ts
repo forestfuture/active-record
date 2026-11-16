@@ -15,7 +15,12 @@ import type {
   ScopesOf,
 } from "./model.ts";
 import type { PaginateStatic } from "./pagination.ts";
-import { inContext, type ContextOf, type ValidationCallbackOptions } from "./validation-context.ts";
+import {
+  inContext,
+  VALIDATION_CALLBACK_KINDS,
+  type ContextOf,
+  type ValidationCallbackOptions,
+} from "./validation-context.ts";
 import type { Relation, Scoped } from "./relation.ts";
 
 /** A Model's Relation, as its statics return them: `Product.where(…)` is `Product.all().where(…)`. */
@@ -211,9 +216,6 @@ const callbackKinds = Object.keys({
   true
 >) as CallbackKind[];
 
-/** The callback kinds that take `on`, to run only in some validation contexts (#51). */
-const validationKinds: ReadonlySet<CallbackKind> = new Set(["beforeValidation", "afterValidation"]);
-
 /**
  * The class Model extends, for its statics' types only: at runtime it's empty, and
  * `defineStatics` puts the statics on Model itself, where scopes look for the names they
@@ -235,7 +237,7 @@ export function defineStatics(base: typeof Model): void {
       base,
       kind,
       function (this: object, callback: Callback<Model>, options?: ValidationCallbackOptions) {
-        const narrowed = validationKinds.has(kind) && options?.on !== undefined;
+        const narrowed = isValidationKind(kind) && options?.on !== undefined;
         declare(this, kind, narrowed ? inContext(callback, options) : callback);
       },
     );
@@ -251,6 +253,11 @@ export function defineStatics(base: typeof Model): void {
       return relation[name]!(...args);
     });
   }
+}
+
+/** Whether a callback kind takes `on`, to run only in some validation contexts (#51). */
+function isValidationKind(kind: CallbackKind): boolean {
+  return (VALIDATION_CALLBACK_KINDS as readonly CallbackKind[]).includes(kind);
 }
 
 /** `method` as the static `name` of `base`, named and described as a class's own static is. */
