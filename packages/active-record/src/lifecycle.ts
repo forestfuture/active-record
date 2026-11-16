@@ -129,7 +129,7 @@ export async function validation(
   pass: ValidationPass = newPass(),
   context?: ValidationContexts,
 ): Promise<Validity> {
-  const contexts = contextsOf(record, context ?? pass.context);
+  const contexts = contextsOf(record, context ?? pass.customContexts);
   return whileValidating(pass, record, contexts, async () => {
     const recordState = record[state];
     recordState.errors[clearErrors]();
