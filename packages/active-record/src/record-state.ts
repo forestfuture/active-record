@@ -51,6 +51,8 @@ export class RecordState {
   readonly autosaves = new PendingAutosaves();
   /** Destroyed when its owner is saved through an `autosave: true` association (#37). */
   isMarkedForDestruction = false;
+  /** The contexts it's being validated in, while it is (#51). */
+  validationContexts: readonly string[] = [];
 
   constructor(model: ModelClass) {
     this.#model = model;

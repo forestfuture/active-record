@@ -8,6 +8,21 @@ export type ValidationContext = "create" | "update" | (string & {});
 /** One context, or several. */
 export type ValidationContexts = ValidationContext | readonly ValidationContext[];
 
+/** The options of `beforeValidation` and `afterValidation`. */
+export interface ValidationCallbackOptions {
+  /** Only run the callback in this validation context, or these. */
+  on?: ValidationContexts;
+}
+
+/** `callback`, run only while its record is validated in one of the contexts in `on`. */
+export function inContext(
+  callback: (record: Model) => unknown,
+  { on }: ValidationCallbackOptions,
+): (record: Model) => unknown {
+  return (record) =>
+    isInContext(record[state].validationContexts, { on }) ? callback(record) : undefined;
+}
+
 /** The options of `save` and `saveOrThrow`. */
 export interface SaveOptions {
   /** Validate in this context (`"signup"`), or these, in place of `"create"` or `"update"`. */

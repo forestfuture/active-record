@@ -127,7 +127,8 @@ export async function validation(
   pass: ValidationPass = newPass(),
   context?: ValidationContexts,
 ): Promise<Validity> {
-  return whileValidating(pass, record, async () => {
+  const contexts = contextsOf(record, context);
+  return whileValidating(pass, record, contexts, async () => {
     const recordState = record[state];
     recordState.errors[clearErrors]();
     recordState.abortReason = undefined;
@@ -140,7 +141,7 @@ export async function validation(
       errors: recordState.errors,
       isTaken: (attribute, value, options) => isTaken(record, attribute, value, options),
       isAssociationValid: (name) => isAssociationValid(record, name, claimed, pass),
-      contexts: contextsOf(record, context),
+      contexts,
     });
     await validateAutosaves(record, claimed, pass);
     if (!(await runAbortableCallbacks(record, "afterValidation"))) return "aborted";
