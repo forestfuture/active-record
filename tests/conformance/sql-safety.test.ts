@@ -36,6 +36,7 @@ describe("SQL safety", () => {
     const users = await db.model(User).where({ email: injection }).toArray();
 
     expect(users).toEqual([]);
+    // oxlint-disable-next-line active-record/no-sql-text -- a value is bound, never written into the SQL
     expect(queries[0]?.sql).not.toContain(injection);
     expect(queries[0]?.params).toContain(injection);
   });
@@ -55,6 +56,7 @@ describe("SQL safety", () => {
 
     expect(matched.map((user) => user.id)).toEqual([2]);
     expect(injected).toEqual([]);
+    // oxlint-disable-next-line active-record/no-sql-text -- a value is bound, never written into the SQL
     expect(queries[1]?.sql).not.toContain(injection);
   });
 
@@ -69,6 +71,7 @@ describe("SQL safety", () => {
       .toArray();
 
     expect(users.map((user) => user.id)).toEqual([2]);
+    // oxlint-disable-next-line active-record/no-sql-text -- the column is quoted and the value bound
     expect(queries[0]?.sql).toContain(harness.asSent('"created_at" > ?'));
   });
 

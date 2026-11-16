@@ -84,6 +84,7 @@ describe("what a bulk write resolves to", () => {
     const result = await keys.insertAll([{ label: "deploy" }], { returning: false });
 
     expect(result).toEqual({ rowsAffected: 1, rows: [] });
+    // oxlint-disable-next-line active-record/no-sql-text -- no result shows whether RETURNING was sent
     expect(events[0]?.sql).not.toContain("RETURNING");
   });
 

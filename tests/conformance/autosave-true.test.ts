@@ -729,6 +729,7 @@ describe("autosave: true (#37)", () => {
 
       await reply.saveOrThrow();
 
+      // oxlint-disable-next-line active-record/no-sql-text -- only the statements show which table is written first
       expect(events.map(({ sql }) => sql.split(" ")[1])).toEqual(['"posts"', '"comments"']);
       expect(await titles()).toEqual(["Changed"]);
     });

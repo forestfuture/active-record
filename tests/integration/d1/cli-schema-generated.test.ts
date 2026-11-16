@@ -119,6 +119,7 @@ describe("a schema generated from migrations", () => {
     expect([read.available, read.tagline]).toEqual([1, "Listed"]);
     expect(read.attributes()).not.toHaveProperty("settings");
     expect(statementKinds(events)).toEqual(["INSERT", "SELECT"]);
+    // oxlint-disable-next-line active-record/no-sql-text -- a column never read can't show in the records
     expect(events.map((event) => event.sql).join()).not.toContain("settings");
   });
 
@@ -137,6 +138,7 @@ describe("a schema generated from migrations", () => {
 
     expect(read.attributes()).not.toHaveProperty("settings");
     expect(statementKinds(events)).toEqual(["SELECT"]);
+    // oxlint-disable-next-line active-record/no-sql-text -- a column never read can't show in the records
     expect([...inserted, ...events.map((event) => event.sql)].join()).not.toContain("settings");
   });
 

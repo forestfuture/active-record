@@ -90,8 +90,10 @@ describe("Models extending the app's base class", () => {
       .model(Customer)
       .toArray();
 
+    /* oxlint-disable active-record/no-sql-text -- a column never read can't show in the records */
     expect(events[0]?.sql).not.toContain("*");
     expect(events[0]?.sql).not.toContain("person_identifier");
+    /* oxlint-enable active-record/no-sql-text */
     expect(Customer.build({})).not.toHaveProperty("personIdentifier");
     expectTypeOf<Customer>().not.toHaveProperty("personIdentifier");
   });
