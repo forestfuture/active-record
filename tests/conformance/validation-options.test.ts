@@ -330,12 +330,17 @@ describe("validatesAssociated on a belongsTo and a hasOne", () => {
     expect(account.errors.fullMessages()).toEqual(["Profile is invalid"]);
   });
 
-  test("an association without a record passes", async () => {
+  test("a hasOne without a record passes", async () => {
     await harness.exec("INSERT INTO users (id, email) VALUES (?, ?)", [1, "a@example.com"]);
-    const db = harness.connect();
+    const account = await harness.connect().model(Account).find(1);
 
-    expect(await (await db.model(Account).find(1)).isValid()).toBe(true);
-    expect(await db.model(Entry).build({ title: "Hi" }).isValid()).toBe(true);
+    expect(await account.isValid()).toBe(true);
+  });
+
+  test("a belongsTo without a record passes", async () => {
+    const entry = harness.connect().model(Entry).build({ title: "Hi" });
+
+    expect(await entry.isValid()).toBe(true);
   });
 });
 
