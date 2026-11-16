@@ -79,5 +79,13 @@ ruleTester.run("one-model-per-test", oneModelPerTest, {
       });`,
       errors: [{ messageId: "secondModel" }],
     },
+    {
+      name: "an action inside expect(…).rejects, after another Model's",
+      code: `test("refuses", async () => {
+        expect(await db.model(User).create({ email: "a" })).toBeDefined();
+        await expect(db.model(Post).build().saveOrThrow()).rejects.toThrow();
+      });`,
+      errors: [{ messageId: "secondModel" }],
+    },
   ],
 });

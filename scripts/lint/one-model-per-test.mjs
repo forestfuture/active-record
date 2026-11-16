@@ -69,12 +69,33 @@ function unwrapped(node) {
   return at;
 }
 
+/** Whether `node` reads a matcher's `rejects` or `resolves`. */
+function isSettling(node) {
+  return !node.computed && ["rejects", "resolves"].includes(node.property.name);
+}
+
 /**
- * The action an awaited value is, if it's one: a call of an action, or one continued with `then`
- * (`user.save().then(…)`).
+ * The value `expect` is given, when `node` awaits its `rejects` or `resolves`
+ * (`expect(user.saveOrThrow()).rejects.toThrow()`), which is what the await waits for.
+ */
+function expectedPromise(node) {
+  if (node?.type !== "CallExpression") return undefined;
+  let at = node.callee;
+  let settles = false;
+  while (at?.type === "MemberExpression") {
+    settles ||= isSettling(at);
+    at = at.object;
+  }
+  return settles && at?.type === "CallExpression" && isExpect(at) ? at.arguments[0] : undefined;
+}
+
+/**
+ * The action an awaited value is, if it's one: a call of an action, one continued with `then`
+ * (`user.save().then(…)`), or one given to `expect` for its `rejects` or `resolves`.
  */
 function actionOf(node) {
   let call = unwrapped(node);
+  call = unwrapped(expectedPromise(call)) ?? call;
   while (methodOf(call) === "then") call = unwrapped(call.callee.object);
   return actions.has(methodOf(call)) ? call : undefined;
 }
