@@ -65,6 +65,7 @@ import { insertStatement, runAlone, Statement } from "./statement.ts";
 import type { ReturnedRow, WriteResult } from "./statement.ts";
 import { preparedWrites, type PreparedWrites } from "./prepared-writes.ts";
 import { destroyTogether } from "./records-together.ts";
+import { grouped, type GroupedRelation, type GroupTerm } from "./grouping.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
 import {
   count,
@@ -577,6 +578,11 @@ export class Relation<M extends Model, S = {}> {
     const named = requireOperation(operation);
     if (named === "count") return count(this.#valueSource(), attribute as string | undefined);
     return runCalculation(this.#valueSource(), named, attribute as string | SafeSql);
+  }
+
+  /** Groups the rows by attributes, for each group's calculations (#345). */
+  group<const G extends readonly GroupTerm<M>[]>(...terms: G): GroupedRelation<M, G> {
+    return grouped(this as Relation<M>, terms, (relation) => relation.#valueSource());
   }
 
   /** What `count`, `pluck` and the calculations read values from: this Relation's. */
