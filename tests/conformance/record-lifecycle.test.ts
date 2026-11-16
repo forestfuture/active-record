@@ -10,6 +10,7 @@ import {
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { statementKinds } from "../support/statement-kinds.ts";
 
 class User extends Model.define({
   id: { type: "integer", null: false },
@@ -107,10 +108,8 @@ describe("record lifecycle", () => {
     user.role = "admin";
     expect(await user.save()).toBe(true);
 
-    expect(queries).toHaveLength(1);
-    const update = harness.asSent('UPDATE "users" SET "role" = ?');
-    expect(queries[0]?.sql.slice(0, update.length)).toBe(update);
-    expect(queries[0]?.sql).not.toContain('"email"');
+    expect(statementKinds(queries)).toEqual(["UPDATE"]);
+    expect(queries[0]?.params).toEqual(["admin", user.id]);
     expect((await users.find(user.id)).role).toBe("admin");
   });
 

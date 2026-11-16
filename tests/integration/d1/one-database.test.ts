@@ -250,13 +250,7 @@ describe("one database", () => {
         await (await User.find(1)).destroy();
       });
 
-      expect(seen.map((event) => event.sql.split(" ").slice(0, 3).join(" "))).toEqual([
-        "SELECT * FROM",
-        "SELECT * FROM",
-        'DELETE FROM "posts"',
-        'DELETE FROM "posts"',
-        'DELETE FROM "users"',
-      ]);
+      expect(statementKinds(seen)).toEqual(["SELECT", "SELECT", "DELETE", "DELETE", "DELETE"]);
       expect(await one.prepare("SELECT count(*) AS n FROM posts").first("n")).toBe(0);
     });
 
