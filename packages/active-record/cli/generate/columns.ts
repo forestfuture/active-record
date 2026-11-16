@@ -65,10 +65,18 @@ const castParser =
   (type: CastDefaultType) =>
   (value: string, digits: DecimalDigits): Parsed => {
     const cast = castDefault(type, value, digits);
-    return cast === undefined
-      ? { ok: false, error: `${value} isn't a ${type}` }
-      : { ok: true, value: cast.literal };
+    if (cast !== undefined) return { ok: true, value: cast.literal };
+    return { ok: false, error: defaultRefusal(type, value, digits) };
   };
+
+/** Why a default can't be cast: past a decimal's precision, when it's a decimal without it. */
+function defaultRefusal(type: CastDefaultType, value: string, digits: DecimalDigits): string {
+  if (digits.precision === undefined || castDefault(type, value) === undefined) {
+    return `${value} isn't a ${type}`;
+  }
+  const size = [digits.precision, digits.scale].filter((digit) => digit !== undefined).join(",");
+  return `${value} has more digits before the point than decimal{${size}} holds`;
+}
 
 /** How each type that can have a default reads a `=value` as its literal. */
 const defaultParsers: Partial<
