@@ -1,13 +1,13 @@
 // Batch: what `batch((b) => [...])` hands its callback, to prepare each write the batch runs.
-import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import { requireKnownContexts } from "./listed-contexts.ts";
+import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import { preparedWrites } from "./prepared-writes.ts";
 import { RecordStatement } from "./record-statement.ts";
 import { Relation } from "./relation.ts";
 import type { InsertOptions, Returning, UpsertOptions } from "./relation-checks.ts";
 import type { SafeSql } from "./sql.ts";
-import type { SaveOptions } from "./validation-context.ts";
 import type { ReturnedRow, Statement } from "./statement.ts";
+import type { SaveOptions } from "./validation-context.ts";
 
 /** The library's key for closing a Batch once its callback has returned. */
 const closeBatch = Symbol("closeBatch");
