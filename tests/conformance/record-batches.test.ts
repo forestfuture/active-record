@@ -308,6 +308,16 @@ describe("a validation context in a batch", () => {
     expect(await database.model(Member).count()).toBe(0);
   });
 
+  test("a record listed twice is saved in its first listing's context", async () => {
+    const database = harness.connect();
+    const member = database.model(Member).build({ email: "a@example.com" });
+
+    await database.batch((b) => [b.save(member), b.save(member, { context: "signup" })]);
+
+    expect(member.isPersisted()).toBe(true);
+    expect(await database.model(Member).count()).toBe(1);
+  });
+
   test("b.save refuses a context the record's Model doesn't list, before anything runs", async () => {
     const database = harness.connect();
     const member = database.model(Member).build({ email: "a@example.com", role: "reader" });
