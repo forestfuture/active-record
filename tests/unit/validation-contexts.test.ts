@@ -17,10 +17,13 @@ describe("validation contexts' types", () => {
   test("on and exceptOn take a context's name or a list of them", () => {
     class Draft extends Model.define({ id: "integer", body: "string" }) {
       static table = "notes";
+      static validationContexts = ["publish"] as const;
       static {
         this.validates("body", { presence: true, on: "create" });
         this.validates("body", { presence: true, on: ["update", "publish"] });
         this.validates("body", { presence: true, exceptOn: "create" });
+        // @ts-expect-error "draft" isn't one of Draft's validationContexts
+        this.validates("body", { presence: true, exceptOn: "draft" });
         // @ts-expect-error a context is a name, not a function
         this.validates("body", { presence: true, on: () => true });
       }
@@ -32,6 +35,7 @@ describe("validation contexts' types", () => {
   test("only the validation callbacks take on", () => {
     class Draft extends Model.define({ id: "integer", body: "string" }) {
       static table = "notes";
+      static validationContexts = ["publish"] as const;
       static {
         this.beforeValidation(() => undefined, { on: "create" });
         this.afterValidation(() => undefined, { on: ["update", "publish"] });
@@ -52,6 +56,22 @@ describe("validation contexts' types", () => {
 });
 
 describe("a Model's validation contexts", () => {
+  test("a subclass names its parent's", () => {
+    class Draft extends Model.define({ id: "integer", body: "string" }) {
+      static table = "notes";
+      static validationContexts = ["publish"] as const;
+    }
+    class Memo extends Draft {
+      static {
+        this.validates("body", { presence: true, on: "publish" });
+        // @ts-expect-error "draft" isn't one of the validationContexts Memo inherits
+        this.validates("body", { presence: true, on: "draft" });
+      }
+    }
+
+    expect(Memo.name).toBe("Memo");
+  });
+
   test("an abstract class can't list them", () => {
     abstract class Shared extends Model {
       static override abstract = true;
@@ -72,6 +92,7 @@ describe("a Model's validation contexts", () => {
     class Draft extends Model.define({ id: "integer", body: "string" }) {
       static table = "notes";
       static {
+        // @ts-expect-error a Model without validationContexts has only "create" and "update"
         this.afterValidation(() => undefined, { on: ["update", "publish"] });
       }
     }

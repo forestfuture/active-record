@@ -15,7 +15,7 @@ import type {
   ScopesOf,
 } from "./model.ts";
 import type { PaginateStatic } from "./pagination.ts";
-import { inContext, type ValidationCallbackOptions } from "./validation-context.ts";
+import { inContext, type ContextOf, type ValidationCallbackOptions } from "./validation-context.ts";
 import type { Relation, Scoped } from "./relation.ts";
 
 /** A Model's Relation, as its statics return them: `Product.where(…)` is `Product.all().where(…)`. */
@@ -123,7 +123,7 @@ type CallbackStatic = <C extends AbstractModelClass>(
 type ValidationCallbackStatic = <C extends AbstractModelClass>(
   this: C,
   callback: Callback<InstanceType<C>>,
-  options?: ValidationCallbackOptions,
+  options?: ValidationCallbackOptions<ContextOf<C>>,
 ) => void;
 
 /** Every callback kind as a static, each documented here, so its doc comment shows on hover. */

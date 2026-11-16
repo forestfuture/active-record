@@ -5,13 +5,22 @@ import { state } from "./record-state.ts";
 /** A validation context: `"create"`, `"update"`, or a name the app chooses (`"signup"`). */
 export type ValidationContext = "create" | "update" | (string & {});
 
-/** One context, or several. */
-export type ValidationContexts = ValidationContext | readonly ValidationContext[];
+/** One context, or several: of those `X` names, when it's a Model's. */
+export type ValidationContexts<X extends string = ValidationContext> = X | readonly X[];
+
+/**
+ * The contexts the Model class `C` can name: `"create"`, `"update"`, and those it lists in
+ * `static validationContexts = [...] as const`.
+ */
+export type ContextOf<C> =
+  | "create"
+  | "update"
+  | (C extends { validationContexts: readonly (infer N extends string)[] } ? N : never);
 
 /** The options of `beforeValidation` and `afterValidation`. */
-export interface ValidationCallbackOptions {
+export interface ValidationCallbackOptions<X extends string = ValidationContext> {
   /** Only run the callback in this validation context, or these. */
-  on?: ValidationContexts;
+  on?: ValidationContexts<X>;
 }
 
 /** The contexts each callback `inContext` made runs in, so the Model's first use can check them. */

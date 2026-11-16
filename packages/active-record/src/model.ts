@@ -47,7 +47,7 @@ import { readyModel, type BelongsTo, type HasOne } from "./associations.ts";
 import type { Relation, Scope, Scoped } from "./relation.ts";
 import { defineStatics, ModelStatics } from "./model-statics.ts";
 import { currentRelation } from "./current-database.ts";
-import type { SaveOptions, ValidationContexts } from "./validation-context.ts";
+import type { ContextOf, SaveOptions, ValidationContexts } from "./validation-context.ts";
 import { scopeBodies, scopeName, useModelBase } from "./scoped-relation.ts";
 import {
   checkValidatedNames,
@@ -314,7 +314,7 @@ export class Model extends ModelStatics {
   static validates<C extends AbstractModelClass>(
     this: C,
     attribute: keyof AttributesOf<InstanceType<C>> & string,
-    options: ValidationOptions<InstanceType<C>>,
+    options: ValidationOptions<InstanceType<C>, ContextOf<C>>,
   ): void {
     const validation: Validation = { attribute, options: options as ValidationOptions<never> };
     // A generated Model's attributes are fixed when it's first used, and checked then.
@@ -330,7 +330,7 @@ export class Model extends ModelStatics {
   static validatesAssociated<C extends AbstractModelClass>(
     this: C,
     association: AssociationName<InstanceType<C>>,
-    options: AssociatedValidationOptions<InstanceType<C>> = {},
+    options: AssociatedValidationOptions<InstanceType<C>, ContextOf<C>> = {},
   ): void {
     const validation: Validation = {
       attribute: association,

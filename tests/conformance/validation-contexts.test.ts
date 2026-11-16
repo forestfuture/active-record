@@ -356,6 +356,7 @@ describe("a Model's validation contexts", () => {
       static validationContexts = ["signup"] as const;
 
       static {
+        // @ts-expect-error "craete" isn't "create", "update" or a listed context
         this.validates("role", { presence: true, on: "craete" });
       }
     }
