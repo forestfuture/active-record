@@ -3,6 +3,7 @@ import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 import {
   InvalidModel,
   Model,
+  type Batch,
   type SaveOptions,
   type ValidationContexts,
 } from "../../packages/active-record/src/index.ts";
@@ -52,6 +53,13 @@ describe("validation contexts' types", () => {
     expectTypeOf<Note["save"]>().parameters.toEqualTypeOf<[options?: SaveOptions]>();
     expectTypeOf<Note["saveOrThrow"]>().parameters.toEqualTypeOf<[options?: SaveOptions]>();
     expectTypeOf<SaveOptions>().toEqualTypeOf<{ context?: ValidationContexts }>();
+  });
+
+  test("a batch's save takes a context as an option, and its destroy takes none", () => {
+    expectTypeOf<Parameters<Batch["save"]>>().toEqualTypeOf<
+      [record: Model, options?: SaveOptions]
+    >();
+    expectTypeOf<Parameters<Batch["destroy"]>>().toEqualTypeOf<[record: Model]>();
   });
 });
 
