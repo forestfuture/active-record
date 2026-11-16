@@ -11,11 +11,6 @@ export interface StatementEvent {
 }
 
 /**
- * One line for a statement, as `onQuery` saw it (filtered values are already `[FILTERED]`):
- * `  User  1.2ms  SELECT … WHERE "id" = ?  [ 1 ]`, or `failed` and the reason in place of the time
- * and values. Dim on a terminal, so it reads as background to the results.
- */
-/**
  * `sql` on one line: each line break, with the spaces around it, as one space. Split rather than
  * matched by a regex of spaces, a line break and spaces, which rescans a long run of spaces from
  * each place in it.
@@ -32,6 +27,11 @@ function oneLine(sql: string): string {
   return parts.join(" ");
 }
 
+/**
+ * One line for a statement, as `onQuery` saw it (filtered values are already `[FILTERED]`):
+ * `  User  1.2ms  SELECT … WHERE "id" = ?  [ 1 ]`, or `failed` and the reason in place of the time
+ * and values. Dim on a terminal, so it reads as background to the results.
+ */
 export function statementLine(event: StatementEvent, dim: boolean): string {
   const { model, params, durationMs, error } = event;
   // SQL that spans lines would break the one-line shape (and the dim span around it).
