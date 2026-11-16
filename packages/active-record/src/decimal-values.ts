@@ -149,9 +149,33 @@ export function orderDecimal(value: string, bound: number | string): number | un
 }
 
 /** A decimal's precision and scale, as `NUMERIC(10, 2)` gives them (#398). */
-export interface DecimalLimits {
+export interface DecimalDigits {
   precision?: number;
   scale?: number;
+}
+
+/** The most digits Postgres's `numeric` takes as a precision or a scale. */
+const maxDigits = 1000;
+
+/** Whether `value` is a whole number of digits from `least` to 1000. */
+function isDigitCount(value: number, least: number): boolean {
+  return Number.isSafeInteger(value) && value >= least && value <= maxDigits;
+}
+
+/**
+ * Why a precision and scale can't be a `NUMERIC(p, s)`'s, as the words after "has", or undefined:
+ * a precision is 1 to 1000 digits, and a scale 0 to the precision. The spec, the schema readers and
+ * the generators all check it here (#398).
+ */
+export function digitsProblem({ precision, scale }: DecimalDigits): string | undefined {
+  if (precision !== undefined && !isDigitCount(precision, 1)) {
+    return `a precision of ${precision}; a precision is 1 to 1000 digits`;
+  }
+  if (scale !== undefined && !isDigitCount(scale, 0)) {
+    return `a scale of ${scale}; a scale is 0 to 1000 digits`;
+  }
+  if (precision === undefined || scale === undefined || scale <= precision) return undefined;
+  return `a scale of ${scale}, past its precision of ${precision}; a scale is at most the precision`;
 }
 
 /**
@@ -159,7 +183,7 @@ export interface DecimalLimits {
  * and Rails round; `uncastable` when its digits before the point are more than the precision
  * leaves them. A precision without a scale has a scale of 0, as SQL's `NUMERIC(10)` does.
  */
-export function limitDecimal(decimal: string, { precision, scale }: DecimalLimits): unknown {
+export function limitDecimal(decimal: string, { precision, scale }: DecimalDigits): unknown {
   const places = scale ?? (precision === undefined ? undefined : 0);
   const rounded = places === undefined ? decimal : roundDecimal(decimal, places);
   if (precision === undefined || rounded === uncastable) return rounded;

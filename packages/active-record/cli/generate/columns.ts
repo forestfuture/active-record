@@ -1,6 +1,7 @@
 // Parses a generator's `name:type` column arguments.
 import { pluralize } from "../../src/inflections.ts";
-import { castDefault, type CastDefaultType, type Digits } from "../schema/cast-default.ts";
+import { digitsProblem, type DecimalDigits } from "../../src/decimal-values.ts";
+import { castDefault, type CastDefaultType } from "../schema/cast-default.ts";
 import { camelize, underscore } from "../../src/naming.ts";
 
 type ColumnType =
@@ -62,7 +63,7 @@ type Parsed = { ok: true; value: Literal } | { ok: false; error: string };
 /** A decimal's, a date's or a time's default, in its one form (`1.50` → `"1.5"`, #391). */
 const castParser =
   (type: CastDefaultType) =>
-  (value: string, digits: Digits): Parsed => {
+  (value: string, digits: DecimalDigits): Parsed => {
     const cast = castDefault(type, value, digits);
     return cast === undefined
       ? { ok: false, error: `${value} isn't a ${type}` }
@@ -70,7 +71,9 @@ const castParser =
   };
 
 /** How each type that can have a default reads a `=value` as its literal. */
-const defaultParsers: Partial<Record<ColumnType, (value: string, digits: Digits) => Parsed>> = {
+const defaultParsers: Partial<
+  Record<ColumnType, (value: string, digits: DecimalDigits) => Parsed>
+> = {
   string: (value) => ({ ok: true, value }),
   boolean: (value) =>
     value === "true" || value === "false"
@@ -94,7 +97,7 @@ const defaultTypes = types.filter((type) => defaultParsers[type] !== undefined);
 const defaultTypeList = `${defaultTypes.slice(0, -1).join(", ")} and ${defaultTypes.at(-1)}`;
 
 /** A `=value` default as its type's literal, or why it can't be one. */
-function defaultOf(type: ColumnType, value: string, digits: Digits): Parsed {
+function defaultOf(type: ColumnType, value: string, digits: DecimalDigits): Parsed {
   const parse = defaultParsers[type];
   return parse === undefined
     ? { ok: false, error: `only ${defaultTypeList} columns can have a default here` }
@@ -102,16 +105,15 @@ function defaultOf(type: ColumnType, value: string, digits: Digits): Parsed {
 }
 
 /** A column's `{precision,scale}`, which only a decimal takes, or why it can't have them (#398). */
-function digitsOf(type: ColumnType, precision?: string, scale?: string): Digits | string {
+function digitsOf(type: ColumnType, precision?: string, scale?: string): DecimalDigits | string {
   if (precision === undefined) return {};
   if (type !== "decimal") return "only a decimal takes a precision and scale, as decimal{10,2}";
   const digits = {
     precision: Number(precision),
     ...(scale !== undefined && { scale: Number(scale) }),
   };
-  return (digits.scale ?? 0) > digits.precision
-    ? `its scale, ${digits.scale}, is past its precision, ${digits.precision}`
-    : digits;
+  const problem = digitsProblem(digits);
+  return problem === undefined ? digits : `it has ${problem}`;
 }
 
 /** The index `:unique` or `:index` asks for. */
@@ -133,6 +135,8 @@ function parseColumn(arg: string): ColumnArg | string {
   }
   const name = underscore(given!);
   const index = indexOf(indexes);
+  const digits = digitsOf(type, precision, scale);
+  if (typeof digits === "string") return `${arg}: ${digits}`;
   if (type === "references") {
     const association = camelize(name);
     return {
@@ -144,8 +148,6 @@ function parseColumn(arg: string): ColumnArg | string {
       association,
     };
   }
-  const digits = digitsOf(type, precision, scale);
-  if (typeof digits === "string") return `${arg}: ${digits}`;
   const column: ColumnArg = { name, type, notNull: bang !== undefined, index, ...digits };
   if (value === undefined) return column;
   const literal = defaultOf(type, value, digits);

@@ -48,6 +48,10 @@ describe("a decimal's precision and scale, declared", () => {
       "Sample.value has a precision 2.5; use a whole number of digits",
     ],
     [
+      { type: "decimal", precision: 0 },
+      "Sample.value has a precision of 0; a precision is 1 to 1000 digits",
+    ],
+    [
       { type: "decimal", precision: 4, scale: 5 },
       "Sample.value has a scale of 5, past its precision of 4; a scale is at most the precision",
     ],

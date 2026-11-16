@@ -6,12 +6,8 @@ export { migrationSql, quotedName, type MigrationDialect } from "./generate/migr
 export { byName, byVersion, type Migration } from "./project/migrations.ts";
 export { configFileName, parseJsonc } from "./project/config-file.ts";
 export { attributeName, exportName, listed } from "./project/names.ts";
-export {
-  castDefault,
-  isCastDefaultType,
-  withDigits,
-  type CastDefaultType,
-} from "./schema/cast-default.ts";
+export { castDefault, isCastDefaultType, type CastDefaultType } from "./schema/cast-default.ts";
+export { withDigits } from "./schema/decimal-digits.ts";
 export { namesInList, withGeneratedEnum } from "./schema/generated-enum.ts";
 export { storageOverride } from "./schema/storage-override.ts";
 export {
