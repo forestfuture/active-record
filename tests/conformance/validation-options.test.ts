@@ -94,6 +94,24 @@ describe("allowBlank and allowNull", () => {
     expect(await profiles.build({ bio: "short" }).isValid()).toBe(false);
   });
 
+  test("allowBlank keeps comparison from adding blank", async () => {
+    class Signup extends Model.define({
+      id: { type: "integer", null: false },
+      email: "string",
+      role: "string",
+    }) {
+      static table = "users";
+
+      static {
+        this.validates("role", { comparison: { otherThan: "root" }, allowBlank: true });
+      }
+    }
+    const signups = harness.connect().model(Signup);
+
+    expect(await signups.build({ email: "a@example.com", role: "  " }).isValid()).toBe(true);
+    expect(await signups.build({ email: "a@example.com", role: "root" }).isValid()).toBe(false);
+  });
+
   test("allowNull skips only null", async () => {
     const comments = harness.connect().model(Comment);
 
