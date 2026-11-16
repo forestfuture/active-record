@@ -1,5 +1,6 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
 import { isAssociationValid } from "./associated-validation.ts";
+import { contextsOf } from "./validation-context.ts";
 import { newPass, whileValidating, type ValidationPass } from "./validation-pass.ts";
 import { enumValidations } from "./enum-values.ts";
 import { filteredValues, shownKey } from "./filtering.ts";
@@ -135,6 +136,7 @@ export async function validation(
       errors: recordState.errors,
       isTaken: (attribute, value, options) => isTaken(record, attribute, value, options),
       isAssociationValid: (name) => isAssociationValid(record, name, claimed, pass),
+      contexts: contextsOf(record),
     });
     await validateAutosaves(record, claimed, pass);
     if (!(await runAbortableCallbacks(record, "afterValidation"))) return "aborted";
