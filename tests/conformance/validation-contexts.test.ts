@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model, RecordInvalid } from "../../packages/active-record/src/index.ts";
+import { hasMany, Model, RecordInvalid } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class User extends Model.define({
@@ -68,6 +68,31 @@ class Visitor extends Model.define({
     this.beforeValidation(() => ran.push("before on create"), { on: "create" });
     this.beforeValidation(() => ran.push("before"));
     this.afterValidation(() => ran.push("after on update or signup"), { on: ["update", "signup"] });
+  }
+}
+
+class Article extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  static {
+    this.validates("title", { presence: true });
+  }
+}
+
+class Writer extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+}) {
+  static table = "users";
+
+  articles = hasMany(Article, { foreignKey: "userId" });
+
+  static {
+    this.validatesAssociated("articles", { on: "publish" });
   }
 }
 
@@ -186,5 +211,29 @@ describe("validation callbacks with on", () => {
     expect(ran.splice(0)).toEqual(["before", "after on update or signup"]);
     await visitors.build({}).isValid("signup");
     expect(ran.splice(0)).toEqual(["before", "after on update or signup"]);
+  });
+});
+
+/** Seeds user 1 with a post of each title. */
+async function seedPosts(titles: readonly string[]): Promise<void> {
+  await harness.exec("INSERT INTO users (id, email) VALUES (?, ?)", [1, "a@example.com"]);
+  for (const [index, title] of titles.entries()) {
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (?, ?, ?)", [
+      index + 1,
+      1,
+      title,
+    ]);
+  }
+}
+
+describe("validatesAssociated with on", () => {
+  test("validates the association only in the contexts it names", async () => {
+    await seedPosts(["Hello", " "]);
+    const writer = await harness.connect().model(Writer).find(1);
+    await writer.articles().toArray();
+
+    expect(await writer.isValid()).toBe(true);
+    expect(await writer.isValid("publish")).toBe(false);
+    expect(writer.errors.fullMessages()).toEqual(["Articles is invalid"]);
   });
 });

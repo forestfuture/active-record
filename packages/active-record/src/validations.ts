@@ -94,7 +94,7 @@ export interface ValidationOptions<R = never> {
 /** The options of a `validatesAssociated(association, options)` call. */
 export type AssociatedValidationOptions<R = never> = Pick<
   ValidationOptions<R>,
-  "message" | "strict" | "if" | "unless"
+  "message" | "strict" | "if" | "unless" | "on" | "exceptOn"
 >;
 
 /**
