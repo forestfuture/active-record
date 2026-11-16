@@ -70,6 +70,7 @@ describe("the column syntax", () => {
         "p:decimal{2,5}",
         "q:decimal{0}",
         "r:decimal{1001}",
+        "s:decimal{4,2}=123.4",
       ]),
     ).toEqual({
       ok: false,
