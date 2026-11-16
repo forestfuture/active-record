@@ -84,10 +84,10 @@ type RelationStatics = {
 };
 
 /** A calculation's static, of a class's attribute `K`, or an `sql` fragment: `Order.sum("total")`. */
-type CalculationStatic<Attribute extends "number" | "ordered", Fragment, Null> = <
+type CalculationStatic<AttributeKind extends "number" | "ordered", Fragment, Null> = <
   C extends QueryableClass,
   K extends
-    | (Attribute extends "number"
+    | (AttributeKind extends "number"
         ? NumberAttribute<InstanceType<C>>
         : OrderedAttribute<InstanceType<C>>)
     | SafeSql,
