@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { defineType, Model } from "../../packages/active-record/src/index.ts";
+import { column, defineType, Model, sql } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -237,6 +237,27 @@ describe("calculations (#344)", () => {
       expect(await db().model(Article).minimum("status")).toBe("draft");
       expect(await db().model(Article).maximum("priority")).toBe("high");
       expect(await db().model(Article).minimum("priority")).toBe("normal");
+    });
+  });
+
+  describe("of an sql fragment", () => {
+    test("sum and average are numbers, with its values bound", async () => {
+      await seedReviews(["a", 3, 1.5], ["b", 4, 2], ["c", null, 0.25]);
+      const doubled = sql`${column("rating")} * ${2}`;
+
+      expect(await reviews().sum(doubled)).toBe(14);
+      expect(await reviews().average(doubled)).toBe(7);
+      expect(await reviews().where({ title: "c" }).sum(doubled)).toBe(0);
+      expect(events.at(-1)?.params).toEqual([2, "c"]);
+    });
+
+    test("minimum and maximum are the values the database returns, or null with none", async () => {
+      await seedReviews(["ab", 3, 1], ["abcd", 4, 1]);
+      const length = sql`length(${column("title")})`;
+
+      expect(await reviews().minimum(length)).toBe(2);
+      expect(await reviews().maximum(length)).toBe(4);
+      expect(await reviews().none().maximum(length)).toBeNull();
     });
   });
 });

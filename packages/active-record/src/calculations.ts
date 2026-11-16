@@ -10,8 +10,10 @@ import {
 } from "./compiler.ts";
 import type { Dialect } from "./dialect.ts";
 import type { QueryRunner } from "./load.ts";
-import type { Model } from "./model.ts";
+import type { AttributesOf, Model } from "./model.ts";
 import type { QueryDescription } from "./query.ts";
+import { checkFragment } from "./relation-checks.ts";
+import { SafeSql } from "./sql.ts";
 
 /** What a calculation or `pluck` reads: a Relation's query, its database, and its loaded records. */
 export interface CalculationContext {
@@ -56,29 +58,46 @@ export async function pluck(
 }
 
 /**
- * A calculation of `attribute` over the rows the query returns: a sum (0 with no rows), a
- * minimum or a maximum read as the attribute's value, an average as a number, or else `null`.
+ * A calculation over the rows the query returns, of an attribute or an `sql` fragment. Of an
+ * attribute, a sum (0 with no rows), a minimum or a maximum reads as the attribute's value; of a
+ * fragment, a sum is a number, and a minimum or maximum the value the database returned. An
+ * average is a number. With no rows, all but a sum are `null`.
  */
 export async function calculate(
   { query, dialect, runner }: CalculationContext,
   calculation: Calculation,
-  attribute: string,
+  of: string | SafeSql,
 ): Promise<unknown> {
-  const resolved = attributeFor(query.model, attribute);
-  const [row] = await runner.rows(() =>
-    compileCalculation(dialect(), query, calculation, attribute),
-  );
+  const read = of instanceof SafeSql ? readUntyped(query, of) : readAs(query, of);
+  const [row] = await runner.rows(() => compileCalculation(dialect(), query, calculation, of));
   const cell = row?.["value"] ?? (calculation === "sum" ? 0 : null);
   if (cell === null) return null;
-  if (calculation === "average") return Number(cell);
-  return resolved.read(isNumber(query, attribute) ? numberCell(cell) : cell);
+  return calculation === "average" ? Number(cell) : read(calculation, cell);
 }
 
-/** Whether `attribute` is stored as an integer or a real (a custom type's too). */
-function isNumber(query: QueryDescription, attribute: string): boolean {
-  const { type } = attributeOf(query.model, attribute);
-  return type === "integer" || type === "real";
+/** How a fragment's result reads: a sum as a number, an extreme as it is; checked first. */
+function readUntyped(query: QueryDescription, fragment: SafeSql): ResultReader {
+  checkFragment(query.model, fragment);
+  return (calculation, cell) => (calculation === "sum" ? Number(cell) : cell);
 }
+
+/** How an attribute's result reads: as its value. An unknown attribute throws first. */
+function readAs(query: QueryDescription, attribute: string): ResultReader {
+  const resolved = attributeFor(query.model, attribute);
+  const isNumber = ["integer", "real"].includes(attributeOf(query.model, attribute).type);
+  return (_calculation, cell) => resolved.read(isNumber ? numberCell(cell) : cell);
+}
+
+/**
+ * What a calculation of `K` resolves to besides `null`: an attribute's value, or for an `sql`
+ * fragment, `Fragment` (a sum's number, or an extreme's `unknown` cell).
+ */
+export type CalculatedValue<M, K, Fragment = number> = K extends SafeSql
+  ? Fragment
+  : NonNullable<AttributesOf<M>[K & keyof AttributesOf<M>]>;
+
+/** Reads a calculation's result, which isn't null. */
+type ResultReader = (calculation: Calculation, cell: unknown) => unknown;
 
 /**
  * A number's cell: Postgres sums a `bigint` as `numeric`, which reads as text, so a whole

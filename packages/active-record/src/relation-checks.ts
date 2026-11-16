@@ -103,7 +103,7 @@ function attributeOrder(attribute: string, value: unknown, method: string): Orde
  * fragment is written, not when the query runs (#142). A bare date beside an integer-stored
  * column is refused too (#149).
  */
-function checkFragment(model: ModelClass, fragment: SafeSql): void {
+export function checkFragment(model: ModelClass, fragment: SafeSql): void {
   for (const value of fragment.values) {
     if (!isAttributeReference(value)) continue;
     attributeOf(model, value.attribute);
