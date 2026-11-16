@@ -84,5 +84,30 @@ ruleTester.run("no-sql-text", noSqlText, {
       code: "const { sql, params } = User.all().toSql();\nexpect({ sql, params }).toEqual(sent);",
       errors: [{ messageId: "sqlText" }],
     },
+    {
+      name: "SQL in a template literal",
+      code: 'expect(`${events[0]!.sql}`).toContain("WHERE");',
+      errors: [{ messageId: "sqlText" }],
+    },
+    {
+      name: "SQL cast to a type",
+      code: 'expect(events[0]?.sql as string).toContain("WHERE");',
+      errors: [{ messageId: "sqlText" }],
+    },
+    {
+      name: "SQL picked by a condition",
+      code: 'expect(isRead ? events[0]!.sql : "").toContain("WHERE");',
+      errors: [{ messageId: "sqlText" }],
+    },
+    {
+      name: "SQL read by its key in brackets",
+      code: 'expect(events[0]!["sql"]).toContain("WHERE");',
+      errors: [{ messageId: "sqlText" }],
+    },
+    {
+      name: "SQL in a soft assertion",
+      code: 'expect.soft(events[0]!.sql).toContain("WHERE");',
+      errors: [{ messageId: "sqlText" }],
+    },
   ],
 });

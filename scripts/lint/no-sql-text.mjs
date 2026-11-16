@@ -1,10 +1,15 @@
 // The repo's lint rule that a test asserts results, not the SQL text it sent (#400).
 import { defineRule } from "vite-plus/lint/plugins";
 
-/** Whether `node` is SQL text: a `sql` binding, or a `.sql` property, as an event or toSql has. */
+/** Whether `property` names `sql`: `.sql`, or `["sql"]`. */
+function isSqlKey(property, computed) {
+  return computed ? property.value === "sql" : property.name === "sql";
+}
+
+/** Whether `node` is SQL text: a `sql` binding, or a `sql` property, as an event or toSql has. */
 function isSqlText(node) {
   if (node.type === "Identifier") return node.name === "sql";
-  return node.type === "MemberExpression" && !node.computed && node.property.name === "sql";
+  return node.type === "MemberExpression" && isSqlKey(node.property, node.computed);
 }
 
 /** Whether `node` is an arrow function or a function expression, such as a `map` callback. */
@@ -44,12 +49,16 @@ const parts = {
   ArrayExpression: (node) => node.elements,
   BinaryExpression: (node) => [node.left, node.right],
   ChainExpression: (node) => [node.expression],
+  ConditionalExpression: (node) => [node.consequent, node.alternate],
   LogicalExpression: (node) => [node.left, node.right],
   MemberExpression: (node) => [node.object],
   ObjectExpression: (node) => node.properties.map((p) => (p.type === "Property" ? p.value : p)),
   ReturnStatement: (node) => [node.argument],
   SpreadElement: (node) => [node.argument],
+  TemplateLiteral: (node) => node.expressions,
+  TSAsExpression: (node) => [node.expression],
   TSNonNullExpression: (node) => [node.expression],
+  TSSatisfiesExpression: (node) => [node.expression],
   UnaryExpression: (node) => [node.argument],
 };
 
@@ -62,9 +71,11 @@ function readsSqlText(node) {
   return anyReads(parts[node.type]?.(node) ?? []);
 }
 
-/** Whether `callee` is Vitest's `expect`. */
+/** Whether `callee` is Vitest's `expect`, or its `expect.soft`. */
 function isExpect(callee) {
-  return callee.type === "Identifier" && callee.name === "expect";
+  const isSoft = callee.type === "MemberExpression" && callee.property.name === "soft";
+  const name = isSoft ? callee.object : callee;
+  return name.type === "Identifier" && name.name === "expect";
 }
 
 export default defineRule({
