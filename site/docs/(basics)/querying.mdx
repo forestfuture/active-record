@@ -167,6 +167,10 @@ Add up, average, or find the extremes of an attribute without loading the record
 - `minimum` and `maximum` take any attribute you can compare. The result has the attribute’s own type, so a datetime’s is a `Date`.
 - NULLs are left out. With no rows, `sum` is 0 and the others are `null`. On `none()`, they answer without a query.
 
+:::note[Exact sums on D1]
+D1 adds up a decimal column as floating-point numbers. A sum keeps about 15 digits, and small errors can build up over many rows. For an exact sum on D1, store the amount as whole cents in an integer column, with a [custom type](./custom-types#defining-a-type) such as money. D1 adds whole numbers exactly, and `sum` returns the custom type’s value.
+:::
+
 A calculation covers the rows `toArray()` would return, so a `limit`, an `offset`, or `distinct()` decides which values count:
 
 <include>/_excerpts/guide/calculations/limit.ts</include>
