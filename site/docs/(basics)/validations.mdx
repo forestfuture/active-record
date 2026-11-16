@@ -110,7 +110,7 @@ To validate an association’s records with their owner, call `this.validatesAss
 
 <include>/_excerpts/guide/validations/associated.ts</include>
 
-An invalid track makes its playlist invalid, with a “Tracks is invalid” error, and keeps its own errors. If the association isn’t loaded, validating the playlist loads it, with one query. A record marked for destruction isn’t validated. Records built through an association are [validated with their owner](./associations#autosaving) without it.
+An invalid track makes its playlist invalid, with a “Tracks is invalid” error, and keeps its own errors. If the association isn’t loaded, validating the playlist loads it, with one query. A record marked for destruction isn’t validated. Records built through an association are [validated with their owner](./associations#autosaving) even without `validatesAssociated`.
 
 `validatesAssociated` takes `if`, `unless`, `message`, and `strict`, as `validates` does. The association’s name is typed, so a misspelled one is a compile error.
 
