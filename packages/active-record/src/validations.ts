@@ -7,7 +7,8 @@ import {
 } from "./comparison-validation.ts";
 import { isBlank } from "./blank.ts";
 import { orderDecimal } from "./decimal-values.ts";
-import { addFailure, type Errors, type Failure } from "./errors-collection.ts";
+import { addFailure, fullMessageOf, type Errors, type Failure } from "./errors-collection.ts";
+import { StrictValidationFailed } from "./errors.ts";
 import { attributeOf } from "./metadata.ts";
 import type { AttributesOf } from "./model.ts";
 
@@ -70,6 +71,11 @@ export interface ValidationOptions<R = never> {
   allowBlank?: boolean;
   /** Replaces the default message of every failure from these rules. */
   message?: string;
+  /**
+   * Throw `StrictValidationFailed` with a failure's full message instead of adding it to
+   * `errors`: for a value only a bug in the app's own code could give.
+   */
+  strict?: boolean;
   /** Only run these rules when this returns true. */
   if?: (record: R) => boolean;
   /** Skip these rules when this returns true; with `if`, both must allow them. */
@@ -249,7 +255,9 @@ export async function runValidations(
       ...(await uniquenessFailures(target, attribute, value, options)),
     ];
     for (const failure of failures) {
-      target.errors[addFailure](attribute, { ...failure, message: options.message });
+      const added = { ...failure, message: options.message };
+      if (options.strict) throw strictFailure(target, attribute, added);
+      target.errors[addFailure](attribute, added);
     }
   }
 }
@@ -258,6 +266,15 @@ export async function runValidations(
 function isApplied(record: object, options: ValidationOptions<never>): boolean {
   if (options.if && !options.if(record as never)) return false;
   return !options.unless?.(record as never);
+}
+
+/** The error a `strict: true` rule throws for its failure. */
+function strictFailure(
+  { errors }: ValidationTarget,
+  attribute: string,
+  failure: Failure,
+): StrictValidationFailed {
+  return new StrictValidationFailed(errors[fullMessageOf](attribute, failure));
 }
 
 /** Whether `allowNull` or `allowBlank` skips the rules for this value. */
