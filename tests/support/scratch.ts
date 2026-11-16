@@ -2,10 +2,10 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll } from "vite-plus/test";
-import { shareCompileCache } from "./compile-cache.ts";
+import { scratchFolder, shareCompileCache } from "./compile-cache.ts";
 
-// Inside tests/ (gitignored): a project there finds this repo's node_modules, as an app finds its own.
-const inRepo = new URL("../.scratch/", import.meta.url).pathname;
+// scratchFolder is inside tests/ (gitignored): a project there finds this repo's node_modules, as an
+// app finds its own.
 
 /**
  * Throwaway folders for a test file, removed when it finishes. Call once at the top of the file.
@@ -20,8 +20,8 @@ export function scratchDirs({ sharedCompileCache = true } = {}) {
     for (const dir of made) rmSync(dir, { recursive: true, force: true });
   });
   return (prefix: string, outsideTheRepo = false): string => {
-    if (!outsideTheRepo) mkdirSync(inRepo, { recursive: true });
-    const dir = mkdtempSync(join(outsideTheRepo ? tmpdir() : inRepo, prefix));
+    if (!outsideTheRepo) mkdirSync(scratchFolder, { recursive: true });
+    const dir = mkdtempSync(join(outsideTheRepo ? tmpdir() : scratchFolder, prefix));
     made.push(dir);
     if (sharedCompileCache) shareCompileCache(dir);
     return dir;

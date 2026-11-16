@@ -12,14 +12,17 @@ import {
  * project's `node_modules/.cache/jiti` (#251), and jiti checks each entry against its source, so
  * projects can share one, and a run can start from the last one's.
  */
-export const sharedCompileCache = new URL("../.scratch/jiti-cache/", import.meta.url).pathname;
+export const sharedCacheFolder = new URL("../.scratch/jiti-cache/", import.meta.url).pathname;
+
+/** Where the test projects are made: inside tests/ (gitignored), as `scratchDirs` makes them. */
+export const scratchFolder = new URL("../.scratch/", import.meta.url).pathname;
 
 /**
  * Points a project's jiti cache at the shared one. Only that folder is linked: the project's
  * `node_modules` stays its own, for the stand-in packages a test writes there, as does
  * `node_modules/.cache`, where the console keeps its files.
  */
-export function shareCompileCache(dir: string, cache = sharedCompileCache): void {
+export function shareCompileCache(dir: string, cache = sharedCacheFolder): void {
   mkdirSync(cache, { recursive: true });
   mkdirSync(join(dir, "node_modules/.cache"), { recursive: true });
   symlinkSync(cache, join(dir, "node_modules/.cache/jiti"), "dir");
@@ -32,9 +35,9 @@ const entries = [corePackage, `${corePackage}/d1`, `${corePackage}/postgresql`];
  * Compiles the library into `cache`, as a command loads it from a project in the repo. A process
  * that has loaded it already doesn't compile it again, so this fills the cache only before then.
  */
-export async function fillCompileCache(cache = sharedCompileCache): Promise<void> {
+export async function fillCompileCache(cache = sharedCacheFolder): Promise<void> {
   // One folder every run, so the wrapper jiti caches for it is one entry, not one per run.
-  const project = new URL("../.scratch/compile-cache-fill/", import.meta.url).pathname;
+  const project = join(scratchFolder, "compile-cache-fill");
   rmSync(project, { recursive: true, force: true });
   mkdirSync(project, { recursive: true });
   try {
@@ -74,5 +77,5 @@ export async function setup(): Promise<() => void> {
     console.warn(`The compile cache wasn't filled: ${(error as Error).message}`);
   }
   const filled = Date.now();
-  return () => pruneCompileCache(sharedCompileCache, filled);
+  return () => pruneCompileCache(sharedCacheFolder, filled);
 }

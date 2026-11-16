@@ -1,11 +1,12 @@
 import { existsSync, lstatSync, mkdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
+import { sharedCacheFolder } from "../support/compile-cache.ts";
 import { scratchDirs } from "../support/scratch.ts";
 
 const scratch = scratchDirs();
 const bare = scratchDirs({ sharedCompileCache: false });
-const shared = new URL("../.scratch/jiti-cache/", import.meta.url).pathname;
+const shared = sharedCacheFolder;
 
 // The command's compiled TypeScript is cached in a project's node_modules/.cache/jiti, so the
 // test projects share one, and only the first load of a run compiles the library (#416).
