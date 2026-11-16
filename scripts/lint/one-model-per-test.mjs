@@ -6,6 +6,51 @@ import { variableOf } from "./variables.mjs";
 /** The functions that take a test's body. */
 const testFunctions = new Set(["test", "it"]);
 
+/**
+ * The Relation's and a record's reads: awaiting one observes a Model's rows rather than acting
+ * on it, as a test does to see an action's effect in another table. With them, the query
+ * methods, for a Relation awaited as it is.
+ */
+const reads = new Set([
+  "count",
+  "exists",
+  "find",
+  "findBy",
+  "findByOrThrow",
+  "first",
+  "hasAny",
+  "isEmpty",
+  "last",
+  "paginate",
+  "pluck",
+  "reload",
+  "size",
+  "take",
+  "toArray",
+  "distinct",
+  "includes",
+  "limit",
+  "merge",
+  "none",
+  "offset",
+  "or",
+  "order",
+  "reorder",
+  "select",
+  "where",
+  "whereNot",
+]);
+
+/** Whether an awaited value is a read: a call of one of `reads`, as `users.count()`. */
+function isRead(node) {
+  let call = node;
+  while (call?.type === "TSNonNullExpression" || call?.type === "ChainExpression") {
+    call = call.expression;
+  }
+  const callee = call?.type === "CallExpression" ? call.callee : undefined;
+  return callee?.type === "MemberExpression" && !callee.computed && reads.has(callee.property.name);
+}
+
 /** The nodes an awaited value goes back through, toward the Model it came from. */
 const chainLinks = {
   AwaitExpression: (node) => node.argument,
@@ -91,7 +136,7 @@ export default defineRule({
       },
       AwaitExpression(node) {
         const test = tests.at(-1);
-        if (test === undefined || !test.asserted || test.reported) return;
+        if (test === undefined || !test.asserted || test.reported || isRead(node.argument)) return;
         // Each const is followed once, so consts that name each other can't loop.
         const followed = new Set();
         const named = (identifier) => {
