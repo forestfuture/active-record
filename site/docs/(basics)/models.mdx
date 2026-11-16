@@ -254,7 +254,11 @@ class Product extends Model.define({
 Product.build({ price: "1.555" }).price; // "1.56"
 ```
 
-A value is rounded half away from zero, as Postgres rounds a `NUMERIC(10, 2)` column, so a record holds what the database stores. A value with too many digits before the point throws `TypeError`. A `precision` without a `scale` rounds to whole numbers. `active-record schema` reads both from a column such as `NUMERIC(10, 2)`.
+A value is rounded half away from zero, as Postgres rounds a `NUMERIC(10, 2)` column, so a record holds what the database stores. A value with too many digits before the point throws `TypeError`. A `precision` without a `scale` rounds to whole numbers.
+
+:::note
+`active-record schema` reads a decimal’s `precision` and `scale` from a column such as `NUMERIC(10, 2)`.
+:::
 
 A `date` holds a day, such as `"2026-01-02"`, and a `time` holds a time of day, such as `"09:30:00"`. Neither has a time zone:
 
