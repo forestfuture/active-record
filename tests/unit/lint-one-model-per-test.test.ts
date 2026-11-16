@@ -4,6 +4,22 @@ import { ruleTester } from "../support/rule-tester.ts";
 // A test acts on one Model once it starts asserting (CODING_STANDARDS.md, Tests; #413).
 ruleTester.run("one-model-per-test", oneModelPerTest, {
   valid: [
+    // Acting on one Model, then reading another's rows to see the effect.
+    `test("an invalid author makes the post invalid, and nothing is written", async () => {
+      const post = db.model(Post).build();
+      expect(await post.save()).toBe(false);
+      expect(await db.model(User).count()).toBe(2);
+      expect(await db.model(User).pluck("id")).toEqual([1, 2]);
+      expect(await db.model(User).find(1)).toBeDefined();
+      expect(await db.model(User).where({ id: 1 }).toArray()).toHaveLength(1);
+      expect(await db.model(User).first()).toBeDefined();
+    });`,
+    // Arranging records of other Models before the first assertion.
+    `test("saves the post", async () => {
+      const user = await db.model(User).create({ email: "a" });
+      await db.model(Comment).create({ body: "c" });
+      expect(await db.model(Post).build({ userId: user.id }).save()).toBe(true);
+    });`,
     // A global and a lowercase import aren't Models.
     `import { make } from "./make";
     test("waits", async () => {
