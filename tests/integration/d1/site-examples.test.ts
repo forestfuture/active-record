@@ -910,7 +910,7 @@ describe("the querying page's calculations (#344)", () => {
       cheapest: 500,
       newest: new Date(days[1]!),
       topThree: 43_000,
-      withTax: 52_200,
+      averageDollars: 108.75,
     });
   });
 });

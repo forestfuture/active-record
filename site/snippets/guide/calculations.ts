@@ -15,8 +15,9 @@ export async function calculations(): Promise<unknown> {
   // #endregion limit
 
   // #region fragment
-  const withTax = await Product.sum(sql`${column("priceCents")} * ${1.2}`); // a number
+  const inDollars = sql`${column("priceCents")} / 100.0`;
+  const averageDollars = await Product.average(inDollars); // a number, or null
   // #endregion fragment
 
-  return { total, averagePrice, cheapest, newest, topThree, withTax };
+  return { total, averagePrice, cheapest, newest, topThree, averageDollars };
 }
