@@ -16,6 +16,7 @@ ruleTester.run("no-sql-text", noSqlText, {
     'expect(events.filter(({ sql }) => !sql.startsWith("SELECT"))).toHaveLength(2);',
     'expect(events.find((event) => event.sql.startsWith("INSERT"))?.params).toEqual([1]);',
     'expect(writes[0]!.sql.startsWith("UPDATE")).toBe(true);',
+    'expect(writes[0]!.sql["startsWith"]("UPDATE")).toBe(true);',
     // SQL given to the code under test, and SQL in a fragment.
     "expect(transactionControl(sql)).toBeUndefined();",
     'expect(statementLine({ ...event, sql }, false)).toBe("  User  SELECT *");',
@@ -120,6 +121,11 @@ ruleTester.run("no-sql-text", noSqlText, {
     {
       name: "SQL held in a const read through another",
       code: 'const text = events[0]!.sql;\nconst words = text.split(" ");\nexpect(words).toContain("WHERE");',
+      errors: [{ messageId: "sqlText" }],
+    },
+    {
+      name: "SQL in a soft assertion, by its key in brackets",
+      code: 'expect["soft"](events[0]!.sql).toContain("WHERE");',
       errors: [{ messageId: "sqlText" }],
     },
     {

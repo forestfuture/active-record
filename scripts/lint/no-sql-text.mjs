@@ -1,15 +1,15 @@
 // The repo's lint rule that a test asserts results, not the SQL text it sent (#400).
 import { defineRule } from "vite-plus/lint/plugins";
 
-/** Whether `property` names `sql`: `.sql`, or `["sql"]`. */
-function isSqlKey(property, computed) {
-  return computed ? property.value === "sql" : property.name === "sql";
+/** Whether `node` reads the property `key`: `.key`, or `["key"]`. */
+function isKey(node, key) {
+  if (node.type !== "MemberExpression") return false;
+  return node.computed ? node.property.value === key : node.property.name === key;
 }
 
 /** Whether `node` is SQL text: a `sql` binding, or a `sql` property, as an event or toSql has. */
 function isSqlText(node) {
-  if (node.type === "Identifier") return node.name === "sql";
-  return node.type === "MemberExpression" && isSqlKey(node.property, node.computed);
+  return node.type === "Identifier" ? node.name === "sql" : isKey(node, "sql");
 }
 
 /** Whether `node` is an arrow function or a function expression, such as a `map` callback. */
@@ -28,18 +28,14 @@ function isAnyReadFromSqlText(nodes, held) {
   return nodes.some((node) => isReadFromSqlText(node, held));
 }
 
-/** Whether `callee` is a `startsWith` method, which picks out a kind of statement (#400). */
-function isStartsWith(callee) {
-  return callee.type === "MemberExpression" && callee.property.name === "startsWith";
-}
-
 /**
  * Whether a call's value is read from SQL text: a method of SQL text (`sql.split(" ")`), a method
  * of a value read from it, or a callback's value (`events.map((event) => event.sql)`). SQL given
  * to a call, as the code under test, isn't.
  */
 function isCallReadFromSqlText(call, held) {
-  if (isStartsWith(call.callee)) return false;
+  // startsWith picks out a kind of statement (#400).
+  if (isKey(call.callee, "startsWith")) return false;
   if (isReadFromSqlText(call.callee, held)) return true;
   return (
     call.callee.type === "MemberExpression" &&
@@ -98,8 +94,7 @@ function variableOf(scope, identifier) {
 
 /** Whether `callee` is Vitest's `expect`, or its `expect.soft`. */
 function isExpect(callee) {
-  const isSoft = callee.type === "MemberExpression" && callee.property.name === "soft";
-  const name = isSoft ? callee.object : callee;
+  const name = isKey(callee, "soft") ? callee.object : callee;
   return name.type === "Identifier" && name.name === "expect";
 }
 
