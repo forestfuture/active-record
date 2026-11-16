@@ -88,6 +88,26 @@ describe("a Model's validation contexts", () => {
     );
   });
 
+  test("a base class's validation callback runs only on create or update", () => {
+    abstract class Shared extends Model {
+      static override abstract = true;
+      static {
+        this.beforeValidation(() => undefined, { on: "signup" as never });
+      }
+    }
+    class Account extends Shared.define({ id: "integer" }) {
+      static table = "accounts";
+      static validationContexts = ["signup"] as const;
+    }
+
+    expect(() => db.model(Account)).toThrow(
+      new InvalidModel(
+        'Shared\'s beforeValidation runs on "signup", but an abstract base class has only ' +
+          '"create" and "update"; declare it on each Model that lists "signup"',
+      ),
+    );
+  });
+
   test("a validation callback naming a context the Model doesn't list is InvalidModel", () => {
     class Draft extends Model.define({ id: "integer", body: "string" }) {
       static table = "notes";
