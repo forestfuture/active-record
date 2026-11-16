@@ -152,18 +152,24 @@ describe("strict", () => {
     expect(StrictUser.log).toEqual([]);
   });
 
-  test("save and saveOrThrow throw StrictValidationFailed and send no statement", async () => {
+  test("save throws StrictValidationFailed and sends no statement", async () => {
     const queries: QueryEvent[] = [];
     const users = harness.connect({ onQuery: (event) => queries.push(event) }).model(StrictUser);
 
     await expect(users.build().save()).rejects.toThrow(StrictValidationFailed);
-    const error = await users
+    expect(queries).toHaveLength(0);
+  });
+
+  test("saveOrThrow throws StrictValidationFailed, not RecordInvalid", async () => {
+    const error = await harness
+      .connect()
+      .model(StrictUser)
       .build()
       .saveOrThrow()
       .catch((caught: unknown) => caught);
+
     expect(error).toBeInstanceOf(StrictValidationFailed);
     expect(error).not.toBeInstanceOf(RecordInvalid);
-    expect(queries).toHaveLength(0);
   });
 
   test("a rule that passes adds the other rules' errors as usual", async () => {
@@ -388,33 +394,48 @@ describe("validatesAssociated with autosave and loading", () => {
 });
 
 describe("validatesAssociated's options", () => {
-  test("if, unless and message apply as they do to validates", async () => {
-    class Editor extends Model.define({
-      id: { type: "integer", null: false },
-      email: "string",
-      role: "string",
-    }) {
-      static table = "users";
+  class Editor extends Model.define({
+    id: { type: "integer", null: false },
+    email: "string",
+    role: "string",
+  }) {
+    static table = "users";
 
-      posts = hasMany(Post, { foreignKey: "userId" });
+    posts = hasMany(Post, { foreignKey: "userId" });
 
-      static {
-        this.validatesAssociated("posts", {
-          if: (editor) => editor.email !== null,
-          unless: (editor) => editor.role === "admin",
-          message: "need titles",
-        });
-      }
+    static {
+      this.validatesAssociated("posts", {
+        if: (editor) => editor.email !== null,
+        unless: (editor) => editor.role === "admin",
+        message: "need titles",
+      });
     }
+  }
+
+  /** An editor whose one post has a blank title. */
+  async function editorWithBlankPost() {
     await seedAuthor([" "]);
-    const editor = await harness.connect().model(Editor).find(1);
+    return harness.connect().model(Editor).find(1);
+  }
+
+  test("message replaces the association's error", async () => {
+    const editor = await editorWithBlankPost();
 
     expect(await editor.isValid()).toBe(false);
     expect(editor.errors.get("posts")).toEqual(["need titles"]);
-    editor.role = "admin";
-    expect(await editor.isValid()).toBe(true);
-    editor.role = null;
+  });
+
+  test("if that returns false skips the association", async () => {
+    const editor = await editorWithBlankPost();
     editor.email = null;
+
+    expect(await editor.isValid()).toBe(true);
+  });
+
+  test("unless that returns true skips the association", async () => {
+    const editor = await editorWithBlankPost();
+    editor.role = "admin";
+
     expect(await editor.isValid()).toBe(true);
   });
 
