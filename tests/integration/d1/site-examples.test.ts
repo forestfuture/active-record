@@ -44,6 +44,7 @@ import { runSchema } from "../../../packages/active-record/cli/schema/command.ts
 import { Post, User } from "../../../site/snippets/getting-started/models.ts";
 import * as models from "../../../site/snippets/guide/models.ts";
 import * as customTypes from "../../../site/snippets/guide/custom-types.ts";
+import { calculations } from "../../../site/snippets/guide/calculations.ts";
 import { createdSince, oldestFirst, Reminder } from "../../../site/snippets/guide/mixed-dates.ts";
 import { paidAt, paidSince } from "../../../site/snippets/guide/raw-statements.ts";
 import * as untrusted from "../../../site/snippets/guide/untrusted-input.ts";
@@ -872,5 +873,44 @@ describe("the custom types page's examples (#20)", () => {
     });
     const [row] = (await binding.prepare("SELECT sizes FROM shirts").all()).results;
     expect(row).toEqual({ sizes: "S,M,XL" });
+  });
+});
+
+describe("the querying page's calculations (#344)", () => {
+  let binding: TestDatabase;
+  let dispose: () => Promise<void>;
+  const schema = new URL("../../../site/snippets/guide/schema.sql", import.meta.url);
+
+  beforeAll(async () => {
+    ({ db: binding, dispose } = await createTestDatabase(schema));
+    // The Models' binding is DB, which an earlier test may have set to a database now gone.
+    Object.assign(workers.env, { DB: binding });
+  });
+  afterAll(() => dispose());
+
+  test("each resolves as its comment says", async () => {
+    const days = ["2026-01-02T00:00:00.000Z", "2026-03-04T00:00:00.000Z"];
+    for (const [name, cents, available, createdAt] of [
+      ["Pin", 500, 1, days[0]],
+      ["Lamp", 12_000, 1, days[1]],
+      ["Desk", 30_000, 0, days[0]],
+      ["Mug", 1_000, 1, days[0]],
+    ] as const) {
+      await binding
+        .prepare(
+          "INSERT INTO products (id, name, price_cents, available, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(name, name, cents, available, createdAt, createdAt)
+        .run();
+    }
+
+    expect(await calculations()).toEqual({
+      total: 13_500,
+      averagePrice: 10_875,
+      cheapest: 500,
+      newest: new Date(days[1]!),
+      topThree: 43_000,
+      withTax: 52_200,
+    });
   });
 });
