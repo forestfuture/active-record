@@ -237,8 +237,8 @@ export function defineStatics(base: typeof Model): void {
       base,
       kind,
       function (this: object, callback: Callback<Model>, options?: ValidationCallbackOptions) {
-        const narrowed = isValidationKind(kind) && options?.on !== undefined;
-        declare(this, kind, narrowed ? inContext(callback, options) : callback);
+        const on = isValidationKind(kind) ? options?.on : undefined;
+        declare(this, kind, on === undefined ? callback : inContext(callback, on));
       },
     );
   }

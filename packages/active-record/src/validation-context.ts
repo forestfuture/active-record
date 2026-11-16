@@ -35,11 +35,11 @@ const callbackContexts = new WeakMap<object, readonly string[]>();
 /** `callback`, run only while its record is validated in one of the contexts in `on`. */
 export function inContext(
   callback: (record: Model) => unknown,
-  { on }: ValidationCallbackOptions,
+  on: ValidationContexts,
 ): (record: Model) => unknown {
   const narrowed = (record: Model) =>
     isInContext(record[state].validationContexts, { on }) ? callback(record) : undefined;
-  if (on !== undefined) callbackContexts.set(narrowed, listOf(on));
+  callbackContexts.set(narrowed, listOf(on));
   return narrowed;
 }
 
