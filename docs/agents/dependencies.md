@@ -10,6 +10,12 @@ Read a dependency's types and docs from these paths, rather than searching `node
 - **Blume**, the documentation site: its docs are bundled at `site/node_modules/blume/docs/` (configuration in `configuration/index.mdx`, includes in `content/includes.mdx`, components in `content/components.mdx`), and its skills at `site/node_modules/blume/skills/`. `useblume.dev` has the same pages.
 - **tsdown**, which `vp pack` runs in each package (`packages/*/vite.config.ts`): its config types are under `node_modules/.pnpm/@voidzero-dev+vite-plus-core@*/node_modules/@voidzero-dev/vite-plus-core/dist/tsdown/`.
 
+## New releases wait a week
+
+`minimumReleaseAge` in `pnpm-workspace.yaml` (and in `.github/docs-deploy/pnpm-workspace.yaml`) holds every release back for a week, as Dependabot's `cooldown` does, so a compromised release is usually caught before it gets here. It applies to every install, not only Dependabot's: a hand bump or `pnpm update` takes the newest release that's at least a week old. A frozen install checks the lockfile too, and fails with `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` on any entry younger than a week that isn't excluded.
+
+A release that can't wait, such as a security fix, goes in `minimumReleaseAgeExclude` as one exact version (`"name@1.2.3"`), never a bare name, which would let every later release through as well. Add a comment naming the advisory. The next bump of that package replaces the entry, as a Vite+ bump replaces the Vite+ ones.
+
 ## Bumping Vite+
 
 Dependabot is told to leave `vite-plus` and `@vitest/coverage-v8` alone, because each needs the others to move with it. Bump them together, in one change:
