@@ -145,13 +145,14 @@ function textDefault(text: string, type: AttributeType): Default | undefined {
 }
 
 /** A SQL literal default as a value of the attribute's type; undefined for anything else. */
-function literalDefault(sql: string | null, type: AttributeType): Default | undefined {
+function literalDefault(sql: string | null, { type, precision, scale }: Spec): Default | undefined {
   // A spec has no literal for bytes, so a binary column's default stays with D1 (#20).
   if (sql === null || type === "binary") return undefined;
   const value = sql.trim();
   if (type === "boolean") return booleanDefault(value);
   if (type === "integer" || type === "real") return numberDefault(value, type);
-  if (type === "decimal") return castDefault(type, quoted(value) ?? value);
+  // Rounded to the column's scale, and left to D1 past its precision, as an assigned value (#398).
+  if (type === "decimal") return castDefault(type, quoted(value) ?? value, { precision, scale });
   const text = quoted(value);
   return text === undefined ? undefined : textDefault(text, type);
 }
@@ -166,14 +167,14 @@ function hasDateTextDefault(column: Column, type: AttributeType): boolean {
 
 /** A column's spec: nullability, a mapped column name, and its default or generated key. */
 function specOf(column: Column, type: AttributeType, attribute: string): Spec {
-  const spec: Spec = { type };
+  const spec: Spec = withSizeDigits({ type }, column.declaredType);
   if (column.notNull || column.primaryKey) spec.null = false;
   if (underscore(attribute) !== column.name) spec.column = column.name;
   // A key's own literal default wins; a TEXT key without one is generated in code.
-  const defaultValue = literalDefault(column.defaultValue, type);
+  const defaultValue = literalDefault(column.defaultValue, spec);
   if (defaultValue !== undefined) spec.default = defaultValue;
   else if (column.primaryKey && type === "string") spec.generateId = true;
-  return withGeneratedEnum(withSizeDigits(spec, column.declaredType), column.restrictedTo);
+  return withGeneratedEnum(spec, column.restrictedTo);
 }
 
 /**

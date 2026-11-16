@@ -102,7 +102,7 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
       "1_create.sql": `
         CREATE DOMAIN money_amount AS NUMERIC(12, 4);
         CREATE TABLE prices (
-          id INTEGER PRIMARY KEY, a NUMERIC(6), b NUMERIC, c money_amount
+          id INTEGER PRIMARY KEY, a NUMERIC(6), b NUMERIC, c money_amount, d NUMERIC(10, 2) DEFAULT 1.555
         );`,
     });
 
@@ -111,6 +111,7 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
       a: { type: "decimal", precision: 6, scale: 0 },
       b: { type: "decimal" },
       c: { type: "decimal", precision: 12, scale: 4 },
+      d: { type: "decimal", precision: 10, scale: 2, default: { literal: "1.56" } },
     });
   });
 
