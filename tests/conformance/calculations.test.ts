@@ -240,7 +240,7 @@ describe("calculations (#344)", () => {
       expect(await db().model(Post).maximum("publishedAt")).toEqual(days[1]);
     });
 
-    test('a decimal sums exactly, as its text, and is "0" with no rows', async () => {
+    test('a decimal sums to its text, and is "0" with no rows', async () => {
       expect(await db().model(Line).sum("amount")).toBe("0");
       for (const amount of ["0.1", "0.2", "12.50"]) await db().model(Line).create({ amount });
 
