@@ -13,12 +13,24 @@ export function contextsOf(record: Model): readonly string[] {
   return [record[state].isNew ? "create" : "update"];
 }
 
-/** Whether a rule declared `on` these contexts runs in `contexts`; with no `on`, it always does. */
+/** The context names a rule's `on` or `exceptOn` gives. */
+function listOf(contexts: ValidationContexts): readonly string[] {
+  return typeof contexts === "string" ? [contexts] : contexts;
+}
+
+/** Whether one of `contexts` is listed in `listed`. */
+function isListedIn(contexts: readonly string[], listed: ValidationContexts): boolean {
+  return listOf(listed).some((context) => contexts.includes(context));
+}
+
+/**
+ * Whether a rule runs in `contexts`: one in its `on` (every context without one), and none in its
+ * `exceptOn`.
+ */
 export function isInContext(
   contexts: readonly string[],
-  on: ValidationContexts | undefined,
+  { on, exceptOn }: { on?: ValidationContexts; exceptOn?: ValidationContexts },
 ): boolean {
-  if (on === undefined) return true;
-  const listed: readonly string[] = typeof on === "string" ? [on] : on;
-  return listed.some((context) => contexts.includes(context));
+  if (on !== undefined && !isListedIn(contexts, on)) return false;
+  return exceptOn === undefined || !isListedIn(contexts, exceptOn);
 }

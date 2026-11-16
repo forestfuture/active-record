@@ -87,6 +87,8 @@ export interface ValidationOptions<R = never> {
    * new, `"update"` once it's saved, or a name given to `isValid` or `save`.
    */
   on?: ValidationContexts;
+  /** Skip these rules in this validation context, or these, and run them in any other. */
+  exceptOn?: ValidationContexts;
 }
 
 /** The options of a `validatesAssociated(association, options)` call. */
@@ -299,7 +301,7 @@ function isApplied(
   { record, contexts }: ValidationTarget,
   options: ValidationOptions<never>,
 ): boolean {
-  if (!isInContext(contexts, options.on)) return false;
+  if (!isInContext(contexts, options)) return false;
   if (options.if && !options.if(record as never)) return false;
   return !options.unless?.(record as never);
 }
