@@ -43,10 +43,12 @@ const declaredTypes: readonly (readonly [RegExp, AttributeType])[] = [
 
 /** The declared type's name, without its size or precision: `VARCHAR(40)` → `VARCHAR`. */
 function baseType(declared: string): string {
-  return declared
-    .toUpperCase()
-    .replace(/\(.*\)/, "")
-    .trim();
+  // From the first ( to the last ), found by index: /\(.*\)/ rescans from each ( of a run.
+  const open = declared.indexOf("(");
+  const close = declared.lastIndexOf(")");
+  const base =
+    open !== -1 && close > open ? declared.slice(0, open) + declared.slice(close + 1) : declared;
+  return base.toUpperCase().trim();
 }
 
 /** A default that's a number or an epoch function, which a datetime in ISO text wouldn't hold. */
