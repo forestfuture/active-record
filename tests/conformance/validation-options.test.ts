@@ -151,3 +151,31 @@ describe("strict", () => {
     expect(user.errors.fullMessages()).toEqual(["Role can't be blank"]);
   });
 });
+
+describe("strict with an Error class", () => {
+  class MissingTenant extends Error {}
+
+  class Tenanted extends Model.define({
+    id: { type: "integer", null: false },
+    email: "string",
+    role: "string",
+  }) {
+    static table = "users";
+
+    static {
+      this.validates("role", { presence: true, strict: MissingTenant });
+    }
+  }
+
+  test("throws that class with the full message", async () => {
+    const error = await harness
+      .connect()
+      .model(Tenanted)
+      .build()
+      .isValid()
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(MissingTenant);
+    expect((error as Error).message).toBe("Role can't be blank");
+  });
+});

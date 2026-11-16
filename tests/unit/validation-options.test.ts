@@ -14,4 +14,18 @@ describe("validation options' types", () => {
 
     expect(Note.name).toBe("Note");
   });
+
+  test("strict takes true or an Error class", () => {
+    class Note extends Model.define({ id: "integer", body: "string" }) {
+      static table = "notes";
+      static {
+        this.validates("body", { presence: true, strict: true });
+        this.validates("body", { presence: true, strict: RangeError });
+        // @ts-expect-error a message isn't an Error class
+        this.validates("body", { presence: true, strict: "is required" });
+      }
+    }
+
+    expect(Note.name).toBe("Note");
+  });
 });
