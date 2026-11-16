@@ -1,6 +1,6 @@
 ---
 title: Callbacks
-description: "Registering callbacks, the order they run in, commit and rollback callbacks, abort() to stop a save or destroy, and the callbacks not built yet."
+description: "Registering callbacks, running validation callbacks only on create or update, the order they run in, commit and rollback callbacks, abort() to stop a save or destroy, and the callbacks not built yet."
 ---
 
 Callbacks run your code at points in a record’s lifecycle, such as before it’s validated or after it’s saved.
@@ -12,6 +12,17 @@ Register callbacks in a Model’s `static {}` block. Each receives the record, a
 <include>/_excerpts/guide/callbacks/callbacks.ts</include>
 
 Callbacks of one kind run in the order declared. A subclass runs its parent’s callbacks, then its own.
+
+To run a validation callback only in some [validation contexts](./validations#validating-only-when-creating-or-updating), pass `on` to `beforeValidation` or `afterValidation`:
+
+```ts
+this.beforeValidation(
+  (order) => {
+    order.placedAt = new Date();
+  },
+  { on: "create" },
+);
+```
 
 :::note
 Once a Model has been used, registering another callback throws `InvalidModel`, so request code can’t add one that leaks into later requests.
@@ -121,7 +132,6 @@ These callbacks aren’t in Active Record yet. The code shows the shape they’r
 - **Around callbacks** ([#48](https://github.com/forestfuture/active-record/issues/48)): `this.aroundSave(async (record, proceed) => { …; await proceed(); … })`, and `aroundCreate`, `aroundUpdate`, and `aroundDestroy`.
 - **`afterInitialize` and `afterFind`** ([#49](https://github.com/forestfuture/active-record/issues/49)): for every record built or loaded, and every record loaded.
 - **`record.touch()` and `afterTouch`** ([#50](https://github.com/forestfuture/active-record/issues/50)): sets `updatedAt` without a full save.
-- **`on: "create"` and `on: "update"`** ([#51](https://github.com/forestfuture/active-record/issues/51)): `this.validates("password", { presence: true, on: "create" })`. Until then, check `record.isNewRecord()` in an `if` option or a callback.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 

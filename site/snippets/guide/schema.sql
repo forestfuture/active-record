@@ -24,6 +24,13 @@ CREATE TABLE comments (
   body TEXT NOT NULL
 );
 
+CREATE TABLE members (
+  id INTEGER PRIMARY KEY,
+  email TEXT NOT NULL,
+  password TEXT,
+  invite_code TEXT
+);
+
 CREATE TABLE accounts (
   id INTEGER PRIMARY KEY,
   email TEXT NOT NULL,
