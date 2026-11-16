@@ -542,8 +542,12 @@ export class Relation<M extends Model, S = {}> {
 
   /** What `count`, `pluck` and the calculations read values from: this Relation's. */
   #valueSource(): ValueSource {
-    const [dialect, cached] = [() => this.#dialect, () => this.#cached()];
-    return { query: this.#query, dialect, runner: this.#runner, cached };
+    return {
+      query: this.#query,
+      dialect: () => this.#dialect,
+      runner: this.#runner,
+      cached: () => this.#cached(),
+    };
   }
 
   /**
