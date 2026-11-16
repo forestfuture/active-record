@@ -139,7 +139,7 @@ List contexts on each Model. A Model’s subclass shares its list, and an abstra
 
 ### Validating associated records in a context
 
-When you pass a context of your own, the records validated with the owner are validated in it too. These are the records checked by `validatesAssociated`, and the records [saved with their owner](./associations#autosaving). With `"create"` or `"update"`, each record uses its own: a new record is validated in `"create"` even when its owner is updated.
+When you pass a context of your own, the records validated with the owner are validated in it too. These are the records checked by `validatesAssociated`, and the records [saved with their owner](./associations#autosaving). With `"create"` or `"update"`, each record uses its own: a new record is validated in `"create"` even when its owner is updated. A list that holds a context of your own reaches them whole, so `["create", "signup"]` runs the `on: "create"` rules of related records that are already saved, too.
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
