@@ -1,10 +1,9 @@
-// How a Relation's query runs (on D1, or not at all for `none()`), and the keys `find` looks up.
-import { attributeFor, noMatch } from "./attribute.ts";
+// How a Relation's query runs (on D1, or not at all for `none()`).
 import { compileColumns, compileCount, compileSelect, type CompiledSql } from "./compiler.ts";
 import { type Dialect, withPlaceholders } from "./dialect.ts";
 import { databaseNow, type Executor } from "./executor.ts";
 import { stableOrder } from "./finder-order.ts";
-import { hydrate, primaryKeyOf, type Model, type ModelClass } from "./model.ts";
+import { hydrate, type Model, type ModelClass } from "./model.ts";
 import { keysForIncludes, planPreload } from "./preload.ts";
 import type { QueryDescription } from "./query.ts";
 import { sql } from "./sql.ts";
@@ -187,24 +186,4 @@ export function selectForToSql(
   const never = sql`1 = 0`;
   const shown = query.none ? { ...query, conditions: [...query.conditions, never] } : query;
   return withPlaceholders(dialect, selectFor(dialect, model, shown));
-}
-
-/**
- * The primary keys `find(...)` looks up: each cast to the key's type as a condition is, then
- * each once, as Rails does. One that can't be cast stays as given, matches nothing, and is
- * reported missing.
- */
-export function keysToFind(model: ModelClass, ids: readonly unknown[]): (string | number)[] {
-  const key = attributeFor(model, model.primaryKey);
-  const keys = ids.map((id) => {
-    const cast = key.condition(id);
-    return (cast === noMatch ? id : cast) as string | number;
-  });
-  return [...new Set(keys)];
-}
-
-/** Found `records` in the order of their primary keys in `keys`. */
-export function inKeyOrder<M extends Model>(records: readonly M[], keys: readonly unknown[]): M[] {
-  const byKey = new Map(records.map((record) => [primaryKeyOf(record), record]));
-  return keys.map((key) => byKey.get(key) as M);
 }

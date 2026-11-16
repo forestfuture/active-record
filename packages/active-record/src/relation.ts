@@ -1,13 +1,9 @@
 // Relation: the chainable query (`where`, `order`, …), its finders, terminals, and bulk writes.
 import { jointly } from "./executor.ts";
-import { shownKey } from "./filtering.ts";
-import { attributeFor, castInherited } from "./attribute.ts";
+import { castInherited } from "./attribute.ts";
 import {
-  compileColumns,
-  compileCount,
   compileDeleteAll,
   compileExists,
-  compileSelect,
   compileUpdateAll,
   querySql,
   type Conflict,
@@ -17,7 +13,8 @@ import { IncompatibleRelation, RecordNotFound, RecordNotSaved } from "./errors.t
 import { includeTree } from "./preload.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
 import { inspectRelation } from "./relation-inspect.ts";
-import { inKeyOrder, keysToFind, runnerFor, selectForToSql, type QueryRunner } from "./load.ts";
+import { runnerFor, selectForToSql, type QueryRunner } from "./load.ts";
+import { findById, findOne, findSome, keysToFind } from "./find.ts";
 import {
   allOf,
   either,
@@ -25,7 +22,6 @@ import {
   merged,
   mergeTrees,
   Negated,
-  type Condition,
   type OrderTerm,
   type QueryDescription,
 } from "./query.ts";
@@ -61,6 +57,17 @@ import { insertStatement, runAlone, Statement } from "./statement.ts";
 import type { ReturnedRow, WriteResult } from "./statement.ts";
 import { preparedWrites, type PreparedWrites } from "./prepared-writes.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
+import {
+  count,
+  runCalculation,
+  pluck,
+  type CalculatedValue,
+  type ValueSource,
+  type NumberAttribute,
+  type Operation,
+  type OrderedAttribute,
+  requireOperation,
+} from "./calculations.ts";
 
 declare const scopeTypes: unique symbol;
 
@@ -433,40 +440,16 @@ export class Relation<M extends Model, S = {}> {
   async find(...args: (string | number | readonly (string | number)[])[]): Promise<M | M[]> {
     const [only] = args;
     if (args.length === 1 && (typeof only === "string" || typeof only === "number")) {
-      return this.#findById(only);
+      return findById(this.#runner, this.#query, only);
     }
     const ids = keysToFind(this.#model, args.flat());
-    return ids.length === 0 ? [] : this.#findSome(ids);
-  }
-
-  async #findById(id: string | number): Promise<M> {
-    const record = await this.#findOne({ [this.#model.primaryKey]: id });
-    if (record === null) {
-      throw new RecordNotFound(
-        `${this.#model.name} with ${this.#model.primaryKey} ${shownKey(this.#model, id)} not found`,
-      );
-    }
-    return record;
-  }
-
-  async #findSome(ids: readonly (string | number)[]): Promise<M[]> {
-    const { primaryKey, name } = this.#model;
-    const query = { ...this.#finderQuery({ [primaryKey]: ids }), order: this.#query.order };
-    const records = await this.#runner.load(query);
-    if (records.length < ids.length) {
-      throw new RecordNotFound(
-        `Couldn't find all ${name} records with '${primaryKey}': ` +
-          `(${ids.map((id) => shownKey(this.#model, id)).join(", ")}) ` +
-          `(found ${records.length} results, but was looking for ${ids.length})`,
-      );
-    }
-    if (this.#query.order.length > 0) return records;
-    return inKeyOrder(records, ids);
+    return ids.length === 0 ? [] : findSome(this.#runner, this.#query, ids);
   }
 
   /** The first record matching `conditions` (in no particular order), or null. */
   async findBy(conditions: Conditions<M> | SafeSql): Promise<M | null> {
-    return this.where(conditions).#findOne();
+    const relation = this.where(conditions);
+    return findOne(relation.#runner, relation.#query);
   }
 
   /** Like `findBy`, but throws `RecordNotFound` instead of returning null. */
@@ -507,10 +490,64 @@ export class Relation<M extends Model, S = {}> {
 
   /** The number of matching records, or of non-null values of `attribute`. */
   async count(attribute?: keyof AttributesOf<M> & string): Promise<number> {
-    if (attribute !== undefined) attributeFor(this.#model, attribute); // on none() too
-    const counting = () => compileCount(this.#dialect, this.#query, attribute);
-    const [row] = await this.#runner.rows(counting);
-    return Number(row?.["count"] ?? 0);
+    return count(this.#valueSource(), attribute);
+  }
+
+  /** The total of `attribute`'s values over the records, leaving out NULLs; 0 with none. */
+  async sum<K extends NumberAttribute<M> | SafeSql>(attribute: K): Promise<CalculatedValue<M, K>> {
+    return (await runCalculation(this.#valueSource(), "sum", attribute)) as never;
+  }
+
+  /** The mean of `attribute`'s values over the records, leaving out NULLs; null with none. */
+  async average(attribute: NumberAttribute<M> | SafeSql): Promise<number | null> {
+    return (await runCalculation(this.#valueSource(), "average", attribute)) as number | null;
+  }
+
+  /** The least of `attribute`'s values over the records, leaving out NULLs; null with none. */
+  async minimum<K extends OrderedAttribute<M> | SafeSql>(
+    attribute: K,
+  ): Promise<CalculatedValue<M, K, unknown> | null> {
+    return (await runCalculation(this.#valueSource(), "minimum", attribute)) as never;
+  }
+
+  /** The greatest of `attribute`'s values over the records, leaving out NULLs; null with none. */
+  async maximum<K extends OrderedAttribute<M> | SafeSql>(
+    attribute: K,
+  ): Promise<CalculatedValue<M, K, unknown> | null> {
+    return (await runCalculation(this.#valueSource(), "maximum", attribute)) as never;
+  }
+
+  /**
+   * The calculation `operation` names, of `attribute`: `calculate("sum", "total")` is
+   * `sum("total")`, and `calculate("count")` is `count()`.
+   */
+  async calculate(operation: "count", attribute?: keyof AttributesOf<M> & string): Promise<number>;
+  async calculate<K extends NumberAttribute<M> | SafeSql>(
+    operation: "sum",
+    attribute: K,
+  ): Promise<CalculatedValue<M, K>>;
+  async calculate(
+    operation: "average",
+    attribute: NumberAttribute<M> | SafeSql,
+  ): Promise<number | null>;
+  async calculate<K extends OrderedAttribute<M> | SafeSql>(
+    operation: "minimum" | "maximum",
+    attribute: K,
+  ): Promise<CalculatedValue<M, K, unknown> | null>;
+  async calculate(operation: Operation, attribute?: string | SafeSql): Promise<unknown> {
+    const named = requireOperation(operation);
+    if (named === "count") return count(this.#valueSource(), attribute as string | undefined);
+    return runCalculation(this.#valueSource(), named, attribute as string | SafeSql);
+  }
+
+  /** What `count`, `pluck` and the calculations read values from: this Relation's. */
+  #valueSource(): ValueSource {
+    return {
+      query: this.#query,
+      dialect: () => this.#dialect,
+      runner: this.#runner,
+      cached: () => this.#cached(),
+    };
   }
 
   /**
@@ -555,21 +592,7 @@ export class Relation<M extends Model, S = {}> {
     ],
   >(...attributes: K): Promise<{ -readonly [I in keyof K]: AttributesOf<M>[K[I]] }[]>;
   async pluck(...attributes: string[]): Promise<unknown[]> {
-    if (attributes.length === 0) throw new TypeError("pluck() needs at least one attribute");
-    const resolved = attributes.map((name) => attributeFor(this.#model, name));
-    const cached = this.#cached();
-    const values =
-      cached === undefined
-        ? (
-            await this.#runner.rows(() =>
-              compileSelect(this.#dialect, this.#query, compileColumns(this.#model, attributes)),
-            )
-          ).map((row) => resolved.map((attribute) => attribute.read(row[attribute.column])))
-        : cached.map((record) =>
-            // Copies, as a query would give, never the records' own objects.
-            resolved.map((attribute) => attribute.copy(Reflect.get(record, attribute.name))),
-          );
-    return attributes.length === 1 ? values.map(([value]) => value) : values;
+    return pluck(this.#valueSource(), attributes);
   }
 
   /**
@@ -694,19 +717,6 @@ export class Relation<M extends Model, S = {}> {
       limit: atMostOne(this.#query.limit),
     });
     return record ?? null;
-  }
-
-  /** One matching row by the finder rules: keeps conditions, ignores order and pagination. */
-  async #findOne(extra?: Condition): Promise<M | null> {
-    const [record] = await this.#runner.load({ ...this.#finderQuery(extra), limit: 1 });
-    return record ?? null;
-  }
-
-  /** The finder rules: this Relation's conditions (plus `extra`) and includes, full rows. */
-  #finderQuery(extra?: Condition): QueryDescription {
-    const conditions =
-      extra === undefined ? this.#query.conditions : [...this.#query.conditions, extra];
-    return { model: this.#model, conditions, order: [], includes: this.#query.includes };
   }
 }
 

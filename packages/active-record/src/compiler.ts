@@ -362,6 +362,56 @@ function countOver(inner: CompiledSql, counted: string): CompiledSql {
   return { ...inner, sql: `SELECT COUNT(${counted}) AS count FROM (${inner.sql}) AS counted` };
 }
 
+/** The SQL aggregate each calculation compiles to (#344). */
+const AGGREGATES = { sum: "SUM", average: "AVG", minimum: "MIN", maximum: "MAX" } as const;
+
+/** A calculation over an attribute's values: `sum`, `average`, `minimum` or `maximum` (#344). */
+export type Calculation = keyof typeof AGGREGATES;
+
+/**
+ * A calculation over the rows `toArray()` would return, as `count()` counts them: the values of
+ * the attribute or the fragment's expression are selected in a subquery, with the Relation's
+ * conditions, its `distinct`, and its order, limit and offset when a limit or offset picks the
+ * rows. A sum of no rows is 0.
+ */
+export function compileCalculation(
+  dialect: Dialect,
+  query: QueryDescription,
+  calculation: Calculation,
+  operand: string | SafeSql,
+): CompiledSql {
+  // The fragment's values come first, as its SQL does.
+  const params: unknown[] = [];
+  const expression =
+    operand instanceof SafeSql
+      ? compileFragment(operand, query.model, params)
+      : quoteIdentifier(attributeFor(query.model, operand).column);
+  const toCalculate = { ...queryToCount(query), select: undefined };
+  const alias = quoteIdentifier(valuesAlias(query.model));
+  const inner = compileSelect(dialect, toCalculate, `${expression} AS ${alias}`);
+  const aggregate = `${AGGREGATES[calculation]}(${alias})`;
+  const value = calculation === "sum" ? `COALESCE(${aggregate}, 0)` : aggregate;
+  return {
+    ...inner,
+    sql: `SELECT ${value} AS value FROM (${inner.sql}) AS calculated`,
+    params: [...params, ...inner.params],
+  };
+}
+
+/**
+ * A name for a calculation's values that none of the Model's columns has, whatever its letter
+ * case: an `ORDER BY` name matches an output column before a table's, so the order's own would
+ * be lost. A column the Model doesn't declare, ordered by in a fragment's raw text, isn't seen.
+ */
+function valuesAlias(model: ModelClass<Model>): string {
+  const columns = new Set(
+    [...model.attributeDefinitions.values()].map(({ column }) => column.toLowerCase()),
+  );
+  let alias = "value";
+  while (columns.has(alias)) alias = `_${alias}`;
+  return alias;
+}
+
 /** Whether a limit or offset picks which rows `query` describes. */
 function hasLimitOrOffset(query: QueryDescription): boolean {
   return query.limit !== undefined || query.offset !== undefined;

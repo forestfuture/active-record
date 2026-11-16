@@ -21,6 +21,8 @@ import {
   type ContextOf,
   type ValidationCallbackOptions,
 } from "./validation-context.ts";
+import type { CalculatedValue, NumberAttribute, OrderedAttribute } from "./calculations.ts";
+import type { SafeSql } from "./sql.ts";
 import type { Relation, Scoped } from "./relation.ts";
 
 /** A Model's Relation, as its statics return them: `Product.where(…)` is `Product.all().where(…)`. */
@@ -55,6 +57,7 @@ const relationMethods = [
   "last",
   "take",
   "count",
+  "average",
   "size",
   "isEmpty",
   "hasAny",
@@ -80,8 +83,46 @@ type RelationStatics = {
   [K in keyof Pick<Relation<Model>, RelationMethod>]: RelationStatic<K>;
 };
 
-/** The Relation methods with overloads, typed by hand. */
+/** A calculation's static, of a class's attribute `K`, or an `sql` fragment: `Order.sum("total")`. */
+type CalculationStatic<AttributeKind extends "number" | "ordered", Fragment, Null> = <
+  C extends QueryableClass,
+  K extends
+    | (AttributeKind extends "number"
+        ? NumberAttribute<InstanceType<C>>
+        : OrderedAttribute<InstanceType<C>>)
+    | SafeSql,
+>(
+  this: C,
+  attribute: K,
+) => Promise<CalculatedValue<InstanceType<C>, K, Fragment> | Null>;
+
+/** The Relation methods with overloads or type parameters, typed by hand. */
 interface OverloadedStatics {
+  sum: CalculationStatic<"number", number, never>;
+  minimum: CalculationStatic<"ordered", unknown, null>;
+  maximum: CalculationStatic<"ordered", unknown, null>;
+  calculate: {
+    <C extends QueryableClass>(
+      this: C,
+      operation: "count",
+      attribute?: keyof AttributesOf<InstanceType<C>> & string,
+    ): Promise<number>;
+    <C extends QueryableClass, K extends NumberAttribute<InstanceType<C>> | SafeSql>(
+      this: C,
+      operation: "sum",
+      attribute: K,
+    ): Promise<CalculatedValue<InstanceType<C>, K>>;
+    <C extends QueryableClass>(
+      this: C,
+      operation: "average",
+      attribute: NumberAttribute<InstanceType<C>> | SafeSql,
+    ): Promise<number | null>;
+    <C extends QueryableClass, K extends OrderedAttribute<InstanceType<C>> | SafeSql>(
+      this: C,
+      operation: "minimum" | "maximum",
+      attribute: K,
+    ): Promise<CalculatedValue<InstanceType<C>, K, unknown> | null>;
+  };
   paginate: PaginateStatic;
   find: {
     <C extends QueryableClass>(this: C, id: string | number): Promise<InstanceType<C>>;
@@ -247,7 +288,8 @@ export function defineStatics(base: typeof Model): void {
       declare(this, "commitCallbacks", { kind, on, callback });
     });
   }
-  for (const name of [...relationMethods, "find", "pluck", "paginate"]) {
+  const overloaded = ["find", "pluck", "paginate", "sum", "minimum", "maximum", "calculate"];
+  for (const name of [...relationMethods, ...overloaded]) {
     defineStatic(base, name, function (this: QueryableClass, ...args: unknown[]): unknown {
       const relation = this.all() as unknown as Record<string, (...args: unknown[]) => unknown>;
       return relation[name]!(...args);

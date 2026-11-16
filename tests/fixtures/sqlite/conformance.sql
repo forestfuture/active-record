@@ -24,3 +24,6 @@ CREATE TABLE listings (id INTEGER PRIMARY KEY, title TEXT, price INTEGER, sizes 
 
 -- Dates, decimals and times (#391): an amount, the day it's booked on, and when it starts.
 CREATE TABLE ledger_lines (id INTEGER PRIMARY KEY, label TEXT, amount DECIMAL, booked_on DATE, starts_at TIME, price DECIMAL(10, 2));
+
+-- Calculations (#344): a column named like the alias a calculation selects its values as.
+CREATE TABLE readings (id INTEGER PRIMARY KEY, value INTEGER, price INTEGER);
