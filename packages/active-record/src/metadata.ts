@@ -27,6 +27,10 @@ export interface SpecObject {
   column?: string;
   /** A `datetime` held as a Unix epoch integer, as Drizzle's timestamp modes write it (#73). */
   storage?: EpochStorage;
+  /** A decimal's most digits in all, as `NUMERIC(10, 2)`'s 10; without a scale, its scale is 0 (#398). */
+  precision?: number;
+  /** A decimal's digits after the point, as `NUMERIC(10, 2)`'s 2: a cast value is rounded to them (#398). */
+  scale?: number;
   /** Evaluated at `build()`, e.g. `() => new Date()`. */
   default?: () => unknown;
   /**
@@ -125,6 +129,8 @@ export interface AttributeDefinition {
   default?: () => unknown;
   generateId?: true;
   storage?: EpochStorage;
+  precision?: number;
+  scale?: number;
   enum?: EnumValues;
   prefix?: boolean | string;
   suffix?: boolean | string;

@@ -147,3 +147,43 @@ export function orderDecimal(value: string, bound: number | string): number | un
   const decimal = castDecimal(bound);
   return decimal === uncastable ? undefined : compareDecimals(value, decimal as string);
 }
+
+/** A decimal's precision and scale, as `NUMERIC(10, 2)` gives them (#398). */
+export interface DecimalLimits {
+  precision?: number;
+  scale?: number;
+}
+
+/**
+ * A decimal in its one form, rounded to its scale, half away from zero, as Postgres's `numeric`
+ * and Rails round; `uncastable` when its digits before the point are more than the precision
+ * leaves them. A precision without a scale has a scale of 0, as SQL's `NUMERIC(10)` does.
+ */
+export function limitDecimal(decimal: string, { precision, scale }: DecimalLimits): unknown {
+  const places = scale ?? (precision === undefined ? undefined : 0);
+  const rounded = places === undefined ? decimal : roundDecimal(decimal, places);
+  if (precision === undefined) return rounded;
+  const whole = rounded.replace("-", "").split(".")[0]!;
+  const wholeDigits = whole === "0" ? 0 : whole.length;
+  return wholeDigits > precision - (places ?? 0) ? uncastable : rounded;
+}
+
+/** A decimal in its one form, rounded to `places` digits after the point, half away from zero. */
+function roundDecimal(decimal: string, places: number): string {
+  const negative = decimal.startsWith("-");
+  const [whole = "", fraction = ""] = decimal.replace("-", "").split(".");
+  if (fraction.length <= places) return decimal;
+  const kept = whole + fraction.slice(0, places);
+  const digits = fraction[places]! >= "5" ? incremented(kept) : kept;
+  const point = digits.length - places;
+  const result = canonical(`${digits.slice(0, point)}.${digits.slice(point)}`) as string;
+  return negative && result !== "0" ? `-${result}` : result;
+}
+
+/** A run of digits plus one in its last place: `"199"` → `"200"`, `"99"` → `"100"`. */
+function incremented(digits: string): string {
+  let index = digits.length - 1;
+  while (index >= 0 && digits[index] === "9") index--;
+  const head = index < 0 ? "1" : digits.slice(0, index) + String(Number(digits[index]) + 1);
+  return head + "0".repeat(digits.length - 1 - index);
+}
