@@ -59,7 +59,12 @@ export type {
   UniquenessOptions,
   ValidationOptions,
 } from "./validations.ts";
-export type { SaveOptions, ValidationContext, ValidationContexts } from "./validation-context.ts";
+export type {
+  SaveOptions,
+  ValidationCallbackOptions,
+  ValidationContext,
+  ValidationContexts,
+} from "./validation-context.ts";
 export type { EpochStorage } from "./epoch-storage.ts";
 export type { AttributeConversions } from "./attribute-conversions.ts";
 export type { AttributeSpec, AttributeSpecs, AttributeType } from "./metadata.ts";

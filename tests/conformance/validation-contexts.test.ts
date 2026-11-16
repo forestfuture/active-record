@@ -54,6 +54,23 @@ class Applicant extends Model.define({
   }
 }
 
+/** The validation callbacks each `Visitor` ran, in order. */
+const ran: string[] = [];
+
+class Visitor extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+  role: "string",
+}) {
+  static table = "users";
+
+  static {
+    this.beforeValidation(() => ran.push("before on create"), { on: "create" });
+    this.beforeValidation(() => ran.push("before"));
+    this.afterValidation(() => ran.push("after on update or signup"), { on: ["update", "signup"] });
+  }
+}
+
 let harness: Harness;
 
 beforeAll(async () => {
@@ -154,5 +171,20 @@ describe("a context given to save", () => {
     await expect(applicant.saveOrThrow({ context: "invite" })).rejects.toThrow(RecordInvalid);
     applicant.role = "ab";
     await expect(applicant.saveOrThrow({ context: "invite" })).resolves.toBe(true);
+  });
+});
+
+describe("validation callbacks with on", () => {
+  test("run only in the contexts they name", async () => {
+    const visitors = harness.connect().model(Visitor);
+    ran.length = 0;
+
+    const visitor = visitors.build({ email: "a@example.com" });
+    await visitor.save();
+    expect(ran.splice(0)).toEqual(["before on create", "before"]);
+    await visitor.isValid();
+    expect(ran.splice(0)).toEqual(["before", "after on update or signup"]);
+    await visitors.build({}).isValid("signup");
+    expect(ran.splice(0)).toEqual(["before", "after on update or signup"]);
   });
 });

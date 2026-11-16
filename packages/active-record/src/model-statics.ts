@@ -15,6 +15,7 @@ import type {
   ScopesOf,
 } from "./model.ts";
 import type { PaginateStatic } from "./pagination.ts";
+import { inContext, type ValidationCallbackOptions } from "./validation-context.ts";
 import type { Relation, Scoped } from "./relation.ts";
 
 /** A Model's Relation, as its statics return them: `Product.where(…)` is `Product.all().where(…)`. */
@@ -115,12 +116,28 @@ type CallbackStatic = <C extends AbstractModelClass>(
   callback: Callback<InstanceType<C>>,
 ) => void;
 
+/**
+ * A validation callback static, which can run only in some validation contexts (#51):
+ * `this.beforeValidation((record) => …, { on: "create" })`.
+ */
+type ValidationCallbackStatic = <C extends AbstractModelClass>(
+  this: C,
+  callback: Callback<InstanceType<C>>,
+  options?: ValidationCallbackOptions,
+) => void;
+
 /** Every callback kind as a static, each documented here, so its doc comment shows on hover. */
 interface CallbackStatics {
-  /** Runs before the validators, e.g. to normalize input. May `throw abort(reason)`. */
-  beforeValidation: CallbackStatic;
-  /** Runs after the validators, whether or not they passed. May `throw abort(reason)`. */
-  afterValidation: CallbackStatic;
+  /**
+   * Runs before the validators, e.g. to normalize input. May `throw abort(reason)`. With `on`,
+   * only in that validation context, or those.
+   */
+  beforeValidation: ValidationCallbackStatic;
+  /**
+   * Runs after the validators, whether or not they passed. May `throw abort(reason)`. With
+   * `on`, only in that validation context, or those.
+   */
+  afterValidation: ValidationCallbackStatic;
   /** Runs before every save (create or update), after validation. May `throw abort(reason)`. */
   beforeSave: CallbackStatic;
   /** Runs before inserting a new record, after `beforeSave`. May `throw abort(reason)`. */
@@ -194,6 +211,9 @@ const callbackKinds = Object.keys({
   true
 >) as CallbackKind[];
 
+/** The callback kinds that take `on`, to run only in some validation contexts (#51). */
+const validationKinds: ReadonlySet<CallbackKind> = new Set(["beforeValidation", "afterValidation"]);
+
 /**
  * The class Model extends, for its statics' types only: at runtime it's empty, and
  * `defineStatics` puts the statics on Model itself, where scopes look for the names they
@@ -211,9 +231,14 @@ export const ModelStatics = class {} as unknown as (abstract new () => object) &
  */
 export function defineStatics(base: typeof Model): void {
   for (const kind of callbackKinds) {
-    defineStatic(base, kind, function (this: object, callback: Callback<Model>): void {
-      declare(this, kind, callback);
-    });
+    defineStatic(
+      base,
+      kind,
+      function (this: object, callback: Callback<Model>, options?: ValidationCallbackOptions) {
+        const narrowed = validationKinds.has(kind) && options?.on !== undefined;
+        declare(this, kind, narrowed ? inContext(callback, options) : callback);
+      },
+    );
   }
   for (const [kind, on] of Object.entries(commitKinds) as [CommitCallbackKind, CommitAction[]][]) {
     defineStatic(base, kind, function (this: object, callback: Callback<Model>): void {

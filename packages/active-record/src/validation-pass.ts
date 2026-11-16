@@ -28,18 +28,21 @@ export function newPass(): ValidationPass {
   };
 }
 
-/** Runs `validate` with `record` marked as being validated in `pass`. */
+/** Runs `validate` with `record` marked as being validated in `pass`, in `contexts` (#51). */
 export async function whileValidating<T>(
   pass: ValidationPass,
   record: Model,
+  contexts: readonly string[],
   validate: () => Promise<T>,
 ): Promise<T> {
   const row = rowOf(record);
   pass.inProgress.add(record);
   if (row) rowsOf(pass, row.model).add(row.key);
+  record[state].validationContexts = contexts;
   try {
     return await validate();
   } finally {
+    record[state].validationContexts = [];
     pass.inProgress.delete(record);
     if (row) rowsOf(pass, row.model).delete(row.key);
   }
