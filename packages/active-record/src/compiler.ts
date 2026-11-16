@@ -370,8 +370,9 @@ export type Calculation = keyof typeof AGGREGATES;
 
 /**
  * A calculation over the rows `toArray()` would return, as `count()` counts them: the values of
- * the attribute or the fragment's expression are selected in a subquery, with the Relation's conditions, its `distinct`, and its order,
- * limit and offset when a limit or offset picks the rows. A sum of no rows is 0.
+ * the attribute or the fragment's expression are selected in a subquery, with the Relation's
+ * conditions, its `distinct`, and its order, limit and offset when a limit or offset picks the
+ * rows. A sum of no rows is 0.
  */
 export function compileCalculation(
   dialect: Dialect,
