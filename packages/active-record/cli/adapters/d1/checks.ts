@@ -25,7 +25,7 @@ const inCheck = new RegExp(
  * like an unclosed block comment, runs to the end, so a run of them isn't rescanned from each.
  */
 const literalOrComment =
-  /'(?:[^']|'')*'|"(?:[^"]|"")*"|`(?:[^`]|``)*`|\[[^\]]*(?:\]|$)|--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)/g;
+  /'(?:[^']|'')*'|"(?:[^"]|"")*"|`(?:[^`]|``)*`|\[[^\]]*\]?|--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)/g;
 
 /** A definition without its comments, which SQLite keeps in it: `a TEXT -- CHECK (…)` → `a TEXT `. */
 function withoutComments(definition: string): string {
