@@ -48,6 +48,18 @@ describe("group (#345)", () => {
       );
     });
 
+    test("by two attributes, keys each group by a tuple of their values", async () => {
+      await seed(["a", 1], ["a", 1], ["a", 2], [null, null]);
+
+      expect(await reviews().group("title", "rating").count()).toEqual(
+        new Map<[string | null, number | null], number>([
+          [["a", 1], 2],
+          [["a", 2], 1],
+          [[null, null], 1],
+        ]),
+      );
+    });
+
     test("a Model's static groups on the current database", async () => {
       await seed(["a", 1], ["a", 2]);
 
