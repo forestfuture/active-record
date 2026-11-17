@@ -22,11 +22,19 @@ export interface FindOrCreateCall<M extends Model> {
     createOrThrow(attributes: Attributes<M>, init?: Init<M>): Promise<M>;
   };
   readonly state: RelationState<M>;
-  readonly method: string;
+  readonly method: FindOrCreateMethod;
 }
 
+/** @internal The find-or-create methods, which a refusal names. */
+export type FindOrCreateMethod =
+  | "findOrCreateBy"
+  | "findOrCreateByOrThrow"
+  | "findOrInitializeBy"
+  | "createOrFindBy"
+  | "createOrFindByOrThrow";
+
 /** @internal What a find-or-create method's caller passes besides its attributes. */
-export interface CreateOptions<M> {
+export interface FindOrCreateOptions<M> {
   readonly init: Init<M> | undefined;
   readonly orThrow: boolean;
 }
@@ -35,9 +43,9 @@ export interface CreateOptions<M> {
 export async function findOrCreate<M extends Model>(
   call: FindOrCreateCall<M>,
   attributes: Attributes<M>,
-  { init, orThrow }: CreateOptions<M>,
+  { init, orThrow }: FindOrCreateOptions<M>,
 ): Promise<M> {
-  const found = await findGiven(call, attributes);
+  const found = await findExisting(call, attributes);
   if (found !== null) return found;
   return orThrow
     ? call.relation.createOrThrow(attributes, init)
@@ -50,73 +58,78 @@ export async function findOrInitialize<M extends Model>(
   attributes: Attributes<M>,
   init: Init<M> | undefined,
 ): Promise<M> {
-  return (await findGiven(call, attributes)) ?? initializeThrough(call.state, attributes, init);
+  return (await findExisting(call, attributes)) ?? initializeThrough(call.state, attributes, init);
 }
 
 /** @internal `createOrFindBy` and `createOrFindByOrThrow`: a record created, or the one a unique index kept. */
 export async function createOrFind<M extends Model>(
   call: FindOrCreateCall<M>,
   attributes: Attributes<M>,
-  options: CreateOptions<M>,
+  options: FindOrCreateOptions<M>,
 ): Promise<M> {
-  refuseConditionValues(call, attributes);
-  const { finder, conditions } = finding(call.relation, attributes);
+  const { finder, conditions } = finderFor(call, attributes);
   const find = () => finder.findByOrThrow(conditions);
   return createOrFindThrough(call.state, attributes, { ...options, find });
 }
 
-function findGiven<M extends Model>(
+/** The record with `attributes`, or null: what `findOrCreate` and `findOrInitialize` find. */
+function findExisting<M extends Model>(
   call: FindOrCreateCall<M>,
   attributes: Attributes<M>,
 ): Promise<M | null> {
-  refuseConditionValues(call, attributes);
-  const { finder, conditions } = finding(call.relation, attributes);
+  const { finder, conditions } = finderFor(call, attributes);
   return finder.findBy(conditions);
 }
 
 /**
- * What finds the record with `attributes`: a json attribute's array compared as one value, as
- * the new record holds it, where `findBy` would read it as a list, and the other attributes
- * as `findBy` reads them. Lists of other attributes are refused before this.
+ * What finds the record with `attributes`, once they're checked: the Relation, narrowed by a
+ * json attribute's array compared as one value, as the new record holds it, where `findBy` would
+ * read it as a list; and the other attributes, as `findBy` reads them. They're copied as own
+ * keys, so a `__proto__` key from parsed JSON stays an attribute `findBy` refuses.
  */
-function finding<M extends Model>(
-  relation: Finder<M>,
+function finderFor<M extends Model>(
+  call: FindOrCreateCall<M>,
   attributes: Attributes<M>,
 ): { finder: Finder<M>; conditions: Attributes<M> } {
-  let finder = relation;
-  const conditions: Record<string, unknown> = {};
-  for (const [name, value] of Object.entries(attributes)) {
+  const entries = refuseConditionValues(call, attributes);
+  let finder: Finder<M> = call.relation;
+  for (const [name, value] of entries) {
     if (Array.isArray(value)) {
       finder = finder.where(sql`${column(name)} = ${column(name).value(value)}`);
-    } else {
-      conditions[name] = value;
     }
   }
+  const conditions = Object.fromEntries(entries.filter(([, value]) => !Array.isArray(value)));
   return { finder, conditions: conditions as Attributes<M> };
 }
 
 /**
  * Throws `TypeError`, before anything is sent, for attributes a find would read as a condition
- * but a new record can't take as its values: a list, which `findBy` reads as `IN`, so input that
- * skipped `permit` can't match another user's row; a comparison; or a `sql` fragment, as the
- * attributes or as one value. The value isn't shown, as it may be filtered.
+ * but a new record can't take as its values: a list (except a json attribute's array), which
+ * `findBy` reads as `IN`, so input that skipped `permit` can't match another user's row; a
+ * comparison; a `sql` fragment, as the attributes or as one value; or anything but an object,
+ * whose missing attributes would find any record. The value isn't shown, as it may be filtered.
+ * Returns the attributes' entries, read once.
  */
 function refuseConditionValues(
   { state, method }: FindOrCreateCall<Model>,
-  attributes: Readonly<Record<string, unknown>>,
-): void {
+  attributes: unknown,
+): [string, unknown][] {
+  const named = `${state.model.name}.${method}()`;
   if (attributes instanceof SafeSql) {
-    throw new TypeError(
-      `${state.model.name}.${method}() takes attribute values, not a sql fragment`,
-    );
+    throw new TypeError(`${named} takes attribute values, not a sql fragment`);
   }
-  for (const [name, value] of Object.entries(attributes)) {
+  if (typeof attributes !== "object" || attributes === null || Array.isArray(attributes)) {
+    throw new TypeError(`${named} takes an object of attribute values`);
+  }
+  const entries = Object.entries(attributes);
+  for (const [name, value] of entries) {
     const kind = conditionKind(state.model, name, value);
     if (kind === undefined) continue;
     throw new TypeError(
-      `${state.model.name}.${method}(): "${name}" can't be ${kind}, since it becomes the new record's value`,
+      `${named}: "${name}" can't be ${kind}, since it becomes the new record's value`,
     );
   }
+  return entries;
 }
 
 /**

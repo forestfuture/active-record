@@ -628,14 +628,38 @@ describe("making records", () => {
       expect(events).toEqual([]);
     });
 
-    test.each(methods)("%s refuses a sql fragment as a value", async (method) => {
-      const attributes = { email: sql`'taken@example.com'` } as never;
+    test.each(methods)(
+      "%s refuses a sql fragment as a value before sending anything",
+      async (method) => {
+        const attributes = { email: sql`'taken@example.com'` } as never;
 
-      await expect(db().model(User)[method](attributes)).rejects.toThrow(
-        new TypeError(
-          `User.${method}(): "email" can't be a sql fragment, since it becomes the new record's value`,
-        ),
-      );
+        await expect(db().model(User)[method](attributes)).rejects.toThrow(
+          new TypeError(
+            `User.${method}(): "email" can't be a sql fragment, since it becomes the new record's value`,
+          ),
+        );
+        expect(events).toEqual([]);
+      },
+    );
+
+    test.each(methods)(
+      "%s refuses attributes that aren't an object before sending anything",
+      async (method) => {
+        for (const attributes of [[], "email", 0, true]) {
+          await expect(
+            db()
+              .model(User)
+              [method](attributes as never),
+          ).rejects.toThrow(new TypeError(`User.${method}() takes an object of attribute values`));
+        }
+        expect(events).toEqual([]);
+      },
+    );
+
+    test.each(methods)("%s refuses a __proto__ key before sending anything", async (method) => {
+      const attributes = JSON.parse('{"__proto__": {"email": "taken@example.com"}}') as never;
+
+      await expect(db().model(User)[method](attributes)).rejects.toThrow(UnknownAttribute);
       expect(events).toEqual([]);
     });
   });

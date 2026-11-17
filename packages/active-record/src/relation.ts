@@ -58,6 +58,7 @@ import {
   findOrCreate,
   findOrInitialize,
   type FindOrCreateCall,
+  type FindOrCreateMethod,
 } from "./find-or-create.ts";
 import { destroyTogether } from "./records-together.ts";
 import { grouped, type GroupedRelation, type GroupTerms } from "./grouping.ts";
@@ -463,7 +464,7 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /** What a find-or-create method works through. */
-  #call(method: string): FindOrCreateCall<M> {
+  #call(method: FindOrCreateMethod): FindOrCreateCall<M> {
     return { relation: this, state: this.#state, method };
   }
 
