@@ -772,3 +772,39 @@ describe("autosave: true on another database (#37)", () => {
     expect(await rows(db, "SELECT id FROM users")).toEqual([{ id: 1 }]);
   });
 });
+
+/** An entry whose badges are on its own database, and each badge's user on another. */
+class JoiningEntry extends LogsRecord.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+}) {
+  static override table = "entries";
+
+  badges = hasMany(JoiningBadge, { foreignKey: "userId", primaryKey: "userId" });
+}
+
+class JoiningBadge extends LogsRecord.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+}) {
+  static override table = "badges";
+
+  user = belongsTo(User, { optional: true });
+}
+
+describe("joining an association to another database (#24)", () => {
+  test("joins() and leftJoins() throw IncompatibleRelation when the query is written", () => {
+    expect(() => User.joins("entries")).toThrow(IncompatibleRelation);
+    expect(() => Entry.leftJoins("user")).toThrow(IncompatibleRelation);
+  });
+
+  test("a nested join is compared with the query's own Model's database", () => {
+    expect(() => JoiningEntry.joins({ badges: "user" })).toThrow(IncompatibleRelation);
+  });
+
+  test("a join on the query's own database finds its records", async () => {
+    const entries = await inRequest(() => JoiningEntry.joins("badges").toArray());
+
+    expect(entries.map((entry) => entry.id)).toEqual([1]);
+  });
+});
