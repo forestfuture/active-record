@@ -3,7 +3,7 @@ import { associationsOf } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { InvalidModel, ReadonlyAssociation } from "./errors.ts";
 import { singularize } from "./inflections.ts";
-import { Model, type ModelClass } from "./model.ts";
+import { isModelClass, type ModelClass } from "./model.ts";
 import { isOnDifferentDatabases, type ResolvedAssociation } from "./resolved-association.ts";
 
 /**
@@ -108,9 +108,7 @@ function viaOf(
     throw new InvalidModel(`${label}: a hasOne can't go through a hasMany (${through})`);
   }
   const target: unknown = via.target();
-  return typeof target === "function" && target.prototype instanceof Model
-    ? (target as ModelClass)
-    : undefined;
+  return isModelClass(target) ? target : undefined;
 }
 
 /** Why no source was found: the one named isn't there, or none of the names looked for is. */
@@ -136,8 +134,8 @@ function checkNotCircular(label: string, model: ModelClass, name: string): void 
     if (names.has(association)) throw new InvalidModel(`${label} goes through itself`);
     passed.set(owner, names.add(association));
     walk(owner, definition.through);
-    const via = associationsOf(owner).get(definition.through)?.target();
-    if (typeof via !== "function" || !(via.prototype instanceof Model)) return;
+    const via: unknown = associationsOf(owner).get(definition.through)?.target();
+    if (!isModelClass(via)) return;
     const source = sourceNameOf(association, definition, via);
     if (source !== undefined) walk(via, source);
   };
