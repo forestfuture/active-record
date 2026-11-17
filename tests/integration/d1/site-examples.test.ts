@@ -479,7 +479,7 @@ describe("the guide's examples", () => {
     expect((await tagging.author())?.name).toBe("Ada");
   });
 
-  test("Associations: written through another, a tagging made and removed for each article", async () => {
+  test("Associations: written through another, a pushed article's tagging removed and a created one's kept", async () => {
     await binding.batch([
       binding.prepare("INSERT INTO authors (id, name) VALUES ('ada', 'Ada')"),
       binding.prepare(
