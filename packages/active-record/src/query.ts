@@ -207,7 +207,8 @@ export function merged(a: QueryDescription, b: QueryDescription): QueryDescripti
 
 /**
  * The single equality values of the conditions (a value or null), which a record built from a
- * Relation starts with. Arrays, comparisons, `whereNot`, `or` and fragments carry nothing over.
+ * Relation starts with. Arrays, comparisons, `whereNot`, `or`, fragments and the subqueries
+ * linking records to others' carry nothing over.
  */
 export function inheritedAttributes(conditions: readonly Condition[]): Record<string, unknown> {
   const inherited: Record<string, unknown> = {};
@@ -215,7 +216,8 @@ export function inheritedAttributes(conditions: readonly Condition[]): Record<st
     if (
       condition instanceof SafeSql ||
       condition instanceof Negated ||
-      condition instanceof Either
+      condition instanceof Either ||
+      condition instanceof LinkedTo
     ) {
       continue;
     }
