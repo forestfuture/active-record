@@ -174,8 +174,9 @@ export class UnknownAssociation extends ActiveRecordError {
 }
 
 /**
- * A write through an association that goes through another (#59): building, creating or
- * inserting records through it, its collection methods, or its own `deleteAll()`.
+ * A write through an association that goes through another that it can't make (#434):
+ * inserting or upserting through it, or any write through one that doesn't go through a join
+ * Model (a source that isn't a belongsTo, a hop through a belongsTo, or a nested hop).
  */
 export class ReadonlyAssociation extends ActiveRecordError {
   override name = "ReadonlyAssociation";

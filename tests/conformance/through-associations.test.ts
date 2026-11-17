@@ -64,6 +64,7 @@ class User extends Model.define({
   projectsByRole = hasMany(Project, { through: "assignmentsByRole", source: "project" });
   profilePosts = hasMany(Post, { through: "profile", source: "posts" });
   self = hasOne(User, { through: "profile", source: "user" });
+  selves = hasMany(User, { through: "profile", source: "user" });
   leads = hasMany(Assignment, { scope: (q) => q.where({ role: "lead" }) });
   ledProjects = hasMany(Project, { through: "leads", source: "project" });
   activeProjects = hasMany(Project, { through: "assignments", source: "activeProject" });
@@ -406,7 +407,7 @@ describe("an association through another", () => {
     });
   });
 
-  describe("writing through it, which it refuses", () => {
+  describe("inserting through it, which it refuses", () => {
     // Its type has no writes; cast to reach the runtime refusals.
     const asCollection = (projects: unknown) => projects as HasManyCollection<Project>;
     const counts = async () => [
@@ -414,13 +415,13 @@ describe("an association through another", () => {
       await db().model(Assignment).count(),
       await db().model(Project).where({ archived: 1 }).count(),
     ];
-    const refused = "Can't write through User.projects: it goes through User.assignments";
+    const refused =
+      "Can't insert or upsert through User.projects: a bulk write makes no join records";
     const writes = {
       insert: (user: User) => asCollection(user.projects()).insert({ name: "New" }),
       insertAll: (user: User) => asCollection(user.projects()).insertAll([{ name: "New" }]),
       upsert: (user: User) => asCollection(user.projects()).upsert({ id: 9, name: "New" }),
       upsertAll: (user: User) => asCollection(user.projects()).upsertAll([{ id: 9, name: "New" }]),
-      destroyAll: (user: User) => asCollection(user.projects()).destroyAll(),
       "a batch's insert": (user: User) =>
         db().batch((b) => [b.insert(asCollection(user.projects()), { name: "New" })]),
     };
@@ -437,6 +438,59 @@ describe("an association through another", () => {
       },
     );
 
+    test.each([
+      [
+        "one going through another that goes through another",
+        (user: User) => user.collaborators().build(),
+        "Can't write through User.collaborators: it goes through User.projects, which goes through another",
+      ],
+      [
+        "one whose source goes through another",
+        (user: User) => user.teammates().build(),
+        "Can't write through User.teammates: its source Assignment.teamUsers goes through another",
+      ],
+      [
+        "one whose source is a hasMany",
+        (user: User) => user.comments().build(),
+        "Can't write through User.comments: its source Post.comments is a hasMany, not a belongsTo",
+      ],
+      [
+        "a hasMany going through a hasOne",
+        (user: User) => user.selves().build(),
+        "Can't write through User.selves: it goes through User.profile, a hasOne",
+      ],
+    ] as const)("%s throws ReadonlyAssociation, saying why", (_, write, message) => {
+      const user = db().model(User).build({ email: "new@example.com" });
+
+      expect(() => write(user)).toThrow(ReadonlyAssociation);
+      expect(() => write(user)).toThrow(message);
+    });
+
+    test("every write through one it can't write through throws, writing nothing", async () => {
+      const user = await db().model(User).find(1);
+      const comment = db().model(Comment).build();
+      const before = await db().model(Comment).count();
+
+      await expect(user.comments().create()).rejects.toThrow(ReadonlyAssociation);
+      await expect(user.comments().push(comment)).rejects.toThrow(ReadonlyAssociation);
+      await expect(user.comments().delete(comment)).rejects.toThrow(ReadonlyAssociation);
+      await expect(user.comments().destroy(comment)).rejects.toThrow(ReadonlyAssociation);
+      await expect(user.comments().clear()).rejects.toThrow(ReadonlyAssociation);
+      await expect(user.comments().deleteAll()).rejects.toThrow(ReadonlyAssociation);
+      expect(await db().model(Comment).count()).toBe(before);
+    });
+
+    test("a hasOne going through a belongsTo refuses set", async () => {
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (1, 1, 'First')");
+      const post = await db().model(Post).find(1);
+      const profile = db().model(Profile).build({ userId: 1 });
+
+      await expect(post.authorProfile.set(profile)).rejects.toThrow(
+        "Can't write through Post.authorProfile: it goes through Post.user, a belongsTo",
+      );
+      expect(await db().model(Profile).count()).toBe(0);
+    });
+
     test("updateAll changes its records, as any Relation's", async () => {
       const user = await db().model(User).find(1);
 
@@ -445,6 +499,14 @@ describe("an association through another", () => {
         "Apollo",
         "Cygnus",
       ]);
+    });
+
+    test("its own destroyAll throws ReadonlyAssociation, writing nothing", async () => {
+      const user = await db().model(User).find(1);
+      const before = await counts();
+
+      await expect(asCollection(user.projects()).destroyAll()).rejects.toThrow(ReadonlyAssociation);
+      expect(await counts()).toEqual(before);
     });
 
     test("an unsaved owner refuses with ReadonlyAssociation as a saved one does", async () => {

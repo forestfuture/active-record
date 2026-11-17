@@ -2,7 +2,7 @@
 import type { HasOne } from "./associations.ts";
 import { hasOneAccessor, pointOwnerAt } from "./association-writers.ts";
 import { forget } from "./autosave.ts";
-import { RecordNotSaved } from "./errors.ts";
+import { ReadonlyAssociation, RecordNotSaved } from "./errors.ts";
 import { requireTargets, saveTogether, type CollectionMethods } from "./collection-methods.ts";
 import { destroyTogether } from "./records-together.ts";
 import { refusalError, saveLifecycle } from "./lifecycle.ts";
@@ -19,7 +19,7 @@ import { preparedWrites } from "./prepared-writes.ts";
 import type { QueryDescription } from "./query.ts";
 import { Statement, statementParts } from "./statement.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
-import { readonlyError } from "./through-associations.ts";
+import { insertError, requireWritableThrough } from "./through-associations.ts";
 
 /** An owner's through hasMany, as its collection methods use it. */
 export interface OwnersHasManyThrough {
@@ -46,14 +46,17 @@ export type ThroughOwner = Omit<OwnersHasManyThrough, "collection" | "relation">
 export function throughCollection(through: ThroughOwner): AssociationCollection {
   const collection = ownedCollection(through.owner, through.association);
   const built = (record: Model) => {
+    requireWritableThrough(through.association);
     collection.built(record);
     joinFor(through, record);
   };
   const refuse = (write: Write) => {
-    if (write === "insert") throw readonlyError(through.association);
+    if (write === "insert") throw insertError(through.association);
+    requireWritableThrough(through.association);
   };
   const saveCreated = (record: Model, orThrow: boolean) => saveWithJoin(through, record, orThrow);
   const deleteAllOf = (query: QueryDescription) => deleteJoins(through, collection, query);
+  // A narrowed one's deleteAll deletes the records it finds, as any Relation's.
   const narrowed = (): OwnedCollection => ({
     ...collection.narrowed(),
     built,
@@ -68,7 +71,11 @@ export function throughCollection(through: ThroughOwner): AssociationCollection 
 export function throughCollectionMethods<M extends Model>(
   hasMany: OwnersHasManyThrough,
 ): CollectionMethods<M> {
-  const refuse = () => Promise.reject(readonlyError(hasMany.association));
+  // Refused until its own destroyAll destroys join records (#348).
+  const refuse = () =>
+    Promise.reject(
+      new ReadonlyAssociation(`Can't destroyAll through ${hasMany.association.label}`),
+    );
   return {
     push: (...records) => push(hasMany, records),
     delete: (...records) => remove(hasMany, records, removalOf(hasMany.association)),
@@ -85,6 +92,7 @@ export function throughCollectionMethods<M extends Model>(
  */
 async function push(hasMany: OwnersHasManyThrough, records: Model[]): Promise<boolean> {
   const { owner, association, collection } = hasMany;
+  requireWritableThrough(association);
   requireTargets(association, records);
   for (const record of records) record[state].requireLive("be saved");
   // A new owner saves them with it: their join records, each saving its record first.
@@ -128,6 +136,7 @@ export function joinRecordsOf(owner: Model, association: ResolvedAssociation): S
  * reads as empty without a query.
  */
 async function clear({ owner, association, collection, relation }: OwnersHasManyThrough) {
+  requireWritableThrough(association);
   const viaCollection = ownedCollection(owner, association.hops!.via);
   viaCollection.removed(
     builtJoins(viaCollection.added(), association.hops!.source, collection.added()),
@@ -145,6 +154,7 @@ function deleteJoins(
   collection: OwnedCollection,
   query: QueryDescription,
 ): Statement {
+  requireWritableThrough(association);
   const { source } = association.hops!;
   const joins = via()[linkedToRecordsOf](source.ownerAttribute, query, source.targetAttribute);
   const { executor, queries, landed } = joins[preparedWrites].deleteAll()[statementParts];
@@ -168,6 +178,7 @@ async function remove<M extends Model>(
   removal: "destroy" | "deleteAll",
 ): Promise<M[]> {
   const { owner, association, collection, via } = hasMany;
+  requireWritableThrough(association);
   requireTargets(association, records);
   const { via: viaAssociation, source } = association.hops!;
   const viaCollection = ownedCollection(owner, viaAssociation);
@@ -246,6 +257,7 @@ async function setThrough(
   record: Model | null,
 ): Promise<void> {
   const { target, label, name, ownerAttribute } = association;
+  requireWritableThrough(association);
   if (record !== null && !(record instanceof target)) {
     throw new TypeError(`${label}.set() takes a ${target.name} record or null`);
   }
