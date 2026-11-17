@@ -7,7 +7,8 @@ import { associationOf } from "./association-fields.ts";
 import { schemaAdapter } from "./generated-model.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
-import { applyScope, type Scope, type Scoped } from "./relation.ts";
+import { singularize } from "./inflections.ts";
+import { applyScope, linkedToRecordsOf, queryOf, type Scope, type Scoped } from "./relation.ts";
 import { relationFor } from "./scoped-relation.ts";
 
 /**
@@ -32,6 +33,15 @@ export function linkOf(
 }
 
 /**
+ * The two associations a through association (#59) reaches its records by: `via`, one of its
+ * owner's, and `source`, one of `via`'s target's, whose target is its own.
+ */
+export interface Hops {
+  via: ResolvedAssociation;
+  source: ResolvedAssociation;
+}
+
+/**
  * One declared association of one Model, worked out once: its target Model (made ready for
  * use), the attributes that link the two, and the queries for its records, with its scope and
  * order. Everything that reads, preloads, writes or destroys through an association asks this,
@@ -51,6 +61,8 @@ export class ResolvedAssociation {
    * a database, and not the same one. Then its records are read and written there.
    */
   readonly isCrossDatabase: boolean;
+  /** For a through association (#59), the associations it reaches its records by. */
+  readonly hops: Hops | undefined;
 
   constructor(owner: ModelClass, name: string) {
     this.owner = owner;
@@ -59,11 +71,16 @@ export class ResolvedAssociation {
     this.target = this.definition.target();
     // A Model reached only through an association is still verified and gets its accessors.
     readyModel(this.target);
-    ({ ownerAttribute: this.ownerAttribute, targetAttribute: this.targetAttribute } = linkOf(
-      this.definition,
-      owner,
-      this.target,
-    ));
+    this.hops = hopsOf(owner, name, this.definition);
+    // A through association is linked to its owner as its first hop is, and to its records as
+    // its last hop is.
+    ({ ownerAttribute: this.ownerAttribute, targetAttribute: this.targetAttribute } =
+      this.hops === undefined
+        ? linkOf(this.definition, owner, this.target)
+        : {
+            ownerAttribute: this.hops.via.ownerAttribute,
+            targetAttribute: this.hops.source.targetAttribute,
+          });
     this.isCrossDatabase = isOnDifferentDatabases(owner, this.target);
   }
 
@@ -82,7 +99,10 @@ export class ResolvedAssociation {
 
   /** The target's records for an owner on `executor`, with the association's scope applied. */
   all(executor: Executor): Scoped<Model> {
-    const relation = relationFor(this.targetExecutor(executor), this.target) as Scoped<Model>;
+    // A through association's records are its source's, with the source's scope too.
+    const relation =
+      this.hops?.source.all(executor) ??
+      (relationFor(this.targetExecutor(executor), this.target) as Scoped<Model>);
     const { scope } = this.definition;
     if (scope === undefined) return relation;
     return relation[applyScope](this.label, scope as Scope<Model>, []) as Scoped<Model>;
@@ -90,7 +110,27 @@ export class ResolvedAssociation {
 
   /** The target's records linked to `key` (one value, or a list), for an owner on `executor`. */
   linkedTo(executor: Executor, key: unknown): Scoped<Model> {
-    return this.all(executor).where({ [this.targetAttribute]: key });
+    if (this.hops === undefined) return this.all(executor).where({ [this.targetAttribute]: key });
+    const { via, source } = this.hops;
+    return source.narrowToLinked(executor, this.all(executor), via.linkedTo(executor, key));
+  }
+
+  /**
+   * `relation`, of the target's records, narrowed with subqueries to those linked to a record
+   * `owners` finds, through each hop of a through association.
+   */
+  narrowToLinked(
+    executor: Executor,
+    relation: Scoped<Model>,
+    owners: Scoped<Model>,
+  ): Scoped<Model> {
+    if (this.hops === undefined) {
+      const { targetAttribute, ownerAttribute } = this;
+      return relation[linkedToRecordsOf](targetAttribute, owners[queryOf], ownerAttribute);
+    }
+    const { via, source } = this.hops;
+    const joined = via.narrowToLinked(executor, via.all(executor), owners);
+    return source.narrowToLinked(executor, relation, joined);
   }
 
   /** Why records can't be created through the association for `owner`, which has no key. */
@@ -128,9 +168,24 @@ export class ResolvedAssociation {
    * hasMany/hasOne the owner's key, null while the owner is new (it has no stored records).
    */
   keyOf(owner: Model): unknown {
+    if (this.hops !== undefined) return this.hops.via.keyOf(owner);
     if (this.definition.kind !== "belongsTo" && owner[state].isNew) return null;
     return owner[state].read(this.ownerAttribute);
   }
+}
+
+/**
+ * A through association's hops: `via`, the owner's association it names, and `source`, the
+ * association of `via`'s target that the `source` option names, or else named as it is, singular.
+ */
+function hopsOf(
+  owner: ModelClass,
+  name: string,
+  { through, source }: AssociationDefinition,
+): Hops | undefined {
+  if (through === undefined) return undefined;
+  const via = resolveAssociation(owner, through);
+  return { via, source: resolveAssociation(via.target, source ?? singularize(name)) };
 }
 
 /** Whether the schemas `owner` and `target` are built on name two different databases. */

@@ -7,7 +7,8 @@ import { selectFor, sendTogether, type Rows } from "./load.ts";
 import { hydrate, type Model, type ModelClass } from "./model.ts";
 import { LinkedTo, mergeTrees, type IncludeTree, type QueryDescription } from "./query.ts";
 import { state } from "./record-state.ts";
-import { preloadQuery, type Scoped } from "./relation.ts";
+import { IncompatibleRelation } from "./errors.ts";
+import { queryOf, type Scoped } from "./relation.ts";
 import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
 
 /** What preloading sends, and how it attaches the rows that come back. */
@@ -86,7 +87,7 @@ function checkPreloadable(
   executor: Executor,
   checked = new Set<ResolvedAssociation>(),
 ): void {
-  const query = association.all(executor)[preloadQuery](association.label);
+  const query = preloadable(association.all(executor), association.label);
   const scoped = checked.has(association) ? {} : (query.includes ?? {});
   checked.add(association);
   for (const [name, under] of Object.entries(mergeTrees(scoped, nested))) {
@@ -231,7 +232,7 @@ function scopedQuery(
   association: ResolvedAssociation,
   relation: Scoped<Model>,
 ): QueryDescription | undefined {
-  const query = association.inOrder(relation)[preloadQuery](association.label);
+  const query = preloadable(association.inOrder(relation), association.label);
   return query.none ? undefined : query;
 }
 
@@ -342,6 +343,20 @@ function groupBy(records: readonly Model[], attribute: string): Map<unknown, Mod
     else group.push(record);
   }
   return groups;
+}
+
+/**
+ * `relation`'s query, if an association's scope can be preloaded with it: a limit, offset or
+ * distinct would apply to every owner's records together, not to each owner's.
+ */
+function preloadable(relation: Scoped<Model>, association: string): QueryDescription {
+  const query = relation[queryOf];
+  if (query.limit !== undefined || query.offset !== undefined || query.distinct) {
+    throw new IncompatibleRelation(
+      `${association} can't be preloaded: its scope uses limit, offset or distinct, which would apply to every owner's records together; read it lazily instead`,
+    );
+  }
+  return query;
 }
 
 /** Normalizes `includes()` arguments into a tree, checking every name against its Model. */

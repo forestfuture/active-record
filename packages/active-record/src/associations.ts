@@ -38,6 +38,16 @@ export interface AssociationOptions<C extends ModelClass = ModelClass> {
    * those marked with `markForDestruction()`, as Rails' `autosave: true` does (#37).
    */
   autosave?: true;
+  /**
+   * Reaches the records through another of the owner's associations, named here, and that one's
+   * Model's association to them (#59): `projects = hasMany(Project, { through: "assignments" })`.
+   */
+  through?: string;
+  /**
+   * The association of the `through` association's Model that reaches the records. Left out, it's
+   * the one named as this association, singular or plural (`projects` → `project`, `projects`).
+   */
+  source?: string;
 }
 
 /** Rails' `dependent:` strategies for a hasMany. */
@@ -144,7 +154,8 @@ function checkAssociation(
   const label = `${model.name || "A Model class's"} association "${name}"`;
   checkName(label, model, name);
   const target = checkTarget(label, definition);
-  checkKeys(label, model, target, definition);
+  // A through association's keys are its two hops' (#59).
+  if (definition.through === undefined) checkKeys(label, model, target, definition);
   checkDependent(label, definition);
   checkOptional(label, definition);
   checkAutosave(label, definition);
