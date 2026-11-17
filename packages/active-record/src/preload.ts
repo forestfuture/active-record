@@ -10,6 +10,13 @@ import { state } from "./record-state.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import { queryOf, type Scoped } from "./relation.ts";
 import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
+import {
+  planHop,
+  type Found,
+  type Hop,
+  type HopOwners,
+  type HopRequest,
+} from "./through-preload.ts";
 
 /** What preloading sends, and how it attaches the rows that come back. */
 export interface PreloadPlan {
@@ -30,7 +37,7 @@ export interface PreloadPlan {
  * Whose records a plan starts from: a query's, not yet sent, whose keys each association's
  * query selects with a subquery; or records already loaded, whose keys it binds.
  */
-type Owners = { query: QueryDescription } | { records: readonly Model[] };
+type Owners = HopOwners;
 
 /**
  * Records of one Model, and the associations to preload for them. `written` is the part of
@@ -51,6 +58,15 @@ interface Step {
   ownersAt: number;
   /** The SELECT for the targets, or none when nothing can match (no keys, or a `none()` scope). */
   select: CompiledSql | undefined;
+  /** A hop of a through association (#59): its records aren't its owners' loaded association. */
+  isHop?: true;
+}
+
+/** A through association's preload (#59): its owners get the records each reaches. */
+interface Gather {
+  association: ResolvedAssociation;
+  ownersAt: number;
+  reached: Hop["reached"];
 }
 
 /**
@@ -97,7 +113,13 @@ function checkPreloadable(
 
 /** The plan preloading each start's tree. */
 function planFrom(starts: readonly Start[], executor: Executor): PreloadPlan {
-  const planning: Planning = { steps: [], afterwards: [], offset: starts.length, executor };
+  const planning: Planning = {
+    steps: [],
+    gathers: [],
+    afterwards: [],
+    offset: starts.length,
+    executor,
+  };
   starts.forEach((start, ownersAt) => planSteps(planning, start, { ownersAt, path: new Set() }));
   return {
     statements: planning.steps.flatMap((step) => step.select ?? []),
@@ -111,6 +133,7 @@ function planFrom(starts: readonly Start[], executor: Executor): PreloadPlan {
  */
 interface Planning {
   steps: Step[];
+  gathers: Gather[];
   afterwards: Afterwards[];
   offset: number;
   executor: Executor;
@@ -150,9 +173,13 @@ function planStep(planning: Planning, start: Start, level: Level, name: string):
     leaveForAfterwards(planning, { ...onlyOne(start, name), ownersAt, elsewhere: targetDatabase });
     return;
   }
-  const query = linkedQuery(association, owners, planning.executor);
+  if (association.hops !== undefined) {
+    planThrough(planning, start, level, association);
+    return;
+  }
+  const query = linkedQuery(association, owners, association.all(planning.executor));
   const targets =
-    query && targetsOf(planning.executor.dialect, association, query, tree[name] ?? {});
+    query && targetsOf(planning.executor.dialect, association, query, { nested: tree[name] ?? {} });
   if (hasTooManyBoundValues(owners, targets, planning.executor.adapter.maxBoundValues)) {
     leaveForAfterwards(planning, { ...onlyOne(start, name), ownersAt });
     return;
@@ -170,6 +197,70 @@ function planStep(planning: Planning, start: Start, level: Level, name: string):
   planSteps(planning, next, { ownersAt: position, path: new Set([...path, association]) });
 }
 
+/**
+ * Adds the steps for a through association of `start`'s (#59), a hop at a time, and what
+ * gathers each owner's records from them; then the steps under its records. Left for
+ * afterwards, as any association is, when a hop would bind more values than the database allows.
+ */
+function planThrough(
+  planning: Planning,
+  start: Start,
+  level: Level,
+  association: ResolvedAssociation,
+): void {
+  const { owners, tree, written } = start;
+  const { name } = association;
+  const before = planning.steps.length;
+  const hop = planHop(
+    { executor: planning.executor, step: (request) => planHopStep(planning, request) },
+    {
+      association,
+      owners,
+      ownersAt: level.ownersAt,
+      base: association.all(planning.executor),
+      columns: [],
+      nested: tree[name] ?? {},
+    },
+  );
+  const added = planning.steps.slice(before);
+  const limit = planning.executor.adapter.maxBoundValues;
+  if (added.some((step) => hasTooManyBoundValues(owners, step, limit))) {
+    planning.steps.length = before;
+    leaveForAfterwards(planning, { ...onlyOne(start, name), ownersAt: level.ownersAt });
+    return;
+  }
+  planning.gathers.push({
+    association,
+    ownersAt: level.ownersAt,
+    reached: hop?.reached ?? (() => []),
+  });
+  if (hop === undefined) return;
+  const next = { model: association.target, owners: { query: hop.query }, tree: hop.includes };
+  const path = new Set([...level.path, association]);
+  planSteps(planning, { ...next, written: written[name] ?? {} }, { ownersAt: hop.position, path });
+}
+
+/** The step for one hop of a through association: its records, which nothing caches. */
+function planHopStep(planning: Planning, request: HopRequest): Hop | undefined {
+  const { association, owners, ownersAt, base, columns, nested } = request;
+  const query = linkedQuery(association, owners, base);
+  if (query === undefined) return undefined;
+  const dialect = planning.executor.dialect;
+  const { select, includes } = targetsOf(dialect, association, query, { nested, needed: columns });
+  const position =
+    planning.offset + planning.steps.push({ association, ownersAt, select, isHop: true }) - 1;
+  let byKey: Map<unknown, Model[]> | undefined;
+  return {
+    query,
+    position,
+    includes,
+    reached: (owner, found) => {
+      byKey ??= groupBy(found[position] ?? [], association.targetAttribute);
+      return linkedIn(byKey, association, owner);
+    },
+  };
+}
+
 /** `start`'s Model and its trees, with only the association `name`. */
 function onlyOne(
   { model, tree, written }: Start,
@@ -185,10 +276,10 @@ function onlyOne(
  */
 function hasTooManyBoundValues(
   owners: Owners,
-  targets: { select: CompiledSql } | undefined,
+  targets: { select: CompiledSql | undefined } | undefined,
   limit: number,
 ): boolean {
-  return "query" in owners && (targets?.select.params.length ?? 0) > limit;
+  return "query" in owners && (targets?.select?.params.length ?? 0) > limit;
 }
 
 /** Adds `deferred` to what's preloaded afterwards, merged with anything left for its owners. */
@@ -213,18 +304,18 @@ function leaveForAfterwards(planning: Planning, deferred: Afterwards): void {
 function linkedQuery(
   association: ResolvedAssociation,
   owners: Owners,
-  executor: Executor,
+  base: Scoped<Model>,
 ): QueryDescription | undefined {
   const { ownerAttribute, targetAttribute } = association;
   if ("query" in owners) {
     const linked = new LinkedTo(targetAttribute, owners.query, ownerAttribute);
-    const scoped = scopedQuery(association, association.all(executor));
+    const scoped = scopedQuery(association, base);
     return scoped && { ...scoped, conditions: [...scoped.conditions, linked] };
   }
   const keys = owners.records.map((record) => record[state].read(ownerAttribute));
   const distinct = [...new Set(keys.filter((key) => key !== null && key !== undefined))];
   if (distinct.length === 0) return undefined;
-  return scopedQuery(association, association.linkedTo(executor, distinct));
+  return scopedQuery(association, base.where({ [targetAttribute]: distinct }));
 }
 
 /** `relation`, of `association`'s targets, in its order, as a preload: none for a `none()`. */
@@ -259,19 +350,13 @@ function splitRepeated(
  * database, what was left for afterwards.
  */
 async function attachSteps(
-  { steps, afterwards }: Planning,
+  { steps, gathers, afterwards }: Planning,
   records: readonly (readonly Model[])[],
   rows: readonly Rows[],
   executor: Executor,
 ): Promise<void> {
-  const owners = [...records];
-  const results = rows.values();
-  for (const { association, ownersAt, select } of steps) {
-    const found = select === undefined ? [] : (results.next().value ?? []);
-    const targets = found.map((row) => hydrate(association.target, row, executor));
-    attach(owners[ownersAt] ?? [], association, targets);
-    owners.push(targets);
-  }
+  const owners = foundBy(steps, records, rows, executor);
+  for (const gather of gathers) gatherReached(gather, owners);
   const byDatabase = new Map<Executor, Start[]>();
   for (const { ownersAt, elsewhere = executor, ...deferred } of afterwards) {
     const loaded = owners[ownersAt] ?? [];
@@ -280,6 +365,27 @@ async function attachSteps(
     byDatabase.set(elsewhere, [...starts, { ...deferred, owners: { records: loaded } }]);
   }
   await Promise.all([...byDatabase].map(([database, starts]) => preloadStarts(starts, database)));
+}
+
+/**
+ * The records at each position: `records`, the starts', then each step's targets, from its
+ * statement's rows, each attached to its owners, unless it's a through association's hop.
+ */
+function foundBy(
+  steps: readonly Step[],
+  records: Found,
+  rows: readonly Rows[],
+  executor: Executor,
+): Found {
+  const owners = [...records];
+  const results = rows.values();
+  for (const { association, ownersAt, select, isHop } of steps) {
+    const found = select === undefined ? [] : (results.next().value ?? []);
+    const targets = found.map((row) => hydrate(association.target, row, executor));
+    if (isHop === undefined) attach(owners[ownersAt] ?? [], association, targets);
+    owners.push(targets);
+  }
+  return owners;
 }
 
 /**
@@ -299,11 +405,12 @@ function targetsOf(
   dialect: Dialect,
   association: ResolvedAssociation,
   query: QueryDescription,
-  nested: IncludeTree,
+  { nested, needed = [] }: { nested: IncludeTree; needed?: readonly string[] },
 ): { select: CompiledSql; includes: IncludeTree } {
   const includes = mergeTrees(query.includes ?? {}, nested);
-  // A scope's select keeps the key its records are matched to their owners by (#201).
-  const columns = query.select && [...query.select, association.targetAttribute];
+  // A scope's select keeps the key its records are matched to their owners by (#201), and
+  // a through association's hop the key the next hop's are matched to it by (#59).
+  const columns = query.select && [...query.select, association.targetAttribute, ...needed];
   // Given to the SELECT, so the keys the nested includes need are loaded too.
   const select = selectFor(dialect, association.target, { ...query, select: columns, includes });
   return { select, includes };
@@ -319,18 +426,34 @@ function attach(
   association: ResolvedAssociation,
   targets: readonly Model[],
 ): void {
-  const { name, definition, ownerAttribute, target, targetAttribute } = association;
-  const byKey = groupBy(targets, targetAttribute);
+  const byKey = groupBy(targets, association.targetAttribute);
+  for (const record of records) loadedAs(record, association, linkedIn(byKey, association, record));
+}
+
+/** `owner`'s targets, from targets grouped by the attribute they're linked to their owners by. */
+function linkedIn(
+  byKey: ReadonlyMap<unknown, Model[]>,
+  association: ResolvedAssociation,
+  owner: Model,
+): Model[] {
+  const { ownerAttribute, target, targetAttribute } = association;
   // Looked up as the targets hold it: an integer key matches a text foreign key's digits (#94).
   const targetKey = attributeFor(target, targetAttribute);
-  for (const record of records) {
-    const key = record[state].read(ownerAttribute);
-    const group = byKey.get(targetKey.condition(key)) ?? [];
-    const value = definition.kind === "hasMany" ? group : (group[0] ?? null);
-    // Set, not started as a load: the owners aren't reachable until loading returns, so nothing can write
-    // through them meanwhile.
-    record[state].associations.set(name, ownerAttribute, value);
-  }
+  return byKey.get(targetKey.condition(owner[state].read(ownerAttribute))) ?? [];
+}
+
+/** `records` loaded as `owner`'s `association`: all of them for a hasMany, else the first or null. */
+function loadedAs(owner: Model, association: ResolvedAssociation, records: Model[]): void {
+  const { name, definition, ownerAttribute } = association;
+  const value = definition.kind === "hasMany" ? records : (records[0] ?? null);
+  // Set, not started as a load: the owners aren't reachable until loading returns, so nothing can write
+  // through them meanwhile.
+  owner[state].associations.set(name, ownerAttribute, value);
+}
+
+/** Each owner of a through association (#59) gets the records it reaches. */
+function gatherReached({ association, ownersAt, reached }: Gather, found: Found): void {
+  for (const owner of found[ownersAt] ?? []) loadedAs(owner, association, reached(owner, found));
 }
 
 /** Records grouped by one attribute's value, keeping their order. */
