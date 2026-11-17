@@ -387,10 +387,7 @@ export function compileCalculation(
 ): CompiledSql {
   // The fragment's values come first, as its SQL does.
   const params: unknown[] = [];
-  const expression =
-    operand instanceof SafeSql
-      ? compileFragment(operand, query.model, params)
-      : quoteIdentifier(attributeFor(query.model, operand).column);
+  const expression = compileOperand(query.model, operand, params);
   const toCalculate = { ...queryToCount(query), select: undefined };
   const alias = quoteIdentifier(valuesAlias(query.model));
   const inner = compileSelect(dialect, toCalculate, `${expression} AS ${alias}`);
@@ -413,21 +410,45 @@ function compileGroupBy({ terms }: Grouping): string {
   return ` GROUP BY ${terms.map((_, index) => index + 1).join(", ")}`;
 }
 
+/** An attribute's column, or a fragment's SQL with its values appended to `params`. */
+function compileOperand(
+  model: ModelClass<Model>,
+  operand: string | SafeSql,
+  params: unknown[],
+): string {
+  return operand instanceof SafeSql
+    ? compileFragment(operand, model, params)
+    : quoteIdentifier(attributeFor(model, operand).column);
+}
+
+/** A grouped calculation: `count`, or a calculation of an attribute or a fragment. */
+export interface GroupedCalculation {
+  readonly operation: "count" | Calculation;
+  /** What's calculated; a count without one counts rows. */
+  readonly operand?: string | SafeSql;
+}
+
 /**
- * A count of each group's rows (#345): the groups' keys, each term's column, then the count as
- * `valuesAlias`. The Relation's order and limit pick and order the groups.
+ * A calculation of each group (#345): the groups' keys, each term's column, then the result as
+ * `valuesAlias`. The Relation's order and limit pick and order the groups. A sum of only NULLs
+ * is 0.
  */
 export function compileGrouped(
   dialect: Dialect,
   query: QueryDescription,
   grouping: Grouping,
+  { operation, operand }: GroupedCalculation,
 ): CompiledSql {
-  const keys = grouping.terms.map((term) =>
-    quoteIdentifier(attributeFor(query.model, term).column),
-  );
-  const projection = [...keys, `COUNT(*) AS ${quoteIdentifier(valuesAlias(query.model))}`];
+  // The SELECT list's values come first, as its SQL does.
+  const params: unknown[] = [];
+  const keys = grouping.terms.map((term) => compileOperand(query.model, term, params));
+  const counted = operand === undefined ? "*" : compileOperand(query.model, operand, params);
+  const aggregate = `${operation === "count" ? "COUNT" : AGGREGATES[operation]}(${counted})`;
+  const value = operation === "sum" ? `COALESCE(${aggregate}, 0)` : aggregate;
+  const projection = [...keys, `${value} AS ${quoteIdentifier(valuesAlias(query.model))}`];
   const ungrouped = { ...query, select: undefined, distinct: false };
-  return compileSelect(dialect, ungrouped, projection.join(", "), grouping);
+  const inner = compileSelect(dialect, ungrouped, projection.join(", "), grouping);
+  return { ...inner, params: [...params, ...inner.params] };
 }
 
 /**

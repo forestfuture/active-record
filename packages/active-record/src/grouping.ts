@@ -1,9 +1,18 @@
 // `group` (#345): a Relation grouped by attributes or `sql` fragments, whose calculations resolve to a Map from each group's key to its result.
 import { attributeFor } from "./attribute.ts";
-import { compileGrouped, valuesAlias, type Grouping } from "./compiler.ts";
+import { compileGrouped, valuesAlias, type GroupedCalculation, type Grouping } from "./compiler.ts";
 import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import type { Relation } from "./relation.ts";
-import type { ValueSource } from "./calculations.ts";
+import {
+  calculationReader,
+  requireOperation,
+  type CalculatedValue,
+  type NumberAttribute,
+  type Operation,
+  type OrderedAttribute,
+  type ValueSource,
+} from "./calculations.ts";
+import type { QueryDescription } from "./query.ts";
 import { SafeSql } from "./sql.ts";
 
 /** What `group` takes for records `M`: an attribute, or an `sql` fragment. */
@@ -46,19 +55,81 @@ export class GroupedRelation<M extends Model, G extends readonly GroupTerm<M>[]>
     this.#sourceOf = sourceOf;
   }
 
-  /** The number of rows in each group. */
-  async count(): Promise<Map<GroupKey<M, G>, number>> {
-    return (await this.#calculate()) as Map<GroupKey<M, G>, number>;
+  /** The number of rows in each group, or of their non-null values of `attribute`. */
+  async count(attribute?: keyof AttributesOf<M> & string): Promise<Map<GroupKey<M, G>, number>> {
+    return this.#calculate({ operation: "count", operand: attribute }) as never;
   }
 
-  /** Each group's result, keyed by its values. */
-  async #calculate(): Promise<Map<unknown, unknown>> {
+  /** Each group's sum of `attribute`'s values or a fragment's, as `sum` on a Relation. */
+  async sum<K extends NumberAttribute<M> | SafeSql>(
+    attribute: K,
+  ): Promise<Map<GroupKey<M, G>, CalculatedValue<M, K>>> {
+    return this.#calculate({ operation: "sum", operand: attribute }) as never;
+  }
+
+  /** Each group's mean of `attribute`'s values or a fragment's, or `null` with none. */
+  async average(
+    attribute: NumberAttribute<M> | SafeSql,
+  ): Promise<Map<GroupKey<M, G>, number | null>> {
+    return this.#calculate({ operation: "average", operand: attribute }) as never;
+  }
+
+  /** Each group's least value of `attribute` or a fragment, or `null` with none. */
+  async minimum<K extends OrderedAttribute<M> | SafeSql>(
+    attribute: K,
+  ): Promise<Map<GroupKey<M, G>, CalculatedValue<M, K, unknown> | null>> {
+    return this.#calculate({ operation: "minimum", operand: attribute }) as never;
+  }
+
+  /** Each group's greatest value of `attribute` or a fragment, or `null` with none. */
+  async maximum<K extends OrderedAttribute<M> | SafeSql>(
+    attribute: K,
+  ): Promise<Map<GroupKey<M, G>, CalculatedValue<M, K, unknown> | null>> {
+    return this.#calculate({ operation: "maximum", operand: attribute }) as never;
+  }
+
+  /** The calculation `operation` names, of each group, typed as that method is. */
+  async calculate(
+    operation: "count",
+    attribute?: keyof AttributesOf<M> & string,
+  ): Promise<Map<GroupKey<M, G>, number>>;
+  async calculate<K extends NumberAttribute<M> | SafeSql>(
+    operation: "sum",
+    attribute: K,
+  ): Promise<Map<GroupKey<M, G>, CalculatedValue<M, K>>>;
+  async calculate(
+    operation: "average",
+    attribute: NumberAttribute<M> | SafeSql,
+  ): Promise<Map<GroupKey<M, G>, number | null>>;
+  async calculate<K extends OrderedAttribute<M> | SafeSql>(
+    operation: "minimum" | "maximum",
+    attribute: K,
+  ): Promise<Map<GroupKey<M, G>, CalculatedValue<M, K, unknown> | null>>;
+  async calculate(operation: Operation, attribute?: string | SafeSql): Promise<unknown> {
+    return this.#calculate({ operation: requireOperation(operation), operand: attribute });
+  }
+
+  /** Each group's result, keyed by its values; an attribute the calculation can't take throws first. */
+  async #calculate(calculation: GroupedCalculation): Promise<Map<unknown, unknown>> {
     const { query, dialect, runner } = this.#sourceOf(this.#relation);
     const keyOf = groupKeyReader(query.model, this.#grouping);
+    const read = resultReader(query, calculation);
     const alias = valuesAlias(query.model);
-    const rows = await runner.rows(() => compileGrouped(dialect(), query, this.#grouping));
-    return new Map(rows.map((row) => [keyOf(row), Number(row[alias])]));
+    const rows = await runner.rows(() =>
+      compileGrouped(dialect(), query, this.#grouping, calculation),
+    );
+    return new Map(rows.map((row) => [keyOf(row), read(row[alias] ?? null)]));
   }
+}
+
+/** How a grouped calculation's results read: a count as a number, the rest as on a Relation. */
+function resultReader(
+  query: QueryDescription,
+  { operation, operand }: GroupedCalculation,
+): (cell: unknown) => unknown {
+  if (operation !== "count") return calculationReader(query, operation, operand!);
+  if (operand !== undefined) attributeFor(query.model, operand as string);
+  return Number;
 }
 
 /** Reads a row's group key: the one term's value, or a tuple of every term's. */
