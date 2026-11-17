@@ -77,6 +77,7 @@ const relationMethods = [
   "toArray",
   "toSql",
   "findEach",
+  "findInBatches",
 ] as const;
 
 /** A Relation method with no overloads, by name. */

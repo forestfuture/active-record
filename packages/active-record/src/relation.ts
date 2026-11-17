@@ -55,7 +55,12 @@ import { destroyTogether } from "./records-together.ts";
 import { grouped, type GroupedRelation, type GroupTerms } from "./grouping.ts";
 import type { RelationState } from "./relation-state.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
-import { eachRecord, type IterationOptions } from "./batch-iteration.ts";
+import {
+  eachRecord,
+  recordBatches,
+  type Iterated,
+  type IterationOptions,
+} from "./batch-iteration.ts";
 import {
   count,
   runCalculation,
@@ -625,7 +630,12 @@ export class Relation<M extends Model, S = {}> {
    * `for await (const user of User.findEach())`.
    */
   findEach(options?: IterationOptions): AsyncIterable<M> {
-    return eachRecord({ model: this.#model, query: this.#query, runner: this.#runner }, options);
+    return eachRecord(this.#iterated, options);
+  }
+
+  /** This Relation's records as arrays of up to `batchSize`, in primary-key order (#347). */
+  findInBatches(options?: IterationOptions): AsyncIterable<M[]> {
+    return recordBatches(this.#iterated, options);
   }
 
   /**
@@ -659,6 +669,10 @@ export class Relation<M extends Model, S = {}> {
   get #state(): RelationState<M> {
     const query = this.#query;
     return { executor: this.#executor, model: this.#model, query, collection: this.#collection };
+  }
+
+  get #iterated(): Iterated<M> {
+    return { model: this.#model, query: this.#query, runner: this.#runner };
   }
 
   get #dialect(): Executor["dialect"] {
