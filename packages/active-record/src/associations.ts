@@ -12,11 +12,12 @@ import {
   type ScopesOf,
 } from "./model.ts";
 import { verifyModel } from "./verify-model.ts";
-import { checkThrough, refusedCollectionMethods } from "./through-associations.ts";
+import { checkThrough } from "./through-associations.ts";
+import { throughCollectionMethods } from "./through-writes.ts";
 import { state } from "./record-state.ts";
 import { collectionMethods, type CollectionMethods } from "./collection-methods.ts";
 import { ownedCollection } from "./owned-collection.ts";
-import { ofOwner, type Scoped } from "./relation.ts";
+import { ofOwner, type Relation, type Scoped } from "./relation.ts";
 import { linkOf, resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
 
 /**
@@ -144,9 +145,10 @@ export type HasMany<C extends ModelClass> = () => HasManyCollection<InstanceType
  * (`build`, `create`, `insert`, `upsert`, and its own `deleteAll` and `destroyAll`) are typed `never`, so it's
  * still a Relation, for `or`, `merge` and a batch's `updateAll`.
  */
-export type HasManyThrough<C extends ModelClass> = () => Scoped<InstanceType<C>, ScopesOf<C>> & {
-  readonly [W in ThroughWrite]: never;
-};
+export type HasManyThrough<C extends ModelClass> = () => Scoped<InstanceType<C>, ScopesOf<C>> &
+  CollectionMethods<InstanceType<C>> & {
+    readonly [W in ThroughWrite]: never;
+  };
 
 /** The writes a through association's own Relation refuses (#59). */
 type ThroughWrite =
@@ -343,7 +345,12 @@ function hasManyRelation(owner: Model, association: ResolvedAssociation) {
     owned,
     association.hops === undefined
       ? collectionMethods({ owner, association, collection, relation: owned })
-      : refusedCollectionMethods(association),
+      : throughCollectionMethods({
+          owner,
+          association,
+          collection,
+          via: (): Relation<Model> => hasManyRelation(owner, association.hops!.via),
+        }),
   );
 }
 

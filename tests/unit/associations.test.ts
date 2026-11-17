@@ -227,9 +227,14 @@ describe("an association through another's types (#59)", () => {
     expect(() => db.model(Note).includes("tags")).not.toThrow();
   });
 
-  test("a hasMany through another has no collection methods, and builds nothing", () => {
-    expectTypeOf<ReturnType<Note["tags"]>>().not.toHaveProperty("push");
-    expectTypeOf<ReturnType<Note["tags"]>>().not.toHaveProperty("clear");
+  test("a hasMany through another has the collection methods, of its records", () => {
+    expectTypeOf<ReturnType<Note["tags"]>["push"]>().parameters.toEqualTypeOf<Tag[]>();
+    expectTypeOf<ReturnType<Note["tags"]>["delete"]>().returns.resolves.toEqualTypeOf<Tag[]>();
+    expectTypeOf<ReturnType<Note["tags"]>["destroy"]>().parameters.toEqualTypeOf<Tag[]>();
+    expectTypeOf<ReturnType<Note["tags"]>["clear"]>().returns.resolves.toEqualTypeOf<void>();
+  });
+
+  test("a hasMany through another builds nothing", () => {
     expectTypeOf<ReturnType<Note["tags"]>["build"]>().toBeNever();
     expectTypeOf<ReturnType<Note["tags"]>["create"]>().toBeNever();
     expectTypeOf<ReturnType<Note["tags"]>["insert"]>().toBeNever();
