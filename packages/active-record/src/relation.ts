@@ -58,6 +58,7 @@ import { paginate, type CountlessPage, type Page, type PageOptions } from "./pag
 import {
   eachRecord,
   recordBatches,
+  relationBatches,
   type Iterated,
   type IterationOptions,
 } from "./batch-iteration.ts";
@@ -636,6 +637,14 @@ export class Relation<M extends Model, S = {}> {
   /** This Relation's records as arrays of up to `batchSize`, in primary-key order (#347). */
   findInBatches(options?: IterationOptions): AsyncIterable<M[]> {
     return recordBatches(this.#iterated, options);
+  }
+
+  /**
+   * A Relation of each batch's records, in primary-key order (#347), to write a batch at a time:
+   * `for await (const posts of drafts.inBatches()) await posts.deleteAll()`.
+   */
+  inBatches(options?: IterationOptions): AsyncIterable<Scoped<M, S>> {
+    return relationBatches(this.#iterated, options ?? {}, (query) => this.#describing(query));
   }
 
   /**

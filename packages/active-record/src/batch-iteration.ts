@@ -131,6 +131,36 @@ export function eachRecord<M extends Model>(
   return flattened(recordBatches(iterated, options));
 }
 
+/**
+ * A Relation of each batch's records, made by `relationOf`: one query reads the batch's primary
+ * keys, then it's the Relation with `where({ <primary key>: keys })`, keeping its conditions so a
+ * row changed since doesn't match, and without its limit, which the keys already keep to.
+ */
+export function relationBatches<M extends Model, R>(
+  iterated: Iterated<M>,
+  options: IterationOptions,
+  relationOf: (query: QueryDescription) => R,
+): AsyncGenerator<R, void, undefined> {
+  checkIterable(iterated);
+  const { model, query } = iterated;
+  const keysOnly = { ...query, select: [model.primaryKey], includes: undefined };
+  return relationsOf(recordBatches({ ...iterated, query: keysOnly }, options), (keys) =>
+    relationOf({
+      ...query,
+      conditions: [...query.conditions, { [model.primaryKey]: keys.map(primaryKeyOf) }],
+      limit: undefined,
+    }),
+  );
+}
+
+/** Each batch's Relation. */
+async function* relationsOf<M extends Model, R>(
+  batches: AsyncIterable<M[]>,
+  relationOf: (records: M[]) => R,
+): AsyncGenerator<R, void, undefined> {
+  for await (const records of batches) yield relationOf(records);
+}
+
 /** Each record of each batch. */
 async function* flattened<M>(batches: AsyncIterable<M[]>): AsyncGenerator<M, void, undefined> {
   for await (const records of batches) yield* records;
