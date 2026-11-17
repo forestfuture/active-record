@@ -96,6 +96,10 @@ Rails’ `destroy_all` on a Relation destroys each record in a transaction of it
 
 Each page is its own write, so a page that fails leaves the earlier pages destroyed.
 
+:::note
+A page bounds memory, not queries. Each record reads its `"destroy"` and restricted associations with a query of its own, so a large set sends as many reads, a page at a time or not.
+:::
+
 ## Checking a record’s state
 
 | State                                            | `isNewRecord()` | `isPersisted()` | `isDestroyed()` |
