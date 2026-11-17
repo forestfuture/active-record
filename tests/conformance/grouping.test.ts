@@ -23,6 +23,12 @@ class Review extends Model.define({
   static table = "typed_posts";
 }
 
+class Article extends Model.define({
+  id: { type: "integer", null: false },
+  status: { type: "string", enum: ["draft", "published"] },
+  priority: { type: "integer", enum: { low: 0, high: 10 } },
+}) {}
+
 /** Reviews, newest first unless reordered. */
 class NewestReview extends Review {
   static {
@@ -42,7 +48,7 @@ describe("group (#345)", () => {
   const reviews = () => harness.connect({ onQuery: (event) => events.push(event) }).model(Review);
   beforeEach(async () => {
     events.length = 0;
-    await harness.reset("typed_posts");
+    await harness.reset("typed_posts", "articles");
   });
 
   const seed = async (...rows: [title: string | null, rating: number | null][]) => {
@@ -83,6 +89,33 @@ describe("group (#345)", () => {
         new Map([
           ["a", 1],
           ["b", 0],
+        ]),
+      );
+    });
+
+    test("keys a group by the attribute's value: a Date, a boolean, an enum's name", async () => {
+      const day = new Date("2026-01-02T00:00:00.000Z");
+      for (const featured of [true, true, false]) {
+        await harness.connect().model(Review).create({ featured, publishedAt: day });
+      }
+      for (const [status, priority] of [
+        ["draft", "low"],
+        ["draft", "high"],
+        ["published", "high"],
+      ] as const) {
+        await harness.connect().model(Article).create({ status, priority });
+      }
+
+      expect(await reviews().group("publishedAt", "featured").count()).toEqual(
+        new Map([
+          [[day, true], 2],
+          [[day, false], 1],
+        ]),
+      );
+      expect(await harness.connect().model(Article).group("priority").count()).toEqual(
+        new Map([
+          ["low", 1],
+          ["high", 2],
         ]),
       );
     });
