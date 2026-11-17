@@ -145,4 +145,24 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       expect(events).toHaveLength(0);
     });
   });
+
+  describe("findSoleBy", () => {
+    test("throws RecordNotFound when none matches", async () => {
+      await seed([1, "a@example.com", 30]);
+
+      await expect(users().findSoleBy({ age: 20 })).rejects.toThrow(RecordNotFound);
+    });
+
+    test("is the one record matching the conditions", async () => {
+      await seed([1, "a@example.com", 30], [2, "b@example.com", 20]);
+
+      expect((await users().findSoleBy({ age: 20 })).email).toBe("b@example.com");
+    });
+
+    test("throws SoleRecordExceeded when several match", async () => {
+      await seed([1, "a@example.com", 30], [2, "b@example.com", 30]);
+
+      await expect(users().findSoleBy({ age: 30 })).rejects.toThrow(SoleRecordExceeded);
+    });
+  });
 });

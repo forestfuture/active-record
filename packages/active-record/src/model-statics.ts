@@ -60,6 +60,7 @@ const relationMethods = [
   "createOrThrow",
   "findBy",
   "findByOrThrow",
+  "findSoleBy",
   "findOrCreateBy",
   "findOrCreateByOrThrow",
   "findOrInitializeBy",
