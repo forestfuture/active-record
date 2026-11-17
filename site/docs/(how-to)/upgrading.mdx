@@ -1,13 +1,13 @@
 ---
 title: Upgrading
-description: "Move an app to a new release: from 0.7 to 0.8, mark optional belongsTo associations, check code that reads a new record's changes, prepare batch writes in a callback, check what replacing a hasOne record does, regenerate the schema, read DATE columns as dates, and widen the type of serialized values; from 0.6 to 0.7, swap the D1 package for the core's /d1 entry and write active-record.jsonc; from d1-record 0.5 to 0.6, install the core beside the adapter and run npx active-record."
+description: "Move an app to a new release: from 0.7 to 0.8, mark optional belongsTo associations, check code that reads a new record's changes, prepare batch writes in a callback, check what replacing a hasOne record does, check keys given through a hasMany, regenerate the schema, read DATE columns as dates, and widen the type of serialized values; from 0.6 to 0.7, swap the D1 package for the core's /d1 entry and write active-record.jsonc; from d1-record 0.5 to 0.6, install the core beside the adapter and run npx active-record."
 ---
 
 Each section moves an app up one release. Start from the release you’re on.
 
 ## Upgrading from 0.7 to 0.8
 
-In 0.8, a `belongsTo` requires its record, a batch prepares its writes in a callback, a new record’s changes run from its defaults, a `hasOne`’s new record replaces its old one, the generated schema is a `defineSchema` call and reads a `DATE` column as a `date`, and `serialize` can give bytes. Upgrade in seven steps.
+In 0.8, a `belongsTo` requires its record, a batch prepares its writes in a callback, a new record’s changes run from its defaults, a `hasOne`’s new record replaces its old one, a `hasMany` gives its records its own key, the generated schema is a `defineSchema` call and reads a `DATE` column as a `date`, and `serialize` can give bytes. Upgrade in eight steps.
 
 ### Marking optional associations
 
@@ -42,6 +42,10 @@ Records’ `toSave()` and `toDestroy()`, and the `to…` methods such as `toInse
 ### Replacing a hasOne’s record
 
 Building or creating a record through a saved owner’s `hasOne` now removes the old record, by the association’s `dependent` strategy. Without one, the old record’s foreign key is set to `NULL`, which fails on a `NOT NULL` column. Set `dependent: "destroy"` or `"delete"` where the old record should go instead. Building twice through an unsaved owner now saves only the last record. See [Replacing the record](./associations#replacing-the-record).
+
+### Checking keys given through a hasMany
+
+A record built, created, or inserted through a `hasMany` now always gets its owner’s key, as one built through a `hasOne` already did. A foreign key you pass, such as `user.posts().build({ userId: otherId })`, is replaced. To write a record for another owner, build it through that owner, or through the Model: `Post.build({ userId: otherId })`.
 
 ### Regenerating the schema
 

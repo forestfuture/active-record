@@ -1,7 +1,7 @@
 // PreparedWrites: a Relation's bulk writes as Statements, unsent, for a Batch to prepare, and building them.
 import { compileDeleteAll, compileUpdateAll, type Conflict } from "./compiler.ts";
 import type { AttributesOf, Model } from "./model.ts";
-import { inheritedValues, requireSavedOwner, type RelationState } from "./relation-state.ts";
+import { newRowValues, requireSavedOwner, type RelationState } from "./relation-state.ts";
 import {
   checkChanges,
   returnedNames,
@@ -79,9 +79,8 @@ function insertRows<Row>(
   { method, returning }: { method: string; returning?: Returning<Model> | undefined },
 ): Statement<Row> {
   requireSavedOwner(relation, "insert");
-  const inherited = inheritedValues(relation);
-  const withInherited = rows.map((row) => ({ ...inherited, ...row }));
-  return insertStatement(relation.executor, relation.model, withInherited, {
+  const valuesOf = newRowValues(relation);
+  return insertStatement(relation.executor, relation.model, rows.map(valuesOf), {
     conflict,
     method,
     landed: clearCollectionUntilWritten(relation),
