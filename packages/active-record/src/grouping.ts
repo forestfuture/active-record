@@ -21,7 +21,7 @@ import {
   type StoredTypeOf,
   type ValueSource,
 } from "./calculations.ts";
-import type { AttributeOrder, QueryDescription } from "./query.ts";
+import type { AttributeOrder, OrderTerm, QueryDescription } from "./query.ts";
 import { checkFragment, type Conditions, type OrderSpec } from "./relation-checks.ts";
 import { SafeSql } from "./sql.ts";
 
@@ -257,11 +257,18 @@ function resultReader(
  * Refuses an order by an attribute that isn't grouped, written after `group()`: Postgres refuses
  * it, and SQLite would sort by any one row's value.
  */
-function requireGroupedOrder({ order }: QueryDescription, { terms }: Grouping): void {
+function requireGroupedOrder({ order }: QueryDescription, grouping: Grouping): void {
   for (const term of order) {
-    if (term instanceof SafeSql || terms.includes(term.attribute)) continue; // a fragment isn't checked
-    throw new TypeError(`can't order groups by "${term.attribute}", which isn't grouped`);
+    if (isGroupedOrder(term, grouping)) continue;
+    throw new TypeError(
+      `can't order groups by "${(term as AttributeOrder).attribute}", which isn't grouped`,
+    );
   }
+}
+
+/** Whether `term` can order the groups: a grouped attribute's, or a fragment, which isn't checked. */
+function isGroupedOrder(term: OrderTerm, { terms }: Grouping): boolean {
+  return term instanceof SafeSql || terms.includes(term.attribute);
 }
 
 /**
@@ -317,10 +324,10 @@ export function grouped<M extends Model, G extends readonly GroupTerm<M>[]>(
 function withGroupedOrder<M extends Model>(
   relation: Relation<M>,
   query: QueryDescription,
-  { terms }: Grouping,
+  grouping: Grouping,
 ): Relation<M> {
   const { order } = query;
-  const kept = order.filter((term) => term instanceof SafeSql || terms.includes(term.attribute));
+  const kept = order.filter((term) => isGroupedOrder(term, grouping));
   if (kept.length === order.length) return relation;
   refuseDropWhilePicking(query, order.find((term) => !kept.includes(term)) as AttributeOrder);
   return kept.reduce<Relation<M>>(
