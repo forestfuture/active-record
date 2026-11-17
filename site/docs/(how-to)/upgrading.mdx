@@ -49,7 +49,7 @@ A record built, created, or inserted through a `hasMany` now always gets its own
 
 ### Checking values given to bulk writes
 
-`insert`, `insertAll`, `upsert`, and `upsertAll` through a Relation now write its equality conditions, its `createWith` attributes, and its default scope’s values over the attributes you pass. So `Post.where({ userId: 1 }).insert({ title: "Hi", userId: 2 })` now writes `userId: 1`. Check bulk writes that pass a value their Relation also sets. To write the value you pass, leave the condition out, and start from `Post.unscoped()` to leave out a default scope. `build` and `create` still use the values you pass.
+`insert`, `insertAll`, `upsert`, and `upsertAll` through a Relation now write its equality conditions, its `createWith` attributes, and its default scope’s values over the attributes you pass. So `Post.where({ userId: 1 }).insert({ title: "Hi", userId: 2 })` now writes `userId: 1`. Check bulk writes that pass a value their Relation also sets. To write the value you pass, leave the condition out. To write over a default scope’s value, start from `Post.unscoped()`. `build` and `create` still use the values you pass.
 
 ### Regenerating the schema
 
