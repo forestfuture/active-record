@@ -24,6 +24,9 @@ describe("grouping types (#345)", () => {
     expectTypeOf(samples.group("title", "createdAt").count()).resolves.toEqualTypeOf<
       Map<[string, Date | null], number>
     >();
+    expectTypeOf(
+      samples.group("title").where({ quantity: 1 }).group("createdAt").count(),
+    ).resolves.toEqualTypeOf<Map<[string, Date | null], number>>();
     // @ts-expect-error -- not an attribute
     samples.group("nope");
   });

@@ -13,7 +13,7 @@ import {
   type ValueSource,
 } from "./calculations.ts";
 import type { QueryDescription } from "./query.ts";
-import { checkFragment } from "./relation-checks.ts";
+import { checkFragment, type Conditions, type OrderSpec } from "./relation-checks.ts";
 import { SafeSql } from "./sql.ts";
 
 /** What `group` takes for records `M`: an attribute, or an `sql` fragment. */
@@ -51,9 +51,67 @@ export class GroupedRelation<M extends Model, G extends readonly GroupTerm<M>[]>
   /** Grouped Relations come from `group()`, never `new GroupedRelation()`. */
   protected constructor(parts: unknown) {
     const { relation, grouping, sourceOf } = parts as GroupedParts<M>;
+    requireGroupedOrder(sourceOf(relation).query, grouping);
     this.#relation = relation;
     this.#grouping = grouping;
     this.#sourceOf = sourceOf;
+  }
+
+  /** Only the rows matching `conditions`, as `where` on a Relation. */
+  where(conditions: Conditions<M> | SafeSql): GroupedRelation<M, G> {
+    return this.#with(this.#relation.where(conditions));
+  }
+
+  /** Leaves out the rows matching `conditions`, as `whereNot` on a Relation. */
+  whereNot(conditions: Conditions<M> | SafeSql): GroupedRelation<M, G> {
+    return this.#with(this.#relation.whereNot(conditions));
+  }
+
+  /** Sorts the groups, by grouped attributes or an `sql` fragment such as ``sql`COUNT(*) DESC` ``. */
+  order(spec: OrderSpec<M> | SafeSql): GroupedRelation<M, G> {
+    return this.#with(this.#relation.order(spec));
+  }
+
+  /** Replaces the order, as `reorder` on a Relation. */
+  reorder(spec?: OrderSpec<M> | SafeSql): GroupedRelation<M, G> {
+    return this.#with(this.#relation.reorder(spec));
+  }
+
+  /** At most `count` groups. */
+  limit(count: number): GroupedRelation<M, G> {
+    return this.#with(this.#relation.limit(count));
+  }
+
+  /** Skips the first `count` groups. */
+  offset(count: number): GroupedRelation<M, G> {
+    return this.#with(this.#relation.offset(count));
+  }
+
+  /** Calculates each group's distinct values: a count, sum or average takes each once. */
+  distinct(): GroupedRelation<M, G> {
+    return this.#with(this.#relation.distinct());
+  }
+
+  /** Groups by more terms too, which join the key. */
+  group<const H extends readonly GroupTerm<M>[]>(...terms: H): GroupedRelation<M, [...G, ...H]> {
+    const more = {
+      ...this.#grouping,
+      terms: [...this.#grouping.terms, ...(terms as readonly string[])],
+    };
+    return new GroupedRelation<M, [...G, ...H]>({
+      relation: this.#relation,
+      grouping: more,
+      sourceOf: this.#sourceOf,
+    });
+  }
+
+  /** This grouped Relation, with `relation`'s rows. */
+  #with(relation: Relation<M>): GroupedRelation<M, G> {
+    return new GroupedRelation<M, G>({
+      relation,
+      grouping: this.#grouping,
+      sourceOf: this.#sourceOf,
+    });
   }
 
   /**
@@ -148,6 +206,19 @@ function resultReader(
   if (operation !== "count") return calculationReader(query, operation, operand!);
   if (operand !== undefined) attributeFor(query.model, operand as string);
   return Number;
+}
+
+/**
+ * Refuses an order by an attribute that isn't grouped: Postgres refuses it, and SQLite would sort
+ * by any one row's value.
+ */
+function requireGroupedOrder({ order }: QueryDescription, { terms }: Grouping): void {
+  for (const term of order) {
+    if (term instanceof SafeSql || terms.includes(term.attribute)) continue;
+    throw new TypeError(
+      `can't order groups by "${term.attribute}", which isn't grouped: group by it too, or reorder() before group()`,
+    );
+  }
 }
 
 /** Reads a row's group key: the one term's value, or a tuple of every term's. */
