@@ -342,7 +342,7 @@ A `hasMany` through a join Model takes `dependent: "destroy"` or `dependent: "de
 
 A `hasOne` that goes through another `hasOne` has `set`. `await member.club.set(club)` points the member’s membership at the club, or creates a membership if there isn’t one. `set(null)` destroys the membership. It has no `build` or `create`.
 
-#### What can’t be written through
+#### Spotting read-only associations
 
 Writes need a join Model: the association has to go through a `hasMany` (a `hasOne`, for a `hasOne`), and follow a `belongsTo` from there, with neither going through another. Any other write throws `ReadonlyAssociation`, naming the association that stops it. `writers` above is read-only, since it goes through `articles`, which goes through `taggings`.
 
