@@ -28,6 +28,10 @@ class User extends Model.define({
     scope: (q: Relation<Post>) => q.where({ published: true }),
   });
   drafts = hasMany(Post, { foreignKey: "userId", scope: (q) => q.drafts() });
+  publishedPost = hasOne(Post, {
+    foreignKey: "userId",
+    scope: (q: Relation<Post>) => q.where({ published: true }),
+  });
   latestPost = hasOne(Post, {
     foreignKey: "userId",
     scope: (q) => q.order({ createdAt: "desc" }),
@@ -119,6 +123,24 @@ describe("association scopes", () => {
 
     expect(created.published).toBe(true);
     expect(created.userId).toBe(1);
+  });
+
+  test("records built or created through a scoped hasOne take its equality values", async () => {
+    await harness.exec("INSERT INTO users (id, email, role) VALUES (3, 'c@example.com', 'admin')");
+    const user = await db().model(User).find(3);
+
+    const built = user.publishedPost.build({ title: "Built" });
+    const created = await user.publishedPost.createOrThrow({ title: "Created" });
+
+    expect(built.published).toBe(true);
+    expect(created.published).toBe(true);
+    expect(created.userId).toBe(3);
+  });
+
+  test("attributes given to a scoped hasOne's build win over its equality values", () => {
+    const user = db().model(User).build({ email: "new@example.com" });
+
+    expect(user.publishedPost.build({ title: "Draft", published: false }).published).toBe(false);
   });
 
   test("a hasOne scope's order picks the record, lazily and when preloaded", async () => {
