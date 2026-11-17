@@ -1,9 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
+  abort,
   belongsTo,
   hasMany,
   Model,
   RecordInvalid,
+  RecordNotDestroyed,
   RecordNotSaved,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
@@ -32,7 +34,17 @@ class Assignment extends Model.define({
 
   user = belongsTo(User, { optional: true });
   project = belongsTo(Project, { optional: true });
+
+  static {
+    this.beforeDestroy((assignment) => {
+      if (assignment.role === "keep") throw abort("this assignment is kept");
+    });
+    this.afterDestroy((assignment) => void destroyed.push(assignment.id));
+  }
 }
+
+/** The ids of the assignments destroyed, in turn. */
+const destroyed: number[] = [];
 
 class User extends Model.define({
   id: { type: "integer", null: false },
@@ -80,6 +92,7 @@ describe("writing through an association through another", () => {
       "INSERT INTO assignments (id, user_id, project_id, role) VALUES (1, 1, 1, 'lead'), (2, 2, 2, 'lead')",
     );
     queries.length = 0;
+    destroyed.length = 0;
   });
 
   describe("push", () => {
@@ -343,6 +356,38 @@ describe("writing through an association through another", () => {
       const borealis = await db().model(Project).find(2);
 
       expect(await user.projects().delete(borealis)).toEqual([borealis]);
+
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+        [1, 3],
+      ]);
+    });
+  });
+
+  describe("destroy", () => {
+    beforeEach(async () => {
+      await harness.exec("INSERT INTO assignments (id, user_id, project_id) VALUES (3, 1, 3)");
+    });
+
+    test("destroys the owner's join records to the records, callbacks included; the records stay", async () => {
+      const user = await db().model(User).find(1);
+      const [apollo, cygnus] = await db().model(Project).find([1, 3]);
+
+      expect(await user.projects().destroy(apollo!, cygnus!)).toEqual([apollo, cygnus]);
+
+      expect(destroyed).toEqual([1, 3]);
+      expect(await links()).toEqual([[2, 2]]);
+      expect(await db().model(Project).count()).toBe(3);
+      expect(await user.projects().count()).toBe(0);
+    });
+
+    test("a join record that refuses throws RecordNotDestroyed, destroying none", async () => {
+      await harness.exec("UPDATE assignments SET role = 'keep' WHERE id = 3");
+      const user = await db().model(User).find(1);
+      const [apollo, cygnus] = await db().model(Project).find([1, 3]);
+
+      await expect(user.projects().destroy(apollo!, cygnus!)).rejects.toThrow(RecordNotDestroyed);
 
       expect(await links()).toEqual([
         [1, 1],

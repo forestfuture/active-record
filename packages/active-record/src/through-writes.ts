@@ -1,6 +1,7 @@
 // Writing through a through association (#434): the join records that link its owner to its records, created and removed.
 import { pointOwnerAt } from "./association-writers.ts";
 import { requireTargets, saveTogether, type CollectionMethods } from "./collection-methods.ts";
+import { destroyTogether } from "./records-together.ts";
 import { refusalError, saveLifecycle } from "./lifecycle.ts";
 import type { Model } from "./model.ts";
 import {
@@ -61,8 +62,8 @@ export function throughCollectionMethods<M extends Model>(
   const refuse = () => Promise.reject(readonlyError(hasMany.association));
   return {
     push: (...records) => push(hasMany, records),
-    delete: (...records) => remove(hasMany, records),
-    destroy: refuse,
+    delete: (...records) => remove(hasMany, records, "deleteAll"),
+    destroy: (...records) => remove(hasMany, records, "destroy"),
     clear: refuse,
     destroyAll: refuse,
   };
@@ -94,11 +95,16 @@ async function push(hasMany: OwnersHasManyThrough, records: Model[]): Promise<bo
 }
 
 /**
- * Takes records out of the association, as Rails' `delete` does through a join Model: deletes
- * the owner's join records that point at them, without callbacks, and forgets those built
+ * Takes records out of the association, as Rails' `delete` and `destroy` do through a join
+ * Model: removes the owner's join records that point at them, as `removal` says (`"destroy"`
+ * runs their callbacks, in one write that a refusal stops whole), and forgets those built
  * through it. The records themselves stay; one the owner doesn't reach removes nothing.
  */
-async function remove<M extends Model>(hasMany: OwnersHasManyThrough, records: M[]): Promise<M[]> {
+async function remove<M extends Model>(
+  hasMany: OwnersHasManyThrough,
+  records: M[],
+  removal: "destroy" | "deleteAll",
+): Promise<M[]> {
   const { owner, association, collection, via } = hasMany;
   requireTargets(association, records);
   const { via: viaAssociation, source } = association.hops!;
@@ -107,10 +113,10 @@ async function remove<M extends Model>(hasMany: OwnersHasManyThrough, records: M
   const stored = owner[state].isNew ? [] : records.filter((record) => !record[state].isNew);
   if (stored.length > 0) {
     const keys = stored.map((record) => record[state].read(source.targetAttribute));
-    // Narrowed from the association's Relation, so it deletes rather than nullifying.
-    await via()
-      .where({ [source.ownerAttribute]: keys } as never)
-      .deleteAll();
+    // Narrowed from the association's Relation, so its deleteAll deletes rather than nullifying.
+    const joins = via().where({ [source.ownerAttribute]: keys } as never);
+    if (removal === "deleteAll") await joins.deleteAll();
+    else await destroyTogether(await joins.toArray(), `${removal}() needs its records`);
   }
   collection.removed(records);
   return records;

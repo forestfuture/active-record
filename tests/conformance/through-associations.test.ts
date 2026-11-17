@@ -412,7 +412,6 @@ describe("an association through another", () => {
       upsert: (user: User) => asCollection(user.projects()).upsert({ id: 9, name: "New" }),
       upsertAll: (user: User) => asCollection(user.projects()).upsertAll([{ id: 9, name: "New" }]),
       deleteAll: (user: User) => asCollection(user.projects()).deleteAll(),
-      destroy: (user: User) => asCollection(user.projects()).destroy(new Project()),
       clear: (user: User) => asCollection(user.projects()).clear(),
       destroyAll: (user: User) => asCollection(user.projects()).destroyAll(),
       "a batch's insert": (user: User) =>
