@@ -200,7 +200,7 @@ Run a query with one of these methods:
 - `firstOrThrow`, `lastOrThrow`, and `takeOrThrow` throw `RecordNotFound` instead of resolving to `null`.
 - `sole` resolves to the only matching record. It throws `RecordNotFound` when nothing matches, and `SoleRecordExceeded` when more than one does. `findSoleBy(conditions)` is short for `where(conditions).sole()`.
 - `pick` reads one attribute from the first record. Given several attributes, it reads a tuple. It resolves to `null` when nothing matches.
-- `ids` plucks every primary key.
+- `ids` plucks every primary key. On a loaded association, it leaves out records you’ve built that don’t have a key yet.
 - `count()` always agrees with what `toArray()` returns, even with `limit`, `offset`, or `distinct`.
 - `size()`, `isEmpty()`, and `hasAny()` count records, or check for any. On a loaded association, they answer without a query.
 
@@ -210,7 +210,7 @@ Run a query with one of these methods:
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-`size()`, `isEmpty()`, and `hasAny()` are Rails’ `size`, `empty?`, and `any?`. `firstOrThrow()` is `first!`, and `findSoleBy` is `find_sole_by`. There’s no `second` or `third`. Use `offset(1).first()` instead.
+`size()`, `isEmpty()`, and `hasAny()` are Rails’ `size`, `empty?`, and `any?`. `firstOrThrow()` is `first!`, and `findSoleBy` is `find_sole_by`. There’s no `second` or `third`. Use `offset(1).first()` instead. Rails’ `ids` gives `nil` for a built record with no key, where `ids()` leaves it out.
 
 </Callout>
 
