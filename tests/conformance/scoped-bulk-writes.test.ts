@@ -100,11 +100,12 @@ describe("a bulk write through a Relation's conditions", () => {
     expect(await db().model(Post).find(1)).toMatchObject({ published: true });
   });
 
-  test("build and create keep the value given over the condition's", async () => {
-    const posts = db().model(Post).where({ userId: 1 });
+  test.each([
+    ["build", (posts: Relation<Post>) => posts.build({ id: 1, title: "Hi", userId: 2 })],
+    ["create", (posts: Relation<Post>) => posts.create({ id: 1, title: "Hi", userId: 2 })],
+  ])("%s keeps the value given over the condition's", async (_, make) => {
+    const post = await make(db().model(Post).where({ userId: 1 }));
 
-    const created = await posts.create({ id: 1, title: "Hi", userId: 2 });
-
-    expect([posts.build({ userId: 2 }).userId, created.userId]).toEqual([2, 2]);
+    expect(post.userId).toBe(2);
   });
 });
