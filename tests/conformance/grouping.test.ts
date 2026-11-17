@@ -480,6 +480,12 @@ describe("group (#345)", () => {
       expect(() => reviews().group("nope" as never)).toThrow(UnknownAttribute);
     });
 
+    test("a refused term is reported before an order group() can't drop", () => {
+      const newest = reviews().order({ publishedAt: "desc" }).limit(1);
+
+      expect(() => newest.group("nope" as never)).toThrow(UnknownAttribute);
+    });
+
     test("a json attribute can't be grouped: Postgres json has no equality", () => {
       expect(() => reviews().group("meta" as never)).toThrow(
         new TypeError('group() can\'t group by "meta", a json attribute'),

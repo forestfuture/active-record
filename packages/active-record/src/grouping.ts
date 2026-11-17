@@ -300,8 +300,10 @@ export function grouped<M extends Model, G extends readonly GroupTerm<M>[]>(
   sourceOf: SourceOf<M>,
 ): GroupedRelation<M, G> {
   const grouping: Grouping = { terms, having: [] };
+  const { query } = sourceOf(relation);
+  checkTerms(query.model, grouping); // a refused term first, before an order it can't drop
   return new (GroupedRelation as unknown as new (parts: GroupedParts<M>) => GroupedRelation<M, G>)({
-    relation: withGroupedOrder(relation, sourceOf(relation).query, grouping),
+    relation: withGroupedOrder(relation, query, grouping),
     grouping,
     sourceOf,
   });
