@@ -29,9 +29,9 @@ peerDependencyRules:
 allowBuilds:
   esbuild: true
   workerd: true
-# New releases wait a week (in minutes) before any install takes them, a hand bump included, as
-# Dependabot's cooldown does (#424). Each exclude names one exact version that can't wait: Vite+'s
-# move with the catalog, and a security fix names its advisory (docs/agents/dependencies.md).
+# New releases wait a week (10080 minutes), as Dependabot's cooldown in .github/dependabot.yml does
+# (#424); docs/agents/dependencies.md says how to let one through. The Vite+ entries below move with
+# the catalog's version.
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
   - "@voidzero-dev/vite-plus-core@1.5.1"
