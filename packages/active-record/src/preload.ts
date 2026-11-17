@@ -10,13 +10,7 @@ import { state } from "./record-state.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import { queryOf, type Scoped } from "./relation.ts";
 import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
-import {
-  planHop,
-  type Found,
-  type Hop,
-  type HopOwners,
-  type HopRequest,
-} from "./through-preload.ts";
+import { planHop, type Found, type Hop, type Owners, type HopRequest } from "./through-preload.ts";
 
 /** What preloading sends, and how it attaches the rows that come back. */
 export interface PreloadPlan {
@@ -32,12 +26,6 @@ export interface PreloadPlan {
     executor: Executor,
   ): Promise<void>;
 }
-
-/**
- * Whose records a plan starts from: a query's, not yet sent, whose keys each association's
- * query selects with a subquery; or records already loaded, whose keys it binds.
- */
-type Owners = HopOwners;
 
 /**
  * Records of one Model, and the associations to preload for them. `written` is the part of
@@ -269,7 +257,7 @@ function planHopStep(planning: Planning, request: HopRequest): Hop | undefined {
     includes,
     reached: (owner, found) => {
       byKey ??= groupBy(found[position] ?? [], association.targetAttribute);
-      return linkedIn(byKey, association, owner);
+      return targetsOfOwner(byKey, association, owner);
     },
   };
 }
@@ -368,7 +356,7 @@ async function attachSteps(
   rows: readonly Rows[],
   executor: Executor,
 ): Promise<void> {
-  const owners = foundBy(steps, records, rows, executor);
+  const owners = recordsAtEachPosition(steps, records, rows, executor);
   for (const gather of gathers) gatherReached(gather, owners);
   const byDatabase = new Map<Executor, Start[]>();
   for (const { ownersAt, elsewhere = executor, ...deferred } of afterwards) {
@@ -384,7 +372,7 @@ async function attachSteps(
  * The records at each position: `records`, the starts', then each step's targets, from its
  * statement's rows, each attached to its owners, unless it's a through association's hop.
  */
-function foundBy(
+function recordsAtEachPosition(
   steps: readonly Step[],
   records: Found,
   rows: readonly Rows[],
@@ -440,11 +428,12 @@ function attach(
   targets: readonly Model[],
 ): void {
   const byKey = groupBy(targets, association.targetAttribute);
-  for (const record of records) loadedAs(record, association, linkedIn(byKey, association, record));
+  for (const record of records)
+    loadedAs(record, association, targetsOfOwner(byKey, association, record));
 }
 
 /** `owner`'s targets, from targets grouped by the attribute they're linked to their owners by. */
-function linkedIn(
+function targetsOfOwner(
   byKey: ReadonlyMap<unknown, Model[]>,
   association: ResolvedAssociation,
   owner: Model,
