@@ -3,6 +3,7 @@ import {
   abort,
   belongsTo,
   hasMany,
+  InvalidForeignKey,
   Model,
   RecordNotDestroyed,
   RecordNotFound,
@@ -10,6 +11,7 @@ import {
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { statementKinds } from "../support/statement-kinds.ts";
 
 /** What the destroy callbacks saw, in order. */
 const ran: string[] = [];
@@ -57,6 +59,17 @@ class PlainPost extends Model.define({
   comments = hasMany(Comment, { foreignKey: "postId" });
 }
 
+/** The same posts, which can't be destroyed while they have comments. */
+class RestrictedPost extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  comments = hasMany(Comment, { foreignKey: "postId", dependent: "restrictWithError" });
+}
+
 describe("destroying many records", () => {
   let harness: Harness;
   const queries: QueryEvent[] = [];
@@ -97,9 +110,61 @@ describe("destroying many records", () => {
       expect(destroyed.every((post) => post.isDestroyed())).toBe(true);
       expect(await titles()).toEqual(["Third"]);
       expect(await bodies()).toEqual(["d"]);
-      expect(ran).toContain("after First");
-      expect(ran).toContain("after a");
-      expect(ran).toContain("after c");
+    });
+
+    test("runs every before-callback, then writes, then runs the after-callbacks", async () => {
+      await db()
+        .model(Post)
+        .where({ id: [1, 2] })
+        .order({ id: "asc" })
+        .destroyAll();
+
+      // The posts, then each one's comments, are read; then every row is deleted.
+      expect(statementKinds(queries)).toEqual([
+        "SELECT",
+        "SELECT",
+        "SELECT",
+        "DELETE",
+        "DELETE",
+        "DELETE",
+        "DELETE",
+        "DELETE",
+      ]);
+      expect(ran).toEqual([
+        "before a",
+        "before b",
+        "before c",
+        "after a",
+        "after b",
+        "after First",
+        "after c",
+        "after Second",
+      ]);
+    });
+
+    test("writes nothing if the database refuses one record's DELETE: it's one atomic write", async () => {
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (4, 1, 'Fourth')");
+      // Post 1's comments point at it, and nothing destroys them with it.
+      const relation = db()
+        .model(PlainPost)
+        .where({ id: [4, 1] })
+        .order({ id: "desc" });
+
+      await expect(relation.destroyAll()).rejects.toThrow(InvalidForeignKey);
+
+      expect(await titles()).toEqual(["First", "Second", "Third", "Fourth"]);
+    });
+
+    test("throws RecordNotDestroyed and destroys nothing if a restrictWithError refuses", async () => {
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (4, 1, 'Fourth')");
+      const relation = db()
+        .model(RestrictedPost)
+        .where({ id: [4, 1] })
+        .order({ id: "desc" });
+
+      await expect(relation.destroyAll()).rejects.toThrow(RecordNotDestroyed);
+
+      expect(await titles()).toEqual(["First", "Second", "Third", "Fourth"]);
     });
 
     test("throws RecordNotDestroyed and destroys nothing if one record refuses", async () => {
