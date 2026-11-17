@@ -8,6 +8,7 @@ import {
   Either,
   LinkedTo,
   Negated,
+  OnJoined,
   type Condition,
   type OrderTerm,
   type QueryDescription,
@@ -20,6 +21,7 @@ import {
   columnIn,
   ownSource,
   quoteIdentifier,
+  sourceAt,
   sourceOf,
   tablesOf,
   type Source,
@@ -121,6 +123,12 @@ function compileCondition(context: Context, condition: Condition): string {
   }
   if (condition instanceof SafeSql) return `(${compileFragment(condition, source, params)})`;
   if (condition instanceof LinkedTo) return `(${compileLinkedTo(context, condition)})`;
+  if (condition instanceof OnJoined) {
+    return compileAll(
+      { ...context, source: sourceAt(context.tables, condition.path) },
+      condition.conditions,
+    );
+  }
   const parts = Object.entries(condition).map(([name, value]) => {
     const attribute = attributeFor(source.model, name);
     const column = columnIn(source, name);

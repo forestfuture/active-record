@@ -65,10 +65,9 @@ describe("relation composition", () => {
     expect(await ids(base.merge(users))).toEqual([3, 1]);
   });
 
-  test("merge rejects a relation of another Model", () => {
+  test("merge rejects a relation of a Model it doesn't join", () => {
     const db = harness.connect();
 
-    // @ts-expect-error a relation of another model
     expect(() => db.model(User).merge(db.model(Post))).toThrow(IncompatibleRelation);
   });
 

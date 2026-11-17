@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { UnknownAssociation } from "../../packages/active-record/src/index.ts";
+import { column, gte, sql, UnknownAssociation } from "../../packages/active-record/src/index.ts";
 import { Comment } from "../fixtures/models/comment.ts";
+import { Post } from "../fixtures/models/post.ts";
 import { User } from "../fixtures/models/user.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
@@ -145,6 +146,62 @@ describe("joins", () => {
       const users = db().model(User).leftJoins("posts").joins("posts").distinct();
 
       expect((await users.order({ id: "asc" }).toArray()).map((user) => user.id)).toEqual([1, 2]);
+    });
+  });
+
+  describe("merging a joined Model's Relation", () => {
+    const titlesOf = async (posts: { toArray(): Promise<Post[]> }) =>
+      (await posts.toArray()).map((post) => post.title);
+    let database: ReturnType<typeof db>;
+    beforeEach(() => {
+      database = db();
+    });
+    const posts = () => database.model(Post).joins("user").order({ id: "asc" });
+    const users = () => database.model(User);
+
+    test("takes its conditions, on the joined table", async () => {
+      expect(await titlesOf(posts().merge(users().where({ role: "admin" })))).toEqual(["A1", "A2"]);
+    });
+
+    test("takes its comparisons and whereNot, of its own attributes", async () => {
+      expect(await titlesOf(posts().merge(users().where({ id: gte(2) })))).toEqual(["B1"]);
+      expect(await titlesOf(posts().merge(users().whereNot({ id: 1 })))).toEqual(["B1"]);
+    });
+
+    test("takes its or()", async () => {
+      const either = users()
+        .where({ id: 1 })
+        .or(users().where({ id: 2 }));
+
+      expect(await titlesOf(posts().merge(either))).toEqual(["A1", "A2", "B1"]);
+    });
+
+    test("compiles a fragment's column() as the joined Model's", async () => {
+      const second = users().where(sql`${column("id")} = ${2}`);
+
+      expect(await titlesOf(posts().merge(second))).toEqual(["B1"]);
+    });
+
+    test("finds nothing, with no query, after none()", async () => {
+      expect(await posts().merge(users().none()).toArray()).toEqual([]);
+      expect(queries).toEqual([]);
+    });
+
+    test("takes conditions onto a nested join", async () => {
+      const guests = database
+        .model(Comment)
+        .joins({ post: "user" })
+        .merge(users().where({ role: "guest" }));
+
+      expect((await guests.toArray()).map((comment) => comment.body)).toEqual(["on B1"]);
+    });
+
+    test("keeps the receiver's own conditions", async () => {
+      const admins = posts()
+        .where({ title: "A2" })
+        .merge(users().where({ role: "admin" }));
+
+      expect(await titlesOf(admins)).toEqual(["A2"]);
     });
   });
 });

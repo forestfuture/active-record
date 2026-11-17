@@ -11,7 +11,7 @@ import {
 } from "./compiler.ts";
 import { RecordNotFound } from "./errors.ts";
 import { includeTree } from "./preload.ts";
-import { joinsFor, mergeJoins } from "./joins.ts";
+import { joinsFor, mergedOnJoin, mergeJoins } from "./joins.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
 import { inspectRelation } from "./relation-inspect.ts";
 import { runnerFor, selectForToSql, type QueryRunner } from "./load.ts";
@@ -168,11 +168,15 @@ export class Relation<M extends Model, S = {}> {
   /**
    * ANDs `other`'s conditions onto this Relation's. For select, order, limit, offset and
    * distinct, a clause `other` sets explicitly replaces this one's; one it doesn't set is kept.
-   * Orders are replaced, not concatenated (a deliberate difference from Rails).
+   * Orders are replaced, not concatenated (a deliberate difference from Rails). `other` may be a
+   * Relation of a Model this one joins once (#24): its conditions apply to the joined table.
    */
-  merge(other: Relation<M, S>): Scoped<M, S> {
-    requireSameModel(this.#model, other.#model, "merge");
-    return this.#joining(other, "merge()").#describing(merged(this.#query, other.#query));
+  merge<T extends Model = M, O = S>(other: Relation<T, O>): Scoped<M, S> {
+    const query =
+      (other.#model as ModelClass) === this.#model
+        ? merged(this.#query, other.#query)
+        : mergedOnJoin(this.#query, other.#query);
+    return this.#joining(other, "merge()").#describing(query);
   }
 
   /**
@@ -700,7 +704,7 @@ export class Relation<M extends Model, S = {}> {
    * This Relation on its and `other`'s databases, which must be one when it runs (#93), and
    * clearing `other`'s owner's loaded collection too when a statement is built through it (#194).
    */
-  #joining(other: Relation<M, S>, method: string): Relation<M, S> {
+  #joining<T extends Model, O>(other: Relation<T, O>, method: string): Relation<M, S> {
     const executor = jointly(this.#executor, other.#executor, `${method} needs its relations`);
     const collection = alsoClearing(this.#collection, other.#collection);
     if (executor === this.#executor && collection === this.#collection) return this;
