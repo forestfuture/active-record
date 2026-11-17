@@ -55,6 +55,7 @@ import { destroyTogether } from "./records-together.ts";
 import { grouped, type GroupedRelation, type GroupTerms } from "./grouping.ts";
 import type { RelationState } from "./relation-state.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
+import { eachRecord, type IterationOptions } from "./batch-iteration.ts";
 import {
   count,
   runCalculation,
@@ -617,6 +618,14 @@ export class Relation<M extends Model, S = {}> {
   async paginate(options: PageOptions): Promise<Page<M> | CountlessPage<M>>;
   async paginate(options: PageOptions = {}): Promise<Page<M> | CountlessPage<M>> {
     return paginate({ model: this.#model, query: this.#query, runner: this.#runner }, options);
+  }
+
+  /**
+   * Each record this Relation matches, in primary-key order, loaded a batch at a time (#347):
+   * `for await (const user of User.findEach())`.
+   */
+  findEach(options?: IterationOptions): AsyncIterable<M> {
+    return eachRecord({ model: this.#model, query: this.#query, runner: this.#runner }, options);
   }
 
   /**

@@ -76,6 +76,7 @@ const relationMethods = [
   "exists",
   "toArray",
   "toSql",
+  "findEach",
 ] as const;
 
 /** A Relation method with no overloads, by name. */
