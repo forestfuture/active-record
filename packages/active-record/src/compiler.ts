@@ -222,7 +222,7 @@ export type Conflict =
       kind: "update";
       uniqueBy: readonly string[];
       update?: readonly string[];
-      ownedBy?: readonly string[];
+      ownedBy: readonly string[];
     };
 
 /** A bulk insert: its attributes, each row's values, what a conflict does, and what it returns. */
@@ -281,17 +281,18 @@ function compileConflict(
   );
   if (updated.length === 0) return ` ON CONFLICT (${target}) DO NOTHING`;
   const sets = updated.map((name) => `${column(name)} = excluded.${column(name)}`).join(", ");
-  return ` ON CONFLICT (${target}) DO UPDATE SET ${sets}${compileOwnedBy(model, conflict.ownedBy)}`;
+  return ` ON CONFLICT (${target}) DO UPDATE SET ${sets}${compileOwnedBy(model, conflict.ownedBy, column)}`;
 }
 
 /** ` WHERE "t"."a" = excluded."a" AND …`: the clashing row already has the new row's values. */
-function compileOwnedBy(model: ModelClass<Model>, ownedBy: readonly string[] = []): string {
+function compileOwnedBy(
+  model: ModelClass<Model>,
+  ownedBy: readonly string[],
+  column: (name: string) => string,
+): string {
   if (ownedBy.length === 0) return "";
   const table = quoteIdentifier(model.table);
-  const same = ownedBy.map((name) => {
-    const column = quoteIdentifier(attributeFor(model, name).column);
-    return `${table}.${column} = excluded.${column}`;
-  });
+  const same = ownedBy.map((name) => `${table}.${column(name)} = excluded.${column(name)}`);
   return ` WHERE ${same.join(" AND ")}`;
 }
 

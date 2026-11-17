@@ -119,7 +119,7 @@ export function ownedCollection(
  * The owner's key, and with `as` its type, as `link` holds them: none through another
  * association, whose records hold no key of the owner's (#434).
  */
-function ownersKey(association: ResolvedAssociation, key: unknown): Partial<OwnersLink> {
+function ownersLink(association: ResolvedAssociation, key: unknown): Partial<OwnersLink> {
   if (association.hops !== undefined) return {};
   const { type } = association;
   return type === undefined ? { key } : { key, type };
@@ -182,7 +182,7 @@ function withKey(
     unsavedCount: () => built().filter((record) => record[state].isNew).length,
     refusal: undefined,
     nullifies: association.isDeletingOnDeleteAll ? undefined : association.nullifiedAttributes,
-    link: { attribute: definition.foreignKey, association: name, ...ownersKey(association, key) },
+    link: { attribute: definition.foreignKey, association: name, ...ownersLink(association, key) },
     narrowed: () => narrowedOf(collection),
   };
   return collection;
@@ -228,7 +228,7 @@ function withoutKey(owner: Model, association: ResolvedAssociation): Association
     unsavedCount: () => 0,
     refusal: association.refusalFor(owner),
     nullifies: association.nullifiedAttributes,
-    link: { attribute: definition.foreignKey, association: name, ...ownersKey(association, null) },
+    link: { attribute: definition.foreignKey, association: name, ...ownersLink(association, null) },
     narrowed: () => narrowedOf(collection),
   };
   return collection;
