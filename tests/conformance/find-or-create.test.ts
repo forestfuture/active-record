@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model, RecordInvalid, RecordNotUnique } from "../../packages/active-record/src/index.ts";
+import {
+  Model,
+  RecordInvalid,
+  RecordNotFound,
+  RecordNotUnique,
+} from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
@@ -187,9 +192,57 @@ describe("making records", () => {
     });
   });
 
+  describe("createOrFindBy", () => {
+    test("creates a row with the attributes, without looking for one first", async () => {
+      const user = await db()
+        .model(User)
+        .createOrFindBy({ email: "new@example.com" }, (record) => {
+          record.role = "member";
+        });
+
+      expect(user.isPersisted()).toBe(true);
+      expect(await emails()).toContainEqual({ email: "new@example.com", role: "member" });
+      expect(statementKinds(events)).toEqual(["INSERT"]);
+    });
+
+    test("finds the row a unique index refused a duplicate of", async () => {
+      const user = await db().model(User).createOrFindBy({ email: "taken@example.com" });
+
+      expect(user.id).toBe(1);
+      expect(user.role).toBe("admin");
+      expect(statementKinds(events)).toEqual(["INSERT", "SELECT"]);
+    });
+
+    test("resolves to the unsaved record, without finding, when it can't be saved", async () => {
+      const user = await db().model(User).createOrFindBy({ email: null });
+
+      expect(user.isNewRecord()).toBe(true);
+      expect(statementKinds(events)).toEqual([]);
+    });
+
+    test("throws RecordNotFound when the duplicate was in a column the attributes don't name", async () => {
+      const creating = db()
+        .model(User)
+        .createOrFindBy({ email: "new@example.com" }, (user) => {
+          user.id = 1;
+        });
+
+      await expect(creating).rejects.toThrow(RecordNotFound);
+    });
+  });
+
   describe("a row inserted between finding and creating", () => {
     const insertAnother = () =>
       harness.exec("INSERT INTO users (id, email, role) VALUES (2, 'new@example.com', 'other')");
+
+    test("is what createOrFindBy finds", async () => {
+      const user = await db()
+        .model(User)
+        .createOrFindBy({ email: "new@example.com" }, () => insertAnother().then(() => {}));
+
+      expect(user.id).toBe(2);
+      expect(user.role).toBe("other");
+    });
 
     test("makes findOrCreateBy throw RecordNotUnique", async () => {
       const finding = db()
