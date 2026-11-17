@@ -1,5 +1,5 @@
 import { RecordInvalid } from "@forestfuture/active-record";
-import { User } from "../getting-started/models";
+import { Post, User } from "../getting-started/models";
 
 export async function examples(): Promise<Response> {
   // #region save
@@ -32,6 +32,21 @@ export async function examples(): Promise<Response> {
     destroyed.isDestroyed(); // true: readable, but can't be changed or saved
   }
   // #endregion destroy
+
+  // #region destroy-many
+  const drafts = await Post.where({ publishedAt: null }).destroyAll(); // the destroyed posts
+  await Post.destroyBy({ userId: user.id }); // where(…).destroyAll()
+  const post = await Post.destroy("post-1"); // by primary key
+  const posts = await Post.destroy(["post-2", "post-3"]);
+  // #endregion destroy-many
+  console.log(drafts.length, post.title, posts.length);
+
+  // #region destroy-in-pages
+  let page: Post[];
+  do {
+    page = await Post.where({ publishedAt: null }).limit(100).destroyAll();
+  } while (page.length > 0);
+  // #endregion destroy-in-pages
 
   // #region reload
   const fresh = await User.find(user.id);
