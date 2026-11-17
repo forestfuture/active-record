@@ -457,6 +457,16 @@ describe("an association through another", () => {
       },
     );
 
+    test("an unsaved owner refuses with ReadonlyAssociation as a saved one does", async () => {
+      const user = db().model(User).build({ email: "new@example.com" });
+
+      await expect(asCollection(user.projects()).insert({ name: "New" })).rejects.toThrow(
+        ReadonlyAssociation,
+      );
+    });
+  });
+
+  describe("writing through one without a join Model, which it refuses", () => {
     test.each([
       [
         "one going through another that goes through another",
@@ -509,7 +519,9 @@ describe("an association through another", () => {
       );
       expect(await db().model(Profile).count()).toBe(0);
     });
+  });
 
+  describe("acting on its records, as any Relation does", () => {
     test("updateAll changes its records, as any Relation's", async () => {
       const user = await db().model(User).find(1);
 
@@ -518,14 +530,6 @@ describe("an association through another", () => {
         "Apollo",
         "Cygnus",
       ]);
-    });
-
-    test("an unsaved owner refuses with ReadonlyAssociation as a saved one does", async () => {
-      const user = db().model(User).build({ email: "new@example.com" });
-
-      await expect(asCollection(user.projects()).insert({ name: "New" })).rejects.toThrow(
-        ReadonlyAssociation,
-      );
     });
 
     test("a Relation it's merged into builds records from its own conditions", async () => {
