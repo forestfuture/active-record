@@ -4,7 +4,6 @@ import { pointBackAtOwner } from "./point-back-at-owner.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
-import { readonlyError } from "./through-associations.ts";
 
 /**
  * A hasMany as its owner holds it: the owner-side rules its Relation follows. The Relation
@@ -46,19 +45,26 @@ export interface OwnedCollection {
   /** Its form in a narrowed Relation. */
   narrowed(): OwnedCollection;
   /**
-   * Throws `ReadonlyAssociation` when `write` isn't allowed through it: records written through
-   * a through association (#59), or its own `deleteAll()`.
+   * Throws `ReadonlyAssociation` when `write` isn't allowed through it: through a through
+   * association (#434), what it can't write.
    */
-  requireWritable?(write: "records" | "deleteAll"): void;
+  requireWritable?(write: Write): void;
 }
 
+/** The writes a collection may refuse: building, creating and inserting records, and its own `deleteAll()`. */
+export type Write = "build" | "create" | "insert" | "deleteAll";
+
 /**
- * Throws when records of `model` can't be created through `collection`: `ReadonlyAssociation`
- * through an association that goes through another (#59), or, as in Rails, `RecordNotSaved` for
+ * Throws when records of `model` can't be created or inserted through `collection`:
+ * `ReadonlyAssociation` where it refuses `write` (#434), or, as in Rails, `RecordNotSaved` for
  * an owner with no key yet.
  */
-export function requireCreatable(collection: OwnedCollection, model: ModelClass): void {
-  collection.requireWritable?.("records");
+export function requireCreatable(
+  collection: OwnedCollection,
+  model: ModelClass,
+  write: "create" | "insert",
+): void {
+  collection.requireWritable?.(write);
   const reason = collection.refusal;
   if (reason !== undefined) {
     throw new RecordNotSaved(`You cannot create a ${model.name} here: ${reason}`);
@@ -100,26 +106,7 @@ export function ownedCollection(
   const key = association.keyOf(owner);
   const collection =
     key === null ? withoutKey(owner, association) : withKey(owner, association, key);
-  return association.hops === undefined ? collection : readonlyOf(collection, association);
-}
-
-/**
- * A through association's collection (#59): no records are written through it, narrowed or
- * not, and its own `deleteAll()` is refused; a narrowed one's deletes its records.
- */
-function readonlyOf(
-  collection: AssociationCollection,
-  association: ResolvedAssociation,
-): AssociationCollection {
-  const refuse = () => {
-    throw readonlyError(association);
-  };
-  const narrowed = (): OwnedCollection => ({
-    ...collection.narrowed(),
-    requireWritable: (write) => (write === "records" ? refuse() : undefined),
-    narrowed,
-  });
-  return { ...collection, requireWritable: refuse, narrowed };
+  return collection;
 }
 
 /** An owner with a key: its loaded records live in its association cache. */

@@ -2,7 +2,12 @@
 import { pointOwnerAt } from "./association-writers.ts";
 import { requireTargets, saveTogether, type CollectionMethods } from "./collection-methods.ts";
 import type { Model } from "./model.ts";
-import { ownedCollection, type AssociationCollection } from "./owned-collection.ts";
+import {
+  ownedCollection,
+  type AssociationCollection,
+  type OwnedCollection,
+  type Write,
+} from "./owned-collection.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
 import { readonlyError } from "./through-associations.ts";
@@ -15,6 +20,34 @@ export interface OwnersHasManyThrough {
   collection: AssociationCollection;
   /** The Relation of the association it goes through, whose `build` makes a join record. */
   via: () => { build(): Model };
+}
+
+/** What a through hasMany needs to write its join records: its owner, and its hops' Relation. */
+export type ThroughOwner = Omit<OwnersHasManyThrough, "collection">;
+
+/**
+ * A through hasMany's collection, as its owner holds it: a record built through it gets a join
+ * record, built through the association it goes through, that points at it; the writes it
+ * can't make (inserting records, creating them, and its own `deleteAll()`) throw
+ * `ReadonlyAssociation`. A narrowed one's builds the same way, and its `deleteAll()` deletes
+ * the records themselves, as any Relation's does.
+ */
+export function throughCollection(through: ThroughOwner): AssociationCollection {
+  const collection = ownedCollection(through.owner, through.association);
+  const built = (record: Model) => {
+    collection.built(record);
+    joinFor(through, record);
+  };
+  const refuse = (write: Write) => {
+    if (write !== "build") throw readonlyError(through.association);
+  };
+  const narrowed = (): OwnedCollection => ({
+    ...collection.narrowed(),
+    built,
+    requireWritable: (write) => (write === "deleteAll" ? undefined : refuse(write)),
+    narrowed,
+  });
+  return { ...collection, built, requireWritable: refuse, narrowed };
 }
 
 /** A through hasMany's collection methods (#434): each writes its join records. */
@@ -40,12 +73,12 @@ async function push(hasMany: OwnersHasManyThrough, records: Model[]): Promise<bo
   const { owner, association, collection } = hasMany;
   requireTargets(association, records);
   for (const record of records) record[state].requireLive("be saved");
-  const joins = records.map((record) => joinFor(hasMany, record));
-  // A new owner saves them with it: its join records, each saving its record first.
+  // A new owner saves them with it: their join records, each saving its record first.
   if (owner[state].isNew) {
     for (const record of records) collection.built(record);
     return true;
   }
+  const joins = records.map((record) => joinFor(hasMany, record));
   const viaCollection = ownedCollection(owner, association.hops!.via);
   if (!(await saveTogether(joins, "push() needs its records"))) {
     viaCollection.removed(joins);
@@ -57,7 +90,7 @@ async function push(hasMany: OwnersHasManyThrough, records: Model[]): Promise<bo
 }
 
 /** A new join record, built through the association it goes through, pointing at `record`. */
-function joinFor({ association, via }: OwnersHasManyThrough, record: Model): Model {
+function joinFor({ association, via }: ThroughOwner, record: Model): Model {
   const join = via().build();
   pointOwnerAt(join, association.hops!.source, record);
   return join;

@@ -407,14 +407,12 @@ describe("an association through another", () => {
     ];
     const refused = "Can't write through User.projects: it goes through User.assignments";
     const writes = {
-      build: (user: User) => asCollection(user.projects()).build({ name: "New" }),
       create: (user: User) => asCollection(user.projects()).create({ name: "New" }),
       createOrThrow: (user: User) => asCollection(user.projects()).createOrThrow({ name: "New" }),
       insert: (user: User) => asCollection(user.projects()).insert({ name: "New" }),
       insertAll: (user: User) => asCollection(user.projects()).insertAll([{ name: "New" }]),
       upsert: (user: User) => asCollection(user.projects()).upsert({ id: 9, name: "New" }),
       upsertAll: (user: User) => asCollection(user.projects()).upsertAll([{ id: 9, name: "New" }]),
-      "a narrowed build": (user: User) => user.projects().where({ archived: 0 }).build(),
       "a narrowed create": (user: User) => user.projects().where({ archived: 0 }).create(),
       deleteAll: (user: User) => asCollection(user.projects()).deleteAll(),
       delete: (user: User) => asCollection(user.projects()).delete(new Project()),

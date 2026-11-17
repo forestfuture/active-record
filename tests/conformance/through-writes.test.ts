@@ -161,4 +161,38 @@ describe("writing through an association through another", () => {
       ]);
     });
   });
+
+  describe("build", () => {
+    test("builds a record and its join record, saved with the owner", async () => {
+      const user = await db().model(User).find(1);
+
+      const draco = user.projects().build({ name: "Draco" });
+
+      expect(draco.isNewRecord()).toBe(true);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+      ]);
+      expect(await user.save()).toBe(true);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+        [1, draco.id],
+      ]);
+      expect(await db().model(Project).where({ name: "Draco" }).count()).toBe(1);
+    });
+
+    test("on a new owner, saves the record and its join record after it", async () => {
+      const user = db().model(User).build({ email: "c@example.com" });
+
+      const draco = user.projects().build({ name: "Draco" });
+
+      expect(await user.save()).toBe(true);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+        [user.id, draco.id],
+      ]);
+    });
+  });
 });
