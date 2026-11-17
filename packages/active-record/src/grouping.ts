@@ -13,6 +13,7 @@ import {
   type ValueSource,
 } from "./calculations.ts";
 import type { QueryDescription } from "./query.ts";
+import { checkFragment } from "./relation-checks.ts";
 import { SafeSql } from "./sql.ts";
 
 /** What `group` takes for records `M`: an attribute, or an `sql` fragment. */
@@ -53,6 +54,23 @@ export class GroupedRelation<M extends Model, G extends readonly GroupTerm<M>[]>
     this.#relation = relation;
     this.#grouping = grouping;
     this.#sourceOf = sourceOf;
+  }
+
+  /**
+   * Keeps the groups an `sql` fragment matches, written with their aggregates:
+   * ``having(sql`COUNT(*) > ${1}`)``. Several are ANDed.
+   */
+  having(condition: SafeSql): GroupedRelation<M, G> {
+    if (!(condition instanceof SafeSql)) {
+      throw new TypeError("having() takes an sql`…` fragment; plain strings are not accepted");
+    }
+    checkFragment(this.#sourceOf(this.#relation).query.model, condition);
+    const having = [...this.#grouping.having, condition];
+    return new GroupedRelation<M, G>({
+      relation: this.#relation,
+      grouping: { ...this.#grouping, having },
+      sourceOf: this.#sourceOf,
+    });
   }
 
   /** The number of rows in each group, or of their non-null values of `attribute`. */
@@ -151,7 +169,7 @@ export function grouped<M extends Model, G extends readonly GroupTerm<M>[]>(
   terms: G,
   sourceOf: SourceOf<M>,
 ): GroupedRelation<M, G> {
-  const grouping: Grouping = { terms: terms as readonly string[] };
+  const grouping: Grouping = { terms: terms as readonly string[], having: [] };
   return new (GroupedRelation as unknown as new (parts: GroupedParts<M>) => GroupedRelation<M, G>)({
     relation,
     grouping,

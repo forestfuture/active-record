@@ -196,4 +196,41 @@ describe("group (#345)", () => {
       expect(await reviews().distinct().group("title").count()).toEqual(new Map([["a", 2]]));
     });
   });
+
+  describe("having", () => {
+    test("keeps the groups its fragment matches, each call ANDed", async () => {
+      await seed(["a", 1], ["a", 2], ["b", 3], ["c", 4], ["c", 5], ["c", 6]);
+      const busy = reviews()
+        .group("title")
+        .having(sql`COUNT(*) > ${1}`);
+
+      expect(await busy.count()).toEqual(
+        new Map([
+          ["a", 2],
+          ["c", 3],
+        ]),
+      );
+      expect(await busy.having(sql`SUM(${column("rating")}) > ${10}`).count()).toEqual(
+        new Map([["c", 3]]),
+      );
+    });
+
+    test("binds its values after the conditions'", async () => {
+      await seed(["a", 1], ["a", 2], ["b", 3], ["b", 9]);
+
+      const counts = await reviews()
+        .where(sql`${column("rating")} < ${5}`)
+        .group("title")
+        .having(sql`COUNT(*) > ${1}`)
+        .count();
+
+      expect(counts).toEqual(new Map([["a", 2]]));
+    });
+
+    test("refuses a plain string", () => {
+      const byTitle = reviews().group("title");
+
+      expect(() => byTitle.having("COUNT(*) > 1" as never)).toThrow(TypeError);
+    });
+  });
 });
