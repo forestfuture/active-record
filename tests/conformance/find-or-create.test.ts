@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
   belongsTo,
+  defineType,
   gte,
   hasMany,
   IncompatibleRelation,
@@ -59,6 +60,26 @@ class Sample extends Model.define({
   settings: "json",
 }) {
   static table = "typed_samples";
+}
+
+/** Sizes kept as text, `"S,M"`: a custom type whose value is an array. */
+const sizeList = defineType({
+  storedAs: "string",
+  cast(input) {
+    if (Array.isArray(input) && input.every((each) => typeof each === "string")) {
+      return input as string[];
+    }
+    throw new TypeError("not a list of sizes");
+  },
+  serialize: (sizes) => sizes.join(","),
+  deserialize: (text) => (text === "" ? [] : text.split(",")),
+});
+
+class Listing extends Model.define({
+  id: { type: "integer", null: false },
+  sizes: sizeList,
+}) {
+  static table = "listings";
 }
 
 describe("making records", () => {
@@ -704,6 +725,42 @@ describe("making records", () => {
         .findOrInitializeBy({ settings: ["a", "b"] });
 
       expect(sample.id).toBe(1);
+    });
+  });
+
+  describe("a custom type's array", () => {
+    beforeEach(async () => {
+      await harness.reset("listings");
+      await harness.exec("INSERT INTO listings (id, sizes) VALUES (1, 'S,M')");
+      events.length = 0;
+    });
+
+    test("is one value, which findOrCreateBy finds", async () => {
+      const listing = await db()
+        .model(Listing)
+        .findOrCreateBy({ sizes: ["S", "M"] });
+
+      expect(listing.id).toBe(1);
+      expect(statementKinds(events)).toEqual(["SELECT"]);
+    });
+
+    test("is one value, which createOrFindBy finds once its key clashes", async () => {
+      const listing = await db()
+        .model(Listing)
+        .createOrFindBy({ id: 1, sizes: ["S", "M"] });
+
+      expect(listing.sizes).toEqual(["S", "M"]);
+      expect(statementKinds(events)).toEqual(["INSERT", "SELECT"]);
+    });
+
+    test("is a list when the type can't cast it", async () => {
+      const attributes = { sizes: [1, 2] } as never;
+
+      await expect(db().model(Listing).findOrCreateBy(attributes)).rejects.toThrow(
+        new TypeError(
+          `Listing.findOrCreateBy(): "sizes" can't be a list, since it becomes the new record's value`,
+        ),
+      );
     });
   });
 

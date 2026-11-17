@@ -1,6 +1,6 @@
 // Finding or creating a record (#346): `findOrCreateBy` and the others, whose attributes both find a record and become a new one's values, so they refuse what a find reads as a condition (#433).
 import { Comparison } from "./comparisons.ts";
-import { attributeFor } from "./attribute.ts";
+import { attributeFor, noMatch } from "./attribute.ts";
 import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import { createOrFindThrough, initializeThrough, type Init } from "./record-creation.ts";
 import type { RelationState } from "./relation-state.ts";
@@ -8,7 +8,7 @@ import { column, SafeSql, sql } from "./sql.ts";
 
 type Attributes<M> = Partial<AttributesOf<M>>;
 
-/** What finds a record: a Relation, narrowed by fragments for json attributes' arrays. */
+/** What finds a record: a Relation, narrowed by fragments for arrays that are one value. */
 interface Finder<M extends Model> {
   where(fragment: SafeSql): Finder<M>;
   findBy(attributes: Attributes<M>): Promise<M | null>;
@@ -82,8 +82,8 @@ function findExisting<M extends Model>(
 }
 
 /**
- * What finds the record with `attributes`, once they're checked: the Relation, narrowed by a
- * json attribute's array compared as one value, as the new record holds it, where `findBy` would
+ * What finds the record with `attributes`, once they're checked: the Relation, narrowed by an
+ * array the attribute casts as one value, compared whole, as the new record holds it, where `findBy` would
  * read it as a list; and the other attributes, as `findBy` reads them. They're copied as own
  * keys, so a `__proto__` key from parsed JSON stays an attribute `findBy` refuses.
  */
@@ -104,7 +104,7 @@ function finderFor<M extends Model>(
 
 /**
  * Throws `TypeError`, before anything is sent, for attributes a find would read as a condition
- * but a new record can't take as its values: a list (except a json attribute's array), which
+ * but a new record can't take as its values: a list (except an array the attribute casts as one value), which
  * `findBy` reads as `IN`, so input that skipped `permit` can't match another user's row; a
  * comparison; a `sql` fragment, as the attributes or as one value; or anything but an object,
  * whose missing attributes would find any record. The value isn't shown, as it may be filtered.
@@ -134,11 +134,17 @@ function refuseConditionValues(
 
 /**
  * What a condition `value` of the attribute `name` is, when it's one a new record can't take as
- * its value. A json attribute's array is one value.
+ * its value. An array the attribute casts as one value is one: a json attribute's, or a custom
+ * type's whose values are arrays.
  */
 function conditionKind(model: ModelClass, name: string, value: unknown): string | undefined {
-  if (Array.isArray(value)) return attributeFor(model, name).isJson ? undefined : "a list";
+  if (Array.isArray(value)) return isOneValue(model, name, value) ? undefined : "a list";
   if (value instanceof Comparison) return "a comparison";
   if (value instanceof SafeSql) return "a sql fragment";
   return undefined;
+}
+
+/** Whether the attribute `name` casts the array `value` as one value, not as a list of them. */
+function isOneValue(model: ModelClass, name: string, value: readonly unknown[]): boolean {
+  return attributeFor(model, name).condition(value) !== noMatch;
 }

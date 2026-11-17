@@ -68,7 +68,7 @@ Find a record by its attributes, or create one with them when there isn’t one,
 
 They work on any Relation. A scope’s or an association’s conditions become the new record’s attributes too, so `user.posts().findOrCreateBy({ title })` finds or creates one of the user’s posts.
 
-The attributes you pass become the new record’s values, so each must be one value. A list, a comparison such as `gte(18)`, or a `sql` fragment throws a `TypeError` before anything is sent. A `json` attribute’s array is one value, so these methods find the record that holds it.
+The attributes you pass become the new record’s values, so each must be one value. A list, a comparison such as `gte(18)`, or a `sql` fragment throws a `TypeError` before anything is sent. An array that an attribute holds as its value, such as a `json` attribute’s, is one value. These methods find the record that holds it.
 
 ### Giving new records more attributes
 
