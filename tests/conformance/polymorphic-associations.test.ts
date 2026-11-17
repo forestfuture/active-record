@@ -196,4 +196,114 @@ describe("polymorphic associations", () => {
       expect(rows).toEqual([{ commentable_type: "Photo", commentable_id: 10 }]);
     });
   });
+
+  describe("removing records through as:", () => {
+    class DestroyingPost extends Post {
+      override remarks = hasMany(Remark, { as: "commentable", dependent: "destroy" });
+    }
+    class DeletingPost extends Post {
+      override remarks = hasMany(Remark, { as: "commentable", dependent: "deleteAll" });
+    }
+    class NullifyingPost extends Post {
+      override remarks = hasMany(Remark, { as: "commentable", dependent: "nullify" });
+    }
+    class RestrictedPost extends Post {
+      override remarks = hasMany(Remark, {
+        as: "commentable",
+        dependent: "restrictWithException",
+      });
+    }
+    class NullifyingPhoto extends Photo {
+      override firstRemark = hasOne(Remark, { as: "commentable", dependent: "nullify" });
+    }
+
+    const remarkRows = () =>
+      harness.exec("SELECT id, commentable_type, commentable_id FROM remarks ORDER BY id");
+    const untouched = [
+      { id: 2, commentable_type: "Photo", commentable_id: 10 },
+      { id: 3, commentable_type: null, commentable_id: null },
+    ];
+
+    test("dependent destroy and deleteAll remove only the owner's Model's records", async () => {
+      const db = harness.connect();
+      await (await db.model(DestroyingPost).find(10)).destroyOrThrow();
+      expect(await remarkRows()).toEqual(untouched);
+
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (11, 1, 'Second')");
+      await harness.exec(
+        "INSERT INTO remarks (id, body, commentable_type, commentable_id) VALUES (4, 'x', 'Post', 11)",
+      );
+      await (await db.model(DeletingPost).find(11)).destroyOrThrow();
+      expect(await remarkRows()).toEqual(untouched);
+    });
+
+    test("nullify clears the type and the key", async () => {
+      const db = harness.connect();
+      await (await db.model(NullifyingPost).find(10)).destroyOrThrow();
+
+      expect(await remarkRows()).toEqual([
+        { id: 1, commentable_type: null, commentable_id: null },
+        ...untouched,
+      ]);
+    });
+
+    test("a restriction counts only the owner's Model's records", async () => {
+      await harness.exec("DELETE FROM remarks WHERE id = 1");
+      const db = harness.connect();
+
+      await (await db.model(RestrictedPost).find(10)).destroyOrThrow();
+
+      expect(await db.model(Post).where({ id: 10 }).count()).toBe(0);
+    });
+
+    test("deleteAll and clear on the association nullify the type and the key", async () => {
+      const db = harness.connect();
+      await (await db.model(Post).find(10)).remarks().deleteAll();
+      expect(await remarkRows()).toEqual([
+        { id: 1, commentable_type: null, commentable_id: null },
+        ...untouched,
+      ]);
+
+      await harness.exec(
+        "UPDATE remarks SET commentable_type = 'Post', commentable_id = 10 WHERE id = 1",
+      );
+      await (await db.model(Post).find(10)).remarks().clear();
+      expect(await remarkRows()).toEqual([
+        { id: 1, commentable_type: null, commentable_id: null },
+        ...untouched,
+      ]);
+    });
+
+    test("delete through the association nullifies the type and the key", async () => {
+      const db = harness.connect();
+      const post = await db.model(Post).find(10);
+      const remark = await db.model(Remark).find(1);
+
+      await post.remarks().delete(remark);
+
+      expect(await remarkRows()).toEqual([
+        { id: 1, commentable_type: null, commentable_id: null },
+        ...untouched,
+      ]);
+    });
+
+    test("a hasOne's nullify clears the type and the key, on destroy and on replacing", async () => {
+      const db = harness.connect();
+      const photo = await db.model(NullifyingPhoto).find(10);
+
+      await photo.firstRemark.set(await db.model(Remark).find(3));
+      expect(await remarkRows()).toEqual([
+        { id: 1, commentable_type: "Post", commentable_id: 10 },
+        { id: 2, commentable_type: null, commentable_id: null },
+        { id: 3, commentable_type: "Photo", commentable_id: 10 },
+      ]);
+
+      await photo.destroyOrThrow();
+      expect((await remarkRows())[2]).toEqual({
+        id: 3,
+        commentable_type: null,
+        commentable_id: null,
+      });
+    });
+  });
 });

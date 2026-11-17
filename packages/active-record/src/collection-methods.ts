@@ -142,7 +142,7 @@ async function removeRows(
   records: Model[],
   deletes: boolean,
 ) {
-  const { target, definition } = association;
+  const { target } = association;
   const keys = records.map((record) => record[state].read(target.primaryKey));
   // A plain query of the owner's records, not the association's own Relation: a Relation
   // narrowed from that deletes rather than nullifying, and clears what the owner has loaded.
@@ -150,7 +150,7 @@ async function removeRows(
     .linkedTo(owner[state].executor, association.keyOf(owner))
     .where({ [target.primaryKey]: keys });
   // The foreign key was checked as a target attribute when the Model was prepared.
-  await (deletes ? rows.deleteAll() : rows.updateAll({ [definition.foreignKey]: null } as never));
+  await (deletes ? rows.deleteAll() : rows.updateAll(association.nullified as never));
 }
 
 /** Throws `TypeError` for a record that isn't of the association's Model, as Rails raises. */

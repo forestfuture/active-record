@@ -38,10 +38,10 @@ export interface OwnedCollection {
   /** Why records can't be created through it, if they can't: its owner has no key. */
   readonly refusal: string | undefined;
   /**
-   * The foreign key `deleteAll()` sets to NULL rather than deleting, as Rails' has_many does
-   * without a deleting `dependent:`; undefined when it deletes.
+   * The attributes `deleteAll()` sets to NULL rather than deleting, as Rails' has_many does
+   * without a deleting `dependent:`: the foreign key, and a type (#60); undefined when it deletes.
    */
-  readonly nullifies: string | undefined;
+  readonly nullifies: readonly string[] | undefined;
   /** Its foreign key and association, which a key that can't be cast names (#94); none unowned. */
   readonly link: { attribute: string; association: string } | undefined;
   /** Its form in a narrowed Relation. */
@@ -187,7 +187,7 @@ function withKey(
     invalidate: () => loadedAssociations.clear(name),
     unsavedCount: () => built().filter((record) => record[state].isNew).length,
     refusal: undefined,
-    nullifies: association.isDeletingOnDeleteAll ? undefined : definition.foreignKey,
+    nullifies: association.isDeletingOnDeleteAll ? undefined : association.nullifiedAttributes,
     link: { attribute: definition.foreignKey, association: name },
     narrowed: () => narrowedOf(collection),
   };
@@ -233,7 +233,7 @@ function withoutKey(owner: Model, association: ResolvedAssociation): Association
     invalidate: () => {},
     unsavedCount: () => 0,
     refusal: association.refusalFor(owner),
-    nullifies: definition.foreignKey,
+    nullifies: association.nullifiedAttributes,
     link: { attribute: definition.foreignKey, association: name },
     narrowed: () => narrowedOf(collection),
   };

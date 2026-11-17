@@ -179,30 +179,45 @@ async function nullify(
   association: ResolvedAssociation,
   claimed: Claimed,
 ): Promise<Ready> {
-  const { name, definition } = association;
-  const key = old[state].read(definition.foreignKey);
-  old[state].writeKey(definition.foreignKey, null, name);
+  const restore = unlinkInMemory(old, association);
   const plan = await prepareSave(old, claimed);
-  if (plan.status === "ready") return undoneOnFailure(plan, old, association, key);
-  old[state].writeKey(definition.foreignKey, key, name);
-  throw new RecordNotSaved(failedToRemove(name));
+  if (plan.status === "ready") return undoneOnFailure(plan, old, association, restore);
+  restore();
+  throw new RecordNotSaved(failedToRemove(association.name));
 }
 
 /**
- * A nullify's plan whose batch, if it fails, gives the old record its key back, and turns the
+ * Sets the old record's foreign key, and with `as` its type (#60), to null, and returns what
+ * gives them back.
+ */
+function unlinkInMemory(old: Model, association: ResolvedAssociation): () => void {
+  const { name, definition } = association;
+  const write = (attribute: string, value: unknown) =>
+    attribute === definition.foreignKey
+      ? old[state].writeKey(attribute, value, name)
+      : old[state].write(attribute, value);
+  const before = association.nullifiedAttributes.map((each) => [each, old[state].read(each)]);
+  for (const [attribute] of before) write(attribute as string, null);
+  return () => {
+    for (const [attribute, value] of before) write(attribute as string, value);
+  };
+}
+
+/**
+ * A nullify's plan whose batch, if it fails, gives the old record its key back (`restore`), and turns the
  * database refusing its null foreign key into `RecordNotSaved`.
  */
 function undoneOnFailure(
   plan: Ready,
   old: Model,
   association: ResolvedAssociation,
-  key: unknown,
+  restore: () => void,
 ): Ready {
   const { name, definition } = association;
   // The database doesn't say which statement failed, so in a `db.batch` that also writes a null
   // into this column, that write's violation reads as this one; the original is the `cause`.
   const failed = (error: unknown) => {
-    old[state].writeKey(definition.foreignKey, key, name);
+    restore();
     const refused =
       error instanceof NotNullViolation &&
       error.table === modelOf(old).table &&
