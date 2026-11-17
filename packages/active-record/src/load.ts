@@ -28,6 +28,13 @@ export interface QueryRunner<M extends Model> {
   changes(write: () => Promise<{ rowsAffected: number }>): Promise<number>;
 }
 
+/** A Relation's Model, its query, and how that runs: what `paginate` and batch iteration work from. */
+export interface RunnableQuery<M extends Model> {
+  model: ModelClass<M>;
+  query: QueryDescription;
+  runner: QueryRunner<M>;
+}
+
 /** Records, and a count sent with them. */
 interface Counted<M extends Model> {
   records: M[];
