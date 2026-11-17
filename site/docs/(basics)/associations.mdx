@@ -152,7 +152,7 @@ Each query runs the likes’ query again to find their keys, even for a Model no
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-Rails declares `belongs_to :likeable, polymorphic: true` without a list, and finds the class from the stored name. Here you list the Models, so `await like.likeable()` is typed `Photo | Video | null`. Rails preloads a polymorphic association after the likes load, with one query per type it finds. Here every listed Model’s query goes with the likes’ own, in one round trip. Records built through `video.likes()` point back at the video without a query, which Rails doesn’t do for a polymorphic association.
+Rails declares `belongs_to :likeable, polymorphic: true` without a list, and finds the class from the stored name. Here you list the Models, so `await like.likeable()` is typed `Photo | Video | null`. Rails preloads a polymorphic association after the likes load, with one query per type it finds. Here every listed Model’s query goes with the likes’ own, in one round trip. The cost is that each of them reads the likes’ query again, even for a Model no like points at. Records built through `video.likes()` point back at the video without a query, which Rails doesn’t do for a polymorphic association.
 
 </Callout>
 
