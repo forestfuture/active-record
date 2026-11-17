@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, test } from "vite-plus/test";
-import { gt, Model } from "../../packages/active-record/src/index.ts";
+import { gt, Model, type Init } from "../../packages/active-record/src/index.ts";
 
 class User extends Model.define({
   id: { type: "integer", null: false },
@@ -33,6 +33,16 @@ describe("finding or making a record, typed", () => {
       expectTypeOf(Admin.build({}, (admin) => (admin.age = 30))).toEqualTypeOf<Admin>();
       expectTypeOf(Admin.createWith({ age: 1 }).build()).toEqualTypeOf<Admin>();
     };
+    void typed;
+  });
+
+  test("an app names the init function's type as Init", () => {
+    const init: Init<User> = async (user) => {
+      user.age = await Promise.resolve(30);
+    };
+
+    // Type-checked, never run: it would query.
+    const typed = () => User.findOrCreateBy({ email: "a" }, init);
     void typed;
   });
 
