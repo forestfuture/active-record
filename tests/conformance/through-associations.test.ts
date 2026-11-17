@@ -417,7 +417,6 @@ describe("an association through another", () => {
       "a narrowed build": (user: User) => user.projects().where({ archived: 0 }).build(),
       "a narrowed create": (user: User) => user.projects().where({ archived: 0 }).create(),
       deleteAll: (user: User) => asCollection(user.projects()).deleteAll(),
-      push: (user: User) => asCollection(user.projects()).push(new Project()),
       delete: (user: User) => asCollection(user.projects()).delete(new Project()),
       destroy: (user: User) => asCollection(user.projects()).destroy(new Project()),
       clear: (user: User) => asCollection(user.projects()).clear(),

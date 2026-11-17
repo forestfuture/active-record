@@ -55,7 +55,11 @@ export function belongsToAccessor(owner: Model, association: ResolvedAssociation
  * record becomes the loaded association. A new record is saved first when the owner is
  * (autosave), and the key filled in then if D1 generates it.
  */
-function pointOwnerAt(owner: Model, association: ResolvedAssociation, record: Model | null): void {
+export function pointOwnerAt(
+  owner: Model,
+  association: ResolvedAssociation,
+  record: Model | null,
+): void {
   const { name, target, ownerAttribute, targetAttribute } = association;
   if (record !== null && !(record instanceof target)) {
     throw new TypeError(`${association.label}.set() takes a ${target.name} record or null`);

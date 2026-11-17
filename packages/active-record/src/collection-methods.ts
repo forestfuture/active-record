@@ -154,7 +154,10 @@ async function removeRows(
 }
 
 /** Throws `TypeError` for a record that isn't of the association's Model, as Rails raises. */
-function requireTargets(association: ResolvedAssociation, records: readonly unknown[]): void {
+export function requireTargets(
+  association: ResolvedAssociation,
+  records: readonly unknown[],
+): void {
   for (const record of records) {
     if (record instanceof association.target) continue;
     const given = record instanceof Model ? `a ${modelOf(record).name}` : String(record);
@@ -194,4 +197,13 @@ async function pinForSaving(records: readonly Model[], needs: string): Promise<v
   for (const [, ...elsewhere] of groups) {
     for (const group of elsewhere) await pinBefore(linksOf(group.records), needs);
   }
+}
+
+/**
+ * Saves `records`, and what each autosaves, as one write (`needs` begins the error for records on
+ * two databases): or, if one refuses, writes nothing and resolves to false.
+ */
+export async function saveTogether(records: readonly Model[], needs: string): Promise<boolean> {
+  await pinForSaving(records, needs);
+  return (await writeTogether(records, prepareSave, needs)) === undefined;
 }
