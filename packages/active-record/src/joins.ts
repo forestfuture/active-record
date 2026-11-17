@@ -82,7 +82,9 @@ export function mergeJoins(a: readonly Join[], b: readonly Join[]): readonly Joi
     if (same === undefined) {
       merged.push(join);
     } else {
-      merged[index] = { ...same, joins: mergeJoins(same.joins, join.joins) };
+      // An inner join of the association wins: its rows are those both find.
+      const kind = same.kind === "inner" || join.kind === "inner" ? "inner" : "left";
+      merged[index] = { ...same, kind, joins: mergeJoins(same.joins, join.joins) };
     }
   }
   return merged;

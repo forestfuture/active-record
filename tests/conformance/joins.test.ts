@@ -121,4 +121,30 @@ describe("joins", () => {
       );
     });
   });
+
+  describe("leftJoins", () => {
+    test("keeps the records with no linked record", async () => {
+      const comments = await db().model(Comment).leftJoins("post").order({ id: "asc" }).toArray();
+
+      expect(comments.map((comment) => comment.body)).toEqual(["on A1", "on B1", "loose"]);
+    });
+
+    test("finds a record once for each linked record, and once with none", async () => {
+      const users = await db().model(User).leftJoins("posts").order({ id: "asc" }).toArray();
+
+      expect(users.map((user) => user.id)).toEqual([1, 1, 2, 3]);
+    });
+
+    test("nests, keeping the rows each level finds no link for", async () => {
+      const users = db().model(User).leftJoins({ posts: "comments" }).order({ id: "asc" });
+
+      expect((await users.toArray()).map((user) => user.id)).toEqual([1, 1, 2, 3]);
+    });
+
+    test("is an inner join where joins() names the same association", async () => {
+      const users = db().model(User).leftJoins("posts").joins("posts").distinct();
+
+      expect((await users.order({ id: "asc" }).toArray()).map((user) => user.id)).toEqual([1, 2]);
+    });
+  });
 });

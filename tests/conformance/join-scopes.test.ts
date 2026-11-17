@@ -96,6 +96,12 @@ describe("joins with scopes", () => {
     expect(idsOf(await articles.toArray())).toEqual([10, 12]);
   });
 
+  test("a left join keeps the records its scope finds no link for", async () => {
+    const writers = db().model(Writer).leftJoins("publishedArticles").order({ id: "asc" });
+
+    expect(idsOf(await writers.toArray())).toEqual([1, 2, 3]);
+  });
+
   test("the joined Model's default scope narrows the join", async () => {
     const writers = db().model(Writer).joins("livePosts").order({ id: "asc" });
 

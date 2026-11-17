@@ -24,6 +24,7 @@ import {
   merged,
   mergeTrees,
   Negated,
+  type JoinKind,
   type QueryDescription,
 } from "./query.ts";
 import type { Executor } from "./executor.ts";
@@ -221,7 +222,16 @@ export class Relation<M extends Model, S = {}> {
    * `joins("author")`, nested `joins({ author: "company" })`. Loads only this Model's columns.
    */
   joins(...specs: JoinSpec<M>[]): Scoped<M, S> {
-    const added = joinsFor(this.#model, specs, { kind: "inner", executor: this.#executor });
+    return this.#joined(specs, "inner");
+  }
+
+  /** Joins associations as `joins()` does, but with `LEFT OUTER JOIN`: unlinked records stay. */
+  leftJoins(...specs: JoinSpec<M>[]): Scoped<M, S> {
+    return this.#joined(specs, "left");
+  }
+
+  #joined(specs: readonly JoinSpec<M>[], kind: JoinKind): Scoped<M, S> {
+    const added = joinsFor(this.#model, specs, { kind, executor: this.#executor });
     return this.#with({ joins: mergeJoins(this.#query.joins ?? [], added) });
   }
 
