@@ -13,12 +13,17 @@ import {
   type QueryDescription,
 } from "./query.ts";
 import { queryOf } from "./relation.ts";
-import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
+import {
+  isOnDifferentDatabases,
+  resolveAssociation,
+  type ResolvedAssociation,
+} from "./resolved-association.ts";
 import { sql } from "./sql.ts";
 
-/** How a join is written: of which kind, and for a query on which database. */
+/** How a join is written: of which kind, and for a query of which Model, on which database. */
 interface Joining {
   readonly kind: JoinKind;
+  readonly root: ModelClass<Model>;
   readonly executor: Executor;
 }
 
@@ -55,6 +60,7 @@ function joinOf(
   nested: readonly unknown[],
 ): Join {
   const association = resolveAssociation(model, name);
+  refuseOtherDatabase(association, joining.root);
   return {
     association: name,
     kind: joining.kind,
@@ -64,6 +70,18 @@ function joinOf(
     on: scopeConditions(association, joining.executor),
     joins: joinsFor(association.target, nested, joining),
   };
+}
+
+/**
+ * Throws `IncompatibleRelation` if `association`'s Model is on another database than `root`'s
+ * (#228): both their schemas say which database they're on, so it's said before the query runs.
+ */
+function refuseOtherDatabase(association: ResolvedAssociation, root: ModelClass<Model>): void {
+  if (isOnDifferentDatabases(root, association.target)) {
+    throw new IncompatibleRelation(
+      `${root.name} can't join ${association.label}: ${association.target.name} is on another database, and a join reads one`,
+    );
+  }
 }
 
 /**

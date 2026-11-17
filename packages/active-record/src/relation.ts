@@ -236,7 +236,8 @@ export class Relation<M extends Model, S = {}> {
   }
 
   #joined(specs: readonly JoinSpec<M>[], kind: JoinKind): Scoped<M, S> {
-    const added = joinsFor(this.#model, specs, { kind, executor: this.#executor });
+    const joining = { kind, root: this.#model, executor: this.#executor };
+    const added = joinsFor(this.#model, specs, joining);
     return this.#with({ joins: mergeJoins(this.#query.joins ?? [], added) });
   }
 
