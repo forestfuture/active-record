@@ -46,6 +46,9 @@ class Assignment extends Model.define({
     this.beforeDestroy((assignment) => {
       if (assignment.role === "keep") throw abort("this assignment is kept");
     });
+    this.beforeSave((assignment) => {
+      if (assignment.userId === 9) throw abort("user 9 takes no assignments");
+    });
     this.afterDestroy((assignment) => void destroyed.push(assignment.id));
   }
 }
@@ -634,6 +637,20 @@ describe("writing through an association through another", () => {
         [1, 1],
         [2, 2],
         [1, 3],
+      ]);
+    });
+
+    test("a join record that refuses its save throws RecordNotSaved, and points where it did", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (9, 'locked@example.com')");
+      const apollo = await db().model(Project).find(1);
+      const locked = await db().model(User).find(9);
+
+      await expect(apollo.lead.set(locked)).rejects.toThrow(RecordNotSaved);
+
+      expect((await apollo.leadAssignment())?.userId).toBe(1);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
       ]);
     });
 
