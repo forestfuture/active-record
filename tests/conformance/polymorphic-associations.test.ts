@@ -346,4 +346,51 @@ describe("polymorphic associations", () => {
       );
     });
   });
+
+  describe("saving through a polymorphic belongsTo", () => {
+    class RequiredRemark extends Remark {
+      override commentable = belongsTo([Post, Photo]);
+    }
+
+    test("its record is required: must exist", async () => {
+      const db = harness.connect();
+      const orphan = db.model(RequiredRemark).build({ id: 4, body: "x" });
+      const missing = db
+        .model(RequiredRemark)
+        .build({ id: 5, body: "x", commentableType: "Photo", commentableId: 99 });
+
+      expect(await orphan.save()).toBe(false);
+      expect(orphan.errors.fullMessages()).toEqual(["Commentable must exist"]);
+      expect(await missing.save()).toBe(false);
+      expect(missing.errors.fullMessages()).toEqual(["Commentable must exist"]);
+    });
+
+    test("changing only its type checks the record again", async () => {
+      await harness.exec("DELETE FROM remarks WHERE id = 2");
+      await harness.exec("DELETE FROM photos");
+      const db = harness.connect();
+      const remark = await db.model(RequiredRemark).find(1);
+
+      remark.commentableType = "Photo";
+
+      expect(await remark.save()).toBe(false);
+      expect(remark.errors.fullMessages()).toEqual(["Commentable must exist"]);
+    });
+
+    test("a new record set through it is saved first, its generated key filled in", async () => {
+      const db = harness.connect();
+      const remark = db.model(RequiredRemark).build({ id: 4, body: "On a new photo" });
+      const photo = db.model(Photo).build({ title: "New" });
+
+      remark.commentable.set(photo);
+      await remark.saveOrThrow();
+
+      expect(photo.isPersisted()).toBe(true);
+      expect([remark.commentableType, remark.commentableId]).toEqual(["Photo", photo.id]);
+      const rows = await harness.exec(
+        "SELECT commentable_type, commentable_id FROM remarks WHERE id = 4",
+      );
+      expect(rows).toEqual([{ commentable_type: "Photo", commentable_id: photo.id }]);
+    });
+  });
 });

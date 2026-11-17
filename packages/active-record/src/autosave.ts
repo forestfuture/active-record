@@ -1,7 +1,7 @@
 // Which records saving an owner also writes through its associations, before or after it, and linking their keys.
 import { associationsOf } from "./association-fields.ts";
 import type { AssociationKind } from "./associations.ts";
-import { modelOf, type Model } from "./model.ts";
+import { modelOf, type Model, type ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
 import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
 
@@ -42,7 +42,7 @@ export function autosavedBefore(owner: Model, claimed: ReadonlySet<Model>): Befo
     association.definition.autosave === true && record[state].isMarkedForDestruction;
   const all = owner[state].autosaves
     .allBelongsTo()
-    .map(([name, record]) => ({ association: resolveAssociation(model, name), record }));
+    .map(([name, record]) => linkedThrough(model, name, record));
   const pointedAt = all.filter((each) => !marked(each));
   const unsaved = (each: Linked) => each.record[state].isNew && !claimed.has(each.record);
   const loadedSaved = loadedBelongsTo(owner, claimed);
@@ -67,8 +67,17 @@ function loadedBelongsTo(owner: Model, claimed: ReadonlySet<Model>): Linked[] {
     if (kind !== "belongsTo" || autosave !== true) return [];
     return loaded(owner, name)
       .filter((record) => !record[state].isNew && !claimed.has(record))
-      .map((record) => ({ association: resolveAssociation(model, name), record }));
+      .map((record) => linkedThrough(model, name, record));
   });
+}
+
+/**
+ * `record`, linked through `model`'s belongsTo `name`: for a polymorphic one (#60), through the
+ * branch for the record's Model, which links its key.
+ */
+function linkedThrough(model: ModelClass, name: string, record: Model): Linked {
+  const association = resolveAssociation(model, name);
+  return { association: association.branchForRecord(record) ?? association, record };
 }
 
 /**
