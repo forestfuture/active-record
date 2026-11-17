@@ -10,6 +10,7 @@ export type {
   HasOne,
   HasOneDependent,
   HasOneThrough,
+  ThroughDependent,
   ThroughOptions,
 } from "./associations.ts";
 export { batch, type BatchEntry, type BatchResults } from "./batch.ts";

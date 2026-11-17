@@ -43,6 +43,26 @@ class Assignment extends Model.define({
   }
 }
 
+const userAttributes = {
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+} as const;
+
+/** Users whose projects' join records go as their `dependent:` says. */
+class DestroyingUser extends Model.define(userAttributes) {
+  static table = "users";
+
+  assignments = hasMany(Assignment, { foreignKey: "userId" });
+  projects = hasMany(Project, { through: "assignments", dependent: "destroy" });
+}
+
+class DeletingUser extends Model.define(userAttributes) {
+  static table = "users";
+
+  assignments = hasMany(Assignment, { foreignKey: "userId" });
+  projects = hasMany(Project, { through: "assignments", dependent: "deleteAll" });
+}
+
 /** The ids of the assignments destroyed, in turn. */
 const destroyed: number[] = [];
 
@@ -457,6 +477,68 @@ describe("writing through an association through another", () => {
       expect(await links()).toEqual([
         [2, 2],
         [2, 3],
+      ]);
+    });
+  });
+
+  describe("dependent", () => {
+    beforeEach(async () => {
+      await harness.exec("INSERT INTO assignments (id, user_id, project_id) VALUES (3, 1, 3)");
+    });
+
+    test('"destroy" makes delete destroy the join records, callbacks included', async () => {
+      const user = await db().model(DestroyingUser).find(1);
+      const apollo = await db().model(Project).find(1);
+
+      await user.projects().delete(apollo);
+
+      expect(destroyed).toEqual([1]);
+      expect(await links()).toEqual([
+        [2, 2],
+        [1, 3],
+      ]);
+    });
+
+    test('"destroy" leaves clear deleting the join records without callbacks, as in Rails', async () => {
+      const user = await db().model(DestroyingUser).find(1);
+
+      await user.projects().clear();
+
+      expect(destroyed).toEqual([]);
+      expect(await links()).toEqual([[2, 2]]);
+    });
+
+    test('destroying the owner with "destroy" destroys its join records; the records stay', async () => {
+      const user = await db().model(DestroyingUser).find(1);
+
+      expect(await user.destroy()).toBe(user);
+
+      expect(destroyed).toEqual([1, 3]);
+      expect(await links()).toEqual([[2, 2]]);
+      expect(await db().model(Project).count()).toBe(3);
+    });
+
+    test('destroying the owner with "deleteAll" deletes its join records, without callbacks', async () => {
+      const user = await db().model(DeletingUser).find(1);
+
+      expect(await user.destroy()).toBe(user);
+
+      expect(destroyed).toEqual([]);
+      expect(await links()).toEqual([[2, 2]]);
+      expect(await db().model(User).count()).toBe(1);
+    });
+
+    test("a join record that refuses stops the owner's destroy", async () => {
+      await harness.exec("UPDATE assignments SET role = 'keep' WHERE id = 3");
+      const user = await db().model(DestroyingUser).find(1);
+
+      await expect(user.destroy()).rejects.toThrow(RecordNotDestroyed);
+
+      expect(await db().model(User).count()).toBe(2);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+        [1, 3],
       ]);
     });
   });

@@ -11,6 +11,7 @@ import type {
   HasOne,
   HasOneDependent,
   HasOneThrough,
+  ThroughDependent,
   ThroughOptions,
 } from "./associations.ts";
 import { NoDatabase, UnknownAssociation } from "./errors.ts";
@@ -78,7 +79,7 @@ export function belongsTo<C extends ModelClass>(
  */
 export function hasMany<C extends ModelClass>(
   target: C,
-  options: ThroughOptions<C>,
+  options: ThroughOptions<C> & { dependent?: ThroughDependent },
 ): HasManyThrough<C>;
 export function hasMany<C extends ModelClass>(
   target: C,

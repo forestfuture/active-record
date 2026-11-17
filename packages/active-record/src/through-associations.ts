@@ -73,21 +73,35 @@ function checkSource(label: string, { model, name, definition }: Declared, via: 
 
 /**
  * Only a hasMany or hasOne goes through another, and not with the options its hops have
- * instead: `dependent`, `autosave`, and a declared key.
+ * instead: `autosave`, and a declared key.
  */
 function checkOptions(label: string, definition: AssociationDefinition): void {
   if (definition.kind === "belongsTo") {
     throw new InvalidModel(`${label}: a belongsTo can't go through another association`);
   }
+  checkDependent(label, definition);
   const declaredKey = definition.inferredFrom === undefined || definition.primaryKey !== undefined;
   const refused = [
-    [definition.dependent !== undefined, "dependent"],
     [definition.autosave !== undefined, "autosave"],
     [declaredKey, "foreignKey or primaryKey"],
   ] as const;
   for (const [given, option] of refused) {
     if (given) throw new InvalidModel(`${label}: a through association takes no ${option}`);
   }
+}
+
+/**
+ * A through hasMany's `dependent` acts on its join records (#434), so it's one that removes
+ * them, `"destroy"` or `"deleteAll"`; a hasOne through another takes none.
+ */
+function checkDependent(label: string, { kind, dependent }: AssociationDefinition): void {
+  if (dependent === undefined) return;
+  if (kind === "hasOne")
+    throw new InvalidModel(`${label}: a hasOne through another takes no dependent`);
+  if (dependent === "destroy" || dependent === "deleteAll") return;
+  throw new InvalidModel(
+    `${label}: a through association's dependent is "destroy" or "deleteAll", not "${dependent}"`,
+  );
 }
 
 /**
