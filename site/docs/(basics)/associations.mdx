@@ -324,6 +324,7 @@ Removing records through the association removes their join records. The records
 | `destroy(article)` | Destroys those taggings, running their callbacks, in one write                                      |
 | `clear()`          | Deletes every tagging to the tag’s articles, without callbacks. The tag then has no articles loaded |
 | `deleteAll()`      | Deletes the same taggings, and resolves to how many it deleted                                      |
+| `destroyAll()`     | Destroys the same taggings, running their callbacks, and resolves to the articles                   |
 
 An article the tag doesn’t reach removes nothing. To remove an article itself, destroy it: `await article.destroy()`.
 

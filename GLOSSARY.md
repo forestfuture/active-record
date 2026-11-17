@@ -173,7 +173,7 @@ An **Association** that reaches its records through another of its **Model**'s a
 _Avoid_: Join association, indirect association, many-to-many (it's one way to model it)
 
 **Join record**:
-A record of the Model a **Through association** goes through that links one owner to one of its records, through the **Source association** (a belongsTo): an Assignment linking a User to a Project. `push`, `build` and `create` through the association make one, and `delete`, `destroy`, `clear` and its own `deleteAll()` remove them, leaving the records.
+A record of the Model a **Through association** goes through that links one owner to one of its records, through the **Source association** (a belongsTo): an Assignment linking a User to a Project. `push`, `build` and `create` through the association make one, and `delete`, `destroy`, `clear` and its own `deleteAll()` and `destroyAll()` remove them, leaving the records.
 _Avoid_: Join row, link record, through record
 
 **Source association**:

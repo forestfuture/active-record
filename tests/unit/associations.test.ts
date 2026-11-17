@@ -232,6 +232,7 @@ describe("an association through another's types (#59)", () => {
     expectTypeOf<ReturnType<Note["tags"]>["delete"]>().returns.resolves.toEqualTypeOf<Tag[]>();
     expectTypeOf<ReturnType<Note["tags"]>["destroy"]>().parameters.toEqualTypeOf<Tag[]>();
     expectTypeOf<ReturnType<Note["tags"]>["clear"]>().returns.resolves.toEqualTypeOf<void>();
+    expectTypeOf<ReturnType<Note["tags"]>["destroyAll"]>().returns.resolves.toEqualTypeOf<Tag[]>();
   });
 
   test("a hasMany through another builds and creates its records, and inserts none", () => {
@@ -240,7 +241,6 @@ describe("an association through another's types (#59)", () => {
     expectTypeOf<ReturnType<Note["tags"]>["insert"]>().toBeNever();
     expectTypeOf<ReturnType<Note["tags"]>["upsert"]>().toBeNever();
     expectTypeOf<ReturnType<Note["tags"]>["deleteAll"]>().returns.resolves.toEqualTypeOf<number>();
-    expectTypeOf<ReturnType<Note["tags"]>["destroyAll"]>().toBeNever();
   });
 
   test("a hasMany through another is still a Relation, for or, merge and a batch's updateAll", () => {

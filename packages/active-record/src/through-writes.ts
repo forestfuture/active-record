@@ -2,7 +2,7 @@
 import type { HasOne } from "./associations.ts";
 import { hasOneAccessor, pointOwnerAt } from "./association-writers.ts";
 import { forget } from "./autosave.ts";
-import { ReadonlyAssociation, RecordNotSaved } from "./errors.ts";
+import { RecordNotSaved } from "./errors.ts";
 import { requireTargets, saveTogether, type CollectionMethods } from "./collection-methods.ts";
 import { destroyTogether } from "./records-together.ts";
 import { refusalError, saveLifecycle } from "./lifecycle.ts";
@@ -28,7 +28,7 @@ export interface OwnersHasManyThrough {
   /** What the owner holds of it. */
   collection: AssociationCollection;
   /** Its Relation, whose own `deleteAll()` deletes the owner's join records. */
-  relation: { deleteAll(): Promise<number> };
+  relation: { deleteAll(): Promise<number>; toArray(): Promise<Model[]> };
   /** The owner's Relation of the association it goes through, of its join records. */
   via: () => Relation<Model>;
 }
@@ -71,17 +71,12 @@ export function throughCollection(through: ThroughOwner): AssociationCollection 
 export function throughCollectionMethods<M extends Model>(
   hasMany: OwnersHasManyThrough,
 ): CollectionMethods<M> {
-  // Refused until its own destroyAll destroys join records (#348).
-  const refuse = () =>
-    Promise.reject(
-      new ReadonlyAssociation(`Can't destroyAll through ${hasMany.association.label}`),
-    );
   return {
     push: (...records) => push(hasMany, records),
     delete: (...records) => remove(hasMany, records, removalOf(hasMany.association)),
     destroy: (...records) => remove(hasMany, records, "destroy"),
     clear: () => clear(hasMany),
-    destroyAll: refuse,
+    destroyAll: () => destroyAll(hasMany),
   };
 }
 
@@ -143,6 +138,19 @@ async function clear({ owner, association, collection, relation }: OwnersHasMany
   );
   if (!owner[state].isNew) await relation.deleteAll();
   collection.emptied();
+}
+
+/**
+ * Destroys the owner's join records to every record the association holds, callbacks included,
+ * as Rails' `destroy_all` does through a join Model, and resolves to the records, which stay. It
+ * then reads as empty without a query.
+ */
+async function destroyAll<M extends Model>(hasMany: OwnersHasManyThrough): Promise<M[]> {
+  requireWritableThrough(hasMany.association);
+  const records = (await hasMany.relation.toArray()) as M[];
+  await remove(hasMany, records, "destroy");
+  hasMany.collection.emptied();
+  return records;
 }
 
 /**
