@@ -1,5 +1,6 @@
 // Batch iteration (#347): `findEach`, `findInBatches` and `inBatches`, a Relation's records a batch at a time, each batch starting after the last one's primary key.
 import { gt, gte, lt, lte, type Comparison } from "./comparisons.ts";
+import { IncompatibleRelation } from "./errors.ts";
 import type { QueryRunner } from "./load.ts";
 import { primaryKeyOf, type Model, type ModelClass } from "./model.ts";
 import type { Condition, QueryDescription } from "./query.ts";
@@ -23,28 +24,85 @@ export interface Iterated<M extends Model> {
   runner: QueryRunner<M>;
 }
 
-/** The records `iterated` matches, in primary-key order, as arrays of up to `batchSize`. */
-export async function* recordBatches<M extends Model>(
-  { model, query, runner }: Iterated<M>,
+/**
+ * The records `iterated` matches, in primary-key order, as arrays of up to `batchSize`. What it
+ * can't follow throws now, when it's called, rather than when the first batch is read.
+ */
+export function recordBatches<M extends Model>(
+  iterated: Iterated<M>,
   options: IterationOptions = {},
 ): AsyncGenerator<M[], void, undefined> {
-  const batchSize = options.batchSize ?? 1000;
-  const direction = options.order ?? "asc";
+  checkIterable(iterated);
+  return batchesOf(iterated, {
+    batchSize: batchSizeOf(options.batchSize),
+    direction: directionOf(options.order),
+    bounds: boundsOf(iterated.model.primaryKey, options),
+  });
+}
+
+/** How the batches are read: their size, their direction, and `start` and `finish`. */
+interface Walk {
+  batchSize: number;
+  direction: "asc" | "desc";
+  bounds: readonly Condition[];
+}
+
+/** Each batch, until one comes back short or the Relation's limit is reached. */
+async function* batchesOf<M extends Model>(
+  { model, query, runner }: Iterated<M>,
+  { batchSize, direction, bounds }: Walk,
+): AsyncGenerator<M[], void, undefined> {
   const key = model.primaryKey;
-  const bounds = boundsOf(key, options);
+  let left = query.limit ?? Infinity;
   let after: Condition[] = [];
-  for (;;) {
+  while (left > 0) {
+    const limit = Math.min(batchSize, left);
     const records = await runner.load({
       ...query,
       conditions: [...query.conditions, ...bounds, ...after],
       order: [{ attribute: key, direction }],
-      limit: batchSize,
+      limit,
     });
     if (records.length > 0) yield records;
-    if (records.length < batchSize) return;
+    if (records.length < limit) return;
+    left -= records.length;
     const last = primaryKeyOf(records.at(-1)!);
     after = [{ [key]: direction === "asc" ? gt(last) : lt(last) }];
   }
+}
+
+/** Throws `IncompatibleRelation` for what a walk by primary key can't follow. */
+function checkIterable({ model, query }: Iterated<Model>): void {
+  if (query.order.length > 0) {
+    throw new IncompatibleRelation(
+      `${model.name}'s batches go in primary-key order, so its Relation can't have an order of its own; remove it with reorder()`,
+    );
+  }
+  if (query.offset !== undefined) {
+    throw new IncompatibleRelation(
+      `${model.name}'s batches start from the primary key, not an offset; use start instead of offset()`,
+    );
+  }
+  if (query.distinct && query.select && !query.select.includes(model.primaryKey)) {
+    throw new IncompatibleRelation(
+      `${model.name}'s batches follow the primary key, which distinct() with select() doesn't load; select it too`,
+    );
+  }
+}
+
+/** `batchSize`, 1000 by default, or a `TypeError` if it isn't a whole number from 1. */
+function batchSizeOf(batchSize: number | undefined): number {
+  if (batchSize === undefined) return 1000;
+  if (!Number.isSafeInteger(batchSize) || batchSize < 1) {
+    throw new TypeError(`batchSize must be a whole number from 1, not ${String(batchSize)}`);
+  }
+  return batchSize;
+}
+
+/** `order`, `"asc"` by default, or a `TypeError` if it's neither `"asc"` nor `"desc"`. */
+function directionOf(order: string | undefined): "asc" | "desc" {
+  if (order === undefined || order === "asc" || order === "desc") return order ?? "asc";
+  throw new TypeError(`order must be "asc" or "desc", not ${JSON.stringify(order)}`);
 }
 
 /** The conditions `start` and `finish` put on the primary key, `key`, in `order`'s direction. */
@@ -63,9 +121,14 @@ function bound(
 }
 
 /** The records `iterated` matches, one at a time, loaded in batches. */
-export async function* eachRecord<M extends Model>(
+export function eachRecord<M extends Model>(
   iterated: Iterated<M>,
   options: IterationOptions = {},
 ): AsyncGenerator<M, void, undefined> {
-  for await (const records of recordBatches(iterated, options)) yield* records;
+  return flattened(recordBatches(iterated, options));
+}
+
+/** Each record of each batch. */
+async function* flattened<M>(batches: AsyncIterable<M[]>): AsyncGenerator<M, void, undefined> {
+  for await (const records of batches) yield* records;
 }

@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, Model, withDatabase } from "../../packages/active-record/src/index.ts";
+import {
+  belongsTo,
+  hasMany,
+  IncompatibleRelation,
+  Model,
+  withDatabase,
+} from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -21,6 +27,13 @@ class Post extends Model.define({
   static table = "posts";
 
   user = belongsTo(User, { foreignKey: "userId" });
+}
+
+/** Posts newest first, by a default scope's order. */
+class NewestPost extends Post {
+  static {
+    this.defaultScope((q) => q.order({ id: "desc" }));
+  }
 }
 
 /** Every value an async iterable yields, in order. */
@@ -119,6 +132,71 @@ describe("batch iteration", () => {
       );
 
       expect(ids(posts)).toEqual([6, 5, 4, 3]);
+    });
+  });
+
+  describe("what it refuses", () => {
+    test("a Relation's own order, when it's called", () => {
+      const ordered = db().model(Post).order({ title: "asc" });
+
+      expect(() => ordered.findEach()).toThrow(IncompatibleRelation);
+      expect(() => ordered.findInBatches()).toThrow(/reorder\(\)/);
+    });
+
+    test("a default scope's order, until reorder() removes it", async () => {
+      expect(() => db().model(NewestPost).findEach()).toThrow(IncompatibleRelation);
+
+      const posts = await collect(db().model(NewestPost).reorder().findEach({ batchSize: 5 }));
+      expect(ids(posts)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    });
+
+    test("an offset", () => {
+      expect(() => db().model(Post).offset(2).findEach()).toThrow(IncompatibleRelation);
+    });
+
+    test("distinct() with a select() that leaves out the primary key", async () => {
+      const distinct = db().model(Post).select("title").distinct();
+      expect(() => distinct.findEach()).toThrow(IncompatibleRelation);
+
+      const titles = await collect(db().model(Post).select("title").findEach({ batchSize: 4 }));
+      expect(titles.map((post) => post.title)).toEqual(["A", "B", "C", "D", "E", "F", "G"]);
+    });
+
+    test.each([0, -1, 1.5, Number.NaN, "3"])("a batchSize of %s", (batchSize) => {
+      expect(() =>
+        db()
+          .model(Post)
+          .findEach({ batchSize: batchSize as number }),
+      ).toThrow(TypeError);
+    });
+
+    test("an order other than asc or desc", () => {
+      expect(() =>
+        db()
+          .model(Post)
+          .findEach({ order: "up" as "asc" }),
+      ).toThrow(TypeError);
+    });
+  });
+
+  describe("limit", () => {
+    test("caps the records, the last batch only as large as what's left", async () => {
+      const batches = await collect(db().model(Post).limit(5).findInBatches({ batchSize: 2 }));
+
+      expect(batches.map(ids)).toEqual([[1, 2], [3, 4], [5]]);
+      expect(events).toHaveLength(3);
+    });
+
+    test("stops without another query once the limit is reached", async () => {
+      const posts = await collect(db().model(Post).limit(4).findEach({ batchSize: 2 }));
+
+      expect(ids(posts)).toEqual([1, 2, 3, 4]);
+      expect(events).toHaveLength(2);
+    });
+
+    test("limit(0) sends no query", async () => {
+      expect(await collect(db().model(Post).limit(0).findEach())).toEqual([]);
+      expect(events).toEqual([]);
     });
   });
 });
