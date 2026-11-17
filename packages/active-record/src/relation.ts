@@ -29,9 +29,8 @@ import type { Executor } from "./executor.ts";
 import { attributeOf } from "./metadata.ts";
 import {
   buildRecord,
-  type AssociationName,
   type AttributesOf,
-  type LoadedValue,
+  type IncludeSpec,
   type Model,
   type ModelClass,
 } from "./model.ts";
@@ -81,22 +80,6 @@ import {
 } from "./calculations.ts";
 
 declare const scopeTypes: unique symbol;
-
-/** The record type an association accessor loads: `Post` for `HasMany<typeof Post>`. */
-type TargetRecord<F> =
-  LoadedValue<F> extends readonly (infer T)[] ? T : NonNullable<LoadedValue<F>>;
-
-/**
- * What `includes()` accepts for records `M`: an association name, or `{ name: nested }` where
- * `nested` names associations of that association's records. Checked against their fields' types.
- */
-export type IncludeSpec<M> =
-  | AssociationName<M>
-  | {
-      readonly [K in AssociationName<M>]?:
-        | IncludeSpec<TargetRecord<M[K]>>
-        | readonly IncludeSpec<TargetRecord<M[K]>>[];
-    };
 
 /** @internal The library's key for the query a Relation describes. */
 export const queryOf = Symbol("queryOf");

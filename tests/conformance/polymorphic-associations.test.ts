@@ -4,6 +4,7 @@ import {
   hasMany,
   hasOne,
   Model,
+  UnknownAssociation,
   UnknownModelName,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
@@ -17,6 +18,7 @@ class Post extends Model.define({
   static table = "posts";
 
   remarks = hasMany(Remark, { as: "commentable" });
+  author = belongsTo(User, { foreignKey: "userId" });
 }
 
 class Photo extends Model.define({
@@ -458,6 +460,85 @@ describe("polymorphic associations", () => {
       expect(
         await harness.exec("SELECT commentable_type, commentable_id FROM remarks WHERE id = 2"),
       ).toEqual([{ commentable_type: null, commentable_id: null }]);
+    });
+  });
+
+  describe("preloading a polymorphic belongsTo", () => {
+    test("loads each record from its Model's table, one statement per listed Model", async () => {
+      const queries: QueryEvent[] = [];
+      const db = harness.connect({ onQuery: (event) => queries.push(event) });
+
+      const remarks = await db.model(Remark).includes("commentable").order({ id: "asc" }).toArray();
+
+      expect(remarks.map((remark) => remark.loaded("commentable"))).toEqual([
+        expect.any(Post),
+        expect.any(Photo),
+        null,
+      ]);
+      expect((remarks[0]!.loaded("commentable") as Post).title).toBe("First");
+      expect((remarks[1]!.loaded("commentable") as Photo).title).toBe("Sunset");
+      expect(queries.map(({ model }) => model)).toEqual(["Remark", "Post", "Photo"]);
+    });
+
+    test("keeps the owners' limit, so it loads only their records", async () => {
+      const db = harness.connect();
+
+      const [first, ...rest] = await db
+        .model(Remark)
+        .includes("commentable")
+        .order({ id: "asc" })
+        .limit(1)
+        .toArray();
+
+      expect(rest).toEqual([]);
+      expect(first!.loaded("commentable")).toBeInstanceOf(Post);
+    });
+
+    test("a nested include loads under the Models that have it, and skips the rest", async () => {
+      const db = harness.connect();
+
+      const [onPost, onPhoto] = await db
+        .model(Remark)
+        .includes({ commentable: ["author", "remarks"] })
+        .order({ id: "asc" })
+        .toArray();
+
+      const post = onPost!.loaded("commentable") as Post;
+      const photo = onPhoto!.loaded("commentable") as Photo;
+      expect((post.loaded("author") as User).email).toBe("a@example.com");
+      expect(post.loaded("remarks").map(({ id }) => id)).toEqual([1]);
+      expect(photo.loaded("remarks").map(({ id }) => id)).toEqual([2]);
+    });
+
+    test("a nested include no listed Model has throws UnknownAssociation", () => {
+      const db = harness.connect();
+
+      expect(() => db.model(Remark).includes({ commentable: "nothing" } as never)).toThrow(
+        new UnknownAssociation('None of Remark.commentable\'s Models has an association "nothing"'),
+      );
+    });
+
+    test("loads the commentable's keys when select leaves them out", async () => {
+      const db = harness.connect();
+
+      const [remark] = await db
+        .model(Remark)
+        .select("id")
+        .includes("commentable")
+        .order({ id: "asc" })
+        .limit(1)
+        .toArray();
+
+      expect(remark!.loaded("commentable")).toBeInstanceOf(Post);
+    });
+
+    test("an as: association preloads only its owner's Model's records", async () => {
+      const db = harness.connect();
+
+      const [photo] = await db.model(Photo).includes("remarks", "firstRemark").toArray();
+
+      expect(photo!.loaded("remarks").map(({ id }) => id)).toEqual([2]);
+      expect(photo!.loaded("firstRemark")?.id).toBe(2);
     });
   });
 });
