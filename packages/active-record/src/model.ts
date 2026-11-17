@@ -1,4 +1,4 @@
-// `Model.define({...})` and `Model`: the record class, its attribute accessors and its declarations (validations, error messages); its shared statics are in model-statics.ts.
+// `Model.define({...})` and `Model`: the record class, its attribute accessors and its declarations (validations, error messages), and the types naming its associations (`includes`' specs); its shared statics are in model-statics.ts.
 import { enumValuesOf } from "./enum-values.ts";
 import type { EnumMapping, EnumValues } from "./enum-values.ts";
 import {

@@ -1,4 +1,4 @@
-// Foreign keys for associations: the one declared, or inferred by Rails' naming convention.
+// Foreign keys for associations, and a polymorphic association's type attribute (#60): the one declared, or inferred by Rails' naming convention.
 import type { AssociationDeclaration, AssociationDefinition } from "./associations.ts";
 import { camelize, underscore } from "./naming.ts";
 
