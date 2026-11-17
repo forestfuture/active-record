@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
+import { RecordNotFound, SoleRecordExceeded } from "../../packages/active-record/src/index.ts";
 import { User } from "../fixtures/models/user.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -105,6 +106,42 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       const user = await withLoadedPosts("First", "Second");
 
       expect(await user.posts().ids()).toEqual([10, 11]);
+      expect(events).toHaveLength(0);
+    });
+  });
+
+  describe("sole", () => {
+    test("throws RecordNotFound with no rows", async () => {
+      await expect(users().sole()).rejects.toThrow(new RecordNotFound("User not found"));
+    });
+
+    test("is the one matching record, asking for two rows", async () => {
+      await seed([1, "a@example.com", 30], [2, "b@example.com", 20]);
+
+      const user = await users().where({ age: 20 }).sole();
+
+      expect(user.email).toBe("b@example.com");
+      expect(events.map((event) => event.params.at(-1))).toEqual([2]);
+    });
+
+    test("throws SoleRecordExceeded with several", async () => {
+      await seed([1, "a@example.com", 30], [2, "b@example.com", 30]);
+
+      await expect(users().where({ age: 30 }).sole()).rejects.toThrow(
+        new SoleRecordExceeded("Wanted only one User"),
+      );
+    });
+
+    test("counts a join's repeated rows, so a record joined twice is more than one", async () => {
+      await withLoadedPosts("First", "Second");
+
+      await expect(users().joins("posts").sole()).rejects.toThrow(SoleRecordExceeded);
+    });
+
+    test("on a loaded hasMany, answers from its records without a query", async () => {
+      const user = await withLoadedPosts("Only");
+
+      expect((await user.posts().sole()).title).toBe("Only");
       expect(events).toHaveLength(0);
     });
   });

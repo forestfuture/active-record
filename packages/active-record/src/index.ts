@@ -41,6 +41,7 @@ export {
   RecordNotFound,
   RecordNotSaved,
   RecordNotUnique,
+  SoleRecordExceeded,
   StrictValidationFailed,
   UnknownAssociation,
   UnknownAttribute,

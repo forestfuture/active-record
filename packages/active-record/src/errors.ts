@@ -21,9 +21,14 @@ export class NoDatabase extends ActiveRecordError {
   override name = "NoDatabase";
 }
 
-/** No record matched a lookup that requires one (`find`, `findByOrThrow`). */
+/** No record matched a lookup that requires one (`find`, `findByOrThrow`, `sole`). */
 export class RecordNotFound extends ActiveRecordError {
   override name = "RecordNotFound";
+}
+
+/** `sole()` or `findSoleBy()` matched more than one record. */
+export class SoleRecordExceeded extends ActiveRecordError {
+  override name = "SoleRecordExceeded";
 }
 
 /** Reading an attribute that wasn't loaded, e.g. one left out of `select(...)`. */
