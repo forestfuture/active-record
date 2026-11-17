@@ -10,6 +10,7 @@ import {
   type Write,
 } from "./owned-collection.ts";
 import { state } from "./record-state.ts";
+import type { Relation } from "./relation.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
 import { readonlyError } from "./through-associations.ts";
 
@@ -19,8 +20,8 @@ export interface OwnersHasManyThrough {
   association: ResolvedAssociation;
   /** What the owner holds of it. */
   collection: AssociationCollection;
-  /** The Relation of the association it goes through, whose `build` makes a join record. */
-  via: () => { build(): Model };
+  /** The owner's Relation of the association it goes through, of its join records. */
+  via: () => Relation<Model>;
 }
 
 /** What a through hasMany needs to write its join records: its owner, and its hops' Relation. */
@@ -28,9 +29,9 @@ export type ThroughOwner = Omit<OwnersHasManyThrough, "collection">;
 
 /**
  * A through hasMany's collection, as its owner holds it: a record built through it gets a join
- * record, built through the association it goes through, that points at it; the writes it
- * can't make (inserting records, creating them, and its own `deleteAll()`) throw
- * `ReadonlyAssociation`. A narrowed one's builds the same way, and its `deleteAll()` deletes
+ * record, built through the association it goes through, that points at it, and one created
+ * through it is saved with it; the writes it can't make (inserting records, and its own
+ * `deleteAll()`) throw `ReadonlyAssociation`. A narrowed one's builds the same way, and its `deleteAll()` deletes
  * the records themselves, as any Relation's does.
  */
 export function throughCollection(through: ThroughOwner): AssociationCollection {
@@ -60,7 +61,7 @@ export function throughCollectionMethods<M extends Model>(
   const refuse = () => Promise.reject(readonlyError(hasMany.association));
   return {
     push: (...records) => push(hasMany, records),
-    delete: refuse,
+    delete: (...records) => remove(hasMany, records),
     destroy: refuse,
     clear: refuse,
     destroyAll: refuse,
@@ -90,6 +91,41 @@ async function push(hasMany: OwnersHasManyThrough, records: Model[]): Promise<bo
   for (const join of joins) viaCollection.created(join);
   for (const record of records) collection.created(record);
   return true;
+}
+
+/**
+ * Takes records out of the association, as Rails' `delete` does through a join Model: deletes
+ * the owner's join records that point at them, without callbacks, and forgets those built
+ * through it. The records themselves stay; one the owner doesn't reach removes nothing.
+ */
+async function remove<M extends Model>(hasMany: OwnersHasManyThrough, records: M[]): Promise<M[]> {
+  const { owner, association, collection, via } = hasMany;
+  requireTargets(association, records);
+  const { via: viaAssociation, source } = association.hops!;
+  const viaCollection = ownedCollection(owner, viaAssociation);
+  viaCollection.removed(builtJoins(viaCollection.added(), source, records));
+  const stored = owner[state].isNew ? [] : records.filter((record) => !record[state].isNew);
+  if (stored.length > 0) {
+    const keys = stored.map((record) => record[state].read(source.targetAttribute));
+    // Narrowed from the association's Relation, so it deletes rather than nullifying.
+    await via()
+      .where({ [source.ownerAttribute]: keys } as never)
+      .deleteAll();
+  }
+  collection.removed(records);
+  return records;
+}
+
+/** The join records among `joins` that point at one of `records` through `source`. */
+function builtJoins(
+  joins: readonly Model[],
+  source: ResolvedAssociation,
+  records: readonly Model[],
+): Model[] {
+  return joins.filter((join) => {
+    const pointedAt = join[state].associations.get(source.name)?.value;
+    return records.includes(pointedAt as Model);
+  });
 }
 
 /**

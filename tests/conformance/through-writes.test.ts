@@ -303,4 +303,52 @@ describe("writing through an association through another", () => {
       expect((await db().model(Assignment).findBy({ projectId: 3 }))?.role).toBe("lead");
     });
   });
+
+  describe("delete", () => {
+    beforeEach(async () => {
+      await harness.exec("INSERT INTO assignments (id, user_id, project_id) VALUES (3, 1, 3)");
+    });
+
+    test("deletes the owner's join records to the records, which stay", async () => {
+      const user = await db().model(User).find(1);
+      await user.projects().toArray();
+      const apollo = await db().model(Project).find(1);
+
+      expect(await user.projects().delete(apollo)).toEqual([apollo]);
+
+      expect(await links()).toEqual([
+        [2, 2],
+        [1, 3],
+      ]);
+      expect(await db().model(Project).count()).toBe(3);
+      expect(user.loaded("projects").map((project) => project.name)).toEqual(["Cygnus"]);
+    });
+
+    test("a record built through it leaves, and saving the owner writes neither", async () => {
+      const user = await db().model(User).find(1);
+      const draco = user.projects().build({ name: "Draco" });
+
+      await user.projects().delete(draco);
+
+      expect(await user.save()).toBe(true);
+      expect(await db().model(Project).count()).toBe(3);
+      expect((await user.projects().toArray()).map((project) => project.name)).toEqual([
+        "Apollo",
+        "Cygnus",
+      ]);
+    });
+
+    test("a record the owner doesn't reach removes nothing", async () => {
+      const user = await db().model(User).find(1);
+      const borealis = await db().model(Project).find(2);
+
+      expect(await user.projects().delete(borealis)).toEqual([borealis]);
+
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+        [1, 3],
+      ]);
+    });
+  });
 });
