@@ -337,6 +337,38 @@ describe("making records", () => {
       expect(await emails()).toContainEqual({ email: "new@example.com", role: "member" });
     });
 
+    test("gives the rows insertAll writes its attributes", async () => {
+      await db()
+        .model(User)
+        .createWith({ role: "member" })
+        .insertAll([{ email: "a@example.com" }, { email: "b@example.com" }]);
+
+      expect(await emails()).toEqual(
+        expect.arrayContaining([
+          { email: "a@example.com", role: "member" },
+          { email: "b@example.com", role: "member" },
+        ]),
+      );
+    });
+
+    test("gives the row upsert inserts its attributes", async () => {
+      await db()
+        .model(User)
+        .createWith({ role: "member" })
+        .upsert({ id: 2, email: "new@example.com" });
+
+      expect(await emails()).toContainEqual({ email: "new@example.com", role: "member" });
+    });
+
+    test("gives the rows upsertAll inserts its attributes", async () => {
+      await db()
+        .model(User)
+        .createWith({ role: "member" })
+        .upsertAll([{ id: 2, email: "new@example.com" }]);
+
+      expect(await emails()).toContainEqual({ email: "new@example.com", role: "member" });
+    });
+
     test("is laid over by the merged Relation's", () => {
       const users = db().model(User);
 
@@ -456,6 +488,14 @@ describe("making records", () => {
 
       expect(user.id).toBe(2);
       expect(user.role).toBe("other");
+    });
+
+    test("makes findOrCreateByOrThrow throw RecordNotUnique", async () => {
+      const finding = db()
+        .model(User)
+        .findOrCreateByOrThrow({ email: "new@example.com" }, () => insertAnother().then(() => {}));
+
+      await expect(finding).rejects.toThrow(RecordNotUnique);
     });
 
     test("makes findOrCreateBy throw RecordNotUnique", async () => {
