@@ -6,10 +6,14 @@ import type { QueryRunner } from "./load.ts";
 import { primaryKeyOf, type Model, type ModelClass } from "./model.ts";
 import type { Condition, QueryDescription } from "./query.ts";
 
-/** The finder rules: `query`'s conditions (plus `extra`) and includes, full rows, no order. */
+/**
+ * The finder rules: `query`'s conditions (plus `extra`), joins and includes, full rows, no
+ * order.
+ */
 function finderQuery(query: QueryDescription, extra?: Condition): QueryDescription {
   const conditions = extra === undefined ? query.conditions : [...query.conditions, extra];
-  return { model: query.model, conditions, order: [], includes: query.includes };
+  const { model, joins, includes } = query;
+  return { model, conditions, order: [], includes, ...(joins !== undefined && { joins }) };
 }
 
 /** One row `query` matches by the finder rules (plus `extra`), or null. */
@@ -48,10 +52,12 @@ export async function findSome<M extends Model>(
   ids: readonly (string | number)[],
 ): Promise<M[]> {
   const { model } = query;
-  const records = await runner.load({
+  const loaded = await runner.load({
     ...finderQuery(query, { [model.primaryKey]: ids }),
     order: query.order,
   });
+  // A hasMany join finds a record once for each linked record (#24): each is found once.
+  const records = eachOnce(loaded);
   if (records.length < ids.length) {
     throw new RecordNotFound(
       `Couldn't find all ${model.name} records with '${model.primaryKey}': ` +
@@ -75,6 +81,17 @@ export function keysToFind(model: ModelClass, ids: readonly unknown[]): (string 
     return (cast === noMatch ? id : cast) as string | number;
   });
   return [...new Set(keys)];
+}
+
+/** `records` without a later one with the same primary key. */
+function eachOnce<M extends Model>(records: readonly M[]): M[] {
+  const seen = new Set<unknown>();
+  return records.filter((record) => {
+    const key = primaryKeyOf(record);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** Found `records` in the order of their primary keys in `keys`. */
