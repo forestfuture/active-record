@@ -5,7 +5,7 @@ import { forget } from "./autosave.ts";
 import { RecordNotSaved } from "./errors.ts";
 import { requireTargets, saveTogether, type CollectionMethods } from "./collection-methods.ts";
 import { destroyTogether } from "./records-together.ts";
-import { refusalError, saveLifecycle } from "./lifecycle.ts";
+import { refusalError, saveLifecycle, type Outcome } from "./lifecycle.ts";
 import type { Model, ModelClass } from "./model.ts";
 import {
   ownedCollection,
@@ -97,10 +97,8 @@ async function push(hasMany: OwnersHasManyThrough, records: Model[]): Promise<bo
   }
   const joins = records.map((record) => joinFor(hasMany, record));
   const viaCollection = ownedCollection(owner, association.hops!.via);
-  if (!(await saveTogether(joins, "push() needs its records"))) {
-    viaCollection.removed(joins);
-    return false;
-  }
+  const save = () => saveTogether(joins, "push() needs its records");
+  if (!(await forgettingUnsaved(viaCollection, joins, save))) return false;
   for (const join of joins) viaCollection.created(join);
   for (const record of records) collection.created(record);
   return true;
@@ -235,14 +233,34 @@ async function saveWithJoin(
   orThrow: boolean,
 ): Promise<boolean> {
   const join = joinFor(through, record);
-  const outcome = await saveLifecycle(join);
-  if (outcome.status === "saved") {
-    ownedCollection(through.owner, through.association.hops!.via).created(join);
+  const viaCollection = ownedCollection(through.owner, through.association.hops!.via);
+  let outcome: Outcome | undefined;
+  const save = async () => (outcome = await saveLifecycle(join)).status === "saved";
+  if (await forgettingUnsaved(viaCollection, [join], save)) {
+    viaCollection.created(join);
     return true;
   }
-  ownedCollection(through.owner, through.association.hops!.via).removed([join]);
   if (!orThrow) return false;
-  throw refusalError(record[state].errors.isEmpty() ? join : record, outcome, "save");
+  const refused = outcome as Exclude<Outcome, { status: "saved" }>;
+  throw refusalError(record[state].errors.isEmpty() ? join : record, refused, "save");
+}
+
+/**
+ * Runs `save`, which saves new join records, and takes them out of the owner's pending ones if
+ * it refuses or throws, so saving the owner later doesn't write them.
+ */
+async function forgettingUnsaved(
+  viaCollection: AssociationCollection,
+  joins: readonly Model[],
+  save: () => Promise<boolean>,
+): Promise<boolean> {
+  let saved = false;
+  try {
+    saved = await save();
+  } finally {
+    if (!saved) viaCollection.removed(joins);
+  }
+  return saved;
 }
 
 /** A new join record, built through the association it goes through, pointing at `record`. */
