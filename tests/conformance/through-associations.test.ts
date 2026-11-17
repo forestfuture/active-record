@@ -5,6 +5,7 @@ import {
   hasOne,
   InvalidModel,
   Model,
+  ReadonlyAssociation,
   RecordNotFound,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
@@ -329,6 +330,76 @@ describe("an association through another", () => {
       expect(ids(await user.collaborators().toArray())).toEqual([1, 2]);
       expect(ids(await user.teammates().toArray())).toEqual([1, 2]);
       expect(await user.collaborators().where({ email: "b@example.com" }).count()).toBe(1);
+    });
+  });
+
+  describe("writing through it, which it refuses", () => {
+    const counts = async () => [
+      await db().model(Project).count(),
+      await db().model(Assignment).count(),
+      await db().model(Project).where({ archived: 1 }).count(),
+    ];
+    const refused = "Can't write through User.projects: it goes through User.assignments";
+    const writes = {
+      build: (user: User) => user.projects().build({ name: "New" }),
+      create: (user: User) => user.projects().create({ name: "New" }),
+      createOrThrow: (user: User) => user.projects().createOrThrow({ name: "New" }),
+      insert: (user: User) => user.projects().insert({ name: "New" }),
+      insertAll: (user: User) => user.projects().insertAll([{ name: "New" }]),
+      upsert: (user: User) => user.projects().upsert({ id: 9, name: "New" }),
+      upsertAll: (user: User) => user.projects().upsertAll([{ id: 9, name: "New" }]),
+      "a narrowed build": (user: User) => user.projects().where({ archived: 0 }).build(),
+      "a narrowed create": (user: User) => user.projects().where({ archived: 0 }).create(),
+      deleteAll: (user: User) => user.projects().deleteAll(),
+      push: (user: User) => user.projects().push(new Project()),
+      delete: (user: User) => user.projects().delete(new Project()),
+      destroy: (user: User) => user.projects().destroy(new Project()),
+      clear: (user: User) => user.projects().clear(),
+      "a batch's insert": (user: User) =>
+        db().batch((b) => [b.insert(user.projects(), { name: "New" })]),
+      "a batch's deleteAll": (user: User) => db().batch((b) => [b.deleteAll(user.projects())]),
+    };
+
+    test.each(Object.keys(writes) as (keyof typeof writes)[])(
+      "%s throws ReadonlyAssociation, writing nothing",
+      async (write) => {
+        const user = await db().model(User).find(1);
+        const before = await counts();
+
+        await expect(async () => writes[write](user)).rejects.toThrow(ReadonlyAssociation);
+        await expect(async () => writes[write](user)).rejects.toThrow(refused);
+        expect(await counts()).toEqual(before);
+      },
+    );
+
+    test("updateAll changes its records, as any Relation's", async () => {
+      const user = await db().model(User).find(1);
+
+      expect(await user.projects().updateAll({ archived: 1 })).toBe(2);
+      expect(await db().model(Project).where({ archived: 1 }).pluck("name")).toEqual([
+        "Apollo",
+        "Cygnus",
+      ]);
+    });
+
+    test("a narrowed deleteAll deletes its records, as any Relation's", async () => {
+      const user = await db().model(User).find(1);
+
+      expect(await user.coworkerAssignments().where({ role: "member" }).deleteAll()).toBe(1);
+      expect(await db().model(Assignment).pluck("id")).toEqual([1, 3]);
+    });
+
+    test("a hasOne through another refuses set, build and create", async () => {
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (1, 1, 'First')");
+      const post = await db().model(Post).find(1);
+      const profile = db().model(Profile).build({ userId: 1 });
+      const message = "Can't write through Post.authorProfile: it goes through Post.user";
+
+      expect(() => post.authorProfile.build()).toThrow(message);
+      await expect(post.authorProfile.set(profile)).rejects.toThrow(ReadonlyAssociation);
+      await expect(post.authorProfile.create()).rejects.toThrow(ReadonlyAssociation);
+      await expect(post.authorProfile.createOrThrow()).rejects.toThrow(ReadonlyAssociation);
+      expect(await db().model(Profile).count()).toBe(0);
     });
   });
 });

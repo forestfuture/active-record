@@ -1,10 +1,10 @@
 // A through association (#59): its declaration checked, and the source association it reaches its records by.
 import { associationsOf } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
-import { InvalidModel } from "./errors.ts";
+import { InvalidModel, ReadonlyAssociation } from "./errors.ts";
 import { singularize } from "./inflections.ts";
 import { Model, type ModelClass } from "./model.ts";
-import { isOnDifferentDatabases } from "./resolved-association.ts";
+import { isOnDifferentDatabases, type ResolvedAssociation } from "./resolved-association.ts";
 
 /**
  * The name of a through association's source: the association of `via`, the Model it goes
@@ -142,4 +142,26 @@ function checkNotCircular(label: string, model: ModelClass, name: string): void 
     if (source !== undefined) walk(via, source);
   };
   walk(model, name);
+}
+
+/** Why nothing is written through a through association (#59): the association it goes through. */
+export function readonlyError({ label, hops }: ResolvedAssociation): ReadonlyAssociation {
+  return new ReadonlyAssociation(
+    `Can't write through ${label}: it goes through ${hops!.via.label}`,
+  );
+}
+
+/** A through hasMany's collection methods (#59): each refuses, writing nothing. */
+export function refusedCollectionMethods(association: ResolvedAssociation) {
+  const refuse = () => Promise.reject(readonlyError(association));
+  return { push: refuse, delete: refuse, destroy: refuse, clear: refuse };
+}
+
+/** A through hasOne's accessor (#59): it reads, and `set`, `build` and `create` refuse. */
+export function readonlyHasOne(read: () => Promise<unknown>, association: ResolvedAssociation) {
+  const refuse = () => Promise.reject(readonlyError(association));
+  const build = () => {
+    throw readonlyError(association);
+  };
+  return Object.assign(read, { set: refuse, build, create: refuse, createOrThrow: refuse });
 }

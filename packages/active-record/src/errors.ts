@@ -173,6 +173,14 @@ export class UnknownAssociation extends ActiveRecordError {
   override name = "UnknownAssociation";
 }
 
+/**
+ * A write through an association that goes through another (#59): building, creating or
+ * inserting records through it, its collection methods, or its own `deleteAll()`.
+ */
+export class ReadonlyAssociation extends ActiveRecordError {
+  override name = "ReadonlyAssociation";
+}
+
 /** `record.loaded(name)` for an association that wasn't preloaded or read yet. */
 export class AssociationNotLoaded extends ActiveRecordError {
   override name = "AssociationNotLoaded";
