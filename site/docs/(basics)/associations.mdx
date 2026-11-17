@@ -1,6 +1,6 @@
 ---
 title: Associations
-description: "belongsTo, hasMany, and hasOne: inferred foreign keys, reading, preloading with includes, autosave, writing through associations, scopes, and dependent strategies."
+description: "belongsTo, hasMany, and hasOne: inferred foreign keys, reading, preloading with includes, autosave, writing through associations, scopes, associations through another, and dependent strategies."
 ---
 
 Associations connect Models: `belongsTo`, `hasMany`, and `hasOne`.
@@ -259,6 +259,68 @@ TypeScript can’t infer this one case: `children = hasMany(Category, { scope: (
 
 </Expandable>
 
+## Reaching records through another association
+
+Reach records through another association with `through`. A tag has many articles through its taggings:
+
+<include>/_excerpts/guide/associations/through.ts</include>
+
+`through` names one of the Model’s own associations, here `taggings`. The join Model’s association with the same name, singular or plural, leads on to the records: `articles` follows each tagging’s `article`.
+
+| Option    | Does                                                                                            |
+| --------- | ----------------------------------------------------------------------------------------------- |
+| `through` | The association to go through                                                                   |
+| `source`  | The join Model’s association to follow. Defaults to this association’s name, singular or plural |
+| `scope`   | Narrows or orders the records. See [Scoping associations](#scoping-associations)                |
+
+### Naming the source
+
+If the join Model’s association has another name, pass it as `source`:
+
+<include>/_excerpts/guide/associations/through-source.ts</include>
+
+### Reading and preloading
+
+Read it as you would any `hasMany`:
+
+<include>/_excerpts/guide/associations/through-read.ts</include>
+
+- **`tag.articles()`** is a Relation, with every Relation method, read in one query.
+- **Each record comes back once**, however many join records point at it.
+- **`includes("articles")`** loads the join records and the articles with the tags’ own query, in one round trip on D1. The join records aren’t kept as `taggings` unless you include them too.
+
+The scopes of both associations it goes through apply, and so does its own `scope`.
+
+### Going through a belongsTo or a hasOne
+
+`through` can name a `belongsTo`, a `hasMany`, or a `hasOne`, and the association it follows can be any of the three. A `hasOne` goes through a `belongsTo` or a `hasOne`:
+
+<include>/_excerpts/guide/associations/through-has-one.ts</include>
+
+An association can also go through one that goes through another, as `writers` does above through `articles`.
+
+### Writing through it
+
+Nothing is written through an association that goes through another yet ([#434](https://github.com/forestfuture/active-record/issues/434)). `build`, `create`, `insert`, `upsert`, `push`, `delete`, `destroy`, `clear`, and its own `deleteAll()` throw `ReadonlyAssociation`, and so do a `hasOne`’s `set`, `build`, and `create`. Write the join records instead:
+
+```ts
+await tag.taggings().create({ articleId: article.id });
+```
+
+:::warning[A narrowed deleteAll deletes the records themselves]
+`updateAll` and a narrowed `deleteAll` act on the records, as any Relation’s do. `tag.articles().where({ title: "Draft" }).deleteAll()` deletes those articles for every tag, not the tag’s taggings.
+:::
+
+:::note
+Every association it goes through must be on one database. One that reaches [another database](./several-databases#associating-models-on-different-databases) is an `InvalidModel` for now ([#435](https://github.com/forestfuture/active-record/issues/435)).
+:::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`through` and `source` work as Rails’ `has_many :through` and `has_one :through` options do. Rails reads through a SQL join, so a record two join records point at comes back twice unless the association is `distinct`. Here it comes back once. Rails also writes through the association, creating and removing join records, which is [#434](https://github.com/forestfuture/active-record/issues/434). Rails’ `disable_joins` has no counterpart yet.
+
+</Callout>
+
 ## Destroying dependent records
 
 Set what destroying the owner does to its records with `dependent`:
@@ -291,7 +353,8 @@ In a batch, pass the association to the write: `b.deleteAll(article.comments())`
 
 These features aren’t in Active Record yet. The code shows the shape they’re likely to take.
 
-- **Associations through another** ([#59](https://github.com/forestfuture/active-record/issues/59)): `projects = hasMany(Project, { through: "assignments" })`, a user’s projects reached through their assignments.
+- **Writing through an association through another** ([#434](https://github.com/forestfuture/active-record/issues/434)): `await tag.articles().push(article)`, which creates the tagging that links them.
+- **Associations through another across databases** ([#435](https://github.com/forestfuture/active-record/issues/435)): an association whose hops are on different databases, read with a query per database.
 - **Polymorphic associations** ([#60](https://github.com/forestfuture/active-record/issues/60)): `commentable = belongsTo([Post, Photo])`, with `comments = hasMany(Comment, { as: "commentable" })` on each.
 - **Counter caches** ([#61](https://github.com/forestfuture/active-record/issues/61)): `post = belongsTo(Post, { counterCache: true })`, keeping a `commentsCount` on each post, updated in the same atomic batch as the write.
 - **Never autosaving** ([#378](https://github.com/forestfuture/active-record/issues/378)): `articles = hasMany(Article, { autosave: false })`, which never saves the association’s records with the owner, not even new ones.

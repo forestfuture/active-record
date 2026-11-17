@@ -133,6 +133,61 @@ export async function statementsExample(article: Article) {
   // #endregion statements
 }
 
+// #region through
+export class Tag extends Model.define({
+  id: { type: "integer", null: false },
+  name: { type: "string", null: false },
+}) {
+  taggings = hasMany(Tagging);
+  articles = hasMany(Article, { through: "taggings" }); // each tagging's article
+}
+
+export class Tagging extends Model.define({
+  id: { type: "integer", null: false },
+  articleId: { type: "string", null: false },
+  tagId: { type: "integer", null: false },
+}) {
+  article = belongsTo(Article);
+  tag = belongsTo(Tag);
+}
+// #endregion through
+
+export class TagWithAuthors extends Model.define({
+  id: { type: "integer", null: false },
+  name: { type: "string", null: false },
+}) {
+  static table = "tags";
+
+  taggings = hasMany(Tagging, { foreignKey: "tagId" });
+  articles = hasMany(Article, { through: "taggings" });
+  // #region through-source
+  writers = hasMany(Author, { through: "articles", source: "author" }); // each article's author
+  // #endregion through-source
+}
+
+export class TaggingWithAuthor extends Model.define({
+  id: { type: "integer", null: false },
+  articleId: { type: "string", null: false },
+}) {
+  static table = "taggings";
+
+  article = belongsTo(Article);
+  // #region through-has-one
+  author = hasOne(Author, { through: "article" }); // the article's author
+  // #endregion through-has-one
+}
+
+export async function throughExample(tagId: number) {
+  // #region through-read
+  const tag = await Tag.find(tagId);
+  const articles = await tag.articles().order({ title: "asc" }).toArray(); // one query
+
+  const tags = await Tag.includes("articles").toArray(); // tags, taggings, and articles: one round trip
+  for (const each of tags) console.log(each.name, each.loaded("articles").length);
+  // #endregion through-read
+  return articles;
+}
+
 // #region self-referencing
 export class Category extends Model.define({
   id: { type: "integer", null: false },

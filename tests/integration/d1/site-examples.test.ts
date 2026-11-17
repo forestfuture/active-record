@@ -25,6 +25,9 @@ import {
   readExample,
   saveChangedExample,
   statementsExample,
+  TagWithAuthors,
+  TaggingWithAuthor,
+  throughExample,
   writersExample,
 } from "../../../site/snippets/guide/associations.ts";
 import * as batches from "../../../site/snippets/guide/batches.ts";
@@ -229,6 +232,8 @@ describe("the guide's examples", () => {
   beforeEach(async () => {
     log.mockClear();
     await binding.batch([
+      binding.prepare("DELETE FROM taggings"),
+      binding.prepare("DELETE FROM tags"),
       binding.prepare("DELETE FROM comments"),
       binding.prepare("DELETE FROM profiles"),
       binding.prepare("DELETE FROM articles"),
@@ -445,6 +450,33 @@ describe("the guide's examples", () => {
     expect(recording.batches).toEqual([4]);
     expect(log).toHaveBeenCalledWith("Mary", 1, "Poet");
     expect(log).toHaveBeenCalledWith("Ada", 2, "Mathematician");
+  });
+
+  test("Associations: through another, read, preloaded, renamed, and as a hasOne", async () => {
+    await binding.batch([
+      binding.prepare("INSERT INTO authors (id, name) VALUES ('ada', 'Ada')"),
+      binding.prepare(
+        "INSERT INTO articles (id, author_id, title) VALUES ('x2', 'ada', 'Engines')",
+      ),
+      binding.prepare("INSERT INTO tags (id, name) VALUES (1, 'essays'), (2, 'empty')"),
+      binding.prepare(
+        "INSERT INTO taggings (id, article_id, tag_id) VALUES (1, 'x2', 1), (2, 'x1', 1)",
+      ),
+    ]);
+    const queries: string[] = [];
+    const recording = recordingBatches(binding);
+    const db = connect(recording.binding, { onQuery: ({ sql }) => queries.push(sql) });
+
+    const articles = await withDatabase(db, () => throughExample(1));
+
+    expect(articles.map((article) => article.title)).toEqual(["Engines", "On Nothing"]);
+    expect(recording.batches).toEqual([3]); // the tags, their taggings, and their articles
+    expect(log).toHaveBeenCalledWith("essays", 2);
+    expect(log).toHaveBeenCalledWith("empty", 0);
+    const tag = await db.model(TagWithAuthors).find(1);
+    expect((await tag.writers().toArray()).map((author) => author.name)).toEqual(["Ada", "Mary"]);
+    const tagging = await db.model(TaggingWithAuthor).find(1);
+    expect((await tagging.author())?.name).toBe("Ada");
   });
 
   test("Batches: statements, many rows, an atomic batch, and records in a batch", async () => {
