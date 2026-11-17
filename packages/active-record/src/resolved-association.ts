@@ -2,6 +2,7 @@
 // associations.ts imports this module too; both uses are at call time, never at load.
 import { readyModel, type AssociationDefinition } from "./associations.ts";
 import { currentExecutorOf } from "./current-database.ts";
+import { UnknownModelName } from "./errors.ts";
 import type { Executor } from "./executor.ts";
 import type { KeyAttributes } from "./loaded-associations.ts";
 import { associationOf } from "./association-fields.ts";
@@ -136,13 +137,18 @@ export class ResolvedAssociation {
 
   /**
    * The branch for the record `owner` points at: the one its type names, or none when its type
-   * is null. A polymorphic belongsTo only; any other is its own.
+   * is null; `UnknownModelName` when it names none of them. Any other association is its own.
    */
   branchForOwner(owner: Model): ResolvedAssociation | undefined {
     if (!this.isPolymorphic) return this;
     const value = owner[state].read(this.definition.foreignType!);
     if (value === null) return undefined;
-    return this.branches.find((branch) => branch.type!.value === value);
+    const branch = this.branches.find((each) => each.type!.value === value);
+    if (branch !== undefined) return branch;
+    const listed = this.branches.map(({ type }) => type!.value).join(", ");
+    throw new UnknownModelName(
+      `${this.label} has the type ${JSON.stringify(value)}, which is none of its Models: ${listed}`,
+    );
   }
 
   /** The branch whose Model `record` is of, if any. */

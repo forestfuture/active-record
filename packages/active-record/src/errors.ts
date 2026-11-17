@@ -182,6 +182,14 @@ export class ReadonlyAssociation extends ActiveRecordError {
   override name = "ReadonlyAssociation";
 }
 
+/**
+ * A polymorphic belongsTo's type that names none of the Models it lists (#60), read from the
+ * database, as Rails raises when it can't find the class a type names.
+ */
+export class UnknownModelName extends ActiveRecordError {
+  override name = "UnknownModelName";
+}
+
 /** `record.loaded(name)` for an association that wasn't preloaded or read yet. */
 export class AssociationNotLoaded extends ActiveRecordError {
   override name = "AssociationNotLoaded";
