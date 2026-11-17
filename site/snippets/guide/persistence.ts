@@ -41,12 +41,12 @@ export async function examples(): Promise<Response> {
   // #endregion destroy-many
   console.log(drafts.length, post.title, posts.length);
 
-  // #region destroy-in-pages
-  let page: Post[];
-  do {
-    page = await Post.where({ publishedAt: null }).limit(100).destroyAll();
-  } while (page.length > 0);
-  // #endregion destroy-in-pages
+  // #region destroy-in-batches
+  const unpublished = Post.where({ publishedAt: null });
+  for await (const batch of unpublished.inBatches({ batchSize: 100 })) {
+    await batch.destroyAll(); // one write per batch
+  }
+  // #endregion destroy-in-batches
 
   // #region reload
   const fresh = await User.find(user.id);

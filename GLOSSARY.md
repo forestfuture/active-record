@@ -156,6 +156,10 @@ _Avoid_: Group query, aggregation
 One page of a **Relation**'s records, from `paginate()`, with its position (`page`, `perPage`, `hasNext`, `hasPrevious`) and, when counted, the `total` it's a page of. A plain object, ready for `Response.json()`.
 _Avoid_: Paginator, cursor (that's keyset pagination), batch (that's D1's)
 
+**Batch iteration**:
+Working through a **Relation**'s records a batch at a time, in primary-key order, with `findEach` (each record), `findInBatches` (arrays) or `inBatches` (a **Relation** per batch). Each batch is its own query, starting after the last batch's key. Not a **Batch**: nothing is atomic across batches.
+_Avoid_: Cursor (that's keyset pagination), chunking
+
 **Scope**:
 A named, reusable change to a Relation, declared on a **Model**, that may take arguments. Calling a scope never runs a query. Not a **Database scope**.
 _Avoid_: Filter, named query

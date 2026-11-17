@@ -139,14 +139,14 @@ Rails’ `destroy_all` on a Relation destroys each record in a transaction of it
 
 ### Destroying a large set
 
-`destroyAll` holds every record it matches in memory, and writes them together. To destroy a large set in smaller writes, destroy a page at a time:
+`destroyAll` holds every record it matches in memory, and writes them together. To destroy a large set in smaller writes, destroy it [a batch at a time](./querying#writing-a-batch-at-a-time):
 
-<include>/_excerpts/guide/persistence/destroy-in-pages.ts</include>
+<include>/_excerpts/guide/persistence/destroy-in-batches.ts</include>
 
-Each page is its own write, so a page that fails leaves the earlier pages destroyed.
+Each batch is its own write, so a batch that fails leaves the earlier batches destroyed.
 
 :::note
-A page bounds memory, not queries. Each record reads its `"destroy"` and restricted associations with a query of its own, so a large set sends as many reads, a page at a time or not.
+A batch bounds memory, not queries. Each record reads its `"destroy"` and restricted associations with a query of its own, so a large set sends as many reads, a batch at a time or not. On D1, that counts toward [the queries one Worker invocation can send](./querying#choosing-where-to-start).
 :::
 
 ## Checking a record’s state
