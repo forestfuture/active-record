@@ -40,9 +40,10 @@ export function withForeignKeys(
 function withForeignType(
   name: string,
   declaration: AssociationDeclaration,
-): AssociationDeclaration {
-  if (declaration.targets === undefined) return declaration;
-  return { ...declaration, foreignType: declaration.foreignType ?? `${name}Type` };
+): AssociationDeclaration & Pick<AssociationDefinition, "typeInferredFrom"> {
+  if (declaration.targets === undefined || declaration.foreignType !== undefined)
+    return declaration;
+  return { ...declaration, foreignType: `${name}Type`, typeInferredFrom: name };
 }
 
 /**

@@ -15,6 +15,7 @@ import {
   type ModelClass,
   type ScopesOf,
 } from "./model.ts";
+import { checkPolymorphic } from "./polymorphic-checks.ts";
 import { verifyModel } from "./verify-model.ts";
 import { checkThrough } from "./through-associations.ts";
 import { throughCollection, throughCollectionMethods } from "./through-writes.ts";
@@ -123,6 +124,8 @@ export interface AssociationDefinition extends AssociationDeclaration {
   foreignKey: string;
   /** A polymorphic association's type attribute, given or inferred (`commentable` → `commentableType`). */
   foreignType?: string;
+  /** The association name an inferred type attribute came from, for error messages. */
+  typeInferredFrom?: string;
   /** Where an inferred foreign key came from, for error messages. */
   inferredFrom?: Inference;
 }
@@ -232,6 +235,7 @@ function checkAssociation(
   const label = `${model.name || "A Model class's"} association "${name}"`;
   checkName(label, model, name);
   const targets = checkTargets(label, definition);
+  checkPolymorphic(label, model, definition, targets);
   // A through association's keys are its two hops' (#59).
   if (definition.through === undefined) {
     for (const target of targets) checkKeys(label, model, target, definition);
