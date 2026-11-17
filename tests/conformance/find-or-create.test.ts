@@ -28,6 +28,7 @@ class User extends Model.define({
   email: "string",
   role: "string",
   age: "integer",
+  createdAt: "datetime",
 }) {
   static table = "users";
   static admins = this.scope((q) => q.where({ role: "admin" }));
@@ -358,6 +359,17 @@ describe("making records", () => {
           .where({ age: 1 })
           .or(users.where({ age: 2 })),
       ).toThrow(IncompatibleRelation);
+    });
+
+    test("is the same on both sides of or() when its values are equal, a date's by its time", () => {
+      const users = db().model(User);
+      const start = () => users.createWith({ createdAt: new Date("2026-01-02T00:00:00Z") });
+
+      const either = start()
+        .where({ age: 1 })
+        .or(start().where({ age: 2 }));
+
+      expect(either.build().createdAt).toEqual(new Date("2026-01-02T00:00:00Z"));
     });
 
     test("refuses an attribute the Model doesn't have", () => {
