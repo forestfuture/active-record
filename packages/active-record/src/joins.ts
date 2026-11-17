@@ -3,10 +3,12 @@ import { IncompatibleRelation } from "./errors.ts";
 import type { Executor } from "./executor.ts";
 import type { Model, ModelClass } from "./model.ts";
 import {
+  JoinedOrder,
   OnJoined,
   type Condition,
   type Join,
   type JoinKind,
+  type OrderTerm,
   type QueryDescription,
 } from "./query.ts";
 import { queryOf } from "./relation.ts";
@@ -97,17 +99,58 @@ export function mergeJoins(a: readonly Join[], b: readonly Join[]): readonly Joi
 }
 
 /**
- * `b`, a Relation of a Model `a` joins, merged into `a` (#24): its conditions, on that join's
- * table, and its `none()`. Throws `IncompatibleRelation` unless `a` joins its Model exactly once.
+ * `b`, a Relation of a Model `a` joins, merged into `a` (#24): its conditions on that join's
+ * table, its order in place of `a`'s (as a same-Model merge replaces it), and its `none()`.
+ * Throws `IncompatibleRelation` unless `a` joins its Model exactly once, or if `b` has what a
+ * joined Model's Relation can't change about `a`.
  */
 export function mergedOnJoin(a: QueryDescription, b: QueryDescription): QueryDescription {
+  refuseUnmergeable(b, a.model);
   const path = joinedPath(a, b.model);
   const conditions = b.conditions.length === 0 ? [] : [new OnJoined(path, b.conditions)];
+  const ordered = b.order.length > 0 || b.reordered === true;
   return {
     ...a,
     conditions: [...a.conditions, ...conditions],
+    ...(ordered && { order: b.order.map((term) => onJoin(path, term)) }),
+    ...(b.reordered === true && { reordered: true }),
     ...(b.none === true && { none: true }),
   };
+}
+
+/** `term`, of the Model joined at `path`, as the joining query's. */
+function onJoin(path: string, term: OrderTerm): OrderTerm {
+  return term instanceof JoinedOrder ? term : new JoinedOrder(path, term);
+}
+
+/** The clauses of a joined Model's Relation that would change the whole query, not its join. */
+const UNMERGEABLE = ["limit", "offset", "select", "distinct", "includes", "joins"] as const;
+
+/** Throws `IncompatibleRelation` if `query`, merged into a query of `into`, sets one of them. */
+function refuseUnmergeable(query: QueryDescription, into: ModelClass<Model>): void {
+  const set = UNMERGEABLE.filter((clause) => {
+    const value = query[clause];
+    if (Array.isArray(value)) return value.length > 0;
+    if (clause === "includes") return Object.keys(value ?? {}).length > 0;
+    return value !== undefined && value !== false;
+  });
+  if (set.length > 0) {
+    throw new IncompatibleRelation(
+      `merge() of a ${query.model.name} Relation into a ${into.name} Relation takes only its conditions and order, but it has ${set.join(", ")}`,
+    );
+  }
+}
+
+/**
+ * Throws `IncompatibleRelation` for a distinct query ordered by a joined Model's attribute:
+ * Postgres can't sort distinct rows by a column it doesn't select, so no database does.
+ */
+export function refuseDistinctJoinedOrder(query: QueryDescription): void {
+  if (query.distinct && query.order.some((term) => term instanceof JoinedOrder)) {
+    throw new IncompatibleRelation(
+      `distinct() can't be combined with an order on a joined Model: ${query.model.name}'s distinct rows don't hold its columns to sort by`,
+    );
+  }
 }
 
 /** The path of the one join of `query` to `model`'s table. */

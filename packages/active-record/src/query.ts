@@ -15,8 +15,19 @@ export interface AttributeOrder {
   nulls?: NullsPlacement;
 }
 
-/** One ORDER BY term: an attribute, or an `sql` fragment for an expression. */
-export type OrderTerm = AttributeOrder | SafeSql;
+/** One ORDER BY term: an attribute, or an `sql` fragment for an expression, or a joined Model's. */
+export type OrderTerm = AttributeOrder | SafeSql | JoinedOrder;
+
+/** A joined Model's order term, from `merge()` (#24): compiled on the table of the join `path` names. */
+export class JoinedOrder {
+  readonly path: string;
+  readonly term: AttributeOrder | SafeSql;
+
+  constructor(path: string, term: AttributeOrder | SafeSql) {
+    this.path = path;
+    this.term = term;
+  }
+}
 
 /** Association names to preload, each with the names to preload on its records in turn. */
 export interface IncludeTree {
@@ -145,10 +156,17 @@ function isSameClause(clause: ShapeClause, a: QueryDescription, b: QueryDescript
 }
 
 function isSameOrderTerm(x: OrderTerm, y: OrderTerm): boolean {
+  if (x instanceof JoinedOrder || y instanceof JoinedOrder) return isSameJoinedOrder(x, y);
   if (x instanceof SafeSql || y instanceof SafeSql) {
     return x instanceof SafeSql && y instanceof SafeSql && isSameFragment(x, y);
   }
   return x.attribute === y.attribute && x.direction === y.direction && x.nulls === y.nulls;
+}
+
+/** Joined Models' order terms, on the same join. */
+function isSameJoinedOrder(x: OrderTerm, y: OrderTerm): boolean {
+  if (!(x instanceof JoinedOrder) || !(y instanceof JoinedOrder)) return false;
+  return x.path === y.path && isSameOrderTerm(x.term, y.term);
 }
 
 /** Fragments with the same text and the same values. */
