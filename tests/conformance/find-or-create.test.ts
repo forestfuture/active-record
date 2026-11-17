@@ -54,6 +54,13 @@ class Member extends Model.define({
   referrer = belongsTo(Member, { foreignKey: "age", optional: true });
 }
 
+class Sample extends Model.define({
+  id: { type: "integer", null: false },
+  settings: "json",
+}) {
+  static table = "typed_samples";
+}
+
 describe("making records", () => {
   let harness: Harness;
   const events: QueryEvent[] = [];
@@ -630,6 +637,49 @@ describe("making records", () => {
         ),
       );
       expect(events).toEqual([]);
+    });
+  });
+
+  describe("a json attribute's array", () => {
+    beforeEach(async () => {
+      await harness.reset("typed_samples");
+      await harness.exec("INSERT INTO typed_samples (id, settings) VALUES (1, ?)", ['["a","b"]']);
+      events.length = 0;
+    });
+
+    test.each(["findOrCreateBy", "findOrCreateByOrThrow", "findOrInitializeBy"] as const)(
+      "is one value, which %s finds",
+      async (method) => {
+        const sample = await db()
+          .model(Sample)
+          [method]({ settings: ["a", "b"] });
+
+        expect(sample.id).toBe(1);
+        expect(statementKinds(events)).toEqual(["SELECT"]);
+      },
+    );
+
+    test.each(["createOrFindBy", "createOrFindByOrThrow"] as const)(
+      "is one value, which %s finds once its key clashes",
+      async (method) => {
+        const sample = await db()
+          .model(Sample)
+          [method]({ id: 1, settings: ["a", "b"] });
+
+        expect(sample.isPersisted()).toBe(true);
+        expect(sample.settings).toEqual(["a", "b"]);
+        expect(statementKinds(events)).toEqual(["INSERT", "SELECT"]);
+      },
+    );
+
+    test("isn't matched by one of its items", async () => {
+      await harness.exec("INSERT INTO typed_samples (id, settings) VALUES (2, ?)", ['"a"']);
+
+      const sample = await db()
+        .model(Sample)
+        .findOrInitializeBy({ settings: ["a", "b"] });
+
+      expect(sample.id).toBe(1);
     });
   });
 
