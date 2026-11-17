@@ -1,7 +1,7 @@
 // Relation: the chainable query (`where`, `order`, …), its finders, terminals, and bulk writes.
 import { jointly } from "./executor.ts";
 import { compileExists, querySql, type QuerySql } from "./compiler.ts";
-import { RecordNotFound } from "./errors.ts";
+import { RecordNotFound, RecordNotUnique } from "./errors.ts";
 import { includeTree } from "./preload.ts";
 import { mergedQuery, withJoins } from "./joins.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
@@ -411,6 +411,22 @@ export class Relation<M extends Model, S = {}> {
     const record = this.build(attributes);
     await init?.(record);
     return record;
+  }
+
+  /**
+   * Creates a record with these attributes (handing it to `init` first), as `create` does, or,
+   * when a unique index refuses it (`RecordNotUnique`), finds the record with these attributes:
+   * safe where two requests create at once, as `findOrCreateBy` isn't. Throws `RecordNotFound`
+   * if the index refused a value the attributes don't name.
+   */
+  async createOrFindBy(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
+    return this.create(attributes, init).catch((error) => this.#findAfterClash(error, attributes));
+  }
+
+  /** The record a unique index kept a create of `attributes` from duplicating. */
+  async #findAfterClash(error: unknown, attributes: Partial<AttributesOf<M>>): Promise<M> {
+    if (!(error instanceof RecordNotUnique)) throw error;
+    return this.findByOrThrow(attributes);
   }
 
   /** Like `findBy`, but throws `RecordNotFound` instead of returning null. */
