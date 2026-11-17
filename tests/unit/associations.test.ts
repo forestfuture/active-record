@@ -234,9 +234,9 @@ describe("an association through another's types (#59)", () => {
     expectTypeOf<ReturnType<Note["tags"]>["clear"]>().returns.resolves.toEqualTypeOf<void>();
   });
 
-  test("a hasMany through another builds its records, and inserts none", () => {
+  test("a hasMany through another builds and creates its records, and inserts none", () => {
     expectTypeOf<ReturnType<Note["tags"]>["build"]>().returns.toEqualTypeOf<Tag>();
-    expectTypeOf<ReturnType<Note["tags"]>["create"]>().toBeNever();
+    expectTypeOf<ReturnType<Note["tags"]>["create"]>().returns.resolves.toEqualTypeOf<Tag>();
     expectTypeOf<ReturnType<Note["tags"]>["insert"]>().toBeNever();
     expectTypeOf<ReturnType<Note["tags"]>["upsert"]>().toBeNever();
     expectTypeOf<ReturnType<Note["tags"]>["deleteAll"]>().toBeNever();

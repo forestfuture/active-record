@@ -1,6 +1,7 @@
 // Writing through a through association (#434): the join records that link its owner to its records, created and removed.
 import { pointOwnerAt } from "./association-writers.ts";
 import { requireTargets, saveTogether, type CollectionMethods } from "./collection-methods.ts";
+import { refusalError, saveLifecycle } from "./lifecycle.ts";
 import type { Model } from "./model.ts";
 import {
   ownedCollection,
@@ -39,15 +40,17 @@ export function throughCollection(through: ThroughOwner): AssociationCollection 
     joinFor(through, record);
   };
   const refuse = (write: Write) => {
-    if (write !== "build") throw readonlyError(through.association);
+    if (write === "insert" || write === "deleteAll") throw readonlyError(through.association);
   };
+  const saveCreated = (record: Model, orThrow: boolean) => saveWithJoin(through, record, orThrow);
   const narrowed = (): OwnedCollection => ({
     ...collection.narrowed(),
     built,
+    saveCreated,
     requireWritable: (write) => (write === "deleteAll" ? undefined : refuse(write)),
     narrowed,
   });
-  return { ...collection, built, requireWritable: refuse, narrowed };
+  return { ...collection, built, saveCreated, requireWritable: refuse, narrowed };
 }
 
 /** A through hasMany's collection methods (#434): each writes its join records. */
@@ -87,6 +90,27 @@ async function push(hasMany: OwnersHasManyThrough, records: Model[]): Promise<bo
   for (const join of joins) viaCollection.created(join);
   for (const record of records) collection.created(record);
   return true;
+}
+
+/**
+ * Saves a record created through the association with a new join record pointing at it: the
+ * join record's save, which saves the record first. Refused, the join record is forgotten, and
+ * with `orThrow` it throws as `saveOrThrow` does, for the record if it was the one refused.
+ */
+async function saveWithJoin(
+  through: ThroughOwner,
+  record: Model,
+  orThrow: boolean,
+): Promise<boolean> {
+  const join = joinFor(through, record);
+  const outcome = await saveLifecycle(join);
+  if (outcome.status === "saved") {
+    ownedCollection(through.owner, through.association.hops!.via).created(join);
+    return true;
+  }
+  ownedCollection(through.owner, through.association.hops!.via).removed([join]);
+  if (!orThrow) return false;
+  throw refusalError(record[state].errors.isEmpty() ? join : record, outcome, "save");
 }
 
 /** A new join record, built through the association it goes through, pointing at `record`. */

@@ -151,15 +151,7 @@ export type HasManyThrough<C extends ModelClass> = () => Scoped<InstanceType<C>,
   };
 
 /** The writes a through association's own Relation refuses (#59). */
-type ThroughWrite =
-  | "create"
-  | "createOrThrow"
-  | "insert"
-  | "insertAll"
-  | "upsert"
-  | "upsertAll"
-  | "deleteAll"
-  | "destroyAll";
+type ThroughWrite = "insert" | "insertAll" | "upsert" | "upsertAll" | "deleteAll" | "destroyAll";
 
 /**
  * `await mark.note()` for a hasOne through another (#59): its record, or null. Nothing is
