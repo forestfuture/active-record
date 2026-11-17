@@ -37,6 +37,7 @@ import {
   writersExample,
 } from "../../../site/snippets/guide/associations.ts";
 import * as batches from "../../../site/snippets/guide/batches.ts";
+import { joinsExample } from "../../../site/snippets/guide/joins.ts";
 import {
   addExample,
   Booking,
@@ -371,6 +372,18 @@ describe("the guide's examples", () => {
         .find("x1")
         .then((article) => article.comments().count()),
     ).toBe(0);
+  });
+
+  test("Querying: joining associations, and merging a joined Model's Relation (#24)", async () => {
+    const db = connect(binding);
+    await db.model(Author).insert({ id: "ada", name: "Ada" });
+
+    const { authors, everyAuthor, titles, inOrder } = await withDatabase(db, () => joinsExample());
+
+    expect(authors.map((author) => author.name)).toEqual(["Mary"]);
+    expect(everyAuthor.map((author) => author.name).sort()).toEqual(["Ada", "Mary"]);
+    expect(titles).toEqual(["On Nothing"]);
+    expect(inOrder).toEqual(["On Nothing"]);
   });
 
   test("Associations: each kind's reference example, as the guide shows it", async () => {
