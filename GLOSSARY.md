@@ -169,8 +169,12 @@ A named link from one **Model** to another through a foreign-key **Attribute**, 
 _Avoid_: Relationship, relation (a Relation is a query)
 
 **Through association**:
-An **Association** that reaches its records through another of its **Model**'s associations, the one it goes through, and that one's Model's **Source association** (`projects = hasMany(Project, { through: "assignments" })`). Nothing is written through it yet.
+An **Association** that reaches its records through another of its **Model**'s associations, the one it goes through, and that one's Model's **Source association** (`projects = hasMany(Project, { through: "assignments" })`). Writing through it creates and removes its **Join records**; one that doesn't go through a join Model is read-only.
 _Avoid_: Join association, indirect association, many-to-many (it's one way to model it)
+
+**Join record**:
+A record of the Model a **Through association** goes through that links one owner to one of its records, through the **Source association** (a belongsTo): an Assignment linking a User to a Project. `push`, `build` and `create` through the association make one, and `delete`, `destroy`, `clear` and its own `deleteAll()` remove them, leaving the records.
+_Avoid_: Join row, link record, through record
 
 **Source association**:
 The association of the Model a **Through association** goes through that leads on to its records: named by `source`, or found by the through association's name, singular or plural (`projects` → `project`).
