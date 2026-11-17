@@ -51,7 +51,7 @@ export type Init<M> = (record: M) => void | Promise<void>;
 export function buildThrough<M extends Model>(
   relation: RelationState<M>,
   attributes: Partial<AttributesOf<M>>,
-  init: ((record: M) => void) | undefined,
+  init: ((record: M) => undefined) | undefined,
 ): M {
   const record = newRecord(relation, attributes);
   relation.collection.built(record);

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
+  hasMany,
   IncompatibleRelation,
   Model,
   RecordInvalid,
@@ -10,6 +11,14 @@ import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
 
+class Post extends Model.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+  title: "string",
+}) {
+  static table = "posts";
+}
+
 class User extends Model.define({
   id: { type: "integer", null: false },
   email: "string",
@@ -17,6 +26,9 @@ class User extends Model.define({
   age: "integer",
 }) {
   static table = "users";
+  static admins = this.scope((q) => q.where({ role: "admin" }));
+
+  posts = hasMany(Post, { foreignKey: "userId" });
 
   static {
     this.validates("email", { presence: true });
@@ -326,6 +338,45 @@ describe("making records", () => {
           .model(User)
           .createWith({ nickname: "x" } as never),
       ).toThrow(/nickname/);
+    });
+  });
+
+  describe("through a scope or an association", () => {
+    test("a scope's conditions are the attributes of the record it creates", async () => {
+      await db().model(User).admins().findOrCreateBy({ email: "new@example.com" });
+
+      expect(await emails()).toContainEqual({ email: "new@example.com", role: "admin" });
+    });
+
+    test("a hasMany's finds only its owner's records, and creates one for its owner", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (2, 'other@example.com')");
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (1, 2, 'Hello')");
+      const user = await db().model(User).find(1);
+
+      const post = await user.posts().findOrCreateBy({ title: "Hello" });
+
+      expect(post.id).not.toBe(1);
+      expect(post.userId).toBe(1);
+      expect(post.isPersisted()).toBe(true);
+    });
+
+    test("a record a loaded hasMany creates joins what it has loaded", async () => {
+      const user = await db().model(User).find(1);
+      await user.posts().toArray();
+
+      const post = await user.posts().createOrFindBy({ title: "Hello" });
+      events.length = 0;
+
+      expect(await user.posts().toArray()).toEqual([post]);
+      expect(events).toEqual([]);
+    });
+
+    test("a hasMany's owner key wins over createWith", async () => {
+      const user = await db().model(User).find(1);
+
+      const post = user.posts().createWith({ userId: 2 }).build();
+
+      expect(post.userId).toBe(1);
     });
   });
 
