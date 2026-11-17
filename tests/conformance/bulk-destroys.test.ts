@@ -126,27 +126,29 @@ describe("destroying many records", () => {
     });
 
     test("runs every before-callback, then writes, then runs the after-callbacks", async () => {
-      await db()
+      // Each statement joins the callbacks' log, so writes and callbacks are in one sequence.
+      const logging = harness.connect({
+        onQuery: (event) => ran.push(statementKinds([event])[0]!),
+      });
+
+      await logging
         .model(Post)
         .where({ id: [1, 2] })
         .order({ id: "asc" })
         .destroyAll();
 
-      // The posts, then each one's comments, are read; then every row is deleted.
-      expect(statementKinds(queries)).toEqual([
-        "SELECT",
-        "SELECT",
-        "SELECT",
-        "DELETE",
-        "DELETE",
-        "DELETE",
-        "DELETE",
-        "DELETE",
-      ]);
       expect(ran).toEqual([
+        "SELECT",
+        "SELECT",
         "before a",
         "before b",
+        "SELECT",
         "before c",
+        "DELETE",
+        "DELETE",
+        "DELETE",
+        "DELETE",
+        "DELETE",
         "after a",
         "after b",
         "after First",
