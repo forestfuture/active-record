@@ -148,6 +148,10 @@ _Avoid_: Query, query builder, scope (for a Relation)
 A value computed over a **Relation**'s rows by the database instead of from loaded records: `sum`, `average`, `minimum` or `maximum` of an **Attribute** or an `sql` fragment, over the rows `toArray()` would return. `count()` counts the same way, and `calculate(operation, attribute)` names any of them.
 _Avoid_: Aggregate (that's the SQL function it compiles to)
 
+**Grouped Relation**:
+A **Relation** grouped by `group(...)` by **Attributes** or `sql` fragments, whose **Calculations** resolve to a `Map` from each group's key (its values) to the group's result. It holds no records.
+_Avoid_: Group query, aggregation
+
 **Page**:
 One page of a **Relation**'s records, from `paginate()`, with its position (`page`, `perPage`, `hasNext`, `hasPrevious`) and, when counted, the `total` it's a page of. A plain object, ready for `Response.json()`.
 _Avoid_: Paginator, cursor (that's keyset pagination), batch (that's D1's)
