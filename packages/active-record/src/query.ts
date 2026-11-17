@@ -42,6 +42,30 @@ export interface QueryDescription {
   none?: boolean;
   /** Associations to preload for every record loaded: `includes(...)`. */
   includes?: IncludeTree;
+  /** Associations joined: `joins(...)` and `leftJoins(...)` (#24). */
+  joins?: readonly Join[];
+}
+
+/** How a join keeps the joining rows: only those with a linked row, or every one. */
+export type JoinKind = "inner" | "left";
+
+/**
+ * One association joined (#24), worked out when the query is written: the table joined, the
+ * attributes linking it to the table it's joined to, and the conditions its association's scope
+ * and its Model's default scopes add to the join.
+ */
+export interface Join {
+  readonly association: string;
+  readonly kind: JoinKind;
+  readonly model: ModelClass<Model>;
+  /** The attribute of the table it's joined to that links them. */
+  readonly ownerAttribute: string;
+  /** Its own attribute that links them. */
+  readonly targetAttribute: string;
+  /** Its scope's conditions, part of the join itself (`ON`), as Rails puts them. */
+  readonly on: readonly Condition[];
+  /** The associations of its Model joined to it in turn. */
+  readonly joins: readonly Join[];
 }
 
 export type Condition = Record<string, unknown> | SafeSql | Negated | Either | LinkedTo;
