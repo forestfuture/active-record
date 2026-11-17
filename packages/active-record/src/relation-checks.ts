@@ -214,3 +214,10 @@ export function checkPreloadable(query: QueryDescription): void {
     );
   }
 }
+
+/** What a scope that doesn't return a Relation of its Model throws. */
+export function scopeResultError(model: ModelClass, name: string): TypeError {
+  return new TypeError(
+    `${model.name} scope "${name}" must return a Relation of ${model.name}, e.g. (q) => q.where(...)`,
+  );
+}

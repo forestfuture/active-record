@@ -1,6 +1,7 @@
 // The order and limit a finder (`first`, `last`, `take`) applies, the order a page keeps, and the order an owner's collection loads in.
 import { IrreversibleOrder } from "./errors.ts";
-import type { ModelClass } from "./model.ts";
+import type { QueryRunner } from "./load.ts";
+import type { Model, ModelClass } from "./model.ts";
 import type { OrderTerm, QueryDescription } from "./query.ts";
 import { SafeSql } from "./sql.ts";
 
@@ -41,10 +42,17 @@ export function thenPrimaryKey(model: ModelClass, query: QueryDescription): read
 }
 
 /** `query`'s order, or the primary key ascending without one: what `first` and `last` use. */
-export function orderOrPrimaryKey(
-  model: ModelClass,
-  query: QueryDescription,
-): readonly OrderTerm[] {
+export function finderOrder(model: ModelClass, query: QueryDescription): readonly OrderTerm[] {
   const { order } = query;
   return order.length > 0 ? order : [{ attribute: model.primaryKey, direction: "asc" }];
+}
+
+/** The first record `query` gives in `order`, keeping its offset, or null: what `first`, `last` and `take` load. */
+export async function oneInOrder<M extends Model>(
+  runner: QueryRunner<M>,
+  query: QueryDescription,
+  order: readonly OrderTerm[],
+): Promise<M | null> {
+  const [record] = await runner.load({ ...query, order, limit: atMostOne(query.limit) });
+  return record ?? null;
 }

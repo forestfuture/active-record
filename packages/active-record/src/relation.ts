@@ -23,7 +23,6 @@ import {
   merged,
   mergeTrees,
   Negated,
-  type OrderTerm,
   type QueryDescription,
 } from "./query.ts";
 import type { Executor } from "./executor.ts";
@@ -42,6 +41,7 @@ import {
   checkConditions,
   checkPreloadable,
   requireSameModel,
+  scopeResultError,
   isEmptyConditions,
   orderTerms,
   skipOn,
@@ -60,7 +60,7 @@ import {
   unowned,
   type OwnedCollection,
 } from "./owned-collection.ts";
-import { atMostOne, orderOrPrimaryKey, reversed, thenPrimaryKey } from "./finder-order.ts";
+import { atMostOne, finderOrder, oneInOrder, reversed, thenPrimaryKey } from "./finder-order.ts";
 import { insertStatement, runAlone, Statement } from "./statement.ts";
 import type { ReturnedRow, WriteResult } from "./statement.ts";
 import { preparedWrites, type PreparedWrites } from "./prepared-writes.ts";
@@ -495,7 +495,7 @@ export class Relation<M extends Model, S = {}> {
   async first(): Promise<M | null> {
     const cached = this.#cached();
     if (cached !== undefined) return cached[0] ?? null;
-    return this.#one(orderOrPrimaryKey(this.#model, this.#query));
+    return oneInOrder(this.#runner, this.#query, finderOrder(this.#model, this.#query));
   }
 
   /**
@@ -509,18 +509,22 @@ export class Relation<M extends Model, S = {}> {
     if (limit !== undefined || offset !== undefined) {
       const page = await this.#runner.load({
         ...this.#query,
-        order: orderOrPrimaryKey(this.#model, this.#query),
+        order: finderOrder(this.#model, this.#query),
       });
       return page.at(-1) ?? null;
     }
-    return this.#one(orderOrPrimaryKey(this.#model, this.#query).map(reversed));
+    return oneInOrder(
+      this.#runner,
+      this.#query,
+      finderOrder(this.#model, this.#query).map(reversed),
+    );
   }
 
   /** One record in whatever order D1 returns, or null. */
   async take(): Promise<M | null> {
     const cached = this.#cached();
     if (cached !== undefined) return cached[0] ?? null;
-    return this.#one(this.#query.order);
+    return oneInOrder(this.#runner, this.#query, this.#query.order);
   }
 
   /** The number of matching records, or of non-null values of `attribute`. */
@@ -694,10 +698,7 @@ export class Relation<M extends Model, S = {}> {
   [applyScope](name: string, scope: Scope<M>, args: unknown[]): Relation<M> {
     const result: unknown = scope(this as Relation<M>, ...args);
     if (!(result instanceof Relation) || result.#model !== this.#model) {
-      const model = this.#model.name;
-      throw new TypeError(
-        `${model} scope "${name}" must return a Relation of ${model}, e.g. (q) => q.where(...)`,
-      );
+      throw scopeResultError(this.#model, name);
     }
     // Its database and this one's must be one when it runs (#93), as for merge and or.
     return result.#joining(this, `${this.#model.name} scope "${name}"`) as Relation<M>;
@@ -723,15 +724,6 @@ export class Relation<M extends Model, S = {}> {
     // A changed query no longer matches what the owner has loaded: the collection narrows.
     const collection = this.#collection.narrowed();
     return new Class({ executor: this.#executor, model: this.#model, query, collection });
-  }
-
-  async #one(order: readonly OrderTerm[]): Promise<M | null> {
-    const [record] = await this.#runner.load({
-      ...this.#query,
-      order,
-      limit: atMostOne(this.#query.limit),
-    });
-    return record ?? null;
   }
 }
 
