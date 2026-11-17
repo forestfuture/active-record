@@ -463,11 +463,7 @@ describe("an association through another", () => {
     test("a Relation it's merged into builds records from its own conditions", async () => {
       const user = await db().model(User).find(1);
 
-      const project = db()
-        .model(Project)
-        .where({ name: "New" })
-        .merge(user.projects() as never)
-        .build();
+      const project = db().model(Project).where({ name: "New" }).merge(user.projects()).build();
 
       expect(project.name).toBe("New");
     });
