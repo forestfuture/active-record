@@ -383,4 +383,18 @@ describe("joins", () => {
       ]);
     });
   });
+
+  test("a record built from a joined Relation takes only its own Model's conditions", () => {
+    const database = db();
+    const posts = database
+      .model(Post)
+      .joins("user")
+      .where({ title: "Draft" })
+      .merge(database.model(User).where({ role: "admin", id: 1 }));
+
+    const post = posts.build();
+
+    expect(post.title).toBe("Draft");
+    expect(post.userId).toBeNull();
+  });
 });
