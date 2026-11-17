@@ -11,6 +11,7 @@ class User extends Model.define({
   static table = "users";
 
   posts = hasMany(Post);
+  badges = hasMany(Badge);
 }
 
 class Post extends Model.define({
@@ -23,6 +24,15 @@ class Post extends Model.define({
   author = belongsTo(User, { foreignKey: "userId" });
 }
 
+class Badge extends Model.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+  slug: "string",
+  label: "string",
+}) {
+  static table = "badges";
+}
+
 describe("upserting through an owner's hasMany (#451)", () => {
   let harness: Harness;
   const db = () => harness.connect();
@@ -33,7 +43,7 @@ describe("upserting through an owner's hasMany (#451)", () => {
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
-    await harness.reset("posts", "users");
+    await harness.reset("badges", "posts", "users");
     await harness.exec(
       "INSERT INTO users (id, email) VALUES (1, 'a@example.com'), (2, 'b@example.com')",
     );
@@ -116,6 +126,40 @@ describe("upserting through an owner's hasMany (#451)", () => {
     expect(await harness.exec("SELECT user_id, title FROM posts WHERE id = 2")).toEqual([
       { user_id: 2, title: "Theirs" },
     ]);
+  });
+
+  describe("matching on another unique index", () => {
+    const badges = () => harness.exec("SELECT id, user_id, slug, label FROM badges ORDER BY id");
+
+    beforeEach(async () => {
+      await harness.exec(
+        "INSERT INTO badges (id, user_id, slug, label) VALUES (1, 1, 'first', 'First'), (2, 2, 'gold', 'Gold')",
+      );
+    });
+
+    test("an upsert matching another owner's row leaves it as it is", async () => {
+      const user = await db().model(User).find(1);
+
+      const result = await user
+        .badges()
+        .upsert({ id: 3, slug: "gold", label: "Mine now" }, { uniqueBy: "slug" });
+
+      expect(result.rowsAffected).toBe(0);
+      expect(await badges()).toContainEqual({ id: 2, user_id: 2, slug: "gold", label: "Gold" });
+    });
+
+    test("an upsert matching on the owner's key and another attribute updates its row", async () => {
+      const user = await db().model(User).find(1);
+
+      await user
+        .badges()
+        .upsert({ slug: "renamed", label: "First" }, { uniqueBy: ["userId", "label"] });
+
+      expect(await badges()).toEqual([
+        { id: 1, user_id: 1, slug: "renamed", label: "First" },
+        { id: 2, user_id: 2, slug: "gold", label: "Gold" },
+      ]);
+    });
   });
 
   test("a Relation with no owner upserts any row its conditions name, as Rails does", async () => {
