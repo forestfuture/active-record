@@ -54,7 +54,7 @@ describe("upserting through an owner's hasMany (#451)", () => {
     ]);
   });
 
-  test("upsertAll updates the owner's rows and inserts new ones, but not another owner's (guard)", async () => {
+  test("upsertAll updates the owner's rows and inserts new ones, but not another owner's", async () => {
     const user = await db().model(User).find(1);
 
     const result = await user.posts().upsertAll([
@@ -73,7 +73,7 @@ describe("upserting through an owner's hasMany (#451)", () => {
     ]);
   });
 
-  test("a batch's upsert through a hasMany leaves another owner's row as it is (guard)", async () => {
+  test("a batch's upsert through a hasMany leaves another owner's row as it is", async () => {
     const user = await db().model(User).find(1);
 
     await batch((b) => [b.upsert(user.posts(), { id: 2, title: "Mine now" })]);
@@ -89,7 +89,7 @@ describe("upserting through an owner's hasMany (#451)", () => {
         user.posts().merge(database.model(Post).where({ userId: 2 })),
     ],
     ["or()ed", (user: User) => user.posts().or(user.posts().where({ title: "Theirs" }))],
-  ])("a %s hasMany's upsert leaves another owner's row as it is (guard)", async (_, posts) => {
+  ])("a %s hasMany's upsert leaves another owner's row as it is", async (_, posts) => {
     const database = db();
     const user = await database.model(User).find(1);
 
@@ -101,7 +101,7 @@ describe("upserting through an owner's hasMany (#451)", () => {
     ]);
   });
 
-  test("a Relation with no owner upserts any row its conditions name, as Rails does (guard)", async () => {
+  test("a Relation with no owner upserts any row its conditions name, as Rails does", async () => {
     await db().model(Post).where({ userId: 1 }).upsert({ id: 2, title: "Mine now" });
 
     expect(await harness.exec("SELECT user_id, title FROM posts WHERE id = 2")).toEqual([
@@ -132,6 +132,7 @@ describe("upserting through a polymorphic hasMany (#451)", () => {
   }
 
   let harness: Harness;
+  const db = () => harness.connect();
   const remarks = () =>
     harness.exec("SELECT id, body, commentable_type, commentable_id FROM remarks ORDER BY id");
 
@@ -149,7 +150,7 @@ describe("upserting through a polymorphic hasMany (#451)", () => {
   });
 
   test("a record built through it gets its owner's type over a given one", async () => {
-    const post = await harness.connect().model(Article).find(10);
+    const post = await db().model(Article).find(10);
 
     const remark = post.remarks().build({ commentableType: "Photo" });
 
@@ -157,7 +158,7 @@ describe("upserting through a polymorphic hasMany (#451)", () => {
   });
 
   test("upsert leaves a row with the owner's key but another type as it is", async () => {
-    const post = await harness.connect().model(Article).find(10);
+    const post = await db().model(Article).find(10);
 
     const result = await post.remarks().upsert({ id: 2, body: "Mine now" });
 
@@ -169,7 +170,7 @@ describe("upserting through a polymorphic hasMany (#451)", () => {
   });
 
   test("upsert given another type still leaves that type's row as it is", async () => {
-    const post = await harness.connect().model(Article).find(10);
+    const post = await db().model(Article).find(10);
 
     await post.remarks().upsert({ id: 2, body: "Mine now", commentableType: "Photo" });
 
