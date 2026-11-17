@@ -103,6 +103,26 @@ describe("polymorphic associations", () => {
     );
   });
 
+  test("primaryKey links each listed Model by that attribute", async () => {
+    class TitledRemark extends Remark {
+      override commentable = belongsTo([Post, Photo], {
+        foreignKey: "body",
+        primaryKey: "title",
+        optional: true,
+      });
+    }
+    await harness.exec(
+      "INSERT INTO remarks (id, body, commentable_type, commentable_id) VALUES (4, 'Sunset', 'Photo', NULL)",
+    );
+    const db = harness.connect();
+    const remark = await db.model(TitledRemark).find(4);
+    const post = await db.model(Post).find(10);
+
+    expect(((await remark.commentable()) as Photo).id).toBe(10);
+    remark.commentable.set(post);
+    expect([remark.commentableType, remark.body]).toEqual(["Post", "First"]);
+  });
+
   describe("setting a polymorphic belongsTo", () => {
     test("set points it at a record of any listed Model, by its type and key", async () => {
       const queries: QueryEvent[] = [];
@@ -346,6 +366,17 @@ describe("polymorphic associations", () => {
       await expect(post.remarks().delete(onPhoto)).rejects.toThrow(
         new TypeError("Post.remarks doesn't hold this Remark: it belongs to a Photo"),
       );
+    });
+
+    test("destroy refuses a record of another Model with the same key", async () => {
+      const db = harness.connect();
+      const post = await db.model(Post).find(10);
+      const onPhoto = await db.model(Remark).find(2);
+
+      await expect(post.remarks().destroy(onPhoto)).rejects.toThrow(
+        new TypeError("Post.remarks doesn't hold this Remark: it belongs to a Photo"),
+      );
+      expect(await db.model(Remark).where({ id: 2 }).count()).toBe(1);
     });
   });
 
