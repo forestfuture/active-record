@@ -231,6 +231,31 @@ describe("making records", () => {
     });
   });
 
+  describe("createOrFindByOrThrow", () => {
+    test("creates a row with the attributes, handing it to init", async () => {
+      await db()
+        .model(User)
+        .createOrFindByOrThrow({ email: "new@example.com" }, (record) => {
+          record.role = "member";
+        });
+
+      expect(await emails()).toContainEqual({ email: "new@example.com", role: "member" });
+    });
+
+    test("finds the row a unique index refused a duplicate of", async () => {
+      const user = await db().model(User).createOrFindByOrThrow({ email: "taken@example.com" });
+
+      expect(user.id).toBe(1);
+      expect(statementKinds(events)).toEqual(["INSERT", "SELECT"]);
+    });
+
+    test("throws RecordInvalid when the record can't be saved", async () => {
+      await expect(db().model(User).createOrFindByOrThrow({ email: null })).rejects.toThrow(
+        RecordInvalid,
+      );
+    });
+  });
+
   describe("a row inserted between finding and creating", () => {
     const insertAnother = () =>
       harness.exec("INSERT INTO users (id, email, role) VALUES (2, 'new@example.com', 'other')");
