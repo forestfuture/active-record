@@ -26,6 +26,11 @@ describe("finding or making a record, typed", () => {
         expectTypeOf(admin).toEqualTypeOf<Admin>();
       });
       expectTypeOf(Admin.build({}, (admin) => void admin.level)).toEqualTypeOf<Admin>();
+      const named = (admin: Admin): void => {
+        admin.age = 30;
+      };
+      expectTypeOf(Admin.build({}, named)).toEqualTypeOf<Admin>();
+      expectTypeOf(Admin.build({}, (admin) => (admin.age = 30))).toEqualTypeOf<Admin>();
       expectTypeOf(Admin.createWith({ age: 1 }).build()).toEqualTypeOf<Admin>();
     };
     void typed;
@@ -39,8 +44,6 @@ describe("finding or making a record, typed", () => {
       void User.createOrFindBy({ age: gt(1) });
       // @ts-expect-error -- an attribute's value is its type's
       void User.createWith({ age: "old" });
-      // @ts-expect-error -- build's init isn't awaited, so it can't be async
-      void User.build({}, async () => {});
     };
     void typed;
   });

@@ -78,6 +78,12 @@ describe("making records", () => {
       expect(user.isNewRecord()).toBe(true);
     });
 
+    test("build refuses an init that returns a promise, which it can't await", () => {
+      const users = db().model(User);
+
+      expect(() => users.build({ email: "new@example.com" }, async () => {})).toThrow(TypeError);
+    });
+
     test("create awaits init before saving, so what it sets is saved", async () => {
       const user = await db()
         .model(User)
