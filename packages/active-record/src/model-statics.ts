@@ -181,6 +181,10 @@ interface OverloadedStatics {
       ...attributes: K
     ): Promise<{ -readonly [I in keyof K]: AttributesOf<InstanceType<C>>[K[I]] }[]>;
   };
+  pick: <C extends QueryableClass, K extends keyof AttributesOf<InstanceType<C>> & string>(
+    this: C,
+    attribute: K,
+  ) => Promise<AttributesOf<InstanceType<C>>[K] | null>;
 }
 
 /** A primary key, or several, as `find` takes them. */
@@ -345,6 +349,7 @@ export function defineStatics(base: typeof Model): void {
     "merge",
     "find",
     "pluck",
+    "pick",
     "paginate",
     "group",
     "sum",
