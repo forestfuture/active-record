@@ -384,7 +384,7 @@ A join reads one database. Joining an association to a Model on another database
 - Rails applies a merged Relation’s `limit` to the whole query. Active Record refuses it.
 - Rails leaves `distinct` with an order on a joined table to the database, which Postgres refuses and SQLite runs. Active Record throws `IncompatibleRelation` on both.
 - With a `hasMany` join, Rails’ `find(1, 2)` counts the duplicate rows and raises `RecordNotFound`. Active Record returns each record once.
-- Rails’ `where(author: { name: "Mary" })`, `where.missing`, and `eager_load` aren’t here yet. Merge a Relation of the joined Model instead, and preload with `includes`.
+- Rails’ `where(author: { name: "Mary" })`, `where.missing`, `eager_load`, and joins through another association aren’t here yet. Joining a `through` association throws `IncompatibleRelation`. Merge a Relation of the joined Model instead, and preload with `includes`.
 
 </Callout>
 
