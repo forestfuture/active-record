@@ -42,7 +42,37 @@ export function checkThrough(
   checkOptions(label, definition);
   checkNotCircular(label, model, name);
   const via = viaOf(label, model, definition);
-  if (via !== undefined) checkSource(label, { model, name, definition }, via);
+  if (via === undefined) return;
+  checkSource(label, { model, name, definition }, via);
+  checkDependentShape(label, { model, name, definition }, via);
+}
+
+/**
+ * A through hasMany's `dependent` acts on its join records, so it needs a join Model, as a
+ * write through it does (#434): on any other shape, destroying the owner would remove the
+ * records of the association it goes through, or of its source.
+ */
+function checkDependentShape(
+  label: string,
+  { model, name, definition }: Declared,
+  via: ModelClass,
+) {
+  if (definition.dependent === undefined) return;
+  // Checked by checkSource first, so the source is there.
+  const sourceName = sourceNameOf(name, definition, via)!;
+  const hops = {
+    via: {
+      label: `${model.name}.${definition.through!}`,
+      definition: associationsOf(model).get(definition.through!)!,
+    },
+    source: {
+      label: `${via.name}.${sourceName}`,
+      definition: associationsOf(via).get(sourceName)!,
+    },
+  };
+  const reason = shapeRefusal(definition.kind, hops);
+  if (reason !== undefined)
+    throw new InvalidModel(`${label}: its dependent needs a join Model: ${reason}`);
 }
 
 /** One of a Model's associations, as it's declared. */
@@ -172,11 +202,31 @@ export function requireWritableThrough(association: ResolvedAssociation): void {
 
 /** Why nothing is written through `association`, if nothing is. */
 function writeRefusal({ definition, hops }: ResolvedAssociation): string | undefined {
-  const { via, source } = hops!;
-  if (via.hops !== undefined) return `it goes through ${via.label}, which goes through another`;
-  if (source.hops !== undefined) return `its source ${source.label} goes through another`;
+  return shapeRefusal(definition.kind, hops!);
+}
+
+/** One hop of a through association, as its shape is checked: its name, and its declaration. */
+interface Hop {
+  label: string;
+  definition: AssociationDefinition;
+}
+
+/**
+ * Why a through association of `kind` doesn't go through a join Model, if it doesn't: it must
+ * go through a hasMany (a hasOne, for a hasOne) to a belongsTo source, neither nested.
+ */
+function shapeRefusal(
+  kind: AssociationDefinition["kind"],
+  { via, source }: { via: Hop; source: Hop },
+): string | undefined {
+  if (via.definition.through !== undefined) {
+    return `it goes through ${via.label}, which goes through another`;
+  }
+  if (source.definition.through !== undefined) {
+    return `its source ${source.label} goes through another`;
+  }
   const viaKind = via.definition.kind;
-  if (viaKind !== definition.kind) return `it goes through ${via.label}, a ${viaKind}`;
+  if (viaKind !== kind) return `it goes through ${via.label}, a ${viaKind}`;
   const sourceKind = source.definition.kind;
   if (sourceKind !== "belongsTo") {
     return `its source ${source.label} is a ${sourceKind}, not a belongsTo`;
