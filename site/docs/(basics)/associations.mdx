@@ -330,8 +330,8 @@ An article the tag doesn’t reach removes nothing. To remove an article itself,
 
 In a batch, pass the association to the write: `b.deleteAll(tag.articles())` deletes the tag’s taggings.
 
-:::warning[A narrowed deleteAll deletes the records themselves]
-`updateAll` and a narrowed `deleteAll` act on the records, as any Relation’s do. `tag.articles().where({ title: "Draft" }).deleteAll()` deletes those articles for every tag, not the tag’s taggings.
+:::warning[A narrowed deleteAll or destroyAll removes the records themselves]
+`updateAll`, and a narrowed `deleteAll` or `destroyAll`, act on the records, as any Relation’s do. `tag.articles().where({ title: "Draft" }).deleteAll()` deletes those articles for every tag, not the tag’s taggings.
 :::
 
 #### Removing join records with dependent
