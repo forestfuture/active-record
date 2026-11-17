@@ -421,6 +421,24 @@ describe("writing through an association through another", () => {
     });
   });
 
+  describe("the association's own destroyAll", () => {
+    beforeEach(async () => {
+      await harness.exec("INSERT INTO assignments (id, user_id, project_id) VALUES (3, 1, 3)");
+    });
+
+    test("destroys the owner's join records, callbacks included, resolving to the records", async () => {
+      const user = await db().model(User).find(1);
+
+      const projects = await user.projects().destroyAll();
+
+      expect(projects.map((project) => project.name)).toEqual(["Apollo", "Cygnus"]);
+      expect(destroyed).toEqual([1, 3]);
+      expect(await links()).toEqual([[2, 2]]);
+      expect(await db().model(Project).count()).toBe(3);
+      expect(user.loaded("projects")).toEqual([]);
+    });
+  });
+
   describe("clear and the association's own deleteAll", () => {
     beforeEach(async () => {
       await harness.exec(

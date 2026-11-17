@@ -501,14 +501,6 @@ describe("an association through another", () => {
       ]);
     });
 
-    test("its own destroyAll throws ReadonlyAssociation, writing nothing", async () => {
-      const user = await db().model(User).find(1);
-      const before = await counts();
-
-      await expect(asCollection(user.projects()).destroyAll()).rejects.toThrow(ReadonlyAssociation);
-      expect(await counts()).toEqual(before);
-    });
-
     test("an unsaved owner refuses with ReadonlyAssociation as a saved one does", async () => {
       const user = db().model(User).build({ email: "new@example.com" });
 
