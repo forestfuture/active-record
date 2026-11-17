@@ -423,6 +423,13 @@ export class Relation<M extends Model, S = {}> {
     return this.create(attributes, init).catch((error) => this.#findAfterClash(error, attributes));
   }
 
+  /** Like `createOrFindBy`, but throws if the record can't be saved. */
+  async createOrFindByOrThrow(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
+    return this.createOrThrow(attributes, init).catch((error) =>
+      this.#findAfterClash(error, attributes),
+    );
+  }
+
   /** The record a unique index kept a create of `attributes` from duplicating. */
   async #findAfterClash(error: unknown, attributes: Partial<AttributesOf<M>>): Promise<M> {
     if (!(error instanceof RecordNotUnique)) throw error;
