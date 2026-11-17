@@ -29,9 +29,14 @@ function reversedTerm(term: AttributeOrder | SafeSql): AttributeOrder | SafeSql 
   return { ...term, direction, ...(nulls && { nulls }) };
 }
 
-/** One record from the page: `limit(0)` stays empty, and `offset` is kept by the caller. */
+/** Up to `rows` records from the page: `limit(0)` stays empty, and `offset` is kept by the caller. */
+function atMost(rows: number, limit: number | undefined): number {
+  return Math.min(limit ?? rows, rows);
+}
+
+/** One record from the page, as `atMost` takes it. */
 export function atMostOne(limit: number | undefined): number {
-  return Math.min(limit ?? 1, 1);
+  return atMost(1, limit);
 }
 
 /**
@@ -81,10 +86,7 @@ export async function soleIn<M extends Model>(
   runner: QueryRunner<M>,
   query: QueryDescription,
 ): Promise<M> {
-  return onlyOne(
-    query.model,
-    await runner.load({ ...query, limit: Math.min(query.limit ?? 2, 2) }),
-  );
+  return onlyOne(query.model, await runner.load({ ...query, limit: atMost(2, query.limit) }));
 }
 
 /** The one record in `records`; `RecordNotFound` with none, `SoleRecordExceeded` with more. */
