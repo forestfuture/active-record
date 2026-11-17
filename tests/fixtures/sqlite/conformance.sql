@@ -27,3 +27,7 @@ CREATE TABLE ledger_lines (id INTEGER PRIMARY KEY, label TEXT, amount DECIMAL, b
 
 -- Calculations (#344): a column named like the alias a calculation selects its values as.
 CREATE TABLE readings (id INTEGER PRIMARY KEY, value INTEGER, price INTEGER);
+
+-- Associations through another (#59): users' projects through their assignments.
+CREATE TABLE projects (id INTEGER PRIMARY KEY, name TEXT NOT NULL, archived INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE assignments (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users (id), project_id INTEGER REFERENCES projects (id), role TEXT);

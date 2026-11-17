@@ -19,6 +19,7 @@ import {
   allOf,
   either,
   inheritedAttributes,
+  LinkedTo,
   merged,
   mergeTrees,
   Negated,
@@ -87,8 +88,11 @@ export type IncludeSpec<M> =
         | readonly IncludeSpec<TargetRecord<M[K]>>[];
     };
 
-/** @internal The library's key for the query preloading a Relation sends, checked first. */
-export const preloadQuery = Symbol("preloadQuery");
+/** @internal The library's key for the query a Relation describes. */
+export const queryOf = Symbol("queryOf");
+
+/** @internal The library's key for narrowing a Relation to the records linked to another's (#59). */
+export const linkedToRecordsOf = Symbol("linkedToRecordsOf");
 
 /** @internal The library's key for making a hasMany Relation of an owner. */
 export const ofOwner = Symbol("ofOwner");
@@ -227,18 +231,19 @@ export class Relation<M extends Model, S = {}> {
     return new Class({ executor: this.#executor, model: this.#model, query, collection });
   }
 
-  /**
-   * @internal This Relation's query, if an association scope can be preloaded with it: a limit,
-   * offset or distinct would apply to every owner's records together, not to each owner's.
-   */
-  [preloadQuery](association: string): QueryDescription {
-    const { limit, offset, distinct } = this.#query;
-    if (limit !== undefined || offset !== undefined || distinct) {
-      throw new IncompatibleRelation(
-        `${association} can't be preloaded: its scope uses limit, offset or distinct, which would apply to every owner's records together; read it lazily instead`,
-      );
-    }
+  /** @internal The query this Relation describes. */
+  get [queryOf](): QueryDescription {
     return this.#query;
+  }
+
+  /**
+   * @internal This Relation narrowed to the records whose `attribute` is the `ownerKey` of a
+   * record `owners` finds, with a subquery: `attribute IN (SELECT ownerKey …)`.
+   */
+  [linkedToRecordsOf](attribute: string, owners: QueryDescription, ownerKey: string): Scoped<M, S> {
+    if (owners.none) return this.none();
+    const linked = new LinkedTo(attribute, owners, ownerKey);
+    return this.#with({ conditions: [...this.#query.conditions, linked] });
   }
 
   /**
