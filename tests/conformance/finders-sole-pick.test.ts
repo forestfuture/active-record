@@ -151,6 +151,14 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       expect((await user.posts().sole()).title).toBe("Only");
       expect(events).toHaveLength(0);
     });
+
+    test("on a loaded hasMany, counts a built record as first and last read it", async () => {
+      const user = await withLoadedPosts("Saved");
+      user.posts().build({ title: "Built" });
+
+      await expect(user.posts().sole()).rejects.toThrow(SoleRecordExceeded);
+      expect(events).toHaveLength(0);
+    });
   });
 
   describe("findSoleBy", () => {
