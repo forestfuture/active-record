@@ -1,6 +1,6 @@
 ---
 title: Persistence
-description: "save, create, update, and destroy, their OrThrow variants, what each returns or throws, lifecycle state, and reload."
+description: "save, create, update, and destroy, their OrThrow variants, what each returns or throws, destroying many records, lifecycle state, and reload."
 ---
 
 Records are saved, updated, and destroyed with `save`, `create`, `update`, and `destroy`.
@@ -68,6 +68,34 @@ It runs the destroy callbacks and the associations’ [`dependent` options](./as
 If another request already deleted the row, `save` and `destroy` still succeed.
 :::
 
+### Destroying many records
+
+Destroy every record a query matches with `destroyAll`:
+
+<include>/_excerpts/guide/persistence/destroy-many.ts</include>
+
+- **`destroyAll()`** loads the records, runs each one’s destroy callbacks and `dependent` options, and deletes them all in one write. It resolves to the destroyed records.
+- **`destroyBy(conditions)`** is `where(conditions).destroyAll()`.
+- **`Post.destroy(id)`** finds the record by its primary key and destroys it. Given an array of keys, it destroys those records in one write. It throws `RecordNotFound` if a key has no record, before destroying any.
+
+If a record’s callback aborts, or a `restrictWithError` association refuses, each of them throws `RecordNotDestroyed`, and nothing is destroyed.
+
+To delete rows without loading them or running callbacks, use `deleteAll`, `deleteBy`, or `Post.delete(ids)`. See [Bulk writes and batches](./batches).
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails’ `destroy_all` on a Relation destroys each record in a transaction of its own, skips a record whose callback aborts, and returns every record. Here the records are destroyed in one write, and one refusal stops them all, as Rails’ `destroy_all` on an association does.
+
+</Callout>
+
+### Destroying a large set
+
+`destroyAll` holds every record it matches in memory, and writes them together. To destroy a large set in smaller writes, destroy a page at a time:
+
+<include>/_excerpts/guide/persistence/destroy-in-pages.ts</include>
+
+Each page is its own write, so a page that fails leaves the earlier pages destroyed.
+
 ## Checking a record’s state
 
 | State                                            | `isNewRecord()` | `isPersisted()` | `isDestroyed()` |
@@ -86,4 +114,4 @@ It throws `RecordNotFound` if the row is gone, or the record was never saved.
 
 ## Writing many rows
 
-To insert, update, or delete many rows at once, without validations and callbacks, use `insertAll`, `upsertAll`, `updateAll`, and `deleteAll`. See [Bulk writes and batches](./batches).
+To insert, update, or delete many rows at once, without validations and callbacks, use `insertAll`, `upsertAll`, `updateAll`, `deleteAll`, and `deleteBy`. See [Bulk writes and batches](./batches).

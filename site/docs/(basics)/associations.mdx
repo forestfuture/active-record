@@ -61,6 +61,7 @@ Use `hasMany` on the Model the other table’s foreign key points at. A user has
 - **`record.posts().delete(...records)`** removes records by the `dependent` strategy. It destroys them for `"destroy"`, deletes them for `"deleteAll"`, and otherwise sets their foreign key to `NULL`.
 - **`record.posts().destroy(...records)`** destroys records with their callbacks, whatever the strategy.
 - **`record.posts().clear()`** removes every record, as `deleteAll()` does.
+- **`record.posts().destroyAll()`** destroys every record with its callbacks, whatever the strategy, and leaves the association empty.
 - **`insert`, `updateAll`, and `deleteAll`** write to the owner’s records. See [Writing many rows](#writing-many-rows).
 
 | Option       | Does                                                                                                             |

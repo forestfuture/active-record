@@ -1,6 +1,6 @@
 ---
 title: Bulk writes and batches
-description: "Reference for bulk writes (insert, insertAll, upsert, updateAll, deleteAll) and atomic batches of them and of records' saves and destroys, prepared with batch((b) => [...])."
+description: "Reference for bulk writes (insert, insertAll, upsert, updateAll, deleteAll, deleteBy) and atomic batches of them and of records' saves and destroys, prepared with batch((b) => [...])."
 ---
 
 Bulk writes change many rows in one SQL statement. A batch sends several writes to D1 at once, and they’re all written, or none of them.
@@ -13,7 +13,12 @@ Call a bulk write on a Relation. It runs straight away, without validations or c
 
 - **`updateAll(changes)`** takes attributes or an `sql` fragment, and resolves to the number of rows updated. It leaves `updatedAt` alone. With a `limit` or `offset`, the Relation’s order picks which rows are written.
 - **`deleteAll()`** resolves to the number of rows deleted. On `none()`, both send nothing and resolve to `0`.
+- **`deleteBy(conditions)`** is `where(conditions).deleteAll()`. **`Comment.delete(id)`** deletes by primary key, and takes an array of keys too. Both resolve to the number of rows deleted.
 - **`insert(attrs)`** writes one row. It resolves to `{ rowsAffected, rows }`, and `rows` holds the new row’s primary key. Declared defaults, timestamps, and a Relation’s equality conditions fill what isn’t given.
+
+:::note
+To run each record’s callbacks, destroy the records with [`destroyAll`](./persistence#destroying-many-records) instead.
+:::
 
 ### Inserting many rows
 
