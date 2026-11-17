@@ -235,6 +235,7 @@ describe("an association through another's types (#59)", () => {
     expectTypeOf<ReturnType<Note["tags"]>["insert"]>().toBeNever();
     expectTypeOf<ReturnType<Note["tags"]>["upsert"]>().toBeNever();
     expectTypeOf<ReturnType<Note["tags"]>["deleteAll"]>().toBeNever();
+    expectTypeOf<ReturnType<Note["tags"]>["destroyAll"]>().toBeNever();
   });
 
   test("a hasMany through another is still a Relation, for or, merge and a batch's updateAll", () => {

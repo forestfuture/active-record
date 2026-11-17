@@ -141,7 +141,7 @@ export type HasMany<C extends ModelClass> = () => HasManyCollection<InstanceType
 /**
  * `note.tags()` for an association through another (#59): a Relation of its records, which
  * reads and preloads as any hasMany's. It has no collection methods, and the writes it refuses
- * (`build`, `create`, `insert`, `upsert`, and its own `deleteAll`) are typed `never`, so it's
+ * (`build`, `create`, `insert`, `upsert`, and its own `deleteAll` and `destroyAll`) are typed `never`, so it's
  * still a Relation, for `or`, `merge` and a batch's `updateAll`.
  */
 export type HasManyThrough<C extends ModelClass> = () => Scoped<InstanceType<C>, ScopesOf<C>> & {
@@ -157,7 +157,8 @@ type ThroughWrite =
   | "insertAll"
   | "upsert"
   | "upsertAll"
-  | "deleteAll";
+  | "deleteAll"
+  | "destroyAll";
 
 /**
  * `await mark.note()` for a hasOne through another (#59): its record, or null. Nothing is

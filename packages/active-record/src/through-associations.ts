@@ -157,7 +157,7 @@ function refusal(association: ResolvedAssociation): () => Promise<never> {
 /** A through hasMany's collection methods (#59): each refuses, writing nothing. */
 export function refusedCollectionMethods(association: ResolvedAssociation) {
   const refuse = refusal(association);
-  return { push: refuse, delete: refuse, destroy: refuse, clear: refuse };
+  return { push: refuse, delete: refuse, destroy: refuse, clear: refuse, destroyAll: refuse };
 }
 
 /** A through hasOne's accessor (#59): it reads, and `set`, `build` and `create` refuse. */

@@ -421,6 +421,7 @@ describe("an association through another", () => {
       delete: (user: User) => asCollection(user.projects()).delete(new Project()),
       destroy: (user: User) => asCollection(user.projects()).destroy(new Project()),
       clear: (user: User) => asCollection(user.projects()).clear(),
+      destroyAll: (user: User) => asCollection(user.projects()).destroyAll(),
       "a batch's insert": (user: User) =>
         db().batch((b) => [b.insert(asCollection(user.projects()), { name: "New" })]),
       "a batch's deleteAll": (user: User) =>
@@ -466,6 +467,22 @@ describe("an association through another", () => {
       const project = db().model(Project).where({ name: "New" }).merge(user.projects()).build();
 
       expect(project.name).toBe("New");
+    });
+
+    test("deleteBy deletes the records it matches, as a narrowed deleteAll does", async () => {
+      const user = await db().model(User).find(1);
+
+      expect(await user.coworkerAssignments().deleteBy({ role: "member" })).toBe(1);
+      expect(await db().model(Assignment).pluck("id")).toEqual([1, 3]);
+    });
+
+    test("destroyBy destroys the records it matches, as any narrowed Relation's", async () => {
+      const user = await db().model(User).find(1);
+
+      const destroyed = await user.coworkerAssignments().destroyBy({ role: "member" });
+
+      expect(destroyed.map((assignment) => assignment.id)).toEqual([2]);
+      expect(await db().model(Assignment).pluck("id")).toEqual([1, 3]);
     });
 
     test("a narrowed deleteAll deletes its records, as any Relation's", async () => {

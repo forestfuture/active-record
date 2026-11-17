@@ -302,7 +302,7 @@ An association can also go through one that goes through another, as `writers` d
 
 ### Writing through it
 
-Nothing is written through an association that goes through another yet ([#434](https://github.com/forestfuture/active-record/issues/434)). `build`, `create`, `insert`, `upsert`, `push`, `delete`, `destroy`, `clear`, and its own `deleteAll()` throw `ReadonlyAssociation`, and so do a `hasOne`’s `set`, `build`, and `create`. Write the join records instead:
+Nothing is written through an association that goes through another yet ([#434](https://github.com/forestfuture/active-record/issues/434)). `build`, `create`, `insert`, `upsert`, `push`, `delete`, `destroy`, `clear`, and its own `deleteAll()` and `destroyAll()` throw `ReadonlyAssociation`, and so do a `hasOne`’s `set`, `build`, and `create`. Write the join records instead:
 
 ```ts
 await tag.taggings().create({ articleId: article.id });
