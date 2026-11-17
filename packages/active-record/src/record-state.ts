@@ -5,7 +5,7 @@ import type { Assignment } from "./compiler.ts";
 import { Errors } from "./errors-collection.ts";
 import { MissingAttribute, NoDatabase, RecordDestroyed } from "./errors.ts";
 import type { Executor } from "./executor.ts";
-import { LoadedAssociations } from "./loaded-associations.ts";
+import { LoadedAssociations, type KeyAttributes } from "./loaded-associations.ts";
 import { PendingAutosaves } from "./pending-autosaves.ts";
 import { attributeOf, initialValues, type AttributeDefinition } from "./metadata.ts";
 import type { ChangeOptions, Model, ModelClass } from "./model.ts";
@@ -31,6 +31,13 @@ type Lifecycle = "new" | "persisted" | "destroyed";
  * This is the only module that reads or writes those fields. Every rule about them (unloaded
  * attributes, undefined values, destroyed records, change detection) is enforced here.
  */
+/** What `pointAt` needs of an association: its name, its foreign key, and what it's kept for. */
+interface PointingAssociation {
+  name: string;
+  ownerAttribute: string;
+  keyAttributes: KeyAttributes;
+}
+
 export class RecordState {
   readonly #model: ModelClass;
   #executor: Executor | undefined;
@@ -184,11 +191,15 @@ export class RecordState {
     this.assign(attributes);
   }
 
-  /** Points this record at `value` through `attribute` (a foreign key), keeping it loaded. */
-  pointAt(name: string, attribute: string, key: unknown, value: unknown): void {
-    this.writeKey(attribute, key, name);
+  /**
+   * Points this record at `value` through `association`'s foreign key, keeping it loaded; for a
+   * polymorphic belongsTo, its type is written first (#60).
+   */
+  pointAt(association: PointingAssociation, key: unknown, value: unknown): void {
+    const { name, ownerAttribute, keyAttributes } = association;
+    this.writeKey(ownerAttribute, key, name);
     // After the write, so the association is loaded for the key as the foreign key stores it.
-    this.associations.set(name, attribute, value);
+    this.associations.set(name, keyAttributes, value);
   }
 
   /** Forgets an association: what's loaded and its autosaves (`reloadAssociation`). */

@@ -1,8 +1,14 @@
 // A record's loaded associations: each kept while the key it was loaded for is current (#181, #189).
 
-/** A loaded association, with the owner's attribute and key value it was loaded for. */
+/**
+ * The owner's attributes a loaded association is kept for: its key, or for a polymorphic
+ * belongsTo its key and type (#60).
+ */
+export type KeyAttributes = string | readonly string[];
+
+/** A loaded association, with the owner's attributes and the values it was loaded for. */
 interface LoadedEntry {
-  attribute: string;
+  attribute: KeyAttributes;
   key: unknown;
   value: unknown;
 }
@@ -27,7 +33,7 @@ export class LoadedAssociations {
   /** The loaded association, if it was loaded for the key the owner holds now. */
   get(name: string): { value: unknown } | undefined {
     const entry = this.#entries.get(name);
-    if (entry === undefined || !Object.is(this.#key(entry.attribute), entry.key)) return undefined;
+    if (entry === undefined || !isSameKey(this.#key(entry.attribute), entry.key)) return undefined;
     return entry;
   }
 
@@ -35,17 +41,21 @@ export class LoadedAssociations {
    * Sets the association to what a write or preload made it, for the key `attribute` holds now;
    * loads of it already sent won't be kept.
    */
-  set(name: string, attribute: string, value: unknown): void {
+  set(name: string, attribute: KeyAttributes, value: unknown): void {
     this.#entries.set(name, { attribute, key: this.#key(attribute), value });
     this.#discardPendingLoads(name);
   }
 
   /**
    * Starts a load of the association, before its query is sent, for the key its query was built
-   * for: the function it returns keeps the loaded value only if nothing changed the association
+   * for (the attributes' values now, unless it's given): the function it returns keeps the loaded value only if nothing changed the association
    * meanwhile (#181).
    */
-  startLoad(name: string, attribute: string, key: unknown): (value: unknown) => void {
+  startLoad(
+    name: string,
+    attribute: KeyAttributes,
+    key: unknown = this.#key(attribute),
+  ): (value: unknown) => void {
     const generation = this.#generation(name);
     return (value) => {
       if (this.#generation(name) === generation) this.#entries.set(name, { attribute, key, value });
@@ -64,7 +74,8 @@ export class LoadedAssociations {
     this.#allLoadsDiscarded += 1;
   }
 
-  #key(attribute: string): unknown {
+  #key(attribute: KeyAttributes): unknown {
+    if (typeof attribute !== "string") return attribute.map((each) => this.#keyOf(each) ?? null);
     return this.#keyOf(attribute) ?? null;
   }
 
@@ -79,4 +90,10 @@ export class LoadedAssociations {
   #generation(name: string): number {
     return this.#allLoadsDiscarded + (this.#loadsDiscarded.get(name) ?? 0);
   }
+}
+
+/** Whether two keys are the same: one value, or each of a list's (#60). */
+function isSameKey(now: unknown, loaded: unknown): boolean {
+  if (!Array.isArray(now) || !Array.isArray(loaded)) return Object.is(now, loaded);
+  return now.every((each, index) => Object.is(each, loaded[index]));
 }
