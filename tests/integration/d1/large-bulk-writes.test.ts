@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../../packages/active-record/src/index.ts";
+import { hasMany, Model } from "../../../packages/active-record/src/index.ts";
 import { connect, type QueryEvent } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
 
@@ -13,6 +13,21 @@ class Attachment extends Model.define({
   digest: "binary",
 }) {
   static table = "attachments";
+}
+
+class Remark extends Model.define({
+  id: { type: "integer", null: false },
+  body: "string",
+  commentableType: "string",
+  commentableId: "integer",
+}) {
+  static table = "remarks";
+}
+
+class Photo extends Model.define({ id: { type: "integer", null: false }, title: "string" }) {
+  static table = "photos";
+
+  remarks = hasMany(Remark, { as: "commentable" });
 }
 
 const schema = new URL("../../fixtures/sqlite/conformance.sql", import.meta.url);
@@ -118,6 +133,27 @@ describe("bulk writes past D1's cap on one value", { timeout: 20_000 }, () => {
     expect(inserts().map(({ params }) => params.length)).toEqual([1, 2, 2]);
     const names = await db().model(Attachment).order({ id: "asc" }).pluck("name");
     expect(names.map((name) => name?.length)).toEqual([2_000_000, 2_000_000]);
+  });
+
+  test("a row bound apart through an owner's hasMany leaves another owner's row as it is", async () => {
+    await binding.prepare("DELETE FROM remarks").run();
+    await binding.prepare("DELETE FROM photos").run();
+    await binding.prepare("INSERT INTO photos (id, title) VALUES (10, 'Sunset')").run();
+    await binding
+      .prepare(
+        "INSERT INTO remarks (id, body, commentable_type, commentable_id) VALUES (2, 'On a post', 'Post', 10)",
+      )
+      .run();
+    const photo = await db().model(Photo).find(10);
+    events = [];
+
+    const result = await photo.remarks().upsert({ id: 2, body: "x".repeat(2_000_000) });
+
+    // Its id, body, key and type, each bound apart.
+    expect(inserts().map(({ params }) => params.length)).toEqual([4]);
+    expect(result.rowsAffected).toBe(0);
+    const remark = await db().model(Remark).find(2);
+    expect([remark.body, remark.commentableType]).toEqual(["On a post", "Post"]);
   });
 
   test("listeners see a filtered attribute hidden in every statement", async () => {
