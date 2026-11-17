@@ -1,5 +1,5 @@
 // How a Relation's query runs (on D1, or not at all for `none()`).
-import { compileColumns, compileCount, compileSelect, type CompiledSql } from "./compiler.ts";
+import { compileCount, compileSelect, type CompiledSql } from "./compiler.ts";
 import { type Dialect, withPlaceholders } from "./dialect.ts";
 import { databaseNow, type Executor } from "./executor.ts";
 import { stableOrder } from "./finder-order.ts";
@@ -171,7 +171,7 @@ export function selectFor(
     query.select && !query.distinct
       ? [...new Set([model.primaryKey, ...keysForIncludes(model, query.includes), ...query.select])]
       : query.select;
-  return compileSelect(dialect, query, compileColumns(model, loaded));
+  return compileSelect(dialect, query, { attributes: loaded });
 }
 
 /**

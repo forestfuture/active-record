@@ -4,11 +4,27 @@ import { rowGroups } from "./bulk-rows.ts";
 import { isIgnoringColumns } from "./table-names.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { Comparison, comparisonParts, type Operator } from "./comparisons.ts";
-import { Either, LinkedTo, Negated, type Condition, type QueryDescription } from "./query.ts";
+import {
+  Either,
+  LinkedTo,
+  Negated,
+  type Condition,
+  type OrderTerm,
+  type QueryDescription,
+} from "./query.ts";
 import { ColumnReference, ColumnValue, SafeSql } from "./sql.ts";
 import { writeUntypedValue } from "./conversion.ts";
 import { type Dialect, valueMark } from "./dialect.ts";
 import { boundValue } from "./filtering.ts";
+import {
+  columnIn,
+  ownSource,
+  quoteIdentifier,
+  sourceOf,
+  tablesOf,
+  type Source,
+  type Tables,
+} from "./query-tables.ts";
 
 /** One SQL statement ready to send, with the Model whose table it reads or writes. */
 export interface CompiledSql {
@@ -28,75 +44,89 @@ export function querySql({ sql, params }: CompiledSql): QuerySql {
   return { sql, params: params.map(boundValue) };
 }
 
-/** Quotes an identifier; embedded double quotes are doubled. */
-function quoteIdentifier(name: string): string {
-  return `"${name.replaceAll('"', '""')}"`;
+/**
+ * What a SELECT lists: SQL the library wrote, never the caller, or the columns of `attributes`
+ * (every column when it's undefined), qualified when the query joins.
+ */
+export type Projection = string | { readonly attributes: readonly string[] | undefined };
+
+/** Where a condition is compiled: the query's tables, the one it's about, and its bound values. */
+interface Context {
+  readonly dialect: Dialect;
+  readonly tables: Tables;
+  readonly source: Source;
+  readonly params: unknown[];
 }
 
 /**
- * `projection` is the SELECT list; the library builds it, never the caller. With `grouping`, the
- * rows are grouped by the list's first columns, one for each of its terms.
+ * `projection` is the SELECT list; by default, the columns of the query's `select`. With
+ * `grouping`, the rows are grouped by the list's first columns, one for each of its terms.
  */
 export function compileSelect(
   dialect: Dialect,
   query: QueryDescription,
-  projection?: string,
+  projection: Projection = { attributes: query.select },
   grouping?: Grouping,
 ): CompiledSql {
-  const params: unknown[] = [];
-  const list = projection ?? compileColumns(query.model, query.select);
+  const tables = tablesOf(query);
+  const context: Context = { dialect, tables, source: tables.own, params: [] };
+  const list =
+    typeof projection === "string" ? projection : columnsIn(tables.own, projection.attributes);
   let sql = `SELECT ${query.distinct ? "DISTINCT " : ""}${list}`;
-  sql += ` FROM ${quoteIdentifier(query.model.table)}`;
-  sql += compileWhere(dialect, query, params);
-  if (grouping !== undefined) sql += compileGroupBy(grouping, query.model, params);
-  sql += compileOrder(query, params);
-  sql += compilePagination(dialect, query, params);
-  return { sql, params, model: query.model };
+  sql += ` FROM ${tables.own.name}${compileJoins(context)}`;
+  sql += compileWhere(context, query.conditions);
+  if (grouping !== undefined) sql += compileGroupBy(context, grouping);
+  sql += compileOrder(context, query.order);
+  sql += compilePagination(dialect, query, context.params);
+  return { sql, params: context.params, model: query.model };
 }
 
-function compileWhere(
-  dialect: Dialect,
-  { model, conditions }: QueryDescription,
-  params: unknown[],
-): string {
-  return conditions.length === 0 ? "" : ` WHERE ${compileAll(dialect, conditions, model, params)}`;
+/** Each joined table's `INNER JOIN` or `LEFT OUTER JOIN`, on its link and its scope's conditions. */
+function compileJoins(context: Context): string {
+  return context.tables.joined
+    .map(({ join, parent, source, alias }) => {
+      const kind = join.kind === "inner" ? "INNER JOIN" : "LEFT OUTER JOIN";
+      const table =
+        quoteIdentifier(join.model.table) + (alias === undefined ? "" : ` ${source.name}`);
+      const linked = context.dialect.linkedKey(
+        columnIn(source, join.targetAttribute),
+        attributeFor(join.model, join.targetAttribute),
+        attributeFor(parent.model, join.ownerAttribute),
+      );
+      let on = `${columnIn(parent, join.ownerAttribute)} = ${linked}`;
+      if (join.on.length > 0) on += ` AND ${compileAll({ ...context, source }, join.on)}`;
+      return ` ${kind} ${table} ON ${on}`;
+    })
+    .join("");
+}
+
+function compileWhere(context: Context, conditions: readonly Condition[]): string {
+  return conditions.length === 0 ? "" : ` WHERE ${compileAll(context, conditions)}`;
 }
 
 /** Conditions ANDed together as one predicate; no conditions matches everything. */
-function compileAll(
-  dialect: Dialect,
-  conditions: readonly Condition[],
-  model: ModelClass<Model>,
-  params: unknown[],
-): string {
+function compileAll(context: Context, conditions: readonly Condition[]): string {
   if (conditions.length === 0) return "(1 = 1)";
-  return `(${conditions.map((condition) => compileCondition(dialect, condition, model, params)).join(" AND ")})`;
+  return `(${conditions.map((condition) => compileCondition(context, condition)).join(" AND ")})`;
 }
 
 /** One condition as a single parenthesized predicate. */
-function compileCondition(
-  dialect: Dialect,
-  condition: Condition,
-  model: ModelClass<Model>,
-  params: unknown[],
-): string {
+function compileCondition(context: Context, condition: Condition): string {
+  const { source, params } = context;
   if (condition instanceof Either) {
-    const left = compileAll(dialect, condition.left, model, params);
-    const right = compileAll(dialect, condition.right, model, params);
-    return `(${left} OR ${right})`;
+    return `(${compileAll(context, condition.left)} OR ${compileAll(context, condition.right)})`;
   }
   if (condition instanceof Negated) {
-    return `(NOT ${compileCondition(dialect, condition.condition, model, params)})`;
+    return `(NOT ${compileCondition(context, condition.condition)})`;
   }
-  if (condition instanceof SafeSql) return `(${compileFragment(condition, model, params)})`;
-  if (condition instanceof LinkedTo) {
-    return `(${compileLinkedTo(dialect, condition, model, params)})`;
-  }
+  if (condition instanceof SafeSql) return `(${compileFragment(condition, source, params)})`;
+  if (condition instanceof LinkedTo) return `(${compileLinkedTo(context, condition)})`;
   const parts = Object.entries(condition).map(([name, value]) => {
-    const attribute = attributeFor(model, name);
+    const attribute = attributeFor(source.model, name);
+    const column = columnIn(source, name);
     return value instanceof Comparison
-      ? compileComparison(attribute, value, params)
-      : compileEquality(dialect, attribute, value, params);
+      ? compileComparison(column, attribute, value, params)
+      : compileEquality(context.dialect, { column, attribute }, value, params);
   });
   return `(${parts.join(" AND ")})`;
 }
@@ -107,15 +137,13 @@ function compileCondition(
  * The dialect selects the key so it compares with `attr` as a condition would, across key types.
  */
 function compileLinkedTo(
-  dialect: Dialect,
+  { dialect, source, params }: Context,
   { attribute, owners, ownerKey }: LinkedTo,
-  model: ModelClass<Model>,
-  params: unknown[],
 ): string {
-  const linked = attributeFor(model, attribute);
+  const linked = attributeFor(source.model, attribute);
   const keyAttribute = attributeFor(owners.model, ownerKey);
-  const column = quoteIdentifier(linked.column);
-  const keyColumn = quoteIdentifier(keyAttribute.column);
+  const column = columnIn(source, attribute);
+  const keyColumn = columnIn(ownSource(owners), ownerKey);
   const selected = dialect.linkedKey(keyColumn, keyAttribute, linked);
   const limited = owners.limit !== undefined || owners.offset !== undefined;
   const order = limited ? owners.order : [];
@@ -171,7 +199,7 @@ function compileReturning(
   attributes: readonly string[] | undefined,
 ): string {
   if (attributes?.length === 0) return "";
-  return ` RETURNING ${compileColumns(model, attributes)}`;
+  return ` RETURNING ${columnsIn(sourceOf(model), attributes)}`;
 }
 
 /** What an insert does when a row conflicts with a unique index: skip it, or update it. */
@@ -263,7 +291,7 @@ function compileSets(
   changes: readonly Assignment[] | SafeSql,
   params: unknown[],
 ): string {
-  if (changes instanceof SafeSql) return compileFragment(changes, model, params);
+  if (changes instanceof SafeSql) return compileFragment(changes, sourceOf(model), params);
   return changes
     .map(([name, value]) => {
       const attribute = attributeFor(model, name);
@@ -275,16 +303,22 @@ function compileSets(
 
 /**
  * The WHERE clause for writing to the rows `query` describes, as Rails does it: its conditions;
- * with a limit or offset, `<primary key> IN (SELECT <primary key> … ORDER … LIMIT … OFFSET)`;
- * `1 = 0` for `none()`. Order without a limit, select and includes don't matter to a write.
+ * with a limit or offset, or joins (#24), `<primary key> IN (SELECT <primary key> … ORDER …
+ * LIMIT … OFFSET)`; `1 = 0` for `none()`. Order without a limit, select and includes don't
+ * matter to a write.
  */
 function compileTarget(dialect: Dialect, query: QueryDescription, params: unknown[]): string {
   if (query.none) return " WHERE 1 = 0";
-  if (query.limit === undefined && query.offset === undefined) {
-    return compileWhere(dialect, query, params);
+  const key = columnIn(sourceOf(query.model), query.model.primaryKey);
+  if (!hasLimitOrOffset(query) && (query.joins?.length ?? 0) === 0) {
+    const tables = tablesOf(query);
+    return compileWhere({ dialect, tables, source: tables.own, params }, query.conditions);
   }
-  const key = quoteIdentifier(attributeFor(query.model, query.model.primaryKey).column);
-  const inner = compileSelect(dialect, { ...query, distinct: false }, key);
+  const inner = compileSelect(
+    dialect,
+    { ...query, distinct: false },
+    columnIn(ownSource(query), query.model.primaryKey),
+  );
   params.push(...inner.params);
   return ` WHERE ${key} IN (${inner.sql})`;
 }
@@ -323,19 +357,17 @@ export function compileDelete(model: ModelClass<Model>, storedKey: unknown): Com
 }
 
 /** A whole row: `*`, or the declared columns when the Model ignores some of its table's. */
-function allColumns(model: ModelClass<Model>): string {
-  return isIgnoringColumns(model)
-    ? compileColumns(model, [...model.attributeDefinitions.keys()])
-    : "*";
+function allColumns(source: Source): string {
+  if (isIgnoringColumns(source.model)) {
+    return columnsIn(source, [...source.model.attributeDefinitions.keys()]);
+  }
+  return source.qualified ? `${source.name}.*` : "*";
 }
 
-/** The quoted columns for `attributes`, or the whole row. */
-export function compileColumns(
-  model: ModelClass<Model>,
-  attributes: readonly string[] | undefined,
-): string {
-  if (attributes === undefined) return allColumns(model);
-  return attributes.map((name) => quoteIdentifier(attributeFor(model, name).column)).join(", ");
+/** The columns of `source`'s `attributes`, or its whole row. */
+function columnsIn(source: Source, attributes: readonly string[] | undefined): string {
+  if (attributes === undefined) return allColumns(source);
+  return attributes.map((name) => columnIn(source, name)).join(", ");
 }
 
 /**
@@ -351,12 +383,12 @@ export function compileCount(
 ): CompiledSql {
   const toCount = queryToCount(query);
   if (attribute === undefined) return countOver(compileSelect(dialect, toCount), "*");
-  const column = quoteIdentifier(attributeFor(query.model, attribute).column);
+  const column = columnIn(sourceOf(query.model), attribute);
   if (query.distinct && hasLimitOrOffset(query)) {
     // As Rails counts it: the limit and offset pick from the distinct values, the ones
     // `pluck(attr)` returns, and the non-null ones are counted (#250). A `DISTINCT` on the
     // outer `COUNT` would count what's left of every row.
-    return countOver(compileSelect(dialect, toCount, column), column);
+    return countOver(compileSelect(dialect, toCount, { attributes: [attribute] }), column);
   }
   const inner = compileSelect(dialect, { ...toCount, select: undefined, distinct: false });
   return countOver(inner, query.distinct ? `DISTINCT ${column}` : column);
@@ -387,7 +419,7 @@ export function compileCalculation(
 ): CompiledSql {
   // The fragment's values come first, as its SQL does.
   const params: unknown[] = [];
-  const expression = compileOperand(query.model, operand, params);
+  const expression = compileOperand(ownSource(query), operand, params);
   const toCalculate = { ...queryToCount(query), select: undefined };
   const alias = quoteIdentifier(valuesAlias(query.model));
   const inner = compileSelect(dialect, toCalculate, `${expression} AS ${alias}`);
@@ -411,27 +443,19 @@ export interface Grouping {
  * `GROUP BY` the list's first columns, by position, one for each term, then `HAVING` each of
  * `having`'s fragments, with their values appended to `params`.
  */
-function compileGroupBy(
-  { terms, having }: Grouping,
-  model: ModelClass<Model>,
-  params: unknown[],
-): string {
+function compileGroupBy({ source, params }: Context, { terms, having }: Grouping): string {
   let sql = ` GROUP BY ${terms.map((_, index) => index + 1).join(", ")}`;
   if (having.length === 0) return sql;
-  const kept = having.map((fragment) => `(${compileFragment(fragment, model, params)})`);
+  const kept = having.map((fragment) => `(${compileFragment(fragment, source, params)})`);
   sql += ` HAVING ${kept.join(" AND ")}`;
   return sql;
 }
 
 /** An attribute's column, or a fragment's SQL with its values appended to `params`. */
-function compileOperand(
-  model: ModelClass<Model>,
-  operand: string | SafeSql,
-  params: unknown[],
-): string {
+function compileOperand(source: Source, operand: string | SafeSql, params: unknown[]): string {
   return operand instanceof SafeSql
-    ? compileFragment(operand, model, params)
-    : quoteIdentifier(attributeFor(model, operand).column);
+    ? compileFragment(operand, source, params)
+    : columnIn(source, operand);
 }
 
 /** A grouped calculation: `count`, or a calculation of an attribute or a fragment. */
@@ -460,11 +484,12 @@ export function compileGrouped(
 ): CompiledSql {
   // The SELECT list's values come first, as its SQL does.
   const params: unknown[] = [];
+  const own = ownSource(query);
   const keys = grouping.terms.map(
     (term, index) =>
-      `${compileOperand(query.model, term, params)} AS ${quoteIdentifier(keyAlias(query.model, index))}`,
+      `${compileOperand(own, term, params)} AS ${quoteIdentifier(keyAlias(query.model, index))}`,
   );
-  const aggregated = operand === undefined ? "*" : compileOperand(query.model, operand, params);
+  const aggregated = operand === undefined ? "*" : compileOperand(own, operand, params);
   // After distinct(), each distinct value counts once; extremes don't change.
   const distinct = query.distinct && operand !== undefined && !isExtreme(operation);
   const aggregate = `${operation === "count" ? "COUNT" : AGGREGATES[operation]}(${distinct ? "DISTINCT " : ""}${aggregated})`;
@@ -527,6 +552,7 @@ export function compileExists(dialect: Dialect, query: QueryDescription): Compil
 
 /** `attr >= ?`, `attr BETWEEN ? AND ?`, …, with the values converted like the attribute's. */
 function compileComparison(
+  column: string,
   attribute: Attribute,
   comparison: Comparison,
   params: unknown[],
@@ -535,7 +561,7 @@ function compileComparison(
   const stored = values.map((value) => attribute.conditionCell(value));
   if (stored.includes(noMatch)) return NOTHING;
   attribute.bindCells(params, ...stored);
-  return COMPARISON_SQL[operator](quoteIdentifier(attribute.column));
+  return COMPARISON_SQL[operator](column);
 }
 
 /**
@@ -557,11 +583,10 @@ const COMPARISON_SQL: Record<Operator, (column: string) => string> = {
 /** `attr = value`, with NULL and arrays (IN) handled the way the contract specifies. */
 function compileEquality(
   dialect: Dialect,
-  attribute: Attribute,
+  { column, attribute }: { column: string; attribute: Attribute },
   value: unknown,
   params: unknown[],
 ): string {
-  const column = quoteIdentifier(attribute.column);
   if (value === null) return `${column} IS NULL`;
   if (!Array.isArray(value)) {
     const stored = attribute.conditionCell(value);
@@ -583,12 +608,12 @@ function compileEquality(
   return parts.length > 0 ? `(${parts.join(" OR ")})` : NOTHING;
 }
 
-function compileOrder({ model, order }: QueryDescription, params: unknown[]): string {
+function compileOrder({ source, params }: Context, order: readonly OrderTerm[]): string {
   if (order.length === 0) return "";
   const terms = order.map((term) => {
-    if (term instanceof SafeSql) return compileFragment(term, model, params);
+    if (term instanceof SafeSql) return compileFragment(term, source, params);
     const { attribute, direction, nulls } = term;
-    const column = quoteIdentifier(attributeFor(model, attribute).column);
+    const column = columnIn(source, attribute);
     return `${column} ${direction.toUpperCase()}${nulls ? ` NULLS ${nulls.toUpperCase()}` : ""}`;
   });
   return ` ORDER BY ${terms.join(", ")}`;
@@ -604,13 +629,13 @@ function compilePagination(
 }
 
 /** Appends the fragment's values to `params` and returns its SQL text. */
-function compileFragment(fragment: SafeSql, model: ModelClass<Model>, params: unknown[]): string {
+function compileFragment(fragment: SafeSql, source: Source, params: unknown[]): string {
   let text = fragment.strings[0] ?? "";
   fragment.values.forEach((value, index) => {
     if (value instanceof ColumnReference) {
-      text += quoteIdentifier(attributeFor(model, value.attribute).column);
+      text += columnIn(source, value.attribute);
     } else if (value instanceof ColumnValue) {
-      attributeFor(model, value.attribute).bind(params, value.assigned);
+      attributeFor(source.model, value.attribute).bind(params, value.assigned);
       text += valueMark;
     } else {
       params.push(writeUntypedValue(value));

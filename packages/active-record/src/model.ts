@@ -129,6 +129,9 @@ export type IncludeSpec<M> = M extends unknown
         }
   : never;
 
+/** What `joins()` and `leftJoins()` accept for records `M`: what `includes()` does. */
+export type JoinSpec<M> = IncludeSpec<M>;
+
 /** A lifecycle callback; it receives the record and may be async. */
 export type Callback<R> = (record: R) => unknown;
 

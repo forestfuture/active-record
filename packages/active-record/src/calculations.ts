@@ -1,13 +1,7 @@
 // Reading values instead of records: `count`, `pluck`, and the calculations `sum`, `average`, `minimum` and `maximum` (#344).
 import { attributeFor, withArticle } from "./attribute.ts";
 import { attributeOf, type AttributeDefinition, type AttributeType } from "./metadata.ts";
-import {
-  compileCalculation,
-  compileColumns,
-  compileCount,
-  compileSelect,
-  type Calculation,
-} from "./compiler.ts";
+import { compileCalculation, compileCount, compileSelect, type Calculation } from "./compiler.ts";
 import type { Dialect } from "./dialect.ts";
 import type { QueryRunner } from "./load.ts";
 import type { CustomType } from "./custom-types.ts";
@@ -50,11 +44,9 @@ export async function pluck(
   const loaded = cached();
   const values =
     loaded === undefined
-      ? (
-          await runner.rows(() =>
-            compileSelect(dialect(), query, compileColumns(query.model, attributes)),
-          )
-        ).map((row) => resolved.map((attribute) => attribute.read(row[attribute.column])))
+      ? (await runner.rows(() => compileSelect(dialect(), query, { attributes }))).map((row) =>
+          resolved.map((attribute) => attribute.read(row[attribute.column])),
+        )
       : loaded.map((record) =>
           // Copies, as a query would give, never the records' own objects.
           resolved.map((attribute) => attribute.copy(Reflect.get(record, attribute.name))),
