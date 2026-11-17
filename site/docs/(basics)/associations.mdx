@@ -307,6 +307,8 @@ Nothing is written through an association that goes through another yet ([#434](
 await tag.taggings().create({ articleId: article.id });
 ```
 
+A new tagging doesn’t change what `tag.articles()` has already loaded. Read it again with `await tag.reloadAssociation("articles")`.
+
 :::warning[A narrowed deleteAll deletes the records themselves]
 `updateAll` and a narrowed `deleteAll` act on the records, as any Relation’s do. `tag.articles().where({ title: "Draft" }).deleteAll()` deletes those articles for every tag, not the tag’s taggings.
 :::
