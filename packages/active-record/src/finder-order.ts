@@ -34,3 +34,17 @@ export function stableOrder(model: ModelClass, query: QueryDescription): readonl
     .map((attribute) => ({ attribute, direction: "asc" as const }));
   return [...query.order, ...ties];
 }
+
+/** `query`'s order, then the primary key ascending, so ties come back the same way. */
+export function thenPrimaryKey(model: ModelClass, query: QueryDescription): readonly OrderTerm[] {
+  return [...query.order, { attribute: model.primaryKey, direction: "asc" }];
+}
+
+/** `query`'s order, or the primary key ascending without one: what `first` and `last` use. */
+export function orderOrPrimaryKey(
+  model: ModelClass,
+  query: QueryDescription,
+): readonly OrderTerm[] {
+  const { order } = query;
+  return order.length > 0 ? order : [{ attribute: model.primaryKey, direction: "asc" }];
+}

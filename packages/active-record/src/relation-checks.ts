@@ -196,3 +196,21 @@ export function writableQuery(query: QueryDescription, method: string): QueryDes
     throw new IncompatibleRelation(`${method}() can't be combined with distinct()`);
   return query;
 }
+
+/** Throws `IncompatibleRelation` when `or` or `merge` joins Relations of two Models. */
+export function requireSameModel(model: ModelClass, other: ModelClass, method: string): void {
+  if (other !== model) {
+    throw new IncompatibleRelation(
+      `${method}() needs relations of the same Model, not ${model.name} and ${other.name}`,
+    );
+  }
+}
+
+/** Preloading needs keys a distinct select leaves out; adding them would undo the distinct. */
+export function checkPreloadable(query: QueryDescription): void {
+  if (query.includes !== undefined && query.select !== undefined && query.distinct) {
+    throw new IncompatibleRelation(
+      "includes() can't be combined with select(...).distinct(): preloading needs keys the distinct select leaves out",
+    );
+  }
+}
