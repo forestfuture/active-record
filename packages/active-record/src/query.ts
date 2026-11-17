@@ -246,7 +246,7 @@ function isSet(query: QueryDescription, clause: ShapeClause): boolean {
 export function either(a: QueryDescription, b: QueryDescription): QueryDescription {
   if (a.none) return b;
   if (b.none) return a;
-  const differing = differingClause(a, b);
+  const differing = whatDiffers(a, b);
   if (differing !== undefined) {
     throw new IncompatibleRelation(
       `or() needs relations that differ only in their conditions, but their ${differing}`,
@@ -255,8 +255,8 @@ export function either(a: QueryDescription, b: QueryDescription): QueryDescripti
   return { ...a, conditions: [new Either(a.conditions, b.conditions)] };
 }
 
-/** What, besides their conditions, `a` and `b` don't have the same of, as a message ends it. */
-function differingClause(a: QueryDescription, b: QueryDescription): string | undefined {
+/** What `or()` says differs between `a` and `b` besides their conditions, if anything: "limit differs". */
+function whatDiffers(a: QueryDescription, b: QueryDescription): string | undefined {
   const clause = SHAPE_CLAUSES.find((each) => !isSameClause(each, a, b));
   if (clause !== undefined) return `${clause} differs`;
   if (!isSameJoins(a.joins ?? [], b.joins ?? [])) return "joins differ";
@@ -347,14 +347,14 @@ export function mergeTrees(a: IncludeTree, b: IncludeTree): IncludeTree {
   return merged;
 }
 
-/** Whether two sets of attribute values name the same attributes, with the same values. */
+/** Whether two sets of attribute values name the same attributes, with the same values (as typed values' inputs). */
 function isSameValues(
   a: Readonly<Record<string, unknown>> = {},
   b: Readonly<Record<string, unknown>> = {},
 ) {
   const names = Object.keys(a);
   if (names.length !== Object.keys(b).length) return false;
-  return names.every((name) => Object.hasOwn(b, name) && Object.is(a[name], b[name]));
+  return names.every((name) => Object.hasOwn(b, name) && isSameInput(a[name], b[name]));
 }
 
 /** Whether two include trees name the same associations at every level. */
