@@ -1,4 +1,5 @@
 // Finding or creating a record (#346): `findOrCreateBy` and the others, whose attributes both find a record and become a new one's values, so they refuse what a find reads as a condition (#433).
+import { Comparison } from "./comparisons.ts";
 import type { AttributesOf, Model } from "./model.ts";
 import { createOrFindThrough, initializeThrough, type Init } from "./record-creation.ts";
 import type { RelationState } from "./relation-state.ts";
@@ -67,17 +68,25 @@ function findGiven<M extends Model>(
 /**
  * Throws `TypeError`, before anything is sent, for an attribute a find would read as a condition
  * but a new record can't take as its value: a list, which `findBy` reads as `IN`, so input that
- * skipped `permit` can't match another user's row. The value isn't shown, as it may be filtered.
+ * skipped `permit` can't match another user's row, or a comparison. The value isn't shown, as it
+ * may be filtered.
  */
 function refuseConditionValues(
   { state, method }: FindOrCreateCall<Model>,
   attributes: Readonly<Record<string, unknown>>,
 ): void {
   for (const [name, value] of Object.entries(attributes)) {
-    if (Array.isArray(value)) {
-      throw new TypeError(
-        `${state.model.name}.${method}(): "${name}" can't be a list, since it becomes the new record's value`,
-      );
-    }
+    const kind = conditionKind(value);
+    if (kind === undefined) continue;
+    throw new TypeError(
+      `${state.model.name}.${method}(): "${name}" can't be ${kind}, since it becomes the new record's value`,
+    );
   }
+}
+
+/** What a condition `value` is, when it's one a new record can't take as its value. */
+function conditionKind(value: unknown): string | undefined {
+  if (Array.isArray(value)) return "a list";
+  if (value instanceof Comparison) return "a comparison";
+  return undefined;
 }
