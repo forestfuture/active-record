@@ -44,6 +44,17 @@ class Post extends Model.define({
   }
 }
 
+/** The same posts, whose comments nothing destroys with them. */
+class PlainPost extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  comments = hasMany(Comment, { foreignKey: "postId" });
+}
+
 describe("destroying many records", () => {
   let harness: Harness;
   const queries: QueryEvent[] = [];
@@ -113,6 +124,36 @@ describe("destroying many records", () => {
 
       expect(queries).toHaveLength(1);
       expect(await titles()).toEqual(["First", "Second", "Third"]);
+    });
+
+    describe("through a hasMany", () => {
+      test("on the association itself, destroys every record and leaves it loaded and empty", async () => {
+        const post = await db().model(PlainPost).find(1);
+        await post.comments().toArray();
+        const built = post.comments().build({ body: "new" });
+
+        const destroyed = await post.comments().destroyAll();
+
+        expect(destroyed.map((comment) => comment.body)).toEqual(["a", "b", "new"]);
+        // A record that was never saved just leaves the association, as in Rails.
+        expect(built.isNewRecord()).toBe(true);
+        expect(await bodies()).toEqual(["c", "d"]);
+        queries.length = 0;
+        expect(await post.comments().toArray()).toEqual([]);
+        expect(queries).toEqual([]);
+      });
+
+      test("narrowed, destroys its records and clears what the owner loaded", async () => {
+        const post = await db().model(PlainPost).find(1);
+        await post.comments().toArray();
+
+        await post.comments().where({ body: "a" }).destroyAll();
+
+        queries.length = 0;
+        const left = await post.comments().toArray();
+        expect(left.map((comment) => comment.body)).toEqual(["b"]);
+        expect(queries).toHaveLength(1);
+      });
     });
   });
 });
