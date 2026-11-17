@@ -483,6 +483,34 @@ describe("types", () => {
     expectTypeOf(typeOnly).toBeFunction();
   });
 
+  test("joins() and leftJoins() take association names, and merge() a joined Model's Relation", () => {
+    class Writer extends Model.define({ id: "integer", role: "string" }) {
+      static table = "users";
+      static admins = this.scope((q) => q.where({ role: "admin" }));
+      pieces = hasMany(Piece, { foreignKey: "writerId" });
+    }
+    class Piece extends Model.define({ id: "integer", writerId: "integer" }) {
+      static table = "posts";
+      writer = belongsTo(Writer, { foreignKey: "writerId" });
+      static titled = this.scope((q) => q);
+    }
+
+    // Checked by the type checker only; never called.
+    const typeOnly = () => {
+      expectTypeOf(Piece.joins("writer").titled()).toEqualTypeOf(Piece.titled());
+      expectTypeOf(db.model(Writer).leftJoins({ pieces: "writer" }).admins()).toEqualTypeOf(
+        Writer.admins(),
+      );
+      expectTypeOf(Piece.joins("writer").merge(Writer.admins())).toEqualTypeOf(Piece.titled());
+      expectTypeOf(Piece.merge(Writer.admins())).toEqualTypeOf(Piece.titled());
+      // @ts-expect-error unknown association
+      Piece.joins("author");
+      // @ts-expect-error unknown nested association
+      db.model(Writer).leftJoins({ pieces: "comments" });
+    };
+    expectTypeOf(typeOnly).toBeFunction();
+  });
+
   test("associations are typed from their fields, including includes() names", () => {
     class Author extends Model.define({ id: "integer" }) {
       static table = "users";
