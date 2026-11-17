@@ -193,6 +193,15 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       expect((await users().firstOrThrow()).id).toBe(1);
       expect((await users().lastOrThrow()).id).toBe(3);
     });
+
+    test("on a loaded hasMany, answer from its records without a query", async () => {
+      const user = await withLoadedPosts("First", "Second");
+
+      expect((await user.posts().firstOrThrow()).title).toBe("First");
+      expect((await user.posts().lastOrThrow()).title).toBe("Second");
+      expect((await user.posts().takeOrThrow()).title).toBe("First");
+      expect(events).toHaveLength(0);
+    });
   });
 
   describe("within the Relation's page, or none()", () => {
