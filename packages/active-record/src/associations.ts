@@ -151,7 +151,7 @@ export type HasManyThrough<C extends ModelClass> = () => Scoped<InstanceType<C>,
   };
 
 /** The writes a through association's own Relation refuses (#59). */
-type ThroughWrite = "insert" | "insertAll" | "upsert" | "upsertAll" | "deleteAll" | "destroyAll";
+type ThroughWrite = "insert" | "insertAll" | "upsert" | "upsertAll" | "destroyAll";
 
 /**
  * `await mark.note()` for a hasOne through another (#59): its record, or null. Nothing is
@@ -348,7 +348,10 @@ function throughRelation(
   const via = (): Relation<Model> => hasManyRelation(owner, association.hops!.via);
   const collection = throughCollection({ owner, association, via });
   const owned = relation[ofOwner](collection);
-  return Object.assign(owned, throughCollectionMethods({ owner, association, collection, via }));
+  return Object.assign(
+    owned,
+    throughCollectionMethods({ owner, association, collection, relation: owned, via }),
+  );
 }
 
 /**
