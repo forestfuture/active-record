@@ -83,8 +83,8 @@ export function keysToFind(model: ModelClass, ids: readonly unknown[]): (string 
   return [...new Set(keys)];
 }
 
-/** `records` without a later one with the same primary key. */
-function eachOnce<M extends Model>(records: readonly M[]): M[] {
+/** `records` without a later one with the same primary key: a join's repeated rows. */
+export function eachOnce<M extends Model>(records: readonly M[]): M[] {
   const seen = new Set<unknown>();
   return records.filter((record) => {
     const key = primaryKeyOf(record);

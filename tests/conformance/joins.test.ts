@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-pl
 import {
   column,
   gte,
+  hasMany,
   IncompatibleRelation,
   RecordNotFound,
   sql,
@@ -390,6 +391,18 @@ describe("joins", () => {
 
       expect(await loose.deleteAll()).toBe(1);
       expect(await db().model(Comment).count()).toBe(2);
+    });
+
+    // User 1 has two posts, so its row comes back twice. Its posts go with it, for their keys.
+    test("destroyAll() destroys each joined record once", async () => {
+      class Author extends User {
+        override posts = hasMany(Post, { foreignKey: "userId", dependent: "deleteAll" });
+      }
+      await harness.exec("DELETE FROM comments");
+      const authors = db().model(Author).joins("posts").order({ id: "asc" });
+
+      expect((await authors.destroyAll()).map((author) => author.id)).toEqual([1, 2]);
+      expect(await db().model(User).pluck("id")).toEqual([3]);
     });
 
     test("a batch writes the joined rows' records", async () => {
