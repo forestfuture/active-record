@@ -89,3 +89,10 @@ function aliasFor(join: Join, parent: ModelClass, taken: Set<string>): string | 
   taken.add(alias);
   return alias;
 }
+
+/** The table of the join `path` names in `tables`. */
+export function sourceAt(tables: Tables, path: string): Source {
+  const joined = tables.joined.find((table) => table.path === path);
+  if (joined === undefined) throw new Error(`active-record: no join at "${path}"`);
+  return joined.source;
+}

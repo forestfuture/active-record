@@ -68,7 +68,21 @@ export interface Join {
   readonly joins: readonly Join[];
 }
 
-export type Condition = Record<string, unknown> | SafeSql | Negated | Either | LinkedTo;
+export type Condition = Record<string, unknown> | SafeSql | Negated | Either | LinkedTo | OnJoined;
+
+/**
+ * The conditions of a joined Model's Relation, from `merge()` (#24): compiled on the table of the
+ * join `path` names, the association names leading to it, `"."`-joined.
+ */
+export class OnJoined {
+  readonly path: string;
+  readonly conditions: readonly Condition[];
+
+  constructor(path: string, conditions: readonly Condition[]) {
+    this.path = path;
+    this.conditions = conditions;
+  }
+}
 
 /**
  * A condition from preloading (#217): `attribute` is the `ownerKey` of one of the records

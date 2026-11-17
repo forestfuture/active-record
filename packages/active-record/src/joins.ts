@@ -2,7 +2,13 @@
 import { IncompatibleRelation } from "./errors.ts";
 import type { Executor } from "./executor.ts";
 import type { Model, ModelClass } from "./model.ts";
-import type { Condition, Join, JoinKind } from "./query.ts";
+import {
+  OnJoined,
+  type Condition,
+  type Join,
+  type JoinKind,
+  type QueryDescription,
+} from "./query.ts";
 import { queryOf } from "./relation.ts";
 import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
 import { sql } from "./sql.ts";
@@ -88,4 +94,38 @@ export function mergeJoins(a: readonly Join[], b: readonly Join[]): readonly Joi
     }
   }
   return merged;
+}
+
+/**
+ * `b`, a Relation of a Model `a` joins, merged into `a` (#24): its conditions, on that join's
+ * table, and its `none()`. Throws `IncompatibleRelation` unless `a` joins its Model exactly once.
+ */
+export function mergedOnJoin(a: QueryDescription, b: QueryDescription): QueryDescription {
+  const path = joinedPath(a, b.model);
+  const conditions = b.conditions.length === 0 ? [] : [new OnJoined(path, b.conditions)];
+  return {
+    ...a,
+    conditions: [...a.conditions, ...conditions],
+    ...(b.none === true && { none: true }),
+  };
+}
+
+/** The path of the one join of `query` to `model`'s table. */
+function joinedPath(query: QueryDescription, model: ModelClass<Model>): string {
+  const paths: string[] = [];
+  const visit = (joins: readonly Join[], prefix: string) => {
+    for (const join of joins) {
+      if (join.model === model) paths.push(prefix + join.association);
+      visit(join.joins, `${prefix}${join.association}.`);
+    }
+  };
+  visit(query.joins ?? [], "");
+  const [path] = paths;
+  if (path === undefined || paths.length > 1) {
+    const how = path === undefined ? "doesn't join it" : `joins it ${paths.length} times`;
+    throw new IncompatibleRelation(
+      `merge() of a ${model.name} Relation needs a ${query.model.name} Relation that joins ${model.name} once, but this one ${how}`,
+    );
+  }
+  return path;
 }
