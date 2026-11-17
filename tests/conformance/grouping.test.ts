@@ -352,7 +352,7 @@ describe("group (#345)", () => {
       expect([...counts.keys()]).toEqual(["c", "b", "a"]);
     });
 
-    test("so a default scope's order doesn't stop a Model grouping", async () => {
+    test("a Model whose default scope orders by an ungrouped attribute still groups", async () => {
       await seed(["a", 1], ["a", 2]);
 
       const counts = await harness.connect().model(NewestReview).group("title").count();
