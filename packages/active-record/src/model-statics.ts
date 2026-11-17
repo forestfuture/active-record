@@ -74,6 +74,7 @@ const relationMethods = [
   "isEmpty",
   "hasAny",
   "exists",
+  "ids",
   "toArray",
   "toSql",
   "findEach",

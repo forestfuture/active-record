@@ -181,6 +181,12 @@ describe("types", () => {
     expectTypeOf(typeOnly).toBeFunction();
   });
 
+  test("ids are typed as find takes them (#349)", () => {
+    const users = db.model(User);
+
+    expectTypeOf<ReturnType<typeof users.ids>>().toEqualTypeOf<Promise<(string | number)[]>>();
+  });
+
   test("order, select, pluck and count accept only declared attributes", () => {
     const users = db.model(User);
 
