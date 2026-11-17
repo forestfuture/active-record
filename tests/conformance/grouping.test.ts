@@ -416,7 +416,8 @@ describe("group (#345)", () => {
 
   describe("refusals", () => {
     test("group() needs an attribute or a fragment", () => {
-      expect(() => reviews().group()).toThrow(
+      const noTerms: [] = [];
+      expect(() => reviews().group(...(noTerms as never as ["title"]))).toThrow(
         new TypeError("group() needs at least one attribute or sql fragment"),
       );
     });

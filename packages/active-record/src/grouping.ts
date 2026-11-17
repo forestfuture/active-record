@@ -25,6 +25,9 @@ import type { AttributeOrder, QueryDescription } from "./query.ts";
 import { checkFragment, type Conditions, type OrderSpec } from "./relation-checks.ts";
 import { SafeSql } from "./sql.ts";
 
+/** What `group` takes for records `M`: one term or more. */
+export type GroupTerms<M> = readonly [GroupTerm<M>, ...GroupTerm<M>[]];
+
 /** What `group` takes for records `M`: an attribute but a json one, or an `sql` fragment. */
 export type GroupTerm<M> = GroupableAttribute<M> | SafeSql;
 
@@ -116,7 +119,7 @@ export class GroupedRelation<M extends Model, G extends readonly GroupTerm<M>[]>
   }
 
   /** Groups by more terms too, which join the key. */
-  group<const H extends readonly GroupTerm<M>[]>(...terms: H): GroupedRelation<M, [...G, ...H]> {
+  group<const H extends GroupTerms<M>>(...terms: H): GroupedRelation<M, [...G, ...H]> {
     const more = {
       ...this.#grouping,
       terms: [...this.#grouping.terms, ...terms],

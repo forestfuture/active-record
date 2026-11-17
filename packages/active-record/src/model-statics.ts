@@ -16,7 +16,7 @@ import type {
 } from "./model.ts";
 import type { PaginateStatic } from "./pagination.ts";
 import { destroyTogether } from "./records-together.ts";
-import type { GroupedRelation, GroupTerm } from "./grouping.ts";
+import type { GroupedRelation, GroupTerms } from "./grouping.ts";
 import {
   inContext,
   VALIDATION_CALLBACK_KINDS,
@@ -129,7 +129,7 @@ interface OverloadedStatics {
     ): Promise<CalculatedValue<InstanceType<C>, K, unknown> | null>;
   };
   paginate: PaginateStatic;
-  group: <C extends QueryableClass, const G extends readonly GroupTerm<InstanceType<C>>[]>(
+  group: <C extends QueryableClass, const G extends GroupTerms<InstanceType<C>>>(
     this: C,
     ...terms: G
   ) => GroupedRelation<InstanceType<C>, G>;
