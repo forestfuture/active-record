@@ -29,6 +29,7 @@ Insert many rows at once with `insertAll`:
 - **`insertAll(rows)`** inserts every row, however many. Every row must have the same attributes. A duplicate throws and writes nothing.
 - **`{ onDuplicate: "skip" }`** skips rows that clash with a unique index.
 - **`upsert(attrs)`** and **`upsertAll(rows)`** update a row that clashes with the primary key, or with the unique index named by `uniqueBy`. Only the attributes you give are updated, and `updatedAt` is set.
+- **Through a `hasMany`**, an upsert only updates the owner’s records. A row that clashes with another owner’s record isn’t written, counted, or returned. See [Writing many rows](./associations#writing-many-rows).
 
 ### Returning attributes
 
@@ -42,7 +43,7 @@ Inserts and upserts return the primary key of each row they write. Name other at
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-These are Rails’ `insert_all`, `upsert_all`, `update_all`, and `delete_all`, with two differences. Declared defaults fill what an insert isn’t given, since on D1 defaults are where keys are generated. And skipping duplicates is something you opt in to, so a duplicate is never silently lost. The `returning` option works as Rails’ does.
+These are Rails’ `insert_all`, `upsert_all`, `update_all`, and `delete_all`, with three differences. Declared defaults fill what an insert isn’t given, since on D1 defaults are where keys are generated. Skipping duplicates is something you opt in to, so a duplicate is never silently lost. And an upsert through a `hasMany` leaves another owner’s record alone, where Rails moves it to the owner. The `returning` option works as Rails’ does.
 
 </Callout>
 
