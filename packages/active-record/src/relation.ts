@@ -484,6 +484,11 @@ export class Relation<M extends Model, S = {}> {
     return cached === undefined ? soleIn(this.#runner, this.#query) : onlyOne(this.#model, cached);
   }
 
+  /** The only record matching `conditions`, as `where(conditions).sole()` finds it. */
+  async findSoleBy(conditions: Conditions<M> | SafeSql): Promise<M> {
+    return this.where(conditions).sole();
+  }
+
   /** The first record by this Relation's order, or by primary key if it has none. */
   async first(): Promise<M | null> {
     const cached = this.#cached();
