@@ -3,7 +3,7 @@ import { RecordNotUnique } from "./errors.ts";
 import { buildRecord, type AttributesOf, type Model, type ModelClass } from "./model.ts";
 import type { OwnedCollection } from "./owned-collection.ts";
 import { state } from "./record-state.ts";
-import { newRowValues, requireSavedOwner, type RelationState } from "./relation-state.ts";
+import { builtRecordValues, requireSavedOwner, type RelationState } from "./relation-state.ts";
 
 /**
  * What a new record is handed to, once its attributes are assigned and before it's saved (Rails'
@@ -133,5 +133,5 @@ function newRecord<M extends Model>(
   relation: RelationState<M>,
   attributes: Partial<AttributesOf<M>>,
 ): M {
-  return buildRecord(relation.model, newRowValues(relation, attributes), relation.executor);
+  return buildRecord(relation.model, builtRecordValues(relation, attributes), relation.executor);
 }
