@@ -34,13 +34,21 @@ export function requireSavedOwner(relation: RelationState<Model>, write: Collect
   }
 }
 
+/**
+ * What a new record is handed to, once its attributes are assigned and before it's saved (Rails'
+ * block): `create({ email }, (user) => { user.role = "member" })`. Awaited where it's saved.
+ */
+export type Init<M> = (record: M) => void | Promise<void>;
+
 /** A new, unsaved record through `relation`; through a hasMany, it joins the association. */
 export function buildThrough<M extends Model>(
   relation: RelationState<M>,
   attributes: Partial<AttributesOf<M>>,
+  init: ((record: M) => void) | undefined,
 ): M {
   const record = newRecord(relation, attributes);
   relation.collection.built(record);
+  init?.(record);
   return record;
 }
 
@@ -48,11 +56,12 @@ export function buildThrough<M extends Model>(
 export async function createThrough<M extends Model>(
   relation: RelationState<M>,
   attributes: Partial<AttributesOf<M>>,
-  { orThrow }: { orThrow: boolean },
+  { init, orThrow }: { init: Init<M> | undefined; orThrow: boolean },
 ): Promise<M> {
   requireSavedOwner(relation, "create");
   const record = newRecord(relation, attributes);
   relation.collection.pointBack(record);
+  await init?.(record);
   if (await saveCreated(relation.collection, record, orThrow)) relation.collection.created(record);
   return record;
 }
