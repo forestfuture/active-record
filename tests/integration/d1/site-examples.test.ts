@@ -60,6 +60,7 @@ import { createdSince, oldestFirst, Reminder } from "../../../site/snippets/guid
 import { paidAt, paidSince } from "../../../site/snippets/guide/raw-statements.ts";
 import * as untrusted from "../../../site/snippets/guide/untrusted-input.ts";
 import * as paginating from "../../../site/snippets/guide/paginating.ts";
+import * as iterating from "../../../site/snippets/guide/iterating.ts";
 import * as filtering from "../../../site/snippets/guide/filtering.ts";
 import * as hidden from "../../../site/snippets/guide/hidden-attributes.ts";
 import { messagesExample, Product } from "../../../site/snippets/guide/error-messages.ts";
@@ -221,6 +222,19 @@ describe("Getting started", () => {
     });
     expect(second).toEqual({ records: [], hasNext: false });
     expect([paginating.Base.perPage, paginating.Base.maxPerPage]).toEqual([20, 50]);
+  });
+
+  test("Querying: the iterating examples walk the users and posts a batch at a time", async () => {
+    const db = connect(binding);
+    const grace = await db.model(User).findByOrThrow({ email: "grace@example.com" });
+    await db.model(Post).create({ userId: grace.id, title: "A draft" });
+
+    const seen = await withDatabase(db, () => iterating.examples(grace.id, grace.id));
+
+    expect(seen.slice(0, 3)).toEqual(Array(3).fill("grace@example.com"));
+    // Random keys, so the posts come in no order a test can know.
+    expect(new Set(seen.slice(3))).toEqual(new Set(["Day 1", "Day 2", "Hello, world", "Untitled"]));
+    expect(await db.model(Post).where({ publishedAt: null }).pluck("title")).toEqual(["Untitled"]);
   });
 });
 
