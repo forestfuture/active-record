@@ -435,11 +435,11 @@ Without a strategy, it’s up to the database. If the table declares the foreign
 
 In a batch, pass the association to the write: `b.deleteAll(article.comments())`.
 
-`upsert` and `upsertAll` through a `hasMany` only update the owner’s records. When a row clashes with another owner’s record, that record stays as it is. The row isn’t written, counted, or returned.
+`upsert` and `upsertAll` through a `hasMany` only update the owner’s records. When a row clashes with another owner’s record, that record stays as it is. The row isn’t written, counted, or returned. To find out whether a row was skipped, compare `rowsAffected` with the number of rows you gave.
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-In Rails, `upsert_all` through an association writes the owner’s key into a clashing row. So `current_user.posts.upsert_all(rows)`, given an id from a request, moves another user’s post to the current user. Here that row is skipped, as `onDuplicate: "skip"` skips a duplicate. To find out whether a row was skipped, compare `rowsAffected` with the number of rows you gave.
+In Rails, `upsert_all` through an association writes the owner’s key into a clashing row. So `current_user.posts.upsert_all(rows)`, given an id from a request, moves another user’s post to the current user. Here that row is skipped, as `onDuplicate: "skip"` skips a duplicate.
 
 </Callout>
 
