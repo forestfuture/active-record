@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, test, vi } from "vite-plus/test";
 import {
   Model,
+  type IterationOptions,
   UnknownAttribute,
   NoDatabase,
   Relation,
@@ -63,6 +64,23 @@ describe("destroying and deleting many records", () => {
       expectTypeOf(User.deleteBy({ age: 30 })).toEqualTypeOf<Promise<number>>();
       expectTypeOf(Admin.where({ age: 30 }).destroyAll()).toEqualTypeOf<Promise<Admin[]>>();
       expectTypeOf(Admin.destroyAll()).toEqualTypeOf<Promise<Admin[]>>();
+    };
+    void typed; // type-checked only
+  });
+
+  test("batch iteration yields the class's records, and its Relations keep their scopes", () => {
+    // Type-checked, never run: these would query.
+    const typed = async () => {
+      expectTypeOf(Admin.findEach()).toEqualTypeOf<AsyncIterable<Admin>>();
+      expectTypeOf(Admin.where({ age: 30 }).findInBatches()).toEqualTypeOf<
+        AsyncIterable<Admin[]>
+      >();
+      for await (const users of User.inBatches({ batchSize: 100, start: 1, order: "desc" })) {
+        expectTypeOf(users.adults().toArray()).toEqualTypeOf<Promise<User[]>>();
+      }
+      // @ts-expect-error -- batches go "asc" or "desc"
+      User.findEach({ order: "up" });
+      expectTypeOf(User.findEach).parameter(0).toEqualTypeOf<IterationOptions | undefined>();
     };
     void typed; // type-checked only
   });
