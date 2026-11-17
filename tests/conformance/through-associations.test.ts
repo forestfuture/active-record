@@ -18,6 +18,7 @@ class Project extends Model.define({
   static table = "projects";
 
   assignments = hasMany(Assignment);
+  members = hasMany(User, { through: "assignments", source: "user" });
 }
 
 class Assignment extends Model.define({
@@ -31,6 +32,7 @@ class Assignment extends Model.define({
   user = belongsTo(User, { optional: true });
   project = belongsTo(Project, { optional: true });
   teammates = hasMany(Assignment, { through: "project", source: "assignments" });
+  teamUsers = hasMany(User, { through: "project", source: "members" });
   activeProject = belongsTo(Project, {
     foreignKey: "projectId",
     optional: true,
@@ -46,6 +48,9 @@ class User extends Model.define({
 
   assignments = hasMany(Assignment);
   projects = hasMany(Project, { through: "assignments" });
+  coworkerAssignments = hasMany(Assignment, { through: "projects", source: "assignments" });
+  collaborators = hasMany(User, { through: "projects", source: "members" });
+  teammates = hasMany(User, { through: "assignments", source: "teamUsers" });
   posts = hasMany(Post);
   comments = hasMany(Comment, { through: "posts" });
   profile = hasOne(Profile);
@@ -294,6 +299,36 @@ describe("an association through another", () => {
 
       expect((await post.authorProfile())?.bio).toBe("Bo");
       expect(post.loaded("authorProfile")?.bio).toBe("Bo");
+    });
+  });
+
+  describe("nested", () => {
+    beforeEach(async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (3, 'c@example.com')");
+      await harness.exec(
+        "INSERT INTO assignments (id, user_id, project_id, role) VALUES (4, 2, 1, 'member'), (5, 3, 2, 'member')",
+      );
+    });
+    const ids = (records: readonly { id: number }[]) => records.map((record) => record.id);
+
+    test("through an association that goes through another", async () => {
+      const user = await db().model(User).find(1);
+
+      expect(ids(await user.coworkerAssignments().toArray())).toEqual([1, 2, 4]);
+    });
+
+    test("to a source that goes through another", async () => {
+      const assignment = await db().model(Assignment).find(2);
+
+      expect(ids(await assignment.teamUsers().toArray())).toEqual([1, 2]);
+    });
+
+    test("both, at every level", async () => {
+      const user = await db().model(User).find(1);
+
+      expect(ids(await user.collaborators().toArray())).toEqual([1, 2]);
+      expect(ids(await user.teammates().toArray())).toEqual([1, 2]);
+      expect(await user.collaborators().where({ email: "b@example.com" }).count()).toBe(1);
     });
   });
 });
