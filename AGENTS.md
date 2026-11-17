@@ -1,5 +1,7 @@
 # AGENTS.md
 
+When reporting to me in chat, be extremely concise and sacrifice grammar for the sake of concision. A subagent's report to its parent agent stays complete, and files, commits, pull requests and GitHub comments keep full sentences.
+
 ## Agent skills
 
 ### Issue tracker
