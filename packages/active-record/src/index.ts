@@ -88,6 +88,7 @@ export type {
   UpsertOptions,
 } from "./relation-checks.ts";
 export type { CountlessPage, Page, PageOptions } from "./pagination.ts";
+export type { IterationOptions } from "./batch-iteration.ts";
 export type { QuerySql } from "./compiler.ts";
 export type { ReturnedRow, Statement, WriteResult } from "./statement.ts";
 export type { RecordStatement } from "./record-statement.ts";
