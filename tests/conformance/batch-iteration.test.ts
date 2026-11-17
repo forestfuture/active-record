@@ -97,4 +97,28 @@ describe("batch iteration", () => {
       expect(events).toHaveLength(2);
     });
   });
+
+  describe("start, finish and order", () => {
+    test("start and finish bound the primary key, both included", async () => {
+      const posts = await collect(db().model(Post).findEach({ batchSize: 2, start: 3, finish: 6 }));
+
+      expect(ids(posts)).toEqual([3, 4, 5, 6]);
+    });
+
+    test('order: "desc" goes from the largest key down', async () => {
+      const batches = await collect(
+        db().model(Post).findInBatches({ batchSize: 3, order: "desc" }),
+      );
+
+      expect(batches.map(ids)).toEqual([[7, 6, 5], [4, 3, 2], [1]]);
+    });
+
+    test("descending, start is the largest key and finish the smallest", async () => {
+      const posts = await collect(
+        db().model(Post).findEach({ batchSize: 2, order: "desc", start: 6, finish: 3 }),
+      );
+
+      expect(ids(posts)).toEqual([6, 5, 4, 3]);
+    });
+  });
 });
