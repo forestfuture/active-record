@@ -1,4 +1,4 @@
-// The order and limit a finder (`first`, `last`, `take`) applies, and the order a page keeps.
+// The order and limit a finder (`first`, `last`, `take`) applies, the order a page keeps, and the order an owner's collection loads in.
 import { IrreversibleOrder } from "./errors.ts";
 import type { ModelClass } from "./model.ts";
 import type { OrderTerm, QueryDescription } from "./query.ts";
