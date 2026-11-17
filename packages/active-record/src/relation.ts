@@ -401,6 +401,18 @@ export class Relation<M extends Model, S = {}> {
     return (await this.findBy(attributes)) ?? this.createOrThrow(attributes, init);
   }
 
+  /**
+   * The first record with these attributes or, when none has them, a new one built with them and
+   * handed to `init`, which is awaited. Saves nothing.
+   */
+  async findOrInitializeBy(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
+    const found = await this.findBy(attributes);
+    if (found !== null) return found;
+    const record = this.build(attributes);
+    await init?.(record);
+    return record;
+  }
+
   /** Like `findBy`, but throws `RecordNotFound` instead of returning null. */
   async findByOrThrow(conditions: Conditions<M> | SafeSql): Promise<M> {
     const record = await this.findBy(conditions);
