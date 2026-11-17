@@ -103,7 +103,7 @@ describe("polymorphic associations", () => {
     );
   });
 
-  test("primaryKey links each listed Model by that attribute", async () => {
+  describe("primaryKey on a polymorphic belongsTo", () => {
     class TitledRemark extends Remark {
       override commentable = belongsTo([Post, Photo], {
         foreignKey: "body",
@@ -111,16 +111,26 @@ describe("polymorphic associations", () => {
         optional: true,
       });
     }
-    await harness.exec(
-      "INSERT INTO remarks (id, body, commentable_type, commentable_id) VALUES (4, 'Sunset', 'Photo', NULL)",
-    );
-    const db = harness.connect();
-    const remark = await db.model(TitledRemark).find(4);
-    const post = await db.model(Post).find(10);
 
-    expect(((await remark.commentable()) as Photo).id).toBe(10);
-    remark.commentable.set(post);
-    expect([remark.commentableType, remark.body]).toEqual(["Post", "First"]);
+    test("reads each listed Model's record by that attribute", async () => {
+      await harness.exec(
+        "INSERT INTO remarks (id, body, commentable_type, commentable_id) VALUES (4, 'Sunset', 'Photo', NULL)",
+      );
+      const db = harness.connect();
+      const remark = await db.model(TitledRemark).find(4);
+
+      expect(((await remark.commentable()) as Photo).id).toBe(10);
+    });
+
+    test("set writes that attribute of the record", async () => {
+      const db = harness.connect();
+      const remark = await db.model(TitledRemark).find(1);
+      const post = await db.model(Post).find(10);
+
+      remark.commentable.set(post);
+
+      expect([remark.commentableType, remark.body]).toEqual(["Post", "First"]);
+    });
   });
 
   describe("setting a polymorphic belongsTo", () => {

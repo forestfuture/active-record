@@ -179,16 +179,11 @@ describe("a hasMany or hasOne with as:", () => {
       ),
     );
   });
-});
 
-describe("an as: owner", () => {
-  test("must be a listed Model, or extend one, not just share its name", () => {
+  test("refuses an owner that only shares a listed Model's name", () => {
     class Impostor extends Model.define({ id: "integer" }) {
       static table = "photos";
       static modelName = "Post";
-      remarks = hasMany(Remark, { as: "commentable" });
-    }
-    class FeaturedPost extends Post {
       remarks = hasMany(Remark, { as: "commentable" });
     }
 
@@ -197,6 +192,13 @@ describe("an as: owner", () => {
         'Impostor association "remarks": Remark.commentable doesn\'t list Impostor; add it to belongsTo([…])',
       ),
     );
+  });
+
+  test("takes an owner that extends a listed Model", () => {
+    class FeaturedPost extends Post {
+      remarks = hasMany(Remark, { as: "commentable" });
+    }
+
     expect(() => db.model(FeaturedPost)).not.toThrow();
   });
 });
