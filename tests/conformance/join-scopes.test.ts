@@ -152,8 +152,8 @@ describe("joins with scopes", () => {
     expect(() => db().model(Writer).joins("firstArticles")).toThrow(IncompatibleRelation);
   });
 
-  // A guard: the default scope is the joined Model's, so the joining Model's stays its own.
-  test("a Model without the association's scope is found unjoined", async () => {
+  // A guard: the scoped associations above narrow only their own joins.
+  test("an association without a scope joins every linked row", async () => {
     expect(idsOf(await db().model(Writer).joins("articles").toArray())).toHaveLength(3);
   });
 });
