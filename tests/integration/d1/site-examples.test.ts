@@ -961,9 +961,9 @@ describe("the querying page's calculations (#344, #345)", () => {
         [0, 30_000],
       ]),
       byBand: new Map([
-        [[1, 0], 2],
-        [[1, 1], 1],
-        [[0, 1], 1],
+        [[1, "cheap"], 2],
+        [[1, "pricey"], 1],
+        [[0, "pricey"], 1],
       ]),
       crowdedCounts: new Map([[1, 3]]),
       largest: new Map([[1, 3]]),

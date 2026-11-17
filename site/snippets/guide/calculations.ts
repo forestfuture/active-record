@@ -30,8 +30,8 @@ export async function groups(): Promise<unknown> {
   // #endregion group
 
   // #region group-fragment
-  const isPricey = sql`${column("priceCents")} >= ${10_000}`;
-  const byBand = await Product.group("available", isPricey).count(); // Map { [1, 0] => 2, … }
+  const band = sql`CASE WHEN ${column("priceCents")} >= ${10_000} THEN 'pricey' ELSE 'cheap' END`;
+  const byBand = await Product.group("available", band).count(); // Map { [1, "cheap"] => 2, … }
   // #endregion group-fragment
 
   // #region having
