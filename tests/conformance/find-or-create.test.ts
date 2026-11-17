@@ -152,6 +152,41 @@ describe("making records", () => {
     });
   });
 
+  describe("findOrInitializeBy", () => {
+    test("finds the row with the attributes", async () => {
+      const user = await db().model(User).findOrInitializeBy({ email: "taken@example.com" });
+
+      expect(user.id).toBe(1);
+      expect(user.isPersisted()).toBe(true);
+    });
+
+    test("builds a record with the attributes, awaiting init, and writes nothing", async () => {
+      const user = await db()
+        .model(User)
+        .findOrInitializeBy({ email: "new@example.com" }, async (record) => {
+          await Promise.resolve();
+          record.role = "member";
+        });
+
+      expect(user.isNewRecord()).toBe(true);
+      expect({ email: user.email, role: user.role }).toEqual({
+        email: "new@example.com",
+        role: "member",
+      });
+      expect(statementKinds(events)).toEqual(["SELECT"]);
+    });
+
+    test("doesn't call init when it finds the row", async () => {
+      const calls: unknown[] = [];
+
+      await db()
+        .model(User)
+        .findOrInitializeBy({ email: "taken@example.com" }, (user) => void calls.push(user));
+
+      expect(calls).toEqual([]);
+    });
+  });
+
   describe("a row inserted between finding and creating", () => {
     const insertAnother = () =>
       harness.exec("INSERT INTO users (id, email, role) VALUES (2, 'new@example.com', 'other')");
