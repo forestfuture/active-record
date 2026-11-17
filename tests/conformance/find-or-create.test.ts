@@ -753,7 +753,7 @@ describe("making records", () => {
       expect(statementKinds(events)).toEqual(["INSERT", "SELECT"]);
     });
 
-    test("is a list when the type can't cast it", async () => {
+    test("is a list when the type can't cast it, refused before sending anything", async () => {
       const attributes = { sizes: [1, 2] } as never;
 
       await expect(db().model(Listing).findOrCreateBy(attributes)).rejects.toThrow(
@@ -761,6 +761,7 @@ describe("making records", () => {
           `Listing.findOrCreateBy(): "sizes" can't be a list, since it becomes the new record's value`,
         ),
       );
+      expect(events).toEqual([]);
     });
   });
 

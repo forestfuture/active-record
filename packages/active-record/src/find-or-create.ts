@@ -61,7 +61,10 @@ export async function findOrInitialize<M extends Model>(
   return (await findExisting(call, attributes)) ?? initializeThrough(call.state, attributes, init);
 }
 
-/** @internal `createOrFindBy` and `createOrFindByOrThrow`: a record created, or the one a unique index kept. */
+/**
+ * @internal `createOrFindBy` and `createOrFindByOrThrow`: a record created, or the one a unique
+ * index kept.
+ */
 export async function createOrFind<M extends Model>(
   call: FindOrCreateCall<M>,
   attributes: Attributes<M>,
@@ -83,9 +86,9 @@ function findExisting<M extends Model>(
 
 /**
  * What finds the record with `attributes`, once they're checked: the Relation, narrowed by an
- * array the attribute casts as one value, compared whole, as the new record holds it, where `findBy` would
- * read it as a list; and the other attributes, as `findBy` reads them. They're copied as own
- * keys, so a `__proto__` key from parsed JSON stays an attribute `findBy` refuses.
+ * array the attribute casts as one value, compared whole, as the new record holds it, where
+ * `findBy` would read it as a list; and the other attributes, as `findBy` reads them. They're
+ * copied as own keys, so a `__proto__` key from parsed JSON stays an attribute `findBy` refuses.
  */
 function finderFor<M extends Model>(
   call: FindOrCreateCall<M>,
@@ -104,11 +107,11 @@ function finderFor<M extends Model>(
 
 /**
  * Throws `TypeError`, before anything is sent, for attributes a find would read as a condition
- * but a new record can't take as its values: a list (except an array the attribute casts as one value), which
- * `findBy` reads as `IN`, so input that skipped `permit` can't match another user's row; a
- * comparison; a `sql` fragment, as the attributes or as one value; or anything but an object,
- * whose missing attributes would find any record. The value isn't shown, as it may be filtered.
- * Returns the attributes' entries, read once.
+ * but a new record can't take as its values: a list (except an array the attribute casts as one
+ * value), which `findBy` reads as `IN`, so input that skipped `permit` can't match another
+ * user's row; a comparison; a `sql` fragment, as the attributes or as one value; or anything
+ * but an object, whose missing attributes would find any record. The value isn't shown, as it
+ * may be filtered. Returns the attributes' entries, read once.
  */
 function refuseConditionValues(
   { state, method }: FindOrCreateCall<Model>,
