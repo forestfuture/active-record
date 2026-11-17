@@ -409,6 +409,52 @@ describe("joins", () => {
     });
   });
 
+  // Guards: a joined Model's order reads as one no group has, since grouping landed (#345).
+  describe("grouping a joined Relation", () => {
+    let database: ReturnType<typeof db>;
+    beforeEach(() => {
+      database = db();
+    });
+    const posts = () => database.model(Post).joins("user");
+    const users = () => database.model(User);
+
+    test("groups by the Model's own attributes, after the joined Model's conditions", async () => {
+      const counts = await posts()
+        .merge(users().where({ role: "admin" }))
+        .group("id")
+        .count();
+
+      expect(counts).toEqual(
+        new Map([
+          [10, 1],
+          [11, 1],
+        ]),
+      );
+    });
+
+    test("drops a joined Model's order, which doesn't order groups", async () => {
+      const counts = await posts()
+        .merge(users().order({ email: "asc" }))
+        .group("userId")
+        .count();
+
+      expect(counts).toEqual(
+        new Map([
+          [1, 2],
+          [2, 1],
+        ]),
+      );
+    });
+
+    test("refuses to drop a joined Model's order while a limit picks groups", () => {
+      const firstTwo = posts()
+        .merge(users().order({ email: "asc" }))
+        .limit(2);
+
+      expect(() => firstTwo.group("userId")).toThrow(/"email" of the joined user/);
+    });
+  });
+
   test("a record built from a joined Relation takes only its own Model's conditions", () => {
     const database = db();
     const posts = database
