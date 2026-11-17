@@ -9,10 +9,10 @@ import type { ResolvedAssociation } from "./resolved-association.ts";
 export type Found = readonly (readonly Model[])[];
 
 /**
- * Whose records a hop starts from: a query's, not yet sent, whose keys its query selects with a
- * subquery; or records already loaded, whose keys it binds.
+ * Whose records a preload starts from: a query's, not yet sent, whose keys each association's
+ * query selects with a subquery; or records already loaded, whose keys it binds.
  */
-export type HopOwners = { query: QueryDescription } | { records: readonly Model[] };
+export type Owners = { query: QueryDescription } | { records: readonly Model[] };
 
 /** One association's records, preloaded for its owners. */
 export interface Hop {
@@ -29,7 +29,7 @@ export interface Hop {
 /** A hop to plan: an association's records, for `owners`, at `ownersAt`. */
 export interface HopRequest {
   association: ResolvedAssociation;
-  owners: HopOwners;
+  owners: Owners;
   ownersAt: number;
   /** The records to select: the association's, or the outermost through association's. */
   base: Scoped<Model>;
