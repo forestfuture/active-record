@@ -69,7 +69,7 @@ export interface OwnedCollection {
 }
 
 /** A collection's `link`: its foreign key and association, and what its records take from the owner. */
-export interface OwnersLink {
+interface OwnersLink {
   attribute: string;
   association: string;
   key?: unknown;
