@@ -38,19 +38,19 @@ Instead of returning `false`, they throw:
 
 ### What each method returns
 
-| Method                                   | Resolves to                           | Throws                                                |
-| ---------------------------------------- | ------------------------------------- | ----------------------------------------------------- |
-| `save()` / `update(attrs)`               | `true` / `false`                      | constraint errors, `RecordDestroyed`                  |
-| `saveOrThrow()` / `updateOrThrow(attrs)` | `true`                                | same as above, plus `RecordInvalid`, `RecordNotSaved` |
-| `create(attrs)`                          | record, persisted or not              | constraint errors                                     |
-| `createOrThrow(attrs)`                   | persisted record                      | same as above, plus `RecordInvalid`, `RecordNotSaved` |
-| `destroy()`                              | destroyed record, or `false` on abort | constraint errors, `RecordDestroyed`                  |
-| `destroyOrThrow()`                       | destroyed record                      | same as above, plus `RecordNotDestroyed`              |
-| `find(id)`                               | record                                | `RecordNotFound`                                      |
-| `findBy(conds)`                          | record or `null`                      | none                                                  |
-| `findByOrThrow(conds)`                   | record                                | `RecordNotFound`                                      |
-| `findOrCreateBy(attrs)`                  | record, persisted or not              | constraint errors                                     |
-| `createOrFindBy(attrs)`                  | record, persisted or not              | constraint errors, `RecordNotFound`                   |
+| Method                                   | Resolves to                           | Throws                                                            |
+| ---------------------------------------- | ------------------------------------- | ----------------------------------------------------------------- |
+| `save()` / `update(attrs)`               | `true` / `false`                      | constraint errors, `RecordDestroyed`                              |
+| `saveOrThrow()` / `updateOrThrow(attrs)` | `true`                                | same as above, plus `RecordInvalid`, `RecordNotSaved`             |
+| `create(attrs)`                          | record, persisted or not              | constraint errors                                                 |
+| `createOrThrow(attrs)`                   | persisted record                      | same as above, plus `RecordInvalid`, `RecordNotSaved`             |
+| `destroy()`                              | destroyed record, or `false` on abort | constraint errors, `RecordDestroyed`                              |
+| `destroyOrThrow()`                       | destroyed record                      | same as above, plus `RecordNotDestroyed`                          |
+| `find(id)`                               | record                                | `RecordNotFound`                                                  |
+| `findBy(conds)`                          | record or `null`                      | none                                                              |
+| `findByOrThrow(conds)`                   | record                                | `RecordNotFound`                                                  |
+| `findOrCreateBy(attrs)`                  | record, persisted or not              | constraint errors                                                 |
+| `createOrFindBy(attrs)`                  | record, persisted or not              | constraint errors but its own `RecordNotUnique`, `RecordNotFound` |
 
 `false` only ever means validation failed or a callback aborted. Every method throws for anything else:
 
