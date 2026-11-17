@@ -51,6 +51,25 @@ describe("Relation methods as a Model's statics", () => {
   });
 });
 
+describe("destroy and delete by primary key", () => {
+  test("are statics only, typed for the class they're called on", () => {
+    // Type-checked, never run: these would write.
+    const typed = () => {
+      expectTypeOf(Admin.destroy(1)).toEqualTypeOf<Promise<Admin>>();
+      expectTypeOf(Admin.destroy([1, 2])).toEqualTypeOf<Promise<Admin[]>>();
+      expectTypeOf(User.delete(1)).toEqualTypeOf<Promise<number>>();
+      expectTypeOf(User.delete([1, 2])).toEqualTypeOf<Promise<number>>();
+      expectTypeOf(User.destroyBy({ age: 30 })).toEqualTypeOf<Promise<User[]>>();
+      expectTypeOf(User.deleteBy({ age: 30 })).toEqualTypeOf<Promise<number>>();
+    };
+    void typed; // type-checked only
+
+    expect([User.destroy.name, User.delete.name]).toEqual(["destroy", "delete"]);
+    expect("destroy" in User.all()).toBe(false);
+    expect("delete" in User.all()).toBe(false);
+  });
+});
+
 describe("callback statics", () => {
   test("each is typed for the class it's declared on", () => {
     // Type-checked, never run: declaring callbacks on User would leak into other tests.
