@@ -102,6 +102,6 @@ export function found<M extends Model>(model: ModelClass, record: M | null): M {
 }
 
 /** What a finder that must find a record throws when it finds none. */
-export function notFound(model: ModelClass): RecordNotFound {
+function notFound(model: ModelClass): RecordNotFound {
   return new RecordNotFound(`${model.name} not found`);
 }
