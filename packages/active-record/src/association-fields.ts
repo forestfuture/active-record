@@ -61,7 +61,7 @@ function declaration<A>(kind: AssociationKind, target: ModelClass, options: obje
 /** This record points at one `target` record through `foreignKey` (its own attribute). */
 export function belongsTo<C extends ModelClass>(
   target: C,
-  options: Omit<AssociationOptions<C>, "dependent"> & {
+  options: Omit<AssociationOptions<C>, "dependent" | "through" | "source"> & {
     /** The record may point at nothing: saving doesn't require its record (#339). */
     optional?: boolean;
   } = {},

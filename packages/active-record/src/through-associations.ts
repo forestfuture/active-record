@@ -41,8 +41,19 @@ export function checkThrough(
   if (definition.through === undefined) return;
   checkOptions(label, definition);
   checkNotCircular(label, model, name);
-  const via = viaOf(label, model, definition.through);
-  if (via === undefined) return;
+  const via = viaOf(label, model, definition);
+  if (via !== undefined) checkSource(label, { model, name, definition }, via);
+}
+
+/** One of a Model's associations, as it's declared. */
+interface Declared {
+  model: ModelClass;
+  name: string;
+  definition: AssociationDefinition;
+}
+
+/** Its source must be one of `via`'s associations, point at its target, and be on one database. */
+function checkSource(label: string, { model, name, definition }: Declared, via: ModelClass): void {
   const sourceName = sourceNameOf(name, definition, via);
   if (sourceName === undefined)
     throw new InvalidModel(`${label}: ${missingSource(name, definition, via)}`);
@@ -60,8 +71,14 @@ export function checkThrough(
   }
 }
 
-/** The options its hops have instead: `dependent`, `autosave`, and a declared key. */
+/**
+ * Only a hasMany or hasOne goes through another, and not with the options its hops have
+ * instead: `dependent`, `autosave`, and a declared key.
+ */
 function checkOptions(label: string, definition: AssociationDefinition): void {
+  if (definition.kind === "belongsTo") {
+    throw new InvalidModel(`${label}: a belongsTo can't go through another association`);
+  }
   const declaredKey = definition.inferredFrom === undefined || definition.primaryKey !== undefined;
   const refused = [
     [definition.dependent !== undefined, "dependent"],
@@ -74,13 +91,21 @@ function checkOptions(label: string, definition: AssociationDefinition): void {
 }
 
 /**
- * The Model of the association `through` names, which must be one of `model`'s; undefined when
- * its target isn't a Model, which that association's own check reports.
+ * The Model of the association `through` names, which must be one of `model`'s, and for a
+ * hasOne, not a hasMany; undefined when its target isn't a Model, which that association's own
+ * check reports.
  */
-function viaOf(label: string, model: ModelClass, through: string): ModelClass | undefined {
-  const via = associationsOf(model).get(through);
+function viaOf(
+  label: string,
+  model: ModelClass,
+  { through, kind }: AssociationDefinition,
+): ModelClass | undefined {
+  const via = associationsOf(model).get(through!);
   if (via === undefined) {
     throw new InvalidModel(`${label}: through "${through}" isn't an association of ${model.name}`);
+  }
+  if (kind === "hasOne" && via.kind === "hasMany") {
+    throw new InvalidModel(`${label}: a hasOne can't go through a hasMany (${through})`);
   }
   const target: unknown = via.target();
   return typeof target === "function" && target.prototype instanceof Model
