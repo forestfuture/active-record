@@ -64,6 +64,7 @@ import {
 import {
   count,
   runCalculation,
+  pick,
   pluck,
   type CalculatedValue,
   type ValueSource,
@@ -612,6 +613,14 @@ export class Relation<M extends Model, S = {}> {
   >(...attributes: K): Promise<{ -readonly [I in keyof K]: AttributesOf<M>[K[I]] }[]>;
   async pluck(...attributes: string[]): Promise<unknown[]> {
     return pluck(this.#valueSource(), attributes);
+  }
+
+  /** The first row's value of `attribute` in this Relation's order, or null with none. */
+  async pick<K extends keyof AttributesOf<M> & string>(
+    attribute: K,
+  ): Promise<AttributesOf<M>[K] | null>;
+  async pick(...attributes: string[]): Promise<unknown> {
+    return pick(this.#valueSource(), attributes);
   }
 
   /**
