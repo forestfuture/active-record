@@ -44,9 +44,11 @@ A value that can’t be cast throws a `TypeError`, and a body that isn’t JSON 
 
 ## Querying with request values
 
-Check that a value is a string before you query with it. JSON can send `null` or a list. `findBy({ token: null })` matches rows whose token is NULL, and `findBy({ token: [first, second] })` matches a row with either token:
+Check that a value is a string before you query with it:
 
 <include>/_excerpts/guide/untrusted-input/null-check.ts</include>
+
+JSON can send `null` or a list. `findBy({ token: null })` matches rows whose token is NULL, and `findBy({ token: [first, second] })` matches a row with either token.
 
 `findOrCreateBy`, `findOrInitializeBy`, and `createOrFindBy` refuse a list. They throw a `TypeError` before they query, since their attributes become the new record’s values.
 
