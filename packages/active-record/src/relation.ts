@@ -11,7 +11,7 @@ import {
 } from "./compiler.ts";
 import { RecordNotFound } from "./errors.ts";
 import { includeTree } from "./preload.ts";
-import { joinsFor, mergedOnJoin, mergeJoins, refuseDistinctJoinedOrder } from "./joins.ts";
+import { joinsFor, mergedOnJoin, refuseDistinctJoinedOrder } from "./joins.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
 import { inspectRelation } from "./relation-inspect.ts";
 import { runnerFor, selectForToSql, type QueryRunner } from "./load.ts";
@@ -22,6 +22,7 @@ import {
   inheritedAttributes,
   LinkedTo,
   merged,
+  mergeJoins,
   mergeTrees,
   Negated,
   type JoinKind,

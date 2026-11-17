@@ -228,24 +228,28 @@ function isSet(query: QueryDescription, clause: ShapeClause): boolean {
 export function either(a: QueryDescription, b: QueryDescription): QueryDescription {
   if (a.none) return b;
   if (b.none) return a;
-  for (const clause of SHAPE_CLAUSES) {
-    if (!isSameClause(clause, a, b)) {
-      throw new IncompatibleRelation(
-        `or() needs relations that differ only in their conditions, but their ${clause} differs`,
-      );
-    }
-  }
-  if (!isSameTree(a.includes ?? {}, b.includes ?? {})) {
+  const differing = differingClause(a, b);
+  if (differing !== undefined) {
     throw new IncompatibleRelation(
-      "or() needs relations that differ only in their conditions, but their includes differ",
+      `or() needs relations that differ only in their conditions, but their ${differing}`,
     );
   }
   return { ...a, conditions: [new Either(a.conditions, b.conditions)] };
 }
 
+/** What, besides their conditions, `a` and `b` don't have the same of, as a message ends it. */
+function differingClause(a: QueryDescription, b: QueryDescription): string | undefined {
+  const clause = SHAPE_CLAUSES.find((each) => !isSameClause(each, a, b));
+  if (clause !== undefined) return `${clause} differs`;
+  if (!isSameJoins(a.joins ?? [], b.joins ?? [])) return "joins differ";
+  if (!isSameTree(a.includes ?? {}, b.includes ?? {})) return "includes differ";
+  return undefined;
+}
+
 /**
  * `b`'s conditions ANDed onto `a`'s (`merge()`). For select, order, limit, offset and distinct,
- * a clause `b` sets explicitly replaces `a`'s; one it doesn't set is kept. Includes are unioned.
+ * a clause `b` sets explicitly replaces `a`'s; one it doesn't set is kept. Includes and joins
+ * are unioned.
  */
 export function merged(a: QueryDescription, b: QueryDescription): QueryDescription {
   const result: QueryDescription = {
@@ -253,6 +257,7 @@ export function merged(a: QueryDescription, b: QueryDescription): QueryDescripti
     conditions: [...a.conditions, ...b.conditions],
     ...(b.none === true && { none: true }),
     ...(b.includes !== undefined && { includes: mergeTrees(a.includes ?? {}, b.includes) }),
+    ...(b.joins !== undefined && { joins: mergeJoins(a.joins ?? [], b.joins) }),
   };
   for (const clause of SHAPE_CLAUSES) {
     if (isSet(b, clause)) Object.assign(result, { [clause]: b[clause] });
@@ -282,6 +287,34 @@ export function inheritedAttributes(conditions: readonly Condition[]): Record<st
     }
   }
   return inherited;
+}
+
+/** `b`'s joins added to `a`'s: an association joined on both is joined once, with both's joins. */
+export function mergeJoins(a: readonly Join[], b: readonly Join[]): readonly Join[] {
+  const merged = [...a];
+  for (const join of b) {
+    const index = merged.findIndex((each) => each.association === join.association);
+    const same = merged[index];
+    if (same === undefined) {
+      merged.push(join);
+    } else {
+      // An inner join of the association wins: its rows are those both find.
+      const kind = same.kind === "inner" || join.kind === "inner" ? "inner" : "left";
+      merged[index] = { ...same, kind, joins: mergeJoins(same.joins, join.joins) };
+    }
+  }
+  return merged;
+}
+
+/** Whether two lists of joins join the same associations, the same way, at every level. */
+function isSameJoins(a: readonly Join[], b: readonly Join[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((join) => {
+      const same = b.find((each) => each.association === join.association);
+      return same !== undefined && same.kind === join.kind && isSameJoins(join.joins, same.joins);
+    })
+  );
 }
 
 /** The union of two include trees. */
