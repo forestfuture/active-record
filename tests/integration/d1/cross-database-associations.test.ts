@@ -6,6 +6,7 @@ import {
   hasMany,
   hasOne,
   IncompatibleRelation,
+  InvalidModel,
   Model,
   RecordNotUnique,
   withDatabase,
@@ -166,6 +167,14 @@ class Stamp extends LogsRecord.define({
   user = belongsTo(User, { foreignKey: "userId", autosave: true, optional: true });
 }
 
+/** Users whose notes are reached through entries, on another database (#59). */
+class Diarist extends DbRecord.define({ id: { type: "integer", null: false } }) {
+  static override table = "users";
+
+  entries = hasMany(Entry, { foreignKey: "userId" });
+  notes = hasMany(Note, { through: "entries" });
+}
+
 const schema = new URL("../../fixtures/cross-database/schema.sql", import.meta.url);
 
 let db: TestDatabase;
@@ -295,6 +304,15 @@ describe("reading an association to another database", () => {
 async function rows(binding: TestDatabase, sql: string): Promise<Record<string, unknown>[]> {
   return (await binding.prepare(sql).all()).results;
 }
+
+describe("an association through another, across databases (#59)", () => {
+  test("is an InvalidModel at first use, until it's read with a query per database", async () => {
+    await inRequest(async () => {
+      expect(() => Diarist.all()).toThrow(InvalidModel);
+      expect(() => Diarist.all()).toThrow("reaches across databases");
+    });
+  });
+});
 
 describe("writing through an association to another database", () => {
   test("creating through a hasMany writes the record to the target's database", async () => {
