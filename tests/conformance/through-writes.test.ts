@@ -447,8 +447,6 @@ describe("writing through an association through another", () => {
       await user.projects().destroy(apollo);
 
       expect(user.loaded("assignments").map((assignment) => assignment.id)).toEqual([3]);
-      await user.projects().destroyAll();
-      expect(user.loaded("assignments")).toEqual([]);
     });
 
     test("a join record that refuses throws RecordNotDestroyed, destroying none", async () => {
@@ -481,6 +479,29 @@ describe("writing through an association through another", () => {
       expect(await links()).toEqual([[2, 2]]);
       expect(await db().model(Project).count()).toBe(3);
       expect(user.loaded("projects")).toEqual([]);
+    });
+
+    test("the join records it destroys leave what the owner has loaded of them", async () => {
+      const user = await db().model(User).find(1);
+      await user.assignments().toArray();
+
+      await user.projects().destroyAll();
+
+      expect(user.loaded("assignments")).toEqual([]);
+    });
+
+    test("a join record that refuses throws RecordNotDestroyed, destroying none", async () => {
+      await harness.exec("UPDATE assignments SET role = 'keep' WHERE id = 3");
+      const user = await db().model(User).find(1);
+
+      await expect(user.projects().destroyAll()).rejects.toThrow(RecordNotDestroyed);
+
+      expect(destroyed).toEqual([]);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+        [1, 3],
+      ]);
     });
   });
 
