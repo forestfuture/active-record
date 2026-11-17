@@ -3,6 +3,7 @@ import { pointBackAtOwner } from "./point-back-at-owner.ts";
 import type { Model } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
+import { readonlyError } from "./through-associations.ts";
 
 /**
  * A hasMany as its owner holds it: the owner-side rules its Relation follows. The Relation
@@ -43,6 +44,11 @@ export interface OwnedCollection {
   readonly link: { attribute: string; association: string } | undefined;
   /** Its form in a narrowed Relation. */
   narrowed(): OwnedCollection;
+  /**
+   * Throws `ReadonlyAssociation` when `write` isn't allowed through it: records written through
+   * a through association (#59), or its own `deleteAll()`.
+   */
+  requireWritable?(write: "records" | "deleteAll"): void;
 }
 
 /** A plain query's: no owner, so it holds nothing, refuses nothing, and a deleteAll deletes. */
@@ -78,7 +84,28 @@ export function ownedCollection(
   association: ResolvedAssociation,
 ): AssociationCollection {
   const key = association.keyOf(owner);
-  return key === null ? withoutKey(owner, association) : withKey(owner, association, key);
+  const collection =
+    key === null ? withoutKey(owner, association) : withKey(owner, association, key);
+  return association.hops === undefined ? collection : readonlyOf(collection, association);
+}
+
+/**
+ * A through association's collection (#59): no records are written through it, narrowed or
+ * not, and its own `deleteAll()` is refused; a narrowed one's deletes its records.
+ */
+function readonlyOf(
+  collection: AssociationCollection,
+  association: ResolvedAssociation,
+): AssociationCollection {
+  const refuse = () => {
+    throw readonlyError(association);
+  };
+  const narrowed = (): OwnedCollection => ({
+    ...collection.narrowed(),
+    requireWritable: (write) => (write === "records" ? refuse() : undefined),
+    narrowed,
+  });
+  return { ...collection, requireWritable: refuse, narrowed };
 }
 
 /** An owner with a key: its loaded records live in its association cache. */

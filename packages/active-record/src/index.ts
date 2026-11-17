@@ -15,6 +15,7 @@ export type { RelationsFor } from "./database.ts";
 export {
   abort,
   AssociationNotLoaded,
+  ReadonlyAssociation,
   AbortAfterPersistence,
   CallbackAbort,
   CheckViolation,

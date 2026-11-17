@@ -5,7 +5,7 @@ import { belongsToAccessor, hasOneAccessor } from "./association-writers.ts";
 import { inferenceHint, type Inference } from "./foreign-keys.ts";
 import { Model, modelOf, type AttributesOf, type ModelClass, type ScopesOf } from "./model.ts";
 import { verifyModel } from "./verify-model.ts";
-import { checkThrough } from "./through-associations.ts";
+import { checkThrough, refusedCollectionMethods } from "./through-associations.ts";
 import { state } from "./record-state.ts";
 import { collectionMethods, type CollectionMethods } from "./collection-methods.ts";
 import { ownedCollection } from "./owned-collection.ts";
@@ -294,7 +294,9 @@ function hasManyRelation(owner: Model, association: ResolvedAssociation) {
   // On this Relation only: one narrowed from it (`where`, a scope, …) is a new Relation without them.
   return Object.assign(
     owned,
-    collectionMethods({ owner, association, collection, relation: owned }),
+    association.hops === undefined
+      ? collectionMethods({ owner, association, collection, relation: owned })
+      : refusedCollectionMethods(association),
   );
 }
 

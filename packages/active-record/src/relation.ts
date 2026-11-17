@@ -262,6 +262,7 @@ export class Relation<M extends Model, S = {}> {
 
   /** What a record built or inserted through this Relation takes from its conditions and owner. */
   #inherited(): Record<string, unknown> {
+    this.#collection.requireWritable?.("records");
     const { conditions } = this.#query;
     return castInherited(this.#model, inheritedAttributes(conditions), this.#collection.link);
   }
@@ -388,11 +389,13 @@ export class Relation<M extends Model, S = {}> {
    * resolves to 0.
    */
   async deleteAll(): Promise<number> {
+    this.#collection.requireWritable?.("deleteAll");
     writableQuery(this.#query, "deleteAll");
     return this.#countOf(() => this.#deleteAllStatement());
   }
 
   #deleteAllStatement(): Statement {
+    this.#collection.requireWritable?.("deleteAll");
     const query = writableQuery(this.#query, "deleteAll");
     const landed = this.#clearCollectionUntilWritten();
     const nullifies = this.#collection.nullifies;
