@@ -626,18 +626,15 @@ describe("writing through an association through another", () => {
       expect(queries).toEqual([]);
     });
 
-    test("without a join record, creates one", async () => {
+    test("without a join record, creates one with the association's scope values", async () => {
       const cygnus = await db().model(Project).find(3);
       const user = await db().model(User).find(1);
 
       await cygnus.lead.set(user);
 
-      // Its scope's role isn't taken yet: #453.
-      expect(await links()).toEqual([
-        [1, 1],
-        [2, 2],
-        [1, 3],
-      ]);
+      expect((await db().model(Assignment).findBy({ projectId: 3 }))?.role).toBe("lead");
+      const reloaded = await db().model(Project).find(3);
+      expect((await reloaded.lead())?.id).toBe(1);
     });
 
     test("a join record that refuses its save throws RecordNotSaved, and points where it did", async () => {
