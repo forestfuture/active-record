@@ -378,6 +378,10 @@ The merged Relation can only add conditions and an order. A `limit`, `offset`, `
 A join reads one database. Joining an association to a Model on another database throws `IncompatibleRelation` when you write the query.
 :::
 
+:::note
+A polymorphic `belongsTo` can’t be joined, because its records may be in several tables. Joining one throws `IncompatibleRelation`. Join the `as:` association of each Model instead, such as `Photo.joins("likes")`.
+:::
+
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
 - Rails builds the SQL for a merged Model the query doesn’t join, and the database rejects it when the query runs. Active Record throws `IncompatibleRelation` when you write it.

@@ -3,6 +3,7 @@ import {
   belongsTo,
   hasMany,
   hasOne,
+  IncompatibleRelation,
   Model,
   UnknownAssociation,
   UnknownModelName,
@@ -673,5 +674,43 @@ describe("polymorphic associations", () => {
         { commentable_type: "Photo", commentable_id: 10, user_id: 1 },
       ]);
     });
+  });
+  // A post and a photo share id 20; only the photo has a remark, so a join on the id alone
+  // would find the post too.
+  describe("joining an as: association (#24)", () => {
+    beforeEach(async () => {
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (20, 1, 'Second')");
+      await harness.exec("INSERT INTO photos (id, title) VALUES (20, 'Dawn')");
+      await harness.exec(
+        "INSERT INTO remarks (id, body, commentable_type, commentable_id) VALUES (4, 'On a photo', 'Photo', 20)",
+      );
+    });
+
+    test("joins() matches the records whose type is the owner's Model", async () => {
+      const db = harness.connect();
+
+      expect(await db.model(Post).joins("remarks").pluck("id")).toEqual([10]);
+    });
+
+    test("leftJoins() leaves another Model's records unlinked", async () => {
+      const db = harness.connect();
+      const unremarked = db
+        .model(Post)
+        .leftJoins("remarks")
+        .merge(db.model(Remark).where({ commentableType: null }));
+
+      expect(await unremarked.pluck("id")).toEqual([20]);
+    });
+  });
+
+  // As Rails raises EagerLoadPolymorphicError: one join can't reach several tables.
+  test("joins() and leftJoins() refuse a polymorphic belongsTo when the query is written", () => {
+    const db = harness.connect();
+    const message =
+      "Remark.commentable can't be joined: it's polymorphic, so its records may be in any of Post, Photo";
+
+    expect(() => db.model(Remark).joins("commentable")).toThrow(new IncompatibleRelation(message));
+    expect(() => db.model(Remark).leftJoins("commentable")).toThrow(IncompatibleRelation);
+    expect(() => db.model(Post).joins({ remarks: "commentable" })).toThrow(IncompatibleRelation);
   });
 });
