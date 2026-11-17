@@ -5,6 +5,7 @@ import {
   hasMany,
   Model,
   RecordNotDestroyed,
+  RecordNotFound,
   withDatabase,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
@@ -182,5 +183,48 @@ describe("destroying many records", () => {
     });
 
     expect(await bodies()).toEqual(["d"]);
+  });
+
+  describe("by primary key, as a Model's statics", () => {
+    const inDatabase = <T>(run: () => Promise<T>) => withDatabase(db(), run);
+
+    test("destroy(id) destroys the record with that key, and resolves to it", async () => {
+      const destroyed = await inDatabase(() => Comment.destroy(10));
+
+      expect(destroyed.body).toBe("a");
+      expect(destroyed.isDestroyed()).toBe(true);
+      expect(ran).toEqual(["before a", "after a"]);
+      expect(await bodies()).toEqual(["b", "c", "d"]);
+    });
+
+    test("destroy(ids) destroys them together, and resolves to them in order", async () => {
+      const destroyed = await inDatabase(() => Comment.destroy([20, 10]));
+
+      expect(destroyed.map((comment) => comment.body)).toEqual(["c", "a"]);
+      expect(await bodies()).toEqual(["b", "d"]);
+    });
+
+    test("destroy throws RecordNotFound for a missing key, destroying nothing", async () => {
+      await expect(inDatabase(() => Comment.destroy([10, 99]))).rejects.toThrow(RecordNotFound);
+
+      expect(ran).toEqual([]);
+      expect(await bodies()).toEqual(["a", "b", "c", "d"]);
+    });
+
+    test("destroy throws RecordNotDestroyed when one refuses, destroying nothing", async () => {
+      await harness.exec("UPDATE comments SET body = 'keep' WHERE id = 11");
+
+      await expect(inDatabase(() => Comment.destroy([10, 11]))).rejects.toThrow(RecordNotDestroyed);
+
+      expect(await bodies()).toEqual(["a", "keep", "c", "d"]);
+    });
+
+    test("delete(id | ids) deletes the rows without callbacks, and resolves to how many", async () => {
+      expect(await inDatabase(() => Comment.delete(10))).toBe(1);
+      expect(await inDatabase(() => Comment.delete([11, 20, 99]))).toBe(2);
+
+      expect(ran).toEqual([]);
+      expect(await bodies()).toEqual(["d"]);
+    });
   });
 });

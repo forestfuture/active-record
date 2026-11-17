@@ -1,4 +1,4 @@
-// The statics every Model gets from Model: its Relation methods (`Product.where(…)`) and callbacks (`this.beforeSave(…)`), typed and defined from their lists.
+// The statics every Model gets from Model: its Relation methods (`Product.where(…)`), `destroy` and `delete` by primary key, and callbacks (`this.beforeSave(…)`), typed and defined from their lists.
 import {
   declare,
   type CallbackKind,
@@ -15,6 +15,7 @@ import type {
   ScopesOf,
 } from "./model.ts";
 import type { PaginateStatic } from "./pagination.ts";
+import { destroyTogether } from "./records-together.ts";
 import {
   inContext,
   VALIDATION_CALLBACK_KINDS,
@@ -159,6 +160,31 @@ interface OverloadedStatics {
   };
 }
 
+/** A primary key, or several, as `find` takes them. */
+type Keys = string | number | readonly (string | number)[];
+
+/** Writes by primary key, statics only: a hasMany's `destroy` and `delete` take records instead. */
+interface KeyedWriteStatics {
+  /**
+   * Finds the records with these primary keys, as `find` does (`RecordNotFound` if one is
+   * missing, before anything is destroyed), and destroys them together, callbacks and dependents
+   * included: if one refuses, it throws `RecordNotDestroyed` and nothing is destroyed. Resolves
+   * to the record, or the records in the order given.
+   */
+  destroy: {
+    <C extends QueryableClass>(this: C, id: string | number): Promise<InstanceType<C>>;
+    <C extends QueryableClass>(
+      this: C,
+      ids: readonly (string | number)[],
+    ): Promise<InstanceType<C>[]>;
+  };
+  /**
+   * Deletes the rows with these primary keys, as `deleteBy` does: no callbacks, and no error for
+   * a key with no row. Resolves to the number of rows deleted.
+   */
+  delete: <C extends QueryableClass>(this: C, ids: Keys) => Promise<number>;
+}
+
 /** A callback static, typed for the class it's declared on: `this.beforeSave((record) => …)`. */
 type CallbackStatic = <C extends AbstractModelClass>(
   this: C,
@@ -268,6 +294,7 @@ const callbackKinds = Object.keys({
 export const ModelStatics = class {} as unknown as (abstract new () => object) &
   RelationStatics &
   OverloadedStatics &
+  KeyedWriteStatics &
   CallbackStatics &
   CommitStatics;
 
@@ -298,6 +325,19 @@ export function defineStatics(base: typeof Model): void {
       return relation[name]!(...args);
     });
   }
+  defineKeyedWrites(base);
+}
+
+/** `Model.destroy(ids)` and `Model.delete(ids)`, on the current database. */
+function defineKeyedWrites(base: typeof Model): void {
+  defineStatic(base, "destroy", async function (this: QueryableClass, ids: Keys) {
+    const found: Model | Model[] = await this.all().find(ids as never);
+    await destroyTogether(Array.isArray(found) ? found : [found], "destroy() needs its records");
+    return found;
+  });
+  defineStatic(base, "delete", async function (this: QueryableClass, ids: Keys) {
+    return this.all().deleteBy({ [this.primaryKey]: ids } as never);
+  });
 }
 
 /** Whether a callback kind takes `on`, to run only in some validation contexts (#51). */
