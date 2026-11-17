@@ -2,21 +2,13 @@
 import { savingGroups } from "./autosave.ts";
 import { RecordNotSaved } from "./errors.ts";
 import { pinBefore } from "./executor.ts";
-import {
-  prepareDestroy,
-  prepareSave,
-  refusalError,
-  type Claimed,
-  type DestroyPlan,
-  type Ready,
-  type SavePlan,
-} from "./lifecycle.ts";
+import { prepareSave } from "./lifecycle.ts";
 import { Model, modelOf } from "./model.ts";
 import type { AssociationCollection } from "./owned-collection.ts";
 import { isOwnersKey } from "./point-back-at-owner.ts";
 import { linksOf, state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
-import { combine, inGroup, runStages, type Stage } from "./unit-of-work.ts";
+import { destroyTogether, writeTogether } from "./records-together.ts";
 
 /** What `user.posts()` has besides its Relation's methods, as Rails' collection proxy does. */
 export interface CollectionMethods<M extends Model> {
@@ -180,16 +172,6 @@ function requireMembers(hasMany: OwnersHasMany, records: readonly Model[]): void
 }
 
 /**
- * Destroys `records` as one write, callbacks and dependents included, as Rails' collection does
- * in a transaction: if one refuses, it throws, with nothing written.
- */
-async function destroyTogether(records: readonly Model[], needs: string): Promise<void> {
-  await pinBefore(linksOf(records), needs);
-  const refused = await writeTogether(records, prepareDestroy, needs);
-  if (refused !== undefined) throw refusalError(refused.record, refused.plan, "destroy");
-}
-
-/**
  * Pins `records`, and what saving them writes, to their databases before anything changes (#93):
  * the records with what they autosave on theirs, all together, so records from two databases
  * throw `IncompatibleRelation`; then each group reached through an association to another one.
@@ -200,36 +182,4 @@ async function pinForSaving(records: readonly Model[], needs: string): Promise<v
   for (const [, ...elsewhere] of groups) {
     for (const group of elsewhere) await pinBefore(linksOf(group.records), needs);
   }
-}
-
-/**
- * Prepares each record's save or destroy, then writes them all as one: or, if one refuses, writes
- * nothing and returns it, with its plan.
- */
-async function writeTogether(
-  records: readonly Model[],
-  prepare: (record: Model, claimed: Claimed) => Promise<SavePlan | DestroyPlan>,
-  needs: string,
-): Promise<{ record: Model; plan: Exclude<SavePlan | DestroyPlan, Ready> } | undefined> {
-  const claimed: Claimed = new Set();
-  const plans: Ready[] = [];
-  for (const record of records) {
-    const plan = await prepare(record, claimed);
-    if (plan.status !== "ready") return { record, plan };
-    plans.push(plan);
-  }
-  await runStages(together(plans), needs);
-  return undefined;
-}
-
-/**
- * Several records' plans as one: what each writes on another database before, then their own
- * stages merged position by position, each one batch on their database, then what's after.
- */
-function together(plans: readonly Ready[]): Stage[] {
-  return [
-    ...plans.flatMap((plan) => plan.before),
-    ...inGroup(combine(plans.map((plan) => plan.stages)), {}),
-    ...plans.flatMap((plan) => plan.after),
-  ];
 }

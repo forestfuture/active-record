@@ -49,6 +49,7 @@ const relationMethods = [
   "upsertAll",
   "updateAll",
   "deleteAll",
+  "destroyAll",
   "create",
   "createOrThrow",
   "findBy",

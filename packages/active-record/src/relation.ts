@@ -9,7 +9,7 @@ import {
   type Conflict,
   type QuerySql,
 } from "./compiler.ts";
-import { IncompatibleRelation, RecordNotFound } from "./errors.ts";
+import { RecordNotFound } from "./errors.ts";
 import { includeTree } from "./preload.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
 import { inspectRelation } from "./relation-inspect.ts";
@@ -40,6 +40,8 @@ import { SafeSql } from "./sql.ts";
 import {
   checkChanges,
   checkConditions,
+  checkPreloadable,
+  requireSameModel,
   isEmptyConditions,
   orderTerms,
   skipOn,
@@ -58,10 +60,11 @@ import {
   unowned,
   type OwnedCollection,
 } from "./owned-collection.ts";
-import { atMostOne, reversed } from "./finder-order.ts";
+import { atMostOne, orderOrPrimaryKey, reversed, thenPrimaryKey } from "./finder-order.ts";
 import { insertStatement, runAlone, Statement } from "./statement.ts";
 import type { ReturnedRow, WriteResult } from "./statement.ts";
 import { preparedWrites, type PreparedWrites } from "./prepared-writes.ts";
+import { destroyTogether } from "./records-together.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
 import {
   count,
@@ -170,7 +173,7 @@ export class Relation<M extends Model, S = {}> {
    * identical in everything but their conditions (select, order, limit, offset, distinct).
    */
   or(other: Relation<M, S>): Scoped<M, S> {
-    this.#requireSameModel(other, "or");
+    requireSameModel(this.#model, other.#model, "or");
     return this.#joining(other, "or()").#describing(either(this.#query, other.#query));
   }
 
@@ -180,7 +183,7 @@ export class Relation<M extends Model, S = {}> {
    * Orders are replaced, not concatenated (a deliberate difference from Rails).
    */
   merge(other: Relation<M, S>): Scoped<M, S> {
-    this.#requireSameModel(other, "merge");
+    requireSameModel(this.#model, other.#model, "merge");
     return this.#joining(other, "merge()").#describing(merged(this.#query, other.#query));
   }
 
@@ -404,6 +407,17 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /**
+   * Loads the records this Relation matches and destroys each, callbacks and `dependent:`
+   * strategies included, as one write: if one refuses, it throws `RecordNotDestroyed` and nothing
+   * is destroyed. Resolves to the records. A `none()` Relation sends nothing and resolves to [].
+   */
+  async destroyAll(): Promise<M[]> {
+    const records = await this.toArray();
+    await destroyTogether(records, "destroyAll() needs its records");
+    return records;
+  }
+
+  /**
    * Builds and runs a statement from this Relation: the rows it changed, or 0 without a query on
    * `none()`, which never builds it, so it needs no database to compile for.
    */
@@ -468,7 +482,7 @@ export class Relation<M extends Model, S = {}> {
   async first(): Promise<M | null> {
     const cached = this.#cached();
     if (cached !== undefined) return cached[0] ?? null;
-    return this.#one(this.#orderOrPrimaryKey());
+    return this.#one(orderOrPrimaryKey(this.#model, this.#query));
   }
 
   /**
@@ -480,10 +494,13 @@ export class Relation<M extends Model, S = {}> {
     if (cached !== undefined) return cached.at(-1) ?? null;
     const { limit, offset } = this.#query;
     if (limit !== undefined || offset !== undefined) {
-      const page = await this.#runner.load({ ...this.#query, order: this.#orderOrPrimaryKey() });
+      const page = await this.#runner.load({
+        ...this.#query,
+        order: orderOrPrimaryKey(this.#model, this.#query),
+      });
       return page.at(-1) ?? null;
     }
-    return this.#one(this.#orderOrPrimaryKey().map(reversed));
+    return this.#one(orderOrPrimaryKey(this.#model, this.#query).map(reversed));
   }
 
   /** One record in whatever order D1 returns, or null. */
@@ -632,7 +649,10 @@ export class Relation<M extends Model, S = {}> {
     const keepIfCurrent = this.#collection.startFill?.<M>();
     if (keepIfCurrent === undefined) return this.#runner.load(this.#query);
     // Loaded for the owner in its order, then target primary-key order, as preloaded.
-    const records = await this.#runner.load({ ...this.#query, order: this.#withPrimaryKeyOrder() });
+    const records = await this.#runner.load({
+      ...this.#query,
+      order: thenPrimaryKey(this.#model, this.#query),
+    });
     return keepIfCurrent(records);
   }
 
@@ -655,14 +675,6 @@ export class Relation<M extends Model, S = {}> {
     if (executor === this.#executor && collection === this.#collection) return this;
     const Class = this.constructor as new (...args: RelationArgs<M>) => Relation<M, S>;
     return new Class({ executor, model: this.#model, query: this.#query, collection });
-  }
-
-  #requireSameModel(other: Relation<M, S>, method: string): void {
-    if (other.#model !== this.#model) {
-      throw new IncompatibleRelation(
-        `${method}() needs relations of the same Model, not ${this.#model.name} and ${other.#model.name}`,
-      );
-    }
   }
 
   /** @internal Runs a scope on this Relation, checking it returned a Relation of the same Model. */
@@ -694,25 +706,10 @@ export class Relation<M extends Model, S = {}> {
   /** A Relation of this same class for `query`, so a Model's scope methods survive chaining. */
   #describing(query: QueryDescription): Scoped<M, S> {
     const Class = this.constructor as new (...args: RelationArgs<M>) => Scoped<M, S>;
-    // Preloading needs keys a distinct select leaves out; adding them would undo the distinct.
-    if (query.includes !== undefined && query.select !== undefined && query.distinct) {
-      throw new IncompatibleRelation(
-        "includes() can't be combined with select(...).distinct(): preloading needs keys the distinct select leaves out",
-      );
-    }
+    checkPreloadable(query);
     // A changed query no longer matches what the owner has loaded: the collection narrows.
     const collection = this.#collection.narrowed();
     return new Class({ executor: this.#executor, model: this.#model, query, collection });
-  }
-
-  /** This Relation's order, then the primary key ascending, so ties come back the same way. */
-  #withPrimaryKeyOrder(): readonly OrderTerm[] {
-    return [...this.#query.order, { attribute: this.#model.primaryKey, direction: "asc" }];
-  }
-
-  #orderOrPrimaryKey(): readonly OrderTerm[] {
-    const { order } = this.#query;
-    return order.length > 0 ? order : [{ attribute: this.#model.primaryKey, direction: "asc" }];
   }
 
   async #one(order: readonly OrderTerm[]): Promise<M | null> {
