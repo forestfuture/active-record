@@ -22,3 +22,11 @@ CREATE TABLE notes (
   entry_id INTEGER,
   body TEXT NOT NULL
 );
+
+-- A remark on a user or an entry, by its type and id (#60).
+CREATE TABLE remarks (
+  id INTEGER PRIMARY KEY,
+  subject_type TEXT,
+  subject_id INTEGER,
+  body TEXT NOT NULL
+);
