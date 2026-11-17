@@ -13,6 +13,7 @@ import type {
   HasOneThrough,
   ThroughDependent,
   ThroughOptions,
+  PolymorphicBelongsTo,
 } from "./associations.ts";
 import { NoDatabase, UnknownAssociation } from "./errors.ts";
 import { withForeignKeys } from "./foreign-keys.ts";
@@ -51,25 +52,63 @@ const declarationKey = Symbol("d1-record association");
  * Records from `build()` and queries get the real accessor; on a record constructed directly
  * (`new User()`), calling the field throws `NoDatabase`, as any database operation does.
  */
-function declaration<A>(kind: AssociationKind, target: ModelClass, options: object): A {
+function declaration<A>(
+  kind: AssociationKind,
+  target: ModelClass | readonly ModelClass[],
+  options: object,
+): A {
   // A field newRecord removes straight away: nothing reads it, so nothing is built for it (#91).
   if (makingRecords > 0) return placeholderField as A;
   const field = throwingField();
   // The target's class is passed directly (no `() => Post`): a field's initializer runs when a
   // record is made, by which time every Model class exists, in whatever order they're declared.
-  return Object.assign(field, {
-    [declarationKey]: { kind, target: () => target, ...options },
-  }) as A;
+  return Object.assign(field, { [declarationKey]: { kind, ...targetOf(target), ...options } }) as A;
 }
 
+/** A declaration's target: one Model, or a polymorphic belongsTo's list of them (#60). */
+function targetOf(
+  target: ModelClass | readonly ModelClass[],
+): Pick<AssociationDeclaration, "target" | "targets"> {
+  if (!Array.isArray(target)) return { target: () => target as ModelClass };
+  const targets = [...(target as readonly ModelClass[])];
+  return { target: noSingleTarget, targets: () => targets };
+}
+
+/** A polymorphic belongsTo's `target`: it has none, so reaching for one is the library's mistake. */
+function noSingleTarget(): never {
+  throw new Error("A polymorphic association has no single target; use the branch for a record");
+}
+
+/** What only a belongsTo takes. */
+interface BelongsToOptions {
+  /** The record may point at nothing: saving doesn't require its record (#339). */
+  optional?: boolean;
+}
+
+/**
+ * What a polymorphic belongsTo takes (#60): no `scope` (#436), and the attribute holding the
+ * type, inferred as the association's name + `Type` (`commentable` → `commentableType`).
+ */
+export type PolymorphicBelongsToOptions = Omit<AssociationOptions, "dependent" | "scope"> &
+  BelongsToOptions & { foreignType?: string };
+
+/**
+ * This record points at one record of one of `targets` (#60), by the type and key it holds:
+ * `commentable = belongsTo([Post, Photo])`.
+ */
+export function belongsTo<L extends readonly [ModelClass, ...ModelClass[]]>(
+  targets: L,
+  options?: PolymorphicBelongsToOptions,
+): PolymorphicBelongsTo<L[number]>;
 /** This record points at one `target` record through `foreignKey` (its own attribute). */
 export function belongsTo<C extends ModelClass>(
   target: C,
-  options: Omit<AssociationOptions<C>, "dependent"> & {
-    /** The record may point at nothing: saving doesn't require its record (#339). */
-    optional?: boolean;
-  } = {},
-): BelongsTo<C> {
+  options?: Omit<AssociationOptions<C>, "dependent"> & BelongsToOptions,
+): BelongsTo<C>;
+export function belongsTo(
+  target: ModelClass | readonly ModelClass[],
+  options: object = {},
+): unknown {
   return declaration("belongsTo", target, options);
 }
 

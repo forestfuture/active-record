@@ -31,3 +31,7 @@ CREATE TABLE readings (id INTEGER PRIMARY KEY, value INTEGER, price INTEGER);
 -- Associations through another (#59): users' projects through their assignments.
 CREATE TABLE projects (id INTEGER PRIMARY KEY, name TEXT NOT NULL, archived INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE assignments (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users (id), project_id INTEGER REFERENCES projects (id), role TEXT);
+
+-- Polymorphic associations (#60): a remark on a post or a photo, by its type and id.
+CREATE TABLE photos (id INTEGER PRIMARY KEY, title TEXT);
+CREATE TABLE remarks (id INTEGER PRIMARY KEY, body TEXT, commentable_type TEXT, commentable_id INTEGER);

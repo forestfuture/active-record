@@ -10,6 +10,7 @@ import { state } from "./record-state.ts";
 import { applyScope, linkedToRecordsOf, queryOf, type Scope, type Scoped } from "./relation.ts";
 import { relationFor } from "./scoped-relation.ts";
 import { sourceNameOf } from "./through-associations.ts";
+import { tableOwnerModelName } from "./table-names.ts";
 
 /**
  * How an association links records: the owner's `ownerAttribute` equals the target's
@@ -51,37 +52,90 @@ export class ResolvedAssociation {
   readonly owner: ModelClass;
   readonly name: string;
   readonly definition: AssociationDefinition;
-  readonly target: ModelClass;
   /** The owner's attribute holding the link (a foreign key for belongsTo, a key otherwise). */
   readonly ownerAttribute: string;
+  /**
+   * A polymorphic belongsTo's (#60): one association to each Model it lists, each linking the
+   * records whose type names it. Any other association is its own one branch.
+   */
+  readonly branches: readonly ResolvedAssociation[];
+  /**
+   * A polymorphic link's type (#60): the attribute naming a Model, on the owner for a
+   * belongsTo, and the name it holds for this association's records.
+   */
+  readonly type: { attribute: string; value: string } | undefined;
+  /** For a through association (#59), the associations it reaches its records by. */
+  readonly hops: Hops | undefined;
+  readonly #link: Link | undefined;
+
+  /** One association; for a polymorphic belongsTo, `target` is one of its Models (a branch). */
+  constructor(owner: ModelClass, name: string, target?: ModelClass) {
+    this.owner = owner;
+    this.name = name;
+    this.definition = associationOf(owner, name);
+    this.ownerAttribute = this.definition.foreignKey;
+    const listed = this.definition.targets?.();
+    if (listed !== undefined && target === undefined) {
+      this.branches = listed.map((each) => new ResolvedAssociation(owner, name, each));
+      this.type = undefined;
+      this.hops = undefined;
+      this.#link = undefined;
+      return;
+    }
+    const linked = target ?? this.definition.target();
+    // A Model reached only through an association is still verified and gets its accessors.
+    readyModel(linked);
+    this.hops = hopsOf(owner, name, this.definition);
+    this.#link = linkFor(this.definition, owner, linked, this.hops);
+    this.ownerAttribute = this.#link.ownerAttribute;
+    this.type = typeOf(this.definition, this.#link.target);
+    this.branches = [this];
+  }
+
+  /** The target Model: a polymorphic belongsTo has one per branch. */
+  get target(): ModelClass {
+    return this.#linked.target;
+  }
+
   /** The target's attribute the owner's links to. */
-  readonly targetAttribute: string;
+  get targetAttribute(): string {
+    return this.#linked.targetAttribute;
+  }
+
   /**
    * Whether its target is on another database than its owner (#228): both Models' schemas name
    * a database, and not the same one. Then its records are read and written there.
    */
-  readonly isCrossDatabase: boolean;
-  /** For a through association (#59), the associations it reaches its records by. */
-  readonly hops: Hops | undefined;
+  get isCrossDatabase(): boolean {
+    return this.#linked.isCrossDatabase;
+  }
 
-  constructor(owner: ModelClass, name: string) {
-    this.owner = owner;
-    this.name = name;
-    this.definition = associationOf(owner, name);
-    this.target = this.definition.target();
-    // A Model reached only through an association is still verified and gets its accessors.
-    readyModel(this.target);
-    this.hops = hopsOf(owner, name, this.definition);
-    // A through association is linked to its owner as its first hop is, and to its records as
-    // its last hop is.
-    ({ ownerAttribute: this.ownerAttribute, targetAttribute: this.targetAttribute } =
-      this.hops === undefined
-        ? linkOf(this.definition, owner, this.target)
-        : {
-            ownerAttribute: this.hops.via.ownerAttribute,
-            targetAttribute: this.hops.source.targetAttribute,
-          });
-    this.isCrossDatabase = isOnDifferentDatabases(owner, this.target);
+  get #linked(): Link {
+    if (this.#link === undefined) {
+      throw new Error(`${this.label} is polymorphic: use the branch for a record`);
+    }
+    return this.#link;
+  }
+
+  /** Whether it's a polymorphic belongsTo (#60), whose record may be of several Models. */
+  get isPolymorphic(): boolean {
+    return this.definition.targets !== undefined;
+  }
+
+  /**
+   * The branch for the record `owner` points at: the one its type names, or none when its type
+   * is null. A polymorphic belongsTo only; any other is its own.
+   */
+  branchForOwner(owner: Model): ResolvedAssociation | undefined {
+    if (!this.isPolymorphic) return this;
+    const value = owner[state].read(this.definition.foreignType!);
+    if (value === null) return undefined;
+    return this.branches.find((branch) => branch.type!.value === value);
+  }
+
+  /** The branch whose Model `record` is of, if any. */
+  branchForRecord(record: Model): ResolvedAssociation | undefined {
+    return this.branches.find((branch) => record instanceof branch.target);
   }
 
   /** `User.posts`: how the association is named in messages. */
@@ -170,6 +224,8 @@ export class ResolvedAssociation {
   keyOf(owner: Model): unknown {
     if (this.hops !== undefined) return this.hops.via.keyOf(owner);
     if (this.definition.kind !== "belongsTo" && owner[state].isNew) return null;
+    const { foreignType } = this.definition;
+    if (foreignType !== undefined && owner[state].read(foreignType) === null) return null;
     return owner[state].read(this.ownerAttribute);
   }
 }
@@ -187,6 +243,43 @@ function hopsOf(
   const via = resolveAssociation(owner, definition.through);
   const source = sourceNameOf(name, definition, via.target)!;
   return { via, source: resolveAssociation(via.target, source) };
+}
+
+/** How a resolved association links its owner to one target Model. */
+interface Link {
+  target: ModelClass;
+  ownerAttribute: string;
+  targetAttribute: string;
+  isCrossDatabase: boolean;
+}
+
+/**
+ * How `definition` links `owner` to `target`. A through association is linked to its owner as
+ * its first hop is, and to its records as its last hop is (#59).
+ */
+function linkFor(
+  definition: AssociationDefinition,
+  owner: ModelClass,
+  target: ModelClass,
+  hops: Hops | undefined,
+): Link {
+  const attributes =
+    hops === undefined
+      ? linkOf(definition, owner, target)
+      : { ownerAttribute: hops.via.ownerAttribute, targetAttribute: hops.source.targetAttribute };
+  return { target, ...attributes, isCrossDatabase: isOnDifferentDatabases(owner, target) };
+}
+
+/**
+ * A polymorphic belongsTo branch's type (#60): its owner's type attribute, holding the name of
+ * the Model whose table `target`'s is, as Rails stores its base class's name.
+ */
+function typeOf(
+  definition: AssociationDefinition,
+  target: ModelClass,
+): ResolvedAssociation["type"] {
+  if (definition.targets === undefined) return undefined;
+  return { attribute: definition.foreignType!, value: tableOwnerModelName(target) };
 }
 
 /** Whether the schemas `owner` and `target` are built on name two different databases. */

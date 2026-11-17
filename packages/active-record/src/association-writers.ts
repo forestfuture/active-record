@@ -51,6 +51,23 @@ export function belongsToAccessor(owner: Model, association: ResolvedAssociation
 }
 
 /**
+ * A polymorphic belongsTo's accessor for `owner` (#60): `await remark.commentable()`, the record
+ * of the Model its type names, read through that Model's branch. No `build` or `create`, as in
+ * Rails: which Model to make isn't known.
+ */
+export function polymorphicBelongsToAccessor(
+  owner: Model,
+  association: ResolvedAssociation,
+): unknown {
+  return () =>
+    cachedRead(owner, association, (key) => {
+      const branch = association.branchForOwner(owner);
+      if (branch === undefined) return Promise.resolve(null);
+      return branch.all(owner[state].executor).findBy({ [branch.targetAttribute]: key });
+    });
+}
+
+/**
  * Points `owner` at `record` (or at nothing): its foreign key takes the record's key, and the
  * record becomes the loaded association. A new record is saved first when the owner is
  * (autosave), and the key filled in then if D1 generates it.

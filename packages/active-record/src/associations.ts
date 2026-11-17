@@ -1,7 +1,11 @@
 // Association types and options, and readying a Model: its associations checked and installed.
 import { InvalidModel } from "./errors.ts";
 import { associationsOf } from "./association-fields.ts";
-import { belongsToAccessor, hasOneAccessor } from "./association-writers.ts";
+import {
+  belongsToAccessor,
+  hasOneAccessor,
+  polymorphicBelongsToAccessor,
+} from "./association-writers.ts";
 import { inferenceHint, type Inference } from "./foreign-keys.ts";
 import {
   isModelClass,
@@ -105,11 +109,20 @@ export interface AssociationDeclaration extends AssociationOptions, Partial<Thro
   optional?: boolean;
   /** The target Model, read when the association is first used (the field holds the class). */
   target: () => ModelClass;
+  /**
+   * A polymorphic belongsTo's Models (#60): `belongsTo([Post, Photo])`, its record one of them,
+   * by the type its owner holds. It has no one `target`.
+   */
+  targets?: () => readonly ModelClass[];
+  /** The attribute holding a polymorphic association's type: the owner's for a belongsTo. */
+  foreignType?: string;
 }
 
 /** One declared association, its foreign key given or inferred from the names (`associationsOf`). */
 export interface AssociationDefinition extends AssociationDeclaration {
   foreignKey: string;
+  /** A polymorphic association's type attribute, given or inferred (`commentable` → `commentableType`). */
+  foreignType?: string;
   /** Where an inferred foreign key came from, for error messages. */
   inferredFrom?: Inference;
 }
@@ -124,6 +137,17 @@ export interface BelongsTo<C extends ModelClass> {
   build(attributes?: Partial<AttributesOf<InstanceType<C>>>): InstanceType<C>;
   create(attributes?: Partial<AttributesOf<InstanceType<C>>>): Promise<InstanceType<C>>;
   createOrThrow(attributes?: Partial<AttributesOf<InstanceType<C>>>): Promise<InstanceType<C>>;
+}
+
+/**
+ * `await remark.commentable()`: the record a polymorphic belongsTo points at (#60), of whichever
+ * listed Model its type names, or null. `remark.commentable.set(post)` points it at another,
+ * setting both the type and the key. There's no `build` or `create`: which Model to make isn't
+ * known.
+ */
+export interface PolymorphicBelongsTo<C extends ModelClass> {
+  (): Promise<InstanceType<C> | null>;
+  set(record: InstanceType<C> | null): void;
 }
 
 /**
@@ -207,9 +231,11 @@ function checkAssociation(
 ): void {
   const label = `${model.name || "A Model class's"} association "${name}"`;
   checkName(label, model, name);
-  const target = checkTarget(label, definition);
+  const targets = checkTargets(label, definition);
   // A through association's keys are its two hops' (#59).
-  if (definition.through === undefined) checkKeys(label, model, target, definition);
+  if (definition.through === undefined) {
+    for (const target of targets) checkKeys(label, model, target, definition);
+  }
   checkThrough(label, model, name, definition);
   checkDependent(label, definition);
   checkOptional(label, definition);
@@ -240,9 +266,13 @@ function checkName(label: string, model: ModelClass, name: string): void {
   }
 }
 
-/** Its target must be a Model class. */
-function checkTarget(label: string, definition: AssociationDefinition): ModelClass {
-  const target: unknown = definition.target();
+/** Its target must be a Model class: each one a polymorphic belongsTo lists (#60). */
+function checkTargets(label: string, definition: AssociationDefinition): ModelClass[] {
+  const listed = definition.targets?.() ?? [definition.target()];
+  return listed.map((each) => checkTarget(label, each));
+}
+
+function checkTarget(label: string, target: unknown): ModelClass {
   if (!isModelClass(target)) {
     throw new InvalidModel(`${label} must point at a Model class: hasMany(Post, …)`);
   }
@@ -305,7 +335,7 @@ function accessorProperty(name: string, definition: AssociationDefinition): Prop
     };
     return { configurable: true, get: () => method, set: keepAssignedField(name) };
   }
-  const accessorFor = definition.kind === "belongsTo" ? belongsToAccessor : hasOneAccessor;
+  const accessorFor = accessorKind(definition);
   return {
     configurable: true,
     set: keepAssignedField(name),
@@ -318,6 +348,12 @@ function accessorProperty(name: string, definition: AssociationDefinition): Prop
       return perRecord.get(name);
     },
   };
+}
+
+/** What makes a belongsTo's or hasOne's accessor for a record. */
+function accessorKind(definition: AssociationDefinition) {
+  if (definition.kind === "hasOne") return hasOneAccessor;
+  return definition.targets === undefined ? belongsToAccessor : polymorphicBelongsToAccessor;
 }
 
 /**
