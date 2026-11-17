@@ -88,7 +88,13 @@ function checkSource(label: string, { model, name, definition }: Declared, via: 
   const sourceName = sourceNameOf(name, definition, via);
   if (sourceName === undefined)
     throw new InvalidModel(`${label}: ${missingSource(name, definition, via)}`);
-  const source = associationsOf(via).get(sourceName)!.target();
+  const declared = associationsOf(via).get(sourceName)!;
+  if (declared.targets !== undefined) {
+    throw new InvalidModel(
+      `${label}: its source ${via.name}.${sourceName} is a polymorphic belongsTo, which it can't reach its records by`,
+    );
+  }
+  const source = declared.target();
   const target = definition.target();
   if (source !== target) {
     throw new InvalidModel(
@@ -152,6 +158,12 @@ function viaOf(
   if (kind === "hasOne" && via.kind === "hasMany") {
     throw new InvalidModel(`${label}: a hasOne can't go through a hasMany (${through})`);
   }
+  // Its Model isn't known until a record's type is read (#60), as Rails refuses too.
+  if (via.targets !== undefined) {
+    throw new InvalidModel(
+      `${label}: through "${through}" is a polymorphic belongsTo, which it can't go through`,
+    );
+  }
   const target: unknown = via.target();
   return isModelClass(target) ? target : undefined;
 }
@@ -179,7 +191,10 @@ function checkNotCircular(label: string, model: ModelClass, name: string): void 
     if (names.has(association)) throw new InvalidModel(`${label} goes through itself`);
     passed.set(owner, names.add(association));
     walk(owner, definition.through);
-    const via: unknown = associationsOf(owner).get(definition.through)?.target();
+    const through = associationsOf(owner).get(definition.through);
+    // A polymorphic belongsTo has no one Model to walk on to; it's refused below (#60).
+    if (through?.targets !== undefined) return;
+    const via: unknown = through?.target();
     if (!isModelClass(via)) return;
     const source = sourceNameOf(association, definition, via);
     if (source !== undefined) walk(via, source);
