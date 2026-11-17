@@ -95,7 +95,7 @@ Two requests can both find nothing, and both create a record. When a UNIQUE inde
 
 - **Leave out a `uniqueness` validation on those attributes.** It refuses the duplicate before the insert, so `createOrFindBy` resolves to the invalid record, not the existing one. The UNIQUE index alone keeps the column unique.
 - **Save the record alone.** When `init` builds or sets records through its associations, a refusal may be theirs, so `createOrFindBy` throws the `RecordNotUnique` instead of finding.
-- **It throws `RecordNotFound` when there’s nothing to find:** when the index refused a value in an attribute you didn’t pass, or when a [D1 Session](./read-your-own-writes) reads from a replica that the other request’s row hasn’t reached yet.
+- **It throws `RecordNotFound` when there’s nothing to find:** when the index refused a value in an attribute you didn’t pass, when the existing row isn’t linked to the owner of an [association through another](./associations#reaching-records-through-another-association), or when a [D1 Session](./read-your-own-writes) reads from a replica that the other request’s row hasn’t reached yet.
 
 :::
 
