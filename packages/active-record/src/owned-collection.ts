@@ -41,8 +41,12 @@ export interface OwnedCollection {
    * without a deleting `dependent:`: the foreign key, and a type (#60); undefined when it deletes.
    */
   readonly nullifies: readonly string[] | undefined;
-  /** Its foreign key and association, which a key that can't be cast names (#94); none unowned. */
-  readonly link: { attribute: string; association: string } | undefined;
+  /**
+   * Its foreign key and association, which a key that can't be cast names (#94), and, unless it
+   * goes through another association, the owner's key, which a record built or inserted through
+   * it gets over any other (#346); none unowned.
+   */
+  readonly link: { attribute: string; association: string; key?: unknown } | undefined;
   /** Its form in a narrowed Relation. */
   narrowed(): OwnedCollection;
   /**
@@ -103,6 +107,14 @@ export function ownedCollection(
   return key === null ? withoutKey(owner, association) : withKey(owner, association, key);
 }
 
+/**
+ * The owner's key, as `link` holds it: none through another association, whose records hold
+ * no key of the owner's (#434).
+ */
+function ownersKey(association: ResolvedAssociation, key: unknown): { key?: unknown } {
+  return association.hops === undefined ? { key } : {};
+}
+
 /** An owner with a key: its loaded records live in its association cache. */
 function withKey(
   owner: Model,
@@ -160,7 +172,7 @@ function withKey(
     unsavedCount: () => built().filter((record) => record[state].isNew).length,
     refusal: undefined,
     nullifies: association.isDeletingOnDeleteAll ? undefined : association.nullifiedAttributes,
-    link: { attribute: definition.foreignKey, association: name },
+    link: { attribute: definition.foreignKey, association: name, ...ownersKey(association, key) },
     narrowed: () => narrowedOf(collection),
   };
   return collection;
@@ -206,7 +218,7 @@ function withoutKey(owner: Model, association: ResolvedAssociation): Association
     unsavedCount: () => 0,
     refusal: association.refusalFor(owner),
     nullifies: association.nullifiedAttributes,
-    link: { attribute: definition.foreignKey, association: name },
+    link: { attribute: definition.foreignKey, association: name, ...ownersKey(association, null) },
     narrowed: () => narrowedOf(collection),
   };
   return collection;

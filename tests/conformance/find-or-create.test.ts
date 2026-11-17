@@ -483,6 +483,49 @@ describe("making records", () => {
       expect(await harness.exec("SELECT user_id FROM posts")).toEqual([{ user_id: 1 }]);
     });
 
+    test("a hasMany narrowed to another key still gives its records its owner's key", async () => {
+      const user = await db().model(User).find(1);
+
+      const post = user.posts().where({ userId: 2 }).build();
+
+      expect(post.userId).toBe(1);
+    });
+
+    test("a hasMany merged with another key still gives its records its owner's key", async () => {
+      const user = await db().model(User).find(1);
+
+      const post = user
+        .posts()
+        .merge(db().model(Post).where({ userId: 2 }))
+        .build();
+
+      expect(post.userId).toBe(1);
+    });
+
+    test("an or() of a hasMany gives its records its owner's key over the one given", async () => {
+      const user = await db().model(User).find(1);
+      const either = user
+        .posts()
+        .where({ title: "a" })
+        .or(user.posts().where({ title: "b" }));
+
+      const post = either.build({ userId: 2 });
+
+      expect(post.userId).toBe(1);
+    });
+
+    test("an or() of a hasMany gives its records its owner's key over createWith's", async () => {
+      const user = await db().model(User).find(1);
+      const either = user
+        .posts()
+        .where({ title: "a" })
+        .or(user.posts().where({ title: "b" }));
+
+      const post = either.createWith({ userId: 2 }).build();
+
+      expect(post.userId).toBe(1);
+    });
+
     test("a hasMany's owner key wins over createWith", async () => {
       const user = await db().model(User).find(1);
 

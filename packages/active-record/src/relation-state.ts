@@ -16,21 +16,23 @@ export interface RelationState<M extends Model> {
 }
 
 /**
- * The values of a new row built or inserted through `relation`, given its own values: its
+ * The values of a new row built or inserted through `relation`, given `given`: its
  * conditions' equality values, then its `createWith` attributes, then the given ones, with its
- * owner's key over them all, as Rails sets the owner's key last.
+ * owner's key over them all, as Rails sets the owner's key last: the owner's own, whatever the
+ * conditions say, so a narrowed, merged or `or()`ed hasMany gives it too.
  */
 export function newRowValues(
   relation: RelationState<Model>,
-): (given: object) => Record<string, unknown> {
+  given: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
   const { model, query, collection } = relation;
   const { link } = collection;
   const inherited = castInherited(model, inheritedAttributes(query.conditions), link);
   const ownersKey =
-    link !== undefined && Object.hasOwn(inherited, link.attribute)
-      ? { [link.attribute]: inherited[link.attribute] }
-      : {};
-  return (given) => ({ ...inherited, ...query.createWith, ...given, ...ownersKey });
+    link === undefined || !("key" in link)
+      ? {}
+      : castInherited(model, { [link.attribute]: link.key }, link);
+  return { ...inherited, ...query.createWith, ...given, ...ownersKey };
 }
 
 /**
