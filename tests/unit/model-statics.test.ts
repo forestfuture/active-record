@@ -51,8 +51,8 @@ describe("Relation methods as a Model's statics", () => {
   });
 });
 
-describe("destroy and delete by primary key", () => {
-  test("are statics only, typed for the class they're called on", () => {
+describe("destroying and deleting many records", () => {
+  test("each write is typed for the class it's called on", () => {
     // Type-checked, never run: these would write.
     const typed = () => {
       expectTypeOf(Admin.destroy(1)).toEqualTypeOf<Promise<Admin>>();
@@ -61,9 +61,13 @@ describe("destroy and delete by primary key", () => {
       expectTypeOf(User.delete([1, 2])).toEqualTypeOf<Promise<number>>();
       expectTypeOf(User.destroyBy({ age: 30 })).toEqualTypeOf<Promise<User[]>>();
       expectTypeOf(User.deleteBy({ age: 30 })).toEqualTypeOf<Promise<number>>();
+      expectTypeOf(Admin.where({ age: 30 }).destroyAll()).toEqualTypeOf<Promise<Admin[]>>();
+      expectTypeOf(Admin.destroyAll()).toEqualTypeOf<Promise<Admin[]>>();
     };
     void typed; // type-checked only
+  });
 
+  test("destroy and delete by primary key are statics only, not Relation methods", () => {
     expect([User.destroy.name, User.delete.name]).toEqual(["destroy", "delete"]);
     expect("destroy" in User.all()).toBe(false);
     expect("delete" in User.all()).toBe(false);
