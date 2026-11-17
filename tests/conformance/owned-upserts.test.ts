@@ -81,6 +81,23 @@ describe("upserting through an owner's hasMany (#451)", () => {
     expect(await posts()).toContainEqual({ id: 2, user_id: 2, title: "Theirs" });
   });
 
+  test("a batch's upsertAll through a hasMany leaves another owner's row as it is", async () => {
+    const user = await db().model(User).find(1);
+
+    await batch((b) => [b.upsertAll(user.posts(), [{ id: 2, title: "Mine now" }])]);
+
+    expect(await posts()).toContainEqual({ id: 2, user_id: 2, title: "Theirs" });
+  });
+
+  test("upsert after createWith naming another owner leaves that owner's row as it is", async () => {
+    const user = await db().model(User).find(1);
+
+    const result = await user.posts().createWith({ userId: 2 }).upsert({ id: 2, title: "Mine" });
+
+    expect(result.rowsAffected).toBe(0);
+    expect(await posts()).toContainEqual({ id: 2, user_id: 2, title: "Theirs" });
+  });
+
   test.each([
     ["narrowed", (user: User) => user.posts().where({ title: "Theirs" })],
     [
@@ -155,6 +172,20 @@ describe("upserting through a polymorphic hasMany (#451)", () => {
     const remark = post.remarks().build({ commentableType: "Photo" });
 
     expect([remark.commentableType, remark.commentableId]).toEqual(["Post", 10]);
+  });
+
+  test.each([
+    ["create", (post: Article) => post.remarks().create({ id: 3, commentableType: "Photo" })],
+    ["insert", (post: Article) => post.remarks().insert({ id: 3, commentableType: "Photo" })],
+    ["upsert", (post: Article) => post.remarks().upsert({ id: 3, commentableType: "Photo" })],
+  ])("a row made by %s through it is stored with its owner's type", async (_, write) => {
+    const post = await db().model(Article).find(10);
+
+    await write(post);
+
+    expect(await harness.exec("SELECT commentable_type FROM remarks WHERE id = 3")).toEqual([
+      { commentable_type: "Post" },
+    ]);
   });
 
   test("upsert leaves a row with the owner's key but another type as it is", async () => {
