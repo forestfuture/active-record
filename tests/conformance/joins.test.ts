@@ -3,6 +3,7 @@ import {
   column,
   gte,
   IncompatibleRelation,
+  RecordNotFound,
   sql,
   UnknownAssociation,
 } from "../../packages/active-record/src/index.ts";
@@ -326,7 +327,31 @@ describe("joins", () => {
 
     test("find() with several ids finds each record once", async () => {
       expect((await users().find(1, 2)).map((user) => user.id)).toEqual([1, 2]);
-      expect((await users().find(2)).id).toBe(2);
+    });
+
+    test("find() keeps the joins, so a record without a link isn't found", async () => {
+      await expect(users().find(3)).rejects.toThrow(RecordNotFound);
+    });
+
+    test("find() with several ids reports one without a link missing", async () => {
+      await expect(users().find(1, 3)).rejects.toThrow(RecordNotFound);
+    });
+
+    test("findBy() keeps the joins", async () => {
+      expect(await users().findBy({ id: 3 })).toBeNull();
+    });
+
+    test("find() keeps a joined Model's conditions and order", async () => {
+      const database = db();
+      const admins = database
+        .model(Post)
+        .joins("user")
+        .merge(database.model(User).where({ role: "admin" }).order({ email: "asc" }))
+        .order({ id: "desc" });
+
+      expect((await admins.find(10, 11)).map((post) => post.id)).toEqual([11, 10]);
+      await expect(admins.find(12)).rejects.toThrow(RecordNotFound);
+      expect((await admins.findByOrThrow({ title: "A2" })).id).toBe(11);
     });
 
     test("paginate() pages the joined rows", async () => {
