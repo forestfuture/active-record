@@ -37,7 +37,7 @@ import { alsoClearing, unowned, type OwnedCollection } from "./owned-collection.
 import {
   atMostOne,
   finderOrder,
-  found,
+  foundOrThrow,
   oneInOrder,
   onlyOne,
   reversed,
@@ -470,7 +470,7 @@ export class Relation<M extends Model, S = {}> {
 
   /** Like `findBy`, but throws `RecordNotFound` instead of returning null. */
   async findByOrThrow(conditions: Conditions<M> | SafeSql): Promise<M> {
-    return found(this.#model, await this.findBy(conditions));
+    return foundOrThrow(this.#model, await this.findBy(conditions));
   }
 
   /**
@@ -525,17 +525,17 @@ export class Relation<M extends Model, S = {}> {
 
   /** Like `first`, but throws `RecordNotFound` instead of returning null. */
   async firstOrThrow(): Promise<M> {
-    return found(this.#model, await this.first());
+    return foundOrThrow(this.#model, await this.first());
   }
 
   /** Like `last`, but throws `RecordNotFound` instead of returning null. */
   async lastOrThrow(): Promise<M> {
-    return found(this.#model, await this.last());
+    return foundOrThrow(this.#model, await this.last());
   }
 
   /** Like `take`, but throws `RecordNotFound` instead of returning null. */
   async takeOrThrow(): Promise<M> {
-    return found(this.#model, await this.take());
+    return foundOrThrow(this.#model, await this.take());
   }
 
   /** The number of matching records, or of non-null values of `attribute`. */

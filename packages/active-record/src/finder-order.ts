@@ -98,7 +98,7 @@ export function onlyOne<M extends Model>(model: ModelClass, records: readonly M[
 }
 
 /** `record`, or the `RecordNotFound` a finder that must find one throws: `firstOrThrow`'s. */
-export function found<M extends Model>(model: ModelClass, record: M | null): M {
+export function foundOrThrow<M extends Model>(model: ModelClass, record: M | null): M {
   if (record === null) throw notFound(model);
   return record;
 }
