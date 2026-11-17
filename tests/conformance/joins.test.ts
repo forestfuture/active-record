@@ -99,4 +99,26 @@ describe("joins", () => {
     // @ts-expect-error: not an association of Post
     expect(() => db().model(User).joins({ posts: "tags" })).toThrow(UnknownAssociation);
   });
+
+  // Guards: tables are named as they're joined, since the first join.
+  describe("a table joined twice", () => {
+    test("is joined under an alias, so each join keeps its own rows", async () => {
+      await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (1, 2, 'Bee')");
+
+      const users = db()
+        .model(User)
+        .joins({ posts: { user: "profile" } });
+
+      expect((await users.toArray()).map((user) => user.id)).toEqual([2]);
+    });
+
+    test("takes Rails' alias, the association's plural and the table it's joined to", () => {
+      const { sql } = db().model(User).joins({ posts: "user" }).toSql();
+
+      // oxlint-disable-next-line active-record/no-sql-text -- only the SQL shows a table's alias
+      expect(sql).toContain(
+        'INNER JOIN "users" "users_posts" ON "posts"."user_id" = "users_posts"."id"',
+      );
+    });
+  });
 });
