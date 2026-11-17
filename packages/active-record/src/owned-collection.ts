@@ -43,10 +43,10 @@ export interface OwnedCollection {
   readonly nullifies: readonly string[] | undefined;
   /**
    * Its foreign key and association, which a key that can't be cast names (#94), and, unless it
-   * goes through another association, the owner's key, which a record built or inserted through
-   * it gets over any other (#346); none unowned.
+   * goes through another association, the owner's key, and with `as` its type (#60), which a
+   * record built or inserted through it gets over any other (#346, #451); none unowned.
    */
-  readonly link: { attribute: string; association: string; key?: unknown } | undefined;
+  readonly link: OwnersLink | undefined;
   /** Its form in a narrowed Relation. */
   narrowed(): OwnedCollection;
   /**
@@ -66,6 +66,14 @@ export interface OwnedCollection {
    * association (#434), what it can't write.
    */
   requireWritable?(write: CollectionWrite): void;
+}
+
+/** A collection's `link`: its foreign key and association, and what its records take from the owner. */
+export interface OwnersLink {
+  attribute: string;
+  association: string;
+  key?: unknown;
+  type?: { attribute: string; value: string };
 }
 
 /** The writes a collection may refuse: creating and inserting records. */
@@ -108,11 +116,13 @@ export function ownedCollection(
 }
 
 /**
- * The owner's key, as `link` holds it: none through another association, whose records hold
- * no key of the owner's (#434).
+ * The owner's key, and with `as` its type, as `link` holds them: none through another
+ * association, whose records hold no key of the owner's (#434).
  */
-function ownersKey(association: ResolvedAssociation, key: unknown): { key?: unknown } {
-  return association.hops === undefined ? { key } : {};
+function ownersKey(association: ResolvedAssociation, key: unknown): Partial<OwnersLink> {
+  if (association.hops !== undefined) return {};
+  const { type } = association;
+  return type === undefined ? { key } : { key, type };
 }
 
 /** An owner with a key: its loaded records live in its association cache. */

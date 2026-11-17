@@ -109,3 +109,75 @@ describe("upserting through an owner's hasMany (#451)", () => {
     ]);
   });
 });
+
+describe("upserting through a polymorphic hasMany (#451)", () => {
+  class Remark extends Model.define({
+    id: { type: "integer", null: false },
+    body: "string",
+    commentableType: "string",
+    commentableId: "integer",
+  }) {
+    static table = "remarks";
+  }
+
+  class Article extends Model.define({
+    id: { type: "integer", null: false },
+    userId: { type: "integer", null: false },
+    title: { type: "string", null: false },
+  }) {
+    static table = "posts";
+    static override modelName = "Post";
+
+    remarks = hasMany(Remark, { as: "commentable" });
+  }
+
+  let harness: Harness;
+  const remarks = () =>
+    harness.exec("SELECT id, body, commentable_type, commentable_id FROM remarks ORDER BY id");
+
+  beforeAll(async () => {
+    harness = await openHarness();
+  });
+  afterAll(() => harness.dispose());
+  beforeEach(async () => {
+    await harness.reset("remarks", "photos", "posts", "users");
+    await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'Post')");
+    await harness.exec(
+      "INSERT INTO remarks (id, body, commentable_type, commentable_id) VALUES (1, 'On the post', 'Post', 10), (2, 'On a photo', 'Photo', 10)",
+    );
+  });
+
+  test("a record built through it gets its owner's type over a given one", async () => {
+    const post = await harness.connect().model(Article).find(10);
+
+    const remark = post.remarks().build({ commentableType: "Photo" });
+
+    expect([remark.commentableType, remark.commentableId]).toEqual(["Post", 10]);
+  });
+
+  test("upsert leaves a row with the owner's key but another type as it is", async () => {
+    const post = await harness.connect().model(Article).find(10);
+
+    const result = await post.remarks().upsert({ id: 2, body: "Mine now" });
+
+    expect(result.rowsAffected).toBe(0);
+    expect(await remarks()).toEqual([
+      { id: 1, body: "On the post", commentable_type: "Post", commentable_id: 10 },
+      { id: 2, body: "On a photo", commentable_type: "Photo", commentable_id: 10 },
+    ]);
+  });
+
+  test("upsert given another type still leaves that type's row as it is", async () => {
+    const post = await harness.connect().model(Article).find(10);
+
+    await post.remarks().upsert({ id: 2, body: "Mine now", commentableType: "Photo" });
+
+    expect(await remarks()).toContainEqual({
+      id: 2,
+      body: "On a photo",
+      commentable_type: "Photo",
+      commentable_id: 10,
+    });
+  });
+});
