@@ -202,3 +202,37 @@ describe("a hasMany or hasOne with as:", () => {
     expect(() => db.model(FeaturedPost)).not.toThrow();
   });
 });
+
+describe("a through association and a polymorphic belongsTo", () => {
+  test("can't go through a polymorphic belongsTo", () => {
+    class Tagged extends Model.define({
+      id: "integer",
+      commentableType: "string",
+      commentableId: "integer",
+    }) {
+      static table = "remarks";
+      commentable = belongsTo([Post, Photo]);
+      users = hasMany(User, { through: "commentable" });
+    }
+
+    expect(() => db.model(Tagged)).toThrow(
+      new InvalidModel(
+        'Tagged association "users": through "commentable" is a polymorphic belongsTo, which it can\'t go through',
+      ),
+    );
+  });
+
+  test("can't reach its records by a polymorphic belongsTo", () => {
+    class Thread extends Model.define({ id: "integer" }) {
+      static table = "users";
+      remarks = hasMany(Remark, { foreignKey: "commentableId" });
+      posts = hasMany(Post, { through: "remarks", source: "commentable" });
+    }
+
+    expect(() => db.model(Thread)).toThrow(
+      new InvalidModel(
+        'Thread association "posts": its source Remark.commentable is a polymorphic belongsTo, which it can\'t reach its records by',
+      ),
+    );
+  });
+});
