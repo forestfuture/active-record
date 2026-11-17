@@ -27,8 +27,11 @@ describe("grouping types (#345)", () => {
     expectTypeOf(
       samples.group("title").where({ quantity: 1 }).group("createdAt").count(),
     ).resolves.toEqualTypeOf<Map<[string, Date | null], number>>();
+    expectTypeOf(samples.group(sql`1`, "title").count()).resolves.toEqualTypeOf<
+      Map<[unknown, string], number>
+    >();
     // @ts-expect-error -- not an attribute
-    samples.group("nope");
+    const _unknown = () => samples.group("nope"); // typed but not run
   });
 
   test("each calculation's results are typed as on a Relation", () => {

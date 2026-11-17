@@ -402,7 +402,8 @@ export function compileCalculation(
 
 /** What a Relation is grouped by (#345): its terms, in order, and the groups `having` keeps. */
 export interface Grouping {
-  readonly terms: readonly string[];
+  /** Attributes, and `sql` fragments of the row. */
+  readonly terms: readonly (string | SafeSql)[];
   readonly having: readonly SafeSql[];
 }
 
@@ -446,8 +447,8 @@ function isExtreme(operation: GroupedCalculation["operation"]): boolean {
 }
 
 /**
- * A calculation of each group (#345): the groups' keys, each term's column, then the result as
- * `valuesAlias`. The Relation's order and limit pick and order the groups. After `distinct()`, a
+ * A calculation of each group (#345): the groups' keys, each term's value as its `keyAlias`, then
+ * the result as `valuesAlias`. The Relation's order and limit pick and order the groups. After `distinct()`, a
  * count, sum or average takes each group's distinct values. A sum of only NULLs is 0.
  */
 export function compileGrouped(
@@ -458,7 +459,10 @@ export function compileGrouped(
 ): CompiledSql {
   // The SELECT list's values come first, as its SQL does.
   const params: unknown[] = [];
-  const keys = grouping.terms.map((term) => compileOperand(query.model, term, params));
+  const keys = grouping.terms.map(
+    (term, index) =>
+      `${compileOperand(query.model, term, params)} AS ${quoteIdentifier(keyAlias(query.model, index))}`,
+  );
   const counted = operand === undefined ? "*" : compileOperand(query.model, operand, params);
   // After distinct(), each distinct value counts once; extremes don't change.
   const distinct = query.distinct && operand !== undefined && !isExtreme(operation);
@@ -476,10 +480,20 @@ export function compileGrouped(
  * be lost. A column the Model doesn't declare, ordered by in a fragment's raw text, isn't seen.
  */
 export function valuesAlias(model: ModelClass<Model>): string {
+  return unusedName(model, "value");
+}
+
+/** A name for the key of a grouped Relation's term at `index`, unused as `valuesAlias` is. */
+export function keyAlias(model: ModelClass<Model>, index: number): string {
+  return unusedName(model, `key_${index}`);
+}
+
+/** `name`, with underscores before it until none of the Model's columns has it. */
+function unusedName(model: ModelClass<Model>, name: string): string {
   const columns = new Set(
     [...model.attributeDefinitions.values()].map(({ column }) => column.toLowerCase()),
   );
-  let alias = "value";
+  let alias = name;
   while (columns.has(alias)) alias = `_${alias}`;
   return alias;
 }

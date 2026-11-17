@@ -1,6 +1,12 @@
 // `group` (#345): a Relation grouped by attributes or `sql` fragments, whose calculations resolve to a Map from each group's key to its result.
 import { attributeFor } from "./attribute.ts";
-import { compileGrouped, valuesAlias, type GroupedCalculation, type Grouping } from "./compiler.ts";
+import {
+  compileGrouped,
+  keyAlias,
+  valuesAlias,
+  type GroupedCalculation,
+  type Grouping,
+} from "./compiler.ts";
 import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import type { Relation } from "./relation.ts";
 import {
@@ -51,7 +57,9 @@ export class GroupedRelation<M extends Model, G extends readonly GroupTerm<M>[]>
   /** Grouped Relations come from `group()`, never `new GroupedRelation()`. */
   protected constructor(parts: unknown) {
     const { relation, grouping, sourceOf } = parts as GroupedParts<M>;
-    requireGroupedOrder(sourceOf(relation).query, grouping);
+    const { query } = sourceOf(relation);
+    checkTerms(query.model, grouping);
+    requireGroupedOrder(query, grouping);
     this.#relation = relation;
     this.#grouping = grouping;
     this.#sourceOf = sourceOf;
@@ -96,7 +104,7 @@ export class GroupedRelation<M extends Model, G extends readonly GroupTerm<M>[]>
   group<const H extends readonly GroupTerm<M>[]>(...terms: H): GroupedRelation<M, [...G, ...H]> {
     const more = {
       ...this.#grouping,
-      terms: [...this.#grouping.terms, ...(terms as readonly string[])],
+      terms: [...this.#grouping.terms, ...terms],
     };
     return new GroupedRelation<M, [...G, ...H]>({
       relation: this.#relation,
@@ -214,24 +222,37 @@ function resultReader(
  */
 function requireGroupedOrder({ order }: QueryDescription, { terms }: Grouping): void {
   for (const term of order) {
-    if (term instanceof SafeSql || terms.includes(term.attribute)) continue;
+    if (term instanceof SafeSql || terms.includes(term.attribute)) continue; // a fragment isn't checked
     throw new TypeError(
       `can't order groups by "${term.attribute}", which isn't grouped: group by it too, or reorder() before group()`,
     );
   }
 }
 
-/** Reads a row's group key: the one term's value, or a tuple of every term's. */
+/**
+ * Reads a row's group key: the one term's value, or a tuple of every term's. An attribute's reads
+ * as its value, and a fragment's as the database returned it.
+ */
 function groupKeyReader(
   model: ModelClass<Model>,
   { terms }: Grouping,
 ): (row: Record<string, unknown>) => unknown {
-  const readers = terms.map((term) => {
+  const readers = terms.map((term, index) => {
+    const alias = keyAlias(model, index);
+    if (term instanceof SafeSql) return (row: Record<string, unknown>) => row[alias];
     const attribute = attributeFor(model, term);
-    return (row: Record<string, unknown>) => attribute.read(row[attribute.column]);
+    return (row: Record<string, unknown>) => attribute.read(row[alias]);
   });
   if (readers.length === 1) return readers[0]!;
   return (row) => readers.map((read) => read(row));
+}
+
+/** Checks a group's terms when they're written: each attribute exists, and each fragment's references. */
+function checkTerms(model: ModelClass<Model>, { terms }: Grouping): void {
+  for (const term of terms) {
+    if (term instanceof SafeSql) checkFragment(model, term);
+    else attributeFor(model, term);
+  }
 }
 
 /** `relation` grouped by `terms`. */
@@ -240,7 +261,7 @@ export function grouped<M extends Model, G extends readonly GroupTerm<M>[]>(
   terms: G,
   sourceOf: SourceOf<M>,
 ): GroupedRelation<M, G> {
-  const grouping: Grouping = { terms: terms as readonly string[], having: [] };
+  const grouping: Grouping = { terms, having: [] };
   return new (GroupedRelation as unknown as new (parts: GroupedParts<M>) => GroupedRelation<M, G>)({
     relation,
     grouping,

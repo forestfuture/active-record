@@ -301,4 +301,39 @@ describe("group (#345)", () => {
       expect(() => byRating.reorder({ title: "asc" }).group("title")).not.toThrow();
     });
   });
+
+  describe("by an sql fragment", () => {
+    test("keys each group by the expression's value, as the database returns it", async () => {
+      await seed(["A", 1], ["a", 1], ["b", 2]);
+
+      expect(
+        await reviews()
+          .group(sql`lower(${column("title")})`)
+          .count(),
+      ).toEqual(
+        new Map([
+          ["a", 2],
+          ["b", 1],
+        ]),
+      );
+    });
+
+    test("binds its values first, beside an attribute's key", async () => {
+      await seed(["a", 1], ["b", 2], ["b", 3]);
+
+      const counts = await reviews()
+        .where({ rating: [1, 2, 3] })
+        .group("rating", sql`${column("title")} || ${"!"}`)
+        .having(sql`COUNT(*) >= ${1}`)
+        .count();
+
+      expect(counts).toEqual(
+        new Map([
+          [[1, "a!"], 1],
+          [[2, "b!"], 1],
+          [[3, "b!"], 1],
+        ]),
+      );
+    });
+  });
 });
