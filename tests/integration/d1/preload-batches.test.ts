@@ -33,6 +33,10 @@ class User extends Model.define({
     scope: (q) => q.where(sql`title >= ${"A2"}`),
   });
   ghosts = hasMany(Ghost, { foreignKey: "userId" });
+  postComments = hasMany(Comment, { through: "posts", source: "comments" });
+  laterPostComments = hasMany(Comment, { through: "laterPosts", source: "comments" });
+  firstPosts = hasMany(Post, { foreignKey: "userId", scope: (q) => q.limit(1) });
+  firstPostsComments = hasMany(Comment, { through: "firstPosts", source: "comments" });
 }
 
 class Post extends Model.define({
@@ -283,6 +287,44 @@ describe("preloading sends the records' query and its associations together", ()
     );
     expect(comments).toEqual([[["On A2"]], [["On B1"]]]);
     expect(recording.batches).toEqual([3]);
+  });
+
+  test("an association through another sends each hop in the one batch (#59)", async () => {
+    await binding
+      .prepare("INSERT INTO comments (id, post_id, body) VALUES (1, 11, 'on A2'), (2, 10, 'on A1')")
+      .run();
+
+    const loaded = await db().model(User).includes("postComments").order({ id: "asc" }).toArray();
+
+    const bodies = loaded.map((user) => user.loaded("postComments").map((each) => each.body));
+    expect(bodies).toEqual([["on A2", "on A1"], [], []]);
+    expect(recording.batches).toEqual([3]);
+  });
+
+  test("an association through another whose hops would bind over 100 values is preloaded after (#59)", async () => {
+    await binding
+      .prepare("INSERT INTO comments (id, post_id, body) VALUES (1, 11, 'on A2'), (2, 10, 'on A1')")
+      .run();
+    const users = bindingHundredValues(db().model(User))
+      .includes("laterPostComments")
+      .order({ id: "asc" });
+
+    const loaded = await users.toArray();
+
+    const bodies = loaded.map((user) => user.loaded("laterPostComments").map((each) => each.body));
+    expect(bodies).toEqual([["on A2"], [], []]);
+    expect(recording.batches).toEqual([2]);
+    expect(queries).toHaveLength(3);
+  });
+
+  test("a through association can't be preloaded through a limited scope, refused before anything is sent (#59)", async () => {
+    await binding.prepare("INSERT INTO accounts (id, user_id) VALUES (1, 1)").run();
+    const accounts = bindingHundredValues(db().model(Account)).includes({
+      namedUser: "firstPostsComments",
+    });
+
+    await expect(accounts.toArray()).rejects.toThrow(IncompatibleRelation);
+    expect(queries).toHaveLength(0);
   });
 
   // D1 binds at most 100 values a statement, and a level binds the values of the levels above.

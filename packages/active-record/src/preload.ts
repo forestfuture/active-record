@@ -104,11 +104,24 @@ function checkPreloadable(
   checked = new Set<ResolvedAssociation>(),
 ): void {
   const query = preloadable(association.all(executor), association.label);
+  checkHops(association, executor);
   const scoped = checked.has(association) ? {} : (query.includes ?? {});
   checked.add(association);
   for (const [name, under] of Object.entries(mergeTrees(scoped, nested))) {
     checkPreloadable(resolveAssociation(association.target, name), under, executor, checked);
   }
+}
+
+/**
+ * Throws `IncompatibleRelation` if a through association (#59) goes through an association
+ * whose scope can't be preloaded, at any depth. Its source's scope is in its own records'.
+ */
+function checkHops(association: ResolvedAssociation, executor: Executor): void {
+  if (association.hops === undefined) return;
+  const { via, source } = association.hops;
+  preloadable(via.all(executor), via.label);
+  checkHops(via, executor);
+  checkHops(source, executor);
 }
 
 /** The plan preloading each start's tree. */
