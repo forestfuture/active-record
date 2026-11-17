@@ -306,4 +306,44 @@ describe("polymorphic associations", () => {
       });
     });
   });
+
+  describe("a hasMany's collection methods with as:", () => {
+    test("push gives the records the owner's type and key", async () => {
+      const db = harness.connect();
+      const post = await db.model(Post).find(10);
+      const remark = await db.model(Remark).find(3);
+
+      expect(await post.remarks().push(remark)).toBe(true);
+
+      const rows = await harness.exec(
+        "SELECT commentable_type, commentable_id FROM remarks WHERE id = 3",
+      );
+      expect(rows).toEqual([{ commentable_type: "Post", commentable_id: 10 }]);
+    });
+
+    test("push on a new owner gives them its type and key when it's saved", async () => {
+      const db = harness.connect();
+      const post = db.model(Post).build({ id: 11, userId: 1, title: "New" });
+      const remark = await db.model(Remark).find(3);
+
+      await post.remarks().push(remark);
+      await post.saveOrThrow();
+
+      expect([remark.commentableType, remark.commentableId]).toEqual(["Post", 11]);
+      const rows = await harness.exec(
+        "SELECT commentable_type, commentable_id FROM remarks WHERE id = 3",
+      );
+      expect(rows).toEqual([{ commentable_type: "Post", commentable_id: 11 }]);
+    });
+
+    test("delete refuses a record of another Model with the same key", async () => {
+      const db = harness.connect();
+      const post = await db.model(Post).find(10);
+      const onPhoto = await db.model(Remark).find(2);
+
+      await expect(post.remarks().delete(onPhoto)).rejects.toThrow(
+        new TypeError("Post.remarks doesn't hold this Remark: it belongs to a Photo"),
+      );
+    });
+  });
 });

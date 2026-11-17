@@ -110,6 +110,7 @@ function link({ owner, association, collection }: OwnersHasMany, records: readon
   const { name, definition } = association;
   for (const record of records) {
     record[state].writeKey(definition.foreignKey, key, name);
+    association.writeOwnersType(record);
     // So a required belongsTo passes without a query, as for a record created through it (#339).
     collection.pointBack(record);
   }
@@ -177,13 +178,25 @@ function requireMembers(hasMany: OwnersHasMany, records: readonly Model[]): void
   for (const record of records) {
     if (added.includes(record)) continue;
     const linked = record[state].read(association.targetAttribute);
-    if (linked !== null && isOwnersKey(linked, owner, association)) continue;
-    const ownerName = association.owner.name;
-    const whose = linked === null ? `no ${ownerName}` : `another ${ownerName}`;
+    const otherType = association.otherTypeOf(record);
+    if (linked !== null && otherType === undefined && isOwnersKey(linked, owner, association)) {
+      continue;
+    }
     throw new TypeError(
-      `${association.label} doesn't hold this ${association.target.name}: it belongs to ${whose}`,
+      `${association.label} doesn't hold this ${association.target.name}: it belongs to ${whoseIs(association, linked, otherType)}`,
     );
   }
+}
+
+/** Whose record one the association doesn't hold is: no owner's, another's, or another Model's (#60). */
+function whoseIs(
+  association: ResolvedAssociation,
+  linked: unknown,
+  otherType: string | null | undefined,
+): string {
+  const ownerName = association.owner.name;
+  if (typeof otherType === "string") return `a ${otherType}`;
+  return linked === null || otherType === null ? `no ${ownerName}` : `another ${ownerName}`;
 }
 
 /**
