@@ -6,7 +6,7 @@ import { includeTree } from "./preload.ts";
 import { mergedQuery, withJoins } from "./joins.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
 import { inspectRelation } from "./relation-inspect.ts";
-import { runnerFor, selectForToSql, type QueryRunner } from "./load.ts";
+import { runnerFor, selectForToSql, type QueryRunner, type RunnableQuery } from "./load.ts";
 import { eachOnce, findById, findOne, findSome, keysToFind } from "./find.ts";
 import { allOf, either, LinkedTo, mergeTrees, Negated, type QueryDescription } from "./query.ts";
 import type { Executor } from "./executor.ts";
@@ -59,7 +59,6 @@ import {
   eachRecord,
   recordBatches,
   relationBatches,
-  type Iterated,
   type IterationOptions,
 } from "./batch-iteration.ts";
 import {
@@ -623,7 +622,7 @@ export class Relation<M extends Model, S = {}> {
   async paginate(options?: PageOptions & { count?: true }): Promise<Page<M>>;
   async paginate(options: PageOptions): Promise<Page<M> | CountlessPage<M>>;
   async paginate(options: PageOptions = {}): Promise<Page<M> | CountlessPage<M>> {
-    return paginate({ model: this.#model, query: this.#query, runner: this.#runner }, options);
+    return paginate(this.#runnable, options);
   }
 
   /**
@@ -631,12 +630,12 @@ export class Relation<M extends Model, S = {}> {
    * `for await (const user of User.findEach())`.
    */
   findEach(options?: IterationOptions): AsyncIterable<M> {
-    return eachRecord(this.#iterated, options);
+    return eachRecord(this.#runnable, options);
   }
 
   /** This Relation's records as arrays of up to `batchSize`, in primary-key order (#347). */
   findInBatches(options?: IterationOptions): AsyncIterable<M[]> {
-    return recordBatches(this.#iterated, options);
+    return recordBatches(this.#runnable, options);
   }
 
   /**
@@ -644,7 +643,7 @@ export class Relation<M extends Model, S = {}> {
    * `for await (const posts of drafts.inBatches()) await posts.deleteAll()`.
    */
   inBatches(options?: IterationOptions): AsyncIterable<Scoped<M, S>> {
-    return relationBatches(this.#iterated, options ?? {}, (query) => this.#describing(query));
+    return relationBatches(this.#runnable, options ?? {}, (query) => this.#describing(query));
   }
 
   /**
@@ -680,7 +679,7 @@ export class Relation<M extends Model, S = {}> {
     return { executor: this.#executor, model: this.#model, query, collection: this.#collection };
   }
 
-  get #iterated(): Iterated<M> {
+  get #runnable(): RunnableQuery<M> {
     return { model: this.#model, query: this.#query, runner: this.#runner };
   }
 

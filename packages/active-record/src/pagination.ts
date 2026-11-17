@@ -2,9 +2,8 @@
 import { castValue, uncastable } from "./conversion.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import { stableOrder } from "./finder-order.ts";
-import type { QueryRunner } from "./load.ts";
-import type { Model, ModelClass, QueryableClass } from "./model.ts";
-import type { QueryDescription } from "./query.ts";
+import type { RunnableQuery } from "./load.ts";
+import type { Model, QueryableClass } from "./model.ts";
 
 /** What `paginate()` takes: which page, how many records on it, and whether to count them all. */
 export interface PageOptions {
@@ -47,19 +46,12 @@ export interface PaginateStatic {
   ): Promise<Page<InstanceType<C>> | CountlessPage<InstanceType<C>>>;
 }
 
-/** A Relation's query and how it runs: what `paginate` pages. */
-export interface Paged<M extends Model> {
-  model: ModelClass<M>;
-  query: QueryDescription;
-  runner: QueryRunner<M>;
-}
-
 /**
  * One page of `paged`'s records. Counted, the `COUNT` and the page's SELECT go as one batch;
  * with `count: false`, one SELECT fetches a record past the page to learn whether there's a next.
  */
 export async function paginate<M extends Model>(
-  { model, query, runner }: Paged<M>,
+  { model, query, runner }: RunnableQuery<M>,
   options: PageOptions,
 ): Promise<Page<M> | CountlessPage<M>> {
   if (query.limit !== undefined || query.offset !== undefined) {

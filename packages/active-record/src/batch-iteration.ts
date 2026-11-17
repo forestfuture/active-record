@@ -2,8 +2,8 @@
 import { gt, gte, lt, lte, type Comparison } from "./comparisons.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import { eachOnce } from "./find.ts";
-import type { QueryRunner } from "./load.ts";
-import { primaryKeyOf, type Model, type ModelClass } from "./model.ts";
+import type { RunnableQuery } from "./load.ts";
+import { primaryKeyOf, type Model } from "./model.ts";
 import type { Condition, QueryDescription } from "./query.ts";
 
 /** What `findEach`, `findInBatches` and `inBatches` take. */
@@ -18,19 +18,12 @@ export interface IterationOptions {
   order?: "asc" | "desc";
 }
 
-/** A Relation's query and how it runs: what batch iteration walks through. */
-export interface Iterated<M extends Model> {
-  model: ModelClass<M>;
-  query: QueryDescription;
-  runner: QueryRunner<M>;
-}
-
 /**
  * The records `iterated` matches, in primary-key order, as arrays of up to `batchSize`. What it
  * can't follow throws now, when it's called, rather than when the first batch is read.
  */
 export function recordBatches<M extends Model>(
-  iterated: Iterated<M>,
+  iterated: RunnableQuery<M>,
   options: IterationOptions = {},
 ): AsyncGenerator<M[], void, undefined> {
   checkIterable(iterated);
@@ -50,7 +43,7 @@ interface Walk {
 
 /** Each batch, until one comes back short or the Relation's limit is reached. */
 async function* batchesOf<M extends Model>(
-  { model, query, runner }: Iterated<M>,
+  { model, query, runner }: RunnableQuery<M>,
   { batchSize, direction, bounds }: Walk,
 ): AsyncGenerator<M[], void, undefined> {
   const key = model.primaryKey;
@@ -75,7 +68,7 @@ async function* batchesOf<M extends Model>(
 }
 
 /** Throws `IncompatibleRelation` for what a walk by primary key can't follow. */
-function checkIterable({ model, query }: Iterated<Model>): void {
+function checkIterable({ model, query }: RunnableQuery<Model>): void {
   if (query.order.length > 0) {
     throw new IncompatibleRelation(
       `${model.name}'s batches go in primary-key order, so its Relation can't have an order of its own; remove it with reorder()`,
@@ -125,7 +118,7 @@ function bound(
 
 /** The records `iterated` matches, one at a time, loaded in batches. */
 export function eachRecord<M extends Model>(
-  iterated: Iterated<M>,
+  iterated: RunnableQuery<M>,
   options: IterationOptions = {},
 ): AsyncGenerator<M, void, undefined> {
   return flattened(recordBatches(iterated, options));
@@ -137,7 +130,7 @@ export function eachRecord<M extends Model>(
  * row changed since doesn't match, and without its limit, which the keys already keep to.
  */
 export function relationBatches<M extends Model, R>(
-  iterated: Iterated<M>,
+  iterated: RunnableQuery<M>,
   options: IterationOptions,
   relationOf: (query: QueryDescription) => R,
 ): AsyncGenerator<R, void, undefined> {
