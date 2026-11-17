@@ -34,4 +34,4 @@ CREATE TABLE assignments (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES use
 
 -- Polymorphic associations (#60): a remark on a post or a photo, by its type and id.
 CREATE TABLE photos (id INTEGER PRIMARY KEY, title TEXT);
-CREATE TABLE remarks (id INTEGER PRIMARY KEY, body TEXT, commentable_type TEXT, commentable_id INTEGER);
+CREATE TABLE remarks (id INTEGER PRIMARY KEY, body TEXT, commentable_type TEXT, commentable_id INTEGER, user_id INTEGER);
