@@ -9,7 +9,7 @@ export type OrderDirection = "asc" | "desc";
 export type NullsPlacement = "first" | "last";
 
 /** Sorting by an attribute; `nulls` places NULLs (SQLite puts them first when ascending). */
-interface AttributeOrder {
+export interface AttributeOrder {
   attribute: string;
   direction: OrderDirection;
   nulls?: NullsPlacement;

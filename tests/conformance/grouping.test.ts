@@ -23,6 +23,13 @@ class Review extends Model.define({
   static table = "typed_posts";
 }
 
+/** Reviews, newest first unless reordered. */
+class NewestReview extends Review {
+  static {
+    this.defaultScope((q) => q.order({ publishedAt: "desc" }));
+  }
+}
+
 describe("group (#345)", () => {
   let harness: Harness;
 
@@ -300,14 +307,30 @@ describe("group (#345)", () => {
       );
     });
 
-    test("an order by an attribute that isn't grouped throws when it's written", () => {
-      const byRating = reviews().order({ rating: "asc" });
+    test("group() drops an earlier order by an attribute it isn't grouped by", async () => {
+      await seed(["a", 3], ["b", 2], ["c", 1]);
 
-      expect(() => byRating.group("title")).toThrow(
-        "can't order groups by \"rating\", which isn't grouped: group by it too, or reorder() before group()",
+      const counts = await reviews()
+        .order({ rating: "asc" })
+        .order({ title: "desc" })
+        .group("title")
+        .count();
+
+      expect([...counts.keys()]).toEqual(["c", "b", "a"]);
+    });
+
+    test("so a default scope's order doesn't stop a Model grouping", async () => {
+      await seed(["a", 1], ["a", 2]);
+
+      const counts = await harness.connect().model(NewestReview).group("title").count();
+
+      expect(counts).toEqual(new Map([["a", 2]]));
+    });
+
+    test("an order written after group(), by an attribute that isn't grouped, throws", () => {
+      expect(() => reviews().group("title").order({ rating: "asc" })).toThrow(
+        new TypeError("can't order groups by \"rating\", which isn't grouped"),
       );
-      expect(() => reviews().group("title").order({ rating: "asc" })).toThrow(TypeError);
-      expect(() => byRating.reorder({ title: "asc" }).group("title")).not.toThrow();
     });
   });
 
