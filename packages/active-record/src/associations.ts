@@ -5,6 +5,7 @@ import { belongsToAccessor, hasOneAccessor } from "./association-writers.ts";
 import { inferenceHint, type Inference } from "./foreign-keys.ts";
 import { Model, modelOf, type AttributesOf, type ModelClass, type ScopesOf } from "./model.ts";
 import { verifyModel } from "./verify-model.ts";
+import { checkThrough } from "./through-associations.ts";
 import { state } from "./record-state.ts";
 import { collectionMethods, type CollectionMethods } from "./collection-methods.ts";
 import { ownedCollection } from "./owned-collection.ts";
@@ -156,6 +157,7 @@ function checkAssociation(
   const target = checkTarget(label, definition);
   // A through association's keys are its two hops' (#59).
   if (definition.through === undefined) checkKeys(label, model, target, definition);
+  checkThrough(label, model, name, definition);
   checkDependent(label, definition);
   checkOptional(label, definition);
   checkAutosave(label, definition);

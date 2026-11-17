@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-pl
 import {
   belongsTo,
   hasMany,
+  InvalidModel,
   Model,
   RecordNotFound,
 } from "../../packages/active-record/src/index.ts";
@@ -52,6 +53,58 @@ class User extends Model.define({
     scope: (q) => q.where({ archived: 0 }),
   });
 }
+
+const userAttributes = {
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+} as const;
+
+/** Users whose through associations are misdeclared, one way each. */
+const misdeclared = {
+  NoVia: class extends Model.define(userAttributes) {
+    static table = "users";
+    projects = hasMany(Project, { through: "missing" });
+  },
+  NoSource: class extends Model.define(userAttributes) {
+    static table = "users";
+    assignments = hasMany(Assignment, { foreignKey: "userId" });
+    tasks = hasMany(Project, { through: "assignments" });
+  },
+  NoNamedSource: class extends Model.define(userAttributes) {
+    static table = "users";
+    assignments = hasMany(Assignment, { foreignKey: "userId" });
+    projects = hasMany(Project, { through: "assignments", source: "missing" });
+  },
+  OtherTarget: class extends Model.define(userAttributes) {
+    static table = "users";
+    assignments = hasMany(Assignment, { foreignKey: "userId" });
+    projects = hasMany(Assignment, { through: "assignments", source: "project" });
+  },
+  ThroughItself: class extends Model.define(userAttributes) {
+    static table = "users";
+    projects = hasMany(Project, { through: "projects" });
+  },
+  Circular: class extends Model.define(userAttributes) {
+    static table = "users";
+    projects = hasMany(Project, { through: "others" });
+    others = hasMany(Project, { through: "projects" });
+  },
+  Dependent: class extends Model.define(userAttributes) {
+    static table = "users";
+    assignments = hasMany(Assignment, { foreignKey: "userId" });
+    projects = hasMany(Project, { through: "assignments", dependent: "destroy" });
+  },
+  Autosaved: class extends Model.define(userAttributes) {
+    static table = "users";
+    assignments = hasMany(Assignment, { foreignKey: "userId" });
+    projects = hasMany(Project, { through: "assignments", autosave: true });
+  },
+  Keyed: class extends Model.define(userAttributes) {
+    static table = "users";
+    assignments = hasMany(Assignment, { foreignKey: "userId" });
+    projects = hasMany(Project, { through: "assignments", foreignKey: "userId" });
+  },
+};
 
 describe("an association through another", () => {
   let harness: Harness;
@@ -141,5 +194,22 @@ describe("an association through another", () => {
       "Cygnus",
     ]);
     expect(names(user.loaded("projects"))).toEqual(["Apollo", "Borealis", "Cygnus"]);
+  });
+
+  describe("declared wrongly, it's an InvalidModel at first use", () => {
+    test.each([
+      ["NoVia", 'through "missing" isn\'t an association of'],
+      ["NoSource", 'Assignment has no association "task" or "tasks"; pass source'],
+      ["NoNamedSource", 'Assignment has no association "missing" (check source)'],
+      ["OtherTarget", "its source Assignment.project points at Project, not Assignment"],
+      ["ThroughItself", "goes through itself"],
+      ["Circular", "goes through itself"],
+      ["Dependent", "takes no dependent"],
+      ["Autosaved", "takes no autosave"],
+      ["Keyed", "takes no foreignKey or primaryKey"],
+    ] as const)("%s", (name, message) => {
+      expect(() => db().model(misdeclared[name])).toThrow(InvalidModel);
+      expect(() => db().model(misdeclared[name])).toThrow(message);
+    });
   });
 });

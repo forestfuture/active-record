@@ -7,9 +7,9 @@ import { associationOf } from "./association-fields.ts";
 import { schemaAdapter } from "./generated-model.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
-import { singularize } from "./inflections.ts";
 import { applyScope, linkedToRecordsOf, queryOf, type Scope, type Scoped } from "./relation.ts";
 import { relationFor } from "./scoped-relation.ts";
+import { sourceNameOf } from "./through-associations.ts";
 
 /**
  * How an association links records: the owner's `ownerAttribute` equals the target's
@@ -176,20 +176,21 @@ export class ResolvedAssociation {
 
 /**
  * A through association's hops: `via`, the owner's association it names, and `source`, the
- * association of `via`'s target that the `source` option names, or else named as it is, singular.
+ * association of `via`'s target that reaches its records (checked when the owner was readied).
  */
 function hopsOf(
   owner: ModelClass,
   name: string,
-  { through, source }: AssociationDefinition,
+  definition: AssociationDefinition,
 ): Hops | undefined {
-  if (through === undefined) return undefined;
-  const via = resolveAssociation(owner, through);
-  return { via, source: resolveAssociation(via.target, source ?? singularize(name)) };
+  if (definition.through === undefined) return undefined;
+  const via = resolveAssociation(owner, definition.through);
+  const source = sourceNameOf(name, definition, via.target)!;
+  return { via, source: resolveAssociation(via.target, source) };
 }
 
 /** Whether the schemas `owner` and `target` are built on name two different databases. */
-function isOnDifferentDatabases(owner: ModelClass, target: ModelClass): boolean {
+export function isOnDifferentDatabases(owner: ModelClass, target: ModelClass): boolean {
   const [mine, theirs] = [schemaAdapter(owner), schemaAdapter(target)];
   if (mine === undefined || theirs === undefined) return false;
   return mine.adapter !== theirs.adapter || mine.binding !== theirs.binding;
