@@ -3,6 +3,7 @@ import {
   abort,
   belongsTo,
   hasMany,
+  hasOne,
   Model,
   RecordInvalid,
   RecordNotDestroyed,
@@ -18,6 +19,9 @@ class Project extends Model.define({
   archived: { type: "integer", null: false },
 }) {
   static table = "projects";
+
+  leadAssignment = hasOne(Assignment, { scope: (q) => q.where({ role: "lead" }) });
+  lead = hasOne(User, { through: "leadAssignment", source: "user" });
 
   static {
     this.validates("name", { presence: true });
@@ -539,6 +543,61 @@ describe("writing through an association through another", () => {
         [1, 1],
         [2, 2],
         [1, 3],
+      ]);
+    });
+  });
+
+  describe("a hasOne through another's set", () => {
+    test("points the owner's join record at the record", async () => {
+      const apollo = await db().model(Project).find(1);
+      const other = await db().model(User).find(2);
+
+      await apollo.lead.set(other);
+
+      expect(await links()).toEqual([
+        [2, 1],
+        [2, 2],
+      ]);
+      queries.length = 0;
+      expect(await apollo.lead()).toBe(other);
+      expect(queries).toEqual([]);
+    });
+
+    test("without a join record, creates one", async () => {
+      const cygnus = await db().model(Project).find(3);
+      const user = await db().model(User).find(1);
+
+      await cygnus.lead.set(user);
+
+      // Its scope's role isn't taken yet: #453.
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+        [1, 3],
+      ]);
+    });
+
+    test("null destroys the join record, callbacks included", async () => {
+      const apollo = await db().model(Project).find(1);
+
+      await apollo.lead.set(null);
+
+      expect(destroyed).toEqual([1]);
+      expect(await links()).toEqual([[2, 2]]);
+      expect(await apollo.lead()).toBeNull();
+    });
+
+    test("on a new owner, the join record is saved with it", async () => {
+      const draco = db().model(Project).build({ name: "Draco" });
+      const user = await db().model(User).find(1);
+
+      await draco.lead.set(user);
+
+      expect(await draco.save()).toBe(true);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+        [1, draco.id],
       ]);
     });
   });

@@ -247,11 +247,13 @@ describe("an association through another's types (#59)", () => {
     expectTypeOf<ReturnType<Note["tags"]>>().toExtend<Relation<Tag>>();
   });
 
-  test("a hasOne through another reads its record, and has no writers", () => {
+  test("a hasOne through another reads its record, sets another, and builds none", () => {
     expectTypeOf<Mark["note"]>().toEqualTypeOf<HasOneThrough<typeof Note>>();
     expectTypeOf<ReturnType<Mark["note"]>>().resolves.toEqualTypeOf<Note | null>();
     expectTypeOf<LoadedValue<Mark["note"]>>().toEqualTypeOf<Note | null>();
+    expectTypeOf<Mark["note"]["set"]>().parameters.toEqualTypeOf<[Note | null]>();
     expectTypeOf<Mark["note"]>().not.toHaveProperty("build");
+    expectTypeOf<Mark["note"]>().not.toHaveProperty("create");
     expectTypeOf<Parameters<Mark["loaded"]>[0]>().toEqualTypeOf<"tagging" | "note">();
   });
 
