@@ -9,6 +9,7 @@ import {
   type HasMany,
   type HasManyThrough,
   type HasOneThrough,
+  type Relation,
 } from "../../packages/active-record/src/index.ts";
 import type { LoadedValue } from "../../packages/active-record/src/model.ts";
 import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
@@ -229,9 +230,15 @@ describe("an association through another's types (#59)", () => {
   test("a hasMany through another has no collection methods, and builds nothing", () => {
     expectTypeOf<ReturnType<Note["tags"]>>().not.toHaveProperty("push");
     expectTypeOf<ReturnType<Note["tags"]>>().not.toHaveProperty("clear");
-    for (const write of ["build", "create", "insert", "upsert", "deleteAll"] as const) {
-      expectTypeOf<ReturnType<Note["tags"]>>().not.toHaveProperty(write);
-    }
+    expectTypeOf<ReturnType<Note["tags"]>["build"]>().toBeNever();
+    expectTypeOf<ReturnType<Note["tags"]>["create"]>().toBeNever();
+    expectTypeOf<ReturnType<Note["tags"]>["insert"]>().toBeNever();
+    expectTypeOf<ReturnType<Note["tags"]>["upsert"]>().toBeNever();
+    expectTypeOf<ReturnType<Note["tags"]>["deleteAll"]>().toBeNever();
+  });
+
+  test("a hasMany through another is still a Relation, for or, merge and a batch's updateAll", () => {
+    expectTypeOf<ReturnType<Note["tags"]>>().toExtend<Relation<Tag>>();
   });
 
   test("a hasOne through another reads its record, and has no writers", () => {
