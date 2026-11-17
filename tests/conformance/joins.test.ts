@@ -292,4 +292,95 @@ describe("joins", () => {
       );
     });
   });
+
+  describe("terminals of a joined Relation", () => {
+    // Users 1, 1 and 2: user 1 has two posts, user 3 none.
+    const users = () => db().model(User).joins("posts").order({ id: "asc" });
+
+    test("count() counts each row toArray() returns, duplicates included", async () => {
+      expect(await users().count()).toBe(3);
+      expect(await users().count("role")).toBe(3);
+      expect(await users().distinct().count()).toBe(2);
+    });
+
+    test("pluck() reads the Model's own columns", async () => {
+      expect(await users().pluck("id")).toEqual([1, 1, 2]);
+      expect(await users().pluck("id", "role")).toEqual([
+        [1, "admin"],
+        [1, "admin"],
+        [2, "guest"],
+      ]);
+    });
+
+    test("calculations read the Model's own columns", async () => {
+      expect(await users().sum("id")).toBe(4);
+      expect(await users().minimum("id")).toBe(1);
+      expect(await users().maximum("id")).toBe(2);
+      expect(await users().sum(sql`${column("id")} * 10`)).toBe(40);
+    });
+
+    test("exists() and isEmpty() ask whether a joined row exists", async () => {
+      expect(await users().exists({ id: 2 })).toBe(true);
+      expect(await db().model(User).joins("profile").isEmpty()).toBe(true);
+    });
+
+    test("find() with several ids finds each record once", async () => {
+      expect((await users().find(1, 2)).map((user) => user.id)).toEqual([1, 2]);
+      expect((await users().find(2)).id).toBe(2);
+    });
+
+    test("paginate() pages the joined rows", async () => {
+      const page = await db().model(Post).joins("user").paginate({ perPage: 2 });
+
+      expect(page.records.map((post) => post.title)).toEqual(["A1", "A2"]);
+      expect(page.total).toBe(3);
+    });
+
+    test("includes() preloads for the joined records", async () => {
+      const [post] = await db()
+        .model(Post)
+        .joins("user")
+        .where({ title: "A1" })
+        .includes("comments")
+        .toArray();
+      queries.length = 0;
+
+      expect((await post!.comments().toArray()).map((comment) => comment.body)).toEqual(["on A1"]);
+      expect(queries).toEqual([]);
+    });
+
+    test("updateAll() writes the joined rows' records", async () => {
+      const database = db();
+      const guests = database
+        .model(Post)
+        .joins("user")
+        .merge(database.model(User).where({ role: "guest" }));
+
+      expect(await guests.updateAll({ title: "Hidden" })).toBe(1);
+      expect(await db().model(Post).where({ title: "Hidden" }).pluck("id")).toEqual([12]);
+    });
+
+    test("deleteAll() deletes the joined rows' records", async () => {
+      const loose = db().model(Comment).leftJoins("post").where({ postId: null });
+
+      expect(await loose.deleteAll()).toBe(1);
+      expect(await db().model(Comment).count()).toBe(2);
+    });
+
+    test("a batch writes the joined rows' records", async () => {
+      const database = db();
+      const loose = database.model(Comment).leftJoins("post").where({ postId: null });
+      const onA1 = database
+        .model(Comment)
+        .joins("post")
+        .merge(database.model(Post).where({ title: "A1" }));
+
+      await database.batch((b) => [b.updateAll(onA1, { body: "edited" }), b.deleteAll(loose)]);
+
+      expect(await database.model(Comment).order({ id: "asc" }).pluck("body")).toEqual([
+        "edited",
+        "on B1",
+      ]);
+    });
+  });
 });
