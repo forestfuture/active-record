@@ -1,4 +1,4 @@
-// The order and limit a finder (`first`, `last`, `take`, `sole`) applies, the order a page keeps, and the order an owner's collection loads in.
+// The order and limit a finder (`first`, `last`, `take`, `sole`) applies, what it throws when it finds none or more than one, the order a page keeps, and the order an owner's collection loads in.
 import { IrreversibleOrder, RecordNotFound, SoleRecordExceeded } from "./errors.ts";
 import type { QueryRunner } from "./load.ts";
 import type { Model, ModelClass } from "./model.ts";
