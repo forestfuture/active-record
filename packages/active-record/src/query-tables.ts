@@ -38,7 +38,7 @@ export function ownSource(query: QueryDescription): Source {
 }
 
 /** One joined table: its join, the table it's joined to, and its own name, with an alias if any. */
-export interface JoinedTable {
+interface JoinedTable {
   readonly join: Join;
   readonly parent: Source;
   readonly source: Source;
@@ -56,7 +56,8 @@ export interface Tables {
 
 /**
  * Names each of `query`'s joined tables as Rails does: by its table's name, or when that's
- * taken, `<plural association>_<table joined to>`, then with `_2`, `_3`, … if that's taken too.
+ * taken (in any case), `<plural association>_<table joined to>`, cut to the 63 bytes Postgres
+ * keeps, then with `_2`, `_3`, … if that's taken too.
  */
 export function tablesOf(query: QueryDescription): Tables {
   const own = ownSource(query);
@@ -102,10 +103,12 @@ const MAX_NAME_BYTES = 63;
 /** `name`, cut so that it and `suffix` fit in a name's bytes, then `suffix`. */
 function fitted(name: string, suffix: string): string {
   const encoder = new TextEncoder();
-  let cut = name;
-  while (encoder.encode(cut + suffix).length > MAX_NAME_BYTES) cut = cut.slice(0, -1);
-  return cut + suffix;
+  // Cut by characters, so a character beyond the ASCII ones is never split.
+  const characters = Array.from(name);
+  while (encoder.encode(characters.join("") + suffix).length > MAX_NAME_BYTES) characters.pop();
+  return characters.join("") + suffix;
 }
+
 /** The table of the join `path` names in `tables`. */
 export function sourceAt(tables: Tables, path: string): Source {
   const joined = tables.joined.find((table) => table.path === path);
