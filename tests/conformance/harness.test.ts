@@ -23,6 +23,18 @@ describe("the conformance harness", () => {
     ]);
   });
 
+  test("exec binds a boolean as 1 or 0, as D1 does, so its seeds run on every adapter", async () => {
+    await harness.exec("INSERT INTO users (id, email, suspended) VALUES (?, ?, ?)", [
+      4,
+      "d@example.com",
+      true,
+    ]);
+
+    expect(await harness.exec("SELECT id FROM users WHERE suspended = ?", [true])).toEqual([
+      { id: 4 },
+    ]);
+  });
+
   test("reset deletes every row of the tables it names", async () => {
     await harness.exec("INSERT INTO users (id, email) VALUES (?, ?)", [2, "b@example.com"]);
 
