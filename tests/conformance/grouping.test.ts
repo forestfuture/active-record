@@ -233,4 +233,72 @@ describe("group (#345)", () => {
       expect(() => byTitle.having("COUNT(*) > 1" as never)).toThrow(TypeError);
     });
   });
+
+  describe("chained", () => {
+    test("keeps conditions written before or after group()", async () => {
+      await seed(["a", 1], ["a", 5], ["b", 2], ["c", 9]);
+
+      const counts = await reviews()
+        .whereNot({ title: "c" })
+        .group("title")
+        .where({ rating: [1, 2] })
+        .count();
+
+      expect(counts).toEqual(
+        new Map([
+          ["a", 1],
+          ["b", 1],
+        ]),
+      );
+    });
+
+    test("an order sorts the groups, by a grouped attribute or a fragment", async () => {
+      await seed(["a", 1], ["b", 2], ["b", 3], ["c", 4], ["c", 5], ["c", 6]);
+
+      const byTitle = await reviews().order({ title: "desc" }).group("title").count();
+      const byCount = await reviews()
+        .group("title")
+        .order(sql`COUNT(*) DESC`)
+        .count();
+
+      expect([...byTitle.keys()]).toEqual(["c", "b", "a"]);
+      expect([...byCount.keys()]).toEqual(["c", "b", "a"]);
+    });
+
+    test("a limit and an offset pick groups, not rows", async () => {
+      await seed(["a", 1], ["b", 2], ["b", 3], ["c", 4], ["d", 5]);
+
+      const counts = await reviews()
+        .group("title")
+        .order({ title: "asc" })
+        .offset(1)
+        .limit(2)
+        .count();
+
+      expect(counts).toEqual(
+        new Map([
+          ["b", 2],
+          ["c", 1],
+        ]),
+      );
+    });
+
+    test("group() again adds its terms to the key", async () => {
+      await seed(["a", 1], ["a", 1]);
+
+      expect(await reviews().group("title").group("rating").count()).toEqual(
+        new Map([[["a", 1], 2]]),
+      );
+    });
+
+    test("an order by an attribute that isn't grouped throws when it's written", () => {
+      const byRating = reviews().order({ rating: "asc" });
+
+      expect(() => byRating.group("title")).toThrow(
+        "can't order groups by \"rating\", which isn't grouped: group by it too, or reorder() before group()",
+      );
+      expect(() => reviews().group("title").order({ rating: "asc" })).toThrow(TypeError);
+      expect(() => byRating.reorder({ title: "asc" }).group("title")).not.toThrow();
+    });
+  });
 });
