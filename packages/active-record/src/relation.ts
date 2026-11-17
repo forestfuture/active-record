@@ -11,7 +11,7 @@ import {
 } from "./compiler.ts";
 import { RecordNotFound } from "./errors.ts";
 import { includeTree } from "./preload.ts";
-import { joinsFor, mergedOnJoin, refuseDistinctJoinedOrder } from "./joins.ts";
+import { joinsFor, mergedQuery, refuseDistinctJoinedOrder } from "./joins.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
 import { inspectRelation } from "./relation-inspect.ts";
 import { runnerFor, selectForToSql, type QueryRunner } from "./load.ts";
@@ -21,7 +21,6 @@ import {
   either,
   inheritedAttributes,
   LinkedTo,
-  merged,
   mergeJoins,
   mergeTrees,
   Negated,
@@ -173,11 +172,7 @@ export class Relation<M extends Model, S = {}> {
    * Relation of a Model this one joins once (#24): its conditions apply to the joined table.
    */
   merge<T extends Model = M, O = S>(other: Relation<T, O>): Scoped<M, S> {
-    const query =
-      (other.#model as ModelClass) === this.#model
-        ? merged(this.#query, other.#query)
-        : mergedOnJoin(this.#query, other.#query);
-    return this.#joining(other, "merge()").#describing(query);
+    return this.#joining(other, "merge()").#describing(mergedQuery(this.#query, other.#query));
   }
 
   /**

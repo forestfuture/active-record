@@ -7,6 +7,7 @@ import {
   hasPageOrDistinct,
   isJoining,
   JoinedOrder,
+  merged,
   mergeJoins,
   JoinedConditions,
   type Condition,
@@ -116,12 +117,20 @@ function scopeConditions(association: ResolvedAssociation, executor: Executor): 
 }
 
 /**
+ * `b` merged into `a` (`merge()`): as a same-Model merge, or for a Relation of a Model `a` joins,
+ * onto its join.
+ */
+export function mergedQuery(a: QueryDescription, b: QueryDescription): QueryDescription {
+  return b.model === a.model ? merged(a, b) : mergedOnJoin(a, b);
+}
+
+/**
  * `b`, a Relation of a Model `a` joins, merged into `a` (#24): its conditions on that join's
  * table, its order in place of `a`'s (as a same-Model merge replaces it), and its `none()`.
  * Throws `IncompatibleRelation` unless `a` joins its Model exactly once, or if `b` has what a
  * joined Model's Relation can't change about `a`.
  */
-export function mergedOnJoin(a: QueryDescription, b: QueryDescription): QueryDescription {
+function mergedOnJoin(a: QueryDescription, b: QueryDescription): QueryDescription {
   refuseUnmergeable(b, a.model);
   const path = joinedPath(a, b.model);
   const conditions = b.conditions.length === 0 ? [] : [new JoinedConditions(path, b.conditions)];
