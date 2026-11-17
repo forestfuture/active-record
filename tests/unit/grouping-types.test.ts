@@ -22,6 +22,11 @@ describe("grouping types (#345)", () => {
     expectTypeOf(byStatus).returns.resolves.toEqualTypeOf<
       Map<"draft" | "published" | null, number>
     >();
+  });
+
+  test("several terms key each group by a tuple, a fragment's value unknown", () => {
+    const samples = Sample.none();
+
     expectTypeOf(samples.group("title", "createdAt").count()).resolves.toEqualTypeOf<
       Map<[string, Date | null], number>
     >();
@@ -31,6 +36,11 @@ describe("grouping types (#345)", () => {
     expectTypeOf(samples.group(sql`1`, "title").count()).resolves.toEqualTypeOf<
       Map<[unknown, string], number>
     >();
+  });
+
+  test("group refuses no terms, an unknown attribute, and a json one", () => {
+    const samples = Sample.none();
+
     // Checked by the type checker only; never called.
     const typeOnly = () => {
       // @ts-expect-error -- not an attribute
@@ -61,12 +71,17 @@ describe("grouping types (#345)", () => {
     expectTypeOf(typeOnly).toBeFunction();
   });
 
-  test("having needs a group, and a grouped Relation has no records", () => {
+  test("only a grouped Relation has having", () => {
     const samples = Sample.none();
 
     expectTypeOf(samples).not.toHaveProperty("having");
     expectTypeOf(samples.group("title")).toHaveProperty("having");
-    expectTypeOf(samples.group("title")).not.toHaveProperty("toArray");
-    expectTypeOf(samples.group("title")).not.toHaveProperty("first");
+  });
+
+  test("a grouped Relation has no records to load", () => {
+    const byTitle = Sample.none().group("title");
+
+    expectTypeOf(byTitle).not.toHaveProperty("toArray");
+    expectTypeOf(byTitle).not.toHaveProperty("first");
   });
 });
