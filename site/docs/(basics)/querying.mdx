@@ -208,7 +208,7 @@ To group by several attributes, or by an expression, pass each one to `group`:
 Each key is then an array of the values, in the order you passed them. An expression’s value is whatever the database returns.
 
 :::note
-A `Map` finds an array or `Date` key only if it’s the same object, so `get([1, 0])` finds nothing. Loop over the `Map` to read those groups.
+A `Map` finds an array or `Date` key only if it’s the same object, so `get([1, "cheap"])` finds nothing. Loop over the `Map` to read those groups.
 :::
 
 To keep only some groups, pass a condition on their totals to `having`:
