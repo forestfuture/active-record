@@ -5,6 +5,7 @@ import {
   hasMany,
   Model,
   RecordNotDestroyed,
+  withDatabase,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
@@ -155,5 +156,31 @@ describe("destroying many records", () => {
         expect(queries).toHaveLength(1);
       });
     });
+  });
+
+  test("destroyBy destroys the records matching its conditions, with their callbacks", async () => {
+    const destroyed = await db().model(Comment).destroyBy({ postId: 1 });
+
+    expect(destroyed.map((comment) => comment.body)).toEqual(expect.arrayContaining(["a", "b"]));
+    expect(destroyed).toHaveLength(2);
+    expect(await bodies()).toEqual(["c", "d"]);
+    expect(ran).toContain("after a");
+  });
+
+  test("deleteBy deletes the rows matching its conditions, without callbacks", async () => {
+    expect(await db().model(Comment).deleteBy({ postId: 1 })).toBe(2);
+
+    expect(await bodies()).toEqual(["c", "d"]);
+    expect(ran).toEqual([]);
+  });
+
+  test("a Model has them as statics, on the current database", async () => {
+    await withDatabase(db(), async () => {
+      expect(await Comment.deleteBy({ id: 10 })).toBe(1);
+      expect((await Comment.destroyBy({ id: 11 })).map((comment) => comment.body)).toEqual(["b"]);
+      expect((await Comment.where({ id: 20 }).destroyAll()).map((c) => c.body)).toEqual(["c"]);
+    });
+
+    expect(await bodies()).toEqual(["d"]);
   });
 });

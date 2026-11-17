@@ -420,6 +420,16 @@ export class Relation<M extends Model, S = {}> {
     return records;
   }
 
+  /** Destroys the records matching `conditions`, as `where(conditions).destroyAll()` does. */
+  async destroyBy(conditions: Conditions<M> | SafeSql): Promise<M[]> {
+    return this.where(conditions).destroyAll();
+  }
+
+  /** Deletes the rows matching `conditions`, as `where(conditions).deleteAll()` does. */
+  async deleteBy(conditions: Conditions<M> | SafeSql): Promise<number> {
+    return this.where(conditions).deleteAll();
+  }
+
   /**
    * Builds and runs a statement from this Relation: the rows it changed, or 0 without a query on
    * `none()`, which never builds it, so it needs no database to compile for.

@@ -50,6 +50,8 @@ const relationMethods = [
   "updateAll",
   "deleteAll",
   "destroyAll",
+  "destroyBy",
+  "deleteBy",
   "create",
   "createOrThrow",
   "findBy",
