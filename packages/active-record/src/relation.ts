@@ -396,6 +396,11 @@ export class Relation<M extends Model, S = {}> {
     return (await this.findBy(attributes)) ?? this.create(attributes, init);
   }
 
+  /** Like `findOrCreateBy`, but throws if the record it creates can't be saved. */
+  async findOrCreateByOrThrow(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
+    return (await this.findBy(attributes)) ?? this.createOrThrow(attributes, init);
+  }
+
   /** Like `findBy`, but throws `RecordNotFound` instead of returning null. */
   async findByOrThrow(conditions: Conditions<M> | SafeSql): Promise<M> {
     const record = await this.findBy(conditions);
