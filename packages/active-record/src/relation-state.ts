@@ -16,12 +16,12 @@ export interface RelationState<M extends Model> {
 }
 
 /**
- * @internal The values of a new row built or inserted through `relation`, given `given`: its
+ * @internal The values of a record built or created through `relation`, given `given`: its
  * conditions' equality values, then its `createWith` attributes, then the given ones, with its
  * owner's key over them all, as Rails sets the owner's key last: the owner's own, whatever the
  * conditions say, so a narrowed, merged or `or()`ed hasMany gives it too.
  */
-export function newRowValues(
+export function builtRecordValues(
   relation: RelationState<Model>,
   given: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> {
