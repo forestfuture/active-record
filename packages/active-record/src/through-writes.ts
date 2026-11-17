@@ -11,7 +11,10 @@ import {
   type Write,
 } from "./owned-collection.ts";
 import { state } from "./record-state.ts";
-import type { Relation } from "./relation.ts";
+import { linkedToRecordsOf, type Relation } from "./relation.ts";
+import { preparedWrites } from "./prepared-writes.ts";
+import type { QueryDescription } from "./query.ts";
+import { Statement, statementParts } from "./statement.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
 import { readonlyError } from "./through-associations.ts";
 
@@ -21,19 +24,21 @@ export interface OwnersHasManyThrough {
   association: ResolvedAssociation;
   /** What the owner holds of it. */
   collection: AssociationCollection;
+  /** Its Relation, whose own `deleteAll()` deletes the owner's join records. */
+  relation: { deleteAll(): Promise<number> };
   /** The owner's Relation of the association it goes through, of its join records. */
   via: () => Relation<Model>;
 }
 
 /** What a through hasMany needs to write its join records: its owner, and its hops' Relation. */
-export type ThroughOwner = Omit<OwnersHasManyThrough, "collection">;
+export type ThroughOwner = Omit<OwnersHasManyThrough, "collection" | "relation">;
 
 /**
  * A through hasMany's collection, as its owner holds it: a record built through it gets a join
  * record, built through the association it goes through, that points at it, and one created
- * through it is saved with it; the writes it can't make (inserting records, and its own
- * `deleteAll()`) throw `ReadonlyAssociation`. A narrowed one's builds the same way, and its `deleteAll()` deletes
- * the records themselves, as any Relation's does.
+ * through it is saved with it. Its own `deleteAll()` deletes the owner's join records to the
+ * records it reaches, as Rails' does, where a narrowed one's deletes the records themselves, as
+ * any Relation's does. Inserting records through it throws `ReadonlyAssociation`.
  */
 export function throughCollection(through: ThroughOwner): AssociationCollection {
   const collection = ownedCollection(through.owner, through.association);
@@ -42,17 +47,18 @@ export function throughCollection(through: ThroughOwner): AssociationCollection 
     joinFor(through, record);
   };
   const refuse = (write: Write) => {
-    if (write === "insert" || write === "deleteAll") throw readonlyError(through.association);
+    if (write === "insert") throw readonlyError(through.association);
   };
   const saveCreated = (record: Model, orThrow: boolean) => saveWithJoin(through, record, orThrow);
+  const deleteAllOf = (query: QueryDescription) => deleteJoins(through, collection, query);
   const narrowed = (): OwnedCollection => ({
     ...collection.narrowed(),
     built,
     saveCreated,
-    requireWritable: (write) => (write === "deleteAll" ? undefined : refuse(write)),
+    requireWritable: refuse,
     narrowed,
   });
-  return { ...collection, built, saveCreated, requireWritable: refuse, narrowed };
+  return { ...collection, built, saveCreated, requireWritable: refuse, deleteAllOf, narrowed };
 }
 
 /** A through hasMany's collection methods (#434): each writes its join records. */
@@ -64,7 +70,7 @@ export function throughCollectionMethods<M extends Model>(
     push: (...records) => push(hasMany, records),
     delete: (...records) => remove(hasMany, records, "deleteAll"),
     destroy: (...records) => remove(hasMany, records, "destroy"),
-    clear: refuse,
+    clear: () => clear(hasMany),
     destroyAll: refuse,
   };
 }
@@ -92,6 +98,40 @@ async function push(hasMany: OwnersHasManyThrough, records: Model[]): Promise<bo
   for (const join of joins) viaCollection.created(join);
   for (const record of records) collection.created(record);
   return true;
+}
+
+/**
+ * Takes every record out of the association, as its own `deleteAll()` does: the owner's join
+ * records to them are deleted, without callbacks, and it forgets those built through it, so it
+ * reads as empty without a query.
+ */
+async function clear({ owner, association, collection, relation }: OwnersHasManyThrough) {
+  const viaCollection = ownedCollection(owner, association.hops!.via);
+  viaCollection.removed(
+    builtJoins(viaCollection.added(), association.hops!.source, collection.added()),
+  );
+  if (!owner[state].isNew) await relation.deleteAll();
+  collection.emptied();
+}
+
+/**
+ * The statement that deletes the owner's join records to the records `query` finds: those of
+ * the association it goes through whose source key is one of theirs.
+ */
+function deleteJoins(
+  { association, via }: ThroughOwner,
+  collection: OwnedCollection,
+  query: QueryDescription,
+): Statement {
+  const { source } = association.hops!;
+  const joins = via()[linkedToRecordsOf](source.ownerAttribute, query, source.targetAttribute);
+  const { executor, queries, landed } = joins[preparedWrites].deleteAll()[statementParts];
+  // What the owner has loaded through it is no longer known, as for any write through it (#187).
+  collection.invalidate();
+  return new Statement(executor, queries, () => {
+    landed();
+    collection.invalidate();
+  });
 }
 
 /**

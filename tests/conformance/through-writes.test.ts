@@ -396,4 +396,68 @@ describe("writing through an association through another", () => {
       ]);
     });
   });
+
+  describe("clear and the association's own deleteAll", () => {
+    beforeEach(async () => {
+      await harness.exec(
+        "INSERT INTO assignments (id, user_id, project_id) VALUES (3, 1, 3), (4, 2, 3)",
+      );
+      await harness.exec("UPDATE projects SET archived = 1 WHERE id = 3");
+    });
+
+    test("clear deletes the owner's join records, and then it reads as empty", async () => {
+      const user = await db().model(User).find(1);
+      const draco = user.projects().build({ name: "Draco" });
+
+      await user.projects().clear();
+
+      expect(destroyed).toEqual([]);
+      expect(await links()).toEqual([
+        [2, 2],
+        [2, 3],
+      ]);
+      expect(await db().model(Project).count()).toBe(3);
+      expect(user.loaded("projects")).toEqual([]);
+      expect(await user.save()).toBe(true);
+      expect(draco.isNewRecord()).toBe(true);
+    });
+
+    test("deleteAll deletes the join records to the records it reaches, resolving to how many", async () => {
+      const user = await db().model(User).find(1);
+
+      expect(await user.archivedProjects().deleteAll()).toBe(1);
+
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+        [2, 3],
+      ]);
+      expect(await db().model(Project).count()).toBe(3);
+    });
+
+    test("a new owner's clear forgets what was built through it, and its deleteAll deletes nothing", async () => {
+      await harness.exec("INSERT INTO assignments (id, user_id, project_id) VALUES (5, NULL, 1)");
+      const user = db().model(User).build({ email: "c@example.com" });
+      user.projects().build({ name: "Draco" });
+
+      await user.projects().clear();
+      await user.projects().deleteAll();
+
+      expect(await db().model(Assignment).count()).toBe(5);
+      expect(await user.save()).toBe(true);
+      expect(await db().model(Assignment).count()).toBe(5);
+      expect(await db().model(Project).count()).toBe(3);
+    });
+
+    test("a batch's deleteAll of it deletes the owner's join records", async () => {
+      const user = await db().model(User).find(1);
+
+      await db().batch((b) => [b.deleteAll(user.projects())]);
+
+      expect(await links()).toEqual([
+        [2, 2],
+        [2, 3],
+      ]);
+    });
+  });
 });

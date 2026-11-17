@@ -390,14 +390,14 @@ export class Relation<M extends Model, S = {}> {
    * resolves to 0.
    */
   async deleteAll(): Promise<number> {
-    this.#collection.requireWritable?.("deleteAll");
     writableQuery(this.#query, "deleteAll");
     return this.#countOf(() => this.#deleteAllStatement());
   }
 
   #deleteAllStatement(): Statement {
-    this.#collection.requireWritable?.("deleteAll");
     const query = writableQuery(this.#query, "deleteAll");
+    const own = this.#collection.deleteAllOf?.(query);
+    if (own !== undefined) return own;
     const landed = this.#clearCollectionUntilWritten();
     const nullifies = this.#collection.nullifies;
     const compiled =

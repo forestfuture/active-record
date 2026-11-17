@@ -2,8 +2,10 @@
 import { RecordNotSaved } from "./errors.ts";
 import { pointBackAtOwner } from "./point-back-at-owner.ts";
 import type { Model, ModelClass } from "./model.ts";
+import type { QueryDescription } from "./query.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
+import type { Statement } from "./statement.ts";
 
 /**
  * A hasMany as its owner holds it: the owner-side rules its Relation follows. The Relation
@@ -51,14 +53,19 @@ export interface OwnedCollection {
    */
   saveCreated?(record: Model, orThrow: boolean): Promise<boolean>;
   /**
+   * The statement of its own `deleteAll()`, for the Relation's `query`, in place of deleting the
+   * rows it matches: through a through association, the owner's join records to them (#434).
+   */
+  deleteAllOf?(query: QueryDescription): Statement;
+  /**
    * Throws `ReadonlyAssociation` when `write` isn't allowed through it: through a through
    * association (#434), what it can't write.
    */
   requireWritable?(write: Write): void;
 }
 
-/** The writes a collection may refuse: creating and inserting records, and its own `deleteAll()`. */
-export type Write = "create" | "insert" | "deleteAll";
+/** The writes a collection may refuse: creating and inserting records. */
+export type Write = "create" | "insert";
 
 /** Saves a record created through `collection`, as its `saveCreated` says, or as the record saves. */
 export function saveCreated(

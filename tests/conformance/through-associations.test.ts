@@ -411,13 +411,9 @@ describe("an association through another", () => {
       insertAll: (user: User) => asCollection(user.projects()).insertAll([{ name: "New" }]),
       upsert: (user: User) => asCollection(user.projects()).upsert({ id: 9, name: "New" }),
       upsertAll: (user: User) => asCollection(user.projects()).upsertAll([{ id: 9, name: "New" }]),
-      deleteAll: (user: User) => asCollection(user.projects()).deleteAll(),
-      clear: (user: User) => asCollection(user.projects()).clear(),
       destroyAll: (user: User) => asCollection(user.projects()).destroyAll(),
       "a batch's insert": (user: User) =>
         db().batch((b) => [b.insert(asCollection(user.projects()), { name: "New" })]),
-      "a batch's deleteAll": (user: User) =>
-        db().batch((b) => [b.deleteAll(asCollection(user.projects()))]),
     };
 
     test.each(Object.keys(writes) as (keyof typeof writes)[])(

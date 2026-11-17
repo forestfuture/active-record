@@ -239,7 +239,7 @@ describe("an association through another's types (#59)", () => {
     expectTypeOf<ReturnType<Note["tags"]>["create"]>().returns.resolves.toEqualTypeOf<Tag>();
     expectTypeOf<ReturnType<Note["tags"]>["insert"]>().toBeNever();
     expectTypeOf<ReturnType<Note["tags"]>["upsert"]>().toBeNever();
-    expectTypeOf<ReturnType<Note["tags"]>["deleteAll"]>().toBeNever();
+    expectTypeOf<ReturnType<Note["tags"]>["deleteAll"]>().returns.resolves.toEqualTypeOf<number>();
     expectTypeOf<ReturnType<Note["tags"]>["destroyAll"]>().toBeNever();
   });
 
