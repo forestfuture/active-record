@@ -1,5 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { column, Model, sql, withDatabase } from "../../packages/active-record/src/index.ts";
+import {
+  column,
+  IncompatibleRelation,
+  Model,
+  sql,
+  UnknownAttribute,
+  withDatabase,
+} from "../../packages/active-record/src/index.ts";
+import { User } from "../fixtures/models/user.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -10,6 +18,7 @@ class Review extends Model.define({
   rating: "integer",
   score: "real",
   publishedAt: "datetime",
+  meta: "json",
 }) {
   static table = "typed_posts";
 }
@@ -332,6 +341,81 @@ describe("group (#345)", () => {
           [[1, "a!"], 1],
           [[2, "b!"], 1],
           [[3, "b!"], 1],
+        ]),
+      );
+    });
+  });
+
+  describe("on none()", () => {
+    test("each calculation is an empty Map, with no query", async () => {
+      await seed(["a", 1]);
+
+      expect(await reviews().none().group("title").count()).toEqual(new Map());
+      expect(await reviews().group("title").none().sum("rating")).toEqual(new Map());
+      expect(events).toEqual([]);
+    });
+  });
+
+  describe("after select()", () => {
+    test("count() counts each group's values of the one selected attribute", async () => {
+      await seed(["a", 1], ["a", 1], ["a", null]);
+      const ratings = reviews().select("rating");
+
+      expect(await ratings.group("title").count()).toEqual(new Map([["a", 2]]));
+      expect(await ratings.distinct().group("title").count()).toEqual(new Map([["a", 1]]));
+    });
+
+    test("the other calculations name their own attribute", async () => {
+      await seed(["a", 1], ["a", 2]);
+
+      expect(await reviews().select("title").group("title").sum("rating")).toEqual(
+        new Map([["a", 3]]),
+      );
+    });
+
+    test("count() rejects several selected attributes, which have no one count", async () => {
+      const several = reviews().select("title", "rating").group("title");
+
+      await expect(several.count()).rejects.toThrow(IncompatibleRelation);
+    });
+  });
+
+  describe("refusals", () => {
+    test("group() needs an attribute or a fragment", () => {
+      expect(() => reviews().group()).toThrow(
+        new TypeError("group() needs at least one attribute or sql fragment"),
+      );
+    });
+
+    test("an unknown attribute throws UnknownAttribute when it's written", () => {
+      expect(() => reviews().group("nope" as never)).toThrow(UnknownAttribute);
+    });
+
+    test("a json attribute can't be grouped: Postgres json has no equality", () => {
+      expect(() => reviews().group("meta" as never)).toThrow(
+        new TypeError('group() can\'t group by "meta", a json attribute'),
+      );
+    });
+  });
+
+  describe("through an association", () => {
+    beforeEach(async () => {
+      await harness.reset("posts", "users");
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
+      await harness.exec(
+        "INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'A'), (11, 1, 'A'), (12, 1, 'B')",
+      );
+    });
+
+    test("a loaded association still queries, leaving out its unsaved built records", async () => {
+      const user = await harness.connect().model(User).find(1);
+      await user.posts().toArray();
+      user.posts().build({ title: "A" });
+
+      expect(await user.posts().group("title").count()).toEqual(
+        new Map([
+          ["A", 2],
+          ["B", 1],
         ]),
       );
     });

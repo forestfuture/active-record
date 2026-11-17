@@ -7,6 +7,7 @@ class Sample extends Model.define({
   title: { type: "string", null: false },
   createdAt: "datetime",
   status: { type: "string", enum: ["draft", "published"] },
+  settings: "json",
 }) {}
 
 describe("grouping types (#345)", () => {
@@ -32,6 +33,8 @@ describe("grouping types (#345)", () => {
     >();
     // @ts-expect-error -- not an attribute
     const _unknown = () => samples.group("nope"); // typed but not run
+    // @ts-expect-error -- Postgres can't compare json
+    const _json = () => samples.group("settings");
   });
 
   test("each calculation's results are typed as on a Relation", () => {

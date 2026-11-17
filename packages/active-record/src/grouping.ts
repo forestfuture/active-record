@@ -1,5 +1,7 @@
 // `group` (#345): a Relation grouped by attributes or `sql` fragments, whose calculations resolve to a Map from each group's key to its result.
 import { attributeFor } from "./attribute.ts";
+import { IncompatibleRelation } from "./errors.ts";
+import { attributeOf } from "./metadata.ts";
 import {
   compileGrouped,
   keyAlias,
@@ -7,7 +9,7 @@ import {
   type GroupedCalculation,
   type Grouping,
 } from "./compiler.ts";
-import type { AttributesOf, Model, ModelClass } from "./model.ts";
+import type { AttributesOf, Model, ModelClass, SpecsOf } from "./model.ts";
 import type { Relation } from "./relation.ts";
 import {
   calculationReader,
@@ -16,14 +18,22 @@ import {
   type NumberAttribute,
   type Operation,
   type OrderedAttribute,
+  type StoredTypeOf,
   type ValueSource,
 } from "./calculations.ts";
 import type { QueryDescription } from "./query.ts";
 import { checkFragment, type Conditions, type OrderSpec } from "./relation-checks.ts";
 import { SafeSql } from "./sql.ts";
 
-/** What `group` takes for records `M`: an attribute, or an `sql` fragment. */
-export type GroupTerm<M> = (keyof AttributesOf<M> & string) | SafeSql;
+/** What `group` takes for records `M`: an attribute but a json one, or an `sql` fragment. */
+export type GroupTerm<M> = GroupableAttribute<M> | SafeSql;
+
+/** The attributes of record type `M` that can be grouped: not json, which Postgres can't compare. */
+type GroupableAttribute<M> = {
+  [K in keyof SpecsOf<M>]: StoredTypeOf<SpecsOf<M>[K]> extends "json" ? never : K;
+}[keyof SpecsOf<M>] &
+  keyof AttributesOf<M> &
+  string;
 
 /** A group's key for one term: an attribute's value (null included), or a fragment's cell. */
 type TermKey<M, T> = T extends SafeSql ? unknown : AttributesOf<M>[T & keyof AttributesOf<M>];
@@ -98,6 +108,11 @@ export class GroupedRelation<M extends Model, G extends readonly GroupTerm<M>[]>
   /** Calculates each group's distinct values: a count, sum or average takes each once. */
   distinct(): GroupedRelation<M, G> {
     return this.#with(this.#relation.distinct());
+  }
+
+  /** Matches nothing: each calculation is an empty Map, without a query. */
+  none(): GroupedRelation<M, G> {
+    return this.#with(this.#relation.none());
   }
 
   /** Groups by more terms too, which join the key. */
@@ -194,8 +209,9 @@ export class GroupedRelation<M extends Model, G extends readonly GroupTerm<M>[]>
   }
 
   /** Each group's result, keyed by its values; an attribute the calculation can't take throws first. */
-  async #calculate(calculation: GroupedCalculation): Promise<Map<unknown, unknown>> {
+  async #calculate(written: GroupedCalculation): Promise<Map<unknown, unknown>> {
     const { query, dialect, runner } = this.#sourceOf(this.#relation);
+    const calculation = withSelected(query, written);
     const keyOf = groupKeyReader(query.model, this.#grouping);
     const read = resultReader(query, calculation);
     const alias = valuesAlias(query.model);
@@ -204,6 +220,24 @@ export class GroupedRelation<M extends Model, G extends readonly GroupTerm<M>[]>
     );
     return new Map(rows.map((row) => [keyOf(row), read(row[alias] ?? null)]));
   }
+}
+
+/**
+ * A count of rows as Rails counts it after `select()`: of the one selected attribute's values.
+ * Several selected attributes have no one count.
+ */
+function withSelected(
+  query: QueryDescription,
+  calculation: GroupedCalculation,
+): GroupedCalculation {
+  const { select } = query;
+  if (calculation.operation !== "count" || calculation.operand !== undefined || !select) {
+    return calculation;
+  }
+  if (select.length === 1) return { ...calculation, operand: select[0] };
+  throw new IncompatibleRelation(
+    `count() of a grouped Relation counts one selected attribute, but select() names ${select.length}`,
+  );
 }
 
 /** How a grouped calculation's results read: a count as a number, the rest as on a Relation. */
@@ -249,9 +283,14 @@ function groupKeyReader(
 
 /** Checks a group's terms when they're written: each attribute exists, and each fragment's references. */
 function checkTerms(model: ModelClass<Model>, { terms }: Grouping): void {
+  if (terms.length === 0) {
+    throw new TypeError("group() needs at least one attribute or sql fragment");
+  }
   for (const term of terms) {
     if (term instanceof SafeSql) checkFragment(model, term);
-    else attributeFor(model, term);
+    else if (attributeOf(model, term).type === "json") {
+      throw new TypeError(`group() can't group by "${term}", a json attribute`);
+    }
   }
 }
 

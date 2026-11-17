@@ -170,7 +170,7 @@ export function requireOperation(operation: unknown): Operation {
 }
 
 /** The built-in type a spec is stored as: its type, or its custom type's `storedAs`. */
-type StoredTypeOf<S> = (S extends { type: infer T } ? T : S) extends infer T
+export type StoredTypeOf<S> = (S extends { type: infer T } ? T : S) extends infer T
   ? T extends CustomType<unknown, infer B>
     ? B
     : T
