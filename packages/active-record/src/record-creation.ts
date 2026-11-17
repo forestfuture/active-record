@@ -11,16 +11,22 @@ import { newRowValues, requireSavedOwner, type RelationState } from "./relation-
 export type Init<M> = (record: M) => void | Promise<void>;
 
 /**
- * A new, unsaved record through `relation`, handed to `init`; through a hasMany, it then joins
- * the association, so a record whose `init` throws doesn't.
+ * A new, unsaved record through `relation`, handed to `init`, which mustn't return a promise
+ * (`TypeError`): nothing awaits it. Through a hasMany, the record then joins the association,
+ * so a record whose `init` throws doesn't.
  */
 export function buildThrough<M extends Model>(
   relation: RelationState<M>,
   attributes: Partial<AttributesOf<M>>,
-  init: ((record: M) => undefined) | undefined,
+  init: ((record: M) => void) | undefined,
 ): M {
   const record = recordToBuild(relation, attributes);
-  init?.(record);
+  const result: unknown = init?.(record);
+  if (result instanceof Promise) {
+    throw new TypeError(
+      `${relation.model.name}.build(): init returned a promise, which build can't await; findOrInitializeBy and create await it`,
+    );
+  }
   relation.collection.built(record);
   return record;
 }
