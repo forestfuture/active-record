@@ -31,7 +31,7 @@ export type GroupTerms<M> = readonly [GroupTerm<M>, ...GroupTerm<M>[]];
 /** What `group` takes for records `M`: an attribute but a json one, or an `sql` fragment. */
 export type GroupTerm<M> = GroupableAttribute<M> | SafeSql;
 
-/** The attributes of record type `M` that can be grouped: not json, which Postgres can't compare. */
+/** The attributes of `M` that can be grouped: not json, which Postgres can't compare. */
 type GroupableAttribute<M> = {
   [K in keyof SpecsOf<M>]: StoredTypeOf<SpecsOf<M>[K]> extends "json" ? never : K;
 }[keyof SpecsOf<M>] &
@@ -88,7 +88,7 @@ export class GroupedRelation<M extends Model, G extends readonly GroupTerm<M>[]>
     return this.#with(this.#relation.whereNot(conditions));
   }
 
-  /** Sorts the groups, by grouped attributes or an `sql` fragment such as ``sql`COUNT(*) DESC` ``. */
+  /** Sorts the groups by grouped attributes, or a fragment such as ``sql`COUNT(*) DESC` ``. */
   order(spec: OrderSpec<M> | SafeSql): GroupedRelation<M, G> {
     return this.#with(this.#relation.order(spec));
   }
@@ -199,10 +199,13 @@ export class GroupedRelation<M extends Model, G extends readonly GroupTerm<M>[]>
     return this.#calculate({ operation: requireOperation(operation), operand: attribute });
   }
 
-  /** Each group's result, keyed by its values; an attribute the calculation can't take throws first. */
-  async #calculate(written: GroupedCalculation): Promise<Map<unknown, unknown>> {
+  /**
+   * Each group's result, keyed by its values; an attribute the calculation can't take throws
+   * first.
+   */
+  async #calculate(requested: GroupedCalculation): Promise<Map<unknown, unknown>> {
     const { query, dialect, runner } = this.#sourceOf(this.#relation);
-    const calculation = withSelected(query, written);
+    const calculation = withSelected(query, requested);
     const keyOf = groupKeyReader(query.model, this.#grouping);
     const read = resultReader(query, calculation);
     const alias = valuesAlias(query.model);
@@ -254,7 +257,7 @@ function requireGroupedOrder({ order }: QueryDescription, grouping: Grouping): v
   }
 }
 
-/** Whether `term` can order the groups: a grouped attribute's, or a fragment, which isn't checked. */
+/** Whether `term` can order the groups: a grouped attribute's, or a fragment (not checked). */
 function isGroupedOrder(term: OrderTerm, { terms }: Grouping): boolean {
   return term instanceof SafeSql || terms.includes(term.attribute);
 }
@@ -277,7 +280,7 @@ function groupKeyReader(
   return (row) => readers.map((read) => read(row));
 }
 
-/** Checks a group's terms when they're written: each attribute exists, and each fragment's references. */
+/** Checks a group's terms when written: each attribute exists, as do a fragment's references. */
 function checkTerms(model: ModelClass<Model>, { terms }: Grouping): void {
   if (terms.length === 0) {
     throw new TypeError("group() needs at least one attribute or sql fragment");

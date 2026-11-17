@@ -448,8 +448,9 @@ function isExtreme(operation: GroupedCalculation["operation"]): boolean {
 
 /**
  * A calculation of each group (#345): the groups' keys, each term's value as its `keyAlias`, then
- * the result as `valuesAlias`. The Relation's order and limit pick and order the groups. After `distinct()`, a
- * count, sum or average takes each group's distinct values. A sum of only NULLs is 0.
+ * the result as `valuesAlias`. The Relation's order and limit pick and order the groups. After
+ * `distinct()`, a count, sum or average takes each group's distinct values. A sum of only NULLs
+ * is 0.
  */
 export function compileGrouped(
   dialect: Dialect,
@@ -463,10 +464,10 @@ export function compileGrouped(
     (term, index) =>
       `${compileOperand(query.model, term, params)} AS ${quoteIdentifier(keyAlias(query.model, index))}`,
   );
-  const counted = operand === undefined ? "*" : compileOperand(query.model, operand, params);
+  const aggregated = operand === undefined ? "*" : compileOperand(query.model, operand, params);
   // After distinct(), each distinct value counts once; extremes don't change.
   const distinct = query.distinct && operand !== undefined && !isExtreme(operation);
-  const aggregate = `${operation === "count" ? "COUNT" : AGGREGATES[operation]}(${distinct ? "DISTINCT " : ""}${counted})`;
+  const aggregate = `${operation === "count" ? "COUNT" : AGGREGATES[operation]}(${distinct ? "DISTINCT " : ""}${aggregated})`;
   const value = operation === "sum" ? `COALESCE(${aggregate}, 0)` : aggregate;
   const projection = [...keys, `${value} AS ${quoteIdentifier(valuesAlias(query.model))}`];
   const ungrouped = { ...query, select: undefined, distinct: false };

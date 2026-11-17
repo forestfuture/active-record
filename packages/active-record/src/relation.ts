@@ -580,7 +580,7 @@ export class Relation<M extends Model, S = {}> {
     return runCalculation(this.#valueSource(), named, attribute as string | SafeSql);
   }
 
-  /** Groups the rows by attributes, for each group's calculations (#345). */
+  /** Groups the rows by attributes or `sql` fragments, for each group's calculations (#345). */
   group<const G extends GroupTerms<M>>(...terms: G): GroupedRelation<M, G> {
     return grouped(this as Relation<M>, terms, (relation) => relation.#valueSource());
   }
