@@ -554,6 +554,17 @@ describe("polymorphic associations", () => {
       expect(photo.loaded("remarks").map(({ id }) => id)).toEqual([2]);
     });
 
+    test("a type that names none of its Models throws UnknownModelName", async () => {
+      await harness.exec("UPDATE remarks SET commentable_type = 'Video' WHERE id = 1");
+      const db = harness.connect();
+
+      await expect(db.model(Remark).includes("commentable").toArray()).rejects.toThrow(
+        new UnknownModelName(
+          'Remark.commentable has the type "Video", which is none of its Models: Post, Photo',
+        ),
+      );
+    });
+
     test("a nested include no listed Model has throws UnknownAssociation", () => {
       const db = harness.connect();
 
