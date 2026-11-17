@@ -51,7 +51,7 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       expect(await users().pick("email")).toBe("a@example.com");
     });
 
-    test("is the first row's value in the Relation's order, with one query for one row", async () => {
+    test("is the first row's value in the Relation's order, asking for one row", async () => {
       await seed([1, "b@example.com", 30], [2, "c@example.com", 20], [3, "a@example.com", 40]);
 
       expect(await users().order({ email: "asc" }).pick("email")).toBe("a@example.com");
@@ -183,7 +183,7 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       expect((await users().takeOrThrow()).id).toBe(1);
     });
 
-    test("find the record first, last and take find among several", async () => {
+    test("find what first, last and take find among several", async () => {
       await seed([1, "b@example.com", 30], [2, "c@example.com", 20], [3, "a@example.com", 40]);
       const byEmail = users().order({ email: "asc" });
 
@@ -204,7 +204,7 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
     });
   });
 
-  describe("within the Relation's page, or none()", () => {
+  describe("within the Relation's page", () => {
     test("pick and sole keep the Relation's offset, and limit(0) finds nothing", async () => {
       await seed([1, "b@example.com", 30], [2, "c@example.com", 20], [3, "a@example.com", 40]);
       const byEmail = users().order({ email: "asc" });
@@ -214,8 +214,10 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       expect(await byEmail.limit(0).pick("email")).toBeNull();
       await expect(byEmail.limit(0).sole()).rejects.toThrow(RecordNotFound);
     });
+  });
 
-    test("on none(), pick is null, ids are empty, and sole and the OrThrow finders throw, with no query", async () => {
+  describe("on none()", () => {
+    test("pick is null, ids are empty, and the finders throw, with no query", async () => {
       await seed([1, "a@example.com", 30]);
       const none = users().none();
 
