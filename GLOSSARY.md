@@ -194,7 +194,11 @@ _Avoid_: Discriminator, type column (outside SQL)
 
 **Preload**:
 Loading an **Association** for many **Records** at once, in a small, bounded number of queries (one per association; on D1, the whole tree on the records' database is sent with their query in one round trip, and each other database it reaches takes one more), so each becomes a **Loaded association**. You ask for it with `includes`.
-_Avoid_: Eager load, join
+_Avoid_: Eager load, join (a **Join** narrows a query; a Preload loads records)
+
+**Join**:
+An **Association** joined to a **Relation**'s query with `joins` (only the records with a linked record) or `leftJoins` (every record), so the query can filter and sort by the joined **Model**, through `merge()` of a Relation of it. It loads only the Relation's own Model's records.
+_Avoid_: Eager load, preload, include
 
 **Loaded association**:
 An **Association** a **Record** already holds, preloaded or read once, so reading it again needs no query. It stays loaded while the key it was loaded for is unchanged, until the record is reloaded.

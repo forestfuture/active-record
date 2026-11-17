@@ -1,6 +1,6 @@
 ---
 title: Querying
-description: "Reference for querying: a Model's statics, Relations, where and comparisons, sql fragments, ordering and paging, paginate, find/findBy/first/count, calculations (sum, average, minimum, maximum), partial records, none(), merge, scopes, default scopes, and preloading."
+description: "Reference for querying: a Model's statics, Relations, where and comparisons, sql fragments, ordering and paging, paginate, find/findBy/first/count, calculations (sum, average, minimum, maximum), partial records, none(), merge, joins and leftJoins, scopes, default scopes, and preloading."
 ---
 
 A query is a **Relation**. Each method that narrows, orders, or pages it returns a new Relation, and nothing runs until you ask for results:
@@ -336,9 +336,52 @@ const recent = User.order({ createdAt: "desc" }).limit(10);
 const admins = await User.where({ role: "admin" }).merge(recent).toArray();
 ```
 
+To merge a Relation of another Model, join that Model first. See [Joining associations](#joining-associations).
+
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
 Rails adds the argument’s order to the receiver’s. Active Record replaces it.
+
+</Callout>
+
+## Joining associations
+
+`joins` finds the records that have a linked record, through the associations you’ve declared. Name an association, or nest them in an object:
+
+<include>/_excerpts/guide/joins/joins.ts</include>
+
+A record comes back once for each linked record, so an author with three commented articles appears three times. Add `distinct()` to get each record once.
+
+A joined query loads only its own Model’s columns, and every Relation method works on it. `count()` counts the rows `toArray()` returns, and `updateAll` and `deleteAll` write the records the join finds.
+
+The association’s `scope` and the joined Model’s default scope are part of the join. So joining an association scoped to published articles finds only authors with a published article.
+
+### Keeping records without a link
+
+`leftJoins` joins the same way, but keeps the records that have no linked record:
+
+<include>/_excerpts/guide/joins/left-joins.ts</include>
+
+### Filtering by a joined Model
+
+Merge a Relation of the joined Model to filter or sort by its attributes. Its conditions, its scopes, and its order apply to the joined table:
+
+<include>/_excerpts/guide/joins/merge.ts</include>
+
+As with any `merge`, the joined Model’s order replaces the receiver’s.
+
+:::note
+The merged Relation can only add conditions and an order. A `limit`, `offset`, `select`, `distinct()`, `includes`, or `joins` of its own throws `IncompatibleRelation`. So does merging a Model the query doesn’t join, or joins more than once, and adding `distinct()` to a query ordered by a joined Model.
+:::
+
+A join reads one database. Joining an association to a Model on another database throws `IncompatibleRelation` when you write the query.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+- Rails builds the SQL for a merged Model the query doesn’t join, and the database rejects it when the query runs. Active Record throws `IncompatibleRelation` when you write it.
+- Rails applies a merged Relation’s `limit` to the whole query. Active Record refuses it.
+- With a `hasMany` join, Rails’ `find(1, 2)` counts the duplicate rows and raises `RecordNotFound`. Active Record returns each record once.
+- Rails’ `where(author: { name: "Mary" })`, `where.missing`, and `eager_load` aren’t here yet. Merge a Relation of the joined Model instead, and preload with `includes`.
 
 </Callout>
 

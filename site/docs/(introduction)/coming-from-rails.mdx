@@ -69,6 +69,8 @@ The generators follow `rails generate model` and `rails generate migration`. A c
 - `insert` and `insertAll` raise on duplicates. Skipping them is opt-in, with `{ onDuplicate: "skip" }`.
 - `insert` fills in declared defaults, since that’s where keys are generated.
 - `merge` replaces the order rather than appending to it.
+- `merge` of another Model needs a join to it, and takes only its conditions and order. Anything else throws `IncompatibleRelation` when you write the query.
+- `find(1, 2)` on a `hasMany` join returns each record once.
 - `last()` can’t reverse an `sql` fragment order, and throws `IrreversibleOrder`, rather than trying to parse SQL.
 - `find(1, 1)` always returns an array, so its return type follows its arguments.
 - `dependent:` strategies run after the owner’s `beforeDestroy` callbacks, wherever they’re declared, so an `abort()` always protects the records.
@@ -77,4 +79,4 @@ The generators follow `rails generate model` and `rails generate migration`. A c
 
 ## Not built yet
 
-`has_many :through`, single-table inheritance, counter caches, `destroy_async`, and error messages in other languages.
+`has_many :through`, `where` keyed by an association, `where.missing`, `eager_load`, single-table inheritance, counter caches, `destroy_async`, and error messages in other languages.
