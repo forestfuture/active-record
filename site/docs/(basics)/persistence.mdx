@@ -78,7 +78,7 @@ Destroy every record a query matches with `destroyAll`:
 - **`destroyBy(conditions)`** is `where(conditions).destroyAll()`.
 - **`Post.destroy(id)`** finds the record by its primary key and destroys it. Given an array of keys, it destroys those records in one write. It throws `RecordNotFound` if a key has no record, before destroying any.
 
-If a record’s callback aborts, or a `restrictWithError` association refuses, each of them throws `RecordNotDestroyed`, and nothing is destroyed.
+When one record can’t be destroyed, nothing is. A callback that aborts and a `restrictWithError` association both stop the whole write with `RecordNotDestroyed`.
 
 To delete rows without loading them or running callbacks, use `deleteAll`, `deleteBy`, or `Post.delete(ids)`. See [Bulk writes and batches](./batches).
 
