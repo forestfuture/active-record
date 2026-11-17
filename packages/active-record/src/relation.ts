@@ -71,9 +71,11 @@ import {
 } from "./batch-iteration.ts";
 import {
   count,
+  ids,
   runCalculation,
   pick,
   pluck,
+  type AttributeList,
   type CalculatedValue,
   type ValueSource,
   type NumberAttribute,
@@ -657,9 +659,12 @@ export class Relation<M extends Model, S = {}> {
     return pick(this.#valueSource(), attributes);
   }
 
-  /** Each record's primary key, in this Relation's order: `pluck` of the primary key. */
+  /**
+   * Each record's primary key, in this Relation's order: `pluck` of the primary key, leaving out a
+   * loaded association's built records that have no key yet.
+   */
   async ids(): Promise<(string | number)[]> {
-    return (await pluck(this.#valueSource(), [this.#model.primaryKey])) as (string | number)[];
+    return ids(this.#valueSource());
   }
 
   /**
@@ -784,13 +789,6 @@ export class Relation<M extends Model, S = {}> {
     return new Class({ executor: this.#executor, model: this.#model, query, collection });
   }
 }
-
-/** Two or more of a Model's attributes, as `pluck` and `pick` take them for tuples. */
-export type AttributeList<M extends Model> = readonly [
-  keyof AttributesOf<M> & string,
-  keyof AttributesOf<M> & string,
-  ...(keyof AttributesOf<M> & string)[],
-];
 
 /** What a Relation is made from; opaque outside the library. */
 interface RelationParts<M extends Model> {
