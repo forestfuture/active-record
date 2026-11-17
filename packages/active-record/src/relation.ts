@@ -235,8 +235,8 @@ export class Relation<M extends Model, S = {}> {
   /**
    * Attributes for the records this Relation builds, creates or inserts, but not conditions its
    * finders use: `createWith({ role: "member" }).findOrCreateBy({ email })`. Added to any it has;
-   * `null` removes them. They win over its conditions' values; attributes given to `build`,
-   * `create` or `insert` win over them.
+   * `null` removes them. They win over its conditions' values. Attributes given to `build` or
+   * `create` win over them, and a bulk write such as `insert` writes them over its own (#470).
    */
   createWith(attributes: Partial<AttributesOf<M>> | null): Scoped<M, S> {
     if (attributes === null) return this.#with({ createWith: undefined });
