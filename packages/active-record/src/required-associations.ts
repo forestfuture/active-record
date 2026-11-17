@@ -3,6 +3,7 @@ import { associationsOf } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { modelOf, type Model } from "./model.ts";
 import { state } from "./record-state.ts";
+import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
 
 /**
  * Adds "must exist" (type `required`) to each of the record's required belongsTo associations
@@ -12,8 +13,9 @@ import { state } from "./record-state.ts";
  * record marked for destruction counts as missing.
  */
 export async function validateRequiredAssociations(record: Model): Promise<void> {
-  for (const [name, definition] of associationsOf(modelOf(record))) {
-    if (!isCheckDue(record, definition)) continue;
+  const model = modelOf(record);
+  for (const [name, definition] of associationsOf(model)) {
+    if (!isCheckDue(record, definition, () => resolveAssociation(model, name))) continue;
     const read = (record as unknown as Record<string, () => Promise<Model | null>>)[name]!;
     const found = await read.call(record);
     // One marked for destruction counts as missing, as in Rails (#37).
@@ -27,10 +29,13 @@ export async function validateRequiredAssociations(record: Model): Promise<void>
  * Whether it's a required belongsTo whose key is loaded, and null or changed; for a polymorphic
  * one (#60), its type too.
  */
-function isCheckDue(record: Model, definition: AssociationDefinition): boolean {
-  const { kind, optional, foreignKey, foreignType } = definition;
+function isCheckDue(
+  record: Model,
+  { kind, optional }: AssociationDefinition,
+  resolved: () => ResolvedAssociation,
+): boolean {
   if (kind !== "belongsTo" || optional === true) return false;
-  const keys = foreignType === undefined ? [foreignKey] : [foreignKey, foreignType];
+  const keys = [resolved().keyAttributes].flat();
   const recordState = record[state];
   if (!keys.every((each) => Object.hasOwn(recordState.attributes(), each))) return false;
   return keys.some(
