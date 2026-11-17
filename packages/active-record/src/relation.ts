@@ -387,6 +387,15 @@ export class Relation<M extends Model, S = {}> {
     return findOne(relation.#runner, relation.#query);
   }
 
+  /**
+   * The first record with these attributes or, when none has them, one created with them (and
+   * handed to `init` before it's saved), as `create` does: check `isPersisted()`. Two requests at
+   * once can both create one; `createOrFindBy` is safe from that.
+   */
+  async findOrCreateBy(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
+    return (await this.findBy(attributes)) ?? this.create(attributes, init);
+  }
+
   /** Like `findBy`, but throws `RecordNotFound` instead of returning null. */
   async findByOrThrow(conditions: Conditions<M> | SafeSql): Promise<M> {
     const record = await this.findBy(conditions);

@@ -78,4 +78,52 @@ describe("making records", () => {
       expect(statementKinds(events)).toEqual(["INSERT"]);
     });
   });
+
+  describe("findOrCreateBy", () => {
+    test("finds the row with the attributes, and writes nothing", async () => {
+      const user = await db().model(User).findOrCreateBy({ email: "taken@example.com" });
+
+      expect(user.id).toBe(1);
+      expect(user.role).toBe("admin");
+      expect(statementKinds(events)).toEqual(["SELECT"]);
+    });
+
+    test("creates a row with the attributes when none has them", async () => {
+      const user = await db()
+        .model(User)
+        .findOrCreateBy({ email: "new@example.com", role: "member" });
+
+      expect(user.isPersisted()).toBe(true);
+      expect(await emails()).toContainEqual({ email: "new@example.com", role: "member" });
+      expect(statementKinds(events)).toEqual(["SELECT", "INSERT"]);
+    });
+
+    test("hands init the record it creates, before saving it", async () => {
+      await db()
+        .model(User)
+        .findOrCreateBy({ email: "new@example.com" }, (user) => {
+          user.role = "member";
+        });
+
+      expect(await emails()).toContainEqual({ email: "new@example.com", role: "member" });
+    });
+
+    test("doesn't call init when it finds the row", async () => {
+      const calls: unknown[] = [];
+
+      await db()
+        .model(User)
+        .findOrCreateBy({ email: "taken@example.com" }, (user) => void calls.push(user));
+
+      expect(calls).toEqual([]);
+    });
+
+    test("resolves to the unsaved record when it can't be saved", async () => {
+      const user = await db().model(User).findOrCreateBy({ email: null, role: "member" });
+
+      expect(user.isNewRecord()).toBe(true);
+      expect(user.errors.get("email")).toEqual(["can't be blank"]);
+      expect(statementKinds(events)).toEqual(["SELECT"]);
+    });
+  });
 });
