@@ -473,8 +473,12 @@ function attach(
 ): void {
   const byKey = groupBy(targets, association.targetAttribute);
   for (const record of records) {
-    // A polymorphic branch's owners are those of its type, and those of none (#60).
-    if (!isOwnedThrough(association, record) && association.keyOf(record) !== null) continue;
+    // A polymorphic branch's owners are those of its type, and those of none (#60). Another
+    // listed Model's is left to its branch; a type none of them has throws UnknownModelName.
+    if (!isOwnedThrough(association, record) && association.keyOf(record) !== null) {
+      resolveAssociation(association.owner, association.name).branchForOwner(record);
+      continue;
+    }
     loadedAs(record, association, targetsOfOwner(byKey, association, record));
   }
 }
