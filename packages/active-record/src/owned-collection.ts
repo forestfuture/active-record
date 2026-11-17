@@ -45,14 +45,30 @@ export interface OwnedCollection {
   /** Its form in a narrowed Relation. */
   narrowed(): OwnedCollection;
   /**
+   * Saves a record created through it, in place of the record's own save, resolving to whether
+   * it was saved, or with `orThrow`, throwing as `saveOrThrow` does: through a through
+   * association, the record and its join record (#434).
+   */
+  saveCreated?(record: Model, orThrow: boolean): Promise<boolean>;
+  /**
    * Throws `ReadonlyAssociation` when `write` isn't allowed through it: through a through
    * association (#434), what it can't write.
    */
   requireWritable?(write: Write): void;
 }
 
-/** The writes a collection may refuse: building, creating and inserting records, and its own `deleteAll()`. */
-export type Write = "build" | "create" | "insert" | "deleteAll";
+/** The writes a collection may refuse: creating and inserting records, and its own `deleteAll()`. */
+export type Write = "create" | "insert" | "deleteAll";
+
+/** Saves a record created through `collection`, as its `saveCreated` says, or as the record saves. */
+export function saveCreated(
+  collection: OwnedCollection,
+  record: Model,
+  orThrow: boolean,
+): Promise<boolean> {
+  const own = collection.saveCreated?.(record, orThrow);
+  return own ?? (orThrow ? record.saveOrThrow() : record.save());
+}
 
 /**
  * Throws when records of `model` can't be created or inserted through `collection`:

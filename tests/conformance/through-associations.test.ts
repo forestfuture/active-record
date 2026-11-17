@@ -407,13 +407,10 @@ describe("an association through another", () => {
     ];
     const refused = "Can't write through User.projects: it goes through User.assignments";
     const writes = {
-      create: (user: User) => asCollection(user.projects()).create({ name: "New" }),
-      createOrThrow: (user: User) => asCollection(user.projects()).createOrThrow({ name: "New" }),
       insert: (user: User) => asCollection(user.projects()).insert({ name: "New" }),
       insertAll: (user: User) => asCollection(user.projects()).insertAll([{ name: "New" }]),
       upsert: (user: User) => asCollection(user.projects()).upsert({ id: 9, name: "New" }),
       upsertAll: (user: User) => asCollection(user.projects()).upsertAll([{ id: 9, name: "New" }]),
-      "a narrowed create": (user: User) => user.projects().where({ archived: 0 }).create(),
       deleteAll: (user: User) => asCollection(user.projects()).deleteAll(),
       delete: (user: User) => asCollection(user.projects()).delete(new Project()),
       destroy: (user: User) => asCollection(user.projects()).destroy(new Project()),
@@ -450,9 +447,6 @@ describe("an association through another", () => {
     test("an unsaved owner refuses with ReadonlyAssociation as a saved one does", async () => {
       const user = db().model(User).build({ email: "new@example.com" });
 
-      await expect(asCollection(user.projects()).create({ name: "New" })).rejects.toThrow(
-        ReadonlyAssociation,
-      );
       await expect(asCollection(user.projects()).insert({ name: "New" })).rejects.toThrow(
         ReadonlyAssociation,
       );

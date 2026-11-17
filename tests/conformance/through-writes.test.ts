@@ -1,7 +1,14 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, Model } from "../../packages/active-record/src/index.ts";
+import {
+  belongsTo,
+  hasMany,
+  Model,
+  RecordInvalid,
+  RecordNotSaved,
+} from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { statementKinds } from "../support/statement-kinds.ts";
 
 class Project extends Model.define({
   id: { type: "integer", null: false },
@@ -193,6 +200,56 @@ describe("writing through an association through another", () => {
         [2, 2],
         [user.id, draco.id],
       ]);
+    });
+  });
+
+  describe("create", () => {
+    test("saves the record, then its join record", async () => {
+      const user = await db().model(User).find(1);
+      queries.length = 0;
+
+      const draco = await user.projects().create({ name: "Draco" });
+
+      expect(draco.isPersisted()).toBe(true);
+      expect(statementKinds(queries)).toEqual(["INSERT", "INSERT"]);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+        [1, draco.id],
+      ]);
+    });
+
+    test("an invalid record is returned unsaved, with nothing written", async () => {
+      const user = await db().model(User).find(1);
+
+      const project = await user.projects().create({ name: "" });
+
+      expect(project.isNewRecord()).toBe(true);
+      expect(project.errors.get("name")).toEqual(["can't be blank"]);
+      expect(await user.save()).toBe(true);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+      ]);
+    });
+
+    test("createOrThrow throws RecordInvalid for the record, writing nothing", async () => {
+      const user = await db().model(User).find(1);
+
+      const error = await user
+        .projects()
+        .createOrThrow({ name: "" })
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(RecordInvalid);
+      expect((error as RecordInvalid).record).toBeInstanceOf(Project);
+      expect(await db().model(Project).count()).toBe(3);
+    });
+
+    test("a new owner throws RecordNotSaved, as through a hasMany", async () => {
+      const user = db().model(User).build({ email: "c@example.com" });
+
+      await expect(user.projects().create({ name: "Draco" })).rejects.toThrow(RecordNotSaved);
     });
   });
 });

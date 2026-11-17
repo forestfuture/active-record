@@ -57,6 +57,7 @@ import {
 import {
   alsoClearing,
   requireCreatable,
+  saveCreated,
   unowned,
   type OwnedCollection,
 } from "./owned-collection.ts";
@@ -260,7 +261,6 @@ export class Relation<M extends Model, S = {}> {
    * association, and saving the owner saves it too (autosave).
    */
   build(attributes: Partial<AttributesOf<M>> = {}): M {
-    this.#collection.requireWritable?.("build");
     const record = this.#build(attributes);
     this.#collection.built(record);
     return record;
@@ -444,7 +444,7 @@ export class Relation<M extends Model, S = {}> {
     requireCreatable(this.#collection, this.#model, "create");
     const record = this.#build(attributes);
     this.#collection.pointBack(record);
-    if (await record.save()) this.#collection.created(record);
+    if (await saveCreated(this.#collection, record, false)) this.#collection.created(record);
     return record;
   }
 
@@ -453,7 +453,7 @@ export class Relation<M extends Model, S = {}> {
     requireCreatable(this.#collection, this.#model, "create");
     const record = this.#build(attributes);
     this.#collection.pointBack(record);
-    await record.saveOrThrow();
+    await saveCreated(this.#collection, record, true);
     this.#collection.created(record);
     return record;
   }
