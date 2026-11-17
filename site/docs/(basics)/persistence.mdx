@@ -74,7 +74,7 @@ To give a new record attributes that aren’t part of the search, use `createWit
 
 <include>/_excerpts/guide/find-or-create/create-with.ts</include>
 
-The Relation’s `build`, `create`, and `insert` use them too. Attributes you pass to those methods win over them, and `createWith(null)` removes them.
+The Relation’s `build`, `create`, and `insert` use them too. Attributes you pass to `build` and `create` win over them. `insert`, `insertAll`, `upsert`, and `upsertAll` write them over the attributes you pass. `createWith(null)` removes them.
 
 To set attributes in code, pass a function as the last argument. It gets the new record once its attributes are assigned, before it’s saved:
 
