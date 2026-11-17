@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { abort, belongsTo, hasMany, Model } from "../../packages/active-record/src/index.ts";
+import {
+  abort,
+  belongsTo,
+  hasMany,
+  Model,
+  RecordNotDestroyed,
+} from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -81,6 +87,32 @@ describe("destroying many records", () => {
       expect(ran).toContain("after First");
       expect(ran).toContain("after a");
       expect(ran).toContain("after c");
+    });
+
+    test("throws RecordNotDestroyed and destroys nothing if one record refuses", async () => {
+      await harness.exec("UPDATE comments SET body = 'keep' WHERE id = 20");
+      const relation = db()
+        .model(Post)
+        .where({ id: [1, 2] });
+
+      await expect(relation.destroyAll()).rejects.toThrow(RecordNotDestroyed);
+
+      expect(await titles()).toEqual(["First", "Second", "Third"]);
+      expect(await bodies()).toEqual(["a", "b", "keep", "d"]);
+      expect(ran.filter((step) => step.startsWith("after"))).toEqual([]);
+    });
+
+    test("sends nothing and resolves to [] on none()", async () => {
+      expect(await db().model(Post).none().destroyAll()).toEqual([]);
+
+      expect(queries).toEqual([]);
+    });
+
+    test("resolves to [] after one read when nothing matches", async () => {
+      expect(await db().model(Post).where({ id: 99 }).destroyAll()).toEqual([]);
+
+      expect(queries).toHaveLength(1);
+      expect(await titles()).toEqual(["First", "Second", "Third"]);
     });
   });
 });
