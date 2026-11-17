@@ -143,6 +143,7 @@ Run a query with one of these methods:
 
 - `find` throws `RecordNotFound` if the id is missing. Given several ids, it returns them in order, from one query, and throws if any are missing.
 - `findBy` resolves to `null` when nothing matches, and `findByOrThrow` throws `RecordNotFound`.
+- `findOrCreateBy` creates the record when nothing matches. See [Finding or creating a record](./persistence#finding-or-creating-a-record).
 - `first` and `last` sort by the primary key unless the Relation has an order, and `last` reverses that order. An `sql` fragment can’t be reversed, so `last` throws `IrreversibleOrder` there.
 - `count()` always agrees with what `toArray()` returns, even with `limit`, `offset`, or `distinct`.
 - `size()`, `isEmpty()`, and `hasAny()` count records, or check for any. On a loaded association, they answer without a query.

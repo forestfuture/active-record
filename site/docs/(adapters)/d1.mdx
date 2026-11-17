@@ -55,7 +55,7 @@ When D1 generates the key (`INTEGER PRIMARY KEY`), it doesn’t exist until the 
 
 ## Uniqueness is checked twice
 
-The `uniqueness` validation asks D1 before saving, which gives a friendly error, but two requests can both pass it at once. Only a UNIQUE index guarantees uniqueness. Declare both, and handle [`RecordNotUnique`](./errors#constraint-errors) where a race matters.
+The `uniqueness` validation asks D1 before saving, which gives a friendly error, but two requests can both pass it at once. Only a UNIQUE index guarantees uniqueness. Declare both, and handle [`RecordNotUnique`](./errors#constraint-errors) where a race matters. To create such a row only once, use [`createOrFindBy`](./persistence#creating-records-from-concurrent-requests) with the index alone.
 
 `caseSensitive: false` compares with SQLite’s `lower()`, which only lowercases ASCII letters, so `"Ä"` and `"ä"` are still different.
 

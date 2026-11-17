@@ -6,6 +6,7 @@ import {
   RecordInvalid,
   RecordNotFound,
   RecordNotUnique,
+  UnknownAttribute,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
@@ -337,7 +338,7 @@ describe("making records", () => {
         db()
           .model(User)
           .createWith({ nickname: "x" } as never),
-      ).toThrow(/nickname/);
+      ).toThrow(UnknownAttribute);
     });
   });
 
