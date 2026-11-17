@@ -651,6 +651,18 @@ describe("writing through an association through another", () => {
       ]);
     });
 
+    test("a refused set keeps a change made to the join record before it", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (9, 'locked@example.com')");
+      const apollo = await db().model(Project).find(1);
+      const locked = await db().model(User).find(9);
+      const join = await apollo.leadAssignment();
+      join!.userId = 2;
+
+      await expect(apollo.lead.set(locked)).rejects.toThrow(RecordNotSaved);
+
+      expect(join!.userId).toBe(2);
+    });
+
     test("null destroys the join record, callbacks included", async () => {
       const apollo = await db().model(Project).find(1);
 

@@ -71,6 +71,23 @@ export function pointOwnerAt(
 }
 
 /**
+ * What undoes `pointOwnerAt(owner, association, …)`, taken before it: the foreign key, loaded
+ * record and pending save it changes, put back as they were.
+ */
+export function undoPointing(owner: Model, association: ResolvedAssociation): () => void {
+  const { name, ownerAttribute } = association;
+  const key = owner[state].read(ownerAttribute);
+  const loaded = owner[state].associations.get(name);
+  const pending = owner[state].autosaves.allBelongsTo().find(([each]) => each === name)?.[1];
+  return () => {
+    owner[state].writeKey(ownerAttribute, key, name);
+    if (loaded === undefined) owner[state].associations.clear(name);
+    else owner[state].associations.set(name, ownerAttribute, loaded.value);
+    owner[state].autosaves.setBelongsTo(name, pending);
+  };
+}
+
+/**
  * A hasOne's accessor for `owner`: `await user.profile()`, plus `set`, `build`, `create` and
  * `createOrThrow`, as Rails' `user.profile =`, `build_profile` and `create_profile`. A new record
  * replaces the owner's old one, removed by `dependent:` when the new one is written (#40).
