@@ -1,4 +1,4 @@
-// A through association (#59): its declaration checked, and the source association it reaches its records by.
+// A through association (#59): its declaration checked, the source association it reaches its records by, and the writes it refuses.
 import { associationsOf } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { InvalidModel, ReadonlyAssociation } from "./errors.ts";
@@ -151,15 +151,20 @@ export function readonlyError({ label, hops }: ResolvedAssociation): ReadonlyAss
   );
 }
 
+/** A write through `association` that's refused: it rejects, writing nothing. */
+function refusal(association: ResolvedAssociation): () => Promise<never> {
+  return () => Promise.reject(readonlyError(association));
+}
+
 /** A through hasMany's collection methods (#59): each refuses, writing nothing. */
 export function refusedCollectionMethods(association: ResolvedAssociation) {
-  const refuse = () => Promise.reject(readonlyError(association));
+  const refuse = refusal(association);
   return { push: refuse, delete: refuse, destroy: refuse, clear: refuse };
 }
 
 /** A through hasOne's accessor (#59): it reads, and `set`, `build` and `create` refuse. */
 export function readonlyHasOne(read: () => Promise<unknown>, association: ResolvedAssociation) {
-  const refuse = () => Promise.reject(readonlyError(association));
+  const refuse = refusal(association);
   const build = () => {
     throw readonlyError(association);
   };
