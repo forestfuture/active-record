@@ -463,9 +463,8 @@ describe("the guide's examples", () => {
         "INSERT INTO taggings (id, article_id, tag_id) VALUES (1, 'x2', 1), (2, 'x1', 1)",
       ),
     ]);
-    const queries: string[] = [];
     const recording = recordingBatches(binding);
-    const db = connect(recording.binding, { onQuery: ({ sql }) => queries.push(sql) });
+    const db = connect(recording.binding);
 
     const articles = await withDatabase(db, () => throughExample(1));
 
