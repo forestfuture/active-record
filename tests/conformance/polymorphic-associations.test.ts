@@ -426,4 +426,38 @@ describe("polymorphic associations", () => {
       expect([remark.commentableType, remark.commentableId]).toEqual(["Post", 11]);
     });
   });
+
+  describe("autosave: true on a polymorphic belongsTo", () => {
+    class AutosavingRemark extends Remark {
+      override commentable = belongsTo([Post, Photo], { autosave: true, optional: true });
+    }
+
+    test("saves its changed record with the owner", async () => {
+      const db = harness.connect();
+      const remark = await db.model(AutosavingRemark).find(2);
+      const photo = (await remark.commentable()) as Photo;
+
+      photo.title = "Changed";
+      await remark.saveOrThrow();
+
+      expect(await harness.exec("SELECT title FROM photos WHERE id = 10")).toEqual([
+        { title: "Changed" },
+      ]);
+    });
+
+    test("destroys its marked record, clearing the owner's type and key", async () => {
+      const db = harness.connect();
+      const remark = await db.model(AutosavingRemark).find(2);
+      const photo = (await remark.commentable())!;
+
+      photo.markForDestruction();
+      await remark.saveOrThrow();
+
+      expect(await harness.exec("SELECT id FROM photos")).toEqual([]);
+      expect([remark.commentableType, remark.commentableId]).toEqual([null, null]);
+      expect(
+        await harness.exec("SELECT commentable_type, commentable_id FROM remarks WHERE id = 2"),
+      ).toEqual([{ commentable_type: null, commentable_id: null }]);
+    });
+  });
 });

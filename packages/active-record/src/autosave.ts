@@ -82,11 +82,13 @@ function linkedThrough(model: ModelClass, name: string, record: Model): Linked {
 
 /**
  * Clears the foreign keys that point the owner at records it destroys (Rails' `self[fk] = nil`),
- * and forgets a new one it was to save first.
+ * and a polymorphic belongsTo's type with it (#60), as `set(null)` does, and forgets a new one it
+ * was to save first.
  */
 export function unlink(owner: Model, destroyed: readonly Linked[]): void {
   for (const { association } of destroyed) {
     owner[state].writeKey(association.ownerAttribute, null, association.name);
+    if (association.isPolymorphic) owner[state].write(association.type!.attribute, null);
     owner[state].autosaves.setBelongsTo(association.name, undefined);
   }
 }
