@@ -13,7 +13,7 @@ import {
 } from "./model.ts";
 import { verifyModel } from "./verify-model.ts";
 import { checkThrough } from "./through-associations.ts";
-import { throughCollectionMethods } from "./through-writes.ts";
+import { throughCollection, throughCollectionMethods } from "./through-writes.ts";
 import { state } from "./record-state.ts";
 import { collectionMethods, type CollectionMethods } from "./collection-methods.ts";
 import { ownedCollection } from "./owned-collection.ts";
@@ -152,7 +152,6 @@ export type HasManyThrough<C extends ModelClass> = () => Scoped<InstanceType<C>,
 
 /** The writes a through association's own Relation refuses (#59). */
 type ThroughWrite =
-  | "build"
   | "create"
   | "createOrThrow"
   | "insert"
@@ -338,20 +337,26 @@ function keepAssignedField(name: string): (this: Model, value: unknown) => void 
  */
 function hasManyRelation(owner: Model, association: ResolvedAssociation) {
   const relation = association.linkedTo(owner[state].executor, association.keyOf(owner));
+  if (association.hops !== undefined) return throughRelation(owner, association, relation);
   const collection = ownedCollection(owner, association);
   const owned = relation[ofOwner](collection);
   // On this Relation only: one narrowed from it (`where`, a scope, …) is a new Relation without them.
   return Object.assign(
     owned,
-    association.hops === undefined
-      ? collectionMethods({ owner, association, collection, relation: owned })
-      : throughCollectionMethods({
-          owner,
-          association,
-          collection,
-          via: (): Relation<Model> => hasManyRelation(owner, association.hops!.via),
-        }),
+    collectionMethods({ owner, association, collection, relation: owned }),
   );
+}
+
+/** A through hasMany's Relation for `owner` (#434): what's built or pushed through it gets a join record. */
+function throughRelation(
+  owner: Model,
+  association: ResolvedAssociation,
+  relation: Relation<Model>,
+) {
+  const via = (): Relation<Model> => hasManyRelation(owner, association.hops!.via);
+  const collection = throughCollection({ owner, association, via });
+  const owned = relation[ofOwner](collection);
+  return Object.assign(owned, throughCollectionMethods({ owner, association, collection, via }));
 }
 
 /**

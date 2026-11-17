@@ -260,6 +260,7 @@ export class Relation<M extends Model, S = {}> {
    * association, and saving the owner saves it too (autosave).
    */
   build(attributes: Partial<AttributesOf<M>> = {}): M {
+    this.#collection.requireWritable?.("build");
     const record = this.#build(attributes);
     this.#collection.built(record);
     return record;
@@ -271,7 +272,6 @@ export class Relation<M extends Model, S = {}> {
 
   /** What a record built or inserted through this Relation takes from its conditions and owner. */
   #inherited(): Record<string, unknown> {
-    this.#collection.requireWritable?.("records");
     const { conditions } = this.#query;
     return castInherited(this.#model, inheritedAttributes(conditions), this.#collection.link);
   }
@@ -344,7 +344,7 @@ export class Relation<M extends Model, S = {}> {
     method: string,
     { returning }: { returning?: Returning<M> | undefined },
   ): Statement<Row> {
-    requireCreatable(this.#collection, this.#model);
+    requireCreatable(this.#collection, this.#model, "insert");
     const inherited = this.#inherited();
     const withInherited = rows.map((row) => ({ ...inherited, ...row }));
     return insertStatement(this.#executor, this.#model, withInherited, {
@@ -441,7 +441,7 @@ export class Relation<M extends Model, S = {}> {
 
   /** Builds and saves a record; resolves to it whether or not it was saved (check `isPersisted()`). */
   async create(attributes: Partial<AttributesOf<M>> = {}): Promise<M> {
-    requireCreatable(this.#collection, this.#model);
+    requireCreatable(this.#collection, this.#model, "create");
     const record = this.#build(attributes);
     this.#collection.pointBack(record);
     if (await record.save()) this.#collection.created(record);
@@ -450,7 +450,7 @@ export class Relation<M extends Model, S = {}> {
 
   /** Builds and saves a record, throwing if it can't be saved. */
   async createOrThrow(attributes: Partial<AttributesOf<M>> = {}): Promise<M> {
-    requireCreatable(this.#collection, this.#model);
+    requireCreatable(this.#collection, this.#model, "create");
     const record = this.#build(attributes);
     this.#collection.pointBack(record);
     await record.saveOrThrow();
