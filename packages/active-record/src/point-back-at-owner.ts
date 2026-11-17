@@ -20,7 +20,7 @@ export function pointBackAtOwner(
   const inverse = inverseOf(owner, association);
   if (inverse === undefined) return;
   if (!isOwnersKey(record[state].read(inverse.ownerAttribute), owner, association)) return;
-  record[state].associations.set(inverse.name, inverse.ownerAttribute, owner);
+  record[state].associations.set(inverse.name, inverse.keyAttributes, owner);
 }
 
 /**

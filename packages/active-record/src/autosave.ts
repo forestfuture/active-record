@@ -152,14 +152,14 @@ export function dropUnsavedMarked(owner: Model): void {
 
 /** Takes `record` out of what `owner`'s association holds: built through it, or loaded. */
 export function forget(owner: Model, association: ResolvedAssociation, record: Model): void {
-  const { name, ownerAttribute } = association;
+  const { name } = association;
   owner[state].autosaves.removeBuilt(name, [record]);
   const value = owner[state].associations.get(name)?.value;
   if (Array.isArray(value)) {
     const kept = value.filter((each) => each !== record);
-    owner[state].associations.set(name, ownerAttribute, kept);
+    owner[state].associations.set(name, association.keyAttributes, kept);
   } else if (value === record) {
-    owner[state].associations.set(name, ownerAttribute, null);
+    owner[state].associations.set(name, association.keyAttributes, null);
   }
 }
 
@@ -210,9 +210,8 @@ export function isOwnerKeyKnown(owner: Model, after: readonly Linked[]): boolean
 /** Points the owner at the records it points at, now that their keys exist, keeping them loaded. */
 export function linkBefore(owner: Model, pointedAt: readonly Linked[]): void {
   for (const { association, record } of pointedAt) {
-    const { name, ownerAttribute, targetAttribute } = association;
-    owner[state].pointAt(name, ownerAttribute, record[state].read(targetAttribute), record);
-    owner[state].autosaves.setBelongsTo(name, undefined);
+    owner[state].pointAt(association, record[state].read(association.targetAttribute), record);
+    owner[state].autosaves.setBelongsTo(association.name, undefined);
   }
 }
 
@@ -225,7 +224,9 @@ export function linkAfter(owner: Model, after: readonly Linked[]): void {
     if (keepsKey || destroys) continue;
     const { name, definition, ownerAttribute } = association;
     record[state].writeKey(definition.foreignKey, owner[state].read(ownerAttribute), name);
-    if (definition.kind === "hasOne") owner[state].associations.set(name, ownerAttribute, record);
+    if (definition.kind === "hasOne") {
+      owner[state].associations.set(name, association.keyAttributes, record);
+    }
   }
 }
 

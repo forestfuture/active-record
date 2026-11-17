@@ -18,6 +18,13 @@ class Photo extends Model.define({
   static table = "photos";
 }
 
+class User extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+}) {
+  static table = "users";
+}
+
 class Remark extends Model.define({
   id: { type: "integer", null: false },
   body: "string",
@@ -68,6 +75,60 @@ describe("polymorphic associations", () => {
 
       expect(await remark.commentable()).toBeNull();
       expect(queries).toHaveLength(0);
+    });
+  });
+
+  describe("setting a polymorphic belongsTo", () => {
+    test("set points it at a record of any listed Model, by its type and key", async () => {
+      const queries: QueryEvent[] = [];
+      const db = harness.connect({ onQuery: (event) => queries.push(event) });
+      const remark = await db.model(Remark).find(1);
+      const photo = await db.model(Photo).find(10);
+      queries.length = 0;
+
+      remark.commentable.set(photo);
+
+      expect(remark.commentableType).toBe("Photo");
+      expect(remark.commentableId).toBe(10);
+      expect(await remark.commentable()).toBe(photo);
+      expect(queries).toHaveLength(0);
+      await remark.saveOrThrow();
+      const [row] = await harness.exec(
+        "SELECT commentable_type, commentable_id FROM remarks WHERE id = 1",
+      );
+      expect(row).toEqual({ commentable_type: "Photo", commentable_id: 10 });
+    });
+
+    test("set(null) clears its type and key", async () => {
+      const db = harness.connect();
+      const remark = await db.model(Remark).find(1);
+
+      remark.commentable.set(null);
+
+      expect(remark.commentableType).toBeNull();
+      expect(remark.commentableId).toBeNull();
+      expect(await remark.commentable()).toBeNull();
+    });
+
+    test("set refuses a record of a Model it doesn't list", async () => {
+      const db = harness.connect();
+      const remark = await db.model(Remark).find(1);
+      const user = db.model(User).build({ id: 2, email: "b@example.com" });
+
+      expect(() => remark.commentable.set(user as never)).toThrow(
+        new TypeError("Remark.commentable.set() takes a Post or Photo record or null"),
+      );
+      expect(remark.commentableType).toBe("Post");
+    });
+
+    test("changing only its type reads the other Model's record", async () => {
+      const db = harness.connect();
+      const remark = await db.model(Remark).find(1);
+      expect(await remark.commentable()).toBeInstanceOf(Post);
+
+      remark.commentableType = "Photo";
+
+      expect(await remark.commentable()).toBeInstanceOf(Photo);
     });
   });
 });

@@ -413,11 +413,13 @@ export async function cachedRead(
   association: ResolvedAssociation,
   load: (key: unknown) => Promise<Model | null>,
 ): Promise<Model | null> {
-  const { name, ownerAttribute } = association;
+  const { name, keyAttributes } = association;
   const cached = owner[state].associations.get(name);
   if (cached !== undefined) return cached.value as Model | null;
   const key = association.keyOf(owner);
-  const keep = owner[state].associations.startLoad(name, ownerAttribute, key);
+  // A polymorphic belongsTo's is kept for its type and key as they are (#60).
+  const loadedFor = association.isPolymorphic ? undefined : key;
+  const keep = owner[state].associations.startLoad(name, keyAttributes, loadedFor);
   // No key: nothing to find, and nothing to query; that null is loaded like any result.
   const value = key === null ? null : await load(key);
   keep(value);

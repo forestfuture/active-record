@@ -59,12 +59,31 @@ export function polymorphicBelongsToAccessor(
   owner: Model,
   association: ResolvedAssociation,
 ): unknown {
-  return () =>
+  const read = () =>
     cachedRead(owner, association, (key) => {
       const branch = association.branchForOwner(owner);
       if (branch === undefined) return Promise.resolve(null);
       return branch.all(owner[state].executor).findBy({ [branch.targetAttribute]: key });
     });
+  return Object.assign(read, {
+    set: (record: Model | null) => pointPolymorphicAt(owner, association, record),
+  });
+}
+
+/**
+ * Points `owner` at `record`, of any Model its polymorphic belongsTo lists, or at nothing: its
+ * type takes the Model's name and its foreign key the record's key (#60). A record of another
+ * Model throws `TypeError`.
+ */
+function pointPolymorphicAt(
+  owner: Model,
+  association: ResolvedAssociation,
+  record: Model | null,
+): void {
+  requireSettable(association, record);
+  const branch = record === null ? undefined : association.branchForRecord(record);
+  owner[state].write(association.definition.foreignType!, branch?.type!.value ?? null);
+  pointOwnerAt(owner, branch ?? association, record);
 }
 
 /**
@@ -77,10 +96,11 @@ export function pointOwnerAt(
   association: ResolvedAssociation,
   record: Model | null,
 ): void {
-  const { name, ownerAttribute, targetAttribute } = association;
+  const { name } = association;
   requireSettable(association, record);
-  const key = record === null ? null : record[state].read(targetAttribute);
-  owner[state].pointAt(name, ownerAttribute, key, record);
+  // Read only for a record: a polymorphic belongsTo set to null has no one target (#60).
+  const key = record === null ? null : record[state].read(association.targetAttribute);
+  owner[state].pointAt(association, key, record);
   owner[state].autosaves.setBelongsTo(
     name,
     record !== null && record[state].isNew ? record : undefined,
@@ -133,7 +153,7 @@ async function setOne(
   association: ResolvedAssociation,
   record: Model | null,
 ): Promise<void> {
-  const { name, ownerAttribute } = association;
+  const { name } = association;
   requireSettable(association, record);
   if (record !== null) {
     const undo = undoAdopting(owner, association, record);
@@ -154,7 +174,7 @@ async function setOne(
     await removeReplaced({ owner, association, replaced: replacedBy(owner, association) });
   }
   takeReplaced(owner, association);
-  owner[state].associations.set(name, ownerAttribute, null);
+  owner[state].associations.set(name, association.keyAttributes, null);
   owner[state].autosaves.clear(name);
 }
 
@@ -164,7 +184,7 @@ async function setOne(
  * it was.
  */
 function undoAdopting(owner: Model, association: ResolvedAssociation, record: Model): () => void {
-  const { name, ownerAttribute, definition } = association;
+  const { name, definition } = association;
   const loaded = owner[state].associations.get(name);
   const [built] = owner[state].autosaves.built(name);
   const replacement = built === undefined ? undefined : replacementOf(built);
@@ -178,7 +198,7 @@ function undoAdopting(owner: Model, association: ResolvedAssociation, record: Mo
     if (built !== undefined) owner[state].autosaves.setBuilt(name, built);
     if (built !== undefined && replacement !== undefined) markReplacing(built, replacement);
     if (loaded === undefined) owner[state].associations.clear(name);
-    else owner[state].associations.set(name, ownerAttribute, loaded.value);
+    else owner[state].associations.set(name, association.keyAttributes, loaded.value);
   };
 }
 
@@ -234,7 +254,7 @@ function adopt(owner: Model, association: ResolvedAssociation, record: Model): v
   const replaced = takeReplaced(owner, association);
   if (!owner[state].isNew) markReplacing(record, { owner, association, replaced });
   record[state].writeKey(definition.foreignKey, owner[state].read(ownerAttribute), name);
-  owner[state].associations.set(name, ownerAttribute, record);
+  owner[state].associations.set(name, association.keyAttributes, record);
   owner[state].autosaves.setBuilt(name, record);
   pointBackAtOwner(owner, association, record);
 }
@@ -244,10 +264,12 @@ function targetDatabase(owner: Model, association: ResolvedAssociation): Executo
   return association.targetExecutor(owner[state].executor);
 }
 
-/** Throws `TypeError` unless `set()` is given a record of the association's Model, or null. */
+/**
+ * Throws `TypeError` for a record `set` can't take: one of a Model the association doesn't
+ * point at (any of a polymorphic belongsTo's, #60).
+ */
 export function requireSettable(association: ResolvedAssociation, record: Model | null): void {
-  const { label, target } = association;
-  if (record !== null && !(record instanceof target)) {
-    throw new TypeError(`${label}.set() takes a ${target.name} record or null`);
-  }
+  if (record === null || association.branchForRecord(record) !== undefined) return;
+  const listed = association.branches.map(({ target }) => target.name).join(" or ");
+  throw new TypeError(`${association.label}.set() takes a ${listed} record or null`);
 }

@@ -3,6 +3,7 @@
 import { readyModel, type AssociationDefinition } from "./associations.ts";
 import { currentExecutorOf } from "./current-database.ts";
 import type { Executor } from "./executor.ts";
+import type { KeyAttributes } from "./loaded-associations.ts";
 import { associationOf } from "./association-fields.ts";
 import { schemaAdapter } from "./generated-model.ts";
 import type { Model, ModelClass } from "./model.ts";
@@ -115,6 +116,17 @@ export class ResolvedAssociation {
       throw new Error(`${this.label} is polymorphic: use the branch for a record`);
     }
     return this.#link;
+  }
+
+  /**
+   * The owner's attributes its loaded records are kept for: its key, and a polymorphic
+   * belongsTo's type too (#60), so changing either reads again.
+   */
+  get keyAttributes(): KeyAttributes {
+    const { kind, foreignType } = this.definition;
+    return kind === "belongsTo" && foreignType !== undefined
+      ? [this.ownerAttribute, foreignType]
+      : this.ownerAttribute;
   }
 
   /** Whether it's a polymorphic belongsTo (#60), whose record may be of several Models. */

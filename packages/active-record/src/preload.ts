@@ -446,11 +446,11 @@ function targetsOfOwner(
 
 /** `records` loaded as `owner`'s `association`: all of them for a hasMany, else the first or null. */
 function loadedAs(owner: Model, association: ResolvedAssociation, records: Model[]): void {
-  const { name, definition, ownerAttribute } = association;
+  const { name, definition } = association;
   const value = definition.kind === "hasMany" ? records : (records[0] ?? null);
   // Set, not started as a load: the owners aren't reachable until loading returns, so nothing can write
   // through them meanwhile.
-  owner[state].associations.set(name, ownerAttribute, value);
+  owner[state].associations.set(name, association.keyAttributes, value);
 }
 
 /** Each owner of a through association (#59) gets the records it reaches. */
