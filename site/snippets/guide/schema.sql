@@ -99,7 +99,7 @@ CREATE TABLE likes (
   likeable_id INTEGER NOT NULL
 );
 
-CREATE TABLE tags (
+CREATE TABLE labels (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   color TEXT

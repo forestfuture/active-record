@@ -1044,12 +1044,12 @@ describe("the persistence page's finding or creating (#346)", () => {
   afterAll(() => dispose());
 
   test("each finds, builds, or creates as its comment says", async () => {
-    await binding.prepare("INSERT INTO tags (name, color) VALUES ('travel', 'red')").run();
-    await binding.prepare("INSERT INTO tags (name, color) VALUES ('news', 'grey')").run();
+    await binding.prepare("INSERT INTO labels (name, color) VALUES ('travel', 'red')").run();
+    await binding.prepare("INSERT INTO labels (name, color) VALUES ('news', 'grey')").run();
 
-    const tags = await withDatabase(connect(binding), () => findOrCreate());
+    const labels = await withDatabase(connect(binding), () => findOrCreate());
 
-    expect(tags).toEqual([
+    expect(labels).toEqual([
       { name: "travel", color: "red", saved: true },
       { name: "food", color: null, saved: false },
       { name: "music", color: "blue", saved: true },
