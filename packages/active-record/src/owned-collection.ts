@@ -54,7 +54,8 @@ export interface OwnedCollection {
   saveCreated?(record: Model, orThrow: boolean): Promise<boolean>;
   /**
    * The statement of its own `deleteAll()`, for the Relation's `query`, in place of deleting the
-   * rows it matches: through a through association, the owner's join records to them (#434).
+   * rows it matches: through a through association, the owner's join records to them, or
+   * `ReadonlyAssociation` where it writes none (#434).
    */
   deleteAllOf?(query: QueryDescription): Statement;
   /**
