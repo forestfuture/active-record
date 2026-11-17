@@ -304,12 +304,39 @@ async function setThrough(
   } else {
     const linked = join ?? viaOne.build();
     pointOwnerAt(linked, source, record);
-    if (!owner[state].isNew && !(await linked.save())) {
-      if (join === null) forget(owner, via, linked);
+    if (!owner[state].isNew && !(await savedOrUndone(owner, association, linked, join === null))) {
       throw new RecordNotSaved(`Failed to save the new associated ${via.name}`);
     }
   }
   owner[state].associations.set(name, ownerAttribute, record);
+}
+
+/**
+ * Saves the join record `set` pointed at its record; if that refuses or throws, undoes `set`: a
+ * join record built for it is forgotten, and an existing one points where it did.
+ */
+async function savedOrUndone(
+  owner: Model,
+  association: ResolvedAssociation,
+  join: Model,
+  built: boolean,
+): Promise<boolean> {
+  const { via, source } = association.hops!;
+  let saved = false;
+  try {
+    saved = await join.save();
+  } finally {
+    if (!saved && built) forget(owner, via, join);
+    else if (!saved) unpoint(join, source);
+  }
+  return saved;
+}
+
+/** Undoes pointing `join` at another record through `source`: its key, loaded record and pending save. */
+function unpoint(join: Model, source: ResolvedAssociation): void {
+  join[state].restore([source.ownerAttribute]);
+  join[state].associations.clear(source.name);
+  join[state].autosaves.setBelongsTo(source.name, undefined);
 }
 
 /** Destroys the owner's join record (one not saved yet is just forgotten), as Rails does. */
