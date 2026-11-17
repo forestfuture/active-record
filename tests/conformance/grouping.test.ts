@@ -327,6 +327,17 @@ describe("group (#345)", () => {
       expect(counts).toEqual(new Map([["a", 2]]));
     });
 
+    test("group() refuses to drop an earlier order while a limit or offset picks groups", () => {
+      const newest = reviews().order({ publishedAt: "desc" });
+
+      expect(() => newest.limit(10).group("title")).toThrow(
+        new IncompatibleRelation(
+          "group() can't drop the order by \"publishedAt\", which isn't grouped, while a limit or offset picks groups: reorder() first",
+        ),
+      );
+      expect(() => newest.offset(1).group("title")).toThrow(IncompatibleRelation);
+    });
+
     test("an order written after group(), by an attribute that isn't grouped, throws", () => {
       expect(() => reviews().group("title").order({ rating: "asc" })).toThrow(
         new TypeError("can't order groups by \"rating\", which isn't grouped"),
