@@ -26,13 +26,18 @@ export function newRowValues(
   given: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> {
   const { model, query, collection } = relation;
+  const inherited = castInherited(model, inheritedAttributes(query.conditions), collection.link);
+  return { ...inherited, ...query.createWith, ...given, ...ownersValues(relation) };
+}
+
+/**
+ * @internal What a row built or inserted through `relation` takes from its owner over any
+ * other value: the owner's key; none without an owner, or through another association.
+ */
+export function ownersValues({ model, collection }: RelationState<Model>): Record<string, unknown> {
   const { link } = collection;
-  const inherited = castInherited(model, inheritedAttributes(query.conditions), link);
-  const ownersKey =
-    link === undefined || !("key" in link)
-      ? {}
-      : castInherited(model, { [link.attribute]: link.key }, link);
-  return { ...inherited, ...query.createWith, ...given, ...ownersKey };
+  if (link === undefined || !("key" in link)) return {};
+  return castInherited(model, { [link.attribute]: link.key }, link);
 }
 
 /**

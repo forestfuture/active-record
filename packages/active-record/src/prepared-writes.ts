@@ -1,7 +1,12 @@
 // PreparedWrites: a Relation's bulk writes as Statements, unsent, for a Batch to prepare, and building them.
 import { compileDeleteAll, compileUpdateAll, type Conflict } from "./compiler.ts";
 import type { AttributesOf, Model } from "./model.ts";
-import { newRowValues, requireSavedOwner, type RelationState } from "./relation-state.ts";
+import {
+  newRowValues,
+  ownersValues,
+  requireSavedOwner,
+  type RelationState,
+} from "./relation-state.ts";
 import {
   checkChanges,
   returnedNames,
@@ -45,7 +50,6 @@ export interface PreparedWrites<M> {
 
 /** @internal `relation`'s bulk writes, each built as a Statement when called. */
 export function preparedWritesOf<M extends Model>(relation: RelationState<M>): PreparedWrites<M> {
-  const { model } = relation;
   return {
     insert: (attributes, options = {}) =>
       insertRows(relation, [attributes], skipOn(options, "insert"), {
@@ -58,18 +62,26 @@ export function preparedWritesOf<M extends Model>(relation: RelationState<M>): P
         returning: options.returning,
       }),
     upsert: (attributes, options = {}) =>
-      insertRows(relation, [attributes], updateOn(model, options), {
+      insertRows(relation, [attributes], ownedUpdate(relation, options), {
         method: "upsert",
         returning: options.returning,
       }),
     upsertAll: (rows, options = {}) =>
-      insertRows(relation, rows, updateOn(model, options), {
+      insertRows(relation, rows, ownedUpdate(relation, options), {
         method: "upsertAll",
         returning: options.returning,
       }),
     updateAll: (changes) => updateAllStatement(relation, changes),
     deleteAll: () => deleteAllStatement(relation),
   };
+}
+
+/**
+ * An upsert's conflict through `relation`: through an owner's hasMany, it updates a clashing
+ * row only when that row is already the owner's, so it never takes another owner's (#451).
+ */
+function ownedUpdate(relation: RelationState<Model>, options: UpsertOptions<Model>): Conflict {
+  return updateOn(relation.model, options, Object.keys(ownersValues(relation)));
 }
 
 function insertRows<Row>(

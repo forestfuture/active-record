@@ -189,11 +189,18 @@ export function returnedNames(
   return names;
 }
 
-/** An upsert's conflict: update, matching on `uniqueBy` (the primary key by default). */
-export function updateOn<M>(model: ModelClass, options: UpsertOptions<M>): Conflict {
+/**
+ * An upsert's conflict: update, matching on `uniqueBy` (the primary key by default), a row
+ * that already has the new row's `ownedBy` values (#451).
+ */
+export function updateOn<M>(
+  model: ModelClass,
+  options: UpsertOptions<M>,
+  ownedBy: readonly string[] = [],
+): Conflict {
   const uniqueBy = [options.uniqueBy ?? model.primaryKey].flat() as string[];
   for (const name of uniqueBy) attributeOf(model, name);
-  return { kind: "update", uniqueBy };
+  return { kind: "update", uniqueBy, ownedBy };
 }
 
 /** The query a write statement targets; rows from `distinct()` have no identity to write to. */

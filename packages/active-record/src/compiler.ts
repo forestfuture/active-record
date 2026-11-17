@@ -212,10 +212,18 @@ function compileReturning(
   return ` RETURNING ${columnsIn(unqualifiedSource(model), attributes)}`;
 }
 
-/** What an insert does when a row conflicts with a unique index: skip it, or update it. */
+/**
+ * What an insert does when a row conflicts with a unique index: skip it, or update it; through
+ * an owner's hasMany, only a row that already has the `ownedBy` values the new row has (#451).
+ */
 export type Conflict =
   | { kind: "skip" }
-  | { kind: "update"; uniqueBy: readonly string[]; update?: readonly string[] };
+  | {
+      kind: "update";
+      uniqueBy: readonly string[];
+      update?: readonly string[];
+      ownedBy?: readonly string[];
+    };
 
 /** A bulk insert: its attributes, each row's values, what a conflict does, and what it returns. */
 export interface BulkInsert {
@@ -256,7 +264,8 @@ export function compileInsertRows(
 
 /**
  * `ON CONFLICT DO NOTHING`, or `ON CONFLICT (…) DO UPDATE SET` the `update` attributes (every
- * inserted one by default) except the `uniqueBy` ones and `createdAt`, as Rails' upsert does.
+ * inserted one by default) except the `uniqueBy` ones and `createdAt`, as Rails' upsert does,
+ * `WHERE` the clashing row already has the new row's `ownedBy` values (#451).
  */
 function compileConflict(
   model: ModelClass<Model>,
@@ -272,7 +281,18 @@ function compileConflict(
   );
   if (updated.length === 0) return ` ON CONFLICT (${target}) DO NOTHING`;
   const sets = updated.map((name) => `${column(name)} = excluded.${column(name)}`).join(", ");
-  return ` ON CONFLICT (${target}) DO UPDATE SET ${sets}`;
+  return ` ON CONFLICT (${target}) DO UPDATE SET ${sets}${compileOwnedBy(model, conflict.ownedBy)}`;
+}
+
+/** ` WHERE "t"."a" = excluded."a" AND …`: the clashing row already has the new row's values. */
+function compileOwnedBy(model: ModelClass<Model>, ownedBy: readonly string[] = []): string {
+  if (ownedBy.length === 0) return "";
+  const table = quoteIdentifier(model.table);
+  const same = ownedBy.map((name) => {
+    const column = quoteIdentifier(attributeFor(model, name).column);
+    return `${table}.${column} = excluded.${column}`;
+  });
+  return ` WHERE ${same.join(" AND ")}`;
 }
 
 /**
