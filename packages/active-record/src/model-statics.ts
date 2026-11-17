@@ -68,6 +68,7 @@ const relationMethods = [
   "first",
   "last",
   "take",
+  "sole",
   "count",
   "average",
   "size",

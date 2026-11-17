@@ -1,7 +1,6 @@
 // Relation: the chainable query (`where`, `order`, …), its finders, terminals, and bulk writes.
 import { jointly } from "./executor.ts";
 import { compileExists, querySql, type QuerySql } from "./compiler.ts";
-import { RecordNotFound } from "./errors.ts";
 import { includeTree } from "./preload.ts";
 import { mergedQuery, withJoins } from "./joins.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
@@ -35,7 +34,16 @@ import {
   type UpsertOptions,
 } from "./relation-checks.ts";
 import { alsoClearing, unowned, type OwnedCollection } from "./owned-collection.ts";
-import { atMostOne, finderOrder, oneInOrder, reversed, thenPrimaryKey } from "./finder-order.ts";
+import {
+  atMostOne,
+  finderOrder,
+  notFound,
+  oneInOrder,
+  onlyOne,
+  reversed,
+  soleIn,
+  thenPrimaryKey,
+} from "./finder-order.ts";
 import { runAlone, type Statement } from "./statement.ts";
 import type { ReturnedRow, WriteResult } from "./statement.ts";
 import {
@@ -463,8 +471,17 @@ export class Relation<M extends Model, S = {}> {
   /** Like `findBy`, but throws `RecordNotFound` instead of returning null. */
   async findByOrThrow(conditions: Conditions<M> | SafeSql): Promise<M> {
     const record = await this.findBy(conditions);
-    if (record === null) throw new RecordNotFound(`${this.#model.name} not found`);
+    if (record === null) throw notFound(this.#model);
     return record;
+  }
+
+  /**
+   * The only matching record: `RecordNotFound` with none, `SoleRecordExceeded` with more than one.
+   * A join that repeats a record counts it each time.
+   */
+  async sole(): Promise<M> {
+    const cached = this.#cached();
+    return cached === undefined ? soleIn(this.#runner, this.#query) : onlyOne(this.#model, cached);
   }
 
   /** The first record by this Relation's order, or by primary key if it has none. */
