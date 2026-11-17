@@ -786,7 +786,7 @@ export class Relation<M extends Model, S = {}> {
 }
 
 /** Two or more of a Model's attributes, as `pluck` and `pick` take them for tuples. */
-type AttributeList<M extends Model> = readonly [
+export type AttributeList<M extends Model> = readonly [
   keyof AttributesOf<M> & string,
   keyof AttributesOf<M> & string,
   ...(keyof AttributesOf<M> & string)[],
