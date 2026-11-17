@@ -224,6 +224,7 @@ export function linkAfter(owner: Model, after: readonly Linked[]): void {
     if (keepsKey || destroys) continue;
     const { name, definition, ownerAttribute } = association;
     record[state].writeKey(definition.foreignKey, owner[state].read(ownerAttribute), name);
+    association.writeOwnersType(record);
     if (definition.kind === "hasOne") {
       owner[state].associations.set(name, association.keyAttributes, record);
     }

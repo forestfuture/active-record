@@ -233,6 +233,27 @@ export class ResolvedAssociation {
   }
 
   /**
+   * Gives `record` its owner's type, for a hasMany or hasOne with `as` (#60): the name of the
+   * owner's Model, which the other side's polymorphic belongsTo reads.
+   */
+  writeOwnersType(record: Model): void {
+    if (this.definition.as === undefined) return;
+    const { attribute, value } = this.type!;
+    record[state].write(attribute, value);
+  }
+
+  /**
+   * The Model's name `record` holds as its type when it isn't its owner's, for a hasMany or
+   * hasOne with `as` (#60); undefined when it's the owner's, or there's no type.
+   */
+  otherTypeOf(record: Model): string | null | undefined {
+    if (this.definition.as === undefined) return undefined;
+    const { attribute, value } = this.type!;
+    const held = record[state].read(attribute) as string | null;
+    return held === value ? undefined : held;
+  }
+
+  /**
    * The target's attributes a hasMany or hasOne sets to null to stop its records pointing at
    * the owner: the foreign key, and with `as` the type too (#60), as Rails nullifies both.
    */
