@@ -44,7 +44,7 @@ import {
   preparedWritesOf,
   type PreparedWrites,
 } from "./prepared-writes.ts";
-import { buildThrough, createThrough, type RelationState } from "./record-creation.ts";
+import { buildThrough, createThrough, type Init, type RelationState } from "./record-creation.ts";
 import { destroyTogether } from "./records-together.ts";
 import { grouped, type GroupedRelation, type GroupTerms } from "./grouping.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
@@ -234,11 +234,11 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /**
-   * A new, unsaved record of this Relation's Model. Built through a hasMany, it joins the
-   * association, and saving the owner saves it too (autosave).
+   * A new, unsaved record of this Relation's Model, handed to `init` first if it's given. Built
+   * through a hasMany, it joins the association, and saving the owner saves it too (autosave).
    */
-  build(attributes: Partial<AttributesOf<M>> = {}): M {
-    return buildThrough(this.#state, attributes);
+  build(attributes: Partial<AttributesOf<M>> = {}, init?: (record: M) => void): M {
+    return buildThrough(this.#state, attributes, init);
   }
 
   /**
@@ -347,14 +347,17 @@ export class Relation<M extends Model, S = {}> {
     return this.#runner.changes(() => runAlone(build()));
   }
 
-  /** Builds and saves a record; resolves to it whether or not it was saved (check `isPersisted()`). */
-  async create(attributes: Partial<AttributesOf<M>> = {}): Promise<M> {
-    return createThrough(this.#state, attributes, { orThrow: false });
+  /**
+   * Builds a record, awaits `init` with it if it's given, and saves it; resolves to it whether or
+   * not it was saved (check `isPersisted()`).
+   */
+  async create(attributes: Partial<AttributesOf<M>> = {}, init?: Init<M>): Promise<M> {
+    return createThrough(this.#state, attributes, { init, orThrow: false });
   }
 
-  /** Builds and saves a record, throwing if it can't be saved. */
-  async createOrThrow(attributes: Partial<AttributesOf<M>> = {}): Promise<M> {
-    return createThrough(this.#state, attributes, { orThrow: true });
+  /** Like `create`, but throws if the record can't be saved. */
+  async createOrThrow(attributes: Partial<AttributesOf<M>> = {}, init?: Init<M>): Promise<M> {
+    return createThrough(this.#state, attributes, { init, orThrow: true });
   }
 
   /**
