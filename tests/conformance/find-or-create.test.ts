@@ -577,6 +577,27 @@ describe("making records", () => {
     });
   });
 
+  describe("attributes, which become the new record's values", () => {
+    const methods = [
+      "findOrCreateBy",
+      "findOrCreateByOrThrow",
+      "findOrInitializeBy",
+      "createOrFindBy",
+      "createOrFindByOrThrow",
+    ] as const;
+
+    test.each(methods)("%s refuses a list before sending anything", async (method) => {
+      const attributes = { email: ["taken@example.com", "other@example.com"] } as never;
+
+      await expect(db().model(User)[method](attributes)).rejects.toThrow(
+        new TypeError(
+          `User.${method}(): "email" can't be a list, since it becomes the new record's value`,
+        ),
+      );
+      expect(events).toEqual([]);
+    });
+  });
+
   describe("a row inserted between finding and creating", () => {
     const insertAnother = () =>
       harness.exec("INSERT INTO users (id, email, role) VALUES (2, 'new@example.com', 'other')");
