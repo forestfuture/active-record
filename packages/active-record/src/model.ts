@@ -712,12 +712,12 @@ function defineModel<const A extends AttributeSpecs, B extends BaseClass>(
   return DefinedModel as never;
 }
 
-/** A record's Model: its class. */
 /** Whether `value` is a Model class: an association's target must be one. */
 export function isModelClass(value: unknown): value is ModelClass {
   return typeof value === "function" && value.prototype instanceof Model;
 }
 
+/** A record's Model: its class. */
 export function modelOf(record: Model): ModelClass {
   return record.constructor as ModelClass;
 }
