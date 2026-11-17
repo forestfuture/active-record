@@ -196,7 +196,7 @@ export function returnedNames(
 export function updateOn<M>(
   model: ModelClass,
   options: UpsertOptions<M>,
-  ownedBy: readonly string[] = [],
+  ownedBy: readonly string[],
 ): Conflict {
   const uniqueBy = [options.uniqueBy ?? model.primaryKey].flat() as string[];
   for (const name of uniqueBy) attributeOf(model, name);
