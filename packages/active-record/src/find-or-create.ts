@@ -1,17 +1,23 @@
 // Finding or creating a record (#346): `findOrCreateBy` and the others, whose attributes both find a record and become a new one's values, so they refuse what a find reads as a condition (#433).
 import { Comparison } from "./comparisons.ts";
-import type { AttributesOf, Model } from "./model.ts";
+import { attributeFor } from "./attribute.ts";
+import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import { createOrFindThrough, initializeThrough, type Init } from "./record-creation.ts";
 import type { RelationState } from "./relation-state.ts";
-import { SafeSql } from "./sql.ts";
+import { column, SafeSql, sql } from "./sql.ts";
 
 type Attributes<M> = Partial<AttributesOf<M>>;
 
+/** What finds a record: a Relation, narrowed by fragments for json attributes' arrays. */
+interface Finder<M extends Model> {
+  where(fragment: SafeSql): Finder<M>;
+  findBy(attributes: Attributes<M>): Promise<M | null>;
+  findByOrThrow(attributes: Attributes<M>): Promise<M>;
+}
+
 /** @internal What a find-or-create method works through: its Relation, and the method's name. */
 export interface FindOrCreateCall<M extends Model> {
-  readonly relation: {
-    findBy(attributes: Attributes<M>): Promise<M | null>;
-    findByOrThrow(attributes: Attributes<M>): Promise<M>;
+  readonly relation: Finder<M> & {
     create(attributes: Attributes<M>, init?: Init<M>): Promise<M>;
     createOrThrow(attributes: Attributes<M>, init?: Init<M>): Promise<M>;
   };
@@ -54,7 +60,8 @@ export async function createOrFind<M extends Model>(
   options: CreateOptions<M>,
 ): Promise<M> {
   refuseConditionValues(call, attributes);
-  const find = () => call.relation.findByOrThrow(attributes);
+  const { finder, conditions } = finding(call.relation, attributes);
+  const find = () => finder.findByOrThrow(conditions);
   return createOrFindThrough(call.state, attributes, { ...options, find });
 }
 
@@ -63,7 +70,29 @@ function findGiven<M extends Model>(
   attributes: Attributes<M>,
 ): Promise<M | null> {
   refuseConditionValues(call, attributes);
-  return call.relation.findBy(attributes);
+  const { finder, conditions } = finding(call.relation, attributes);
+  return finder.findBy(conditions);
+}
+
+/**
+ * What finds the record with `attributes`: a json attribute's array compared as one value, as
+ * the new record holds it, where `findBy` would read it as a list, and the other attributes
+ * as `findBy` reads them. Lists of other attributes are refused before this.
+ */
+function finding<M extends Model>(
+  relation: Finder<M>,
+  attributes: Attributes<M>,
+): { finder: Finder<M>; conditions: Attributes<M> } {
+  let finder = relation;
+  const conditions: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(attributes)) {
+    if (Array.isArray(value)) {
+      finder = finder.where(sql`${column(name)} = ${column(name).value(value)}`);
+    } else {
+      conditions[name] = value;
+    }
+  }
+  return { finder, conditions: conditions as Attributes<M> };
 }
 
 /**
@@ -82,7 +111,7 @@ function refuseConditionValues(
     );
   }
   for (const [name, value] of Object.entries(attributes)) {
-    const kind = conditionKind(value);
+    const kind = conditionKind(state.model, name, value);
     if (kind === undefined) continue;
     throw new TypeError(
       `${state.model.name}.${method}(): "${name}" can't be ${kind}, since it becomes the new record's value`,
@@ -90,9 +119,12 @@ function refuseConditionValues(
   }
 }
 
-/** What a condition `value` is, when it's one a new record can't take as its value. */
-function conditionKind(value: unknown): string | undefined {
-  if (Array.isArray(value)) return "a list";
+/**
+ * What a condition `value` of the attribute `name` is, when it's one a new record can't take as
+ * its value. A json attribute's array is one value.
+ */
+function conditionKind(model: ModelClass, name: string, value: unknown): string | undefined {
+  if (Array.isArray(value)) return attributeFor(model, name).isJson ? undefined : "a list";
   if (value instanceof Comparison) return "a comparison";
   if (value instanceof SafeSql) return "a sql fragment";
   return undefined;
