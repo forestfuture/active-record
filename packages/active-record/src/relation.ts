@@ -9,7 +9,7 @@ import {
   type Conflict,
   type QuerySql,
 } from "./compiler.ts";
-import { IncompatibleRelation, RecordNotFound, RecordNotSaved } from "./errors.ts";
+import { IncompatibleRelation, RecordNotFound } from "./errors.ts";
 import { includeTree } from "./preload.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
 import { inspectRelation } from "./relation-inspect.ts";
@@ -52,7 +52,12 @@ import {
   type Returning,
   type UpsertOptions,
 } from "./relation-checks.ts";
-import { alsoClearing, unowned, type OwnedCollection } from "./owned-collection.ts";
+import {
+  alsoClearing,
+  requireCreatable,
+  unowned,
+  type OwnedCollection,
+} from "./owned-collection.ts";
 import { atMostOne, reversed } from "./finder-order.ts";
 import { insertStatement, runAlone, Statement } from "./statement.ts";
 import type { ReturnedRow, WriteResult } from "./statement.ts";
@@ -267,14 +272,6 @@ export class Relation<M extends Model, S = {}> {
     return castInherited(this.#model, inheritedAttributes(conditions), this.#collection.link);
   }
 
-  /** As in Rails, records can't be created through an owner that has no key yet. */
-  #requireSavedOwner(): void {
-    const reason = this.#collection.refusal;
-    if (reason !== undefined) {
-      throw new RecordNotSaved(`You cannot create a ${this.#model.name} here: ${reason}`);
-    }
-  }
-
   /**
    * Inserts one row now: `await db.model(Post).insert({ title })`. Resolves to how many rows it
    * wrote and the `returning` attributes of each (the primary key by default; `false` for none).
@@ -343,7 +340,7 @@ export class Relation<M extends Model, S = {}> {
     method: string,
     { returning }: { returning?: Returning<M> | undefined },
   ): Statement<Row> {
-    this.#requireSavedOwner();
+    requireCreatable(this.#collection, this.#model);
     const inherited = this.#inherited();
     const withInherited = rows.map((row) => ({ ...inherited, ...row }));
     return insertStatement(this.#executor, this.#model, withInherited, {
@@ -416,7 +413,7 @@ export class Relation<M extends Model, S = {}> {
 
   /** Builds and saves a record; resolves to it whether or not it was saved (check `isPersisted()`). */
   async create(attributes: Partial<AttributesOf<M>> = {}): Promise<M> {
-    this.#requireSavedOwner();
+    requireCreatable(this.#collection, this.#model);
     const record = this.#build(attributes);
     this.#collection.pointBack(record);
     if (await record.save()) this.#collection.created(record);
@@ -425,7 +422,7 @@ export class Relation<M extends Model, S = {}> {
 
   /** Builds and saves a record, throwing if it can't be saved. */
   async createOrThrow(attributes: Partial<AttributesOf<M>> = {}): Promise<M> {
-    this.#requireSavedOwner();
+    requireCreatable(this.#collection, this.#model);
     const record = this.#build(attributes);
     this.#collection.pointBack(record);
     await record.saveOrThrow();

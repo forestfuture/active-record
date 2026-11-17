@@ -1,6 +1,7 @@
 // A hasMany's Relation as its owner sees it (records built through it join the owner), or no owner.
+import { RecordNotSaved } from "./errors.ts";
 import { pointBackAtOwner } from "./point-back-at-owner.ts";
-import type { Model } from "./model.ts";
+import type { Model, ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
 import { readonlyError } from "./through-associations.ts";
@@ -49,6 +50,19 @@ export interface OwnedCollection {
    * a through association (#59), or its own `deleteAll()`.
    */
   requireWritable?(write: "records" | "deleteAll"): void;
+}
+
+/**
+ * Throws when records of `model` can't be created through `collection`: `ReadonlyAssociation`
+ * through an association that goes through another (#59), or, as in Rails, `RecordNotSaved` for
+ * an owner with no key yet.
+ */
+export function requireCreatable(collection: OwnedCollection, model: ModelClass): void {
+  collection.requireWritable?.("records");
+  const reason = collection.refusal;
+  if (reason !== undefined) {
+    throw new RecordNotSaved(`You cannot create a ${model.name} here: ${reason}`);
+  }
 }
 
 /** A plain query's: no owner, so it holds nothing, refuses nothing, and a deleteAll deletes. */

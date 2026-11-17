@@ -389,6 +389,13 @@ describe("an association through another", () => {
       ]);
     });
 
+    test("an unsaved owner refuses with ReadonlyAssociation as a saved one does", async () => {
+      const user = db().model(User).build({ email: "new@example.com" });
+
+      await expect(user.projects().create({ name: "New" })).rejects.toThrow(ReadonlyAssociation);
+      await expect(user.projects().insert({ name: "New" })).rejects.toThrow(ReadonlyAssociation);
+    });
+
     test("a Relation it's merged into builds records from its own conditions", async () => {
       const user = await db().model(User).find(1);
 
