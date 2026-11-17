@@ -100,7 +100,7 @@ describe("a polymorphic belongsTo's declaration", () => {
     );
   });
 
-  test("takes no scope, and lists at least one Model", () => {
+  test("takes no scope", () => {
     class Scoped extends Model.define({
       id: "integer",
       commentableType: "string",
@@ -110,6 +110,13 @@ describe("a polymorphic belongsTo's declaration", () => {
       // A type error too; cast to reach the runtime check.
       commentable = belongsTo([Post, Photo], { scope: (q: never) => q } as never);
     }
+
+    expect(() => db.model(Scoped)).toThrow(
+      new InvalidModel('Scoped association "commentable": a polymorphic belongsTo takes no scope'),
+    );
+  });
+
+  test("lists at least one Model", () => {
     class Empty extends Model.define({
       id: "integer",
       commentableType: "string",
@@ -119,9 +126,6 @@ describe("a polymorphic belongsTo's declaration", () => {
       commentable = belongsTo([] as never);
     }
 
-    expect(() => db.model(Scoped)).toThrow(
-      new InvalidModel('Scoped association "commentable": a polymorphic belongsTo takes no scope'),
-    );
     expect(() => db.model(Empty)).toThrow(
       new InvalidModel('Empty association "commentable" must list the Models it can point at'),
     );
