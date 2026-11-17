@@ -20,6 +20,8 @@ class Project extends Model.define({
 }) {
   static table = "projects";
 
+  static unarchived = this.scope((q) => q.where({ archived: 0 }));
+
   assignments = hasMany(Assignment);
   members = hasMany(User, { through: "assignments", source: "user" });
 }
@@ -36,6 +38,7 @@ class Assignment extends Model.define({
   project = belongsTo(Project, { optional: true });
   teammates = hasMany(Assignment, { through: "project", source: "assignments" });
   teamUsers = hasMany(User, { through: "project", source: "members" });
+  liveProject = belongsTo(LiveProject, { foreignKey: "projectId", optional: true });
   activeProject = belongsTo(Project, {
     foreignKey: "projectId",
     optional: true,
@@ -57,6 +60,11 @@ class User extends Model.define({
   posts = hasMany(Post);
   comments = hasMany(Comment, { through: "posts" });
   profile = hasOne(Profile);
+  liveProjects = hasMany(LiveProject, { through: "assignments", source: "liveProject" });
+  assignmentsByRole = hasMany(Assignment, { scope: (q) => q.order({ role: "desc" }) });
+  projectsByRole = hasMany(Project, { through: "assignmentsByRole", source: "project" });
+  profilePosts = hasMany(Post, { through: "profile", source: "posts" });
+  self = hasOne(User, { through: "profile", source: "user" });
   leads = hasMany(Assignment, { scope: (q) => q.where({ role: "lead" }) });
   ledProjects = hasMany(Project, { through: "leads", source: "project" });
   activeProjects = hasMany(Project, { through: "assignments", source: "activeProject" });
@@ -79,6 +87,19 @@ class Post extends Model.define({
   authorProfile = hasOne(Profile, { through: "user", source: "profile" });
 }
 
+/** Projects, but only those not archived, by default. */
+class LiveProject extends Model.define({
+  id: { type: "integer", null: false },
+  name: { type: "string", null: false },
+  archived: { type: "integer", null: false },
+}) {
+  static table = "projects";
+
+  static {
+    this.defaultScope((q) => q.where({ archived: 0 }));
+  }
+}
+
 class Comment extends Model.define({
   id: { type: "integer", null: false },
   postId: "integer",
@@ -93,6 +114,9 @@ class Profile extends Model.define({
   bio: "string",
 }) {
   static table = "profiles";
+
+  user = belongsTo(User);
+  posts = hasMany(Post, { foreignKey: "userId", primaryKey: "userId" });
 }
 
 const userAttributes = {
@@ -213,6 +237,26 @@ describe("an association through another", () => {
     expect(names(await user.ledProjects().toArray())).toEqual(["Cygnus"]);
   });
 
+  test("has its target's scopes, and its target's default scope applies", async () => {
+    await harness.exec("UPDATE projects SET archived = 1 WHERE id = 3");
+    const user = await db().model(User).find(1);
+
+    expect(names(await user.projects().unarchived().toArray())).toEqual(["Apollo"]);
+    expect((await user.liveProjects().toArray()).map((each) => each.name)).toEqual(["Apollo"]);
+  });
+
+  test("keeps its targets' order, not the order of the association it goes through", async () => {
+    const user = await db().model(User).find(1);
+    const [preloaded] = await db()
+      .model(User)
+      .includes("projectsByRole")
+      .where({ id: 1 })
+      .toArray();
+
+    expect(names(await user.projectsByRole().toArray())).toEqual(["Apollo", "Cygnus"]);
+    expect(names(preloaded!.loaded("projectsByRole"))).toEqual(["Apollo", "Cygnus"]);
+  });
+
   test("applies its source's scope and its own", async () => {
     await harness.exec("UPDATE projects SET archived = 1 WHERE id = 3");
     const user = await db().model(User).find(1);
@@ -298,6 +342,21 @@ describe("an association through another", () => {
       assignment.projectId = 2;
       expect(assignment.isLoaded("teammates")).toBe(false);
       expect(await ids()).toEqual([3]);
+    });
+
+    test("through a hasOne, lazily and preloaded", async () => {
+      const user = await db().model(User).find(1);
+      const [preloaded] = await db()
+        .model(User)
+        .includes("profilePosts", "self")
+        .where({ id: 1 })
+        .toArray();
+      const titles = (posts: readonly Post[]) => posts.map((post) => post.title);
+
+      expect(titles(await user.profilePosts().toArray())).toEqual(["First", "Second"]);
+      expect(titles(preloaded!.loaded("profilePosts"))).toEqual(["First", "Second"]);
+      expect((await user.self())?.email).toBe("a@example.com");
+      expect(preloaded!.loaded("self")?.email).toBe("a@example.com");
     });
 
     test("a hasOne through a belongsTo", async () => {
@@ -407,7 +466,7 @@ describe("an association through another", () => {
       const project = db()
         .model(Project)
         .where({ name: "New" })
-        .merge(asCollection(user.projects()))
+        .merge(user.projects() as never)
         .build();
 
       expect(project.name).toBe("New");
