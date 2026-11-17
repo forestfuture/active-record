@@ -59,6 +59,17 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       expect(events.map((event) => event.params.at(-1))).toEqual([1, 1]);
     });
 
+    test("with several attributes, is the first row's tuple in the Relation's order, or null", async () => {
+      expect(await users().pick("email", "age")).toBeNull();
+
+      await seed([1, "b@example.com", 30], [2, "c@example.com", 20]);
+
+      expect(await users().order({ age: "asc" }).pick("email", "age")).toEqual([
+        "c@example.com",
+        20,
+      ]);
+    });
+
     test("on a loaded hasMany, answers from its records without a query", async () => {
       const user = await withLoadedPosts("First", "Second");
 

@@ -604,21 +604,20 @@ export class Relation<M extends Model, S = {}> {
   async pluck<K extends keyof AttributesOf<M> & string>(
     attribute: K,
   ): Promise<AttributesOf<M>[K][]>;
-  async pluck<
-    const K extends readonly [
-      keyof AttributesOf<M> & string,
-      keyof AttributesOf<M> & string,
-      ...(keyof AttributesOf<M> & string)[],
-    ],
-  >(...attributes: K): Promise<{ -readonly [I in keyof K]: AttributesOf<M>[K[I]] }[]>;
+  async pluck<const K extends AttributeList<M>>(
+    ...attributes: K
+  ): Promise<{ -readonly [I in keyof K]: AttributesOf<M>[K[I]] }[]>;
   async pluck(...attributes: string[]): Promise<unknown[]> {
     return pluck(this.#valueSource(), attributes);
   }
 
-  /** The first row's value of `attribute` in this Relation's order, or null with none. */
+  /** The first row's value of one attribute, or tuple of several, in this Relation's order; or null. */
   async pick<K extends keyof AttributesOf<M> & string>(
     attribute: K,
   ): Promise<AttributesOf<M>[K] | null>;
+  async pick<const K extends AttributeList<M>>(
+    ...attributes: K
+  ): Promise<{ -readonly [I in keyof K]: AttributesOf<M>[K[I]] } | null>;
   async pick(...attributes: string[]): Promise<unknown> {
     return pick(this.#valueSource(), attributes);
   }
@@ -745,6 +744,13 @@ export class Relation<M extends Model, S = {}> {
     return new Class({ executor: this.#executor, model: this.#model, query, collection });
   }
 }
+
+/** Two or more of a Model's attributes, as `pluck` and `pick` take them for tuples. */
+type AttributeList<M extends Model> = readonly [
+  keyof AttributesOf<M> & string,
+  keyof AttributesOf<M> & string,
+  ...(keyof AttributesOf<M> & string)[],
+];
 
 /** What a Relation is made from; opaque outside the library. */
 interface RelationParts<M extends Model> {
