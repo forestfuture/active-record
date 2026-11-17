@@ -63,7 +63,8 @@ export async function openPgHarness(schema: SchemaName): Promise<Harness> {
     },
     asSent: numbered,
     async exec(sql, params = []) {
-      const values = [...params];
+      // A boolean as 1 or 0, as D1 binds it, so a seed's params suit a BIGINT column or a BOOLEAN one.
+      const values = params.map((value) => (typeof value === "boolean" ? Number(value) : value));
       const { rows } = await pool.query({ text: numbered(sql), values, types: typeParsers });
       const table = insertedInto(sql);
       if (table !== undefined) await pastSeededKeys(pool, table);
