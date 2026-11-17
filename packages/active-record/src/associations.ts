@@ -3,7 +3,14 @@ import { InvalidModel } from "./errors.ts";
 import { associationsOf } from "./association-fields.ts";
 import { belongsToAccessor, hasOneAccessor } from "./association-writers.ts";
 import { inferenceHint, type Inference } from "./foreign-keys.ts";
-import { Model, modelOf, type AttributesOf, type ModelClass, type ScopesOf } from "./model.ts";
+import {
+  isModelClass,
+  Model,
+  modelOf,
+  type AttributesOf,
+  type ModelClass,
+  type ScopesOf,
+} from "./model.ts";
 import { verifyModel } from "./verify-model.ts";
 import { checkThrough, refusedCollectionMethods } from "./through-associations.ts";
 import { state } from "./record-state.ts";
@@ -229,10 +236,10 @@ function checkName(label: string, model: ModelClass, name: string): void {
 /** Its target must be a Model class. */
 function checkTarget(label: string, definition: AssociationDefinition): ModelClass {
   const target: unknown = definition.target();
-  if (typeof target !== "function" || !(target.prototype instanceof Model)) {
+  if (!isModelClass(target)) {
     throw new InvalidModel(`${label} must point at a Model class: hasMany(Post, …)`);
   }
-  return target as ModelClass;
+  return target;
 }
 
 /** Its keys must be declared attributes: the foreign key the owner's for a belongsTo, else the target's. */
