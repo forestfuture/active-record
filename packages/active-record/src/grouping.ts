@@ -313,14 +313,27 @@ export function grouped<M extends Model, G extends readonly GroupTerm<M>[]>(
  */
 function withGroupedOrder<M extends Model>(
   relation: Relation<M>,
-  { order }: QueryDescription,
+  query: QueryDescription,
   { terms }: Grouping,
 ): Relation<M> {
+  const { order } = query;
   const kept = order.filter((term) => term instanceof SafeSql || terms.includes(term.attribute));
   if (kept.length === order.length) return relation;
+  refuseDropWhilePicking(query, order.find((term) => !kept.includes(term)) as AttributeOrder);
   return kept.reduce<Relation<M>>(
     (reordered, term) => reordered.order(term instanceof SafeSql ? term : orderSpec(term)),
     relation.reorder(),
+  );
+}
+
+/**
+ * Refuses to drop `dropped` while a limit or offset picks groups: without its order, they'd pick
+ * groups in no fixed order.
+ */
+function refuseDropWhilePicking(query: QueryDescription, dropped: AttributeOrder): void {
+  if (query.limit === undefined && query.offset === undefined) return;
+  throw new IncompatibleRelation(
+    `group() can't drop the order by "${dropped.attribute}", which isn't grouped, while a limit or offset picks groups: reorder() first`,
   );
 }
 

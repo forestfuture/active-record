@@ -220,7 +220,7 @@ To sort the groups, order them by a grouped attribute or by a total. A `limit` t
 <include>/_excerpts/guide/calculations/group-order.ts</include>
 
 - `where`, `limit`, `offset`, and `distinct()` work before or after `group`. After `distinct()`, `count`, `sum`, and `average` take each group’s distinct values.
-- You can only order by attributes you group by. `group` drops an earlier order by any other attribute, such as one from a default scope.
+- You can only order by attributes you group by. `group` drops an earlier order by any other attribute, such as one from a default scope. With a `limit` or `offset`, it throws instead, so call `reorder()` before `group`.
 - On `none()`, each calculation returns an empty `Map` without a query.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
