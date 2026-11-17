@@ -3,6 +3,7 @@ import { Comparison } from "./comparisons.ts";
 import type { AttributesOf, Model } from "./model.ts";
 import { createOrFindThrough, initializeThrough, type Init } from "./record-creation.ts";
 import type { RelationState } from "./relation-state.ts";
+import { SafeSql } from "./sql.ts";
 
 type Attributes<M> = Partial<AttributesOf<M>>;
 
@@ -66,15 +67,20 @@ function findGiven<M extends Model>(
 }
 
 /**
- * Throws `TypeError`, before anything is sent, for an attribute a find would read as a condition
- * but a new record can't take as its value: a list, which `findBy` reads as `IN`, so input that
- * skipped `permit` can't match another user's row, or a comparison. The value isn't shown, as it
- * may be filtered.
+ * Throws `TypeError`, before anything is sent, for attributes a find would read as a condition
+ * but a new record can't take as its values: a list, which `findBy` reads as `IN`, so input that
+ * skipped `permit` can't match another user's row; a comparison; or a `sql` fragment, as the
+ * attributes or as one value. The value isn't shown, as it may be filtered.
  */
 function refuseConditionValues(
   { state, method }: FindOrCreateCall<Model>,
   attributes: Readonly<Record<string, unknown>>,
 ): void {
+  if (attributes instanceof SafeSql) {
+    throw new TypeError(
+      `${state.model.name}.${method}() takes attribute values, not a sql fragment`,
+    );
+  }
   for (const [name, value] of Object.entries(attributes)) {
     const kind = conditionKind(value);
     if (kind === undefined) continue;
@@ -88,5 +94,6 @@ function refuseConditionValues(
 function conditionKind(value: unknown): string | undefined {
   if (Array.isArray(value)) return "a list";
   if (value instanceof Comparison) return "a comparison";
+  if (value instanceof SafeSql) return "a sql fragment";
   return undefined;
 }
