@@ -163,7 +163,7 @@ describe("upserting through an owner's hasMany (#451)", () => {
   });
 
   test.each([
-    ["a Relation with no owner", () => db().model(Post).where({ userId: 1 })],
+    ["a Relation with no owner", async () => db().model(Post).where({ userId: 1 })],
     [
       "a Relation that merges a hasMany in",
       async () => {
@@ -173,7 +173,9 @@ describe("upserting through an owner's hasMany (#451)", () => {
       },
     ],
   ])("%s upserts any row its conditions name, as Rails does", async (_, relation) => {
-    await (await relation()).upsert({ id: 2, title: "Mine now" });
+    const unowned = await relation();
+
+    await unowned.upsert({ id: 2, title: "Mine now" });
 
     expect(await harness.exec("SELECT user_id, title FROM posts WHERE id = 2")).toEqual([
       { user_id: 1, title: "Mine now" },
