@@ -410,10 +410,13 @@ export class Relation<M extends Model, S = {}> {
    * Loads the records this Relation matches and destroys each, callbacks and `dependent:`
    * strategies included, as one write: if one refuses, it throws `RecordNotDestroyed` and nothing
    * is destroyed. Resolves to the records. A `none()` Relation sends nothing and resolves to [].
+   * Through a hasMany, what its owner loaded is cleared.
    */
   async destroyAll(): Promise<M[]> {
+    const landed = this.#clearCollectionUntilWritten();
     const records = await this.toArray();
     await destroyTogether(records, "destroyAll() needs its records");
+    landed();
     return records;
   }
 

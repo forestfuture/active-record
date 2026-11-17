@@ -1,4 +1,4 @@
-// A hasMany's collection methods on `user.posts()`: `push`, `delete`, `destroy` and `clear`, kept in step with what the owner holds.
+// A hasMany's collection methods on `user.posts()`: `push`, `delete`, `destroy`, `clear` and `destroyAll`, kept in step with what the owner holds.
 import { savingGroups } from "./autosave.ts";
 import { RecordNotSaved } from "./errors.ts";
 import { pinBefore } from "./executor.ts";
@@ -34,6 +34,12 @@ export interface CollectionMethods<M extends Model> {
    * forgets the records built through it: afterwards it reads as empty without a query.
    */
   clear(): Promise<void>;
+  /**
+   * Destroys every record of the association, callbacks and dependents included, whatever its
+   * `dependent:` is, in one write, as `destroy` does; then it reads as empty without a query.
+   * Resolves to the records.
+   */
+  destroyAll(): Promise<M[]>;
 }
 
 /** The collection methods of `hasMany`, one owner's hasMany association. */
@@ -47,6 +53,12 @@ export function collectionMethods<M extends Model>(hasMany: OwnersHasMany): Coll
     async clear() {
       await relation.deleteAll();
       collection.emptied();
+    },
+    async destroyAll() {
+      const records = (await relation.toArray()) as M[];
+      await remove(hasMany, records, "destroy", "destroyAll() needs its records");
+      collection.emptied();
+      return records;
     },
   };
 }
@@ -65,8 +77,8 @@ interface OwnersHasMany {
   association: ResolvedAssociation;
   /** What the owner holds of it. */
   collection: AssociationCollection;
-  /** Its Relation, whose `deleteAll()` follows `dependent:`. */
-  relation: { deleteAll(): Promise<number> };
+  /** Its Relation, whose `deleteAll()` follows `dependent:`, and whose `toArray()` holds what's built. */
+  relation: { deleteAll(): Promise<number>; toArray(): Promise<Model[]> };
 }
 
 async function push(hasMany: OwnersHasMany, records: Model[]): Promise<boolean> {
