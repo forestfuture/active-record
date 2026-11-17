@@ -79,13 +79,19 @@ export interface Join {
   readonly joins: readonly Join[];
 }
 
-export type Condition = Record<string, unknown> | SafeSql | Negated | Either | LinkedTo | OnJoined;
+export type Condition =
+  | Record<string, unknown>
+  | SafeSql
+  | Negated
+  | Either
+  | LinkedTo
+  | JoinedConditions;
 
 /**
  * The conditions of a joined Model's Relation, from `merge()` (#24): compiled on the table of the
  * join `path` names, the association names leading to it, `"."`-joined.
  */
-export class OnJoined {
+export class JoinedConditions {
   readonly path: string;
   readonly conditions: readonly Condition[];
 
@@ -279,7 +285,7 @@ export function inheritedAttributes(conditions: readonly Condition[]): Record<st
       condition instanceof Negated ||
       condition instanceof Either ||
       condition instanceof LinkedTo ||
-      condition instanceof OnJoined
+      condition instanceof JoinedConditions
     ) {
       continue;
     }

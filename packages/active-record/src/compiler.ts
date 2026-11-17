@@ -9,7 +9,7 @@ import {
   LinkedTo,
   JoinedOrder,
   Negated,
-  OnJoined,
+  JoinedConditions,
   type Condition,
   type OrderTerm,
   type QueryDescription,
@@ -23,7 +23,7 @@ import {
   ownSource,
   quoteIdentifier,
   sourceAt,
-  sourceOf,
+  unqualifiedSource,
   tablesOf,
   type Source,
   type Tables,
@@ -124,7 +124,7 @@ function compileCondition(context: Context, condition: Condition): string {
   }
   if (condition instanceof SafeSql) return `(${compileFragment(condition, source, params)})`;
   if (condition instanceof LinkedTo) return `(${compileLinkedTo(context, condition)})`;
-  if (condition instanceof OnJoined) {
+  if (condition instanceof JoinedConditions) {
     return compileAll(
       { ...context, source: sourceAt(context.tables, condition.path) },
       condition.conditions,
@@ -208,7 +208,7 @@ function compileReturning(
   attributes: readonly string[] | undefined,
 ): string {
   if (attributes?.length === 0) return "";
-  return ` RETURNING ${columnsIn(sourceOf(model), attributes)}`;
+  return ` RETURNING ${columnsIn(unqualifiedSource(model), attributes)}`;
 }
 
 /** What an insert does when a row conflicts with a unique index: skip it, or update it. */
@@ -300,7 +300,7 @@ function compileSets(
   changes: readonly Assignment[] | SafeSql,
   params: unknown[],
 ): string {
-  if (changes instanceof SafeSql) return compileFragment(changes, sourceOf(model), params);
+  if (changes instanceof SafeSql) return compileFragment(changes, unqualifiedSource(model), params);
   return changes
     .map(([name, value]) => {
       const attribute = attributeFor(model, name);
@@ -318,7 +318,7 @@ function compileSets(
  */
 function compileTarget(dialect: Dialect, query: QueryDescription, params: unknown[]): string {
   if (query.none) return " WHERE 1 = 0";
-  const key = columnIn(sourceOf(query.model), query.model.primaryKey);
+  const key = columnIn(unqualifiedSource(query.model), query.model.primaryKey);
   if (!hasLimitOrOffset(query) && (query.joins?.length ?? 0) === 0) {
     const tables = tablesOf(query);
     return compileWhere({ dialect, tables, source: tables.own, params }, query.conditions);
@@ -392,7 +392,7 @@ export function compileCount(
 ): CompiledSql {
   const toCount = queryToCount(query);
   if (attribute === undefined) return countOver(compileSelect(dialect, toCount), "*");
-  const column = columnIn(sourceOf(query.model), attribute);
+  const column = columnIn(unqualifiedSource(query.model), attribute);
   if (query.distinct && hasLimitOrOffset(query)) {
     // As Rails counts it: the limit and offset pick from the distinct values, the ones
     // `pluck(attr)` returns, and the non-null ones are counted (#250). A `DISTINCT` on the

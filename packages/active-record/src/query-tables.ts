@@ -27,7 +27,7 @@ export function columnIn(source: Source, attribute: string): string {
 }
 
 /** `model`'s table alone, its columns unqualified: what a write to it names. */
-export function sourceOf(model: ModelClass<Model>): Source {
+export function unqualifiedSource(model: ModelClass<Model>): Source {
   return { model, name: quoteIdentifier(model.table), qualified: false };
 }
 

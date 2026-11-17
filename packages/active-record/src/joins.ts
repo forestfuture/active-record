@@ -5,7 +5,7 @@ import type { Model, ModelClass } from "./model.ts";
 import {
   JoinedOrder,
   mergeJoins,
-  OnJoined,
+  JoinedConditions,
   type Condition,
   type Join,
   type JoinKind,
@@ -21,7 +21,7 @@ import {
 import { sql } from "./sql.ts";
 
 /** How a join is written: of which kind, and for a query of which Model, on which database. */
-interface Joining {
+interface JoinContext {
   readonly kind: JoinKind;
   readonly root: ModelClass<Model>;
   readonly executor: Executor;
@@ -34,7 +34,7 @@ interface Joining {
 export function joinsFor(
   model: ModelClass<Model>,
   specs: readonly unknown[],
-  joining: Joining,
+  joining: JoinContext,
 ): readonly Join[] {
   let joins: readonly Join[] = [];
   for (const spec of specs) {
@@ -56,7 +56,7 @@ export function joinsFor(
 function joinOf(
   model: ModelClass<Model>,
   name: string,
-  joining: Joining,
+  joining: JoinContext,
   nested: readonly unknown[],
 ): Join {
   const association = resolveAssociation(model, name);
@@ -109,19 +109,19 @@ function scopeConditions(association: ResolvedAssociation, executor: Executor): 
 export function mergedOnJoin(a: QueryDescription, b: QueryDescription): QueryDescription {
   refuseUnmergeable(b, a.model);
   const path = joinedPath(a, b.model);
-  const conditions = b.conditions.length === 0 ? [] : [new OnJoined(path, b.conditions)];
+  const conditions = b.conditions.length === 0 ? [] : [new JoinedConditions(path, b.conditions)];
   const ordered = b.order.length > 0 || b.reordered === true;
   return {
     ...a,
     conditions: [...a.conditions, ...conditions],
-    ...(ordered && { order: b.order.map((term) => onJoin(path, term)) }),
+    ...(ordered && { order: b.order.map((term) => joinedOrderTerm(path, term)) }),
     ...(b.reordered === true && { reordered: true }),
     ...(b.none === true && { none: true }),
   };
 }
 
 /** `term`, of the Model joined at `path`, as the joining query's. */
-function onJoin(path: string, term: OrderTerm): OrderTerm {
+function joinedOrderTerm(path: string, term: OrderTerm): OrderTerm {
   return term instanceof JoinedOrder ? term : new JoinedOrder(path, term);
 }
 
@@ -130,15 +130,15 @@ const UNMERGEABLE = ["limit", "offset", "select", "distinct", "includes", "joins
 
 /** Throws `IncompatibleRelation` if `query`, merged into a query of `into`, sets one of them. */
 function refuseUnmergeable(query: QueryDescription, into: ModelClass<Model>): void {
-  const set = UNMERGEABLE.filter((clause) => {
+  const clauses = UNMERGEABLE.filter((clause) => {
     const value = query[clause];
     if (Array.isArray(value)) return value.length > 0;
     if (clause === "includes") return Object.keys(value ?? {}).length > 0;
     return value !== undefined && value !== false;
   });
-  if (set.length > 0) {
+  if (clauses.length > 0) {
     throw new IncompatibleRelation(
-      `merge() of a ${query.model.name} Relation into a ${into.name} Relation takes only its conditions and order, but it has ${set.join(", ")}`,
+      `merge() of a ${query.model.name} Relation into a ${into.name} Relation takes only its conditions and order, but it has ${clauses.join(", ")}`,
     );
   }
 }
