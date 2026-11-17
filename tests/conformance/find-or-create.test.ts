@@ -376,7 +376,7 @@ describe("making records", () => {
       expect(await emails()).toContainEqual({ email: "new@example.com", role: "admin" });
     });
 
-    test("a hasMany's finds only its owner's records, and creates one for its owner", async () => {
+    test("a hasMany's findOrCreateBy finds only its owner's records, and creates one for its owner", async () => {
       await harness.exec("INSERT INTO users (id, email) VALUES (2, 'other@example.com')");
       await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (1, 2, 'Hello')");
       const user = await db().model(User).find(1);
@@ -397,6 +397,31 @@ describe("making records", () => {
 
       expect(await user.posts().toArray()).toEqual([post]);
       expect(events).toEqual([]);
+    });
+
+    test("a record whose init throws doesn't join the hasMany it's built through", async () => {
+      const user = await db().model(User).find(1);
+      const failure = new Error("no title to give");
+
+      expect(() =>
+        user.posts().build({}, () => {
+          throw failure;
+        }),
+      ).toThrow(failure);
+
+      expect(await user.posts().size()).toBe(0);
+    });
+
+    test("a record whose init rejects doesn't join the hasMany findOrInitializeBy builds it through", async () => {
+      const user = await db().model(User).find(1);
+      const failure = new Error("no title to give");
+
+      const initializing = user.posts().findOrInitializeBy({ title: "Hello" }, async () => {
+        throw failure;
+      });
+
+      await expect(initializing).rejects.toBe(failure);
+      expect(await user.posts().size()).toBe(0);
     });
 
     test("a hasMany's owner key wins over createWith", async () => {

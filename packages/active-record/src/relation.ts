@@ -48,6 +48,7 @@ import {
   buildThrough,
   createOrFindThrough,
   createThrough,
+  initializeThrough,
   type Init,
   type RelationState,
 } from "./record-creation.ts";
@@ -424,11 +425,7 @@ export class Relation<M extends Model, S = {}> {
    * handed to `init`, which is awaited. Saves nothing.
    */
   async findOrInitializeBy(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
-    const found = await this.findBy(attributes);
-    if (found !== null) return found;
-    const record = this.build(attributes);
-    await init?.(record);
-    return record;
+    return (await this.findBy(attributes)) ?? initializeThrough(this.#state, attributes, init);
   }
 
   /**

@@ -47,15 +47,30 @@ export function requireSavedOwner(relation: RelationState<Model>, write: Collect
  */
 export type Init<M> = (record: M) => void | Promise<void>;
 
-/** A new, unsaved record through `relation`; through a hasMany, it joins the association. */
+/**
+ * A new, unsaved record through `relation`, handed to `init`; through a hasMany, it then joins
+ * the association, so a record whose `init` throws doesn't.
+ */
 export function buildThrough<M extends Model>(
   relation: RelationState<M>,
   attributes: Partial<AttributesOf<M>>,
   init: ((record: M) => undefined) | undefined,
 ): M {
-  const record = newRecord(relation, attributes);
-  relation.collection.built(record);
+  const record = recordToBuild(relation, attributes);
   init?.(record);
+  relation.collection.built(record);
+  return record;
+}
+
+/** `buildThrough`, awaiting `init`: what `findOrInitializeBy` builds. */
+export async function initializeThrough<M extends Model>(
+  relation: RelationState<M>,
+  attributes: Partial<AttributesOf<M>>,
+  init: Init<M> | undefined,
+): Promise<M> {
+  const record = recordToBuild(relation, attributes);
+  await init?.(record);
+  relation.collection.built(record);
   return record;
 }
 
@@ -102,9 +117,18 @@ async function recordToCreate<M extends Model>(
   init: Init<M> | undefined,
 ): Promise<M> {
   requireSavedOwner(relation, "create");
+  const record = recordToBuild(relation, attributes);
+  await init?.(record);
+  return record;
+}
+
+/** A new record through `relation`, pointing back at its owner if it has one. */
+function recordToBuild<M extends Model>(
+  relation: RelationState<M>,
+  attributes: Partial<AttributesOf<M>>,
+): M {
   const record = newRecord(relation, attributes);
   relation.collection.pointBack(record);
-  await init?.(record);
   return record;
 }
 
