@@ -175,14 +175,26 @@ describe("destroying many records", () => {
     expect(ran).toEqual([]);
   });
 
-  test("a Model has them as statics, on the current database", async () => {
-    await withDatabase(db(), async () => {
-      expect(await Comment.deleteBy({ id: 10 })).toBe(1);
-      expect((await Comment.destroyBy({ id: 11 })).map((comment) => comment.body)).toEqual(["b"]);
-      expect((await Comment.where({ id: 20 }).destroyAll()).map((c) => c.body)).toEqual(["c"]);
+  describe("as a Model's statics, on the current database", () => {
+    test("destroyAll destroys every record", async () => {
+      const destroyed = await withDatabase(db(), () => Comment.destroyAll());
+
+      expect(destroyed).toHaveLength(4);
+      expect(await bodies()).toEqual([]);
     });
 
-    expect(await bodies()).toEqual(["d"]);
+    test("destroyBy destroys the records matching its conditions", async () => {
+      const destroyed = await withDatabase(db(), () => Comment.destroyBy({ id: 11 }));
+
+      expect(destroyed.map((comment) => comment.body)).toEqual(["b"]);
+      expect(await bodies()).toEqual(["a", "c", "d"]);
+    });
+
+    test("deleteBy deletes the rows matching its conditions", async () => {
+      expect(await withDatabase(db(), () => Comment.deleteBy({ id: 10 }))).toBe(1);
+
+      expect(await bodies()).toEqual(["b", "c", "d"]);
+    });
   });
 
   describe("by primary key, as a Model's statics", () => {
@@ -219,12 +231,17 @@ describe("destroying many records", () => {
       expect(await bodies()).toEqual(["a", "keep", "c", "d"]);
     });
 
-    test("delete(id | ids) deletes the rows without callbacks, and resolves to how many", async () => {
+    test("delete(id) deletes the row without callbacks, and resolves to how many", async () => {
       expect(await inDatabase(() => Comment.delete(10))).toBe(1);
-      expect(await inDatabase(() => Comment.delete([11, 20, 99]))).toBe(2);
 
       expect(ran).toEqual([]);
-      expect(await bodies()).toEqual(["d"]);
+      expect(await bodies()).toEqual(["b", "c", "d"]);
+    });
+
+    test("delete(ids) deletes the rows there are, and resolves to how many", async () => {
+      expect(await inDatabase(() => Comment.delete([11, 20, 99]))).toBe(2);
+
+      expect(await bodies()).toEqual(["a", "d"]);
     });
   });
 });
