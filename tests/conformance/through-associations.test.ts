@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, Model } from "../../packages/active-record/src/index.ts";
+import {
+  belongsTo,
+  hasMany,
+  Model,
+  RecordNotFound,
+} from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Project extends Model.define({
@@ -22,6 +27,11 @@ class Assignment extends Model.define({
 
   user = belongsTo(User, { optional: true });
   project = belongsTo(Project, { optional: true });
+  activeProject = belongsTo(Project, {
+    foreignKey: "projectId",
+    optional: true,
+    scope: (q) => q.where({ archived: 0 }),
+  });
 }
 
 class User extends Model.define({
@@ -32,6 +42,14 @@ class User extends Model.define({
 
   assignments = hasMany(Assignment);
   projects = hasMany(Project, { through: "assignments" });
+  leads = hasMany(Assignment, { scope: (q) => q.where({ role: "lead" }) });
+  ledProjects = hasMany(Project, { through: "leads", source: "project" });
+  activeProjects = hasMany(Project, { through: "assignments", source: "activeProject" });
+  unarchivedProjects = hasMany(Project, {
+    through: "assignments",
+    source: "project",
+    scope: (q) => q.where({ archived: 0 }),
+  });
 }
 
 describe("an association through another", () => {
@@ -62,5 +80,44 @@ describe("an association through another", () => {
     const user = await db().model(User).find(1);
 
     expect(names(await user.projects().toArray())).toEqual(["Apollo", "Cygnus"]);
+  });
+
+  test("answers every Relation method, narrowed to the owner's records", async () => {
+    const user = await db().model(User).find(1);
+
+    expect(names(await user.projects().where({ name: "Cygnus" }).toArray())).toEqual(["Cygnus"]);
+    expect(names(await user.projects().order({ name: "desc" }).toArray())).toEqual([
+      "Cygnus",
+      "Apollo",
+    ]);
+    expect(await user.projects().count()).toBe(2);
+    expect(await user.projects().pluck("name")).toEqual(["Apollo", "Cygnus"]);
+    expect((await user.projects().first())?.name).toBe("Apollo");
+    expect((await user.projects().find(3)).name).toBe("Cygnus");
+    await expect(user.projects().find(2)).rejects.toThrow(RecordNotFound);
+  });
+
+  test("reads through the scope of the association it goes through", async () => {
+    const user = await db().model(User).find(1);
+
+    expect(names(await user.ledProjects().toArray())).toEqual(["Cygnus"]);
+  });
+
+  test("applies its source's scope and its own", async () => {
+    await harness.exec("UPDATE projects SET archived = 1 WHERE id = 3");
+    const user = await db().model(User).find(1);
+
+    expect(names(await user.activeProjects().toArray())).toEqual(["Apollo"]);
+    expect(names(await user.unarchivedProjects().toArray())).toEqual(["Apollo"]);
+  });
+
+  test("reads each record once, however many join records point at it", async () => {
+    await harness.exec(
+      "INSERT INTO assignments (id, user_id, project_id, role) VALUES (4, 1, 3, 'reviewer')",
+    );
+    const user = await db().model(User).find(1);
+
+    expect(names(await user.projects().toArray())).toEqual(["Apollo", "Cygnus"]);
+    expect(await user.projects().count()).toBe(2);
   });
 });
