@@ -23,7 +23,7 @@ class PublishedPost extends Post {
 describe("a bulk write through a Relation's conditions", () => {
   let harness: Harness;
   const db = () => harness.connect();
-  const posts = () => harness.exec("SELECT id, user_id, title FROM posts ORDER BY id");
+  const storedPosts = () => harness.exec("SELECT id, user_id, title FROM posts ORDER BY id");
 
   beforeAll(async () => {
     harness = await openHarness();
@@ -39,7 +39,7 @@ describe("a bulk write through a Relation's conditions", () => {
   test("insert stores the condition's value over the one given", async () => {
     await db().model(Post).where({ userId: 1 }).insert({ id: 1, title: "Hi", userId: 2 });
 
-    expect(await posts()).toEqual([{ id: 1, user_id: 1, title: "Hi" }]);
+    expect(await storedPosts()).toEqual([{ id: 1, user_id: 1, title: "Hi" }]);
   });
 
   test.each([
@@ -67,7 +67,7 @@ describe("a bulk write through a Relation's conditions", () => {
   ])("%s stores the condition's value over the one given", async (_, write) => {
     await write(db().model(Post).where({ userId: 1 }));
 
-    expect(await posts()).toEqual([{ id: 1, user_id: 1, title: "Hi" }]);
+    expect(await storedPosts()).toEqual([{ id: 1, user_id: 1, title: "Hi" }]);
   });
 
   test("an upsert updating a row writes the condition's value over the one given", async () => {
@@ -75,7 +75,7 @@ describe("a bulk write through a Relation's conditions", () => {
 
     await db().model(Post).where({ userId: 1 }).upsert({ id: 1, title: "New", userId: 2 });
 
-    expect(await posts()).toEqual([{ id: 1, user_id: 1, title: "New" }]);
+    expect(await storedPosts()).toEqual([{ id: 1, user_id: 1, title: "New" }]);
   });
 
   test("createWith's value goes over the one given, and over a condition's", async () => {
@@ -88,7 +88,7 @@ describe("a bulk write through a Relation's conditions", () => {
       .createWith({ userId: 1 })
       .insert({ id: 2, title: "B" });
 
-    expect(await posts()).toEqual([
+    expect(await storedPosts()).toEqual([
       { id: 1, user_id: 1, title: "A" },
       { id: 2, user_id: 1, title: "B" },
     ]);
