@@ -130,7 +130,18 @@ export class ResolvedAssociation {
       : this.ownerAttribute;
   }
 
-  /** Whether it's a polymorphic belongsTo (#60), whose record may be of several Models. */
+  /**
+   * Whether it's a polymorphic belongsTo itself, resolved into a branch per listed Model, rather
+   * than one of its branches or any other association (#60).
+   */
+  get isBranched(): boolean {
+    return this.#link === undefined;
+  }
+
+  /**
+   * Whether it's a polymorphic belongsTo (#60), whose record may be of several Models: itself, or
+   * one of its branches.
+   */
   get isPolymorphic(): boolean {
     return this.definition.targets !== undefined;
   }

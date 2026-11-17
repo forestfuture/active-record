@@ -6,7 +6,7 @@ import {
   withDatabase,
 } from "../../../packages/active-record/src/index.ts";
 import { connect, d1 } from "../../../packages/active-record/src/adapters/d1/index.ts";
-import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
+import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
 
 // Level 1 reads the Worker's bindings from cloudflare:workers; here they're this test's two D1s.
 const workers: { env: Record<string, unknown> } = { env: {} };
@@ -123,5 +123,26 @@ describe("a polymorphic belongsTo whose Models are on different databases (#60)"
     const row = await db.prepare("SELECT subject_type, subject_id FROM remarks WHERE id = 3").all();
     expect(row.results).toEqual([{ subject_type: "Entry", subject_id: 2 }]);
     expect(remark.isPersisted()).toBe(true);
+  });
+
+  test("preloads each Model's records from its database: one round trip on each", async () => {
+    const recorded = { DB: recordingBatches(db), LOGS: recordingBatches(logs) };
+    // Assigned onto the env the library has read, as an app's test mocks do.
+    Object.assign(workers.env, { DB: recorded.DB.binding, LOGS: recorded.LOGS.binding });
+    try {
+      const databases = [connect(recorded.DB.binding), connect(recorded.LOGS.binding)];
+      const [onUser, onEntry] = await withDatabase(databases, () =>
+        Remark.includes("subject").order({ id: "asc" }).toArray(),
+      );
+
+      expect((onUser!.loaded("subject") as User).email).toBe("ada@DB");
+      expect((onEntry!.loaded("subject") as Entry).message).toBe("LOGS");
+    } finally {
+      Object.assign(workers.env, { DB: db, LOGS: logs });
+    }
+
+    expect(recorded.DB.batches).toEqual([2]);
+    // The entries' one statement, sent on its own: no batch.
+    expect(recorded.LOGS.batches).toEqual([]);
   });
 });

@@ -11,6 +11,9 @@ import { IncompatibleRelation } from "./errors.ts";
 import { queryOf, type Scoped } from "./relation.ts";
 import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
 import { planHop, type Found, type Hop, type Owners, type HopRequest } from "./through-preload.ts";
+import { isOwnedThrough, ownersOfBranch, treeForBranch } from "./polymorphic-preload.ts";
+import { associationsOf } from "./association-fields.ts";
+import { UnknownAssociation } from "./errors.ts";
 
 /** What preloading sends, and how it attaches the rows that come back. */
 export interface PreloadPlan {
@@ -37,6 +40,11 @@ interface Start {
   owners: Owners;
   tree: IncludeTree;
   written: IncludeTree;
+  /**
+   * The polymorphic belongsTo branches to plan (#60), when a start was left for afterwards for
+   * some of them: none means every branch.
+   */
+  only?: ReadonlySet<ResolvedAssociation>;
 }
 
 /** One association's preload in a plan. */
@@ -91,6 +99,12 @@ function checkPreloadable(
   executor: Executor,
   checked = new Set<ResolvedAssociation>(),
 ): void {
+  if (association.isBranched) {
+    for (const branch of association.branches) {
+      checkPreloadable(branch, treeForBranch(branch, nested), executor, checked);
+    }
+    return;
+  }
   const query = preloadable(association.all(executor), association.label);
   checkHops(association, executor);
   const scoped = checked.has(association) ? {} : (query.includes ?? {});
@@ -166,12 +180,31 @@ function planSteps(planning: Planning, start: Start, level: Level): void {
  * (#228), whose query goes there, with the levels under it, as its own round trip.
  */
 function planStep(planning: Planning, start: Start, level: Level, name: string): void {
-  const { model, owners, tree, written } = start;
+  const association = resolveAssociation(start.model, name);
+  for (const branch of association.branches) {
+    const planned =
+      !association.isPolymorphic || start.only === undefined || start.only.has(branch);
+    if (planned) planBranch(planning, start, level, { name, association: branch });
+  }
+}
+
+/**
+ * Plans one association's step, or for a polymorphic belongsTo one listed Model's (#60): its
+ * statement selects that Model's records, for the owners whose type names it.
+ */
+function planBranch(
+  planning: Planning,
+  start: Start,
+  level: Level,
+  { name, association }: { name: string; association: ResolvedAssociation },
+): void {
   const { ownersAt, path } = level;
-  const association = resolveAssociation(model, name);
+  const owners = ownersOfBranch(association, start.owners);
+  const tree = treeForBranch(association, start.tree[name] ?? {});
   const targetDatabase = association.targetExecutor(planning.executor);
+  const deferred = { ...onlyOne(start, name, association), ownersAt };
   if (targetDatabase !== planning.executor) {
-    leaveForAfterwards(planning, { ...onlyOne(start, name), ownersAt, elsewhere: targetDatabase });
+    leaveForAfterwards(planning, { ...deferred, elsewhere: targetDatabase });
     return;
   }
   if (association.hops !== undefined) {
@@ -180,9 +213,9 @@ function planStep(planning: Planning, start: Start, level: Level, name: string):
   }
   const query = linkedQuery(association, owners, association.all(planning.executor));
   const targets =
-    query && targetsOf(planning.executor.dialect, association, query, { nested: tree[name] ?? {} });
+    query && targetsOf(planning.executor.dialect, association, query, { nested: tree });
   if (hasTooManyBoundValues(owners, targets, planning.executor.adapter.maxBoundValues)) {
-    leaveForAfterwards(planning, { ...onlyOne(start, name), ownersAt });
+    leaveForAfterwards(planning, deferred);
     return;
   }
   const step = { association, ownersAt, select: targets?.select };
@@ -193,7 +226,7 @@ function planStep(planning: Planning, start: Start, level: Level, name: string):
     model: target,
     owners: { query },
     tree: targets.includes,
-    written: written[name] ?? {},
+    written: treeForBranch(association, start.written[name] ?? {}),
   };
   planSteps(planning, next, { ownersAt: position, path: new Set([...path, association]) });
 }
@@ -227,7 +260,10 @@ function planThrough(
   const limit = planning.executor.adapter.maxBoundValues;
   if (added.some((step) => hasTooManyBoundValues(owners, step, limit))) {
     planning.steps.length = before;
-    leaveForAfterwards(planning, { ...onlyOne(start, name), ownersAt: level.ownersAt });
+    leaveForAfterwards(planning, {
+      ...onlyOne(start, name, association),
+      ownersAt: level.ownersAt,
+    });
     return;
   }
   planning.gathers.push({
@@ -262,13 +298,18 @@ function planHopStep(planning: Planning, request: HopRequest): Hop | undefined {
   };
 }
 
-/** `start`'s Model and its trees, with only the association `name`. */
+/**
+ * `start`'s Model and its trees, with only the association `name`: for a polymorphic belongsTo,
+ * only its `branch` (#60).
+ */
 function onlyOne(
   { model, tree, written }: Start,
   name: string,
-): Pick<Start, "model" | "tree" | "written"> {
+  branch: ResolvedAssociation,
+): Pick<Start, "model" | "tree" | "written" | "only"> {
   const onlyThis = (from: IncludeTree) => (from[name] === undefined ? {} : { [name]: from[name] });
-  return { model, tree: onlyThis(tree), written: onlyThis(written) };
+  const only = new Set(branch.isPolymorphic ? [branch] : []);
+  return { model, tree: onlyThis(tree), written: onlyThis(written), only };
 }
 
 /**
@@ -295,6 +336,8 @@ function leaveForAfterwards(planning: Planning, deferred: Afterwards): void {
   }
   existing.tree = mergeTrees(existing.tree, deferred.tree);
   existing.written = mergeTrees(existing.written, deferred.written);
+  // Every branch, if either plans every one.
+  existing.only = existing.only && deferred.only && new Set([...existing.only, ...deferred.only]);
 }
 
 /**
@@ -339,7 +382,8 @@ function splitRepeated(
   const now: Record<string, IncludeTree> = {};
   const afterwards: Record<string, IncludeTree> = {};
   for (const [name, nested] of Object.entries(tree)) {
-    const repeated = written[name] === undefined && path.has(resolveAssociation(model, name));
+    const { branches } = resolveAssociation(model, name);
+    const repeated = written[name] === undefined && branches.some((each) => path.has(each));
     (repeated ? afterwards : now)[name] = nested;
   }
   return { now, afterwards };
@@ -428,8 +472,11 @@ function attach(
   targets: readonly Model[],
 ): void {
   const byKey = groupBy(targets, association.targetAttribute);
-  for (const record of records)
+  for (const record of records) {
+    // A polymorphic branch's owners are those of its type, and those of none (#60).
+    if (!isOwnedThrough(association, record) && association.keyOf(record) !== null) continue;
     loadedAs(record, association, targetsOfOwner(byKey, association, record));
+  }
 }
 
 /** `owner`'s targets, from targets grouped by the attribute they're linked to their owners by. */
@@ -441,7 +488,11 @@ function targetsOfOwner(
   const { ownerAttribute, target, targetAttribute } = association;
   // Looked up as the targets hold it: an integer key matches a text foreign key's digits (#94).
   const targetKey = attributeFor(target, targetAttribute);
-  return byKey.get(targetKey.condition(owner[state].read(ownerAttribute))) ?? [];
+  // A polymorphic belongsTo's owner with no type has no key (#60).
+  const key = association.isPolymorphic
+    ? association.keyOf(owner)
+    : owner[state].read(ownerAttribute);
+  return byKey.get(targetKey.condition(key)) ?? [];
 }
 
 /** `records` loaded as `owner`'s `association`: all of them for a hasMany, else the first or null. */
@@ -487,18 +538,47 @@ function preloadable(relation: Scoped<Model>, association: string): QueryDescrip
 /** Normalizes `includes()` arguments into a tree, checking every name against its Model. */
 export function includeTree(model: ModelClass, specs: readonly unknown[]): IncludeTree {
   let tree: IncludeTree = {};
-  for (const spec of specs) {
-    const entries: [string, readonly unknown[]][] =
-      typeof spec === "string"
-        ? [[spec, []]]
-        : Object.entries(spec as Record<string, unknown>).map(([name, nested]) => [
-            name,
-            Array.isArray(nested) ? nested : [nested],
-          ]);
-    for (const [name, nested] of entries) {
-      // Resolving it makes the owner and its target ready, as any use does.
-      const { target } = resolveAssociation(model, name);
-      tree = mergeTrees(tree, { [name]: includeTree(target, nested) });
+  for (const [name, nested] of specEntries(specs)) {
+    // Resolving it makes the owner and its target ready, as any use does.
+    const association = resolveAssociation(model, name);
+    const under = association.isPolymorphic
+      ? includeTreeOfAny(association, nested)
+      : includeTree(association.target, nested);
+    tree = mergeTrees(tree, { [name]: under });
+  }
+  return tree;
+}
+
+/** `includes()` arguments as names, each with the arguments nested under it. */
+function specEntries(specs: readonly unknown[]): [string, readonly unknown[]][] {
+  return specs.flatMap((spec): [string, readonly unknown[]][] =>
+    typeof spec === "string"
+      ? [[spec, []]]
+      : Object.entries(spec as Record<string, unknown>).map(([name, nested]) => [
+          name,
+          Array.isArray(nested) ? nested : [nested],
+        ]),
+  );
+}
+
+/**
+ * The tree under a polymorphic belongsTo (#60): each name is checked against the Models it lists,
+ * and kept if any has it; `UnknownAssociation` if none does.
+ */
+function includeTreeOfAny(
+  association: ResolvedAssociation,
+  specs: readonly unknown[],
+): IncludeTree {
+  let tree: IncludeTree = {};
+  for (const [name, nested] of specEntries(specs)) {
+    const having = association.branches.filter(({ target }) => associationsOf(target).has(name));
+    if (having.length === 0) {
+      throw new UnknownAssociation(
+        `None of ${association.label}'s Models has an association "${name}"`,
+      );
+    }
+    for (const { target } of having) {
+      tree = mergeTrees(tree, includeTree(target, [{ [name]: nested }]));
     }
   }
   return tree;
@@ -506,5 +586,9 @@ export function includeTree(model: ModelClass, specs: readonly unknown[]): Inclu
 
 /** The attributes a record must have loaded for its includes to be preloaded. */
 export function keysForIncludes(model: ModelClass, includes: IncludeTree | undefined): string[] {
-  return Object.keys(includes ?? {}).map((name) => resolveAssociation(model, name).ownerAttribute);
+  return Object.keys(includes ?? {}).flatMap((name) => {
+    const { ownerAttribute, isPolymorphic, definition } = resolveAssociation(model, name);
+    // A polymorphic belongsTo's type too (#60).
+    return isPolymorphic ? [ownerAttribute, definition.foreignType!] : [ownerAttribute];
+  });
 }

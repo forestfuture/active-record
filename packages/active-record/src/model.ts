@@ -49,6 +49,7 @@ import {
   type HasManyThrough,
   type HasOne,
   type HasOneThrough,
+  type PolymorphicBelongsTo,
 } from "./associations.ts";
 import type { Relation, Scope, Scoped } from "./relation.ts";
 import { defineStatics, ModelStatics } from "./model-statics.ts";
@@ -97,6 +98,7 @@ export type LoadedValue<F> = F extends () => Promise<infer R>
 type Any = any;
 type AnyAssociation =
   | BelongsTo<Any>
+  | PolymorphicBelongsTo<Any>
   | HasOne<Any>
   | HasOneThrough<Any>
   | HasManyThrough<Any>
@@ -107,6 +109,25 @@ export type AssociationName<R> = {
   [K in keyof R]: R[K] extends AnyAssociation ? K : never;
 }[keyof R] &
   string;
+
+/** The record type an association accessor loads: `Post` for `HasMany<typeof Post>`. */
+type TargetRecord<F> =
+  LoadedValue<F> extends readonly (infer T)[] ? T : NonNullable<LoadedValue<F>>;
+
+/**
+ * What `includes()` accepts for records `M`: an association name, or `{ name: nested }` where
+ * `nested` names associations of that association's records. Checked against their fields' types;
+ * under a polymorphic belongsTo (#60), `M` is a union, and any of its Models' names is accepted.
+ */
+export type IncludeSpec<M> = M extends unknown
+  ?
+      | AssociationName<M>
+      | {
+          readonly [K in AssociationName<M>]?:
+            | IncludeSpec<TargetRecord<M[K]>>
+            | readonly IncludeSpec<TargetRecord<M[K]>>[];
+        }
+  : never;
 
 /** A lifecycle callback; it receives the record and may be async. */
 export type Callback<R> = (record: R) => unknown;
