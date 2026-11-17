@@ -2,7 +2,7 @@
 import { compileDeleteAll, compileUpdateAll, type Conflict } from "./compiler.ts";
 import type { AttributesOf, Model } from "./model.ts";
 import {
-  newRowValues,
+  bulkRowValues,
   ownersValues,
   requireSavedOwner,
   type RelationState,
@@ -91,7 +91,7 @@ function insertRows<Row>(
   { method, returning }: { method: string; returning?: Returning<Model> | undefined },
 ): Statement<Row> {
   requireSavedOwner(relation, "insert");
-  const values = rows.map((row) => newRowValues(relation, row));
+  const values = rows.map((row) => bulkRowValues(relation, row));
   return insertStatement(relation.executor, relation.model, values, {
     conflict,
     method,
