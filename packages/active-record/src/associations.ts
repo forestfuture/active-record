@@ -148,16 +148,17 @@ export type HasMany<C extends ModelClass> = () => HasManyCollection<InstanceType
 
 /**
  * `note.tags()` for an association through another (#59): a Relation of its records, which
- * reads and preloads as any hasMany's. It has no collection methods, and the writes it refuses
- * (`build`, `create`, `insert`, `upsert`, and its own `deleteAll` and `destroyAll`) are typed `never`, so it's
- * still a Relation, for `or`, `merge` and a batch's `updateAll`.
+ * reads and preloads as any hasMany's, with the collection methods. Its writes go to its join
+ * records (#434): `push`, `build` and `create` make one, and `delete`, `destroy`, `clear` and
+ * its own `deleteAll` remove them. Inserting and upserting, which make none, are typed `never`,
+ * so it's still a Relation, for `or`, `merge` and a batch's `updateAll`.
  */
 export type HasManyThrough<C extends ModelClass> = () => Scoped<InstanceType<C>, ScopesOf<C>> &
   CollectionMethods<InstanceType<C>> & {
     readonly [W in ThroughWrite]: never;
   };
 
-/** The writes a through association's own Relation refuses (#59). */
+/** The writes a through association's own Relation refuses (#434): they make no join records. */
 type ThroughWrite = "insert" | "insertAll" | "upsert" | "upsertAll" | "destroyAll";
 
 /**
