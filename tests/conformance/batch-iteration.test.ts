@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, Model } from "../../packages/active-record/src/index.ts";
+import { belongsTo, hasMany, Model, withDatabase } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -57,6 +57,29 @@ describe("batch iteration", () => {
 
       expect(ids(posts)).toEqual([1, 2, 3, 4, 5, 6, 7]);
       expect(events).toHaveLength(3);
+    });
+
+    test("keeps the Relation's conditions across batches", async () => {
+      const posts = await collect(
+        db().model(Post).where({ published: true }).findEach({ batchSize: 2 }),
+      );
+
+      expect(ids(posts)).toEqual([1, 2, 5, 6, 7]);
+    });
+
+    test("preloads each batch's includes", async () => {
+      const posts = await collect(db().model(Post).includes("user").findEach({ batchSize: 3 }));
+      events.length = 0;
+      const emails = await Promise.all(posts.map(async (post) => (await post.user())?.email));
+
+      expect(new Set(emails)).toEqual(new Set(["a@example.com"]));
+      expect(events).toEqual([]);
+    });
+
+    test("is a static of every Model, on the current database", async () => {
+      const posts = await withDatabase(db(), () => collect(Post.findEach({ batchSize: 4 })));
+
+      expect(ids(posts)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     });
   });
 });
