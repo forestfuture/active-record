@@ -1,7 +1,7 @@
 // PreparedWrites: a Relation's bulk writes as Statements, unsent, for a Batch to prepare, and building them.
 import { compileDeleteAll, compileUpdateAll, type Conflict } from "./compiler.ts";
 import type { AttributesOf, Model } from "./model.ts";
-import { inheritedValues, requireSavedOwner, type RelationState } from "./record-creation.ts";
+import { inheritedValues, requireSavedOwner, type RelationState } from "./relation-state.ts";
 import {
   checkChanges,
   returnedNames,

@@ -50,10 +50,10 @@ import {
   createThrough,
   initializeThrough,
   type Init,
-  type RelationState,
 } from "./record-creation.ts";
 import { destroyTogether } from "./records-together.ts";
 import { grouped, type GroupedRelation, type GroupTerms } from "./grouping.ts";
+import type { RelationState } from "./relation-state.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
 import {
   count,
