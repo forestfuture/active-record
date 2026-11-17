@@ -197,10 +197,19 @@ async function remove<M extends Model>(
     // Narrowed from the association's Relation, so its deleteAll deletes rather than nullifying.
     const joins = via().where({ [source.ownerAttribute]: keys } as never);
     if (removal === "deleteAll") await joins.deleteAll();
-    else await destroyTogether(await joins.toArray(), `${removal}() needs its records`);
+    else await destroyJoins(viaCollection, await joins.toArray(), `${removal}() needs its records`);
   }
   collection.removed(records);
   return records;
+}
+
+/**
+ * Destroys `joins` in one write, then takes them out of what the owner has loaded of the
+ * association it goes through: they were loaded on their own, so its copies are left over.
+ */
+async function destroyJoins(viaCollection: AssociationCollection, joins: Model[], needs: string) {
+  await destroyTogether(joins, needs);
+  viaCollection.removed(joins);
 }
 
 /** The join records among `joins` that point at one of `records` through `source`. */
