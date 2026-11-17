@@ -23,11 +23,26 @@ export function withForeignKeys(
   return Object.fromEntries(
     Object.entries(declarations).map(([name, declaration]) => [
       name,
-      declaration.foreignKey === undefined
-        ? { ...declaration, ...inferForeignKey(declaration.kind, name, modelName) }
-        : { ...declaration, foreignKey: declaration.foreignKey },
+      {
+        ...withForeignType(name, declaration),
+        ...(declaration.foreignKey === undefined
+          ? inferForeignKey(declaration.kind, name, modelName)
+          : { foreignKey: declaration.foreignKey }),
+      },
     ]),
   );
+}
+
+/**
+ * A polymorphic belongsTo's declaration with its type attribute (#60): the one passed, or its
+ * name + `Type` (`commentable` → `commentableType`), as its key is its name + `Id`.
+ */
+function withForeignType(
+  name: string,
+  declaration: AssociationDeclaration,
+): AssociationDeclaration {
+  if (declaration.targets === undefined) return declaration;
+  return { ...declaration, foreignType: declaration.foreignType ?? `${name}Type` };
 }
 
 /**
