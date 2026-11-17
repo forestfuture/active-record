@@ -7,6 +7,7 @@ import {
   Model,
   RecordInvalid,
   RecordNotDestroyed,
+  RecordNotFound,
   RecordNotSaved,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
@@ -22,6 +23,8 @@ class Project extends Model.define({
 
   leadAssignment = hasOne(Assignment, { scope: (q) => q.where({ role: "lead" }) });
   lead = hasOne(User, { through: "leadAssignment", source: "user" });
+  assignments = hasMany(Assignment);
+  members = hasMany(User, { through: "assignments", source: "user" });
 
   static {
     this.validates("name", { presence: true });
@@ -371,6 +374,72 @@ describe("writing through an association through another", () => {
       await user.ledProjects().push(cygnus);
 
       expect((await db().model(Assignment).findBy({ projectId: 3 }))?.role).toBe("lead");
+    });
+  });
+
+  describe("finding or creating (#346)", () => {
+    test("findOrCreateBy finds a record the owner reaches, writing nothing", async () => {
+      const apollo = await db().model(Project).find(1);
+      queries.length = 0;
+
+      const member = await apollo.members().findOrCreateBy({ email: "a@example.com" });
+
+      expect(member.id).toBe(1);
+      expect(statementKinds(queries)).toEqual(["SELECT"]);
+    });
+
+    test("findOrCreateBy creates a record and its join record when the owner reaches none", async () => {
+      const apollo = await db().model(Project).find(1);
+
+      const member = await apollo.members().findOrCreateBy({ email: "c@example.com" });
+
+      expect(member.isPersisted()).toBe(true);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+        [member.id, 1],
+      ]);
+    });
+
+    test("createOrFindBy creates a record and its join record", async () => {
+      const apollo = await db().model(Project).find(1);
+
+      const member = await apollo.members().createOrFindBy({ email: "c@example.com" });
+
+      expect(member.isPersisted()).toBe(true);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+        [member.id, 1],
+      ]);
+    });
+
+    test("createOrFindBy finds the record a unique index refused, when the owner reaches it", async () => {
+      const apollo = await db().model(Project).find(1);
+
+      const member = await apollo.members().createOrFindBy({ email: "a@example.com" });
+
+      expect(member.id).toBe(1);
+      expect(await db().model(User).count()).toBe(2);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+      ]);
+    });
+
+    test("createOrFindBy throws RecordNotFound for a refused record the owner doesn't reach", async () => {
+      const apollo = await db().model(Project).find(1);
+
+      const error = await apollo
+        .members()
+        .createOrFindBy({ email: "b@example.com" })
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(RecordNotFound);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+      ]);
     });
   });
 
