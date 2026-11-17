@@ -233,6 +233,20 @@ export class ResolvedAssociation {
   }
 
   /**
+   * The target's attributes a hasMany or hasOne sets to null to stop its records pointing at
+   * the owner: the foreign key, and with `as` the type too (#60), as Rails nullifies both.
+   */
+  get nullifiedAttributes(): readonly string[] {
+    const { foreignKey, foreignType, as } = this.definition;
+    return as === undefined ? [foreignKey] : [foreignKey, foreignType!];
+  }
+
+  /** `nullifiedAttributes`, each set to null: what a nullifying `updateAll` writes. */
+  get nullified(): Record<string, null> {
+    return Object.fromEntries(this.nullifiedAttributes.map((each) => [each, null]));
+  }
+
+  /**
    * `relation` in the association's order: its scope's, then the target's primary key, so
    * lazy reads, preloads and dependents agree, and a hasOne on its one record.
    */

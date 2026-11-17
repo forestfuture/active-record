@@ -403,7 +403,11 @@ export class Relation<M extends Model, S = {}> {
     const compiled =
       nullifies === undefined
         ? compileDeleteAll(this.#dialect, query)
-        : compileUpdateAll(this.#dialect, query, [[nullifies, null]]);
+        : compileUpdateAll(
+            this.#dialect,
+            query,
+            nullifies.map((each) => [each, null]),
+          );
     return new Statement(this.#executor, [compiled], landed);
   }
 

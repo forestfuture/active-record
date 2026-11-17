@@ -182,15 +182,15 @@ async function destroyRecords(
 
 /** The stage for `deleteAll`, `delete` or `nullify`'s statement, if that's the strategy. */
 function statementFor(owner: Model, association: ResolvedAssociation): Stage | undefined {
-  const { dependent, foreignKey } = association.definition;
+  const { dependent } = association.definition;
   let statement: Statement;
   if (dependent === "deleteAll" || dependent === "delete") {
     statement = recordsOf(owner, association)[preparedWrites].deleteAll();
   } else if (dependent === "nullify") {
     // The foreign key was checked as a target attribute when the Model was prepared.
-    statement = recordsOf(owner, association)[preparedWrites].updateAll({
-      [foreignKey]: null,
-    } as never);
+    statement = recordsOf(owner, association)[preparedWrites].updateAll(
+      association.nullified as never,
+    );
   } else {
     return undefined;
   }
