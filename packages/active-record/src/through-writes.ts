@@ -151,7 +151,7 @@ async function clear({ owner, association, collection, relation }: OwnersHasMany
 async function destroyAll<M extends Model>(hasMany: OwnersHasManyThrough): Promise<M[]> {
   requireWritableThrough(hasMany.association);
   const records = (await hasMany.relation.toArray()) as M[];
-  await remove(hasMany, records, "destroy");
+  await remove(hasMany, records, "destroy", "destroyAll");
   hasMany.collection.emptied();
   return records;
 }
@@ -187,12 +187,13 @@ async function remove<M extends Model>(
   hasMany: OwnersHasManyThrough,
   records: M[],
   removal: ThroughDependent,
+  method = removal === "destroy" ? "destroy" : "delete",
 ): Promise<M[]> {
   const { owner, association, collection, via } = hasMany;
   requireWritableThrough(association);
   requireTargets(association, records);
-  const { via: viaAssociation, source } = association.hops!;
-  const viaCollection = ownedCollection(owner, viaAssociation);
+  const { source } = association.hops!;
+  const viaCollection = joinsHeldBy(owner, association);
   viaCollection.removed(builtJoins(viaCollection.added(), source, records));
   const stored = owner[state].isNew ? [] : records.filter((record) => !record[state].isNew);
   if (stored.length > 0) {
@@ -200,7 +201,7 @@ async function remove<M extends Model>(
     // Narrowed from the association's Relation, so its deleteAll deletes rather than nullifying.
     const joins = via().where({ [source.ownerAttribute]: keys } as never);
     if (removal === "deleteAll") await joins.deleteAll();
-    else await destroyJoins(viaCollection, await joins.toArray(), `${removal}() needs its records`);
+    else await destroyJoins(viaCollection, await joins.toArray(), `${method}() needs its records`);
   }
   collection.removed(records);
   return records;

@@ -43,8 +43,9 @@ export function checkThrough(
   checkNotCircular(label, model, name);
   const via = viaOf(label, model, definition);
   if (via === undefined) return;
-  checkSource(label, { model, name, definition }, via);
-  checkDependentShape(label, { model, name, definition }, via);
+  const declared = { model, name, definition };
+  checkSource(label, declared, via);
+  checkDependentShape(label, declared, via);
 }
 
 /**
