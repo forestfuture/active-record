@@ -1,6 +1,7 @@
 // Batch iteration (#347): `findEach`, `findInBatches` and `inBatches`, a Relation's records a batch at a time, each batch starting after the last one's primary key.
 import { gt, gte, lt, lte, type Comparison } from "./comparisons.ts";
 import { IncompatibleRelation } from "./errors.ts";
+import { eachOnce } from "./find.ts";
 import type { QueryRunner } from "./load.ts";
 import { primaryKeyOf, type Model, type ModelClass } from "./model.ts";
 import type { Condition, QueryDescription } from "./query.ts";
@@ -57,16 +58,18 @@ async function* batchesOf<M extends Model>(
   let after: Condition[] = [];
   while (left > 0) {
     const limit = Math.min(batchSize, left);
-    const records = await runner.load({
+    const rows = await runner.load({
       ...query,
       conditions: [...query.conditions, ...bounds, ...after],
       order: [{ attribute: key, direction }],
       limit,
     });
+    // A hasMany join gives a record once per linked row, next to each other in key order.
+    const records = eachOnce(rows);
     if (records.length > 0) yield records;
-    if (records.length < limit) return;
+    if (rows.length < limit) return;
     left -= records.length;
-    const last = primaryKeyOf(records.at(-1)!);
+    const last = primaryKeyOf(rows.at(-1)!);
     after = [{ [key]: direction === "asc" ? gt(last) : lt(last) }];
   }
 }

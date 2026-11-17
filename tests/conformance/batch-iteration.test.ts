@@ -199,4 +199,45 @@ describe("batch iteration", () => {
       expect(events).toEqual([]);
     });
   });
+
+  describe("joins and none()", () => {
+    const userIds = (users: readonly User[]) => users.map((user) => user.id);
+
+    beforeEach(async () => {
+      await harness.exec(
+        "INSERT INTO users (id, email) VALUES (2, 'b@example.com'), (3, 'c@example.com')",
+      );
+      await harness.exec(
+        "INSERT INTO posts (id, user_id, title, published) VALUES (8, 2, 'H', 1), (9, 2, 'I', 1)",
+      );
+      events.length = 0;
+    });
+
+    test("a hasMany join yields each record once, across batch boundaries", async () => {
+      const users = await collect(db().model(User).joins("posts").findEach({ batchSize: 2 }));
+
+      expect(userIds(users)).toEqual([1, 2]);
+    });
+
+    test("a left join keeps the records without a link", async () => {
+      const batches = await collect(
+        db().model(User).leftJoins("posts").findInBatches({ batchSize: 3 }),
+      );
+
+      expect(batches.flat().map((user) => user.id)).toEqual([1, 2, 3]);
+    });
+
+    test("a joined Relation's limit counts records, not joined rows", async () => {
+      const users = await collect(
+        db().model(User).joins("posts").limit(2).findEach({ batchSize: 3 }),
+      );
+
+      expect(userIds(users)).toEqual([1, 2]);
+    });
+
+    test("none() yields nothing and sends no query", async () => {
+      expect(await collect(db().model(Post).none().findInBatches())).toEqual([]);
+      expect(events).toEqual([]);
+    });
+  });
 });
