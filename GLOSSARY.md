@@ -161,8 +161,16 @@ A **Scope** without a name, declared with `this.defaultScope(…)`, that every *
 _Avoid_: Global scope, base scope
 
 **Association**:
-A named link from one **Model** to another through a foreign-key **Attribute**: `belongsTo`, `hasMany` or `hasOne`. A `belongsTo` is **required** (saving checks that its record exists) unless it's **optional** (`optional: true`).
+A named link from one **Model** to another through a foreign-key **Attribute**, or through another association (a **Through association**): `belongsTo`, `hasMany` or `hasOne`. A `belongsTo` is **required** (saving checks that its record exists) unless it's **optional** (`optional: true`).
 _Avoid_: Relationship, relation (a Relation is a query)
+
+**Through association**:
+An **Association** that reaches its records through another of its **Model**'s associations, the one it goes through, and that one's Model's **Source association** (`projects = hasMany(Project, { through: "assignments" })`). Nothing is written through it yet.
+_Avoid_: Join association, indirect association, many-to-many (it's one way to model it)
+
+**Source association**:
+The association of the Model a **Through association** goes through that leads on to its records: named by `source`, or found by the through association's name, singular or plural (`projects` → `project`).
+_Avoid_: Target association, second hop
 
 **Preload**:
 Loading an **Association** for many **Records** at once, in a small, bounded number of queries (one per association; on D1, the whole tree on the records' database is sent with their query in one round trip, and each other database it reaches takes one more), so each becomes a **Loaded association**. You ask for it with `includes`.

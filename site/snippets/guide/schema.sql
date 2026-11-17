@@ -24,6 +24,18 @@ CREATE TABLE comments (
   body TEXT NOT NULL
 );
 
+-- Tags on articles, through taggings (#59).
+CREATE TABLE tags (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL
+);
+
+CREATE TABLE taggings (
+  id INTEGER PRIMARY KEY,
+  article_id TEXT NOT NULL REFERENCES articles (id),
+  tag_id INTEGER NOT NULL REFERENCES tags (id)
+);
+
 CREATE TABLE members (
   id INTEGER PRIMARY KEY,
   email TEXT NOT NULL,
