@@ -32,12 +32,14 @@ export function newRowValues(
 
 /**
  * @internal What a row built or inserted through `relation` takes from its owner over any
- * other value: the owner's key; none without an owner, or through another association.
+ * other value: the owner's key, and a polymorphic hasMany's type (#451); none without an owner,
+ * or through another association.
  */
 export function ownersValues({ model, collection }: RelationState<Model>): Record<string, unknown> {
   const { link } = collection;
   if (link === undefined || !("key" in link)) return {};
-  return castInherited(model, { [link.attribute]: link.key }, link);
+  const type = link.type === undefined ? {} : { [link.type.attribute]: link.type.value };
+  return { ...castInherited(model, { [link.attribute]: link.key }, link), ...type };
 }
 
 /**
