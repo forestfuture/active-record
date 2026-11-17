@@ -82,4 +82,19 @@ describe("batch iteration", () => {
       expect(ids(posts)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     });
   });
+
+  describe("findInBatches", () => {
+    test("yields arrays of up to batchSize records, in primary-key order", async () => {
+      const batches = await collect(db().model(Post).findInBatches({ batchSize: 3 }));
+
+      expect(batches.map(ids)).toEqual([[1, 2, 3], [4, 5, 6], [7]]);
+    });
+
+    test("sends one more query, which finds nothing, when the last batch is full", async () => {
+      const batches = await collect(db().model(Post).findInBatches({ batchSize: 7 }));
+
+      expect(batches.map(ids)).toEqual([[1, 2, 3, 4, 5, 6, 7]]);
+      expect(events).toHaveLength(2);
+    });
+  });
 });
