@@ -139,6 +139,16 @@ export class Negated {
   }
 }
 
+/** Whether `query` joins any association (#24). */
+export function isJoining(query: QueryDescription): boolean {
+  return (query.joins?.length ?? 0) > 0;
+}
+
+/** Whether a page (`limit`, `offset`) or `distinct()` picks which of `query`'s rows it finds. */
+export function hasPageOrDistinct({ limit, offset, distinct }: QueryDescription): boolean {
+  return limit !== undefined || offset !== undefined || distinct === true;
+}
+
 /** All of `model`'s rows, in no particular order. */
 export function allOf(model: ModelClass<Model>): QueryDescription {
   return { model, conditions: [], order: [] };

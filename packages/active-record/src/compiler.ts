@@ -7,6 +7,7 @@ import { Comparison, comparisonParts, type Operator } from "./comparisons.ts";
 import {
   Either,
   LinkedTo,
+  isJoining,
   JoinedOrder,
   Negated,
   JoinedConditions,
@@ -319,7 +320,7 @@ function compileSets(
 function compileTarget(dialect: Dialect, query: QueryDescription, params: unknown[]): string {
   if (query.none) return " WHERE 1 = 0";
   const key = columnIn(unqualifiedSource(query.model), query.model.primaryKey);
-  if (!hasLimitOrOffset(query) && (query.joins?.length ?? 0) === 0) {
+  if (!hasLimitOrOffset(query) && !isJoining(query)) {
     const tables = tablesOf(query);
     return compileWhere({ dialect, tables, source: tables.own, params }, query.conditions);
   }

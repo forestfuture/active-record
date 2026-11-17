@@ -5,7 +5,13 @@ import type { Dialect } from "./dialect.ts";
 import { databaseNow, type Executor } from "./executor.ts";
 import { selectFor, sendTogether, type Rows } from "./load.ts";
 import { hydrate, type Model, type ModelClass } from "./model.ts";
-import { LinkedTo, mergeTrees, type IncludeTree, type QueryDescription } from "./query.ts";
+import {
+  hasPageOrDistinct,
+  LinkedTo,
+  mergeTrees,
+  type IncludeTree,
+  type QueryDescription,
+} from "./query.ts";
 import { state } from "./record-state.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import { queryOf, type Scoped } from "./relation.ts";
@@ -531,7 +537,7 @@ function groupBy(records: readonly Model[], attribute: string): Map<unknown, Mod
  */
 function preloadable(relation: Scoped<Model>, association: string): QueryDescription {
   const query = relation[queryOf];
-  if (query.limit !== undefined || query.offset !== undefined || query.distinct) {
+  if (hasPageOrDistinct(query)) {
     throw new IncompatibleRelation(
       `${association} can't be preloaded: its scope uses limit, offset or distinct, which would apply to every owner's records together; read it lazily instead`,
     );
