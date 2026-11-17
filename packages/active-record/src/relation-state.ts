@@ -38,8 +38,7 @@ export function newRowValues(
 /**
  * @internal Throws when records can't be created or inserted through `relation`:
  * `ReadonlyAssociation` where its collection refuses `write` (#434), or, as in Rails,
- * `RecordNotSaved` for an owner
- * with no key yet.
+ * `RecordNotSaved` for an owner with no key yet.
  */
 export function requireSavedOwner(relation: RelationState<Model>, write: CollectionWrite): void {
   relation.collection.requireWritable?.(write);
