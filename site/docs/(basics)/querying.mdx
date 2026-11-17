@@ -177,7 +177,7 @@ A row added while you iterate is visited only if its key sorts after the batch y
 
 ### Staying within D1’s query limit
 
-On D1, one Worker invocation can send up to 1,000 queries, or 50 on the Free plan. `findEach` and `findInBatches` send one per batch, and `inBatches` two: the keys, then your write. A `destroyAll` also reads each record’s `"destroy"` and restricted associations with queries of their own, while its deletes go as one D1 batch, which counts as one query.
+On D1, one Worker invocation can send up to 1,000 queries, or 50 on the Free plan. `findEach` and `findInBatches` send one per batch. `inBatches` sends one for the keys, and one for an `updateAll` or `deleteAll`. A `destroyAll` loads the batch’s records and reads each record’s `"destroy"` and restricted associations, each with a query of its own, then sends its deletes as one D1 batch, which counts as one query.
 
 A larger `batchSize` sends fewer queries, up to D1’s 50 MB limit on a query’s result. For a table larger than that, split the work across invocations, each with its own `start` and `finish`, such as one Queue message per range.
 
