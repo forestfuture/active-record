@@ -248,18 +248,18 @@ function resultReader(
  * Refuses an order by an attribute that isn't grouped, written after `group()`: Postgres refuses
  * it, and SQLite would sort by any one row's value.
  */
-function requireGroupedOrder({ order }: QueryDescription, grouping: Grouping): void {
-  for (const term of order) {
-    if (isGroupedOrder(term, grouping)) continue;
-    throw new TypeError(
-      `can't order groups by "${(term as AttributeOrder).attribute}", which isn't grouped`,
-    );
-  }
+function requireGroupedOrder(query: QueryDescription, grouping: Grouping): void {
+  const ungrouped = query.order.find((term) => isUngroupedOrder(term, grouping));
+  if (ungrouped === undefined) return;
+  throw new TypeError(`can't order groups by "${ungrouped.attribute}", which isn't grouped`);
 }
 
-/** Whether `term` can order the groups: a grouped attribute's, or a fragment (not checked). */
-function isGroupedOrder(term: OrderTerm, { terms }: Grouping): boolean {
-  return term instanceof SafeSql || terms.includes(term.attribute);
+/**
+ * Whether `term` can't order the groups: an attribute's that isn't grouped. A grouped attribute's
+ * can, and so can a fragment, which isn't checked.
+ */
+function isUngroupedOrder(term: OrderTerm, { terms }: Grouping): term is AttributeOrder {
+  return !(term instanceof SafeSql) && !terms.includes(term.attribute);
 }
 
 /**
@@ -319,10 +319,10 @@ function withGroupedOrder<M extends Model>(
   query: QueryDescription,
   grouping: Grouping,
 ): Relation<M> {
-  const { order } = query;
-  const kept = order.filter((term) => isGroupedOrder(term, grouping));
-  if (kept.length === order.length) return relation;
-  refuseDropWhilePicking(query, order.find((term) => !kept.includes(term)) as AttributeOrder);
+  const dropped = query.order.find((term) => isUngroupedOrder(term, grouping));
+  if (dropped === undefined) return relation;
+  refuseDropWhilePicking(query, dropped);
+  const kept = query.order.filter((term) => !isUngroupedOrder(term, grouping));
   return kept.reduce<Relation<M>>(
     (reordered, term) => reordered.order(term instanceof SafeSql ? term : orderSpec(term)),
     relation.reorder(),
