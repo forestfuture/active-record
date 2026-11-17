@@ -60,10 +60,8 @@ export function pointOwnerAt(
   association: ResolvedAssociation,
   record: Model | null,
 ): void {
-  const { name, target, ownerAttribute, targetAttribute } = association;
-  if (record !== null && !(record instanceof target)) {
-    throw new TypeError(`${association.label}.set() takes a ${target.name} record or null`);
-  }
+  const { name, ownerAttribute, targetAttribute } = association;
+  requireSettable(association, record);
   const key = record === null ? null : record[state].read(targetAttribute);
   owner[state].pointAt(name, ownerAttribute, key, record);
   owner[state].autosaves.setBelongsTo(
@@ -101,10 +99,8 @@ async function setOne(
   association: ResolvedAssociation,
   record: Model | null,
 ): Promise<void> {
-  const { target, name, ownerAttribute } = association;
-  if (record !== null && !(record instanceof target)) {
-    throw new TypeError(`${association.label}.set() takes a ${target.name} record or null`);
-  }
+  const { name, ownerAttribute } = association;
+  requireSettable(association, record);
   if (record !== null) {
     const undo = undoAdopting(owner, association, record);
     adopt(owner, association, record);
@@ -208,4 +204,12 @@ function adopt(owner: Model, association: ResolvedAssociation, record: Model): v
 /** Where a record built through `association` for `owner` is saved: its target's database. */
 function targetDatabase(owner: Model, association: ResolvedAssociation): Executor {
   return association.targetExecutor(owner[state].executor);
+}
+
+/** Throws `TypeError` unless `set()` is given a record of the association's Model, or null. */
+export function requireSettable(association: ResolvedAssociation, record: Model | null): void {
+  const { label, target } = association;
+  if (record !== null && !(record instanceof target)) {
+    throw new TypeError(`${label}.set() takes a ${target.name} record or null`);
+  }
 }

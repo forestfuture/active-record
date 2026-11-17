@@ -1,6 +1,6 @@
 // Writing through a through association (#434): the join records that link its owner to its records, created and removed.
-import type { HasOne } from "./associations.ts";
-import { hasOneAccessor, pointOwnerAt } from "./association-writers.ts";
+import type { HasOne, ThroughDependent } from "./associations.ts";
+import { hasOneAccessor, pointOwnerAt, requireSettable } from "./association-writers.ts";
 import { forget } from "./autosave.ts";
 import { RecordNotSaved } from "./errors.ts";
 import { requireTargets, saveTogether, type CollectionMethods } from "./collection-methods.ts";
@@ -11,7 +11,7 @@ import {
   ownedCollection,
   type AssociationCollection,
   type OwnedCollection,
-  type Write,
+  type CollectionWrite,
 } from "./owned-collection.ts";
 import { state } from "./record-state.ts";
 import { linkedToRecordsOf, queryOf, type Relation, type Scoped } from "./relation.ts";
@@ -50,7 +50,7 @@ export function throughCollection(through: ThroughOwner): AssociationCollection 
     collection.built(record);
     joinFor(through, record);
   };
-  const refuse = (write: Write) => {
+  const requireWritable = (write: CollectionWrite) => {
     if (write === "insert") throw insertError(through.association);
     requireWritableThrough(through.association);
   };
@@ -61,10 +61,10 @@ export function throughCollection(through: ThroughOwner): AssociationCollection 
     ...collection.narrowed(),
     built,
     saveCreated,
-    requireWritable: refuse,
+    requireWritable,
     narrowed,
   });
-  return { ...collection, built, saveCreated, requireWritable: refuse, deleteAllOf, narrowed };
+  return { ...collection, built, saveCreated, requireWritable, deleteAllOf, narrowed };
 }
 
 /** A through hasMany's collection methods (#434): each writes its join records. */
@@ -96,7 +96,7 @@ async function push(hasMany: OwnersHasManyThrough, records: Model[]): Promise<bo
     return true;
   }
   const joins = records.map((record) => joinFor(hasMany, record));
-  const viaCollection = ownedCollection(owner, association.hops!.via);
+  const viaCollection = joinsHeldBy(owner, association);
   const save = () => saveTogether(joins, "push() needs its records");
   if (!(await forgettingUnsaved(viaCollection, joins, save))) return false;
   for (const join of joins) viaCollection.created(join);
@@ -105,7 +105,7 @@ async function push(hasMany: OwnersHasManyThrough, records: Model[]): Promise<bo
 }
 
 /** How `delete` removes join records: by the association's `dependent:`, deleting by default. */
-function removalOf({ definition: { dependent } }: ResolvedAssociation): "destroy" | "deleteAll" {
+function removalOf({ definition: { dependent } }: ResolvedAssociation): ThroughDependent {
   return dependent === "destroy" ? "destroy" : "deleteAll";
 }
 
@@ -130,7 +130,7 @@ export function joinRecordsOf(owner: Model, association: ResolvedAssociation): S
  */
 async function clear({ owner, association, collection, relation }: OwnersHasManyThrough) {
   requireWritableThrough(association);
-  const viaCollection = ownedCollection(owner, association.hops!.via);
+  const viaCollection = joinsHeldBy(owner, association);
   viaCollection.removed(
     builtJoins(viaCollection.added(), association.hops!.source, collection.added()),
   );
@@ -181,7 +181,7 @@ function deleteJoins(
 async function remove<M extends Model>(
   hasMany: OwnersHasManyThrough,
   records: M[],
-  removal: "destroy" | "deleteAll",
+  removal: ThroughDependent,
 ): Promise<M[]> {
   const { owner, association, collection, via } = hasMany;
   requireWritableThrough(association);
@@ -233,7 +233,7 @@ async function saveWithJoin(
   orThrow: boolean,
 ): Promise<boolean> {
   const join = joinFor(through, record);
-  const viaCollection = ownedCollection(through.owner, through.association.hops!.via);
+  const viaCollection = joinsHeldBy(through.owner, through.association);
   let outcome: Outcome | undefined;
   const save = async () => (outcome = await saveLifecycle(join)).status === "saved";
   if (await forgettingUnsaved(viaCollection, [join], save)) {
@@ -261,6 +261,11 @@ async function forgettingUnsaved(
     if (!saved) viaCollection.removed(joins);
   }
   return saved;
+}
+
+/** What `owner` holds of the association `association` goes through: its join records. */
+function joinsHeldBy(owner: Model, association: ResolvedAssociation): AssociationCollection {
+  return ownedCollection(owner, association.hops!.via);
 }
 
 /** A new join record, built through the association it goes through, pointing at `record`. */
@@ -291,11 +296,9 @@ async function setThrough(
   association: ResolvedAssociation,
   record: Model | null,
 ): Promise<void> {
-  const { target, label, name, ownerAttribute } = association;
+  const { name, ownerAttribute } = association;
   requireWritableThrough(association);
-  if (record !== null && !(record instanceof target)) {
-    throw new TypeError(`${label}.set() takes a ${target.name} record or null`);
-  }
+  requireSettable(association, record);
   const { via, source } = association.hops!;
   const viaOne = hasOneAccessor(owner, via) as HasOne<ModelClass>;
   const join = await viaOne();
