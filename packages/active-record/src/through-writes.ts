@@ -1,6 +1,11 @@
 // Writing through a through association (#434): the join records that link its owner to its records, created and removed.
 import type { HasOne, ThroughDependent } from "./associations.ts";
-import { hasOneAccessor, pointOwnerAt, requireSettable } from "./association-writers.ts";
+import {
+  hasOneAccessor,
+  pointOwnerAt,
+  requireSettable,
+  undoPointing,
+} from "./association-writers.ts";
 import { forget } from "./autosave.ts";
 import { RecordNotSaved } from "./errors.ts";
 import { requireTargets, saveTogether, type CollectionMethods } from "./collection-methods.ts";
@@ -98,7 +103,7 @@ async function push(hasMany: OwnersHasManyThrough, records: Model[]): Promise<bo
   const joins = records.map((record) => joinFor(hasMany, record));
   const viaCollection = joinsHeldBy(owner, association);
   const save = () => saveTogether(joins, "push() needs its records");
-  if (!(await forgettingUnsaved(viaCollection, joins, save))) return false;
+  if (!(await undoneUnless(save, isTrue, () => viaCollection.removed(joins)))) return false;
   for (const join of joins) viaCollection.created(join);
   for (const record of records) collection.created(record);
   return true;
@@ -234,34 +239,41 @@ async function saveWithJoin(
 ): Promise<boolean> {
   const join = joinFor(through, record);
   const viaCollection = joinsHeldBy(through.owner, through.association);
-  let outcome: Outcome | undefined;
-  const save = async () => (outcome = await saveLifecycle(join)).status === "saved";
-  if (await forgettingUnsaved(viaCollection, [join], save)) {
+  const saved = ({ status }: Outcome) => status === "saved";
+  const outcome = await undoneUnless(
+    () => saveLifecycle(join),
+    saved,
+    () => viaCollection.removed([join]),
+  );
+  if (outcome.status === "saved") {
     viaCollection.created(join);
     return true;
   }
   if (!orThrow) return false;
-  const refused = outcome as Exclude<Outcome, { status: "saved" }>;
-  throw refusalError(record[state].errors.isEmpty() ? join : record, refused, "save");
+  throw refusalError(record[state].errors.isEmpty() ? join : record, outcome, "save");
 }
 
 /**
- * Runs `save`, which saves new join records, and takes them out of the owner's pending ones if
- * it refuses or throws, so saving the owner later doesn't write them.
+ * Runs `run`, then `undo` unless `succeeded` says it did, or if it throws: a refused or failed
+ * write leaves the owner as it was.
  */
-async function forgettingUnsaved(
-  viaCollection: AssociationCollection,
-  joins: readonly Model[],
-  save: () => Promise<boolean>,
-): Promise<boolean> {
-  let saved = false;
+async function undoneUnless<T>(
+  run: () => Promise<T>,
+  succeeded: (result: T) => boolean,
+  undo: () => void,
+): Promise<T> {
+  let done = false;
   try {
-    saved = await save();
+    const result = await run();
+    done = succeeded(result);
+    return result;
   } finally {
-    if (!saved) viaCollection.removed(joins);
+    if (!done) undo();
   }
-  return saved;
 }
+
+/** Whether a save resolved to `true`. */
+const isTrue = (saved: boolean): boolean => saved;
 
 /** What `owner` holds of the association `association` goes through: its join records. */
 function joinsHeldBy(owner: Model, association: ResolvedAssociation): AssociationCollection {
@@ -306,40 +318,15 @@ async function setThrough(
     if (join !== null) await removeJoin(owner, via, join);
   } else {
     const linked = join ?? viaOne.build();
+    // A refused save undoes the set: a join record built for it is forgotten, and an existing
+    // one points where it did.
+    const undo = join === null ? () => forget(owner, via, linked) : undoPointing(linked, source);
     pointOwnerAt(linked, source, record);
-    if (!owner[state].isNew && !(await savedOrUndone(owner, association, linked, join === null))) {
+    if (!owner[state].isNew && !(await undoneUnless(() => linked.save(), isTrue, undo))) {
       throw new RecordNotSaved(`Failed to save the new associated ${via.name}`);
     }
   }
   owner[state].associations.set(name, ownerAttribute, record);
-}
-
-/**
- * Saves the join record `set` pointed at its record; if that refuses or throws, undoes `set`: a
- * join record built for it is forgotten, and an existing one points where it did.
- */
-async function savedOrUndone(
-  owner: Model,
-  association: ResolvedAssociation,
-  join: Model,
-  built: boolean,
-): Promise<boolean> {
-  const { via, source } = association.hops!;
-  let saved = false;
-  try {
-    saved = await join.save();
-  } finally {
-    if (!saved && built) forget(owner, via, join);
-    else if (!saved) unpoint(join, source);
-  }
-  return saved;
-}
-
-/** Undoes pointing `join` at another record through `source`: its key, loaded record and pending save. */
-function unpoint(join: Model, source: ResolvedAssociation): void {
-  join[state].restore([source.ownerAttribute]);
-  join[state].associations.clear(source.name);
-  join[state].autosaves.setBelongsTo(source.name, undefined);
 }
 
 /** Destroys the owner's join record (one not saved yet is just forgotten), as Rails does. */
