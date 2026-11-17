@@ -48,7 +48,7 @@ export function compileSelect(
   let sql = `SELECT ${query.distinct ? "DISTINCT " : ""}${list}`;
   sql += ` FROM ${quoteIdentifier(query.model.table)}`;
   sql += compileWhere(dialect, query, params);
-  if (grouping !== undefined) sql += compileGroupBy(grouping);
+  if (grouping !== undefined) sql += compileGroupBy(grouping, query.model, params);
   sql += compileOrder(query, params);
   sql += compilePagination(dialect, query, params);
   return { sql, params, model: query.model };
@@ -400,14 +400,26 @@ export function compileCalculation(
   };
 }
 
-/** What a Relation is grouped by (#345): its terms, in order. */
+/** What a Relation is grouped by (#345): its terms, in order, and the groups `having` keeps. */
 export interface Grouping {
   readonly terms: readonly string[];
+  readonly having: readonly SafeSql[];
 }
 
-/** `GROUP BY` the list's first columns, by position: one for each term. */
-function compileGroupBy({ terms }: Grouping): string {
-  return ` GROUP BY ${terms.map((_, index) => index + 1).join(", ")}`;
+/**
+ * `GROUP BY` the list's first columns, by position, one for each term, then `HAVING` each of
+ * `having`'s fragments, with their values appended to `params`.
+ */
+function compileGroupBy(
+  { terms, having }: Grouping,
+  model: ModelClass<Model>,
+  params: unknown[],
+): string {
+  let sql = ` GROUP BY ${terms.map((_, index) => index + 1).join(", ")}`;
+  if (having.length === 0) return sql;
+  const kept = having.map((fragment) => `(${compileFragment(fragment, model, params)})`);
+  sql += ` HAVING ${kept.join(" AND ")}`;
+  return sql;
 }
 
 /** An attribute's column, or a fragment's SQL with its values appended to `params`. */

@@ -41,4 +41,13 @@ describe("grouping types (#345)", () => {
     // @ts-expect-error -- text can't be summed
     const _summedText = () => byTitle.sum("title"); // typed but not run
   });
+
+  test("having needs a group, and a grouped Relation has no records", () => {
+    const samples = Sample.none();
+
+    expectTypeOf(samples).not.toHaveProperty("having");
+    expectTypeOf(samples.group("title")).toHaveProperty("having");
+    expectTypeOf(samples.group("title")).not.toHaveProperty("toArray");
+    expectTypeOf(samples.group("title")).not.toHaveProperty("first");
+  });
 });
