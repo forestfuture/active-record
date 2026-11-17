@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
   belongsTo,
+  gte,
   hasMany,
   IncompatibleRelation,
   Model,
@@ -592,6 +593,17 @@ describe("making records", () => {
       await expect(db().model(User)[method](attributes)).rejects.toThrow(
         new TypeError(
           `User.${method}(): "email" can't be a list, since it becomes the new record's value`,
+        ),
+      );
+      expect(events).toEqual([]);
+    });
+
+    test.each(methods)("%s refuses a comparison before sending anything", async (method) => {
+      const attributes = { age: gte(18) } as never;
+
+      await expect(db().model(User)[method](attributes)).rejects.toThrow(
+        new TypeError(
+          `User.${method}(): "age" can't be a comparison, since it becomes the new record's value`,
         ),
       );
       expect(events).toEqual([]);
