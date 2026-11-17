@@ -188,6 +188,19 @@ export async function throughExample(tagId: number) {
   return articles;
 }
 
+export async function throughWriteExample(tagId: number, articleId: string) {
+  // #region through-write
+  const tag = await Tag.find(tagId);
+  const article = await Article.find(articleId);
+
+  await tag.articles().push(article); // saves a tagging that links them
+  const draft = await tag.articles().create({ authorId: article.authorId, title: "Draft" });
+
+  await tag.articles().delete(article); // deletes the tagging; the article stays
+  // #endregion through-write
+  return draft;
+}
+
 // #region self-referencing
 export class Category extends Model.define({
   id: { type: "integer", null: false },

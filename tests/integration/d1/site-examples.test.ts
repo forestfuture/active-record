@@ -28,6 +28,7 @@ import {
   TagWithAuthors,
   TaggingWithAuthor,
   throughExample,
+  throughWriteExample,
   writersExample,
 } from "../../../site/snippets/guide/associations.ts";
 import * as batches from "../../../site/snippets/guide/batches.ts";
@@ -476,6 +477,23 @@ describe("the guide's examples", () => {
     expect((await tag.writers().toArray()).map((author) => author.name)).toEqual(["Ada", "Mary"]);
     const tagging = await db.model(TaggingWithAuthor).find(1);
     expect((await tagging.author())?.name).toBe("Ada");
+  });
+
+  test("Associations: written through another, a tagging made and removed for each article", async () => {
+    await binding.batch([
+      binding.prepare("INSERT INTO authors (id, name) VALUES ('ada', 'Ada')"),
+      binding.prepare(
+        "INSERT INTO articles (id, author_id, title) VALUES ('x2', 'ada', 'Engines')",
+      ),
+      binding.prepare("INSERT INTO tags (id, name) VALUES (1, 'essays')"),
+    ]);
+    const db = connect(binding);
+
+    const draft = await withDatabase(db, () => throughWriteExample(1, "x2"));
+
+    const taggings = await binding.prepare("SELECT article_id FROM taggings").all();
+    expect(taggings.results).toEqual([{ article_id: draft.id }]);
+    expect(await db.model(Article).count()).toBe(3);
   });
 
   test("Batches: statements, many rows, an atomic batch, and records in a batch", async () => {
