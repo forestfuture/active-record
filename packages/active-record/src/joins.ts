@@ -75,6 +75,7 @@ function joinOf(
   nested: readonly unknown[],
 ): Join {
   const association = resolveAssociation(model, name);
+  refusePolymorphic(association);
   refuseThrough(association);
   refuseOtherDatabase(association, joining.root);
   return {
@@ -86,6 +87,19 @@ function joinOf(
     on: scopeConditions(association, joining.executor),
     joins: joinsFor(association.target, nested, joining),
   };
+}
+
+/**
+ * Throws `IncompatibleRelation` for a polymorphic belongsTo (#60), as Rails refuses to eager load
+ * one: its records may be in several tables, and a join reads one.
+ */
+function refusePolymorphic(association: ResolvedAssociation): void {
+  if (association.isBranched) {
+    const models = association.branches.map((branch) => branch.target.name).join(", ");
+    throw new IncompatibleRelation(
+      `${association.label} can't be joined: it's polymorphic, so its records may be in any of ${models}`,
+    );
+  }
 }
 
 /**
