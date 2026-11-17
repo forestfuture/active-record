@@ -42,6 +42,13 @@ class User extends Model.define({
 
   assignments = hasMany(Assignment);
   projects = hasMany(Project, { through: "assignments" });
+  archivedProjects = hasMany(Project, {
+    through: "assignments",
+    source: "project",
+    scope: (q) => q.where({ archived: 1 }),
+  });
+  leads = hasMany(Assignment, { scope: (q) => q.where({ role: "lead" }) });
+  ledProjects = hasMany(Project, { through: "leads", source: "project" });
 }
 
 describe("writing through an association through another", () => {
@@ -268,6 +275,32 @@ describe("writing through an association through another", () => {
       const user = db().model(User).build({ email: "c@example.com" });
 
       await expect(user.projects().create({ name: "Draco" })).rejects.toThrow(RecordNotSaved);
+    });
+  });
+
+  describe("scopes", () => {
+    test("a record takes the equality values of its scope and of a narrowed Relation", async () => {
+      const user = await db().model(User).find(1);
+
+      const vega = user.archivedProjects().build({ name: "Vega" });
+      const lyra = await user.projects().where({ archived: 1 }).create({ name: "Lyra" });
+
+      expect(vega.archived).toBe(1);
+      expect(lyra.archived).toBe(1);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+        [1, lyra.id],
+      ]);
+    });
+
+    test("a join record takes the equality values of the association it's built through", async () => {
+      const user = await db().model(User).find(1);
+      const cygnus = await db().model(Project).find(3);
+
+      await user.ledProjects().push(cygnus);
+
+      expect((await db().model(Assignment).findBy({ projectId: 3 }))?.role).toBe("lead");
     });
   });
 });
