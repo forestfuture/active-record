@@ -227,15 +227,15 @@ export class Relation<M extends Model, S = {}> {
    * `joins("author")`, nested `joins({ author: "company" })`. Loads only this Model's columns.
    */
   joins(...specs: JoinSpec<M>[]): Scoped<M, S> {
-    return this.#joined(specs, "inner");
+    return this.#withJoins(specs, "inner");
   }
 
   /** Joins associations as `joins()` does, but with `LEFT OUTER JOIN`: unlinked records stay. */
   leftJoins(...specs: JoinSpec<M>[]): Scoped<M, S> {
-    return this.#joined(specs, "left");
+    return this.#withJoins(specs, "left");
   }
 
-  #joined(specs: readonly JoinSpec<M>[], kind: JoinKind): Scoped<M, S> {
+  #withJoins(specs: readonly JoinSpec<M>[], kind: JoinKind): Scoped<M, S> {
     const joining = { kind, root: this.#model, executor: this.#executor };
     const added = joinsFor(this.#model, specs, joining);
     return this.#with({ joins: mergeJoins(this.#query.joins ?? [], added) });
