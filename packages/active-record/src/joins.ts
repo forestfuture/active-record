@@ -4,6 +4,7 @@ import type { Executor } from "./executor.ts";
 import type { Model, ModelClass } from "./model.ts";
 import {
   JoinedOrder,
+  mergeJoins,
   OnJoined,
   type Condition,
   type Join,
@@ -79,23 +80,6 @@ function scopeConditions(association: ResolvedAssociation, executor: Executor): 
     );
   }
   return query.none ? [...query.conditions, sql`1 = 0`] : [...query.conditions];
-}
-
-/** `b`'s joins added to `a`'s: an association joined on both is joined once, with both's joins. */
-export function mergeJoins(a: readonly Join[], b: readonly Join[]): readonly Join[] {
-  const merged = [...a];
-  for (const join of b) {
-    const index = merged.findIndex((each) => each.association === join.association);
-    const same = merged[index];
-    if (same === undefined) {
-      merged.push(join);
-    } else {
-      // An inner join of the association wins: its rows are those both find.
-      const kind = same.kind === "inner" || join.kind === "inner" ? "inner" : "left";
-      merged[index] = { ...same, kind, joins: mergeJoins(same.joins, join.joins) };
-    }
-  }
-  return merged;
 }
 
 /**

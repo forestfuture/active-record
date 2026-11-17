@@ -259,4 +259,37 @@ describe("joins", () => {
       expect(await titlesOf(admins)).toEqual(["A2"]);
     });
   });
+
+  describe("combining joined Relations of one Model", () => {
+    let database: ReturnType<typeof db>;
+    beforeEach(() => {
+      database = db();
+    });
+    const posts = () => database.model(Post);
+    const admins = () => database.model(User).where({ role: "admin" });
+
+    test("merge() takes the argument's joins with its conditions", async () => {
+      const merged = posts()
+        .where({ title: ["A2", "B1"] })
+        .merge(posts().joins("user").merge(admins()));
+
+      expect((await merged.toArray()).map((post) => post.title)).toEqual(["A2"]);
+    });
+
+    test("or() of Relations with the same joins", async () => {
+      const either = posts()
+        .joins("user")
+        .merge(admins())
+        .or(posts().joins("user").where({ title: "B1" }));
+
+      expect(await either.count()).toBe(3);
+    });
+
+    test("or() refuses Relations that join differently", () => {
+      expect(() => posts().joins("user").or(posts())).toThrow(IncompatibleRelation);
+      expect(() => posts().joins("user").or(posts().leftJoins("user"))).toThrow(
+        IncompatibleRelation,
+      );
+    });
+  });
 });
