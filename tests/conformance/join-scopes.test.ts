@@ -52,6 +52,22 @@ class Article extends Model.define({
   });
 }
 
+// Three links to one table, two of them under aliases that differ only past Postgres's 63 bytes.
+class Byline extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+}) {
+  static table = "posts";
+
+  writer = belongsTo(Writer, { foreignKey: "userId" });
+  writerWhoseAssociationNameRunsPastWhatPostgresKeepsOfAnAliasOne = belongsTo(Writer, {
+    foreignKey: "userId",
+  });
+  writerWhoseAssociationNameRunsPastWhatPostgresKeepsOfAnAliasTwo = belongsTo(Writer, {
+    foreignKey: "userId",
+  });
+}
+
 // A post that's only ever seen once published.
 class LivePost extends Model.define({
   id: { type: "integer", null: false },
@@ -82,6 +98,19 @@ describe("joins with scopes", () => {
     await harness.exec(
       "INSERT INTO posts (id, user_id, title, published) VALUES (10, 1, 'A1', 1), (11, 2, 'B1', 0), (12, 3, 'C1', 1)",
     );
+  });
+
+  test("aliases past an identifier's length on Postgres still name each table once", async () => {
+    const bylines = db()
+      .model(Byline)
+      .joins(
+        "writer",
+        "writerWhoseAssociationNameRunsPastWhatPostgresKeepsOfAnAliasOne",
+        "writerWhoseAssociationNameRunsPastWhatPostgresKeepsOfAnAliasTwo",
+      )
+      .order({ id: "asc" });
+
+    expect(idsOf(await bylines.toArray())).toEqual([10, 11, 12]);
   });
 
   test("an association's scope narrows the join", async () => {
