@@ -91,6 +91,28 @@ describe("batch iteration", () => {
       expect(events).toEqual([]);
     });
 
+    test("visits each existing row once while rows are added, and those after its place", async () => {
+      const visited: number[] = [];
+      for await (const post of db().model(Post).findEach({ batchSize: 2 })) {
+        visited.push(post.id);
+        if (post.id === 3) {
+          await harness.exec(
+            "INSERT INTO posts (id, user_id, title, published) VALUES (0, 1, 'Z', 1), (8, 1, 'H', 1)",
+          );
+        }
+      }
+
+      expect(visited).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    });
+
+    test("breaking out of the loop sends no more queries", async () => {
+      for await (const post of db().model(Post).findEach({ batchSize: 2 })) {
+        if (post.id === 3) break;
+      }
+
+      expect(events).toHaveLength(2);
+    });
+
     test("is a static of every Model, on the current database", async () => {
       const posts = await withDatabase(db(), () => collect(Post.findEach({ batchSize: 4 })));
 
