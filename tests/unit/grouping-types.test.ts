@@ -35,6 +35,8 @@ describe("grouping types (#345)", () => {
     const typeOnly = () => {
       // @ts-expect-error -- not an attribute
       void samples.group("nope");
+      // @ts-expect-error -- a group needs a term
+      void samples.group();
       // @ts-expect-error -- Postgres can't compare json
       void samples.group("settings");
     };

@@ -65,7 +65,7 @@ import { insertStatement, runAlone, Statement } from "./statement.ts";
 import type { ReturnedRow, WriteResult } from "./statement.ts";
 import { preparedWrites, type PreparedWrites } from "./prepared-writes.ts";
 import { destroyTogether } from "./records-together.ts";
-import { grouped, type GroupedRelation, type GroupTerm } from "./grouping.ts";
+import { grouped, type GroupedRelation, type GroupTerms } from "./grouping.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
 import {
   count,
@@ -581,7 +581,7 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /** Groups the rows by attributes, for each group's calculations (#345). */
-  group<const G extends readonly GroupTerm<M>[]>(...terms: G): GroupedRelation<M, G> {
+  group<const G extends GroupTerms<M>>(...terms: G): GroupedRelation<M, G> {
     return grouped(this as Relation<M>, terms, (relation) => relation.#valueSource());
   }
 
