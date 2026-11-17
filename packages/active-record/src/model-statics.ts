@@ -60,6 +60,7 @@ const relationMethods = [
   "findBy",
   "findByOrThrow",
   "findOrCreateBy",
+  "findOrCreateByOrThrow",
   "first",
   "last",
   "take",

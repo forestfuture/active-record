@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { Model, RecordInvalid, RecordNotUnique } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
@@ -124,6 +124,44 @@ describe("making records", () => {
       expect(user.isNewRecord()).toBe(true);
       expect(user.errors.get("email")).toEqual(["can't be blank"]);
       expect(statementKinds(events)).toEqual(["SELECT"]);
+    });
+  });
+
+  describe("findOrCreateByOrThrow", () => {
+    test("finds the row with the attributes, and writes nothing", async () => {
+      const user = await db().model(User).findOrCreateByOrThrow({ email: "taken@example.com" });
+
+      expect(user.id).toBe(1);
+      expect(statementKinds(events)).toEqual(["SELECT"]);
+    });
+
+    test("creates a row with the attributes when none has them, handing it to init", async () => {
+      await db()
+        .model(User)
+        .findOrCreateByOrThrow({ email: "new@example.com" }, (user) => {
+          user.role = "member";
+        });
+
+      expect(await emails()).toContainEqual({ email: "new@example.com", role: "member" });
+    });
+
+    test("throws RecordInvalid when the record it creates can't be saved", async () => {
+      await expect(db().model(User).findOrCreateByOrThrow({ email: null })).rejects.toThrow(
+        RecordInvalid,
+      );
+    });
+  });
+
+  describe("a row inserted between finding and creating", () => {
+    const insertAnother = () =>
+      harness.exec("INSERT INTO users (id, email, role) VALUES (2, 'new@example.com', 'other')");
+
+    test("makes findOrCreateBy throw RecordNotUnique", async () => {
+      const finding = db()
+        .model(User)
+        .findOrCreateBy({ email: "new@example.com" }, () => insertAnother().then(() => {}));
+
+      await expect(finding).rejects.toThrow(RecordNotUnique);
     });
   });
 });
