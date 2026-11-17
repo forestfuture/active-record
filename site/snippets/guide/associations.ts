@@ -260,3 +260,51 @@ export async function replaceProfileExample(authorId: string) {
   // #endregion has-one-replace
   return profile;
 }
+
+// #region polymorphic-declare
+export class Photo extends Model.define({
+  id: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  likes = hasMany(Like, { as: "likeable" }); // Like's likeableType is "Photo"
+}
+
+export class Video extends Model.define({
+  id: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  likes = hasMany(Like, { as: "likeable" }); // Like's likeableType is "Video"
+}
+
+export class Like extends Model.define({
+  id: { type: "integer", null: false },
+  likeableType: { type: "string", null: false },
+  likeableId: { type: "integer", null: false },
+}) {
+  likeable = belongsTo([Photo, Video]); // its own likeableType and likeableId
+}
+// #endregion polymorphic-declare
+
+export async function polymorphicExample(likeId: number, video: Video) {
+  // #region polymorphic-read
+  const like = await Like.find(likeId);
+  const liked = await like.likeable(); // a Photo, a Video, or null
+
+  like.likeable.set(video); // likeableType "Video", likeableId video.id
+  await like.save();
+
+  const likes = await video.likes().toArray(); // the likes whose type is "Video"
+  // #endregion polymorphic-read
+  return { liked, likes };
+}
+
+export async function polymorphicPreloadExample() {
+  // #region polymorphic-preload
+  const likes = await Like.includes("likeable").toArray(); // likes, photos and videos, in one round trip
+
+  for (const like of likes) {
+    console.log(like.loaded("likeable")?.title); // no query: already loaded
+  }
+  // #endregion polymorphic-preload
+  return likes;
+}

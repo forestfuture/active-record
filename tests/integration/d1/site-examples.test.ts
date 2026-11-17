@@ -18,7 +18,11 @@ import {
   createThroughExample,
   hasManyExample,
   hasOneExample,
+  Like,
   markForDestructionExample,
+  Photo,
+  polymorphicExample,
+  polymorphicPreloadExample,
   Profile,
   preloadExample,
   replaceProfileExample,
@@ -29,6 +33,7 @@ import {
   TaggingWithAuthor,
   throughExample,
   throughWriteExample,
+  Video,
   writersExample,
 } from "../../../site/snippets/guide/associations.ts";
 import * as batches from "../../../site/snippets/guide/batches.ts";
@@ -383,6 +388,31 @@ describe("the guide's examples", () => {
 
     await withDatabase(db, () => replaceProfileExample("mary"));
     expect(await db.model(Profile).where({ authorId: "mary" }).pluck("bio")).toEqual(["Novelist"]);
+  });
+
+  test("Associations: a polymorphic like reads, moves to a video, and preloads", async () => {
+    const queries: string[] = [];
+    const db = connect(binding, { onQuery: ({ sql }) => queries.push(sql) });
+    await binding.batch([
+      binding.prepare("DELETE FROM likes"),
+      binding.prepare("DELETE FROM photos"),
+      binding.prepare("DELETE FROM videos"),
+      binding.prepare("INSERT INTO photos (id, title) VALUES (1, 'Dunes')"),
+      binding.prepare("INSERT INTO videos (id, title) VALUES (1, 'Tides')"),
+      binding.prepare("INSERT INTO likes (id, likeable_type, likeable_id) VALUES (1, 'Photo', 1)"),
+    ]);
+    const video = await db.model(Video).find(1);
+
+    const { liked, likes } = await withDatabase(db, () => polymorphicExample(1, video));
+
+    expect(liked).toBeInstanceOf(Photo);
+    expect(likes.map((like) => like.id)).toEqual([1]);
+    expect(await db.model(Like).pluck("likeableType", "likeableId")).toEqual([["Video", 1]]);
+    queries.length = 0;
+    const preloaded = await withDatabase(db, () => polymorphicPreloadExample());
+    expect(preloaded[0]!.loaded("likeable")).toBeInstanceOf(Video);
+    expect(queries).toHaveLength(3);
+    expect(log).toHaveBeenCalledWith("Tides");
   });
 
   test("Associations: autosave writes the graph in one batch; set() links new and saved authors", async () => {

@@ -1,6 +1,6 @@
 ---
 title: Associations
-description: "belongsTo, hasMany, and hasOne: inferred foreign keys, reading, preloading with includes, autosave, writing through associations, scopes, associations through another, and dependent strategies."
+description: "belongsTo, hasMany, and hasOne: inferred foreign keys, polymorphic associations, reading, preloading with includes, autosave, writing through associations, scopes, associations through another, and dependent strategies."
 ---
 
 Associations connect Models: `belongsTo`, `hasMany`, and `hasOne`.
@@ -104,6 +104,55 @@ If the old record can’t be saved with a `NULL` foreign key, the write throws `
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
 `await user.profile.set(profile)` is Rails’ `user.profile = profile`. Rails removes the old record as soon as you build a new one, so a build that’s never saved still loses it. Here, `build` waits for the owner’s save.
+
+</Callout>
+
+## Polymorphic associations
+
+A polymorphic `belongsTo` points at a record of any of several Models, listed in an array. A like can belong to a photo or a video:
+
+<include>/_excerpts/guide/associations/polymorphic-declare.ts</include>
+
+The record holds the link in two attributes: a type, which names the Model, and a foreign key. They’re the association’s name with `Type` and `Id`, so `likeable` uses `likeableType` and `likeableId`. On each listed Model, a `hasMany` or `hasOne` names the `belongsTo` with `as`, and reads the records whose type is that Model.
+
+- **`await like.likeable()`** reads the record of the Model the type names, or `null`.
+- **`like.likeable.set(video)`** sets both the type and the foreign key, and `set(null)` clears both. It’s written when the record is saved.
+- **`video.likes()`** works like any `hasMany`. Records built, created, or pushed through it get the video’s type and key. Removing records through it, or by a `"nullify"` strategy, clears both.
+
+Here’s each of them at work:
+
+<include>/_excerpts/guide/associations/polymorphic-read.ts</include>
+
+| Option        | Does                                                                                                                                  |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `foreignType` | The attribute that holds the type. Defaults to the association’s name + `Type`, or on a `hasMany` or `hasOne`, the `as` name + `Type` |
+| `as`          | On a `hasMany` or `hasOne`: the name of the target’s polymorphic `belongsTo`. Its foreign key defaults to that name + `Id`            |
+
+The polymorphic `belongsTo` also takes `foreignKey`, `primaryKey`, `optional`, and `autosave`, as any `belongsTo` does.
+
+:::note
+The polymorphic side has no `build` or `create`, since it can’t tell which Model to make, and no `scope`. Neither D1 nor Postgres can enforce a foreign key that points at a different table in each row.
+:::
+
+### Storing the type
+
+The type holds the listed Model’s `modelName`, such as `"Photo"`. A subclass of a listed Model is stored as the Model whose table it shares. If a stored type names none of the listed Models, reading the association throws `UnknownModelName`.
+
+:::warning[Set modelName if your bundler renames classes]
+The type is saved in your rows. A Model’s name is its class name unless it sets `static modelName`, so a bundler that renames `Photo` to `e` saves `"e"`, and a later build can’t read those rows. Wrangler keeps class names by default. With any other bundler, set `static modelName` on each listed Model. See [Naming Models](/models#naming-models).
+:::
+
+### Preloading polymorphic records
+
+`includes` preloads a polymorphic association with one query for each listed Model:
+
+<include>/_excerpts/guide/associations/polymorphic-preload.ts</include>
+
+Each query runs the likes’ query again to find their keys, even for a Model no like points at. Index what that query filters and sorts by. A nested include can name an association that only some listed Models have: `includes({ likeable: "album" })` loads the photos’ albums and skips the videos.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails declares `belongs_to :likeable, polymorphic: true` without a list, and finds the class from the stored name. Here you list the Models, so `await like.likeable()` is typed `Photo | Video | null`. Rails preloads a polymorphic association after the likes load, with one query per type it finds. Here every listed Model’s query goes with the likes’ own, in one round trip. Records built through `video.likes()` point back at the video without a query, which Rails doesn’t do for a polymorphic association.
 
 </Callout>
 
@@ -394,7 +443,6 @@ These features aren’t in Active Record yet. The code shows the shape they’re
 
 - **Autosaving through an association through another** ([#450](https://github.com/forestfuture/active-record/issues/450)): `articles = hasMany(Article, { through: "taggings", autosave: true })`, which saves the tag’s changed articles with it.
 - **Associations through another across databases** ([#435](https://github.com/forestfuture/active-record/issues/435)): an association whose hops are on different databases, read with a query per database.
-- **Polymorphic associations** ([#60](https://github.com/forestfuture/active-record/issues/60)): `commentable = belongsTo([Post, Photo])`, with `comments = hasMany(Comment, { as: "commentable" })` on each.
 - **Counter caches** ([#61](https://github.com/forestfuture/active-record/issues/61)): `post = belongsTo(Post, { counterCache: true })`, keeping a `commentsCount` on each post, updated in the same atomic batch as the write.
 - **Never autosaving** ([#378](https://github.com/forestfuture/active-record/issues/378)): `articles = hasMany(Article, { autosave: false })`, which never saves the association’s records with the owner, not even new ones.
 - **Numbered autosave errors** ([#379](https://github.com/forestfuture/active-record/issues/379)): `hasMany(Article, { autosave: true, indexErrors: true })`, which names a copied error by the record’s position, `articles[1].title`.

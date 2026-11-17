@@ -36,6 +36,7 @@ A usage error means the code needs to change:
 | `MissingAttribute`     | reading an attribute that `select` didn’t load                                  |
 | `UnknownAssociation`   | an association that isn’t declared                                              |
 | `AssociationNotLoaded` | `loaded()` on an association that wasn’t loaded                                 |
+| `UnknownModelName`     | a polymorphic association’s stored type that names none of the Models it lists  |
 | `IncompatibleRelation` | two Relations or writes can’t be used together (below)                          |
 | `IrreversibleOrder`    | `last()` on a Relation ordered by an `sql` fragment                             |
 | `DeleteRestriction`    | destroying an owner whose `restrictWithException` association still has records |

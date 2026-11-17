@@ -12,7 +12,9 @@ export type {
   HasOneThrough,
   ThroughDependent,
   ThroughOptions,
+  PolymorphicBelongsTo,
 } from "./associations.ts";
+export type { PolymorphicBelongsToOptions } from "./association-fields.ts";
 export { batch, type BatchEntry, type BatchResults } from "./batch.ts";
 export type { Batch } from "./batch-builder.ts";
 export type { RelationsFor } from "./database.ts";

@@ -9,7 +9,7 @@ A class extending the app's **Base class** that describes one table: its attribu
 _Avoid_: Record (as the base class; `ApplicationRecord` is the one exception, named as Rails names it), entity, schema
 
 **Model name**:
-A **Model**'s `modelName`: its class name, unless it sets `static modelName = "Post"`. Its table name, its inferred foreign keys, its entry in the **Generated schema**, and `%{model}` in its **Error message**s are made from it, so setting it keeps them when a bundler renames classes.
+A **Model**'s `modelName`: its class name, unless it sets `static modelName = "Post"`. Its table name, its inferred foreign keys, the value a **Type attribute** stores for it, its entry in the **Generated schema**, and `%{model}` in its **Error message**s are made from it, so setting it keeps them when a bundler renames classes.
 _Avoid_: Class name (for this), model label
 
 **Generated Model**:
@@ -183,6 +183,14 @@ _Avoid_: Target association
 **Hop**:
 One of the associations a **Through association** reaches its records by, in turn: the one it goes through, then its **Source association**, each of which may go through others. A read selects each hop's keys with a subquery, and a **Preload** sends a query per hop.
 _Avoid_: Step, leg, link (a link is how two records' keys match)
+
+**Polymorphic association**:
+A `belongsTo` whose record may be of any of several **Models** it lists (`belongsTo([Post, Photo])`): its **Record** holds a **Type attribute** naming the Model, and a foreign key. Each listed Model's side is a `hasMany` or `hasOne` declared with `as`, reading the records whose type names it.
+_Avoid_: Generic association, union association
+
+**Type attribute**:
+The **Attribute** of a **Polymorphic association** that holds the **Model name** of the Model its record is of (`commentableType`, beside the foreign key `commentableId`). It holds the name of the Model whose table it is, so a subclass is stored as its parent.
+_Avoid_: Discriminator, type column (outside SQL)
 
 **Preload**:
 Loading an **Association** for many **Records** at once, in a small, bounded number of queries (one per association; on D1, the whole tree on the records' database is sent with their query in one round trip, and each other database it reaches takes one more), so each becomes a **Loaded association**. You ask for it with `includes`.

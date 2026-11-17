@@ -81,3 +81,20 @@ CREATE TABLE shirts (
   id INTEGER PRIMARY KEY,
   sizes TEXT NOT NULL DEFAULT ''
 );
+
+-- A like on a photo or a video, by its type and id (#60).
+CREATE TABLE photos (
+  id INTEGER PRIMARY KEY,
+  title TEXT NOT NULL
+);
+
+CREATE TABLE videos (
+  id INTEGER PRIMARY KEY,
+  title TEXT NOT NULL
+);
+
+CREATE TABLE likes (
+  id INTEGER PRIMARY KEY,
+  likeable_type TEXT NOT NULL,
+  likeable_id INTEGER NOT NULL
+);
