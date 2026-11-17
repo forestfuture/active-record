@@ -170,7 +170,11 @@ _Avoid_: Join association, indirect association, many-to-many (it's one way to m
 
 **Source association**:
 The association of the Model a **Through association** goes through that leads on to its records: named by `source`, or found by the through association's name, singular or plural (`projects` → `project`).
-_Avoid_: Target association, second hop
+_Avoid_: Target association
+
+**Hop**:
+One of the associations a **Through association** reaches its records by, in turn: the one it goes through, then its **Source association**, each of which may go through others. A read selects each hop's keys with a subquery, and a **Preload** sends a query per hop.
+_Avoid_: Step, leg, link (a link is how two records' keys match)
 
 **Preload**:
 Loading an **Association** for many **Records** at once, in a small, bounded number of queries (one per association; on D1, the whole tree on the records' database is sent with their query in one round trip, and each other database it reaches takes one more), so each becomes a **Loaded association**. You ask for it with `includes`.
