@@ -78,20 +78,20 @@ describe("a bulk write through a Relation's conditions", () => {
     expect(await storedPosts()).toEqual([{ id: 1, user_id: 1, title: "New" }]);
   });
 
-  test("createWith's value goes over the one given, and over a condition's", async () => {
-    const database = db();
+  test("createWith's value goes over the one given", async () => {
+    await db().model(Post).createWith({ userId: 1 }).insert({ id: 1, title: "A", userId: 2 });
 
-    await database.model(Post).createWith({ userId: 1 }).insert({ id: 1, title: "A", userId: 2 });
-    await database
+    expect(await storedPosts()).toEqual([{ id: 1, user_id: 1, title: "A" }]);
+  });
+
+  test("createWith's value goes over a condition's", async () => {
+    await db()
       .model(Post)
       .where({ userId: 2 })
       .createWith({ userId: 1 })
-      .insert({ id: 2, title: "B" });
+      .insert({ id: 1, title: "A" });
 
-    expect(await storedPosts()).toEqual([
-      { id: 1, user_id: 1, title: "A" },
-      { id: 2, user_id: 1, title: "B" },
-    ]);
+    expect(await storedPosts()).toEqual([{ id: 1, user_id: 1, title: "A" }]);
   });
 
   test("a default scope's value goes over the one given", async () => {
