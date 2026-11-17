@@ -622,6 +622,11 @@ export class Relation<M extends Model, S = {}> {
     return pick(this.#valueSource(), attributes);
   }
 
+  /** Each record's primary key, in this Relation's order: `pluck` of the primary key. */
+  async ids(): Promise<(string | number)[]> {
+    return (await pluck(this.#valueSource(), [this.#model.primaryKey])) as (string | number)[];
+  }
+
   /**
    * One page of records and its total, by this Relation's order or the primary key, in one
    * round trip (#100). With `count: false`, no `COUNT`: the page has no total.

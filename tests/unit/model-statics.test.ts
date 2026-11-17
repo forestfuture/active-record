@@ -40,6 +40,7 @@ describe("Relation methods as a Model's statics", () => {
       expectTypeOf(User.pluck("id", "age")).toEqualTypeOf<Promise<[number, number | null][]>>();
       expectTypeOf(User.pick("age")).toEqualTypeOf<Promise<number | null>>();
       expectTypeOf(User.pick("id", "age")).toEqualTypeOf<Promise<[number, number | null] | null>>();
+      expectTypeOf(User.ids()).toEqualTypeOf<Promise<(string | number)[]>>();
       expectTypeOf(User.first()).toEqualTypeOf<Promise<User | null>>();
       expectTypeOf(User.where({ age: 30 }).adults().toArray()).toEqualTypeOf<Promise<User[]>>();
       expectTypeOf(Admin.where({ age: 30 }).toArray()).toEqualTypeOf<Promise<Admin[]>>();

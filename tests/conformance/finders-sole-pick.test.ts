@@ -13,7 +13,7 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
-    await harness.reset("users", "posts");
+    await harness.reset("posts", "users");
     events.length = 0;
   });
 
@@ -74,6 +74,37 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       const user = await withLoadedPosts("First", "Second");
 
       expect(await user.posts().pick("title")).toBe("First");
+      expect(events).toHaveLength(0);
+    });
+  });
+
+  describe("ids", () => {
+    test("is empty with no rows", async () => {
+      expect(await users().ids()).toEqual([]);
+    });
+
+    test("is the one row's primary key", async () => {
+      await seed([7, "a@example.com", 30]);
+
+      expect(await users().ids()).toEqual([7]);
+    });
+
+    test("is each matching row's primary key in the Relation's order", async () => {
+      await seed([1, "b@example.com", 30], [2, "c@example.com", 20], [3, "a@example.com", 40]);
+
+      expect(await users().order({ email: "asc" }).ids()).toEqual([3, 1, 2]);
+      expect(
+        await users()
+          .where({ age: [20, 40] })
+          .order({ age: "desc" })
+          .ids(),
+      ).toEqual([3, 2]);
+    });
+
+    test("on a loaded hasMany, answers from its records without a query", async () => {
+      const user = await withLoadedPosts("First", "Second");
+
+      expect(await user.posts().ids()).toEqual([10, 11]);
       expect(events).toHaveLength(0);
     });
   });
