@@ -393,4 +393,37 @@ describe("polymorphic associations", () => {
       expect(rows).toEqual([{ commentable_type: "Photo", commentable_id: photo.id }]);
     });
   });
+
+  describe("a record built through as: points back at its owner", () => {
+    class RequiredRemark extends Remark {
+      override commentable = belongsTo([Post, Photo]);
+    }
+    class PostOfRequired extends Post {
+      override remarks = hasMany(RequiredRemark, { as: "commentable" });
+    }
+
+    test("with no query", async () => {
+      const queries: QueryEvent[] = [];
+      const db = harness.connect({ onQuery: (event) => queries.push(event) });
+      const photo = db.model(Photo).build({ id: 11, title: "New" });
+
+      const remark = photo.remarks().build({ id: 4, body: "Built" });
+      const first = photo.firstRemark.build({ id: 5, body: "First" });
+
+      expect(await remark.commentable()).toBe(photo);
+      expect(await first.commentable()).toBe(photo);
+      expect(queries).toHaveLength(0);
+    });
+
+    test("so a required belongsTo passes before either is saved", async () => {
+      const db = harness.connect();
+      const post = db.model(PostOfRequired).build({ id: 11, userId: 1, title: "New" });
+      const remark = post.remarks().build({ id: 4, body: "Built" });
+
+      await post.saveOrThrow();
+
+      expect(remark.isPersisted()).toBe(true);
+      expect([remark.commentableType, remark.commentableId]).toEqual(["Post", 11]);
+    });
+  });
 });

@@ -18,7 +18,7 @@ export function pointBackAtOwner(
   record: Model,
 ): void {
   const inverse = inverseOf(owner, association);
-  if (inverse === undefined) return;
+  if (inverse === undefined || association.otherTypeOf(record) !== undefined) return;
   if (!isOwnersKey(record[state].read(inverse.ownerAttribute), owner, association)) return;
   record[state].associations.set(inverse.name, inverse.keyAttributes, owner);
 }
@@ -37,6 +37,11 @@ export function isOwnersKey(key: unknown, owner: Model, association: ResolvedAss
 /** A key's value: what an integer or string key attribute holds. */
 type Key = string | number;
 
+/**
+ * The first of the target's belongsTo associations through the same foreign key, and type (#60),
+ * to the owner's Model: for a hasMany or hasOne with `as`, a polymorphic belongsTo that lists it
+ * (Rails finds no inverse there), its branch for the owner's Model.
+ */
 function inverseOf(
   owner: Model,
   association: ResolvedAssociation,
@@ -46,10 +51,10 @@ function inverseOf(
   if (association.definition.scope !== undefined) return undefined;
   for (const [name, definition] of associationsOf(target)) {
     if (definition.kind !== "belongsTo" || definition.foreignKey !== targetAttribute) continue;
-    if (definition.scope !== undefined || definition.targets !== undefined) continue;
-    if (!(owner instanceof definition.target())) continue;
-    const candidate = resolveAssociation(target, name);
-    if (candidate.targetAttribute === ownerAttribute) return candidate;
+    if (definition.scope !== undefined) continue;
+    if (definition.foreignType !== association.definition.foreignType) continue;
+    const candidate = resolveAssociation(target, name).branchForRecord(owner);
+    if (candidate?.targetAttribute === ownerAttribute) return candidate;
   }
   return undefined;
 }
