@@ -23,7 +23,12 @@ import {
   type ContextOf,
   type ValidationCallbackOptions,
 } from "./validation-context.ts";
-import type { CalculatedValue, NumberAttribute, OrderedAttribute } from "./calculations.ts";
+import type {
+  AttributeList,
+  CalculatedValue,
+  NumberAttribute,
+  OrderedAttribute,
+} from "./calculations.ts";
 import type { SafeSql } from "./sql.ts";
 import type { Relation, Scoped } from "./relation.ts";
 
@@ -60,6 +65,7 @@ const relationMethods = [
   "createOrThrow",
   "findBy",
   "findByOrThrow",
+  "findSoleBy",
   "findOrCreateBy",
   "findOrCreateByOrThrow",
   "findOrInitializeBy",
@@ -68,12 +74,17 @@ const relationMethods = [
   "first",
   "last",
   "take",
+  "firstOrThrow",
+  "lastOrThrow",
+  "takeOrThrow",
+  "sole",
   "count",
   "average",
   "size",
   "isEmpty",
   "hasAny",
   "exists",
+  "ids",
   "toArray",
   "toSql",
   "findEach",
@@ -169,17 +180,20 @@ interface OverloadedStatics {
       this: C,
       attribute: K,
     ): Promise<AttributesOf<InstanceType<C>>[K][]>;
-    <
-      C extends QueryableClass,
-      const K extends readonly [
-        keyof AttributesOf<InstanceType<C>> & string,
-        keyof AttributesOf<InstanceType<C>> & string,
-        ...(keyof AttributesOf<InstanceType<C>> & string)[],
-      ],
-    >(
+    <C extends QueryableClass, const K extends AttributeList<InstanceType<C>>>(
       this: C,
       ...attributes: K
     ): Promise<{ -readonly [I in keyof K]: AttributesOf<InstanceType<C>>[K[I]] }[]>;
+  };
+  pick: {
+    <C extends QueryableClass, K extends keyof AttributesOf<InstanceType<C>> & string>(
+      this: C,
+      attribute: K,
+    ): Promise<AttributesOf<InstanceType<C>>[K] | null>;
+    <C extends QueryableClass, const K extends AttributeList<InstanceType<C>>>(
+      this: C,
+      ...attributes: K
+    ): Promise<{ -readonly [I in keyof K]: AttributesOf<InstanceType<C>>[K[I]] } | null>;
   };
 }
 
@@ -345,6 +359,7 @@ export function defineStatics(base: typeof Model): void {
     "merge",
     "find",
     "pluck",
+    "pick",
     "paginate",
     "group",
     "sum",

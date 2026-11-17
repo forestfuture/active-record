@@ -1,7 +1,6 @@
 // Relation: the chainable query (`where`, `order`, …), its finders, terminals, and bulk writes.
 import { jointly } from "./executor.ts";
 import { compileExists, querySql, type QuerySql } from "./compiler.ts";
-import { RecordNotFound } from "./errors.ts";
 import { includeTree } from "./preload.ts";
 import { mergedQuery, withJoins } from "./joins.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
@@ -35,7 +34,16 @@ import {
   type UpsertOptions,
 } from "./relation-checks.ts";
 import { alsoClearing, unowned, type OwnedCollection } from "./owned-collection.ts";
-import { atMostOne, finderOrder, oneInOrder, reversed, thenPrimaryKey } from "./finder-order.ts";
+import {
+  atMostOne,
+  finderOrder,
+  foundOrThrow,
+  oneInOrder,
+  onlyOne,
+  reversed,
+  soleIn,
+  thenPrimaryKey,
+} from "./finder-order.ts";
 import { runAlone, type Statement } from "./statement.ts";
 import type { ReturnedRow, WriteResult } from "./statement.ts";
 import {
@@ -63,8 +71,11 @@ import {
 } from "./batch-iteration.ts";
 import {
   count,
+  ids,
   runCalculation,
+  pick,
   pluck,
+  type AttributeList,
   type CalculatedValue,
   type ValueSource,
   type NumberAttribute,
@@ -461,9 +472,21 @@ export class Relation<M extends Model, S = {}> {
 
   /** Like `findBy`, but throws `RecordNotFound` instead of returning null. */
   async findByOrThrow(conditions: Conditions<M> | SafeSql): Promise<M> {
-    const record = await this.findBy(conditions);
-    if (record === null) throw new RecordNotFound(`${this.#model.name} not found`);
-    return record;
+    return foundOrThrow(this.#model, await this.findBy(conditions));
+  }
+
+  /**
+   * The only matching record: `RecordNotFound` with none, `SoleRecordExceeded` with more than one.
+   * A join that repeats a record counts it each time.
+   */
+  async sole(): Promise<M> {
+    const cached = this.#cached();
+    return cached === undefined ? soleIn(this.#runner, this.#query) : onlyOne(this.#model, cached);
+  }
+
+  /** The only record matching `conditions`, as `where(conditions).sole()` finds it. */
+  async findSoleBy(conditions: Conditions<M> | SafeSql): Promise<M> {
+    return this.where(conditions).sole();
   }
 
   /** The first record by this Relation's order, or by primary key if it has none. */
@@ -500,6 +523,21 @@ export class Relation<M extends Model, S = {}> {
     const cached = this.#cached();
     if (cached !== undefined) return cached[0] ?? null;
     return oneInOrder(this.#runner, this.#query, this.#query.order);
+  }
+
+  /** Like `first`, but throws `RecordNotFound` instead of returning null. */
+  async firstOrThrow(): Promise<M> {
+    return foundOrThrow(this.#model, await this.first());
+  }
+
+  /** Like `last`, but throws `RecordNotFound` instead of returning null. */
+  async lastOrThrow(): Promise<M> {
+    return foundOrThrow(this.#model, await this.last());
+  }
+
+  /** Like `take`, but throws `RecordNotFound` instead of returning null. */
+  async takeOrThrow(): Promise<M> {
+    return foundOrThrow(this.#model, await this.take());
   }
 
   /** The number of matching records, or of non-null values of `attribute`. */
@@ -603,15 +641,30 @@ export class Relation<M extends Model, S = {}> {
   async pluck<K extends keyof AttributesOf<M> & string>(
     attribute: K,
   ): Promise<AttributesOf<M>[K][]>;
-  async pluck<
-    const K extends readonly [
-      keyof AttributesOf<M> & string,
-      keyof AttributesOf<M> & string,
-      ...(keyof AttributesOf<M> & string)[],
-    ],
-  >(...attributes: K): Promise<{ -readonly [I in keyof K]: AttributesOf<M>[K[I]] }[]>;
+  async pluck<const K extends AttributeList<M>>(
+    ...attributes: K
+  ): Promise<{ -readonly [I in keyof K]: AttributesOf<M>[K[I]] }[]>;
   async pluck(...attributes: string[]): Promise<unknown[]> {
     return pluck(this.#valueSource(), attributes);
+  }
+
+  /** The first row's value of one attribute, or tuple of several, in this Relation's order; or null. */
+  async pick<K extends keyof AttributesOf<M> & string>(
+    attribute: K,
+  ): Promise<AttributesOf<M>[K] | null>;
+  async pick<const K extends AttributeList<M>>(
+    ...attributes: K
+  ): Promise<{ -readonly [I in keyof K]: AttributesOf<M>[K[I]] } | null>;
+  async pick(...attributes: string[]): Promise<unknown> {
+    return pick(this.#valueSource(), attributes);
+  }
+
+  /**
+   * Each record's primary key, in this Relation's order: `pluck` of the primary key, leaving out a
+   * loaded association's built records that have no key yet.
+   */
+  async ids(): Promise<(string | number)[]> {
+    return ids(this.#valueSource());
   }
 
   /**

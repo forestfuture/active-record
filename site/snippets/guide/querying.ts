@@ -37,19 +37,7 @@ export async function examples(since: Date, until: Date): Promise<unknown> {
   User.order({ createdAt: "desc" }).limit(20).offset(40); // page 3
   // #endregion order
 
-  // #region terminal
-  const all = await User.toArray();
-  const user = await User.find("3b241101-e2bb-4255-8caf-4136c566a962"); // or RecordNotFound
-  const two = await User.find(["id-1", "id-2"]); // in the ids' order
-  const byEmail = await User.findBy({ email: "ada@example.com" }); // or null
-  const oldest = await User.first(); // by primary key, unless ordered
-  const newest = await User.order({ createdAt: "asc" }).last(); // order reversed
-  const any = await User.take(); // no ordering at all
-  const emails = await User.pluck("email"); // string[]
-  const pairs = await User.pluck("id", "email"); // [string, string][]
-  const admins2 = await User.where({ role: "admin" }).count();
-  const hasAdmins = await User.exists({ role: "admin" });
-  // #endregion terminal
+  const results = await gettingResults();
 
   // #region select
   const partial = await User.select("email").toArray();
@@ -69,10 +57,30 @@ export async function examples(since: Date, until: Date): Promise<unknown> {
   console.log(params); // ["admin", 10]
   // #endregion to-sql
 
+  return [users, text, params, results, roles, nothing];
+}
+
+/** The Getting results section's finders and terminals. */
+async function gettingResults(): Promise<unknown[]> {
+  // #region terminal
+  const all = await User.toArray();
+  const user = await User.find("3b241101-e2bb-4255-8caf-4136c566a962"); // or RecordNotFound
+  const two = await User.find(["id-1", "id-2"]); // in the ids' order
+  const byEmail = await User.findBy({ email: "ada@example.com" }); // or null
+  const oldest = await User.first(); // by primary key, unless ordered
+  const newest = await User.order({ createdAt: "asc" }).last(); // order reversed
+  const any = await User.take(); // no ordering at all
+  const earliest = await User.firstOrThrow(); // or RecordNotFound
+  const owner = await User.findSoleBy({ role: "owner" }); // the only one, or throws
+  const emails = await User.pluck("email"); // string[]
+  const pairs = await User.pluck("id", "email"); // [string, string][]
+  const latest = await User.order({ createdAt: "desc" }).pick("email"); // string | null
+  const adminIds = await User.where({ role: "admin" }).ids(); // primary keys
+  const admins2 = await User.where({ role: "admin" }).count();
+  const hasAdmins = await User.exists({ role: "admin" });
+  // #endregion terminal
+
   return [
-    users,
-    text,
-    params,
     all,
     user,
     two,
@@ -80,11 +88,13 @@ export async function examples(since: Date, until: Date): Promise<unknown> {
     oldest,
     newest,
     any,
+    earliest,
+    owner,
     emails,
     pairs,
+    latest,
+    adminIds,
     admins2,
     hasAdmins,
-    roles,
-    nothing,
   ];
 }

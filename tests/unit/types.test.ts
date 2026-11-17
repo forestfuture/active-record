@@ -165,6 +165,28 @@ describe("types", () => {
     expectTypeOf(typeOnly).toBeFunction();
   });
 
+  test("pick returns its attribute's value, or a tuple of several, or null with no rows (#349)", () => {
+    const users = db.model(User);
+
+    // Checked by the type checker only; never called.
+    const typeOnly = async () => {
+      expectTypeOf(await users.pick("email")).toEqualTypeOf<string | null>();
+      expectTypeOf(await users.pick("ratio")).toEqualTypeOf<number | null>();
+      expectTypeOf(await users.pick("id", "isActive")).toEqualTypeOf<
+        [number, boolean | null] | null
+      >();
+      // @ts-expect-error unknown attribute
+      void users.pick("nope");
+    };
+    expectTypeOf(typeOnly).toBeFunction();
+  });
+
+  test("ids are typed as find takes them (#349)", () => {
+    const users = db.model(User);
+
+    expectTypeOf<ReturnType<typeof users.ids>>().toEqualTypeOf<Promise<(string | number)[]>>();
+  });
+
   test("order, select, pluck and count accept only declared attributes", () => {
     const users = db.model(User);
 

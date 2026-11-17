@@ -38,10 +38,20 @@ describe("Relation methods as a Model's statics", () => {
       expectTypeOf(User.find(1, 2)).toEqualTypeOf<Promise<User[]>>();
       expectTypeOf(User.pluck("email")).toEqualTypeOf<Promise<string[]>>();
       expectTypeOf(User.pluck("id", "age")).toEqualTypeOf<Promise<[number, number | null][]>>();
+      expectTypeOf(User.pick("age")).toEqualTypeOf<Promise<number | null>>();
+      expectTypeOf(User.pick("id", "age")).toEqualTypeOf<Promise<[number, number | null] | null>>();
+      expectTypeOf(User.ids()).toEqualTypeOf<Promise<(string | number)[]>>();
       expectTypeOf(User.first()).toEqualTypeOf<Promise<User | null>>();
       expectTypeOf(User.where({ age: 30 }).adults().toArray()).toEqualTypeOf<Promise<User[]>>();
       expectTypeOf(Admin.where({ age: 30 }).toArray()).toEqualTypeOf<Promise<Admin[]>>();
       expectTypeOf(Admin.adults().first()).toEqualTypeOf<Promise<Admin | null>>();
+      expectTypeOf(Admin.sole()).toEqualTypeOf<Promise<Admin>>();
+      expectTypeOf(Admin.firstOrThrow()).toEqualTypeOf<Promise<Admin>>();
+      expectTypeOf(Admin.lastOrThrow()).toEqualTypeOf<Promise<Admin>>();
+      expectTypeOf(Admin.takeOrThrow()).toEqualTypeOf<Promise<Admin>>();
+      expectTypeOf(Admin.findSoleBy({ age: 30 })).toEqualTypeOf<Promise<Admin>>();
+      // @ts-expect-error only User's attributes
+      void User.findSoleBy({ nope: 1 });
       expectTypeOf(Admin.create({ email: "a@example.com" })).toEqualTypeOf<Promise<Admin>>();
       // @ts-expect-error only User's attributes
       User.where({ nope: 1 });

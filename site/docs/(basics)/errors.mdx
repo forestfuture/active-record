@@ -17,7 +17,8 @@ if (error instanceof ActiveRecordError) {
 
 | Error                   | When                                                                     |
 | ----------------------- | ------------------------------------------------------------------------ |
-| `RecordNotFound`        | `find`, `findByOrThrow`, or `reload` found nothing                       |
+| `RecordNotFound`        | `find`, `sole`, an `OrThrow` finder, or `reload` found nothing           |
+| `SoleRecordExceeded`    | `sole` or `findSoleBy` found more than one record                        |
 | `RecordInvalid`         | an `OrThrow` save found the record invalid; the record is on `.record`   |
 | `RecordNotSaved`        | a save was aborted by a callback, or needs an owner that isn’t saved     |
 | `RecordNotDestroyed`    | a destroy was aborted, or restricted by `restrictWithError`              |

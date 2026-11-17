@@ -1,5 +1,5 @@
-// The order and limit a finder (`first`, `last`, `take`) applies, the order a page keeps, and the order an owner's collection loads in.
-import { IrreversibleOrder } from "./errors.ts";
+// The order and limit a finder (`first`, `last`, `take`, `sole`) applies, what it throws when it finds none or more than one, the order a page keeps, and the order an owner's collection loads in.
+import { IrreversibleOrder, RecordNotFound, SoleRecordExceeded } from "./errors.ts";
 import type { QueryRunner } from "./load.ts";
 import type { Model, ModelClass } from "./model.ts";
 import {
@@ -29,9 +29,14 @@ function reversedTerm(term: AttributeOrder | SafeSql): AttributeOrder | SafeSql 
   return { ...term, direction, ...(nulls && { nulls }) };
 }
 
-/** One record from the page: `limit(0)` stays empty, and `offset` is kept by the caller. */
+/** Up to `rows` records from the page: `limit(0)` stays empty, and `offset` is kept by the caller. */
+function atMost(rows: number, limit: number | undefined): number {
+  return Math.min(limit ?? rows, rows);
+}
+
+/** One record from the page, as `atMost` takes it. */
 export function atMostOne(limit: number | undefined): number {
-  return Math.min(limit ?? 1, 1);
+  return atMost(1, limit);
 }
 
 /**
@@ -71,4 +76,34 @@ export async function oneInOrder<M extends Model>(
 ): Promise<M | null> {
   const [record] = await runner.load({ ...query, order, limit: atMostOne(query.limit) });
   return record ?? null;
+}
+
+/**
+ * The only record `query` gives, asking for two rows (keeping its order and offset): a join's
+ * repeated rows count as more than one, as Rails counts them.
+ */
+export async function soleIn<M extends Model>(
+  runner: QueryRunner<M>,
+  query: QueryDescription,
+): Promise<M> {
+  return onlyOne(query.model, await runner.load({ ...query, limit: atMost(2, query.limit) }));
+}
+
+/** The one record in `records`; `RecordNotFound` with none, `SoleRecordExceeded` with more. */
+export function onlyOne<M extends Model>(model: ModelClass, records: readonly M[]): M {
+  const [record] = records;
+  if (record === undefined) throw notFound(model);
+  if (records.length > 1) throw new SoleRecordExceeded(`Wanted only one ${model.name}`);
+  return record;
+}
+
+/** `record`, or the `RecordNotFound` a finder that must find one throws: `firstOrThrow`'s. */
+export function foundOrThrow<M extends Model>(model: ModelClass, record: M | null): M {
+  if (record === null) throw notFound(model);
+  return record;
+}
+
+/** What a finder that must find a record throws when it finds none. */
+function notFound(model: ModelClass): RecordNotFound {
+  return new RecordNotFound(`${model.name} not found`);
 }
