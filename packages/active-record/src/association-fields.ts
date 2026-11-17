@@ -76,7 +76,7 @@ function targetOf(
 
 /** A polymorphic belongsTo's `target`: it has none, so reaching for one is the library's mistake. */
 function noSingleTarget(): never {
-  throw new Error("A polymorphic association has no single target; use the branch for a record");
+  throw new Error("A polymorphic belongsTo has no single target; use the branch for a record");
 }
 
 /** What only a belongsTo takes. */

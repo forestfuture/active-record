@@ -586,9 +586,8 @@ function includeTreeOfAny(
 
 /** The attributes a record must have loaded for its includes to be preloaded. */
 export function keysForIncludes(model: ModelClass, includes: IncludeTree | undefined): string[] {
-  return Object.keys(includes ?? {}).flatMap((name) => {
-    const { ownerAttribute, isPolymorphic, definition } = resolveAssociation(model, name);
-    // A polymorphic belongsTo's type too (#60).
-    return isPolymorphic ? [ownerAttribute, definition.foreignType!] : [ownerAttribute];
-  });
+  // A polymorphic belongsTo's type too (#60).
+  return Object.keys(includes ?? {}).flatMap((name) =>
+    [resolveAssociation(model, name).keyAttributes].flat(),
+  );
 }

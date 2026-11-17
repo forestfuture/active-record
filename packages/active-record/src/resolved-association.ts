@@ -114,7 +114,7 @@ export class ResolvedAssociation {
 
   get #linked(): Link {
     if (this.#link === undefined) {
-      throw new Error(`${this.label} is polymorphic: use the branch for a record`);
+      throw new Error(`${this.label} has no single target; use the branch for a record`);
     }
     return this.#link;
   }
