@@ -3,7 +3,7 @@ import { associationsOf } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { modelOf, type Model } from "./model.ts";
 import { state } from "./record-state.ts";
-import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
+import { belongsToKeys } from "./resolved-association.ts";
 
 /**
  * Adds "must exist" (type `required`) to each of the record's required belongsTo associations
@@ -13,9 +13,8 @@ import { resolveAssociation, type ResolvedAssociation } from "./resolved-associa
  * record marked for destruction counts as missing.
  */
 export async function validateRequiredAssociations(record: Model): Promise<void> {
-  const model = modelOf(record);
-  for (const [name, definition] of associationsOf(model)) {
-    if (!isCheckDue(record, definition, () => resolveAssociation(model, name))) continue;
+  for (const [name, definition] of associationsOf(modelOf(record))) {
+    if (!isCheckDue(record, definition)) continue;
     const read = (record as unknown as Record<string, () => Promise<Model | null>>)[name]!;
     const found = await read.call(record);
     // One marked for destruction counts as missing, as in Rails (#37).
@@ -29,13 +28,10 @@ export async function validateRequiredAssociations(record: Model): Promise<void>
  * Whether it's a required belongsTo whose key is loaded, and null or changed; for a polymorphic
  * one (#60), its type too.
  */
-function isCheckDue(
-  record: Model,
-  { kind, optional }: AssociationDefinition,
-  resolved: () => ResolvedAssociation,
-): boolean {
-  if (kind !== "belongsTo" || optional === true) return false;
-  const keys = [resolved().keyAttributes].flat();
+function isCheckDue(record: Model, definition: AssociationDefinition): boolean {
+  if (definition.kind !== "belongsTo" || definition.optional === true) return false;
+  // From the declaration: resolving it would ready its targets on every validation.
+  const keys = belongsToKeys(definition);
   const recordState = record[state];
   if (!keys.every((each) => Object.hasOwn(recordState.attributes(), each))) return false;
   return keys.some(

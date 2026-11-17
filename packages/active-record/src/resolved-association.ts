@@ -126,7 +126,7 @@ export class ResolvedAssociation {
   get keyAttributes(): KeyAttributes {
     const { kind, foreignType } = this.definition;
     return kind === "belongsTo" && foreignType !== undefined
-      ? [this.ownerAttribute, foreignType]
+      ? belongsToKeys(this.definition)
       : this.ownerAttribute;
   }
 
@@ -320,6 +320,14 @@ function hopsOf(
   const via = resolveAssociation(owner, definition.through);
   const source = sourceNameOf(name, definition, via.target)!;
   return { via, source: resolveAssociation(via.target, source) };
+}
+
+/**
+ * The owner's attributes a belongsTo links by, read from its declaration alone: its foreign key,
+ * and a polymorphic one's type (#60).
+ */
+export function belongsToKeys({ foreignKey, foreignType }: AssociationDefinition): string[] {
+  return foreignType === undefined ? [foreignKey] : [foreignKey, foreignType];
 }
 
 /** How a resolved association links its owner to one target Model. */
