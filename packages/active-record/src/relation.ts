@@ -221,7 +221,7 @@ export class Relation<M extends Model, S = {}> {
    * `joins("author")`, nested `joins({ author: "company" })`. Loads only this Model's columns.
    */
   joins(...specs: JoinSpec<M>[]): Scoped<M, S> {
-    const added = joinsFor(this.#model, specs, "inner");
+    const added = joinsFor(this.#model, specs, { kind: "inner", executor: this.#executor });
     return this.#with({ joins: mergeJoins(this.#query.joins ?? [], added) });
   }
 

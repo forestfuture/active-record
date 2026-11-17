@@ -1,7 +1,17 @@
 // `joins()` and `leftJoins()` (#24): the associations a query joins, worked out when it's written.
+import { IncompatibleRelation } from "./errors.ts";
+import type { Executor } from "./executor.ts";
 import type { Model, ModelClass } from "./model.ts";
-import type { Join, JoinKind } from "./query.ts";
-import { resolveAssociation } from "./resolved-association.ts";
+import type { Condition, Join, JoinKind } from "./query.ts";
+import { queryOf } from "./relation.ts";
+import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
+import { sql } from "./sql.ts";
+
+/** How a join is written: of which kind, and for a query on which database. */
+interface Joining {
+  readonly kind: JoinKind;
+  readonly executor: Executor;
+}
 
 /**
  * The joins `specs` name on `model`'s associations, each of `kind`: names, or `{ name: nested }`
@@ -10,7 +20,7 @@ import { resolveAssociation } from "./resolved-association.ts";
 export function joinsFor(
   model: ModelClass<Model>,
   specs: readonly unknown[],
-  kind: JoinKind,
+  joining: Joining,
 ): readonly Join[] {
   let joins: readonly Join[] = [];
   for (const spec of specs) {
@@ -22,7 +32,7 @@ export function joinsFor(
             Array.isArray(nested) ? nested : [nested],
           ]);
     for (const [name, nested] of entries) {
-      joins = mergeJoins(joins, [joinOf(model, name, kind, nested)]);
+      joins = mergeJoins(joins, [joinOf(model, name, joining, nested)]);
     }
   }
   return joins;
@@ -32,19 +42,35 @@ export function joinsFor(
 function joinOf(
   model: ModelClass<Model>,
   name: string,
-  kind: JoinKind,
+  joining: Joining,
   nested: readonly unknown[],
 ): Join {
   const association = resolveAssociation(model, name);
   return {
     association: name,
-    kind,
+    kind: joining.kind,
     model: association.target,
     ownerAttribute: association.ownerAttribute,
     targetAttribute: association.targetAttribute,
-    on: [],
-    joins: joinsFor(association.target, nested, kind),
+    on: scopeConditions(association, joining.executor),
+    joins: joinsFor(association.target, nested, joining),
   };
+}
+
+/**
+ * The conditions `association`'s scope and its Model's default scopes add to a join, as Rails
+ * puts them in its `ON`. Their order can't change which rows join, so it's left out, as are
+ * their includes; a limit, offset, distinct or joins of their own can't be written there.
+ */
+function scopeConditions(association: ResolvedAssociation, executor: Executor): Condition[] {
+  const query = association.all(executor)[queryOf];
+  const { limit, offset, distinct, joins } = query;
+  if (limit !== undefined || offset !== undefined || distinct || (joins?.length ?? 0) > 0) {
+    throw new IncompatibleRelation(
+      `${association.label} can't be joined: its scope uses limit, offset, distinct or joins, which a join can't apply`,
+    );
+  }
+  return query.none ? [...query.conditions, sql`1 = 0`] : [...query.conditions];
 }
 
 /** `b`'s joins added to `a`'s: an association joined on both is joined once, with both's joins. */
