@@ -1,9 +1,9 @@
 // Records made through a Relation: `build` and `create`, and the values they take from its conditions and owner.
 import { castInherited } from "./attribute.ts";
+import { RecordNotSaved, RecordNotUnique } from "./errors.ts";
 import type { Executor } from "./executor.ts";
 import { buildRecord, type AttributesOf, type Model, type ModelClass } from "./model.ts";
 import type { CollectionWrite, OwnedCollection } from "./owned-collection.ts";
-import { RecordNotSaved } from "./errors.ts";
 import { inheritedAttributes, type QueryDescription } from "./query.ts";
 
 /** @internal What a Relation is made of, for the modules that write through it. */
@@ -65,16 +65,56 @@ export async function createThrough<M extends Model>(
   attributes: Partial<AttributesOf<M>>,
   { init, orThrow }: { init: Init<M> | undefined; orThrow: boolean },
 ): Promise<M> {
+  const record = await recordToCreate(relation, attributes, init);
+  await saveCreated(relation, record, orThrow);
+  return record;
+}
+
+/**
+ * Creates a record through `relation`, as `createThrough` does, or `find`s the row a unique
+ * index kept it from duplicating. Only a refusal of the record's own row is found: another
+ * record saved with it, refused after it was kept, throws its error.
+ */
+export async function createOrFindThrough<M extends Model>(
+  relation: RelationState<M>,
+  attributes: Partial<AttributesOf<M>>,
+  options: { init: Init<M> | undefined; orThrow: boolean; find: () => Promise<M> },
+): Promise<M> {
+  const record = await recordToCreate(relation, attributes, options.init);
+  try {
+    await saveCreated(relation, record, options.orThrow);
+    return record;
+  } catch (error) {
+    if (!isOwnRowRefused(record, error)) throw error;
+    return options.find();
+  }
+}
+
+/** Whether `error` is a unique index refusing `record`'s own row, so it was never written. */
+function isOwnRowRefused(record: Model, error: unknown): boolean {
+  if (!(error instanceof RecordNotUnique) || !record.isNewRecord()) return false;
+  return error.table === (record.constructor as ModelClass).table;
+}
+
+async function recordToCreate<M extends Model>(
+  relation: RelationState<M>,
+  attributes: Partial<AttributesOf<M>>,
+  init: Init<M> | undefined,
+): Promise<M> {
   requireSavedOwner(relation, "create");
   const record = newRecord(relation, attributes);
   relation.collection.pointBack(record);
   await init?.(record);
-  if (await saveCreated(relation.collection, record, orThrow)) relation.collection.created(record);
   return record;
 }
 
+async function saveCreated(relation: RelationState<Model>, record: Model, orThrow: boolean) {
+  const { collection } = relation;
+  if (await saveThrough(collection, record, orThrow)) collection.created(record);
+}
+
 /** Saves a record created through `collection`, as its `saveCreated` says, or as the record saves. */
-function saveCreated(
+function saveThrough(
   collection: OwnedCollection,
   record: Model,
   orThrow: boolean,

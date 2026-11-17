@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
+  belongsTo,
   hasMany,
   IncompatibleRelation,
   Model,
@@ -18,6 +19,8 @@ class Post extends Model.define({
   title: "string",
 }) {
   static table = "posts";
+
+  author = belongsTo(User, { foreignKey: "userId", optional: true });
 }
 
 class User extends Model.define({
@@ -232,6 +235,30 @@ describe("making records", () => {
 
       expect(user.isNewRecord()).toBe(true);
       expect(statementKinds(events)).toEqual([]);
+    });
+
+    test("throws the RecordNotUnique of another record it saves, rather than finding its own", async () => {
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (1, 1, 'Hello')");
+
+      const creating = db()
+        .model(User)
+        .createOrFindBy({ email: "new@example.com" }, (user) => {
+          user.posts().build({ id: 1, title: "Clashing" });
+        });
+
+      await expect(creating).rejects.toThrow(RecordNotUnique);
+    });
+
+    test("throws the RecordNotUnique of a record saved before it, rather than finding one", async () => {
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (1, 1, 'Hello')");
+
+      const creating = db()
+        .model(Post)
+        .createOrFindBy({ title: "Hello" }, (post) => {
+          post.author.build({ email: "taken@example.com" });
+        });
+
+      await expect(creating).rejects.toThrow(RecordNotUnique);
     });
 
     test("throws RecordNotFound when the duplicate was in a column the attributes don't name", async () => {

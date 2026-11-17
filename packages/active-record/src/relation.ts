@@ -1,7 +1,7 @@
 // Relation: the chainable query (`where`, `order`, …), its finders, terminals, and bulk writes.
 import { jointly } from "./executor.ts";
 import { compileExists, querySql, type QuerySql } from "./compiler.ts";
-import { RecordNotFound, RecordNotUnique } from "./errors.ts";
+import { RecordNotFound } from "./errors.ts";
 import { includeTree } from "./preload.ts";
 import { mergedQuery, withJoins } from "./joins.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
@@ -44,7 +44,13 @@ import {
   preparedWritesOf,
   type PreparedWrites,
 } from "./prepared-writes.ts";
-import { buildThrough, createThrough, type Init, type RelationState } from "./record-creation.ts";
+import {
+  buildThrough,
+  createOrFindThrough,
+  createThrough,
+  type Init,
+  type RelationState,
+} from "./record-creation.ts";
 import { destroyTogether } from "./records-together.ts";
 import { grouped, type GroupedRelation, type GroupTerms } from "./grouping.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
@@ -432,20 +438,14 @@ export class Relation<M extends Model, S = {}> {
    * if the index refused a value the attributes don't name.
    */
   async createOrFindBy(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
-    return this.create(attributes, init).catch((error) => this.#findAfterClash(error, attributes));
+    const find = () => this.findByOrThrow(attributes);
+    return createOrFindThrough(this.#state, attributes, { init, orThrow: false, find });
   }
 
   /** Like `createOrFindBy`, but throws if the record can't be saved. */
   async createOrFindByOrThrow(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
-    return this.createOrThrow(attributes, init).catch((error) =>
-      this.#findAfterClash(error, attributes),
-    );
-  }
-
-  /** The record a unique index kept a create of `attributes` from duplicating. */
-  async #findAfterClash(error: unknown, attributes: Partial<AttributesOf<M>>): Promise<M> {
-    if (!(error instanceof RecordNotUnique)) throw error;
-    return this.findByOrThrow(attributes);
+    const find = () => this.findByOrThrow(attributes);
+    return createOrFindThrough(this.#state, attributes, { init, orThrow: true, find });
   }
 
   /** Like `findBy`, but throws `RecordNotFound` instead of returning null. */
