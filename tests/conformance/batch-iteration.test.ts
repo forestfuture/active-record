@@ -48,6 +48,8 @@ describe("batch iteration", () => {
   const events: QueryEvent[] = [];
   const db = () => harness.connect({ onQuery: (event) => events.push(event) });
   const ids = (records: readonly Post[]) => records.map((post) => post.id);
+  // A batch's Relation has no order of its own, so its records come in the database's order.
+  const sortedIds = (records: readonly Post[]) => ids(records).sort((a, b) => a - b);
 
   beforeAll(async () => {
     harness = await openHarness();
@@ -238,6 +240,88 @@ describe("batch iteration", () => {
     test("none() yields nothing and sends no query", async () => {
       expect(await collect(db().model(Post).none().findInBatches())).toEqual([]);
       expect(events).toEqual([]);
+    });
+  });
+
+  describe("inBatches", () => {
+    const published = async () =>
+      (await harness.exec("SELECT id FROM posts WHERE published = 1 ORDER BY id")).map((row) =>
+        Number(row.id),
+      );
+
+    test("yields a Relation of each batch's records", async () => {
+      const batches: number[][] = [];
+      for await (const posts of db().model(Post).inBatches({ batchSize: 3 })) {
+        batches.push(sortedIds(await posts.toArray()));
+      }
+
+      expect(batches).toEqual([[1, 2, 3], [4, 5, 6], [7]]);
+    });
+
+    test("updates a batch at a time, even as rows leave the conditions", async () => {
+      for await (const posts of db()
+        .model(Post)
+        .where({ published: false })
+        .inBatches({ batchSize: 1 })) {
+        await posts.updateAll({ published: true });
+      }
+
+      expect(await published()).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    });
+
+    test("deletes a batch at a time without losing its place", async () => {
+      const deleted: number[] = [];
+      for await (const posts of db().model(Post).inBatches({ batchSize: 2 })) {
+        deleted.push(await posts.deleteAll());
+      }
+
+      expect(deleted).toEqual([2, 2, 2, 1]);
+      expect(await harness.exec("SELECT id FROM posts")).toEqual([]);
+    });
+
+    test("destroys a batch at a time", async () => {
+      const destroyed: Post[] = [];
+      for await (const posts of db().model(Post).where({ published: true }).inBatches({
+        batchSize: 2,
+      })) {
+        destroyed.push(...(await posts.destroyAll()));
+      }
+
+      expect(sortedIds(destroyed)).toEqual([1, 2, 5, 6, 7]);
+      expect(
+        (await harness.exec("SELECT id FROM posts ORDER BY id")).map((row) => Number(row.id)),
+      ).toEqual([3, 4]);
+    });
+
+    test("a batch's Relation keeps the conditions, for rows changed since", async () => {
+      const batches: number[][] = [];
+      for await (const posts of db()
+        .model(Post)
+        .where({ published: true })
+        .inBatches({ batchSize: 3 })) {
+        await harness.exec("UPDATE posts SET published = 0 WHERE id = 5");
+        batches.push(sortedIds(await posts.toArray()));
+      }
+
+      expect(batches).toEqual([
+        [1, 2],
+        [6, 7],
+      ]);
+    });
+
+    test("reads each batch's keys with one query, without its includes", async () => {
+      for await (const posts of db().model(Post).includes("user").inBatches({ batchSize: 4 })) {
+        expect(posts).toBeDefined();
+      }
+
+      expect(events).toHaveLength(2);
+    });
+
+    test("refuses what findEach refuses, when it's called", () => {
+      expect(() => db().model(Post).order({ title: "asc" }).inBatches()).toThrow(
+        IncompatibleRelation,
+      );
+      expect(() => db().model(Post).inBatches({ batchSize: 0 })).toThrow(TypeError);
     });
   });
 });
