@@ -282,8 +282,9 @@ export class Relation<M extends Model, S = {}> {
    * Inserts one row now: `await db.model(Post).insert({ title })`. Resolves to how many rows it
    * wrote and the `returning` attributes of each (the primary key by default; `false` for none).
    * Skips validations and callbacks; declared defaults, generated ids, and timestamps apply, and
-   * this Relation's equality conditions are inserted over the given attributes (#470). A duplicate throws,
-   * unless `onDuplicate: "skip"` (Rails' `insert`). `b.insert` is the same write, for a batch.
+   * this Relation's equality conditions are inserted over the given attributes (#470). A
+   * duplicate throws, unless `onDuplicate: "skip"` (Rails' `insert`). `b.insert` is the same
+   * write, for a batch.
    */
   async insert<const R extends Returning<M> | undefined = undefined>(
     attributes: Partial<AttributesOf<M>>,
