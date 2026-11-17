@@ -246,10 +246,10 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /**
-   * A new, unsaved record of this Relation's Model, handed to `init` first if it's given. Built
-   * through a hasMany, it joins the association, and saving the owner saves it too (autosave).
+   * A new, unsaved record of this Relation's Model, handed to `init` first if it's given (not
+   * awaited, so not an async function). Built through a hasMany, it joins the association, and saving the owner saves it too (autosave).
    */
-  build(attributes: Partial<AttributesOf<M>> = {}, init?: (record: M) => void): M {
+  build(attributes: Partial<AttributesOf<M>> = {}, init?: (record: M) => undefined): M {
     return buildThrough(this.#state, attributes, init);
   }
 
