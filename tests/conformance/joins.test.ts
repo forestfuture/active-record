@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { column, gte, sql, UnknownAssociation } from "../../packages/active-record/src/index.ts";
+import {
+  column,
+  gte,
+  IncompatibleRelation,
+  sql,
+  UnknownAssociation,
+} from "../../packages/active-record/src/index.ts";
 import { Comment } from "../fixtures/models/comment.ts";
 import { Post } from "../fixtures/models/post.ts";
 import { User } from "../fixtures/models/user.ts";
@@ -194,6 +200,55 @@ describe("joins", () => {
         .merge(users().where({ role: "guest" }));
 
       expect((await guests.toArray()).map((comment) => comment.body)).toEqual(["on B1"]);
+    });
+
+    test("takes its order, on the joined table, in place of the receiver's", async () => {
+      const byEmail = posts()
+        .merge(users().order({ email: "desc" }))
+        .order({ id: "asc" });
+
+      expect(await titlesOf(byEmail)).toEqual(["B1", "A1", "A2"]);
+    });
+
+    test("last() reverses each term of an order on a joined Model", async () => {
+      const byEmail = posts()
+        .merge(users().order({ email: "desc" }))
+        .order({ id: "asc" });
+
+      expect((await byEmail.last())?.title).toBe("A2");
+    });
+
+    test("refuses what a joined Model's Relation can't change about the query", () => {
+      const refused = [
+        users().limit(1),
+        users().offset(1),
+        users().select("email"),
+        users().distinct(),
+        users().includes("posts"),
+        users().joins("profile"),
+      ];
+
+      for (const other of refused) expect(() => posts().merge(other)).toThrow(IncompatibleRelation);
+    });
+
+    test("refuses a Model the query doesn't join, or joins more than once", () => {
+      const twice = database.model(Comment).joins({ post: { user: "posts" } });
+
+      expect(() => database.model(Comment).merge(users())).toThrow(IncompatibleRelation);
+      expect(() => twice.merge(database.model(Post).where({ title: "A1" }))).toThrow(
+        IncompatibleRelation,
+      );
+    });
+
+    test("refuses distinct() with a joined Model's order, which Postgres can't sort", () => {
+      const byEmail = posts().merge(users().order({ email: "asc" }));
+
+      expect(() => byEmail.distinct()).toThrow(IncompatibleRelation);
+      expect(() =>
+        posts()
+          .distinct()
+          .merge(users().order({ email: "asc" })),
+      ).toThrow(IncompatibleRelation);
     });
 
     test("keeps the receiver's own conditions", async () => {

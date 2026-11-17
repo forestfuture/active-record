@@ -2,11 +2,14 @@
 import { IrreversibleOrder } from "./errors.ts";
 import type { QueryRunner } from "./load.ts";
 import type { Model, ModelClass } from "./model.ts";
-import type { OrderTerm, QueryDescription } from "./query.ts";
+import { JoinedOrder, type OrderTerm, type QueryDescription } from "./query.ts";
 import { SafeSql } from "./sql.ts";
 
 /** The same term sorting the other way; NULLs move to the other end too, as in Rails. */
 export function reversed(term: OrderTerm): OrderTerm {
+  if (term instanceof JoinedOrder) {
+    return new JoinedOrder(term.path, reversed(term.term) as JoinedOrder["term"]);
+  }
   if (term instanceof SafeSql) {
     throw new IrreversibleOrder(
       "last() can't reverse an order given as an sql fragment; order by attributes, or reverse the fragment yourself and use first()",
@@ -29,7 +32,11 @@ export function atMostOne(limit: number | undefined): number {
  */
 export function stableOrder(model: ModelClass, query: QueryDescription): readonly OrderTerm[] {
   const unique = query.distinct && query.select ? query.select : [model.primaryKey];
-  const ordered = new Set(query.order.map((term) => !(term instanceof SafeSql) && term.attribute));
+  const ordered = new Set(
+    query.order.map(
+      (term) => !(term instanceof SafeSql) && !(term instanceof JoinedOrder) && term.attribute,
+    ),
+  );
   const ties = unique
     .filter((attribute) => !ordered.has(attribute))
     .map((attribute) => ({ attribute, direction: "asc" as const }));

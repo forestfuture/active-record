@@ -11,7 +11,7 @@ import {
 } from "./compiler.ts";
 import { RecordNotFound } from "./errors.ts";
 import { includeTree } from "./preload.ts";
-import { joinsFor, mergedOnJoin, mergeJoins } from "./joins.ts";
+import { joinsFor, mergedOnJoin, mergeJoins, refuseDistinctJoinedOrder } from "./joins.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
 import { inspectRelation } from "./relation-inspect.ts";
 import { runnerFor, selectForToSql, type QueryRunner } from "./load.ts";
@@ -739,6 +739,7 @@ export class Relation<M extends Model, S = {}> {
   #describing(query: QueryDescription): Scoped<M, S> {
     const Class = this.constructor as new (...args: RelationArgs<M>) => Scoped<M, S>;
     checkPreloadable(query);
+    refuseDistinctJoinedOrder(query);
     // A changed query no longer matches what the owner has loaded: the collection narrows.
     const collection = this.#collection.narrowed();
     return new Class({ executor: this.#executor, model: this.#model, query, collection });

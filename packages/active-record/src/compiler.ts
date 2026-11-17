@@ -7,6 +7,7 @@ import { Comparison, comparisonParts, type Operator } from "./comparisons.ts";
 import {
   Either,
   LinkedTo,
+  JoinedOrder,
   Negated,
   OnJoined,
   type Condition,
@@ -616,15 +617,21 @@ function compileEquality(
   return parts.length > 0 ? `(${parts.join(" OR ")})` : NOTHING;
 }
 
-function compileOrder({ source, params }: Context, order: readonly OrderTerm[]): string {
+function compileOrder(context: Context, order: readonly OrderTerm[]): string {
   if (order.length === 0) return "";
-  const terms = order.map((term) => {
-    if (term instanceof SafeSql) return compileFragment(term, source, params);
-    const { attribute, direction, nulls } = term;
-    const column = columnIn(source, attribute);
-    return `${column} ${direction.toUpperCase()}${nulls ? ` NULLS ${nulls.toUpperCase()}` : ""}`;
-  });
-  return ` ORDER BY ${terms.join(", ")}`;
+  return ` ORDER BY ${order.map((term) => compileOrderTerm(context, term)).join(", ")}`;
+}
+
+/** One ORDER BY term, a joined Model's on its join's table. */
+function compileOrderTerm(context: Context, term: OrderTerm): string {
+  const { source, params, tables } = context;
+  if (term instanceof JoinedOrder) {
+    return compileOrderTerm({ ...context, source: sourceAt(tables, term.path) }, term.term);
+  }
+  if (term instanceof SafeSql) return compileFragment(term, source, params);
+  const { attribute, direction, nulls } = term;
+  const column = columnIn(source, attribute);
+  return `${column} ${direction.toUpperCase()}${nulls ? ` NULLS ${nulls.toUpperCase()}` : ""}`;
 }
 
 function compilePagination(
