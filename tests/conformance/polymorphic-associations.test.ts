@@ -19,6 +19,7 @@ class Post extends Model.define({
 
   remarks = hasMany(Remark, { as: "commentable" });
   author = belongsTo(User, { foreignKey: "userId" });
+  remarkers = hasMany(User, { through: "remarks", source: "author" });
 }
 
 class Photo extends Model.define({
@@ -29,6 +30,8 @@ class Photo extends Model.define({
 
   remarks = hasMany(Remark, { as: "commentable" });
   firstRemark = hasOne(Remark, { as: "commentable" });
+  remarkers = hasMany(User, { through: "remarks", source: "author" });
+  firstRemarker = hasOne(User, { through: "firstRemark", source: "author" });
 }
 
 class User extends Model.define({
@@ -43,10 +46,12 @@ class Remark extends Model.define({
   body: "string",
   commentableType: "string",
   commentableId: "integer",
+  userId: "integer",
 }) {
   static table = "remarks";
 
   commentable = belongsTo([Post, Photo], { optional: true });
+  author = belongsTo(User, { foreignKey: "userId", optional: true });
 }
 
 describe("polymorphic associations", () => {
@@ -604,6 +609,69 @@ describe("polymorphic associations", () => {
 
       expect(photo!.loaded("remarks").map(({ id }) => id)).toEqual([2]);
       expect(photo!.loaded("firstRemark")?.id).toBe(2);
+    });
+  });
+
+  // Post 10 and Photo 10 share a key, so only the type tells their join records apart.
+  describe("through an as: association", () => {
+    const joinRows = () =>
+      harness.exec(
+        "SELECT commentable_type, commentable_id, user_id FROM remarks WHERE user_id IS NOT NULL ORDER BY id",
+      );
+
+    test("reads only the records its owner's type reaches", async () => {
+      await harness.exec("UPDATE remarks SET user_id = 1 WHERE id = 1");
+      const db = harness.connect();
+      const photo = await db.model(Photo).find(10);
+
+      expect(await photo.remarkers().toArray()).toEqual([]);
+    });
+
+    test("push gives the join record its owner's type and key", async () => {
+      const db = harness.connect();
+      const [photo, user] = await Promise.all([db.model(Photo).find(10), db.model(User).find(1)]);
+
+      await photo.remarkers().push(user);
+
+      expect(await joinRows()).toEqual([
+        { commentable_type: "Photo", commentable_id: 10, user_id: 1 },
+      ]);
+    });
+
+    test("delete removes only the join records of its owner's type", async () => {
+      await harness.exec("UPDATE remarks SET user_id = 1 WHERE id IN (1, 2)");
+      const db = harness.connect();
+      const [photo, user] = await Promise.all([db.model(Photo).find(10), db.model(User).find(1)]);
+
+      await photo.remarkers().delete(user);
+
+      expect(await joinRows()).toEqual([
+        { commentable_type: "Post", commentable_id: 10, user_id: 1 },
+      ]);
+    });
+
+    test("clear removes only the join records of its owner's type", async () => {
+      await harness.exec("UPDATE remarks SET user_id = 1 WHERE id IN (1, 2)");
+      const db = harness.connect();
+      const photo = await db.model(Photo).find(10);
+
+      await photo.remarkers().clear();
+
+      expect(await joinRows()).toEqual([
+        { commentable_type: "Post", commentable_id: 10, user_id: 1 },
+      ]);
+    });
+
+    test("a hasOne's set builds a join record with its owner's type and key", async () => {
+      await harness.exec("DELETE FROM remarks WHERE commentable_type = 'Photo'");
+      const db = harness.connect();
+      const [photo, user] = await Promise.all([db.model(Photo).find(10), db.model(User).find(1)]);
+
+      await photo.firstRemarker.set(user);
+
+      expect(await joinRows()).toEqual([
+        { commentable_type: "Photo", commentable_id: 10, user_id: 1 },
+      ]);
     });
   });
 });
