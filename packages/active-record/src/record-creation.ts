@@ -21,14 +21,31 @@ export function buildThrough<M extends Model>(
   init: ((record: M) => void) | undefined,
 ): M {
   const record = recordToBuild(relation, attributes);
-  const result: unknown = init?.(record);
-  if (result instanceof Promise) {
-    throw new TypeError(
-      `${relation.model.name}.build(): init returned a promise, which build can't await; findOrInitializeBy and create await it`,
-    );
-  }
+  refuseThenable(relation.model, init?.(record));
   relation.collection.built(record);
   return record;
+}
+
+/**
+ * Throws `TypeError` for what a `build` `init` returned if it's a promise or another thenable,
+ * which `build` can't await. Its rejection, if it has one, is handled here, so the `TypeError` is
+ * the only error.
+ */
+function refuseThenable(model: ModelClass, result: unknown): void {
+  if (!isThenable(result)) return;
+  void Promise.resolve(result).catch(() => {});
+  throw new TypeError(
+    `${model.name}.build(): init returned a promise, which build can't await; findOrInitializeBy and create await it`,
+  );
+}
+
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof value.then === "function"
+  );
 }
 
 /** `buildThrough`, awaiting `init`: what `findOrInitializeBy` builds. */

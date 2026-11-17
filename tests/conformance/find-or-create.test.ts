@@ -84,6 +84,25 @@ describe("making records", () => {
       expect(() => users.build({ email: "new@example.com" }, async () => {})).toThrow(TypeError);
     });
 
+    test("build refuses an init whose promise rejects, leaving no rejection unhandled", () => {
+      const users = db().model(User);
+
+      expect(() =>
+        users.build({ email: "new@example.com" }, async () => {
+          throw new Error("never awaited");
+        }),
+      ).toThrow(TypeError);
+    });
+
+    test("build refuses an init that returns any thenable", () => {
+      const users = db().model(User);
+
+      // oxlint-disable-next-line unicorn/no-thenable -- the thenable build must refuse
+      const thenable = () => ({ then: () => {} });
+
+      expect(() => users.build({ email: "new@example.com" }, thenable)).toThrow(TypeError);
+    });
+
     test("create awaits init before saving, so what it sets is saved", async () => {
       const user = await db()
         .model(User)
