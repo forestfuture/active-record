@@ -18,7 +18,7 @@ describe("grouping types (#345)", () => {
     expectTypeOf(samples.group("quantity").count()).resolves.toEqualTypeOf<
       Map<number | null, number>
     >();
-    const byStatus = () => Sample.group("status").count(); // a static, typed but not run
+    const byStatus = () => Sample.group("status").count(); // a static: typed, never called
     expectTypeOf(byStatus).returns.resolves.toEqualTypeOf<
       Map<"draft" | "published" | null, number>
     >();
@@ -31,10 +31,14 @@ describe("grouping types (#345)", () => {
     expectTypeOf(samples.group(sql`1`, "title").count()).resolves.toEqualTypeOf<
       Map<[unknown, string], number>
     >();
-    // @ts-expect-error -- not an attribute
-    const _unknown = () => samples.group("nope"); // typed but not run
-    // @ts-expect-error -- Postgres can't compare json
-    const _json = () => samples.group("settings");
+    // Checked by the type checker only; never called.
+    const typeOnly = () => {
+      // @ts-expect-error -- not an attribute
+      void samples.group("nope");
+      // @ts-expect-error -- Postgres can't compare json
+      void samples.group("settings");
+    };
+    expectTypeOf(typeOnly).toBeFunction();
   });
 
   test("each calculation's results are typed as on a Relation", () => {
@@ -47,8 +51,12 @@ describe("grouping types (#345)", () => {
     expectTypeOf(byTitle.calculate("sum", "quantity")).resolves.toEqualTypeOf<
       Map<string, number>
     >();
-    // @ts-expect-error -- text can't be summed
-    const _summedText = () => byTitle.sum("title"); // typed but not run
+    // Checked by the type checker only; never called.
+    const typeOnly = () => {
+      // @ts-expect-error -- text can't be summed
+      void byTitle.sum("title");
+    };
+    expectTypeOf(typeOnly).toBeFunction();
   });
 
   test("having needs a group, and a grouped Relation has no records", () => {
