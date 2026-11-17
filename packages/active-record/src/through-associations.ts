@@ -156,9 +156,37 @@ function checkNotCircular(label: string, model: ModelClass, name: string): void 
   walk(model, name);
 }
 
-/** Why nothing is written through a through association (#59): the association it goes through. */
-export function readonlyError({ label, hops }: ResolvedAssociation): ReadonlyAssociation {
+/**
+ * Throws `ReadonlyAssociation` when nothing is written through `association` (#434): only a
+ * join Model's is written through, as in Rails, so it must go through a hasMany (a hasOne, for
+ * a hasOne) to a source that's a belongsTo, and neither may go through another. Rails also
+ * writes through the others, by building or updating the record of the association it goes
+ * through, which replaces a shared or single record; this refuses that.
+ */
+export function requireWritableThrough(association: ResolvedAssociation): void {
+  const reason = writeRefusal(association);
+  if (reason !== undefined) {
+    throw new ReadonlyAssociation(`Can't write through ${association.label}: ${reason}`);
+  }
+}
+
+/** Why nothing is written through `association`, if nothing is. */
+function writeRefusal({ definition, hops }: ResolvedAssociation): string | undefined {
+  const { via, source } = hops!;
+  if (via.hops !== undefined) return `it goes through ${via.label}, which goes through another`;
+  if (source.hops !== undefined) return `its source ${source.label} goes through another`;
+  const viaKind = via.definition.kind;
+  if (viaKind !== definition.kind) return `it goes through ${via.label}, a ${viaKind}`;
+  const sourceKind = source.definition.kind;
+  if (sourceKind !== "belongsTo") {
+    return `its source ${source.label} is a ${sourceKind}, not a belongsTo`;
+  }
+  return undefined;
+}
+
+/** Why nothing is inserted through a through association, as in Rails: no join records would be. */
+export function insertError({ label }: ResolvedAssociation): ReadonlyAssociation {
   return new ReadonlyAssociation(
-    `Can't write through ${label}: it goes through ${hops!.via.label}`,
+    `Can't insert or upsert through ${label}: a bulk write makes no join records`,
   );
 }
