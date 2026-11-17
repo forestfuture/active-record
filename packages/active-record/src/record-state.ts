@@ -23,6 +23,13 @@ export type Changes = Record<string, [before: unknown, after: unknown]>;
 
 type Lifecycle = "new" | "persisted" | "destroyed";
 
+/** What `pointAt` needs of an association: its name, its foreign key, and what it's kept for. */
+interface PointingAssociation {
+  name: string;
+  ownerAttribute: string;
+  keyAttributes: KeyAttributes;
+}
+
 /**
  * Everything one Record knows about itself: its attribute values, lifecycle, the attributes
  * assigned since it was built, its Snapshot (each loaded attribute's stored form as last loaded
@@ -31,13 +38,6 @@ type Lifecycle = "new" | "persisted" | "destroyed";
  * This is the only module that reads or writes those fields. Every rule about them (unloaded
  * attributes, undefined values, destroyed records, change detection) is enforced here.
  */
-/** What `pointAt` needs of an association: its name, its foreign key, and what it's kept for. */
-interface PointingAssociation {
-  name: string;
-  ownerAttribute: string;
-  keyAttributes: KeyAttributes;
-}
-
 export class RecordState {
   readonly #model: ModelClass;
   #executor: Executor | undefined;
@@ -192,8 +192,8 @@ export class RecordState {
   }
 
   /**
-   * Points this record at `value` through `association`'s foreign key, keeping it loaded; for a
-   * polymorphic belongsTo, its type is written first (#60).
+   * Points this record at `value` through `association`'s foreign key, keeping it loaded for its
+   * key attributes (a polymorphic belongsTo's type is written before, by its `set`; #60).
    */
   pointAt(association: PointingAssociation, key: unknown, value: unknown): void {
     const { name, ownerAttribute, keyAttributes } = association;

@@ -170,7 +170,7 @@ async function prepareRemoval(
 }
 
 /**
- * The old record with its foreign key set to null, saved: validated, with its callbacks. One that
+ * The old record with its foreign key, and with `as` its type (#60), set to null, saved: validated, with its callbacks. One that
  * can't be saved, refused or by a NOT NULL foreign key, throws `RecordNotSaved` as in Rails, and
  * nothing is written; one refused before writing keeps its key.
  */
@@ -196,15 +196,17 @@ function unlinkInMemory(old: Model, association: ResolvedAssociation): () => voi
     attribute === definition.foreignKey
       ? old[state].writeKey(attribute, value, name)
       : old[state].write(attribute, value);
-  const before = association.nullifiedAttributes.map((each) => [each, old[state].read(each)]);
-  for (const [attribute] of before) write(attribute as string, null);
+  const before = association.nullifiedAttributes.map(
+    (each): [attribute: string, value: unknown] => [each, old[state].read(each)],
+  );
+  for (const [attribute] of before) write(attribute, null);
   return () => {
-    for (const [attribute, value] of before) write(attribute as string, value);
+    for (const [attribute, value] of before) write(attribute, value);
   };
 }
 
 /**
- * A nullify's plan whose batch, if it fails, gives the old record its key back (`restore`), and turns the
+ * A nullify's plan whose batch, if it fails, gives the old record its key and type back (`restore`), and turns the
  * database refusing its null foreign key into `RecordNotSaved`.
  */
 function undoneOnFailure(

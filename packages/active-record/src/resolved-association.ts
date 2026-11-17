@@ -1,4 +1,4 @@
-// An association resolved for one owner: which attributes link the records, in what order, and which database its records are on.
+// An association resolved for one owner: which attributes link the records (a polymorphic one's type too, #60), in what order, which database its records are on, and what nullifying them clears.
 // associations.ts imports this module too; both uses are at call time, never at load.
 import { readyModel, type AssociationDefinition } from "./associations.ts";
 import { currentExecutorOf } from "./current-database.ts";
