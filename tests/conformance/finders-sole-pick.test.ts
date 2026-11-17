@@ -194,4 +194,28 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       expect((await users().lastOrThrow()).id).toBe(3);
     });
   });
+
+  describe("within the Relation's page, or none()", () => {
+    test("pick and sole keep the Relation's offset, and limit(0) finds nothing", async () => {
+      await seed([1, "b@example.com", 30], [2, "c@example.com", 20], [3, "a@example.com", 40]);
+      const byEmail = users().order({ email: "asc" });
+
+      expect(await byEmail.offset(1).pick("email")).toBe("b@example.com");
+      expect((await byEmail.offset(2).sole()).email).toBe("c@example.com");
+      expect(await byEmail.limit(0).pick("email")).toBeNull();
+      await expect(byEmail.limit(0).sole()).rejects.toThrow(RecordNotFound);
+    });
+
+    test("on none(), pick is null, ids are empty, and sole and the OrThrow finders throw, with no query", async () => {
+      await seed([1, "a@example.com", 30]);
+      const none = users().none();
+
+      expect(await none.pick("email")).toBeNull();
+      expect(await none.ids()).toEqual([]);
+      await expect(none.sole()).rejects.toThrow(RecordNotFound);
+      await expect(none.findSoleBy({ age: 30 })).rejects.toThrow(RecordNotFound);
+      await expect(none.firstOrThrow()).rejects.toThrow(RecordNotFound);
+      expect(events).toHaveLength(0);
+    });
+  });
 });
