@@ -70,6 +70,19 @@ class RestrictedPost extends Model.define({
   comments = hasMany(Comment, { foreignKey: "postId", dependent: "restrictWithError" });
 }
 
+/** The same comments, but those whose body is "d" are out of its default scope. */
+class ScopedComment extends Model.define({
+  id: { type: "integer", null: false },
+  postId: "integer",
+  body: "string",
+}) {
+  static table = "comments";
+
+  static {
+    this.defaultScope((q) => q.whereNot({ body: "d" }));
+  }
+}
+
 describe("destroying many records", () => {
   let harness: Harness;
   const queries: QueryEvent[] = [];
@@ -294,6 +307,18 @@ describe("destroying many records", () => {
       await expect(inDatabase(() => Comment.destroy([10, 11]))).rejects.toThrow(RecordNotDestroyed);
 
       expect(await bodies()).toEqual(["a", "keep", "c", "d"]);
+    });
+
+    test("destroy finds within the default scope, so a record outside it is RecordNotFound", async () => {
+      await expect(inDatabase(() => ScopedComment.destroy(30))).rejects.toThrow(RecordNotFound);
+
+      expect(await bodies()).toEqual(["a", "b", "c", "d"]);
+    });
+
+    test("delete leaves a row outside the default scope", async () => {
+      expect(await inDatabase(() => ScopedComment.delete([10, 30]))).toBe(1);
+
+      expect(await bodies()).toEqual(["b", "c", "d"]);
     });
 
     test("delete(id) deletes the row without callbacks, and resolves to how many", async () => {
