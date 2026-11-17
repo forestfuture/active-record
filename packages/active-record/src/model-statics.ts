@@ -36,7 +36,6 @@ const relationMethods = [
   "whereNot",
   "none",
   "or",
-  "merge",
   "order",
   "reorder",
   "limit",
@@ -105,6 +104,14 @@ type CalculationStatic<AttributeKind extends "number" | "ordered", Fragment, Nul
 
 /** The Relation methods with overloads or type parameters, typed by hand. */
 interface OverloadedStatics {
+  /**
+   * The class's Relation with `other`'s conditions ANDed on, and its explicit clauses replacing
+   * its own; `other` may be a Relation of a Model the Relation joins once (#24).
+   */
+  merge: <C extends QueryableClass, T extends Model, O>(
+    this: C,
+    other: Relation<T, O>,
+  ) => RelationOf<C>;
   sum: CalculationStatic<"number", number, never>;
   minimum: CalculationStatic<"ordered", unknown, null>;
   maximum: CalculationStatic<"ordered", unknown, null>;
@@ -326,6 +333,7 @@ export function defineStatics(base: typeof Model): void {
     });
   }
   const overloaded = [
+    "merge",
     "find",
     "pluck",
     "paginate",
