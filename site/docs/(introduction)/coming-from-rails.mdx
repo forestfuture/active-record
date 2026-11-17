@@ -71,6 +71,7 @@ The generators follow `rails generate model` and `rails generate migration`. A c
 - `merge` replaces the order rather than appending to it.
 - `merge` of another Model needs a join to it, and takes only its conditions and order. Anything else throws `IncompatibleRelation` when you write the query.
 - `find(1, 2)` on a `hasMany` join returns each record once.
+- `distinct()` with an order on a joined Model throws `IncompatibleRelation` on every database, where Postgres alone would refuse it.
 - `last()` can’t reverse an `sql` fragment order, and throws `IrreversibleOrder`, rather than trying to parse SQL.
 - `find(1, 1)` always returns an array, so its return type follows its arguments.
 - `dependent:` strategies run after the owner’s `beforeDestroy` callbacks, wherever they’re declared, so an `abort()` always protects the records.

@@ -364,22 +364,25 @@ The association’s `scope` and the joined Model’s default scope are part of t
 
 ### Filtering by a joined Model
 
-Merge a Relation of the joined Model to filter or sort by its attributes. Its conditions, its scopes, and its order apply to the joined table:
+Merge a Relation of the joined Model to filter or sort by its attributes:
 
 <include>/_excerpts/guide/joins/merge.ts</include>
 
-As with any `merge`, the joined Model’s order replaces the receiver’s.
+Its conditions, its scopes, and its order apply to the joined table. As with any `merge`, the joined Model’s order replaces the receiver’s.
 
 :::note
-The merged Relation can only add conditions and an order. A `limit`, `offset`, `select`, `distinct()`, `includes`, or `joins` of its own throws `IncompatibleRelation`. So does merging a Model the query doesn’t join, or joins more than once, and adding `distinct()` to a query ordered by a joined Model.
+The merged Relation can only add conditions and an order. A `limit`, `offset`, `select`, `distinct()`, `includes`, or `joins` of its own throws `IncompatibleRelation`. Merging a Model the query doesn’t join, or joins more than once, throws it too. So does `distinct()` on a query ordered by a joined Model.
 :::
 
+:::note
 A join reads one database. Joining an association to a Model on another database throws `IncompatibleRelation` when you write the query.
+:::
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
 - Rails builds the SQL for a merged Model the query doesn’t join, and the database rejects it when the query runs. Active Record throws `IncompatibleRelation` when you write it.
 - Rails applies a merged Relation’s `limit` to the whole query. Active Record refuses it.
+- Rails leaves `distinct` with an order on a joined table to the database, which Postgres refuses and SQLite runs. Active Record throws `IncompatibleRelation` on both.
 - With a `hasMany` join, Rails’ `find(1, 2)` counts the duplicate rows and raises `RecordNotFound`. Active Record returns each record once.
 - Rails’ `where(author: { name: "Mary" })`, `where.missing`, and `eager_load` aren’t here yet. Merge a Relation of the joined Model instead, and preload with `includes`.
 
