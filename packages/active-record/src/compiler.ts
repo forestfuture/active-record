@@ -135,7 +135,7 @@ function compileCondition(context: Context, condition: Condition): string {
     const attribute = attributeFor(source.model, name);
     const column = columnIn(source, name);
     return value instanceof Comparison
-      ? compileComparison(column, attribute, value, params)
+      ? compileComparison({ column, attribute }, value, params)
       : compileEquality(context.dialect, { column, attribute }, value, params);
   });
   return `(${parts.join(" AND ")})`;
@@ -562,8 +562,7 @@ export function compileExists(dialect: Dialect, query: QueryDescription): Compil
 
 /** `attr >= ?`, `attr BETWEEN ? AND ?`, …, with the values converted like the attribute's. */
 function compileComparison(
-  column: string,
-  attribute: Attribute,
+  { column, attribute }: { column: string; attribute: Attribute },
   comparison: Comparison,
   params: unknown[],
 ): string {
