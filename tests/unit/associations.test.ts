@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vite-plus/test";
+import { describe, expect, expectTypeOf, test } from "vite-plus/test";
 import {
   belongsTo,
   hasMany,
@@ -7,7 +7,10 @@ import {
   Model,
   NoDatabase,
   type HasMany,
+  type HasManyThrough,
+  type HasOneThrough,
 } from "../../packages/active-record/src/index.ts";
+import type { LoadedValue } from "../../packages/active-record/src/model.ts";
 import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 import { Post } from "../fixtures/models/post.ts";
 
@@ -192,5 +195,54 @@ describe("association declarations", () => {
     expect(() => db.model(anonymous)).toThrow(
       /has no class name to infer its foreign key from; pass foreignKey, or set static modelName/,
     );
+  });
+});
+
+describe("an association through another's types (#59)", () => {
+  class Tag extends Model.define({ id: "integer", name: "string" }) {
+    static table = "tags";
+  }
+  class Tagging extends Model.define({ id: "integer", noteId: "integer", tagId: "integer" }) {
+    static table = "taggings";
+    tag = belongsTo(Tag);
+    note = belongsTo(Note);
+  }
+  class Note extends Model.define({ id: "integer" }) {
+    static table = "notes";
+    taggings = hasMany(Tagging);
+    tags = hasMany(Tag, { through: "taggings" });
+  }
+  class Mark extends Model.define({ id: "integer", taggingId: "integer" }) {
+    static table = "marks";
+    tagging = belongsTo(Tagging);
+    note = hasOne(Note, { through: "tagging" });
+  }
+
+  test("a hasMany through another reads, preloads and loads like any hasMany", () => {
+    expectTypeOf<Note["tags"]>().toEqualTypeOf<HasManyThrough<typeof Tag>>();
+    expectTypeOf<ReturnType<Note["tags"]>>().toHaveProperty("where");
+    expectTypeOf<LoadedValue<Note["tags"]>>().toEqualTypeOf<Tag[]>();
+    expectTypeOf<Parameters<Note["loaded"]>[0]>().toEqualTypeOf<"taggings" | "tags">();
+    expect(() => db.model(Note).includes("tags")).not.toThrow();
+  });
+
+  test("a hasMany through another has no collection methods", () => {
+    expectTypeOf<ReturnType<Note["tags"]>>().not.toHaveProperty("push");
+    expectTypeOf<ReturnType<Note["tags"]>>().not.toHaveProperty("clear");
+  });
+
+  test("a hasOne through another reads its record, and has no writers", () => {
+    expectTypeOf<Mark["note"]>().toEqualTypeOf<HasOneThrough<typeof Note>>();
+    expectTypeOf<ReturnType<Mark["note"]>>().resolves.toEqualTypeOf<Note | null>();
+    expectTypeOf<LoadedValue<Mark["note"]>>().toEqualTypeOf<Note | null>();
+    expectTypeOf<Mark["note"]>().not.toHaveProperty("build");
+    expectTypeOf<Parameters<Mark["loaded"]>[0]>().toEqualTypeOf<"tagging" | "note">();
+  });
+
+  test("dependent and autosave aren't options of a through association", () => {
+    // @ts-expect-error -- dependent belongs to the hops of a through association
+    hasMany(Tag, { through: "taggings", dependent: "destroy" });
+    // @ts-expect-error -- autosave belongs to the hops of a through association
+    hasOne(Tag, { through: "taggings", autosave: true });
   });
 });

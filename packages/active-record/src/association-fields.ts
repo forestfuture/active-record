@@ -7,8 +7,11 @@ import type {
   BelongsTo,
   HasMany,
   HasManyDependent,
+  HasManyThrough,
   HasOne,
   HasOneDependent,
+  HasOneThrough,
+  ThroughOptions,
 } from "./associations.ts";
 import { NoDatabase, UnknownAssociation } from "./errors.ts";
 import { withForeignKeys } from "./foreign-keys.ts";
@@ -61,7 +64,7 @@ function declaration<A>(kind: AssociationKind, target: ModelClass, options: obje
 /** This record points at one `target` record through `foreignKey` (its own attribute). */
 export function belongsTo<C extends ModelClass>(
   target: C,
-  options: Omit<AssociationOptions<C>, "dependent" | "through" | "source"> & {
+  options: Omit<AssociationOptions<C>, "dependent"> & {
     /** The record may point at nothing: saving doesn't require its record (#339). */
     optional?: boolean;
   } = {},
@@ -69,19 +72,35 @@ export function belongsTo<C extends ModelClass>(
   return declaration("belongsTo", target, options);
 }
 
-/** Many `target` records point at this record through `foreignKey` (theirs). */
+/**
+ * Many `target` records point at this record through `foreignKey` (theirs); or, with `through`,
+ * this record reaches them through another of its associations (#59).
+ */
 export function hasMany<C extends ModelClass>(
   target: C,
-  options: AssociationOptions<C> & { dependent?: HasManyDependent } = {},
-): HasMany<C> {
+  options: ThroughOptions<C>,
+): HasManyThrough<C>;
+export function hasMany<C extends ModelClass>(
+  target: C,
+  options?: AssociationOptions<C> & { dependent?: HasManyDependent },
+): HasMany<C>;
+export function hasMany<C extends ModelClass>(target: C, options: object = {}): unknown {
   return declaration("hasMany", target, options);
 }
 
-/** One `target` record points at this record through `foreignKey` (its own). */
+/**
+ * One `target` record points at this record through `foreignKey` (its own); or, with
+ * `through`, this record reaches it through another of its associations (#59).
+ */
 export function hasOne<C extends ModelClass>(
   target: C,
-  options: AssociationOptions<C> & { dependent?: HasOneDependent } = {},
-): HasOne<C> {
+  options: ThroughOptions<C>,
+): HasOneThrough<C>;
+export function hasOne<C extends ModelClass>(
+  target: C,
+  options?: AssociationOptions<C> & { dependent?: HasOneDependent },
+): HasOne<C>;
+export function hasOne<C extends ModelClass>(target: C, options: object = {}): unknown {
   return declaration("hasOne", target, options);
 }
 

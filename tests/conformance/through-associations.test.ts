@@ -3,6 +3,8 @@ import {
   belongsTo,
   hasMany,
   hasOne,
+  type HasManyCollection,
+  type HasOne,
   InvalidModel,
   Model,
   ReadonlyAssociation,
@@ -142,16 +144,19 @@ const misdeclared = {
   Dependent: class extends Model.define(userAttributes) {
     static table = "users";
     assignments = hasMany(Assignment, { foreignKey: "userId" });
+    // @ts-expect-error -- a type error too; this shows the runtime check
     projects = hasMany(Project, { through: "assignments", dependent: "destroy" });
   },
   Autosaved: class extends Model.define(userAttributes) {
     static table = "users";
     assignments = hasMany(Assignment, { foreignKey: "userId" });
+    // @ts-expect-error -- a type error too; this shows the runtime check
     projects = hasMany(Project, { through: "assignments", autosave: true });
   },
   Keyed: class extends Model.define(userAttributes) {
     static table = "users";
     assignments = hasMany(Assignment, { foreignKey: "userId" });
+    // @ts-expect-error -- a type error too; this shows the runtime check
     projects = hasMany(Project, { through: "assignments", foreignKey: "userId" });
   },
 };
@@ -334,6 +339,8 @@ describe("an association through another", () => {
   });
 
   describe("writing through it, which it refuses", () => {
+    // Its type has no collection methods; cast to reach the runtime refusals.
+    const asCollection = (projects: unknown) => projects as HasManyCollection<Project>;
     const counts = async () => [
       await db().model(Project).count(),
       await db().model(Assignment).count(),
@@ -351,10 +358,10 @@ describe("an association through another", () => {
       "a narrowed build": (user: User) => user.projects().where({ archived: 0 }).build(),
       "a narrowed create": (user: User) => user.projects().where({ archived: 0 }).create(),
       deleteAll: (user: User) => user.projects().deleteAll(),
-      push: (user: User) => user.projects().push(new Project()),
-      delete: (user: User) => user.projects().delete(new Project()),
-      destroy: (user: User) => user.projects().destroy(new Project()),
-      clear: (user: User) => user.projects().clear(),
+      push: (user: User) => asCollection(user.projects()).push(new Project()),
+      delete: (user: User) => asCollection(user.projects()).delete(new Project()),
+      destroy: (user: User) => asCollection(user.projects()).destroy(new Project()),
+      clear: (user: User) => asCollection(user.projects()).clear(),
       "a batch's insert": (user: User) =>
         db().batch((b) => [b.insert(user.projects(), { name: "New" })]),
       "a batch's deleteAll": (user: User) => db().batch((b) => [b.deleteAll(user.projects())]),
@@ -394,11 +401,13 @@ describe("an association through another", () => {
       const post = await db().model(Post).find(1);
       const profile = db().model(Profile).build({ userId: 1 });
       const message = "Can't write through Post.authorProfile: it goes through Post.user";
+      // Its type has no writers; cast to reach the runtime refusals.
+      const authorProfile = post.authorProfile as unknown as HasOne<typeof Profile>;
 
-      expect(() => post.authorProfile.build()).toThrow(message);
-      await expect(post.authorProfile.set(profile)).rejects.toThrow(ReadonlyAssociation);
-      await expect(post.authorProfile.create()).rejects.toThrow(ReadonlyAssociation);
-      await expect(post.authorProfile.createOrThrow()).rejects.toThrow(ReadonlyAssociation);
+      expect(() => authorProfile.build()).toThrow(message);
+      await expect(authorProfile.set(profile)).rejects.toThrow(ReadonlyAssociation);
+      await expect(authorProfile.create()).rejects.toThrow(ReadonlyAssociation);
+      await expect(authorProfile.createOrThrow()).rejects.toThrow(ReadonlyAssociation);
       expect(await db().model(Profile).count()).toBe(0);
     });
   });

@@ -39,16 +39,22 @@ export interface AssociationOptions<C extends ModelClass = ModelClass> {
    * those marked with `markForDestruction()`, as Rails' `autosave: true` does (#37).
    */
   autosave?: true;
-  /**
-   * Reaches the records through another of the owner's associations, named here, and that one's
-   * Model's association to them (#59): `projects = hasMany(Project, { through: "assignments" })`.
-   */
-  through?: string;
+}
+
+/**
+ * What an association through another takes (#59): `projects = hasMany(Project, { through:
+ * "assignments" })`. Its keys, `dependent` and `autosave` are its hops'.
+ */
+export interface ThroughOptions<C extends ModelClass = ModelClass> {
+  /** The owner's association it reaches its records through: one to the join Model. */
+  through: string;
   /**
    * The association of the `through` association's Model that reaches the records. Left out, it's
    * the one named as this association, singular or plural (`projects` → `project`, `projects`).
    */
   source?: string;
+  /** Narrows or orders its records: `(q) => q.order(…)`. */
+  scope?: AssociationScope<C>;
 }
 
 /** Rails' `dependent:` strategies for a hasMany. */
@@ -78,7 +84,7 @@ const DEPENDENTS: Record<AssociationKind, readonly Dependent[]> = {
 export type AssociationKind = "belongsTo" | "hasMany" | "hasOne";
 
 /** One declared association: its kind, its target Model, and its options. */
-export interface AssociationDeclaration extends AssociationOptions {
+export interface AssociationDeclaration extends AssociationOptions, Partial<ThroughOptions> {
   kind: AssociationKind;
   /** A belongsTo that may point at nothing: its record isn't required (#339). */
   optional?: boolean;
@@ -124,6 +130,24 @@ export interface HasOne<C extends ModelClass> {
  * collection methods (`push`, `delete`, `destroy`, `clear`) that only the association itself has.
  */
 export type HasMany<C extends ModelClass> = () => HasManyCollection<InstanceType<C>, ScopesOf<C>>;
+
+/**
+ * `note.tags()` for an association through another (#59): a Relation of its records, which
+ * reads and preloads as any hasMany's, but has no collection methods: nothing is written through it.
+ */
+export type HasManyThrough<C extends ModelClass> = () => Scoped<InstanceType<C>, ScopesOf<C>>;
+
+/**
+ * `await mark.note()` for a hasOne through another (#59): its record, or null. Nothing is
+ * written through it, so it has no `set`, `build` or `create`.
+ */
+export interface HasOneThrough<C extends ModelClass> {
+  (): Promise<InstanceType<C> | null>;
+  /** Type-only: marks the accessor, so a record method returning a Promise isn't one. */
+  readonly [throughTarget]: C;
+}
+
+declare const throughTarget: unique symbol;
 
 /** What a hasMany accessor returns: its Relation, with the collection methods. */
 export type HasManyCollection<M extends Model, S = {}> = Scoped<M, S> & CollectionMethods<M>;

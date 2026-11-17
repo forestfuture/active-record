@@ -6,8 +6,11 @@ export type {
   HasMany,
   HasManyCollection,
   HasManyDependent,
+  HasManyThrough,
   HasOne,
   HasOneDependent,
+  HasOneThrough,
+  ThroughOptions,
 } from "./associations.ts";
 export { batch, type BatchEntry, type BatchResults } from "./batch.ts";
 export type { Batch } from "./batch-builder.ts";

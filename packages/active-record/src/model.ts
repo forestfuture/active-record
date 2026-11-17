@@ -43,7 +43,7 @@ import {
 import { RecordState, state, type Changes } from "./record-state.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
 import { inspectRecord } from "./record-inspect.ts";
-import { readyModel, type BelongsTo, type HasOne } from "./associations.ts";
+import { readyModel, type BelongsTo, type HasOne, type HasOneThrough } from "./associations.ts";
 import type { Relation, Scope, Scoped } from "./relation.ts";
 import { defineStatics, ModelStatics } from "./model-statics.ts";
 import { currentRelation } from "./current-database.ts";
@@ -88,7 +88,12 @@ export type LoadedValue<F> = F extends () => Promise<infer R>
  * assignable to a Relation of the library's base class.
  */
 // oxlint-disable-next-line typescript/no-explicit-any -- any Model's association
-type AnyAssociation = BelongsTo<any> | HasOne<any> | (() => Relation<any, any>);
+type Any = any;
+type AnyAssociation =
+  | BelongsTo<Any>
+  | HasOne<Any>
+  | HasOneThrough<Any>
+  | (() => Relation<Any, Any>);
 
 /** The names of a record's association accessors (from their fields' types). */
 export type AssociationName<R> = {
