@@ -117,6 +117,8 @@ export interface AssociationDeclaration extends AssociationOptions, Partial<Thro
   targets?: () => readonly ModelClass[];
   /** The attribute holding a polymorphic association's type: the owner's for a belongsTo. */
   foreignType?: string;
+  /** A hasMany's or hasOne's target's polymorphic belongsTo, whose other side it is (#60). */
+  as?: string;
 }
 
 /** One declared association, its foreign key given or inferred from the names (`associationsOf`). */

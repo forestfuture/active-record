@@ -113,6 +113,20 @@ export function belongsTo(
 }
 
 /**
+ * What only a hasMany or hasOne takes: `as`, the name of the target's polymorphic belongsTo
+ * (#60), so its records point at this one by its type and key.
+ */
+interface ToPolymorphicOptions {
+  /**
+   * The target's polymorphic belongsTo this one is the other side of (#60): its records'
+   * `${as}Type` holds this Model's name and `${as}Id` its key.
+   */
+  as?: string;
+  /** The target's attribute holding the type, inferred from `as` (`commentableType`). */
+  foreignType?: string;
+}
+
+/**
  * Many `target` records point at this record through `foreignKey` (theirs); or, with `through`,
  * this record reaches them through another of its associations (#59).
  */
@@ -122,7 +136,7 @@ export function hasMany<C extends ModelClass>(
 ): HasManyThrough<C>;
 export function hasMany<C extends ModelClass>(
   target: C,
-  options?: AssociationOptions<C> & { dependent?: HasManyDependent },
+  options?: AssociationOptions<C> & ToPolymorphicOptions & { dependent?: HasManyDependent },
 ): HasMany<C>;
 export function hasMany<C extends ModelClass>(target: C, options: object = {}): unknown {
   return declaration("hasMany", target, options);
@@ -138,7 +152,7 @@ export function hasOne<C extends ModelClass>(
 ): HasOneThrough<C>;
 export function hasOne<C extends ModelClass>(
   target: C,
-  options?: AssociationOptions<C> & { dependent?: HasOneDependent },
+  options?: AssociationOptions<C> & ToPolymorphicOptions & { dependent?: HasOneDependent },
 ): HasOne<C>;
 export function hasOne<C extends ModelClass>(target: C, options: object = {}): unknown {
   return declaration("hasOne", target, options);

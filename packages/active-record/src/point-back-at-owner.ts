@@ -46,7 +46,7 @@ function inverseOf(
   if (association.definition.scope !== undefined) return undefined;
   for (const [name, definition] of associationsOf(target)) {
     if (definition.kind !== "belongsTo" || definition.foreignKey !== targetAttribute) continue;
-    if (definition.scope !== undefined) continue;
+    if (definition.scope !== undefined || definition.targets !== undefined) continue;
     if (!(owner instanceof definition.target())) continue;
     const candidate = resolveAssociation(target, name);
     if (candidate.targetAttribute === ownerAttribute) return candidate;

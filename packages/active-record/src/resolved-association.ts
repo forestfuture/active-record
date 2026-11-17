@@ -90,7 +90,7 @@ export class ResolvedAssociation {
     this.hops = hopsOf(owner, name, this.definition);
     this.#link = linkFor(this.definition, owner, linked, this.hops);
     this.ownerAttribute = this.#link.ownerAttribute;
-    this.type = typeOf(this.definition, this.#link.target);
+    this.type = typeOf(this.definition, owner, this.#link.target);
     this.branches = [this];
   }
 
@@ -174,10 +174,20 @@ export class ResolvedAssociation {
     // A through association's records are its source's, with the source's scope too.
     const relation =
       this.hops?.source.all(executor) ??
-      (relationFor(this.targetExecutor(executor), this.target) as Scoped<Model>);
+      this.#ofOwnersType(relationFor(this.targetExecutor(executor), this.target) as Scoped<Model>);
     const { scope } = this.definition;
     if (scope === undefined) return relation;
     return relation[applyScope](this.label, scope as Scope<Model>, []) as Scoped<Model>;
+  }
+
+  /**
+   * `relation`, for a hasMany or hasOne with `as` (#60), narrowed to the records whose type is
+   * the owner's Model, so records built through it take that type too.
+   */
+  #ofOwnersType(relation: Scoped<Model>): Scoped<Model> {
+    if (this.definition.as === undefined) return relation;
+    const { attribute, value } = this.type!;
+    return relation.where({ [attribute]: value });
   }
 
   /** The target's records linked to `key` (one value, or a list), for an owner on `executor`. */
@@ -241,7 +251,10 @@ export class ResolvedAssociation {
    */
   keyOf(owner: Model): unknown {
     if (this.hops !== undefined) return this.hops.via.keyOf(owner);
-    if (this.definition.kind !== "belongsTo" && owner[state].isNew) return null;
+    if (this.definition.kind !== "belongsTo") {
+      return owner[state].isNew ? null : owner[state].read(this.ownerAttribute);
+    }
+    // A polymorphic belongsTo with no type points at nothing (#60).
     const { foreignType } = this.definition;
     if (foreignType !== undefined && owner[state].read(foreignType) === null) return null;
     return owner[state].read(this.ownerAttribute);
@@ -289,15 +302,18 @@ function linkFor(
 }
 
 /**
- * A polymorphic belongsTo branch's type (#60): its owner's type attribute, holding the name of
- * the Model whose table `target`'s is, as Rails stores its base class's name.
+ * A polymorphic link's type (#60), the name of the Model whose table it is, as Rails stores its
+ * base class's name: a polymorphic belongsTo branch's owner holds its target's, and the records
+ * of a hasMany or hasOne with `as` hold their owner's.
  */
 function typeOf(
-  definition: AssociationDefinition,
+  { targets, as, foreignType }: AssociationDefinition,
+  owner: ModelClass,
   target: ModelClass,
 ): ResolvedAssociation["type"] {
-  if (definition.targets === undefined) return undefined;
-  return { attribute: definition.foreignType!, value: tableOwnerModelName(target) };
+  if (targets !== undefined) return { attribute: foreignType!, value: tableOwnerModelName(target) };
+  if (as !== undefined) return { attribute: foreignType!, value: tableOwnerModelName(owner) };
+  return undefined;
 }
 
 /** Whether the schemas `owner` and `target` are built on name two different databases. */
