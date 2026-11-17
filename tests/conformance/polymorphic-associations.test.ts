@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, Model, UnknownModelName } from "../../packages/active-record/src/index.ts";
+import {
+  belongsTo,
+  hasMany,
+  hasOne,
+  Model,
+  UnknownModelName,
+} from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -9,6 +15,8 @@ class Post extends Model.define({
   title: { type: "string", null: false },
 }) {
   static table = "posts";
+
+  remarks = hasMany(Remark, { as: "commentable" });
 }
 
 class Photo extends Model.define({
@@ -16,6 +24,9 @@ class Photo extends Model.define({
   title: "string",
 }) {
   static table = "photos";
+
+  remarks = hasMany(Remark, { as: "commentable" });
+  firstRemark = hasOne(Remark, { as: "commentable" });
 }
 
 class User extends Model.define({
@@ -141,6 +152,48 @@ describe("polymorphic associations", () => {
       remark.commentableType = "Photo";
 
       expect(await remark.commentable()).toBeInstanceOf(Photo);
+    });
+  });
+
+  describe("hasMany and hasOne through a polymorphic belongsTo, with as:", () => {
+    test("read only the records whose type is the owner's Model", async () => {
+      const db = harness.connect();
+      const post = await db.model(Post).find(10);
+      const photo = await db.model(Photo).find(10);
+
+      expect((await post.remarks().toArray()).map(({ body }) => body)).toEqual(["On a post"]);
+      expect((await photo.remarks().toArray()).map(({ body }) => body)).toEqual(["On a photo"]);
+      expect((await photo.firstRemark())?.body).toBe("On a photo");
+    });
+
+    test("build and create through a hasMany fill in the type and key", async () => {
+      const db = harness.connect();
+      const post = await db.model(Post).find(10);
+
+      const built = post.remarks().build({ id: 4, body: "Built" });
+      const created = await post.remarks().create({ id: 5, body: "Created" });
+
+      expect([built.commentableType, built.commentableId]).toEqual(["Post", 10]);
+      expect([created.commentableType, created.commentableId]).toEqual(["Post", 10]);
+      const rows = await harness.exec(
+        "SELECT commentable_type, commentable_id FROM remarks WHERE id = 5",
+      );
+      expect(rows).toEqual([{ commentable_type: "Post", commentable_id: 10 }]);
+    });
+
+    test("build and set through a hasOne fill in the type and key", async () => {
+      const db = harness.connect();
+      const photo = await db.model(Photo).find(10);
+      const other = await db.model(Remark).find(3);
+
+      const built = photo.firstRemark.build({ id: 4, body: "Built" });
+      await photo.firstRemark.set(other);
+
+      expect([built.commentableType, built.commentableId]).toEqual(["Photo", 10]);
+      const rows = await harness.exec(
+        "SELECT commentable_type, commentable_id FROM remarks WHERE id = 3",
+      );
+      expect(rows).toEqual([{ commentable_type: "Photo", commentable_id: 10 }]);
     });
   });
 });

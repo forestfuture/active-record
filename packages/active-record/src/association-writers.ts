@@ -254,9 +254,20 @@ function adopt(owner: Model, association: ResolvedAssociation, record: Model): v
   const replaced = takeReplaced(owner, association);
   if (!owner[state].isNew) markReplacing(record, { owner, association, replaced });
   record[state].writeKey(definition.foreignKey, owner[state].read(ownerAttribute), name);
+  writeOwnersType(association, record);
   owner[state].associations.set(name, association.keyAttributes, record);
   owner[state].autosaves.setBuilt(name, record);
   pointBackAtOwner(owner, association, record);
+}
+
+/**
+ * Gives `record` its owner's type, for a hasMany or hasOne with `as` (#60): the name of the
+ * owner's Model, which the other side's polymorphic belongsTo reads.
+ */
+export function writeOwnersType(association: ResolvedAssociation, record: Model): void {
+  if (association.definition.as === undefined) return;
+  const { attribute, value } = association.type!;
+  record[state].write(attribute, value);
 }
 
 /** Where a record built through `association` for `owner` is saved: its target's database. */

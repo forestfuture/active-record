@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import { belongsTo, InvalidModel, Model } from "../../packages/active-record/src/index.ts";
+import { belongsTo, hasMany, InvalidModel, Model } from "../../packages/active-record/src/index.ts";
 import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
 
 // No D1 needed: these checks happen when a Model is first used.
@@ -124,6 +124,55 @@ describe("a polymorphic belongsTo's declaration", () => {
     );
     expect(() => db.model(Empty)).toThrow(
       new InvalidModel('Empty association "commentable" must list the Models it can point at'),
+    );
+  });
+});
+
+describe("a hasMany or hasOne with as:", () => {
+  test("needs the target's type attribute", () => {
+    class Bare extends Model.define({ id: "integer", commentableId: "integer" }) {
+      static table = "remarks";
+    }
+    class Album extends Model.define({ id: "integer" }) {
+      static table = "photos";
+      remarks = hasMany(Bare, { as: "commentable" });
+    }
+
+    expect(() => db.model(Album)).toThrow(
+      new InvalidModel(
+        'Album association "remarks": Bare has no attribute "commentableType" (inferred from as: "commentable"; declare it, or pass foreignType)',
+      ),
+    );
+  });
+
+  test("must be the other side of a polymorphic belongsTo that lists its Model", () => {
+    class Plain extends Model.define({
+      id: "integer",
+      commentableType: "string",
+      commentableId: "integer",
+    }) {
+      static table = "remarks";
+      commentable = belongsTo(Post);
+    }
+    class Album extends Model.define({ id: "integer" }) {
+      static table = "photos";
+      plain = hasMany(Plain, { as: "commentable" });
+      remarks = hasMany(Remark, { as: "commentable" });
+    }
+    class Unlisted extends Model.define({ id: "integer" }) {
+      static table = "photos";
+      remarks = hasMany(Remark, { as: "commentable" });
+    }
+
+    expect(() => db.model(Album)).toThrow(
+      new InvalidModel(
+        'Album association "plain": Plain.commentable isn\'t a polymorphic belongsTo; declare it belongsTo([Album, …])',
+      ),
+    );
+    expect(() => db.model(Unlisted)).toThrow(
+      new InvalidModel(
+        'Unlisted association "remarks": Remark.commentable doesn\'t list Unlisted; add it to belongsTo([…])',
+      ),
     );
   });
 });
