@@ -108,6 +108,13 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       expect(await user.posts().ids()).toEqual([10, 11]);
       expect(events).toHaveLength(0);
     });
+
+    test("on a loaded hasMany, leaves out a built record with no primary key yet", async () => {
+      const user = await withLoadedPosts("Saved");
+      user.posts().build({ title: "Built" });
+
+      expect(await user.posts().ids()).toEqual([10]);
+    });
   });
 
   describe("sole", () => {

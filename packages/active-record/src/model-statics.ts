@@ -23,9 +23,14 @@ import {
   type ContextOf,
   type ValidationCallbackOptions,
 } from "./validation-context.ts";
-import type { CalculatedValue, NumberAttribute, OrderedAttribute } from "./calculations.ts";
+import type {
+  AttributeList,
+  CalculatedValue,
+  NumberAttribute,
+  OrderedAttribute,
+} from "./calculations.ts";
 import type { SafeSql } from "./sql.ts";
-import type { AttributeList, Relation, Scoped } from "./relation.ts";
+import type { Relation, Scoped } from "./relation.ts";
 
 /** A Model's Relation, as its statics return them: `Product.where(…)` is `Product.all().where(…)`. */
 type RelationOf<C extends ModelClass> = Scoped<InstanceType<C>, ScopesOf<C>>;

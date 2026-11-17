@@ -1,4 +1,4 @@
-// Reading values instead of records: `count`, `pluck`, `pick`, and the calculations `sum`, `average`, `minimum` and `maximum` (#344).
+// Reading values instead of records: `count`, `pluck`, `pick`, `ids`, and the calculations `sum`, `average`, `minimum` and `maximum` (#344).
 import { attributeFor, withArticle } from "./attribute.ts";
 import { attributeOf, type AttributeDefinition, type AttributeType } from "./metadata.ts";
 import { compileCalculation, compileCount, compileSelect, type Calculation } from "./compiler.ts";
@@ -11,6 +11,13 @@ import type { QueryDescription } from "./query.ts";
 import { checkFragment } from "./relation-checks.ts";
 import { atMostOne } from "./finder-order.ts";
 import { SafeSql } from "./sql.ts";
+
+/** Two or more of a Model's attributes, as `pluck` and `pick` take them for tuples. */
+export type AttributeList<M extends Model> = readonly [
+  keyof AttributesOf<M> & string,
+  keyof AttributesOf<M> & string,
+  ...(keyof AttributesOf<M> & string)[],
+];
 
 /**
  * What `count`, `pluck` and the calculations read values from: a Relation's query, its database,
@@ -65,6 +72,15 @@ export async function pick(source: ValueSource, attributes: readonly string[]): 
   const cached = () => source.cached()?.slice(0, 1);
   const [first] = await pluck({ ...source, query, cached }, attributes, "pick");
   return first ?? null;
+}
+
+/**
+ * The primary keys, as `pluck` reads them, but none of a built record that has no key yet: a
+ * loaded association's unsaved records come after its stored ones.
+ */
+export async function ids(source: ValueSource): Promise<(string | number)[]> {
+  const keys = await pluck(source, [source.query.model.primaryKey], "ids");
+  return keys.filter((key): key is string | number => key !== null);
 }
 
 /**
