@@ -8,6 +8,7 @@ import {
   RecordInvalid,
   RecordNotFound,
   RecordNotUnique,
+  sql,
   UnknownAttribute,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
@@ -604,6 +605,28 @@ describe("making records", () => {
       await expect(db().model(User)[method](attributes)).rejects.toThrow(
         new TypeError(
           `User.${method}(): "age" can't be a comparison, since it becomes the new record's value`,
+        ),
+      );
+      expect(events).toEqual([]);
+    });
+
+    test.each(methods)("%s refuses a sql fragment before sending anything", async (method) => {
+      await expect(
+        db()
+          .model(User)
+          [method](sql`true` as never),
+      ).rejects.toThrow(
+        new TypeError(`User.${method}() takes attribute values, not a sql fragment`),
+      );
+      expect(events).toEqual([]);
+    });
+
+    test.each(methods)("%s refuses a sql fragment as a value", async (method) => {
+      const attributes = { email: sql`'taken@example.com'` } as never;
+
+      await expect(db().model(User)[method](attributes)).rejects.toThrow(
+        new TypeError(
+          `User.${method}(): "email" can't be a sql fragment, since it becomes the new record's value`,
         ),
       );
       expect(events).toEqual([]);
