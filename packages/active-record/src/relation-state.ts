@@ -25,9 +25,26 @@ export function newRowValues(
   relation: RelationState<Model>,
   given: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> {
-  const { model, query, collection } = relation;
+  return { ...scopeValues(relation), ...given, ...ownersValues(relation) };
+}
+
+/**
+ * @internal The values of a row a bulk write (`insert`, `upsert` and their `All` forms) writes
+ * through `relation`, given `given`: the given ones, then its conditions' equality values, then
+ * its `createWith` attributes, then its owner's, as Rails' `insert_all` merges the scope's
+ * values over each row's (#470), where `build` and `create` take the given ones over them.
+ */
+export function bulkRowValues(
+  relation: RelationState<Model>,
+  given: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  return { ...given, ...scopeValues(relation), ...ownersValues(relation) };
+}
+
+/** `relation`'s values for a new row: its conditions' equality values, its `createWith` over them. */
+function scopeValues({ model, query, collection }: RelationState<Model>): Record<string, unknown> {
   const inherited = castInherited(model, inheritedAttributes(query.conditions), collection.link);
-  return { ...inherited, ...query.createWith, ...given, ...ownersValues(relation) };
+  return { ...inherited, ...query.createWith };
 }
 
 /**
