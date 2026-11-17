@@ -226,9 +226,12 @@ describe("an association through another's types (#59)", () => {
     expect(() => db.model(Note).includes("tags")).not.toThrow();
   });
 
-  test("a hasMany through another has no collection methods", () => {
+  test("a hasMany through another has no collection methods, and builds nothing", () => {
     expectTypeOf<ReturnType<Note["tags"]>>().not.toHaveProperty("push");
     expectTypeOf<ReturnType<Note["tags"]>>().not.toHaveProperty("clear");
+    for (const write of ["build", "create", "insert", "upsert", "deleteAll"] as const) {
+      expectTypeOf<ReturnType<Note["tags"]>>().not.toHaveProperty(write);
+    }
   });
 
   test("a hasOne through another reads its record, and has no writers", () => {

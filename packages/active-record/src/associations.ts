@@ -133,9 +133,24 @@ export type HasMany<C extends ModelClass> = () => HasManyCollection<InstanceType
 
 /**
  * `note.tags()` for an association through another (#59): a Relation of its records, which
- * reads and preloads as any hasMany's, but has no collection methods: nothing is written through it.
+ * reads and preloads as any hasMany's, without the writes nothing makes through it: no
+ * collection methods, no `build`, `create`, `insert` or `upsert`, and no `deleteAll` of its own.
  */
-export type HasManyThrough<C extends ModelClass> = () => Scoped<InstanceType<C>, ScopesOf<C>>;
+export type HasManyThrough<C extends ModelClass> = () => Omit<
+  Scoped<InstanceType<C>, ScopesOf<C>>,
+  ThroughWrite
+>;
+
+/** What a through association's own Relation leaves out (#59): the writes it refuses. */
+type ThroughWrite =
+  | "build"
+  | "create"
+  | "createOrThrow"
+  | "insert"
+  | "insertAll"
+  | "upsert"
+  | "upsertAll"
+  | "deleteAll";
 
 /**
  * `await mark.note()` for a hasOne through another (#59): its record, or null. Nothing is
