@@ -435,6 +435,8 @@ Without a strategy, it’s up to the database. If the table declares the foreign
 
 In a batch, pass the association to the write: `b.deleteAll(article.comments())`.
 
+`upsert` and `upsertAll` through a `hasMany` only update the owner’s records. When a row clashes with another owner’s record, that record stays as it is. The row isn’t written, counted, or returned.
+
 `deleteAll()` on the association follows its `dependent` strategy: it deletes the records for `"destroy"` or `"deleteAll"`, and otherwise sets their foreign keys to `NULL`. See [Bulk writes and batches](./batches).
 
 ## Not built yet
