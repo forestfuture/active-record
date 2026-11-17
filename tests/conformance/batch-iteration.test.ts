@@ -374,14 +374,16 @@ describe("batch iteration", () => {
       expect(batches).toEqual([[5, 6], [3, 4], [2]]);
     });
 
-    test("a joined Relation's batches hold each record once", async () => {
+    test("a joined Relation's batches never split a record's rows between two", async () => {
       await harness.exec("INSERT INTO users (id, email) VALUES (2, 'b@example.com')");
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (8, 2, 'H'), (9, 2, 'I')");
       const batches: number[][] = [];
-      for await (const users of db().model(User).joins("posts").inBatches({ batchSize: 1 })) {
-        batches.push((await users.distinct().toArray()).map((user) => user.id));
+      for await (const users of db().model(User).joins("posts").inBatches({ batchSize: 3 })) {
+        batches.push([...new Set((await users.toArray()).map((user) => user.id))]);
       }
 
-      expect(batches).toEqual([[1]]);
+      // User 1 has seven posts: its first batch's three joined rows are one record.
+      expect(batches).toEqual([[1], [2]]);
     });
 
     test("reads each batch's keys with one query, without its includes", async () => {
