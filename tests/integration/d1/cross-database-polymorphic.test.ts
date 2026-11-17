@@ -52,6 +52,25 @@ class Remark extends DbRecord.define({
   subject = belongsTo([User, Entry]);
 }
 
+class Note extends DbRecord.define({
+  id: { type: "integer", null: false },
+  body: { type: "string", null: false },
+}) {
+  static override table = "notes";
+}
+
+/** A remark, on DB, about a user or a note, both on DB too. */
+class LocalRemark extends DbRecord.define({
+  id: { type: "integer", null: false },
+  subjectType: "string",
+  subjectId: "integer",
+  body: { type: "string", null: false },
+}) {
+  static override table = "remarks";
+
+  subject = belongsTo([User, Note]);
+}
+
 const schema = new URL("../../fixtures/cross-database/schema.sql", import.meta.url);
 
 let db: TestDatabase;
@@ -144,5 +163,24 @@ describe("a polymorphic belongsTo whose Models are on different databases (#60)"
     expect(recorded.DB.batches).toEqual([2]);
     // The entries' one statement, sent on its own: no batch.
     expect(recorded.LOGS.batches).toEqual([]);
+  });
+
+  test("preloads every listed Model on one database with the query, in one round trip", async () => {
+    await db.batch([
+      db.prepare("DELETE FROM remarks WHERE id = 2"),
+      db.prepare("INSERT INTO notes (id, entry_id, body) VALUES (2, NULL, 'a note')"),
+      db.prepare(
+        "INSERT INTO remarks (id, subject_type, subject_id, body) VALUES (3, 'Note', 2, 'x')",
+      ),
+    ]);
+    const recorded = recordingBatches(db);
+    // Assigned onto the env the library has read, as an app's test mocks do.
+    Object.assign(workers.env, { DB: recorded.binding });
+    const remarks = await withDatabase(connect(recorded.binding), () =>
+      LocalRemark.includes("subject").order({ id: "asc" }).toArray(),
+    ).finally(() => Object.assign(workers.env, { DB: db }));
+
+    expect(remarks.map((remark) => remark.loaded("subject")?.constructor)).toEqual([User, Note]);
+    expect(recorded.batches).toEqual([3]);
   });
 });
