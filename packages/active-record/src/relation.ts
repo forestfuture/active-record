@@ -209,6 +209,18 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /**
+   * Attributes for the records this Relation builds, creates or inserts, but not conditions its
+   * finders use: `createWith({ role: "member" }).findOrCreateBy({ email })`. Added to any it has;
+   * `null` removes them. They win over its conditions' values; attributes given to `build`,
+   * `create` or `insert` win over them.
+   */
+  createWith(attributes: Partial<AttributesOf<M>> | null): Scoped<M, S> {
+    if (attributes === null) return this.#with({ createWith: undefined });
+    for (const name of Object.keys(attributes)) attributeOf(this.#model, name);
+    return this.#with({ createWith: { ...this.#query.createWith, ...attributes } });
+  }
+
+  /**
    * @internal This Relation as a hasMany of an owner: answered from what the owner holds
    * once loaded, or, for an owner without a key, finding nothing stored and refusing `create`.
    */

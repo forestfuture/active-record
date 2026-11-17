@@ -45,6 +45,7 @@ const relationMethods = [
   "includes",
   "joins",
   "leftJoins",
+  "createWith",
   "build",
   "insert",
   "insertAll",

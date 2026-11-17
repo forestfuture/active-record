@@ -15,10 +15,17 @@ export interface RelationState<M extends Model> {
   readonly collection: OwnedCollection;
 }
 
-/** What a record built or inserted through `relation` takes from its conditions and owner. */
+/**
+ * What a record built or inserted through `relation` takes from it: its conditions' equality
+ * values, then its `createWith` attributes over them, but never over its owner's key.
+ */
 export function inheritedValues(relation: RelationState<Model>): Record<string, unknown> {
   const { model, query, collection } = relation;
-  return castInherited(model, inheritedAttributes(query.conditions), collection.link);
+  const { link } = collection;
+  const inherited = castInherited(model, inheritedAttributes(query.conditions), link);
+  const given = Object.entries(query.createWith ?? {});
+  const createWith = given.filter(([name]) => name !== link?.attribute);
+  return { ...inherited, ...Object.fromEntries(createWith) };
 }
 
 /**

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
+  IncompatibleRelation,
   Model,
   RecordInvalid,
   RecordNotFound,
@@ -253,6 +254,78 @@ describe("making records", () => {
       await expect(db().model(User).createOrFindByOrThrow({ email: null })).rejects.toThrow(
         RecordInvalid,
       );
+    });
+  });
+
+  describe("createWith", () => {
+    test("gives a record findOrCreateBy creates its attributes, which finding doesn't use", async () => {
+      const users = db().model(User).createWith({ role: "member" });
+
+      const found = await users.findOrCreateBy({ email: "taken@example.com" });
+      const created = await users.findOrCreateBy({ email: "new@example.com" });
+
+      expect(found.role).toBe("admin");
+      expect(await emails()).toContainEqual({ email: "new@example.com", role: "member" });
+      expect(created.isPersisted()).toBe(true);
+    });
+
+    test("wins over the Relation's conditions, and loses to the attributes given", () => {
+      const users = db()
+        .model(User)
+        .where({ role: "admin", age: 30 })
+        .createWith({ role: "member" });
+
+      expect(users.build().role).toBe("member");
+      expect(users.build({ role: "owner" }).role).toBe("owner");
+      expect(users.build().age).toBe(30);
+    });
+
+    test("adds to an earlier createWith, and null clears both", () => {
+      const users = db().model(User).createWith({ role: "member" }).createWith({ age: 30 });
+
+      expect({ role: users.build().role, age: users.build().age }).toEqual({
+        role: "member",
+        age: 30,
+      });
+      expect(users.createWith(null).build().role).toBeNull();
+    });
+
+    test("gives the rows insert writes its attributes", async () => {
+      await db().model(User).createWith({ role: "member" }).insert({ email: "new@example.com" });
+
+      expect(await emails()).toContainEqual({ email: "new@example.com", role: "member" });
+    });
+
+    test("is laid over by the merged Relation's", () => {
+      const users = db().model(User);
+
+      const merged = users
+        .createWith({ role: "member", age: 30 })
+        .merge(users.createWith({ role: "owner" }));
+
+      expect({ role: merged.build().role, age: merged.build().age }).toEqual({
+        role: "owner",
+        age: 30,
+      });
+    });
+
+    test("must be the same on both sides of or()", () => {
+      const users = db().model(User);
+
+      expect(() =>
+        users
+          .createWith({ role: "member" })
+          .where({ age: 1 })
+          .or(users.where({ age: 2 })),
+      ).toThrow(IncompatibleRelation);
+    });
+
+    test("refuses an attribute the Model doesn't have", () => {
+      expect(() =>
+        db()
+          .model(User)
+          .createWith({ nickname: "x" } as never),
+      ).toThrow(/nickname/);
     });
   });
 
