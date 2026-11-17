@@ -413,6 +413,27 @@ describe("group (#345)", () => {
     });
   });
 
+  describe("bound values", () => {
+    test("bind in the order their SQL reads, in every clause at once", async () => {
+      await seed(["a", 1], ["a", 2], ["b", 3], ["b", 4], ["c", 5], ["d", 9]);
+
+      const sums = await reviews()
+        .where(sql`${column("rating")} < ${9}`)
+        .group(sql`${column("title")} || ${"!"}`)
+        .having(sql`COUNT(*) >= ${1}`)
+        .order(sql`SUM(${column("rating")} * ${-1})`)
+        .offset(1)
+        .limit(2)
+        .sum(sql`${column("rating")} * ${10}`);
+
+      // By negated sum: b (-7), c (-5), a (-3); the offset skips b.
+      expect([...sums]).toEqual([
+        ["c!", 50],
+        ["a!", 30],
+      ]);
+    });
+  });
+
   describe("on none()", () => {
     test("each calculation is an empty Map, with no query", async () => {
       await seed(["a", 1]);
