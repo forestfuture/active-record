@@ -285,7 +285,7 @@ Read it as you would any `hasMany`:
 
 <include>/_excerpts/guide/associations/through-read.ts</include>
 
-- **`tag.articles()`** is a Relation, with every Relation method, read in one query.
+- **`tag.articles()`** is a Relation, with every Relation method but the writes [below](#writing-through-it), read in one query.
 - **Each record comes back once**, however many join records point at it.
 - **`includes("articles")`** loads the join records and the articles with the tags’ own query, in one round trip on D1. The join records aren’t kept as `taggings` unless you include them too.
 
