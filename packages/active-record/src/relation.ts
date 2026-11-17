@@ -52,13 +52,13 @@ import {
   preparedWritesOf,
   type PreparedWrites,
 } from "./prepared-writes.ts";
+import { buildThrough, createThrough, type Init } from "./record-creation.ts";
 import {
-  buildThrough,
-  createOrFindThrough,
-  createThrough,
-  initializeThrough,
-  type Init,
-} from "./record-creation.ts";
+  createOrFind,
+  findOrCreate,
+  findOrInitialize,
+  type FindOrCreateCall,
+} from "./find-or-create.ts";
 import { destroyTogether } from "./records-together.ts";
 import { grouped, type GroupedRelation, type GroupTerms } from "./grouping.ts";
 import type { RelationState } from "./relation-state.ts";
@@ -431,12 +431,12 @@ export class Relation<M extends Model, S = {}> {
    * once can both create one; `createOrFindBy` is safe from that.
    */
   async findOrCreateBy(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
-    return (await this.findBy(attributes)) ?? this.create(attributes, init);
+    return findOrCreate(this.#call("findOrCreateBy"), attributes, { init, orThrow: false });
   }
 
   /** Like `findOrCreateBy`, but throws if the record it creates can't be saved. */
   async findOrCreateByOrThrow(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
-    return (await this.findBy(attributes)) ?? this.createOrThrow(attributes, init);
+    return findOrCreate(this.#call("findOrCreateByOrThrow"), attributes, { init, orThrow: true });
   }
 
   /**
@@ -444,7 +444,7 @@ export class Relation<M extends Model, S = {}> {
    * handed to `init`, which is awaited. Saves nothing.
    */
   async findOrInitializeBy(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
-    return (await this.findBy(attributes)) ?? initializeThrough(this.#state, attributes, init);
+    return findOrInitialize(this.#call("findOrInitializeBy"), attributes, init);
   }
 
   /**
@@ -455,20 +455,17 @@ export class Relation<M extends Model, S = {}> {
    * with it throws its `RecordNotUnique`, which may be theirs.
    */
   async createOrFindBy(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
-    return this.#createOrFind(attributes, { init, orThrow: false });
+    return createOrFind(this.#call("createOrFindBy"), attributes, { init, orThrow: false });
   }
 
   /** Like `createOrFindBy`, but throws if the record can't be saved. */
   async createOrFindByOrThrow(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
-    return this.#createOrFind(attributes, { init, orThrow: true });
+    return createOrFind(this.#call("createOrFindByOrThrow"), attributes, { init, orThrow: true });
   }
 
-  #createOrFind(
-    attributes: Partial<AttributesOf<M>>,
-    options: { init: Init<M> | undefined; orThrow: boolean },
-  ): Promise<M> {
-    const find = () => this.findByOrThrow(attributes);
-    return createOrFindThrough(this.#state, attributes, { ...options, find });
+  /** What a find-or-create method works through. */
+  #call(method: string): FindOrCreateCall<M> {
+    return { relation: this, state: this.#state, method };
   }
 
   /** Like `findBy`, but throws `RecordNotFound` instead of returning null. */
