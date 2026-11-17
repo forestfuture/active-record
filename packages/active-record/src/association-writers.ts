@@ -173,7 +173,10 @@ function requireSavedOwner(owner: Model, association: ResolvedAssociation): void
   );
 }
 
-/** A new record of a hasOne, made the owner's (`adopt`). */
+/**
+ * A new record of a hasOne, made the owner's (`adopt`): its scope's single equality values,
+ * then `attributes`, as a hasMany's build takes them.
+ */
 function buildOne(
   owner: Model,
   association: ResolvedAssociation,
@@ -182,7 +185,8 @@ function buildOne(
   // The foreign key is the owner's, written as a key (#94): one given with the attributes is
   // ignored, as it always was, rather than cast and refused as an assigned value.
   const { [association.definition.foreignKey]: _given, ...rest } = attributes;
-  const record = buildRecord(association.target, rest, targetDatabase(owner, association));
+  // Built from the association's records, so it starts with its scope's equality values (#453).
+  const record = association.all(owner[state].executor).build(rest as never);
   adopt(owner, association, record);
   return record;
 }
