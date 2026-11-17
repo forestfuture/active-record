@@ -74,6 +74,7 @@ export type { AttributeConversions } from "./attribute-conversions.ts";
 export type { AttributeSpec, AttributeSpecs, AttributeType } from "./metadata.ts";
 export { type CustomType, defineType } from "./custom-types.ts";
 export { Relation, type Scope, type ScopeMethods, type Scoped } from "./relation.ts";
+export type { GroupedRelation } from "./grouping.ts";
 export type {
   Conditions,
   InsertOptions,

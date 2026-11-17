@@ -21,3 +21,28 @@ export async function calculations(): Promise<unknown> {
 
   return { total, averagePrice, cheapest, newest, topThree, averageDollars };
 }
+
+export async function groups(): Promise<unknown> {
+  // #region group
+  const byAvailability = await Product.group("available").count(); // Map { 1 => 3, 0 => 1 }
+  const inStock = byAvailability.get(1); // 3
+  const valueByAvailability = await Product.group("available").sum("priceCents");
+  // #endregion group
+
+  // #region group-fragment
+  const isPricey = sql`${column("priceCents")} >= ${10_000}`;
+  const byBand = await Product.group("available", isPricey).count(); // Map { [1, 0] => 2, … }
+  // #endregion group-fragment
+
+  // #region having
+  const crowded = Product.group("available").having(sql`COUNT(*) > ${1}`);
+  const crowdedCounts = await crowded.count(); // Map { 1 => 3 }
+  // #endregion having
+
+  // #region group-order
+  const largestFirst = Product.group("available").order(sql`COUNT(*) DESC`);
+  const largest = await largestFirst.limit(1).count(); // Map { 1 => 3 }
+  // #endregion group-order
+
+  return { byAvailability, inStock, valueByAvailability, byBand, crowdedCounts, largest };
+}
