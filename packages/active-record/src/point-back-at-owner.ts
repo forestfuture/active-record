@@ -26,8 +26,8 @@ export function pointBackAtOwner(
 /**
  * Whether the record's foreign key is its owner's: the same key (an integer matching a text
  * key's digits, #94), or null while the owner has none yet, which saving the owner fills in. A
- * key that isn't the owner's, null included, points elsewhere: a record pushed with another
- * owner's key, as one built or created through the owner always gets its key (#346).
+ * key that isn't the owner's, null included, points elsewhere. Only a pushed record can hold
+ * one: a record built or created through the owner always gets the owner's key (#346).
  */
 export function isOwnersKey(key: unknown, owner: Model, association: ResolvedAssociation): boolean {
   if (key === null) return association.keyOf(owner) === null;

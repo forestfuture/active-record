@@ -80,7 +80,7 @@ To set attributes in code, pass a function as the last argument. It gets the new
 
 <include>/_excerpts/guide/find-or-create/init.ts</include>
 
-The function runs only when a record is made. `build`, `create`, and `createOrThrow` take one too. Each method awaits it, except `build`, which saves nothing. An async function given to `build` throws a `TypeError`.
+The function runs only when a record is made. `build`, `create`, and `createOrThrow` take one too. Each method awaits it, except `build`, which returns the record at once. An async function given to `build` throws a `TypeError`.
 
 ### Creating records from concurrent requests
 
