@@ -60,7 +60,7 @@ export interface Tables {
  */
 export function tablesOf(query: QueryDescription): Tables {
   const own = ownSource(query);
-  const taken = new Set([query.model.table]);
+  const taken = new Set([query.model.table.toLowerCase()]);
   const joined: JoinedTable[] = [];
   const visit = (joins: readonly Join[], parent: Source, prefix: string) => {
     for (const join of joins) {
@@ -76,20 +76,36 @@ export function tablesOf(query: QueryDescription): Tables {
   return { own, joined };
 }
 
-/** The alias `join`'s table needs, taking the name it goes by; none if its table's name is free. */
+/**
+ * The alias `join`'s table needs, taking the name it goes by; none if its table's name is free.
+ * Names are compared without case, as SQLite reads them, and an alias is cut to the bytes
+ * Postgres keeps of a name, so two aliases never read as one.
+ */
 function aliasFor(join: Join, parent: ModelClass, taken: Set<string>): string | undefined {
   const { table } = join.model;
-  if (!taken.has(table)) {
-    taken.add(table);
+  if (!taken.has(table.toLowerCase())) {
+    taken.add(table.toLowerCase());
     return undefined;
   }
   const candidate = `${underscore(pluralize(join.association))}_${parent.table}`;
-  let alias = candidate;
-  for (let count = 2; taken.has(alias); count++) alias = `${candidate}_${count}`;
-  taken.add(alias);
+  let alias = fitted(candidate, "");
+  for (let count = 2; taken.has(alias.toLowerCase()); count++) {
+    alias = fitted(candidate, `_${count}`);
+  }
+  taken.add(alias.toLowerCase());
   return alias;
 }
 
+/** The bytes of a name Postgres keeps; it reads a longer one as its first 63. */
+const MAX_NAME_BYTES = 63;
+
+/** `name`, cut so that it and `suffix` fit in a name's bytes, then `suffix`. */
+function fitted(name: string, suffix: string): string {
+  const encoder = new TextEncoder();
+  let cut = name;
+  while (encoder.encode(cut + suffix).length > MAX_NAME_BYTES) cut = cut.slice(0, -1);
+  return cut + suffix;
+}
 /** The table of the join `path` names in `tables`. */
 export function sourceAt(tables: Tables, path: string): Source {
   const joined = tables.joined.find((table) => table.path === path);
