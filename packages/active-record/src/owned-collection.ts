@@ -62,11 +62,11 @@ export interface OwnedCollection {
    * Throws `ReadonlyAssociation` when `write` isn't allowed through it: through a through
    * association (#434), what it can't write.
    */
-  requireWritable?(write: Write): void;
+  requireWritable?(write: CollectionWrite): void;
 }
 
 /** The writes a collection may refuse: creating and inserting records. */
-export type Write = "create" | "insert";
+export type CollectionWrite = "create" | "insert";
 
 /** Saves a record created through `collection`, as its `saveCreated` says, or as the record saves. */
 export function saveCreated(
@@ -86,7 +86,7 @@ export function saveCreated(
 export function requireCreatable(
   collection: OwnedCollection,
   model: ModelClass,
-  write: "create" | "insert",
+  write: CollectionWrite,
 ): void {
   collection.requireWritable?.(write);
   const reason = collection.refusal;
@@ -128,9 +128,7 @@ export function ownedCollection(
   association: ResolvedAssociation,
 ): AssociationCollection {
   const key = association.keyOf(owner);
-  const collection =
-    key === null ? withoutKey(owner, association) : withKey(owner, association, key);
-  return collection;
+  return key === null ? withoutKey(owner, association) : withKey(owner, association, key);
 }
 
 /** An owner with a key: its loaded records live in its association cache. */
