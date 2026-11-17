@@ -62,7 +62,8 @@ export async function pluck(
  */
 export async function pick(source: ValueSource, attributes: readonly string[]): Promise<unknown> {
   const query = { ...source.query, limit: atMostOne(source.query.limit) };
-  const [first] = await pluck({ ...source, query }, attributes, "pick");
+  const cached = () => source.cached()?.slice(0, 1);
+  const [first] = await pluck({ ...source, query, cached }, attributes, "pick");
   return first ?? null;
 }
 
