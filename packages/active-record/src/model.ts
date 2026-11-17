@@ -43,7 +43,13 @@ import {
 import { RecordState, state, type Changes } from "./record-state.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
 import { inspectRecord } from "./record-inspect.ts";
-import { readyModel, type BelongsTo, type HasOne, type HasOneThrough } from "./associations.ts";
+import {
+  readyModel,
+  type BelongsTo,
+  type HasManyThrough,
+  type HasOne,
+  type HasOneThrough,
+} from "./associations.ts";
 import type { Relation, Scope, Scoped } from "./relation.ts";
 import { defineStatics, ModelStatics } from "./model-statics.ts";
 import { currentRelation } from "./current-database.ts";
@@ -93,6 +99,7 @@ type AnyAssociation =
   | BelongsTo<Any>
   | HasOne<Any>
   | HasOneThrough<Any>
+  | HasManyThrough<Any>
   | (() => Relation<Any, Any>);
 
 /** The names of a record's association accessors (from their fields' types). */

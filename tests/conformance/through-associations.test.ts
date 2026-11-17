@@ -339,7 +339,7 @@ describe("an association through another", () => {
   });
 
   describe("writing through it, which it refuses", () => {
-    // Its type has no collection methods; cast to reach the runtime refusals.
+    // Its type has no writes; cast to reach the runtime refusals.
     const asCollection = (projects: unknown) => projects as HasManyCollection<Project>;
     const counts = async () => [
       await db().model(Project).count(),
@@ -348,23 +348,24 @@ describe("an association through another", () => {
     ];
     const refused = "Can't write through User.projects: it goes through User.assignments";
     const writes = {
-      build: (user: User) => user.projects().build({ name: "New" }),
-      create: (user: User) => user.projects().create({ name: "New" }),
-      createOrThrow: (user: User) => user.projects().createOrThrow({ name: "New" }),
-      insert: (user: User) => user.projects().insert({ name: "New" }),
-      insertAll: (user: User) => user.projects().insertAll([{ name: "New" }]),
-      upsert: (user: User) => user.projects().upsert({ id: 9, name: "New" }),
-      upsertAll: (user: User) => user.projects().upsertAll([{ id: 9, name: "New" }]),
+      build: (user: User) => asCollection(user.projects()).build({ name: "New" }),
+      create: (user: User) => asCollection(user.projects()).create({ name: "New" }),
+      createOrThrow: (user: User) => asCollection(user.projects()).createOrThrow({ name: "New" }),
+      insert: (user: User) => asCollection(user.projects()).insert({ name: "New" }),
+      insertAll: (user: User) => asCollection(user.projects()).insertAll([{ name: "New" }]),
+      upsert: (user: User) => asCollection(user.projects()).upsert({ id: 9, name: "New" }),
+      upsertAll: (user: User) => asCollection(user.projects()).upsertAll([{ id: 9, name: "New" }]),
       "a narrowed build": (user: User) => user.projects().where({ archived: 0 }).build(),
       "a narrowed create": (user: User) => user.projects().where({ archived: 0 }).create(),
-      deleteAll: (user: User) => user.projects().deleteAll(),
+      deleteAll: (user: User) => asCollection(user.projects()).deleteAll(),
       push: (user: User) => asCollection(user.projects()).push(new Project()),
       delete: (user: User) => asCollection(user.projects()).delete(new Project()),
       destroy: (user: User) => asCollection(user.projects()).destroy(new Project()),
       clear: (user: User) => asCollection(user.projects()).clear(),
       "a batch's insert": (user: User) =>
-        db().batch((b) => [b.insert(user.projects(), { name: "New" })]),
-      "a batch's deleteAll": (user: User) => db().batch((b) => [b.deleteAll(user.projects())]),
+        db().batch((b) => [b.insert(asCollection(user.projects()), { name: "New" })]),
+      "a batch's deleteAll": (user: User) =>
+        db().batch((b) => [b.deleteAll(asCollection(user.projects()))]),
     };
 
     test.each(Object.keys(writes) as (keyof typeof writes)[])(
@@ -392,14 +393,22 @@ describe("an association through another", () => {
     test("an unsaved owner refuses with ReadonlyAssociation as a saved one does", async () => {
       const user = db().model(User).build({ email: "new@example.com" });
 
-      await expect(user.projects().create({ name: "New" })).rejects.toThrow(ReadonlyAssociation);
-      await expect(user.projects().insert({ name: "New" })).rejects.toThrow(ReadonlyAssociation);
+      await expect(asCollection(user.projects()).create({ name: "New" })).rejects.toThrow(
+        ReadonlyAssociation,
+      );
+      await expect(asCollection(user.projects()).insert({ name: "New" })).rejects.toThrow(
+        ReadonlyAssociation,
+      );
     });
 
     test("a Relation it's merged into builds records from its own conditions", async () => {
       const user = await db().model(User).find(1);
 
-      const project = db().model(Project).where({ name: "New" }).merge(user.projects()).build();
+      const project = db()
+        .model(Project)
+        .where({ name: "New" })
+        .merge(asCollection(user.projects()))
+        .build();
 
       expect(project.name).toBe("New");
     });
