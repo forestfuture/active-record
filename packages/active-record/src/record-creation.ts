@@ -2,6 +2,7 @@
 import { RecordNotUnique } from "./errors.ts";
 import { buildRecord, type AttributesOf, type Model, type ModelClass } from "./model.ts";
 import type { OwnedCollection } from "./owned-collection.ts";
+import { state } from "./record-state.ts";
 import { newRowValues, requireSavedOwner, type RelationState } from "./relation-state.ts";
 
 /**
@@ -73,8 +74,8 @@ export async function createThrough<M extends Model>(
 
 /**
  * Creates a record through `relation`, as `createThrough` does, or `find`s the row a unique
- * index kept it from duplicating. Only a refusal of the record's own row is found: another
- * record saved with it, refused after it was kept, throws its error.
+ * index kept it from duplicating. It finds only for a record saved alone: when `init` gave it
+ * records to save with it, a refusal may be theirs, so any `RecordNotUnique` reaches the caller.
  */
 export async function createOrFindThrough<M extends Model>(
   relation: RelationState<M>,
@@ -82,19 +83,14 @@ export async function createOrFindThrough<M extends Model>(
   options: { init: Init<M> | undefined; orThrow: boolean; find: () => Promise<M> },
 ): Promise<M> {
   const record = await recordToCreate(relation, attributes, options.init);
+  const isSavedAlone = record[state].autosaves.isEmpty();
   try {
     await saveCreated(relation, record, options.orThrow);
     return record;
   } catch (error) {
-    if (!isOwnRowRefused(record, error)) throw error;
+    if (!isSavedAlone || !(error instanceof RecordNotUnique)) throw error;
     return options.find();
   }
-}
-
-/** Whether `error` is a unique index refusing `record`'s own row, so it was never written. */
-function isOwnRowRefused(record: Model, error: unknown): boolean {
-  if (!(error instanceof RecordNotUnique) || !record.isNewRecord()) return false;
-  return error.table === (record.constructor as ModelClass).table;
 }
 
 async function recordToCreate<M extends Model>(

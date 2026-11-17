@@ -47,6 +47,12 @@ export class PendingAutosaves {
     return [...this.#belongsTo];
   }
 
+  /** Whether there are none: saving the record saves no other record with it. */
+  isEmpty(): boolean {
+    const noneBuilt = [...this.#built.values()].every((records) => records.length === 0);
+    return noneBuilt && this.#belongsTo.size === 0;
+  }
+
   /** Forgets what was built through the association or set on it (`reloadAssociation`). */
   clear(name: string): void {
     this.#built.delete(name);
