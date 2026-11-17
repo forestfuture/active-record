@@ -55,6 +55,8 @@ export interface QueryDescription {
   includes?: IncludeTree;
   /** Associations joined: `joins(...)` and `leftJoins(...)` (#24). */
   joins?: readonly Join[];
+  /** From `createWith()`: attributes a record built or inserted through it gets, not conditions. */
+  createWith?: Readonly<Record<string, unknown>>;
 }
 
 /** How a join keeps the joining rows: only those with a linked row, or every one. */
@@ -259,6 +261,7 @@ function differingClause(a: QueryDescription, b: QueryDescription): string | und
   if (clause !== undefined) return `${clause} differs`;
   if (!isSameJoins(a.joins ?? [], b.joins ?? [])) return "joins differ";
   if (!isSameTree(a.includes ?? {}, b.includes ?? {})) return "includes differ";
+  if (!isSameValues(a.createWith, b.createWith)) return "createWith differs";
   return undefined;
 }
 
@@ -274,6 +277,7 @@ export function merged(a: QueryDescription, b: QueryDescription): QueryDescripti
     ...(b.none === true && { none: true }),
     ...(b.includes !== undefined && { includes: mergeTrees(a.includes ?? {}, b.includes) }),
     ...(b.joins !== undefined && { joins: mergeJoins(a.joins ?? [], b.joins) }),
+    ...(b.createWith !== undefined && { createWith: { ...a.createWith, ...b.createWith } }),
   };
   for (const clause of SHAPE_CLAUSES) {
     if (isSet(b, clause)) Object.assign(result, { [clause]: b[clause] });
@@ -341,6 +345,16 @@ export function mergeTrees(a: IncludeTree, b: IncludeTree): IncludeTree {
     merged[name] = mergeTrees(merged[name] ?? {}, nested);
   }
   return merged;
+}
+
+/** Whether two sets of attribute values name the same attributes, with the same values. */
+function isSameValues(
+  a: Readonly<Record<string, unknown>> = {},
+  b: Readonly<Record<string, unknown>> = {},
+) {
+  const names = Object.keys(a);
+  if (names.length !== Object.keys(b).length) return false;
+  return names.every((name) => Object.hasOwn(b, name) && Object.is(a[name], b[name]));
 }
 
 /** Whether two include trees name the same associations at every level. */
