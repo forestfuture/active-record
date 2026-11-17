@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
+import { UnknownAssociation } from "../../packages/active-record/src/index.ts";
 import { Comment } from "../fixtures/models/comment.ts";
+import { User } from "../fixtures/models/user.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -41,5 +43,60 @@ describe("joins", () => {
       expect((await comments.last())?.body).toBe("on B1");
       expect(await comments.find(100)).toMatchObject({ id: 100, postId: 10 });
     });
+  });
+
+  // Guards: the join is the association's link, whichever side holds the foreign key.
+  describe("a hasMany", () => {
+    test("finds a record once for each linked record, as Rails does", async () => {
+      const users = await db().model(User).joins("posts").order({ id: "asc" }).toArray();
+
+      expect(users.map((user) => user.id)).toEqual([1, 1, 2]);
+    });
+
+    test("finds each record once after distinct()", async () => {
+      const users = db().model(User).joins("posts").distinct().order({ id: "asc" });
+
+      expect((await users.toArray()).map((user) => user.id)).toEqual([1, 2]);
+    });
+  });
+
+  test("a hasOne finds only the records with one", async () => {
+    await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (1, 3, 'Sea')");
+
+    const users = await db().model(User).joins("profile").toArray();
+
+    expect(users.map((user) => user.id)).toEqual([3]);
+  });
+
+  describe("nested", () => {
+    test("joins the associations of a joined association's Model", async () => {
+      const users = db().model(User).joins({ posts: "comments" }).distinct();
+
+      expect((await users.order({ id: "asc" }).toArray()).map((user) => user.id)).toEqual([1, 2]);
+    });
+
+    test("takes a list, and several specs at once", async () => {
+      await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (1, 2, 'Bee')");
+
+      const users = await db()
+        .model(User)
+        .joins({ posts: ["comments"] }, "profile")
+        .toArray();
+
+      expect(users.map((user) => user.id)).toEqual([2]);
+    });
+
+    test("joins an association named twice once", async () => {
+      const users = db().model(User).joins("posts", { posts: "comments" }).order({ id: "asc" });
+
+      expect((await users.toArray()).map((user) => user.id)).toEqual([1, 2]);
+    });
+  });
+
+  test("an unknown association throws UnknownAssociation when the query is written", () => {
+    // @ts-expect-error: not an association of User
+    expect(() => db().model(User).joins("followers")).toThrow(UnknownAssociation);
+    // @ts-expect-error: not an association of Post
+    expect(() => db().model(User).joins({ posts: "tags" })).toThrow(UnknownAssociation);
   });
 });
