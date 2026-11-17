@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-pl
 import {
   belongsTo,
   hasMany,
+  hasOne,
   InvalidModel,
   Model,
   RecordNotFound,
@@ -29,6 +30,7 @@ class Assignment extends Model.define({
 
   user = belongsTo(User, { optional: true });
   project = belongsTo(Project, { optional: true });
+  teammates = hasMany(Assignment, { through: "project", source: "assignments" });
   activeProject = belongsTo(Project, {
     foreignKey: "projectId",
     optional: true,
@@ -44,6 +46,9 @@ class User extends Model.define({
 
   assignments = hasMany(Assignment);
   projects = hasMany(Project, { through: "assignments" });
+  posts = hasMany(Post);
+  comments = hasMany(Comment, { through: "posts" });
+  profile = hasOne(Profile);
   leads = hasMany(Assignment, { scope: (q) => q.where({ role: "lead" }) });
   ledProjects = hasMany(Project, { through: "leads", source: "project" });
   activeProjects = hasMany(Project, { through: "assignments", source: "activeProject" });
@@ -52,6 +57,34 @@ class User extends Model.define({
     source: "project",
     scope: (q) => q.where({ archived: 0 }),
   });
+}
+
+class Post extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  user = belongsTo(User);
+  comments = hasMany(Comment);
+  authorProfile = hasOne(Profile, { through: "user", source: "profile" });
+}
+
+class Comment extends Model.define({
+  id: { type: "integer", null: false },
+  postId: "integer",
+  body: "string",
+}) {
+  static table = "comments";
+}
+
+class Profile extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  bio: "string",
+}) {
+  static table = "profiles";
 }
 
 const userAttributes = {
@@ -83,6 +116,17 @@ const misdeclared = {
   ThroughItself: class extends Model.define(userAttributes) {
     static table = "users";
     projects = hasMany(Project, { through: "projects" });
+  },
+  OneOfMany: class extends Model.define(userAttributes) {
+    static table = "users";
+    assignments = hasMany(Assignment, { foreignKey: "userId" });
+    project = hasOne(Project, { through: "assignments" });
+  },
+  BelongsToThrough: class extends Model.define(userAttributes) {
+    static table = "users";
+    assignments = hasMany(Assignment, { foreignKey: "userId" });
+    // @ts-expect-error -- a belongsTo goes through nothing
+    project = belongsTo(Project, { through: "assignments" });
   },
   Circular: class extends Model.define(userAttributes) {
     static table = "users";
@@ -204,12 +248,52 @@ describe("an association through another", () => {
       ["OtherTarget", "its source Assignment.project points at Project, not Assignment"],
       ["ThroughItself", "goes through itself"],
       ["Circular", "goes through itself"],
+      ["BelongsToThrough", "a belongsTo can't go through another association"],
+      ["OneOfMany", "a hasOne can't go through a hasMany (assignments)"],
       ["Dependent", "takes no dependent"],
       ["Autosaved", "takes no autosave"],
       ["Keyed", "takes no foreignKey or primaryKey"],
     ] as const)("%s", (name, message) => {
       expect(() => db().model(misdeclared[name])).toThrow(InvalidModel);
       expect(() => db().model(misdeclared[name])).toThrow(message);
+    });
+  });
+
+  describe("its shapes", () => {
+    beforeEach(async () => {
+      await harness.exec(
+        "INSERT INTO posts (id, user_id, title) VALUES (1, 1, 'First'), (2, 1, 'Second'), (3, 2, 'Other')",
+      );
+      await harness.exec(
+        "INSERT INTO comments (id, post_id, body) VALUES (1, 2, 'Nice'), (2, 1, 'Hello'), (3, 3, 'Elsewhere')",
+      );
+      await harness.exec(
+        "INSERT INTO profiles (id, user_id, bio) VALUES (1, 1, 'Ada'), (2, 2, 'Bo')",
+      );
+    });
+
+    test("a source that's a hasMany, found by its plural name", async () => {
+      const user = await db().model(User).find(1);
+
+      const bodies = (await user.comments().toArray()).map((comment) => comment.body);
+      expect(bodies).toEqual(["Nice", "Hello"]);
+    });
+
+    test("through a belongsTo, read again when its foreign key changes", async () => {
+      const assignment = await db().model(Assignment).find(1);
+      const ids = async () => (await assignment.teammates().toArray()).map((each) => each.id);
+
+      expect(await ids()).toEqual([1]);
+      assignment.projectId = 2;
+      expect(assignment.isLoaded("teammates")).toBe(false);
+      expect(await ids()).toEqual([3]);
+    });
+
+    test("a hasOne through a belongsTo", async () => {
+      const post = await db().model(Post).find(3);
+
+      expect((await post.authorProfile())?.bio).toBe("Bo");
+      expect(post.loaded("authorProfile")?.bio).toBe("Bo");
     });
   });
 });
