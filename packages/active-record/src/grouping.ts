@@ -21,7 +21,7 @@ import {
   type StoredTypeOf,
   type ValueSource,
 } from "./calculations.ts";
-import type { QueryDescription } from "./query.ts";
+import type { AttributeOrder, QueryDescription } from "./query.ts";
 import { checkFragment, type Conditions, type OrderSpec } from "./relation-checks.ts";
 import { SafeSql } from "./sql.ts";
 
@@ -251,15 +251,13 @@ function resultReader(
 }
 
 /**
- * Refuses an order by an attribute that isn't grouped: Postgres refuses it, and SQLite would sort
- * by any one row's value.
+ * Refuses an order by an attribute that isn't grouped, written after `group()`: Postgres refuses
+ * it, and SQLite would sort by any one row's value.
  */
 function requireGroupedOrder({ order }: QueryDescription, { terms }: Grouping): void {
   for (const term of order) {
     if (term instanceof SafeSql || terms.includes(term.attribute)) continue; // a fragment isn't checked
-    throw new TypeError(
-      `can't order groups by "${term.attribute}", which isn't grouped: group by it too, or reorder() before group()`,
-    );
+    throw new TypeError(`can't order groups by "${term.attribute}", which isn't grouped`);
   }
 }
 
@@ -302,8 +300,31 @@ export function grouped<M extends Model, G extends readonly GroupTerm<M>[]>(
 ): GroupedRelation<M, G> {
   const grouping: Grouping = { terms, having: [] };
   return new (GroupedRelation as unknown as new (parts: GroupedParts<M>) => GroupedRelation<M, G>)({
-    relation,
+    relation: withGroupedOrder(relation, sourceOf(relation).query, grouping),
     grouping,
     sourceOf,
   });
+}
+
+/**
+ * `relation` without the order terms of attributes `grouping` doesn't group by: they sorted rows,
+ * which a grouped Relation doesn't return, and a default scope's order would otherwise stop
+ * every grouping. Grouped attributes' terms and fragments are kept.
+ */
+function withGroupedOrder<M extends Model>(
+  relation: Relation<M>,
+  { order }: QueryDescription,
+  { terms }: Grouping,
+): Relation<M> {
+  const kept = order.filter((term) => term instanceof SafeSql || terms.includes(term.attribute));
+  if (kept.length === order.length) return relation;
+  return kept.reduce<Relation<M>>(
+    (reordered, term) => reordered.order(term instanceof SafeSql ? term : orderSpec(term)),
+    relation.reorder(),
+  );
+}
+
+/** An attribute's order term as `order()` takes it. */
+function orderSpec({ attribute, direction, nulls }: AttributeOrder): OrderSpec<Model> {
+  return { [attribute]: nulls === undefined ? direction : { direction, nulls } };
 }
