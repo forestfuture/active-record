@@ -2,14 +2,23 @@
 import { IrreversibleOrder } from "./errors.ts";
 import type { QueryRunner } from "./load.ts";
 import type { Model, ModelClass } from "./model.ts";
-import { JoinedOrder, type OrderTerm, type QueryDescription } from "./query.ts";
+import {
+  JoinedOrder,
+  type AttributeOrder,
+  type OrderTerm,
+  type QueryDescription,
+} from "./query.ts";
 import { SafeSql } from "./sql.ts";
 
 /** The same term sorting the other way; NULLs move to the other end too, as in Rails. */
 export function reversed(term: OrderTerm): OrderTerm {
-  if (term instanceof JoinedOrder) {
-    return new JoinedOrder(term.path, reversed(term.term) as JoinedOrder["term"]);
-  }
+  return term instanceof JoinedOrder
+    ? new JoinedOrder(term.path, reversedTerm(term.term))
+    : reversedTerm(term);
+}
+
+/** An attribute's or a fragment's term, reversed. */
+function reversedTerm(term: AttributeOrder | SafeSql): AttributeOrder | SafeSql {
   if (term instanceof SafeSql) {
     throw new IrreversibleOrder(
       "last() can't reverse an order given as an sql fragment; order by attributes, or reverse the fragment yourself and use first()",
