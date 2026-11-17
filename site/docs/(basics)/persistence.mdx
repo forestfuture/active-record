@@ -1,6 +1,6 @@
 ---
 title: Persistence
-description: "save, create, update, and destroy, their OrThrow variants, what each returns or throws, destroying many records, lifecycle state, and reload."
+description: "save, create, update, and destroy, their OrThrow variants, what each returns or throws, finding or creating a record (findOrCreateBy, createOrFindBy, createWith), destroying many records, lifecycle state, and reload."
 ---
 
 Records are saved, updated, and destroyed with `save`, `create`, `update`, and `destroy`.
@@ -49,12 +49,59 @@ Instead of returning `false`, they throw:
 | `find(id)`                               | record                                | `RecordNotFound`                                      |
 | `findBy(conds)`                          | record or `null`                      | none                                                  |
 | `findByOrThrow(conds)`                   | record                                | `RecordNotFound`                                      |
+| `findOrCreateBy(attrs)`                  | record, persisted or not              | constraint errors                                     |
+| `createOrFindBy(attrs)`                  | record, persisted or not              | constraint errors, `RecordNotFound`                   |
 
 `false` only ever means validation failed or a callback aborted. Every method throws for anything else:
 
 - **Constraint errors**, such as `RecordNotUnique`, since the database refused the write. See [Errors](./errors#constraint-errors).
 - **An error thrown by a callback**, other than `abort()`, even from an after-callback once the record is saved.
 - **D1’s own errors.**
+
+## Finding or creating a record
+
+Find a record by its attributes, or create one with them when there isn’t one, with `findOrCreateBy`:
+
+<include>/_excerpts/guide/find-or-create/find-or-create.ts</include>
+
+`findOrCreateBy` creates the record as `create` does, so check `isPersisted()` or `errors` if it might not save. `findOrCreateByOrThrow` throws `RecordInvalid` instead. `findOrInitializeBy` builds the record without saving it.
+
+They work on any Relation. A scope’s or an association’s conditions become the new record’s attributes too, so `user.posts().findOrCreateBy({ title })` finds or creates one of the user’s posts.
+
+### Giving new records more attributes
+
+To give a new record attributes that aren’t part of the search, use `createWith`:
+
+<include>/_excerpts/guide/find-or-create/create-with.ts</include>
+
+The Relation’s `build`, `create`, and `insert` use them too. Attributes you pass to those methods win over them, and `createWith(null)` removes them.
+
+To set attributes in code, pass a function as the last argument. It gets the new record once its attributes are assigned, before it’s saved:
+
+<include>/_excerpts/guide/find-or-create/init.ts</include>
+
+The function runs only when a record is made. `build`, `create`, and `createOrThrow` take one too. Each method awaits it, except `build`, which saves nothing and takes only a function that isn’t async.
+
+### Creating records from concurrent requests
+
+Two requests can both find nothing, and both create a record. When a UNIQUE index covers the attributes, use `createOrFindBy` instead. It inserts first, and finds the existing row when the index refuses the duplicate:
+
+<include>/_excerpts/guide/find-or-create/create-or-find.ts</include>
+
+`createOrFindByOrThrow` throws `RecordInvalid` when the record is invalid.
+
+:::warning[Let the index decide]
+`createOrFindBy` only finds the existing row when the database refuses the insert:
+
+- **Leave out a `uniqueness` validation on those attributes.** It refuses the duplicate before the insert, so `createOrFindBy` resolves to the invalid record, not the existing one. The UNIQUE index alone keeps the column unique.
+- **It throws `RecordNotFound` when there’s nothing to find:** when the index refused a value in an attribute you didn’t pass, or when a [D1 Session](./read-your-own-writes) reads from a replica that the other request’s row hasn’t reached yet.
+  :::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`findOrCreateBy`, `findOrInitializeBy`, `createOrFindBy`, and `createWith` are Rails’ `find_or_create_by`, `find_or_initialize_by`, `create_or_find_by`, and `create_with`, and the `OrThrow` versions are the `!` ones. The function passed last takes the place of Rails’ block.
+
+</Callout>
 
 ## Destroying records
 

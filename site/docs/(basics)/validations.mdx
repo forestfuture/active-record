@@ -75,7 +75,7 @@ Rails’ `confirmation` isn’t here yet.
 </Callout>
 
 :::warning[Uniqueness isn’t a guarantee]
-Two requests can both check that an email is free, then both insert it. `uniqueness` gives a friendly error early, but only a UNIQUE index in the table prevents duplicates, so declare both. When the index catches a duplicate, the save throws [`RecordNotUnique`](./errors#constraint-errors).
+Two requests can both check that an email is free, then both insert it. `uniqueness` gives a friendly error early, but only a UNIQUE index in the table prevents duplicates, so declare both. When the index catches a duplicate, the save throws [`RecordNotUnique`](./errors#constraint-errors). For attributes you create with [`createOrFindBy`](./persistence#creating-records-from-concurrent-requests), declare only the index.
 :::
 
 ### Comparing with another attribute

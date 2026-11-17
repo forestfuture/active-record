@@ -98,3 +98,9 @@ CREATE TABLE likes (
   likeable_type TEXT NOT NULL,
   likeable_id INTEGER NOT NULL
 );
+
+CREATE TABLE tags (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  color TEXT
+);

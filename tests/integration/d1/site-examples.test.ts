@@ -55,6 +55,7 @@ import { Post, User } from "../../../site/snippets/getting-started/models.ts";
 import * as models from "../../../site/snippets/guide/models.ts";
 import * as customTypes from "../../../site/snippets/guide/custom-types.ts";
 import { calculations, groups } from "../../../site/snippets/guide/calculations.ts";
+import { findOrCreate } from "../../../site/snippets/guide/find-or-create.ts";
 import { createdSince, oldestFirst, Reminder } from "../../../site/snippets/guide/mixed-dates.ts";
 import { paidAt, paidSince } from "../../../site/snippets/guide/raw-statements.ts";
 import * as untrusted from "../../../site/snippets/guide/untrusted-input.ts";
@@ -1029,5 +1030,31 @@ describe("the querying page's calculations (#344, #345)", () => {
       crowdedCounts: new Map([[1, 3]]),
       largest: new Map([[1, 3]]),
     });
+  });
+});
+
+describe("the persistence page's finding or creating (#346)", () => {
+  let binding: TestDatabase;
+  let dispose: () => Promise<void>;
+  const schema = new URL("../../../site/snippets/guide/schema.sql", import.meta.url);
+
+  beforeAll(async () => {
+    ({ db: binding, dispose } = await createTestDatabase(schema));
+  });
+  afterAll(() => dispose());
+
+  test("each finds, builds, or creates as its comment says", async () => {
+    await binding.prepare("INSERT INTO tags (name, color) VALUES ('travel', 'red')").run();
+    await binding.prepare("INSERT INTO tags (name, color) VALUES ('news', 'grey')").run();
+
+    const tags = await withDatabase(connect(binding), () => findOrCreate());
+
+    expect(tags).toEqual([
+      { name: "travel", color: "red", saved: true },
+      { name: "food", color: null, saved: false },
+      { name: "music", color: "blue", saved: true },
+      { name: "art", color: "green", saved: true },
+      { name: "news", color: "grey", saved: true },
+    ]);
   });
 });
