@@ -5,6 +5,7 @@ import {
   Model,
   RecordNotFound,
 } from "../../packages/active-record/src/index.ts";
+import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Project extends Model.define({
@@ -55,12 +56,13 @@ class User extends Model.define({
 describe("an association through another", () => {
   let harness: Harness;
   let database: ReturnType<Harness["connect"]>;
+  const queries: QueryEvent[] = [];
   const db = () => database;
   const names = (projects: readonly Project[]) => projects.map((project) => project.name);
 
   beforeAll(async () => {
     harness = await openHarness();
-    database = harness.connect();
+    database = harness.connect({ onQuery: (event) => void queries.push(event) });
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
@@ -119,5 +121,25 @@ describe("an association through another", () => {
 
     expect(names(await user.projects().toArray())).toEqual(["Apollo", "Cygnus"]);
     expect(await user.projects().count()).toBe(2);
+  });
+
+  test("keeps what it read loaded, until it's read again", async () => {
+    const user = await db().model(User).find(1);
+    expect(user.isLoaded("projects")).toBe(false);
+    await user.projects().toArray();
+    await harness.exec(
+      "INSERT INTO assignments (id, user_id, project_id, role) VALUES (4, 1, 2, 'member')",
+    );
+    queries.length = 0;
+
+    expect(names(await user.projects().toArray())).toEqual(["Apollo", "Cygnus"]);
+    expect(names(user.loaded("projects"))).toEqual(["Apollo", "Cygnus"]);
+    expect(queries).toHaveLength(0);
+    expect(names(await user.reloadAssociation("projects"))).toEqual([
+      "Apollo",
+      "Borealis",
+      "Cygnus",
+    ]);
+    expect(names(user.loaded("projects"))).toEqual(["Apollo", "Borealis", "Cygnus"]);
   });
 });
