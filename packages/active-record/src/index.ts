@@ -42,6 +42,7 @@ export {
   StrictValidationFailed,
   UnknownAssociation,
   UnknownAttribute,
+  UnknownModelName,
 } from "./errors.ts";
 export type { QueryEvent, QueryListener } from "./executor.ts";
 export type { FilterAttribute } from "./filtering.ts";

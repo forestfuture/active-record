@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, Model } from "../../packages/active-record/src/index.ts";
+import { belongsTo, Model, UnknownModelName } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -76,6 +76,18 @@ describe("polymorphic associations", () => {
       expect(await remark.commentable()).toBeNull();
       expect(queries).toHaveLength(0);
     });
+  });
+
+  test("a type that names none of its Models throws UnknownModelName", async () => {
+    await harness.exec("UPDATE remarks SET commentable_type = 'Video' WHERE id = 1");
+    const db = harness.connect();
+    const remark = await db.model(Remark).find(1);
+
+    await expect(remark.commentable()).rejects.toThrow(
+      new UnknownModelName(
+        'Remark.commentable has the type "Video", which is none of its Models: Post, Photo',
+      ),
+    );
   });
 
   describe("setting a polymorphic belongsTo", () => {
