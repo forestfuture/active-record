@@ -120,24 +120,16 @@ export class GroupedRelation<M extends Model, G extends readonly GroupTerm<M>[]>
 
   /** Groups by more terms too, which join the key. */
   group<const H extends GroupTerms<M>>(...terms: H): GroupedRelation<M, [...G, ...H]> {
-    const more = {
-      ...this.#grouping,
-      terms: [...this.#grouping.terms, ...terms],
-    };
-    return new GroupedRelation<M, [...G, ...H]>({
-      relation: this.#relation,
-      grouping: more,
-      sourceOf: this.#sourceOf,
-    });
+    const regrouped = { ...this.#grouping, terms: [...this.#grouping.terms, ...terms] };
+    return this.#with(this.#relation, regrouped);
   }
 
-  /** This grouped Relation, with `relation`'s rows. */
-  #with(relation: Relation<M>): GroupedRelation<M, G> {
-    return new GroupedRelation<M, G>({
-      relation,
-      grouping: this.#grouping,
-      sourceOf: this.#sourceOf,
-    });
+  /** This grouped Relation, with `relation`'s rows, grouped by `grouping`. */
+  #with<K extends readonly GroupTerm<M>[] = G>(
+    relation: Relation<M>,
+    grouping: Grouping = this.#grouping,
+  ): GroupedRelation<M, K> {
+    return new GroupedRelation<M, K>({ relation, grouping, sourceOf: this.#sourceOf });
   }
 
   /**
@@ -150,11 +142,7 @@ export class GroupedRelation<M extends Model, G extends readonly GroupTerm<M>[]>
     }
     checkFragment(this.#sourceOf(this.#relation).query.model, condition);
     const having = [...this.#grouping.having, condition];
-    return new GroupedRelation<M, G>({
-      relation: this.#relation,
-      grouping: { ...this.#grouping, having },
-      sourceOf: this.#sourceOf,
-    });
+    return this.#with(this.#relation, { ...this.#grouping, having });
   }
 
   /** The number of rows in each group, or of their non-null values of `attribute`. */
