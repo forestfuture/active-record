@@ -162,17 +162,3 @@ export function readonlyError({ label, hops }: ResolvedAssociation): ReadonlyAss
     `Can't write through ${label}: it goes through ${hops!.via.label}`,
   );
 }
-
-/** A write through `association` that's refused: it rejects, writing nothing. */
-function refusal(association: ResolvedAssociation): () => Promise<never> {
-  return () => Promise.reject(readonlyError(association));
-}
-
-/** A through hasOne's accessor (#59): it reads, and `set`, `build` and `create` refuse. */
-export function readonlyHasOne(read: () => Promise<unknown>, association: ResolvedAssociation) {
-  const refuse = refusal(association);
-  const build = () => {
-    throw readonlyError(association);
-  };
-  return Object.assign(read, { set: refuse, build, create: refuse, createOrThrow: refuse });
-}

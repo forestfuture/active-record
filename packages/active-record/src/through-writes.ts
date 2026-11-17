@@ -1,9 +1,12 @@
 // Writing through a through association (#434): the join records that link its owner to its records, created and removed.
-import { pointOwnerAt } from "./association-writers.ts";
+import type { HasOne } from "./associations.ts";
+import { hasOneAccessor, pointOwnerAt } from "./association-writers.ts";
+import { forget } from "./autosave.ts";
+import { RecordNotSaved } from "./errors.ts";
 import { requireTargets, saveTogether, type CollectionMethods } from "./collection-methods.ts";
 import { destroyTogether } from "./records-together.ts";
 import { refusalError, saveLifecycle } from "./lifecycle.ts";
-import type { Model } from "./model.ts";
+import type { Model, ModelClass } from "./model.ts";
 import {
   ownedCollection,
   type AssociationCollection,
@@ -219,4 +222,51 @@ function joinFor({ association, via }: ThroughOwner, record: Model): Model {
   const join = via().build();
   pointOwnerAt(join, association.hops!.source, record);
   return join;
+}
+
+/** A through hasOne's accessor (#434): it reads its record, and `set` links the owner to another. */
+export function throughHasOne(
+  read: () => Promise<unknown>,
+  owner: Model,
+  association: ResolvedAssociation,
+) {
+  const set = (record: Model | null) => setThrough(owner, association, record);
+  return Object.assign(read, { set });
+}
+
+/**
+ * A through hasOne's `set`, as Rails' `has_one :through` writer: points the owner's join record
+ * at `record`, saving it, or builds one through the association it goes through (saved now, or
+ * with a new owner); `null` destroys the join record. A join record that can't be saved throws
+ * `RecordNotSaved`, and one built for it is forgotten.
+ */
+async function setThrough(
+  owner: Model,
+  association: ResolvedAssociation,
+  record: Model | null,
+): Promise<void> {
+  const { target, label, name, ownerAttribute } = association;
+  if (record !== null && !(record instanceof target)) {
+    throw new TypeError(`${label}.set() takes a ${target.name} record or null`);
+  }
+  const { via, source } = association.hops!;
+  const viaOne = hasOneAccessor(owner, via) as HasOne<ModelClass>;
+  const join = await viaOne();
+  if (record === null) {
+    if (join !== null) await removeJoin(owner, via, join);
+  } else {
+    const linked = join ?? viaOne.build();
+    pointOwnerAt(linked, source, record);
+    if (!owner[state].isNew && !(await linked.save())) {
+      if (join === null) forget(owner, via, linked);
+      throw new RecordNotSaved(`Failed to save the new associated ${via.name}`);
+    }
+  }
+  owner[state].associations.set(name, ownerAttribute, record);
+}
+
+/** Destroys the owner's join record (one not saved yet is just forgotten), as Rails does. */
+async function removeJoin(owner: Model, via: ResolvedAssociation, join: Model): Promise<void> {
+  if (!join[state].isNew) await join.destroyOrThrow();
+  forget(owner, via, join);
 }

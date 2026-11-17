@@ -4,7 +4,6 @@ import {
   hasMany,
   hasOne,
   type HasManyCollection,
-  type HasOne,
   InvalidModel,
   Model,
   ReadonlyAssociation,
@@ -485,21 +484,6 @@ describe("an association through another", () => {
 
       expect(await user.coworkerAssignments().where({ role: "member" }).deleteAll()).toBe(1);
       expect(await db().model(Assignment).pluck("id")).toEqual([1, 3]);
-    });
-
-    test("a hasOne through another refuses set, build and create", async () => {
-      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (1, 1, 'First')");
-      const post = await db().model(Post).find(1);
-      const profile = db().model(Profile).build({ userId: 1 });
-      const message = "Can't write through Post.authorProfile: it goes through Post.user";
-      // Its type has no writers; cast to reach the runtime refusals.
-      const authorProfile = post.authorProfile as unknown as HasOne<typeof Profile>;
-
-      expect(() => authorProfile.build()).toThrow(message);
-      await expect(authorProfile.set(profile)).rejects.toThrow(ReadonlyAssociation);
-      await expect(authorProfile.create()).rejects.toThrow(ReadonlyAssociation);
-      await expect(authorProfile.createOrThrow()).rejects.toThrow(ReadonlyAssociation);
-      expect(await db().model(Profile).count()).toBe(0);
     });
   });
 });

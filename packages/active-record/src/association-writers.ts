@@ -1,5 +1,5 @@
 // The belongsTo and hasOne accessors: `post.author()` and `user.profile()`, and their `set`, `build`, and `create`.
-import { readonlyHasOne } from "./through-associations.ts";
+import { throughHasOne } from "./through-writes.ts";
 import { cachedRead } from "./associations.ts";
 import { RecordNotSaved } from "./errors.ts";
 import type { Executor } from "./executor.ts";
@@ -80,7 +80,7 @@ export function pointOwnerAt(
 export function hasOneAccessor(owner: Model, association: ResolvedAssociation): unknown {
   const read = () =>
     cachedRead(owner, association, (key) => association.firstLinkedTo(owner[state].executor, key));
-  if (association.hops !== undefined) return readonlyHasOne(read, association);
+  if (association.hops !== undefined) return throughHasOne(read, owner, association);
   return Object.assign(read, {
     set: (record: Model | null) => setOne(owner, association, record),
     build: (attributes: Record<string, unknown> = {}) => buildOne(owner, association, attributes),

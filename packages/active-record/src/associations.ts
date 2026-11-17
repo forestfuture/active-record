@@ -161,11 +161,16 @@ export type HasManyThrough<C extends ModelClass> = () => Scoped<InstanceType<C>,
 type ThroughWrite = "insert" | "insertAll" | "upsert" | "upsertAll" | "destroyAll";
 
 /**
- * `await mark.note()` for a hasOne through another (#59): its record, or null. Nothing is
- * written through it, so it has no `set`, `build` or `create`.
+ * `await mark.note()` for a hasOne through another (#59): its record, or null. `set(note)`
+ * points the owner's join record at another (#434); as in Rails, it has no `build` or `create`.
  */
 export interface HasOneThrough<C extends ModelClass> {
   (): Promise<InstanceType<C> | null>;
+  /**
+   * Points the owner's join record at `record`, saved at once on a saved owner, or builds one
+   * through the association it goes through; `null` destroys the join record.
+   */
+  set(record: InstanceType<C> | null): Promise<void>;
   /** Type-only: marks the accessor, so a record method returning a Promise isn't one. */
   readonly [throughTarget]: C;
 }
