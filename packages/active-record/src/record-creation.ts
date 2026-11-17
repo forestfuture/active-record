@@ -12,7 +12,7 @@ import { newRowValues, requireSavedOwner, type RelationState } from "./relation-
 export type Init<M> = (record: M) => void | Promise<void>;
 
 /**
- * A new, unsaved record through `relation`, handed to `init`, which mustn't return a promise
+ * @internal A new, unsaved record through `relation`, handed to `init`, which mustn't return a promise
  * (`TypeError`): nothing awaits it. Through a hasMany, the record then joins the association,
  * so a record whose `init` throws doesn't.
  */
@@ -49,7 +49,7 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
   );
 }
 
-/** `buildThrough`, awaiting `init`: what `findOrInitializeBy` builds. */
+/** @internal `buildThrough`, awaiting `init`: what `findOrInitializeBy` builds. */
 export async function initializeThrough<M extends Model>(
   relation: RelationState<M>,
   attributes: Partial<AttributesOf<M>>,
@@ -61,7 +61,7 @@ export async function initializeThrough<M extends Model>(
   return record;
 }
 
-/** Builds and saves a record through `relation`; `orThrow` throws if it can't be saved. */
+/** @internal Builds and saves a record through `relation`; `orThrow` throws if it can't be saved. */
 export async function createThrough<M extends Model>(
   relation: RelationState<M>,
   attributes: Partial<AttributesOf<M>>,
@@ -73,7 +73,7 @@ export async function createThrough<M extends Model>(
 }
 
 /**
- * Creates a record through `relation`, as `createThrough` does, or `find`s the row a unique
+ * @internal Creates a record through `relation`, as `createThrough` does, or `find`s the row a unique
  * index kept it from duplicating. It finds only for a record saved alone: when `init` gave it
  * records to save with it, a refusal may be theirs, so any `RecordNotUnique` reaches the caller.
  */

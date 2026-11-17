@@ -16,7 +16,7 @@ export interface RelationState<M extends Model> {
 }
 
 /**
- * The values of a new row built or inserted through `relation`, given `given`: its
+ * @internal The values of a new row built or inserted through `relation`, given `given`: its
  * conditions' equality values, then its `createWith` attributes, then the given ones, with its
  * owner's key over them all, as Rails sets the owner's key last: the owner's own, whatever the
  * conditions say, so a narrowed, merged or `or()`ed hasMany gives it too.
@@ -36,8 +36,9 @@ export function newRowValues(
 }
 
 /**
- * Throws when records can't be created or inserted through `relation`: `ReadonlyAssociation`
- * where its collection refuses `write` (#434), or, as in Rails, `RecordNotSaved` for an owner
+ * @internal Throws when records can't be created or inserted through `relation`:
+ * `ReadonlyAssociation` where its collection refuses `write` (#434), or, as in Rails,
+ * `RecordNotSaved` for an owner
  * with no key yet.
  */
 export function requireSavedOwner(relation: RelationState<Model>, write: CollectionWrite): void {
