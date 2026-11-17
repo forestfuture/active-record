@@ -31,11 +31,22 @@ interface JoinContext {
   readonly executor: Executor;
 }
 
+/** `query` with the joins `specs` name added, each of `kind`: `joins()` and `leftJoins()`. */
+export function withJoins(
+  query: QueryDescription,
+  specs: readonly unknown[],
+  kind: JoinKind,
+  executor: Executor,
+): QueryDescription {
+  const added = joinsFor(query.model, specs, { kind, root: query.model, executor });
+  return { ...query, joins: mergeJoins(query.joins ?? [], added) };
+}
+
 /**
  * The joins `specs` name on `model`'s associations, each of `kind`: names, or `{ name: nested }`
  * where `nested` is a spec or a list of them for that association's Model.
  */
-export function joinsFor(
+function joinsFor(
   model: ModelClass<Model>,
   specs: readonly unknown[],
   joining: JoinContext,
@@ -163,18 +174,6 @@ function refuseUnmergeable(query: QueryDescription, into: ModelClass<Model>): vo
   if (clauses.length > 0) {
     throw new IncompatibleRelation(
       `merge() of a ${query.model.name} Relation into a ${into.name} Relation takes only its conditions and order, but it has ${clauses.join(", ")}`,
-    );
-  }
-}
-
-/**
- * Throws `IncompatibleRelation` for a distinct query ordered by a joined Model's attribute:
- * Postgres can't sort distinct rows by a column it doesn't select, so no database does.
- */
-export function refuseDistinctJoinedOrder(query: QueryDescription): void {
-  if (query.distinct && query.order.some((term) => term instanceof JoinedOrder)) {
-    throw new IncompatibleRelation(
-      `distinct() can't be combined with an order on a joined Model: ${query.model.name}'s distinct rows don't hold its columns to sort by`,
     );
   }
 }

@@ -6,7 +6,13 @@ import { refuseBareDates } from "./fragment-guard.ts";
 import { attributeOf, type AttributeType } from "./metadata.ts";
 import type { AttributesOf, ModelClass } from "./model.ts";
 import { IncompatibleRelation } from "./errors.ts";
-import type { NullsPlacement, OrderDirection, OrderTerm, QueryDescription } from "./query.ts";
+import {
+  JoinedOrder,
+  type NullsPlacement,
+  type OrderDirection,
+  type OrderTerm,
+  type QueryDescription,
+} from "./query.ts";
 import { ColumnValue, isAttributeReference, SafeSql } from "./sql.ts";
 
 /**
@@ -206,11 +212,29 @@ export function requireSameModel(model: ModelClass, other: ModelClass, method: s
   }
 }
 
+/** Checks the whole query each Relation is made from, however it was written. */
+export function checkQuery(query: QueryDescription): void {
+  checkPreloadable(query);
+  refuseDistinctJoinedOrder(query);
+}
+
 /** Preloading needs keys a distinct select leaves out; adding them would undo the distinct. */
-export function checkPreloadable(query: QueryDescription): void {
+function checkPreloadable(query: QueryDescription): void {
   if (query.includes !== undefined && query.select !== undefined && query.distinct) {
     throw new IncompatibleRelation(
       "includes() can't be combined with select(...).distinct(): preloading needs keys the distinct select leaves out",
+    );
+  }
+}
+
+/**
+ * Throws `IncompatibleRelation` for a distinct query ordered by a joined Model's attribute:
+ * Postgres can't sort distinct rows by a column it doesn't select, so no database does.
+ */
+function refuseDistinctJoinedOrder(query: QueryDescription): void {
+  if (query.distinct && query.order.some((term) => term instanceof JoinedOrder)) {
+    throw new IncompatibleRelation(
+      `distinct() can't be combined with an order on a joined Model: ${query.model.name}'s distinct rows don't hold its columns to sort by`,
     );
   }
 }

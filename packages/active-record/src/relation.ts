@@ -11,7 +11,7 @@ import {
 } from "./compiler.ts";
 import { RecordNotFound } from "./errors.ts";
 import { includeTree } from "./preload.ts";
-import { joinsFor, mergedQuery, refuseDistinctJoinedOrder } from "./joins.ts";
+import { mergedQuery, withJoins } from "./joins.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
 import { inspectRelation } from "./relation-inspect.ts";
 import { runnerFor, selectForToSql, type QueryRunner } from "./load.ts";
@@ -21,10 +21,8 @@ import {
   either,
   inheritedAttributes,
   LinkedTo,
-  mergeJoins,
   mergeTrees,
   Negated,
-  type JoinKind,
   type QueryDescription,
 } from "./query.ts";
 import type { Executor } from "./executor.ts";
@@ -41,7 +39,7 @@ import { SafeSql } from "./sql.ts";
 import {
   checkChanges,
   checkConditions,
-  checkPreloadable,
+  checkQuery,
   requireSameModel,
   scopeResultError,
   isEmptyConditions,
@@ -222,18 +220,12 @@ export class Relation<M extends Model, S = {}> {
    * `joins("author")`, nested `joins({ author: "company" })`. Loads only this Model's columns.
    */
   joins(...specs: JoinSpec<M>[]): Scoped<M, S> {
-    return this.#withJoins(specs, "inner");
+    return this.#describing(withJoins(this.#query, specs, "inner", this.#executor));
   }
 
   /** Joins associations as `joins()` does, but with `LEFT OUTER JOIN`: unlinked records stay. */
   leftJoins(...specs: JoinSpec<M>[]): Scoped<M, S> {
-    return this.#withJoins(specs, "left");
-  }
-
-  #withJoins(specs: readonly JoinSpec<M>[], kind: JoinKind): Scoped<M, S> {
-    const joining = { kind, root: this.#model, executor: this.#executor };
-    const added = joinsFor(this.#model, specs, joining);
-    return this.#with({ joins: mergeJoins(this.#query.joins ?? [], added) });
+    return this.#describing(withJoins(this.#query, specs, "left", this.#executor));
   }
 
   /**
@@ -735,8 +727,7 @@ export class Relation<M extends Model, S = {}> {
   /** A Relation of this same class for `query`, so a Model's scope methods survive chaining. */
   #describing(query: QueryDescription): Scoped<M, S> {
     const Class = this.constructor as new (...args: RelationArgs<M>) => Scoped<M, S>;
-    checkPreloadable(query);
-    refuseDistinctJoinedOrder(query);
+    checkQuery(query);
     // A changed query no longer matches what the owner has loaded: the collection narrows.
     const collection = this.#collection.narrowed();
     return new Class({ executor: this.#executor, model: this.#model, query, collection });
