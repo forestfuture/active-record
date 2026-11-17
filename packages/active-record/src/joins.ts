@@ -63,6 +63,7 @@ function joinOf(
   nested: readonly unknown[],
 ): Join {
   const association = resolveAssociation(model, name);
+  refuseThrough(association);
   refuseOtherDatabase(association, joining.root);
   return {
     association: name,
@@ -73,6 +74,18 @@ function joinOf(
     on: scopeConditions(association, joining.executor),
     joins: joinsFor(association.target, nested, joining),
   };
+}
+
+/**
+ * Throws `IncompatibleRelation` for an association through another (#59): joining it needs a
+ * join for each of its hops, which isn't built yet, and one join would skip the records between.
+ */
+function refuseThrough(association: ResolvedAssociation): void {
+  if (association.hops !== undefined) {
+    throw new IncompatibleRelation(
+      `${association.label} can't be joined: it's through ${association.definition.through ?? "another association"}, and joins through another aren't built yet; join ${association.definition.through ?? "its first association"} and its source instead`,
+    );
+  }
 }
 
 /**

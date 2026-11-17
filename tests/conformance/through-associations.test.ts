@@ -4,6 +4,7 @@ import {
   hasMany,
   hasOne,
   type HasManyCollection,
+  IncompatibleRelation,
   InvalidModel,
   Model,
   ReadonlyAssociation,
@@ -562,5 +563,13 @@ describe("an association through another", () => {
       expect(await user.coworkerAssignments().where({ role: "member" }).deleteAll()).toBe(1);
       expect(await db().model(Assignment).pluck("id")).toEqual([1, 3]);
     });
+  });
+
+  // Joins through another association come later (#24): a join on its owner's key and its
+  // records' attribute would skip the records it goes through, so it's refused.
+  test("joins() and leftJoins() refuse it when the query is written", () => {
+    expect(() => db().model(User).joins("projects")).toThrow(IncompatibleRelation);
+    expect(() => db().model(User).leftJoins("projects")).toThrow(IncompatibleRelation);
+    expect(() => db().model(Post).joins({ user: "projects" })).toThrow(IncompatibleRelation);
   });
 });
