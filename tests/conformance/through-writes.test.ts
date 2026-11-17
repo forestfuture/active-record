@@ -25,6 +25,9 @@ class Project extends Model.define({
 
   static {
     this.validates("name", { presence: true });
+    this.beforeSave((project) => {
+      if (project.name === "Throws") throw new Error("this project's save throws");
+    });
   }
 }
 
@@ -188,6 +191,19 @@ describe("writing through an association through another", () => {
       expect(await db().model(Project).count()).toBe(3);
     });
 
+    test("a save that throws leaves nothing to save with the owner later", async () => {
+      const user = await db().model(User).find(1);
+      const throws = db().model(Project).build({ name: "Throws" });
+
+      await expect(user.projects().push(throws)).rejects.toThrow("this project's save throws");
+
+      expect(await user.save()).toBe(true);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+      ]);
+    });
+
     test("on a new owner, holds the records until the owner is saved", async () => {
       const user = db().model(User).build({ email: "c@example.com" });
       const cygnus = await db().model(Project).find(3);
@@ -306,6 +322,20 @@ describe("writing through an association through another", () => {
       expect(error).toBeInstanceOf(RecordInvalid);
       expect((error as RecordInvalid).record).toBeInstanceOf(Project);
       expect(await db().model(Project).count()).toBe(3);
+    });
+
+    test("a save that throws leaves nothing to save with the owner later", async () => {
+      const user = await db().model(User).find(1);
+
+      await expect(user.projects().create({ name: "Throws" })).rejects.toThrow(
+        "this project's save throws",
+      );
+
+      expect(await user.save()).toBe(true);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+      ]);
     });
 
     test("a new owner throws RecordNotSaved, as through a hasMany", async () => {
