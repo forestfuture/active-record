@@ -559,6 +559,14 @@ describe("destroying an owner whose dependents are on another database", () => {
     expect(log).toEqual(["write LOGS", "write DB", "after destroy LOGS"]);
   });
 
+  test("destroyAll destroys them there, as destroy does", async () => {
+    await inRequest(() => Leaving.where({ id: 1 }).destroyAll());
+
+    expect(log).toEqual(["write LOGS", "write DB", "after destroy LOGS"]);
+    expect(await rows(logs, "SELECT id FROM entries")).toEqual([]);
+    expect(await rows(db, "SELECT id FROM users")).toEqual([]);
+  });
+
   test("deleteAll deletes them there", async () => {
     await inRequest(async () => (await Purging.find(1)).destroyOrThrow());
 
