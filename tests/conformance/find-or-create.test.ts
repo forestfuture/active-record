@@ -40,6 +40,18 @@ class User extends Model.define({
   }
 }
 
+// Users referring users, through the age column, for a belongsTo on its own table.
+class Member extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+  role: "string",
+  age: "integer",
+}) {
+  static table = "users";
+
+  referrer = belongsTo(Member, { foreignKey: "age", optional: true });
+}
+
 describe("making records", () => {
   let harness: Harness;
   const events: QueryEvent[] = [];
@@ -282,6 +294,17 @@ describe("making records", () => {
         .model(Post)
         .createOrFindBy({ title: "Hello" }, (post) => {
           post.author.build({ email: "taken@example.com" });
+        });
+
+      await expect(creating).rejects.toThrow(RecordNotUnique);
+    });
+
+    test("throws the RecordNotUnique of a record on its own table saved with it", async () => {
+      const creating = db()
+        .model(Member)
+        .createOrFindBy({ role: "admin" }, (member) => {
+          member.email = "fresh@example.com";
+          member.referrer.build({ email: "taken@example.com" });
         });
 
       await expect(creating).rejects.toThrow(RecordNotUnique);

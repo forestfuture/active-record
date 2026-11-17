@@ -433,7 +433,8 @@ export class Relation<M extends Model, S = {}> {
    * Creates a record with these attributes (handing it to `init` first), as `create` does, or,
    * when a unique index refuses it (`RecordNotUnique`), finds the record with these attributes:
    * safe where two requests create at once, as `findOrCreateBy` isn't. Throws `RecordNotFound`
-   * if the index refused a value the attributes don't name.
+   * if the index refused a value the attributes don't name. A record `init` gave others to save
+   * with it throws its `RecordNotUnique`, which may be theirs.
    */
   async createOrFindBy(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
     return this.#createOrFind(attributes, { init, orThrow: false });
