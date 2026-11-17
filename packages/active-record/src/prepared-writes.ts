@@ -74,13 +74,13 @@ export function preparedWritesOf<M extends Model>(relation: RelationState<M>): P
 
 function insertRows<Row>(
   relation: RelationState<Model>,
-  rows: readonly object[],
+  rows: readonly Readonly<Record<string, unknown>>[],
   conflict: Conflict | undefined,
   { method, returning }: { method: string; returning?: Returning<Model> | undefined },
 ): Statement<Row> {
   requireSavedOwner(relation, "insert");
-  const valuesOf = newRowValues(relation);
-  return insertStatement(relation.executor, relation.model, rows.map(valuesOf), {
+  const values = rows.map((row) => newRowValues(relation, row));
+  return insertStatement(relation.executor, relation.model, values, {
     conflict,
     method,
     landed: clearCollectionUntilWritten(relation),

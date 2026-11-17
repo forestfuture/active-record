@@ -120,5 +120,5 @@ function newRecord<M extends Model>(
   relation: RelationState<M>,
   attributes: Partial<AttributesOf<M>>,
 ): M {
-  return buildRecord(relation.model, newRowValues(relation)(attributes), relation.executor);
+  return buildRecord(relation.model, newRowValues(relation, attributes), relation.executor);
 }
