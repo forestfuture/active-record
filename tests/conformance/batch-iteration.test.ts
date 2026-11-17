@@ -29,6 +29,13 @@ class Post extends Model.define({
   user = belongsTo(User, { foreignKey: "userId" });
 }
 
+class ApiKey extends Model.define({
+  id: { type: "string", null: false },
+  label: { type: "string", null: false },
+}) {
+  static table = "api_keys";
+}
+
 /** Posts newest first, by a default scope's order. */
 class NewestPost extends Post {
   static {
@@ -79,6 +86,20 @@ describe("batch iteration", () => {
 
       // Each SELECT binds the last key it starts after, then its limit.
       expect(events.map((event) => event.params)).toEqual([[3], [3, 3], [6, 3]]);
+    });
+
+    test("walks a text primary key across batch boundaries", async () => {
+      await harness.reset("api_keys");
+      await harness.exec(
+        "INSERT INTO api_keys (id, label) VALUES ('k3', 'c'), ('k1', 'a'), ('k5', 'e'), ('k2', 'b'), ('k4', 'd')",
+      );
+      const batches = await collect(db().model(ApiKey).findInBatches({ batchSize: 2 }));
+
+      expect(batches.map((keys) => keys.map((key) => key.id))).toEqual([
+        ["k1", "k2"],
+        ["k3", "k4"],
+        ["k5"],
+      ]);
     });
 
     test("walks an owner's hasMany", async () => {
