@@ -159,7 +159,7 @@ One query reads each batch’s keys, and the write you run is another. A batch�
 
 Each batch is its own write. If one fails, the batches before it stay written.
 
-### Choosing where to start
+### Choosing the batches
 
 Each method takes the same options:
 
@@ -169,15 +169,17 @@ Each method takes the same options:
 - `start` and `finish` bound the primary key, both included. With `order: "desc"`, `start` is the largest key and `finish` the smallest.
 - A `limit()` caps the records across every batch.
 
-Batches follow the primary key, so a Relation with its own order throws `IncompatibleRelation`, a default scope’s order included. Remove it with `reorder()` first: `Post.reorder().findEach()`. An `offset()` throws too: use `start` instead.
+Batches follow the primary key, so a Relation with its own order throws `IncompatibleRelation`, a default scope’s order included. Remove it with `reorder()` first: `Post.reorder().findEach()`. An `offset()` throws too, so bound the walk with `start` instead.
 
 :::note
 A row added while you iterate is visited only if its key sorts after the batch you’re on. With random keys, such as UUIDs, whether a new row is visited comes down to chance.
 :::
 
-:::warning[D1 limits the queries one run can send]
-On D1, one Worker invocation can send up to 1,000 queries, or 50 on the Free plan, and each batch is at least one. A larger `batchSize` sends fewer, up to D1’s 50 MB result limit for a query. For a table larger than that, split the work across invocations, each with its own `start` and `finish`, such as one Queue message per range.
-:::
+### Staying within D1’s query limit
+
+On D1, one Worker invocation can send up to 1,000 queries, or 50 on the Free plan. `findEach` and `findInBatches` send one per batch, and `inBatches` two: the keys, then your write. A `destroyAll` also reads each record’s `"destroy"` and restricted associations with queries of their own, while its deletes go as one D1 batch, which counts as one query.
+
+A larger `batchSize` sends fewer queries, up to D1’s 50 MB limit on a query’s result. For a table larger than that, split the work across invocations, each with its own `start` and `finish`, such as one Queue message per range.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 

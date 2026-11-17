@@ -146,7 +146,7 @@ Rails’ `destroy_all` on a Relation destroys each record in a transaction of it
 Each batch is its own write, so a batch that fails leaves the earlier batches destroyed.
 
 :::note
-A batch bounds memory, not queries. Each record reads its `"destroy"` and restricted associations with a query of its own, so a large set sends as many reads, a batch at a time or not. On D1, that counts toward [the queries one Worker invocation can send](./querying#choosing-where-to-start).
+A batch bounds memory, not queries. Each record reads its `"destroy"` and restricted associations with a query of its own, so a large set sends as many reads, a batch at a time or not. On D1, that counts toward [the queries one Worker invocation can send](./querying#staying-within-d1s-query-limit).
 :::
 
 ## Checking a record’s state
