@@ -199,7 +199,8 @@ Run a query with one of these methods:
 - `first` and `last` sort by the primary key unless the Relation has an order, and `last` reverses that order. An `sql` fragment can’t be reversed, so `last` throws `IrreversibleOrder` there.
 - `firstOrThrow`, `lastOrThrow`, and `takeOrThrow` throw `RecordNotFound` instead of resolving to `null`.
 - `sole` resolves to the only matching record. It throws `RecordNotFound` when nothing matches, and `SoleRecordExceeded` when more than one does. `findSoleBy(conditions)` is short for `where(conditions).sole()`.
-- `pick` reads one attribute from the first record, or a tuple of several, and resolves to `null` when nothing matches. `ids` plucks every primary key.
+- `pick` reads one attribute from the first record. Given several attributes, it reads a tuple. It resolves to `null` when nothing matches.
+- `ids` plucks every primary key.
 - `count()` always agrees with what `toArray()` returns, even with `limit`, `offset`, or `distinct`.
 - `size()`, `isEmpty()`, and `hasAny()` count records, or check for any. On a loaded association, they answer without a query.
 
