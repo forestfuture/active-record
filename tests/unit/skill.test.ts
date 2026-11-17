@@ -24,7 +24,8 @@ describe("the agent skill (packages/active-record/skills/active-record/SKILL.md)
     const options = { cwd, models: "models.ts", out: "schema.ts", check: true };
 
     expect(await runSchema(options, (line) => output.push(line))).toBe(0);
-  });
+    // It runs the schema command, which took 3.5 to 4.5 s on CI under coverage, near the 5 s default.
+  }, 30_000);
 
   test("its rules are a region the docs site and llms.txt read", () => {
     expect(read(skillPath)).toMatch(/<!-- #region rules -->[\s\S]+<!-- #endregion rules -->/);
