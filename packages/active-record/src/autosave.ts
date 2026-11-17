@@ -92,8 +92,9 @@ export function unlink(owner: Model, destroyed: readonly Linked[]): void {
  */
 export function autosavedAfter(owner: Model, claimed: ReadonlySet<Model>): Linked[] {
   const model = modelOf(owner);
-  return [...associationsOf(model)].flatMap(([name, { kind, autosave }]) => {
-    if (kind === "belongsTo") return [];
+  return [...associationsOf(model)].flatMap(([name, { kind, autosave, through }]) => {
+    // A through association's records are saved by its join records, which point at them.
+    if (kind === "belongsTo" || through !== undefined) return [];
     const entries = autosave
       ? withAutosave(owner, name, kind, claimed)
       : builtToSave(owner, name, claimed).map((record) => ({ record }));

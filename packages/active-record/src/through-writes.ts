@@ -41,6 +41,11 @@ async function push(hasMany: OwnersHasManyThrough, records: Model[]): Promise<bo
   requireTargets(association, records);
   for (const record of records) record[state].requireLive("be saved");
   const joins = records.map((record) => joinFor(hasMany, record));
+  // A new owner saves them with it: its join records, each saving its record first.
+  if (owner[state].isNew) {
+    for (const record of records) collection.built(record);
+    return true;
+  }
   const viaCollection = ownedCollection(owner, association.hops!.via);
   if (!(await saveTogether(joins, "push() needs its records"))) {
     viaCollection.removed(joins);

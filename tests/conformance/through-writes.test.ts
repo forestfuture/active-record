@@ -136,5 +136,29 @@ describe("writing through an association through another", () => {
       ]);
       expect(await db().model(Project).count()).toBe(3);
     });
+
+    test("on a new owner, holds the records until the owner is saved", async () => {
+      const user = db().model(User).build({ email: "c@example.com" });
+      const cygnus = await db().model(Project).find(3);
+      const draco = db().model(Project).build({ name: "Draco" });
+
+      expect(await user.projects().push(cygnus, draco)).toBe(true);
+
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+      ]);
+      expect((await user.projects().toArray()).map((project) => project.name)).toEqual([
+        "Cygnus",
+        "Draco",
+      ]);
+      expect(await user.save()).toBe(true);
+      expect(await links()).toEqual([
+        [1, 1],
+        [2, 2],
+        [user.id, 3],
+        [user.id, draco.id],
+      ]);
+    });
   });
 });
