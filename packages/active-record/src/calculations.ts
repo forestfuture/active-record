@@ -73,14 +73,28 @@ export async function runCalculation(
   calculation: Calculation,
   operand: string | SafeSql,
 ): Promise<unknown> {
+  const read = calculationReader(query, calculation, operand);
+  const [row] = await runner.rows(() => compileCalculation(dialect(), query, calculation, operand));
+  return read(row?.["value"] ?? (calculation === "sum" ? 0 : null));
+}
+
+/**
+ * How a calculation's result reads, as `runCalculation` describes; an unknown attribute, or one
+ * the calculation can't take, throws first.
+ */
+export function calculationReader(
+  query: QueryDescription,
+  calculation: Calculation,
+  operand: string | SafeSql,
+): (cell: unknown) => unknown {
   const read =
     operand instanceof SafeSql
       ? readUntyped(query, calculation, operand)
       : readAs(query, calculation, operand);
-  const [row] = await runner.rows(() => compileCalculation(dialect(), query, calculation, operand));
-  const cell = row?.["value"] ?? (calculation === "sum" ? 0 : null);
-  if (cell === null) return null;
-  return calculation === "average" ? Number(cell) : read(cell);
+  return (cell) => {
+    if (cell === null) return null;
+    return calculation === "average" ? Number(cell) : read(cell);
+  };
 }
 
 /** How a fragment's result reads: a sum as a number, an extreme as it is; checked first. */
