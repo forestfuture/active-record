@@ -21,7 +21,12 @@ import {
   type StoredTypeOf,
   type ValueSource,
 } from "./calculations.ts";
-import type { AttributeOrder, OrderTerm, QueryDescription } from "./query.ts";
+import {
+  JoinedOrder,
+  type AttributeOrder,
+  type OrderTerm,
+  type QueryDescription,
+} from "./query.ts";
 import { checkFragment, type Conditions, type OrderSpec } from "./relation-checks.ts";
 import { SafeSql } from "./sql.ts";
 
@@ -251,15 +256,26 @@ function resultReader(
 function requireGroupedOrder(query: QueryDescription, grouping: Grouping): void {
   const ungrouped = query.order.find((term) => isUngroupedOrder(term, grouping));
   if (ungrouped === undefined) return;
-  throw new TypeError(`can't order groups by "${ungrouped.attribute}", which isn't grouped`);
+  throw new TypeError(`can't order groups by ${orderedBy(ungrouped)}, which isn't grouped`);
 }
 
+/** An order term that can't order groups. */
+type UngroupedOrder = AttributeOrder | JoinedOrder;
+
 /**
- * Whether `term` can't order the groups: an attribute's that isn't grouped. A grouped attribute's
- * can, and so can a fragment, which isn't checked.
+ * Whether `term` can't order the groups: an attribute's that isn't grouped, or a joined Model's
+ * (#24), which no group is. A grouped attribute's can, and so can a fragment, which isn't checked.
  */
-function isUngroupedOrder(term: OrderTerm, { terms }: Grouping): term is AttributeOrder {
+function isUngroupedOrder(term: OrderTerm, { terms }: Grouping): term is UngroupedOrder {
+  if (term instanceof JoinedOrder) return true;
   return !(term instanceof SafeSql) && !terms.includes(term.attribute);
+}
+
+/** How a message names what `term` orders by: `"email"`, or a joined Model's `user.email`. */
+function orderedBy(term: UngroupedOrder): string {
+  if (!(term instanceof JoinedOrder)) return `"${term.attribute}"`;
+  const inner = term.term instanceof SafeSql ? "an sql fragment" : `"${term.term.attribute}"`;
+  return `${inner} of the joined ${term.path}`;
 }
 
 /**
@@ -322,7 +338,9 @@ function withGroupedOrder<M extends Model>(
   const dropped = query.order.find((term) => isUngroupedOrder(term, grouping));
   if (dropped === undefined) return relation;
   refuseDropWhilePicking(query, dropped);
-  const kept = query.order.filter((term) => !isUngroupedOrder(term, grouping));
+  const kept = query.order.filter(
+    (term): term is AttributeOrder | SafeSql => !isUngroupedOrder(term, grouping),
+  );
   return kept.reduce<Relation<M>>(
     (reordered, term) => reordered.order(term instanceof SafeSql ? term : orderSpec(term)),
     relation.reorder(),
@@ -333,10 +351,10 @@ function withGroupedOrder<M extends Model>(
  * Refuses to drop `dropped` while a limit or offset picks groups: without its order, they'd pick
  * groups in no fixed order.
  */
-function refuseDropWhilePicking(query: QueryDescription, dropped: AttributeOrder): void {
+function refuseDropWhilePicking(query: QueryDescription, dropped: UngroupedOrder): void {
   if (query.limit === undefined && query.offset === undefined) return;
   throw new IncompatibleRelation(
-    `group() can't drop the order by "${dropped.attribute}", which isn't grouped, while a limit or offset picks groups: reorder() first`,
+    `group() can't drop the order by ${orderedBy(dropped)}, which isn't grouped, while a limit or offset picks groups: reorder() first`,
   );
 }
 
