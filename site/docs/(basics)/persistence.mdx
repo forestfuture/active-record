@@ -68,6 +68,8 @@ Find a record by its attributes, or create one with them when there isn’t one,
 
 They work on any Relation. A scope’s or an association’s conditions become the new record’s attributes too, so `user.posts().findOrCreateBy({ title })` finds or creates one of the user’s posts.
 
+The attributes you pass become the new record’s values, so each must be one value. A list, a comparison such as `gte(18)`, or a `sql` fragment throws a `TypeError` before anything is sent. A `json` attribute’s array is one value, so they find the record that holds that array.
+
 ### Giving new records more attributes
 
 To give a new record attributes that aren’t part of the search, use `createWith`:
@@ -102,6 +104,8 @@ Two requests can both find nothing, and both create a record. When a UNIQUE inde
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
 `findOrCreateBy`, `findOrInitializeBy`, `createOrFindBy`, and `createWith` are Rails’ `find_or_create_by`, `find_or_initialize_by`, `create_or_find_by`, and `create_with`, and the `OrThrow` versions are the `!` ones. The function passed last takes the place of Rails’ block.
+
+Rails reads a list in their attributes as `IN`, as `find_by` does. These methods refuse one instead, as [Untrusted input](./untrusted-input#querying-with-request-values) explains.
 
 </Callout>
 

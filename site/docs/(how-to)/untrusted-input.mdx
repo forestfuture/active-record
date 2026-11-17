@@ -44,10 +44,20 @@ A value that can’t be cast throws a `TypeError`, and a body that isn’t JSON 
 
 ## Querying with request values
 
-Check that a value is a string before you query with it. JSON can send `null`, and `findBy({ token: null })` matches rows whose token is NULL:
+Check that a value is a string before you query with it. JSON can send `null` or a list. `findBy({ token: null })` matches rows whose token is NULL, and `findBy({ token: [first, second] })` matches a row with either token:
 
 <include>/_excerpts/guide/untrusted-input/null-check.ts</include>
+
+`findOrCreateBy`, `findOrInitializeBy`, and `createOrFindBy` refuse a list. They throw a `TypeError` before they query, since their attributes become the new record’s values.
 
 :::note
 A value that can’t be cast matches nothing, so `whereNot({ id: "abc" })` excludes nothing.
 :::
+
+<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
+
+Rails’ `find_or_create_by` reads a list as `IN`, as `find_by` does. Rails doesn’t need to refuse one. A request’s params must be permitted before a model takes them, and `permit(:email)` keeps only single values.
+
+Here, `await request.json()` is a plain object, and `permit` is up to you. So `findOrCreateBy(await request.json())` could find another user’s row. The find-or-create methods refuse a list instead. `findBy` and `where` still read a list as `IN`.
+
+</Callout>
