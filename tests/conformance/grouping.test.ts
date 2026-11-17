@@ -164,4 +164,36 @@ describe("group (#345)", () => {
       );
     });
   });
+
+  describe("after distinct()", () => {
+    test("counts and sums each group's distinct values once", async () => {
+      await seed(["a", 1], ["a", 1], ["a", 2], ["b", null]);
+      const distinct = reviews().distinct().group("title");
+
+      expect(await distinct.count("rating")).toEqual(
+        new Map([
+          ["a", 2],
+          ["b", 0],
+        ]),
+      );
+      expect(await distinct.sum("rating")).toEqual(
+        new Map([
+          ["a", 3],
+          ["b", 0],
+        ]),
+      );
+      expect(await distinct.average("rating")).toEqual(
+        new Map([
+          ["a", 1.5],
+          ["b", null],
+        ]),
+      );
+    });
+
+    test("count() still counts each group's rows", async () => {
+      await seed(["a", 1], ["a", 1]);
+
+      expect(await reviews().distinct().group("title").count()).toEqual(new Map([["a", 2]]));
+    });
+  });
 });
