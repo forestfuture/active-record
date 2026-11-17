@@ -15,7 +15,7 @@ import { mergedQuery, withJoins } from "./joins.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
 import { inspectRelation } from "./relation-inspect.ts";
 import { runnerFor, selectForToSql, type QueryRunner } from "./load.ts";
-import { findById, findOne, findSome, keysToFind } from "./find.ts";
+import { eachOnce, findById, findOne, findSome, keysToFind } from "./find.ts";
 import {
   allOf,
   either,
@@ -411,12 +411,13 @@ export class Relation<M extends Model, S = {}> {
   /**
    * Loads the records this Relation matches and destroys each, callbacks and `dependent:`
    * strategies included, as one write: if one refuses, it throws `RecordNotDestroyed` and nothing
-   * is destroyed. Resolves to the records. A `none()` Relation sends nothing and resolves to [].
+   * is destroyed. Resolves to the records, each once, though a join repeats it (#24). A `none()`
+   * Relation sends nothing and resolves to [].
    * Through a hasMany, what its owner loaded is cleared.
    */
   async destroyAll(): Promise<M[]> {
     const landed = this.#clearCollectionUntilWritten();
-    const records = await this.toArray();
+    const records = eachOnce(await this.toArray());
     await destroyTogether(records, "destroyAll() needs its records");
     landed();
     return records;

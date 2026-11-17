@@ -388,6 +388,7 @@ A polymorphic `belongsTo` can’t be joined, because its records may be in sever
 - Rails applies a merged Relation’s `limit` to the whole query. Active Record refuses it.
 - Rails leaves `distinct` with an order on a joined table to the database, which Postgres refuses and SQLite runs. Active Record throws `IncompatibleRelation` on both.
 - With a `hasMany` join, Rails’ `find(1, 2)` counts the duplicate rows and raises `RecordNotFound`. Active Record returns each record once.
+- With a `hasMany` join, Rails’ `destroy_all` destroys a record once for each of its rows, running its callbacks each time. Active Record destroys each record once.
 - Rails’ `where(author: { name: "Mary" })`, `where.missing`, `eager_load`, and joins through another association aren’t here yet. Joining a `through` association throws `IncompatibleRelation`. Merge a Relation of the joined Model instead, and preload with `includes`.
 
 </Callout>
