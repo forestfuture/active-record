@@ -74,6 +74,20 @@ describe("batch iteration", () => {
       expect(events).toHaveLength(3);
     });
 
+    test("starts each batch after the last batch's key, not at an offset", async () => {
+      await collect(db().model(Post).findEach({ batchSize: 3 }));
+
+      // Each SELECT binds the last key it starts after, then its limit.
+      expect(events.map((event) => event.params)).toEqual([[3], [3, 3], [6, 3]]);
+    });
+
+    test("walks an owner's hasMany", async () => {
+      const user = await db().model(User).find(1);
+      const posts = await collect(user.posts().findEach({ batchSize: 4 }));
+
+      expect(ids(posts)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    });
+
     test("keeps the Relation's conditions across batches", async () => {
       const posts = await collect(
         db().model(Post).where({ published: true }).findEach({ batchSize: 2 }),
@@ -218,6 +232,14 @@ describe("batch iteration", () => {
       expect(events).toHaveLength(2);
     });
 
+    test("caps a descending walk from its largest key", async () => {
+      const posts = await collect(
+        db().model(Post).limit(3).findEach({ batchSize: 2, order: "desc" }),
+      );
+
+      expect(ids(posts)).toEqual([7, 6, 5]);
+    });
+
     test("limit(0) sends no query", async () => {
       expect(await collect(db().model(Post).limit(0).findEach())).toEqual([]);
       expect(events).toEqual([]);
@@ -329,6 +351,37 @@ describe("batch iteration", () => {
         [1, 2],
         [6, 7],
       ]);
+    });
+
+    test("a limited Relation's batches write only the records within the limit", async () => {
+      for await (const posts of db().model(Post).limit(3).inBatches({ batchSize: 2 })) {
+        await posts.deleteAll();
+      }
+
+      expect(
+        (await harness.exec("SELECT id FROM posts ORDER BY id")).map((row) => Number(row.id)),
+      ).toEqual([4, 5, 6, 7]);
+    });
+
+    test("takes start, finish and order as findEach does", async () => {
+      const batches: number[][] = [];
+      for await (const posts of db()
+        .model(Post)
+        .inBatches({ batchSize: 2, order: "desc", start: 6, finish: 2 })) {
+        batches.push(sortedIds(await posts.toArray()));
+      }
+
+      expect(batches).toEqual([[5, 6], [3, 4], [2]]);
+    });
+
+    test("a joined Relation's batches hold each record once", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (2, 'b@example.com')");
+      const batches: number[][] = [];
+      for await (const users of db().model(User).joins("posts").inBatches({ batchSize: 1 })) {
+        batches.push((await users.distinct().toArray()).map((user) => user.id));
+      }
+
+      expect(batches).toEqual([[1]]);
     });
 
     test("reads each batch's keys with one query, without its includes", async () => {
