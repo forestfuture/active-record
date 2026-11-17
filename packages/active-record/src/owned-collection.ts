@@ -1,7 +1,6 @@
 // A hasMany's Relation as its owner sees it (records built through it join the owner), or no owner.
-import { RecordNotSaved } from "./errors.ts";
 import { pointBackAtOwner } from "./point-back-at-owner.ts";
-import type { Model, ModelClass } from "./model.ts";
+import type { Model } from "./model.ts";
 import type { QueryDescription } from "./query.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
@@ -67,33 +66,6 @@ export interface OwnedCollection {
 
 /** The writes a collection may refuse: creating and inserting records. */
 export type CollectionWrite = "create" | "insert";
-
-/** Saves a record created through `collection`, as its `saveCreated` says, or as the record saves. */
-export function saveCreated(
-  collection: OwnedCollection,
-  record: Model,
-  orThrow: boolean,
-): Promise<boolean> {
-  const own = collection.saveCreated?.(record, orThrow);
-  return own ?? (orThrow ? record.saveOrThrow() : record.save());
-}
-
-/**
- * Throws when records of `model` can't be created or inserted through `collection`:
- * `ReadonlyAssociation` where it refuses `write` (#434), or, as in Rails, `RecordNotSaved` for
- * an owner with no key yet.
- */
-export function requireCreatable(
-  collection: OwnedCollection,
-  model: ModelClass,
-  write: CollectionWrite,
-): void {
-  collection.requireWritable?.(write);
-  const reason = collection.refusal;
-  if (reason !== undefined) {
-    throw new RecordNotSaved(`You cannot create a ${model.name} here: ${reason}`);
-  }
-}
 
 /** A plain query's: no owner, so it holds nothing, refuses nothing, and a deleteAll deletes. */
 export const unowned: OwnedCollection = {
