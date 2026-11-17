@@ -11,7 +11,7 @@ import {
   type Write,
 } from "./owned-collection.ts";
 import { state } from "./record-state.ts";
-import { linkedToRecordsOf, type Relation } from "./relation.ts";
+import { linkedToRecordsOf, queryOf, type Relation, type Scoped } from "./relation.ts";
 import { preparedWrites } from "./prepared-writes.ts";
 import type { QueryDescription } from "./query.ts";
 import { Statement, statementParts } from "./statement.ts";
@@ -68,7 +68,7 @@ export function throughCollectionMethods<M extends Model>(
   const refuse = () => Promise.reject(readonlyError(hasMany.association));
   return {
     push: (...records) => push(hasMany, records),
-    delete: (...records) => remove(hasMany, records, "deleteAll"),
+    delete: (...records) => remove(hasMany, records, removalOf(hasMany.association)),
     destroy: (...records) => remove(hasMany, records, "destroy"),
     clear: () => clear(hasMany),
     destroyAll: refuse,
@@ -98,6 +98,25 @@ async function push(hasMany: OwnersHasManyThrough, records: Model[]): Promise<bo
   for (const join of joins) viaCollection.created(join);
   for (const record of records) collection.created(record);
   return true;
+}
+
+/** How `delete` removes join records: by the association's `dependent:`, deleting by default. */
+function removalOf({ definition: { dependent } }: ResolvedAssociation): "destroy" | "deleteAll" {
+  return dependent === "destroy" ? "destroy" : "deleteAll";
+}
+
+/**
+ * The owner's join records to the records the association reaches, which its `dependent:` acts
+ * on when the owner is destroyed (#434): those of the association it goes through whose source
+ * key is one of theirs.
+ */
+export function joinRecordsOf(owner: Model, association: ResolvedAssociation): Scoped<Model> {
+  const { via, source } = association.hops!;
+  const { executor } = owner[state];
+  const reached = association.linkedTo(executor, association.keyOf(owner));
+  return via
+    .linkedTo(executor, via.keyOf(owner))
+    [linkedToRecordsOf](source.ownerAttribute, reached[queryOf], source.targetAttribute);
 }
 
 /**

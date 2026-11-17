@@ -51,7 +51,8 @@ export interface AssociationOptions<C extends ModelClass = ModelClass> {
 
 /**
  * What an association through another takes (#59): `projects = hasMany(Project, { through:
- * "assignments" })`. Its keys, `dependent` and `autosave` are its hops'.
+ * "assignments" })`. Its keys and `autosave` are its hops'; a hasMany's `dependent` acts on its
+ * join records (`ThroughDependent`).
  */
 export interface ThroughOptions<C extends ModelClass = ModelClass> {
   /** The owner's association it reaches its records through: one to the join Model. */
@@ -64,6 +65,12 @@ export interface ThroughOptions<C extends ModelClass = ModelClass> {
   /** Narrows or orders its records: `(q) => q.order(…)`. */
   scope?: AssociationScope<C>;
 }
+
+/**
+ * What destroying the owner, and removing records with `delete`, do to a hasMany through
+ * another's join records (#434): destroy them, callbacks included, or delete their rows.
+ */
+export type ThroughDependent = "destroy" | "deleteAll";
 
 /** Rails' `dependent:` strategies for a hasMany. */
 export type HasManyDependent =

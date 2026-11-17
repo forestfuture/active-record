@@ -169,7 +169,13 @@ const misdeclared = {
     static table = "users";
     assignments = hasMany(Assignment, { foreignKey: "userId" });
     // @ts-expect-error -- a type error too; this shows the runtime check
-    projects = hasMany(Project, { through: "assignments", dependent: "destroy" });
+    projects = hasMany(Project, { through: "assignments", dependent: "nullify" });
+  },
+  OneDependent: class extends Model.define(userAttributes) {
+    static table = "users";
+    assignment = hasOne(Assignment, { foreignKey: "userId" });
+    // @ts-expect-error -- a type error too; this shows the runtime check
+    project = hasOne(Project, { through: "assignment", dependent: "destroy" });
   },
   Autosaved: class extends Model.define(userAttributes) {
     static table = "users";
@@ -305,7 +311,11 @@ describe("an association through another", () => {
       ["Circular", "goes through itself"],
       ["BelongsToThrough", "a belongsTo can't go through another association"],
       ["OneOfMany", "a hasOne can't go through a hasMany (assignments)"],
-      ["Dependent", "takes no dependent"],
+      [
+        "Dependent",
+        'a through association\'s dependent is "destroy" or "deleteAll", not "nullify"',
+      ],
+      ["OneDependent", "a hasOne through another takes no dependent"],
       ["Autosaved", "takes no autosave"],
       ["Keyed", "takes no foreignKey or primaryKey"],
     ] as const)("%s", (name, message) => {

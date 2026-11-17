@@ -10,6 +10,7 @@ import type { Scoped } from "./relation.ts";
 import { statementParts, type Statement } from "./statement.ts";
 import { preparedWrites } from "./prepared-writes.ts";
 import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
+import { joinRecordsOf } from "./through-writes.ts";
 import { combine, stageOf, statementWrite, type Stage } from "./unit-of-work.ts";
 
 /**
@@ -110,9 +111,11 @@ export async function prepareLeaving<T>(record: Model, left: Leaving, prepare: (
 
 /**
  * The association's records for this owner (a hasOne's first one only), with its scope, leaving
- * out a record that's leaving it (`prepareLeaving`).
+ * out a record that's leaving it (`prepareLeaving`); through another, its join records.
  */
 function recordsOf(owner: Model, association: ResolvedAssociation): Scoped<Model> {
+  // A through association's dependent acts on its join records (#434).
+  if (association.hops !== undefined) return joinRecordsOf(owner, association);
   let records = association.linkedTo(owner[state].executor, association.keyOf(owner));
   const left = leaving.get(owner);
   if (left !== undefined && isLeftThrough(left, association)) {

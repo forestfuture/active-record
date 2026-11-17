@@ -255,9 +255,17 @@ describe("an association through another's types (#59)", () => {
     expectTypeOf<Parameters<Mark["loaded"]>[0]>().toEqualTypeOf<"tagging" | "note">();
   });
 
-  test("dependent and autosave aren't options of a through association", () => {
-    // @ts-expect-error -- dependent belongs to the hops of a through association
-    hasMany(Tag, { through: "taggings", dependent: "destroy" });
+  test("a hasMany through another's dependent removes join records, and a hasOne's has none", () => {
+    expectTypeOf(hasMany(Tag, { through: "taggings", dependent: "deleteAll" })).toEqualTypeOf<
+      HasManyThrough<typeof Tag>
+    >();
+    // @ts-expect-error -- nullify leaves join records that point at nothing
+    hasMany(Tag, { through: "taggings", dependent: "nullify" });
+    // @ts-expect-error -- a hasOne through another takes no dependent
+    hasOne(Tag, { through: "taggings", dependent: "destroy" });
+  });
+
+  test("autosave isn't an option of a through association", () => {
     // @ts-expect-error -- autosave belongs to the hops of a through association
     hasOne(Tag, { through: "taggings", autosave: true });
   });
