@@ -436,14 +436,20 @@ export class Relation<M extends Model, S = {}> {
    * if the index refused a value the attributes don't name.
    */
   async createOrFindBy(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
-    const find = () => this.findByOrThrow(attributes);
-    return createOrFindThrough(this.#state, attributes, { init, orThrow: false, find });
+    return this.#createOrFind(attributes, { init, orThrow: false });
   }
 
   /** Like `createOrFindBy`, but throws if the record can't be saved. */
   async createOrFindByOrThrow(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
+    return this.#createOrFind(attributes, { init, orThrow: true });
+  }
+
+  #createOrFind(
+    attributes: Partial<AttributesOf<M>>,
+    options: { init: Init<M> | undefined; orThrow: boolean },
+  ): Promise<M> {
     const find = () => this.findByOrThrow(attributes);
-    return createOrFindThrough(this.#state, attributes, { init, orThrow: true, find });
+    return createOrFindThrough(this.#state, attributes, { ...options, find });
   }
 
   /** Like `findBy`, but throws `RecordNotFound` instead of returning null. */

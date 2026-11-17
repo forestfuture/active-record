@@ -302,7 +302,7 @@ _Guide:_ [models](<../site/docs/(basics)/models.mdx>). _Code:_ `active-record/sr
 
 _Portable._
 
-_Guide:_ [associations](<../site/docs/(basics)/associations.mdx>). _Code:_ `active-record/src/association-fields.ts`, `active-record/src/associations.ts`, `active-record/src/association-writers.ts`, `active-record/src/foreign-keys.ts`, `active-record/src/resolved-association.ts`, `active-record/src/owned-collection.ts`, `active-record/src/collection-methods.ts`, `active-record/src/autosave.ts`, `active-record/src/autosave-plan.ts`, `active-record/src/dependents.ts`, `active-record/src/preload.ts`, `active-record/src/through-associations.ts`, `active-record/src/through-preload.ts`, `active-record/src/polymorphic-checks.ts`, `active-record/src/polymorphic-preload.ts`.
+_Guide:_ [associations](<../site/docs/(basics)/associations.mdx>). _Code:_ `active-record/src/association-fields.ts`, `active-record/src/associations.ts`, `active-record/src/association-writers.ts`, `active-record/src/foreign-keys.ts`, `active-record/src/resolved-association.ts`, `active-record/src/owned-collection.ts`, `active-record/src/point-back-at-owner.ts`, `active-record/src/relation-state.ts`, `active-record/src/collection-methods.ts`, `active-record/src/autosave.ts`, `active-record/src/autosave-plan.ts`, `active-record/src/dependents.ts`, `active-record/src/preload.ts`, `active-record/src/through-associations.ts`, `active-record/src/through-preload.ts`, `active-record/src/polymorphic-checks.ts`, `active-record/src/polymorphic-preload.ts`.
 
 ```ts
 class User extends Model.define({ id: { type: "integer", null: false } }) {
