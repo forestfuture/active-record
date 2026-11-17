@@ -1,14 +1,6 @@
 // Relation: the chainable query (`where`, `order`, …), its finders, terminals, and bulk writes.
 import { jointly } from "./executor.ts";
-import { castInherited } from "./attribute.ts";
-import {
-  compileDeleteAll,
-  compileExists,
-  compileUpdateAll,
-  querySql,
-  type Conflict,
-  type QuerySql,
-} from "./compiler.ts";
+import { compileExists, querySql, type QuerySql } from "./compiler.ts";
 import { RecordNotFound } from "./errors.ts";
 import { includeTree } from "./preload.ts";
 import { mergedQuery, withJoins } from "./joins.ts";
@@ -16,19 +8,10 @@ import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-supp
 import { inspectRelation } from "./relation-inspect.ts";
 import { runnerFor, selectForToSql, type QueryRunner } from "./load.ts";
 import { eachOnce, findById, findOne, findSome, keysToFind } from "./find.ts";
-import {
-  allOf,
-  either,
-  inheritedAttributes,
-  LinkedTo,
-  mergeTrees,
-  Negated,
-  type QueryDescription,
-} from "./query.ts";
+import { allOf, either, LinkedTo, mergeTrees, Negated, type QueryDescription } from "./query.ts";
 import type { Executor } from "./executor.ts";
 import { attributeOf } from "./metadata.ts";
 import {
-  buildRecord,
   type AttributesOf,
   type IncludeSpec,
   type JoinSpec,
@@ -44,27 +27,24 @@ import {
   scopeResultError,
   isEmptyConditions,
   orderTerms,
-  skipOn,
-  updateOn,
   type Conditions,
   type InsertOptions,
   type OrderSpec,
-  returnedNames,
   writableQuery,
   type Returning,
   type UpsertOptions,
 } from "./relation-checks.ts";
-import {
-  alsoClearing,
-  requireCreatable,
-  saveCreated,
-  unowned,
-  type OwnedCollection,
-} from "./owned-collection.ts";
+import { alsoClearing, unowned, type OwnedCollection } from "./owned-collection.ts";
 import { atMostOne, finderOrder, oneInOrder, reversed, thenPrimaryKey } from "./finder-order.ts";
-import { insertStatement, runAlone, Statement } from "./statement.ts";
+import { runAlone, type Statement } from "./statement.ts";
 import type { ReturnedRow, WriteResult } from "./statement.ts";
-import { preparedWrites, type PreparedWrites } from "./prepared-writes.ts";
+import {
+  clearCollectionUntilWritten,
+  preparedWrites,
+  preparedWritesOf,
+  type PreparedWrites,
+} from "./prepared-writes.ts";
+import { buildThrough, createThrough, type RelationState } from "./record-creation.ts";
 import { destroyTogether } from "./records-together.ts";
 import { grouped, type GroupedRelation, type GroupTerms } from "./grouping.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
@@ -258,19 +238,7 @@ export class Relation<M extends Model, S = {}> {
    * association, and saving the owner saves it too (autosave).
    */
   build(attributes: Partial<AttributesOf<M>> = {}): M {
-    const record = this.#build(attributes);
-    this.#collection.built(record);
-    return record;
-  }
-
-  #build(attributes: Partial<AttributesOf<M>>): M {
-    return buildRecord(this.#model, { ...this.#inherited(), ...attributes }, this.#executor);
-  }
-
-  /** What a record built or inserted through this Relation takes from its conditions and owner. */
-  #inherited(): Record<string, unknown> {
-    const { conditions } = this.#query;
-    return castInherited(this.#model, inheritedAttributes(conditions), this.#collection.link);
+    return buildThrough(this.#state, attributes);
   }
 
   /**
@@ -320,46 +288,7 @@ export class Relation<M extends Model, S = {}> {
 
   /** @internal Each bulk write as a Statement, unsent: what a Batch's methods prepare. */
   get [preparedWrites](): PreparedWrites<M> {
-    const model = this.#model;
-    return {
-      insert: (attributes, options = {}) =>
-        this.#insertStatement([attributes], skipOn(options, "insert"), "insert", options),
-      insertAll: (rows, options = {}) =>
-        this.#insertStatement(rows, skipOn(options, "insertAll"), "insertAll", options),
-      upsert: (attributes, options = {}) =>
-        this.#insertStatement([attributes], updateOn(model, options), "upsert", options),
-      upsertAll: (rows, options = {}) =>
-        this.#insertStatement(rows, updateOn(model, options), "upsertAll", options),
-      updateAll: (changes) => this.#updateAllStatement(changes),
-      deleteAll: () => this.#deleteAllStatement(),
-    };
-  }
-
-  #insertStatement<Row>(
-    rows: readonly object[],
-    conflict: Conflict | undefined,
-    method: string,
-    { returning }: { returning?: Returning<M> | undefined },
-  ): Statement<Row> {
-    requireCreatable(this.#collection, this.#model, "insert");
-    const inherited = this.#inherited();
-    const withInherited = rows.map((row) => ({ ...inherited, ...row }));
-    return insertStatement(this.#executor, this.#model, withInherited, {
-      conflict,
-      method,
-      landed: this.#clearCollectionUntilWritten(),
-      returning: returnedNames(this.#model, returning),
-    });
-  }
-
-  /**
-   * Clears what an owner has loaded through this Relation's hasMany, for a statement built
-   * through it; the function it returns clears it again once the statement is written (#187).
-   */
-  #clearCollectionUntilWritten(): () => void {
-    const collection = this.#collection;
-    collection.invalidate();
-    return () => collection.invalidate();
+    return preparedWritesOf(this.#state);
   }
 
   /**
@@ -371,13 +300,7 @@ export class Relation<M extends Model, S = {}> {
   async updateAll(changes: Partial<AttributesOf<M>> | SafeSql): Promise<number> {
     checkChanges(this.#model, changes);
     writableQuery(this.#query, "updateAll");
-    return this.#countOf(() => this.#updateAllStatement(changes));
-  }
-
-  #updateAllStatement(changes: Partial<AttributesOf<M>> | SafeSql): Statement {
-    const checked = checkChanges(this.#model, changes);
-    const query = compileUpdateAll(this.#dialect, writableQuery(this.#query, "updateAll"), checked);
-    return new Statement(this.#executor, [query], this.#clearCollectionUntilWritten());
+    return this.#countOf(() => this[preparedWrites].updateAll(changes));
   }
 
   /**
@@ -388,24 +311,7 @@ export class Relation<M extends Model, S = {}> {
    */
   async deleteAll(): Promise<number> {
     writableQuery(this.#query, "deleteAll");
-    return this.#countOf(() => this.#deleteAllStatement());
-  }
-
-  #deleteAllStatement(): Statement {
-    const query = writableQuery(this.#query, "deleteAll");
-    const own = this.#collection.deleteAllOf?.(query);
-    if (own !== undefined) return own;
-    const landed = this.#clearCollectionUntilWritten();
-    const nullifies = this.#collection.nullifies;
-    const compiled =
-      nullifies === undefined
-        ? compileDeleteAll(this.#dialect, query)
-        : compileUpdateAll(
-            this.#dialect,
-            query,
-            nullifies.map((each) => [each, null]),
-          );
-    return new Statement(this.#executor, [compiled], landed);
+    return this.#countOf(() => this[preparedWrites].deleteAll());
   }
 
   /**
@@ -416,7 +322,7 @@ export class Relation<M extends Model, S = {}> {
    * Through a hasMany, what its owner loaded is cleared.
    */
   async destroyAll(): Promise<M[]> {
-    const landed = this.#clearCollectionUntilWritten();
+    const landed = clearCollectionUntilWritten(this.#state);
     const records = eachOnce(await this.toArray());
     await destroyTogether(records, "destroyAll() needs its records");
     landed();
@@ -443,21 +349,12 @@ export class Relation<M extends Model, S = {}> {
 
   /** Builds and saves a record; resolves to it whether or not it was saved (check `isPersisted()`). */
   async create(attributes: Partial<AttributesOf<M>> = {}): Promise<M> {
-    requireCreatable(this.#collection, this.#model, "create");
-    const record = this.#build(attributes);
-    this.#collection.pointBack(record);
-    if (await saveCreated(this.#collection, record, false)) this.#collection.created(record);
-    return record;
+    return createThrough(this.#state, attributes, { orThrow: false });
   }
 
   /** Builds and saves a record, throwing if it can't be saved. */
   async createOrThrow(attributes: Partial<AttributesOf<M>> = {}): Promise<M> {
-    requireCreatable(this.#collection, this.#model, "create");
-    const record = this.#build(attributes);
-    this.#collection.pointBack(record);
-    await saveCreated(this.#collection, record, true);
-    this.#collection.created(record);
-    return record;
+    return createThrough(this.#state, attributes, { orThrow: true });
   }
 
   /**
@@ -679,6 +576,11 @@ export class Relation<M extends Model, S = {}> {
       order: thenPrimaryKey(this.#model, this.#query),
     });
     return keepIfCurrent(records);
+  }
+
+  get #state(): RelationState<M> {
+    const query = this.#query;
+    return { executor: this.#executor, model: this.#model, query, collection: this.#collection };
   }
 
   get #dialect(): Executor["dialect"] {
