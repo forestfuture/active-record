@@ -2,7 +2,10 @@
 import { IncompatibleRelation } from "./errors.ts";
 import type { Executor } from "./executor.ts";
 import type { Model, ModelClass } from "./model.ts";
+import { tablesOf } from "./query-tables.ts";
 import {
+  hasPageOrDistinct,
+  isJoining,
   JoinedOrder,
   mergeJoins,
   JoinedConditions,
@@ -91,8 +94,7 @@ function refuseOtherDatabase(association: ResolvedAssociation, root: ModelClass<
  */
 function scopeConditions(association: ResolvedAssociation, executor: Executor): Condition[] {
   const query = association.all(executor)[queryOf];
-  const { limit, offset, distinct, joins } = query;
-  if (limit !== undefined || offset !== undefined || distinct || (joins?.length ?? 0) > 0) {
+  if (hasPageOrDistinct(query) || isJoining(query)) {
     throw new IncompatibleRelation(
       `${association.label} can't be joined: its scope uses limit, offset, distinct or joins, which a join can't apply`,
     );
@@ -157,14 +159,9 @@ export function refuseDistinctJoinedOrder(query: QueryDescription): void {
 
 /** The path of the one join of `query` to `model`'s table. */
 function joinedPath(query: QueryDescription, model: ModelClass<Model>): string {
-  const paths: string[] = [];
-  const visit = (joins: readonly Join[], prefix: string) => {
-    for (const join of joins) {
-      if (join.model === model) paths.push(prefix + join.association);
-      visit(join.joins, `${prefix}${join.association}.`);
-    }
-  };
-  visit(query.joins ?? [], "");
+  const paths = tablesOf(query)
+    .joined.filter(({ join }) => join.model === model)
+    .map(({ path }) => path);
   const [path] = paths;
   if (path === undefined || paths.length > 1) {
     const how = path === undefined ? "doesn't join it" : `joins it ${paths.length} times`;

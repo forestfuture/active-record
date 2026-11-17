@@ -3,7 +3,7 @@ import { attributeFor } from "./attribute.ts";
 import { pluralize } from "./inflections.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { underscore } from "./naming.ts";
-import type { Join, QueryDescription } from "./query.ts";
+import { isJoining, type Join, type QueryDescription } from "./query.ts";
 
 /** Quotes an identifier; embedded double quotes are doubled. */
 export function quoteIdentifier(name: string): string {
@@ -34,7 +34,7 @@ export function unqualifiedSource(model: ModelClass<Model>): Source {
 /** A query's own table: its Model's, by the table's name, whatever it joins. */
 export function ownSource(query: QueryDescription): Source {
   const name = quoteIdentifier(query.model.table);
-  return { model: query.model, name, qualified: (query.joins?.length ?? 0) > 0 };
+  return { model: query.model, name, qualified: isJoining(query) };
 }
 
 /** One joined table: its join, the table it's joined to, and its own name, with an alias if any. */
