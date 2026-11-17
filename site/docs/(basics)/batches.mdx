@@ -14,7 +14,7 @@ Call a bulk write on a Relation. It runs straight away, without validations or c
 - **`updateAll(changes)`** takes attributes or an `sql` fragment, and resolves to the number of rows updated. It leaves `updatedAt` alone. With a `limit` or `offset`, the Relation’s order picks which rows are written.
 - **`deleteAll()`** resolves to the number of rows deleted. On `none()`, both send nothing and resolve to `0`.
 - **`deleteBy(conditions)`** is `where(conditions).deleteAll()`. **`Comment.delete(id)`** deletes by primary key, and takes an array of keys too. Both resolve to the number of rows deleted.
-- **`insert(attrs)`** writes one row. It resolves to `{ rowsAffected, rows }`, and `rows` holds the new row’s primary key. Declared defaults, timestamps, and a Relation’s equality conditions fill what isn’t given.
+- **`insert(attrs)`** writes one row. It resolves to `{ rowsAffected, rows }`, and `rows` holds the new row’s primary key. Declared defaults and timestamps fill what isn’t given. A Relation’s equality conditions go over what is given, in every bulk write: `Post.where({ userId: 1 }).insert({ title: "Hi", userId: 2 })` writes `userId: 1`.
 
 :::note
 To run each record’s callbacks, destroy the records with [`destroyAll`](./persistence#destroying-many-records) instead.
