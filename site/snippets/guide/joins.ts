@@ -12,9 +12,12 @@ export async function joinsExample() {
   // #endregion left-joins
 
   // #region merge
-  const byMary = Article.joins("author").merge(Author.where({ name: "Mary" }));
+  const mary = Author.where({ name: "Mary" });
+  const byMary = Article.joins("author").merge(mary);
   const titles = await byMary.pluck("title");
-  const byAuthorName = Article.joins("author").merge(Author.order({ name: "asc" }));
+
+  const byName = Author.order({ name: "asc" });
+  const byAuthorName = Article.joins("author").merge(byName);
   // #endregion merge
 
   return { authors, everyAuthor, titles, inOrder: await byAuthorName.pluck("title") };
