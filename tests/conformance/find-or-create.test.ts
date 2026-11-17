@@ -468,6 +468,15 @@ describe("making records", () => {
       expect(await user.posts().size()).toBe(0);
     });
 
+    test("a hasMany inserts rows with its owner's key over the one given", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (2, 'other@example.com')");
+      const user = await db().model(User).find(1);
+
+      await user.posts().insert({ userId: 2, title: "Hello" });
+
+      expect(await harness.exec("SELECT user_id FROM posts")).toEqual([{ user_id: 1 }]);
+    });
+
     test("a hasMany's owner key wins over createWith", async () => {
       const user = await db().model(User).find(1);
 

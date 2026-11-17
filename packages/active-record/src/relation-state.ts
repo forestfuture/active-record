@@ -16,16 +16,21 @@ export interface RelationState<M extends Model> {
 }
 
 /**
- * What a record built or inserted through `relation` takes from it: its conditions' equality
- * values, then its `createWith` attributes over them, but never over its owner's key.
+ * The values of a new row built or inserted through `relation`, given its own values: its
+ * conditions' equality values, then its `createWith` attributes, then the given ones, with its
+ * owner's key over them all, as Rails sets the owner's key last.
  */
-export function inheritedValues(relation: RelationState<Model>): Record<string, unknown> {
+export function newRowValues(
+  relation: RelationState<Model>,
+): (given: object) => Record<string, unknown> {
   const { model, query, collection } = relation;
   const { link } = collection;
   const inherited = castInherited(model, inheritedAttributes(query.conditions), link);
-  const given = Object.entries(query.createWith ?? {});
-  const createWith = given.filter(([name]) => name !== link?.attribute);
-  return { ...inherited, ...Object.fromEntries(createWith) };
+  const ownersKey =
+    link !== undefined && Object.hasOwn(inherited, link.attribute)
+      ? { [link.attribute]: inherited[link.attribute] }
+      : {};
+  return (given) => ({ ...inherited, ...query.createWith, ...given, ...ownersKey });
 }
 
 /**
