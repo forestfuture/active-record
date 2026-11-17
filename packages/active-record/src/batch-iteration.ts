@@ -48,12 +48,12 @@ async function* batchesOf<M extends Model>(
 ): AsyncGenerator<M[], void, undefined> {
   const key = model.primaryKey;
   let left = query.limit ?? Infinity;
-  let after: Condition[] = [];
+  let pastLast: Condition[] = [];
   while (left > 0) {
     const limit = Math.min(batchSize, left);
     const rows = await runner.load({
       ...query,
-      conditions: [...query.conditions, ...bounds, ...after],
+      conditions: [...query.conditions, ...bounds, ...pastLast],
       order: [{ attribute: key, direction }],
       limit,
     });
@@ -63,7 +63,7 @@ async function* batchesOf<M extends Model>(
     if (rows.length < limit) return;
     left -= records.length;
     const last = primaryKeyOf(rows.at(-1)!);
-    after = [{ [key]: direction === "asc" ? gt(last) : lt(last) }];
+    pastLast = [{ [key]: direction === "asc" ? gt(last) : lt(last) }];
   }
 }
 
@@ -137,10 +137,10 @@ export function relationBatches<M extends Model, R>(
   checkIterable(iterated);
   const { model, query } = iterated;
   const keysOnly = { ...query, select: [model.primaryKey], includes: undefined };
-  return relationsOf(recordBatches({ ...iterated, query: keysOnly }, options), (keys) =>
+  return relationsOf(recordBatches({ ...iterated, query: keysOnly }, options), (keyed) =>
     relationOf({
       ...query,
-      conditions: [...query.conditions, { [model.primaryKey]: keys.map(primaryKeyOf) }],
+      conditions: [...query.conditions, { [model.primaryKey]: keyed.map(primaryKeyOf) }],
       limit: undefined,
     }),
   );
@@ -149,9 +149,9 @@ export function relationBatches<M extends Model, R>(
 /** Each batch's Relation. */
 async function* relationsOf<M extends Model, R>(
   batches: AsyncIterable<M[]>,
-  relationOf: (records: M[]) => R,
+  narrowedTo: (keyed: M[]) => R,
 ): AsyncGenerator<R, void, undefined> {
-  for await (const records of batches) yield relationOf(records);
+  for await (const records of batches) yield narrowedTo(records);
 }
 
 /** Each record of each batch. */
