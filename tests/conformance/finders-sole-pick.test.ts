@@ -165,4 +165,33 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       await expect(users().findSoleBy({ age: 30 })).rejects.toThrow(SoleRecordExceeded);
     });
   });
+
+  describe("firstOrThrow, lastOrThrow and takeOrThrow", () => {
+    test("throw RecordNotFound with no rows", async () => {
+      const notFound = new RecordNotFound("User not found");
+
+      await expect(users().firstOrThrow()).rejects.toThrow(notFound);
+      await expect(users().lastOrThrow()).rejects.toThrow(notFound);
+      await expect(users().takeOrThrow()).rejects.toThrow(notFound);
+    });
+
+    test("find the one row", async () => {
+      await seed([1, "a@example.com", 30]);
+
+      expect((await users().firstOrThrow()).id).toBe(1);
+      expect((await users().lastOrThrow()).id).toBe(1);
+      expect((await users().takeOrThrow()).id).toBe(1);
+    });
+
+    test("find the record first, last and take find among several", async () => {
+      await seed([1, "b@example.com", 30], [2, "c@example.com", 20], [3, "a@example.com", 40]);
+      const byEmail = users().order({ email: "asc" });
+
+      expect((await byEmail.firstOrThrow()).id).toBe(3);
+      expect((await byEmail.lastOrThrow()).id).toBe(2);
+      expect((await byEmail.takeOrThrow()).id).toBe(3);
+      expect((await users().firstOrThrow()).id).toBe(1);
+      expect((await users().lastOrThrow()).id).toBe(3);
+    });
+  });
 });

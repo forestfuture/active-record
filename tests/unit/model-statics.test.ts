@@ -46,6 +46,9 @@ describe("Relation methods as a Model's statics", () => {
       expectTypeOf(Admin.where({ age: 30 }).toArray()).toEqualTypeOf<Promise<Admin[]>>();
       expectTypeOf(Admin.adults().first()).toEqualTypeOf<Promise<Admin | null>>();
       expectTypeOf(Admin.sole()).toEqualTypeOf<Promise<Admin>>();
+      expectTypeOf(Admin.firstOrThrow()).toEqualTypeOf<Promise<Admin>>();
+      expectTypeOf(Admin.lastOrThrow()).toEqualTypeOf<Promise<Admin>>();
+      expectTypeOf(Admin.takeOrThrow()).toEqualTypeOf<Promise<Admin>>();
       expectTypeOf(Admin.findSoleBy({ age: 30 })).toEqualTypeOf<Promise<Admin>>();
       // @ts-expect-error only User's attributes
       void User.findSoleBy({ nope: 1 });
