@@ -28,7 +28,8 @@ export function checkPolymorphic(
 
 /**
  * A hasMany or hasOne with `as`: its target declares the type attribute, and if it declares a
- * belongsTo of that name, it's polymorphic and lists the owner's Model, so the records read back.
+ * belongsTo of that name, it's polymorphic and lists the owner's Model or one it extends, so the
+ * records read back.
  */
 function checkOtherSide(
   label: string,
@@ -46,8 +47,11 @@ function checkOtherSide(
       `${label}: ${otherLabel} isn't a polymorphic belongsTo; declare it belongsTo([${model.name}, …])`,
     );
   }
-  const stored = tableOwnerModelName(model);
-  if (!other.targets().some((each) => tableOwnerModelName(each) === stored)) {
+  // The owner itself, or a Model it extends: a class that only shares a listed one's name would
+  // read and write that Model's records.
+  const isListed = (each: ModelClass) =>
+    each === model || Object.prototype.isPrototypeOf.call(each, model);
+  if (!other.targets().some(isListed)) {
     throw new InvalidModel(
       `${label}: ${otherLabel} doesn't list ${model.name}; add it to belongsTo([…])`,
     );
