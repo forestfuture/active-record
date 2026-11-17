@@ -25,7 +25,7 @@ import {
 } from "./validation-context.ts";
 import type { CalculatedValue, NumberAttribute, OrderedAttribute } from "./calculations.ts";
 import type { SafeSql } from "./sql.ts";
-import type { Relation, Scoped } from "./relation.ts";
+import type { AttributeList, Relation, Scoped } from "./relation.ts";
 
 /** A Model's Relation, as its statics return them: `Product.where(…)` is `Product.all().where(…)`. */
 type RelationOf<C extends ModelClass> = Scoped<InstanceType<C>, ScopesOf<C>>;
@@ -175,14 +175,7 @@ interface OverloadedStatics {
       this: C,
       attribute: K,
     ): Promise<AttributesOf<InstanceType<C>>[K][]>;
-    <
-      C extends QueryableClass,
-      const K extends readonly [
-        keyof AttributesOf<InstanceType<C>> & string,
-        keyof AttributesOf<InstanceType<C>> & string,
-        ...(keyof AttributesOf<InstanceType<C>> & string)[],
-      ],
-    >(
+    <C extends QueryableClass, const K extends AttributeList<InstanceType<C>>>(
       this: C,
       ...attributes: K
     ): Promise<{ -readonly [I in keyof K]: AttributesOf<InstanceType<C>>[K[I]] }[]>;
@@ -192,14 +185,7 @@ interface OverloadedStatics {
       this: C,
       attribute: K,
     ): Promise<AttributesOf<InstanceType<C>>[K] | null>;
-    <
-      C extends QueryableClass,
-      const K extends readonly [
-        keyof AttributesOf<InstanceType<C>> & string,
-        keyof AttributesOf<InstanceType<C>> & string,
-        ...(keyof AttributesOf<InstanceType<C>> & string)[],
-      ],
-    >(
+    <C extends QueryableClass, const K extends AttributeList<InstanceType<C>>>(
       this: C,
       ...attributes: K
     ): Promise<{ -readonly [I in keyof K]: AttributesOf<InstanceType<C>>[K[I]] } | null>;
