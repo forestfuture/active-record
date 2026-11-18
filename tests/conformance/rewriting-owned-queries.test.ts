@@ -8,6 +8,25 @@ class Post extends Model.define({
   title: { type: "string", null: false },
 }) {
   static table = "posts";
+
+  remarks = hasMany(Remark, { as: "commentable" });
+}
+
+class Photo extends Model.define({ id: { type: "integer", null: false }, title: "string" }) {
+  static table = "photos";
+
+  remarks = hasMany(Remark, { as: "commentable" });
+}
+
+class Remark extends Model.define({
+  id: { type: "integer", null: false },
+  body: "string",
+  commentableType: "string",
+  commentableId: "integer",
+}) {
+  static table = "remarks";
+
+  commentable = belongsTo([Post, Photo], { optional: true });
 }
 
 class Project extends Model.define({
@@ -50,7 +69,15 @@ describe("rewriting an association's query", () => {
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
-    await harness.reset("assignments", "projects", "comments", "posts", "users");
+    await harness.reset(
+      "assignments",
+      "projects",
+      "remarks",
+      "photos",
+      "comments",
+      "posts",
+      "users",
+    );
     await harness.exec(
       "INSERT INTO users (id, email) VALUES (1, 'a@example.com'), (2, 'b@example.com')",
     );
@@ -60,6 +87,10 @@ describe("rewriting an association's query", () => {
     await harness.exec("INSERT INTO projects (id, name) VALUES (1, 'Apollo'), (2, 'Borealis')");
     await harness.exec(
       "INSERT INTO assignments (id, user_id, project_id) VALUES (1, 1, 1), (2, 2, 2)",
+    );
+    await harness.exec("INSERT INTO photos (id, title) VALUES (10, 'Sunset')");
+    await harness.exec(
+      "INSERT INTO remarks (id, body, commentable_type, commentable_id) VALUES (1, 'On the post', 'Post', 10), (2, 'On the photo', 'Photo', 10)",
     );
     db = harness.connect();
     user = await db.model(User).findByOrThrow({ id: 1 });
@@ -111,5 +142,29 @@ describe("rewriting an association's query", () => {
     const built = user.posts().unscope("where").build({ title: "C" });
 
     expect(built.userId).toBe(1);
+  });
+
+  test("a polymorphic association keeps its type with its key", async () => {
+    const post = await db.model(Post).findByOrThrow({ id: 10 });
+
+    expect(await post.remarks().unscope("where").pluck("id")).toEqual([1]);
+    expect(await post.remarks().unscope({ where: "commentableType" }).pluck("id")).toEqual([1]);
+  });
+
+  test("dropping an or that holds the owner link ANDs the link on again", async () => {
+    const either = user
+      .posts()
+      .where({ title: "A" })
+      .or(user.posts().where({ title: "B" }));
+
+    expect(await either.unscope("where").order({ id: "asc" }).pluck("id")).toEqual([10, 11]);
+  });
+
+  test("merge and or keep the owner link of the Relation they're given", async () => {
+    const merged = db.model(Post).merge(user.posts());
+    const either = db.model(Post).where({ title: "A" }).or(user.posts());
+
+    expect(await merged.unscope("where").order({ id: "asc" }).pluck("id")).toEqual([10, 11]);
+    expect(await either.unscope("where").order({ id: "asc" }).pluck("id")).toEqual([10, 11]);
   });
 });
