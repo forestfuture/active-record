@@ -9,7 +9,12 @@ import { runnerFor, selectForToSql, type QueryRunner, type RunnableQuery } from 
 import { eachOnce, findByIds, findOne } from "./find.ts";
 import { firstOf, lastOf, soleOf, takeOf, type OneRecordSource } from "./one-record.ts";
 import { isEmpty, size, type CountSource } from "./record-counts.ts";
-import { withoutConditionsOn } from "./query-rewrites.ts";
+import {
+  unscoped,
+  withoutConditionsOn,
+  type AttributeNames,
+  type QueryPart,
+} from "./query-rewrites.ts";
 import { allOf, either, LinkedTo, mergeTrees, Negated, type QueryDescription } from "./query.ts";
 import type { Executor } from "./executor.ts";
 import { attributeOf } from "./metadata.ts";
@@ -157,6 +162,14 @@ export class Relation<M extends Model, S = {}> {
     requireAttributeConditions(conditions, "rewhere");
     const rest = withoutConditionsOn(this.#query, Object.keys(conditions));
     return this.#describing(rest).where(conditions);
+  }
+
+  /**
+   * Drops parts of the query, as Rails' `unscope`: `unscope("order", "limit")`, or the conditions
+   * on some attributes, `unscope({ where: "role" })`. A default scope's are dropped too.
+   */
+  unscope(...parts: (QueryPart | { where: AttributeNames<M> })[]): Scoped<M, S> {
+    return this.#describing(parts.reduce(unscoped, this.#query));
   }
 
   /** A Relation that matches nothing and never queries D1; it stays empty when chained. */

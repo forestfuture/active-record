@@ -1,5 +1,14 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { column, gte, Model, sql } from "../../packages/active-record/src/index.ts";
+import {
+  belongsTo,
+  column,
+  gte,
+  hasMany,
+  IncompatibleRelation,
+  Model,
+  sql,
+  UnknownAttribute,
+} from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class User extends Model.define({
@@ -9,6 +18,18 @@ class User extends Model.define({
   age: "integer",
 }) {
   static table = "users";
+
+  posts = hasMany(Post);
+}
+
+class Post extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  user = belongsTo(User);
 }
 
 describe("rewriting queries (#350)", () => {
@@ -21,6 +42,7 @@ describe("rewriting queries (#350)", () => {
            (2, 'b@example.com', 'member', 40),
            (3, 'c@example.com', 'member', 30),
            (4, 'd@example.com', NULL, 50)`);
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'A'), (11, 2, 'B')");
   });
   afterAll(() => harness.dispose());
 
@@ -74,6 +96,71 @@ describe("rewriting queries (#350)", () => {
     test("refuses a fragment, which names no attributes", () => {
       // @ts-expect-error -- rewhere takes attribute values only
       expect(() => users().rewhere(sql`${column("age")} = 30`)).toThrow(TypeError);
+    });
+  });
+
+  describe("unscope", () => {
+    test("drops every condition, a default scope's included", async () => {
+      class Member extends User {
+        static {
+          this.defaultScope((q) => q.where({ role: "member" }));
+        }
+      }
+
+      const everyone = harness.connect().model(Member).where({ age: 30 }).unscope("where");
+
+      expect(await everyone.order({ id: "asc" }).pluck("id")).toEqual([1, 2, 3, 4]);
+    });
+
+    test("drops the order, page, select and distinct it names", async () => {
+      const narrowed = users().order({ id: "desc" }).limit(1).offset(1).select("email").distinct();
+
+      const all = await narrowed
+        .unscope("order", "limit", "offset", "select", "distinct")
+        .toArray();
+
+      expect(all.map((user) => user.id).sort((a, b) => a - b)).toEqual([1, 2, 3, 4]);
+      expect(all.map((user) => user.role)).toContain("admin");
+    });
+
+    test("drops the joins of the kind it names", async () => {
+      expect(await users().joins("posts").unscope("joins").count()).toBe(4);
+      expect(await users().joins("posts").unscope("leftJoins").count()).toBe(2);
+      expect(await users().leftJoins("posts").unscope("leftJoins").count()).toBe(4);
+    });
+
+    test("refuses to drop a join that conditions merged onto it use", () => {
+      const db = harness.connect();
+      const joined = db
+        .model(User)
+        .joins("posts")
+        .merge(db.model(Post).where({ title: "A" }));
+
+      expect(() => joined.unscope("joins")).toThrow(IncompatibleRelation);
+    });
+
+    test("drops includes and createWith", async () => {
+      const [user] = await users().includes("posts").unscope("includes").where({ id: 1 }).toArray();
+      const built = users().createWith({ role: "guest" }).unscope("createWith").build();
+
+      expect(user?.isLoaded("posts")).toBe(false);
+      expect(built.role).toBeNull();
+    });
+
+    test("with { where } drops only the conditions on those attributes", async () => {
+      const members = users().where({ role: "member", age: 30 });
+
+      expect(await members.unscope({ where: "role" }).order({ id: "asc" }).pluck("id")).toEqual([
+        1, 3,
+      ]);
+      expect(await members.unscope({ where: ["role", "age"] }).count()).toBe(4);
+    });
+
+    test("refuses a part it doesn't know, and an attribute the Model doesn't have", () => {
+      // @ts-expect-error -- not a part unscope drops
+      expect(() => users().unscope("group")).toThrow(TypeError);
+      // @ts-expect-error -- not an attribute of User
+      expect(() => users().unscope({ where: "nope" })).toThrow(UnknownAttribute);
     });
   });
 });
