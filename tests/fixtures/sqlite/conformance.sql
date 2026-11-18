@@ -40,5 +40,8 @@ CREATE TABLE remarks (id INTEGER PRIMARY KEY, body TEXT, commentable_type TEXT, 
 CREATE TABLE badges (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users (id), slug TEXT UNIQUE, label TEXT, UNIQUE (user_id, label));
 
 -- Counter caches (#61): each topic keeps a count of its replies.
-CREATE TABLE topics (id INTEGER PRIMARY KEY, title TEXT, replies_count INTEGER DEFAULT 0, reply_tally INTEGER, updated_at TEXT);
+CREATE TABLE topics (id INTEGER PRIMARY KEY, title TEXT, replies_count INTEGER DEFAULT 0, reply_tally INTEGER, reactions_count INTEGER, updated_at TEXT);
 CREATE TABLE replies (id INTEGER PRIMARY KEY, topic_id INTEGER REFERENCES topics (id), body TEXT NOT NULL);
+-- A reaction to a topic or a picture, counted on whichever it's on.
+CREATE TABLE pictures (id INTEGER PRIMARY KEY, reactions_count INTEGER DEFAULT 0);
+CREATE TABLE reactions (id INTEGER PRIMARY KEY, reactable_type TEXT, reactable_id INTEGER);

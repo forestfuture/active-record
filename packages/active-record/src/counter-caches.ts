@@ -58,7 +58,10 @@ export function checkCounterCache(
   }
 }
 
-/** One belongsTo's counter cache: the target's attribute it keeps, and how records link to it. */
+/**
+ * One belongsTo's counter cache on one Model: the target's attribute it keeps, and how records
+ * link to it. A polymorphic belongsTo has one for each Model it lists, by the type naming it (#60).
+ */
 interface Counter {
   /** The belongsTo's name. */
   name: string;
@@ -69,17 +72,33 @@ interface Counter {
   attribute: string;
   /** The target's attribute the foreign key points at. */
   targetKey: string;
+  /** A polymorphic belongsTo's type attribute, and the name it holds for this target. */
+  type: { attribute: string; value: string } | undefined;
 }
 
-/** The counter caches a Model's records keep, one per belongsTo declaring one. */
+/** The counter caches a Model's records keep: each belongsTo's declaring one, on each target. */
 function countersOf(owner: ModelClass): Counter[] {
   return [...associationsOf(owner)].flatMap(([name, definition]) => {
     if (definition.kind !== "belongsTo" || definition.counterCache === undefined) return [];
-    const { target, targetAttribute } = resolveAssociation(owner, name);
     const attribute = counterAttribute(owner, definition);
     const { foreignKey } = definition;
-    return [{ name, foreignKey, target, attribute, targetKey: targetAttribute }];
+    return resolveAssociation(owner, name).branches.map(({ target, targetAttribute, type }) => ({
+      name,
+      foreignKey,
+      target,
+      attribute,
+      targetKey: targetAttribute,
+      type,
+    }));
   });
+}
+
+/**
+ * Whether the type a record holds, as `typeIn` reads it, names `counter`'s target: always, for
+ * a belongsTo that isn't polymorphic.
+ */
+function isNamed(counter: Counter, typeIn: (attribute: string) => unknown): boolean {
+  return counter.type === undefined || typeIn(counter.type.attribute) === counter.type.value;
 }
 
 /**
@@ -94,12 +113,13 @@ export interface CounterChanges {
 
 /** Counting a new record in: each counter cache whose key is set, on its target by that key. */
 export function countersOnInsert(record: Model): CounterChanges {
+  const recordState = record[state];
   const counted = countersOf(modelOf(record)).filter((counter) => {
-    const key = record[state].read(counter.foreignKey);
-    return key !== null && key !== undefined;
+    const key = recordState.read(counter.foreignKey);
+    return key !== null && key !== undefined && isNamed(counter, (name) => recordState.read(name));
   });
   const after = counted.map((counter) =>
-    counterChangeFor(counter, record[state].read(counter.foreignKey), 1),
+    counterChangeFor(counter, recordState.read(counter.foreignKey), 1),
   );
   return { before: [], after, commit: () => countLoaded(record, counted, 1) };
 }
@@ -110,26 +130,38 @@ export function countersOnInsert(record: Model): CounterChanges {
  * was read counts out the target it has now.
  */
 export function countersOnDestroy(record: Model): CounterChanges {
+  const recordState = record[state];
   const skipped = destroyedThrough.get(record);
-  const counted = countersOf(modelOf(record)).filter(({ foreignKey }) => foreignKey !== skipped);
+  const counted = countersOf(modelOf(record)).filter(
+    (counter) =>
+      counter.foreignKey !== skipped &&
+      isNamed(counter, (name) => recordState.valueInDatabase(name)),
+  );
   const before = counted.map((counter) => changeThroughRow(record, counter, -1, "before"));
   return { before, after: [], commit: () => countLoaded(record, counted, -1) };
 }
 
 /**
- * Moving a record's count when its foreign key changes: out of the target its stored row points
- * at before the UPDATE, and into the one it points at after it, so a row that isn't there counts
- * nothing. A loaded new target counts it in memory, as Rails' `increment!` does.
+ * Moving a record's count when its foreign key, or a polymorphic belongsTo's type, changes: out
+ * of the target its stored row points at before the UPDATE, and into the one it points at after
+ * it, so a row that isn't there counts nothing. A loaded new target counts it in memory, as
+ * Rails' `increment!` does.
  */
 export function countersOnUpdate(record: Model): CounterChanges {
   const recordState = record[state];
-  const moved = countersOf(modelOf(record)).filter(({ foreignKey }) =>
-    recordState.isAttributeChanged(foreignKey),
+  const moved = countersOf(modelOf(record)).filter(({ foreignKey, type }) =>
+    [foreignKey, type?.attribute].some(
+      (name) => name !== undefined && recordState.isAttributeChanged(name),
+    ),
   );
+  const from = moved.filter((counter) =>
+    isNamed(counter, (name) => recordState.valueInDatabase(name)),
+  );
+  const to = moved.filter((counter) => isNamed(counter, (name) => recordState.read(name)));
   return {
-    before: moved.map((counter) => changeThroughRow(record, counter, -1, "before")),
-    after: moved.map((counter) => changeThroughRow(record, counter, 1, "after")),
-    commit: () => countLoaded(record, moved, 1),
+    before: from.map((counter) => changeThroughRow(record, counter, -1, "before")),
+    after: to.map((counter) => changeThroughRow(record, counter, 1, "after")),
+    commit: () => countLoaded(record, to, 1),
   };
 }
 
@@ -166,7 +198,9 @@ function changeThroughRow(
   if (when === "before") ownerKey.bindCells(params, recordState.storedKey);
   else ownerKey.bind(params, recordState.read(owner.primaryKey));
   const foreignKey = quoteIdentifier(attributeFor(owner, counter.foreignKey).column);
-  const row = `(SELECT ${foreignKey} FROM ${quoteIdentifier(owner.table)} WHERE ${quoteIdentifier(ownerKey.column)} = ${valueMark})`;
+  const typed =
+    counter.type === undefined ? "" : ` AND ${typeCondition(owner, counter.type, params)}`;
+  const row = `(SELECT ${foreignKey} FROM ${quoteIdentifier(owner.table)} WHERE ${quoteIdentifier(ownerKey.column)} = ${valueMark}${typed})`;
   return compileCounterChange(counter, row, params);
 }
 
@@ -214,4 +248,15 @@ function compileCounterChange(
     params,
     model: target,
   };
+}
+
+/** `type = ?`: a polymorphic row's type naming the counter's target, its value bound. */
+function typeCondition(
+  owner: ModelClass,
+  { attribute, value }: NonNullable<Counter["type"]>,
+  params: unknown[],
+): string {
+  const type = attributeFor(owner, attribute);
+  type.bind(params, value);
+  return `${quoteIdentifier(type.column)} = ${valueMark}`;
 }

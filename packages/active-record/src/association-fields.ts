@@ -86,7 +86,7 @@ interface BelongsToOptions<C extends ModelClass = ModelClass> {
   /**
    * Keeps a count of these records on the target (#61), updated in the same batch as each
    * write: `true` counts them in the attribute named for them (`Reply` → `repliesCount`), or name
-   * another of the target's attributes.
+   * another of the target's attributes (one every Model a polymorphic belongsTo lists has).
    */
   counterCache?: true | (keyof AttributesOf<InstanceType<C>> & string);
 }
@@ -95,8 +95,11 @@ interface BelongsToOptions<C extends ModelClass = ModelClass> {
  * What a polymorphic belongsTo takes (#60): no `scope` (#436), and the attribute holding the
  * type, inferred as the association's name + `Type` (`commentable` → `commentableType`).
  */
-export type PolymorphicBelongsToOptions = Omit<AssociationOptions, "dependent" | "scope"> &
-  BelongsToOptions & { foreignType?: string };
+export type PolymorphicBelongsToOptions<C extends ModelClass = ModelClass> = Omit<
+  AssociationOptions,
+  "dependent" | "scope"
+> &
+  BelongsToOptions<C> & { foreignType?: string };
 
 /**
  * This record points at one record of one of `targets` (#60), by the type and key it holds:
@@ -104,7 +107,7 @@ export type PolymorphicBelongsToOptions = Omit<AssociationOptions, "dependent" |
  */
 export function belongsTo<L extends readonly [ModelClass, ...ModelClass[]]>(
   targets: L,
-  options?: PolymorphicBelongsToOptions,
+  options?: PolymorphicBelongsToOptions<L[number]>,
 ): PolymorphicBelongsTo<L[number]>;
 /** This record points at one `target` record through `foreignKey` (its own attribute). */
 export function belongsTo<C extends ModelClass>(
