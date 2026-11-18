@@ -271,4 +271,14 @@ describe("an association through another's types (#59)", () => {
     // @ts-expect-error -- autosave belongs to the hops of a through association
     hasOne(Tag, { through: "taggings", autosave: true });
   });
+
+  test("inverseOf takes an association's name or false, and isn't an option of a through association", () => {
+    hasMany(Tag, { inverseOf: "note" });
+    hasOne(Tag, { inverseOf: false });
+    belongsTo(Tag, { inverseOf: "note" });
+    // @ts-expect-error -- true isn't a name: an inverse is inferred when inverseOf is left out
+    hasMany(Tag, { inverseOf: true });
+    // @ts-expect-error -- a through association's records hold no key of the owner's
+    hasMany(Tag, { through: "taggings", inverseOf: "note" });
+  });
 });

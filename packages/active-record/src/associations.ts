@@ -18,6 +18,7 @@ import {
 import { checkPolymorphic } from "./polymorphic-checks.ts";
 import { verifyModel } from "./verify-model.ts";
 import { checkThrough } from "./through-associations.ts";
+import { checkInverseOf } from "./inverse-associations.ts";
 import { throughCollection, throughCollectionMethods } from "./through-writes.ts";
 import { state } from "./record-state.ts";
 import { collectionMethods, type CollectionMethods } from "./collection-methods.ts";
@@ -54,6 +55,12 @@ export interface AssociationOptions<C extends ModelClass = ModelClass> {
    * those marked with `markForDestruction()`, as Rails' `autosave: true` does (#37).
    */
   autosave?: true;
+  /**
+   * The target's association that points back (#62), whose record is this one, so records loaded
+   * or built through either side point at each other without a query: a hasMany's or hasOne's
+   * belongsTo, or a belongsTo's hasOne. Inferred when left out; `false` turns it off.
+   */
+  inverseOf?: string | false;
 }
 
 /**
@@ -254,6 +261,7 @@ function checkAssociation(
   checkOptional(label, definition);
   checkAutosave(label, definition);
   checkCounterCache(label, model, definition, targets);
+  checkInverseOf(label, { model, name, definition }, targets);
 }
 
 /** `autosave` is `true` or left out: `false` isn't built (#378). */

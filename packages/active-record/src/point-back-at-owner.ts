@@ -1,16 +1,14 @@
 // A record built, created or loaded through its owner's hasMany or hasOne points back at the owner (#339, #62).
-import { associationsOf } from "./association-fields.ts";
+import { inverseHasOne, inverseOf } from "./inverse-associations.ts";
 import type { Model } from "./model.ts";
 import { state } from "./record-state.ts";
-import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
+import type { ResolvedAssociation } from "./resolved-association.ts";
 
 /**
- * Makes `owner` the loaded record of the belongsTo on `record` that is `association`'s inverse:
- * the first of the target's belongsTo associations that links the same foreign key to the
- * owner's Model, through the same key. Neither may have a scope, which could leave the owner
- * out. So `await post.author()` on a post built through `user.posts()` is the user, with no
- * query, even before either is saved, and a required belongsTo passes, as Rails' automatic
- * `inverse_of` does. The rest of inverse associations (preloads, `inverseOf:`) is #62.
+ * Makes `owner` the loaded record of the belongsTo on `record` that is `association`'s inverse
+ * (`inverseOf`). So `await post.author()` on a post built or loaded through `user.posts()` is
+ * the user, with no query, even before either is saved, and a required belongsTo passes, as
+ * Rails' `inverse_of` does.
  */
 export function pointBackAtOwner(
   owner: Model,
@@ -42,19 +40,6 @@ export function pointLoadedBack(owner: Model, association: ResolvedAssociation, 
 }
 
 /**
- * The hasOne of a belongsTo's target, `record`, whose inverse is the belongsTo: the one that
- * would point a record it loads back at `record` through `belongsTo`.
- */
-function inverseHasOne(record: Model, belongsTo: ResolvedAssociation) {
-  for (const [name, definition] of associationsOf(belongsTo.target)) {
-    if (definition.kind !== "hasOne") continue;
-    const hasOne = resolveAssociation(belongsTo.target, name);
-    if (inverseOf(record, hasOne)?.name === belongsTo.name) return hasOne;
-  }
-  return undefined;
-}
-
-/**
  * Whether the record's foreign key is its owner's: the same key (an integer matching a text
  * key's digits, #94), or null while the owner has none yet, which saving the owner fills in. A
  * key that isn't the owner's, null included, points elsewhere. Only a pushed record can hold
@@ -68,27 +53,3 @@ export function isOwnersKey(key: unknown, owner: Model, association: ResolvedAss
 
 /** A key's value: what an integer or string key attribute holds. */
 type Key = string | number;
-
-/**
- * The first of the target's belongsTo associations through the same foreign key, and type (#60),
- * to the owner's Model: for a hasMany or hasOne with `as`, a polymorphic belongsTo that lists it
- * (Rails finds no inverse there), its branch for the owner's Model.
- */
-function inverseOf(
-  owner: Model,
-  association: ResolvedAssociation,
-): ResolvedAssociation | undefined {
-  const { target, targetAttribute, ownerAttribute } = association;
-  // A scope on either side may leave the owner out, so neither has an inverse; a through
-  // association's records hold no key of the owner's.
-  if (association.definition.scope !== undefined || association.hops !== undefined)
-    return undefined;
-  for (const [name, definition] of associationsOf(target)) {
-    if (definition.kind !== "belongsTo" || definition.foreignKey !== targetAttribute) continue;
-    if (definition.scope !== undefined) continue;
-    if (definition.foreignType !== association.definition.foreignType) continue;
-    const candidate = resolveAssociation(target, name).branchForRecord(owner);
-    if (candidate?.targetAttribute === ownerAttribute) return candidate;
-  }
-  return undefined;
-}
