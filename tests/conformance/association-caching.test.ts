@@ -260,12 +260,12 @@ describe("caching lazily loaded associations", () => {
     ["deleteAll", (user: User) => user.posts().where({ title: "A2" }).deleteAll(), ["A1"]],
     [
       "insert",
-      (user: User) => user.posts().where({ title: "A2" }).insert({ id: 13, title: "A3" }),
+      (user: User) => user.posts().whereNot({ title: "A1" }).insert({ id: 13, title: "A3" }),
       ["A1", "A2", "A3"],
     ],
     [
       "upsert",
-      (user: User) => user.posts().where({ title: "A2" }).upsert({ id: 11, title: "Up" }),
+      (user: User) => user.posts().whereNot({ title: "A1" }).upsert({ id: 11, title: "Up" }),
       ["A1", "Up"],
     ],
   ])("%s through a narrowed hasMany clears its cache", async (_write, write, titles) => {

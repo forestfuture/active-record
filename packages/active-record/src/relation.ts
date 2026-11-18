@@ -236,8 +236,8 @@ export class Relation<M extends Model, S = {}> {
   /**
    * Attributes for the records this Relation builds, creates or inserts, but not conditions its
    * finders use: `createWith({ role: "member" }).findOrCreateBy({ email })`. Added to any it has;
-   * `null` removes them. They win over its conditions' values; attributes given to `build`,
-   * `create` or `insert` win over them.
+   * `null` removes them. They win over its conditions' values. Attributes given to `build` or
+   * `create` win over them, and a bulk write such as `insert` writes them over its own (#470).
    */
   createWith(attributes: Partial<AttributesOf<M>> | null): Scoped<M, S> {
     if (attributes === null) return this.#with({ createWith: undefined });
@@ -283,8 +283,9 @@ export class Relation<M extends Model, S = {}> {
    * Inserts one row now: `await db.model(Post).insert({ title })`. Resolves to how many rows it
    * wrote and the `returning` attributes of each (the primary key by default; `false` for none).
    * Skips validations and callbacks; declared defaults, generated ids, and timestamps apply, and
-   * this Relation's equality conditions are inserted too, as with `build()`. A duplicate throws,
-   * unless `onDuplicate: "skip"` (Rails' `insert`). `b.insert` is the same write, for a batch.
+   * this Relation's equality conditions are inserted over the given attributes (#470). A
+   * duplicate throws, unless `onDuplicate: "skip"` (Rails' `insert`). `b.insert` is the same
+   * write, for a batch.
    */
   async insert<const R extends Returning<M> | undefined = undefined>(
     attributes: Partial<AttributesOf<M>>,

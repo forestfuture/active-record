@@ -357,6 +357,7 @@ Queries start from it, and new records take its conditions’ values:
 
 - It applies to everything that queries the Model: `find`, `count`, `updateAll`, `deleteAll`, its scopes, and associations that read it, preloads included.
 - `reload`, uniqueness validation, and a record’s own `save` and `destroy` ignore it, since they work by primary key.
+- `insert`, `insertAll`, `upsert`, and `upsertAll` write its conditions’ values over the values you give. `build` and `create` use the values you give.
 - Several default scopes all apply. A subclass adds its own to its parent’s.
 - An order in a default scope is the Relation’s order. `reorder` replaces it.
 
@@ -367,7 +368,7 @@ To leave the default scope out, start from `unscoped()`:
 `unscoped()` is a Model static only. With a database you hold, call it inside [`withDatabase`](./connecting#using-the-requests-database).
 
 :::warning[Default scopes hide records from associations too]
-A default scope that hides soft-deleted records also hides them from every association. A comment on a deleted post then fails to save with “Post must exist”. And `dependent: "destroy"` leaves a deleted post’s comments behind. For soft deletes, use a named scope instead:
+A default scope that hides soft-deleted records also hides them from every association. A comment on a deleted post then fails to save with “Post must exist”. And `dependent: "destroy"` leaves a deleted post’s comments behind. An upsert that updates a deleted post writes `deletedAt: null`, which brings the post back. It does this even when you pass a `deletedAt`. For soft deletes, use a named scope instead:
 
 ```ts
 class Post extends ApplicationRecord {
