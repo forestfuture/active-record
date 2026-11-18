@@ -11,7 +11,7 @@ import {
   type SqlPart,
 } from "./counter-caches.ts";
 import { valueMark } from "./dialect.ts";
-import type { Model, ModelClass, QueryableClass } from "./model.ts";
+import { modelOf, type Model, type ModelClass, type QueryableClass } from "./model.ts";
 import { quoteIdentifier } from "./query-tables.ts";
 import type { QueryDescription } from "./query.ts";
 import { state } from "./record-state.ts";
@@ -106,10 +106,8 @@ export function countedOut(
   };
   const [removal] = queries;
   const { dialect } = executor;
-  // In one statement Postgres changes a row once, so a hasMany of the owner's own table, whose
-  // removal could change the owner's row too, counts first instead.
-  const isOwnTable = counters.some(({ target }) => target.table === association.target.table);
-  if (dialect.countedRemoval !== undefined && !isOwnTable && queries.length === 1 && removal) {
+  const isOneStatement = queries.length === 1 && !isOwnRecord(owner, association);
+  if (dialect.countedRemoval !== undefined && isOneStatement && removal) {
     const counted = dialect.countedRemoval(removal, (removed) =>
       decrements({ sql: `- ${removed}`, params: [] }),
     );
@@ -126,6 +124,20 @@ export function countedOut(
     decrements({ sql: `- (${count.sql})`, params: count.params }),
     (results) => countOut(rowsAffectedOf(results)),
   );
+}
+
+/**
+ * Whether removing `owner`'s records may change the owner's own row: a hasMany of its own table
+ * whose owner is its own parent, or might be (its key isn't loaded). In one statement Postgres
+ * changes a row once, so the counter's change and the removal can't both land; such a removal
+ * counts first. Should the row become its own parent after it was read, the removal still comes
+ * first in the statement, and only the count is missed.
+ */
+function isOwnRecord(owner: Model, { target, definition, ownerAttribute }: ResolvedAssociation) {
+  if (target.table !== modelOf(owner).table) return false;
+  const ownerState = owner[state];
+  if (!(definition.foreignKey in ownerState.attributes())) return true;
+  return ownerState.read(definition.foreignKey) === ownerState.read(ownerAttribute);
 }
 
 /**
