@@ -38,3 +38,7 @@ CREATE TABLE remarks (id INTEGER PRIMARY KEY, body TEXT, commentable_type TEXT, 
 
 -- Upserts through a hasMany on another unique index (#451): a slug unique everywhere, a label per user.
 CREATE TABLE badges (id INTEGER PRIMARY KEY, user_id INTEGER REFERENCES users (id), slug TEXT UNIQUE, label TEXT, UNIQUE (user_id, label));
+
+-- Counter caches (#61): each topic keeps a count of its replies.
+CREATE TABLE topics (id INTEGER PRIMARY KEY, title TEXT, replies_count INTEGER DEFAULT 0, updated_at TEXT);
+CREATE TABLE replies (id INTEGER PRIMARY KEY, topic_id INTEGER REFERENCES topics (id), body TEXT NOT NULL);

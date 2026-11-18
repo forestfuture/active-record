@@ -83,6 +83,11 @@ function noSingleTarget(): never {
 interface BelongsToOptions {
   /** The record may point at nothing: saving doesn't require its record (#339). */
   optional?: boolean;
+  /**
+   * Keeps a count of these records on the target (#61), in the attribute named
+   * `${plural}Count` (`Reply` → `repliesCount`), updated in the same batch as each write.
+   */
+  counterCache?: true;
 }
 
 /**

@@ -108,6 +108,8 @@ export interface AssociationDeclaration extends AssociationOptions, Partial<Thro
   kind: AssociationKind;
   /** A belongsTo that may point at nothing: its record isn't required (#339). */
   optional?: boolean;
+  /** A belongsTo's counter on its target (#61): `true` for the attribute Rails' convention names. */
+  counterCache?: true;
   /** The target Model, read when the association is first used (the field holds the class). */
   target: () => ModelClass;
   /**
