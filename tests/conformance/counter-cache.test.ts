@@ -23,6 +23,7 @@ class Topic extends Model.define({
 }) {
   static table = "topics";
   replies = hasMany(Reply);
+  tallied = hasMany(TalliedReply, { foreignKey: "topicId", counterCache: "replyTally" });
 }
 
 class DestroyingTopic extends Model.define({
@@ -296,15 +297,23 @@ describe("counter caches", () => {
       expect([await repliesCount(1), await repliesCount(2)]).toEqual([0, 1]);
     });
 
-    test("to null counts the record out, and back counts it in", async () => {
+    test("to null counts the record out", async () => {
       const reply = await db().model(Reply).find(1);
 
       reply.topicId = null;
-      await reply.save();
+      await reply.saveOrThrow();
+
       expect(await repliesCount(1)).toBe(0);
+    });
+
+    test("from null counts the record in", async () => {
+      await harness.exec("UPDATE replies SET topic_id = NULL WHERE id = 1");
+      await harness.exec("UPDATE topics SET replies_count = 0 WHERE id = 1");
+      const reply = await db().model(Reply).find(1);
 
       reply.topicId = 1;
       await reply.save();
+
       expect(await repliesCount(1)).toBe(1);
     });
 
@@ -482,7 +491,7 @@ describe("counter caches", () => {
       );
     });
 
-    test("size() reads the counter, without a query, and adds built records", async () => {
+    test("size() reads the counter, without a query", async () => {
       const events: QueryEvent[] = [];
       const topic = await harness
         .connect({ onQuery: (event) => events.push(event) })
@@ -491,9 +500,15 @@ describe("counter caches", () => {
       events.length = 0;
 
       expect(await topic.replies().size()).toBe(5);
-      topic.replies().build({ body: "d" });
-      expect(await topic.replies().size()).toBe(6);
       expect(events).toEqual([]);
+    });
+
+    test("size() adds records built through it to the counter", async () => {
+      const topic = await db().model(Topic).find(1);
+
+      topic.replies().build({ body: "d" });
+
+      expect(await topic.replies().size()).toBe(6);
     });
 
     test("isEmpty() and hasAny() read the counter", async () => {
@@ -504,12 +519,23 @@ describe("counter caches", () => {
       expect(await topic.replies().hasAny()).toBe(false);
     });
 
-    test("count(), a loaded collection and a narrowed Relation count the rows", async () => {
+    test("count() counts the rows", async () => {
       const topic = await db().model(Topic).find(1);
 
       expect(await topic.replies().count()).toBe(3);
+    });
+
+    test("a narrowed Relation's size() counts its rows", async () => {
+      const topic = await db().model(Topic).find(1);
+
       expect(await topic.replies().where({ body: "a" }).size()).toBe(1);
+    });
+
+    test("a loaded collection's size() is its length", async () => {
+      const topic = await db().model(Topic).find(1);
+
       await topic.replies().toArray();
+
       expect(await topic.replies().size()).toBe(3);
     });
   });
@@ -559,10 +585,22 @@ describe("counter caches", () => {
       await expect(withDatabase(db(), () => Untallied.resetCounters(1, "others"))).rejects.toThrow(
         new TypeError('Untallied.resetCounters: "others" has no counter cache on Untallied'),
       );
+    });
+
+    test("a name that isn't an association is UnknownAssociation", async () => {
       await expect(
         // @ts-expect-error resetCounters takes a hasMany's name
-        withDatabase(db(), () => Untallied.resetCounters(1, "missing")),
+        withDatabase(db(), () => Topic.resetCounters(1, "missing")),
       ).rejects.toThrow(UnknownAssociation);
+    });
+
+    test("takes a list of names, setting each counter", async () => {
+      await withDatabase(db(), () => Topic.resetCounters(1, ["replies", "tallied"]));
+
+      const row = await harness.exec("SELECT replies_count, reply_tally FROM topics WHERE id = 1");
+      expect(row.map((each) => [Number(each.replies_count), Number(each.reply_tally)])).toEqual([
+        [2, 2],
+      ]);
     });
   });
 
@@ -625,15 +663,6 @@ describe("counter caches", () => {
     expect(created.rowsAffected).toBe(1);
     expect(await repliesCount(1)).toBe(2);
     expect((await topics.find(1)).updatedAt).not.toBeNull();
-  });
-
-  test("resetCounters takes a list of names", async () => {
-    await harness.exec("UPDATE topics SET replies_count = 9, reply_tally = 9 WHERE id = 1");
-    await harness.exec("INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a')");
-
-    await withDatabase(db(), () => Topic.resetCounters(1, ["replies"]));
-
-    expect(await repliesCount(1)).toBe(1);
   });
 
   describe("removing records through an association through another", () => {
