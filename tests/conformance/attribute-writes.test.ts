@@ -408,14 +408,16 @@ describe("changing one attribute (#351)", () => {
 
     test("incrementCounter adds one, or by, to one attribute of the rows with these keys", async () => {
       expect(await withDatabase(db(), () => Member.incrementCounter("age", 1))).toBe(1);
-      expect(await withDatabase(db(), () => Member.incrementCounter("age", [1, 2], 3))).toBe(2);
+      expect(
+        await withDatabase(db(), () => Member.incrementCounter("age", [1, 2], { by: 3 })),
+      ).toBe(2);
 
       expect(await ages()).toEqual([7, 3]);
     });
 
     test("decrementCounter takes one, or by", async () => {
       expect(await withDatabase(db(), () => Member.decrementCounter("age", 1))).toBe(1);
-      expect(await withDatabase(db(), () => Member.decrementCounter("age", 1, 2))).toBe(1);
+      expect(await withDatabase(db(), () => Member.decrementCounter("age", 1, { by: 2 }))).toBe(1);
 
       expect(await ages()).toEqual([0, null]);
     });
@@ -456,7 +458,9 @@ describe("changing one attribute (#351)", () => {
     });
 
     test("incrementCounter refuses an amount that isn't a number, sending nothing", async () => {
-      const added = withDatabase(db(), () => Member.incrementCounter("age", 1, untyped("5")));
+      const added = withDatabase(db(), () =>
+        Member.incrementCounter("age", 1, { by: untyped("5") }),
+      );
 
       await expect(added).rejects.toThrow(TypeError);
       expect(events).toEqual([]);
