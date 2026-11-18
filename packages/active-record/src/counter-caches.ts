@@ -17,7 +17,8 @@ import { tableOwnerModelName } from "./table-names.ts";
  * Rails' convention the owner's plural name + `Count` (`Reply` → `repliesCount`).
  */
 function counterAttribute(owner: ModelClass, { counterCache }: AssociationDefinition): string {
-  if (typeof counterCache === "string") return counterCache;
+  const named = typeof counterCache === "object" ? counterCache.attribute : counterCache;
+  if (typeof named === "string") return named;
   const plural = pluralize(tableOwnerModelName(owner));
   return `${plural.charAt(0).toLowerCase()}${plural.slice(1)}Count`;
 }
@@ -36,10 +37,7 @@ export function checkCounterCache(
   if (kind !== "belongsTo") {
     throw new InvalidModel(`${label}: only a belongsTo keeps a counter cache`);
   }
-  if (counterCache !== true && typeof counterCache !== "string") {
-    const names = targets.map((target) => target.name).join(" or ");
-    throw new InvalidModel(`${label}: counterCache takes true or the name of ${names}'s attribute`);
-  }
+  checkCounterValue(label, counterCache, targets);
   // Its count is written in the record's batch, so it can't be on another database (#489).
   const elsewhere = targets.find((target) => isOnDifferentDatabases(owner, target));
   if (elsewhere !== undefined) {
@@ -48,14 +46,37 @@ export function checkCounterCache(
     );
   }
   const attribute = counterAttribute(owner, definition);
-  const hint =
-    counterCache === true
-      ? `counterCache: true infers it from ${owner.name}; declare it, or name another`
-      : "check counterCache";
+  const isNamed =
+    typeof counterCache === "object" ? "attribute" in counterCache : counterCache !== true;
+  const hint = isNamed
+    ? "check counterCache"
+    : `counterCache: true infers it from ${owner.name}; declare it, or name another`;
   for (const target of targets) {
     if (target.attributeDefinitions.has(attribute)) continue;
     throw new InvalidModel(`${label}: ${target.name} has no attribute "${attribute}" (${hint})`);
   }
+}
+
+/** `counterCache` is `true`, an attribute's name, or `{ attribute, active: false }`. */
+function checkCounterValue(label: string, counterCache: unknown, targets: readonly ModelClass[]) {
+  if (counterCache === true || typeof counterCache === "string") return;
+  if (typeof counterCache === "object" && counterCache !== null) {
+    const { attribute, active, ...rest } = counterCache as Record<string, unknown>;
+    if (active !== undefined && active !== false) {
+      throw new InvalidModel(`${label}: counterCache's active takes false`);
+    }
+    const [unknown] = Object.keys(rest);
+    if (unknown !== undefined) {
+      throw new InvalidModel(
+        `${label}: counterCache takes no "${unknown}"; use attribute or active`,
+      );
+    }
+    if (attribute === undefined || typeof attribute === "string") return;
+  }
+  const names = targets.map((target) => target.name).join(" or ");
+  throw new InvalidModel(
+    `${label}: counterCache takes true, the name of ${names}'s attribute, or { attribute, active: false }`,
+  );
 }
 
 /**
@@ -74,6 +95,8 @@ export interface Counter {
   targetKey: string;
   /** A polymorphic belongsTo's type attribute, and the name it holds for this target. */
   type: { attribute: string; value: string } | undefined;
+  /** Whether `size` reads it: not while it's declared `active: false`. */
+  isActive: boolean;
 }
 
 /** The counter caches a Model's records keep: each belongsTo's declaring one, on each target. */
@@ -81,7 +104,8 @@ export function countersOf(owner: ModelClass): Counter[] {
   return [...associationsOf(owner)].flatMap(([name, definition]) => {
     if (definition.kind !== "belongsTo" || definition.counterCache === undefined) return [];
     const attribute = counterAttribute(owner, definition);
-    const { foreignKey } = definition;
+    const { foreignKey, counterCache } = definition;
+    const isActive = typeof counterCache !== "object" || counterCache.active !== false;
     return resolveAssociation(owner, name).branches.map(({ target, targetAttribute, type }) => ({
       name,
       foreignKey,
@@ -89,6 +113,7 @@ export function countersOf(owner: ModelClass): Counter[] {
       attribute,
       targetKey: targetAttribute,
       type,
+      isActive,
     }));
   });
 }

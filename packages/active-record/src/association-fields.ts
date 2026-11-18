@@ -79,6 +79,9 @@ function noSingleTarget(): never {
   throw new Error("A polymorphic belongsTo has no single target; use the branch for a record");
 }
 
+/** One of the attributes of `C`'s records, which a counter cache names. */
+type CounterName<C extends ModelClass> = keyof AttributesOf<InstanceType<C>> & string;
+
 /** What only a belongsTo takes; `C` is its target, whose attribute a counter cache names. */
 interface BelongsToOptions<C extends ModelClass = ModelClass> {
   /** The record may point at nothing: saving doesn't require its record (#339). */
@@ -87,8 +90,10 @@ interface BelongsToOptions<C extends ModelClass = ModelClass> {
    * Keeps a count of these records on the target (#61), updated in the same batch as each
    * write: `true` counts them in the attribute named for them (`Reply` → `repliesCount`), or name
    * another of the target's attributes (one every Model a polymorphic belongsTo lists has).
+   * `{ attribute, active: false }` keeps it on writes, but `size` doesn't read it yet, so it
+   * can be filled in for the rows already there (Rails 7.2's `active: false`).
    */
-  counterCache?: true | (keyof AttributesOf<InstanceType<C>> & string);
+  counterCache?: true | CounterName<C> | { attribute?: CounterName<C>; active?: false };
 }
 
 /**

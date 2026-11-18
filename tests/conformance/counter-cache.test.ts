@@ -50,6 +50,27 @@ class TalliedReply extends Model.define({
   topic = belongsTo(Topic, { counterCache: "replyTally" });
 }
 
+/** A topic whose reply tally is kept by writes but not yet read, while it's backfilled. */
+class BackfillingTopic extends Model.define({
+  id: { type: "integer", null: false },
+  replyTally: "integer",
+}) {
+  static table = "topics";
+  replies = hasMany(BackfilledReply, { foreignKey: "topicId" });
+}
+
+class BackfilledReply extends Model.define({
+  id: { type: "integer", null: false },
+  topicId: "integer",
+  body: { type: "string", null: false },
+}) {
+  static table = "replies";
+  topic = belongsTo(BackfillingTopic, {
+    foreignKey: "topicId",
+    counterCache: { attribute: "replyTally", active: false },
+  });
+}
+
 describe("counter caches", () => {
   let harness: Harness;
   const db = () => harness.connect();
@@ -383,6 +404,32 @@ describe("counter caches", () => {
     });
   });
 
+  describe("counterCache: { active: false }", () => {
+    test("keeps the counter on writes, but size() counts the rows", async () => {
+      await harness.exec("UPDATE topics SET reply_tally = 7 WHERE id = 1");
+      const topic = await db().model(BackfillingTopic).find(1);
+
+      await topic.replies().create({ body: "a" });
+
+      expect(Number(await replyTally(1))).toBe(8);
+      expect(await (await db().model(BackfillingTopic).find(1)).replies().size()).toBe(1);
+    });
+
+    test("takes only false: anything else is an InvalidModel", () => {
+      class Miscounted extends Model.define({
+        id: { type: "integer", null: false },
+        topicId: "integer",
+      }) {
+        static table = "replies";
+        topic = belongsTo(Topic, { counterCache: { active: true } as never });
+      }
+
+      expect(() => db().model(Miscounted).build()).toThrow(
+        new InvalidModel('Miscounted association "topic": counterCache\'s active takes false'),
+      );
+    });
+  });
+
   test("only a belongsTo keeps a counter cache: InvalidModel on another", () => {
     class Counting extends Model.define({ id: { type: "integer", null: false } }) {
       static table = "topics";
@@ -395,7 +442,7 @@ describe("counter caches", () => {
     );
   });
 
-  test("counterCache takes true or an attribute's name", () => {
+  test("counterCache takes true, an attribute's name, or an object", () => {
     class Miscounted extends Model.define({
       id: { type: "integer", null: false },
       topicId: "integer",
@@ -406,7 +453,7 @@ describe("counter caches", () => {
 
     expect(() => db().model(Miscounted).build()).toThrow(
       new InvalidModel(
-        'Miscounted association "topic": counterCache takes true or the name of Topic\'s attribute',
+        'Miscounted association "topic": counterCache takes true, the name of Topic\'s attribute, or { attribute, active: false }',
       ),
     );
   });
