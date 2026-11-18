@@ -43,12 +43,15 @@ const found = new WeakMap<ResolvedAssociation, Counter | undefined>();
 
 /**
  * How many records `owner`'s hasMany has by its counter cache, read as Rails reads it (`null` is
- * 0); undefined without one, or when the owner's counter wasn't loaded (left out of `select`).
+ * 0); undefined without one, while it's `active: false`, or when the owner's counter wasn't loaded
+ * (left out of `select`).
  */
 export function ownersCount(owner: Model, association: ResolvedAssociation): number | undefined {
   const counter = ownersCounter(association);
   const ownerState = owner[state];
-  if (counter === undefined || !(counter.attribute in ownerState.attributes())) return undefined;
+  if (counter?.isActive !== true || !(counter.attribute in ownerState.attributes())) {
+    return undefined;
+  }
   return Number(ownerState.read(counter.attribute) ?? 0);
 }
 

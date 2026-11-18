@@ -113,7 +113,7 @@ export interface AssociationDeclaration extends AssociationOptions, Partial<Thro
    * A belongsTo's counter on its target (#61): `true` for the attribute Rails' convention names,
    * or the target's attribute's name.
    */
-  counterCache?: true | string;
+  counterCache?: true | string | { attribute?: string; active?: false };
   /** The target Model, read when the association is first used (the field holds the class). */
   target: () => ModelClass;
   /**
