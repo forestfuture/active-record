@@ -130,7 +130,7 @@ export function countedOut(
 
 /**
  * `Model.resetCounters(id, names, { touch })`: checks the names and `touch`, finds the record
- * (`RecordNotFound`, as `find`), then sets each named hasMany's counter cache to a COUNT of its
+ * (`RecordNotFound`, as `find`), then sets each named hasMany's counter caches to a COUNT of its
  * records, and any touched attributes, in one UPDATE, so each count is the one at the write.
  */
 export async function resetCounters(
@@ -139,7 +139,7 @@ export async function resetCounters(
   names: string | readonly string[],
   touch: unknown,
 ): Promise<void> {
-  const counted = countedBy(model, typeof names === "string" ? [names] : names);
+  const counted = countersToReset(model, typeof names === "string" ? [names] : names);
   const touched = touchAssignments(model, touch, "resetCounters");
   const record: Model = await model.all().find(id as never);
   const { executor } = record[state];
@@ -163,27 +163,30 @@ export async function resetCounters(
 }
 
 /**
- * The hasManys `names` reset, by the counter each sets, checked before anything is read: each
- * keeps a counter cache, and has no scope, whose rows wouldn't be all the counter counts (Rails
- * would write them in). Two names for one counter set it once: a column can't be assigned twice.
+ * The counters `names` reset, each by the hasMany whose records it counts, checked before anything
+ * is read: each hasMany's records keep a counter cache, and it has no scope, whose rows wouldn't
+ * be all a counter counts (Rails would write them in). Every counter on its key is reset, as a
+ * bulk removal counts out of each; one named twice is set once, since a column takes one value.
  */
-function countedBy(model: ModelClass, names: readonly string[]): Map<string, ResolvedAssociation> {
+function countersToReset(
+  model: ModelClass,
+  names: readonly string[],
+): Map<string, ResolvedAssociation> {
   if (names.length === 0) {
     throw new TypeError(`${model.name}.resetCounters needs at least one association`);
   }
-  const counted = new Map<string, ResolvedAssociation>();
+  const reset = new Map<string, ResolvedAssociation>();
   for (const name of names) {
     const association = resolveAssociation(model, name);
-    const counter = namedCounter(association) ?? ownersCounters(association)[0];
-    const refusal =
-      counter === undefined
-        ? `has no counter cache on ${model.name}`
-        : association.definition.scope === undefined
-          ? undefined
-          : `has a scope, so it can't count ${counter.attribute}`;
-    if (refusal !== undefined)
-      throw new TypeError(`${model.name}.resetCounters: "${name}" ${refusal}`);
-    if (!counted.has(counter!.attribute)) counted.set(counter!.attribute, association);
+    const counters = ownersCounters(association);
+    const refuse = (why: string) => new TypeError(`${model.name}.resetCounters: "${name}" ${why}`);
+    if (counters.length === 0) throw refuse(`has no counter cache on ${model.name}`);
+    if (association.definition.scope !== undefined) {
+      const counter = namedCounter(association) ?? counters[0]!;
+      throw refuse(`has a scope, so it can't count ${counter.attribute}`);
+    }
+    for (const { attribute } of counters)
+      if (!reset.has(attribute)) reset.set(attribute, association);
   }
-  return counted;
+  return reset;
 }
