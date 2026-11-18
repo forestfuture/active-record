@@ -35,9 +35,7 @@ export function checkCounterCache(
 ): void {
   const { counterCache, kind } = definition;
   if (counterCache === undefined) return;
-  if (kind !== "belongsTo") {
-    throw new InvalidModel(`${label}: only a belongsTo keeps a counter cache`);
-  }
+  if (kind !== "belongsTo") return checkCollectionCounter(label, owner, definition, targets);
   checkCounterValue(label, counterCache, targets);
   // Its count is written in the record's batch, so it can't be on another database (#489).
   const elsewhere = targets.find((target) => isOnDifferentDatabases(owner, target));
@@ -65,6 +63,39 @@ function requireCounter(label: string, target: ModelClass, attribute: string, hi
   if (!isNumber || definition.enum !== undefined || definition.customType !== undefined) {
     throw new InvalidModel(
       `${label}: ${target.name}'s "${attribute}" can't keep a count; counterCache takes an integer or real attribute`,
+    );
+  }
+}
+
+/**
+ * A hasMany's `counterCache` names the counter a belongsTo of its records keeps on the owner;
+ * a hasOne takes none. Read from the declarations, since the records' Model may not be ready yet.
+ */
+function checkCollectionCounter(
+  label: string,
+  owner: ModelClass,
+  { kind, counterCache, foreignKey }: AssociationDefinition,
+  [target]: readonly ModelClass[],
+): void {
+  if (kind !== "hasMany" || typeof counterCache !== "string") {
+    const where = target === undefined ? "its records'" : `${target.name}'s`;
+    throw new InvalidModel(
+      `${label}: a ${kind} takes no counterCache; declare it on ${where} belongsTo`,
+    );
+  }
+  const kept = [...associationsOf(target!).values()].some(
+    (each) =>
+      each.kind === "belongsTo" &&
+      each.counterCache !== undefined &&
+      each.foreignKey === foreignKey &&
+      counterAttribute(target!, each) === counterCache &&
+      (each.targets?.() ?? [each.target()]).some(
+        (pointed) => owner === pointed || owner.prototype instanceof pointed,
+      ),
+  );
+  if (!kept) {
+    throw new InvalidModel(
+      `${label}: no belongsTo of ${target!.name} keeps "${counterCache}" on ${owner.name} (check counterCache)`,
     );
   }
 }
