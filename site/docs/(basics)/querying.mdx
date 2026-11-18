@@ -80,7 +80,13 @@ Drop parts of a query with `unscope`, or keep only some with `only`:
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-`rewhere`, `unscope`, and `only` work as Rails’ do, with the parts named as strings. On an association, Rails’ `unscope(:where)` drops the link to its owner. Here no rewrite drops it. `group` and `having` aren’t parts, since a grouped Relation is a type of its own. Rails’ `invert_where` and `extending` aren’t offered. Scopes cover `extending`.
+`rewhere`, `unscope`, and `only` work as Rails’ do, with the parts named as strings. `group` and `having` aren’t parts, since a grouped Relation is a type of its own. Rails’ `invert_where` and `extending` aren’t offered. Scopes cover `extending`.
+
+</Callout>
+
+<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
+
+On an association, Rails’ `unscope(:where)` drops the link to its owner, so a read can reach records that `create` wouldn’t link to it. Here no rewrite drops the link, so reads and writes agree.
 
 </Callout>
 
