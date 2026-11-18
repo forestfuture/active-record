@@ -372,6 +372,13 @@ describe("changing one attribute (#351)", () => {
       expect(events).toEqual([]);
     });
 
+    test("refuses an amount that isn't a number, sending nothing", async () => {
+      const members = db().model(Member);
+
+      await expect(members.updateCounters({ age: untyped(null) })).rejects.toThrow(TypeError);
+      expect(events).toEqual([]);
+    });
+
     // A guard: updateCounters is an updateAll, which sends nothing for none().
     test("a none() Relation sends nothing and resolves to 0", async () => {
       expect(await db().model(Member).none().updateCounters({ age: 1 })).toBe(0);
