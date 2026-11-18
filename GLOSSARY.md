@@ -137,7 +137,7 @@ A string **Attribute** declared with `generateId: true`, whose value, when not g
 _Avoid_: Generated attribute, auto id
 
 **Column**:
-The D1 table column behind an **Attribute**. The word only applies on the SQL side: raw SQL fragments name columns, and everything else names attributes.
+The D1 table column behind an **Attribute**. The word only applies on the SQL side: raw SQL fragments name columns, and everything else names attributes. The exception is the record methods that write straight to the row, skipping validations and callbacks (`updateColumns`, `incrementColumn`, `toggleColumn`), named for that.
 _Avoid_: Attribute (when talking about SQL)
 
 **Relation**:
