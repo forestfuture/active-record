@@ -183,4 +183,17 @@ describe("rewriting queries (#350)", () => {
       expect(() => users().only("where", "group")).toThrow(TypeError);
     });
   });
+
+  describe("merge", () => {
+    test("carries an unscope onto the Relation merged into, as Rails does", async () => {
+      const all = users();
+      const members = all.where({ role: "member" }).order({ id: "desc" });
+
+      expect(await members.merge(all.unscope("where")).pluck("id")).toEqual([4, 3, 2, 1]);
+      expect((await members.merge(all.unscope("order")).first())?.id).toBe(2);
+      expect(
+        await members.merge(all.unscope({ where: "role" }).where({ age: 30 })).pluck("id"),
+      ).toEqual([3, 1]);
+    });
+  });
 });
