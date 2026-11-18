@@ -41,6 +41,7 @@ const relationMethods = [
   "whereNot",
   "rewhere",
   "unscope",
+  "only",
   "none",
   "or",
   "order",

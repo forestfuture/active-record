@@ -11,6 +11,7 @@ import { firstOf, lastOf, soleOf, takeOf, type OneRecordSource } from "./one-rec
 import { isEmpty, size, type CountSource } from "./record-counts.ts";
 import {
   unscoped,
+  withOnly,
   withoutConditionsOn,
   type AttributeNames,
   type QueryPart,
@@ -170,6 +171,11 @@ export class Relation<M extends Model, S = {}> {
    */
   unscope(...parts: (QueryPart | { where: AttributeNames<M> })[]): Scoped<M, S> {
     return this.#describing(parts.reduce(unscoped, this.#query));
+  }
+
+  /** Keeps only these parts of the query, as Rails' `only`: `only("where", "order")`. */
+  only(...parts: QueryPart[]): Scoped<M, S> {
+    return this.#describing(withOnly(this.#query, parts));
   }
 
   /** A Relation that matches nothing and never queries D1; it stays empty when chained. */
