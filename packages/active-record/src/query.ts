@@ -13,6 +13,11 @@ export interface AttributeOrder {
   attribute: string;
   direction: OrderDirection;
   nulls?: NullsPlacement;
+  /**
+   * From `inOrderOf()` (#350): the values it sorts by their place in, rather than by the value
+   * itself; a value not in it has no place, so sorts as a NULL.
+   */
+  inOrderOf?: readonly unknown[];
 }
 
 /** One ORDER BY term: an attribute, or an `sql` fragment for an expression, or a joined Model's. */
@@ -194,7 +199,12 @@ function isSameOrderTerm(x: OrderTerm, y: OrderTerm): boolean {
   if (x instanceof SafeSql || y instanceof SafeSql) {
     return x instanceof SafeSql && y instanceof SafeSql && isSameFragment(x, y);
   }
-  return x.attribute === y.attribute && x.direction === y.direction && x.nulls === y.nulls;
+  return (
+    x.attribute === y.attribute &&
+    x.direction === y.direction &&
+    x.nulls === y.nulls &&
+    isSameList(x.inOrderOf, y.inOrderOf, isSameValue)
+  );
 }
 
 /** Joined Models' order terms, on the same join. */

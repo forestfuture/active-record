@@ -341,10 +341,15 @@ function withGroupedOrder<M extends Model>(
   const kept = query.order.filter(
     (term): term is AttributeOrder | SafeSql => !isUngroupedOrder(term, grouping),
   );
-  return kept.reduce<Relation<M>>(
-    (reordered, term) => reordered.order(term instanceof SafeSql ? term : orderSpec(term)),
-    relation.reorder(),
-  );
+  return kept.reduce<Relation<M>>((reordered, term) => {
+    if (term instanceof SafeSql) return reordered.order(term);
+    // A list's order (#350) is kept as written, its filter already among the conditions.
+    if (term.inOrderOf !== undefined) {
+      const { attribute, inOrderOf } = term;
+      return reordered.inOrderOf(attribute as never, inOrderOf as never, { filter: false });
+    }
+    return reordered.order(orderSpec(term));
+  }, relation.reorder());
 }
 
 /**

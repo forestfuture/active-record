@@ -2,8 +2,10 @@
 import { type Dialect, hexOf, valueMark } from "@forestfuture/active-record/adapter";
 
 /** A binary attribute's cells, each bytes, as hex text: what JSON can hold. */
-function hexCells(cells: readonly unknown[]): string[] {
-  return (cells as readonly Uint8Array[]).map(hexOf);
+function hexCells(cells: readonly unknown[]): (string | null)[] {
+  return (cells as readonly (Uint8Array | null)[]).map((cell) =>
+    cell === null ? null : hexOf(cell),
+  );
 }
 
 export const sqlite: Dialect = {
@@ -11,6 +13,11 @@ export const sqlite: Dialect = {
   // JSON has no bytes, so a list of them is bound as hex text, read back with unhex (#20).
   inList: (column, cells, { isBinary }) => ({
     sql: `${column} IN (SELECT ${isBinary ? "unhex(value)" : "value"} FROM json_each(${valueMark}))`,
+    value: JSON.stringify(isBinary ? hexCells(cells) : cells),
+  }),
+  // `IS` matches a NULL in the list too; the first place a value has is its own.
+  placeInList: (column, cells, { isBinary }) => ({
+    sql: `(SELECT MIN(key) FROM json_each(${valueMark}) WHERE ${isBinary ? "unhex(value)" : "value"} IS ${column})`,
     value: JSON.stringify(isBinary ? hexCells(cells) : cells),
   }),
   pagination(limit, offset, params) {
