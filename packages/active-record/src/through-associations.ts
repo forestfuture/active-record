@@ -121,6 +121,7 @@ function checkOptions(label: string, definition: AssociationDefinition): void {
   const refused = [
     [definition.autosave !== undefined, "autosave"],
     [declaredKey, "foreignKey or primaryKey"],
+    [definition.inverseOf !== undefined, "inverseOf"],
   ] as const;
   for (const [given, option] of refused) {
     if (given) throw new InvalidModel(`${label}: a through association takes no ${option}`);

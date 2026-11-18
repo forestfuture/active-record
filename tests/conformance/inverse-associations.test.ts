@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, hasOne, Model } from "../../packages/active-record/src/index.ts";
+import {
+  belongsTo,
+  hasMany,
+  hasOne,
+  InvalidModel,
+  Model,
+} from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -250,5 +256,178 @@ describe("inverse associations", () => {
     const photo = (await remark.commentable()) as Photo;
 
     expect(photo.loaded("firstRemark")).toBe(remark);
+  });
+
+  describe("inverseOf", () => {
+    class Writer extends Model.define({
+      id: { type: "integer", null: false },
+      email: { type: "string", null: false },
+    }) {
+      static table = "users";
+
+      titled = hasMany(Article, {
+        foreignKey: "userId",
+        scope: (q) => q.where({ title: "A1" }),
+        inverseOf: "editor",
+      });
+      untracked = hasMany(Article, { foreignKey: "userId", inverseOf: false });
+      reviews = hasMany(Review, { foreignKey: "userId" });
+      firstProfile = hasOne(Card, { foreignKey: "userId", scope: (q) => q.order({ id: "asc" }) });
+    }
+
+    class Article extends Model.define({
+      id: { type: "integer", null: false },
+      userId: { type: "integer", null: false },
+      title: { type: "string", null: false },
+    }) {
+      static table = "posts";
+
+      writer = belongsTo(Writer, { foreignKey: "userId" });
+      editor = belongsTo(Writer, { foreignKey: "userId" });
+    }
+
+    class Review extends Model.define({
+      id: { type: "integer", null: false },
+      userId: { type: "integer", null: false },
+      title: { type: "string", null: false },
+    }) {
+      static table = "posts";
+
+      writer = belongsTo(Writer, { foreignKey: "userId", inverseOf: false });
+    }
+
+    class Card extends Model.define({
+      id: { type: "integer", null: false },
+      userId: { type: "integer", null: false },
+    }) {
+      static table = "profiles";
+
+      holder = belongsTo(Writer, { foreignKey: "userId", inverseOf: "firstProfile" });
+      unlinked = belongsTo(Writer, { foreignKey: "userId", inverseOf: false });
+    }
+
+    async function writer(): Promise<Writer> {
+      return db().model(Writer).find(1);
+    }
+
+    test("names the inverse on an association with a scope, for loads and builds", async () => {
+      const owner = await writer();
+
+      const [loaded] = await owner.titled().toArray();
+      const built = owner.titled().build({ title: "A1" });
+
+      expect(loaded!.loaded("editor")).toBe(owner);
+      expect(built.loaded("editor")).toBe(owner);
+    });
+
+    test("picks the belongsTo it names over the first with the same key", async () => {
+      const [article] = await (await writer()).titled().toArray();
+
+      expect(article!.isLoaded("writer")).toBe(false);
+    });
+
+    test("false turns the inverse off, for loads and builds", async () => {
+      const owner = await writer();
+
+      const [loaded] = await owner.untracked().toArray();
+      const built = owner.untracked().build({ title: "New" });
+
+      expect(loaded!.isLoaded("writer")).toBe(false);
+      expect(built.isLoaded("writer")).toBe(false);
+    });
+
+    test("false on a belongsTo keeps the other side from inferring it", async () => {
+      const [review] = await (await writer()).reviews().toArray();
+
+      expect(review!.isLoaded("writer")).toBe(false);
+    });
+
+    test("on a belongsTo, names its inverse hasOne, even one with a scope", async () => {
+      const card = await db().model(Card).find(1);
+
+      const holder = await card.holder();
+      const unlinked = await card.unlinked();
+
+      expect(holder!.loaded("firstProfile")).toBe(card);
+      expect(unlinked!.isLoaded("firstProfile")).toBe(false);
+    });
+
+    describe("is checked at first use", () => {
+      class Target extends Model.define({
+        id: { type: "integer", null: false },
+        userId: { type: "integer", null: false },
+        title: { type: "string", null: false },
+      }) {
+        static table = "posts";
+
+        owner = belongsTo(Writer, { foreignKey: "userId" });
+        byTitle = belongsTo(Writer, { foreignKey: "title", primaryKey: "email" });
+        siblings = hasMany(Target, { foreignKey: "userId", primaryKey: "userId" });
+      }
+
+      /** The error using a Model whose association `field` declares throws. */
+      function refusal(field: () => unknown): unknown {
+        class Owner extends Model.define({
+          id: { type: "integer", null: false },
+          email: { type: "string", null: false },
+        }) {
+          static table = "users";
+
+          declared = field();
+        }
+        try {
+          db().model(Owner).build({ id: 1 });
+        } catch (error) {
+          return error;
+        }
+        return undefined;
+      }
+
+      test("a name the target has no association by", () => {
+        expect(refusal(() => hasMany(Target, { foreignKey: "userId", inverseOf: "nope" }))).toEqual(
+          new InvalidModel(
+            'Owner association "declared": inverseOf names "nope", which isn\'t an association of Target',
+          ),
+        );
+      });
+
+      test("an association of the wrong kind", () => {
+        expect(
+          refusal(() => hasMany(Target, { foreignKey: "userId", inverseOf: "siblings" })),
+        ).toEqual(
+          new InvalidModel(
+            'Owner association "declared": inverseOf must name a belongsTo of Target; "siblings" is a hasMany',
+          ),
+        );
+        expect(
+          refusal(() => belongsTo(Target, { foreignKey: "id", inverseOf: "siblings" })),
+        ).toEqual(
+          new InvalidModel(
+            'Owner association "declared": inverseOf must name a hasOne of Target; "siblings" is a hasMany, and a belongsTo\'s record doesn\'t fill a collection',
+          ),
+        );
+      });
+
+      test("an association that doesn't link the same key back", () => {
+        expect(
+          refusal(() => hasMany(Target, { foreignKey: "userId", inverseOf: "byTitle" })),
+        ).toEqual(
+          new InvalidModel(
+            'Owner association "declared": inverseOf "byTitle" doesn\'t link Target back to Owner through the same keys',
+          ),
+        );
+      });
+
+      test("a through association", () => {
+        const through = { through: "others", inverseOf: "owner" } as never;
+        const error = refusal(() => hasMany(Target, through));
+
+        expect(error).toEqual(
+          new InvalidModel(
+            'Owner association "declared": a through association takes no inverseOf',
+          ),
+        );
+      });
+    });
   });
 });
