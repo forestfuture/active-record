@@ -283,7 +283,12 @@ export function either(a: QueryDescription, b: QueryDescription): QueryDescripti
       `or() needs relations that differ only in their conditions, but their ${differing}`,
     );
   }
-  return { ...a, conditions: [new Either(a.conditions, b.conditions)] };
+  const ownerLink = [...(a.ownerLink ?? []), ...(b.ownerLink ?? [])];
+  return {
+    ...a,
+    conditions: [new Either(a.conditions, b.conditions)],
+    ...(ownerLink.length > 0 && { ownerLink }),
+  };
 }
 
 /** What `or()` says differs between `a` and `b` besides their conditions, if anything: "limit differs". */
