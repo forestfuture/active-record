@@ -546,6 +546,40 @@ describe("counter caches", () => {
     });
   });
 
+  describe("two belongsTos on one foreign key, each keeping a counter", () => {
+    class TwiceCounted extends Model.define({
+      id: { type: "integer", null: false },
+      topicId: "integer",
+      body: { type: "string", null: false },
+    }) {
+      static table = "replies";
+      topic = belongsTo(Topic, { foreignKey: "topicId", counterCache: "repliesCount" });
+      tallied = belongsTo(Topic, { foreignKey: "topicId", counterCache: "replyTally" });
+    }
+
+    class TwiceCountedTopic extends Topic {
+      twice = hasMany(TwiceCounted, { foreignKey: "topicId", counterCache: "replyTally" });
+    }
+
+    beforeEach(async () => {
+      await harness.exec("UPDATE topics SET replies_count = 5, reply_tally = 7 WHERE id = 1");
+      await harness.exec("INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a')");
+    });
+
+    test("a hasMany reads the one its counterCache names", async () => {
+      expect(await (await db().model(TwiceCountedTopic).find(1)).twice().size()).toBe(7);
+    });
+
+    test("a bulk removal counts out of both", async () => {
+      await (await db().model(TwiceCountedTopic).find(1)).twice().deleteAll();
+
+      const row = await harness.exec("SELECT replies_count, reply_tally FROM topics WHERE id = 1");
+      expect(row.map((each) => [Number(each.replies_count), Number(each.reply_tally)])).toEqual([
+        [4, 6],
+      ]);
+    });
+  });
+
   describe("how many records the owner's hasMany has", () => {
     // The counter says 5 while 3 rows point at the topic, so a count read from it shows.
     beforeEach(async () => {

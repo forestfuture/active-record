@@ -4,7 +4,7 @@ import { compileCount } from "./compiler.ts";
 import { touchAssignments } from "./counters.ts";
 import {
   addToCount,
-  compileCounterChange,
+  compileCountersChange,
   countersOf,
   keyed,
   type CounterCache,
@@ -21,24 +21,35 @@ import type { StatementResult } from "./driver.ts";
 import { rowsAffectedOf, runAlone, Statement, statementParts } from "./statement.ts";
 
 /**
- * The counter cache a hasMany's records are counted in on its owner, as Rails'
- * `has_cached_counter?` finds it: the target's belongsTo with the same foreign key (and with `as`,
- * the owner's type) whose counter cache is on the owner's Model, or one it extends.
+ * The counter caches a hasMany's records are counted in on its owner: those of the target's
+ * belongsTos with the same foreign key (and with `as`, the owner's type) on the owner's Model, or
+ * one it extends. Removing its records counts them out of each.
  */
-function ownersCounter(association: ResolvedAssociation): CounterCache | undefined {
-  if (countersByHasMany.has(association)) return countersByHasMany.get(association);
+function ownersCounters(association: ResolvedAssociation): readonly CounterCache[] {
+  const known = countersByHasMany.get(association);
+  if (known !== undefined) return known;
   const { owner, target, definition, type, hops } = association;
-  const counter =
+  const counters =
     definition.kind !== "hasMany" || hops !== undefined
-      ? undefined
-      : countersOf(target).find(
+      ? []
+      : countersOf(target).filter(
           (each) =>
             each.foreignKey === definition.foreignKey &&
             (owner === each.target || owner.prototype instanceof each.target) &&
             each.type?.value === type?.value,
         );
-  countersByHasMany.set(association, counter);
-  return counter;
+  countersByHasMany.set(association, counters);
+  return counters;
+}
+
+/**
+ * The one of its counters a hasMany reads, as Rails' `has_cached_counter?`: the attribute named
+ * for the association (`replies` → `repliesCount`), or its `counterCache`.
+ */
+function namedCounter(association: ResolvedAssociation): CounterCache | undefined {
+  const { counterCache } = association.definition;
+  const named = typeof counterCache === "string" ? counterCache : `${association.name}Count`;
+  return ownersCounters(association).find((counter) => counter.attribute === named);
 }
 
 /**
@@ -48,14 +59,12 @@ function ownersCounter(association: ResolvedAssociation): CounterCache | undefin
  * counts its rows rather than reading a count of them all.
  */
 function readCounter(association: ResolvedAssociation): CounterCache | undefined {
-  const counter = ownersCounter(association);
-  const { counterCache } = association.definition;
-  const named = typeof counterCache === "string" ? counterCache : `${association.name}Count`;
-  return counter?.attribute === named && counter.isActive ? counter : undefined;
+  const counter = namedCounter(association);
+  return counter?.isActive === true ? counter : undefined;
 }
 
-/** Each hasMany's counter cache, once found. Derived from the classes only. */
-const countersByHasMany = new WeakMap<ResolvedAssociation, CounterCache | undefined>();
+/** Each hasMany's counter caches, once found. Derived from the classes only. */
+const countersByHasMany = new WeakMap<ResolvedAssociation, readonly CounterCache[]>();
 
 /**
  * How many records `owner`'s hasMany has by its counter cache, read as Rails reads it (`null` is
@@ -85,18 +94,23 @@ export function countedOut(
   association: ResolvedAssociation,
   query: QueryDescription,
 ): Statement {
-  const counter = ownersCounter(association);
-  if (counter === undefined) return statement;
+  const counters = ownersCounters(association);
+  if (counters.length === 0) return statement;
   const { executor, queries, landed } = statement[statementParts];
-  const key = keyed(counter, owner[state].read(counter.targetKey));
-  const decrement = (removed: SqlPart) => compileCounterChange(counter, removed, key);
-  const countOut = (results: readonly StatementResult[]) =>
-    addToCount(owner, counter.attribute, -rowsAffectedOf(results));
+  const decrements = (removed: SqlPart) =>
+    byTargetKey(counters).map((sharing) => {
+      const key = keyed(sharing[0]!, owner[state].read(sharing[0]!.targetKey));
+      return compileCountersChange(sharing, removed, key);
+    });
+  const countOut = (results: readonly StatementResult[]) => {
+    const removed = rowsAffectedOf(results);
+    for (const { attribute } of counters) addToCount(owner, attribute, -removed);
+  };
   const [removal] = queries;
   const { dialect } = executor;
   if (dialect.countedRemoval !== undefined && queries.length === 1 && removal !== undefined) {
     const counted = dialect.countedRemoval(removal, (removed) =>
-      decrement({ sql: `- ${removed}`, params: [] }),
+      decrements({ sql: `- ${removed}`, params: [] }),
     );
     return new Statement(executor, [counted], (results) => {
       landed(results);
@@ -104,8 +118,19 @@ export function countedOut(
     });
   }
   const count = compileCount(executor.dialect, query);
-  const before = decrement({ sql: `- (${count.sql})`, params: [...count.params] });
-  return statement.precededBy([before], countOut);
+  return statement.precededBy(
+    decrements({ sql: `- (${count.sql})`, params: count.params }),
+    countOut,
+  );
+}
+
+/** `counters` in groups that find their owner by one key, each changed in one UPDATE. */
+function byTargetKey(counters: readonly CounterCache[]): CounterCache[][] {
+  const groups = new Map<string, CounterCache[]>();
+  for (const counter of counters) {
+    groups.set(counter.targetKey, [...(groups.get(counter.targetKey) ?? []), counter]);
+  }
+  return [...groups.values()];
 }
 
 /**
@@ -154,7 +179,7 @@ function countedBy(model: ModelClass, names: readonly string[]): Map<string, Res
   const counted = new Map<string, ResolvedAssociation>();
   for (const name of names) {
     const association = resolveAssociation(model, name);
-    const counter = ownersCounter(association);
+    const counter = namedCounter(association) ?? ownersCounters(association)[0];
     const refusal =
       counter === undefined
         ? `has no counter cache on ${model.name}`

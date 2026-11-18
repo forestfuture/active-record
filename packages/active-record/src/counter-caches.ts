@@ -362,16 +362,29 @@ function changeBy({ target, attribute }: CounterCache, by: number): SqlPart {
  * `UPDATE … SET counter = COALESCE(counter, 0) <change> WHERE key = <key>`: `change` an operator
  * and its operand (`+ ?`), `key` the target's key or a subquery finding it.
  */
-export function compileCounterChange(
-  { target, attribute, targetKey }: CounterCache,
+function compileCounterChange(counter: CounterCache, change: SqlPart, key: SqlPart): CompiledSql {
+  return compileCountersChange([counter], change, key);
+}
+
+/**
+ * `compileCounterChange` for several counters of one target, found by one key, each changed by
+ * `change`, in one UPDATE: Postgres changes a row once in one statement, so two UPDATEs of it in
+ * one would keep only one change.
+ */
+export function compileCountersChange(
+  counters: readonly CounterCache[],
   change: SqlPart,
   key: SqlPart,
 ): CompiledSql {
-  const column = quoteIdentifier(attributeFor(target, attribute).column);
+  const { target, targetKey } = counters[0]!;
+  const sets = counters.map(({ attribute }) => {
+    const column = quoteIdentifier(attributeFor(target, attribute).column);
+    return `${column} = COALESCE(${column}, 0) ${change.sql}`;
+  });
   const keyColumn = quoteIdentifier(attributeFor(target, targetKey).column);
   return {
-    sql: `UPDATE ${quoteIdentifier(target.table)} SET ${column} = COALESCE(${column}, 0) ${change.sql} WHERE ${keyColumn} = ${key.sql}`,
-    params: [...change.params, ...key.params],
+    sql: `UPDATE ${quoteIdentifier(target.table)} SET ${sets.join(", ")} WHERE ${keyColumn} = ${key.sql}`,
+    params: [...counters.flatMap(() => change.params), ...key.params],
     model: target,
   };
 }

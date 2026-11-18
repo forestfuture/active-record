@@ -75,11 +75,12 @@ export const postgres: Dialect = {
    * statement selects, so it affects as many rows as were removed: a COUNT sent before it could
    * miss a row another request commits in between, on a snapshot of its own (#61).
    */
-  countedRemoval(removal, decrement) {
-    const counted = decrement("(SELECT COUNT(*) FROM removed)");
+  countedRemoval(removal, decrements) {
+    const counted = decrements("(SELECT COUNT(*) FROM removed)");
+    const ctes = counted.map(({ sql }, index) => `counted${index} AS (${sql})`);
     return {
-      sql: `WITH removed AS (${removal.sql} RETURNING 1), counted AS (${counted.sql}) SELECT 1 FROM removed`,
-      params: [...removal.params, ...counted.params],
+      sql: `WITH removed AS (${removal.sql} RETURNING 1), ${ctes.join(", ")} SELECT 1 FROM removed`,
+      params: [...removal.params, ...counted.flatMap(({ params }) => params)],
       model: removal.model,
     };
   },
