@@ -22,6 +22,7 @@ import { throughCollection, throughCollectionMethods } from "./through-writes.ts
 import { state } from "./record-state.ts";
 import { collectionMethods, type CollectionMethods } from "./collection-methods.ts";
 import { ownedCollection } from "./owned-collection.ts";
+import { pointLoadedBack } from "./point-back-at-owner.ts";
 import { ofOwner, type Relation, type Scoped } from "./relation.ts";
 import { checkCounterCache } from "./counter-caches.ts";
 import { linkOf, resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
@@ -436,5 +437,6 @@ export async function cachedRead(
   // No key: nothing to find, and nothing to query; that null is loaded like any result.
   const value = key === null ? null : await load(key);
   keep(value);
+  pointLoadedBack(owner, association, value);
   return value;
 }

@@ -123,4 +123,38 @@ describe("inverse associations", () => {
       expect(post!.isLoaded("author")).toBe(false);
     });
   });
+
+  describe("a hasOne's record", () => {
+    test("read through the association points back at its owner", async () => {
+      const user = await firstUser();
+
+      const profile = await user.profile();
+      queries.length = 0;
+
+      expect(profile!.loaded("user")).toBe(user);
+      expect(await profile!.user()).toBe(user);
+      expect(queries).toHaveLength(0);
+    });
+  });
+
+  describe("a belongsTo's record", () => {
+    test("read through the association has its owner as its inverse hasOne", async () => {
+      const profile = await db().model(Profile).find(1);
+
+      const user = await profile.user();
+      queries.length = 0;
+
+      expect(user!.loaded("profile")).toBe(profile);
+      expect(await user!.profile()).toBe(profile);
+      expect(queries).toHaveLength(0);
+    });
+
+    test("doesn't fill its inverse hasMany: one record isn't the collection", async () => {
+      const post = await db().model(Post).find(10);
+
+      const user = await post.author();
+
+      expect(user!.isLoaded("posts")).toBe(false);
+    });
+  });
 });
