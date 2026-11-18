@@ -571,6 +571,15 @@ describe("counter caches", () => {
       expect(await (await db().model(TwiceCountedTopic).find(1)).twice().size()).toBe(7);
     });
 
+    test("resetCounters sets both, as a bulk removal counts out of both", async () => {
+      await withDatabase(db(), () => TwiceCountedTopic.resetCounters(1, "twice"));
+
+      const row = await harness.exec("SELECT replies_count, reply_tally FROM topics WHERE id = 1");
+      expect(row.map((each) => [Number(each.replies_count), Number(each.reply_tally)])).toEqual([
+        [1, 1],
+      ]);
+    });
+
     test("both keeping one attribute is an InvalidModel: a record would count twice", () => {
       class Doubled extends Model.define({
         id: { type: "integer", null: false },
