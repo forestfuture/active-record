@@ -496,14 +496,14 @@ describe("counter caches", () => {
       expect(await updatedAt(1)).toBeNull();
     });
 
-    test("touch names datetime attributes to set besides updatedAt", async () => {
+    test("touch naming an attribute that isn't a datetime is a TypeError", async () => {
       const write = () =>
         // @ts-expect-error touch names datetime attributes
         StampedTopic.updateCounters(1, { repliesCount: 1 }, { touch: "repliesCount" });
 
       await expect(withDatabase(db(), write)).rejects.toThrow(
         new TypeError(
-          'StampedTopic.touch("repliesCount") takes datetime attributes; repliesCount isn\'t one',
+          "StampedTopic.updateCounters: touch takes datetime attributes; repliesCount isn't one",
         ),
       );
     });

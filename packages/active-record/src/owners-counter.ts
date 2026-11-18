@@ -1,7 +1,7 @@
 // A hasMany's counter cache on its owner (#61): the target's belongsTo that keeps one, and what removing records through the association counts out.
 import { attributeFor } from "./attribute.ts";
 import { compileCount } from "./compiler.ts";
-import { touchedNames } from "./counters.ts";
+import { touchAssignments } from "./counters.ts";
 import {
   addToCount,
   compileCounterChange,
@@ -101,8 +101,7 @@ export async function resetCounters(
   }
   const sets = [...resets.values()].map(({ sql }) => sql);
   const params = [...resets.values()].flatMap((reset) => reset.params);
-  const now = new Date();
-  for (const name of touchedNames(model, touch)) {
+  for (const [name, now] of touchAssignments(model, touch, "resetCounters")) {
     const attribute = attributeFor(model, name);
     attribute.bind(params, now);
     sets.push(`${quoteIdentifier(attribute.column)} = ${valueMark}`);

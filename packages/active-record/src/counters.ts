@@ -1,5 +1,6 @@
 // Counters (#351): adding to number attributes in the row, `SET x = COALESCE(x, 0) + n`, for `updateCounters` and a record's `incrementColumn`; the amounts they add; and refusing an attribute of the wrong type, for them and for `toggle`.
 import type { DatetimeAttributeKey, NumberAttributeKey } from "./attribute-writes.ts";
+import type { Assignment } from "./compiler.ts";
 import { attributeOf } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
 import { column, SafeSql } from "./sql.ts";
@@ -19,16 +20,23 @@ export interface CounterOptions<R> {
 }
 
 /**
- * The attributes `touch` sets: `updatedAt` when the Model has it, and those named, each a
- * datetime attribute (a `TypeError` otherwise).
+ * What `touch` sets, each to now: `updatedAt` when the Model has it, and those named, each a
+ * datetime attribute (a `TypeError` naming `method` otherwise).
  */
-export function touchedNames(model: ModelClass, touch: unknown): string[] {
+export function touchAssignments(model: ModelClass, touch: unknown, method: string): Assignment[] {
   if (touch === undefined || touch === false) return [];
   const named = touch === true ? [] : Array.isArray(touch) ? touch : [touch];
   const updatedAt = model.attributeDefinitions.get("updatedAt")?.type === "datetime";
   const names = [...new Set([...(updatedAt ? ["updatedAt"] : []), ...named.map(String)])];
-  for (const name of names) requireAttributeType(model, name, "touch", "datetime");
-  return names;
+  const now = new Date();
+  return names.map((name): Assignment => {
+    if (attributeOf(model, name).type !== "datetime") {
+      throw new TypeError(
+        `${model.name}.${method}: touch takes datetime attributes; ${name} isn't one`,
+      );
+    }
+    return [name, now];
+  });
 }
 
 /**
@@ -51,8 +59,7 @@ export function counterSets(
     values.push(column(name), column(name), column(name).value(amount(by, method)));
     strings.push(" = COALESCE(", ", 0) + ", "");
   }
-  const now = new Date();
-  for (const name of touchedNames(model, touch)) {
+  for (const [name, now] of touchAssignments(model, touch, method)) {
     strings[strings.length - 1] = ", ";
     values.push(column(name), column(name).value(now));
     strings.push(" = ", "");
