@@ -30,6 +30,7 @@ import type {
   OrderedAttribute,
 } from "./calculations.ts";
 import type { SafeSql } from "./sql.ts";
+import type { InOrderOfOptions } from "./list-order.ts";
 import type { Relation, Scoped } from "./relation.ts";
 
 /** A Model's Relation, as its statics return them: `Product.where(…)` is `Product.all().where(…)`. */
@@ -47,7 +48,6 @@ const relationMethods = [
   "or",
   "order",
   "reorder",
-  "inOrderOf",
   "limit",
   "offset",
   "select",
@@ -165,6 +165,13 @@ interface OverloadedStatics {
     ): Promise<CalculatedValue<InstanceType<C>, K, unknown> | null>;
   };
   paginate: PaginateStatic;
+  /** The class's Relation ordered by `attribute`'s place in `values` (#350), as Rails' `in_order_of`. */
+  inOrderOf: <C extends QueryableClass, K extends keyof AttributesOf<InstanceType<C>> & string>(
+    this: C,
+    attribute: K,
+    values: readonly AttributesOf<InstanceType<C>>[K][],
+    options?: InOrderOfOptions,
+  ) => RelationOf<C>;
   group: <C extends QueryableClass, const G extends GroupTerms<InstanceType<C>>>(
     this: C,
     ...terms: G
@@ -369,6 +376,7 @@ export function defineStatics(base: typeof Model): void {
     "pick",
     "paginate",
     "group",
+    "inOrderOf",
     "sum",
     "minimum",
     "maximum",
