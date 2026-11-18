@@ -21,7 +21,7 @@ import {
   withOnly,
   withOwnerLink,
   withUnscopesOf,
-  rewhered,
+  withConditionsReplaced,
   withoutRecords,
   type AttributeNames,
   type QueryPart,
@@ -168,7 +168,7 @@ export class Relation<M extends Model, S = {}> {
    * attributes, and fragments, are kept.
    */
   rewhere(conditions: Conditions<M>): Scoped<M, S> {
-    return this.#describing(rewhered(this.#query, conditions));
+    return this.#describing(withConditionsReplaced(this.#query, conditions));
   }
 
   /**
