@@ -38,7 +38,7 @@ import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
-import { counterDecrements, counterIncrements } from "./counter-caches.ts";
+import { counterDecrements, counterIncrements, counterMoves } from "./counter-caches.ts";
 import {
   combine,
   inGroup,
@@ -313,8 +313,10 @@ function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
     return { statements: [], commit, after, afterCommit, afterRollback };
   }
   const stamps = timestampsFor(model, "update", own);
+  const moves = counterMoves(record);
+  const update = compileUpdate(model, [...own, ...stamps], recordState.storedKey);
   return {
-    statements: [compileUpdate(model, [...own, ...stamps], recordState.storedKey)],
+    statements: [...moves.before, update, ...moves.after],
     commit: () => recordState.commitUpdate(stamps),
     after,
     afterCommit,
