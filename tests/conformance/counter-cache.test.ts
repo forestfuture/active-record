@@ -468,6 +468,15 @@ describe("counter caches", () => {
       expect(topic.changes()).toEqual({});
     });
 
+    test("deleteAll() in a batch counts out, and its result has the rows it removed", async () => {
+      const topic = await db().model(Topic).find(1);
+
+      const [removed] = await batch((b) => [b.deleteAll(topic.replies())]);
+
+      expect(removed.rowsAffected).toBe(3);
+      expect([await repliesCount(1), topic.repliesCount]).toEqual([0, 0]);
+    });
+
     test("clear() counts out the rows it removes", async () => {
       const topic = await db().model(Topic).find(1);
 
@@ -766,22 +775,52 @@ describe("counter caches", () => {
       );
     });
 
-    test("checks its names before reading the record", async () => {
-      const events: QueryEvent[] = [];
-      const counted = harness.connect({ onQuery: (event) => events.push(event) });
-
-      // @ts-expect-error resetCounters takes a hasMany's name
-      const reset = withDatabase(counted, () => Topic.resetCounters(99, "missing"));
-
-      await expect(reset).rejects.toThrow(UnknownAssociation);
-      expect(events).toEqual([]);
-    });
-
     test("a name that isn't an association is UnknownAssociation", async () => {
       await expect(
         // @ts-expect-error resetCounters takes a hasMany's name
         withDatabase(db(), () => Topic.resetCounters(1, "missing")),
       ).rejects.toThrow(UnknownAssociation);
+    });
+
+    describe("refuses before reading the record", () => {
+      class Untallied extends Model.define({ id: { type: "integer", null: false } }) {
+        static table = "topics";
+        others = hasMany(Topic, { foreignKey: "id" });
+      }
+      class Scoped extends Topic {
+        firstReplies = hasMany(Reply, {
+          foreignKey: "topicId",
+          scope: (q) => q.where({ body: "a" }),
+        });
+      }
+      const refusals = [
+        [
+          "a name that isn't an association",
+          // @ts-expect-error resetCounters takes a hasMany's name
+          () => Topic.resetCounters(99, "missing"),
+          UnknownAssociation,
+        ],
+        [
+          "a hasMany without a counter cache",
+          () => Untallied.resetCounters(99, "others"),
+          TypeError,
+        ],
+        ["a scoped hasMany", () => Scoped.resetCounters(99, "firstReplies"), TypeError],
+        [
+          "touch naming an attribute that isn't a datetime",
+          // @ts-expect-error touch names datetime attributes
+          () => Topic.resetCounters(99, "replies", { touch: "title" }),
+          TypeError,
+        ],
+      ] as [string, () => Promise<void>, new (...args: never[]) => Error][];
+
+      test.each(refusals)("%s", async (_, reset, refusal) => {
+        const events: QueryEvent[] = [];
+        const counted = harness.connect({ onQuery: (event) => events.push(event) });
+
+        await expect(withDatabase(counted, reset)).rejects.toThrow(refusal);
+        expect(events).toEqual([]);
+      });
     });
 
     test("takes a list of names, setting each counter", async () => {
