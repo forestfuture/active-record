@@ -52,7 +52,8 @@ import {
   type PolymorphicBelongsTo,
 } from "./associations.ts";
 import type { Relation, Scope, Scoped } from "./relation.ts";
-import { defineStatics, ModelStatics } from "./model-statics.ts";
+import { defineStatics } from "./model-statics.ts";
+import { AttributeWrites } from "./attribute-writes.ts";
 import { currentRelation } from "./current-database.ts";
 import type { ContextOf, SaveOptions, ValidationContexts } from "./validation-context.ts";
 import { scopeBodies, scopeName, useModelBase } from "./scoped-relation.ts";
@@ -178,7 +179,7 @@ export type AttributesOf<M> = M extends { readonly [attributeTypes]?: infer A } 
  * methods, statics, callbacks and scopes declared there are shared by every Model built on it.
  * It has no table, so it's never used as a Model itself.
  */
-export class Model extends ModelStatics {
+export class Model extends AttributeWrites {
   /** The table's name: inferred from `modelName` (`BlogPost` → `blog_posts`) unless set. */
   declare static table: string;
   /**
