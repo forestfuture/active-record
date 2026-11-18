@@ -2,24 +2,34 @@
 import { compileUpdate } from "./compiler.ts";
 import { amount, counterSets, requireAttributeType } from "./counters.ts";
 import { RecordNotSaved } from "./errors.ts";
-import type { AttributesOf, Model, ModelClass } from "./model.ts";
+import type { AttributesOf, Model, ModelClass, SpecsOf } from "./model.ts";
 import { ModelStatics } from "./model-statics.ts";
 import { state } from "./record-state.ts";
 
-/** The names of record type `R`'s attributes whose values are `V`: its numbers, or booleans. */
-type AttributeKeyOf<R, V> = {
-  [K in keyof AttributesOf<R>]: [NonNullable<AttributesOf<R>[K]>] extends [V] ? K : never;
-}[keyof AttributesOf<R>] &
+/** The built-in type a spec names: `"integer"` for `"integer"` or `{ type: "integer" }`. */
+type SpecType<S> = S extends string ? S : S extends { readonly type: infer T } ? T : never;
+
+/**
+ * The names of record type `R`'s attributes of built-in type `T`, as the runtime checks them:
+ * not an enum, nor a custom type, even one whose values are numbers.
+ */
+type AttributeKeyOf<R, T> = {
+  [K in keyof SpecsOf<R>]: SpecsOf<R>[K] extends { readonly enum: unknown }
+    ? never
+    : SpecType<SpecsOf<R>[K]> extends T
+      ? K
+      : never;
+}[keyof SpecsOf<R>] &
   string;
 
 /** An attribute's name on record type `R`. */
 type AttributeKey<R> = keyof AttributesOf<R> & string;
 
 /** A record's number attributes, which `increment` and `decrement` take. */
-export type NumberAttributeKey<R> = AttributeKeyOf<R, number>;
+export type NumberAttributeKey<R> = AttributeKeyOf<R, "integer" | "real">;
 
 /** A record's boolean attributes, which `toggle` takes. */
-export type BooleanAttributeKey<R> = AttributeKeyOf<R, boolean>;
+export type BooleanAttributeKey<R> = AttributeKeyOf<R, "boolean">;
 
 /**
  * The record methods that change one attribute, between Model and its statics: Model's records
