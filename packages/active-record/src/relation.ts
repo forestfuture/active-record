@@ -307,9 +307,9 @@ export class Relation<M extends Model, S = {}> {
 
   /**
    * Inserts a row now, or updates it when it clashes with the unique index on `uniqueBy` (the
-   * primary key by default): every given attribute, this Relation's equality values and its
-   * `createWith` attributes (#475), except the `uniqueBy` ones and `createdAt`, with `updatedAt`
-   * set, as Rails' `upsert` does. Resolves as `insert` does, returning inserted and updated rows.
+   * primary key by default): every given attribute and every value this Relation writes into the
+   * row (#475), except the `uniqueBy` ones and `createdAt`, with `updatedAt` set, as Rails'
+   * `upsert` does. Resolves as `insert` does, returning inserted and updated rows.
    */
   async upsert<const R extends Returning<M> | undefined = undefined>(
     attributes: Partial<AttributesOf<M>>,
