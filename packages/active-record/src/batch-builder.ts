@@ -1,9 +1,10 @@
 // Batch: what `batch((b) => [...])` hands its callback, to prepare each write the batch runs.
 import { requireKnownContexts } from "./listed-contexts.ts";
 import type { AttributesOf, Model, ModelClass } from "./model.ts";
+import { counterSets, type CounterOptions, type Counters } from "./counters.ts";
 import { preparedWrites } from "./prepared-writes.ts";
 import { RecordStatement } from "./record-statement.ts";
-import { Relation } from "./relation.ts";
+import { queryOf, Relation } from "./relation.ts";
 import type { InsertOptions, Returning, UpsertOptions } from "./relation-checks.ts";
 import type { SafeSql } from "./sql.ts";
 import type { ReturnedRow, Statement } from "./statement.ts";
@@ -93,6 +94,20 @@ export class Batch {
     changes: Partial<AttributesOf<M>> | SafeSql,
   ): Statement {
     return this.#rows(target)[preparedWrites].updateAll(changes);
+  }
+
+  /**
+   * Adds to number attributes in every row `target` matches, as a Relation's `updateCounters`
+   * does: `b.updateCounters(Post.where({ id }), { viewCount: 1 }, { touch: true })`.
+   */
+  updateCounters<M extends Model>(
+    target: BatchTarget<M>,
+    counters: Counters<M>,
+    { touch }: CounterOptions<M> = {},
+  ): Statement {
+    const rows = this.#rows(target);
+    const sets = counterSets(rows[queryOf].model, counters, "updateCounters", touch);
+    return rows[preparedWrites].updateAll(sets);
   }
 
   /** Deletes every row `target` matches, as `deleteAll` does (through a hasMany, it may nullify). */
