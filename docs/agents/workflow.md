@@ -20,7 +20,7 @@ Otherwise, before writing any test, propose to the human, in one message:
 - **The build order**: the list of red → green slices you'll work through.
 - **The docs outline**, for each guide page or section the change touches: its four answers (Diátaxis type, audience, goal, scope) and an outline, so the human approves them with the seams. The `documentation-writer` skill runs in step 3, when the copy is written.
 - **Names**: each new public name, option, field, or module, with the phrase it reads in, and any alternative you weighed. A name is cheapest to change here, before tests and docs use it. See the naming rule in `CONTRIBUTING.md`.
-- **Open decisions**: anything the issue or contract leaves unsettled. Number each one, give a recommendation, and say why (the `grilling` skill's format). If a term is fuzzy or new, sharpen it with the `domain-modeling` skill: update `GLOSSARY.md`, and offer an ADR only for decisions that are hard to reverse, surprising, and a real trade-off.
+- **Open decisions**: anything the issue or contract leaves unsettled. Number each one, give a recommendation, and say why (the `grilling` skill's format). Each one says what Rails Active Record does, and why the recommendation differs when it does. When a decision changes which rows a query reads or writes, it says whether a caller can then reach rows past an association's owner key or a default scope. If a term is fuzzy or new, sharpen it with the `domain-modeling` skill: update `GLOSSARY.md`, and offer an ADR only for decisions that are hard to reverse, surprising, and a real trade-off.
 
 **Wait for the human's answers.** Then post them on the issue as a comment headed `Step-2 decisions (agreed)`, with the seams, build order, docs outline, names and each decision as answered, so another session can pick the issue up. Postponed ideas become `deferred` issues, one per item, not notes in a comment.
 
@@ -62,7 +62,7 @@ Rules that matter here:
 
 Run the `code-review` skill, with `main` (the branch's merge-base) as the fixed point and the issue as the spec. The standards sources are `CONTRIBUTING.md`, `CODING_STANDARDS.md` and [docs-voice.md](docs-voice.md). Commits from before the pull-request flow sit inside older ranges, so for those, give both reviewers the issue's own commits (`git log --grep='(#N)'`) and tell them to ignore the rest.
 
-**Security.** When the change touches SQL compilation, attribute assignment or conversion, code generation or file writing in the CLI, or CI and release, also run the `differential-review` skill over the same range, as a third report. Write its report file outside the repo. The whole library gets a `security-review` before each release that changes those areas; each one adds a dated entry to the guide's Security page.
+**Security.** When the change touches SQL compilation, the conditions a Relation keeps (an association's owner key, a default scope, and the methods that drop or replace conditions, such as `unscope`, `rewhere`, `merge` and `or`), attribute assignment or conversion, code generation or file writing in the CLI, or CI and release, also run the `differential-review` skill over the same range, as a third report. Write its report file outside the repo. The whole library gets a `security-review` before each release that changes those areas; each one adds a dated entry to the guide's Security page.
 
 ### Verify each finding
 
@@ -99,7 +99,7 @@ A **mechanical** finding (a fixed pattern, a banned API, an import shape, a file
 ## 5. Finish — ✋ human checkpoint
 
 - Full validation: `vp run validate` runs these in CI's order and prints one line per step (the failing step's output after it): `vp check`, `vp run coverage` (`vp test` with a branch-coverage floor, set in `vite.config.ts`), `vp run build` (every package, the core first, with attw and publint), `vp run check:public-types` (after the build: the published types expose no internals; mark internals `/** @internal */`), `vp run knip`, `vp run docs:build` (`blume build`, then `blume validate --strict`: no dead links or broken anchors), `vp run check:package`. After a merge to `main`, CI deploys the site once the checks pass (the Cloudflare tokens it uses are in [cloudflare-tokens.md](cloudflare-tokens.md)).
-- Once validation passes and no escalated finding is waiting, push the branch and open the pull request yourself. Push with an explicit refspec, `git push -u origin <branch>:<branch>`, so a branch that tracks `origin/main` can't push to `main`. If a push fails with `agent refused operation`, the human's SSH key is locked: ask them to run `git push`.
+- Once validation passes and no escalated finding is waiting, push the branch and open the pull request yourself. Push with an explicit refspec, `git push -u origin <branch>:<branch>`, so a branch that tracks `origin/main` can't push to `main`. After rebasing the branch on `main`, push it with `git push --force-with-lease origin <branch>:<branch>`; the git guard hook lets that form through for an issue branch. If a push fails with `agent refused operation`, the human's SSH key is locked: ask them to run `git push`.
 - The pull request says `Closes #<issue>`, and its body is written by the `pr` skill, with a Review section after Evidence, built from the findings log:
 
   ```markdown
@@ -117,7 +117,7 @@ A **mechanical** finding (a fixed pattern, a banned API, an import shape, a file
   ```
 
 - **Merging is the human's.** Wait for their go-ahead; `main` takes a pull request only, merged by rebase once `check` passes.
-- After the merge, wait for CI on `main` to pass (`gh run watch`), then close the issue with a summary comment (if `Closes` didn't): what was delivered, the decisions made (link any `deferred` issues), and what the review found and fixed.
+- After the merge, wait for CI on `main` to pass (`gh run watch`), then close the issue with a summary comment (if `Closes` didn't): what was delivered, the decisions made (link any `deferred` issues), and what the review found and fixed. Then, from the main checkout, remove the branch and its worktree with `node scripts/remove-merged-branch.mjs <branch>`; it keeps both unless the merged pull request's head is the branch's tip.
 - The human may then run `/retro` on the session. It suggests changes to the agent's environment (checks, standards, steering files), not to the code. The Review section's check candidates are its first leads.
 
 ## Working in parallel
