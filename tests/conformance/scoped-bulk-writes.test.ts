@@ -100,6 +100,28 @@ describe("a bulk write through a Relation's conditions", () => {
     expect(await db().model(Post).find(1)).toMatchObject({ published: true });
   });
 
+  // An upsert updates every attribute of the row it writes, not only the given ones (#475).
+  test("an upsert updating a row writes createWith's value", async () => {
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (1, 2, 'Old')");
+
+    await db().model(Post).createWith({ userId: 1 }).upsert({ id: 1, title: "New" });
+
+    expect(await storedPosts()).toEqual([{ id: 1, user_id: 1, title: "New" }]);
+  });
+
+  test("an upsert updating a row writes a default scope's value", async () => {
+    await harness.exec("INSERT INTO posts (id, user_id, title, published) VALUES (?, ?, ?, ?)", [
+      1,
+      1,
+      "Old",
+      false,
+    ]);
+
+    await db().model(PublishedPost).upsert({ id: 1, userId: 1, title: "New" });
+
+    expect(await db().model(Post).find(1)).toMatchObject({ title: "New", published: true });
+  });
+
   test.each([
     ["build", (posts: Relation<Post>) => posts.build({ id: 1, title: "Hi", userId: 2 })],
     ["create", (posts: Relation<Post>) => posts.create({ id: 1, title: "Hi", userId: 2 })],
