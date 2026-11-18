@@ -1,4 +1,5 @@
 // Which records saving an owner also writes through its associations, before or after it, and linking their keys.
+import { pointBackAtOwner } from "./point-back-at-owner.ts";
 import { associationsOf } from "./association-fields.ts";
 import type { AssociationKind } from "./associations.ts";
 import { modelOf, type Model, type ModelClass } from "./model.ts";
@@ -227,8 +228,8 @@ export function linkBefore(owner: Model, pointedAt: readonly Linked[]): void {
 }
 
 /**
- * Points every record saved after its owner at it. A hasOne's record stays the owner's loaded
- * association under the owner's new key.
+ * Points every record saved after its owner at it, keeping the owner loaded as its inverse
+ * (#62). A hasOne's record stays the owner's loaded association under the owner's new key.
  */
 export function linkAfter(owner: Model, after: readonly Linked[]): void {
   for (const { association, record, keepsKey, destroys } of after) {
@@ -236,6 +237,7 @@ export function linkAfter(owner: Model, after: readonly Linked[]): void {
     const { name, definition, ownerAttribute } = association;
     record[state].writeKey(definition.foreignKey, owner[state].read(ownerAttribute), name);
     association.writeOwnersType(record);
+    pointBackAtOwner(owner, association, record);
     if (definition.kind === "hasOne") {
       owner[state].associations.set(name, association.keyAttributes, record);
     }

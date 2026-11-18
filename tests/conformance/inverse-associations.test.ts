@@ -8,6 +8,7 @@ import {
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { statementKinds } from "../support/statement-kinds.ts";
 
 class User extends Model.define({
   id: { type: "integer", null: false },
@@ -165,6 +166,55 @@ describe("inverse associations", () => {
 
       expect(post!.isLoaded("author")).toBe(false);
     });
+  });
+
+  describe("a record built through a new owner", () => {
+    test("keeps pointing back once saving the owner fills in its key", async () => {
+      const user = db().model(User).build({ email: "new@example.com" });
+      const post = user.posts().build({ title: "New" });
+      const profile = user.profile.build({ bio: "New" });
+
+      await user.saveOrThrow();
+      queries.length = 0;
+
+      expect(post.userId).toBe(user.id);
+      expect(post.loaded("author")).toBe(user);
+      expect(profile.loaded("user")).toBe(user);
+      expect(queries).toHaveLength(0);
+    });
+  });
+
+  test("autosave on both sides writes each record once (guard)", async () => {
+    class Member extends Model.define({
+      id: { type: "integer", null: false },
+      email: { type: "string", null: false },
+    }) {
+      static table = "users";
+
+      entries = hasMany(Entry, { foreignKey: "userId", autosave: true });
+    }
+
+    class Entry extends Model.define({
+      id: { type: "integer", null: false },
+      userId: { type: "integer", null: false },
+      title: { type: "string", null: false },
+    }) {
+      static table = "posts";
+
+      member = belongsTo(Member, { foreignKey: "userId", autosave: true });
+    }
+
+    const member = await db().model(Member).find(1);
+    const [entry] = await member.entries().toArray();
+    member.email = "changed@example.com";
+    entry!.title = "Changed";
+    queries.length = 0;
+
+    await member.saveOrThrow();
+    await entry!.saveOrThrow();
+
+    expect(entry!.loaded("member")).toBe(member);
+    expect(statementKinds(queries).filter((kind) => kind === "UPDATE")).toHaveLength(2);
   });
 
   describe("a hasOne's record", () => {
