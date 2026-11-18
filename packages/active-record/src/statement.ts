@@ -123,8 +123,8 @@ function insertAssignments(model: ModelClass, attributes: Record<string, unknown
 /**
  * `INSERT` of `rows` into `model`'s table, as one Statement. Every row must have the same
  * attributes as given, as in Rails; `conflict` skips or updates rows that clash with a unique
- * index. An update sets the attributes in `rows` (and `updatedAt`), never filled-in defaults:
- * the caller's, and the values its Relation added to them (#475).
+ * index. An update sets every attribute in `rows` (the given ones and any a Relation added,
+ * #475) and `updatedAt`, never filled-in defaults.
  * It returns the attributes `returning` names of each row written.
  */
 export function insertStatement<Row>(
