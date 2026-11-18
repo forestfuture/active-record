@@ -243,4 +243,28 @@ describe("changing one attribute (#351)", () => {
       expect(events).toEqual([]);
     });
   });
+
+  describe("toggleColumn", () => {
+    test("writes the flipped boolean straight to the row, running no callback", async () => {
+      const member = await db().model(Member).find(1);
+
+      expect(await member.toggleColumn("isActive")).toBe(true);
+
+      expect(member.isActive).toBe(false);
+      expect(member.isChanged()).toBe(false);
+      expect(callbacks).toEqual([]);
+      expect((await db().model(Member).find(1)).isActive).toBe(false);
+    });
+
+    test("refuses a new record, and an attribute that isn't a boolean", async () => {
+      const member = await db().model(Member).find(1);
+      const unsaved = db().model(Member).build({ email: "b@example.com" });
+      events.length = 0;
+
+      await expect(unsaved.toggleColumn("isActive")).rejects.toThrow(RecordNotSaved);
+      await expect(member.toggleColumn(untyped("age"))).rejects.toThrow(TypeError);
+      expect(unsaved.isActive).toBeNull();
+      expect(events).toEqual([]);
+    });
+  });
 });
