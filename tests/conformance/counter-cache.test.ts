@@ -300,6 +300,30 @@ describe("counter caches", () => {
       expect(topic.repliesCount).toBe(0);
       expect(topic.changes()).toEqual({});
     });
+
+    test("keeps its count when the record's row was already gone", async () => {
+      await harness.exec("UPDATE topics SET replies_count = 1 WHERE id = 1");
+      await harness.exec("INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a')");
+      const reply = await db().model(Reply).find(1);
+      const topic = (await reply.topic())!;
+      await harness.exec("DELETE FROM replies WHERE id = 1");
+
+      await reply.destroy();
+
+      expect(topic.repliesCount).toBe(1);
+    });
+
+    test("keeps its count when the moved record's row was already gone", async () => {
+      await harness.exec("INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a')");
+      const reply = await db().model(Reply).find(1);
+      const two = await db().model(Topic).find(2);
+      await harness.exec("DELETE FROM replies WHERE id = 1");
+
+      reply.topic.set(two);
+      await reply.save();
+
+      expect(two.repliesCount).toBe(0);
+    });
   });
 
   describe("removing records through the owner's hasMany", () => {

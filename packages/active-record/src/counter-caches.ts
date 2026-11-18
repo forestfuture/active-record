@@ -3,6 +3,7 @@ import { associationsOf } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { attributeFor } from "./attribute.ts";
 import type { CompiledSql } from "./compiler.ts";
+import type { StatementResult } from "./driver.ts";
 import { valueMark } from "./dialect.ts";
 import { pluralize } from "./inflections.ts";
 import { InvalidModel } from "./errors.ts";
@@ -127,14 +128,37 @@ function isNamed(counter: Counter, typeIn: (attribute: string) => unknown): bool
 }
 
 /**
- * What a write does to its record's counter caches: statements sent before and after its own,
- * and what its loaded targets take on once the batch is written.
+ * What a write does to its record's counter caches: statements sent around its own, and what its
+ * loaded targets take on once the batch is written.
  */
 export interface CounterChanges {
-  before: CompiledSql[];
-  after: CompiledSql[];
-  commit(): void;
+  /** The record's own statement, with the counters' statements before and after it. */
+  around(own: CompiledSql): CompiledSql[];
+  /**
+   * Once the batch is written, with the results of `around`'s statements: if the record's own
+   * statement changed its row, each loaded target takes the change, as Rails changes it only
+   * when a row was affected.
+   */
+  commit(results: readonly StatementResult[]): void;
 }
+
+/** A write's counter changes: `before` and `after` its own statement, then `by` on `loaded`. */
+function counterChanges(
+  record: Model,
+  [before, after]: [CompiledSql[], CompiledSql[]],
+  loaded: readonly Counter[],
+  by: number,
+): CounterChanges {
+  return {
+    around: (own) => [...before, own, ...after],
+    commit(results) {
+      if ((results[before.length]?.rowsAffected ?? 0) > 0) countLoaded(record, loaded, by);
+    },
+  };
+}
+
+/** A write that changes no counter: a record that was never saved has no row to delete. */
+export const noCounterChanges: CounterChanges = { around: (own) => [own], commit: () => {} };
 
 /** Counting a new record in: each counter cache whose key is set, on its target by that key. */
 export function countersOnInsert(record: Model): CounterChanges {
@@ -146,7 +170,7 @@ export function countersOnInsert(record: Model): CounterChanges {
   const after = counted.map((counter) =>
     counterChangeFor(counter, recordState.read(counter.foreignKey), 1),
   );
-  return { before: [], after, commit: () => countLoaded(record, counted, 1) };
+  return counterChanges(record, [[], after], counted, 1);
 }
 
 /**
@@ -163,7 +187,7 @@ export function countersOnDestroy(record: Model): CounterChanges {
       isNamed(counter, (name) => recordState.valueInDatabase(name)),
   );
   const before = counted.map((counter) => changeThroughRow(record, counter, -1, "before"));
-  return { before, after: [], commit: () => countLoaded(record, counted, -1) };
+  return counterChanges(record, [before, []], counted, -1);
 }
 
 /**
@@ -183,11 +207,9 @@ export function countersOnUpdate(record: Model): CounterChanges {
     isNamed(counter, (name) => recordState.valueInDatabase(name)),
   );
   const to = moved.filter((counter) => isNamed(counter, (name) => recordState.read(name)));
-  return {
-    before: from.map((counter) => changeThroughRow(record, counter, -1, "before")),
-    after: to.map((counter) => changeThroughRow(record, counter, 1, "after")),
-    commit: () => countLoaded(record, to, 1),
-  };
+  const before = from.map((counter) => changeThroughRow(record, counter, -1, "before"));
+  const after = to.map((counter) => changeThroughRow(record, counter, 1, "after"));
+  return counterChanges(record, [before, after], to, 1);
 }
 
 /** Each counter's target the record has loaded for its key takes the change, as stored. */
