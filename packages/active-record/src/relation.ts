@@ -72,7 +72,7 @@ import {
 import { destroyTogether } from "./records-together.ts";
 import { grouped, type GroupedRelation, type GroupTerms } from "./grouping.ts";
 import type { RelationState } from "./relation-state.ts";
-import { counterSets, type Counters } from "./counters.ts";
+import { counterSets, type CounterOptions, type Counters } from "./counters.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
 import {
   eachRecord,
@@ -396,8 +396,8 @@ export class Relation<M extends Model, S = {}> {
    * `updateCounters({ viewCount: 1 })` sets `view_count = COALESCE(view_count, 0) + 1`, so
    * concurrent writes all count. Resolves to the number of rows; skips what `updateAll` skips.
    */
-  async updateCounters(counters: Counters<M>): Promise<number> {
-    return this.updateAll(counterSets(this.#model, counters, "updateCounters"));
+  async updateCounters(counters: Counters<M>, { touch }: CounterOptions<M> = {}): Promise<number> {
+    return this.updateAll(counterSets(this.#model, counters, "updateCounters", touch));
   }
 
   /**
