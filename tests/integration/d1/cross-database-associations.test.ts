@@ -175,6 +175,16 @@ class Diarist extends DbRecord.define({ id: { type: "integer", null: false } }) 
   notes = hasMany(Note, { through: "entries" });
 }
 
+/** Entries counted on their user, on another database (#61). */
+class CountedEntry extends LogsRecord.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+}) {
+  static override table = "entries";
+
+  user = belongsTo(User, { counterCache: "id" });
+}
+
 const schema = new URL("../../fixtures/cross-database/schema.sql", import.meta.url);
 
 let db: TestDatabase;
@@ -310,6 +320,18 @@ describe("an association through another, across databases (#59)", () => {
     await inRequest(async () => {
       expect(() => Diarist.all()).toThrow(InvalidModel);
       expect(() => Diarist.all()).toThrow("reaches across databases");
+    });
+  });
+});
+
+describe("a counter cache across databases (#61)", () => {
+  test("is an InvalidModel at first use: its count couldn't be written in the record's batch", async () => {
+    await inRequest(async () => {
+      expect(() => CountedEntry.all()).toThrow(
+        new InvalidModel(
+          'CountedEntry association "user" keeps a counter cache on another database, which it can\'t yet: CountedEntry and User must be on one',
+        ),
+      );
     });
   });
 });

@@ -9,7 +9,7 @@ import { InvalidModel } from "./errors.ts";
 import { modelOf, type Model, type ModelClass } from "./model.ts";
 import { quoteIdentifier } from "./query-tables.ts";
 import { state } from "./record-state.ts";
-import { resolveAssociation } from "./resolved-association.ts";
+import { isOnDifferentDatabases, resolveAssociation } from "./resolved-association.ts";
 import { tableOwnerModelName } from "./table-names.ts";
 
 /**
@@ -39,6 +39,13 @@ export function checkCounterCache(
   if (counterCache !== true && typeof counterCache !== "string") {
     const names = targets.map((target) => target.name).join(" or ");
     throw new InvalidModel(`${label}: counterCache takes true or the name of ${names}'s attribute`);
+  }
+  // Its count is written in the record's batch, so it can't be on another database (#489).
+  const elsewhere = targets.find((target) => isOnDifferentDatabases(owner, target));
+  if (elsewhere !== undefined) {
+    throw new InvalidModel(
+      `${label} keeps a counter cache on another database, which it can't yet: ${owner.name} and ${elsewhere.name} must be on one`,
+    );
   }
   const attribute = counterAttribute(owner, definition);
   const hint =
