@@ -49,19 +49,21 @@ export class Statement<Row = never> {
   declare readonly [rowType]?: Row;
   readonly #executor: Executor;
   readonly #queries: readonly CompiledSql[];
-  readonly #landed: () => void;
+  readonly #landed: (results: readonly StatementResult[]) => void;
   readonly #rows: RowReader;
+  /** Queries sent before its own, in the same batch, whose results aren't its own (#61). */
+  #first: readonly CompiledSql[] = [];
 
   /**
    * @internal Statements are built by a Relation's bulk writes, as one query or several sent
    * together (a bulk write past the database's cap on one value, #392). `landed` runs once D1
    * has written it, alone or in a batch (a hasMany's clears what its owner has loaded, #187),
-   * and `rows` reads what it returned.
+   * with its queries' results, and `rows` reads what it returned.
    */
   constructor(
     executor: Executor,
     queries: readonly CompiledSql[],
-    landed: () => void = () => {},
+    landed: (results: readonly StatementResult[]) => void = () => {},
     rows: RowReader = noRows,
   ) {
     this.#executor = executor;
@@ -78,14 +80,39 @@ export class Statement<Row = never> {
   get [statementParts](): {
     executor: Executor;
     queries: readonly CompiledSql[];
-    landed: () => void;
+    landed: (results: readonly StatementResult[]) => void;
     resultOf: (results: readonly StatementResult[]) => WriteResult<Row>;
   } {
+    const own = (results: readonly StatementResult[]) => results.slice(this.#first.length);
     const resultOf = (results: readonly StatementResult[]) => ({
-      rowsAffected: results.reduce((sum, { rowsAffected }) => sum + rowsAffected, 0),
-      rows: results.flatMap(({ rows }) => this.#rows(rows)) as Row[],
+      rowsAffected: own(results).reduce((sum, { rowsAffected }) => sum + rowsAffected, 0),
+      rows: own(results).flatMap(({ rows }) => this.#rows(rows)) as Row[],
     });
-    return { executor: this.#executor, queries: this.#queries, landed: this.#landed, resultOf };
+    const queries = [...this.#first, ...this.#queries];
+    const landed = (results: readonly StatementResult[]) => this.#landed(own(results));
+    return { executor: this.#executor, queries, landed, resultOf };
+  }
+
+  /**
+   * @internal This statement with `first` sent before its own queries, in the same batch, their
+   * results not its own (a hasMany's counter cache, #61); `landed` also runs once it's written,
+   * with its own queries' results.
+   */
+  withFirst(
+    first: readonly CompiledSql[],
+    landed: (results: readonly StatementResult[]) => void,
+  ): Statement<Row> {
+    const statement = new Statement<Row>(
+      this.#executor,
+      this.#queries,
+      (results) => {
+        this.#landed(results);
+        landed(results);
+      },
+      this.#rows,
+    );
+    statement.#first = [...first, ...this.#first];
+    return statement;
   }
 }
 
@@ -93,7 +120,7 @@ export class Statement<Row = never> {
 export async function runAlone<Row>(statement: Statement<Row>): Promise<WriteResult<Row>> {
   const { executor, queries, landed, resultOf } = statement[statementParts];
   const results = await executor.write(queries);
-  landed();
+  landed(results);
   return resultOf(results);
 }
 

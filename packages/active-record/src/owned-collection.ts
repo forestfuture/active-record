@@ -1,4 +1,5 @@
 // A hasMany's Relation as its owner sees it (records built through it join the owner), or no owner.
+import { countedOut } from "./owners-counter.ts";
 import { pointBackAtOwner } from "./point-back-at-owner.ts";
 import type { Model } from "./model.ts";
 import type { QueryDescription } from "./query.ts";
@@ -61,6 +62,11 @@ export interface OwnedCollection {
    * `ReadonlyAssociation` where it writes none (#434).
    */
   deleteAllOf?(query: QueryDescription): Statement;
+  /**
+   * `statement`, its own `deleteAll()` of the rows `query` matches, with the owner's counter
+   * cache counting them out first (#61): only the association itself has it.
+   */
+  countedOut?(statement: Statement, query: QueryDescription): Statement;
   /**
    * Throws `ReadonlyAssociation` when `write` isn't allowed through it: through a through
    * association (#434), what it can't write.
@@ -182,6 +188,7 @@ function withKey(
     unsavedCount: () => built().filter((record) => record[state].isNew).length,
     refusal: undefined,
     nullifies: association.isDeletingOnDeleteAll ? undefined : association.nullifiedAttributes,
+    countedOut: (statement, query) => countedOut(statement, owner, association, query),
     link: { attribute: definition.foreignKey, association: name, ...ownersLink(association, key) },
     narrowed: () => narrowedOf(collection),
   };

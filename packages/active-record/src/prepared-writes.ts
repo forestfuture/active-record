@@ -125,7 +125,8 @@ function deleteAllStatement(relation: RelationState<Model>): Statement {
           query,
           nullifies.map((each) => [each, null]),
         );
-  return new Statement(executor, [compiled], landed);
+  const statement = new Statement(executor, [compiled], landed);
+  return collection.countedOut?.(statement, query) ?? statement;
 }
 
 /**
