@@ -323,6 +323,20 @@ describe("changing one attribute (#351)", () => {
       expect(await ages()).toEqual([3, 1]);
     });
 
+    test("incrementCounter adds one, or by, to one attribute of the rows with these keys", async () => {
+      expect(await withDatabase(db(), () => Member.incrementCounter("age", 1))).toBe(1);
+      expect(await withDatabase(db(), () => Member.incrementCounter("age", [1, 2], 3))).toBe(2);
+
+      expect(await ages()).toEqual([7, 3]);
+    });
+
+    test("decrementCounter takes one, or by", async () => {
+      expect(await withDatabase(db(), () => Member.decrementCounter("age", 1))).toBe(1);
+      expect(await withDatabase(db(), () => Member.decrementCounter("age", 1, 2))).toBe(1);
+
+      expect(await ages()).toEqual([0, null]);
+    });
+
     test("a Model's static writes a row its default scope leaves out, as Rails", async () => {
       expect(await withDatabase(db(), () => ActiveMember.updateCounters(2, { age: 4 }))).toBe(1);
 

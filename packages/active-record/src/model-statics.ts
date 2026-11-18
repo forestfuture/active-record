@@ -31,6 +31,7 @@ import type {
 } from "./calculations.ts";
 import type { SafeSql } from "./sql.ts";
 import type { Counters } from "./counters.ts";
+import type { NumberAttributeKey } from "./attribute-writes.ts";
 import type { InOrderOfOptions } from "./list-order.ts";
 import type { Relation, Scoped } from "./relation.ts";
 
@@ -245,7 +246,19 @@ interface KeyedWriteStatics {
     ids: Keys,
     counters: Counters<InstanceType<C>>,
   ) => Promise<number>;
+  /** `updateCounters` for one attribute, adding `by` (one by default). */
+  incrementCounter: CounterStatic;
+  /** `updateCounters` for one attribute, taking `by` (one by default) away. */
+  decrementCounter: CounterStatic;
 }
+
+/** `Post.incrementCounter("viewCount", id, by?)`, typed for the class it's called on. */
+type CounterStatic = <C extends QueryableClass>(
+  this: C,
+  name: NumberAttributeKey<InstanceType<C>>,
+  ids: Keys,
+  by?: number,
+) => Promise<number>;
 
 /** A callback static, typed for the class it's declared on: `this.beforeSave((record) => …)`. */
 type CallbackStatic = <C extends AbstractModelClass>(
@@ -402,7 +415,7 @@ export function defineStatics(base: typeof Model): void {
   defineKeyedWrites(base);
 }
 
-/** `Model.destroy(ids)`, `Model.delete(ids)` and `Model.updateCounters(ids, …)`, on the current database. */
+/** `Model.destroy(ids)`, `Model.delete(ids)`, and the counter statics, on the current database. */
 function defineKeyedWrites(base: typeof Model): void {
   defineStatic(base, "destroy", async function (this: QueryableClass, ids: Keys) {
     const found: Model | Model[] = await this.all().find(ids as never);
@@ -421,6 +434,18 @@ function defineKeyedWrites(base: typeof Model): void {
         .updateCounters(counters);
     },
   );
+  for (const [name, sign] of [
+    ["incrementCounter", 1],
+    ["decrementCounter", -1],
+  ] as const) {
+    defineStatic(
+      base,
+      name,
+      async function (this: QueryableClass, attribute: string, ids: Keys, by = 1) {
+        return this.updateCounters(ids, { [attribute]: sign * by } as never);
+      },
+    );
+  }
 }
 
 /** Whether a callback kind takes `on`, to run only in some validation contexts (#51). */
