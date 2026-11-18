@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, Model } from "../../packages/active-record/src/index.ts";
+import { belongsTo, hasMany, InvalidModel, Model } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
@@ -8,6 +8,7 @@ class Topic extends Model.define({
   id: { type: "integer", null: false },
   title: "string",
   repliesCount: "integer",
+  replyTally: "integer",
 }) {
   static table = "topics";
   replies = hasMany(Reply);
@@ -31,11 +32,23 @@ class Reply extends Model.define({
   topic = belongsTo(Topic, { counterCache: true });
 }
 
+/** A reply counted in the topic's attribute it names. */
+class TalliedReply extends Model.define({
+  id: { type: "integer", null: false },
+  topicId: "integer",
+  body: { type: "string", null: false },
+}) {
+  static table = "replies";
+  topic = belongsTo(Topic, { counterCache: "replyTally" });
+}
+
 describe("counter caches", () => {
   let harness: Harness;
   const db = () => harness.connect();
   const repliesCount = async (id: number) =>
     Number((await harness.exec("SELECT replies_count AS n FROM topics WHERE id = ?", [id]))[0]?.n);
+  const replyTally = async (id: number) =>
+    (await harness.exec("SELECT reply_tally AS n FROM topics WHERE id = ?", [id]))[0]?.n;
 
   beforeAll(async () => {
     harness = await openHarness();
@@ -109,5 +122,79 @@ describe("counter caches", () => {
         "DELETE",
       ]);
     });
+  });
+
+  describe("an attribute named by counterCache", () => {
+    test("is counted instead, from null", async () => {
+      const reply = await db().model(TalliedReply).create({ topicId: 1, body: "first" });
+      await db().model(TalliedReply).create({ topicId: 1, body: "second" });
+      expect(Number(await replyTally(1))).toBe(2);
+
+      await reply.destroy();
+
+      expect(Number(await replyTally(1))).toBe(1);
+      expect(await repliesCount(1)).toBe(0);
+    });
+
+    test("must be the target's attribute: InvalidModel at first use", () => {
+      class Untallied extends Model.define({
+        id: { type: "integer", null: false },
+        topicId: "integer",
+      }) {
+        static table = "replies";
+        // @ts-expect-error counterCache names one of the target's attributes
+        topic = belongsTo(Topic, { counterCache: "missingCount" });
+      }
+
+      expect(() => db().model(Untallied).build()).toThrow(
+        new InvalidModel(
+          'Untallied association "topic": Topic has no attribute "missingCount" (check counterCache)',
+        ),
+      );
+    });
+
+    test("must be the target's attribute when counterCache: true infers it", () => {
+      class Note extends Model.define({
+        id: { type: "integer", null: false },
+        topicId: "integer",
+      }) {
+        static table = "replies";
+        topic = belongsTo(Topic, { counterCache: true });
+      }
+
+      expect(() => db().model(Note).build()).toThrow(
+        new InvalidModel(
+          'Note association "topic": Topic has no attribute "notesCount" (counterCache: true infers it from Note; declare it, or name another)',
+        ),
+      );
+    });
+  });
+
+  test("only a belongsTo keeps a counter cache: InvalidModel on another", () => {
+    class Counting extends Model.define({ id: { type: "integer", null: false } }) {
+      static table = "topics";
+      // @ts-expect-error a hasMany takes no counterCache
+      replies = hasMany(Reply, { foreignKey: "topicId", counterCache: true });
+    }
+
+    expect(() => db().model(Counting).build()).toThrow(
+      new InvalidModel('Counting association "replies": only a belongsTo keeps a counter cache'),
+    );
+  });
+
+  test("counterCache takes true or an attribute's name", () => {
+    class Miscounted extends Model.define({
+      id: { type: "integer", null: false },
+      topicId: "integer",
+    }) {
+      static table = "replies";
+      topic = belongsTo(Topic, { counterCache: false as never });
+    }
+
+    expect(() => db().model(Miscounted).build()).toThrow(
+      new InvalidModel(
+        'Miscounted association "topic": counterCache takes true or the name of Topic\'s attribute',
+      ),
+    );
   });
 });

@@ -5,6 +5,7 @@ import { attributeFor } from "./attribute.ts";
 import type { CompiledSql } from "./compiler.ts";
 import { valueMark } from "./dialect.ts";
 import { pluralize } from "./inflections.ts";
+import { InvalidModel } from "./errors.ts";
 import { modelOf, type Model, type ModelClass } from "./model.ts";
 import { quoteIdentifier } from "./query-tables.ts";
 import { state } from "./record-state.ts";
@@ -19,6 +20,35 @@ function counterAttribute(owner: ModelClass, { counterCache }: AssociationDefini
   if (typeof counterCache === "string") return counterCache;
   const plural = pluralize(tableOwnerModelName(owner));
   return `${plural.charAt(0).toLowerCase()}${plural.slice(1)}Count`;
+}
+
+/**
+ * A counter cache is a belongsTo's, and names, or infers, an attribute of each Model it points at.
+ */
+export function checkCounterCache(
+  label: string,
+  owner: ModelClass,
+  definition: AssociationDefinition,
+  targets: readonly ModelClass[],
+): void {
+  const { counterCache, kind } = definition;
+  if (counterCache === undefined) return;
+  if (kind !== "belongsTo") {
+    throw new InvalidModel(`${label}: only a belongsTo keeps a counter cache`);
+  }
+  if (counterCache !== true && typeof counterCache !== "string") {
+    const names = targets.map((target) => target.name).join(" or ");
+    throw new InvalidModel(`${label}: counterCache takes true or the name of ${names}'s attribute`);
+  }
+  const attribute = counterAttribute(owner, definition);
+  const hint =
+    counterCache === true
+      ? `counterCache: true infers it from ${owner.name}; declare it, or name another`
+      : "check counterCache";
+  for (const target of targets) {
+    if (target.attributeDefinitions.has(attribute)) continue;
+    throw new InvalidModel(`${label}: ${target.name} has no attribute "${attribute}" (${hint})`);
+  }
 }
 
 /** One belongsTo's counter cache: the target's attribute it keeps, and how records link to it. */
