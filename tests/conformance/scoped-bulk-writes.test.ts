@@ -100,7 +100,7 @@ describe("a bulk write through a Relation's conditions", () => {
     expect(await db().model(Post).find(1)).toMatchObject({ published: true });
   });
 
-  // An upsert updates every attribute of the row it writes, not only the given ones (#475).
+  // An upsert updates the Relation's values it writes into the row, not only the given ones (#475).
   test("an upsert updating a row writes createWith's value", async () => {
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (1, 2, 'Old')");
 
