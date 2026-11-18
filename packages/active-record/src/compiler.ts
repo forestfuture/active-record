@@ -298,20 +298,23 @@ function compileOwnedBy(
 }
 
 /**
- * `UPDATE … SET … WHERE <primary key> = ?` for the given attribute values. `storedKey` is
- * the key as stored in D1 (the row's key before any change to it), so it's bound as-is.
+ * `UPDATE … SET … WHERE <primary key> = ?` for the given attribute values, or an `sql`
+ * fragment's sets, `RETURNING` the `returning` attributes. `storedKey` is the key as stored in
+ * D1 (the row's key before any change to it), so it's bound as-is.
  */
 export function compileUpdate(
   model: ModelClass<Model>,
-  assignments: readonly Assignment[],
+  changes: readonly Assignment[] | SafeSql,
   storedKey: unknown,
+  returning: readonly string[] = [],
 ): CompiledSql {
   const params: unknown[] = [];
-  const sets = compileSets(model, assignments, params);
+  const sets = compileSets(model, changes, params);
   const primaryKey = attributeFor(model, model.primaryKey);
   attributeFor(model, model.primaryKey).bindCells(params, storedKey);
+  const returned = compileReturning(model, returning);
   return {
-    sql: `UPDATE ${quoteIdentifier(model.table)} SET ${sets} WHERE ${quoteIdentifier(primaryKey.column)} = ${valueMark}`,
+    sql: `UPDATE ${quoteIdentifier(model.table)} SET ${sets} WHERE ${quoteIdentifier(primaryKey.column)} = ${valueMark}${returned}`,
     params,
     model,
   };

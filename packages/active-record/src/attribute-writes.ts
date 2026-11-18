@@ -1,6 +1,7 @@
-// Changing one attribute (#351): `increment`, `decrement` and `toggle` in memory, and `updateColumns`, straight to the row; the record methods every Model's records inherit from Model.
+// Changing one attribute (#351): `increment`, `decrement` and `toggle` in memory, and `updateColumns` and `incrementColumn`, straight to the row; the record methods every Model's records inherit from Model.
 import { compileUpdate } from "./compiler.ts";
 import { RecordNotSaved } from "./errors.ts";
+import { column, sql } from "./sql.ts";
 import { attributeOf } from "./metadata.ts";
 import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import { ModelStatics } from "./model-statics.ts";
@@ -67,6 +68,51 @@ export abstract class AttributeWrites extends ModelStatics {
   ): Promise<boolean> {
     return writeColumns(this, { [name]: value }, "updateColumn");
   }
+
+  /**
+   * Adds `by` to a number attribute in the row, as `SET x = COALESCE(x, 0) + by`, so concurrent
+   * writes all count, with no validation, callback or `updatedAt`; the record then holds the
+   * row's new value. An unsaved change to it is added too, as Rails' `increment!`. Resolves to
+   * whether there was a row to write.
+   */
+  async incrementColumn<R extends Model>(
+    this: R,
+    name: NumberAttributeKey<R>,
+    by = 1,
+  ): Promise<boolean> {
+    return addToColumn(this, name, by, "incrementColumn");
+  }
+
+  /** `incrementColumn`, taking `by` away. */
+  async decrementColumn<R extends Model>(
+    this: R,
+    name: NumberAttributeKey<R>,
+    by = 1,
+  ): Promise<boolean> {
+    return addToColumn(this, name, -by, "decrementColumn");
+  }
+}
+
+/**
+ * Adds to a number attribute in memory, then sends the difference from the row's value as it
+ * was loaded, and holds the value the row returns.
+ */
+async function addToColumn(
+  record: Model,
+  name: string,
+  by: number,
+  method: string,
+): Promise<boolean> {
+  const recordState = record[state];
+  requireSaved(record, method);
+  const after = (numberValue(record, name, method) ?? 0) + by;
+  const delta = after - ((recordState.valueInDatabase(name) as number | null) ?? 0);
+  recordState.write(name, after);
+  const sets = sql`${column(name)} = COALESCE(${column(name)}, 0) + ${column(name).value(delta)}`;
+  const update = compileUpdate(modelOf(record), sets, recordState.storedKey, [name]);
+  const [result] = await recordState.executor.write([update]);
+  recordState.commitColumns([name], result?.rows[0]);
+  return result?.rowsAffected === 1;
 }
 
 /** Assigns `attributes`, then UPDATEs only them by the stored key, and marks them saved. */
