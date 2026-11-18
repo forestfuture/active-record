@@ -87,6 +87,23 @@ describe("a hasMany's bulk removal on Postgres", () => {
     expect([Number(await repliesCount()), topic.repliesCount]).toEqual([2, 2]);
   });
 
+  test("a hasMany of its own Model counts out its records in one statement", async () => {
+    await schema.pool.query({ text: "DELETE FROM categories" });
+    await schema.pool.query({
+      text: "INSERT INTO categories VALUES (1, NULL, 2), (2, 1, 0), (3, 1, 0)",
+    });
+    const categories = connect(schema.url, { onQuery: (event) => events.push(event) }).model(
+      Category,
+    );
+    const category = await categories.find(1);
+    events.length = 0;
+
+    await category.children().deleteAll();
+
+    expect(events).toHaveLength(1);
+    expect((await categories.find(1)).childrenCount).toBe(0);
+  });
+
   // In one statement, Postgres changes a row once: a category that's its own parent would be
   // nullified and counted in the same statement, and keep its count.
   test("a hasMany of its own Model counts out a category that's its own parent", async () => {
