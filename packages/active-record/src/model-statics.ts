@@ -248,9 +248,9 @@ interface KeyedWriteStatics {
     ids: Keys,
     counters: Counters<InstanceType<C>>,
   ) => Promise<number>;
-  /** `updateCounters` for one attribute, adding `by` (one by default). */
+  /** `updateCounters` for one attribute, adding `by` (one by default): `{ by: 5 }`. */
   incrementCounter: CounterStatic;
-  /** `updateCounters` for one attribute, taking `by` (one by default) away. */
+  /** `updateCounters` for one attribute, taking `by` (one by default) away: `{ by: 5 }`. */
   decrementCounter: CounterStatic;
   /**
    * Sets the counter caches of the record with this primary key (#61) to how many records each
@@ -264,12 +264,12 @@ interface KeyedWriteStatics {
   ) => Promise<void>;
 }
 
-/** `Post.incrementCounter("viewCount", id, by?)`, typed for the class it's called on. */
+/** `Post.incrementCounter("viewCount", id, { by })`, typed for the class it's called on. */
 type CounterStatic = <C extends QueryableClass>(
   this: C,
   name: NumberAttributeKey<InstanceType<C>>,
   ids: Keys,
-  by?: number,
+  options?: { by?: number },
 ) => Promise<number>;
 
 /** A callback static, typed for the class it's declared on: `this.beforeSave((record) => …)`. */
@@ -460,7 +460,13 @@ function defineKeyedWrites(base: typeof Model): void {
     defineStatic(
       base,
       name,
-      async function (this: QueryableClass, attribute: string, ids: Keys, by = 1) {
+      async function (
+        this: QueryableClass,
+        attribute: string,
+        ids: Keys,
+        options: { by?: unknown } = {},
+      ) {
+        const { by = 1 } = options;
         return this.updateCounters(ids, { [attribute]: sign * amount(by, name) } as never);
       },
     );
