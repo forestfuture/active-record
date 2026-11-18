@@ -64,9 +64,14 @@ export function inverseHasOne(
   for (const [name, candidate] of associationsOf(target)) {
     if (candidate.kind !== "hasOne") continue;
     const hasOne = resolveAssociation(target, name);
-    if (inverseOf(record, hasOne)?.name === belongsTo.name) return hasOne;
+    if (isSameAssociation(inverseOf(record, hasOne), belongsTo)) return hasOne;
   }
   return undefined;
+}
+
+/** Whether two resolved associations are one: the same name on the same Model. */
+function isSameAssociation(one: ResolvedAssociation | undefined, other: ResolvedAssociation) {
+  return one?.owner === other.owner && one.name === other.name;
 }
 
 /**

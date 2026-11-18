@@ -58,6 +58,8 @@ class Post extends Model.define({
   static table = "posts";
 
   author = belongsTo(User, { foreignKey: "userId" });
+  // Named as Profile's belongsTo is, but not the inverse of User's hasOne profile.
+  user = belongsTo(User, { foreignKey: "userId", optional: true });
   comments = hasMany(Comment, { foreignKey: "postId" });
   remarks = hasMany(Remark, { as: "commentable" });
 }
@@ -240,6 +242,14 @@ describe("inverse associations", () => {
       expect(user!.loaded("profile")).toBe(profile);
       expect(await user!.profile()).toBe(profile);
       expect(queries).toHaveLength(0);
+    });
+
+    test("of another Model doesn't fill a hasOne whose inverse has its name", async () => {
+      const post = await db().model(Post).find(10);
+
+      const user = await post.user();
+
+      expect(user!.isLoaded("profile")).toBe(false);
     });
 
     test("doesn't fill its inverse hasMany: one record isn't the collection", async () => {
