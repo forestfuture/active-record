@@ -85,7 +85,7 @@ export class Statement<Row = never> {
   } {
     const own = (results: readonly StatementResult[]) => results.slice(this.#first.length);
     const resultOf = (results: readonly StatementResult[]) => ({
-      rowsAffected: own(results).reduce((sum, { rowsAffected }) => sum + rowsAffected, 0),
+      rowsAffected: rowsAffectedOf(own(results)),
       rows: own(results).flatMap(({ rows }) => this.#rows(rows)) as Row[],
     });
     const queries = [...this.#first, ...this.#queries];
@@ -114,6 +114,11 @@ export class Statement<Row = never> {
     statement.#first = [...first, ...this.#first];
     return statement;
   }
+}
+
+/** How many rows `results` changed between them. */
+export function rowsAffectedOf(results: readonly StatementResult[]): number {
+  return results.reduce((sum, { rowsAffected }) => sum + rowsAffected, 0);
 }
 
 /** Runs a statement on its own, then its `landed`, resolving to its `WriteResult`: what a Relation's write methods do. */
