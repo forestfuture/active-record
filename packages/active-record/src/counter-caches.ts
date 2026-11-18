@@ -64,6 +64,34 @@ export function checkCounterCache(
       ? "check counterCache"
       : `counterCache: true infers it from ${owner.name}; declare it, or name another`;
   for (const target of targets) requireCounter(label, target, attribute, hint);
+  refuseCountingTwice(label, owner, definition, { attribute, targets });
+}
+
+/**
+ * Another belongsTo on the same foreign key can't keep the same attribute on a table this one
+ * points at: each record would be counted in it twice.
+ */
+function refuseCountingTwice(
+  label: string,
+  owner: ModelClass,
+  definition: AssociationDefinition,
+  { attribute, targets }: { attribute: string; targets: readonly ModelClass[] },
+): void {
+  const tables = new Set(targets.map((target) => target.table));
+  for (const [name, other] of associationsOf(owner)) {
+    const isSameCounter =
+      other !== definition &&
+      other.kind === "belongsTo" &&
+      other.counterCache !== undefined &&
+      other.foreignKey === definition.foreignKey &&
+      counterAttribute(owner, other) === attribute &&
+      (other.targets?.() ?? [other.target()]).some((target) => tables.has(target.table));
+    if (isSameCounter) {
+      throw new InvalidModel(
+        `${label}: ${name} keeps "${attribute}" on ${targets[0]!.name} by ${definition.foreignKey} too, so a record would count twice (name another counterCache)`,
+      );
+    }
+  }
 }
 
 /** `target`'s `attribute` must be a plain number attribute (integer or real) to keep a count. */
