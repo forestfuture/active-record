@@ -390,11 +390,14 @@ export class RecordState {
 
   /**
    * After a write straight to the row (`updateColumns`, #351): these attributes hold what was
-   * stored, and have no unsaved change. The rest, and `savedChanges`, are as they were.
+   * stored, or what `row` returned for them, and have no unsaved change. The rest, and
+   * `savedChanges`, are as they were.
    */
-  commitColumns(names: readonly string[]): void {
+  commitColumns(names: readonly string[], row: Record<string, unknown> = {}): void {
     for (const name of names) {
-      this.#values[name] = this.#copyOf(name);
+      const { column } = this.#definition(name);
+      const attribute = this.#attribute(name);
+      this.#values[name] = column in row ? attribute.read(row[column]) : this.#copyOf(name);
       this.#snapshot.set(name, this.#storedForm(name));
     }
   }

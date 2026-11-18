@@ -161,4 +161,86 @@ describe("changing one attribute (#351)", () => {
       await expect(member.updateColumn("age", 7)).rejects.toThrow(RecordDestroyed);
     });
   });
+
+  describe("incrementColumn", () => {
+    test("adds to the row's value, and holds the value the row now has", async () => {
+      const member = await db().model(Member).find(1);
+      member.email = "changed@example.com";
+      events.length = 0;
+
+      expect(await member.incrementColumn("age")).toBe(true);
+
+      expect(member.age).toBe(4);
+      expect(member.changes()).toEqual({ email: ["a@example.com", "changed@example.com"] });
+      expect(events.length).toBe(1);
+      expect((await db().model(Member).find(1)).age).toBe(4);
+    });
+
+    test("adds to what the row holds, so two copies of a record both count", async () => {
+      const first = await db().model(Member).find(1);
+      const second = await db().model(Member).find(1);
+
+      await first.incrementColumn("age", 2);
+      await second.incrementColumn("age", 2);
+
+      expect(second.age).toBe(7);
+      expect((await db().model(Member).find(1)).age).toBe(7);
+    });
+
+    test("sends an unsaved change to the attribute with the increment, as Rails", async () => {
+      const member = await db().model(Member).find(1);
+      member.age = 10;
+
+      await member.incrementColumn("age");
+
+      expect(member.age).toBe(11);
+      expect((await db().model(Member).find(1)).age).toBe(11);
+    });
+
+    test("counts a null as zero", async () => {
+      await harness.exec("UPDATE users SET age = NULL");
+      const member = await db().model(Member).find(1);
+
+      await member.incrementColumn("age", 3);
+
+      expect((await db().model(Member).find(1)).age).toBe(3);
+    });
+
+    test("decrementColumn takes from the row's value", async () => {
+      const member = await db().model(Member).find(1);
+
+      expect(await member.decrementColumn("age", 2)).toBe(true);
+
+      expect(member.age).toBe(1);
+      expect((await db().model(Member).find(1)).age).toBe(1);
+    });
+
+    test("runs no validation or callback, and leaves updatedAt alone", async () => {
+      const member = await db().model(Member).find(1);
+
+      await member.incrementColumn("age", 500);
+
+      expect(callbacks).toEqual([]);
+      expect((await db().model(Member).find(1)).updatedAt).toBeNull();
+    });
+
+    test("resolves to false when the row is gone", async () => {
+      const member = await db().model(Member).find(1);
+      await harness.exec("DELETE FROM users");
+
+      expect(await member.incrementColumn("age")).toBe(false);
+      expect(member.age).toBe(4);
+      expect(member.isChanged()).toBe(false);
+    });
+
+    test("refuses a new record, and an attribute that isn't a number", async () => {
+      const member = await db().model(Member).find(1);
+      const unsaved = db().model(Member).build({ email: "b@example.com" });
+      events.length = 0;
+
+      await expect(unsaved.incrementColumn("age")).rejects.toThrow(RecordNotSaved);
+      await expect(member.incrementColumn(untyped("email"))).rejects.toThrow(TypeError);
+      expect(events).toEqual([]);
+    });
+  });
 });
