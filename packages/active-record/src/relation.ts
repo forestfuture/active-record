@@ -672,7 +672,7 @@ export class Relation<M extends Model, S = {}> {
   #countSource(): CountSource {
     const collection = this.#collection;
     const unsavedCount = () => collection.unsavedCount();
-    return { ...this.#valueSource(), unsavedCount, counted: () => collection.counted?.() };
+    return { ...this.#valueSource(), unsavedCount, cachedCount: () => collection.cachedCount?.() };
   }
 
   /** Whether any record matches, optionally with extra conditions. */

@@ -1,4 +1,4 @@
-// Counter caches (#61): a belongsTo's `counterCache`, kept up to date by statements written in the same atomic batch as its record's insert, update or delete.
+// CounterCache caches (#61): a belongsTo's `counterCache`, kept up to date by statements written in the same atomic batch as its record's insert, update or delete.
 import { associationsOf } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { attributeFor } from "./attribute.ts";
@@ -14,12 +14,26 @@ import { isOnDifferentDatabases, resolveAssociation } from "./resolved-associati
 import { tableOwnerModelName } from "./table-names.ts";
 
 /**
+ * A belongsTo's `counterCache` in one shape: the attribute it names, if it names one, and
+ * whether `size` reads it (not with `active: false`). Checked already, by `checkCounterValue`.
+ */
+function counterCacheOf({ counterCache }: AssociationDefinition): {
+  attribute: string | undefined;
+  isActive: boolean;
+} {
+  if (typeof counterCache === "object") {
+    return { attribute: counterCache.attribute, isActive: counterCache.active !== false };
+  }
+  return { attribute: typeof counterCache === "string" ? counterCache : undefined, isActive: true };
+}
+
+/**
  * The counter a belongsTo's `counterCache` keeps on its target: the attribute it names, or by
  * Rails' convention the owner's plural name + `Count` (`Reply` → `repliesCount`).
  */
-function counterAttribute(owner: ModelClass, { counterCache }: AssociationDefinition): string {
-  const named = typeof counterCache === "object" ? counterCache.attribute : counterCache;
-  if (typeof named === "string") return named;
+function counterAttribute(owner: ModelClass, definition: AssociationDefinition): string {
+  const named = counterCacheOf(definition).attribute;
+  if (named !== undefined) return named;
   const plural = pluralize(tableOwnerModelName(owner));
   return `${plural.charAt(0).toLowerCase()}${plural.slice(1)}Count`;
 }
@@ -45,11 +59,10 @@ export function checkCounterCache(
     );
   }
   const attribute = counterAttribute(owner, definition);
-  const isNamed =
-    typeof counterCache === "object" ? "attribute" in counterCache : counterCache !== true;
-  const hint = isNamed
-    ? "check counterCache"
-    : `counterCache: true infers it from ${owner.name}; declare it, or name another`;
+  const hint =
+    counterCacheOf(definition).attribute !== undefined
+      ? "check counterCache"
+      : `counterCache: true infers it from ${owner.name}; declare it, or name another`;
   for (const target of targets) requireCounter(label, target, attribute, hint);
 }
 
@@ -126,7 +139,7 @@ function checkCounterValue(label: string, counterCache: unknown, targets: readon
  * One belongsTo's counter cache on one Model: the target's attribute it keeps, and how records
  * link to it. A polymorphic belongsTo has one for each Model it lists, by the type naming it (#60).
  */
-export interface Counter {
+export interface CounterCache {
   /** The belongsTo's name. */
   name: string;
   /** The owner's foreign key. */
@@ -143,12 +156,12 @@ export interface Counter {
 }
 
 /** The counter caches a Model's records keep: each belongsTo's declaring one, on each target. */
-export function countersOf(owner: ModelClass): Counter[] {
+export function countersOf(owner: ModelClass): CounterCache[] {
   return [...associationsOf(owner)].flatMap(([name, definition]) => {
     if (definition.kind !== "belongsTo" || definition.counterCache === undefined) return [];
     const attribute = counterAttribute(owner, definition);
-    const { foreignKey, counterCache } = definition;
-    const isActive = typeof counterCache !== "object" || counterCache.active !== false;
+    const { foreignKey } = definition;
+    const { isActive } = counterCacheOf(definition);
     return resolveAssociation(owner, name).branches.map(({ target, targetAttribute, type }) => ({
       name,
       foreignKey,
@@ -165,7 +178,7 @@ export function countersOf(owner: ModelClass): Counter[] {
  * Whether the type a record holds, as `typeIn` reads it, names `counter`'s target: always, for
  * a belongsTo that isn't polymorphic.
  */
-function isNamed(counter: Counter, typeIn: (attribute: string) => unknown): boolean {
+function isTypeOfTarget(counter: CounterCache, typeIn: (attribute: string) => unknown): boolean {
   return counter.type === undefined || typeIn(counter.type.attribute) === counter.type.value;
 }
 
@@ -188,7 +201,7 @@ export interface CounterChanges {
 function counterChanges(
   record: Model,
   [before, after]: [CompiledSql[], CompiledSql[]],
-  loaded: readonly Counter[],
+  loaded: readonly CounterCache[],
   by: number,
 ): CounterChanges {
   return {
@@ -207,11 +220,14 @@ export function countersOnInsert(record: Model): CounterChanges {
   const recordState = record[state];
   const counted = countersOf(modelOf(record)).filter((counter) => {
     const key = recordState.read(counter.foreignKey);
-    return key !== null && key !== undefined && isNamed(counter, (name) => recordState.read(name));
+    return (
+      key !== null && key !== undefined && isTypeOfTarget(counter, (name) => recordState.read(name))
+    );
   });
-  const after = counted.map((counter) =>
-    counterChangeFor(counter, recordState.read(counter.foreignKey), 1),
-  );
+  const after = counted.map((counter) => {
+    const key = keyed(counter, recordState.read(counter.foreignKey));
+    return compileCounterChange(counter, changeBy(counter, 1), key);
+  });
   return counterChanges(record, [[], after], counted, 1);
 }
 
@@ -226,7 +242,7 @@ export function countersOnDestroy(record: Model): CounterChanges {
   const counted = countersOf(modelOf(record)).filter(
     (counter) =>
       counter.foreignKey !== skipped &&
-      isNamed(counter, (name) => recordState.valueInDatabase(name)),
+      isTypeOfTarget(counter, (name) => recordState.valueInDatabase(name)),
   );
   const before = counted.map((counter) => changeThroughRow(record, counter, -1, "before"));
   return counterChanges(record, [before, []], counted, -1);
@@ -246,16 +262,16 @@ export function countersOnUpdate(record: Model): CounterChanges {
     ),
   );
   const from = moved.filter((counter) =>
-    isNamed(counter, (name) => recordState.valueInDatabase(name)),
+    isTypeOfTarget(counter, (name) => recordState.valueInDatabase(name)),
   );
-  const to = moved.filter((counter) => isNamed(counter, (name) => recordState.read(name)));
+  const to = moved.filter((counter) => isTypeOfTarget(counter, (name) => recordState.read(name)));
   const before = from.map((counter) => changeThroughRow(record, counter, -1, "before"));
   const after = to.map((counter) => changeThroughRow(record, counter, 1, "after"));
   return counterChanges(record, [before, after], to, 1);
 }
 
 /** Each counter's target the record has loaded for its key takes the change, as stored. */
-function countLoaded(record: Model, counters: readonly Counter[], by: number): void {
+function countLoaded(record: Model, counters: readonly CounterCache[], by: number): void {
   for (const { name, attribute } of counters) {
     const target = record[state].associations.get(name)?.value;
     if (target instanceof Model) addToCount(target, attribute, by);
@@ -280,7 +296,7 @@ export function addToCount(record: Model, attribute: string, by: number): void {
  */
 function changeThroughRow(
   record: Model,
-  counter: Counter,
+  counter: CounterCache,
   by: number,
   when: "before" | "after",
 ): CompiledSql {
@@ -318,13 +334,8 @@ export async function destroyingThrough<T>(
   }
 }
 
-/** `UPDATE … SET counter = COALESCE(counter, 0) + ? WHERE key = ?`, as Rails' `update_counters`. */
-function counterChangeFor(counter: Counter, key: unknown, by: number): CompiledSql {
-  return compileCounterChange(counter, changeBy(counter, by), keyed(counter, key));
-}
-
 /** A target's key, `= ?` with `key` bound as the counter's target key. */
-export function keyed({ target, targetKey }: Counter, key: unknown): SqlPart {
+export function keyed({ target, targetKey }: CounterCache, key: unknown): SqlPart {
   const params: unknown[] = [];
   attributeFor(target, targetKey).bind(params, key);
   return { sql: valueMark, params };
@@ -337,7 +348,7 @@ export interface SqlPart {
 }
 
 /** `+ ?`, with `by` bound as the counter's value: hidden from `onQuery` if it's filtered. */
-function changeBy({ target, attribute }: Counter, by: number): SqlPart {
+function changeBy({ target, attribute }: CounterCache, by: number): SqlPart {
   const params: unknown[] = [];
   attributeFor(target, attribute).bindCells(params, by);
   return { sql: `+ ${valueMark}`, params };
@@ -348,7 +359,7 @@ function changeBy({ target, attribute }: Counter, by: number): SqlPart {
  * and its operand (`+ ?`), `key` the target's key or a subquery finding it.
  */
 export function compileCounterChange(
-  { target, attribute, targetKey }: Counter,
+  { target, attribute, targetKey }: CounterCache,
   change: SqlPart,
   key: SqlPart,
 ): CompiledSql {
@@ -364,7 +375,7 @@ export function compileCounterChange(
 /** `type = ?`: a polymorphic row's type naming the counter's target, its value bound. */
 function typeCondition(
   owner: ModelClass,
-  { attribute, value }: NonNullable<Counter["type"]>,
+  { attribute, value }: NonNullable<CounterCache["type"]>,
   params: unknown[],
 ): string {
   const type = attributeFor(owner, attribute);

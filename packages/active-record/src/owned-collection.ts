@@ -71,7 +71,7 @@ export interface OwnedCollection {
    * How many records it has by its owner's counter cache (#61), which `size` reads when it isn't
    * loaded: only the association itself has it, and only with a counter cache.
    */
-  counted?(): number | undefined;
+  cachedCount?(): number | undefined;
   /**
    * Throws `ReadonlyAssociation` when `write` isn't allowed through it: through a through
    * association (#434), what it can't write.
@@ -194,7 +194,7 @@ function withKey(
     refusal: undefined,
     nullifies: association.isDeletingOnDeleteAll ? undefined : association.nullifiedAttributes,
     countedOut: (statement, query) => countedOut(statement, owner, association, query),
-    counted: () => ownersCount(owner, association),
+    cachedCount: () => ownersCount(owner, association),
     link: { attribute: definition.foreignKey, association: name, ...ownersLink(association, key) },
     narrowed: () => narrowedOf(collection),
   };
