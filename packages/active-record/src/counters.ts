@@ -9,7 +9,7 @@ export type Counters<R> = { [K in NumberAttributeKey<R>]?: number };
 
 /**
  * `x = COALESCE(x, 0) + ?, …` for each counter, so a NULL counts as zero and concurrent writes
- * all count. `{}`, or an attribute that isn't a number, is a `TypeError`.
+ * all count. `{}`, an attribute that isn't a number, or an amount that isn't one, is a `TypeError`.
  */
 export function counterSets(
   model: ModelClass,
@@ -23,7 +23,7 @@ export function counterSets(
   for (const [index, [name, by]] of entries.entries()) {
     requireAttributeType(model, name, method, "integer", "real");
     if (index > 0) strings[strings.length - 1] = ", ";
-    values.push(column(name), column(name), column(name).value(by));
+    values.push(column(name), column(name), column(name).value(amount(by, method)));
     strings.push(" = COALESCE(", ", 0) + ", "");
   }
   return new SafeSql(strings, values);
