@@ -23,6 +23,7 @@ class Member extends Model.define({
     for (const kind of ["beforeValidation", "beforeSave", "afterSave", "afterCommit"] as const) {
       this[kind](() => void callbacks.push(kind));
     }
+    this.afterSave((member) => void previouslyNew.push(member.isPreviouslyNewRecord()));
   }
 }
 
@@ -41,6 +42,8 @@ class ActiveMember extends Model.define({
 
 /** The callbacks Member's records ran. */
 const callbacks: string[] = [];
+/** What `isPreviouslyNewRecord()` said in each of Member's afterSave callbacks. */
+const previouslyNew: boolean[] = [];
 
 /** A name the method's type refuses, as one from untyped code would arrive. */
 const untyped = (name: string) => name as never;
@@ -63,6 +66,7 @@ describe("changing one attribute (#351)", () => {
     );
     events.length = 0;
     callbacks.length = 0;
+    previouslyNew.length = 0;
   });
 
   describe("in memory", () => {
@@ -355,6 +359,38 @@ describe("changing one attribute (#351)", () => {
     test("a none() Relation sends nothing and resolves to 0", async () => {
       expect(await db().model(Member).none().updateCounters({ age: 1 })).toBe(0);
       expect(events).toEqual([]);
+    });
+  });
+
+  describe("isPreviouslyNewRecord", () => {
+    test("is true once a save created the record, its after-callbacks included", async () => {
+      const member = db().model(Member).build({ email: "b@example.com", id: 2, age: 1 });
+      expect(member.isPreviouslyNewRecord()).toBe(false);
+
+      await member.save();
+
+      expect(previouslyNew).toEqual([true]);
+      expect(member.isPreviouslyNewRecord()).toBe(true);
+    });
+
+    test("is false for a loaded record, and after a save that updated one", async () => {
+      const member = await db().model(Member).find(1);
+      expect(member.isPreviouslyNewRecord()).toBe(false);
+      const created = await db().model(Member).create({ email: "b@example.com", id: 2, age: 1 });
+
+      await created.update({ age: 5 });
+      await created.save();
+
+      expect(previouslyNew).toEqual([true, false, false]);
+      expect(created.isPreviouslyNewRecord()).toBe(false);
+    });
+
+    test("is false once the record is destroyed", async () => {
+      const member = await db().model(Member).create({ email: "b@example.com", id: 2, age: 1 });
+
+      await member.destroy();
+
+      expect(member.isPreviouslyNewRecord()).toBe(false);
     });
   });
 });
