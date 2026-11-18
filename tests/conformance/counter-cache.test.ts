@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import { belongsTo, hasMany, Model } from "../../packages/active-record/src/index.ts";
+import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { statementKinds } from "../support/statement-kinds.ts";
 
 class Topic extends Model.define({
   id: { type: "integer", null: false },
@@ -9,6 +11,15 @@ class Topic extends Model.define({
 }) {
   static table = "topics";
   replies = hasMany(Reply);
+}
+
+class DestroyingTopic extends Model.define({
+  id: { type: "integer", null: false },
+  title: "string",
+  repliesCount: "integer",
+}) {
+  static table = "topics";
+  replies = hasMany(Reply, { foreignKey: "topicId", dependent: "destroy" });
 }
 
 class Reply extends Model.define({
@@ -79,6 +90,24 @@ describe("counter caches", () => {
 
       expect(await repliesCount(1)).toBe(2);
       expect(await repliesCount(2)).toBe(0);
+    });
+
+    test("through its target's dependent: destroy leaves the target's counter alone", async () => {
+      const events: QueryEvent[] = [];
+      const topic = await harness
+        .connect({ onQuery: (event) => events.push(event) })
+        .model(DestroyingTopic)
+        .find(1);
+      events.length = 0;
+
+      await topic.destroy();
+
+      // The replies' two DELETEs and the topic's, with no UPDATE of the topic being deleted.
+      expect(statementKinds(events).filter((kind) => kind !== "SELECT")).toEqual([
+        "DELETE",
+        "DELETE",
+        "DELETE",
+      ]);
     });
   });
 });
