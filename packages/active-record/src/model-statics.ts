@@ -1,4 +1,4 @@
-// The statics every Model gets from Model: its Relation methods (`Product.where(…)`), `destroy`, `delete` and the counters (`updateCounters`, `incrementCounter`, `decrementCounter`) by primary key, and callbacks (`this.beforeSave(…)`), typed and defined from their lists.
+// The statics every Model gets from Model: its Relation methods (`Product.where(…)`), `destroy`, `delete` and the counters (`updateCounters`, `incrementCounter`, `decrementCounter`, `resetCounters`) by primary key, and callbacks (`this.beforeSave(…)`), typed and defined from their lists.
 import {
   declare,
   type CallbackKind,
@@ -8,6 +8,7 @@ import {
 import type {
   AbstractModelClass,
   AttributesOf,
+  CollectionName,
   Callback,
   Model,
   ModelClass,
@@ -16,6 +17,7 @@ import type {
 } from "./model.ts";
 import type { PaginateStatic } from "./pagination.ts";
 import { destroyTogether } from "./records-together.ts";
+import { resetCounters } from "./owners-counter.ts";
 import type { GroupedRelation, GroupTerms } from "./grouping.ts";
 import {
   inContext,
@@ -250,6 +252,16 @@ interface KeyedWriteStatics {
   incrementCounter: CounterStatic;
   /** `updateCounters` for one attribute, taking `by` (one by default) away. */
   decrementCounter: CounterStatic;
+  /**
+   * Sets the counter caches of the record with this primary key (#61) to how many records each
+   * named hasMany has, counted in the same write: `Topic.resetCounters(id, "replies")`. A
+   * missing record is `RecordNotFound`, as `find`'s.
+   */
+  resetCounters: <C extends QueryableClass>(
+    this: C,
+    id: string | number,
+    ...names: CollectionName<InstanceType<C>>[]
+  ) => Promise<void>;
 }
 
 /** `Post.incrementCounter("viewCount", id, by?)`, typed for the class it's called on. */
@@ -432,6 +444,13 @@ function defineKeyedWrites(base: typeof Model): void {
       return this.unscoped()
         .where({ [this.primaryKey]: ids } as never)
         .updateCounters(counters);
+    },
+  );
+  defineStatic(
+    base,
+    "resetCounters",
+    async function (this: QueryableClass, id: string | number, ...names: string[]) {
+      return resetCounters(await this.all().find(id as never), names);
     },
   );
   for (const [name, sign] of [

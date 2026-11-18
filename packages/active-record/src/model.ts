@@ -105,6 +105,12 @@ type AnyAssociation =
   | HasManyThrough<Any>
   | (() => Relation<Any, Any>);
 
+/** The names of a record's hasMany accessors, through another included (from their fields' types). */
+export type CollectionName<R> = {
+  [K in keyof R]: R[K] extends () => Relation<Any, Any> ? K : never;
+}[keyof R] &
+  string;
+
 /** The names of a record's association accessors (from their fields' types). */
 export type AssociationName<R> = {
   [K in keyof R]: R[K] extends AnyAssociation ? K : never;
