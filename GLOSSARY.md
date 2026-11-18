@@ -208,6 +208,10 @@ _Avoid_: Eager load, preload, include
 An **Association** a **Record** already holds, preloaded or read once, so reading it again needs no query. It stays loaded while the key it was loaded for is unchanged, until the record is reloaded.
 _Avoid_: Cached association (outside the implementation), memoized
 
+**Inverse association**:
+The **Association** on the other side of an association, pointing back: a has-many's or has-one's belongs-to, or a belongs-to's has-one. A **Record** built, created or loaded through an association has its owner as its inverse **Loaded association**, the same object, so reading it needs no query. Inferred from the foreign key, or named with `inverseOf`.
+_Avoid_: Back reference, reverse association
+
 **Association scope**:
 A change to an **Association**'s **Relation** declared with the association (its order or conditions), applied whenever the association is read, preloaded or written through. Unlike a **Scope**, it has no name of its own.
 _Avoid_: Scope (on its own), default scope

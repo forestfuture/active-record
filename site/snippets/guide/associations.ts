@@ -57,6 +57,41 @@ export async function readExample(articleId: string) {
   return { author, profile, latest };
 }
 
+export async function inverseExample(authorId: string) {
+  // #region inverse
+  const author = await Author.find(authorId);
+  const [article] = await author.articles().toArray();
+  const sameAuthor = await article?.author(); // `author` itself, with no query
+  // #endregion inverse
+  return { author, sameAuthor };
+}
+
+// #region inverse-of
+export class Editor extends Model.define({
+  id: { type: "string", null: false, generateId: true },
+  name: { type: "string", null: false },
+}) {
+  static table = "authors";
+
+  // A scope turns inference off, so name the inverse.
+  drafts = hasMany(Draft, {
+    foreignKey: "authorId",
+    scope: (q) => q.where({ title: "Untitled" }),
+    inverseOf: "editor",
+  });
+}
+
+export class Draft extends Model.define({
+  id: { type: "string", null: false, generateId: true },
+  authorId: { type: "string", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "articles";
+
+  editor = belongsTo(Editor, { foreignKey: "authorId" });
+}
+// #endregion inverse-of
+
 export async function autosaveExample() {
   // #region autosave
   const ada = Author.build({ name: "Ada" });

@@ -27,6 +27,8 @@ import {
   preloadExample,
   replaceProfileExample,
   readExample,
+  inverseExample,
+  Editor,
   saveChangedExample,
   statementsExample,
   TagWithAuthors,
@@ -389,6 +391,22 @@ describe("the guide's examples", () => {
         .find("x1")
         .then((article) => article.comments().count()),
     ).toBe(0);
+  });
+
+  test("Associations: inverse associations, inferred and named (#62)", async () => {
+    const db = connect(binding);
+    await binding
+      .prepare("INSERT INTO articles (id, author_id, title) VALUES ('x9', 'mary', 'Untitled')")
+      .run();
+    const { author, sameAuthor } = await withDatabase(db, () => inverseExample("mary"));
+    const editor = await db.model(Editor).find("mary");
+    const drafts = await editor.drafts().toArray();
+    const built = editor.drafts().build({ title: "Untitled" });
+
+    expect(sameAuthor).toBe(author);
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0]!.loaded("editor")).toBe(editor);
+    expect(built.loaded("editor")).toBe(editor);
   });
 
   test("Querying: joining associations, and merging a joined Model's Relation (#24)", async () => {

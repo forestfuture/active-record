@@ -1,6 +1,6 @@
 ---
 title: Associations
-description: "belongsTo, hasMany, and hasOne: inferred foreign keys, polymorphic associations, reading, preloading with includes, autosave, writing through associations, scopes, associations through another, and dependent strategies."
+description: "belongsTo, hasMany, and hasOne: inferred foreign keys, polymorphic associations, reading, inverse associations, preloading with includes, autosave, writing through associations, scopes, associations through another, and dependent strategies."
 ---
 
 Associations connect Models: `belongsTo`, `hasMany`, and `hasOne`.
@@ -31,6 +31,7 @@ Use `belongsTo` on the Model whose table holds the foreign key. A post belongs t
 | `scope`      | Narrows the target, `(q) => q.where(…)`. See [Scoping associations](#scoping-associations)                |
 | `optional`   | Lets the record point at nothing. See [Requiring the record](#requiring-the-record)                       |
 | `autosave`   | `true` saves the record’s changes with this record. See [Saving changed records](#saving-changed-records) |
+| `inverseOf`  | The target’s `hasOne` that points back, or `false`. See [Inverse associations](#inverse-associations)     |
 
 ### Requiring the record
 
@@ -71,6 +72,7 @@ Use `hasMany` on the Model the other table’s foreign key points at. A user has
 | `scope`      | Narrows or orders the records, `(q) => q.order(…)`. See [Scoping associations](#scoping-associations)            |
 | `dependent`  | What destroying the owner does to the records. See [Destroying dependent records](#destroying-dependent-records) |
 | `autosave`   | `true` saves the records’ changes with the owner. See [Saving changed records](#saving-changed-records)          |
+| `inverseOf`  | The target’s `belongsTo` that points back, or `false`. See [Inverse associations](#inverse-associations)         |
 
 ## hasOne
 
@@ -201,6 +203,31 @@ After `author.articles().where({ title: "Untitled" }).deleteAll()`, you’d expe
 :::note
 A `belongsTo` whose foreign key is `null`, or an association on an unsaved owner, reads without a query.
 :::
+
+## Inverse associations
+
+A record loaded through its owner’s `hasMany` or `hasOne` has the owner loaded already. Reading it back doesn’t send a query:
+
+<include>/_excerpts/guide/associations/inverse.ts</include>
+
+- Every record the association loads points back: from `toArray()`, `first()`, `find()`, `findBy()`, a Relation narrowed from it such as `author.articles().where(…)`, and [`includes`](#preloading-associations).
+- Records built or created through the association point back too, before either is saved.
+- A `belongsTo`’s record points back through its `hasOne`. After `await profile.author()`, the author’s `profile()` is that profile. A `hasMany` isn’t filled this way, because one record isn’t the whole collection.
+- The owner is the same object on both sides, so a change to it shows from either one.
+
+The inverse is the target’s first `belongsTo` that points at the owner’s Model through the same foreign key. None is found when either association has a `scope`, or for an association [through another](#reaching-records-through-another-association).
+
+If you want another inverse, or one for an association with a `scope`, name it with `inverseOf`:
+
+<include>/_excerpts/guide/associations/inverse-of.ts</include>
+
+`inverseOf` on a `hasMany` or `hasOne` names a `belongsTo`, and on a `belongsTo` it names a `hasOne`. `inverseOf: false` turns the inverse off. If the association you name doesn’t link back through the same keys, using the Model throws `InvalidModel`.
+
+<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
+
+Rails finds an inverse by its name. `has_many :articles` on `Author` looks for `belongs_to :author` on `Article`. It finds none when you pass `foreign_key:`, or when the `belongs_to` has another name, such as `belongs_to :writer, class_name: "Author"`. Then you add `inverse_of` yourself. Active Record finds the inverse by its foreign key instead, so it finds `writer = belongsTo(Author, { foreignKey: "authorId" })` too. It also finds a polymorphic `belongsTo`’s `hasOne` without `inverseOf`, where Rails needs `inverse_of`.
+
+</Callout>
 
 ## Preloading associations
 
@@ -523,4 +550,3 @@ These features aren’t in Active Record yet. The code shows the shape they’re
 - **Associations through another across databases** ([#435](https://github.com/forestfuture/active-record/issues/435)): an association whose hops are on different databases, read with a query per database.
 - **Never autosaving** ([#378](https://github.com/forestfuture/active-record/issues/378)): `articles = hasMany(Article, { autosave: false })`, which never saves the association’s records with the owner, not even new ones.
 - **Numbered autosave errors** ([#379](https://github.com/forestfuture/active-record/issues/379)): `hasMany(Article, { autosave: true, indexErrors: true })`, which names a copied error by the record’s position, `articles[1].title`.
-- **Inverse associations** ([#62](https://github.com/forestfuture/active-record/issues/62)): after `await post.comments().toArray()`, each `comment.post()` returns that same post, without a query.
