@@ -92,6 +92,30 @@ class StampedReply extends Model.define({
   topic = belongsTo(StampedTopic, { foreignKey: "topicId", counterCache: "repliesCount" });
 }
 
+/** A board's cards, through its pins, which the board counts. */
+class Board extends Model.define({
+  id: { type: "integer", null: false },
+  pinsCount: "integer",
+}) {
+  static table = "boards";
+  pins = hasMany(Pin, { dependent: "deleteAll" });
+  cards = hasMany(Card, { through: "pins" });
+}
+
+class Card extends Model.define({ id: { type: "integer", null: false } }) {
+  static table = "cards";
+}
+
+class Pin extends Model.define({
+  id: { type: "integer", null: false },
+  boardId: "integer",
+  cardId: "integer",
+}) {
+  static table = "pins";
+  board = belongsTo(Board, { counterCache: true });
+  card = belongsTo(Card);
+}
+
 describe("counter caches", () => {
   let harness: Harness;
   const db = () => harness.connect();
@@ -610,6 +634,37 @@ describe("counter caches", () => {
     await withDatabase(db(), () => Topic.resetCounters(1, ["replies"]));
 
     expect(await repliesCount(1)).toBe(1);
+  });
+
+  describe("removing records through an association through another", () => {
+    const pinsCount = async () =>
+      Number((await harness.exec("SELECT pins_count AS n FROM boards WHERE id = 1"))[0]?.n);
+
+    beforeEach(async () => {
+      await harness.reset("pins", "cards", "boards");
+      await harness.exec("INSERT INTO boards (id, pins_count) VALUES (1, 3)");
+      await harness.exec("INSERT INTO cards (id) VALUES (1), (2), (3)");
+      await harness.exec(
+        "INSERT INTO pins (id, board_id, card_id) VALUES (1, 1, 1), (2, 1, 2), (3, 1, 3)",
+      );
+    });
+
+    test("delete(records) counts their join records out of the owner's counter", async () => {
+      const board = await db().model(Board).find(1);
+      const card = await db().model(Card).find(1);
+
+      await board.cards().delete(card);
+
+      expect([await pinsCount(), board.pinsCount]).toEqual([2, 2]);
+    });
+
+    test("clear() counts every join record out", async () => {
+      const board = await db().model(Board).find(1);
+
+      await board.cards().clear();
+
+      expect([await pinsCount(), board.pinsCount]).toEqual([0, 0]);
+    });
   });
 
   describe("an attribute named by counterCache", () => {
