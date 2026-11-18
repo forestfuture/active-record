@@ -45,8 +45,8 @@ const callbacks: string[] = [];
 /** What `isPreviouslyNewRecord()` said in each of Member's afterSave callbacks. */
 const previouslyNew: boolean[] = [];
 
-/** A name the method's type refuses, as one from untyped code would arrive. */
-const untyped = (name: string) => name as never;
+/** A name or amount the method's type refuses, as one from untyped code would arrive. */
+const untyped = (value: unknown) => value as never;
 
 describe("changing one attribute (#351)", () => {
   let harness: Harness;
@@ -118,6 +118,14 @@ describe("changing one attribute (#351)", () => {
       expect(() => member.toggle(untyped("age"))).toThrow(TypeError);
       expect(member.changes()).toEqual({});
     });
+
+    test("increment refuses an amount that isn't a number", async () => {
+      const member = await db().model(Member).find(1);
+
+      expect(() => member.increment("age", untyped("5"))).toThrow(TypeError);
+      expect(() => member.decrement("age", untyped(null))).toThrow(TypeError);
+      expect(member.changes()).toEqual({});
+    });
   });
 
   describe("updateColumns", () => {
@@ -186,6 +194,15 @@ describe("changing one attribute (#351)", () => {
   });
 
   describe("incrementColumn", () => {
+    test("refuses an amount that isn't a number, sending nothing", async () => {
+      const member = await db().model(Member).find(1);
+      events.length = 0;
+
+      await expect(member.incrementColumn("age", untyped("5"))).rejects.toThrow(TypeError);
+      expect(member.changes()).toEqual({});
+      expect(events).toEqual([]);
+    });
+
     test("adds to the row's value, and holds the value the row now has", async () => {
       const member = await db().model(Member).find(1);
       member.email = "changed@example.com";

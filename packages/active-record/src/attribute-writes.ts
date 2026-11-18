@@ -1,6 +1,6 @@
 // Changing one attribute (#351): `increment`, `decrement` and `toggle` in memory, and `updateColumns`, `incrementColumn` and `toggleColumn`, straight to the row; the record methods every Model's records inherit from Model.
 import { compileUpdate } from "./compiler.ts";
-import { counterSets, requireAttributeType } from "./counters.ts";
+import { amount, counterSets, requireAttributeType } from "./counters.ts";
 import { RecordNotSaved } from "./errors.ts";
 import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import { ModelStatics } from "./model-statics.ts";
@@ -29,14 +29,14 @@ export abstract class AttributeWrites extends ModelStatics {
   /** Adds `by` (one by default) to a number attribute, null counting as zero; doesn't save. */
   increment<R extends Model>(this: R, name: NumberAttributeKey<R>, by = 1): R {
     const current = numberValue(this, name, "increment");
-    this[state].write(name, (current ?? 0) + by);
+    this[state].write(name, (current ?? 0) + amount(by, "increment"));
     return this;
   }
 
   /** Takes `by` (one by default) from a number attribute, null counting as zero; doesn't save. */
   decrement<R extends Model>(this: R, name: NumberAttributeKey<R>, by = 1): R {
     const current = numberValue(this, name, "decrement");
-    this[state].write(name, (current ?? 0) - by);
+    this[state].write(name, (current ?? 0) - amount(by, "decrement"));
     return this;
   }
 
@@ -78,7 +78,7 @@ export abstract class AttributeWrites extends ModelStatics {
     name: NumberAttributeKey<R>,
     by = 1,
   ): Promise<boolean> {
-    return addToColumn(this, name, by, "incrementColumn");
+    return addToColumn(this, name, amount(by, "incrementColumn"), "incrementColumn");
   }
 
   /** `incrementColumn`, taking `by` away. */
@@ -87,7 +87,7 @@ export abstract class AttributeWrites extends ModelStatics {
     name: NumberAttributeKey<R>,
     by = 1,
   ): Promise<boolean> {
-    return addToColumn(this, name, -by, "decrementColumn");
+    return addToColumn(this, name, -amount(by, "decrementColumn"), "decrementColumn");
   }
 
   /**

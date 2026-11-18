@@ -30,6 +30,17 @@ export function counterSets(
 }
 
 /**
+ * An amount to add, refused with a `TypeError` unless it's a finite number, as untyped code
+ * could pass a string from a form (`"5"`, which `+` would join) or `null`.
+ */
+export function amount(by: unknown, method: string): number {
+  if (typeof by !== "number" || !Number.isFinite(by)) {
+    throw new TypeError(`${method} adds a finite number; got ${String(by)}`);
+  }
+  return by;
+}
+
+/**
  * Refuses an attribute whose type isn't one of `types` (an enum or a custom type isn't), with a
  * `TypeError` naming the Model and attribute, since the compiler can't catch every caller.
  */
