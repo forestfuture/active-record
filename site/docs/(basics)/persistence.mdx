@@ -1,6 +1,6 @@
 ---
 title: Persistence
-description: "save, create, update, and destroy, their OrThrow variants, what each returns or throws, finding or creating a record (findOrCreateBy, createOrFindBy, createWith), destroying many records, lifecycle state, and reload."
+description: "save, create, update, and destroy, their OrThrow variants, what each returns or throws, changing one attribute (increment, toggle, updateColumns, updateCounters), finding or creating a record (findOrCreateBy, createOrFindBy, createWith), destroying many records, lifecycle state, and reload."
 ---
 
 Records are saved, updated, and destroyed with `save`, `create`, `update`, and `destroy`.
@@ -57,6 +57,52 @@ Instead of returning `false`, they throw:
 - **Constraint errors**, such as `RecordNotUnique`, since the database refused the write. See [Errors](./errors#constraint-errors).
 - **An error thrown by a callback**, other than `abort()`, even from an after-callback once the record is saved.
 - **D1’s own errors.**
+
+## Changing one attribute
+
+To bump a number or flip a flag, use `increment`, `decrement`, or `toggle`. They change the record without saving it, so save it afterwards:
+
+<include>/_excerpts/guide/attribute-writes/in-memory.ts</include>
+
+`increment` and `decrement` take an amount as their second argument, and count `null` as zero. `toggle` turns `null` into `true`.
+
+### Writing straight to the row
+
+To write a value without validations, callbacks, or a new `updatedAt`, use a method ending in `Column`. Each one writes to the row at once:
+
+<include>/_excerpts/guide/attribute-writes/columns.ts</include>
+
+- **`incrementColumn` and `decrementColumn`** add to the value in the row, not the one the record loaded. When two requests increment the same row, both count. The record then holds the row’s new value.
+- **`toggleColumn`** writes the flipped value.
+- **`updateColumns(attrs)`** writes the attributes you give. `updateColumn(name, value)` writes one.
+
+Each resolves to `true`, or `false` when the row is gone. The record’s other unsaved changes stay unsaved. A record that was never saved has no row, so these methods throw `RecordNotSaved`.
+
+### Updating counters
+
+To add to a number without loading the record, pass its primary key to `updateCounters`:
+
+<include>/_excerpts/guide/attribute-writes/counters.ts</include>
+
+- **`Article.updateCounters(ids, counters)`** adds to the rows with those keys, even ones a default scope leaves out.
+- **A Relation’s `updateCounters(counters)`** adds to every row it matches.
+- **`incrementCounter` and `decrementCounter`** change one attribute by one, or by the amount you give.
+
+Each one sends a single statement and resolves to the number of rows it changed. Like `updateAll`, it skips validations, callbacks, and `updatedAt`.
+
+:::note
+`increment` and the counters take `integer` and `real` attributes. A `decimal` is stored as text, so they refuse it.
+:::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`incrementColumn`, `decrementColumn`, and `toggleColumn` are Rails’ `increment!`, `decrement!`, and `toggle!`. A method name can’t contain `!`, and the `OrThrow` suffix means something else, so the `Column` ending names what they do: write to the row now, as `updateColumns` does.
+
+Rails’ `toggle!` runs the save callbacks and saves the record’s other changes. `toggleColumn` runs no callbacks and writes only the one attribute. For callbacks, call `toggle`, then `save`.
+
+Rails’ `increment!` keeps the value it worked out. `incrementColumn` reads the row’s new value back, so it includes other requests’ increments.
+
+</Callout>
 
 ## Finding or creating a record
 
@@ -160,6 +206,12 @@ A batch bounds memory, not queries. Each record reads its `"destroy"` and restri
 | New (from `build()`, or after a failed `create`) | `true`          | `false`         | `false`         |
 | Persisted (loaded, or after a successful save)   | `false`         | `true`          | `false`         |
 | Destroyed (after a successful `destroy()`)       | `false`         | `false`         | `true`          |
+
+`isPreviouslyNewRecord()` says whether the last save created the record. Use it in an after-callback that should only run for new records:
+
+<include>/_excerpts/guide/attribute-writes/previously-new.ts</include>
+
+It’s `false` again once the record is saved again or destroyed.
 
 ## Reloading records
 

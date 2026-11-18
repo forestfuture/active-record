@@ -396,26 +396,41 @@ _Portable._
 
 _Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `active-record/src/lifecycle.ts`, `active-record/src/model.ts`, `active-record/src/model-statics.ts`.
 
-| Method                                   | Resolves to                           | Domain errors                                                     |
-| ---------------------------------------- | ------------------------------------- | ----------------------------------------------------------------- |
-| `save()` / `update(attrs)`               | `true` / `false`                      | constraint errors, `RecordDestroyed`                              |
-| `saveOrThrow()` / `updateOrThrow(attrs)` | `true`                                | same as above, plus `RecordInvalid`, `RecordNotSaved`             |
-| `create(attrs)`                          | record, persisted or not              | constraint errors                                                 |
-| `createOrThrow(attrs)`                   | persisted record                      | same as above, plus `RecordInvalid`, `RecordNotSaved`             |
-| `destroy()`                              | destroyed record, or `false` on abort | constraint errors, `RecordDestroyed`                              |
-| `destroyOrThrow()`                       | destroyed record                      | same as above, plus `RecordNotDestroyed`                          |
-| `find(id)`                               | record                                | `RecordNotFound`                                                  |
-| `findBy(conds)`                          | record or `null`                      | none                                                              |
-| `findByOrThrow(conds)`                   | record                                | `RecordNotFound`                                                  |
-| `firstOrThrow()` / `lastOrThrow()`       | record                                | `RecordNotFound`                                                  |
-| `takeOrThrow()`                          | record                                | `RecordNotFound`                                                  |
-| `sole()` / `findSoleBy(conds)`           | record                                | `RecordNotFound`, `SoleRecordExceeded`                            |
-| `findOrCreateBy(attrs)`                  | record, persisted or not              | constraint errors                                                 |
-| `findOrCreateByOrThrow(attrs)`           | persisted record                      | same as above, plus `RecordInvalid`, `RecordNotSaved`             |
-| `createOrFindBy(attrs)`                  | record, persisted or not              | constraint errors but its own `RecordNotUnique`, `RecordNotFound` |
-| `createOrFindByOrThrow(attrs)`           | persisted record                      | same as above, plus `RecordInvalid`, `RecordNotSaved`             |
+| Method                                           | Resolves to                                  | Domain errors                                                         |
+| ------------------------------------------------ | -------------------------------------------- | --------------------------------------------------------------------- |
+| `save()` / `update(attrs)`                       | `true` / `false`                             | constraint errors, `RecordDestroyed`                                  |
+| `saveOrThrow()` / `updateOrThrow(attrs)`         | `true`                                       | same as above, plus `RecordInvalid`, `RecordNotSaved`                 |
+| `create(attrs)`                                  | record, persisted or not                     | constraint errors                                                     |
+| `createOrThrow(attrs)`                           | persisted record                             | same as above, plus `RecordInvalid`, `RecordNotSaved`                 |
+| `destroy()`                                      | destroyed record, or `false` on abort        | constraint errors, `RecordDestroyed`                                  |
+| `destroyOrThrow()`                               | destroyed record                             | same as above, plus `RecordNotDestroyed`                              |
+| `find(id)`                                       | record                                       | `RecordNotFound`                                                      |
+| `findBy(conds)`                                  | record or `null`                             | none                                                                  |
+| `findByOrThrow(conds)`                           | record                                       | `RecordNotFound`                                                      |
+| `firstOrThrow()` / `lastOrThrow()`               | record                                       | `RecordNotFound`                                                      |
+| `takeOrThrow()`                                  | record                                       | `RecordNotFound`                                                      |
+| `sole()` / `findSoleBy(conds)`                   | record                                       | `RecordNotFound`, `SoleRecordExceeded`                                |
+| `findOrCreateBy(attrs)`                          | record, persisted or not                     | constraint errors                                                     |
+| `findOrCreateByOrThrow(attrs)`                   | persisted record                             | same as above, plus `RecordInvalid`, `RecordNotSaved`                 |
+| `createOrFindBy(attrs)`                          | record, persisted or not                     | constraint errors but its own `RecordNotUnique`, `RecordNotFound`     |
+| `createOrFindByOrThrow(attrs)`                   | persisted record                             | same as above, plus `RecordInvalid`, `RecordNotSaved`                 |
+| `updateColumns(attrs)` and the `…Column` methods | `true` / `false` (whether a row was written) | constraint errors, `RecordNotSaved` (a new record), `RecordDestroyed` |
 
 Any error thrown by a callback other than an `abort(...)` propagates unchanged. That includes an error from an `after*` callback after the persistence lifecycle has already succeeded. Operational D1 errors always propagate. `false` means only "validation failed" or "a callback aborted" (ADR-0005).
+
+## Changing one attribute
+
+_Portable._
+
+_Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx#changing-one-attribute>). _Code:_ `active-record/src/attribute-writes.ts`, `active-record/src/counters.ts`, `active-record/src/model-statics.ts`.
+
+- `increment(name, by = 1)`, `decrement(name, by = 1)` and `toggle(name)` change the record in memory and return it, as Rails' do: a `null` number counts as zero, and `toggle` makes `null` `true`. Nothing is saved.
+- Writing straight to the row (#351), with no validation, callback or `updatedAt`: `updateColumns(attrs)` and `updateColumn(name, value)`, as Rails' `update_columns`, and `incrementColumn(name, by = 1)`, `decrementColumn` and `toggleColumn(name)`, Rails' `increment!`, `decrement!` and `toggle!` (a `!` name isn't possible, and `OrThrow` means "or throw"). Each sends one `UPDATE` by the stored primary key, unscoped, and resolves to whether a row was written. The attributes it wrote then hold what was stored and are clean; the record's other changes and `savedChanges()` are as they were. A new record is `RecordNotSaved`, before anything is assigned or sent; a destroyed one `RecordDestroyed`; `updateColumns({})` a `TypeError`.
+- `incrementColumn` is atomic: `SET x = COALESCE(x, 0) + ?` with `RETURNING x`, so copies of a record incrementing at once all count, and the record holds the row's new value (Rails' `increment!` keeps the value it worked out). It sends the amount plus any unsaved change to that attribute, as Rails sends the difference from the loaded value; with no row, the record holds that value, clean.
+- `toggleColumn` writes the flipped value as `updateColumn` does, so it runs no callback, unlike Rails' `toggle!` (which saves through `update_attribute`, running the save callbacks and saving other changes).
+- Counters: a Relation's `updateCounters({ viewCount: 1 })` adds to number attributes in every row it matches in one `UPDATE … SET x = COALESCE(x, 0) + ?, …`; it's an `updateAll`, so it skips validations, callbacks and `updatedAt`, and `none()` sends nothing. `Model.updateCounters(ids, counters)` writes the rows with those primary keys, ignoring the default scope, as Rails' `update_counters`. `Model.incrementCounter(name, ids, by = 1)` and `decrementCounter` are it for one attribute (Rails' `by:` keyword is positional here). Each resolves to the number of rows. Rails' `touch:` option is #50's.
+- The amounts and counters take `integer` and `real` attributes, as the compiler and a `TypeError` both say: not an enum, a custom type, or a `decimal`, which is text (#480). `{}` is a `TypeError`. A counter's amount is bound as the attribute's value, so a filtered one is `[FILTERED]` in `onQuery`.
+- Batch forms are #481, and `updateAttribute` #482.
 
 ## Constraint errors
 
@@ -542,6 +557,8 @@ _Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `active
 | New (from `build()`, or after a failed `create`) | `true`          | `false`         | `false`         |
 | Persisted (loaded, or after a successful save)   | `false`         | `true`          | `false`         |
 | Destroyed (after a successful `destroy()`)       | `false`         | `false`         | `true`          |
+
+- `isPreviouslyNewRecord()` (#351), as Rails' `previously_new_record?`, is `true` once a save created the record: in its after-callbacks (and commit callbacks) and after them. A later save (a clean one included) or a destroy makes it `false`; so is a loaded or built record. Rails' `previously_persisted?` is #483.
 
 ## Destroyed records
 

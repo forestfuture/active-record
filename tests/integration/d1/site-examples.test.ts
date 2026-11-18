@@ -37,6 +37,7 @@ import {
   writersExample,
 } from "../../../site/snippets/guide/associations.ts";
 import * as batches from "../../../site/snippets/guide/batches.ts";
+import * as attributeWrites from "../../../site/snippets/guide/attribute-writes.ts";
 import { joinsExample } from "../../../site/snippets/guide/joins.ts";
 import {
   addExample,
@@ -1044,6 +1045,41 @@ describe("the querying page's calculations (#344, #345)", () => {
       crowdedCounts: new Map([[1, 3]]),
       largest: new Map([[1, 3]]),
     });
+  });
+});
+
+describe("the persistence page's changing one attribute (#351)", () => {
+  let binding: TestDatabase;
+  let dispose: () => Promise<void>;
+  const schema = new URL("../../../site/snippets/guide/attribute-writes.sql", import.meta.url);
+
+  beforeAll(async () => {
+    ({ db: binding, dispose } = await createTestDatabase(schema));
+  });
+  afterAll(() => dispose());
+
+  test("each method changes the article as its comment says", async () => {
+    await binding.prepare("INSERT INTO articles (id, title) VALUES (1, 'Hello')").run();
+
+    const article = await withDatabase(connect(binding), () => attributeWrites.examples(1));
+
+    // 1 saved, 1 by incrementColumn, 1 by updateCounters, none while unpinned, 5 by incrementCounter.
+    expect(article.viewCount).toBe(8);
+    expect(article.isPinned).toBe(false);
+    expect(article.title).toBe("Renamed");
+    expect(article.updatedAt).not.toBeNull();
+  });
+
+  test("the afterSave callback logs only a save that created the article", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => log.mockRestore());
+
+    await withDatabase(connect(binding), async () => {
+      const article = await attributeWrites.Article.create({ id: 2, title: "Fresh" });
+      await article.update({ title: "Fresher" });
+    });
+
+    expect(log.mock.calls).toEqual([["New article: Fresh"]]);
   });
 });
 

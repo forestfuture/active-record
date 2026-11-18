@@ -1,0 +1,41 @@
+import { Model } from "@forestfuture/active-record";
+
+// #region previously-new
+export class Article extends Model.define({
+  id: { type: "integer", null: false },
+  title: { type: "string", null: false },
+  viewCount: { type: "integer", null: false },
+  isPinned: { type: "boolean", null: false },
+  updatedAt: "datetime",
+}) {
+  static {
+    this.afterSave((article) => {
+      if (article.isPreviouslyNewRecord()) {
+        console.log(`New article: ${article.title}`); // not after later saves
+      }
+    });
+  }
+}
+// #endregion previously-new
+
+export async function examples(id: number) {
+  // #region in-memory
+  const article = await Article.find(id);
+  article.increment("viewCount"); // viewCount + 1, not saved yet
+  article.toggle("isPinned");
+  await article.save();
+  // #endregion in-memory
+
+  // #region columns
+  await article.incrementColumn("viewCount"); // adds 1 in the row, now
+  await article.toggleColumn("isPinned");
+  await article.updateColumns({ title: "Renamed" }); // no validations, callbacks, or updatedAt
+  // #endregion columns
+
+  // #region counters
+  await Article.updateCounters(id, { viewCount: 1 });
+  await Article.where({ isPinned: true }).updateCounters({ viewCount: 10 });
+  await Article.incrementCounter("viewCount", [id], 5);
+  // #endregion counters
+  return Article.find(id);
+}
