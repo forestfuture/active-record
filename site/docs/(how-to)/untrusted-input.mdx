@@ -56,10 +56,6 @@ JSON can send `null` or a list. `findBy({ token: null })` matches rows whose tok
 A value that can’t be cast matches nothing, so `whereNot({ id: "abc" })` excludes nothing.
 :::
 
-`rewhere` and `unscope` widen a query, where `where` only narrows one. Pass them attribute names and values you chose, never a request’s. `Post.where({ published: true }).rewhere(await request.json())` would find any post the body names.
-
-An association’s link to its owner always stays, so `user.posts().rewhere({ userId: 2 })` still finds only the user’s posts.
-
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
 Rails’ `find_or_create_by` reads a list as `IN`, as `find_by` does. Rails doesn’t need to refuse one. A request’s params must be permitted before a model takes them, and `permit(:email)` keeps only single values.
@@ -67,3 +63,9 @@ Rails’ `find_or_create_by` reads a list as `IN`, as `find_by` does. Rails does
 Here, `await request.json()` is a plain object, and `permit` is up to you. So `findOrCreateBy(await request.json())` could find another user’s row. The find-or-create methods refuse a list instead. `findBy` and `where` still read a list as `IN`.
 
 </Callout>
+
+### Rewriting queries
+
+Pass `rewhere` and `unscope` the attribute names and values you chose, never a request’s. They widen a query, where `where` only narrows one, so `Post.where({ published: true }).rewhere(await request.json())` would find any post the body names.
+
+An association’s link to its owner always stays. `user.posts().rewhere({ userId: 2 })` finds nothing, since no post belongs to both users.
