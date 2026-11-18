@@ -6,6 +6,7 @@ import {
   Model,
   RecordNotFound,
   UnknownAssociation,
+  batch,
   withDatabase,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
@@ -420,6 +421,21 @@ describe("counter caches", () => {
         ),
       );
     });
+  });
+
+  test("b.updateCounters adds to the counters in a batch, with its other writes", async () => {
+    const database = db();
+    const topics = database.model(StampedTopic);
+
+    const [counted, created] = await batch((b) => [
+      b.updateCounters(topics.where({ id: 1 }), { repliesCount: 2 }, { touch: true }),
+      b.insert(database.model(Reply), { id: 1, topicId: 1, body: "a" }),
+    ]);
+
+    expect(counted.rowsAffected).toBe(1);
+    expect(created.rowsAffected).toBe(1);
+    expect(await repliesCount(1)).toBe(2);
+    expect((await topics.find(1)).updatedAt).not.toBeNull();
   });
 
   test("resetCounters takes a list of names", async () => {
