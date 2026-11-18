@@ -31,7 +31,7 @@ export async function examples(since: Date, until: Date): Promise<unknown> {
 
   // #region rewhere
   const members = User.where({ role: "member", isActive: true });
-  members.rewhere({ role: "admin" }); // role = 'admin' AND is_active = ?
+  members.rewhere({ role: "admin" }); // is_active = ? AND role = ?
   // #endregion rewhere
 
   // #region unscope
