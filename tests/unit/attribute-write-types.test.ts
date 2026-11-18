@@ -1,5 +1,15 @@
 import { describe, expectTypeOf, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { defineType, Model } from "../../packages/active-record/src/index.ts";
+import { Post } from "../fixtures/models/post.ts";
+import { User } from "../fixtures/models/user.ts";
+
+/** A custom type whose values are numbers: still not one `increment` can add to. */
+const score = defineType({
+  storedAs: "integer",
+  cast: (input: unknown) => Number(input),
+  serialize: (value: number) => value,
+  deserialize: (stored) => Number(stored),
+});
 
 class Article extends Model.define({
   id: { type: "integer", null: false },
@@ -9,6 +19,7 @@ class Article extends Model.define({
   price: "decimal",
   isPinned: "boolean",
   status: { type: "integer", enum: { draft: 0, published: 1 } },
+  score: { type: score },
 }) {}
 
 // Each check is a function that's never called: only its types are tested.
@@ -24,7 +35,20 @@ describe("the types of changing one attribute (#351)", () => {
       void article.incrementColumn("price");
       // @ts-expect-error An enum's values are its names.
       article.decrement("status");
+      // @ts-expect-error A custom type is refused, even one whose values are numbers.
+      article.increment("score");
       return same;
+    };
+
+    expectTypeOf(check).toBeFunction();
+  });
+
+  test("a generated Model's attributes are read from its schema and overrides", () => {
+    const check = (user: User, post: Post) => {
+      user.increment("age");
+      post.toggle("published"); // an integer column the Model overrides as a boolean
+      // @ts-expect-error A text column isn't a number.
+      user.increment("email");
     };
 
     expectTypeOf(check).toBeFunction();
