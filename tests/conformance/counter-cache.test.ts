@@ -204,6 +204,50 @@ describe("counter caches", () => {
     });
   });
 
+  describe("removing records through the owner's hasMany", () => {
+    beforeEach(async () => {
+      await harness.exec("UPDATE topics SET replies_count = 3 WHERE id = 1");
+      await harness.exec(
+        "INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a'), (2, 1, 'b'), (3, 1, 'c')",
+      );
+    });
+
+    test("deleteAll() on the association counts out the rows it removes", async () => {
+      const topic = await db().model(Topic).find(1);
+
+      expect(await topic.replies().deleteAll()).toBe(3);
+
+      expect(await repliesCount(1)).toBe(0);
+      expect(topic.repliesCount).toBe(0);
+      expect(topic.changes()).toEqual({});
+    });
+
+    test("clear() counts out the rows it removes", async () => {
+      const topic = await db().model(Topic).find(1);
+
+      await topic.replies().clear();
+
+      expect([await repliesCount(1), topic.repliesCount]).toEqual([0, 0]);
+    });
+
+    test("delete(records) counts out only those records", async () => {
+      const topic = await db().model(Topic).find(1);
+      const [first, second] = await topic.replies().toArray();
+
+      await topic.replies().delete(first!, second!);
+
+      expect([await repliesCount(1), topic.repliesCount]).toEqual([1, 1]);
+    });
+
+    test("a Relation narrowed from it deletes without counting, as in Rails", async () => {
+      const topic = await db().model(Topic).find(1);
+
+      await topic.replies().where({ body: "a" }).deleteAll();
+
+      expect(await repliesCount(1)).toBe(3);
+    });
+  });
+
   describe("an attribute named by counterCache", () => {
     test("is counted instead, from null", async () => {
       const reply = await db().model(TalliedReply).create({ topicId: 1, body: "first" });

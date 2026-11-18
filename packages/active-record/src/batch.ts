@@ -134,7 +134,7 @@ function statementEntry(statement: Statement<unknown>): PreparedEntry {
     statements: queries,
     commit: (results) => {
       written = resultOf(results);
-      landed();
+      landed(results);
     },
     after: async () => {},
   };

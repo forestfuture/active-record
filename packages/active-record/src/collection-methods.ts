@@ -5,7 +5,11 @@ import { pinBefore } from "./executor.ts";
 import { prepareSave } from "./lifecycle.ts";
 import { Model, modelOf } from "./model.ts";
 import type { AssociationCollection } from "./owned-collection.ts";
+import { countedOut } from "./owners-counter.ts";
 import { isOwnersKey } from "./point-back-at-owner.ts";
+import { preparedWrites } from "./prepared-writes.ts";
+import { queryOf } from "./relation.ts";
+import { runAlone } from "./statement.ts";
 import { linksOf, state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
 import { destroyTogether, writeTogether } from "./records-together.ts";
@@ -150,8 +154,10 @@ async function removeRows(
   const rows = association
     .linkedTo(owner[state].executor, association.keyOf(owner))
     .where({ [target.primaryKey]: keys });
+  const writes = rows[preparedWrites];
   // The foreign key was checked as a target attribute when the Model was prepared.
-  await (deletes ? rows.deleteAll() : rows.updateAll(association.nullified as never));
+  const statement = deletes ? writes.deleteAll() : writes.updateAll(association.nullified as never);
+  await runAlone(countedOut(statement, owner, association, rows[queryOf]));
 }
 
 /** Throws `TypeError` for a record that isn't of the association's Model, as Rails raises. */

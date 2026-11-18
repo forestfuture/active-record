@@ -62,7 +62,7 @@ export function checkCounterCache(
  * One belongsTo's counter cache on one Model: the target's attribute it keeps, and how records
  * link to it. A polymorphic belongsTo has one for each Model it lists, by the type naming it (#60).
  */
-interface Counter {
+export interface Counter {
   /** The belongsTo's name. */
   name: string;
   /** The owner's foreign key. */
@@ -77,7 +77,7 @@ interface Counter {
 }
 
 /** The counter caches a Model's records keep: each belongsTo's declaring one, on each target. */
-function countersOf(owner: ModelClass): Counter[] {
+export function countersOf(owner: ModelClass): Counter[] {
   return [...associationsOf(owner)].flatMap(([name, definition]) => {
     if (definition.kind !== "belongsTo" || definition.counterCache === undefined) return [];
     const attribute = counterAttribute(owner, definition);
@@ -165,20 +165,24 @@ export function countersOnUpdate(record: Model): CounterChanges {
   };
 }
 
-/**
- * Each counter's target the record has loaded for its key takes the change, as stored: its
- * attribute, if loaded, changes by `by` and has no unsaved change, as after Rails' `increment!`.
- */
+/** Each counter's target the record has loaded for its key takes the change, as stored. */
 function countLoaded(record: Model, counters: readonly Counter[], by: number): void {
   for (const { name, attribute } of counters) {
     const target = record[state].associations.get(name)?.value;
-    if (!(target instanceof Model)) continue;
-    const targetState = target[state];
-    if (targetState.isDestroyed || !(attribute in targetState.attributes())) continue;
-    const count = targetState.read(attribute);
-    targetState.write(attribute, (typeof count === "number" ? count : 0) + by);
-    targetState.commitColumns([attribute]);
+    if (target instanceof Model) addToCount(target, attribute, by);
   }
+}
+
+/**
+ * A record whose counter the database changed by `by` takes the change, as stored: the
+ * attribute, if loaded, changes by `by` and has no unsaved change, as after Rails' `increment!`.
+ */
+export function addToCount(record: Model, attribute: string, by: number): void {
+  const recordState = record[state];
+  if (recordState.isDestroyed || !(attribute in recordState.attributes())) return;
+  const count = recordState.read(attribute);
+  recordState.write(attribute, (typeof count === "number" ? count : 0) + by);
+  recordState.commitColumns([attribute]);
 }
 
 /**
@@ -193,7 +197,7 @@ function changeThroughRow(
 ): CompiledSql {
   const owner = modelOf(record);
   const recordState = record[state];
-  const params: unknown[] = [by];
+  const params: unknown[] = [];
   const ownerKey = attributeFor(owner, owner.primaryKey);
   if (when === "before") ownerKey.bindCells(params, recordState.storedKey);
   else ownerKey.bind(params, recordState.read(owner.primaryKey));
@@ -201,7 +205,7 @@ function changeThroughRow(
   const typed =
     counter.type === undefined ? "" : ` AND ${typeCondition(owner, counter.type, params)}`;
   const row = `(SELECT ${foreignKey} FROM ${quoteIdentifier(owner.table)} WHERE ${quoteIdentifier(ownerKey.column)} = ${valueMark}${typed})`;
-  return compileCounterChange(counter, row, params);
+  return compileCounterChange(counter, changeBy(by), { sql: row, params });
 }
 
 /**
@@ -227,25 +231,41 @@ export async function destroyingThrough<T>(
 
 /** `UPDATE … SET counter = COALESCE(counter, 0) + ? WHERE key = ?`, as Rails' `update_counters`. */
 function counterChangeFor(counter: Counter, key: unknown, by: number): CompiledSql {
-  const params: unknown[] = [by];
-  attributeFor(counter.target, counter.targetKey).bind(params, key);
-  return compileCounterChange(counter, valueMark, params);
+  return compileCounterChange(counter, changeBy(by), keyed(counter, key));
+}
+
+/** A target's key, `= ?` with `key` bound as the counter's target key. */
+export function keyed({ target, targetKey }: Counter, key: unknown): SqlPart {
+  const params: unknown[] = [];
+  attributeFor(target, targetKey).bind(params, key);
+  return { sql: valueMark, params };
+}
+
+/** A part of a statement: its SQL text and the values it binds, in order. */
+export interface SqlPart {
+  sql: string;
+  params: unknown[];
+}
+
+/** `+ ?`, with `by` bound. */
+function changeBy(by: number): SqlPart {
+  return { sql: `+ ${valueMark}`, params: [by] };
 }
 
 /**
- * `UPDATE … SET counter = COALESCE(counter, 0) + ? WHERE key = <keyed>`, with `params` holding
- * the change, then `keyed`'s own values.
+ * `UPDATE … SET counter = COALESCE(counter, 0) <change> WHERE key = <key>`: `change` an operator
+ * and its operand (`+ ?`), `key` the target's key or a subquery finding it.
  */
-function compileCounterChange(
+export function compileCounterChange(
   { target, attribute, targetKey }: Counter,
-  keyed: string,
-  params: unknown[],
+  change: SqlPart,
+  key: SqlPart,
 ): CompiledSql {
   const column = quoteIdentifier(attributeFor(target, attribute).column);
   const keyColumn = quoteIdentifier(attributeFor(target, targetKey).column);
   return {
-    sql: `UPDATE ${quoteIdentifier(target.table)} SET ${column} = COALESCE(${column}, 0) + ${valueMark} WHERE ${keyColumn} = ${keyed}`,
-    params,
+    sql: `UPDATE ${quoteIdentifier(target.table)} SET ${column} = COALESCE(${column}, 0) ${change.sql} WHERE ${keyColumn} = ${key.sql}`,
+    params: [...change.params, ...key.params],
     model: target,
   };
 }

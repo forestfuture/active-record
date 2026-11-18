@@ -175,8 +175,8 @@ function deleteJoins(
   const { executor, queries, landed } = joins[preparedWrites].deleteAll()[statementParts];
   // What the owner has loaded through it is no longer known, as for any write through it (#187).
   collection.invalidate();
-  return new Statement(executor, queries, () => {
-    landed();
+  return new Statement(executor, queries, (results) => {
+    landed(results);
     collection.invalidate();
   });
 }
