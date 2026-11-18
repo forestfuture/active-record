@@ -49,14 +49,23 @@ function without(query: QueryDescription, key: keyof QueryDescription): QueryDes
 
 /** `query` without `part`. */
 export function withoutPart(query: QueryDescription, part: QueryPart): QueryDescription {
-  if (!Object.hasOwn(WITHOUT, part)) {
-    throw new TypeError(
-      `unscope() takes ${Object.keys(WITHOUT)
-        .map((name) => `"${name}"`)
-        .join(", ")}, or { where: attributes }; got ${String(part)}`,
-    );
-  }
+  requirePart(part);
   return WITHOUT[part](query);
+}
+
+/** Refuses a part `unscope` and `only` don't know: `"group"`, or a misspelling. */
+function requirePart(part: unknown): asserts part is QueryPart {
+  if (typeof part !== "string" || !Object.hasOwn(WITHOUT, part)) {
+    const parts = Object.keys(WITHOUT).map((name) => `"${name}"`);
+    throw new TypeError(`A query's parts are ${parts.join(", ")}; got ${String(part)}`);
+  }
+}
+
+/** `query` with only the parts named, as Rails' `only`: every other part is dropped. */
+export function withOnly(query: QueryDescription, parts: readonly QueryPart[]): QueryDescription {
+  for (const part of parts) requirePart(part);
+  const dropped = (Object.keys(WITHOUT) as QueryPart[]).filter((part) => !parts.includes(part));
+  return dropped.reduce(withoutPart, query);
 }
 
 /** `query` without the associations it joins this way, and their joins in turn. */

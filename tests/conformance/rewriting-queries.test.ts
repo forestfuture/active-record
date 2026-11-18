@@ -163,4 +163,24 @@ describe("rewriting queries (#350)", () => {
       expect(() => users().unscope({ where: "nope" })).toThrow(UnknownAttribute);
     });
   });
+
+  describe("only", () => {
+    test("keeps only the parts it names", async () => {
+      const narrowed = users()
+        .where({ role: "member" })
+        .order({ id: "desc" })
+        .limit(1)
+        .select("email");
+
+      const kept = await narrowed.only("where", "order").toArray();
+
+      expect(kept.map((user) => user.id)).toEqual([3, 2]);
+      expect(kept.map((user) => user.age)).toEqual([30, 40]);
+    });
+
+    test("refuses a part it doesn't know", () => {
+      // @ts-expect-error -- not a part of a query
+      expect(() => users().only("where", "group")).toThrow(TypeError);
+    });
+  });
 });
