@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { Model, RecordDestroyed, RecordNotSaved } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -11,7 +11,17 @@ class Member extends Model.define({
   updatedAt: "datetime",
 }) {
   static table = "users";
+
+  static {
+    this.validates("age", { numericality: { lessThan: 100 } });
+    for (const kind of ["beforeValidation", "beforeSave", "afterSave", "afterCommit"] as const) {
+      this[kind](() => void callbacks.push(kind));
+    }
+  }
 }
+
+/** The callbacks Member's records ran. */
+const callbacks: string[] = [];
 
 /** A name the method's type refuses, as one from untyped code would arrive. */
 const untyped = (name: string) => name as never;
@@ -33,6 +43,7 @@ describe("changing one attribute (#351)", () => {
       [true],
     );
     events.length = 0;
+    callbacks.length = 0;
   });
 
   describe("in memory", () => {
@@ -83,6 +94,71 @@ describe("changing one attribute (#351)", () => {
       expect(() => member.increment(untyped("email"))).toThrow(TypeError);
       expect(() => member.toggle(untyped("age"))).toThrow(TypeError);
       expect(member.changes()).toEqual({});
+    });
+  });
+
+  describe("updateColumns", () => {
+    test("writes straight to the row, and leaves the record clean for what it wrote", async () => {
+      const member = await db().model(Member).find(1);
+      member.email = "changed@example.com";
+      events.length = 0;
+
+      expect(await member.updateColumns({ age: 500, isActive: false })).toBe(true);
+
+      expect(member.age).toBe(500);
+      expect(member.changes()).toEqual({ email: ["a@example.com", "changed@example.com"] });
+      expect(events.length).toBe(1);
+      const row = await db().model(Member).find(1);
+      expect(row.attributes()).toMatchObject({ age: 500, isActive: false, email: "a@example.com" });
+    });
+
+    test("runs no validation or callback, and leaves updatedAt and savedChanges alone", async () => {
+      const member = await db().model(Member).find(1);
+
+      await member.updateColumns({ age: 500 });
+
+      expect(callbacks).toEqual([]);
+      expect(member.savedChanges()).toEqual({});
+      expect(member.updatedAt).toBeNull();
+      expect((await db().model(Member).find(1)).updatedAt).toBeNull();
+    });
+
+    test("updateColumn writes one attribute", async () => {
+      const member = await db().model(Member).find(1);
+
+      expect(await member.updateColumn("age", 7)).toBe(true);
+
+      expect(member.isChanged()).toBe(false);
+      expect((await db().model(Member).find(1)).age).toBe(7);
+    });
+
+    test("resolves to false when the row is gone", async () => {
+      const member = await db().model(Member).find(1);
+      await harness.exec("DELETE FROM users");
+
+      expect(await member.updateColumns({ age: 7 })).toBe(false);
+    });
+
+    test("refuses no attributes with a TypeError", async () => {
+      const member = await db().model(Member).find(1);
+      events.length = 0;
+
+      await expect(member.updateColumns({})).rejects.toThrow(TypeError);
+      expect(events).toEqual([]);
+    });
+
+    test("refuses a new record with RecordNotSaved", async () => {
+      const member = db().model(Member).build({ email: "b@example.com" });
+
+      await expect(member.updateColumns({ age: 7 })).rejects.toThrow(RecordNotSaved);
+      expect(events).toEqual([]);
+    });
+
+    test("refuses a destroyed record with RecordDestroyed", async () => {
+      const member = await db().model(Member).find(1);
+      await member.destroy();
+
+      await expect(member.updateColumn("age", 7)).rejects.toThrow(RecordDestroyed);
     });
   });
 });
