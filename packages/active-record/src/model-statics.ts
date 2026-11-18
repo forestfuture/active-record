@@ -30,7 +30,7 @@ import type {
   OrderedAttribute,
 } from "./calculations.ts";
 import type { SafeSql } from "./sql.ts";
-import type { Counters } from "./counters.ts";
+import { amount, type Counters } from "./counters.ts";
 import type { NumberAttributeKey } from "./attribute-writes.ts";
 import type { InOrderOfOptions } from "./list-order.ts";
 import type { Relation, Scoped } from "./relation.ts";
@@ -442,7 +442,7 @@ function defineKeyedWrites(base: typeof Model): void {
       base,
       name,
       async function (this: QueryableClass, attribute: string, ids: Keys, by = 1) {
-        return this.updateCounters(ids, { [attribute]: sign * by } as never);
+        return this.updateCounters(ids, { [attribute]: sign * amount(by, name) } as never);
       },
     );
   }

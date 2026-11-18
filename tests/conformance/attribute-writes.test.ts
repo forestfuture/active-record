@@ -445,6 +445,13 @@ describe("changing one attribute (#351)", () => {
       expect(events).toEqual([]);
     });
 
+    test("incrementCounter refuses an amount that isn't a number, sending nothing", async () => {
+      const added = withDatabase(db(), () => Member.incrementCounter("age", 1, untyped("5")));
+
+      await expect(added).rejects.toThrow(TypeError);
+      expect(events).toEqual([]);
+    });
+
     // A guard: the amount is bound as the attribute's value.
     test("hides a filtered attribute's amount from onQuery", async () => {
       await db().model(PrivateMember).updateCounters({ age: 7 });
