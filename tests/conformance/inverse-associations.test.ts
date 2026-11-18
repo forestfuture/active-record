@@ -5,6 +5,7 @@ import {
   hasOne,
   InvalidModel,
   Model,
+  withDatabase,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
@@ -62,6 +63,7 @@ class Post extends Model.define({
   user = belongsTo(User, { foreignKey: "userId", optional: true });
   comments = hasMany(Comment, { foreignKey: "postId" });
   remarks = hasMany(Remark, { as: "commentable" });
+  siblings = hasMany(Post, { through: "author", source: "posts" });
 }
 
 class Profile extends Model.define({
@@ -486,6 +488,108 @@ describe("inverse associations", () => {
           ),
         );
       });
+    });
+  });
+
+  describe("guards", () => {
+    test("the owner a record was loaded through replaces a preloaded copy of it", async () => {
+      const user = await firstUser();
+
+      const posts = await user.posts().includes("author").toArray();
+
+      for (const post of posts) expect(post.loaded("author")).toBe(user);
+    });
+
+    test("the owner is the inverse even when its default scope would leave it out", async () => {
+      class Hidden extends Model.define({
+        id: { type: "integer", null: false },
+        email: { type: "string", null: false },
+      }) {
+        static table = "users";
+
+        posts = hasMany(Note, { foreignKey: "userId" });
+
+        static {
+          this.defaultScope((q) => q.where({ email: "none" }));
+        }
+      }
+
+      class Note extends Model.define({
+        id: { type: "integer", null: false },
+        userId: { type: "integer", null: false },
+        title: { type: "string", null: false },
+      }) {
+        static table = "posts";
+
+        owner = belongsTo(Hidden, { foreignKey: "userId", optional: true });
+      }
+
+      const connection = db();
+      const hidden = await withDatabase(connection, () => Hidden.unscoped().find(1));
+      const [note] = await hidden.posts().toArray();
+      queries.length = 0;
+
+      expect(await note!.owner()).toBe(hidden);
+      expect(queries).toHaveLength(0);
+    });
+
+    test("records reached through another association don't point back", async () => {
+      const post = await db().model(Post).find(10);
+
+      const siblings = await post.siblings().toArray();
+
+      expect(siblings.map((sibling) => sibling.isLoaded("author"))).toEqual([false, false]);
+    });
+
+    test("a polymorphic hasMany's and hasOne's reads point back through the belongsTo's branch", async () => {
+      const post = await db().model(Post).find(10);
+      const photo = await db().model(Photo).find(10);
+
+      const [onPost] = await post.remarks().toArray();
+      const onPhoto = await photo.firstRemark();
+
+      expect(onPost!.loaded("commentable")).toBe(post);
+      expect(onPhoto!.loaded("commentable")).toBe(photo);
+    });
+
+    test("a polymorphic hasMany combined with another Model's by or() points back only its own", async () => {
+      const connection = db();
+      const post = await connection.model(Post).find(10);
+      const photo = await connection.model(Photo).find(10);
+
+      const remarks = await post.remarks().or(photo.remarks()).order({ id: "asc" }).toArray();
+
+      expect(remarks.map((remark) => remark.isLoaded("commentable"))).toEqual([true, false]);
+    });
+
+    test("a record pushed onto a new owner points back once saving fills in its key", async () => {
+      const connection = db();
+      const user = connection.model(User).build({ email: "new@example.com" });
+      const post = await connection.model(Post).find(12);
+
+      await user.posts().push(post);
+      await user.saveOrThrow();
+
+      expect(post.userId).toBe(user.id);
+      expect(post.loaded("author")).toBe(user);
+    });
+
+    test("a polymorphic belongsTo's inverseOf must be on each Model it lists", () => {
+      class Tagged extends Model.define({
+        id: { type: "integer", null: false },
+        commentableType: "string",
+        commentableId: "integer",
+      }) {
+        static table = "remarks";
+
+        commentable = belongsTo([Post, Photo], { optional: true, inverseOf: "firstRemark" });
+      }
+
+      expect(() => db().model(Tagged).build({ id: 1 })).toThrow(
+        new InvalidModel(
+          'Tagged association "commentable": inverseOf names "firstRemark", which isn\'t an association of Post',
+        ),
+      );
     });
   });
 });
