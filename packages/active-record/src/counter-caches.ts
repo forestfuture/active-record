@@ -52,9 +52,20 @@ export function checkCounterCache(
   const hint = isNamed
     ? "check counterCache"
     : `counterCache: true infers it from ${owner.name}; declare it, or name another`;
-  for (const target of targets) {
-    if (target.attributeDefinitions.has(attribute)) continue;
+  for (const target of targets) requireCounter(label, target, attribute, hint);
+}
+
+/** `target`'s `attribute` must be a plain number attribute (integer or real) to keep a count. */
+function requireCounter(label: string, target: ModelClass, attribute: string, hint: string): void {
+  const definition = target.attributeDefinitions.get(attribute);
+  if (definition === undefined) {
     throw new InvalidModel(`${label}: ${target.name} has no attribute "${attribute}" (${hint})`);
+  }
+  const isNumber = definition.type === "integer" || definition.type === "real";
+  if (!isNumber || definition.enum !== undefined || definition.customType !== undefined) {
+    throw new InvalidModel(
+      `${label}: ${target.name}'s "${attribute}" can't keep a count; counterCache takes an integer or real attribute`,
+    );
   }
 }
 

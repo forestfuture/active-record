@@ -17,7 +17,8 @@ import type {
 } from "./associations.ts";
 import { NoDatabase, UnknownAssociation } from "./errors.ts";
 import { withForeignKeys } from "./foreign-keys.ts";
-import type { AttributesOf, Model, ModelClass } from "./model.ts";
+import type { NumberAttributeKey } from "./attribute-writes.ts";
+import type { Model, ModelClass } from "./model.ts";
 import { tableOwnerModelName } from "./table-names.ts";
 
 /**
@@ -80,7 +81,7 @@ function noSingleTarget(): never {
 }
 
 /** One of the attributes of `C`'s records, which a counter cache names. */
-type CounterName<C extends ModelClass> = keyof AttributesOf<InstanceType<C>> & string;
+type CounterName<C extends ModelClass> = NumberAttributeKey<InstanceType<C>>;
 
 /** What only a belongsTo takes; `C` is its target, whose attribute a counter cache names. */
 interface BelongsToOptions<C extends ModelClass = ModelClass> {

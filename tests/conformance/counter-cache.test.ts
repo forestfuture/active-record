@@ -562,6 +562,23 @@ describe("counter caches", () => {
       );
     });
 
+    test("must be a number attribute: InvalidModel at first use", () => {
+      class Miscounted extends Model.define({
+        id: { type: "integer", null: false },
+        topicId: "integer",
+      }) {
+        static table = "replies";
+        // @ts-expect-error a counter is an integer or real attribute
+        topic = belongsTo(Topic, { counterCache: "title" });
+      }
+
+      expect(() => db().model(Miscounted).build()).toThrow(
+        new InvalidModel(
+          'Miscounted association "topic": Topic\'s "title" can\'t keep a count; counterCache takes an integer or real attribute',
+        ),
+      );
+    });
+
     test("must be the target's attribute when counterCache: true infers it", () => {
       class Note extends Model.define({
         id: { type: "integer", null: false },
