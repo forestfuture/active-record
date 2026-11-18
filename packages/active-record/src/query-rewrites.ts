@@ -40,7 +40,7 @@ function without(query: QueryDescription, key: keyof QueryDescription): QueryDes
 }
 
 /** `query` without `part`. */
-export function withoutPart(query: QueryDescription, part: QueryPart): QueryDescription {
+function withoutPart(query: QueryDescription, part: QueryPart): QueryDescription {
   requirePart(part);
   return WITHOUT[part](query);
 }
@@ -95,7 +95,7 @@ function joinedPathsIn(condition: Condition): string[] {
  * loses those keys, and a `whereNot` or `or` condition goes when it names only them. A fragment,
  * a condition merged onto a join, and one naming other attributes too are kept.
  */
-export function withoutConditionsOn(
+function withoutConditionsOn(
   query: QueryDescription,
   attributes: readonly string[],
 ): QueryDescription {
