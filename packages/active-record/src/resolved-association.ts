@@ -1,6 +1,7 @@
 // An association resolved for one owner: which attributes link the records (a polymorphic one's type too, #60), in what order, which database its records are on, and what nullifying them clears.
 // associations.ts imports this module too; both uses are at call time, never at load.
 import { readyModel, type AssociationDefinition } from "./associations.ts";
+import { LinkedTo, type QueryDescription } from "./query.ts";
 import { currentExecutorOf } from "./current-database.ts";
 import { UnknownModelName } from "./errors.ts";
 import type { Executor } from "./executor.ts";
@@ -9,7 +10,7 @@ import { associationOf } from "./association-fields.ts";
 import { schemaAdapter } from "./generated-model.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
-import { applyScope, linkedToRecordsOf, queryOf, type Scope, type Scoped } from "./relation.ts";
+import { applyScope, linkedToOwner, queryOf, type Scope, type Scoped } from "./relation.ts";
 import { relationFor } from "./scoped-relation.ts";
 import { sourceNameOf } from "./through-associations.ts";
 import { tableOwnerModelName } from "./table-names.ts";
@@ -198,12 +199,14 @@ export class ResolvedAssociation {
   #ofOwnersType(relation: Scoped<Model>): Scoped<Model> {
     if (this.definition.as === undefined) return relation;
     const { attribute, value } = this.type!;
-    return relation.where({ [attribute]: value });
+    return relation[linkedToOwner]({ [attribute]: value });
   }
 
   /** The target's records linked to `key` (one value, or a list), for an owner on `executor`. */
   linkedTo(executor: Executor, key: unknown): Scoped<Model> {
-    if (this.hops === undefined) return this.all(executor).where({ [this.targetAttribute]: key });
+    if (this.hops === undefined) {
+      return this.all(executor)[linkedToOwner]({ [this.targetAttribute]: key });
+    }
     const { via, source } = this.hops;
     return source.narrowToLinked(executor, this.all(executor), via.linkedTo(executor, key));
   }
@@ -219,7 +222,7 @@ export class ResolvedAssociation {
   ): Scoped<Model> {
     if (this.hops === undefined) {
       const { targetAttribute, ownerAttribute } = this;
-      return relation[linkedToRecordsOf](targetAttribute, owners[queryOf], ownerAttribute);
+      return linkedToRecords(relation, targetAttribute, owners[queryOf], ownerAttribute);
     }
     const { via, source } = this.hops;
     const joined = via.narrowToLinked(executor, via.all(executor), owners);
@@ -391,4 +394,18 @@ export function resolveAssociation(owner: ModelClass, name: string): ResolvedAss
     perModel.set(name, association);
   }
   return association;
+}
+
+/**
+ * `relation` narrowed to the records whose `attribute` is the `ownerKey` of a record `owners`
+ * finds, with a subquery, `attribute IN (SELECT ownerKey …)`: a link no rewrite drops (#350).
+ */
+export function linkedToRecords<M extends Model>(
+  relation: Scoped<M>,
+  attribute: string,
+  owners: QueryDescription,
+  ownerKey: string,
+): Scoped<M> {
+  if (owners.none) return relation.none();
+  return relation[linkedToOwner](new LinkedTo(attribute, owners, ownerKey));
 }

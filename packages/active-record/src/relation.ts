@@ -1,5 +1,5 @@
 // Relation: the chainable query (`where`, `order`, …), its finders, terminals, and bulk writes.
-import { jointly } from "./executor.ts";
+import { jointly, type Executor } from "./executor.ts";
 import { querySql, type QuerySql } from "./compiler.ts";
 import { includeTree } from "./preload.ts";
 import { mergedQuery, withJoins } from "./joins.ts";
@@ -19,22 +19,23 @@ import { exists, isEmpty, size, upToTwo, type CountSource } from "./record-count
 import {
   unscoped,
   withOnly,
+  withOwnerLink,
   withUnscopesOf,
   rewhered,
   withoutRecords,
   type AttributeNames,
   type QueryPart,
 } from "./query-rewrites.ts";
-import { allOf, either, LinkedTo, mergeTrees, Negated, type QueryDescription } from "./query.ts";
-import type { Executor } from "./executor.ts";
-import { attributeOf } from "./metadata.ts";
 import {
-  type AttributesOf,
-  type IncludeSpec,
-  type JoinSpec,
-  type Model,
-  type ModelClass,
-} from "./model.ts";
+  allOf,
+  either,
+  mergeTrees,
+  Negated,
+  type Condition,
+  type QueryDescription,
+} from "./query.ts";
+import { attributeOf } from "./metadata.ts";
+import type { AttributesOf, IncludeSpec, JoinSpec, Model, ModelClass } from "./model.ts";
 import { SafeSql } from "./sql.ts";
 import {
   checkChanges,
@@ -53,8 +54,7 @@ import {
 } from "./relation-checks.ts";
 import { alsoClearing, unowned, type OwnedCollection } from "./owned-collection.ts";
 import { foundOrThrow } from "./finder-order.ts";
-import { runAlone, type Statement } from "./statement.ts";
-import type { ReturnedRow, WriteResult } from "./statement.ts";
+import { runAlone, type ReturnedRow, type Statement, type WriteResult } from "./statement.ts";
 import {
   clearCollectionUntilWritten,
   preparedWrites,
@@ -99,8 +99,8 @@ declare const scopeTypes: unique symbol;
 /** @internal The library's key for the query a Relation describes. */
 export const queryOf = Symbol("queryOf");
 
-/** @internal The library's key for narrowing a Relation to the records linked to another's (#59). */
-export const linkedToRecordsOf = Symbol("linkedToRecordsOf");
+/** @internal The library's key for narrowing a Relation by its link to an association's owner (#350). */
+export const linkedToOwner = Symbol("linkedToOwner");
 
 /** @internal The library's key for making a hasMany Relation of an owner. */
 export const ofOwner = Symbol("ofOwner");
@@ -312,14 +312,9 @@ export class Relation<M extends Model, S = {}> {
     return this.#query;
   }
 
-  /**
-   * @internal This Relation narrowed to the records whose `attribute` is the `ownerKey` of a
-   * record `owners` finds, with a subquery: `attribute IN (SELECT ownerKey …)`.
-   */
-  [linkedToRecordsOf](attribute: string, owners: QueryDescription, ownerKey: string): Scoped<M, S> {
-    if (owners.none) return this.none();
-    const linked = new LinkedTo(attribute, owners, ownerKey);
-    return this.#with({ conditions: [...this.#query.conditions, linked] });
+  /** @internal This Relation narrowed by conditions linking it to an owner, which no rewrite drops (#350). */
+  [linkedToOwner](condition: Condition): Scoped<M, S> {
+    return this.#describing(withOwnerLink(this.#query, condition));
   }
 
   /**
@@ -671,8 +666,7 @@ export class Relation<M extends Model, S = {}> {
 
   /** Whether any record matches, optionally with extra conditions. */
   async exists(conditions?: Conditions<M> | SafeSql): Promise<boolean> {
-    const relation = conditions === undefined ? this : this.where(conditions);
-    return exists(relation.#valueSource());
+    return exists((conditions === undefined ? this : this.where(conditions)).#valueSource());
   }
 
   /** Converted values of one attribute, or tuples of several, in this Relation's order. */
