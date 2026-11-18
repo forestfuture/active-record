@@ -29,6 +29,18 @@ export async function examples(since: Date, until: Date): Promise<unknown> {
   User.where(sql`lower(${column("email")}) = lower(${email})`);
   // #endregion sql
 
+  // #region rewhere
+  const members = User.where({ role: "member", isActive: true });
+  members.rewhere({ role: "admin" }); // role = 'admin' AND is_active = ?
+  // #endregion rewhere
+
+  // #region unscope
+  const recent = User.where({ role: "admin" }).order({ createdAt: "desc" }).limit(10);
+  recent.unscope("order", "limit"); // every admin, unordered
+  recent.unscope({ where: "role" }); // the 10 newest users
+  recent.only("where"); // every admin
+  // #endregion unscope
+
   // #region order
   User.order({ role: "asc", createdAt: "desc" });
   User.order({ role: { direction: "asc", nulls: "last" } });
@@ -36,6 +48,16 @@ export async function examples(since: Date, until: Date): Promise<unknown> {
   User.order({ role: "asc" }).reorder({ email: "asc" }); // replaces the order
   User.order({ createdAt: "desc" }).limit(20).offset(40); // page 3
   // #endregion order
+
+  // #region in-order-of
+  User.inOrderOf("role", ["owner", "admin", "member"]); // only those roles, owners first
+  User.inOrderOf("role", ["owner", "admin"], { filter: false }); // everyone else last
+  // #endregion in-order-of
+
+  // #region excluding
+  const current = await User.firstOrThrow();
+  const others = await User.where({ role: "admin" }).excluding(current).toArray();
+  // #endregion excluding
 
   const results = await gettingResults();
 
@@ -57,7 +79,7 @@ export async function examples(since: Date, until: Date): Promise<unknown> {
   console.log(params); // ["admin", 10]
   // #endregion to-sql
 
-  return [users, text, params, results, roles, nothing];
+  return [users, text, params, results, roles, nothing, others];
 }
 
 /** The Getting results section's finders and terminals. */
@@ -78,6 +100,8 @@ async function gettingResults(): Promise<unknown[]> {
   const adminIds = await User.where({ role: "admin" }).ids(); // primary keys
   const admins2 = await User.where({ role: "admin" }).count();
   const hasAdmins = await User.exists({ role: "admin" });
+  const severalAdmins = await User.where({ role: "admin" }).hasMoreThanOne();
+  const oneOwner = await User.where({ role: "owner" }).hasExactlyOne();
   // #endregion terminal
 
   return [
@@ -96,5 +120,7 @@ async function gettingResults(): Promise<unknown[]> {
     adminIds,
     admins2,
     hasAdmins,
+    severalAdmins,
+    oneOwner,
   ];
 }
