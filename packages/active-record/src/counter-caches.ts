@@ -88,22 +88,52 @@ export function counterIncrements(record: Model): CompiledSql[] {
 }
 
 /**
- * The statements that count a record out, sent before its row is deleted or its foreign key
- * changed: each finds its target through the stored row, so a row already gone counts nothing,
- * and a key changed in the database since the record was read counts out the target it has now.
+ * The statements that count a record out, sent before its row is deleted: each finds its target
+ * through the stored row, so a row already gone counts nothing, and a key changed in the database
+ * since the record was read counts out the target it has now.
  */
 export function counterDecrements(record: Model): CompiledSql[] {
   const owner = modelOf(record);
-  const storedKey = record[state].storedKey;
   const skipped = destroyedThrough.get(record);
   const counters = countersOf(owner).filter(({ foreignKey }) => foreignKey !== skipped);
-  return counters.map((counter) => {
-    const params: unknown[] = [-1];
-    const ownerKey = attributeFor(owner, owner.primaryKey);
-    ownerKey.bindCells(params, storedKey);
-    const stored = `(SELECT ${quoteIdentifier(attributeFor(owner, counter.foreignKey).column)} FROM ${quoteIdentifier(owner.table)} WHERE ${quoteIdentifier(ownerKey.column)} = ${valueMark})`;
-    return compileCounterChange(counter, stored, params);
-  });
+  return counters.map((counter) => changeThroughRow(record, counter, -1, "before"));
+}
+
+/**
+ * The statements that move a record's count when its foreign key changes: out of the target its
+ * stored row points at before the UPDATE, and into the one it points at after it, so a row that
+ * isn't there counts nothing.
+ */
+export function counterMoves(record: Model): { before: CompiledSql[]; after: CompiledSql[] } {
+  const recordState = record[state];
+  const moved = countersOf(modelOf(record)).filter(({ foreignKey }) =>
+    recordState.isAttributeChanged(foreignKey),
+  );
+  return {
+    before: moved.map((counter) => changeThroughRow(record, counter, -1, "before")),
+    after: moved.map((counter) => changeThroughRow(record, counter, 1, "after")),
+  };
+}
+
+/**
+ * `counter`'s change by `by` on the target the record's row points at, found by the row's key
+ * `before` its write, or `after` it (its key as the record holds it, should the write change it).
+ */
+function changeThroughRow(
+  record: Model,
+  counter: Counter,
+  by: number,
+  when: "before" | "after",
+): CompiledSql {
+  const owner = modelOf(record);
+  const recordState = record[state];
+  const params: unknown[] = [by];
+  const ownerKey = attributeFor(owner, owner.primaryKey);
+  if (when === "before") ownerKey.bindCells(params, recordState.storedKey);
+  else ownerKey.bind(params, recordState.read(owner.primaryKey));
+  const foreignKey = quoteIdentifier(attributeFor(owner, counter.foreignKey).column);
+  const row = `(SELECT ${foreignKey} FROM ${quoteIdentifier(owner.table)} WHERE ${quoteIdentifier(ownerKey.column)} = ${valueMark})`;
+  return compileCounterChange(counter, row, params);
 }
 
 /**

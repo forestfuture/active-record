@@ -29,7 +29,7 @@ class Reply extends Model.define({
   body: { type: "string", null: false },
 }) {
   static table = "replies";
-  topic = belongsTo(Topic, { counterCache: true });
+  topic = belongsTo(Topic, { counterCache: true, optional: true });
 }
 
 /** A reply counted in the topic's attribute it names. */
@@ -121,6 +121,52 @@ describe("counter caches", () => {
         "DELETE",
         "DELETE",
       ]);
+    });
+  });
+
+  describe("changing a record's foreign key", () => {
+    beforeEach(async () => {
+      await harness.exec("UPDATE topics SET replies_count = 1 WHERE id = 1");
+      await harness.exec("INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a')");
+    });
+
+    test("moves the count from the old target to the new one", async () => {
+      const reply = await db().model(Reply).find(1);
+
+      reply.topicId = 2;
+      await reply.save();
+
+      expect([await repliesCount(1), await repliesCount(2)]).toEqual([0, 1]);
+    });
+
+    test("setting the association to another record moves the count", async () => {
+      const reply = await db().model(Reply).find(1);
+
+      reply.topic.set(await db().model(Topic).find(2));
+      await reply.save();
+
+      expect([await repliesCount(1), await repliesCount(2)]).toEqual([0, 1]);
+    });
+
+    test("to null counts the record out, and back counts it in", async () => {
+      const reply = await db().model(Reply).find(1);
+
+      reply.topicId = null;
+      await reply.save();
+      expect(await repliesCount(1)).toBe(0);
+
+      reply.topicId = 1;
+      await reply.save();
+      expect(await repliesCount(1)).toBe(1);
+    });
+
+    test("saving other changes leaves the counter alone", async () => {
+      const reply = await db().model(Reply).find(1);
+
+      reply.body = "edited";
+      await reply.save();
+
+      expect(await repliesCount(1)).toBe(1);
     });
   });
 
