@@ -8,6 +8,7 @@ import {
   countersOf,
   keyed,
   type Counter,
+  type SqlPart,
 } from "./counter-caches.ts";
 import { valueMark } from "./dialect.ts";
 import { modelOf, type Model } from "./model.ts";
@@ -92,8 +93,14 @@ export async function resetCounters(
   touch: unknown,
 ): Promise<void> {
   const model = modelOf(record);
-  const params: unknown[] = [];
-  const sets = names.map((name) => counterReset(record, name, params));
+  const resets = new Map<string, SqlPart>();
+  for (const name of names) {
+    const [attribute, reset] = counterReset(record, name);
+    // Two names for one counter set it once: a column can't be assigned twice.
+    if (!resets.has(attribute)) resets.set(attribute, reset);
+  }
+  const sets = [...resets.values()].map(({ sql }) => sql);
+  const params = [...resets.values()].flatMap((reset) => reset.params);
   const now = new Date();
   for (const name of touchedNames(model, touch)) {
     const attribute = attributeFor(model, name);
@@ -106,8 +113,8 @@ export async function resetCounters(
   await runAlone(new Statement(record[state].executor, [{ sql, params, model }]));
 }
 
-/** `counter = (SELECT COUNT(*) …)` for `record`'s hasMany `name`, its values added to `params`. */
-function counterReset(record: Model, name: string, params: unknown[]): string {
+/** `counter = (SELECT COUNT(*) …)` for `record`'s hasMany `name`, with the counter it sets. */
+function counterReset(record: Model, name: string): [string, SqlPart] {
   const model = modelOf(record);
   const association = resolveAssociation(model, name);
   const counter = ownersCounter(association);
@@ -119,6 +126,6 @@ function counterReset(record: Model, name: string, params: unknown[]): string {
   const { executor } = record[state];
   const rows = association.linkedTo(executor, association.keyOf(record));
   const count = compileCount(executor.dialect, rows[queryOf]);
-  params.push(...count.params);
-  return `${quoteIdentifier(attributeFor(model, counter.attribute).column)} = (${count.sql})`;
+  const column = quoteIdentifier(attributeFor(model, counter.attribute).column);
+  return [counter.attribute, { sql: `${column} = (${count.sql})`, params: [...count.params] }];
 }

@@ -429,6 +429,18 @@ describe("counter caches", () => {
       expect(statementKinds(events)).toEqual(["SELECT", "UPDATE"]);
     });
 
+    test("no names is a TypeError", async () => {
+      await expect(withDatabase(db(), () => Topic.resetCounters(1, []))).rejects.toThrow(
+        new TypeError("Topic.resetCounters needs at least one association"),
+      );
+    });
+
+    test("a counter named twice is set once", async () => {
+      await withDatabase(db(), () => Topic.resetCounters(1, ["replies", "replies"]));
+
+      expect(await repliesCount(1)).toBe(2);
+    });
+
     test("an owner that isn't there is RecordNotFound, as find's", async () => {
       await expect(withDatabase(db(), () => Topic.resetCounters(7, "replies"))).rejects.toThrow(
         RecordNotFound,

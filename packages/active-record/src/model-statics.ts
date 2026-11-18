@@ -462,6 +462,9 @@ function defineKeyedWrites(base: typeof Model): void {
       names: string | readonly string[],
       { touch }: CounterOptions<Model> = {},
     ) {
+      if (names.length === 0) {
+        throw new TypeError(`${this.name}.resetCounters needs at least one association`);
+      }
       const record: Model = await this.all().find(id as never);
       return resetCounters(record, typeof names === "string" ? [names] : names, touch);
     },
