@@ -1,13 +1,13 @@
-// How many records a Relation has, answered from a loaded association's records where it can: `size`, `isEmpty` and `hasAny`.
+// How many records a Relation has, answered from a loaded association's records where it can: `size`, `exists`, `isEmpty` and `hasAny`.
 import type { Model } from "./model.ts";
 import { count, type ValueSource } from "./calculations.ts";
+import { compileExists } from "./compiler.ts";
+import { atMostOne } from "./finder-order.ts";
 
 /** What answering how many records there are reads: a Relation's values, and its owner's unsaved records. */
 export interface CountSource extends ValueSource {
   /** An association's records built through it and not yet saved. */
   readonly unsavedCount: () => number;
-  /** Whether any row matches, with one `SELECT 1 … LIMIT 1`. */
-  readonly exists: () => Promise<boolean>;
 }
 
 /**
@@ -25,5 +25,11 @@ export async function isEmpty(source: CountSource): Promise<boolean> {
   const cached = source.cached();
   if (cached !== undefined) return cached.length === 0;
   if (source.unsavedCount() > 0) return false;
-  return !(await source.exists());
+  return !(await exists(source));
+}
+
+/** Whether any row matches, with one `SELECT 1 … LIMIT 1` in the Relation's page. */
+export async function exists({ query, dialect, runner }: ValueSource): Promise<boolean> {
+  const limited = { ...query, limit: atMostOne(query.limit) };
+  return (await runner.rows(() => compileExists(dialect(), limited))).length > 0;
 }

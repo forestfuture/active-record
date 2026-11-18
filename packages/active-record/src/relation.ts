@@ -1,16 +1,23 @@
 // Relation: the chainable query (`where`, `order`, …), its finders, terminals, and bulk writes.
 import { jointly } from "./executor.ts";
-import { compileExists, querySql, type QuerySql } from "./compiler.ts";
+import { querySql, type QuerySql } from "./compiler.ts";
 import { includeTree } from "./preload.ts";
 import { mergedQuery, withJoins } from "./joins.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
 import { inspectRelation } from "./relation-inspect.ts";
-import { runnerFor, selectForToSql, type QueryRunner, type RunnableQuery } from "./load.ts";
+import {
+  recordsOf,
+  runnerFor,
+  selectForToSql,
+  type QueryRunner,
+  type RunnableQuery,
+} from "./load.ts";
 import { eachOnce, findByIds, findOne } from "./find.ts";
 import { firstOf, lastOf, soleOf, takeOf, type OneRecordSource } from "./one-record.ts";
 import { listOrder, type InOrderOfOptions } from "./list-order.ts";
-import { isEmpty, size, type CountSource } from "./record-counts.ts";
+import { exists, isEmpty, size, type CountSource } from "./record-counts.ts";
 import {
+  excludedKeys,
   unscoped,
   withOnly,
   withUnscopesOf,
@@ -46,7 +53,7 @@ import {
   type UpsertOptions,
 } from "./relation-checks.ts";
 import { alsoClearing, unowned, type OwnedCollection } from "./owned-collection.ts";
-import { atMostOne, foundOrThrow, thenPrimaryKey } from "./finder-order.ts";
+import { foundOrThrow } from "./finder-order.ts";
 import { runAlone, type Statement } from "./statement.ts";
 import type { ReturnedRow, WriteResult } from "./statement.ts";
 import {
@@ -178,6 +185,16 @@ export class Relation<M extends Model, S = {}> {
   /** Keeps only these parts of the query, as Rails' `only`: `only("where", "order")`. */
   only(...parts: QueryPart[]): Scoped<M, S> {
     return this.#describing(withOnly(this.#query, parts));
+  }
+
+  /**
+   * Leaves these records out, by primary key, as Rails' `excluding`: `excluding(post)`, or
+   * `excluding(posts)`. A record not yet saved leaves nothing out.
+   */
+  excluding(...records: (M | readonly M[])[]): Scoped<M, S> {
+    const keys = excludedKeys(this.#model, records);
+    if (keys.length === 0) return this.#scoped(this);
+    return this.whereNot({ [this.#model.primaryKey]: keys } as Conditions<M>);
   }
 
   /** A Relation that matches nothing and never queries D1; it stays empty when chained. */
@@ -646,14 +663,13 @@ export class Relation<M extends Model, S = {}> {
   /** What `size` and the questions about how many records there are read. */
   #countSource(): CountSource {
     const unsavedCount = () => this.#collection.unsavedCount();
-    return { ...this.#valueSource(), unsavedCount, exists: () => this.exists() };
+    return { ...this.#valueSource(), unsavedCount };
   }
 
   /** Whether any record matches, optionally with extra conditions. */
   async exists(conditions?: Conditions<M> | SafeSql): Promise<boolean> {
     const relation = conditions === undefined ? this : this.where(conditions);
-    const query = { ...relation.#query, limit: atMostOne(relation.#query.limit) };
-    return (await this.#runner.rows(() => compileExists(this.#dialect, query))).length > 0;
+    return exists(relation.#valueSource());
   }
 
   /** Converted values of one attribute, or tuples of several, in this Relation's order. */
@@ -733,17 +749,7 @@ export class Relation<M extends Model, S = {}> {
   }
 
   async toArray(): Promise<M[]> {
-    const cached = this.#cached();
-    if (cached !== undefined) return [...cached];
-    // Started before the query is sent, so a write that lands first keeps its rows out (#181).
-    const keepIfCurrent = this.#collection.startFill?.<M>();
-    if (keepIfCurrent === undefined) return this.#runner.load(this.#query);
-    // Loaded for the owner in its order, then target primary-key order, as preloaded.
-    const records = await this.#runner.load({
-      ...this.#query,
-      order: thenPrimaryKey(this.#model, this.#query),
-    });
-    return keepIfCurrent(records);
+    return recordsOf(this.#runnable, this.#collection);
   }
 
   get #state(): RelationState<M> {
