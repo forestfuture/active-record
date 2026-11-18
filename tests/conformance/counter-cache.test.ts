@@ -1,5 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, InvalidModel, Model } from "../../packages/active-record/src/index.ts";
+import {
+  belongsTo,
+  hasMany,
+  InvalidModel,
+  Model,
+  RecordNotFound,
+  UnknownAssociation,
+  withDatabase,
+} from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
@@ -286,6 +294,46 @@ describe("counter caches", () => {
       expect(await topic.replies().where({ body: "a" }).size()).toBe(1);
       await topic.replies().toArray();
       expect(await topic.replies().size()).toBe(3);
+    });
+  });
+
+  describe("resetCounters", () => {
+    beforeEach(async () => {
+      await harness.exec("UPDATE topics SET replies_count = 9, reply_tally = NULL");
+      await harness.exec(
+        "INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a'), (2, 1, 'b'), (3, 2, 'c')",
+      );
+    });
+
+    test("sets an owner's counter to how many records its hasMany has, in one write", async () => {
+      const events: QueryEvent[] = [];
+      const counted = harness.connect({ onQuery: (event) => events.push(event) });
+
+      await withDatabase(counted, () => Topic.resetCounters(1, "replies"));
+
+      expect([await repliesCount(1), await repliesCount(2)]).toEqual([2, 9]);
+      expect(statementKinds(events)).toEqual(["SELECT", "UPDATE"]);
+    });
+
+    test("an owner that isn't there is RecordNotFound, as find's", async () => {
+      await expect(withDatabase(db(), () => Topic.resetCounters(7, "replies"))).rejects.toThrow(
+        RecordNotFound,
+      );
+    });
+
+    test("a hasMany whose records keep no counter cache is a TypeError", async () => {
+      class Untallied extends Model.define({ id: { type: "integer", null: false } }) {
+        static table = "topics";
+        others = hasMany(Topic, { foreignKey: "id" });
+      }
+
+      await expect(withDatabase(db(), () => Untallied.resetCounters(1, "others"))).rejects.toThrow(
+        new TypeError('Untallied.resetCounters: "others" has no counter cache on Untallied'),
+      );
+      await expect(
+        // @ts-expect-error resetCounters takes a hasMany's name
+        withDatabase(db(), () => Untallied.resetCounters(1, "missing")),
+      ).rejects.toThrow(UnknownAssociation);
     });
   });
 

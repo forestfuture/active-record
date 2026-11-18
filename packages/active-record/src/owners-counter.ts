@@ -1,5 +1,6 @@
 // A hasMany's counter cache on its owner (#61): the target's belongsTo that keeps one, and what removing records through the association counts out.
-import { compileCount } from "./compiler.ts";
+import { attributeFor } from "./attribute.ts";
+import { compileCount, type CompiledSql } from "./compiler.ts";
 import {
   addToCount,
   compileCounterChange,
@@ -7,11 +8,14 @@ import {
   keyed,
   type Counter,
 } from "./counter-caches.ts";
-import type { Model } from "./model.ts";
+import { valueMark } from "./dialect.ts";
+import { modelOf, type Model } from "./model.ts";
+import { quoteIdentifier } from "./query-tables.ts";
 import type { QueryDescription } from "./query.ts";
 import { state } from "./record-state.ts";
-import type { ResolvedAssociation } from "./resolved-association.ts";
-import { statementParts, type Statement } from "./statement.ts";
+import { queryOf } from "./relation.ts";
+import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
+import { runAlone, Statement, statementParts } from "./statement.ts";
 
 /**
  * The counter cache a hasMany's records are counted in on its owner, as Rails'
@@ -71,4 +75,43 @@ export function countedOut(
     const removed = results.reduce((sum, { rowsAffected }) => sum + rowsAffected, 0);
     addToCount(owner, counter.attribute, -removed);
   });
+}
+
+/**
+ * Sets `record`'s counter caches to how many records each named hasMany has, each counted by the
+ * association's own query, scope included, as Rails' `reset_counters` counts: one UPDATE for
+ * each, sent together, so each count is the one at the write.
+ */
+export async function resetCounters(record: Model, names: readonly string[]): Promise<void> {
+  const { executor } = record[state];
+  await runAlone(
+    new Statement(
+      executor,
+      names.map((name) => counterReset(record, name)),
+    ),
+  );
+}
+
+/** `UPDATE … SET counter = (SELECT COUNT(*) …) WHERE key = ?` for `record`'s hasMany `name`. */
+function counterReset(record: Model, name: string): CompiledSql {
+  const model = modelOf(record);
+  const association = resolveAssociation(model, name);
+  const counter = ownersCounter(association);
+  if (counter === undefined) {
+    throw new TypeError(
+      `${model.name}.resetCounters: "${name}" has no counter cache on ${model.name}`,
+    );
+  }
+  const { executor } = record[state];
+  const rows = association.linkedTo(executor, association.keyOf(record));
+  const count = compileCount(executor.dialect, rows[queryOf]);
+  const params = [...count.params];
+  const key = attributeFor(model, model.primaryKey);
+  key.bindCells(params, record[state].storedKey);
+  const column = quoteIdentifier(attributeFor(model, counter.attribute).column);
+  return {
+    sql: `UPDATE ${quoteIdentifier(model.table)} SET ${column} = (${count.sql}) WHERE ${quoteIdentifier(key.column)} = ${valueMark}`,
+    params,
+    model,
+  };
 }
