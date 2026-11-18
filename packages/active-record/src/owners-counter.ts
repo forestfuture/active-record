@@ -1,4 +1,4 @@
-// A hasMany's counter cache on its owner (#61): the target's belongsTo that keeps one, and what removing records through the association counts out.
+// A hasMany's counter caches on its owner (#61): the counters its records' belongsTos keep there, the one it reads, what removing records through it counts out, and resetCounters.
 import { attributeFor } from "./attribute.ts";
 import { compileCount } from "./compiler.ts";
 import { touchAssignments } from "./counters.ts";
@@ -54,10 +54,8 @@ function namedCounter(association: ResolvedAssociation): CounterCache | undefine
 }
 
 /**
- * The counter cache a hasMany reads for `size`, as Rails' `has_cached_counter?`: the one its
- * records keep (`ownersCounter`), when it's the attribute named for the association (`replies` →
- * `repliesCount`), or its `counterCache`. So a hasMany narrowed by a scope, under another name,
- * counts its rows rather than reading a count of them all.
+ * The counter a hasMany reads for `size`: its `namedCounter`, while active. So a hasMany narrowed
+ * by a scope, under another name, counts its rows rather than reading a count of them all.
  */
 function readCounter(association: ResolvedAssociation): CounterCache | undefined {
   const counter = namedCounter(association);
@@ -83,11 +81,11 @@ export function ownersCount(owner: Model, association: ResolvedAssociation): num
 
 /**
  * `statement`, which removes the rows `query` matches from `owner`'s hasMany (deleting them, or
- * nullifying their key), with the owner's counter taken down by how many it removes, in the same
- * batch, as Rails' collection `delete_all` does: in one statement where the dialect can count the
- * removed rows (Postgres), or by a COUNT of the rows `query` matches sent just before it. Once
- * written, a loaded owner's counter changes by how many it removed. Without a counter cache,
- * `statement` itself.
+ * nullifying their key), with each of the owner's counters taken down by how many it removes, in
+ * the same batch, as Rails' collection `delete_all` does: in one statement where the dialect can
+ * count the removed rows (Postgres) and the removal can't change the owner's row, or by a COUNT of
+ * the rows `query` matches sent just before it. Once written, a loaded owner's counters change by
+ * how many it removed. Without a counter cache, `statement` itself.
  */
 export function countedOut(
   statement: Statement,
@@ -100,7 +98,7 @@ export function countedOut(
   const { executor, queries, landed } = statement[statementParts];
   // Every counter is on the owner's row, found by the hasMany's key: one UPDATE changes them all.
   const key = keyed(counters[0]!, owner[state].read(association.ownerAttribute));
-  const decrements = (removed: SqlPart) => [compileCountersChange(counters, removed, key)];
+  const decrements = (by: SqlPart) => [compileCountersChange(counters, by, key)];
   const countOut = (removed: number) => {
     for (const { attribute } of counters) addToCount(owner, attribute, -removed);
   };
@@ -108,16 +106,16 @@ export function countedOut(
   const { dialect } = executor;
   const isOneStatement = queries.length === 1 && !isOwnRecord(owner, association);
   if (dialect.countedRemoval !== undefined && isOneStatement && removal) {
-    const counted = dialect.countedRemoval(removal, (removed) =>
-      decrements({ sql: `- ${removed}`, params: [] }),
+    const counted = dialect.countedRemoval(removal, (removedCount) =>
+      decrements({ sql: `- ${removedCount}`, params: [] }),
     );
-    const removed = (results: readonly StatementResult[]) =>
+    const removedBy = (results: readonly StatementResult[]) =>
       Number(results[0]?.rows[0]?.["removed"] ?? 0);
     const counting = new Statement(executor, [counted], (results) => {
       landed(results);
-      countOut(removed(results));
+      countOut(removedBy(results));
     });
-    return counting.affecting(removed);
+    return counting.affecting(removedBy);
   }
   const count = compileCount(executor.dialect, query);
   return statement.precededBy(

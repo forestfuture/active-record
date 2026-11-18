@@ -49,10 +49,11 @@ export interface Dialect {
    */
   linkedKey(key: string, keyAttribute: Attribute, linked: Attribute): string;
   /**
-   * A bulk removal (a DELETE, or an UPDATE nullifying a key) and the counter cache it changes
+   * A bulk removal (a DELETE, or an UPDATE nullifying a key) and the counter caches it changes
    * (#61), as one statement: `decrements` writes the counters' UPDATEs, given SQL counting the rows
-   * removed, and the statement returns one row, whose `removed` is how many. Without it, the counter is
-   * taken down by a COUNT sent just before the removal: exact where writes run one at a time.
+   * removed, and the statement returns one row, whose `removed` is how many. Without it, the
+   * counters are taken down by a COUNT sent just before the removal: exact where writes run one
+   * at a time.
    */
   countedRemoval?(
     removal: CompiledSql,
