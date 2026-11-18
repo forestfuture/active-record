@@ -1,6 +1,6 @@
 ---
 title: Querying
-description: "Reference for querying: a Model's statics, Relations, where and comparisons, sql fragments, ordering and paging, paginate, findEach/findInBatches/inBatches, find/findBy/first/count, calculations (sum, average, minimum, maximum), partial records, none(), merge, joins and leftJoins, scopes, default scopes, and preloading."
+description: "Reference for querying: a Model's statics, Relations, where and comparisons, sql fragments, rewhere, unscope and only, excluding, ordering and paging, inOrderOf, paginate, findEach/findInBatches/inBatches, find/findBy/first/count, calculations (sum, average, minimum, maximum), partial records, none(), merge, joins and leftJoins, scopes, default scopes, and preloading."
 ---
 
 A query is a **Relation**. Each method that narrows, orders, or pages it returns a new Relation, and nothing runs until you ask for results:
@@ -56,6 +56,48 @@ A value in a fragment is bound as it is, so a `Date` is ISO text. If the attribu
 
 `value` works for any attribute, and writes a boolean as 0 or 1 and a JSON value as text. The value is cast as an assigned one, so a value the attribute can’t hold throws `TypeError` naming the attribute, when `where` is given the fragment. A filtered attribute’s value is hidden from `onQuery`, as it is anywhere else.
 
+### Replacing conditions
+
+Replace the conditions on some attributes with `rewhere`:
+
+<include>/_excerpts/guide/querying/rewhere.ts</include>
+
+Conditions on other attributes stay, and so do `sql` fragments. A default scope’s condition on the attribute is replaced too.
+
+:::note
+A `whereNot` or `or` that names only those attributes is replaced. One that names other attributes too stays.
+:::
+
+Drop parts of a query with `unscope`, or keep only some with `only`:
+
+<include>/_excerpts/guide/querying/unscope.ts</include>
+
+- The parts are `"where"`, `"order"`, `"limit"`, `"offset"`, `"select"`, `"distinct"`, `"includes"`, `"joins"`, `"leftJoins"`, and `"createWith"`. `{ where: "role" }` drops only the conditions on those attributes.
+- A default scope’s parts are dropped too. To start without the default scope, use [`unscoped()`](#defining-a-default-scope).
+- On an association, `unscope("where")` drops the link to its owner, so it reads every record.
+- Merging a Relation built with `unscope` drops those parts from the Relation it’s merged into.
+- A join can’t be dropped while conditions or an order merged onto it use it. That throws `IncompatibleRelation`.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`rewhere`, `unscope`, and `only` work as Rails’ do, with the parts named as strings. `group` and `having` aren’t parts, since a grouped Relation is a type of its own. Rails’ `invert_where` and `extending` aren’t offered. Scopes cover `extending`.
+
+</Callout>
+
+## Leaving records out
+
+Leave out records you already have with `excluding`:
+
+<include>/_excerpts/guide/querying/excluding.ts</include>
+
+It takes records of the Relation’s Model, or arrays of them. A record that isn’t saved yet leaves nothing out.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`excluding` is Rails’ `excluding`. Its alias `without` isn’t offered.
+
+</Callout>
+
 ## Using raw statements
 
 Bind what `serialize` gives when you send SQL to D1 yourself. `typeForAttribute` returns an attribute’s conversions:
@@ -97,6 +139,23 @@ Calling `order` again adds more keys. `reorder` replaces the order so far, and `
 :::note
 On D1, NULLs sort first in ascending order, and on Postgres last. Place them with `nulls: "first"` or `nulls: "last"` to sort them the same on both.
 :::
+
+### Ordering by a list of values
+
+Sort records by where their value comes in a list with `inOrderOf`:
+
+<include>/_excerpts/guide/querying/in-order-of.ts</include>
+
+- By default, only records whose value is in the list are kept. Pass `filter: false` to keep the rest, after them.
+- Values are cast as `where`’s are, and `null` places NULL. The list is bound as one value, so it can be any length.
+- An order written after it sorts the records that tie, and `last()` reverses it.
+- It can’t be combined with `distinct()`, which throws `IncompatibleRelation`.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`inOrderOf` is Rails’ `in_order_of`, `filter: false` included. Rails writes the list into a `CASE`, one bound value per item. Here the list is one bound value, so it fits D1’s limit of 100.
+
+</Callout>
 
 ## Paginating
 
@@ -203,6 +262,7 @@ Run a query with one of these methods:
 - `ids` plucks every primary key. On a loaded association, it leaves out records you’ve built that don’t have a key yet.
 - `count()` always agrees with what `toArray()` returns, even with `limit`, `offset`, or `distinct`.
 - `size()`, `isEmpty()`, and `hasAny()` count records, or check for any. On a loaded association, they answer without a query.
+- `hasMoreThanOne()` and `hasExactlyOne()` count no further than two records. On a loaded association, they answer without a query too.
 
 :::tip
 `exists()`, `isEmpty()`, and `hasAny()` ignore the Relation’s order, so D1 stops at the first matching row. `count()` ignores it too, unless a `limit` or `offset` needs it. D1 bills each row it reads, so checks and counts stay cheap on an ordered Relation, such as an ordered association.
@@ -210,7 +270,7 @@ Run a query with one of these methods:
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-`size()`, `isEmpty()`, and `hasAny()` are Rails’ `size`, `empty?`, and `any?`. `firstOrThrow()` is `first!`, and `findSoleBy` is `find_sole_by`. There’s no `second` or `third`. Use `offset(1).first()` instead. Rails’ `ids` gives `nil` for a built record with no key, where `ids()` leaves it out.
+`size()`, `isEmpty()`, and `hasAny()` are Rails’ `size`, `empty?`, and `any?`, and `hasMoreThanOne()` and `hasExactlyOne()` are `many?` and `one?`. `firstOrThrow()` is `first!`, and `findSoleBy` is `find_sole_by`. There’s no `second` or `third`. Use `offset(1).first()` instead. Rails’ `ids` gives `nil` for a built record with no key, where `ids()` leaves it out.
 
 </Callout>
 
@@ -360,6 +420,7 @@ Queries start from it, and new records take its conditions’ values:
 - `insert`, `insertAll`, `upsert`, and `upsertAll` write its conditions’ values over the values you give. `build` and `create` use the values you give.
 - Several default scopes all apply. A subclass adds its own to its parent’s.
 - An order in a default scope is the Relation’s order. `reorder` replaces it.
+- `rewhere` replaces its condition on an attribute, and [`unscope`](#replacing-conditions) drops its parts.
 
 To leave the default scope out, start from `unscoped()`:
 
