@@ -1,4 +1,4 @@
-// A record built or created through its owner's hasMany or hasOne points back at the owner (#339).
+// A record built, created or loaded through its owner's hasMany or hasOne points back at the owner (#339, #62).
 import { associationsOf } from "./association-fields.ts";
 import type { Model } from "./model.ts";
 import { state } from "./record-state.ts";
@@ -48,8 +48,10 @@ function inverseOf(
   association: ResolvedAssociation,
 ): ResolvedAssociation | undefined {
   const { target, targetAttribute, ownerAttribute } = association;
-  // A scope on either side may leave the owner out, so neither has an inverse.
-  if (association.definition.scope !== undefined) return undefined;
+  // A scope on either side may leave the owner out, so neither has an inverse; a through
+  // association's records hold no key of the owner's.
+  if (association.definition.scope !== undefined || association.hops !== undefined)
+    return undefined;
   for (const [name, definition] of associationsOf(target)) {
     if (definition.kind !== "belongsTo" || definition.foreignKey !== targetAttribute) continue;
     if (definition.scope !== undefined) continue;

@@ -48,17 +48,27 @@ interface LoadedAhead<M extends Model> {
   hasMore: boolean;
 }
 
-/** How `query`, a Relation's, runs: on `executor`, unless it's a `none()` query. */
+/**
+ * How `query`, a Relation's, runs: on `executor`, unless it's a `none()` query. Each record it
+ * loads through a hasMany points back at its owner (#62).
+ */
 export function runnerFor<M extends Model>(
   executor: Executor,
   model: ModelClass<M>,
   query: QueryDescription,
+  collection: OwnedCollection,
 ): QueryRunner<M> {
   if (query.none) return nothing;
+  const each = <T extends { records: M[] }>(result: T): T => {
+    for (const record of result.records) collection.pointBack(record);
+    return result;
+  };
   return {
-    load: (description) => loadRecords(executor, model, description),
-    loadCounted: (description, counted) => loadCounted(executor, model, description, counted),
-    loadAhead: (description) => loadAhead(executor, model, description),
+    load: async (description) =>
+      each({ records: await loadRecords(executor, model, description) }).records,
+    loadCounted: async (description, counted) =>
+      each(await loadCounted(executor, model, description, counted)),
+    loadAhead: async (description) => each(await loadAhead(executor, model, description)),
     rows: (sql) => executor.all(sql()),
     changes: async (write) => (await write()).rowsAffected,
   };
