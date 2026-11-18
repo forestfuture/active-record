@@ -22,6 +22,17 @@ class Reply extends Model.define({
   topic = belongsTo(Topic, { counterCache: true, optional: true });
 }
 
+/** Categories under a parent, which counts them: a hasMany of its own Model. */
+class Category extends Model.define({
+  id: { type: "integer", null: false },
+  parentId: "integer",
+  childrenCount: "integer",
+}) {
+  static table = "categories";
+  children = hasMany(Category, { foreignKey: "parentId" });
+  parent = belongsTo(Category, { counterCache: "childrenCount", optional: true });
+}
+
 // Postgres runs a statement on a snapshot of its own (READ COMMITTED), so a COUNT sent before a
 // DELETE can miss a row another request commits between them. Counting the rows the DELETE
 // returns, in the same statement, counts exactly the rows it removed, as Rails does (#61).
@@ -41,6 +52,9 @@ describe("a hasMany's bulk removal on Postgres", () => {
     });
     await schema.pool.query({
       text: "CREATE TABLE replies (id BIGINT PRIMARY KEY, topic_id BIGINT REFERENCES topics (id))",
+    });
+    await schema.pool.query({
+      text: "CREATE TABLE categories (id BIGINT PRIMARY KEY, parent_id BIGINT, children_count BIGINT)",
     });
   });
   afterAll(() => schema.dispose());
@@ -71,5 +85,18 @@ describe("a hasMany's bulk removal on Postgres", () => {
 
     expect(events).toHaveLength(1);
     expect([Number(await repliesCount()), topic.repliesCount]).toEqual([2, 2]);
+  });
+
+  // In one statement, Postgres changes a row once: a category that's its own parent would be
+  // nullified and counted in the same statement, and keep its count.
+  test("a hasMany of its own Model counts out a category that's its own parent", async () => {
+    await schema.pool.query({ text: "DELETE FROM categories" });
+    await schema.pool.query({ text: "INSERT INTO categories VALUES (1, 1, 2), (2, 1, 0)" });
+    const categories = connect(schema.url).model(Category);
+    const category = await categories.find(1);
+
+    await category.children().deleteAll();
+
+    expect((await categories.find(1)).childrenCount).toBe(0);
   });
 });
