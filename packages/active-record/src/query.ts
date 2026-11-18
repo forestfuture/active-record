@@ -60,6 +60,11 @@ export interface QueryDescription {
   includes?: IncludeTree;
   /** Associations joined: `joins(...)` and `leftJoins(...)` (#24). */
   joins?: readonly Join[];
+  /**
+   * The conditions linking an association's records to its owner (#350): its key, a through
+   * association's subquery, a polymorphic one's type. Rewriting a query never drops them.
+   */
+  ownerLink?: readonly Condition[];
   /** From `unscope()` (#350): the parts it dropped, which `merge()` drops from the Relation merged into. */
   unscoped?: readonly UnscopedPart[];
   /** From `createWith()`: attributes a record built or inserted through it gets, not conditions. */
@@ -301,15 +306,23 @@ export function merged(a: QueryDescription, b: QueryDescription): QueryDescripti
     ...a,
     conditions: [...a.conditions, ...b.conditions],
     ...(b.none === true && { none: true }),
-    ...(b.includes !== undefined && { includes: mergeTrees(a.includes ?? {}, b.includes) }),
-    ...(b.joins !== undefined && { joins: mergeJoins(a.joins ?? [], b.joins) }),
-    ...(b.createWith !== undefined && { createWith: { ...a.createWith, ...b.createWith } }),
+    ...unioned(a, b),
   };
   for (const clause of SHAPE_CLAUSES) {
     if (isSet(b, clause)) Object.assign(result, { [clause]: b[clause] });
   }
   if (b.reordered) result.reordered = true;
   return result;
+}
+
+/** What `merge()` unions of `b`'s with `a`'s: includes, joins, `createWith`, and owner links. */
+function unioned(a: QueryDescription, b: QueryDescription): Partial<QueryDescription> {
+  return {
+    ...(b.includes !== undefined && { includes: mergeTrees(a.includes ?? {}, b.includes) }),
+    ...(b.joins !== undefined && { joins: mergeJoins(a.joins ?? [], b.joins) }),
+    ...(b.createWith !== undefined && { createWith: { ...a.createWith, ...b.createWith } }),
+    ...(b.ownerLink !== undefined && { ownerLink: [...(a.ownerLink ?? []), ...b.ownerLink] }),
+  };
 }
 
 /**

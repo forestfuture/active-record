@@ -19,11 +19,11 @@ import {
   type CollectionWrite,
 } from "./owned-collection.ts";
 import { state } from "./record-state.ts";
-import { linkedToRecordsOf, queryOf, type Relation, type Scoped } from "./relation.ts";
+import { queryOf, type Relation, type Scoped } from "./relation.ts";
 import { preparedWrites } from "./prepared-writes.ts";
 import type { QueryDescription } from "./query.ts";
 import { Statement, statementParts } from "./statement.ts";
-import type { ResolvedAssociation } from "./resolved-association.ts";
+import { linkedToRecords, type ResolvedAssociation } from "./resolved-association.ts";
 import { insertError, requireWritableThrough } from "./through-associations.ts";
 
 /** An owner's through hasMany, as its collection methods use it. */
@@ -123,9 +123,13 @@ export function joinRecordsOf(owner: Model, association: ResolvedAssociation): S
   const { via, source } = association.hops!;
   const { executor } = owner[state];
   const reached = association.linkedTo(executor, association.keyOf(owner));
-  return via
-    .linkedTo(executor, via.keyOf(owner))
-    [linkedToRecordsOf](source.ownerAttribute, reached[queryOf], source.targetAttribute);
+  const joinRecords = via.linkedTo(executor, via.keyOf(owner));
+  return linkedToRecords(
+    joinRecords,
+    source.ownerAttribute,
+    reached[queryOf],
+    source.targetAttribute,
+  );
 }
 
 /**
@@ -167,7 +171,7 @@ function deleteJoins(
 ): Statement {
   requireWritableThrough(association);
   const { source } = association.hops!;
-  const joins = via()[linkedToRecordsOf](source.ownerAttribute, query, source.targetAttribute);
+  const joins = linkedToRecords(via(), source.ownerAttribute, query, source.targetAttribute);
   const { executor, queries, landed } = joins[preparedWrites].deleteAll()[statementParts];
   // What the owner has loaded through it is no longer known, as for any write through it (#187).
   collection.invalidate();

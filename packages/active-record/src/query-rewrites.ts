@@ -42,7 +42,7 @@ function without(query: QueryDescription, key: keyof QueryDescription): QueryDes
 /** `query` without `part`. */
 function withoutPart(query: QueryDescription, part: QueryPart): QueryDescription {
   requirePart(part);
-  return WITHOUT[part](query);
+  return keepingOwnerLink(WITHOUT[part](query));
 }
 
 /** Refuses a part `unscope` and `only` don't know: `"group"`, or a misspelling. */
@@ -100,8 +100,37 @@ function withoutConditionsOn(
   attributes: readonly string[],
 ): QueryDescription {
   const dropped = new Set(attributes);
-  const conditions = query.conditions.flatMap((condition) => kept(condition, dropped));
-  return { ...query, conditions };
+  const link = new Set(query.ownerLink);
+  const conditions = query.conditions.flatMap((condition) =>
+    link.has(condition) ? [condition] : kept(condition, dropped),
+  );
+  return keepingOwnerLink({ ...query, conditions });
+}
+
+/** `query` with `condition` added as part of its link to an association's owner (#350). */
+export function withOwnerLink(query: QueryDescription, condition: Condition): QueryDescription {
+  const ownerLink = [...(query.ownerLink ?? []), condition];
+  return { ...query, conditions: [...query.conditions, condition], ownerLink };
+}
+
+/**
+ * `query` with each condition of its owner link that a rewrite dropped added back (#350): within
+ * an `or`, dropping the `or` drops the link with it, so the link is ANDed on again.
+ */
+function keepingOwnerLink(query: QueryDescription): QueryDescription {
+  const lost = (query.ownerLink ?? []).filter(
+    (link) => !query.conditions.some((condition) => hasLink(condition, link)),
+  );
+  return lost.length === 0 ? query : { ...query, conditions: [...query.conditions, ...lost] };
+}
+
+/** Whether `condition` is `link`, or has it within an `or` or a `whereNot`. */
+function hasLink(condition: Condition, link: Condition): boolean {
+  if (condition === link) return true;
+  if (condition instanceof Either) {
+    return [...condition.left, ...condition.right].some((each) => hasLink(each, link));
+  }
+  return condition instanceof Negated && hasLink(condition.condition, link);
 }
 
 /** What's left of `condition` once those on `dropped` attributes go: itself, part of it, or nothing. */
