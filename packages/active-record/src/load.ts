@@ -2,7 +2,8 @@
 import { compileCount, compileSelect, type CompiledSql } from "./compiler.ts";
 import { type Dialect, withPlaceholders } from "./dialect.ts";
 import { databaseNow, type Executor } from "./executor.ts";
-import { stableOrder } from "./finder-order.ts";
+import { stableOrder, thenPrimaryKey } from "./finder-order.ts";
+import type { OwnedCollection } from "./owned-collection.ts";
 import { hydrate, type Model, type ModelClass } from "./model.ts";
 import { keysForIncludes, planPreload } from "./preload.ts";
 import type { QueryDescription } from "./query.ts";
@@ -193,4 +194,21 @@ export function selectForToSql(
   const never = sql`1 = 0`;
   const shown = query.none ? { ...query, conditions: [...query.conditions, never] } : query;
   return withPlaceholders(dialect, selectFor(dialect, model, shown));
+}
+
+/**
+ * A Relation's records: a hasMany's from what its owner loaded, or loaded for the owner to keep,
+ * in its order then the target's primary key, as preloaded; or its query's.
+ */
+export async function recordsOf<M extends Model>(
+  { model, query, runner }: RunnableQuery<M>,
+  collection: OwnedCollection,
+): Promise<M[]> {
+  const cached = collection.loaded() as M[] | undefined;
+  if (cached !== undefined) return [...cached];
+  // Started before the query is sent, so a write that lands first keeps its rows out (#181).
+  const keepIfCurrent = collection.startFill?.<M>();
+  if (keepIfCurrent === undefined) return runner.load(query);
+  const records = await runner.load({ ...query, order: thenPrimaryKey(model, query) });
+  return keepIfCurrent(records);
 }

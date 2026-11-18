@@ -1,4 +1,4 @@
-// Rewriting a query (#350): `rewhere` and `unscope`, dropping parts of a query: its conditions, or those on some attributes, its order, page, and the rest.
+// Rewriting a query (#350): `rewhere`, `unscope` and `only`, dropping parts of a query (its conditions, or those on some attributes, its order, page, and the rest), and the keys `excluding` leaves out.
 import { IncompatibleRelation } from "./errors.ts";
 import {
   Either,
@@ -12,7 +12,7 @@ import {
   type UnscopedPart,
 } from "./query.ts";
 import { attributeOf } from "./metadata.ts";
-import type { AttributesOf, Model } from "./model.ts";
+import { Model, primaryKeyOf, type AttributesOf, type ModelClass } from "./model.ts";
 
 /** A part of a query `unscope` drops by name: `unscope("order")`. */
 export type QueryPart = Exclude<UnscopedPart, object>;
@@ -193,4 +193,24 @@ function withoutUnscoped(query: QueryDescription, part: UnscopedPart): QueryDesc
 export function withUnscopesOf(into: QueryDescription, other: QueryDescription): QueryDescription {
   if (other.unscoped === undefined || other.model !== into.model) return into;
   return other.unscoped.reduce(withoutUnscoped, into);
+}
+
+/**
+ * The primary keys of the records `excluding` leaves out, each a record of `model` (or a class
+ * extending it); a record without a key yet has no row to leave out.
+ */
+export function excludedKeys(model: ModelClass, records: readonly unknown[]): unknown[] {
+  return records.flat().flatMap((record) => {
+    if (!(record instanceof model)) {
+      throw new TypeError(`excluding() takes records of ${model.name}; got ${describe(record)}`);
+    }
+    const key = primaryKeyOf(record);
+    return key === null || key === undefined ? [] : [key];
+  });
+}
+
+/** How a refusal names what it was given: a record's class, or its type. */
+function describe(value: unknown): string {
+  if (value instanceof Model) return `a ${value.constructor.name}`;
+  return value === null ? "null" : typeof value;
 }

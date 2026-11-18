@@ -268,4 +268,30 @@ describe("rewriting queries (#350)", () => {
       expect(() => users().inOrderOf("role", [undefined])).toThrow(TypeError);
     });
   });
+
+  describe("excluding", () => {
+    test("leaves those records out", async () => {
+      const all = users();
+      const [first, second] = await all.order({ id: "asc" }).limit(2).toArray();
+
+      expect(await all.excluding(first!, second!).order({ id: "asc" }).pluck("id")).toEqual([3, 4]);
+      expect(await all.excluding([first!]).order({ id: "asc" }).pluck("id")).toEqual([2, 3, 4]);
+    });
+
+    test("leaves nothing out for an unsaved record, or none", async () => {
+      const all = users();
+
+      expect(await all.excluding(all.build({ email: "new@example.com" })).count()).toBe(4);
+      expect(await all.excluding().count()).toBe(4);
+      expect(await all.excluding([]).count()).toBe(4);
+    });
+
+    test("refuses a record of another Model", async () => {
+      const db = harness.connect();
+      const post = await db.model(Post).findByOrThrow({ id: 10 });
+
+      // @ts-expect-error -- a Post isn't a User
+      expect(() => db.model(User).excluding(post)).toThrow(TypeError);
+    });
+  });
 });
