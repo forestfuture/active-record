@@ -44,4 +44,41 @@ describe("counter caches", () => {
     expect(await repliesCount(1)).toBe(2);
     expect(await repliesCount(2)).toBe(0);
   });
+
+  describe("destroying a record", () => {
+    beforeEach(async () => {
+      await harness.exec("UPDATE topics SET replies_count = 2 WHERE id = 1");
+      await harness.exec(
+        "INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a'), (2, 1, 'b')",
+      );
+    });
+
+    test("decrements its target's counter", async () => {
+      const reply = await db().model(Reply).find(1);
+
+      await reply.destroy();
+
+      expect(await repliesCount(1)).toBe(1);
+    });
+
+    test("leaves the counter alone when its row is already gone", async () => {
+      const reply = await db().model(Reply).find(1);
+      await harness.exec("DELETE FROM replies WHERE id = 1");
+
+      await reply.destroy();
+
+      expect(await repliesCount(1)).toBe(2);
+    });
+
+    test("decrements the target its stored row points at", async () => {
+      const reply = await db().model(Reply).find(1);
+      await harness.exec("UPDATE replies SET topic_id = 2 WHERE id = 1");
+      await harness.exec("UPDATE topics SET replies_count = 1 WHERE id = 2");
+
+      await reply.destroy();
+
+      expect(await repliesCount(1)).toBe(2);
+      expect(await repliesCount(2)).toBe(0);
+    });
+  });
 });

@@ -46,22 +46,47 @@ function countersOf(owner: ModelClass): Counter[] {
 export function counterIncrements(record: Model): CompiledSql[] {
   return countersOf(modelOf(record)).flatMap((counter) => {
     const key = record[state].read(counter.foreignKey);
-    return key === null || key === undefined ? [] : [compileCounterChange(counter, key, 1)];
+    return key === null || key === undefined ? [] : [counterChangeFor(counter, key, 1)];
+  });
+}
+
+/**
+ * The statements that count a record out, sent before its row is deleted or its foreign key
+ * changed: each finds its target through the stored row, so a row already gone counts nothing,
+ * and a key changed in the database since the record was read counts out the target it has now.
+ */
+export function counterDecrements(record: Model): CompiledSql[] {
+  const owner = modelOf(record);
+  const storedKey = record[state].storedKey;
+  return countersOf(owner).map((counter) => {
+    const params: unknown[] = [-1];
+    const ownerKey = attributeFor(owner, owner.primaryKey);
+    ownerKey.bindCells(params, storedKey);
+    const stored = `(SELECT ${quoteIdentifier(attributeFor(owner, counter.foreignKey).column)} FROM ${quoteIdentifier(owner.table)} WHERE ${quoteIdentifier(ownerKey.column)} = ${valueMark})`;
+    return compileCounterChange(counter, stored, params);
   });
 }
 
 /** `UPDATE … SET counter = COALESCE(counter, 0) + ? WHERE key = ?`, as Rails' `update_counters`. */
+function counterChangeFor(counter: Counter, key: unknown, by: number): CompiledSql {
+  const params: unknown[] = [by];
+  attributeFor(counter.target, counter.targetKey).bind(params, key);
+  return compileCounterChange(counter, valueMark, params);
+}
+
+/**
+ * `UPDATE … SET counter = COALESCE(counter, 0) + ? WHERE key = <keyed>`, with `params` holding
+ * the change, then `keyed`'s own values.
+ */
 function compileCounterChange(
   { target, attribute, targetKey }: Counter,
-  key: unknown,
-  by: number,
+  keyed: string,
+  params: unknown[],
 ): CompiledSql {
-  const params: unknown[] = [by];
   const column = quoteIdentifier(attributeFor(target, attribute).column);
   const keyColumn = quoteIdentifier(attributeFor(target, targetKey).column);
-  attributeFor(target, targetKey).bind(params, key);
   return {
-    sql: `UPDATE ${quoteIdentifier(target.table)} SET ${column} = COALESCE(${column}, 0) + ${valueMark} WHERE ${keyColumn} = ${valueMark}`,
+    sql: `UPDATE ${quoteIdentifier(target.table)} SET ${column} = COALESCE(${column}, 0) + ${valueMark} WHERE ${keyColumn} = ${keyed}`,
     params,
     model: target,
   };
