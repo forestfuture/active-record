@@ -27,7 +27,7 @@ export async function findOne<M extends Model>(
 }
 
 /** The record with primary key `id` that `query` matches, or `RecordNotFound`. */
-export async function findById<M extends Model>(
+async function findById<M extends Model>(
   runner: QueryRunner<M>,
   query: QueryDescription,
   id: string | number,
@@ -46,7 +46,7 @@ export async function findById<M extends Model>(
  * The records with primary keys `ids` that `query` matches, in the ids' order, or in `query`'s
  * when it has one; `RecordNotFound` if any is missing.
  */
-export async function findSome<M extends Model>(
+async function findSome<M extends Model>(
   runner: QueryRunner<M>,
   query: QueryDescription,
   ids: readonly (string | number)[],
@@ -74,7 +74,7 @@ export async function findSome<M extends Model>(
  * each once, as Rails does. One that can't be cast stays as given, matches nothing, and is
  * reported missing.
  */
-export function keysToFind(model: ModelClass, ids: readonly unknown[]): (string | number)[] {
+function keysToFind(model: ModelClass, ids: readonly unknown[]): (string | number)[] {
   const key = attributeFor(model, model.primaryKey);
   const keys = ids.map((id) => {
     const cast = key.condition(id);
