@@ -21,6 +21,8 @@ done <<<"$INPUT"
 
 # One form for matching: tabs as spaces, runs of spaces as one, a quoted flag or refspec unquoted,
 # and a redirect's `>&` as `>`, so `2>&1` isn't split as a background `&`.
+# A backslash-newline continues the command, as bash reads it.
+COMMAND=${COMMAND//\\$'\n'/ }
 COMMAND=$(sed -E "s/[[:space:]]+/ /g; s/'([-+][^' ]*)'/\1/g; s/\"([-+][^\" ]*)\"/\1/g; s/>&/>/g" <<<"$COMMAND")
 
 GIT='git( -[cC] [^ ]+)*'
@@ -41,7 +43,7 @@ BLOCKED_PATTERNS=(
 
 # A forced push of an issue branch to itself, with a lease: `<issue>-<slug>:<issue>-<slug>`, flags
 # limited to the lease and -u, output redirects allowed after it. A value is one plain word.
-WORD='[^[:space:]&;|$()`<>]'
+WORD='[^[:space:]&;|$()`<>\\]'
 ISSUE='[0-9]+-[a-z0-9-]+'
 ISSUE_BRANCH_PUSH="^ *git( -C $WORD+)? push(( --force-with-lease(=$WORD+)?)|( -u))+ origin ($ISSUE):($ISSUE)( [0-9]?>$WORD*)* *$"
 
