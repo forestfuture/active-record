@@ -570,6 +570,23 @@ describe("counter caches", () => {
       expect(await (await db().model(TwiceCountedTopic).find(1)).twice().size()).toBe(7);
     });
 
+    test("both keeping one attribute is an InvalidModel: a record would count twice", () => {
+      class Doubled extends Model.define({
+        id: { type: "integer", null: false },
+        topicId: "integer",
+      }) {
+        static table = "replies";
+        topic = belongsTo(Topic, { counterCache: "repliesCount" });
+        thread = belongsTo(Topic, { foreignKey: "topicId", counterCache: "repliesCount" });
+      }
+
+      expect(() => db().model(Doubled).build()).toThrow(
+        new InvalidModel(
+          'Doubled association "topic": thread keeps "repliesCount" on Topic by topicId too, so a record would count twice (name another counterCache)',
+        ),
+      );
+    });
+
     test("a bulk removal counts out of both", async () => {
       await (await db().model(TwiceCountedTopic).find(1)).twice().deleteAll();
 
