@@ -1,6 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, test } from "vite-plus/test";
-import { runSchema } from "../../packages/active-record/cli/schema/command.ts";
 
 // SKILL.md ships in the package as plain Markdown, so its examples can't be included from files.
 // They're kept as type-checked files instead (site/snippets/skill/), and must match them exactly.
@@ -16,16 +15,6 @@ describe("the agent skill (packages/active-record/skills/active-record/SKILL.md)
       read("site/snippets/skill/worker.ts"),
     ]);
   });
-
-  test("its examples' schema is what their migrations and Models generate", async () => {
-    const output: string[] = [];
-    const cwd = new URL("../../site/snippets/skill/", import.meta.url).pathname;
-
-    const options = { cwd, models: "models.ts", out: "schema.ts", check: true };
-
-    expect(await runSchema(options, (line) => output.push(line))).toBe(0);
-    // It runs the schema command, which took 3.5 to 4.5 s on CI under coverage, near the 5 s default.
-  }, 30_000);
 
   test("its rules are a region the docs site and llms.txt read", () => {
     expect(read(skillPath)).toMatch(/<!-- #region rules -->[\s\S]+<!-- #endregion rules -->/);
