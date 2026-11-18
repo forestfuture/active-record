@@ -14,14 +14,14 @@ import {
 } from "./load.ts";
 import { eachOnce, findByIds, findOne } from "./find.ts";
 import { firstOf, lastOf, soleOf, takeOf, type OneRecordSource } from "./one-record.ts";
-import { listOrder, type InOrderOfOptions } from "./list-order.ts";
-import { exists, isEmpty, size, type CountSource } from "./record-counts.ts";
+import { listOrdered, type InOrderOfOptions } from "./list-order.ts";
+import { exists, isEmpty, size, upToTwo, type CountSource } from "./record-counts.ts";
 import {
-  excludedKeys,
   unscoped,
   withOnly,
   withUnscopesOf,
-  withoutConditionsOn,
+  rewhered,
+  withoutRecords,
   type AttributeNames,
   type QueryPart,
 } from "./query-rewrites.ts";
@@ -40,7 +40,6 @@ import {
   checkChanges,
   checkConditions,
   checkQuery,
-  requireAttributeConditions,
   requireSameModel,
   scopeResultError,
   isEmptyConditions,
@@ -169,9 +168,7 @@ export class Relation<M extends Model, S = {}> {
    * attributes, and fragments, are kept.
    */
   rewhere(conditions: Conditions<M>): Scoped<M, S> {
-    requireAttributeConditions(conditions, "rewhere");
-    const rest = withoutConditionsOn(this.#query, Object.keys(conditions));
-    return this.#describing(rest).where(conditions);
+    return this.#describing(rewhered(this.#query, conditions));
   }
 
   /**
@@ -192,9 +189,7 @@ export class Relation<M extends Model, S = {}> {
    * `excluding(posts)`. A record not yet saved leaves nothing out.
    */
   excluding(...records: (M | readonly M[])[]): Scoped<M, S> {
-    const keys = excludedKeys(this.#model, records);
-    if (keys.length === 0) return this.#scoped(this);
-    return this.whereNot({ [this.#model.primaryKey]: keys } as Conditions<M>);
+    return this.#describing(withoutRecords(this.#query, records));
   }
 
   /** A Relation that matches nothing and never queries D1; it stays empty when chained. */
@@ -246,9 +241,7 @@ export class Relation<M extends Model, S = {}> {
     values: readonly AttributesOf<M>[K][],
     { filter = true }: InOrderOfOptions = {},
   ): Scoped<M, S> {
-    const term = listOrder(this.#model, attribute, values);
-    const ordered = this.#with({ order: [...this.#query.order, term] });
-    return filter ? ordered.where({ [attribute]: values } as Conditions<M>) : ordered;
+    return this.#describing(listOrdered(this.#query, attribute, values, filter));
   }
 
   limit(count: number): Scoped<M, S> {
@@ -658,6 +651,16 @@ export class Relation<M extends Model, S = {}> {
   /** Whether there are any records: the opposite of `isEmpty()` (Rails' `any?`). */
   async hasAny(): Promise<boolean> {
     return !(await this.isEmpty());
+  }
+
+  /** Whether more than one record matches, as Rails' `many?`: one `COUNT` of at most two rows. */
+  async hasMoreThanOne(): Promise<boolean> {
+    return (await upToTwo(this.#countSource())) > 1;
+  }
+
+  /** Whether exactly one record matches, as Rails' `one?`: one `COUNT` of at most two rows. */
+  async hasExactlyOne(): Promise<boolean> {
+    return (await upToTwo(this.#countSource())) === 1;
   }
 
   /** What `size` and the questions about how many records there are read. */

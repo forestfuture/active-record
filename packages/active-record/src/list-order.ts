@@ -1,7 +1,8 @@
 // `inOrderOf` (#350): ordering by an attribute's place in a list of values, as Rails' `in_order_of`.
 import { attributeOf } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
-import type { AttributeOrder } from "./query.ts";
+import type { AttributeOrder, QueryDescription } from "./query.ts";
+import { checkConditions } from "./relation-checks.ts";
 
 /** What `inOrderOf` takes after its list: whether to keep only the records with a listed value. */
 export interface InOrderOfOptions {
@@ -10,10 +11,27 @@ export interface InOrderOfOptions {
 }
 
 /**
+ * `query` ordered by `attribute`'s place in `values` after its own order, and, with `filter`,
+ * matching only those values, as Rails' `in_order_of`.
+ */
+export function listOrdered(
+  query: QueryDescription,
+  attribute: string,
+  values: unknown,
+  filter: boolean,
+): QueryDescription {
+  const order = [...query.order, listOrder(query.model, attribute, values)];
+  if (!filter) return { ...query, order };
+  const listed = { [attribute]: values };
+  checkConditions(query.model, listed, "inOrderOf");
+  return { ...query, order, conditions: [...query.conditions, listed] };
+}
+
+/**
  * The order term sorting by `attribute`'s place in `values`: earliest first, and a value not in
  * them last, as Rails' `in_order_of(…, filter: false)` places it.
  */
-export function listOrder(model: ModelClass, attribute: string, values: unknown): AttributeOrder {
+function listOrder(model: ModelClass, attribute: string, values: unknown): AttributeOrder {
   const { type } = attributeOf(model, attribute);
   if (!Array.isArray(values)) {
     throw new TypeError(`inOrderOf() takes a list of "${attribute}" values`);
