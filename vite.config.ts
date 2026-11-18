@@ -210,7 +210,8 @@ export default defineConfig({
       },
       {
         // Running a command compiles the library through jiti, too slow for the unit project's
-        // 5 s default, so a test that runs one goes where commandTestTimeout applies (#485).
+        // 5 s default, so a test that runs one goes where commandTestTimeout applies (#485). The
+        // command line's main() stays open to unit tests, for its usage and unknown-flag answers.
         files: ["tests/unit/**"],
         rules: {
           "no-restricted-imports": [
@@ -219,7 +220,25 @@ export default defineConfig({
               patterns: [
                 {
                   group: ["**/cli/*/command.ts"],
-                  importNames: ["runConsole", "runGenerate", "runInit", "runMigrate", "runSchema"],
+                  importNamePattern: "^(run|watch)",
+                  message:
+                    "Running a command compiles the library: put the test in integration:d1 or integration:pg.",
+                },
+                {
+                  group: ["**/cli/project/load.ts"],
+                  importNames: ["loadLibrary"],
+                  message:
+                    "Running a command compiles the library: put the test in integration:d1 or integration:pg.",
+                },
+                {
+                  group: ["**/cli/schema/models.ts"],
+                  importNames: ["withModels"],
+                  message:
+                    "Running a command compiles the library: put the test in integration:d1 or integration:pg.",
+                },
+                {
+                  group: ["**/cli/console/project.ts"],
+                  importNames: ["loadProject"],
                   message:
                     "Running a command compiles the library: put the test in integration:d1 or integration:pg.",
                 },
