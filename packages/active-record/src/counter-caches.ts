@@ -263,7 +263,7 @@ function changeThroughRow(
   const typed =
     counter.type === undefined ? "" : ` AND ${typeCondition(owner, counter.type, params)}`;
   const row = `(SELECT ${foreignKey} FROM ${quoteIdentifier(owner.table)} WHERE ${quoteIdentifier(ownerKey.column)} = ${valueMark}${typed})`;
-  return compileCounterChange(counter, changeBy(by), { sql: row, params });
+  return compileCounterChange(counter, changeBy(counter, by), { sql: row, params });
 }
 
 /**
@@ -289,7 +289,7 @@ export async function destroyingThrough<T>(
 
 /** `UPDATE … SET counter = COALESCE(counter, 0) + ? WHERE key = ?`, as Rails' `update_counters`. */
 function counterChangeFor(counter: Counter, key: unknown, by: number): CompiledSql {
-  return compileCounterChange(counter, changeBy(by), keyed(counter, key));
+  return compileCounterChange(counter, changeBy(counter, by), keyed(counter, key));
 }
 
 /** A target's key, `= ?` with `key` bound as the counter's target key. */
@@ -305,9 +305,11 @@ export interface SqlPart {
   params: unknown[];
 }
 
-/** `+ ?`, with `by` bound. */
-function changeBy(by: number): SqlPart {
-  return { sql: `+ ${valueMark}`, params: [by] };
+/** `+ ?`, with `by` bound as the counter's value: hidden from `onQuery` if it's filtered. */
+function changeBy({ target, attribute }: Counter, by: number): SqlPart {
+  const params: unknown[] = [];
+  attributeFor(target, attribute).bindCells(params, by);
+  return { sql: `+ ${valueMark}`, params };
 }
 
 /**

@@ -156,6 +156,31 @@ describe("counter caches", () => {
     expect(await repliesCount(topic.id)).toBe(1);
   });
 
+  test("a filtered counter's change is hidden from onQuery", async () => {
+    class SecretTopic extends Model.define({
+      id: { type: "integer", null: false },
+      repliesCount: "integer",
+    }) {
+      static table = "topics";
+      static filterAttributes = ["replies_count"];
+    }
+    class SecretReply extends Model.define({
+      id: { type: "integer", null: false },
+      topicId: "integer",
+      body: { type: "string", null: false },
+    }) {
+      static table = "replies";
+      topic = belongsTo(SecretTopic, { foreignKey: "topicId", counterCache: "repliesCount" });
+    }
+    const events: QueryEvent[] = [];
+    const replies = harness.connect({ onQuery: (event) => events.push(event) }).model(SecretReply);
+
+    await replies.create({ topicId: 1, body: "first" });
+
+    const counted = events.find((event) => statementKinds([event])[0] === "UPDATE");
+    expect(counted?.params).toEqual(["[FILTERED]", 1]);
+  });
+
   test("bulk inserts skip the counter, as in Rails", async () => {
     await db()
       .model(Reply)
