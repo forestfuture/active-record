@@ -37,5 +37,9 @@ export async function examples(id: number) {
   await Article.where({ isPinned: true }).updateCounters({ viewCount: 10 });
   await Article.incrementCounter("viewCount", [id], 5);
   // #endregion counters
+
+  // #region scoped-counter
+  await Article.where({ id }).updateCounters({ viewCount: 1 }); // keeps the default scope
+  // #endregion scoped-counter
   return Article.find(id);
 }
