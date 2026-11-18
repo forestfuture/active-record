@@ -20,6 +20,8 @@ class User extends Model.define({
 }) {
   static table = "users";
 
+  static members = this.scope((q) => q.where({ role: "member" }));
+
   posts = hasMany(Post);
 }
 
@@ -90,6 +92,21 @@ describe("rewriting queries (#350)", () => {
       expect(await admins.pluck("id")).toEqual([1]);
     });
 
+    test("keeps the conditions merged onto a join", async () => {
+      const db = harness.connect();
+      const joined = db
+        .model(User)
+        .joins("posts")
+        .merge(db.model(Post).where({ title: "A" }));
+
+      expect(await joined.rewhere({ id: [1, 2] }).pluck("id")).toEqual([1]);
+    });
+
+    test("replaces a named scope's condition", async () => {
+      expect(await users().members().rewhere({ role: "admin" }).pluck("id")).toEqual([1]);
+      expect(await users().members().unscope({ where: "role" }).count()).toBe(4);
+    });
+
     test("is a where when nothing names its attributes", async () => {
       expect(await users().rewhere({ role: "admin" }).pluck("id")).toEqual([1]);
     });
@@ -140,11 +157,25 @@ describe("rewriting queries (#350)", () => {
       expect(() => joined.unscope("joins")).toThrow(IncompatibleRelation);
     });
 
-    test("drops includes and createWith", async () => {
+    test("refuses to drop a join that an order merged onto it uses", () => {
+      const db = harness.connect();
+      const joined = db
+        .model(User)
+        .joins("posts")
+        .merge(db.model(Post).order({ title: "asc" }));
+
+      expect(() => joined.unscope("joins")).toThrow(IncompatibleRelation);
+    });
+
+    test("drops includes", async () => {
       const [user] = await users().includes("posts").unscope("includes").where({ id: 1 }).toArray();
-      const built = users().createWith({ role: "guest" }).unscope("createWith").build();
 
       expect(user?.isLoaded("posts")).toBe(false);
+    });
+
+    test("drops createWith", () => {
+      const built = users().createWith({ role: "guest" }).unscope("createWith").build();
+
       expect(built.role).toBeNull();
     });
 
@@ -262,11 +293,32 @@ describe("rewriting queries (#350)", () => {
       expect(() => users().distinct().inOrderOf("role", ["admin"])).toThrow(IncompatibleRelation);
     });
 
-    test("refuses a value that isn't a list, an undefined value and a json attribute", () => {
+    test("refuses a value that isn't a list, and an undefined value", () => {
       // @ts-expect-error -- a list of values
       expect(() => users().inOrderOf("role", "admin")).toThrow(TypeError);
       // @ts-expect-error -- undefined isn't a role
       expect(() => users().inOrderOf("role", [undefined])).toThrow(TypeError);
+    });
+
+    test("refuses a json attribute, whose values it can't compare", () => {
+      class Tagged extends Model.define({ id: { type: "integer", null: false }, role: "json" }) {
+        static table = "users";
+      }
+
+      expect(() => harness.connect().model(Tagged).inOrderOf("role", [{}])).toThrow(TypeError);
+    });
+
+    test("takes an enum's names, ordering by the values they're stored as", async () => {
+      class Aged extends Model.define({
+        id: { type: "integer", null: false },
+        age: { type: "integer", enum: { thirty: 30, forty: 40, fifty: 50 } },
+      }) {
+        static table = "users";
+      }
+
+      const ordered = harness.connect().model(Aged).inOrderOf("age", ["fifty", "thirty"]);
+
+      expect(await ordered.order({ id: "asc" }).pluck("id")).toEqual([4, 1, 3]);
     });
   });
 
@@ -321,12 +373,15 @@ describe("rewriting queries (#350)", () => {
       expect(events).toEqual([]);
     });
 
-    test("count within a limit, and none() has neither, with no query", async () => {
+    test("count within a limit", async () => {
+      expect(await users().limit(1).hasMoreThanOne()).toBe(false);
+      expect(await users().offset(3).hasExactlyOne()).toBe(true);
+    });
+
+    test("answer false for none(), with no query", async () => {
       const events: QueryEvent[] = [];
       const all = harness.connect({ onQuery: (event) => events.push(event) }).model(User);
 
-      expect(await all.limit(1).hasMoreThanOne()).toBe(false);
-      events.length = 0;
       expect(await all.none().hasExactlyOne()).toBe(false);
       expect(await all.none().hasMoreThanOne()).toBe(false);
       expect(events).toEqual([]);
