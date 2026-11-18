@@ -22,7 +22,8 @@ import { state } from "./record-state.ts";
 import { queryOf, type Relation, type Scoped } from "./relation.ts";
 import { preparedWrites } from "./prepared-writes.ts";
 import type { QueryDescription } from "./query.ts";
-import { Statement, statementParts } from "./statement.ts";
+import { countedOut } from "./owners-counter.ts";
+import { runAlone, Statement, statementParts } from "./statement.ts";
 import { linkedToRecords, type ResolvedAssociation } from "./resolved-association.ts";
 import { insertError, requireWritableThrough } from "./through-associations.ts";
 
@@ -165,7 +166,7 @@ async function destroyAll<M extends Model>(hasMany: OwnersHasManyThrough): Promi
  * the association it goes through whose source key is one of theirs.
  */
 function deleteJoins(
-  { association, via }: ThroughOwner,
+  { owner, association, via }: ThroughOwner,
   collection: OwnedCollection,
   query: QueryDescription,
 ): Statement {
@@ -175,10 +176,23 @@ function deleteJoins(
   const { executor, queries, landed } = joins[preparedWrites].deleteAll()[statementParts];
   // What the owner has loaded through it is no longer known, as for any write through it (#187).
   collection.invalidate();
-  return new Statement(executor, queries, (results) => {
+  const statement = new Statement(executor, queries, (results) => {
     landed(results);
     collection.invalidate();
   });
+  return countedOutJoins(statement, { owner, association }, joins[queryOf]);
+}
+
+/**
+ * `statement`, deleting the owner's join records `query` finds, with the owner's counter cache
+ * of them counting them out, as Rails' has_many :through does (#61).
+ */
+function countedOutJoins(
+  statement: Statement,
+  { owner, association }: Pick<ThroughOwner, "owner" | "association">,
+  query: QueryDescription,
+): Statement {
+  return countedOut(statement, owner, association.hops!.via, query);
 }
 
 /**
@@ -204,8 +218,11 @@ async function remove<M extends Model>(
     const keys = stored.map((record) => record[state].read(source.targetAttribute));
     // Narrowed from the association's Relation, so its deleteAll deletes rather than nullifying.
     const joins = via().where({ [source.ownerAttribute]: keys } as never);
-    if (removal === "deleteAll") await joins.deleteAll();
-    else await destroyJoins(viaCollection, await joins.toArray(), `${method}() needs its records`);
+    if (removal === "deleteAll") {
+      const statement = joins[preparedWrites].deleteAll();
+      await runAlone(countedOutJoins(statement, hasMany, joins[queryOf]));
+    } else
+      await destroyJoins(viaCollection, await joins.toArray(), `${method}() needs its records`);
   }
   collection.removed(records);
   return records;

@@ -45,3 +45,7 @@ CREATE TABLE replies (id INTEGER PRIMARY KEY, topic_id INTEGER REFERENCES topics
 -- A reaction to a topic or a picture, counted on whichever it's on.
 CREATE TABLE pictures (id INTEGER PRIMARY KEY, reactions_count INTEGER DEFAULT 0);
 CREATE TABLE reactions (id INTEGER PRIMARY KEY, reactable_type TEXT, reactable_id INTEGER);
+-- Cards pinned to boards, each board counting its pins.
+CREATE TABLE boards (id INTEGER PRIMARY KEY, pins_count INTEGER DEFAULT 0);
+CREATE TABLE cards (id INTEGER PRIMARY KEY);
+CREATE TABLE pins (id INTEGER PRIMARY KEY, board_id INTEGER REFERENCES boards (id), card_id INTEGER REFERENCES cards (id));
