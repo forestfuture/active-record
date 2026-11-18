@@ -1063,8 +1063,9 @@ describe("the persistence page's changing one attribute (#351)", () => {
 
     const article = await withDatabase(connect(binding), () => attributeWrites.examples(1));
 
-    // 1 saved, 1 by incrementColumn, 1 by updateCounters, none while unpinned, 5 by incrementCounter.
-    expect(article.viewCount).toBe(8);
+    // 1 saved, 1 by incrementColumn, 1 by updateCounters, none while unpinned, 5 by
+    // incrementCounter, and 1 through where().
+    expect(article.viewCount).toBe(9);
     expect(article.isPinned).toBe(false);
     expect(article.title).toBe("Renamed");
     expect(article.updatedAt).not.toBeNull();

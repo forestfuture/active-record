@@ -445,6 +445,16 @@ describe("changing one attribute (#351)", () => {
       expect(events).toEqual([]);
     });
 
+    // A guard: a Relation from the Model's statics carries its default scope.
+    test("a Relation keeps its default scope, so a key it hides changes nothing", async () => {
+      const members = withDatabase(db(), () =>
+        ActiveMember.where({ id: 2 }).updateCounters({ age: 4 }),
+      );
+
+      expect(await members).toBe(0);
+      expect(await ages()).toEqual([3, null]);
+    });
+
     test("incrementCounter refuses an amount that isn't a number, sending nothing", async () => {
       const added = withDatabase(db(), () => Member.incrementCounter("age", 1, untyped("5")));
 

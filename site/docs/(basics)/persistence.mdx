@@ -90,6 +90,13 @@ To add to a number without loading the record, pass its primary key to `updateCo
 
 Each one sends a single statement and resolves to the number of rows it changed. Like `updateAll`, it skips validations, callbacks, and `updatedAt`.
 
+:::warning[Counting by key skips the default scope]
+`Article.updateCounters`, `incrementCounter`, and `decrementCounter` find rows by primary key alone. If a default scope keeps tenants apart or hides deleted rows, a key from a request can reach a row it hides. Start from a Relation instead, which keeps the default scope:
+
+<include>/_excerpts/guide/attribute-writes/scoped-counter.ts</include>
+
+:::
+
 :::note
 `increment` and the counters take `integer` and `real` attributes. A `decimal` is stored as text, so they refuse it.
 :::
