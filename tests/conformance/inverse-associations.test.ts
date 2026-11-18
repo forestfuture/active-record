@@ -249,6 +249,15 @@ describe("inverse associations", () => {
       expect(user!.isLoaded("profile")).toBe(false);
     });
 
+    test("of a subclass of the hasOne's Model has its owner as its inverse hasOne", async () => {
+      class FeaturedProfile extends Profile {}
+
+      const profile = await db().model(FeaturedProfile).find(1);
+      const user = await profile.user();
+
+      expect(user!.loaded("profile")).toBe(profile);
+    });
+
     test("doesn't fill its inverse hasMany: one record isn't the collection", async () => {
       const post = await db().model(Post).find(10);
 
@@ -552,7 +561,7 @@ describe("inverse associations", () => {
       expect(onPhoto!.loaded("commentable")).toBe(photo);
     });
 
-    test("a polymorphic hasMany combined with another Model's by or() points back only its own", async () => {
+    test("a polymorphic hasMany combined with another Model's by or(): only its own records point back", async () => {
       const connection = db();
       const post = await connection.model(Post).find(10);
       const photo = await connection.model(Photo).find(10);

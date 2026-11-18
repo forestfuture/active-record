@@ -69,9 +69,15 @@ export function inverseHasOne(
   return undefined;
 }
 
-/** Whether two resolved associations are one: the same name on the same Model. */
+/**
+ * Whether `one` is `other`, or what `other` inherits: the same name and foreign key, on `other`'s
+ * Model or a class it extends.
+ */
 function isSameAssociation(one: ResolvedAssociation | undefined, other: ResolvedAssociation) {
-  return one?.owner === other.owner && one.name === other.name;
+  if (one === undefined || one.name !== other.name) return false;
+  return (
+    isOrExtends(other.owner, one.owner) && one.definition.foreignKey === other.definition.foreignKey
+  );
 }
 
 /**

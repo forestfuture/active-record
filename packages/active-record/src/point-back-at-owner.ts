@@ -37,12 +37,13 @@ export function pointLoadedBack(
     for (const record of value) pointBackAtOwner(owner, association, record);
     return;
   }
-  if (association.definition.kind !== "belongsTo")
-    return pointBackAtOwner(owner, association, value);
-  const record = value;
-  const inverse = inverseHasOne(record, association.branchForRecord(record) ?? association);
+  if (association.definition.kind !== "belongsTo") {
+    pointBackAtOwner(owner, association, value);
+    return;
+  }
+  const inverse = inverseHasOne(value, association.branchForRecord(value) ?? association);
   if (inverse !== undefined)
-    record[state].associations.set(inverse.name, inverse.keyAttributes, owner);
+    value[state].associations.set(inverse.name, inverse.keyAttributes, owner);
 }
 
 /**
