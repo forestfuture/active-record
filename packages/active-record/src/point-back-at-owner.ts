@@ -1,6 +1,6 @@
 // A record built, created or loaded through its owner's hasMany or hasOne points back at the owner (#339, #62).
 import { inverseHasOne, inverseOf } from "./inverse-associations.ts";
-import type { Model } from "./model.ts";
+import { Model } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
 
@@ -27,13 +27,19 @@ export function pointBackAtOwner(
  * through its inverse hasOne. A hasMany isn't filled from a belongsTo: one record isn't the whole
  * collection, as in Rails.
  */
-export function pointLoadedBack(owner: Model, association: ResolvedAssociation, value: unknown) {
+export function pointLoadedBack(
+  owner: Model,
+  association: ResolvedAssociation,
+  value: Model | readonly Model[] | null,
+): void {
   if (value === null) return;
-  if (association.definition.kind !== "belongsTo") {
-    for (const record of [value].flat() as Model[]) pointBackAtOwner(owner, association, record);
+  if (!(value instanceof Model)) {
+    for (const record of value) pointBackAtOwner(owner, association, record);
     return;
   }
-  const record = value as Model;
+  if (association.definition.kind !== "belongsTo")
+    return pointBackAtOwner(owner, association, value);
+  const record = value;
   const inverse = inverseHasOne(record, association.branchForRecord(record) ?? association);
   if (inverse !== undefined)
     record[state].associations.set(inverse.name, inverse.keyAttributes, owner);

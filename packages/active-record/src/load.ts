@@ -1,4 +1,4 @@
-// How a Relation's query runs (on D1, or not at all for `none()`).
+// How a Relation's query runs (on D1, or not at all for `none()`), its records pointing back at a hasMany's owner (#62).
 import { compileCount, compileSelect, type CompiledSql } from "./compiler.ts";
 import { type Dialect, withPlaceholders } from "./dialect.ts";
 import { databaseNow, type Executor } from "./executor.ts";
@@ -59,16 +59,25 @@ export function runnerFor<M extends Model>(
   collection: OwnedCollection,
 ): QueryRunner<M> {
   if (query.none) return nothing;
-  const each = <T extends { records: M[] }>(result: T): T => {
-    for (const record of result.records) collection.pointBack(record);
-    return result;
+  const pointBack = (records: readonly M[]): void => {
+    for (const record of records) collection.pointBack(record);
   };
   return {
-    load: async (description) =>
-      each({ records: await loadRecords(executor, model, description) }).records,
-    loadCounted: async (description, counted) =>
-      each(await loadCounted(executor, model, description, counted)),
-    loadAhead: async (description) => each(await loadAhead(executor, model, description)),
+    async load(description) {
+      const records = await loadRecords(executor, model, description);
+      pointBack(records);
+      return records;
+    },
+    async loadCounted(description, counted) {
+      const loaded = await loadCounted(executor, model, description, counted);
+      pointBack(loaded.records);
+      return loaded;
+    },
+    async loadAhead(description) {
+      const loaded = await loadAhead(executor, model, description);
+      pointBack(loaded.records);
+      return loaded;
+    },
     rows: (sql) => executor.all(sql()),
     changes: async (write) => (await write()).rowsAffected,
   };

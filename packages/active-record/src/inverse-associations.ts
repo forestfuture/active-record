@@ -109,7 +109,7 @@ function checkNamed(label: string, declared: Declared, named: Declared): void {
     );
   }
   const [belongsTo, other] = wanted === "hasOne" ? [declared, named] : [named, declared];
-  if (!isLinkBack(belongsTo, other)) {
+  if (!isInversePair(belongsTo, other)) {
     throw new InvalidModel(
       `${label}: inverseOf "${named.name}" doesn't link ${named.model.name} back to ${declared.model.name} through the same keys`,
     );
@@ -120,7 +120,7 @@ function checkNamed(label: string, declared: Declared, named: Declared): void {
  * Whether a belongsTo and a hasMany or hasOne are two sides of one link: each points at the
  * other's Model, through the same foreign key, type (#60) and key, and not through another.
  */
-function isLinkBack(belongsTo: Declared, other: Declared): boolean {
+function isInversePair(belongsTo: Declared, other: Declared): boolean {
   const { definition: pointing } = belongsTo;
   const { definition: pointedAt } = other;
   if (pointedAt.through !== undefined || pointing.foreignKey !== pointedAt.foreignKey) return false;
