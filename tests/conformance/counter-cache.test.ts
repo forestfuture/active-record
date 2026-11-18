@@ -80,6 +80,7 @@ class StampedTopic extends Model.define({
   id: { type: "integer", null: false },
   repliesCount: "integer",
   updatedAt: "datetime",
+  seenAt: "datetime",
 }) {
   static table = "topics";
   replies = hasMany(StampedReply, { foreignKey: "topicId" });
@@ -180,6 +181,69 @@ describe("counter caches", () => {
 
     expect(topic.repliesCount).toBe(1);
     expect(await repliesCount(topic.id)).toBe(1);
+  });
+
+  describe("in a write the database refuses", () => {
+    beforeEach(async () => {
+      await harness.exec("UPDATE topics SET replies_count = 1 WHERE id = 1");
+      await harness.exec("INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a')");
+    });
+
+    test("a destroy leaves the counter as it was", async () => {
+      const database = db();
+      const reply = await database.model(Reply).find(1);
+
+      const refused = batch((b) => [
+        b.destroy(reply),
+        b.insert(database.model(Topic), { id: 2, title: "Taken" }),
+      ]);
+
+      await expect(refused).rejects.toThrow(RecordNotUnique);
+      expect(await repliesCount(1)).toBe(1);
+    });
+
+    test("a move leaves both counters as they were", async () => {
+      const database = db();
+      const reply = await database.model(Reply).find(1);
+      reply.topicId = 2;
+
+      const refused = batch((b) => [
+        b.save(reply),
+        b.insert(database.model(Topic), { id: 2, title: "Taken" }),
+      ]);
+
+      await expect(refused).rejects.toThrow(RecordNotUnique);
+      expect([await repliesCount(1), await repliesCount(2)]).toEqual([1, 0]);
+    });
+  });
+
+  test("a record destroyed in a batch counts out", async () => {
+    await harness.exec("UPDATE topics SET replies_count = 1 WHERE id = 1");
+    await harness.exec("INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a')");
+    const reply = await db().model(Reply).find(1);
+
+    await batch((b) => [b.destroy(reply)]);
+
+    expect(await repliesCount(1)).toBe(0);
+  });
+
+  test("records built through the owner's hasMany count when it's saved", async () => {
+    const topic = await db().model(Topic).find(1);
+    topic.replies().build({ body: "a" });
+    topic.replies().build({ body: "b" });
+
+    await topic.saveOrThrow();
+
+    expect(await repliesCount(1)).toBe(2);
+  });
+
+  test("upsert and updateAll skip the counter, as in Rails", async () => {
+    const replies = db().model(Reply);
+
+    await replies.upsert({ id: 1, topicId: 1, body: "a" });
+    await replies.where({ id: 1 }).updateAll({ topicId: 2 });
+
+    expect([await repliesCount(1), await repliesCount(2)]).toEqual([0, 0]);
   });
 
   test("a filtered counter's change is hidden from onQuery", async () => {
@@ -629,6 +693,16 @@ describe("counter caches", () => {
       const touched = await withDatabase(db(), () => StampedTopic.find(1));
       expect(touched.updatedAt!.getTime()).toBeGreaterThanOrEqual(before - 1000);
       expect(await updatedAt(2)).toBeNull();
+    });
+
+    test("touch naming a datetime attribute sets it with updatedAt", async () => {
+      const write = () =>
+        StampedTopic.updateCounters(1, { repliesCount: 1 }, { touch: ["seenAt"] });
+
+      await withDatabase(db(), write);
+
+      const touched = await withDatabase(db(), () => StampedTopic.find(1));
+      expect([touched.seenAt, touched.updatedAt]).toEqual([expect.any(Date), expect.any(Date)]);
     });
 
     test("without touch, the counters leave updatedAt alone", async () => {
