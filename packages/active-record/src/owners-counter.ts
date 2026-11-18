@@ -108,7 +108,10 @@ export function countedOut(
   };
   const [removal] = queries;
   const { dialect } = executor;
-  if (dialect.countedRemoval !== undefined && queries.length === 1 && removal !== undefined) {
+  // In one statement Postgres changes a row once, so a hasMany of the owner's own table, whose
+  // removal could change the owner's row too, counts first instead.
+  const isOwnTable = counters.some(({ target }) => target.table === association.target.table);
+  if (dialect.countedRemoval !== undefined && !isOwnTable && queries.length === 1 && removal) {
     const counted = dialect.countedRemoval(removal, (removed) =>
       decrements({ sql: `- ${removed}`, params: [] }),
     );
