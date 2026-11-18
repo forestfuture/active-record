@@ -1,4 +1,4 @@
-// Counters (#351): adding to number attributes in the row, `SET x = COALESCE(x, 0) + n`, for `updateCounters` and a record's `incrementColumn`, and the attribute types they take.
+// Counters (#351): adding to number attributes in the row, `SET x = COALESCE(x, 0) + n`, for `updateCounters` and a record's `incrementColumn`; the amounts they add; and refusing an attribute of the wrong type, for them and for `toggle`.
 import type { NumberAttributeKey } from "./attribute-writes.ts";
 import { attributeOf } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";

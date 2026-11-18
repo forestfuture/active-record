@@ -429,7 +429,7 @@ _Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx#changing-one-attri
 - `incrementColumn` is atomic: `SET x = COALESCE(x, 0) + ?` with `RETURNING x`, so copies of a record incrementing at once all count, and the record holds the row's new value (Rails' `increment!` keeps the value it worked out). It sends the amount plus any unsaved change to that attribute, as Rails sends the difference from the loaded value; with no row, the record holds that value, clean.
 - `toggleColumn` writes the flipped value as `updateColumn` does, so it runs no callback, unlike Rails' `toggle!` (which saves through `update_attribute`, running the save callbacks and saving other changes).
 - Counters: a Relation's `updateCounters({ viewCount: 1 })` adds to number attributes in every row it matches in one `UPDATE … SET x = COALESCE(x, 0) + ?, …`; it's an `updateAll`, so it skips validations, callbacks and `updatedAt`, and `none()` sends nothing. `Model.updateCounters(ids, counters)` writes the rows with those primary keys, ignoring the default scope, as Rails' `update_counters`. `Model.incrementCounter(name, ids, by = 1)` and `decrementCounter` are it for one attribute (Rails' `by:` keyword is positional here). Each resolves to the number of rows. Rails' `touch:` option is #50's.
-- The amounts and counters take `integer` and `real` attributes, as the compiler and a `TypeError` both say: not an enum, a custom type, or a `decimal`, which is text (#480). `{}` is a `TypeError`. A counter's amount is bound as the attribute's value, so a filtered one is `[FILTERED]` in `onQuery`.
+- The amounts and counters take `integer` and `real` attributes, as the compiler and a `TypeError` both say: not an enum, a custom type, or a `decimal`, which is text (#480). `{}`, and an amount that isn't a finite number (a string or `null` from untyped code), are a `TypeError`, before anything changes or is sent. A counter's amount is bound as the attribute's value, so a filtered one is `[FILTERED]` in `onQuery`.
 - Batch forms are #481, and `updateAttribute` #482.
 
 ## Constraint errors
@@ -568,7 +568,7 @@ _Guide:_ [persistence](<../site/docs/(basics)/persistence.mdx>). _Code:_ `active
 
 - A record is marked destroyed only after the D1 `DELETE` succeeds, and before `afterDestroy` runs. Destroying a never-saved record sends nothing, since there's no row, and marks it destroyed. If `afterDestroy` throws, the row stays deleted and the record stays destroyed.
 - `isDestroyed()` is `true` and `isPersisted()` is `false`. Attributes stay readable, but the record is read-only: setting a property or calling `assign` throws `RecordDestroyed`.
-- `save`, `saveOrThrow`, `update`, `destroy` and `reload` throw `RecordDestroyed`.
+- `save`, `saveOrThrow`, `update`, `destroy`, `reload`, `updateColumns`, `updateColumn` and the `…Column` methods (#351) throw `RecordDestroyed`.
 - A keyless record from `select(...).distinct()` has no identity to write by, so the same methods throw `MissingAttribute`. A record constructed directly (`new User()`) has no Database, so they throw `NoDatabase`.
 
 ## Destroying many records

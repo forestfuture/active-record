@@ -1,4 +1,4 @@
-// The statics every Model gets from Model: its Relation methods (`Product.where(…)`), `destroy` and `delete` by primary key, and callbacks (`this.beforeSave(…)`), typed and defined from their lists.
+// The statics every Model gets from Model: its Relation methods (`Product.where(…)`), `destroy`, `delete` and the counters (`updateCounters`, `incrementCounter`, `decrementCounter`) by primary key, and callbacks (`this.beforeSave(…)`), typed and defined from their lists.
 import {
   declare,
   type CallbackKind,
