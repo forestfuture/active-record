@@ -221,7 +221,7 @@ If you want another inverse, or one for an association with a `scope`, name it w
 
 <include>/_excerpts/guide/associations/inverse-of.ts</include>
 
-`inverseOf` on a `hasMany` or `hasOne` names a `belongsTo`, and on a `belongsTo` it names a `hasOne`. `inverseOf: false` turns the inverse off. If the association you name doesn’t link back through the same keys, using the Model throws `InvalidModel`.
+`inverseOf` on a `hasMany` or `hasOne` names a `belongsTo`, and on a `belongsTo` it names a `hasOne`. On a polymorphic `belongsTo`, each Model it lists needs that `hasOne`. `inverseOf: false` turns the inverse off. If the association you name doesn’t link back through the same keys, using the Model throws `InvalidModel`.
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
