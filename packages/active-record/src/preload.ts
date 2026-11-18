@@ -16,6 +16,7 @@ import { state } from "./record-state.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import { queryOf, type Scoped } from "./relation.ts";
 import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
+import { pointLoadedBack } from "./point-back-at-owner.ts";
 import { planHop, type Found, type Hop, type Owners, type HopRequest } from "./through-preload.ts";
 import { isOwnedThrough, ownersOfBranch, treeForBranch } from "./polymorphic-preload.ts";
 import { associationsOf } from "./association-fields.ts";
@@ -505,13 +506,17 @@ function targetsOfOwner(
   return byKey.get(targetKey.condition(key)) ?? [];
 }
 
-/** `records` loaded as `owner`'s `association`: all of them for a hasMany, else the first or null. */
+/**
+ * `records` loaded as `owner`'s `association`: all of them for a hasMany, else the first or null,
+ * each pointing back at the owner through its inverse (#62).
+ */
 function loadedAs(owner: Model, association: ResolvedAssociation, records: Model[]): void {
   const { name, definition } = association;
   const value = definition.kind === "hasMany" ? records : (records[0] ?? null);
   // Set, not started as a load: the owners aren't reachable until loading returns, so nothing can write
   // through them meanwhile.
   owner[state].associations.set(name, association.keyAttributes, value);
+  pointLoadedBack(owner, association, value);
 }
 
 /** Each owner of a through association (#59) gets the records it reaches. */

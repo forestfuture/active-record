@@ -13,6 +13,36 @@ class User extends Model.define({
   profile = hasOne(Profile, { foreignKey: "userId" });
 }
 
+class Photo extends Model.define({
+  id: { type: "integer", null: false },
+  title: "string",
+}) {
+  static table = "photos";
+
+  remarks = hasMany(Remark, { as: "commentable" });
+  firstRemark = hasOne(Remark, { as: "commentable" });
+}
+
+class Remark extends Model.define({
+  id: { type: "integer", null: false },
+  body: "string",
+  commentableType: "string",
+  commentableId: "integer",
+}) {
+  static table = "remarks";
+
+  commentable = belongsTo([Post, Photo], { optional: true });
+}
+
+class Comment extends Model.define({
+  id: { type: "integer", null: false },
+  postId: "integer",
+}) {
+  static table = "comments";
+
+  post = belongsTo(Post, { foreignKey: "postId" });
+}
+
 class Post extends Model.define({
   id: { type: "integer", null: false },
   userId: { type: "integer", null: false },
@@ -21,6 +51,8 @@ class Post extends Model.define({
   static table = "posts";
 
   author = belongsTo(User, { foreignKey: "userId" });
+  comments = hasMany(Comment, { foreignKey: "postId" });
+  remarks = hasMany(Remark, { as: "commentable" });
 }
 
 class Profile extends Model.define({
@@ -43,7 +75,7 @@ describe("inverse associations", () => {
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
-    await harness.reset("posts", "profiles", "users");
+    await harness.reset("remarks", "photos", "comments", "posts", "profiles", "users");
     await harness.exec(
       "INSERT INTO users (id, email) VALUES (1, 'a@example.com'), (2, 'b@example.com')",
     );
@@ -51,6 +83,11 @@ describe("inverse associations", () => {
       "INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'A1'), (11, 1, 'A2'), (12, 2, 'B1')",
     );
     await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (1, 1, 'Ay')");
+    await harness.exec("INSERT INTO comments (id, post_id) VALUES (1, 10), (2, 10)");
+    await harness.exec("INSERT INTO photos (id, title) VALUES (10, 'Sunset')");
+    await harness.exec(
+      "INSERT INTO remarks (id, body, commentable_type, commentable_id) VALUES (1, 'On a post', 'Post', 10), (2, 'On a photo', 'Photo', 10)",
+    );
     queries.length = 0;
   });
 
@@ -156,5 +193,62 @@ describe("inverse associations", () => {
 
       expect(user!.isLoaded("posts")).toBe(false);
     });
+  });
+
+  describe("preloaded records", () => {
+    test("of a hasMany and a hasOne point back at their owner", async () => {
+      const [user] = await db().model(User).where({ id: 1 }).includes("posts", "profile").toArray();
+      queries.length = 0;
+
+      for (const post of user!.loaded("posts")) expect(post.loaded("author")).toBe(user);
+      expect(user!.loaded("profile")!.loaded("user")).toBe(user);
+      expect(queries).toHaveLength(0);
+    });
+
+    test("of a belongsTo have their owner as their inverse hasOne", async () => {
+      const [profile] = await db().model(Profile).includes("user").toArray();
+
+      expect(profile!.loaded("user")!.loaded("profile")).toBe(profile);
+    });
+
+    test("at every level of a nested preload point back at their owner", async () => {
+      const [user] = await db()
+        .model(User)
+        .where({ id: 1 })
+        .includes({ posts: "comments" })
+        .toArray();
+
+      const post = user!.loaded("posts").find((each) => each.id === 10)!;
+      expect(post.loaded("author")).toBe(user);
+      for (const comment of post.loaded("comments")) expect(comment.loaded("post")).toBe(post);
+    });
+
+    test("of a polymorphic hasMany point back through the belongsTo's branch", async () => {
+      const [post] = await db().model(Post).where({ id: 10 }).includes("remarks").toArray();
+      const [photo] = await db().model(Photo).includes("remarks").toArray();
+
+      expect(post!.loaded("remarks")[0]!.loaded("commentable")).toBe(post);
+      expect(photo!.loaded("remarks")[0]!.loaded("commentable")).toBe(photo);
+    });
+
+    test("of a polymorphic belongsTo have their owner as the inverse hasOne", async () => {
+      const remarks = await db()
+        .model(Remark)
+        .order({ id: "asc" })
+        .includes("commentable")
+        .toArray();
+
+      const [onPost, onPhoto] = remarks;
+      expect((onPhoto!.loaded("commentable") as Photo).loaded("firstRemark")).toBe(onPhoto);
+      expect(onPost!.loaded("commentable")).toBeInstanceOf(Post);
+    });
+  });
+
+  test("a polymorphic belongsTo's read has its owner as the inverse hasOne", async () => {
+    const remark = await db().model(Remark).find(2);
+
+    const photo = (await remark.commentable()) as Photo;
+
+    expect(photo.loaded("firstRemark")).toBe(remark);
   });
 });
