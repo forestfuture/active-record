@@ -71,6 +71,24 @@ class BackfilledReply extends Model.define({
   });
 }
 
+/** A topic with a timestamp, which `touch` sets. */
+class StampedTopic extends Model.define({
+  id: { type: "integer", null: false },
+  repliesCount: "integer",
+  updatedAt: "datetime",
+}) {
+  static table = "topics";
+  replies = hasMany(StampedReply, { foreignKey: "topicId" });
+}
+
+class StampedReply extends Model.define({
+  id: { type: "integer", null: false },
+  topicId: "integer",
+}) {
+  static table = "replies";
+  topic = belongsTo(StampedTopic, { foreignKey: "topicId", counterCache: "repliesCount" });
+}
+
 describe("counter caches", () => {
   let harness: Harness;
   const db = () => harness.connect();
@@ -356,6 +374,61 @@ describe("counter caches", () => {
         withDatabase(db(), () => Untallied.resetCounters(1, "missing")),
       ).rejects.toThrow(UnknownAssociation);
     });
+  });
+
+  describe("touch", () => {
+    const updatedAt = async (id: number) =>
+      (await harness.exec("SELECT updated_at AS t FROM topics WHERE id = ?", [id]))[0]?.t;
+    const touches = [
+      [
+        "updateCounters",
+        () => StampedTopic.updateCounters(1, { repliesCount: 1 }, { touch: true }),
+      ],
+      ["incrementCounter", () => StampedTopic.incrementCounter("repliesCount", 1, { touch: true })],
+      ["decrementCounter", () => StampedTopic.decrementCounter("repliesCount", 1, { touch: true })],
+      ["resetCounters", () => StampedTopic.resetCounters(1, "replies", { touch: true })],
+      [
+        "a Relation's updateCounters",
+        () => StampedTopic.where({ id: 1 }).updateCounters({ repliesCount: 1 }, { touch: true }),
+      ],
+    ] as [string, () => Promise<unknown>][];
+
+    test.each(touches)("%s sets updatedAt with the counter", async (_, write) => {
+      const before = Date.now();
+
+      await withDatabase(db(), write);
+
+      const touched = await withDatabase(db(), () => StampedTopic.find(1));
+      expect(touched.updatedAt!.getTime()).toBeGreaterThanOrEqual(before - 1000);
+      expect(await updatedAt(2)).toBeNull();
+    });
+
+    test("without touch, the counters leave updatedAt alone", async () => {
+      await withDatabase(db(), () => StampedTopic.updateCounters(1, { repliesCount: 1 }));
+
+      expect(await updatedAt(1)).toBeNull();
+    });
+
+    test("touch names datetime attributes to set besides updatedAt", async () => {
+      const write = () =>
+        // @ts-expect-error touch names datetime attributes
+        StampedTopic.updateCounters(1, { repliesCount: 1 }, { touch: "repliesCount" });
+
+      await expect(withDatabase(db(), write)).rejects.toThrow(
+        new TypeError(
+          'StampedTopic.touch("repliesCount") takes datetime attributes; repliesCount isn\'t one',
+        ),
+      );
+    });
+  });
+
+  test("resetCounters takes a list of names", async () => {
+    await harness.exec("UPDATE topics SET replies_count = 9, reply_tally = 9 WHERE id = 1");
+    await harness.exec("INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a')");
+
+    await withDatabase(db(), () => Topic.resetCounters(1, ["replies"]));
+
+    expect(await repliesCount(1)).toBe(1);
   });
 
   describe("an attribute named by counterCache", () => {

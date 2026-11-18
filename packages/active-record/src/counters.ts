@@ -1,11 +1,35 @@
 // Counters (#351): adding to number attributes in the row, `SET x = COALESCE(x, 0) + n`, for `updateCounters` and a record's `incrementColumn`; the amounts they add; and refusing an attribute of the wrong type, for them and for `toggle`.
-import type { NumberAttributeKey } from "./attribute-writes.ts";
+import type { DatetimeAttributeKey, NumberAttributeKey } from "./attribute-writes.ts";
 import { attributeOf } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
 import { column, SafeSql } from "./sql.ts";
 
 /** What `updateCounters` adds to each number attribute: `{ viewCount: 1 }`. */
 export type Counters<R> = { [K in NumberAttributeKey<R>]?: number };
+
+/**
+ * What a counter's write also sets to now (#61), as Rails' `touch:`: `true` for `updatedAt`, or
+ * a datetime attribute's name, or several, set with `updatedAt`.
+ */
+export type Touch<R> = true | DatetimeAttributeKey<R> | readonly DatetimeAttributeKey<R>[];
+
+/** What the counter writes take besides their counters: `touch`. */
+export interface CounterOptions<R> {
+  touch?: Touch<R>;
+}
+
+/**
+ * The attributes `touch` sets: `updatedAt` when the Model has it, and those named, each a
+ * datetime attribute (a `TypeError` otherwise).
+ */
+export function touchedNames(model: ModelClass, touch: unknown): string[] {
+  if (touch === undefined || touch === false) return [];
+  const named = touch === true ? [] : Array.isArray(touch) ? touch : [touch];
+  const updatedAt = model.attributeDefinitions.get("updatedAt")?.type === "datetime";
+  const names = [...new Set([...(updatedAt ? ["updatedAt"] : []), ...named.map(String)])];
+  for (const name of names) requireAttributeType(model, name, "touch", "datetime");
+  return names;
+}
 
 /**
  * `x = COALESCE(x, 0) + ?, …` for each counter, so a NULL counts as zero and concurrent writes
@@ -15,6 +39,7 @@ export function counterSets(
   model: ModelClass,
   counters: Readonly<Record<string, unknown>>,
   method: string,
+  touch?: unknown,
 ): SafeSql {
   const entries = Object.entries(counters);
   if (entries.length === 0) throw new TypeError(`${method} needs at least one counter`);
@@ -25,6 +50,12 @@ export function counterSets(
     if (index > 0) strings[strings.length - 1] = ", ";
     values.push(column(name), column(name), column(name).value(amount(by, method)));
     strings.push(" = COALESCE(", ", 0) + ", "");
+  }
+  const now = new Date();
+  for (const name of touchedNames(model, touch)) {
+    strings[strings.length - 1] = ", ";
+    values.push(column(name), column(name).value(now));
+    strings.push(" = ", "");
   }
   return new SafeSql(strings, values);
 }

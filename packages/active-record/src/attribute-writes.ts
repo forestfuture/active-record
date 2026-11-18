@@ -35,6 +35,9 @@ type AttributeKey<R> = keyof AttributesOf<R> & string;
 /** A record's number attributes, which `increment` and `decrement` take. */
 export type NumberAttributeKey<R> = AttributeKeyOf<R, "integer" | "real">;
 
+/** A record's datetime attributes, which a counter's `touch` names (#61). */
+export type DatetimeAttributeKey<R> = AttributeKeyOf<R, "datetime">;
+
 /** A record's boolean attributes, which `toggle` takes. */
 export type BooleanAttributeKey<R> = AttributeKeyOf<R, "boolean">;
 

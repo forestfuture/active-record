@@ -1,6 +1,7 @@
 // A hasMany's counter cache on its owner (#61): the target's belongsTo that keeps one, and what removing records through the association counts out.
 import { attributeFor } from "./attribute.ts";
-import { compileCount, type CompiledSql } from "./compiler.ts";
+import { compileCount } from "./compiler.ts";
+import { touchedNames } from "./counters.ts";
 import {
   addToCount,
   compileCounterChange,
@@ -85,18 +86,28 @@ export function countedOut(
  * association's own query, scope included, as Rails' `reset_counters` counts: one UPDATE for
  * each, sent together, so each count is the one at the write.
  */
-export async function resetCounters(record: Model, names: readonly string[]): Promise<void> {
-  const { executor } = record[state];
-  await runAlone(
-    new Statement(
-      executor,
-      names.map((name) => counterReset(record, name)),
-    ),
-  );
+export async function resetCounters(
+  record: Model,
+  names: readonly string[],
+  touch: unknown,
+): Promise<void> {
+  const model = modelOf(record);
+  const params: unknown[] = [];
+  const sets = names.map((name) => counterReset(record, name, params));
+  const now = new Date();
+  for (const name of touchedNames(model, touch)) {
+    const attribute = attributeFor(model, name);
+    attribute.bind(params, now);
+    sets.push(`${quoteIdentifier(attribute.column)} = ${valueMark}`);
+  }
+  const key = attributeFor(model, model.primaryKey);
+  key.bindCells(params, record[state].storedKey);
+  const sql = `UPDATE ${quoteIdentifier(model.table)} SET ${sets.join(", ")} WHERE ${quoteIdentifier(key.column)} = ${valueMark}`;
+  await runAlone(new Statement(record[state].executor, [{ sql, params, model }]));
 }
 
-/** `UPDATE … SET counter = (SELECT COUNT(*) …) WHERE key = ?` for `record`'s hasMany `name`. */
-function counterReset(record: Model, name: string): CompiledSql {
+/** `counter = (SELECT COUNT(*) …)` for `record`'s hasMany `name`, its values added to `params`. */
+function counterReset(record: Model, name: string, params: unknown[]): string {
   const model = modelOf(record);
   const association = resolveAssociation(model, name);
   const counter = ownersCounter(association);
@@ -108,13 +119,6 @@ function counterReset(record: Model, name: string): CompiledSql {
   const { executor } = record[state];
   const rows = association.linkedTo(executor, association.keyOf(record));
   const count = compileCount(executor.dialect, rows[queryOf]);
-  const params = [...count.params];
-  const key = attributeFor(model, model.primaryKey);
-  key.bindCells(params, record[state].storedKey);
-  const column = quoteIdentifier(attributeFor(model, counter.attribute).column);
-  return {
-    sql: `UPDATE ${quoteIdentifier(model.table)} SET ${column} = (${count.sql}) WHERE ${quoteIdentifier(key.column)} = ${valueMark}`,
-    params,
-    model,
-  };
+  params.push(...count.params);
+  return `${quoteIdentifier(attributeFor(model, counter.attribute).column)} = (${count.sql})`;
 }

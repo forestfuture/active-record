@@ -32,7 +32,7 @@ import type {
   OrderedAttribute,
 } from "./calculations.ts";
 import type { SafeSql } from "./sql.ts";
-import { amount, type Counters } from "./counters.ts";
+import { amount, type CounterOptions, type Counters, type Touch } from "./counters.ts";
 import type { NumberAttributeKey } from "./attribute-writes.ts";
 import type { InOrderOfOptions } from "./list-order.ts";
 import type { Relation, Scoped } from "./relation.ts";
@@ -247,20 +247,22 @@ interface KeyedWriteStatics {
     this: C,
     ids: Keys,
     counters: Counters<InstanceType<C>>,
+    options?: CounterOptions<InstanceType<C>>,
   ) => Promise<number>;
-  /** `updateCounters` for one attribute, adding `by` (one by default): `{ by: 5 }`. */
+  /** `updateCounters` for one attribute, adding `by` (one by default): `{ by: 5, touch }`. */
   incrementCounter: CounterStatic;
-  /** `updateCounters` for one attribute, taking `by` (one by default) away: `{ by: 5 }`. */
+  /** `updateCounters` for one attribute, taking `by` (one by default) away: `{ by: 5, touch }`. */
   decrementCounter: CounterStatic;
   /**
    * Sets the counter caches of the record with this primary key (#61) to how many records each
-   * named hasMany has, counted in the same write: `Topic.resetCounters(id, "replies")`. A
-   * missing record is `RecordNotFound`, as `find`'s.
+   * named hasMany has, counted in the same write: `Topic.resetCounters(id, "replies")`, or a
+   * list of names, and `{ touch }`. A missing record is `RecordNotFound`, as `find`'s.
    */
   resetCounters: <C extends QueryableClass>(
     this: C,
     id: string | number,
-    ...names: CollectionName<InstanceType<C>>[]
+    names: CollectionName<InstanceType<C>> | readonly CollectionName<InstanceType<C>>[],
+    options?: CounterOptions<InstanceType<C>>,
   ) => Promise<void>;
 }
 
@@ -269,7 +271,7 @@ type CounterStatic = <C extends QueryableClass>(
   this: C,
   name: NumberAttributeKey<InstanceType<C>>,
   ids: Keys,
-  options?: { by?: number },
+  options?: { by?: number } & CounterOptions<InstanceType<C>>,
 ) => Promise<number>;
 
 /** A callback static, typed for the class it's declared on: `this.beforeSave((record) => …)`. */
@@ -440,17 +442,28 @@ function defineKeyedWrites(base: typeof Model): void {
   defineStatic(
     base,
     "updateCounters",
-    async function (this: QueryableClass, ids: Keys, counters: Counters<Model>) {
+    async function (
+      this: QueryableClass,
+      ids: Keys,
+      counters: Counters<Model>,
+      options?: CounterOptions<Model>,
+    ) {
       return this.unscoped()
         .where({ [this.primaryKey]: ids } as never)
-        .updateCounters(counters);
+        .updateCounters(counters, options);
     },
   );
   defineStatic(
     base,
     "resetCounters",
-    async function (this: QueryableClass, id: string | number, ...names: string[]) {
-      return resetCounters(await this.all().find(id as never), names);
+    async function (
+      this: QueryableClass,
+      id: string | number,
+      names: string | readonly string[],
+      { touch }: CounterOptions<Model> = {},
+    ) {
+      const record: Model = await this.all().find(id as never);
+      return resetCounters(record, typeof names === "string" ? [names] : names, touch);
     },
   );
   for (const [name, sign] of [
@@ -466,8 +479,9 @@ function defineKeyedWrites(base: typeof Model): void {
         ids: Keys,
         options: { by?: unknown } = {},
       ) {
-        const { by = 1 } = options;
-        return this.updateCounters(ids, { [attribute]: sign * amount(by, name) } as never);
+        const { by = 1, touch } = options as { by?: unknown; touch?: Touch<Model> };
+        const counters = { [attribute]: sign * amount(by, name) } as never;
+        return this.updateCounters(ids, counters, { touch });
       },
     );
   }
