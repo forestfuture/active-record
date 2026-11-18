@@ -209,6 +209,26 @@ export default defineConfig({
         },
       },
       {
+        // Running a command compiles the library through jiti, too slow for the unit project's
+        // 5 s default, so a test that runs one goes where commandTestTimeout applies (#485).
+        files: ["tests/unit/**"],
+        rules: {
+          "no-restricted-imports": [
+            "error",
+            {
+              patterns: [
+                {
+                  group: ["**/cli/*/command.ts"],
+                  importNames: ["runConsole", "runGenerate", "runInit", "runMigrate", "runSchema"],
+                  message:
+                    "Running a command compiles the library: put the test in integration:d1 or integration:pg.",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
         // toSql's SQL text is the result its own tests check.
         files: ["tests/conformance/to-sql.test.ts"],
         rules: { "active-record/no-sql-text": "off" },
