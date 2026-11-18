@@ -54,7 +54,7 @@ function readCounter(association: ResolvedAssociation): CounterCache | undefined
   return counter?.attribute === named && counter.isActive ? counter : undefined;
 }
 
-/** Each hasMany's counter cache, once countersByHasMany. Derived from the classes only. */
+/** Each hasMany's counter cache, once found. Derived from the classes only. */
 const countersByHasMany = new WeakMap<ResolvedAssociation, CounterCache | undefined>();
 
 /**
