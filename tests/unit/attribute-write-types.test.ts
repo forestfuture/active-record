@@ -20,6 +20,7 @@ class Article extends Model.define({
   isPinned: "boolean",
   status: { type: "integer", enum: { draft: 0, published: 1 } },
   score: { type: score },
+  bareScore: score,
 }) {}
 
 // Each check is a function that's never called: only its types are tested.
@@ -37,6 +38,10 @@ describe("the types of changing one attribute (#351)", () => {
       article.decrement("status");
       // @ts-expect-error A custom type is refused, even one whose values are numbers.
       article.increment("score");
+      // @ts-expect-error A custom type given bare, not as { type }, is refused too.
+      article.increment("bareScore");
+      // @ts-expect-error Nor is it a boolean.
+      article.toggle("bareScore");
       return same;
     };
 

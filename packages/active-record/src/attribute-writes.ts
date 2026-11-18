@@ -6,8 +6,15 @@ import type { AttributesOf, Model, ModelClass, SpecsOf } from "./model.ts";
 import { ModelStatics } from "./model-statics.ts";
 import { state } from "./record-state.ts";
 
-/** The built-in type a spec names: `"integer"` for `"integer"` or `{ type: "integer" }`. */
-type SpecType<S> = S extends string ? S : S extends { readonly type: infer T } ? T : never;
+/**
+ * The built-in type a spec names: `"integer"` for `"integer"` or `{ type: "integer" }`, and
+ * `"custom"` for a custom type, given bare or as `{ type }`.
+ */
+type SpecType<S> = S extends string
+  ? S
+  : S extends { readonly type: infer T extends string }
+    ? T
+    : "custom";
 
 /**
  * The names of record type `R`'s attributes of built-in type `T`, as the runtime checks them:
