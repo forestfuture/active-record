@@ -170,6 +170,40 @@ describe("counter caches", () => {
     });
   });
 
+  describe("a loaded target", () => {
+    test("created through its hasMany counts the record in memory, as stored", async () => {
+      const topic = await db().model(Topic).find(1);
+
+      await topic.replies().create({ body: "first" });
+
+      expect(topic.repliesCount).toBe(1);
+      expect(topic.changes()).toEqual({});
+    });
+
+    test("set as the record's target counts the record in on save", async () => {
+      const [one, two] = await db().model(Topic).order({ id: "asc" }).toArray();
+      const reply = await db().model(Reply).create({ topicId: 1, body: "a" });
+
+      reply.topic.set(two!);
+      await reply.save();
+
+      expect([one!.repliesCount, two!.repliesCount]).toEqual([0, 1]);
+      expect(two!.changes()).toEqual({});
+    });
+
+    test("loaded by the record counts it out when it's destroyed", async () => {
+      await harness.exec("UPDATE topics SET replies_count = 1 WHERE id = 1");
+      await harness.exec("INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a')");
+      const reply = await db().model(Reply).find(1);
+      const topic = (await reply.topic())!;
+
+      await reply.destroy();
+
+      expect(topic.repliesCount).toBe(0);
+      expect(topic.changes()).toEqual({});
+    });
+  });
+
   describe("an attribute named by counterCache", () => {
     test("is counted instead, from null", async () => {
       const reply = await db().model(TalliedReply).create({ topicId: 1, body: "first" });

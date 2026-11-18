@@ -6,7 +6,7 @@ import type { CompiledSql } from "./compiler.ts";
 import { valueMark } from "./dialect.ts";
 import { pluralize } from "./inflections.ts";
 import { InvalidModel } from "./errors.ts";
-import { modelOf, type Model, type ModelClass } from "./model.ts";
+import { Model, modelOf, type ModelClass } from "./model.ts";
 import { quoteIdentifier } from "./query-tables.ts";
 import { state } from "./record-state.ts";
 import { isOnDifferentDatabases, resolveAssociation } from "./resolved-association.ts";
@@ -60,6 +60,8 @@ export function checkCounterCache(
 
 /** One belongsTo's counter cache: the target's attribute it keeps, and how records link to it. */
 interface Counter {
+  /** The belongsTo's name. */
+  name: string;
   /** The owner's foreign key. */
   foreignKey: string;
   target: ModelClass;
@@ -75,36 +77,51 @@ function countersOf(owner: ModelClass): Counter[] {
     if (definition.kind !== "belongsTo" || definition.counterCache === undefined) return [];
     const { target, targetAttribute } = resolveAssociation(owner, name);
     const attribute = counterAttribute(owner, definition);
-    return [{ foreignKey: definition.foreignKey, target, attribute, targetKey: targetAttribute }];
+    const { foreignKey } = definition;
+    return [{ name, foreignKey, target, attribute, targetKey: targetAttribute }];
   });
 }
 
-/** The statements that count a new record in: one per counter cache whose key is set. */
-export function counterIncrements(record: Model): CompiledSql[] {
-  return countersOf(modelOf(record)).flatMap((counter) => {
+/**
+ * What a write does to its record's counter caches: statements sent before and after its own,
+ * and what its loaded targets take on once the batch is written.
+ */
+export interface CounterChanges {
+  before: CompiledSql[];
+  after: CompiledSql[];
+  commit(): void;
+}
+
+/** Counting a new record in: each counter cache whose key is set, on its target by that key. */
+export function countersOnInsert(record: Model): CounterChanges {
+  const counted = countersOf(modelOf(record)).filter((counter) => {
     const key = record[state].read(counter.foreignKey);
-    return key === null || key === undefined ? [] : [counterChangeFor(counter, key, 1)];
+    return key !== null && key !== undefined;
   });
+  const after = counted.map((counter) =>
+    counterChangeFor(counter, record[state].read(counter.foreignKey), 1),
+  );
+  return { before: [], after, commit: () => countLoaded(record, counted, 1) };
 }
 
 /**
- * The statements that count a record out, sent before its row is deleted: each finds its target
- * through the stored row, so a row already gone counts nothing, and a key changed in the database
- * since the record was read counts out the target it has now.
+ * Counting a record out, before its row is deleted: each finds its target through the stored
+ * row, so a row already gone counts nothing, and a key changed in the database since the record
+ * was read counts out the target it has now.
  */
-export function counterDecrements(record: Model): CompiledSql[] {
-  const owner = modelOf(record);
+export function countersOnDestroy(record: Model): CounterChanges {
   const skipped = destroyedThrough.get(record);
-  const counters = countersOf(owner).filter(({ foreignKey }) => foreignKey !== skipped);
-  return counters.map((counter) => changeThroughRow(record, counter, -1, "before"));
+  const counted = countersOf(modelOf(record)).filter(({ foreignKey }) => foreignKey !== skipped);
+  const before = counted.map((counter) => changeThroughRow(record, counter, -1, "before"));
+  return { before, after: [], commit: () => countLoaded(record, counted, -1) };
 }
 
 /**
- * The statements that move a record's count when its foreign key changes: out of the target its
- * stored row points at before the UPDATE, and into the one it points at after it, so a row that
- * isn't there counts nothing.
+ * Moving a record's count when its foreign key changes: out of the target its stored row points
+ * at before the UPDATE, and into the one it points at after it, so a row that isn't there counts
+ * nothing. A loaded new target counts it in memory, as Rails' `increment!` does.
  */
-export function counterMoves(record: Model): { before: CompiledSql[]; after: CompiledSql[] } {
+export function countersOnUpdate(record: Model): CounterChanges {
   const recordState = record[state];
   const moved = countersOf(modelOf(record)).filter(({ foreignKey }) =>
     recordState.isAttributeChanged(foreignKey),
@@ -112,7 +129,24 @@ export function counterMoves(record: Model): { before: CompiledSql[]; after: Com
   return {
     before: moved.map((counter) => changeThroughRow(record, counter, -1, "before")),
     after: moved.map((counter) => changeThroughRow(record, counter, 1, "after")),
+    commit: () => countLoaded(record, moved, 1),
   };
+}
+
+/**
+ * Each counter's target the record has loaded for its key takes the change, as stored: its
+ * attribute, if loaded, changes by `by` and has no unsaved change, as after Rails' `increment!`.
+ */
+function countLoaded(record: Model, counters: readonly Counter[], by: number): void {
+  for (const { name, attribute } of counters) {
+    const target = record[state].associations.get(name)?.value;
+    if (!(target instanceof Model)) continue;
+    const targetState = target[state];
+    if (targetState.isDestroyed || !(attribute in targetState.attributes())) continue;
+    const count = targetState.read(attribute);
+    targetState.write(attribute, (typeof count === "number" ? count : 0) + by);
+    targetState.commitColumns([attribute]);
+  }
 }
 
 /**
