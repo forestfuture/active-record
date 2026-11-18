@@ -8,6 +8,7 @@ import { inspectRelation } from "./relation-inspect.ts";
 import { runnerFor, selectForToSql, type QueryRunner, type RunnableQuery } from "./load.ts";
 import { eachOnce, findByIds, findOne } from "./find.ts";
 import { firstOf, lastOf, soleOf, takeOf, type OneRecordSource } from "./one-record.ts";
+import { listOrder, type InOrderOfOptions } from "./list-order.ts";
 import { isEmpty, size, type CountSource } from "./record-counts.ts";
 import {
   unscoped,
@@ -216,6 +217,21 @@ export class Relation<M extends Model, S = {}> {
   reorder(spec?: OrderSpec<M> | SafeSql): Scoped<M, S> {
     const order = spec === undefined ? [] : orderTerms(this.#model, spec, "reorder");
     return this.#with({ order, reordered: true });
+  }
+
+  /**
+   * Orders by `attribute`'s place in `values`, then by any order after it, as Rails' `in_order_of`:
+   * `inOrderOf("status", ["open", "paid"])`. Keeps only the records with one of them, unless
+   * `filter: false`, which keeps the rest after them.
+   */
+  inOrderOf<K extends keyof AttributesOf<M> & string>(
+    attribute: K,
+    values: readonly AttributesOf<M>[K][],
+    { filter = true }: InOrderOfOptions = {},
+  ): Scoped<M, S> {
+    const term = listOrder(this.#model, attribute, values);
+    const ordered = this.#with({ order: [...this.#query.order, term] });
+    return filter ? ordered.where({ [attribute]: values } as Conditions<M>) : ordered;
   }
 
   limit(count: number): Scoped<M, S> {

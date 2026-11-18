@@ -22,6 +22,15 @@ export interface Dialect {
     cells: readonly unknown[],
     attribute: Attribute,
   ): { sql: string; value: unknown };
+  /**
+   * The place of `column`'s value in a list of `cells` (a NULL among them included) bound as one
+   * value, for `inOrderOf` (#350): earlier values sort first, and a value not in it is NULL.
+   */
+  placeInList(
+    column: string,
+    cells: readonly unknown[],
+    attribute: Attribute,
+  ): { sql: string; value: unknown };
   /** `limit` and `offset`, at least one of them set, as this database writes them, their values added to `params`. */
   pagination(limit: number | undefined, offset: number | undefined, params: unknown[]): string;
   /**

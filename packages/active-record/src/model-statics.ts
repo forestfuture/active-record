@@ -46,6 +46,7 @@ const relationMethods = [
   "or",
   "order",
   "reorder",
+  "inOrderOf",
   "limit",
   "offset",
   "select",

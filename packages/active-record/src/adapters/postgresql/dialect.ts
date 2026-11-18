@@ -43,6 +43,11 @@ function jsonCell(table: string, column: string, index: number): string {
 export const postgres: Dialect = {
   placeholder: (index) => `$${index}`,
   inList: (column, cells) => ({ sql: `${column} = ANY(${valueMark})`, value: [...cells] }),
+  // array_position finds a NULL too, and gives a value's first place.
+  placeInList: (column, cells) => ({
+    sql: `array_position(${valueMark}, ${column})`,
+    value: [...cells],
+  }),
   pagination(limit, offset, params) {
     let text = "";
     if (limit !== undefined) {

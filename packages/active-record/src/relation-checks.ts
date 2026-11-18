@@ -233,6 +233,23 @@ export function requireSameModel(model: ModelClass, other: ModelClass, method: s
 export function checkQuery(query: QueryDescription): void {
   checkPreloadable(query);
   refuseDistinctJoinedOrder(query);
+  refuseDistinctListOrder(query);
+}
+
+/**
+ * Throws `IncompatibleRelation` for a distinct query ordered by `inOrderOf` (#350): Postgres
+ * can't sort distinct rows by an expression it doesn't select, so no database does.
+ */
+function refuseDistinctListOrder(query: QueryDescription): void {
+  const isListOrdered = query.order.some(
+    (term) =>
+      !(term instanceof SafeSql) && !(term instanceof JoinedOrder) && term.inOrderOf !== undefined,
+  );
+  if (query.distinct && isListOrdered) {
+    throw new IncompatibleRelation(
+      "distinct() can't be combined with inOrderOf(): Postgres can't sort distinct rows by a value's place in a list",
+    );
+  }
 }
 
 /** Preloading needs keys a distinct select leaves out; adding them would undo the distinct. */

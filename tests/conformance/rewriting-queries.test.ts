@@ -196,4 +196,76 @@ describe("rewriting queries (#350)", () => {
       ).toEqual([3, 1]);
     });
   });
+
+  describe("inOrderOf", () => {
+    test("orders by a list of values, keeping only the records with one of them", async () => {
+      const ordered = users().inOrderOf("role", ["member", "admin"]).order({ id: "desc" });
+
+      expect(await ordered.pluck("id")).toEqual([3, 2, 1]);
+    });
+
+    test("binds its list as one value, so any length fits a statement", async () => {
+      const ids = Array.from({ length: 150 }, (_, index) => 150 - index);
+
+      expect(await users().inOrderOf("id", ids).pluck("id")).toEqual([4, 3, 2, 1]);
+      expect(users().inOrderOf("id", ids).toSql().params).toHaveLength(2);
+    });
+
+    test("places a NULL where the list has it", async () => {
+      expect(await users().inOrderOf("role", [null, "admin"]).pluck("id")).toEqual([4, 1]);
+    });
+
+    test("with filter: false keeps the records not in the list, after those in it", async () => {
+      const ordered = users().inOrderOf("role", ["admin"], { filter: false }).order({ id: "asc" });
+
+      expect(await ordered.pluck("id")).toEqual([1, 2, 3, 4]);
+      expect(
+        await users()
+          .inOrderOf("age", [50, 30], { filter: false })
+          .order({ id: "asc" })
+          .pluck("id"),
+      ).toEqual([4, 1, 3, 2]);
+    });
+
+    test("is reversed by last(), the records not in the list first", async () => {
+      const ordered = users().inOrderOf("age", [40, 50], { filter: false }).order({ id: "asc" });
+
+      expect((await ordered.last())?.id).toBe(3);
+      expect((await ordered.limit(4).last())?.id).toBe(3);
+    });
+
+    test("gives or() a different order for a different list", () => {
+      const all = users();
+      const admins = all.inOrderOf("role", ["admin"], { filter: false });
+
+      expect(() => admins.or(all.inOrderOf("role", ["member"], { filter: false }))).toThrow(
+        IncompatibleRelation,
+      );
+      expect(() => admins.or(all.inOrderOf("role", ["admin"], { filter: false }))).not.toThrow();
+    });
+
+    test("orders the groups of a grouped Relation", async () => {
+      const counts = await users().inOrderOf("role", ["member", "admin"]).group("role").count();
+
+      expect([...counts.keys()]).toEqual(["member", "admin"]);
+    });
+
+    test("keeps ordering the groups when group() drops an ungrouped order after it", async () => {
+      const ordered = users().inOrderOf("role", ["member", "admin"]).order({ id: "asc" });
+
+      expect([...(await ordered.group("role").count()).keys()]).toEqual(["member", "admin"]);
+    });
+
+    test("refuses distinct(), as Postgres can't sort distinct rows by an expression", () => {
+      expect(() => users().inOrderOf("role", ["admin"]).distinct()).toThrow(IncompatibleRelation);
+      expect(() => users().distinct().inOrderOf("role", ["admin"])).toThrow(IncompatibleRelation);
+    });
+
+    test("refuses a value that isn't a list, an undefined value and a json attribute", () => {
+      // @ts-expect-error -- a list of values
+      expect(() => users().inOrderOf("role", "admin")).toThrow(TypeError);
+      // @ts-expect-error -- undefined isn't a role
+      expect(() => users().inOrderOf("role", [undefined])).toThrow(TypeError);
+    });
+  });
 });
