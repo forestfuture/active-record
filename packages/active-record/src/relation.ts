@@ -6,7 +6,10 @@ import { mergedQuery, withJoins } from "./joins.ts";
 import { inspectCustom, type Inspect, type InspectOptions } from "./inspect-support.ts";
 import { inspectRelation } from "./relation-inspect.ts";
 import { runnerFor, selectForToSql, type QueryRunner, type RunnableQuery } from "./load.ts";
-import { eachOnce, findById, findOne, findSome, keysToFind } from "./find.ts";
+import { eachOnce, findByIds, findOne } from "./find.ts";
+import { firstOf, lastOf, soleOf, takeOf, type OneRecordSource } from "./one-record.ts";
+import { isEmpty, size, type CountSource } from "./record-counts.ts";
+import { withoutConditionsOn } from "./query-rewrites.ts";
 import { allOf, either, LinkedTo, mergeTrees, Negated, type QueryDescription } from "./query.ts";
 import type { Executor } from "./executor.ts";
 import { attributeOf } from "./metadata.ts";
@@ -22,6 +25,7 @@ import {
   checkChanges,
   checkConditions,
   checkQuery,
+  requireAttributeConditions,
   requireSameModel,
   scopeResultError,
   isEmptyConditions,
@@ -34,16 +38,7 @@ import {
   type UpsertOptions,
 } from "./relation-checks.ts";
 import { alsoClearing, unowned, type OwnedCollection } from "./owned-collection.ts";
-import {
-  atMostOne,
-  finderOrder,
-  foundOrThrow,
-  oneInOrder,
-  onlyOne,
-  reversed,
-  soleIn,
-  thenPrimaryKey,
-} from "./finder-order.ts";
+import { atMostOne, foundOrThrow, thenPrimaryKey } from "./finder-order.ts";
 import { runAlone, type Statement } from "./statement.ts";
 import type { ReturnedRow, WriteResult } from "./statement.ts";
 import {
@@ -152,6 +147,16 @@ export class Relation<M extends Model, S = {}> {
     checkConditions(this.#model, conditions, "whereNot");
     if (isEmptyConditions(conditions)) return this.#scoped(this);
     return this.#with({ conditions: [...this.#query.conditions, new Negated(conditions)] });
+  }
+
+  /**
+   * Replaces the conditions on these attributes with these, as Rails' `rewhere`: those on other
+   * attributes, and fragments, are kept.
+   */
+  rewhere(conditions: Conditions<M>): Scoped<M, S> {
+    requireAttributeConditions(conditions, "rewhere");
+    const rest = withoutConditionsOn(this.#query, Object.keys(conditions));
+    return this.#describing(rest).where(conditions);
   }
 
   /** A Relation that matches nothing and never queries D1; it stays empty when chained. */
@@ -413,12 +418,7 @@ export class Relation<M extends Model, S = {}> {
     ...rest: (string | number)[]
   ): Promise<M[]>;
   async find(...args: (string | number | readonly (string | number)[])[]): Promise<M | M[]> {
-    const [only] = args;
-    if (args.length === 1 && (typeof only === "string" || typeof only === "number")) {
-      return findById(this.#runner, this.#query, only);
-    }
-    const ids = keysToFind(this.#model, args.flat());
-    return ids.length === 0 ? [] : findSome(this.#runner, this.#query, ids);
+    return findByIds(this.#runnable, args);
   }
 
   /** The first record matching `conditions` (in no particular order), or null. */
@@ -480,8 +480,7 @@ export class Relation<M extends Model, S = {}> {
    * A join that repeats a record counts it each time.
    */
   async sole(): Promise<M> {
-    const cached = this.#cached();
-    return cached === undefined ? soleIn(this.#runner, this.#query) : onlyOne(this.#model, cached);
+    return soleOf(this.#oneRecord);
   }
 
   /** The only record matching `conditions`, as `where(conditions).sole()` finds it. */
@@ -491,9 +490,7 @@ export class Relation<M extends Model, S = {}> {
 
   /** The first record by this Relation's order, or by primary key if it has none. */
   async first(): Promise<M | null> {
-    const cached = this.#cached();
-    if (cached !== undefined) return cached[0] ?? null;
-    return oneInOrder(this.#runner, this.#query, finderOrder(this.#model, this.#query));
+    return firstOf(this.#oneRecord);
   }
 
   /**
@@ -501,28 +498,12 @@ export class Relation<M extends Model, S = {}> {
    * the last record of that page (loaded, then taken from the end).
    */
   async last(): Promise<M | null> {
-    const cached = this.#cached();
-    if (cached !== undefined) return cached.at(-1) ?? null;
-    const { limit, offset } = this.#query;
-    if (limit !== undefined || offset !== undefined) {
-      const page = await this.#runner.load({
-        ...this.#query,
-        order: finderOrder(this.#model, this.#query),
-      });
-      return page.at(-1) ?? null;
-    }
-    return oneInOrder(
-      this.#runner,
-      this.#query,
-      finderOrder(this.#model, this.#query).map(reversed),
-    );
+    return lastOf(this.#oneRecord);
   }
 
   /** One record in whatever order D1 returns, or null. */
   async take(): Promise<M | null> {
-    const cached = this.#cached();
-    if (cached !== undefined) return cached[0] ?? null;
-    return oneInOrder(this.#runner, this.#query, this.#query.order);
+    return takeOf(this.#oneRecord);
   }
 
   /** Like `first`, but throws `RecordNotFound` instead of returning null. */
@@ -612,22 +593,23 @@ export class Relation<M extends Model, S = {}> {
    * without a query; otherwise a `COUNT(*)`, plus an association's unsaved built records.
    */
   async size(): Promise<number> {
-    const cached = this.#cached();
-    if (cached !== undefined) return cached.length;
-    return (await this.count()) + this.#collection.unsavedCount();
+    return size(this.#countSource());
   }
 
   /** Whether there are no records: a loaded association answers itself, else `!exists()`. */
   async isEmpty(): Promise<boolean> {
-    const cached = this.#cached();
-    if (cached !== undefined) return cached.length === 0;
-    if (this.#collection.unsavedCount() > 0) return false;
-    return !(await this.exists());
+    return isEmpty(this.#countSource());
   }
 
   /** Whether there are any records: the opposite of `isEmpty()` (Rails' `any?`). */
   async hasAny(): Promise<boolean> {
     return !(await this.isEmpty());
+  }
+
+  /** What `size` and the questions about how many records there are read. */
+  #countSource(): CountSource {
+    const unsavedCount = () => this.#collection.unsavedCount();
+    return { ...this.#valueSource(), unsavedCount, exists: () => this.exists() };
   }
 
   /** Whether any record matches, optionally with extra conditions. */
@@ -730,6 +712,11 @@ export class Relation<M extends Model, S = {}> {
   get #state(): RelationState<M> {
     const query = this.#query;
     return { executor: this.#executor, model: this.#model, query, collection: this.#collection };
+  }
+
+  /** What `first`, `last`, `take` and `sole` read. */
+  get #oneRecord(): OneRecordSource<M> {
+    return { ...this.#runnable, cached: () => this.#cached() };
   }
 
   get #runnable(): RunnableQuery<M> {

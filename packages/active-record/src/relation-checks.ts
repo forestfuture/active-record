@@ -70,6 +70,16 @@ function requireObjectOrFragment(conditions: unknown, method: string): void {
   }
 }
 
+/** Refuses an `sql` fragment where only attribute values make sense: it names no attributes (#350). */
+export function requireAttributeConditions(conditions: unknown, method: string): void {
+  if (conditions instanceof SafeSql) {
+    throw new TypeError(
+      `${method}() takes an object of attribute values; an sql\`…\` fragment names no attributes to replace`,
+    );
+  }
+  requireObjectOrFragment(conditions, method);
+}
+
 /** An undefined value (alone or in an array) would bind NULL into `= ?` and match nothing. */
 function rejectUndefined(value: unknown, name: string, method: string): void {
   if (value === undefined || (Array.isArray(value) && value.includes(undefined))) {

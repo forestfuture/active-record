@@ -2,7 +2,7 @@
 import { attributeFor, noMatch } from "./attribute.ts";
 import { RecordNotFound } from "./errors.ts";
 import { shownKey } from "./filtering.ts";
-import type { QueryRunner } from "./load.ts";
+import type { QueryRunner, RunnableQuery } from "./load.ts";
 import { primaryKeyOf, type Model, type ModelClass } from "./model.ts";
 import type { Condition, QueryDescription } from "./query.ts";
 
@@ -98,4 +98,17 @@ export function eachOnce<M extends Model>(records: readonly M[]): M[] {
 function inKeyOrder<M extends Model>(records: readonly M[], keys: readonly unknown[]): M[] {
   const byKey = new Map(records.map((record) => [primaryKeyOf(record), record]));
   return keys.map((key) => byKey.get(key) as M);
+}
+
+/** What `find(...args)` finds: one record for one id, else an array, in the ids' or the query's order. */
+export async function findByIds<M extends Model>(
+  { model, query, runner }: RunnableQuery<M>,
+  args: readonly (string | number | readonly (string | number)[])[],
+): Promise<M | M[]> {
+  const [only] = args;
+  if (args.length === 1 && (typeof only === "string" || typeof only === "number")) {
+    return findById(runner, query, only);
+  }
+  const ids = keysToFind(model, args.flat());
+  return ids.length === 0 ? [] : findSome(runner, query, ids);
 }
