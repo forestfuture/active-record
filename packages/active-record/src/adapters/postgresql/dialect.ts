@@ -71,15 +71,15 @@ export const postgres: Dialect = {
     return `CASE WHEN ${key} ~ ${literal("^\\s*[+-]?[0-9]+\\s*$")} THEN CAST(${key} AS NUMERIC) END`;
   },
   /**
-   * The removal returns a row for each row it removed, which the counter's UPDATE counts and the
-   * statement selects, so it affects as many rows as were removed: a COUNT sent before it could
-   * miss a row another request commits in between, on a snapshot of its own (#61).
+   * The removal returns a row for each row it removed, which the counters' UPDATEs count, and the
+   * statement selects how many as `removed`: a COUNT sent before it could miss a row another
+   * request commits in between, on a snapshot of its own (#61).
    */
   countedRemoval(removal, decrements) {
     const counted = decrements("(SELECT COUNT(*) FROM removed)");
     const ctes = counted.map(({ sql }, index) => `counted${index} AS (${sql})`);
     return {
-      sql: `WITH removed AS (${removal.sql} RETURNING 1), ${ctes.join(", ")} SELECT 1 FROM removed`,
+      sql: `WITH removed AS (${removal.sql} RETURNING 1), ${ctes.join(", ")} SELECT COUNT(*) AS removed FROM removed`,
       params: [...removal.params, ...counted.flatMap(({ params }) => params)],
       model: removal.model,
     };

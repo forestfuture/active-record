@@ -53,6 +53,8 @@ export class Statement<Row = never> {
   readonly #rows: RowReader;
   /** Queries sent before its own, in the same batch, whose results aren't its own (#61). */
   #preceding: readonly CompiledSql[] = [];
+  /** How many rows its own queries' results say it changed (#61): their `rowsAffected` sum. */
+  #affected: (results: readonly StatementResult[]) => number = rowsAffectedOf;
 
   /**
    * @internal Statements are built by a Relation's bulk writes, as one query or several sent
@@ -85,7 +87,7 @@ export class Statement<Row = never> {
   } {
     const own = (results: readonly StatementResult[]) => results.slice(this.#preceding.length);
     const resultOf = (results: readonly StatementResult[]) => ({
-      rowsAffected: rowsAffectedOf(own(results)),
+      rowsAffected: this.#affected(own(results)),
       rows: own(results).flatMap(({ rows }) => this.#rows(rows)) as Row[],
     });
     const queries = [...this.#preceding, ...this.#queries];
@@ -112,6 +114,18 @@ export class Statement<Row = never> {
       this.#rows,
     );
     statement.#preceding = [...preceding, ...this.#preceding];
+    statement.#affected = this.#affected;
+    return statement;
+  }
+
+  /**
+   * @internal This statement, how many rows it changed read by `affected` from its own queries'
+   * results: for a query that reports them in a row it returns (a counted removal, #61).
+   */
+  affecting(affected: (results: readonly StatementResult[]) => number): Statement<Row> {
+    const statement = new Statement<Row>(this.#executor, this.#queries, this.#landed, this.#rows);
+    statement.#preceding = this.#preceding;
+    statement.#affected = affected;
     return statement;
   }
 }

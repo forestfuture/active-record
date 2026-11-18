@@ -51,7 +51,7 @@ export interface Dialect {
   /**
    * A bulk removal (a DELETE, or an UPDATE nullifying a key) and the counter cache it changes
    * (#61), as one statement: `decrements` writes the counters' UPDATEs, given SQL counting the rows
-   * removed, and the statement affects as many rows as it removed. Without it, the counter is
+   * removed, and the statement returns one row, whose `removed` is how many. Without it, the counter is
    * taken down by a COUNT sent just before the removal: exact where writes run one at a time.
    */
   countedRemoval?(

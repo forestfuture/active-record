@@ -102,8 +102,7 @@ export function countedOut(
       const key = keyed(sharing[0]!, owner[state].read(sharing[0]!.targetKey));
       return compileCountersChange(sharing, removed, key);
     });
-  const countOut = (results: readonly StatementResult[]) => {
-    const removed = rowsAffectedOf(results);
+  const countOut = (removed: number) => {
     for (const { attribute } of counters) addToCount(owner, attribute, -removed);
   };
   const [removal] = queries;
@@ -115,15 +114,18 @@ export function countedOut(
     const counted = dialect.countedRemoval(removal, (removed) =>
       decrements({ sql: `- ${removed}`, params: [] }),
     );
-    return new Statement(executor, [counted], (results) => {
+    const removed = (results: readonly StatementResult[]) =>
+      Number(results[0]?.rows[0]?.["removed"] ?? 0);
+    const counting = new Statement(executor, [counted], (results) => {
       landed(results);
-      countOut(results);
+      countOut(removed(results));
     });
+    return counting.affecting(removed);
   }
   const count = compileCount(executor.dialect, query);
   return statement.precededBy(
     decrements({ sql: `- (${count.sql})`, params: count.params }),
-    countOut,
+    (results) => countOut(rowsAffectedOf(results)),
   );
 }
 
