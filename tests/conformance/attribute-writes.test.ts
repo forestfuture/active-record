@@ -24,6 +24,7 @@ class Member extends Model.define({
       this[kind](() => void callbacks.push(kind));
     }
     this.afterSave((member) => void previouslyNew.push(member.isPreviouslyNewRecord()));
+    this.afterCommit((member) => void committedAsNew.push(member.isPreviouslyNewRecord()));
   }
 }
 
@@ -40,10 +41,29 @@ class ActiveMember extends Model.define({
   }
 }
 
+/** A member whose `age` column is read as `visits`, a name its column doesn't have. */
+class Visitor extends Model.define({
+  id: { type: "integer", null: false },
+  visits: { type: "integer", column: "age" },
+}) {
+  static table = "users";
+}
+
+/** A member whose age is filtered from `onQuery`. */
+class PrivateMember extends Model.define({
+  id: { type: "integer", null: false },
+  age: "integer",
+}) {
+  static table = "users";
+  static filterAttributes = ["age"];
+}
+
 /** The callbacks Member's records ran. */
 const callbacks: string[] = [];
 /** What `isPreviouslyNewRecord()` said in each of Member's afterSave callbacks. */
 const previouslyNew: boolean[] = [];
+/** What it said in each of Member's afterCommit callbacks. */
+const committedAsNew: boolean[] = [];
 
 /** A name or amount the method's type refuses, as one from untyped code would arrive. */
 const untyped = (value: unknown) => value as never;
@@ -67,6 +87,7 @@ describe("changing one attribute (#351)", () => {
     events.length = 0;
     callbacks.length = 0;
     previouslyNew.length = 0;
+    committedAsNew.length = 0;
   });
 
   describe("in memory", () => {
@@ -246,6 +267,37 @@ describe("changing one attribute (#351)", () => {
       expect((await db().model(Member).find(1)).age).toBe(3);
     });
 
+    // A guard: the new value is read from RETURNING by the attribute's column.
+    test("reads the row's new value back from a column named unlike its attribute", async () => {
+      const first = await db().model(Visitor).find(1);
+      const second = await db().model(Visitor).find(1);
+
+      await first.incrementColumn("visits");
+      await second.incrementColumn("visits");
+
+      expect(second.visits).toBe(5);
+    });
+
+    // A guard: a record's write goes by its primary key alone.
+    test("writes a record its Model's default scope leaves out", async () => {
+      await harness.exec("UPDATE users SET is_active = ?", [false]);
+      const member = await withDatabase(db(), () => ActiveMember.unscoped().find(1));
+
+      expect(await member.incrementColumn("age")).toBe(true);
+      expect(member.age).toBe(4);
+    });
+
+    // A guard: the amount is bound as the attribute's value.
+    test("hides a filtered attribute's amount from onQuery", async () => {
+      const member = await db().model(PrivateMember).find(1);
+      events.length = 0;
+
+      await member.incrementColumn("age", 7);
+
+      expect(events[0]?.params).not.toContain(7);
+      expect(events[0]?.params).toContain("[FILTERED]");
+    });
+
     test("decrementColumn takes from the row's value", async () => {
       const member = await db().model(Member).find(1);
 
@@ -393,6 +445,13 @@ describe("changing one attribute (#351)", () => {
       expect(events).toEqual([]);
     });
 
+    // A guard: the amount is bound as the attribute's value.
+    test("hides a filtered attribute's amount from onQuery", async () => {
+      await db().model(PrivateMember).updateCounters({ age: 7 });
+
+      expect(events[0]?.params).toEqual(["[FILTERED]"]);
+    });
+
     // A guard: updateCounters is an updateAll, which sends nothing for none().
     test("a none() Relation sends nothing and resolves to 0", async () => {
       expect(await db().model(Member).none().updateCounters({ age: 1 })).toBe(0);
@@ -409,6 +468,13 @@ describe("changing one attribute (#351)", () => {
 
       expect(previouslyNew).toEqual([true]);
       expect(member.isPreviouslyNewRecord()).toBe(true);
+    });
+
+    // A guard: commit callbacks run after the save's after-callbacks.
+    test("is true in a created record's commit callbacks", async () => {
+      await db().model(Member).create({ email: "b@example.com", id: 2, age: 1 });
+
+      expect(committedAsNew).toEqual([true]);
     });
 
     test("is false for a loaded record", async () => {
