@@ -1,4 +1,4 @@
-// Counters (#351): adding to number attributes in the row, `SET x = COALESCE(x, 0) + n`, for `updateCounters` and a record's `incrementColumn`; the amounts they add; and refusing an attribute of the wrong type, for them and for `toggle`.
+// Counters (#351): adding to number attributes in the row, `SET x = COALESCE(x, 0) + n`, for `updateCounters` and a record's `incrementColumn`; the amounts they add; the timestamps `touch` sets with them (#61); and refusing an attribute of the wrong type, for them and for `toggle`.
 import type { DatetimeAttributeKey, NumberAttributeKey } from "./attribute-writes.ts";
 import type { Assignment } from "./compiler.ts";
 import { attributeOf } from "./metadata.ts";

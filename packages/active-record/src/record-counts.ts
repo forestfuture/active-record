@@ -1,4 +1,4 @@
-// How many records a Relation has, answered from a loaded association's records where it can: `size`, `exists`, `isEmpty`, `hasAny`, `hasMoreThanOne` and `hasExactlyOne`.
+// How many records a Relation has, answered from a loaded association's records, or its owner's counter cache (#61), where it can: `size`, `exists`, `isEmpty`, `hasAny`, `hasMoreThanOne` and `hasExactlyOne`.
 import type { Model } from "./model.ts";
 import { count, type ValueSource } from "./calculations.ts";
 import { compileExists } from "./compiler.ts";
@@ -9,7 +9,7 @@ export interface CountSource extends ValueSource {
   /** An association's records built through it and not yet saved. */
   readonly unsavedCount: () => number;
   /** How many records an association has by its owner's counter cache (#61), if it keeps one. */
-  readonly counted?: () => number | undefined;
+  readonly cachedCount?: () => number | undefined;
 }
 
 /**
@@ -20,7 +20,7 @@ export interface CountSource extends ValueSource {
 export async function size(source: CountSource): Promise<number> {
   const cached: readonly Model[] | undefined = source.cached();
   if (cached !== undefined) return cached.length;
-  const counted = source.counted?.() ?? (await count(source));
+  const counted = source.cachedCount?.() ?? (await count(source));
   return counted + source.unsavedCount();
 }
 
@@ -32,7 +32,7 @@ export async function isEmpty(source: CountSource): Promise<boolean> {
   const cached = source.cached();
   if (cached !== undefined) return cached.length === 0;
   if (source.unsavedCount() > 0) return false;
-  const counted = source.counted?.();
+  const counted = source.cachedCount?.();
   return counted === undefined ? !(await exists(source)) : counted === 0;
 }
 

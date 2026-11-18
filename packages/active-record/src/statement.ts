@@ -1,4 +1,4 @@
-// Statement: a bulk write (`insert`, `updateAll`, …) built to run on its own or in a batch, and what runs once it's written.
+// Statement: a bulk write (`insert`, `updateAll`, …) built to run on its own or in a batch, with any statements sent before it whose results aren't its own (a counter cache's, #61), and what runs once it's written.
 import {
   compileInsert,
   compileInsertRows,
@@ -52,7 +52,7 @@ export class Statement<Row = never> {
   readonly #landed: (results: readonly StatementResult[]) => void;
   readonly #rows: RowReader;
   /** Queries sent before its own, in the same batch, whose results aren't its own (#61). */
-  #first: readonly CompiledSql[] = [];
+  #preceding: readonly CompiledSql[] = [];
 
   /**
    * @internal Statements are built by a Relation's bulk writes, as one query or several sent
@@ -83,23 +83,23 @@ export class Statement<Row = never> {
     landed: (results: readonly StatementResult[]) => void;
     resultOf: (results: readonly StatementResult[]) => WriteResult<Row>;
   } {
-    const own = (results: readonly StatementResult[]) => results.slice(this.#first.length);
+    const own = (results: readonly StatementResult[]) => results.slice(this.#preceding.length);
     const resultOf = (results: readonly StatementResult[]) => ({
       rowsAffected: rowsAffectedOf(own(results)),
       rows: own(results).flatMap(({ rows }) => this.#rows(rows)) as Row[],
     });
-    const queries = [...this.#first, ...this.#queries];
+    const queries = [...this.#preceding, ...this.#queries];
     const landed = (results: readonly StatementResult[]) => this.#landed(own(results));
     return { executor: this.#executor, queries, landed, resultOf };
   }
 
   /**
-   * @internal This statement with `first` sent before its own queries, in the same batch, their
+   * @internal This statement with `preceding` sent before its own queries, in the same batch, their
    * results not its own (a hasMany's counter cache, #61); `landed` also runs once it's written,
    * with its own queries' results.
    */
-  withFirst(
-    first: readonly CompiledSql[],
+  precededBy(
+    preceding: readonly CompiledSql[],
     landed: (results: readonly StatementResult[]) => void,
   ): Statement<Row> {
     const statement = new Statement<Row>(
@@ -111,7 +111,7 @@ export class Statement<Row = never> {
       },
       this.#rows,
     );
-    statement.#first = [...first, ...this.#first];
+    statement.#preceding = [...preceding, ...this.#preceding];
     return statement;
   }
 }

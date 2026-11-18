@@ -7,7 +7,7 @@ import {
   compileCounterChange,
   countersOf,
   keyed,
-  type Counter,
+  type CounterCache,
   type SqlPart,
 } from "./counter-caches.ts";
 import { valueMark } from "./dialect.ts";
@@ -25,8 +25,8 @@ import { rowsAffectedOf, runAlone, Statement, statementParts } from "./statement
  * `has_cached_counter?` finds it: the target's belongsTo with the same foreign key (and with `as`,
  * the owner's type) whose counter cache is on the owner's Model, or one it extends.
  */
-function ownersCounter(association: ResolvedAssociation): Counter | undefined {
-  if (found.has(association)) return found.get(association);
+function ownersCounter(association: ResolvedAssociation): CounterCache | undefined {
+  if (countersByHasMany.has(association)) return countersByHasMany.get(association);
   const { owner, target, definition, type, hops } = association;
   const counter =
     definition.kind !== "hasMany" || hops !== undefined
@@ -37,7 +37,7 @@ function ownersCounter(association: ResolvedAssociation): Counter | undefined {
             (owner === each.target || owner.prototype instanceof each.target) &&
             each.type?.value === type?.value,
         );
-  found.set(association, counter);
+  countersByHasMany.set(association, counter);
   return counter;
 }
 
@@ -47,15 +47,15 @@ function ownersCounter(association: ResolvedAssociation): Counter | undefined {
  * `repliesCount`), or its `counterCache`. So a hasMany narrowed by a scope, under another name,
  * counts its rows rather than reading a count of them all.
  */
-function readCounter(association: ResolvedAssociation): Counter | undefined {
+function readCounter(association: ResolvedAssociation): CounterCache | undefined {
   const counter = ownersCounter(association);
   const { counterCache } = association.definition;
   const named = typeof counterCache === "string" ? counterCache : `${association.name}Count`;
   return counter?.attribute === named && counter.isActive ? counter : undefined;
 }
 
-/** Each hasMany's counter cache, once found. Derived from the classes only. */
-const found = new WeakMap<ResolvedAssociation, Counter | undefined>();
+/** Each hasMany's counter cache, once countersByHasMany. Derived from the classes only. */
+const countersByHasMany = new WeakMap<ResolvedAssociation, CounterCache | undefined>();
 
 /**
  * How many records `owner`'s hasMany has by its counter cache, read as Rails reads it (`null` is
@@ -105,7 +105,7 @@ export function countedOut(
   }
   const count = compileCount(executor.dialect, query);
   const before = decrement({ sql: `- (${count.sql})`, params: [...count.params] });
-  return statement.withFirst([before], countOut);
+  return statement.precededBy([before], countOut);
 }
 
 /**
