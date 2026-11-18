@@ -129,14 +129,9 @@ describe("inverse associations", () => {
         await user.posts().last(),
         await user.posts().find(11),
         await user.posts().findBy({ title: "A1" }),
-        await user
-          .posts()
-          .sole()
-          .catch(() => null),
-      ].filter((post) => post !== null);
+      ];
 
-      expect(found).toHaveLength(4);
-      for (const post of found) expect(post.loaded("author")).toBe(user);
+      for (const post of found) expect(post!.loaded("author")).toBe(user);
     });
 
     test("loaded by a Relation narrowed from the association point back at their owner", async () => {
@@ -152,11 +147,11 @@ describe("inverse associations", () => {
       }
     });
 
-    test("loaded by a Relation joined with another owner's point back only at their own", async () => {
+    test("loaded by a Relation combined with another owner's by or() point back only at their own", async () => {
       const users = db().model(User);
       const [user, other] = [await users.find(1), await users.find(2)];
 
-      const posts = await user.posts().or(other.posts()).toArray();
+      const posts = await user.posts().or(other.posts()).order({ id: "asc" }).toArray();
 
       expect(posts.map((post) => post.id)).toEqual([10, 11, 12]);
       expect(posts[0]!.loaded("author")).toBe(user);
@@ -451,7 +446,7 @@ describe("inverse associations", () => {
         );
       });
 
-      test("an association of the wrong kind", () => {
+      test("a hasMany naming an association other than a belongsTo", () => {
         expect(
           refusal(() => hasMany(Target, { foreignKey: "userId", inverseOf: "siblings" })),
         ).toEqual(
@@ -459,6 +454,9 @@ describe("inverse associations", () => {
             'Owner association "declared": inverseOf must name a belongsTo of Target; "siblings" is a hasMany',
           ),
         );
+      });
+
+      test("a belongsTo naming a hasMany, which one record can't fill", () => {
         expect(
           refusal(() => belongsTo(Target, { foreignKey: "id", inverseOf: "siblings" })),
         ).toEqual(
