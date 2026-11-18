@@ -24,6 +24,37 @@ export function pointBackAtOwner(
 }
 
 /**
+ * Points what `owner` loaded through `association` back at it (#62): a hasMany's or hasOne's
+ * records at the owner, through their inverse belongsTo, and a belongsTo's record at the owner,
+ * through its inverse hasOne. A hasMany isn't filled from a belongsTo: one record isn't the whole
+ * collection, as in Rails.
+ */
+export function pointLoadedBack(owner: Model, association: ResolvedAssociation, value: unknown) {
+  if (value === null) return;
+  if (association.definition.kind !== "belongsTo") {
+    for (const record of [value].flat() as Model[]) pointBackAtOwner(owner, association, record);
+    return;
+  }
+  const record = value as Model;
+  const inverse = inverseHasOne(record, association.branchForRecord(record) ?? association);
+  if (inverse !== undefined)
+    record[state].associations.set(inverse.name, inverse.keyAttributes, owner);
+}
+
+/**
+ * The hasOne of a belongsTo's target, `record`, whose inverse is the belongsTo: the one that
+ * would point a record it loads back at `record` through `belongsTo`.
+ */
+function inverseHasOne(record: Model, belongsTo: ResolvedAssociation) {
+  for (const [name, definition] of associationsOf(belongsTo.target)) {
+    if (definition.kind !== "hasOne") continue;
+    const hasOne = resolveAssociation(belongsTo.target, name);
+    if (inverseOf(record, hasOne)?.name === belongsTo.name) return hasOne;
+  }
+  return undefined;
+}
+
+/**
  * Whether the record's foreign key is its owner's: the same key (an integer matching a text
  * key's digits, #94), or null while the owner has none yet, which saving the owner fills in. A
  * key that isn't the owner's, null included, points elsewhere. Only a pushed record can hold
