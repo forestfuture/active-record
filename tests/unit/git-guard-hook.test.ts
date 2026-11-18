@@ -47,6 +47,7 @@ describe("the git guard hook", () => {
     "git reset\t--hard",
     "git push --force-with-lease origin 24-joins:24-joins 2>x&git\treset\t--hard",
     "git -C `x` push --force-with-lease origin 24-joins:24-joins",
+    "git push --force-with-lease origin 24-joins:24-joins >x\\\n main",
     "git commit -q -F - <<'EOF'\nx\nEOF\ngit add -A",
   ])("blocks %j", (command) => {
     expect(statusFor(command)).toBe(2);
