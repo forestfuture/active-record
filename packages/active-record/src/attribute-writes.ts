@@ -1,4 +1,4 @@
-// Changing one attribute (#351): `increment`, `decrement` and `toggle` in memory, and `updateColumns` and `incrementColumn`, straight to the row; the record methods every Model's records inherit from Model.
+// Changing one attribute (#351): `increment`, `decrement` and `toggle` in memory, and `updateColumns`, `incrementColumn` and `toggleColumn`, straight to the row; the record methods every Model's records inherit from Model.
 import { compileUpdate } from "./compiler.ts";
 import { RecordNotSaved } from "./errors.ts";
 import { column, sql } from "./sql.ts";
@@ -43,8 +43,7 @@ export abstract class AttributeWrites extends ModelStatics {
 
   /** Flips a boolean attribute, null becoming `true`; doesn't save. */
   toggle<R extends Model>(this: R, name: BooleanAttributeKey<R>): R {
-    requireType(this, name, "toggle", "boolean");
-    this[state].write(name, this[state].read(name) !== true);
+    this[state].write(name, isTrueOnceToggled(this, name, "toggle"));
     return this;
   }
 
@@ -91,6 +90,25 @@ export abstract class AttributeWrites extends ModelStatics {
   ): Promise<boolean> {
     return addToColumn(this, name, -by, "decrementColumn");
   }
+
+  /**
+   * Writes a boolean attribute's flipped value straight to the row, as `updateColumn` does: no
+   * validation or callback, unlike Rails' `toggle!`, which runs the save callbacks.
+   */
+  async toggleColumn<R extends Model>(this: R, name: BooleanAttributeKey<R>): Promise<boolean> {
+    requireSaved(this, "toggleColumn");
+    return writeColumns(
+      this,
+      { [name]: isTrueOnceToggled(this, name, "toggleColumn") },
+      "toggleColumn",
+    );
+  }
+}
+
+/** Whether a boolean attribute is `true` once flipped (null becomes `true`); `TypeError` for another type. */
+function isTrueOnceToggled(record: Model, name: string, method: string): boolean {
+  requireType(record, name, method, "boolean");
+  return record[state].read(name) !== true;
 }
 
 /**
