@@ -86,9 +86,9 @@ To add to a number without loading the record, pass its primary key to `updateCo
 
 - **`Article.updateCounters(ids, counters)`** adds to the rows with those keys, even ones a default scope leaves out.
 - **A Relation’s `updateCounters(counters)`** adds to every row it matches.
-- **`incrementCounter` and `decrementCounter`** change one attribute by one, or by `{ by }`.
+- **`incrementCounter` and `decrementCounter`** change one attribute by one, or by the amount in `{ by: 5 }`.
 
-Each one sends a single statement and resolves to the number of rows it changed. Like `updateAll`, it skips validations and callbacks. It leaves `updatedAt` alone unless you pass `{ touch: true }`, or name more datetime attributes to set: `{ touch: "viewedAt" }`.
+Each one sends a single statement and resolves to the number of rows it changed. Like `updateAll`, it skips validations and callbacks. To set `updatedAt` too, pass `{ touch: true }`. To set other datetime attributes as well, name them, as in `{ touch: "viewedAt" }`.
 
 To keep a count of an association’s records, see [counter caches](./associations#counting-records-with-a-counter-cache).
 

@@ -439,9 +439,13 @@ Creating a comment adds one to its article’s count, and destroying it takes on
 
 <include>/_excerpts/guide/counter-caches/counting.ts</include>
 
-Each change is written in the same atomic batch as the comment, so the count can’t drift from the rows. Changing a comment’s `articleId` moves the count to the other article. An article you’ve loaded takes the new count too, without a save.
+Changing a comment’s `articleId` moves the count to the other article. An article you’ve loaded takes the new count too, without a save.
 
-Removing comments through the article’s association counts them out: `delete`, `clear`, and `deleteAll()` on `article.comments()`. Bulk writes leave the count alone: `insert`, `insertAll`, `upsert`, `updateAll`, and `deleteAll()` on any other Relation.
+:::tip
+Each change is written in the same atomic batch as the comment, so the count can’t drift from the rows.
+:::
+
+Removing comments through the article’s association counts them out: `delete`, `clear`, and `deleteAll()` on `article.comments()`. Removing records through an association through another counts out its join records the same way. Bulk writes leave the count alone: `insert`, `insertAll`, `upsert`, `updateAll`, and `deleteAll()` on any other Relation.
 
 :::note
 A polymorphic `belongsTo` counts a record on whichever listed Model its type names, so each of them declares the attribute. A counter cache on a Model on [another database](./several-databases) throws `InvalidModel`, since its count couldn’t be written in the same batch.
@@ -453,7 +457,19 @@ A polymorphic `belongsTo` counts a record on whichever listed Model its type nam
 
 <include>/_excerpts/guide/counter-caches/size.ts</include>
 
-`count()` still counts the rows.
+An association reads the counter named for it: `comments` reads `commentsCount`. If its counter has another name, name it on the `hasMany`:
+
+```ts
+import { hasMany } from "@forestfuture/active-record";
+
+comments = hasMany(Comment, { counterCache: "replyCount" });
+```
+
+An association with any other name counts its rows, so one narrowed by a scope counts only its own records.
+
+:::note
+`count()` always counts the rows.
+:::
 
 ### Resetting a count
 
@@ -461,7 +477,7 @@ To set a count from the rows, after a bulk write for example, use `resetCounters
 
 <include>/_excerpts/guide/counter-caches/reset.ts</include>
 
-It takes one association’s name or a list of them. `touch: true` also sets `updatedAt`.
+It takes one association’s name or a list of them. `touch: true` also sets `updatedAt`. An association with a scope can’t reset a counter, since its records aren’t all the ones counted.
 
 ### Adding a counter to existing records
 
@@ -474,6 +490,10 @@ Writes keep the count up to date, while `size()` and the others count the rows. 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
 Rails takes one from the article the comment’s key pointed at when it was loaded. Here the count is taken from the article the comment’s row points at as it’s deleted, so a comment that’s already gone, or that another request moved, doesn’t throw the count off.
+
+`counterCache` names an attribute, where Rails’ `counter_cache` names a column. Rails also makes the counter read-only. Here it’s an ordinary attribute.
+
+In Rails, removing records through a scoped association leaves the count too high, and `reset_counters` on one writes the scope’s count into the counter. Here the removal counts its records out, and `resetCounters` refuses the scoped association.
 
 Rails’ `belongs_to … touch: true` also touches the article when its count changes. That option isn’t built yet ([#353](https://github.com/forestfuture/active-record/issues/353)).
 
