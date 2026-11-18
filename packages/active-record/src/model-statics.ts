@@ -30,6 +30,7 @@ import type {
   OrderedAttribute,
 } from "./calculations.ts";
 import type { SafeSql } from "./sql.ts";
+import type { Counters } from "./counters.ts";
 import type { InOrderOfOptions } from "./list-order.ts";
 import type { Relation, Scoped } from "./relation.ts";
 
@@ -234,6 +235,16 @@ interface KeyedWriteStatics {
    * a key with no row. Resolves to the number of rows deleted.
    */
   delete: <C extends QueryableClass>(this: C, ids: Keys) => Promise<number>;
+  /**
+   * Adds to number attributes in the rows with these primary keys, as a Relation's
+   * `updateCounters` does, whatever the default scope: `Post.updateCounters(id, { viewCount: 1 })`.
+   * Resolves to the number of rows.
+   */
+  updateCounters: <C extends QueryableClass>(
+    this: C,
+    ids: Keys,
+    counters: Counters<InstanceType<C>>,
+  ) => Promise<number>;
 }
 
 /** A callback static, typed for the class it's declared on: `this.beforeSave((record) => …)`. */
@@ -391,7 +402,7 @@ export function defineStatics(base: typeof Model): void {
   defineKeyedWrites(base);
 }
 
-/** `Model.destroy(ids)` and `Model.delete(ids)`, on the current database. */
+/** `Model.destroy(ids)`, `Model.delete(ids)` and `Model.updateCounters(ids, …)`, on the current database. */
 function defineKeyedWrites(base: typeof Model): void {
   defineStatic(base, "destroy", async function (this: QueryableClass, ids: Keys) {
     const found: Model | Model[] = await this.all().find(ids as never);
@@ -401,6 +412,15 @@ function defineKeyedWrites(base: typeof Model): void {
   defineStatic(base, "delete", async function (this: QueryableClass, ids: Keys) {
     return this.all().deleteBy({ [this.primaryKey]: ids } as never);
   });
+  defineStatic(
+    base,
+    "updateCounters",
+    async function (this: QueryableClass, ids: Keys, counters: Counters<Model>) {
+      return this.unscoped()
+        .where({ [this.primaryKey]: ids } as never)
+        .updateCounters(counters);
+    },
+  );
 }
 
 /** Whether a callback kind takes `on`, to run only in some validation contexts (#51). */
