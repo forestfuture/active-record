@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, InvalidModel, Model } from "../../packages/active-record/src/index.ts";
+import { belongsTo, hasMany, InvalidModel, Model } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Topic extends Model.define({
@@ -7,6 +7,7 @@ class Topic extends Model.define({
   reactionsCount: "integer",
 }) {
   static table = "topics";
+  reactions = hasMany(Reaction, { as: "reactable" });
 }
 
 class Picture extends Model.define({
@@ -69,6 +70,12 @@ describe("a polymorphic belongsTo's counter cache", () => {
 
     expect(await counts()).toEqual([0, 1]);
     expect(picture.reactionsCount).toBe(1);
+  });
+
+  test("the other side's size() reads the counter of its own Model", async () => {
+    await harness.exec("UPDATE topics SET reactions_count = 4");
+
+    expect(await (await db().model(Topic).find(1)).reactions().size()).toBe(4);
   });
 
   test("each listed Model must declare the attribute: InvalidModel at first use", () => {

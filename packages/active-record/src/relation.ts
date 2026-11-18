@@ -670,8 +670,9 @@ export class Relation<M extends Model, S = {}> {
 
   /** What `size` and the questions about how many records there are read. */
   #countSource(): CountSource {
-    const unsavedCount = () => this.#collection.unsavedCount();
-    return { ...this.#valueSource(), unsavedCount };
+    const collection = this.#collection;
+    const unsavedCount = () => collection.unsavedCount();
+    return { ...this.#valueSource(), unsavedCount, counted: () => collection.counted?.() };
   }
 
   /** Whether any record matches, optionally with extra conditions. */

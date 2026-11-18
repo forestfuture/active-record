@@ -18,15 +18,34 @@ import { statementParts, type Statement } from "./statement.ts";
  * `has_cached_counter?` finds it: the target's belongsTo with the same foreign key (and with `as`,
  * the owner's type) whose counter cache is on the owner's Model, or one it extends.
  */
-export function ownersCounter(association: ResolvedAssociation): Counter | undefined {
+function ownersCounter(association: ResolvedAssociation): Counter | undefined {
+  if (found.has(association)) return found.get(association);
   const { owner, target, definition, type, hops } = association;
-  if (definition.kind !== "hasMany" || hops !== undefined) return undefined;
-  return countersOf(target).find(
-    (counter) =>
-      counter.foreignKey === definition.foreignKey &&
-      (owner === counter.target || owner.prototype instanceof counter.target) &&
-      counter.type?.value === type?.value,
-  );
+  const counter =
+    definition.kind !== "hasMany" || hops !== undefined
+      ? undefined
+      : countersOf(target).find(
+          (each) =>
+            each.foreignKey === definition.foreignKey &&
+            (owner === each.target || owner.prototype instanceof each.target) &&
+            each.type?.value === type?.value,
+        );
+  found.set(association, counter);
+  return counter;
+}
+
+/** Each hasMany's counter cache, once found. Derived from the classes only. */
+const found = new WeakMap<ResolvedAssociation, Counter | undefined>();
+
+/**
+ * How many records `owner`'s hasMany has by its counter cache, read as Rails reads it (`null` is
+ * 0); undefined without one, or when the owner's counter wasn't loaded (left out of `select`).
+ */
+export function ownersCount(owner: Model, association: ResolvedAssociation): number | undefined {
+  const counter = ownersCounter(association);
+  const ownerState = owner[state];
+  if (counter === undefined || !(counter.attribute in ownerState.attributes())) return undefined;
+  return Number(ownerState.read(counter.attribute) ?? 0);
 }
 
 /**

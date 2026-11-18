@@ -1,5 +1,5 @@
 // A hasMany's Relation as its owner sees it (records built through it join the owner), or no owner.
-import { countedOut } from "./owners-counter.ts";
+import { countedOut, ownersCount } from "./owners-counter.ts";
 import { pointBackAtOwner } from "./point-back-at-owner.ts";
 import type { Model } from "./model.ts";
 import type { QueryDescription } from "./query.ts";
@@ -67,6 +67,11 @@ export interface OwnedCollection {
    * cache counting them out first (#61): only the association itself has it.
    */
   countedOut?(statement: Statement, query: QueryDescription): Statement;
+  /**
+   * How many records it has by its owner's counter cache (#61), which `size` reads when it isn't
+   * loaded: only the association itself has it, and only with a counter cache.
+   */
+  counted?(): number | undefined;
   /**
    * Throws `ReadonlyAssociation` when `write` isn't allowed through it: through a through
    * association (#434), what it can't write.
@@ -189,6 +194,7 @@ function withKey(
     refusal: undefined,
     nullifies: association.isDeletingOnDeleteAll ? undefined : association.nullifiedAttributes,
     countedOut: (statement, query) => countedOut(statement, owner, association, query),
+    counted: () => ownersCount(owner, association),
     link: { attribute: definition.foreignKey, association: name, ...ownersLink(association, key) },
     narrowed: () => narrowedOf(collection),
   };
