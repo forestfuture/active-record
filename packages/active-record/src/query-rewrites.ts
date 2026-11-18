@@ -12,6 +12,7 @@ import {
   type UnscopedPart,
 } from "./query.ts";
 import { attributeOf } from "./metadata.ts";
+import { checkConditions, requireAttributeConditions } from "./relation-checks.ts";
 import { Model, primaryKeyOf, type AttributesOf, type ModelClass } from "./model.ts";
 
 /** A part of a query `unscope` drops by name: `unscope("order")`. */
@@ -196,10 +197,34 @@ export function withUnscopesOf(into: QueryDescription, other: QueryDescription):
 }
 
 /**
+ * `query` with `conditions` in place of those on their attributes (`rewhere`), as Rails' `rewhere`:
+ * conditions on other attributes, and fragments, are kept.
+ */
+export function rewhered(query: QueryDescription, conditions: object): QueryDescription {
+  requireAttributeConditions(conditions, "rewhere");
+  checkConditions(query.model, conditions, "rewhere");
+  const names = Object.keys(conditions);
+  if (names.length === 0) return query;
+  const rest = withoutConditionsOn(query, names);
+  return { ...rest, conditions: [...rest.conditions, conditions as Record<string, unknown>] };
+}
+
+/** `query` without these records (`excluding`), by primary key: `NOT (id IN (…))`. */
+export function withoutRecords(
+  query: QueryDescription,
+  records: readonly unknown[],
+): QueryDescription {
+  const keys = excludedKeys(query.model, records);
+  if (keys.length === 0) return query;
+  const left = new Negated({ [query.model.primaryKey]: keys });
+  return { ...query, conditions: [...query.conditions, left] };
+}
+
+/**
  * The primary keys of the records `excluding` leaves out, each a record of `model` (or a class
  * extending it); a record without a key yet has no row to leave out.
  */
-export function excludedKeys(model: ModelClass, records: readonly unknown[]): unknown[] {
+function excludedKeys(model: ModelClass, records: readonly unknown[]): unknown[] {
   return records.flat().flatMap((record) => {
     if (!(record instanceof model)) {
       throw new TypeError(`excluding() takes records of ${model.name}; got ${describe(record)}`);

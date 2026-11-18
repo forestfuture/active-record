@@ -9,6 +9,7 @@ import {
   sql,
   UnknownAttribute,
 } from "../../packages/active-record/src/index.ts";
+import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class User extends Model.define({
@@ -292,6 +293,43 @@ describe("rewriting queries (#350)", () => {
 
       // @ts-expect-error -- a Post isn't a User
       expect(() => db.model(User).excluding(post)).toThrow(TypeError);
+    });
+  });
+
+  describe("hasMoreThanOne and hasExactlyOne", () => {
+    test("say whether more than one record matches, or exactly one, in one query", async () => {
+      const events: QueryEvent[] = [];
+      const all = harness.connect({ onQuery: (event) => events.push(event) }).model(User);
+
+      expect(await all.where({ role: "member" }).hasMoreThanOne()).toBe(true);
+      expect(await all.where({ role: "admin" }).hasMoreThanOne()).toBe(false);
+      expect(await all.where({ role: "member" }).hasExactlyOne()).toBe(false);
+      expect(await all.where({ role: "admin" }).hasExactlyOne()).toBe(true);
+      expect(await all.where({ role: "guest" }).hasExactlyOne()).toBe(false);
+      expect(events).toHaveLength(5);
+    });
+
+    test("answer from a loaded association's records, built ones included, with no query", async () => {
+      const events: QueryEvent[] = [];
+      const db = harness.connect({ onQuery: (event) => events.push(event) });
+      const user = await db.model(User).includes("posts").findByOrThrow({ id: 1 });
+      events.length = 0;
+
+      expect(await user.posts().hasExactlyOne()).toBe(true);
+      user.posts().build({ title: "Draft" });
+      expect(await user.posts().hasMoreThanOne()).toBe(true);
+      expect(events).toEqual([]);
+    });
+
+    test("count within a limit, and none() has neither, with no query", async () => {
+      const events: QueryEvent[] = [];
+      const all = harness.connect({ onQuery: (event) => events.push(event) }).model(User);
+
+      expect(await all.limit(1).hasMoreThanOne()).toBe(false);
+      events.length = 0;
+      expect(await all.none().hasExactlyOne()).toBe(false);
+      expect(await all.none().hasMoreThanOne()).toBe(false);
+      expect(events).toEqual([]);
     });
   });
 });

@@ -88,6 +88,8 @@ const relationMethods = [
   "size",
   "isEmpty",
   "hasAny",
+  "hasMoreThanOne",
+  "hasExactlyOne",
   "exists",
   "ids",
   "toArray",

@@ -1,4 +1,4 @@
-// How many records a Relation has, answered from a loaded association's records where it can: `size`, `exists`, `isEmpty` and `hasAny`.
+// How many records a Relation has, answered from a loaded association's records where it can: `size`, `exists`, `isEmpty`, `hasAny`, `hasMoreThanOne` and `hasExactlyOne`.
 import type { Model } from "./model.ts";
 import { count, type ValueSource } from "./calculations.ts";
 import { compileExists } from "./compiler.ts";
@@ -32,4 +32,16 @@ export async function isEmpty(source: CountSource): Promise<boolean> {
 export async function exists({ query, dialect, runner }: ValueSource): Promise<boolean> {
   const limited = { ...query, limit: atMostOne(query.limit) };
   return (await runner.rows(() => compileExists(dialect(), limited))).length > 0;
+}
+
+/**
+ * How many records there are, counting no further than two, as Rails' `many?` and `one?` count:
+ * a loaded association's, or a `COUNT` of at most two rows, plus an association's unsaved ones.
+ */
+export async function upToTwo(source: CountSource): Promise<number> {
+  const cached = source.cached();
+  if (cached !== undefined) return cached.length;
+  const { query } = source;
+  const limited = { ...source, query: { ...query, limit: Math.min(query.limit ?? 2, 2) } };
+  return (await count(limited)) + source.unsavedCount();
 }
