@@ -58,13 +58,36 @@ export function counterIncrements(record: Model): CompiledSql[] {
 export function counterDecrements(record: Model): CompiledSql[] {
   const owner = modelOf(record);
   const storedKey = record[state].storedKey;
-  return countersOf(owner).map((counter) => {
+  const skipped = destroyedThrough.get(record);
+  const counters = countersOf(owner).filter(({ foreignKey }) => foreignKey !== skipped);
+  return counters.map((counter) => {
     const params: unknown[] = [-1];
     const ownerKey = attributeFor(owner, owner.primaryKey);
     ownerKey.bindCells(params, storedKey);
     const stored = `(SELECT ${quoteIdentifier(attributeFor(owner, counter.foreignKey).column)} FROM ${quoteIdentifier(owner.table)} WHERE ${quoteIdentifier(ownerKey.column)} = ${valueMark})`;
     return compileCounterChange(counter, stored, params);
   });
+}
+
+/**
+ * The foreign key of the association each record is being destroyed through, by its owner's
+ * `dependent: "destroy"`: that owner is deleted with it, so its counter isn't changed, as Rails
+ * skips it (`destroyed_by_association`). Not request state: set only while a destroy is prepared.
+ */
+const destroyedThrough = new WeakMap<Model, string>();
+
+/** Prepares `record`'s destroy through its owner's association, whose `foreignKey` is given. */
+export async function destroyingThrough<T>(
+  record: Model,
+  foreignKey: string,
+  prepare: () => Promise<T>,
+): Promise<T> {
+  destroyedThrough.set(record, foreignKey);
+  try {
+    return await prepare();
+  } finally {
+    destroyedThrough.delete(record);
+  }
 }
 
 /** `UPDATE … SET counter = COALESCE(counter, 0) + ? WHERE key = ?`, as Rails' `update_counters`. */

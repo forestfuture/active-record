@@ -3,6 +3,7 @@ import { associationsOf } from "./association-fields.ts";
 import { DeleteRestriction } from "./errors.ts";
 import { addFailure } from "./errors-collection.ts";
 import { humanAttributeName } from "./error-messages.ts";
+import { destroyingThrough } from "./counter-caches.ts";
 import { prepareDestroy, refusalError, stagesOf, type Claimed } from "./lifecycle.ts";
 import { modelOf, type Model, type ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
@@ -168,7 +169,8 @@ async function destroyRecords(
   const destroyed = { here: [] as Stage[], elsewhere: [] as Stage[] };
   if (association.definition.dependent !== "destroy") return destroyed;
   for (const record of await recordsOf(owner, association).toArray()) {
-    const plan = await prepareDestroy(record, claimed);
+    const { foreignKey } = association.definition;
+    const plan = await destroyingThrough(record, foreignKey, () => prepareDestroy(record, claimed));
     if (plan.status !== "ready") throw refusalError(record, plan, "destroy");
     if (association.isCrossDatabase) {
       destroyed.elsewhere.push(...stagesOf(plan));
