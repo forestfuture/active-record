@@ -5,6 +5,7 @@ import {
   InvalidModel,
   Model,
   RecordNotFound,
+  RecordNotUnique,
   UnknownAssociation,
   batch,
   withDatabase,
@@ -115,6 +116,55 @@ describe("counter caches", () => {
 
     expect(await repliesCount(1)).toBe(2);
     expect(await repliesCount(2)).toBe(0);
+  });
+
+  test("a create the database refuses leaves the counter as it was: one atomic write", async () => {
+    await harness.exec("INSERT INTO replies (id, topic_id, body) VALUES (1, 2, 'a')");
+
+    await expect(db().model(Reply).create({ id: 1, topicId: 1, body: "again" })).rejects.toThrow(
+      RecordNotUnique,
+    );
+
+    expect(await repliesCount(1)).toBe(0);
+  });
+
+  test("the counter's UPDATE is sent with the record's INSERT", async () => {
+    const events: QueryEvent[] = [];
+    const replies = harness.connect({ onQuery: (event) => events.push(event) }).model(Reply);
+
+    await replies.create({ topicId: 1, body: "first" });
+
+    expect(statementKinds(events)).toEqual(["INSERT", "UPDATE"]);
+  });
+
+  test("a record saved in a batch counts in it", async () => {
+    const database = db();
+    const reply = database.model(Reply).build({ topicId: 1, body: "first" });
+
+    await batch((b) => [b.save(reply)]);
+
+    expect(await repliesCount(1)).toBe(1);
+  });
+
+  test("a new target built through the record is saved first, then counts it", async () => {
+    const reply = db().model(Reply).build({ body: "first" });
+    const topic = reply.topic.build({ title: "New" });
+
+    await reply.saveOrThrow();
+
+    expect(topic.repliesCount).toBe(1);
+    expect(await repliesCount(topic.id)).toBe(1);
+  });
+
+  test("bulk inserts skip the counter, as in Rails", async () => {
+    await db()
+      .model(Reply)
+      .insertAll([
+        { topicId: 1, body: "a" },
+        { topicId: 1, body: "b" },
+      ]);
+
+    expect(await repliesCount(1)).toBe(0);
   });
 
   describe("destroying a record", () => {
