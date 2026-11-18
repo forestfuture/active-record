@@ -17,7 +17,7 @@ import type {
 } from "./associations.ts";
 import { NoDatabase, UnknownAssociation } from "./errors.ts";
 import { withForeignKeys } from "./foreign-keys.ts";
-import type { Model, ModelClass } from "./model.ts";
+import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import { tableOwnerModelName } from "./table-names.ts";
 
 /**
@@ -79,15 +79,16 @@ function noSingleTarget(): never {
   throw new Error("A polymorphic belongsTo has no single target; use the branch for a record");
 }
 
-/** What only a belongsTo takes. */
-interface BelongsToOptions {
+/** What only a belongsTo takes; `C` is its target, whose attribute a counter cache names. */
+interface BelongsToOptions<C extends ModelClass = ModelClass> {
   /** The record may point at nothing: saving doesn't require its record (#339). */
   optional?: boolean;
   /**
-   * Keeps a count of these records on the target (#61), in the attribute named
-   * `${plural}Count` (`Reply` → `repliesCount`), updated in the same batch as each write.
+   * Keeps a count of these records on the target (#61), updated in the same batch as each
+   * write: `true` counts them in the attribute named for them (`Reply` → `repliesCount`), or name
+   * another of the target's attributes.
    */
-  counterCache?: true;
+  counterCache?: true | (keyof AttributesOf<InstanceType<C>> & string);
 }
 
 /**
@@ -108,7 +109,7 @@ export function belongsTo<L extends readonly [ModelClass, ...ModelClass[]]>(
 /** This record points at one `target` record through `foreignKey` (its own attribute). */
 export function belongsTo<C extends ModelClass>(
   target: C,
-  options?: Omit<AssociationOptions<C>, "dependent"> & BelongsToOptions,
+  options?: Omit<AssociationOptions<C>, "dependent"> & BelongsToOptions<C>,
 ): BelongsTo<C>;
 export function belongsTo(
   target: ModelClass | readonly ModelClass[],

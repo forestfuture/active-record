@@ -23,6 +23,7 @@ import { state } from "./record-state.ts";
 import { collectionMethods, type CollectionMethods } from "./collection-methods.ts";
 import { ownedCollection } from "./owned-collection.ts";
 import { ofOwner, type Relation, type Scoped } from "./relation.ts";
+import { checkCounterCache } from "./counter-caches.ts";
 import { linkOf, resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
 
 /**
@@ -108,8 +109,11 @@ export interface AssociationDeclaration extends AssociationOptions, Partial<Thro
   kind: AssociationKind;
   /** A belongsTo that may point at nothing: its record isn't required (#339). */
   optional?: boolean;
-  /** A belongsTo's counter on its target (#61): `true` for the attribute Rails' convention names. */
-  counterCache?: true;
+  /**
+   * A belongsTo's counter on its target (#61): `true` for the attribute Rails' convention names,
+   * or the target's attribute's name.
+   */
+  counterCache?: true | string;
   /** The target Model, read when the association is first used (the field holds the class). */
   target: () => ModelClass;
   /**
@@ -248,6 +252,7 @@ function checkAssociation(
   checkDependent(label, definition);
   checkOptional(label, definition);
   checkAutosave(label, definition);
+  checkCounterCache(label, model, definition, targets);
 }
 
 /** `autosave` is `true` or left out: `false` isn't built (#378). */
