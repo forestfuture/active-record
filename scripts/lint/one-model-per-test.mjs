@@ -14,21 +14,30 @@ const testFunctions = new Set(["test", "it"]);
 
 /**
  * The calls that act on a Model: a record's and a Relation's writes, and validating a record.
- * Any other call looks. An enum's setters (`saveAsPublished()`) are writes too.
+ * Any other call looks. An enum's setters (`saveAsPublished()`) are writes too, and so are the
+ * writes straight to the row and the counters (#351).
  */
 const actions = new Set([
   "create",
   "createOrThrow",
+  "decrementColumn",
+  "decrementCounter",
   "deleteAll",
   "destroy",
   "destroyOrThrow",
+  "incrementColumn",
+  "incrementCounter",
   "insert",
   "insertAll",
   "isValid",
   "save",
   "saveOrThrow",
+  "toggleColumn",
   "update",
   "updateAll",
+  "updateColumn",
+  "updateColumns",
+  "updateCounters",
   "updateOrThrow",
   "upsert",
   "upsertAll",
