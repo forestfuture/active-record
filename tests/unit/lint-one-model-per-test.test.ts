@@ -143,6 +143,25 @@ ruleTester.run("one-model-per-test", oneModelPerTest, {
       errors: [{ messageId: "secondModel" }],
     },
     {
+      name: "a write straight to the row (#351)",
+      code: `test("counts", async () => {
+        expect(await db.model(User).create({})).toBeDefined();
+        const post = await db.model(Post).find(1);
+        expect(await post.incrementColumn("views")).toBe(true);
+      });`,
+      errors: [{ messageId: "secondModel" }],
+    },
+    {
+      name: "a counter static (#351)",
+      code: `test("counts", async () => {
+        expect(await User.create({})).toBeDefined();
+        expect(await Post.updateCounters(1, { views: 1 })).toBe(1);
+      });
+      class User extends Model {}
+      class Post extends Model {}`,
+      errors: [{ messageId: "secondModel" }],
+    },
+    {
       name: "a bulk write through unscoped()",
       code: `test("deletes", async () => {
         expect(await User.create({})).toBeDefined();
