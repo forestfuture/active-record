@@ -22,19 +22,20 @@ import { rowsAffectedOf, runAlone, Statement, statementParts } from "./statement
 
 /**
  * The counter caches a hasMany's records are counted in on its owner: those of the target's
- * belongsTos with the same foreign key (and with `as`, the owner's type) on the owner's Model, or
- * one it extends. Removing its records counts them out of each.
+ * belongsTos with the same foreign key pointing at the same key of the owner's Model, or one it
+ * extends (and with `as`, naming the owner's type). Removing its records counts them out of each.
  */
 function ownersCounters(association: ResolvedAssociation): readonly CounterCache[] {
   const known = countersByHasMany.get(association);
   if (known !== undefined) return known;
-  const { owner, target, definition, type, hops } = association;
+  const { owner, target, definition, type, hops, ownerAttribute } = association;
   const counters =
     definition.kind !== "hasMany" || hops !== undefined
       ? []
       : countersOf(target).filter(
           (each) =>
             each.foreignKey === definition.foreignKey &&
+            each.targetKey === ownerAttribute &&
             (owner === each.target || owner.prototype instanceof each.target) &&
             each.type?.value === type?.value,
         );
@@ -97,11 +98,9 @@ export function countedOut(
   const counters = ownersCounters(association);
   if (counters.length === 0) return statement;
   const { executor, queries, landed } = statement[statementParts];
-  const decrements = (removed: SqlPart) =>
-    byTargetKey(counters).map((sharing) => {
-      const key = keyed(sharing[0]!, owner[state].read(sharing[0]!.targetKey));
-      return compileCountersChange(sharing, removed, key);
-    });
+  // Every counter is on the owner's row, found by the hasMany's key: one UPDATE changes them all.
+  const key = keyed(counters[0]!, owner[state].read(association.ownerAttribute));
+  const decrements = (removed: SqlPart) => [compileCountersChange(counters, removed, key)];
   const countOut = (removed: number) => {
     for (const { attribute } of counters) addToCount(owner, attribute, -removed);
   };
@@ -127,15 +126,6 @@ export function countedOut(
     decrements({ sql: `- (${count.sql})`, params: count.params }),
     (results) => countOut(rowsAffectedOf(results)),
   );
-}
-
-/** `counters` in groups that find their owner by one key, each changed in one UPDATE. */
-function byTargetKey(counters: readonly CounterCache[]): CounterCache[][] {
-  const groups = new Map<string, CounterCache[]>();
-  for (const counter of counters) {
-    groups.set(counter.targetKey, [...(groups.get(counter.targetKey) ?? []), counter]);
-  }
-  return [...groups.values()];
 }
 
 /**

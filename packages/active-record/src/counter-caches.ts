@@ -109,13 +109,13 @@ function requireCounter(label: string, target: ModelClass, attribute: string, hi
 }
 
 /**
- * A hasMany's `counterCache` names the counter a belongsTo of its records keeps on the owner;
- * a hasOne takes none. Read from the declarations, since the records' Model may not be ready yet.
+ * A hasMany's `counterCache` names the counter a belongsTo of its records keeps on the owner, by
+ * the same keys; a hasOne takes none. Read from the declarations, since the records' Model may not be ready yet.
  */
 function checkCollectionCounter(
   label: string,
   owner: ModelClass,
-  { kind, counterCache, foreignKey }: AssociationDefinition,
+  { kind, counterCache, foreignKey, primaryKey }: AssociationDefinition,
   [target]: readonly ModelClass[],
 ): void {
   // A hasMany or hasOne has its one target (checked as a Model before this).
@@ -135,7 +135,9 @@ function checkCollectionCounter(
       each.foreignKey === foreignKey &&
       counterAttribute(records, each) === counterCache &&
       (each.targets?.() ?? [each.target()]).some(
-        (pointed) => owner === pointed || owner.prototype instanceof pointed,
+        (pointed) =>
+          (owner === pointed || owner.prototype instanceof pointed) &&
+          (each.primaryKey ?? pointed.primaryKey) === (primaryKey ?? owner.primaryKey),
       ),
   );
   if (!kept) {

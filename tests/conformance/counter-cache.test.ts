@@ -18,6 +18,7 @@ import { statementKinds } from "../support/statement-kinds.ts";
 class Topic extends Model.define({
   id: { type: "integer", null: false },
   title: "string",
+  number: "integer",
   repliesCount: "integer",
   replyTally: "integer",
 }) {
@@ -593,6 +594,60 @@ describe("counter caches", () => {
       const row = await harness.exec("SELECT replies_count, reply_tally FROM topics WHERE id = 1");
       expect(row.map((each) => [Number(each.replies_count), Number(each.reply_tally)])).toEqual([
         [4, 6],
+      ]);
+    });
+  });
+
+  describe("a belongsTo on the same foreign key, keyed by another attribute", () => {
+    // Its counter is on the topic whose number the reply's key holds, not on the reply's topic.
+    class NumberedReply extends Model.define({
+      id: { type: "integer", null: false },
+      topicId: "integer",
+      body: { type: "string", null: false },
+    }) {
+      static table = "replies";
+      topic = belongsTo(Topic, { counterCache: "repliesCount" });
+      numbered = belongsTo(Topic, {
+        foreignKey: "topicId",
+        primaryKey: "number",
+        counterCache: "replyTally",
+      });
+    }
+
+    class NumberedTopic extends Topic {
+      numberedReplies = hasMany(NumberedReply, { foreignKey: "topicId" });
+    }
+
+    test("isn't one a hasMany's counterCache can name: InvalidModel", () => {
+      class Misread extends NumberedTopic {
+        numberedTallies = hasMany(NumberedReply, {
+          foreignKey: "topicId",
+          counterCache: "replyTally",
+        });
+      }
+
+      expect(() => db().model(Misread).build()).toThrow(
+        new InvalidModel(
+          'Misread association "numberedTallies": no belongsTo of NumberedReply keeps "replyTally" on Misread (check counterCache)',
+        ),
+      );
+    });
+
+    test("isn't counted out by the hasMany's bulk removal", async () => {
+      await harness.exec(
+        "UPDATE topics SET number = 2, replies_count = 1, reply_tally = 4 WHERE id = 1",
+      );
+      await harness.exec(
+        "UPDATE topics SET number = 1, replies_count = 0, reply_tally = 1 WHERE id = 2",
+      );
+      await harness.exec("INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a')");
+
+      await (await db().model(NumberedTopic).find(1)).numberedReplies().deleteAll();
+
+      const rows = await harness.exec("SELECT replies_count, reply_tally FROM topics ORDER BY id");
+      expect(rows.map((row) => [Number(row.replies_count), Number(row.reply_tally)])).toEqual([
+        [0, 4],
+        [0, 1],
       ]);
     });
   });
