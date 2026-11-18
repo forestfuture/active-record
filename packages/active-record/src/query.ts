@@ -55,9 +55,25 @@ export interface QueryDescription {
   includes?: IncludeTree;
   /** Associations joined: `joins(...)` and `leftJoins(...)` (#24). */
   joins?: readonly Join[];
+  /** From `unscope()` (#350): the parts it dropped, which `merge()` drops from the Relation merged into. */
+  unscoped?: readonly UnscopedPart[];
   /** From `createWith()`: attributes a record built or inserted through it gets, not conditions. */
   createWith?: Readonly<Record<string, unknown>>;
 }
+
+/** A part of a query `unscope()` drops: one by name, or the conditions on some attributes. */
+export type UnscopedPart =
+  | "where"
+  | "order"
+  | "limit"
+  | "offset"
+  | "select"
+  | "distinct"
+  | "includes"
+  | "joins"
+  | "leftJoins"
+  | "createWith"
+  | { readonly where: readonly string[] };
 
 /** How a join keeps the joining rows: only those with a linked row, or every one. */
 export type JoinKind = "inner" | "left";

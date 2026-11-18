@@ -9,22 +9,13 @@ import {
   type Condition,
   type JoinKind,
   type QueryDescription,
+  type UnscopedPart,
 } from "./query.ts";
 import { attributeOf } from "./metadata.ts";
 import type { AttributesOf, Model } from "./model.ts";
 
-/** A part of a query `unscope` drops: `unscope("order")`. */
-export type QueryPart =
-  | "where"
-  | "order"
-  | "limit"
-  | "offset"
-  | "select"
-  | "distinct"
-  | "includes"
-  | "joins"
-  | "leftJoins"
-  | "createWith";
+/** A part of a query `unscope` drops by name: `unscope("order")`. */
+export type QueryPart = Exclude<UnscopedPart, object>;
 
 /** Each part `unscope` drops, as the query without it. */
 const WITHOUT: Readonly<Record<QueryPart, (query: QueryDescription) => QueryDescription>> = {
@@ -160,18 +151,46 @@ export type AttributeNames<M extends Model> =
   | (keyof AttributesOf<M> & string)
   | readonly (keyof AttributesOf<M> & string)[];
 
-/** `query` without one part `unscope` was given: a part's name, or `{ where: attributes }`. */
+/** `query` without one part `unscope` was given: a part's name, or `{ where: attributes }`, which it keeps for `merge`. */
 export function unscoped(
   query: QueryDescription,
-  part: QueryPart | { where: string | readonly string[] },
+  given: QueryPart | { where: string | readonly string[] },
 ): QueryDescription {
-  if (typeof part === "string") return withoutPart(query, part);
-  if (typeof part !== "object" || part === null || !("where" in part)) {
+  const part = unscopedPart(query, given);
+  return { ...withoutUnscoped(query, part), unscoped: [...(query.unscoped ?? []), part] };
+}
+
+/** What `unscope` was given, checked, with `{ where }`'s attributes as a list. */
+function unscopedPart(
+  query: QueryDescription,
+  given: QueryPart | { where: string | readonly string[] },
+): UnscopedPart {
+  if (typeof given === "string") {
+    requirePart(given);
+    return given;
+  }
+  if (typeof given !== "object" || given === null || !("where" in given)) {
     throw new TypeError(
-      `unscope() takes a part's name, or { where: attributes }; got ${String(part)}`,
+      `unscope() takes a part's name, or { where: attributes }; got ${String(given)}`,
     );
   }
-  const attributes = typeof part.where === "string" ? [part.where] : part.where;
+  const attributes = typeof given.where === "string" ? [given.where] : [...given.where];
   for (const name of attributes) attributeOf(query.model, name);
-  return withoutConditionsOn(query, attributes);
+  return { where: attributes };
+}
+
+/** `query` without one part `unscope` dropped. */
+function withoutUnscoped(query: QueryDescription, part: UnscopedPart): QueryDescription {
+  return typeof part === "string"
+    ? withoutPart(query, part)
+    : withoutConditionsOn(query, part.where);
+}
+
+/**
+ * `into` with the parts `other` was unscoped of dropped, before `other` merges into it, as Rails'
+ * merge does; only for a Relation of the same Model, whose parts they name.
+ */
+export function withUnscopesOf(into: QueryDescription, other: QueryDescription): QueryDescription {
+  if (other.unscoped === undefined || other.model !== into.model) return into;
+  return other.unscoped.reduce(withoutUnscoped, into);
 }

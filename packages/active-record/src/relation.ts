@@ -12,6 +12,7 @@ import { isEmpty, size, type CountSource } from "./record-counts.ts";
 import {
   unscoped,
   withOnly,
+  withUnscopesOf,
   withoutConditionsOn,
   type AttributeNames,
   type QueryPart,
@@ -199,7 +200,8 @@ export class Relation<M extends Model, S = {}> {
    * Relation of a Model this one joins once (#24): its conditions apply to the joined table.
    */
   merge<T extends Model = M, O = S>(other: Relation<T, O>): Scoped<M, S> {
-    return this.#joining(other, "merge()").#describing(mergedQuery(this.#query, other.#query));
+    const into = withUnscopesOf(this.#query, other.#query);
+    return this.#joining(other, "merge()").#describing(mergedQuery(into, other.#query));
   }
 
   /**
