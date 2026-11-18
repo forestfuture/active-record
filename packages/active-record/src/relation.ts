@@ -147,8 +147,8 @@ export class Relation<M extends Model, S = {}> {
     this.#executor = executor;
     this.#model = model;
     this.#query = query ?? allOf(model);
-    this.#runner = runnerFor(executor, model, this.#query);
     this.#collection = collection ?? unowned;
+    this.#runner = runnerFor(executor, model, this.#query, this.#collection);
   }
 
   where(conditions: Conditions<M> | SafeSql): Scoped<M, S> {
