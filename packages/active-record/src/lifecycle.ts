@@ -38,7 +38,7 @@ import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
-import { counterIncrements } from "./counter-caches.ts";
+import { counterDecrements, counterIncrements } from "./counter-caches.ts";
 import {
   combine,
   inGroup,
@@ -348,7 +348,9 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
   if (dependents.status !== "ready") return dependents;
   // A record that was never saved has no row, so no DELETE and no commit callbacks, as in Rails.
   const hasRow = !recordState.isNew;
-  const deletion = hasRow ? [compileDelete(modelOf(record), recordState.storedKey)] : [];
+  const deletion = hasRow
+    ? [...counterDecrements(record), compileDelete(modelOf(record), recordState.storedKey)]
+    : [];
   const own = stageOf(record, [record], () => [
     {
       statements: deletion,
