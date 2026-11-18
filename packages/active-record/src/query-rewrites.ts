@@ -12,6 +12,7 @@ import {
   type UnscopedPart,
 } from "./query.ts";
 import { attributeOf } from "./metadata.ts";
+import { isPlainObject } from "./permit.ts";
 import { checkConditions, requireAttributeConditions } from "./relation-checks.ts";
 import { Model, primaryKeyOf, type AttributesOf, type ModelClass } from "./model.ts";
 
@@ -102,7 +103,7 @@ function withoutConditionsOn(
   const dropped = new Set(attributes);
   const link = new Set(query.ownerLink);
   const conditions = query.conditions.flatMap((condition) =>
-    link.has(condition) ? [condition] : kept(condition, dropped),
+    link.has(condition) ? [condition] : remainderOf(condition, dropped),
   );
   return keepingOwnerLink({ ...query, conditions });
 }
@@ -133,9 +134,14 @@ function hasLink(condition: Condition, link: Condition): boolean {
   return condition instanceof Negated && hasLink(condition.condition, link);
 }
 
+/** Whether a condition is an object of attribute values, `where({ role: "admin" })`. */
+function isAttributeValues(condition: Condition): condition is Record<string, unknown> {
+  return isPlainObject(condition);
+}
+
 /** What's left of `condition` once those on `dropped` attributes go: itself, part of it, or nothing. */
-function kept(condition: Condition, dropped: ReadonlySet<string>): Condition[] {
-  if (isPlainConditions(condition)) {
+function remainderOf(condition: Condition, dropped: ReadonlySet<string>): Condition[] {
+  if (isAttributeValues(condition)) {
     const left = Object.entries(condition).filter(([name]) => !dropped.has(name));
     return left.length === 0 ? [] : [Object.fromEntries(left)];
   }
@@ -145,20 +151,12 @@ function kept(condition: Condition, dropped: ReadonlySet<string>): Condition[] {
   return isOnlyDropped ? [] : [condition];
 }
 
-/** Whether a condition is an object of attribute values, `where({ role: "admin" })`. */
-function isPlainConditions(condition: Condition): condition is Record<string, unknown> {
-  return (
-    Object.getPrototypeOf(condition) === Object.prototype ||
-    Object.getPrototypeOf(condition) === null
-  );
-}
-
 /**
  * The attributes a condition names, or undefined when that can't be known: a fragment's SQL, or
  * a joined Model's conditions.
  */
 function attributesNamed(condition: Condition): Set<string> | undefined {
-  if (isPlainConditions(condition)) return new Set(Object.keys(condition));
+  if (isAttributeValues(condition)) return new Set(Object.keys(condition));
   if (condition instanceof Negated) return attributesNamed(condition.condition);
   if (condition instanceof LinkedTo) return new Set([condition.attribute]);
   if (condition instanceof Either) return namedByAll([...condition.left, ...condition.right]);
@@ -181,20 +179,17 @@ export type AttributeNames<M extends Model> =
   | (keyof AttributesOf<M> & string)
   | readonly (keyof AttributesOf<M> & string)[];
 
+/** What `unscope` is given for each part: its name, or `{ where }` with attributes. */
+type UnscopeGiven = QueryPart | { where: string | readonly string[] };
+
 /** `query` without one part `unscope` was given: a part's name, or `{ where: attributes }`, which it keeps for `merge`. */
-export function unscoped(
-  query: QueryDescription,
-  given: QueryPart | { where: string | readonly string[] },
-): QueryDescription {
+export function unscoped(query: QueryDescription, given: UnscopeGiven): QueryDescription {
   const part = unscopedPart(query, given);
   return { ...withoutUnscoped(query, part), unscoped: [...(query.unscoped ?? []), part] };
 }
 
 /** What `unscope` was given, checked, with `{ where }`'s attributes as a list. */
-function unscopedPart(
-  query: QueryDescription,
-  given: QueryPart | { where: string | readonly string[] },
-): UnscopedPart {
+function unscopedPart(query: QueryDescription, given: UnscopeGiven): UnscopedPart {
   if (typeof given === "string") {
     requirePart(given);
     return given;
@@ -229,7 +224,10 @@ export function withUnscopesOf(into: QueryDescription, other: QueryDescription):
  * `query` with `conditions` in place of those on their attributes (`rewhere`), as Rails' `rewhere`:
  * conditions on other attributes, and fragments, are kept.
  */
-export function rewhered(query: QueryDescription, conditions: object): QueryDescription {
+export function withConditionsReplaced(
+  query: QueryDescription,
+  conditions: object,
+): QueryDescription {
   requireAttributeConditions(conditions, "rewhere");
   checkConditions(query.model, conditions, "rewhere");
   const names = Object.keys(conditions);
@@ -256,7 +254,9 @@ export function withoutRecords(
 function excludedKeys(model: ModelClass, records: readonly unknown[]): unknown[] {
   return records.flat().flatMap((record) => {
     if (!(record instanceof model)) {
-      throw new TypeError(`excluding() takes records of ${model.name}; got ${describe(record)}`);
+      throw new TypeError(
+        `excluding() takes records of ${model.name}; got ${describedValue(record)}`,
+      );
     }
     const key = primaryKeyOf(record);
     return key === null || key === undefined ? [] : [key];
@@ -264,7 +264,7 @@ function excludedKeys(model: ModelClass, records: readonly unknown[]): unknown[]
 }
 
 /** How a refusal names what it was given: a record's class, or its type. */
-function describe(value: unknown): string {
+function describedValue(value: unknown): string {
   if (value instanceof Model) return `a ${value.constructor.name}`;
   return value === null ? "null" : typeof value;
 }

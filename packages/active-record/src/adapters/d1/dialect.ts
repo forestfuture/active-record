@@ -8,18 +8,29 @@ function hexCells(cells: readonly unknown[]): (string | null)[] {
   );
 }
 
+/** A list's cells bound as one JSON value, and how a `json_each` row reads one back (#20). */
+function jsonList(cells: readonly unknown[], isBinary: boolean): { value: string; cell: string } {
+  return {
+    value: JSON.stringify(isBinary ? hexCells(cells) : cells),
+    cell: isBinary ? "unhex(value)" : "value",
+  };
+}
+
 export const sqlite: Dialect = {
   placeholder: () => "?",
   // JSON has no bytes, so a list of them is bound as hex text, read back with unhex (#20).
-  inList: (column, cells, { isBinary }) => ({
-    sql: `${column} IN (SELECT ${isBinary ? "unhex(value)" : "value"} FROM json_each(${valueMark}))`,
-    value: JSON.stringify(isBinary ? hexCells(cells) : cells),
-  }),
+  inList(column, cells, { isBinary }) {
+    const { value, cell } = jsonList(cells, isBinary);
+    return { sql: `${column} IN (SELECT ${cell} FROM json_each(${valueMark}))`, value };
+  },
   // `IS` matches a NULL in the list too; the first place a value has is its own.
-  placeInList: (column, cells, { isBinary }) => ({
-    sql: `(SELECT MIN(key) FROM json_each(${valueMark}) WHERE ${isBinary ? "unhex(value)" : "value"} IS ${column})`,
-    value: JSON.stringify(isBinary ? hexCells(cells) : cells),
-  }),
+  placeInList(column, cells, { isBinary }) {
+    const { value, cell } = jsonList(cells, isBinary);
+    return {
+      sql: `(SELECT MIN(key) FROM json_each(${valueMark}) WHERE ${cell} IS ${column})`,
+      value,
+    };
+  },
   pagination(limit, offset, params) {
     // SQLite only accepts OFFSET after a LIMIT; -1 means "no limit".
     params.push(limit ?? -1);

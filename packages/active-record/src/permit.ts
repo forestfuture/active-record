@@ -60,7 +60,7 @@ function givenValues(model: ModelClass, input: unknown): Map<string, unknown> {
 }
 
 /** An object literal or parsed JSON: not an array, a `Map`, a `Date` or a class's instance. */
-function isPlainObject(input: unknown): input is object {
+export function isPlainObject(input: unknown): input is object {
   if (typeof input !== "object" || input === null) return false;
   const prototype: unknown = Object.getPrototypeOf(input);
   return prototype === Object.prototype || prototype === null;
