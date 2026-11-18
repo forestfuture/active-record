@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model, RecordDestroyed, RecordNotSaved } from "../../packages/active-record/src/index.ts";
+import {
+  Model,
+  RecordDestroyed,
+  RecordNotSaved,
+  withDatabase,
+} from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -7,6 +12,7 @@ class Member extends Model.define({
   id: { type: "integer", null: false },
   email: { type: "string", null: false },
   age: "integer",
+  suspended: "integer",
   isActive: "boolean",
   updatedAt: "datetime",
 }) {
@@ -17,6 +23,19 @@ class Member extends Model.define({
     for (const kind of ["beforeValidation", "beforeSave", "afterSave", "afterCommit"] as const) {
       this[kind](() => void callbacks.push(kind));
     }
+  }
+}
+
+/** Members whose default scope leaves out inactive ones. */
+class ActiveMember extends Model.define({
+  id: { type: "integer", null: false },
+  age: "integer",
+  isActive: "boolean",
+}) {
+  static table = "users";
+
+  static {
+    this.defaultScope((members) => members.where({ isActive: true }));
   }
 }
 
@@ -264,6 +283,63 @@ describe("changing one attribute (#351)", () => {
       await expect(unsaved.toggleColumn("isActive")).rejects.toThrow(RecordNotSaved);
       await expect(member.toggleColumn(untyped("age"))).rejects.toThrow(TypeError);
       expect(unsaved.isActive).toBeNull();
+      expect(events).toEqual([]);
+    });
+  });
+
+  describe("updateCounters", () => {
+    const ages = async () =>
+      (await db().model(Member).order({ id: "asc" }).pluck("age")) as unknown[];
+    beforeEach(async () => {
+      await harness.exec(
+        "INSERT INTO users (id, email, is_active) VALUES (2, 'b@example.com', ?)",
+        [false],
+      );
+      events.length = 0;
+    });
+
+    test("adds to a Relation's rows in one statement, a null counting as zero", async () => {
+      const members = db()
+        .model(Member)
+        .where({ id: [1, 2] });
+
+      expect(await members.updateCounters({ age: 2, suspended: 1 })).toBe(2);
+
+      expect(events.length).toBe(1);
+      expect(await ages()).toEqual([5, 2]);
+      expect(await db().model(Member).order({ id: "asc" }).pluck("suspended")).toEqual([1, 1]);
+    });
+
+    test("leaves updatedAt alone", async () => {
+      await db().model(Member).updateCounters({ age: 1 });
+
+      expect(await db().model(Member).pluck("updatedAt")).toEqual([null, null]);
+    });
+
+    test("a Model's static takes primary keys, and a negative number takes away", async () => {
+      expect(await withDatabase(db(), () => Member.updateCounters(1, { age: -1 }))).toBe(1);
+      expect(await withDatabase(db(), () => Member.updateCounters([1, 2], { age: 1 }))).toBe(2);
+
+      expect(await ages()).toEqual([3, 1]);
+    });
+
+    test("a Model's static writes a row its default scope leaves out, as Rails", async () => {
+      expect(await withDatabase(db(), () => ActiveMember.updateCounters(2, { age: 4 }))).toBe(1);
+
+      expect(await ages()).toEqual([3, 4]);
+    });
+
+    test("refuses no counters, and an attribute that isn't a number, sending nothing", async () => {
+      const members = db().model(Member);
+
+      await expect(members.updateCounters({})).rejects.toThrow(TypeError);
+      await expect(members.updateCounters({ email: 1 } as never)).rejects.toThrow(TypeError);
+      expect(events).toEqual([]);
+    });
+
+    // A guard: updateCounters is an updateAll, which sends nothing for none().
+    test("a none() Relation sends nothing and resolves to 0", async () => {
+      expect(await db().model(Member).none().updateCounters({ age: 1 })).toBe(0);
       expect(events).toEqual([]);
     });
   });

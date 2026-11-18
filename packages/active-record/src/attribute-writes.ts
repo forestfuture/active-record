@@ -1,8 +1,7 @@
 // Changing one attribute (#351): `increment`, `decrement` and `toggle` in memory, and `updateColumns`, `incrementColumn` and `toggleColumn`, straight to the row; the record methods every Model's records inherit from Model.
 import { compileUpdate } from "./compiler.ts";
+import { counterSets, requireAttributeType } from "./counters.ts";
 import { RecordNotSaved } from "./errors.ts";
-import { column, sql } from "./sql.ts";
-import { attributeOf } from "./metadata.ts";
 import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import { ModelStatics } from "./model-statics.ts";
 import { state } from "./record-state.ts";
@@ -107,7 +106,7 @@ export abstract class AttributeWrites extends ModelStatics {
 
 /** Whether a boolean attribute is `true` once flipped (null becomes `true`); `TypeError` for another type. */
 function isTrueOnceToggled(record: Model, name: string, method: string): boolean {
-  requireType(record, name, method, "boolean");
+  requireAttributeType(modelOf(record), name, method, "boolean");
   return record[state].read(name) !== true;
 }
 
@@ -126,8 +125,13 @@ async function addToColumn(
   const after = (numberValue(record, name, method) ?? 0) + by;
   const delta = after - ((recordState.valueInDatabase(name) as number | null) ?? 0);
   recordState.write(name, after);
-  const sets = sql`${column(name)} = COALESCE(${column(name)}, 0) + ${column(name).value(delta)}`;
-  const update = compileUpdate(modelOf(record), sets, recordState.storedKey, [name]);
+  const model = modelOf(record);
+  const update = compileUpdate(
+    model,
+    counterSets(model, { [name]: delta }, method),
+    recordState.storedKey,
+    [name],
+  );
   const [result] = await recordState.executor.write([update]);
   recordState.commitColumns([name], result?.rows[0]);
   return result?.rowsAffected === 1;
@@ -166,22 +170,6 @@ const modelOf = (record: Model): ModelClass => record.constructor as ModelClass;
 
 /** A number attribute's value; `TypeError` for another type's. */
 function numberValue(record: Model, name: string, method: string): number | null {
-  requireType(record, name, method, "integer", "real");
+  requireAttributeType(modelOf(record), name, method, "integer", "real");
   return record[state].read(name) as number | null;
-}
-
-/**
- * Refuses an attribute whose type isn't one of `types` (an enum or a custom type isn't), with a
- * `TypeError` naming the Model and attribute, since the compiler can't catch every caller.
- */
-function requireType(record: Model, name: string, method: string, ...types: string[]): void {
-  const model = modelOf(record);
-  const definition = attributeOf(model, name);
-  const isPlain = definition.enum === undefined && definition.customType === undefined;
-  if (!isPlain || !types.includes(definition.type)) {
-    throw new TypeError(
-      `${model.name}.${method}("${name}") takes ${types.join(" or ")} attributes; ` +
-        `${name} isn't one`,
-    );
-  }
 }
