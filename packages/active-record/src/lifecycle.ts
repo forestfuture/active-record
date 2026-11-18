@@ -38,7 +38,12 @@ import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
-import { countersOnDestroy, countersOnInsert, countersOnUpdate } from "./counter-caches.ts";
+import {
+  countersOnDestroy,
+  countersOnInsert,
+  countersOnUpdate,
+  noCounterChanges,
+} from "./counter-caches.ts";
 import {
   combine,
   inGroup,
@@ -301,10 +306,10 @@ function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
     const insert = compileInsert(model, [...own, ...timestampsFor(model, "insert", own)]);
     const counters = countersOnInsert(record);
     return {
-      statements: [insert, ...counters.after],
-      commit: ([result]) => {
-        recordState.commitInsert(result?.rows[0]);
-        counters.commit();
+      statements: counters.around(insert),
+      commit: (results) => {
+        recordState.commitInsert(results[0]?.rows[0]);
+        counters.commit(results);
       },
       after,
       afterCommit,
@@ -320,10 +325,10 @@ function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
   const counters = countersOnUpdate(record);
   const update = compileUpdate(model, [...own, ...stamps], recordState.storedKey);
   return {
-    statements: [...counters.before, update, ...counters.after],
-    commit: () => {
+    statements: counters.around(update),
+    commit: (results) => {
       recordState.commitUpdate(stamps);
-      counters.commit();
+      counters.commit(results);
     },
     after,
     afterCommit,
@@ -357,16 +362,16 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
   if (dependents.status !== "ready") return dependents;
   // A record that was never saved has no row, so no DELETE and no commit callbacks, as in Rails.
   const hasRow = !recordState.isNew;
-  const counters = hasRow ? countersOnDestroy(record) : undefined;
+  const counters = hasRow ? countersOnDestroy(record) : noCounterChanges;
   const deletion = hasRow
-    ? [...counters!.before, compileDelete(modelOf(record), recordState.storedKey)]
+    ? counters.around(compileDelete(modelOf(record), recordState.storedKey))
     : [];
   const own = stageOf(record, [record], () => [
     {
       statements: deletion,
-      commit: () => {
+      commit: (results) => {
         recordState.markDestroyed();
-        counters?.commit();
+        counters.commit(results);
       },
       after: () => runAfterCallbacks(record, "afterDestroy", "destroy"),
       afterRollback: afterRollbackOf(record),
