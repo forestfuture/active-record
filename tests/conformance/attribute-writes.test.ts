@@ -273,12 +273,17 @@ describe("changing one attribute (#351)", () => {
       expect(member.isChanged()).toBe(false);
     });
 
-    test("refuses a new record, and an attribute that isn't a number", async () => {
-      const member = await db().model(Member).find(1);
+    test("refuses a new record with RecordNotSaved", async () => {
       const unsaved = db().model(Member).build({ email: "b@example.com" });
-      events.length = 0;
 
       await expect(unsaved.incrementColumn("age")).rejects.toThrow(RecordNotSaved);
+      expect(events).toEqual([]);
+    });
+
+    test("refuses an attribute that isn't a number, sending nothing", async () => {
+      const member = await db().model(Member).find(1);
+      events.length = 0;
+
       await expect(member.incrementColumn(untyped("email"))).rejects.toThrow(TypeError);
       expect(events).toEqual([]);
     });
@@ -296,14 +301,19 @@ describe("changing one attribute (#351)", () => {
       expect((await db().model(Member).find(1)).isActive).toBe(false);
     });
 
-    test("refuses a new record, and an attribute that isn't a boolean", async () => {
-      const member = await db().model(Member).find(1);
+    test("refuses a new record before flipping anything", async () => {
       const unsaved = db().model(Member).build({ email: "b@example.com" });
-      events.length = 0;
 
       await expect(unsaved.toggleColumn("isActive")).rejects.toThrow(RecordNotSaved);
-      await expect(member.toggleColumn(untyped("age"))).rejects.toThrow(TypeError);
       expect(unsaved.isActive).toBeNull();
+      expect(events).toEqual([]);
+    });
+
+    test("refuses an attribute that isn't a boolean, sending nothing", async () => {
+      const member = await db().model(Member).find(1);
+      events.length = 0;
+
+      await expect(member.toggleColumn(untyped("age"))).rejects.toThrow(TypeError);
       expect(events).toEqual([]);
     });
   });
@@ -364,11 +374,15 @@ describe("changing one attribute (#351)", () => {
       expect(await ages()).toEqual([3, 4]);
     });
 
-    test("refuses no counters, and an attribute that isn't a number, sending nothing", async () => {
-      const members = db().model(Member);
+    test("refuses no counters with a TypeError, sending nothing", async () => {
+      await expect(db().model(Member).updateCounters({})).rejects.toThrow(TypeError);
+      expect(events).toEqual([]);
+    });
 
-      await expect(members.updateCounters({})).rejects.toThrow(TypeError);
-      await expect(members.updateCounters({ email: 1 } as never)).rejects.toThrow(TypeError);
+    test("refuses an attribute that isn't a number, sending nothing", async () => {
+      const counters = { email: 1 } as never;
+
+      await expect(db().model(Member).updateCounters(counters)).rejects.toThrow(TypeError);
       expect(events).toEqual([]);
     });
 
@@ -397,9 +411,13 @@ describe("changing one attribute (#351)", () => {
       expect(member.isPreviouslyNewRecord()).toBe(true);
     });
 
-    test("is false for a loaded record, and after a save that updated one", async () => {
+    test("is false for a loaded record", async () => {
       const member = await db().model(Member).find(1);
+
       expect(member.isPreviouslyNewRecord()).toBe(false);
+    });
+
+    test("is false after a later save, an update or a clean one", async () => {
       const created = await db().model(Member).create({ email: "b@example.com", id: 2, age: 1 });
 
       await created.update({ age: 5 });
