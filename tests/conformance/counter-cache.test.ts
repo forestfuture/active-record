@@ -651,6 +651,17 @@ describe("counter caches", () => {
       );
     });
 
+    test("checks its names before reading the record", async () => {
+      const events: QueryEvent[] = [];
+      const counted = harness.connect({ onQuery: (event) => events.push(event) });
+
+      // @ts-expect-error resetCounters takes a hasMany's name
+      const reset = withDatabase(counted, () => Topic.resetCounters(99, "missing"));
+
+      await expect(reset).rejects.toThrow(UnknownAssociation);
+      expect(events).toEqual([]);
+    });
+
     test("a name that isn't an association is UnknownAssociation", async () => {
       await expect(
         // @ts-expect-error resetCounters takes a hasMany's name

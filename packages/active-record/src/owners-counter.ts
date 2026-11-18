@@ -11,7 +11,7 @@ import {
   type SqlPart,
 } from "./counter-caches.ts";
 import { valueMark } from "./dialect.ts";
-import { modelOf, type Model } from "./model.ts";
+import type { Model, ModelClass, QueryableClass } from "./model.ts";
 import { quoteIdentifier } from "./query-tables.ts";
 import type { QueryDescription } from "./query.ts";
 import { state } from "./record-state.ts";
@@ -109,25 +109,29 @@ export function countedOut(
 }
 
 /**
- * Sets `record`'s counter caches to how many records each named hasMany has, each counted by the
- * association's own query, scope included, as Rails' `reset_counters` counts: one UPDATE for
- * each, sent together, so each count is the one at the write.
+ * `Model.resetCounters(id, names, { touch })`: checks the names and `touch`, finds the record
+ * (`RecordNotFound`, as `find`), then sets each named hasMany's counter cache to a COUNT of its
+ * records, and any touched attributes, in one UPDATE, so each count is the one at the write.
  */
 export async function resetCounters(
-  record: Model,
-  names: readonly string[],
+  model: QueryableClass,
+  id: unknown,
+  names: string | readonly string[],
   touch: unknown,
 ): Promise<void> {
-  const model = modelOf(record);
-  const resets = new Map<string, SqlPart>();
-  for (const name of names) {
-    const [attribute, reset] = counterReset(record, name);
-    // Two names for one counter set it once: a column can't be assigned twice.
-    if (!resets.has(attribute)) resets.set(attribute, reset);
+  const counted = countedBy(model, typeof names === "string" ? [names] : names);
+  const touched = touchAssignments(model, touch, "resetCounters");
+  const record: Model = await model.all().find(id as never);
+  const { executor } = record[state];
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  for (const [attribute, association] of counted) {
+    const rows = association.linkedTo(executor, association.keyOf(record));
+    const count = compileCount(executor.dialect, rows[queryOf]);
+    sets.push(`${quoteIdentifier(attributeFor(model, attribute).column)} = (${count.sql})`);
+    params.push(...count.params);
   }
-  const sets = [...resets.values()].map(({ sql }) => sql);
-  const params = [...resets.values()].flatMap((reset) => reset.params);
-  for (const [name, now] of touchAssignments(model, touch, "resetCounters")) {
+  for (const [name, now] of touched) {
     const attribute = attributeFor(model, name);
     attribute.bind(params, now);
     sets.push(`${quoteIdentifier(attribute.column)} = ${valueMark}`);
@@ -135,28 +139,31 @@ export async function resetCounters(
   const key = attributeFor(model, model.primaryKey);
   key.bindCells(params, record[state].storedKey);
   const sql = `UPDATE ${quoteIdentifier(model.table)} SET ${sets.join(", ")} WHERE ${quoteIdentifier(key.column)} = ${valueMark}`;
-  await runAlone(new Statement(record[state].executor, [{ sql, params, model }]));
+  await runAlone(new Statement(executor, [{ sql, params, model }]));
 }
 
-/** `counter = (SELECT COUNT(*) …)` for `record`'s hasMany `name`, with the counter it sets. */
-function counterReset(record: Model, name: string): [string, SqlPart] {
-  const model = modelOf(record);
-  const association = resolveAssociation(model, name);
-  const counter = ownersCounter(association);
-  if (counter === undefined) {
-    throw new TypeError(
-      `${model.name}.resetCounters: "${name}" has no counter cache on ${model.name}`,
-    );
+/**
+ * The hasManys `names` reset, by the counter each sets, checked before anything is read: each
+ * keeps a counter cache, and has no scope, whose rows wouldn't be all the counter counts (Rails
+ * would write them in). Two names for one counter set it once: a column can't be assigned twice.
+ */
+function countedBy(model: ModelClass, names: readonly string[]): Map<string, ResolvedAssociation> {
+  if (names.length === 0) {
+    throw new TypeError(`${model.name}.resetCounters needs at least one association`);
   }
-  // Its rows aren't all the counter counts, as Rails would write them in (#61).
-  if (association.definition.scope !== undefined) {
-    throw new TypeError(
-      `${model.name}.resetCounters: "${name}" has a scope, so it can't count ${counter.attribute}`,
-    );
+  const counted = new Map<string, ResolvedAssociation>();
+  for (const name of names) {
+    const association = resolveAssociation(model, name);
+    const counter = ownersCounter(association);
+    const refusal =
+      counter === undefined
+        ? `has no counter cache on ${model.name}`
+        : association.definition.scope === undefined
+          ? undefined
+          : `has a scope, so it can't count ${counter.attribute}`;
+    if (refusal !== undefined)
+      throw new TypeError(`${model.name}.resetCounters: "${name}" ${refusal}`);
+    if (!counted.has(counter!.attribute)) counted.set(counter!.attribute, association);
   }
-  const { executor } = record[state];
-  const rows = association.linkedTo(executor, association.keyOf(record));
-  const count = compileCount(executor.dialect, rows[queryOf]);
-  const column = quoteIdentifier(attributeFor(model, counter.attribute).column);
-  return [counter.attribute, { sql: `${column} = (${count.sql})`, params: [...count.params] }];
+  return counted;
 }
