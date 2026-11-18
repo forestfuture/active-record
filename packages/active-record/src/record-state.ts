@@ -388,6 +388,17 @@ export class RecordState {
     this.#markSaved();
   }
 
+  /**
+   * After a write straight to the row (`updateColumns`, #351): these attributes hold what was
+   * stored, and have no unsaved change. The rest, and `savedChanges`, are as they were.
+   */
+  commitColumns(names: readonly string[]): void {
+    for (const name of names) {
+      this.#values[name] = this.#copyOf(name);
+      this.#snapshot.set(name, this.#storedForm(name));
+    }
+  }
+
   /** A save with nothing to write: nothing changes but `savedChanges`. */
   commitClean(): void {
     this.#savedChanges = {};
