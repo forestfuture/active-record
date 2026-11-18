@@ -86,9 +86,11 @@ To add to a number without loading the record, pass its primary key to `updateCo
 
 - **`Article.updateCounters(ids, counters)`** adds to the rows with those keys, even ones a default scope leaves out.
 - **A Relation’s `updateCounters(counters)`** adds to every row it matches.
-- **`incrementCounter` and `decrementCounter`** change one attribute by one, or by the amount you give.
+- **`incrementCounter` and `decrementCounter`** change one attribute by one, or by `{ by }`.
 
-Each one sends a single statement and resolves to the number of rows it changed. Like `updateAll`, it skips validations, callbacks, and `updatedAt`.
+Each one sends a single statement and resolves to the number of rows it changed. Like `updateAll`, it skips validations and callbacks. It leaves `updatedAt` alone unless you pass `{ touch: true }`, or name more datetime attributes to set: `{ touch: "viewedAt" }`.
+
+To keep a count of an association’s records, see [counter caches](./associations#counting-records-with-a-counter-cache).
 
 :::warning[Counting by key skips the default scope]
 `Article.updateCounters`, `incrementCounter`, and `decrementCounter` find rows by primary key alone. If a default scope keeps tenants apart or hides deleted rows, a key from a request can reach a row it hides. Start from a Relation instead, which keeps the default scope:
