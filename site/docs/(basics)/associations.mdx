@@ -457,13 +457,9 @@ A polymorphic `belongsTo` counts a record on whichever listed Model its type nam
 
 <include>/_excerpts/guide/counter-caches/size.ts</include>
 
-An association reads the counter named for it: `comments` reads `commentsCount`. If its counter has another name, name it on the `hasMany`:
+An association reads the counter named for it: `comments` reads `commentsCount`. If its counter has another name, name it on the `hasMany` too:
 
-```ts
-import { hasMany } from "@forestfuture/active-record";
-
-comments = hasMany(Comment, { counterCache: "replyCount" });
-```
+<include>/_excerpts/guide/counter-caches/named.ts</include>
 
 An association with any other name counts its rows, so one narrowed by a scope counts only its own records.
 

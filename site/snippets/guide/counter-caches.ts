@@ -19,6 +19,22 @@ export class Comment extends Model.define({
 }
 // #endregion declare
 
+// #region named
+export class Forum extends Model.define({
+  id: { type: "integer", null: false },
+  replyCount: { type: "integer", null: false },
+}) {
+  replies = hasMany(Reply, { counterCache: "replyCount" }); // not repliesCount
+}
+
+export class Reply extends Model.define({
+  id: { type: "integer", null: false },
+  forumId: "integer",
+}) {
+  forum = belongsTo(Forum, { counterCache: "replyCount" });
+}
+// #endregion named
+
 // #region backfill
 export class ImportedComment extends Model.define({
   id: { type: "integer", null: false },

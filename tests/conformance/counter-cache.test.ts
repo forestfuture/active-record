@@ -873,6 +873,19 @@ describe("counter caches", () => {
     );
   });
 
+  test("a hasMany's counterCache is an attribute's name: InvalidModel otherwise", () => {
+    class Counting extends Model.define({ id: { type: "integer", null: false } }) {
+      static table = "topics";
+      replies = hasMany(Reply, { foreignKey: "topicId", counterCache: true as never });
+    }
+
+    expect(() => db().model(Counting).build()).toThrow(
+      new InvalidModel(
+        'Counting association "replies": a hasMany\'s counterCache names the attribute it reads',
+      ),
+    );
+  });
+
   test("a hasMany's counterCache must be one its records' belongsTo keeps: InvalidModel", () => {
     class Counting extends Model.define({
       id: { type: "integer", null: false },

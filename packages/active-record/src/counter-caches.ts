@@ -1,4 +1,4 @@
-// CounterCache caches (#61): a belongsTo's `counterCache`, kept up to date by statements written in the same atomic batch as its record's insert, update or delete.
+// Counter caches (#61): a belongsTo's `counterCache`, kept up to date by statements written in the same atomic batch as its record's insert, update or delete, and checking it and a hasMany's.
 import { associationsOf } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { attributeFor } from "./attribute.ts";
@@ -90,25 +90,29 @@ function checkCollectionCounter(
   { kind, counterCache, foreignKey }: AssociationDefinition,
   [target]: readonly ModelClass[],
 ): void {
-  if (kind !== "hasMany" || typeof counterCache !== "string") {
-    const where = target === undefined ? "its records'" : `${target.name}'s`;
+  // A hasMany or hasOne has its one target (checked as a Model before this).
+  const records = target!;
+  if (kind !== "hasMany") {
     throw new InvalidModel(
-      `${label}: a ${kind} takes no counterCache; declare it on ${where} belongsTo`,
+      `${label}: a ${kind} takes no counterCache; declare it on ${records.name}'s belongsTo`,
     );
   }
-  const kept = [...associationsOf(target!).values()].some(
+  if (typeof counterCache !== "string") {
+    throw new InvalidModel(`${label}: a hasMany's counterCache names the attribute it reads`);
+  }
+  const kept = [...associationsOf(records).values()].some(
     (each) =>
       each.kind === "belongsTo" &&
       each.counterCache !== undefined &&
       each.foreignKey === foreignKey &&
-      counterAttribute(target!, each) === counterCache &&
+      counterAttribute(records, each) === counterCache &&
       (each.targets?.() ?? [each.target()]).some(
         (pointed) => owner === pointed || owner.prototype instanceof pointed,
       ),
   );
   if (!kept) {
     throw new InvalidModel(
-      `${label}: no belongsTo of ${target!.name} keeps "${counterCache}" on ${owner.name} (check counterCache)`,
+      `${label}: no belongsTo of ${records.name} keeps "${counterCache}" on ${owner.name} (check counterCache)`,
     );
   }
 }
