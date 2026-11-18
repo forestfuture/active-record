@@ -627,6 +627,14 @@ export class Model extends AttributeWrites {
     return this[state].isNew;
   }
 
+  /**
+   * Whether its last save created it, as Rails' `previously_new_record?`: true in a create's
+   * after-callbacks and after it, false once it's saved again or destroyed.
+   */
+  isPreviouslyNewRecord(): boolean {
+    return this[state].isPreviouslyNew;
+  }
+
   /** Backed by a row: loaded, or saved successfully. */
   isPersisted(): boolean {
     return this[state].isPersisted;

@@ -58,6 +58,8 @@ export class RecordState {
   readonly autosaves = new PendingAutosaves();
   /** Destroyed when its owner is saved through an `autosave: true` association (#37). */
   isMarkedForDestruction = false;
+  /** Whether its last save created it, as Rails' `previously_new_record?` (#351). */
+  isPreviouslyNew = false;
   /** The contexts it's being validated in, while it is (#51). */
   validationContexts: readonly string[] = [];
 
@@ -373,6 +375,7 @@ export class RecordState {
         )
         .map(([name, { value }]) => [name, [value, this.#copyOf(name)]]),
     );
+    this.isPreviouslyNew = true;
   }
 
   /**
@@ -386,6 +389,7 @@ export class RecordState {
     this.#settle();
     this.#savedChanges = this.changes();
     this.#markSaved();
+    this.isPreviouslyNew = false;
   }
 
   /**
@@ -405,10 +409,12 @@ export class RecordState {
   /** A save with nothing to write: nothing changes but `savedChanges`. */
   commitClean(): void {
     this.#savedChanges = {};
+    this.isPreviouslyNew = false;
   }
 
   markDestroyed(): void {
     this.#lifecycle = "destroyed";
+    this.isPreviouslyNew = false;
   }
 
   // Internals
