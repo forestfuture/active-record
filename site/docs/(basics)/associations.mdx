@@ -427,6 +427,58 @@ Everything a destroy does on the owner’s database, its DELETE included, is wri
 Without a strategy, it’s up to the database. If the table declares the foreign key with `REFERENCES`, destroying an owner whose records still point at it throws `InvalidForeignKey`.
 :::
 
+## Counting records with a counter cache
+
+To keep a count of an article’s comments on the article itself, declare `counterCache` on the comment’s `belongsTo`:
+
+<include>/_excerpts/guide/counter-caches/declare.ts</include>
+
+The article needs an attribute for the count, named for the counted Model: `commentsCount` for comments. To keep it in another attribute, name it: `counterCache: "replyCount"`.
+
+Creating a comment adds one to its article’s count, and destroying it takes one away:
+
+<include>/_excerpts/guide/counter-caches/counting.ts</include>
+
+Each change is written in the same atomic batch as the comment, so the count can’t drift from the rows. Changing a comment’s `articleId` moves the count to the other article. An article you’ve loaded takes the new count too, without a save.
+
+Removing comments through the article’s association counts them out: `delete`, `clear`, and `deleteAll()` on `article.comments()`. Bulk writes leave the count alone: `insert`, `insertAll`, `upsert`, `updateAll`, and `deleteAll()` on any other Relation.
+
+:::note
+A polymorphic `belongsTo` counts a record on whichever listed Model its type names, so each of them declares the attribute. A counter cache on a Model on [another database](./several-databases) throws `InvalidModel`, since its count couldn’t be written in the same batch.
+:::
+
+### Reading the count
+
+`size()`, `isEmpty()`, and `hasAny()` on the association read the count, without a query:
+
+<include>/_excerpts/guide/counter-caches/size.ts</include>
+
+`count()` still counts the rows.
+
+### Resetting a count
+
+To set a count from the rows, after a bulk write for example, use `resetCounters`:
+
+<include>/_excerpts/guide/counter-caches/reset.ts</include>
+
+It takes one association’s name or a list of them. `touch: true` also sets `updatedAt`.
+
+### Adding a counter to existing records
+
+A new counter starts at zero, even for an article that already has comments. To fill it in before anything reads it, declare it with `active: false`:
+
+<include>/_excerpts/guide/counter-caches/backfill.ts</include>
+
+Writes keep the count up to date, while `size()` and the others count the rows. Run `resetCounters` for each article, then remove `active: false`.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails takes one from the article the comment’s key pointed at when it was loaded. Here the count is taken from the article the comment’s row points at as it’s deleted, so a comment that’s already gone, or that another request moved, doesn’t throw the count off.
+
+Rails’ `belongs_to … touch: true` also touches the article when its count changes. That option isn’t built yet ([#353](https://github.com/forestfuture/active-record/issues/353)).
+
+</Callout>
+
 ## Writing many rows
 
 `insert`, `updateAll`, and `deleteAll` work through a `hasMany`, scoped to the owner’s records:
@@ -451,7 +503,6 @@ These features aren’t in Active Record yet. The code shows the shape they’re
 
 - **Autosaving through an association through another** ([#450](https://github.com/forestfuture/active-record/issues/450)): `articles = hasMany(Article, { through: "taggings", autosave: true })`, which saves the tag’s changed articles with it.
 - **Associations through another across databases** ([#435](https://github.com/forestfuture/active-record/issues/435)): an association whose hops are on different databases, read with a query per database.
-- **Counter caches** ([#61](https://github.com/forestfuture/active-record/issues/61)): `post = belongsTo(Post, { counterCache: true })`, keeping a `commentsCount` on each post, updated in the same atomic batch as the write.
 - **Never autosaving** ([#378](https://github.com/forestfuture/active-record/issues/378)): `articles = hasMany(Article, { autosave: false })`, which never saves the association’s records with the owner, not even new ones.
 - **Numbered autosave errors** ([#379](https://github.com/forestfuture/active-record/issues/379)): `hasMany(Article, { autosave: true, indexErrors: true })`, which names a copied error by the record’s position, `articles[1].title`.
 - **Inverse associations** ([#62](https://github.com/forestfuture/active-record/issues/62)): after `await post.comments().toArray()`, each `comment.post()` returns that same post, without a query.

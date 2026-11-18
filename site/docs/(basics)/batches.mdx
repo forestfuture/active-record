@@ -54,7 +54,7 @@ Prepare several writes in `batch`’s callback to write them atomically:
 
 <include>/_excerpts/guide/batches/batch.ts</include>
 
-The callback gets `b`, with a method for each bulk write: `insert`, `insertAll`, `upsert`, `upsertAll`, `updateAll`, and `deleteAll`. Each takes what it writes to, then the same arguments as the write itself. Pass a Model to write to its table, or a Relation to write to its rows, such as `Article.where(…)` or `author.articles()`.
+The callback gets `b`, with a method for each bulk write: `insert`, `insertAll`, `upsert`, `upsertAll`, `updateAll`, `updateCounters`, and `deleteAll`. Each takes what it writes to, then the same arguments as the write itself. Pass a Model to write to its table, or a Relation to write to its rows, such as `Article.where(…)` or `author.articles()`.
 
 `batch` resolves to each write’s result, in order. A bulk write gives the same `{ rowsAffected, rows }` it resolves to when it runs alone, and `rows` is empty for `updateAll` and `deleteAll`.
 

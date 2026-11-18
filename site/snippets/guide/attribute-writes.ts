@@ -35,7 +35,7 @@ export async function examples(id: number) {
   // #region counters
   await Article.updateCounters(id, { viewCount: 1 });
   await Article.where({ isPinned: true }).updateCounters({ viewCount: 10 });
-  await Article.incrementCounter("viewCount", [id], { by: 5 });
+  await Article.incrementCounter("viewCount", [id], { by: 5, touch: true }); // sets updatedAt too
   // #endregion counters
 
   // #region scoped-counter

@@ -216,6 +216,10 @@ _Avoid_: Scope (on its own), default scope
 What destroying a **Record** does to an **Association**'s records: destroy them, delete them, nullify their foreign key, or refuse while they exist (a restriction, which isn't an **Abort**). A has-many's `delete`, `clear` and `deleteAll()` remove records by it too. On another database, it's written there, separately from the owner's DELETE.
 _Avoid_: Cascade (that's the database's), dependent destroy (for all of them)
 
+**Counter cache**:
+A count of a has-many's records kept in an attribute of its owner (`commentsCount`), declared on the records' belongs-to (`counterCache: true`). Each insert, delete or move of a record changes it in the same atomic **Batch** as the record's write; **Bulk writes** leave it alone. A has-many's `size` reads it.
+_Avoid_: Counter column, cached count
+
 **Query listener**:
 A function called once per statement sent to D1 (`onQuery`): a database's, for one request's queries, or a Model class's (`static onQuery`, usually on the **Base class**), for every query of its Models. It only observes: it never changes a query's outcome.
 _Avoid_: Logger, hook, middleware
