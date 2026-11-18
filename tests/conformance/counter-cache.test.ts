@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-pl
 import {
   belongsTo,
   hasMany,
+  hasOne,
   InvalidModel,
   Model,
   RecordNotFound,
@@ -395,6 +396,59 @@ describe("counter caches", () => {
     });
   });
 
+  describe("which hasMany reads a counter, as Rails' has_cached_counter?", () => {
+    // Topic's replies are named for their counter, so they read repliesCount.
+    class Moderated extends Topic {
+      // Another name, and a scope: it counts rows.
+      firstReplies = hasMany(Reply, {
+        foreignKey: "topicId",
+        scope: (q) => q.where({ body: "a" }),
+      });
+      // Named as the counter another belongsTo keeps.
+      tallied = hasMany(TalliedReply, { foreignKey: "topicId", counterCache: "replyTally" });
+      untallied = hasMany(TalliedReply, { foreignKey: "topicId" });
+    }
+
+    beforeEach(async () => {
+      await harness.exec("UPDATE topics SET replies_count = 5, reply_tally = 7 WHERE id = 1");
+      await harness.exec(
+        "INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a'), (2, 1, 'b'), (3, 1, 'c')",
+      );
+    });
+
+    test("a hasMany named for the counter reads it", async () => {
+      expect(await (await db().model(Moderated).find(1)).replies().size()).toBe(5);
+    });
+
+    test("a hasMany named otherwise counts rows, so a scope's hidden rows don't show", async () => {
+      expect(await (await db().model(Moderated).find(1)).firstReplies().size()).toBe(1);
+    });
+
+    test("a hasMany's counterCache names the counter it reads", async () => {
+      const topic = await db().model(Moderated).find(1);
+
+      expect([await topic.tallied().size(), await topic.untallied().size()]).toEqual([7, 3]);
+    });
+
+    test("removing rows through a scoped hasMany still counts them out", async () => {
+      const topic = await db().model(Moderated).find(1);
+
+      await topic.firstReplies().deleteAll();
+
+      expect(await repliesCount(1)).toBe(4);
+    });
+
+    test("resetCounters on a scoped hasMany is a TypeError: its count isn't the counter's", async () => {
+      await expect(
+        withDatabase(db(), () => Moderated.resetCounters(1, "firstReplies")),
+      ).rejects.toThrow(
+        new TypeError(
+          'Moderated.resetCounters: "firstReplies" has a scope, so it can\'t count repliesCount',
+        ),
+      );
+    });
+  });
+
   describe("how many records the owner's hasMany has", () => {
     // The counter says 5 while 3 rows point at the topic, so a count read from it shows.
     beforeEach(async () => {
@@ -647,15 +701,33 @@ describe("counter caches", () => {
     });
   });
 
-  test("only a belongsTo keeps a counter cache: InvalidModel on another", () => {
+  test("a hasOne takes no counterCache: InvalidModel", () => {
     class Counting extends Model.define({ id: { type: "integer", null: false } }) {
       static table = "topics";
-      // @ts-expect-error a hasMany takes no counterCache
-      replies = hasMany(Reply, { foreignKey: "topicId", counterCache: true });
+      // @ts-expect-error a hasOne takes no counterCache
+      reply = hasOne(Reply, { foreignKey: "topicId", counterCache: "repliesCount" });
     }
 
     expect(() => db().model(Counting).build()).toThrow(
-      new InvalidModel('Counting association "replies": only a belongsTo keeps a counter cache'),
+      new InvalidModel(
+        'Counting association "reply": a hasOne takes no counterCache; declare it on Reply\'s belongsTo',
+      ),
+    );
+  });
+
+  test("a hasMany's counterCache must be one its records' belongsTo keeps: InvalidModel", () => {
+    class Counting extends Model.define({
+      id: { type: "integer", null: false },
+      replyTally: "integer",
+    }) {
+      static table = "topics";
+      replies = hasMany(Reply, { foreignKey: "topicId", counterCache: "replyTally" });
+    }
+
+    expect(() => db().model(Counting).build()).toThrow(
+      new InvalidModel(
+        'Counting association "replies": no belongsTo of Reply keeps "replyTally" on Counting (check counterCache)',
+      ),
     );
   });
 

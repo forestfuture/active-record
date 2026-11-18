@@ -40,6 +40,19 @@ function ownersCounter(association: ResolvedAssociation): Counter | undefined {
   return counter;
 }
 
+/**
+ * The counter cache a hasMany reads for `size`, as Rails' `has_cached_counter?`: the one its
+ * records keep (`ownersCounter`), when it's the attribute named for the association (`replies` →
+ * `repliesCount`), or its `counterCache`. So a hasMany narrowed by a scope, under another name,
+ * counts its rows rather than reading a count of them all.
+ */
+function readCounter(association: ResolvedAssociation): Counter | undefined {
+  const counter = ownersCounter(association);
+  const { counterCache } = association.definition;
+  const named = typeof counterCache === "string" ? counterCache : `${association.name}Count`;
+  return counter?.attribute === named && counter.isActive ? counter : undefined;
+}
+
 /** Each hasMany's counter cache, once found. Derived from the classes only. */
 const found = new WeakMap<ResolvedAssociation, Counter | undefined>();
 
@@ -49,7 +62,7 @@ const found = new WeakMap<ResolvedAssociation, Counter | undefined>();
  * (left out of `select`).
  */
 export function ownersCount(owner: Model, association: ResolvedAssociation): number | undefined {
-  const counter = ownersCounter(association);
+  const counter = readCounter(association);
   const ownerState = owner[state];
   if (counter?.isActive !== true || !(counter.attribute in ownerState.attributes())) {
     return undefined;
@@ -120,6 +133,12 @@ function counterReset(record: Model, name: string): [string, SqlPart] {
   if (counter === undefined) {
     throw new TypeError(
       `${model.name}.resetCounters: "${name}" has no counter cache on ${model.name}`,
+    );
+  }
+  // Its rows aren't all the counter counts, as Rails would write them in (#61).
+  if (association.definition.scope !== undefined) {
+    throw new TypeError(
+      `${model.name}.resetCounters: "${name}" has a scope, so it can't count ${counter.attribute}`,
     );
   }
   const { executor } = record[state];

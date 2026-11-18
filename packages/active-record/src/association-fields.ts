@@ -141,6 +141,17 @@ interface ToPolymorphicOptions {
   foreignType?: string;
 }
 
+/** What only a hasMany takes. */
+interface HasManyOptions {
+  dependent?: HasManyDependent;
+  /**
+   * The owner's attribute holding a counter cache of these records (#61), which `size` reads:
+   * by default the one named for this association (`replies` → `repliesCount`), as Rails'
+   * has_many `counter_cache:`. The records' belongsTo keeps it.
+   */
+  counterCache?: string;
+}
+
 /**
  * Many `target` records point at this record through `foreignKey` (theirs); or, with `through`,
  * this record reaches them through another of its associations (#59).
@@ -151,7 +162,7 @@ export function hasMany<C extends ModelClass>(
 ): HasManyThrough<C>;
 export function hasMany<C extends ModelClass>(
   target: C,
-  options?: AssociationOptions<C> & ToPolymorphicOptions & { dependent?: HasManyDependent },
+  options?: AssociationOptions<C> & ToPolymorphicOptions & HasManyOptions,
 ): HasMany<C>;
 export function hasMany<C extends ModelClass>(target: C, options: object = {}): unknown {
   return declaration("hasMany", target, options);
