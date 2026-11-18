@@ -28,7 +28,7 @@ Insert many rows at once with `insertAll`:
 
 - **`insertAll(rows)`** inserts every row, however many. Every row must have the same attributes. A duplicate throws and writes nothing.
 - **`{ onDuplicate: "skip" }`** skips rows that clash with a unique index.
-- **`upsert(attrs)`** and **`upsertAll(rows)`** update a row that clashes with the primary key, or with the unique index named by `uniqueBy`. Only the attributes you give are updated, and `updatedAt` is set.
+- **`upsert(attrs)`** and **`upsertAll(rows)`** update a row that clashes with the primary key, or with the unique index named by `uniqueBy`. The attributes you give are updated, and so are a Relation’s equality conditions and `createWith` attributes. `updatedAt` is set.
 - **Through a Relation**, `insertAll`, `upsert`, and `upsertAll` write its equality conditions over each row’s values, as `insert` does.
 - **Through a `hasMany`**, an upsert only updates the owner’s records. A row that clashes with another owner’s record isn’t written, counted, or returned. See [Writing many rows](./associations#writing-many-rows).
 
