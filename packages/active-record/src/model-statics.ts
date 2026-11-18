@@ -39,6 +39,7 @@ type RelationOf<C extends ModelClass> = Scoped<InstanceType<C>, ScopesOf<C>>;
 const relationMethods = [
   "where",
   "whereNot",
+  "rewhere",
   "none",
   "or",
   "order",
