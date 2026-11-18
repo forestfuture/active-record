@@ -1,6 +1,6 @@
 ---
 title: Querying
-description: "Reference for querying: a Model's statics, Relations, where and comparisons, sql fragments, rewhere, unscope and only, excluding, ordering and paging, inOrderOf, paginate, findEach/findInBatches/inBatches, find/findBy/first/count, calculations (sum, average, minimum, maximum), partial records, none(), merge, joins and leftJoins, scopes, default scopes, and preloading."
+description: "Reference for querying: a Model's statics, Relations, where and comparisons, sql fragments, rewhere, unscope, and only, excluding, ordering and paging, inOrderOf, paginate, findEach/findInBatches/inBatches, find/findBy/first/count, calculations (sum, average, minimum, maximum), partial records, none(), merge, joins and leftJoins, scopes, default scopes, and preloading."
 ---
 
 A query is a **Relation**. Each method that narrows, orders, or pages it returns a new Relation, and nothing runs until you ask for results:
@@ -74,13 +74,13 @@ Drop parts of a query with `unscope`, or keep only some with `only`:
 
 - The parts are `"where"`, `"order"`, `"limit"`, `"offset"`, `"select"`, `"distinct"`, `"includes"`, `"joins"`, `"leftJoins"`, and `"createWith"`. `{ where: "role" }` drops only the conditions on those attributes.
 - A default scope’s parts are dropped too. To start without the default scope, use [`unscoped()`](#defining-a-default-scope).
-- On an association, `unscope("where")` drops the link to its owner, so it reads every record.
+- On an association, the link to its owner stays. `user.posts().unscope("where")` is still the user’s posts, and so is `rewhere({ userId })`. Start from `Post` to read past the owner.
 - Merging a Relation built with `unscope` drops those parts from the Relation it’s merged into.
 - A join can’t be dropped while conditions or an order merged onto it use it. That throws `IncompatibleRelation`.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-`rewhere`, `unscope`, and `only` work as Rails’ do, with the parts named as strings. `group` and `having` aren’t parts, since a grouped Relation is a type of its own. Rails’ `invert_where` and `extending` aren’t offered. Scopes cover `extending`.
+`rewhere`, `unscope`, and `only` work as Rails’ do, with the parts named as strings. On an association, Rails’ `unscope(:where)` drops the link to its owner. Here no rewrite drops it. `group` and `having` aren’t parts, since a grouped Relation is a type of its own. Rails’ `invert_where` and `extending` aren’t offered. Scopes cover `extending`.
 
 </Callout>
 
@@ -150,6 +150,7 @@ Sort records by where their value comes in a list with `inOrderOf`:
 - Values are cast as `where`’s are, and `null` places NULL. The list is bound as one value, so it can be any length.
 - An order written after it sorts the records that tie, and `last()` reverses it.
 - It can’t be combined with `distinct()`, which throws `IncompatibleRelation`.
+- The database looks each record’s value up in the list, so a long list costs more on a large table. Keep it to the values you mean to order by.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
