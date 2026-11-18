@@ -8,24 +8,32 @@ import { atMostOne } from "./finder-order.ts";
 export interface CountSource extends ValueSource {
   /** An association's records built through it and not yet saved. */
   readonly unsavedCount: () => number;
+  /** How many records an association has by its owner's counter cache (#61), if it keeps one. */
+  readonly counted?: () => number | undefined;
 }
 
 /**
  * The number of records, as Rails' `size`: a loaded association's (built records included)
- * without a query; otherwise a `COUNT(*)`, plus an association's unsaved built records.
+ * without a query, or its owner's counter cache's (#61); otherwise a `COUNT(*)`; plus an
+ * association's unsaved built records.
  */
 export async function size(source: CountSource): Promise<number> {
   const cached: readonly Model[] | undefined = source.cached();
   if (cached !== undefined) return cached.length;
-  return (await count(source)) + source.unsavedCount();
+  const counted = source.counted?.() ?? (await count(source));
+  return counted + source.unsavedCount();
 }
 
-/** Whether there are no records: a loaded association answers itself, else `!exists()`. */
+/**
+ * Whether there are no records: a loaded association answers itself, or one whose owner keeps a
+ * counter cache by it, as Rails' `empty?` does (#61); else `!exists()`.
+ */
 export async function isEmpty(source: CountSource): Promise<boolean> {
   const cached = source.cached();
   if (cached !== undefined) return cached.length === 0;
   if (source.unsavedCount() > 0) return false;
-  return !(await exists(source));
+  const counted = source.counted?.();
+  return counted === undefined ? !(await exists(source)) : counted === 0;
 }
 
 /** Whether any row matches, with one `SELECT 1 … LIMIT 1` in the Relation's page. */

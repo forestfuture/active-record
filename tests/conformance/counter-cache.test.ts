@@ -248,6 +248,47 @@ describe("counter caches", () => {
     });
   });
 
+  describe("how many records the owner's hasMany has", () => {
+    // The counter says 5 while 3 rows point at the topic, so a count read from it shows.
+    beforeEach(async () => {
+      await harness.exec("UPDATE topics SET replies_count = 5 WHERE id = 1");
+      await harness.exec(
+        "INSERT INTO replies (id, topic_id, body) VALUES (1, 1, 'a'), (2, 1, 'b'), (3, 1, 'c')",
+      );
+    });
+
+    test("size() reads the counter, without a query, and adds built records", async () => {
+      const events: QueryEvent[] = [];
+      const topic = await harness
+        .connect({ onQuery: (event) => events.push(event) })
+        .model(Topic)
+        .find(1);
+      events.length = 0;
+
+      expect(await topic.replies().size()).toBe(5);
+      topic.replies().build({ body: "d" });
+      expect(await topic.replies().size()).toBe(6);
+      expect(events).toEqual([]);
+    });
+
+    test("isEmpty() and hasAny() read the counter", async () => {
+      await harness.exec("UPDATE topics SET replies_count = 0 WHERE id = 1");
+      const topic = await db().model(Topic).find(1);
+
+      expect(await topic.replies().isEmpty()).toBe(true);
+      expect(await topic.replies().hasAny()).toBe(false);
+    });
+
+    test("count(), a loaded collection and a narrowed Relation count the rows", async () => {
+      const topic = await db().model(Topic).find(1);
+
+      expect(await topic.replies().count()).toBe(3);
+      expect(await topic.replies().where({ body: "a" }).size()).toBe(1);
+      await topic.replies().toArray();
+      expect(await topic.replies().size()).toBe(3);
+    });
+  });
+
   describe("an attribute named by counterCache", () => {
     test("is counted instead, from null", async () => {
       const reply = await db().model(TalliedReply).create({ topicId: 1, body: "first" });
