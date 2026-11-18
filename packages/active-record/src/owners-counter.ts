@@ -17,7 +17,8 @@ import type { QueryDescription } from "./query.ts";
 import { state } from "./record-state.ts";
 import { queryOf } from "./relation.ts";
 import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
-import { runAlone, Statement, statementParts } from "./statement.ts";
+import type { StatementResult } from "./driver.ts";
+import { rowsAffectedOf, runAlone, Statement, statementParts } from "./statement.ts";
 
 /**
  * The counter cache a hasMany's records are counted in on its owner, as Rails'
@@ -72,9 +73,11 @@ export function ownersCount(owner: Model, association: ResolvedAssociation): num
 
 /**
  * `statement`, which removes the rows `query` matches from `owner`'s hasMany (deleting them, or
- * nullifying their key), with the owner's counter decremented first by how many rows it matches,
- * in the same batch, as Rails' collection `delete_all` does; once written, a loaded owner's
- * counter changes by how many it removed. Without a counter cache, `statement` itself.
+ * nullifying their key), with the owner's counter taken down by how many it removes, in the same
+ * batch, as Rails' collection `delete_all` does: in one statement where the dialect can count the
+ * removed rows (Postgres), or by a COUNT of the rows `query` matches sent just before it. Once
+ * written, a loaded owner's counter changes by how many it removed. Without a counter cache,
+ * `statement` itself.
  */
 export function countedOut(
   statement: Statement,
@@ -84,15 +87,25 @@ export function countedOut(
 ): Statement {
   const counter = ownersCounter(association);
   if (counter === undefined) return statement;
-  const { executor } = statement[statementParts];
-  const count = compileCount(executor.dialect, query);
-  const change = { sql: `- (${count.sql})`, params: [...count.params] };
+  const { executor, queries, landed } = statement[statementParts];
   const key = keyed(counter, owner[state].read(counter.targetKey));
-  const decrement = compileCounterChange(counter, change, key);
-  return statement.withFirst([decrement], (results) => {
-    const removed = results.reduce((sum, { rowsAffected }) => sum + rowsAffected, 0);
-    addToCount(owner, counter.attribute, -removed);
-  });
+  const decrement = (removed: SqlPart) => compileCounterChange(counter, removed, key);
+  const countOut = (results: readonly StatementResult[]) =>
+    addToCount(owner, counter.attribute, -rowsAffectedOf(results));
+  const [removal] = queries;
+  const { dialect } = executor;
+  if (dialect.countedRemoval !== undefined && queries.length === 1 && removal !== undefined) {
+    const counted = dialect.countedRemoval(removal, (removed) =>
+      decrement({ sql: `- ${removed}`, params: [] }),
+    );
+    return new Statement(executor, [counted], (results) => {
+      landed(results);
+      countOut(results);
+    });
+  }
+  const count = compileCount(executor.dialect, query);
+  const before = decrement({ sql: `- (${count.sql})`, params: [...count.params] });
+  return statement.withFirst([before], countOut);
 }
 
 /**
