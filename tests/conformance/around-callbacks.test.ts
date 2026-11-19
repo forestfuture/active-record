@@ -167,6 +167,25 @@ describe("around callbacks", () => {
     ]);
   });
 
+  test("a clean save runs aroundSave and aroundUpdate, with nothing sent", async () => {
+    const accounts = harness
+      .connect({ onQuery: (event) => log.push(event.sql.split(" ")[0] ?? "") })
+      .model(Account);
+    const account = await accounts.create({ id: 1, email: "a@example.com" });
+    log.length = 0;
+
+    await account.saveOrThrow();
+
+    expect(log).toEqual([
+      "aroundSave 1 first",
+      "aroundSave 2 first",
+      "aroundUpdate first",
+      "aroundUpdate last",
+      "aroundSave 2 last",
+      "aroundSave 1 last",
+    ]);
+  });
+
   describe("stopping a save", () => {
     const gated = () => harness.connect().model(Gated);
     const rows = async () => harness.connect().model(Gated).count();
