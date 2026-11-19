@@ -117,7 +117,7 @@ A callback that runs last, once its record's write is kept: `afterCommit`, or on
 _Avoid_: Transaction callback (there's no transaction around the callbacks)
 
 **Touch**:
-Setting a **Record**'s `updatedAt`, and any datetime attributes named, to now (or a given time) straight to its row, without a save: `record.touch()`, then `afterTouch` and the update **Commit callbacks**. A Relation's `touchAll` touches every row it matches as a **Bulk write**, with no callbacks; a counter's `{ touch }` option touches in the counter's own UPDATE. A belongsTo declared with `touch` touches the record it reaches whenever its own record is created, updated, destroyed or touched, in that write's batch, and that record touches its own in turn.
+Setting a **Record**'s `updatedAt`, and any datetime attributes named, to now (or a given time) straight to its row, without a save: `record.touch()`, then `afterTouch` and the update **Commit callbacks**. A Relation's `touchAll` touches every row it matches as a **Bulk write**, with no callbacks; a counter's `{ touch }` option touches in the counter's own UPDATE. A belongsTo declared with `touch` touches the record it reaches whenever its own record is created, updated, destroyed or touched, in that write's batch, and that record touches its own in turn. Inside `Article.noTouching(fn)`, articles (and records of Models extending Article; every Model's, for `Model.noTouching`) aren't touched: not by a belongsTo, nor by their own `touch()`.
 _Avoid_: Bump, stamp
 
 **Validation context**:

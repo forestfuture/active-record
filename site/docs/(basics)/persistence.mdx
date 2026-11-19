@@ -90,7 +90,7 @@ To mark a record as changed without saving it, call `touch`. It sets `updatedAt`
 
 `touch` skips validations and the save callbacks, and the record’s other unsaved changes stay unsaved. It runs `afterTouch`, then the commit callbacks for an update. See [Running code after a touch](./callbacks#running-code-after-a-touch).
 
-`touch` resolves to `true`, or `false` when the row is gone. A record that was never saved throws `RecordNotSaved`. On a Model with no `updatedAt`, name at least one attribute.
+`touch` resolves to `true`, or `false` when the row is gone. A record that was never saved throws `RecordNotSaved`. On a Model with no `updatedAt`, name at least one attribute. Inside a [`noTouching` block](./associations#turning-touches-off) for its Model, `touch` writes nothing and resolves to `false`.
 
 To touch the record a record belongs to whenever it changes, declare `touch` on its `belongsTo`. See [Touching the record it belongs to](./associations#touching-the-record-it-belongs-to).
 
