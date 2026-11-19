@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, Model } from "../../packages/active-record/src/index.ts";
+import { belongsTo, Model, RecordNotSaved } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
@@ -45,6 +45,22 @@ class PinnedMessage extends Model.define({
   discussion = belongsTo(PinnedDiscussion, { foreignKey: "discussionId", touch: true });
 }
 
+/** What the callbacks below heard, in order. */
+const heard: string[] = [];
+
+/** A discussion whose callbacks say when they run. */
+class HeardDiscussion extends Model.define({
+  id: { type: "integer", null: false },
+  title: "string",
+  updatedAt: "datetime",
+}) {
+  static table = "discussions";
+  static {
+    this.afterTouch(() => void heard.push("afterTouch"));
+    this.afterCommit(() => void heard.push("afterCommit"));
+  }
+}
+
 describe("noTouching (#496)", () => {
   let harness: Harness;
   const db = () => harness.connect();
@@ -54,6 +70,7 @@ describe("noTouching (#496)", () => {
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
+    heard.length = 0;
     await harness.reset("messages", "discussions", "forums");
     await harness.exec("INSERT INTO forums (id, title, updated_at) VALUES (1, 'Forum', ?)", [
       stale.toISOString(),
@@ -140,6 +157,41 @@ describe("noTouching (#496)", () => {
     test("it resolves to what its function returns", async () => {
       expect(await Discussion.noTouching(() => 42)).toBe(42);
       expect(await Discussion.noTouching(async () => "done")).toBe("done");
+    });
+  });
+
+  describe("touch() inside", () => {
+    test("writes nothing, runs no callback, and resolves to false", async () => {
+      const events: QueryEvent[] = [];
+      const discussion = await recorded(events).model(HeardDiscussion).find(1);
+      events.length = 0;
+
+      const touched = await HeardDiscussion.noTouching(() => discussion.touch());
+
+      expect(touched).toBe(false);
+      expect(events).toEqual([]);
+      expect(heard).toEqual([]);
+      expect(discussion.updatedAt).toEqual(stale);
+    });
+
+    test("a record whose touches are on still touches, but not the one it belongs to", async () => {
+      const message = await db().model(Message).create({ discussionId: 1, body: "Hi" });
+      await harness.exec("UPDATE discussions SET updated_at = ?", [stale.toISOString()]);
+      const time = new Date("2030-01-01T00:00:00.000Z");
+
+      expect(await Discussion.noTouching(() => message.touch({ time }))).toBe(true);
+
+      expect((await db().model(Message).find(message.id)).updatedAt).toEqual(time);
+      expect(await updatedAtOf(Discussion, 1)).toEqual(stale);
+    });
+
+    test("its mistakes still throw", async () => {
+      const discussion = await db().model(HeardDiscussion).find(1);
+
+      await HeardDiscussion.noTouching(async () => {
+        await expect(discussion.touch("title" as never)).rejects.toThrow(TypeError);
+        await expect(db().model(HeardDiscussion).build().touch()).rejects.toThrow(RecordNotSaved);
+      });
     });
   });
 });
