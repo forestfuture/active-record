@@ -565,6 +565,8 @@ The article is loaded before the comment is written, so its callbacks can run. A
 
 <include>/_excerpts/guide/belongs-to-touch/preload.ts</include>
 
+Inside [`noTouching`](#turning-touches-off), the touch doesn’t load the article.
+
 The article is found through the association, so the association’s scope and Article’s default scope apply. An article they hide isn’t touched.
 
 ### Touching with a counter cache
@@ -582,7 +584,7 @@ Inside the block, no article is touched. A comment’s `belongsTo` leaves its ar
 `noTouching` covers the Model you call it on and the Models that extend it. To turn off touches for every Model, call `ApplicationRecord.noTouching`. It covers only the code the block runs and what that code awaits, so other requests still touch.
 
 :::note
-The comments still set their own `updatedAt` when they’re saved. `Article.touchAll()` and `Article.updateCounters(id, counters, { touch: true })` still set the articles’ `updatedAt`, since you ask them to. A comment whose `belongsTo` also keeps a counter cache still counts, but doesn’t touch the article.
+The comments still set their own `updatedAt` when they’re saved. `Article.touchAll()` and `Article.updateCounters(id, counters, { touch: true })` still set the articles’ `updatedAt`. A comment whose `belongsTo` also keeps a counter cache still counts, but doesn’t touch the article.
 :::
 
 :::note
