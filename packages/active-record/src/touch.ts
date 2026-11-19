@@ -65,9 +65,9 @@ function splitTouchArguments(
  * inside a `noTouching` block that covers its Model, which sends nothing and runs no callback.
  */
 export async function touchRecord(record: Model, args: readonly unknown[]): Promise<boolean> {
-  const values = touchValues(modelOf(record), args, "touch");
-  // Inside `noTouching` (#496), once its arguments are checked, it writes nothing.
-  if (isCoveredByNoTouching(modelOf(record))) return false;
+  const model = modelOf(record);
+  const values = touchValues(model, args, "touch");
+  if (isCoveredByNoTouching(model)) return false;
   // Every value is the one time the touch sets.
   const time = Object.values(values)[0] as Date;
   const writes = [touchWrite(record, () => values), ...(await touchesOfTouch(record, time))];
