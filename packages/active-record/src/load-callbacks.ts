@@ -1,4 +1,4 @@
-// `afterFind` and `afterInitialize` (#49): the callbacks a record runs, synchronously, as it's loaded from a row or built.
+// `afterFind` and `afterInitialize` (#49): the callbacks a record runs, synchronously, as it's loaded from a row or built; and `refuseThenable`, which refuses a promise from them or from `build`'s `init`.
 import { declared, type SyncCallbackKind } from "./declarations.ts";
 import { modelOf, type Model } from "./model.ts";
 
