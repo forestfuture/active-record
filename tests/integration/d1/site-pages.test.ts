@@ -3,7 +3,13 @@ import { UnknownAttribute, withDatabase } from "../../../packages/active-record/
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import * as conditions from "../../../site/snippets/guide/conditions.ts";
 import * as through from "../../../site/snippets/guide/through.ts";
+import { cpSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
+import { pageModelsAndTables } from "../../support/page-models.ts";
+import { scratchDirs } from "../../support/scratch.ts";
+
+const scratch = scratchDirs();
 
 /** A D1 database with a page's own tables (site/snippets/guide/<page>-d1.sql), emptied before each test. */
 function pageDatabase(page: string, tables: string[]): () => TestDatabase {
@@ -133,5 +139,34 @@ describe("the Through associations page's examples", () => {
     const taggings = await binding().prepare("SELECT article_id FROM taggings").all();
     expect(taggings.results).toEqual([{ article_id: draft.id }]);
     expect(await db.model(through.Article).count()).toBe(3);
+  });
+});
+
+// Each page shows its Models beside its D1 tables; the attributes generated from those tables are
+// the ones its Models declare.
+describe("the standalone pages’ Models, against their D1 tables", () => {
+  test.each(["conditions", "through"])("%s declares what its tables generate", async (page) => {
+    const cwd = scratch(`page-${page}-`);
+    writeFileSync(
+      join(cwd, "active-record.jsonc"),
+      '{ "databases": { "DB": { "adapter": "d1" } } }',
+    );
+    writeFileSync(
+      join(cwd, "wrangler.jsonc"),
+      '{ "name": "page", "d1_databases": [{ "binding": "DB", "database_name": "page", "database_id": "x" }] }',
+    );
+    mkdirSync(join(cwd, "migrations"));
+    cpSync(
+      new URL(`../../../site/snippets/guide/${page}-d1.sql`, import.meta.url),
+      join(cwd, "migrations/0001_create_tables.sql"),
+    );
+
+    const { declared, generated } = await pageModelsAndTables(
+      cwd,
+      page,
+      (model) => `${model.toLowerCase()}s`,
+    );
+
+    expect(declared).toEqual(generated);
   });
 });

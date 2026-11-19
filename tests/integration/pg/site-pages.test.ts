@@ -3,7 +3,13 @@ import { withDatabase } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 import * as conditions from "../../../site/snippets/guide/conditions.ts";
 import * as through from "../../../site/snippets/guide/through.ts";
+import { readFileSync } from "node:fs";
+import { pageModelsAndTables } from "../../support/page-models.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
+import { writePgProject } from "../../support/pg-project.ts";
+import { scratchDirs } from "../../support/scratch.ts";
+
+const scratch = scratchDirs();
 
 /** A page's Postgres tables (site/snippets/guide/<page>-postgres.sql), with the rows `seed` adds. */
 function pageSchema(page: string, seed: string): () => PgSchema {
@@ -66,5 +72,31 @@ describe("the Through associations page's examples, on Postgres", () => {
       return (await tag.articles().order({ title: "asc" }).toArray()).map((a) => a.title);
     });
     expect(tagged).toEqual([draft.title, "On Nothing"]);
+  });
+});
+
+// Each page shows its Models beside its Postgres tables; the attributes generated from those
+// tables are the ones its Models declare. PGlite starts for each schema read, which takes seconds.
+describe("the standalone pages’ Models, against their Postgres tables", { timeout: 60_000 }, () => {
+  test.each(["conditions", "through"])("%s declares what its tables generate", async (page) => {
+    const sql = readFileSync(
+      new URL(`../../../site/snippets/guide/${page}-postgres.sql`, import.meta.url),
+      "utf8",
+    );
+    const cwd = writePgProject(
+      scratch(`pg-page-${page}-`, true),
+      { HYPERDRIVE: {} },
+      {
+        "migrations/0001_create_tables.sql": sql,
+      },
+    );
+
+    const { declared, generated } = await pageModelsAndTables(
+      cwd,
+      page,
+      (model) => `${model.toLowerCase()}s`,
+    );
+
+    expect(declared).toEqual(generated);
   });
 });
