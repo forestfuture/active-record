@@ -6,6 +6,7 @@ export class Article extends Model.define({
   title: { type: "string", null: false },
   viewCount: { type: "integer", null: false },
   isPinned: { type: "boolean", null: false },
+  viewedAt: "datetime",
   updatedAt: "datetime",
 }) {
   static {
@@ -31,6 +32,13 @@ export async function examples(id: number) {
   await article.toggleColumn("isPinned");
   await article.updateColumns({ title: "Renamed" }); // no validations, callbacks, or updatedAt
   // #endregion columns
+
+  // #region touching
+  await article.touch(); // sets updatedAt to now
+  await article.touch("viewedAt"); // sets viewedAt and updatedAt
+  await article.touch({ time: new Date("2026-01-01T00:00:00Z") });
+  await Article.where({ isPinned: true }).touchAll(); // every pinned article, in one statement
+  // #endregion touching
 
   // #region counters
   await Article.updateCounters(id, { viewCount: 1 });

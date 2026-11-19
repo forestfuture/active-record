@@ -1088,6 +1088,8 @@ describe("the persistence page's changing one attribute (#351)", () => {
     expect(article.isPinned).toBe(false);
     expect(article.title).toBe("Renamed");
     expect(article.updatedAt).not.toBeNull();
+    // touch("viewedAt") set it to now, and touch({ time }) set only updatedAt.
+    expect(article.viewedAt!.getTime()).toBeGreaterThan(Date.parse("2026-01-01T00:00:00Z"));
   });
 
   test("the afterSave callback logs only a save that created the article", async () => {
