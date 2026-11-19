@@ -1,0 +1,18 @@
+CREATE TABLE authors (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL
+);
+CREATE TABLE articles (
+  id TEXT PRIMARY KEY NOT NULL,
+  author_id TEXT NOT NULL REFERENCES authors (id),
+  title TEXT NOT NULL
+);
+CREATE TABLE tags (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL
+);
+CREATE TABLE taggings (
+  id INTEGER PRIMARY KEY,
+  article_id TEXT NOT NULL REFERENCES articles (id),
+  tag_id INTEGER NOT NULL REFERENCES tags (id)
+);
