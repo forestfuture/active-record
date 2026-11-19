@@ -263,18 +263,24 @@ function counterChanges(
   loaded: readonly CounterCache[],
   by: number,
 ): CounterChanges {
+  // Every statement in the order sent, `undefined` standing for the record's own.
+  const sent = [
+    ...before.map((each) => ({ ...each, side: "before" as const })),
+    undefined,
+    ...after.map((each) => ({ ...each, side: "after" as const })),
+  ];
   return {
-    around: (own) => [...before.map(({ sql }) => sql), own, ...after.map(({ sql }) => sql)],
+    around: (own) => sent.map((each) => each?.sql ?? own),
     commit(results) {
       const wrote = new Map<string, boolean>();
-      const keep = (statements: CounterStatement[], side: CounterSide, offset: number) =>
-        statements.forEach(({ counter }, index) => {
-          wrote.set(`${counter.name} ${side}`, (results[offset + index]?.rowsAffected ?? 0) > 0);
-        });
-      keep(before, "before", 0);
-      keep(after, "after", before.length + 1);
+      let isOwnWritten = false;
+      sent.forEach((each, index) => {
+        const isWritten = (results[index]?.rowsAffected ?? 0) > 0;
+        if (each === undefined) isOwnWritten = isWritten;
+        else wrote.set(`${each.counter.name} ${each.side}`, isWritten);
+      });
       counterWrites.set(record, wrote);
-      if ((results[before.length]?.rowsAffected ?? 0) > 0) countLoaded(record, loaded, by);
+      if (isOwnWritten) countLoaded(record, loaded, by);
     },
   };
 }
@@ -294,20 +300,20 @@ export function hasCounterWritten(record: Model, name: string, side: CounterSide
 }
 
 /**
- * Which of a belongsTo's records a write's counter statements change, and on which side, as the
- * functions below send them: the one it reaches on insert (after), the row's on destroy
+ * Which of a belongsTo's records a write's counter statements change, and on which side, as
+ * `countersOnInsert`, `countersOnDestroy` and `countersOnUpdate` send them (keep them in step): the one it reaches on insert (after), the row's on destroy
  * (before), and both when an update moves its key. None without a counter cache.
  */
 export function countedSides(
   record: Model,
   name: string,
-  write: TouchCause,
+  cause: TouchCause,
   isMoved: boolean,
 ): { current?: CounterSide; stored?: CounterSide } {
   if (associationOf(modelOf(record), name).counterCache === undefined) return {};
-  if (write === "insert") return { current: "after" };
-  if (write === "update") return isMoved ? { current: "after", stored: "before" } : {};
-  if (write === "destroy") return isMoved ? { stored: "before" } : { current: "before" };
+  if (cause === "insert") return { current: "after" };
+  if (cause === "update") return isMoved ? { current: "after", stored: "before" } : {};
+  if (cause === "destroy") return isMoved ? { stored: "before" } : { current: "before" };
   return {};
 }
 

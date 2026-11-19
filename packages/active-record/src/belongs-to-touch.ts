@@ -16,7 +16,7 @@ import {
   isOnDifferentDatabases,
   resolveAssociation,
 } from "./resolved-association.ts";
-import { touchWrite } from "./touch.ts";
+import { touchWrite, type TouchWriteOptions } from "./touch.ts";
 import type { PreparedWrite } from "./unit-of-work.ts";
 
 /**
@@ -137,8 +137,9 @@ export async function touchesOf(
     if (kind !== "belongsTo" || touch === undefined) continue;
     // Its owner is being deleted with it (Rails skips the destroyed owner).
     if (cause === "destroy" && isDestroyedThrough(record, foreignKey)) continue;
-    for (const { target, writtenBy } of await touchedRecords(record, name, cause, claimed)) {
-      writes.push(...(await touchOne(target, { touch, writtenBy }, claimed)));
+    const touched = await touchedRecords(record, name, cause, claimed);
+    for (const { target, isWrittenByCounter } of touched) {
+      writes.push(...(await touchOne(target, { touch, isWrittenByCounter }, claimed)));
     }
   }
   return writes;
@@ -150,7 +151,7 @@ export async function touchesOf(
  */
 interface TouchedRecord {
   target: Model;
-  writtenBy: (() => boolean) | undefined;
+  isWrittenByCounter: TouchWriteOptions["isWrittenByCounter"];
 }
 
 /**
@@ -168,11 +169,11 @@ async function touchedRecords(
   const current = await readAssociation(record, name);
   const stored = isMovedKey ? await readStored(record, name) : null;
   const sides = countedSides(record, name, cause, isMovedKey);
-  const writtenBy = (side: CounterSide | undefined) =>
+  const byCounter = (side: CounterSide | undefined) =>
     side === undefined ? undefined : () => hasCounterWritten(record, name, side);
   return [
-    { target: current, writtenBy: writtenBy(sides.current) },
-    { target: stored, writtenBy: writtenBy(sides.stored) },
+    { target: current, isWrittenByCounter: byCounter(sides.current) },
+    { target: stored, isWrittenByCounter: byCounter(sides.stored) },
   ].filter((each): each is TouchedRecord => isTouchable(each.target, claimed));
 }
 
@@ -217,7 +218,7 @@ function isTouchable(record: unknown, claimed: ReadonlySet<Model>): record is Mo
  */
 async function touchOne(
   target: Model,
-  { touch, writtenBy }: { touch: unknown; writtenBy: (() => boolean) | undefined },
+  { touch, isWrittenByCounter }: TouchWriteOptions & { touch: unknown },
   claimed: ReadonlySet<Model>,
 ): Promise<PreparedWrite[]> {
   const session = sessionOf(claimed);
@@ -227,7 +228,7 @@ async function touchOne(
   session.touched.add(key);
   const values = Object.fromEntries(touchAssignments(model, touch, "touch", session.time));
   const write = touchWrite(target, values, {
-    writtenBy,
+    isWrittenByCounter,
     keepsSavedChanges: () => isClaimedRow(target, claimed),
   });
   return [inWrite(write, target, claimed), ...(await touchesOf(target, "touch", claimed))];
