@@ -3,6 +3,8 @@ import { belongsTo, hasMany, hasOne, Model } from "../../packages/active-record/
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const log: string[] = [];
+// What Person's afterFind and afterInitialize also do, set per test: a promise or an error.
+const hooks: { afterFind?: () => unknown; afterInitialize?: () => unknown } = {};
 
 class Person extends Model.define({
   id: { type: "integer", null: false },
@@ -14,8 +16,14 @@ class Person extends Model.define({
   bio = hasOne(Bio, { foreignKey: "userId" });
 
   static {
-    this.afterInitialize((person) => void log.push(`afterInitialize ${person.email}`));
-    this.afterFind((person) => void log.push(`afterFind ${person.email}`));
+    this.afterInitialize((person) => {
+      log.push(`afterInitialize ${person.email}`);
+      return hooks.afterInitialize?.() as undefined;
+    });
+    this.afterFind((person) => {
+      log.push(`afterFind ${person.email}`);
+      return hooks.afterFind?.() as undefined;
+    });
   }
 }
 
@@ -78,6 +86,8 @@ describe("afterFind and afterInitialize", () => {
     await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
     await harness.exec("INSERT INTO users (id, email) VALUES (2, 'b@example.com')");
     log.length = 0;
+    delete hooks.afterFind;
+    delete hooks.afterInitialize;
   });
 
   test("a query runs afterFind, then afterInitialize, for each record it loads", async () => {
@@ -213,5 +223,28 @@ describe("afterFind and afterInitialize", () => {
     person.bio.build({ bio: "Hi" });
 
     expect(log).toEqual(["afterInitialize bio of 1"]);
+  });
+
+  // Guards: the callbacks have refused a promise and let errors through since they were added.
+  test("a load callback that returns a promise throws TypeError, as nothing awaits it", async () => {
+    hooks.afterFind = () => Promise.reject(new Error("never seen"));
+    await expect(people().find(1)).rejects.toThrow(
+      new TypeError(
+        "Person.afterFind: a callback returned a promise, which nothing awaits; afterFind runs synchronously",
+      ),
+    );
+
+    hooks.afterInitialize = async () => {};
+    expect(() => people().build({ email: "c@example.com" })).toThrow(TypeError);
+  });
+
+  test("an error in a load callback reaches the caller, with no records", async () => {
+    const error = new Error("unreadable");
+    hooks.afterInitialize = () => {
+      throw error;
+    };
+
+    await expect(people().toArray()).rejects.toBe(error);
+    expect(() => people().build({ email: "c@example.com" })).toThrow(error);
   });
 });
