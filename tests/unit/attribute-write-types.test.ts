@@ -21,6 +21,8 @@ class Article extends Model.define({
   status: { type: "integer", enum: { draft: 0, published: 1 } },
   score: { type: score },
   bareScore: score,
+  publishedAt: "datetime",
+  updatedAt: "datetime",
 }) {}
 
 // Each check is a function that's never called: only its types are tested.
@@ -97,6 +99,41 @@ describe("the types of changing one attribute (#351)", () => {
       // @ts-expect-error A boolean attribute isn't a counter.
       await Article.incrementCounter("isPinned", 1);
       return rows;
+    };
+
+    expectTypeOf(check).toBeFunction();
+  });
+});
+
+describe("the types of touch (#50)", () => {
+  test("touch and touchAll take datetime attributes, then { time }", () => {
+    const check = async (article: Article) => {
+      expectTypeOf(await article.touch()).toEqualTypeOf<boolean>();
+      await article.touch("publishedAt", "updatedAt", { time: new Date() });
+      await article.touch({ time: new Date() });
+      // @ts-expect-error A string attribute isn't a datetime.
+      await article.touch("title");
+      // @ts-expect-error The options come last.
+      await article.touch({ time: new Date() }, "publishedAt");
+      // @ts-expect-error time is a Date.
+      await article.touch({ time: "now" });
+      expectTypeOf(
+        await Article.where({ isPinned: true }).touchAll("publishedAt"),
+      ).toEqualTypeOf<number>();
+      await Article.touchAll({ time: new Date() });
+      // @ts-expect-error A number attribute isn't a datetime.
+      await Article.touchAll("views");
+    };
+
+    expectTypeOf(check).toBeFunction();
+  });
+
+  test("incrementColumn's touch names datetime attributes", () => {
+    const check = async (article: Article) => {
+      await article.incrementColumn("views", 1, { touch: true });
+      await article.decrementColumn("views", 1, { touch: ["publishedAt"] });
+      // @ts-expect-error A string attribute isn't a datetime.
+      await article.incrementColumn("views", 1, { touch: "title" });
     };
 
     expectTypeOf(check).toBeFunction();
