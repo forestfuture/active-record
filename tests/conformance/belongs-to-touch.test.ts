@@ -134,6 +134,16 @@ class CountedMessage extends Model.define({
   });
 }
 
+/** A sticker on a discussion or a forum, touching whichever it's on. */
+class Sticker extends Model.define({
+  id: { type: "integer", null: false },
+  stickableType: "string",
+  stickableId: "integer",
+}) {
+  static table = "stickers";
+  stickable = belongsTo([Discussion, Forum], { touch: true });
+}
+
 /** A discussion destroying its messages with it. */
 class ClosingDiscussion extends Model.define({
   id: { type: "integer", null: false },
@@ -198,7 +208,7 @@ describe("a belongsTo's touch (#353)", () => {
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
-    await harness.reset("messages", "discussions", "forums");
+    await harness.reset("stickers", "messages", "discussions", "forums");
     await harness.exec(
       "INSERT INTO discussions (id, title, updated_at) VALUES (1, 'One', ?), (2, 'Two', ?)",
       [stale.toISOString(), stale.toISOString()],
@@ -670,6 +680,35 @@ describe("a belongsTo's touch (#353)", () => {
       expect(Number(await counted(1))).toBe(1);
       expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
       expect(heard).toEqual([]);
+    });
+  });
+
+  describe("a polymorphic belongsTo", () => {
+    beforeEach(async () => {
+      await harness.exec("INSERT INTO forums (id, title, updated_at) VALUES (1, 'General', ?)", [
+        stale.toISOString(),
+      ]);
+    });
+    const forumUpdatedAt = async () => (await db().model(Forum).find(1)).updatedAt;
+
+    test("touches the record of the Model its type names", async () => {
+      await db().model(Sticker).create({ stickableType: "Forum", stickableId: 1 });
+
+      expect((await forumUpdatedAt())!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(await updatedAt(1)).toEqual(stale);
+    });
+
+    test("moving it to another Model's record touches both", async () => {
+      const sticker = await db()
+        .model(Sticker)
+        .create({ stickableType: "Discussion", stickableId: 1 });
+      await harness.exec("UPDATE discussions SET updated_at = ?", [stale.toISOString()]);
+      sticker.stickableType = "Forum";
+
+      await sticker.saveOrThrow();
+
+      expect((await forumUpdatedAt())!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(await updatedAt(1)).toEqual(await forumUpdatedAt());
     });
   });
 });
