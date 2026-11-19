@@ -123,7 +123,7 @@ export interface AssociationDeclaration extends AssociationOptions, Partial<Thro
    * or the target's attribute's name.
    */
   counterCache?: true | string | { attribute?: string; active?: false };
-  /** A belongsTo's touch of its target (#353): `true`, or datetime attributes' names. */
+  /** A belongsTo's or hasOne's touch of its target (#353, #497): `true`, or datetime attributes' names. */
   touch?: true | string | readonly string[];
   /** The target Model, read when the association is first used (the field holds the class). */
   target: () => ModelClass;

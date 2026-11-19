@@ -16,8 +16,9 @@ import { touchWrite } from "./touch.ts";
 import type { PreparedWrite } from "./unit-of-work.ts";
 
 /**
- * A belongsTo's `touch` is `true` or datetime attributes' names, each Model it points at has
- * what it sets, and it's on the record's database, as the touch is written in its batch.
+ * A belongsTo's or hasOne's `touch` (#497) is `true` or datetime attributes' names, each Model it
+ * points at has what it sets, and it's on the record's database, as the touch is written in its
+ * batch.
  */
 export function checkTouch(
   label: string,
@@ -27,8 +28,10 @@ export function checkTouch(
 ): void {
   const { touch, kind } = definition;
   if (touch === undefined) return;
-  if (kind !== "belongsTo") {
-    throw new InvalidModel(`${label}: a ${kind} takes no touch; only a belongsTo touches`);
+  if (kind === "hasMany") {
+    throw new InvalidModel(
+      `${label}: a hasMany takes no touch; only a belongsTo or hasOne touches`,
+    );
   }
   const names = touchNames(label, touch, targets);
   for (const target of targets) requireTouchable(label, target, touch === true ? [] : names);

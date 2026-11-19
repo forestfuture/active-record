@@ -83,8 +83,18 @@ function noSingleTarget(): never {
 /** One of the attributes of `C`'s records, which a counter cache names. */
 type CounterName<C extends ModelClass> = NumberAttributeKey<InstanceType<C>>;
 
-/** One of the datetime attributes of `C`'s records, which a belongsTo's `touch` names. */
+/** One of the datetime attributes of `C`'s records, which a belongsTo's or hasOne's `touch` names. */
 type TouchName<C extends ModelClass> = DatetimeAttributeKey<InstanceType<C>>;
+
+/** What a hasOne takes to touch its record (#497). */
+interface HasOneTouchOptions<C extends ModelClass> {
+  /**
+   * Touches the record when this one is created, updated, destroyed or touched, in the same
+   * batch: `true` sets its `updatedAt`, and a datetime attribute's name, or a list, sets those
+   * too. The record is loaded first, so its `afterTouch` and commit callbacks run.
+   */
+  touch?: true | TouchName<C> | readonly TouchName<C>[];
+}
 
 /** What only a belongsTo takes; `C` is its target, whose attribute a counter cache names. */
 interface BelongsToOptions<C extends ModelClass = ModelClass> {
@@ -183,11 +193,13 @@ export function hasMany<C extends ModelClass>(target: C, options: object = {}): 
  */
 export function hasOne<C extends ModelClass>(
   target: C,
-  options: ThroughOptions<C>,
+  options: ThroughOptions<C> & HasOneTouchOptions<C>,
 ): HasOneThrough<C>;
 export function hasOne<C extends ModelClass>(
   target: C,
-  options?: AssociationOptions<C> & ToPolymorphicOptions & { dependent?: HasOneDependent },
+  options?: AssociationOptions<C> &
+    ToPolymorphicOptions &
+    HasOneTouchOptions<C> & { dependent?: HasOneDependent },
 ): HasOne<C>;
 export function hasOne<C extends ModelClass>(target: C, options: object = {}): unknown {
   return declaration("hasOne", target, options);
