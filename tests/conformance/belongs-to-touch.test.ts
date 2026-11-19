@@ -367,14 +367,16 @@ describe("a belongsTo's touch (#353)", () => {
       expect(statementKinds(events)).toEqual(["SELECT", "INSERT", "INSERT"]);
     });
 
-    test("a new record it belongs to isn't touched: its insert sets updatedAt", async () => {
+    test("a new record it belongs to is touched once it's inserted", async () => {
       const events: QueryEvent[] = [];
       const message = recorded(events).model(Message).build({ body: "First" });
       message.discussion.build({ title: "New" });
 
       await message.saveOrThrow();
 
-      expect(statementKinds(events)).toEqual(["INSERT", "INSERT"]);
+      expect(statementKinds(events)).toEqual(["INSERT", "INSERT", "UPDATE"]);
+      expect(events.map((event) => event.model)).toEqual(["Discussion", "Message", "Discussion"]);
+      expect(events[2]!.params.at(-1)).toBe(message.discussionId);
     });
   });
 
@@ -839,6 +841,50 @@ describe("a belongsTo's touch (#353)", () => {
 
       expect(events.map((event) => event.model)).toEqual(["TallyDiscussion", "TallyDiscussion"]);
       expect((await db().model(Forum).find(1)).updatedAt).toEqual(stale);
+    });
+  });
+
+  describe("a record it belongs to that the save creates", () => {
+    beforeEach(() => {
+      heard.length = 0;
+    });
+
+    test("takes the named attributes and runs afterTouch, but no update commit callback", async () => {
+      const message = db().model(HeardMessage).build({ body: "First" });
+      const discussion = message.discussion.build({ title: "New" });
+
+      await message.saveOrThrow();
+
+      const row = await db().model(HeardDiscussion).find(discussion.id);
+      expect(row.lastMessageAt).not.toBeNull();
+      expect(discussion.lastMessageAt).toEqual(row.lastMessageAt);
+      expect(discussion.updatedAt).toEqual(row.updatedAt);
+      expect(discussion.isChanged()).toBe(false);
+      expect(heard).toContain("afterTouch");
+      expect(heard).not.toContain("afterUpdateCommit");
+    });
+
+    test("with a key it's given, is touched in the same batch", async () => {
+      const message = db().model(HeardMessage).build({ body: "First" });
+      const discussion = message.discussion.build({ id: 7, title: "Keyed" });
+
+      await message.saveOrThrow();
+
+      const row = await db().model(HeardDiscussion).find(7);
+      expect(row.lastMessageAt).not.toBeNull();
+      expect(discussion.lastMessageAt).toEqual(row.lastMessageAt);
+    });
+
+    test("with a counter cache, holds the time its counter's UPDATE wrote", async () => {
+      const message = db().model(CountedMessage).build({ body: "First" });
+      const discussion = message.discussion.build({});
+
+      await message.saveOrThrow();
+
+      const row = await db().model(CountingDiscussion).find(discussion.id);
+      expect(row.messagesCount).toBe(1);
+      expect(discussion.updatedAt).toEqual(row.updatedAt);
+      expect(heard).toEqual(["afterTouch"]);
     });
   });
 });
