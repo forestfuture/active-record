@@ -119,7 +119,7 @@ export function startSave(record: Model, isInsert: boolean): Promise<Wrapped | C
     await around(record, isInsert ? "aroundCreate" : "aroundUpdate", gate, () => gate.wait());
     await runAfterCallbacks(record, isInsert ? "afterCreate" : "afterUpdate", "save");
   });
-  return started(gate, run);
+  return untilWriteReached(gate, run);
 }
 
 /**
@@ -128,7 +128,7 @@ export function startSave(record: Model, isInsert: boolean): Promise<Wrapped | C
  */
 export function startDestroy(record: Model): Promise<Wrapped | CallbackAbort> {
   const gate = new WriteGate();
-  return started(
+  return untilWriteReached(
     gate,
     around(record, "aroundDestroy", gate, () => gate.wait()),
   );
@@ -206,7 +206,10 @@ function lifecycleOf(kind: AroundCallbackKind): Lifecycle {
 }
 
 /** Waits until `run` reaches its write, or stops first: a `CallbackAbort` is returned, else thrown. */
-async function started(gate: WriteGate, run: Promise<void>): Promise<Wrapped | CallbackAbort> {
+async function untilWriteReached(
+  gate: WriteGate,
+  run: Promise<void>,
+): Promise<Wrapped | CallbackAbort> {
   const stopped = await Promise.race([
     gate.reached.then(() => undefined),
     run.then(
