@@ -169,6 +169,6 @@ async function touchOne(
   if (session.touched.has(key)) return [];
   session.touched.add(key);
   const values = Object.fromEntries(touchAssignments(model, touch, "touch", session.time));
-  const write = touchWrite(target, values);
+  const write = touchWrite(target, values, { runsCommitCallbacks: !claimed.has(target) });
   return [write, ...(await touchesOf(target, "touch", claimed))];
 }

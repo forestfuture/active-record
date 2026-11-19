@@ -40,6 +40,43 @@ class PlainForum extends Model.define({ id: { type: "integer", null: false }, ti
   static table = "forums";
 }
 
+/** What the callbacks below heard, in order. */
+const heard: string[] = [];
+
+/** A discussion whose callbacks say when they run. */
+class HeardDiscussion extends Model.define({
+  id: { type: "integer", null: false },
+  title: "string",
+  updatedAt: "datetime",
+  lastMessageAt: "datetime",
+}) {
+  static table = "discussions";
+  messages = hasMany(HeardMessage, { foreignKey: "discussionId" });
+  static {
+    this.afterTouch(() => void heard.push("afterTouch"));
+    this.afterUpdateCommit(() => void heard.push("afterUpdateCommit"));
+    this.afterRollback(() => void heard.push("afterRollback"));
+  }
+}
+
+/** A message touching its discussion's lastMessageAt too. */
+class HeardMessage extends Model.define({
+  id: { type: "integer", null: false },
+  discussionId: "integer",
+  body: "string",
+}) {
+  static table = "messages";
+  discussion = belongsTo(HeardDiscussion, {
+    foreignKey: "discussionId",
+    touch: "lastMessageAt",
+    optional: true,
+  });
+  static {
+    this.afterSave(() => void heard.push("message afterSave"));
+    this.afterCommit(() => void heard.push("message afterCommit"));
+  }
+}
+
 /** A discussion destroying its messages with it. */
 class ClosingDiscussion extends Model.define({
   id: { type: "integer", null: false },
@@ -369,6 +406,73 @@ describe("a belongsTo's touch (#353)", () => {
       await message.destroyOrThrow();
 
       expect(events).toEqual([]);
+    });
+  });
+
+  describe("what it sets and runs", () => {
+    beforeEach(() => {
+      heard.length = 0;
+    });
+
+    test("a named attribute is set with updatedAt, both to one time", async () => {
+      const discussion = await db().model(HeardDiscussion).find(1);
+
+      await discussion.messages().create({ body: "Hi" });
+
+      const row = await db().model(HeardDiscussion).find(1);
+      expect(row.lastMessageAt!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(row.updatedAt).toEqual(row.lastMessageAt);
+      expect(discussion.lastMessageAt).toEqual(row.lastMessageAt);
+    });
+
+    test("a list names several", async () => {
+      class Listing extends Model.define({
+        id: { type: "integer", null: false },
+        discussionId: "integer",
+      }) {
+        static table = "messages";
+        discussion = belongsTo(Discussion, { touch: ["lastMessageAt"] });
+      }
+
+      await db().model(Listing).create({ discussionId: 1 });
+
+      const row = await db().model(Discussion).find(1);
+      expect(row.lastMessageAt!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(row.updatedAt).toEqual(row.lastMessageAt);
+    });
+
+    test("the touched record runs afterTouch, then its update commit callbacks", async () => {
+      await db().model(HeardMessage).create({ discussionId: 1, body: "Hi" });
+
+      expect(heard).toEqual([
+        "message afterSave",
+        "afterTouch",
+        "message afterCommit",
+        "afterUpdateCommit",
+      ]);
+    });
+
+    test("one saved in the same write runs its commit callbacks once", async () => {
+      const discussion = await db().model(HeardDiscussion).find(1);
+      discussion.messages().build({ body: "Hi" });
+
+      await discussion.saveOrThrow();
+
+      expect(heard.filter((each) => each === "afterUpdateCommit")).toEqual(["afterUpdateCommit"]);
+      expect(heard).toContain("afterTouch");
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+    });
+
+    test("a write the database refuses leaves the record as it was, and runs afterRollback", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+      const discussion = await db().model(HeardDiscussion).find(1);
+
+      await expect(discussion.messages().create({ id: 1, body: "Again" })).rejects.toThrow();
+
+      expect(discussion.updatedAt).toEqual(stale);
+      expect(discussion.isChanged()).toBe(false);
+      expect(heard).toEqual(["afterRollback"]);
+      expect(await updatedAt(1)).toEqual(stale);
     });
   });
 });

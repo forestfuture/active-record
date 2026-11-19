@@ -67,11 +67,24 @@ export async function touchRecord(record: Model, args: readonly unknown[]): Prom
   return result?.rowsAffected === 1;
 }
 
+/** How a touch write differs when another write makes it (#353). */
+export interface TouchWriteOptions {
+  /**
+   * Whether it runs the update commit callbacks: not for a record its write saves itself,
+   * whose own save runs them.
+   */
+  runsCommitCallbacks?: boolean;
+}
+
 /**
  * The touch's write: `values` sent, then assigned and held clean once the row has them. The
  * record changes only then, so a refused touch leaves it as it was, and runs `afterRollback`.
  */
-export function touchWrite(record: Model, values: Record<string, unknown>): PreparedWrite {
+export function touchWrite(
+  record: Model,
+  values: Record<string, unknown>,
+  { runsCommitCallbacks = true }: TouchWriteOptions = {},
+): PreparedWrite {
   const recordState = record[state];
   const model = modelOf(record);
   let isWritten = false;
@@ -84,7 +97,7 @@ export function touchWrite(record: Model, values: Record<string, unknown>): Prep
     },
     after: () => runAfterCallbacks(record, "afterTouch", "touch"),
     afterCommit: async () => {
-      if (isWritten) await runCommitCallbacks(record, "update");
+      if (isWritten && runsCommitCallbacks) await runCommitCallbacks(record, "update");
     },
     afterRollback: afterRollbackOf(record),
   };
