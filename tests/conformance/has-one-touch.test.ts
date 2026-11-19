@@ -304,6 +304,17 @@ describe("a hasOne's touch (#497)", () => {
       expect((await db().model(Message).find(1)).updatedAt).not.toEqual(stale);
     });
 
+    test("a record whose save touches the owner isn't touched back", async () => {
+      const events: QueryEvent[] = [];
+      const discussion = await recorded(events).model(HeardDiscussion).find(1);
+      events.length = 0;
+
+      await discussion.update({ updatedAt: new Date("2030-01-01T00:00:00.000Z") });
+
+      expect(statementKinds(events)).toEqual(["SELECT", "UPDATE", "UPDATE"]);
+      expect(heard).not.toContain("afterTouch");
+    });
+
     test("a save with nothing to write touches nothing", async () => {
       const events: QueryEvent[] = [];
       const forum = await recorded(events).model(Forum).find(1);
@@ -414,20 +425,6 @@ describe("a hasOne's touch (#497)", () => {
       expect(heard).not.toContain("afterTouch");
     });
 
-    test("one a batch saves after its owner is saved, not touched", async () => {
-      const database = db();
-      const forum = await database.model(TouchedForum).find(1);
-      const discussion = await database.model(HeardDiscussion).find(1);
-      forum.title = "Renamed";
-      const time = new Date("2030-01-01T00:00:00.000Z");
-      discussion.updatedAt = time;
-
-      await database.batch((b) => [b.save(forum), b.save(discussion)]);
-
-      expect(heard).not.toContain("afterTouch");
-      expect(await updatedAt(1)).toEqual(time);
-    });
-
     test("a changed one the owner autosaves is saved, not touched", async () => {
       const forum = await db().model(AutosavingForum).find(1);
       const discussion = (await forum.discussion())!;
@@ -439,6 +436,69 @@ describe("a hasOne's touch (#497)", () => {
 
       expect(heard).not.toContain("afterTouch");
       expect(await updatedAt(1)).toEqual(time);
+    });
+  });
+
+  describe("a record another entry of the same batch saves", () => {
+    /** The forum renamed and its discussion, read through a Database recording into `events`. */
+    const readBoth = async (events: QueryEvent[]) => {
+      const database = recorded(events);
+      const forum = await database.model(TouchedForum).find(1);
+      const discussion = await database.model(HeardDiscussion).find(1);
+      forum.title = "Renamed";
+      events.length = 0;
+      return { database, forum, discussion };
+    };
+    const time = new Date("2030-01-01T00:00:00.000Z");
+
+    test("one saved after its owner is touched, then saved, ending with its save's time", async () => {
+      const events: QueryEvent[] = [];
+      const { database, forum, discussion } = await readBoth(events);
+      discussion.updatedAt = time;
+
+      await database.batch((b) => [b.save(forum), b.save(discussion)]);
+
+      expect(statementKinds(events)).toEqual([
+        "SELECT",
+        "SELECT",
+        "UPDATE",
+        "UPDATE",
+        "UPDATE",
+        "UPDATE",
+      ]);
+      expect(heard).toContain("afterTouch");
+      expect(await updatedAt(1)).toEqual(time);
+      expect(discussion.updatedAt).toEqual(time);
+    });
+
+    test("one saved before its owner is saved, then touched", async () => {
+      const events: QueryEvent[] = [];
+      const { database, forum, discussion } = await readBoth(events);
+      discussion.updatedAt = time;
+
+      await database.batch((b) => [b.save(discussion), b.save(forum)]);
+
+      expect(statementKinds(events)).toEqual([
+        "SELECT",
+        "SELECT",
+        "UPDATE",
+        "UPDATE",
+        "UPDATE",
+        "UPDATE",
+      ]);
+      expect(heard).toContain("afterTouch");
+      expect(await updatedAt(1)).not.toEqual(time);
+    });
+
+    test("one with nothing to write is touched", async () => {
+      const events: QueryEvent[] = [];
+      const { database, forum, discussion } = await readBoth(events);
+
+      await database.batch((b) => [b.save(forum), b.save(discussion)]);
+
+      expect(statementKinds(events)).toEqual(["SELECT", "UPDATE", "UPDATE"]);
+      expect(heard).toContain("afterTouch");
+      expect(await updatedAt(1)).not.toEqual(stale);
     });
   });
 

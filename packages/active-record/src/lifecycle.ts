@@ -6,7 +6,7 @@ import { newPass, whileValidating, type ValidationPass } from "./validation-pass
 import { enumValidations } from "./enum-values.ts";
 import { filteredValues, shownKey } from "./filtering.ts";
 import { compileDelete, compileInsert, compileSelect, compileUpdate } from "./compiler.ts";
-import { savingGroups } from "./autosave.ts";
+import { autosavedAfter, savingGroups } from "./autosave.ts";
 import {
   assemble,
   linkOwner,
@@ -38,7 +38,7 @@ import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
-import { touchesOf, type TouchingKind } from "./association-touch.ts";
+import { leaveToAutosaves, touchesOf, touchesOfSave } from "./association-touch.ts";
 import {
   countersOnDestroy,
   countersOnInsert,
@@ -271,31 +271,16 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
   if (!(await beforeWrite(record, isInsert))) return aborted(record);
   // A hasOne's new record removes the one it replaces in its own batch (#40).
   const removal = await prepareReplacement(record, claimed);
-  const touches = await touchesOfSave(record, isInsert, claimed, ["belongsTo"]);
-  let hasOneTouches: PreparedWrite[] = [];
+  // A hasOne's touch leaves the records saved after the record to their own saves (#497).
+  leaveToAutosaves(autosavedAfter(record, claimed), claimed);
+  const touches = await touchesOfSave(record, isInsert, claimed);
   const own = stageOf(record, [record], () => {
     linkOwner(record, before);
-    // Read as the stage is sent, once the hasOne's touches below are asked.
-    return [saveWrite(record, isInsert), ...touches, ...hasOneTouches];
+    return [saveWrite(record, isInsert), ...touches];
   });
   const after = await prepareAfter(record, claimed);
   if (!Array.isArray(after)) return after;
-  // A hasOne's touches (#497): none for a created record, and asked once the records saved after
-  // it are claimed, so those are left to their own saves.
-  if (!isInsert) hasOneTouches = await touchesOfSave(record, false, claimed, ["hasOne"]);
   return withRemoval(assemble(record, own, before, after), removal, record);
-}
-
-/** The touches a save makes (#353), of the `kinds` asked for: none for an update with nothing to write. */
-function touchesOfSave(
-  record: Model,
-  isInsert: boolean,
-  claimed: Claimed,
-  kinds: readonly TouchingKind[],
-): Promise<PreparedWrite[]> {
-  if (isInsert) return touchesOf(record, "insert", claimed, kinds);
-  const hasChanges = record[state].updateAssignments().length > 0;
-  return hasChanges ? touchesOf(record, "update", claimed, kinds) : Promise.resolve([]);
 }
 
 /** beforeSave, then beforeCreate or beforeUpdate; `false` if one aborted. */

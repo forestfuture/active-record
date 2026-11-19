@@ -74,12 +74,14 @@ function requireTouchable(label: string, target: ModelClass, names: readonly str
 export type TouchCause = "insert" | "update" | "destroy" | "touch";
 
 /**
- * One write's touches: the time each sets, once known, and the records already touched (by table
- * and key, so each is touched once).
+ * One write's touches: the time each sets, once known, the records already touched (by table and
+ * key, so each is touched once), and those the write saves through their owners, which a hasOne
+ * leaves to those saves (#497).
  */
 interface TouchSession {
   time: Date | undefined;
   touched: Set<string | Model>;
+  autosaved: Set<Model>;
 }
 
 /** Each write's touch session, by the set of records it claims. */
@@ -92,7 +94,7 @@ const sessions = new WeakMap<ReadonlySet<Model>, TouchSession>();
 function sessionOf(claimed: ReadonlySet<Model>, time?: Date): TouchSession {
   let session = sessions.get(claimed);
   if (session === undefined) {
-    session = { time, touched: new Set() };
+    session = { time, touched: new Set(), autosaved: new Set() };
     sessions.set(claimed, session);
   }
   return session;
@@ -122,31 +124,67 @@ function touchKey(record: Model): string | Model {
  */
 export function touchesOfTouch(record: Model, time: Date): Promise<PreparedWrite[]> {
   const claimed = new Set([record]);
-  sessionOf(claimed, time).touched.add(touchKey(record));
+  markTouched(record, claimed, time);
   return touchesOf(record, "touch", claimed);
 }
 
-/** The kinds of association that touch: a save asks its hasOnes once its autosaves are claimed. */
-export type TouchingKind = "belongsTo" | "hasOne";
+/** Counts `record` as touched by the write claiming `claimed`, so no touch reaches it again. */
+function markTouched(record: Model, claimed: ReadonlySet<Model>, time?: Date): void {
+  sessionOf(claimed, time).touched.add(touchKey(record));
+}
+
+/**
+ * The touches `record`'s save makes: none for an update with nothing to write. Its own row takes
+ * none of them back (#497), as its save sets its time; another entry of its batch may touch it.
+ */
+export async function touchesOfSave(
+  record: Model,
+  isInsert: boolean,
+  claimed: ReadonlySet<Model>,
+): Promise<PreparedWrite[]> {
+  if (!isInsert && record[state].updateAssignments().length === 0) return [];
+  const cause = isInsert ? "insert" : "update";
+  const { touched } = sessionOf(claimed);
+  const key = touchKey(record);
+  if (touched.has(key)) return touchesOf(record, cause, claimed);
+  touched.add(key);
+  try {
+    return await touchesOf(record, cause, claimed);
+  } finally {
+    touched.delete(key);
+  }
+}
+
+/**
+ * Leaves `records`, which the write claiming `claimed` saves or destroys through their owner
+ * after it, to those writes: a hasOne doesn't touch them (#497), as their saves set their time.
+ */
+export function leaveToAutosaves(
+  records: readonly { record: Model }[],
+  claimed: ReadonlySet<Model>,
+): void {
+  const { autosaved } = sessionOf(claimed);
+  for (const { record } of records) autosaved.add(record);
+}
 
 /**
  * The touches `record`'s write makes (#353): each record a belongsTo or hasOne (#497) declaring
- * `touch` reaches, of the `kinds` asked for, loaded if it isn't, touched by its own touch write,
- * and the records it touches in turn. A `noTouching` block leaves out the records it covers
- * (#496), and an association whose every Model it covers isn't read.
+ * `touch` reaches, loaded if it isn't, touched by its own touch write, and the records it
+ * touches in turn. A destroyed record counts as touched, so none touches it back. A
+ * `noTouching` block leaves out the records it covers (#496), and an association whose every
+ * Model it covers isn't read.
  */
 export async function touchesOf(
   record: Model,
   cause: TouchCause,
   claimed: ReadonlySet<Model>,
-  kinds: readonly TouchingKind[] = ["belongsTo", "hasOne"],
 ): Promise<PreparedWrite[]> {
-  // A destroyed row takes no touch back from the records it touches (Rails touches only a persisted one).
-  if (cause === "destroy") sessionOf(claimed).touched.add(touchKey(record));
+  // Rails touches only a persisted record.
+  if (cause === "destroy") markTouched(record, claimed);
   const writes: PreparedWrite[] = [];
   const model = modelOf(record);
   for (const [name, definition] of associationsOf(model)) {
-    if (!isTouching(record, cause, definition, kinds)) continue;
+    if (!isTouching(record, cause, definition)) continue;
     if (isEveryTargetCovered(model, name)) continue;
     for (const target of await touchedRecords(record, name, definition, claimed)) {
       writes.push(...(await touchOne(target, definition, claimed)));
@@ -156,16 +194,16 @@ export async function touchesOf(
 }
 
 /**
- * Whether an association touches on `record`'s write: one of `kinds` declaring `touch`, but not
- * on a destroy that deletes the record it reaches with its own.
+ * Whether an association touches on `record`'s write: one declaring `touch`, but not a hasOne
+ * on its owner's create (#497), nor on a destroy that deletes the record it reaches with its own.
  */
 function isTouching(
   record: Model,
   cause: TouchCause,
   { kind, touch, foreignKey, dependent }: AssociationDefinition,
-  kinds: readonly TouchingKind[],
 ): boolean {
-  if (touch === undefined || !(kinds as readonly string[]).includes(kind)) return false;
+  if (touch === undefined) return false;
+  if (kind === "hasOne" && cause === "insert") return false;
   if (cause !== "destroy") return true;
   // Its owner is being deleted with it (Rails skips the destroyed owner).
   if (kind === "belongsTo") return !isDestroyedThrough(record, foreignKey);
@@ -185,8 +223,8 @@ function isEveryTargetCovered(model: ModelClass, name: string): boolean {
 /**
  * The records `record`'s association `name` touches: the one it reaches, and, when a belongsTo's
  * key differs from the row's, the one the row's key reaches, as the association reads it; each
- * with a row to touch once the write is sent. A hasOne's record the same write saves or destroys
- * is left to that write (#497): it's written after its owner, and its save sets its time.
+ * with a row to touch once the write is sent. A hasOne's record the write saves through an owner
+ * is left to that save.
  */
 async function touchedRecords(
   record: Model,
@@ -196,7 +234,8 @@ async function touchedRecords(
 ): Promise<Model[]> {
   const current = await readAssociation(record, name);
   if (definition.kind === "hasOne") {
-    return isTouchable(current, claimed) && !isClaimedRow(current, claimed) ? [current] : [];
+    const isAutosaved = current instanceof Model && sessionOf(claimed).autosaved.has(current);
+    return isTouchable(current, claimed) && !isAutosaved ? [current] : [];
   }
   const stored = isMoved(record, definition) ? await readStored(record, name) : null;
   return [current, stored].filter((each) => isTouchable(each, claimed));
@@ -243,7 +282,7 @@ function isTouchable(record: unknown, claimed: ReadonlySet<Model>): record is Mo
  */
 async function touchOne(
   target: Model,
-  { kind, touch }: AssociationDefinition,
+  { touch }: AssociationDefinition,
   claimed: ReadonlySet<Model>,
 ): Promise<PreparedWrite[]> {
   const session = sessionOf(claimed);
@@ -257,39 +296,7 @@ async function touchOne(
   const write = touchWrite(target, valuesOf, {
     keepsSavedChanges: () => isClaimedRow(target, claimed),
   });
-  const own = inWrite(write, target, claimed);
-  const touching = kind === "hasOne" ? unlessSavedLater(own, target, claimed) : own;
-  return [touching, ...(await touchesOf(target, "touch", claimed))];
-}
-
-/**
- * A hasOne's touch write, which sends nothing and runs no callback once the write claims its
- * record after all (#497): a later entry of the same batch saves or destroys it, and its save
- * sets its time. Asked as it's sent, when every entry is claimed.
- */
-function unlessSavedLater(
-  write: PreparedWrite,
-  target: Model,
-  claimed: ReadonlySet<Model>,
-): PreparedWrite {
-  const isLeft = () => isClaimedRow(target, claimed);
-  return {
-    get statements() {
-      return isLeft() ? [] : write.statements;
-    },
-    commit: (results) => {
-      if (!isLeft()) write.commit(results);
-    },
-    after: async () => {
-      if (!isLeft()) await write.after();
-    },
-    afterCommit: async () => {
-      if (!isLeft()) await write.afterCommit?.();
-    },
-    afterRollback: async () => {
-      if (!isLeft()) await write.afterRollback?.();
-    },
-  };
+  return [inWrite(write, target, claimed), ...(await touchesOf(target, "touch", claimed))];
 }
 
 /**
