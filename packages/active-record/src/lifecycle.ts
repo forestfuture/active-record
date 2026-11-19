@@ -272,15 +272,17 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
   // A hasOne's new record removes the one it replaces in its own batch (#40).
   const removal = await prepareReplacement(record, claimed);
   const touches = await touchesOfSave(record, isInsert, claimed, ["belongsTo"]);
-  // A hasOne's touches (#497), asked once the records saved after it are claimed.
-  let ownTouches: PreparedWrite[] = [];
+  let hasOneTouches: PreparedWrite[] = [];
   const own = stageOf(record, [record], () => {
     linkOwner(record, before);
-    return [saveWrite(record, isInsert), ...touches, ...ownTouches];
+    // Read as the stage is sent, once the hasOne's touches below are asked.
+    return [saveWrite(record, isInsert), ...touches, ...hasOneTouches];
   });
   const after = await prepareAfter(record, claimed);
   if (!Array.isArray(after)) return after;
-  ownTouches = await touchesOfSave(record, isInsert, claimed, ["hasOne"]);
+  // A hasOne's touches (#497): none for a created record, and asked once the records saved after
+  // it are claimed, so those are left to their own saves.
+  if (!isInsert) hasOneTouches = await touchesOfSave(record, false, claimed, ["hasOne"]);
   return withRemoval(assemble(record, own, before, after), removal, record);
 }
 

@@ -1,5 +1,5 @@
 // A belongsTo's `touch` (#353) and a hasOne's (#497): checking its declaration, and the touches a record's create, update, destroy or touch makes of the records it belongs to or has, in its batch.
-import { associationOf, associationsOf, readAssociation } from "./association-fields.ts";
+import { associationsOf, readAssociation } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { isDestroyedThrough } from "./counter-caches.ts";
 import { touchAssignments } from "./counters.ts";
@@ -148,7 +148,7 @@ export async function touchesOf(
   for (const [name, definition] of associationsOf(model)) {
     if (!isTouching(record, cause, definition, kinds)) continue;
     if (isEveryTargetCovered(model, name)) continue;
-    for (const target of await touchedRecords(record, name, claimed)) {
+    for (const target of await touchedRecords(record, name, definition, claimed)) {
       writes.push(...(await touchOne(target, definition.touch, claimed)));
     }
   }
@@ -191,21 +191,21 @@ function isEveryTargetCovered(model: ModelClass, name: string): boolean {
 async function touchedRecords(
   record: Model,
   name: string,
+  definition: AssociationDefinition,
   claimed: ReadonlySet<Model>,
 ): Promise<Model[]> {
   const current = await readAssociation(record, name);
-  if (associationOf(modelOf(record), name).kind === "hasOne") {
+  if (definition.kind === "hasOne") {
     return isTouchable(current, claimed) && !isClaimedRow(current, claimed) ? [current] : [];
   }
-  const stored = isMoved(record, name) ? await readStored(record, name) : null;
+  const stored = isMoved(record, definition) ? await readStored(record, name) : null;
   return [current, stored].filter((each) => isTouchable(each, claimed));
 }
 
-/** Whether a saved record's belongsTo `name` points elsewhere than its row does. */
-function isMoved(record: Model, name: string): boolean {
+/** Whether a saved record's belongsTo points elsewhere than its row does. */
+function isMoved(record: Model, definition: AssociationDefinition): boolean {
   const recordState = record[state];
   if (recordState.isNew) return false;
-  const definition = associationOf(modelOf(record), name);
   return belongsToKeys(definition).some((key) => recordState.isAttributeChanged(key));
 }
 
