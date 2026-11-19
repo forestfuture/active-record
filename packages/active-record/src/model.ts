@@ -21,6 +21,7 @@ import { defaultFilterAttributes, type FilterAttribute } from "./filtering.ts";
 import type { Errors } from "./errors-collection.ts";
 import { humanAttributeName, type ErrorMessages } from "./error-messages.ts";
 import { declare } from "./declarations.ts";
+import { runFindCallbacks } from "./load-callbacks.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
   destroyLifecycle,
@@ -776,7 +777,7 @@ export function primaryKeyOf(record: Model): unknown {
   return record[state].read(modelOf(record).primaryKey);
 }
 
-/** Builds a persisted record of `model` from a D1 row. */
+/** Builds a persisted record of `model` from a row, running its `afterFind` and `afterInitialize`. */
 export function hydrate<M extends Model>(
   model: ModelClass<M>,
   row: Record<string, unknown>,
@@ -785,6 +786,7 @@ export function hydrate<M extends Model>(
   const record = newRecord(model);
   record[state].belongTo(executor);
   record[state].loadRow(row);
+  runFindCallbacks(record);
   return record;
 }
 

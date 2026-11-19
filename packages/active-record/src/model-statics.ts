@@ -291,6 +291,12 @@ type ValidationCallbackStatic = <C extends AbstractModelClass>(
   options?: ValidationCallbackOptions<ContextOf<C>>,
 ) => void;
 
+/** Declares a callback that runs synchronously as a record is loaded or built: nothing awaits it. */
+type LoadCallbackStatic = <C extends AbstractModelClass>(
+  this: C,
+  callback: (record: InstanceType<C>) => void,
+) => void;
+
 /** Every callback kind as a static, each documented here, so its doc comment shows on hover. */
 interface CallbackStatics {
   /**
@@ -326,6 +332,16 @@ interface CallbackStatics {
    * its batch). Not for a validation failure or an `abort()`: nothing was sent then.
    */
   afterRollback: CallbackStatic;
+  /**
+   * Runs as a record is loaded from a row (#49): by a query, an association read, a preload or
+   * `reload`, before `afterInitialize`. Synchronous: one that returns a promise throws `TypeError`.
+   */
+  afterFind: LoadCallbackStatic;
+  /**
+   * Runs as a record is built (after `build`'s `init`) or loaded (after `afterFind`) (#49).
+   * Synchronous: one that returns a promise throws `TypeError`.
+   */
+  afterInitialize: LoadCallbackStatic;
 }
 
 /** The commit callbacks as statics: each runs after every after-callback of its write. */
@@ -374,6 +390,8 @@ const callbackKinds = Object.keys({
   afterDestroy: true,
   afterTouch: true,
   afterRollback: true,
+  afterFind: true,
+  afterInitialize: true,
 } satisfies Record<CallbackKind, true> satisfies Record<
   keyof CallbackStatics,
   true
