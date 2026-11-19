@@ -407,7 +407,7 @@ export class Relation<M extends Model, S = {}> {
    * concurrent writes all count. Resolves to the number of rows; skips what `updateAll` skips.
    */
   async updateCounters(counters: Counters<M>, { touch }: CounterOptions<M> = {}): Promise<number> {
-    return this.updateAll(counterSets(this.#model, counters, "updateCounters", touch));
+    return this.updateAll(counterSets(this.#model, counters, "updateCounters", { touch }));
   }
 
   /**
