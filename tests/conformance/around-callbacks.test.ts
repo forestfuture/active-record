@@ -1,5 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import {
+  abort,
+  AbortAfterPersistence,
+  Model,
+  RecordNotSaved,
+} from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const log: string[] = [];
@@ -55,6 +60,21 @@ class AdminAccount extends Account {
   }
 }
 
+/** What Gated's aroundSave does in place of `await next()`, set per test. */
+let aroundSave: (next: () => Promise<void>) => Promise<void>;
+
+class Gated extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+}) {
+  static table = "users";
+
+  static {
+    this.aroundSave((_gated, next) => aroundSave(next));
+    this.afterSave(() => void log.push("afterSave"));
+  }
+}
+
 describe("around callbacks", () => {
   let harness: Harness;
   const members = () =>
@@ -67,6 +87,7 @@ describe("around callbacks", () => {
   beforeEach(async () => {
     await harness.reset("users");
     log.length = 0;
+    aroundSave = (next) => next();
   });
 
   test("aroundSave wraps a create: beforeCreate, the INSERT and afterCreate run inside it", async () => {
@@ -142,5 +163,61 @@ describe("around callbacks", () => {
       "aroundSave 2 last",
       "aroundSave 1 last",
     ]);
+  });
+
+  describe("stopping a save", () => {
+    const gated = () => harness.connect().model(Gated);
+    const rows = async () => harness.connect().model(Gated).count();
+
+    test("an aroundSave that doesn't call next() stops the save, as abort() does", async () => {
+      aroundSave = async () => {};
+      const record = gated().build({ id: 1, email: "a@example.com" });
+
+      expect(await record.save()).toBe(false);
+      expect(record.abortReason).toBe("An aroundSave callback didn't call next()");
+      await expect(record.saveOrThrow()).rejects.toThrow(
+        new RecordNotSaved("An aroundSave callback didn't call next()"),
+      );
+      expect(record.isNewRecord()).toBe(true);
+      expect(log).toEqual([]);
+      expect(await rows()).toBe(0);
+    });
+
+    test("an abort() before next() stops the save", async () => {
+      aroundSave = async () => {
+        throw abort("Not yet");
+      };
+      const record = gated().build({ id: 1, email: "a@example.com" });
+
+      expect(await record.save()).toBe(false);
+      expect(record.abortReason).toBe("Not yet");
+      expect(await rows()).toBe(0);
+    });
+
+    test("an abort() after next() is AbortAfterPersistence, with the row kept", async () => {
+      aroundSave = async (next) => {
+        await next();
+        throw abort("Too late");
+      };
+
+      const saving = gated().create({ id: 1, email: "a@example.com" });
+
+      await expect(saving).rejects.toThrow(AbortAfterPersistence);
+      await expect(saving).rejects.toMatchObject({ callback: "aroundSave", reason: "Too late" });
+      expect(log).toEqual([]);
+      expect(await rows()).toBe(1);
+    });
+
+    test("calling next() a second time rejects with TypeError, with the row kept", async () => {
+      aroundSave = async (next) => {
+        await next();
+        await next();
+      };
+
+      await expect(gated().create({ id: 1, email: "a@example.com" })).rejects.toThrow(
+        new TypeError("aroundSave: next() was already called"),
+      );
+      expect(await rows()).toBe(1);
+    });
   });
 });
