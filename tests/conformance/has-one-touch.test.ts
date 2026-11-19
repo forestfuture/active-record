@@ -414,6 +414,20 @@ describe("a hasOne's touch (#497)", () => {
       expect(heard).not.toContain("afterTouch");
     });
 
+    test("one a batch saves after its owner is saved, not touched", async () => {
+      const database = db();
+      const forum = await database.model(TouchedForum).find(1);
+      const discussion = await database.model(HeardDiscussion).find(1);
+      forum.title = "Renamed";
+      const time = new Date("2030-01-01T00:00:00.000Z");
+      discussion.updatedAt = time;
+
+      await database.batch((b) => [b.save(forum), b.save(discussion)]);
+
+      expect(heard).not.toContain("afterTouch");
+      expect(await updatedAt(1)).toEqual(time);
+    });
+
     test("a changed one the owner autosaves is saved, not touched", async () => {
       const forum = await db().model(AutosavingForum).find(1);
       const discussion = (await forum.discussion())!;
