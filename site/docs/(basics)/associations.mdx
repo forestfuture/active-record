@@ -582,7 +582,7 @@ Inside the block, no article is touched. A comment’s `belongsTo` leaves its ar
 `noTouching` covers the Model you call it on and the Models that extend it. To turn off touches for every Model, call `ApplicationRecord.noTouching`. It covers only the code the block runs and what that code awaits, so other requests still touch.
 
 :::note
-The comments still set their own `updatedAt` when they’re saved. `touchAll` and a counter’s `touch` option still set it too. A comment that keeps a counter cache on the article still counts.
+The comments still set their own `updatedAt` when they’re saved. `Article.touchAll()` and `Article.updateCounters(id, counters, { touch: true })` still set the articles’ `updatedAt`, since you ask them to. A comment whose `belongsTo` also keeps a counter cache still counts, but doesn’t touch the article.
 :::
 
 :::note
@@ -599,7 +599,7 @@ With a counter cache, Rails sets the time in the counter’s `UPDATE` and runs n
 
 When a comment moves to another article, Rails finds the old one without the association’s scope. Here the scope applies to both.
 
-Rails’ `no_touching` leaves a counter cache’s touch on, since the time is set in the counter’s `UPDATE`. Here `noTouching` turns it off, and the article is only counted. Inside the block, Rails’ `touch` returns `nil`, and here it resolves to `false`.
+When a comment’s `belongs_to` has both `counter_cache:` and `touch:`, Rails’ `no_touching` still touches the article, since the time is set in the counter’s `UPDATE`. Here the article is only counted. Inside the block, Rails’ `touch` returns `nil`, and here it resolves to `false`.
 
 Rails’ `has_one … touch:` isn’t built yet ([#497](https://github.com/forestfuture/active-record/issues/497)).
 
