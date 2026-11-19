@@ -136,6 +136,21 @@ const reporting = async (next: () => Promise<void>) => {
   }
 };
 
+/** What Nested's second aroundSave does in place of `await next()`, set per test. */
+let innerAroundSave: (next: () => Promise<void>) => Promise<void>;
+
+class Nested extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+}) {
+  static table = "users";
+
+  static {
+    this.aroundSave((_nested, next) => reporting(next));
+    this.aroundSave((_nested, next) => innerAroundSave(next));
+  }
+}
+
 describe("around callbacks", () => {
   let harness: Harness;
   const members = () =>
@@ -314,6 +329,17 @@ describe("around callbacks", () => {
       );
       expect(record.isNewRecord()).toBe(true);
       expect(log).toEqual([]);
+      expect(await rows()).toBe(0);
+    });
+
+    test("an inner aroundSave that doesn't call next() rejects the outer one's next()", async () => {
+      innerAroundSave = async () => {};
+      const record = harness.connect().model(Nested).build({ id: 1, email: "a@example.com" });
+
+      expect(await record.save()).toBe(false);
+      expect(log).toEqual([
+        "next() rejected: CallbackAbort: An aroundSave callback didn't call next()",
+      ]);
       expect(await rows()).toBe(0);
     });
 
