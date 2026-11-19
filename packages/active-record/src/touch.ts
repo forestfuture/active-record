@@ -3,7 +3,7 @@ import type { DatetimeAttributeKey } from "./attribute-writes.ts";
 import { afterRollbackOf, runAfterCallbacks, runCommitCallbacks } from "./callbacks.ts";
 import { attributeFor } from "./attribute.ts";
 import { compileUpdate } from "./compiler.ts";
-import { touchesOfTouch } from "./belongs-to-touch.ts";
+import { touchesOfTouch } from "./association-touch.ts";
 import { touchAssignments } from "./counters.ts";
 import { modelOf, type Model, type ModelClass } from "./model.ts";
 import { isCoveredByNoTouching } from "./no-touching.ts";

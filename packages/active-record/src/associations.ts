@@ -25,7 +25,7 @@ import { collectionMethods, type CollectionMethods } from "./collection-methods.
 import { ownedCollection } from "./owned-collection.ts";
 import { pointLoadedBack } from "./point-back-at-owner.ts";
 import { ofOwner, type Relation, type Scoped } from "./relation.ts";
-import { checkTouch } from "./belongs-to-touch.ts";
+import { checkTouch } from "./association-touch.ts";
 import { checkCounterCache } from "./counter-caches.ts";
 import { linkOf, resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
 
