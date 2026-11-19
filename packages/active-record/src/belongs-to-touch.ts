@@ -92,6 +92,21 @@ function sessionOf(claimed: ReadonlySet<Model>): TouchSession {
   return session;
 }
 
+/** A record's table and stored key: what tells two touched records apart. */
+function touchKey(record: Model): string {
+  return `${modelOf(record).table} ${JSON.stringify(record[state].storedKeyValue)}`;
+}
+
+/**
+ * The touches `record.touch()` makes in turn, at the `time` it sets: the record itself counts
+ * as touched, so records touching each other touch it once.
+ */
+export function touchesOfTouch(record: Model, time: Date): Promise<PreparedWrite[]> {
+  const claimed = new Set([record]);
+  sessions.set(claimed, { time, touched: new Set([touchKey(record)]), claimed });
+  return touchesOf(record, "touch", claimed);
+}
+
 /**
  * The touches `record`'s write makes (#353): each record a belongsTo declaring `touch` reaches,
  * loaded if it isn't, touched by its own touch write, and the records it touches in turn.
@@ -165,7 +180,7 @@ async function touchOne(
 ): Promise<PreparedWrite[]> {
   const session = sessionOf(claimed);
   const model = modelOf(target);
-  const key = `${model.table} ${JSON.stringify(target[state].storedKeyValue)}`;
+  const key = touchKey(target);
   if (session.touched.has(key)) return [];
   session.touched.add(key);
   const values = Object.fromEntries(touchAssignments(model, touch, "touch", session.time));
