@@ -214,6 +214,7 @@ A record loaded through its owner’s `hasMany` or `hasOne` has the owner loaded
 - Records built or created through the association point back too, before either is saved.
 - A `belongsTo`’s record points back through its `hasOne`. After `await profile.author()`, the author’s `profile()` is that profile. A `hasMany` isn’t filled this way, because one record isn’t the whole collection.
 - The owner is the same object on both sides, so a change to it shows from either one.
+- If the `belongsTo` is declared `autosave: true`, saving one of those records also saves the owner’s unsaved changes. See [Saving changed records](#saving-changed-records).
 
 The inverse is the target’s first `belongsTo` that points at the owner’s Model through the same foreign key. None is found when either association has a `scope`, or for an association [through another](#reaching-records-through-another-association).
 

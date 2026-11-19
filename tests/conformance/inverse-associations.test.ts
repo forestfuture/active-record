@@ -183,7 +183,7 @@ describe("inverse associations", () => {
     });
   });
 
-  test("autosave on both sides writes each record once (guard)", async () => {
+  describe("through an autosave belongsTo", () => {
     class Member extends Model.define({
       id: { type: "integer", null: false },
       email: { type: "string", null: false },
@@ -203,17 +203,31 @@ describe("inverse associations", () => {
       member = belongsTo(Member, { foreignKey: "userId", autosave: true });
     }
 
-    const member = await db().model(Member).find(1);
-    const [entry] = await member.entries().toArray();
-    member.email = "changed@example.com";
-    entry!.title = "Changed";
-    queries.length = 0;
+    test("saving a record loaded through its owner saves the owner's changes", async () => {
+      const member = await db().model(Member).find(1);
+      const [entry] = await member.entries().toArray();
+      member.email = "changed@example.com";
 
-    await member.saveOrThrow();
-    await entry!.saveOrThrow();
+      await entry!.saveOrThrow();
 
-    expect(entry!.loaded("member")).toBe(member);
-    expect(statementKinds(queries).filter((kind) => kind === "UPDATE")).toHaveLength(2);
+      const stored = await db().model(Member).find(1);
+      expect(stored.email).toBe("changed@example.com");
+      expect(member.isChanged()).toBe(false);
+    });
+
+    test("autosave on both sides writes each record once (guard)", async () => {
+      const member = await db().model(Member).find(1);
+      const [entry] = await member.entries().toArray();
+      member.email = "changed@example.com";
+      entry!.title = "Changed";
+      queries.length = 0;
+
+      await member.saveOrThrow();
+      await entry!.saveOrThrow();
+
+      expect(entry!.loaded("member")).toBe(member);
+      expect(statementKinds(queries).filter((kind) => kind === "UPDATE")).toHaveLength(2);
+    });
   });
 
   describe("a hasOne's record", () => {
