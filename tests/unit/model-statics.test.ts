@@ -186,6 +186,35 @@ describe("withDatabase", () => {
   });
 });
 
+describe("noTouching (#496)", () => {
+  test("without Node.js compatibility, it says which Wrangler setting turns it on", async () => {
+    vi.resetModules();
+    const builtin = vi.spyOn(process, "getBuiltinModule").mockReturnValue(undefined as never);
+    try {
+      const { ActiveRecordError, Model } =
+        await import("../../packages/active-record/src/index.ts");
+      const run = vi.fn();
+
+      const error = await Model.noTouching(run).catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(ActiveRecordError);
+      expect(error).toHaveProperty(
+        "message",
+        "noTouching needs Node.js compatibility: a compatibility_date of 2026-08-04 or later, or the nodejs_compat flag, in your Wrangler config",
+      );
+      expect(run).not.toHaveBeenCalled();
+    } finally {
+      builtin.mockRestore();
+    }
+  });
+
+  test("it resolves to its function's result, typed", () => {
+    expectTypeOf(User.noTouching(() => 1)).toEqualTypeOf<Promise<number>>();
+    expectTypeOf(User.noTouching(async () => "done")).toEqualTypeOf<Promise<string>>();
+    expectTypeOf(Model.noTouching(() => undefined)).toEqualTypeOf<Promise<undefined>>();
+  });
+});
+
 describe("the statics' list", () => {
   test("every Relation method is a static of every Model, defined and typed", () => {
     const relationMethods = Object.getOwnPropertyNames(Relation.prototype).filter(
