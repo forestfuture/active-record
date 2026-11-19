@@ -619,11 +619,11 @@ A save with nothing to write doesn’t touch the profile. A `hasOne` through ano
 
 The profile is touched as [a `belongsTo`’s record is](#running-the-articles-callbacks). It takes the names of datetime attributes to set, runs its `afterTouch` and update commit callbacks, and touches its own records in turn. It’s found through the association, so a profile the association’s scope or Profile’s default scope hides isn’t touched. Inside [`Profile.noTouching`](#turning-touches-off), it isn’t loaded or touched.
 
-A few writes leave the profile to themselves:
+The profile isn’t touched when:
 
-- **A new user** touches nothing. A profile built with `user.profile.build()` is inserted with the user, and its insert sets its `updatedAt`.
-- **A profile saved with the user**, such as a changed one with `autosave: true`, sets its `updatedAt` in its own save.
-- **A profile the user’s `dependent` removes** isn’t touched with `"destroy"` or `"delete"`. With `"nullify"`, it’s touched once it no longer points at the user.
+- **The user is new.** A profile built with `user.profile.build()` is inserted with the user, and its insert sets its `updatedAt`.
+- **The same save writes it**, such as a changed one with `autosave: true`. Its own save sets its `updatedAt`.
+- **The user’s `dependent` removes it**, with `"destroy"` or `"delete"`. With `"nullify"`, it’s touched once it no longer points at the user.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
