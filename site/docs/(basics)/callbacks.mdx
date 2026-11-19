@@ -98,15 +98,15 @@ this.aroundSave(async (order, next) => {
 - **`aroundCreate`**, **`aroundUpdate`**, and **`aroundDestroy`** wrap only the write, between the matching before- and after-callbacks.
 - **Several around callbacks of one kind** nest. The first one declared is the outermost.
 
-`next()` resolves to nothing once the database has kept the write. A save sends its writes together, so in a [batch](./batches#batching-records), every record’s first part runs before the batch is written. Then each record’s last part runs in turn.
+`next()` returns a promise with no value. It resolves once the database has kept the write. A save sends its writes together, so in a [batch](./batches#batching-records), every record’s first part runs before the batch is written. Then each record’s last part runs in turn.
 
 ### Stopping a wrapped write
 
 - **Not calling `next()`** stops the save, as `abort()` does. `save()` resolves to `false`, and nothing is written.
 - **An `abort()` before `next()`** stops the save. After `next()`, the write has happened, so `abort()` throws `AbortAfterPersistence`.
-- **When the database refuses the write**, `afterRollback` runs, then `next()` rejects with the error the save throws. The save throws that error even if you catch it.
+- **When the database refuses the write**, `afterRollback` runs, then `next()` rejects with the database’s error. The save throws it even if you catch it.
 - **When the save ends without sending the write**, `next()` rejects with the error the save ends with. That happens when another record in the save or batch is refused before the write is sent.
-- **When an earlier record’s after-callback throws**, the write is kept, but the callbacks after it are skipped, so `next()` rejects with that error.
+- **When an earlier record’s after-callback throws**, the write is kept. The record’s own after-callbacks are skipped, and `next()` rejects with that error.
 
 To release something you hold during the write, put `await next()` in a `try` block, and release it in `finally`.
 
@@ -229,7 +229,7 @@ In an after-callback, the write has already happened, so `abort()` throws `Abort
 
 `after_rollback` is `afterRollback`. Rails also runs it for a save that fails inside a transaction. Here it runs only when the database refuses a write, since validation and the before-callbacks run before anything is sent.
 
-`around_save`, `around_create`, `around_update`, and `around_destroy` are `aroundSave`, `aroundCreate`, `aroundUpdate`, and `aroundDestroy`, and `yield` is `await next()`. Rails wraps each record’s own SQL in its transaction. Here, `next()` waits for the whole save’s batch. A Rails `around_save` can rescue the database’s error and carry on; here the save still throws it. Rails saves a `has_many`’s autosaved records inside the owner’s `around_save`. Here, the owner’s `aroundSave` finishes before their after-callbacks run.
+`around_save`, `around_create`, `around_update`, and `around_destroy` are `aroundSave`, `aroundCreate`, `aroundUpdate`, and `aroundDestroy`, and `yield` is `await next()`. Rails wraps each record’s own SQL in its transaction. Here, `next()` waits for the whole save’s batch. A Rails `around_save` can rescue the database’s error and carry on; here the save still throws it. Rails saves a `has_many`’s autosaved records inside the owner’s `around_save`. Here, the owner’s `aroundSave` finishes before their after-callbacks run. When an inner `around_save` doesn’t `yield`, Rails resumes the outer one after its `yield`. Here, the outer one’s `next()` rejects, and nothing is saved.
 
 `after_initialize` and `after_find` are `afterInitialize` and `afterFind`, and run in the same order. Here they can’t be async. `new Invoice()` doesn’t run `afterInitialize`, where Rails’ `new` does: build records through the Model instead, with `Invoice.build()`. `reload()` runs both on the record itself, where Rails runs them on a fresh copy and takes its attributes. `has_attribute?` is `hasAttribute`.
 
