@@ -125,7 +125,8 @@ export function touchesOfTouch(record: Model, time: Date): Promise<PreparedWrite
 
 /**
  * The touches `record`'s write makes (#353): each record a belongsTo declaring `touch` reaches,
- * loaded if it isn't, touched by its own touch write, and the records it touches in turn.
+ * loaded if it isn't, touched by its own touch write, and the records it touches in turn; none
+ * a `noTouching` block covers, and those it can reach only aren't read (#496).
  */
 export async function touchesOf(
   record: Model,
@@ -137,11 +138,21 @@ export async function touchesOf(
     if (kind !== "belongsTo" || touch === undefined) continue;
     // Its owner is being deleted with it (Rails skips the destroyed owner).
     if (cause === "destroy" && isDestroyedThrough(record, foreignKey)) continue;
+    if (isEveryTargetCovered(modelOf(record), name)) continue;
     for (const target of await touchedRecords(record, name, claimed)) {
       writes.push(...(await touchOne(target, touch, claimed)));
     }
   }
   return writes;
+}
+
+/**
+ * Whether a `noTouching` block covers every Model belongsTo `name` can reach (#496): its one
+ * Model, or each a polymorphic one lists. Then nothing it reaches is touched, so it isn't read.
+ */
+function isEveryTargetCovered(model: ModelClass, name: string): boolean {
+  const { branches } = resolveAssociation(model, name);
+  return branches.every((branch) => isCoveredByNoTouching(branch.target));
 }
 
 /**

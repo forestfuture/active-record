@@ -1183,8 +1183,8 @@ describe("the associations page's touch (#353)", () => {
 
     await withDatabase(db, () => belongsToTouch.importComments(1, ["One", "Two"]));
 
-    // Each comment reads its article to insert, and only the touch after the import updates
-    // it, and then its blog.
+    // Each comment reads its article only to check it exists; only the touch after the
+    // import updates it, and then its blog.
     const each = ["SELECT", "INSERT"];
     const after = ["SELECT", "SELECT", "UPDATE", "UPDATE"];
     expect(statementKinds(events)).toEqual([...each, ...each, ...after]);
