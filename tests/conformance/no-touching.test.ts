@@ -39,6 +39,16 @@ class Message extends Model.define({
   discussion = belongsTo(Discussion, { touch: true, optional: true });
 }
 
+/** A sticker on a discussion or a forum, touching whichever it's on. */
+class Sticker extends Model.define({
+  id: { type: "integer", null: false },
+  stickableType: "string",
+  stickableId: "integer",
+}) {
+  static table = "stickers";
+  stickable = belongsTo([Discussion, Forum], { touch: true, optional: true });
+}
+
 /** An app's base class, which its Models extend. */
 abstract class AppRecord extends Model {}
 
@@ -121,7 +131,7 @@ describe("noTouching (#496)", () => {
   afterAll(() => harness.dispose());
   beforeEach(async () => {
     heard.length = 0;
-    await harness.reset("messages", "discussions", "forums");
+    await harness.reset("stickers", "messages", "discussions", "forums");
     await harness.exec("INSERT INTO forums (id, title, updated_at) VALUES (1, 'Forum', ?)", [
       stale.toISOString(),
     ]);
@@ -149,7 +159,22 @@ describe("noTouching (#496)", () => {
       await Discussion.noTouching(() => messages.create({ discussionId: 1, body: "Hi" }));
 
       expect(await updatedAtOf(Discussion, 1)).toEqual(stale);
-      expect(statementKinds(events)).toEqual(["SELECT", "INSERT"]);
+      expect(statementKinds(events)).toEqual(["INSERT"]); // the discussion isn't read
+    });
+
+    test("a polymorphic belongsTo reads its record only when a Model it lists is touched", async () => {
+      const events: QueryEvent[] = [];
+      const stickers = recorded(events).model(Sticker);
+      const onDiscussion = { stickableType: "Discussion", stickableId: 1 };
+
+      await Model.noTouching(() => stickers.create(onDiscussion));
+      const unread = statementKinds(events);
+      events.length = 0;
+      await Forum.noTouching(() => stickers.create(onDiscussion));
+
+      expect(unread).toEqual(["INSERT"]);
+      expect(statementKinds(events)).toContain("SELECT");
+      expect(await updatedAtOf(Discussion, 1)).not.toEqual(stale);
     });
 
     /** A saved message, its discussion's updatedAt set back to `stale` after its insert. */

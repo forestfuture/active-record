@@ -599,7 +599,7 @@ With a counter cache, Rails sets the time in the counter’s `UPDATE` and runs n
 
 When a comment moves to another article, Rails finds the old one without the association’s scope. Here the scope applies to both.
 
-When a comment’s `belongs_to` has both `counter_cache:` and `touch:`, Rails’ `no_touching` still touches the article, since the time is set in the counter’s `UPDATE`. Here the article is only counted. Inside the block, Rails’ `touch` returns `nil`, and here it resolves to `false`.
+When a comment’s `belongs_to` has both `counter_cache:` and `touch:`, Rails’ `no_touching` still touches the article, since the time is set in the counter’s `UPDATE`. Here the article is only counted. Inside the block, Rails’ `touch` returns `nil`, and here it resolves to `false`. Rails also loads each comment’s article for its touch, then leaves it alone. Here the touch doesn’t load it, though a required `belongsTo` still checks that its article exists.
 
 Rails’ `has_one … touch:` isn’t built yet ([#497](https://github.com/forestfuture/active-record/issues/497)).
 
