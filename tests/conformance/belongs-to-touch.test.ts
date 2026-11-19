@@ -304,7 +304,7 @@ describe("a belongsTo's touch (#353)", () => {
       );
     });
 
-    test("a hasMany's touch is an InvalidModel: only a belongsTo touches", () => {
+    test("a hasMany's touch is an InvalidModel: only a belongsTo or hasOne touches", () => {
       class Toucher extends Model.define({ id: { type: "integer", null: false } }) {
         static table = "discussions";
         messages = hasMany(Message, {
@@ -315,7 +315,7 @@ describe("a belongsTo's touch (#353)", () => {
 
       expect(() => db().model(Toucher).build()).toThrow(
         new InvalidModel(
-          'Toucher association "messages": a hasMany takes no touch; only a belongsTo touches',
+          'Toucher association "messages": a hasMany takes no touch; only a belongsTo or hasOne touches',
         ),
       );
     });

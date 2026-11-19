@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, test } from "vite-plus/test";
-import { belongsTo, hasMany, hasOne, Model } from "../../packages/active-record/src/index.ts";
+import { belongsTo, hasMany, Model } from "../../packages/active-record/src/index.ts";
 
 class Discussion extends Model.define({
   id: { type: "integer", null: false },
@@ -38,12 +38,10 @@ describe("the types of a belongsTo's touch (#353)", () => {
     expectTypeOf(check).toBeFunction();
   });
 
-  test("a hasMany or hasOne takes no touch", () => {
+  test("a hasMany takes no touch", () => {
     const check = () => [
       // @ts-expect-error A hasMany takes no touch.
       hasMany(Message, { touch: true }),
-      // @ts-expect-error A hasOne takes no touch (#497).
-      hasOne(Message, { touch: true }),
     ];
 
     expectTypeOf(check).toBeFunction();
