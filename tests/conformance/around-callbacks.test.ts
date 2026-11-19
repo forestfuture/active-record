@@ -140,6 +140,37 @@ class LoggedPost extends Model.define({
   }
 }
 
+/** A post whose aroundSave logs how its `next()` settled; one titled "Refused" aborts. */
+class AroundPost extends Model.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+  title: "string",
+}) {
+  static table = "posts";
+
+  static {
+    this.beforeSave((post) => {
+      if (post.title === "Refused") throw abort("Refused");
+    });
+    this.aroundSave(async (post, next) => {
+      try {
+        await next();
+      } catch (error) {
+        log.push(`${post.title}: next() rejected: ${(error as Error).name}`);
+        throw error;
+      }
+    });
+  }
+}
+
+class Blogger extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+}) {
+  static table = "users";
+  posts = hasMany(AroundPost, { foreignKey: "userId" });
+}
+
 class Writer extends Gated {
   posts = hasMany(LoggedPost, { foreignKey: "userId" });
 }
@@ -497,6 +528,29 @@ describe("around callbacks", () => {
         "Exploded",
       );
       expect(log).toEqual(["next() rejected: Error: Exploded"]);
+    });
+
+    test("rejects next() for a record in a later stage that's never sent", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (5, 'taken@example.com')");
+      // No id: the database generates it, so the post is written in a later stage.
+      const blogger = harness.connect().model(Blogger).build({ email: "taken@example.com" });
+      blogger.posts().build({ title: "First" });
+
+      await expect(blogger.save()).rejects.toThrow(RecordNotUnique);
+      expect(log).toEqual(["First: next() rejected: RecordNotUnique"]);
+    });
+
+    test("rejects next() for a pushed record when another one refuses", async () => {
+      const blogger = await harness
+        .connect()
+        .model(Blogger)
+        .create({ id: 1, email: "a@example.com" });
+      const db = harness.connect();
+      const kept = db.model(AroundPost).build({ id: 10, title: "Kept" });
+      const refused = db.model(AroundPost).build({ id: 11, title: "Refused" });
+
+      expect(await blogger.posts().push(kept, refused)).toBe(false);
+      expect(log).toEqual(["Kept: next() rejected: RecordNotSaved"]);
     });
   });
 });
