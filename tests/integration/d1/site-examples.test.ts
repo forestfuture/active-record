@@ -43,6 +43,7 @@ import * as attributeWrites from "../../../site/snippets/guide/attribute-writes.
 import * as counterCaches from "../../../site/snippets/guide/counter-caches.ts";
 import { statementKinds } from "../../support/statement-kinds.ts";
 import * as belongsToTouch from "../../../site/snippets/guide/belongs-to-touch.ts";
+import * as hasOneTouch from "../../../site/snippets/guide/has-one-touch.ts";
 import { joinsExample } from "../../../site/snippets/guide/joins.ts";
 import {
   addExample,
@@ -1190,6 +1191,34 @@ describe("the associations page's touch (#353)", () => {
     expect(statementKinds(events)).toEqual([...each, ...each, ...after]);
     const row = await binding.prepare("SELECT updated_at FROM articles WHERE id = 1").first();
     expect(row?.["updated_at"]).not.toBe(stale);
+  });
+});
+
+describe("the associations page's hasOne touch (#497)", () => {
+  let binding: TestDatabase;
+  let dispose: () => Promise<void>;
+  const schema = new URL("../../../site/snippets/guide/has-one-touch.sql", import.meta.url);
+
+  beforeAll(async () => {
+    ({ db: binding, dispose } = await createTestDatabase(schema));
+  });
+  afterAll(() => dispose());
+
+  test("updating or touching a user touches its profile", async () => {
+    const stale = "2020-01-01T00:00:00.000Z";
+    await binding
+      .prepare("INSERT INTO users (id, name, updated_at) VALUES (1, 'A', ?)")
+      .bind(stale)
+      .run();
+    await binding
+      .prepare("INSERT INTO profiles (id, user_id, updated_at) VALUES (1, 1, ?)")
+      .bind(stale)
+      .run();
+
+    const user = await withDatabase(connect(binding), () => hasOneTouch.examples(1));
+
+    const row = await binding.prepare("SELECT updated_at FROM profiles WHERE id = 1").first();
+    expect(row?.["updated_at"]).toBe(user.updatedAt!.toISOString());
   });
 });
 

@@ -1,4 +1,4 @@
-// A belongsTo's `touch` (#353): checking its declaration, and the touches a record's create, update, destroy or touch makes of the records it belongs to, in its batch.
+// A belongsTo's `touch` (#353) and a hasOne's (#497): checking its declaration, and the touches a record's create, update, destroy or touch makes of the records it belongs to or has, in its batch.
 import { associationOf, associationsOf, readAssociation } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { isDestroyedThrough } from "./counter-caches.ts";
