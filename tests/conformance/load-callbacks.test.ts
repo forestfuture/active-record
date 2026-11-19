@@ -52,6 +52,19 @@ class Member extends Person {
   }
 }
 
+class Contact extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+}) {
+  static table = "users";
+
+  static {
+    this.afterFind((contact) => {
+      log.push(contact.hasAttribute("email") ? `email ${contact.email}` : "no email");
+    });
+  }
+}
+
 describe("afterFind and afterInitialize", () => {
   let harness: Harness;
   const people = () => harness.connect().model(Person);
@@ -132,6 +145,24 @@ describe("afterFind and afterInitialize", () => {
     await person.reload();
 
     expect(log).toEqual(["afterFind new@example.com", "afterInitialize new@example.com"]);
+  });
+
+  test("a partial record from select runs them, and hasAttribute says what it loaded", async () => {
+    const contacts = harness.connect().model(Contact);
+    await contacts.select("id").order({ id: "asc" }).toArray();
+    await contacts.find(1);
+
+    expect(log).toEqual(["no email", "no email", "email a@example.com"]);
+  });
+
+  // A guard: hasAttribute looks names up in the Model's own attributes.
+  test("hasAttribute is true for a built record's attributes, and false for other names", () => {
+    const contact = harness.connect().model(Contact).build({ email: "c@example.com" });
+
+    expect(contact.hasAttribute("id")).toBe(true);
+    expect(contact.hasAttribute("email")).toBe(true);
+    expect(contact.hasAttribute("nickname")).toBe(false);
+    expect(contact.hasAttribute("constructor")).toBe(false);
   });
 
   test("build runs afterInitialize after its init", () => {

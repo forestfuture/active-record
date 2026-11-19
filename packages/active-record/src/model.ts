@@ -662,6 +662,15 @@ export class Model extends AttributeWrites {
     return this[state].isDestroyed;
   }
 
+  /**
+   * Whether the record has the attribute `name` loaded (Rails' `has_attribute?`): `false` for one
+   * `select(...)` left out, whose read throws `MissingAttribute`, and for a name the Model doesn't
+   * declare. A callback that runs for partial records, such as `afterFind`, checks it first.
+   */
+  hasAttribute(name: string): boolean {
+    return this[state].hasAttribute(name);
+  }
+
   /** The record's attributes as a plain object of JavaScript values. */
   attributes(): Record<string, unknown> {
     return this[state].attributes();
