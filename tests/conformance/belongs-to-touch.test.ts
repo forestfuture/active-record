@@ -637,6 +637,29 @@ describe("a belongsTo's touch (#353)", () => {
       expect(heard.filter((each) => each === "afterUpdateCommit")).toEqual(["afterUpdateCommit"]);
     });
 
+    test("a record the batch destroys before saving one touching it is left destroyed", async () => {
+      const database = db();
+      const discussion = await database.model(HeardDiscussion).find(1);
+      const message = discussion.messages().build({ body: "Late" });
+
+      await database.batch((b) => [b.destroy(discussion), b.save(message)]);
+
+      expect(discussion.isDestroyed()).toBe(true);
+      expect(heard).not.toContain("afterTouch");
+    });
+
+    test("a saved record the refused batch touches runs afterRollback once", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+      const database = db();
+      const discussion = await database.model(HeardDiscussion).find(1);
+      const message = database.model(HeardMessage).build({ id: 1, discussionId: 1, body: "Clash" });
+      discussion.title = "Renamed";
+
+      await expect(database.batch((b) => [b.save(discussion), b.save(message)])).rejects.toThrow();
+
+      expect(heard.filter((each) => each === "afterRollback")).toEqual(["afterRollback"]);
+    });
+
     test("a record the batch destroys isn't touched: no afterTouch or update commit callback", async () => {
       await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
       const database = db();
@@ -873,6 +896,26 @@ describe("a belongsTo's touch (#353)", () => {
       const row = await db().model(HeardDiscussion).find(7);
       expect(row.lastMessageAt).not.toBeNull();
       expect(discussion.lastMessageAt).toEqual(row.lastMessageAt);
+    });
+
+    test("with a key it's given, runs afterRollback once when the batch is refused", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+      const message = db().model(HeardMessage).build({ id: 1, body: "Clash" });
+      message.discussion.build({ id: 7, title: "Keyed" });
+
+      await expect(message.saveOrThrow()).rejects.toThrow();
+
+      expect(heard.filter((each) => each === "afterRollback")).toEqual(["afterRollback"]);
+    });
+
+    test("inserted before the batch that's refused runs no afterRollback: its insert was kept", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+      const message = db().model(HeardMessage).build({ id: 1, body: "Clash" });
+      message.discussion.build({ title: "Generated" });
+
+      await expect(message.saveOrThrow()).rejects.toThrow();
+
+      expect(heard).not.toContain("afterRollback");
     });
 
     test("with a counter cache, holds the time its counter's UPDATE wrote", async () => {
