@@ -1,6 +1,6 @@
 ---
 title: Callbacks
-description: "Registering callbacks, running validation callbacks only on create or update, the order they run in, commit and rollback callbacks, abort() to stop a save or destroy, and the callbacks not built yet."
+description: "Registering callbacks, running validation callbacks only on create or update, the order they run in, commit and rollback callbacks, the callbacks a touch runs, abort() to stop a save or destroy, and the callbacks not built yet."
 ---
 
 Callbacks run your code at points in a record’s lifecycle, such as before it’s validated or after it’s saved.
@@ -52,6 +52,12 @@ Once a Model has been used, registering another callback throws `InvalidModel`, 
 | 2              | `afterDestroy`       | After the record is destroyed                            | Too late: `AbortAfterPersistence` |
 | 3              | `afterCommit`        | Last, after every after-callback                         | Too late: `AbortAfterPersistence` |
 | 3              | `afterDestroyCommit` | Last, after the record is destroyed                      | Too late: `AbortAfterPersistence` |
+| **Touching**   |                      |                                                          |                                   |
+|                | _The write to D1_    | `updatedAt`, and any attributes named                    |                                   |
+| 1              | `afterTouch`         | After `touch()` writes the record’s timestamps           | Too late: `AbortAfterPersistence` |
+| 2              | `afterCommit`        | Last, when `touch()` wrote a row                         | Too late: `AbortAfterPersistence` |
+| 2              | `afterUpdateCommit`  | Last, when `touch()` wrote a row                         | Too late: `AbortAfterPersistence` |
+| 2              | `afterSaveCommit`    | Last, when `touch()` wrote a row                         | Too late: `AbortAfterPersistence` |
 | **Refused**    |                      |                                                          |                                   |
 | 1              | `afterRollback`      | When the database refuses the save or destroy            | Nothing to stop                   |
 
@@ -81,6 +87,26 @@ this.afterCreateCommit(async (user) => {
 
 :::note
 Destroying a record that was never saved runs no commit callback, since there was no row to delete.
+:::
+
+## Running code after a touch
+
+`afterTouch` runs after [`touch()`](./persistence#touching-a-record) writes a record’s timestamps:
+
+```ts
+this.afterTouch(async (article) => {
+  await purgeCachedPage(article.id);
+});
+```
+
+- **No validation or save callback runs** for a touch.
+- **The commit callbacks for an update** run after `afterTouch`: `afterCommit`, `afterUpdateCommit`, and `afterSaveCommit`. When the row is gone, only `afterTouch` runs.
+- **A refused touch** runs `afterRollback`, and the record’s touched attributes go back to what they were.
+
+`touchAll` and the counters’ `touch` option run no callbacks.
+
+:::warning[A touch runs the update commit callbacks]
+Code in `afterUpdateCommit`, such as sending an email, also runs on every `touch()`. To run it only when the record is saved, register it with `afterUpdate` or `afterSave` instead. The database has kept the write before those run too.
 :::
 
 ## Handling a refused write
@@ -131,11 +157,12 @@ These callbacks aren’t in Active Record yet. The code shows the shape they’r
 
 - **Around callbacks** ([#48](https://github.com/forestfuture/active-record/issues/48)): `this.aroundSave(async (record, proceed) => { …; await proceed(); … })`, and `aroundCreate`, `aroundUpdate`, and `aroundDestroy`.
 - **`afterInitialize` and `afterFind`** ([#49](https://github.com/forestfuture/active-record/issues/49)): for every record built or loaded, and every record loaded.
-- **`record.touch()` and `afterTouch`** ([#50](https://github.com/forestfuture/active-record/issues/50)): sets `updatedAt` without a full save.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
 `after_commit` and its `on:` forms are `afterCommit`, `afterCreateCommit`, `afterUpdateCommit`, `afterSaveCommit`, and `afterDestroyCommit`, run in the order declared, as Rails 7.1 runs them. In Rails, `after_save` runs before the save’s transaction commits. Here, the database has already kept the write before any after-callback runs, so every after-callback is already “after commit”. An error in `afterSave` rolls a Rails save back; here the record stays saved, and its commit callbacks don’t run.
+
+`after_touch` is `afterTouch`. As in Rails, `touch` runs the commit callbacks too.
 
 `after_rollback` is `afterRollback`. Rails also runs it for a save that fails inside a transaction. Here it runs only when the database refuses a write, since validation and the before-callbacks run before anything is sent.
 

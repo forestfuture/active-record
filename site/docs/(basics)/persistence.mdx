@@ -1,6 +1,6 @@
 ---
 title: Persistence
-description: "save, create, update, and destroy, their OrThrow variants, what each returns or throws, changing one attribute (increment, toggle, updateColumns, updateCounters), finding or creating a record (findOrCreateBy, createOrFindBy, createWith), destroying many records, lifecycle state, and reload."
+description: "save, create, update, and destroy, their OrThrow variants, what each returns or throws, changing one attribute (increment, toggle, updateColumns, touch, updateCounters), finding or creating a record (findOrCreateBy, createOrFindBy, createWith), destroying many records, lifecycle state, and reload."
 ---
 
 Records are saved, updated, and destroyed with `save`, `create`, `update`, and `destroy`.
@@ -72,11 +72,25 @@ To write a value without validations, callbacks, or a new `updatedAt`, use a met
 
 <include>/_excerpts/guide/attribute-writes/columns.ts</include>
 
-- **`incrementColumn` and `decrementColumn`** add to the value in the row, not the one the record loaded. When two requests increment the same row, both count. The record then holds the row’s new value.
+- **`incrementColumn` and `decrementColumn`** add to the value in the row, not the one the record loaded. When two requests increment the same row, both count. The record then holds the row’s new value. To set `updatedAt` in the same write, pass `{ touch: true }` after the amount.
 - **`toggleColumn`** writes the flipped value.
 - **`updateColumns(attrs)`** writes the attributes you give. `updateColumn(name, value)` writes one.
 
 Each resolves to `true`, or `false` when the row is gone. The record’s other unsaved changes stay unsaved. A record that was never saved has no row, so these methods throw `RecordNotSaved`.
+
+### Touching a record
+
+To mark a record as changed without saving it, call `touch`. It sets `updatedAt` to the current time in the row:
+
+<include>/_excerpts/guide/attribute-writes/touching.ts</include>
+
+- **Name datetime attributes** to set them as well as `updatedAt`.
+- **Pass `{ time }` last** to set a time other than now.
+- **A Relation’s `touchAll`** sets them in every row it matches, in one statement. Like `updateAll`, it keeps the default scope and runs no callbacks.
+
+`touch` skips validations and the save callbacks, and the record’s other unsaved changes stay unsaved. It runs `afterTouch`, then the commit callbacks for an update. See [Running code after a touch](./callbacks#running-code-after-a-touch).
+
+`touch` resolves to `true`, or `false` when the row is gone. A record that was never saved throws `RecordNotSaved`. On a Model with no `updatedAt`, name at least one attribute.
 
 ### Updating counters
 
@@ -110,6 +124,8 @@ To keep a count of an association’s records, see [counter caches](./associatio
 Rails’ `toggle!` runs the save callbacks and saves the record’s other changes. `toggleColumn` runs no callbacks and writes only the one attribute. For callbacks, call `toggle`, then `save`.
 
 Rails’ `increment!` keeps the value it worked out. `incrementColumn` reads the row’s new value back, so it includes other requests’ increments.
+
+`touch` and `touchAll` are Rails’ `touch` and `touch_all`. Rails writes the time to any column you name, and touching a Model with no `updated_at` does nothing. Here, an attribute that isn’t a datetime, or nothing to touch, throws a `TypeError`.
 
 </Callout>
 

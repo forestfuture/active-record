@@ -116,6 +116,10 @@ _Avoid_: Halt, cancel, returning false
 A callback that runs last, once its record's write is kept: `afterCommit`, or one narrowed to a kind of write (`afterCreateCommit`, `afterUpdateCommit`, `afterSaveCommit`, `afterDestroyCommit`). It runs after every after-callback, including those of every record in a **Batch**. Its counterpart, `afterRollback`, runs when the database refuses a write it was sent.
 _Avoid_: Transaction callback (there's no transaction around the callbacks)
 
+**Touch**:
+Setting a **Record**'s `updatedAt`, and any datetime attributes named, to now (or a given time) straight to its row, without a save: `record.touch()`, then `afterTouch` and the update **Commit callbacks**. A Relation's `touchAll` touches every row it matches as a **Bulk write**, with no callbacks; a counter's `{ touch }` option touches in the counter's own UPDATE.
+_Avoid_: Bump, stamp
+
 **Validation context**:
 The occasion a record is validated for, which picks the rules declared `on` it (or `exceptOn` it) that run: `"create"` while the record is new, `"update"` once it's saved, or a name the app gives `isValid(context)` or `save({ context })` in their place. A Model lists the names it gives in `static validationContexts`.
 _Avoid_: Context (on its own, which a **Database** isn't either), scenario, validation group
