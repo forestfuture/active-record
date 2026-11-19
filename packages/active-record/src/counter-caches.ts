@@ -1,6 +1,7 @@
 // Counter caches (#61): a belongsTo's `counterCache`, kept up to date by statements written in the same atomic batch as its record's insert, update or delete, and checking it and a hasMany's.
 import { associationOf, associationsOf } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
+import type { TouchCause } from "./belongs-to-touch.ts";
 import { attributeFor } from "./attribute.ts";
 import type { Assignment, CompiledSql } from "./compiler.ts";
 import { touchAssignments } from "./counters.ts";
@@ -246,19 +247,68 @@ export interface CounterChanges {
   commit(results: readonly StatementResult[]): void;
 }
 
-/** A write's counter changes: `before` and `after` its own statement, then `by` on `loaded`. */
+/** A counter's statement in a write, sent before or after the record's own. */
+interface CounterStatement {
+  counter: CounterCache;
+  sql: CompiledSql;
+}
+
+/**
+ * A write's counter changes: `before` and `after` its own statement, then `by` on `loaded`.
+ * Once written, it keeps whether each wrote a row, for the touch it set (#353).
+ */
 function counterChanges(
   record: Model,
-  [before, after]: [CompiledSql[], CompiledSql[]],
+  [before, after]: [CounterStatement[], CounterStatement[]],
   loaded: readonly CounterCache[],
   by: number,
 ): CounterChanges {
   return {
-    around: (own) => [...before, own, ...after],
+    around: (own) => [...before.map(({ sql }) => sql), own, ...after.map(({ sql }) => sql)],
     commit(results) {
+      const wrote = new Map<string, boolean>();
+      const keep = (statements: CounterStatement[], side: CounterSide, offset: number) =>
+        statements.forEach(({ counter }, index) => {
+          wrote.set(`${counter.name} ${side}`, (results[offset + index]?.rowsAffected ?? 0) > 0);
+        });
+      keep(before, "before", 0);
+      keep(after, "after", before.length + 1);
+      counterWrites.set(record, wrote);
       if ((results[before.length]?.rowsAffected ?? 0) > 0) countLoaded(record, loaded, by);
     },
   };
+}
+
+/** Whether a counter's statement is sent before or after its record's own. */
+export type CounterSide = "before" | "after";
+
+/** Whether each counter statement of a record's last write wrote a row, by name and side. */
+const counterWrites = new WeakMap<Model, ReadonlyMap<string, boolean>>();
+
+/**
+ * Whether the counter statement `record`'s last write sent for belongsTo `name` on `side` wrote
+ * a row: what tells a touch it set whether its record's row was there (#353).
+ */
+export function hasCounterWritten(record: Model, name: string, side: CounterSide): boolean {
+  return counterWrites.get(record)?.get(`${name} ${side}`) ?? false;
+}
+
+/**
+ * Which of a belongsTo's records a write's counter statements change, and on which side, as the
+ * functions below send them: the one it reaches on insert (after), the row's on destroy
+ * (before), and both when an update moves its key. None without a counter cache.
+ */
+export function countedSides(
+  record: Model,
+  name: string,
+  write: TouchCause,
+  isMoved: boolean,
+): { current?: CounterSide; stored?: CounterSide } {
+  if (associationOf(modelOf(record), name).counterCache === undefined) return {};
+  if (write === "insert") return { current: "after" };
+  if (write === "update") return isMoved ? { current: "after", stored: "before" } : {};
+  if (write === "destroy") return isMoved ? { stored: "before" } : { current: "before" };
+  return {};
 }
 
 /** A write that changes no counter: a record that was never saved has no row to delete. */
@@ -275,7 +325,7 @@ export function countersOnInsert(record: Model, time: Date): CounterChanges {
   });
   const after = counted.map((counter) => {
     const key = keyed(counter, recordState.read(counter.foreignKey));
-    return compileCounterChange(counter, changeBy(counter, 1), key);
+    return { counter, sql: compileCounterChange(counter, changeBy(counter, 1), key) };
   });
   return counterChanges(record, [[], after], counted, 1);
 }
@@ -293,7 +343,10 @@ export function countersOnDestroy(record: Model, time: Date): CounterChanges {
       counter.foreignKey !== skipped &&
       isTypeOfTarget(counter, (name) => recordState.valueInDatabase(name)),
   );
-  const before = counted.map((counter) => changeThroughRow(record, counter, -1, "before"));
+  const before = counted.map((counter) => ({
+    counter,
+    sql: changeThroughRow(record, counter, -1, "before"),
+  }));
   return counterChanges(record, [before, []], counted, -1);
 }
 
@@ -314,8 +367,14 @@ export function countersOnUpdate(record: Model, time: Date): CounterChanges {
     isTypeOfTarget(counter, (name) => recordState.valueInDatabase(name)),
   );
   const to = moved.filter((counter) => isTypeOfTarget(counter, (name) => recordState.read(name)));
-  const before = from.map((counter) => changeThroughRow(record, counter, -1, "before"));
-  const after = to.map((counter) => changeThroughRow(record, counter, 1, "after"));
+  const before = from.map((counter) => ({
+    counter,
+    sql: changeThroughRow(record, counter, -1, "before"),
+  }));
+  const after = to.map((counter) => ({
+    counter,
+    sql: changeThroughRow(record, counter, 1, "after"),
+  }));
   return counterChanges(record, [before, after], to, 1);
 }
 
