@@ -1,6 +1,6 @@
 {
   "name": "@forestfuture/active-record",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "A Rails-inspired Active Record for Cloudflare Workers, with an adapter per database.",
   "keywords": [
     "active-record",
