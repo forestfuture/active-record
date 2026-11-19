@@ -1,6 +1,12 @@
 // Changing one attribute (#351): `increment`, `decrement` and `toggle` in memory, and `updateColumns`, `incrementColumn` and `toggleColumn`, straight to the row, and `touch` (#50); the record methods every Model's records inherit from Model.
 import { compileUpdate } from "./compiler.ts";
-import { amount, counterSets, requireAttributeType } from "./counters.ts";
+import {
+  amount,
+  counterSets,
+  requireAttributeType,
+  touchAssignments,
+  type CounterOptions,
+} from "./counters.ts";
 import { RecordNotSaved } from "./errors.ts";
 import type { AttributesOf, Model, ModelClass, SpecsOf } from "./model.ts";
 import { ModelStatics } from "./model-statics.ts";
@@ -36,7 +42,7 @@ type AttributeKey<R> = keyof AttributesOf<R> & string;
 /** A record's number attributes, which `increment` and `decrement` take. */
 export type NumberAttributeKey<R> = AttributeKeyOf<R, "integer" | "real">;
 
-/** A record's datetime attributes, which a counter's `touch` names (#61). */
+/** A record's datetime attributes, which `touch` (#50) and a counter's `touch` (#61) name. */
 export type DatetimeAttributeKey<R> = AttributeKeyOf<R, "datetime">;
 
 /** A record's boolean attributes, which `toggle` takes. */
@@ -91,15 +97,18 @@ export abstract class AttributeWrites extends ModelStatics {
   /**
    * Adds `by` to a number attribute in the row, as `SET x = COALESCE(x, 0) + by`, so concurrent
    * writes all count, with no validation, callback or `updatedAt`; the record then holds the
-   * row's new value. An unsaved change to it is added too, as Rails' `increment!`. Resolves to
-   * whether there was a row to write.
+   * row's new value. An unsaved change to it is added too, as Rails' `increment!`. With
+   * `{ touch }`, the same UPDATE sets `updatedAt` (and any datetime attributes named) to now, and
+   * the record holds them (#50). Resolves to whether there was a row to write.
    */
   async incrementColumn<R extends Model>(
     this: R,
     name: NumberAttributeKey<R>,
     by = 1,
+    { touch }: CounterOptions<R> = {},
   ): Promise<boolean> {
-    return addToColumn(this, name, amount(by, "incrementColumn"), "incrementColumn");
+    const method = "incrementColumn";
+    return addToColumn(this, name, amount(by, method), { method, touch });
   }
 
   /** `incrementColumn`, taking `by` away. */
@@ -107,8 +116,10 @@ export abstract class AttributeWrites extends ModelStatics {
     this: R,
     name: NumberAttributeKey<R>,
     by = 1,
+    { touch }: CounterOptions<R> = {},
   ): Promise<boolean> {
-    return addToColumn(this, name, -amount(by, "decrementColumn"), "decrementColumn");
+    const method = "decrementColumn";
+    return addToColumn(this, name, -amount(by, method), { method, touch });
   }
 
   /**
@@ -143,28 +154,29 @@ function isTrueOnceToggled(record: Model, name: string, method: string): boolean
 
 /**
  * Adds to a number attribute in memory, then sends the difference from the row's value as it
- * was loaded, and holds the value the row returns.
+ * was loaded, with any timestamps `touch` sets, and holds the values the row returns.
  */
 async function addToColumn(
   record: Model,
   name: string,
   by: number,
-  method: string,
+  { method, touch }: { method: string; touch: unknown },
 ): Promise<boolean> {
   const recordState = record[state];
   requireSaved(record, method);
+  const model = modelOf(record);
+  const touched = touchAssignments(model, touch, method).map(([each]) => each);
   const after = (numberValue(record, name, method) ?? 0) + by;
   const delta = after - ((recordState.valueInDatabase(name) as number | null) ?? 0);
   recordState.write(name, after);
-  const model = modelOf(record);
   const update = compileUpdate(
     model,
-    counterSets(model, { [name]: delta }, method),
+    counterSets(model, { [name]: delta }, method, touch),
     recordState.storedKey,
-    [name],
+    [name, ...touched],
   );
   const [result] = await recordState.executor.write([update]);
-  recordState.commitColumns([name], result?.rows[0]);
+  recordState.commitColumns([name, ...touched], result?.rows[0]);
   return result?.rowsAffected === 1;
 }
 
