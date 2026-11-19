@@ -145,6 +145,17 @@ class Sticker extends Model.define({
   stickable = belongsTo([Discussion, Forum], { touch: true });
 }
 
+/** A discussion touching its forum, with a count and a flag changed straight in the row. */
+class TallyDiscussion extends Model.define({
+  id: { type: "integer", null: false },
+  forumId: "integer",
+  archived: "boolean",
+  messagesCount: "integer",
+}) {
+  static table = "discussions";
+  forum = belongsTo(Forum, { touch: true, optional: true });
+}
+
 /** A discussion destroying its messages with it. */
 class ClosingDiscussion extends Model.define({
   id: { type: "integer", null: false },
@@ -403,6 +414,16 @@ describe("a belongsTo's touch (#353)", () => {
       expect(await updatedAt(2)).toEqual(await updatedAt(1));
     });
 
+    test("touch() with an unsaved key change touches both, the old one by the row's key", async () => {
+      const message = await db().model(Message).find(1);
+      message.discussionId = 2;
+
+      await message.touch();
+
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(await updatedAt(2)).toEqual(message.updatedAt);
+    });
+
     test("moving it to none touches the old one", async () => {
       const message = await db().model(Message).find(1);
       message.discussionId = null;
@@ -455,6 +476,16 @@ describe("a belongsTo's touch (#353)", () => {
 
       expect(statementKinds(events)).toEqual(["SELECT", "DELETE", "UPDATE"]);
       expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+    });
+
+    test("with an unsaved key change touches both: the row's record and the new one", async () => {
+      const message = await db().model(Message).find(1);
+      message.discussionId = 2;
+
+      await message.destroyOrThrow();
+
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(await updatedAt(2)).toEqual(await updatedAt(1));
     });
 
     test("through the record's dependent: destroy doesn't touch that record", async () => {
@@ -665,28 +696,54 @@ describe("a belongsTo's touch (#353)", () => {
       expect(heard).toEqual(["afterTouch", "afterUpdateCommit"]);
     });
 
-    test("destroying and moving touch in the counters' UPDATEs", async () => {
+    test("moving its key touches both in the counters' UPDATEs", async () => {
       await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
       await harness.exec("UPDATE discussions SET messages_count = 1 WHERE id = 1");
       const events: QueryEvent[] = [];
-      const messages = recorded(events).model(CountedMessage);
-      const moved = await messages.find(1);
-      moved.discussionId = 2;
+      const message = await recorded(events).model(CountedMessage).find(1);
+      message.discussionId = 2;
       events.length = 0;
 
-      await moved.saveOrThrow();
+      await message.saveOrThrow();
+
       const writes = statementKinds(events).filter((kind) => kind !== "SELECT");
-      events.length = 0;
-      await moved.destroyOrThrow();
-
       expect(writes).toEqual(["UPDATE", "UPDATE", "UPDATE"]);
-      expect(statementKinds(events).filter((kind) => kind !== "SELECT")).toEqual([
-        "UPDATE",
-        "DELETE",
-      ]);
+      expect([Number(await counted(1)), Number(await counted(2))]).toEqual([0, 1]);
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(await updatedAt(2)).toEqual(await updatedAt(1));
+    });
+
+    test("destroying touches in the counter's UPDATE", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+      await harness.exec("UPDATE discussions SET messages_count = 1 WHERE id = 1");
+      const events: QueryEvent[] = [];
+      const message = await recorded(events).model(CountedMessage).find(1);
+      events.length = 0;
+
+      await message.destroyOrThrow();
+
+      const writes = statementKinds(events).filter((kind) => kind !== "SELECT");
+      expect(writes).toEqual(["UPDATE", "DELETE"]);
+      expect(Number(await counted(1))).toBe(0);
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(heard).toEqual(["afterTouch", "afterUpdateCommit"]);
+    });
+
+    test("destroying with an unsaved key change touches the row's record in its counter's UPDATE, and the new one by its own", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+      await harness.exec("UPDATE discussions SET messages_count = 1 WHERE id = 1");
+      const events: QueryEvent[] = [];
+      const message = await recorded(events).model(CountedMessage).find(1);
+      message.discussionId = 2;
+      events.length = 0;
+
+      await message.destroyOrThrow();
+
+      const writes = statementKinds(events).filter((kind) => kind !== "SELECT");
+      expect(writes).toEqual(["UPDATE", "DELETE", "UPDATE"]);
       expect([Number(await counted(1)), Number(await counted(2))]).toEqual([0, 0]);
       expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
-      expect((await updatedAt(2))!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(await updatedAt(2)).toEqual(await updatedAt(1));
     });
 
     test("a loaded record whose row is gone runs no commit callback", async () => {
@@ -764,6 +821,24 @@ describe("a belongsTo's touch (#353)", () => {
 
       expect(events.map((event) => event.model)).toEqual(["Message", "Message", "Message"]);
       expect(await updatedAt(1)).toEqual(stale);
+    });
+  });
+
+  describe("changing one attribute straight in the row", () => {
+    test("doesn't touch: incrementColumn and toggleColumn", async () => {
+      await harness.exec("INSERT INTO forums (id, title, updated_at) VALUES (1, 'General', ?)", [
+        stale.toISOString(),
+      ]);
+      await harness.exec("UPDATE discussions SET forum_id = 1 WHERE id = 1");
+      const events: QueryEvent[] = [];
+      const discussion = await recorded(events).model(TallyDiscussion).find(1);
+      events.length = 0;
+
+      await discussion.incrementColumn("messagesCount");
+      await discussion.toggleColumn("archived");
+
+      expect(events.map((event) => event.model)).toEqual(["TallyDiscussion", "TallyDiscussion"]);
+      expect((await db().model(Forum).find(1)).updatedAt).toEqual(stale);
     });
   });
 });
