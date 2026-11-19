@@ -52,6 +52,9 @@ class Account extends Model.define({
     this.aroundSave(logged("aroundSave 2"));
     this.aroundCreate(logged("aroundCreate 2"));
     this.afterCreate(() => void log.push("afterCreate"));
+    this.beforeDestroy(() => void log.push("beforeDestroy"));
+    this.aroundDestroy(logged("aroundDestroy"));
+    this.afterDestroy(() => void log.push("afterDestroy"));
   }
 }
 
@@ -183,6 +186,37 @@ describe("around callbacks", () => {
       "aroundUpdate last",
       "aroundSave 2 last",
       "aroundSave 1 last",
+    ]);
+  });
+
+  test("aroundDestroy wraps the DELETE, between beforeDestroy and afterDestroy", async () => {
+    const accounts = harness
+      .connect({ onQuery: (event) => log.push(event.sql.split(" ")[0] ?? "") })
+      .model(Account);
+    const account = await accounts.create({ id: 1, email: "a@example.com" });
+    log.length = 0;
+
+    await account.destroyOrThrow();
+
+    expect(log).toEqual([
+      "beforeDestroy",
+      "aroundDestroy first",
+      "DELETE",
+      "aroundDestroy last",
+      "afterDestroy",
+    ]);
+  });
+
+  test("destroying a never-saved record runs aroundDestroy, with nothing sent", async () => {
+    const account = harness.connect().model(Account).build({ id: 1 });
+
+    await account.destroyOrThrow();
+
+    expect(log).toEqual([
+      "beforeDestroy",
+      "aroundDestroy first",
+      "aroundDestroy last",
+      "afterDestroy",
     ]);
   });
 

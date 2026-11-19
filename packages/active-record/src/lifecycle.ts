@@ -1,5 +1,5 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
-import { startSave, type Wrapped } from "./around-callbacks.ts";
+import { startDestroy, startSave, type Wrapped } from "./around-callbacks.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { isAssociationValid } from "./associated-validation.ts";
 import { contextsOf, type ValidationContexts } from "./validation-context.ts";
@@ -353,7 +353,7 @@ function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): Prepared
 
 /**
  * The destroy lifecycle: can this record be used → beforeDestroy → its `dependent:` strategies
- * → DELETE by the stored key (skipped for a never-saved record: there's no row, as in Rails)
+ * → aroundDestroy, wrapping the DELETE by the stored key (skipped for a never-saved record: there's no row, as in Rails)
  * → mark destroyed → afterDestroy. Every write, dependents' included, is one atomic batch.
  */
 export async function destroyLifecycle(record: Model): Promise<DestroyOutcome> {
@@ -375,6 +375,11 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
   if (!(await runAbortableCallbacks(record, "beforeDestroy"))) return aborted(record);
   const dependents = recordState.isNew ? noDependents : await prepareDependents(record, claimed);
   if (dependents.status !== "ready") return dependents;
+  const wrapped = await startDestroy(record);
+  if (wrapped instanceof CallbackAbort) {
+    recordState.abortReason = wrapped.reason;
+    return aborted(record);
+  }
   // A record that was never saved has no row, so no DELETE and no commit callbacks, as in Rails.
   const hasRow = !recordState.isNew;
   const counters = hasRow ? countersOnDestroy(record) : noCounterChanges;
@@ -389,8 +394,14 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
         recordState.markDestroyed();
         counters.commit(results);
       },
-      after: () => runAfterCallbacks(record, "afterDestroy", "destroy"),
-      afterRollback: afterRollbackOf(record),
+      after: async () => {
+        await wrapped.finish();
+        await runAfterCallbacks(record, "afterDestroy", "destroy");
+      },
+      afterRollback: async (error) => {
+        await afterRollbackOf(record)();
+        await wrapped.fail(error);
+      },
       ...(hasRow && { afterCommit: () => runCommitCallbacks(record, "destroy") }),
     },
     ...touches,
