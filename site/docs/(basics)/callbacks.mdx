@@ -106,7 +106,7 @@ this.aroundSave(async (order, next) => {
 - **An `abort()` before `next()`** stops the save. After `next()`, the write has happened, so `abort()` throws `AbortAfterPersistence`.
 - **When the database refuses the write**, `afterRollback` runs, then `next()` rejects with the database’s error. The save throws it even if you catch it.
 - **When the save ends without sending the write**, `next()` rejects with the error the save ends with. That happens when another record in the save or batch is refused before the write is sent.
-- **When an earlier record’s after-callback throws**, the write is kept. The record’s own after-callbacks are skipped, and `next()` rejects with that error.
+- **When an earlier record’s after-callback throws**, the write is kept. This record’s after-callbacks are skipped, and `next()` rejects with that error.
 
 To release something you hold during the write, put `await next()` in a `try` block, and release it in `finally`.
 
