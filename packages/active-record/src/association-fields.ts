@@ -17,7 +17,7 @@ import type {
 } from "./associations.ts";
 import { NoDatabase, UnknownAssociation } from "./errors.ts";
 import { withForeignKeys } from "./foreign-keys.ts";
-import type { NumberAttributeKey } from "./attribute-writes.ts";
+import type { DatetimeAttributeKey, NumberAttributeKey } from "./attribute-writes.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { tableOwnerModelName } from "./table-names.ts";
 
@@ -83,6 +83,9 @@ function noSingleTarget(): never {
 /** One of the attributes of `C`'s records, which a counter cache names. */
 type CounterName<C extends ModelClass> = NumberAttributeKey<InstanceType<C>>;
 
+/** One of the datetime attributes of `C`'s records, which a belongsTo's `touch` names. */
+type TouchName<C extends ModelClass> = DatetimeAttributeKey<InstanceType<C>>;
+
 /** What only a belongsTo takes; `C` is its target, whose attribute a counter cache names. */
 interface BelongsToOptions<C extends ModelClass = ModelClass> {
   /** The record may point at nothing: saving doesn't require its record (#339). */
@@ -95,6 +98,12 @@ interface BelongsToOptions<C extends ModelClass = ModelClass> {
    * can be filled in for the rows already there (Rails 7.2's `active: false`).
    */
   counterCache?: true | CounterName<C> | { attribute?: CounterName<C>; active?: false };
+  /**
+   * Touches the target when this record is created, updated, destroyed or touched (#353), in the
+   * same batch: `true` sets its `updatedAt`, and a datetime attribute's name, or a list, sets
+   * those too. The target is loaded first, so its `afterTouch` and commit callbacks run.
+   */
+  touch?: true | TouchName<C> | readonly TouchName<C>[];
 }
 
 /**
