@@ -1,9 +1,11 @@
 ---
 title: Generators
-description: "Add a table with its Model, change a table, write columns, reference the same table, keep Models in another folder, and keep the generated schema current."
+description: "Write a table’s migration and its Model from a short description."
 ---
 
-Generators write a table’s migration and its Model from a short description, then regenerate `src/db/schema.ts`. Each migration is written in your database’s own SQL: the [Command line](./command-line#column-syntax) reference lists the types on D1 and on Postgres, and every option.
+:::note
+Each migration is written in your database’s own SQL. [Command line](./command-line#column-syntax) lists the types on D1 and on Postgres, and every option.
+:::
 
 ## Adding a table
 

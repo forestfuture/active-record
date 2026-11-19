@@ -1,9 +1,7 @@
 ---
 title: Database resolution
-description: "How a query finds its database (a Model's binding, the request's database, or an explicit one), why nothing about a request is ever stored on a Model class, and how this compares to Rails."
+description: "How a query finds its database in a Worker, where one isolate serves many requests."
 ---
-
-`Product.find(id)` works with no setup, because a Model knows its binding. But a Worker isn’t a long-running server, and that shapes how a query finds its database.
 
 ## One isolate, many requests
 

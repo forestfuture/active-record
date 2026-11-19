@@ -1,9 +1,11 @@
 ---
 title: Connections
-description: "How a query finds its database: a Model's binding with no setup (User.find(id)), withDatabase for a request's Session or onQuery, or an explicit connect(env.DB). Read replicas, bookmarks, batches, and watching queries."
+description: "Give a query its database: the Model’s binding, the request’s database, or one you pass."
 ---
 
-A query finds its database in one of three ways. Most apps only use the first.
+## At a glance
+
+Most apps only use the binding.
 
 |                            | How                                                      | Use it for                                                                      |
 | -------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------- |

@@ -1,11 +1,7 @@
 ---
 title: Security
-description: "What Active Record protects against and what's left to your app, the guarantees its tests check, how its supply chain is set up, and a log of the security reviews it has had."
+description: "What Active Record protects against, what it leaves to your app, and the reviews it has had."
 ---
-
-Whatever a request sends can reach a query or a record through Active Record, so a mistake in it is a mistake in every app that uses it. Here’s what it protects against, what it leaves to your app, the tests that check each guarantee, how releases are built, and the security reviews it has had.
-
-These are the project’s own reviews, not an independent audit. Each says what it covered and what it didn’t.
 
 ## What Active Record protects against
 
@@ -53,7 +49,7 @@ The library’s guarantees are tested against a real D1 database (through Minifl
 
 ## Review log
 
-Each security review adds an entry here: what it covered, how, what it found, and what it didn’t cover.
+Each security review adds an entry here: what it covered, how, what it found, and what it didn’t cover. These are the project’s own reviews, not an independent audit.
 
 ### 2026-10-04: the library, its command line, and CI
 

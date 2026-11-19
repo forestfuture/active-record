@@ -1,9 +1,7 @@
 ---
 title: Bulk writes and batches
-description: "Reference for bulk writes (insert, insertAll, upsert, updateAll, deleteAll, deleteBy) and atomic batches of them and of records' saves and destroys, prepared with batch((b) => [...])."
+description: "Write many rows in one statement, and send several writes that all succeed or all fail."
 ---
-
-Bulk writes change many rows in one SQL statement. A batch sends several writes to D1 at once, and they’re all written, or none of them.
 
 ## Writing many rows
 

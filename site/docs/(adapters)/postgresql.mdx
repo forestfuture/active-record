@@ -1,9 +1,11 @@
 ---
 title: PostgreSQL
-description: "The PostgreSQL adapter, @forestfuture/active-record/postgresql: installing pg, connecting through Hyperdrive or a Pool, and what's different on PostgreSQL: batches as transactions, reads one after another, bigints, $1 placeholders, migrations the command applies, and how NULLs and text sort."
+description: "Run your Models on Postgres, through Hyperdrive in a Worker or directly on Node."
 ---
 
-The PostgreSQL adapter runs your Models on Postgres, in a Worker through [Hyperdrive](https://developers.cloudflare.com/hyperdrive/) or on Node. It comes with `@forestfuture/active-record`, as its `/postgresql` entry. Install the library with `pg`, and PGlite for reading your schema:
+## Installing
+
+The PostgreSQL adapter comes with `@forestfuture/active-record`, as its `/postgresql` entry. Install the library with `pg`, and PGlite for reading your schema:
 
 ```sh
 npm install @forestfuture/active-record pg
