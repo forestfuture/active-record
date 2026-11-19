@@ -1,6 +1,7 @@
 // A belongsTo's `touch` (#353): checking its declaration, and the touches a record's create, update, destroy or touch makes of the records it belongs to, in its batch.
 import { associationOf, associationsOf, readAssociation } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
+import { isDestroyedThrough } from "./counter-caches.ts";
 import { touchAssignments } from "./counters.ts";
 import { InvalidModel } from "./errors.ts";
 import { Model, modelOf, type ModelClass } from "./model.ts";
@@ -101,8 +102,10 @@ export async function touchesOf(
   claimed: ReadonlySet<Model>,
 ): Promise<PreparedWrite[]> {
   const writes: PreparedWrite[] = [];
-  for (const [name, { kind, touch }] of associationsOf(modelOf(record))) {
+  for (const [name, { kind, touch, foreignKey }] of associationsOf(modelOf(record))) {
     if (kind !== "belongsTo" || touch === undefined) continue;
+    // Its owner is being deleted with it (Rails skips the destroyed owner).
+    if (cause === "destroy" && isDestroyedThrough(record, foreignKey)) continue;
     for (const target of await touchedRecords(record, name, cause)) {
       writes.push(...(await touchOne(target, touch, claimed)));
     }

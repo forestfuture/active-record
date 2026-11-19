@@ -379,6 +379,7 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
   const deletion = hasRow
     ? counters.around(compileDelete(modelOf(record), recordState.storedKey))
     : [];
+  const touches = hasRow ? await touchesOf(record, "destroy", claimed) : [];
   const own = stageOf(record, [record], () => [
     {
       statements: deletion,
@@ -390,6 +391,7 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
       afterRollback: afterRollbackOf(record),
       ...(hasRow && { afterCommit: () => runCommitCallbacks(record, "destroy") }),
     },
+    ...touches,
   ]);
   // Dependents first: their records go before the owner's row, which they may point at. Those
   // on another database (#228) are written there, before it.
