@@ -8,6 +8,11 @@ export function runFindCallbacks(record: Model): void {
   runLoadCallbacks(record, "afterInitialize");
 }
 
+/** Runs a record's `afterInitialize`: it was just built, and handed to any `init`. */
+export function runInitializeCallbacks(record: Model): void {
+  runLoadCallbacks(record, "afterInitialize");
+}
+
 /** Runs the Model's callbacks of `kind` in declaration order; none may return a promise. */
 function runLoadCallbacks(record: Model, kind: LoadCallbackKind): void {
   const model = modelOf(record);

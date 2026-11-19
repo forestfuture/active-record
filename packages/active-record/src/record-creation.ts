@@ -1,6 +1,6 @@
 // Records made through a Relation: `build`, `create`, `findOrInitializeBy`'s build and `createOrFindBy`'s create, each handed to its `init`.
 import { RecordNotUnique } from "./errors.ts";
-import { refuseThenable } from "./load-callbacks.ts";
+import { refuseThenable, runInitializeCallbacks } from "./load-callbacks.ts";
 import { buildRecord, type AttributesOf, type Model, type ModelClass } from "./model.ts";
 import type { OwnedCollection } from "./owned-collection.ts";
 import { state } from "./record-state.ts";
@@ -24,6 +24,7 @@ export function buildThrough<M extends Model>(
 ): M {
   const record = recordToBuild(relation, attributes);
   refuseInitPromise(relation.model, init?.(record));
+  runInitializeCallbacks(record);
   relation.collection.built(record);
   return record;
 }
@@ -44,6 +45,7 @@ export async function initializeThrough<M extends Model>(
 ): Promise<M> {
   const record = recordToBuild(relation, attributes);
   await init?.(record);
+  runInitializeCallbacks(record);
   relation.collection.built(record);
   return record;
 }
@@ -88,6 +90,7 @@ async function recordToCreate<M extends Model>(
   requireSavedOwner(relation, "create");
   const record = recordToBuild(relation, attributes);
   await init?.(record);
+  runInitializeCallbacks(record);
   return record;
 }
 

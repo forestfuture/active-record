@@ -12,6 +12,7 @@ import {
   takeReplaced,
 } from "./has-one-replacement.ts";
 import { pointBackAtOwner } from "./point-back-at-owner.ts";
+import { runInitializeCallbacks } from "./load-callbacks.ts";
 import { buildRecord, type Model } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
@@ -27,8 +28,11 @@ export function belongsToAccessor(owner: Model, association: ResolvedAssociation
     );
   const set = (record: Model | null) => pointOwnerAt(owner, association, record);
   // On the target's database, which is the owner's unless the association crosses to another.
-  const make = (attributes: Record<string, unknown>) =>
-    buildRecord(association.target, attributes, targetDatabase(owner, association));
+  const make = (attributes: Record<string, unknown>) => {
+    const record = buildRecord(association.target, attributes, targetDatabase(owner, association));
+    runInitializeCallbacks(record);
+    return record;
+  };
   // Saved first, so the owner points at its new key (the owner itself isn't saved).
   const create =
     (save: (record: Model) => Promise<unknown>) =>
@@ -239,10 +243,11 @@ function buildOne(
   // The foreign key is the owner's, written as a key (#94): one given with the attributes is
   // ignored, as it always was, rather than cast and refused as an assigned value.
   const { [association.definition.foreignKey]: _given, ...rest } = attributes;
-  // Built from the association's records, so it starts with its scope's equality values (#453).
-  const record = association.all(owner[state].executor).build(rest as never);
-  adopt(owner, association, record);
-  return record;
+  // Built from the association's records, so it starts with its scope's equality values (#453),
+  // and adopted as `build`'s init, so it points at its owner by its afterInitialize (#49).
+  return association
+    .all(owner[state].executor)
+    .build(rest as never, (record: Model) => adopt(owner, association, record));
 }
 
 /**
