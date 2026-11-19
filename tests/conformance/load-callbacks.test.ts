@@ -4,7 +4,11 @@ import { openHarness, type Harness } from "../support/harness.ts";
 
 const log: string[] = [];
 // What Person's afterFind and afterInitialize also do, set per test: a promise or an error.
-const hooks: { afterFind?: () => unknown; afterInitialize?: () => unknown } = {};
+const hooks: {
+  afterFind?: () => unknown;
+  afterInitialize?: () => unknown;
+  bioAfterInitialize?: () => unknown;
+} = {};
 
 class Person extends Model.define({
   id: { type: "integer", null: false },
@@ -50,7 +54,10 @@ class Bio extends Model.define({
   static table = "profiles";
 
   static {
-    this.afterInitialize((bio) => void log.push(`afterInitialize bio of ${bio.userId}`));
+    this.afterInitialize((bio) => {
+      log.push(`afterInitialize bio of ${bio.userId}`);
+      return hooks.bioAfterInitialize?.() as undefined;
+    });
   }
 }
 
@@ -88,6 +95,7 @@ describe("afterFind and afterInitialize", () => {
     log.length = 0;
     delete hooks.afterFind;
     delete hooks.afterInitialize;
+    delete hooks.bioAfterInitialize;
   });
 
   test("a query runs afterFind, then afterInitialize, for each record it loads", async () => {
@@ -246,5 +254,20 @@ describe("afterFind and afterInitialize", () => {
 
     await expect(people().toArray()).rejects.toBe(error);
     expect(() => people().build({ email: "c@example.com" })).toThrow(error);
+  });
+
+  test("a hasOne build whose afterInitialize throws leaves its owner's record in place", async () => {
+    await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (5, 1, 'Old')");
+    const person = await people().includes("bio").find(1);
+    const error = new Error("unbuildable");
+    hooks.bioAfterInitialize = () => {
+      throw error;
+    };
+
+    expect(() => person.bio.build({ bio: "New" })).toThrow(error);
+    await person.saveOrThrow();
+
+    expect(person.loaded("bio")?.id).toBe(5);
+    expect(await harness.connect().model(Bio).pluck("id")).toEqual([5]);
   });
 });

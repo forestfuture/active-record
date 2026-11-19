@@ -244,10 +244,13 @@ function buildOne(
   // ignored, as it always was, rather than cast and refused as an assigned value.
   const { [association.definition.foreignKey]: _given, ...rest } = attributes;
   // Built from the association's records, so it starts with its scope's equality values (#453),
-  // and adopted as `build`'s init, so it points at its owner by its afterInitialize (#49).
-  return association
+  // pointing at its owner as `build`'s init, so its afterInitialize sees the key (#49). The owner
+  // adopts it only once built: a callback that throws leaves the owner as it was.
+  const record = association
     .all(owner[state].executor)
-    .build(rest as never, (record: Model) => adopt(owner, association, record));
+    .build(rest as never, (built: Model) => pointAtOwner(owner, association, built));
+  adopt(owner, association, record);
+  return record;
 }
 
 /**
@@ -255,14 +258,20 @@ function buildOne(
  * and saved with it. On a saved owner, it replaces the record the association held (#40).
  */
 function adopt(owner: Model, association: ResolvedAssociation, record: Model): void {
-  const { name, ownerAttribute, definition } = association;
+  const { name } = association;
   const replaced = takeReplaced(owner, association);
   if (!owner[state].isNew) markReplacing(record, { owner, association, replaced });
-  record[state].writeKey(definition.foreignKey, owner[state].read(ownerAttribute), name);
-  association.writeOwnersType(record);
+  pointAtOwner(owner, association, record);
   owner[state].associations.set(name, association.keyAttributes, record);
   owner[state].autosaves.setBuilt(name, record);
   pointBackAtOwner(owner, association, record);
+}
+
+/** Points a hasOne's `record` at `owner`: its foreign key, and its owner's type if polymorphic. */
+function pointAtOwner(owner: Model, association: ResolvedAssociation, record: Model): void {
+  const { name, ownerAttribute, definition } = association;
+  record[state].writeKey(definition.foreignKey, owner[state].read(ownerAttribute), name);
+  association.writeOwnersType(record);
 }
 
 /** Where a record built through `association` for `owner` is saved: its target's database. */
