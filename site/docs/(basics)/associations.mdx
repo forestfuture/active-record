@@ -567,7 +567,7 @@ The article is found through the association, so the association’s scope and A
 
 ### Touching with a counter cache
 
-When the comment also keeps a [counter cache](#counting-records-with-a-counter-cache) on the article, the time is set in the same `UPDATE` as the count. That `UPDATE` ignores the article’s default scope, like the count does. A hidden article still takes the time, but runs no callbacks.
+When the comment also keeps a [counter cache](#counting-records-with-a-counter-cache) on the article, the time is written with the count. Like the count, it’s written even to an article the default scope hides. That article runs no callbacks.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
