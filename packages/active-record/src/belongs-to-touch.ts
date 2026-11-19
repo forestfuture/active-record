@@ -1,8 +1,13 @@
 // A belongsTo's `touch` (#353): checking its declaration, and the touches a record's create, update, destroy or touch makes of the records it belongs to, in its batch.
+import { associationsOf, readAssociation } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
+import { touchAssignments } from "./counters.ts";
 import { InvalidModel } from "./errors.ts";
-import type { ModelClass } from "./model.ts";
+import { Model, modelOf, type ModelClass } from "./model.ts";
+import { state } from "./record-state.ts";
 import { isOnDifferentDatabases } from "./resolved-association.ts";
+import { touchWrite } from "./touch.ts";
+import type { PreparedWrite } from "./unit-of-work.ts";
 
 /**
  * A belongsTo's `touch` is `true` or datetime attributes' names, each Model it points at has
@@ -54,4 +59,81 @@ function requireTouchable(label: string, target: ModelClass, names: readonly str
       `${label}: touch takes ${target.name}'s datetime attributes; "${wrong}" isn't one`,
     );
   }
+}
+
+/** What a record's write is, which decides the records it touches. */
+export type TouchCause = "insert" | "update" | "destroy" | "touch";
+
+/**
+ * One write's touches: the time each sets, the records already touched (by table and key, so
+ * each is touched once), and the records the write saves or destroys itself.
+ */
+interface TouchSession {
+  time: Date;
+  touched: Set<string>;
+  claimed: ReadonlySet<Model>;
+}
+
+/** Each write's touch session, by the set of records it claims. */
+const sessions = new WeakMap<ReadonlySet<Model>, TouchSession>();
+
+/** The touch session of the write claiming `claimed`, started on its first touch. */
+function sessionOf(claimed: ReadonlySet<Model>): TouchSession {
+  let session = sessions.get(claimed);
+  if (session === undefined) {
+    session = { time: new Date(), touched: new Set(), claimed };
+    sessions.set(claimed, session);
+  }
+  return session;
+}
+
+/**
+ * The touches `record`'s write makes (#353): each record a belongsTo declaring `touch` reaches,
+ * loaded if it isn't, touched by its own touch write, and the records it touches in turn.
+ */
+export async function touchesOf(
+  record: Model,
+  cause: TouchCause,
+  claimed: ReadonlySet<Model>,
+): Promise<PreparedWrite[]> {
+  const writes: PreparedWrite[] = [];
+  for (const [name, { kind, touch }] of associationsOf(modelOf(record))) {
+    if (kind !== "belongsTo" || touch === undefined) continue;
+    for (const target of await touchedRecords(record, name, cause)) {
+      writes.push(...(await touchOne(target, touch, claimed)));
+    }
+  }
+  return writes;
+}
+
+/** The records `record`'s belongsTo `name` touches: the one it reaches, if it's saved. */
+async function touchedRecords(record: Model, name: string, _cause: TouchCause): Promise<Model[]> {
+  const current = await readAssociation(record, name);
+  return isTouchable(current) ? [current] : [];
+}
+
+/** A saved record that isn't destroyed: one there is a row to touch. */
+function isTouchable(record: unknown): record is Model {
+  if (!(record instanceof Model)) return false;
+  const recordState = record[state];
+  return !recordState.isNew && !recordState.isDestroyed;
+}
+
+/**
+ * `target`'s touch write, setting what `touch` names, then those it makes in turn; nothing if
+ * this write has touched it already.
+ */
+async function touchOne(
+  target: Model,
+  touch: unknown,
+  claimed: ReadonlySet<Model>,
+): Promise<PreparedWrite[]> {
+  const session = sessionOf(claimed);
+  const model = modelOf(target);
+  const key = `${model.table} ${JSON.stringify(target[state].storedKeyValue)}`;
+  if (session.touched.has(key)) return [];
+  session.touched.add(key);
+  const values = Object.fromEntries(touchAssignments(model, touch, "touch", session.time));
+  const write = touchWrite(target, values);
+  return [write, ...(await touchesOf(target, "touch", claimed))];
 }
