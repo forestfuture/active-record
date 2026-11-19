@@ -46,25 +46,31 @@ export async function reading() {
   const article = await Article.findByOrThrow({ title: "Engines" });
   const tags = await article.tags().toArray(); // the other way, through the same taggings
   // #endregion read
+  return { articles, tags };
+}
 
+export async function preloading() {
   // #region preload
   const everyTag = await Tag.includes("articles").toArray(); // tags, taggings, and articles
   for (const each of everyTag) console.log(each.name, each.loaded("articles").length);
   // #endregion preload
-  return { articles, tags };
+  return everyTag;
 }
 
-export async function renamed() {
+export async function followingSource() {
   // #region source
   const tag = await Tag.findByOrThrow({ name: "essays" });
   const writers = await tag.writers().toArray(); // each author once
   // #endregion source
+  return writers;
+}
 
+export async function throughBelongsTo() {
   // #region has-one
   const tagging = await Tagging.firstOrThrow();
   const author = await tagging.author();
   // #endregion has-one
-  return { writers, author };
+  return author;
 }
 
 export async function writing() {

@@ -6,12 +6,12 @@ export class User extends Model.define({
   email: { type: "string", null: false },
   role: "string",
   isActive: "boolean",
-  createdAt: "datetime",
-  updatedAt: "datetime",
+  createdAt: { type: "datetime", null: false },
+  updatedAt: { type: "datetime", null: false },
 }) {}
 // #endregion model
 
-export async function matching(): Promise<unknown> {
+export async function matching() {
   // #region where
   const admins = await User.where({ role: "admin", isActive: true }).toArray();
 
@@ -19,21 +19,24 @@ export async function matching(): Promise<unknown> {
   User.where({ role: ["admin", "editor"] }); // role IN (…), any number of values
   // #endregion where
 
-  // #region typos
-  // @ts-expect-error: User has no attribute "rol"
-  User.where({ rol: "admin" });
-  // #endregion typos
-
   // #region where-not
   const others = await User.whereNot({ role: "admin" }).toArray();
   const either = await User.where({ role: "admin" })
     .or(User.where({ isActive: false }))
     .toArray();
   // #endregion where-not
-  return [admins, others, either];
+  return { admins, others, either };
 }
 
-export async function comparing(): Promise<unknown> {
+/** The typo the page shows: the compiler rejects it, and so does where, with UnknownAttribute. */
+export function misspelling() {
+  // #region typos
+  // @ts-expect-error: User has no attribute "rol"
+  User.where({ rol: "admin" });
+  // #endregion typos
+}
+
+export async function comparing() {
   // #region comparisons
   const since = new Date("2026-01-01");
   const until = new Date("2026-02-01");
@@ -48,13 +51,20 @@ export async function comparing(): Promise<unknown> {
   const email = "Ada@Example.com";
   const ada = await User.findBy(sql`lower(${column("email")}) = lower(${email})`);
   // #endregion sql
-  return ada;
+
+  // #region value
+  const createdAt = column("createdAt");
+  const newcomers = await User.where(
+    sql`${createdAt} >= ${createdAt.value(new Date("2026-01-01"))}`,
+  ).toArray();
+  // #endregion value
+  return { ada, newcomers };
 }
 
-export async function rewriting(): Promise<unknown> {
+export async function rewriting() {
   // #region rewhere
   const members = User.where({ role: "member", isActive: true });
-  const activeAdmins = members.rewhere({ role: "admin" }); // is_active = ? AND role = ?
+  const activeAdmins = await members.rewhere({ role: "admin" }).toArray(); // is_active = ? AND role = ?
   // #endregion rewhere
 
   // #region unscope
@@ -68,5 +78,5 @@ export async function rewriting(): Promise<unknown> {
   const me = await User.findByOrThrow({ email: "ada@example.com" });
   const everyoneElse = await User.excluding(me).toArray();
   // #endregion excluding
-  return [activeAdmins, everyoneElse];
+  return { activeAdmins, everyoneElse };
 }
