@@ -288,8 +288,8 @@ function touchesOfSave(
   claimed: Claimed,
 ): Promise<PreparedWrite[]> {
   if (isInsert) return touchesOf(record, "insert", claimed);
-  const writes = record[state].updateAssignments().length > 0;
-  return writes ? touchesOf(record, "update", claimed) : Promise.resolve([]);
+  const hasChanges = record[state].updateAssignments().length > 0;
+  return hasChanges ? touchesOf(record, "update", claimed) : Promise.resolve([]);
 }
 
 /** beforeSave, then beforeCreate or beforeUpdate; `false` if one aborted. */
