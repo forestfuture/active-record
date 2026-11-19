@@ -5,6 +5,7 @@ import {
   Model,
   RecordDestroyed,
   RecordNotSaved,
+  RecordNotUnique,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
@@ -67,6 +68,32 @@ class Watched extends Model.define({
     this.afterTouch((member) => {
       ran.push(`afterTouch ${member.changes().updatedAt ? "dirty" : "clean"}`);
     });
+    const commits = [
+      "afterSaveCommit",
+      "afterCreateCommit",
+      "afterCommit",
+      "afterDestroyCommit",
+      "afterUpdateCommit",
+    ] as const;
+    for (const kind of commits) this[kind](() => void ran.push(kind));
+    this.afterRollback(() => void ran.push("afterRollback"));
+  }
+}
+
+/**
+ * A member whose `email` column holds a time, so touching two members at one time breaks its
+ * uniqueness, and the database refuses the touch.
+ */
+class Clashing extends Model.define({
+  id: { type: "integer", null: false },
+  stamp: { type: "datetime", column: "email" },
+}) {
+  static table = "users";
+
+  static {
+    this.afterTouch(() => void ran.push("afterTouch"));
+    this.afterCommit(() => void ran.push("afterCommit"));
+    this.afterRollback((member) => void ran.push(`afterRollback ${member.stamp?.toISOString()}`));
   }
 }
 
@@ -227,7 +254,33 @@ describe("touch (#50)", () => {
 
       expect(await member.touch()).toBe(true);
 
+      expect(ran).toEqual([
+        "afterTouch clean",
+        "afterSaveCommit",
+        "afterCommit",
+        "afterUpdateCommit",
+      ]);
+    });
+
+    test("with no row to write, touch runs afterTouch but no commit callback", async () => {
+      const member = await db().model(Watched).find(1);
+      await harness.exec("DELETE FROM users WHERE id = 1");
+
+      expect(await member.touch()).toBe(false);
+
       expect(ran).toEqual(["afterTouch clean"]);
+    });
+
+    test("a touch the database refuses runs afterRollback, and the record is as it was", async () => {
+      const time = new Date("2026-05-06T07:08:09.000Z");
+      await db().model(Clashing).create({ id: 2, stamp: time });
+      const member = await db().model(Clashing).create({ id: 3, stamp: stored });
+      ran.length = 0;
+
+      await expect(member.touch("stamp", { time })).rejects.toThrow(RecordNotUnique);
+
+      expect(ran).toEqual([`afterRollback ${stored.toISOString()}`]);
+      expect(member.changes()).toEqual({});
     });
 
     test("an abort() in afterTouch is AbortAfterPersistence, and the touch is kept", async () => {
