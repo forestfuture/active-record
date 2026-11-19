@@ -54,6 +54,7 @@ import {
 import type { Relation, Scope, Scoped } from "./relation.ts";
 import { defineStatics } from "./model-statics.ts";
 import { AttributeWrites } from "./attribute-writes.ts";
+import { noTouching } from "./no-touching.ts";
 import { currentRelation } from "./current-database.ts";
 import type { ContextOf, SaveOptions, ValidationContexts } from "./validation-context.ts";
 import { scopeBodies, scopeName, useModelBase } from "./scoped-relation.ts";
@@ -233,6 +234,15 @@ export class Model extends AttributeWrites {
    * names; none by default. `attributes()` still has them (#101).
    */
   static hiddenAttributes: readonly string[] = [];
+
+  /**
+   * Runs `fn` with this Model's records not touched, nor those of the Models extending it
+   * (`Model.noTouching` covers every Model), as Rails' `no_touching`: a belongsTo's `touch`
+   * leaves them alone, and their `touch()` writes nothing. Resolves to what `fn` returns.
+   */
+  static noTouching<R>(fn: () => R | Promise<R>): Promise<R> {
+    return noTouching(this, fn);
+  }
 
   /** An attribute's name as error messages show it: from `humanAttributeNames`, or "Created at". */
   static humanAttributeName(attribute: string): string {
