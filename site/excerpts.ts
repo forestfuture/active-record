@@ -86,14 +86,10 @@ export function exampleBlock(file: string, region: string): string | undefined {
   const uses = codeOnly(body);
   const used = (name: string) => new RegExp(`\\b${bindingOf(name)}\\b`).test(uses);
   const bySource = new Map<string, string[]>();
-  for (const { source, names } of importsOf(code)) {
-    const shown = shownSource(source);
-    bySource.set(shown, [...(bySource.get(shown) ?? []), ...names.filter(used)]);
-  }
-  if (region !== "model") {
-    const local = modelNames(code).filter(used);
-    bySource.set('"./models"', [...(bySource.get('"./models"') ?? []), ...local]);
-  }
+  const add = (source: string, names: string[]) =>
+    bySource.set(source, [...(bySource.get(source) ?? []), ...names]);
+  for (const { source, names } of importsOf(code)) add(shownSource(source), names.filter(used));
+  if (region !== "model") add('"./models"', modelNames(code).filter(used));
   const imports = [...bySource]
     .filter(([, names]) => names.length > 0)
     .map(([source, names]) => `import { ${names.join(", ")} } from ${source};`);

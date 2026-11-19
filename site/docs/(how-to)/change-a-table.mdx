@@ -3,6 +3,10 @@ title: Schema changes
 description: "Add, rename, and remove columns, and change a column’s type, with migrations."
 ---
 
+:::note
+Wrangler applies each migration once, in order. The schema is regenerated after each change, so a Model’s attributes follow its table.
+:::
+
 ## Adding a column
 
 Generate the migration, then apply it:

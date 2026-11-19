@@ -1,6 +1,6 @@
 # Coding standards
 
-Judgement calls the `code-review` skill's Standards axis checks, beyond what `vp check` enforces and what `CONTRIBUTING.md` and `docs/agents/docs-voice.md` state. Anything a tool can check belongs in a check, not here.
+Judgement calls the `code-review` skill's Standards axis checks, beyond what `vp check` enforces and what `CONTRIBUTING.md`, `docs/agents/docs-pages.md` and `docs/agents/docs-voice.md` state. Anything a tool can check belongs in a check, not here.
 
 ## Tests
 

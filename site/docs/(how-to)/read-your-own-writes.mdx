@@ -4,7 +4,7 @@ description: "Keep each user’s reads at least as new as their own writes, with
 ---
 
 :::note
-[D1 read replication](https://developers.cloudflare.com/d1/best-practices/read-replication/) serves reads from a nearby replica, which may be a moment behind. A D1 **Session** keeps a user’s reads in order with their writes.
+[D1 read replication](https://developers.cloudflare.com/d1/best-practices/read-replication/) serves reads from a nearby replica, which may be a moment behind. A D1 **Session** keeps each user’s reads at least as new as their own writes.
 :::
 
 ## Opening a Session for each request
