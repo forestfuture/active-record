@@ -116,10 +116,7 @@ export abstract class AttributeWrites extends ModelStatics {
    * the row, with no validation or save callback, as Rails' `touch`. Resolves to whether there
    * was a row to write.
    */
-  async touch<R extends Model>(
-    this: R,
-    ...args: TouchArguments<DatetimeAttributeKey<R>>
-  ): Promise<boolean> {
+  async touch<R extends Model>(this: R, ...args: TouchArguments<R>): Promise<boolean> {
     requireSaved(this, "touch");
     return touchRecord(this, args);
   }
