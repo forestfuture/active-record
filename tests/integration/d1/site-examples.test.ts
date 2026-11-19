@@ -41,6 +41,7 @@ import {
 import * as batches from "../../../site/snippets/guide/batches.ts";
 import * as attributeWrites from "../../../site/snippets/guide/attribute-writes.ts";
 import * as counterCaches from "../../../site/snippets/guide/counter-caches.ts";
+import { statementKinds } from "../../support/statement-kinds.ts";
 import * as belongsToTouch from "../../../site/snippets/guide/belongs-to-touch.ts";
 import { joinsExample } from "../../../site/snippets/guide/joins.ts";
 import {
@@ -1169,6 +1170,26 @@ describe("the associations page's touch (#353)", () => {
       .prepare("SELECT updated_at, last_commented_at FROM articles WHERE id = 1")
       .first();
     expect(row?.["last_commented_at"]).toBe(row?.["updated_at"]);
+  });
+
+  test("an import inside noTouching touches its article once, after it (#496)", async () => {
+    const stale = "2020-01-01T00:00:00.000Z";
+    await binding
+      .prepare("UPDATE articles SET updated_at = ?, last_commented_at = NULL")
+      .bind(stale)
+      .run();
+    const events: { sql: string }[] = [];
+    const db = connect(binding, { onQuery: (event) => void events.push(event) });
+
+    await withDatabase(db, () => belongsToTouch.importComments(1, ["One", "Two"]));
+
+    // Each comment reads its article to insert, and only the touch after the import updates
+    // it, and then its blog.
+    const each = ["SELECT", "INSERT"];
+    const after = ["SELECT", "SELECT", "UPDATE", "UPDATE"];
+    expect(statementKinds(events)).toEqual([...each, ...each, ...after]);
+    const row = await binding.prepare("SELECT updated_at FROM articles WHERE id = 1").first();
+    expect(row?.["updated_at"]).not.toBe(stale);
   });
 });
 

@@ -571,6 +571,24 @@ The article is found through the association, so the association’s scope and A
 
 A comment that also keeps a [counter cache](#counting-records-with-a-counter-cache) on the article touches it the same way, in the same batch as the count. An article the default scope hides is counted, but isn’t touched.
 
+### Turning touches off
+
+To import many comments without touching their article for each one, run the import in `Article.noTouching`:
+
+<include>/_excerpts/guide/belongs-to-touch/no-touching.ts</include>
+
+Inside the block, no article is touched. A comment’s `belongsTo` leaves its article alone, and `article.touch()` writes nothing and resolves to `false`. Once the block ends, articles are touched again.
+
+`noTouching` covers the Model you call it on and the Models that extend it. To turn off touches for every Model, call `ApplicationRecord.noTouching`. It covers only the code the block runs and what that code awaits, so other requests still touch.
+
+:::note
+The comments still set their own `updatedAt` when they’re saved. `touchAll` and a counter’s `touch` option still set it too. A comment that keeps a counter cache on the article still counts.
+:::
+
+:::note
+Like `withDatabase`, `noTouching` needs [Node.js compatibility](./connecting#using-the-requests-database).
+:::
+
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
 Rails’ `touch:` takes `true` or one column. Here it also takes a list of attributes.
@@ -581,7 +599,9 @@ With a counter cache, Rails sets the time in the counter’s `UPDATE` and runs n
 
 When a comment moves to another article, Rails finds the old one without the association’s scope. Here the scope applies to both.
 
-Rails’ `no_touching` isn’t built yet ([#496](https://github.com/forestfuture/active-record/issues/496)), and neither is `has_one … touch:` ([#497](https://github.com/forestfuture/active-record/issues/497)).
+Rails’ `no_touching` leaves a counter cache’s touch on, since the time is set in the counter’s `UPDATE`. Here `noTouching` turns it off, and the article is only counted. Inside the block, Rails’ `touch` returns `nil`, and here it resolves to `false`.
+
+Rails’ `has_one … touch:` isn’t built yet ([#497](https://github.com/forestfuture/active-record/issues/497)).
 
 </Callout>
 

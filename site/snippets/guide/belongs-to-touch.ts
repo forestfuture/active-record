@@ -54,3 +54,16 @@ export async function examples(id: number) {
   // #endregion preload
   return { article, comment };
 }
+
+export async function importComments(articleId: number, bodies: readonly string[]) {
+  // #region no-touching
+  await Article.noTouching(async () => {
+    for (const body of bodies) {
+      await Comment.create({ articleId, body }); // doesn't touch the article
+    }
+  });
+  const article = await Article.find(articleId);
+  await article.touch(); // touch it once, after the import
+  // #endregion no-touching
+  return article;
+}
