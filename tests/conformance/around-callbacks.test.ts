@@ -220,6 +220,29 @@ describe("around callbacks", () => {
     ]);
   });
 
+  test("in a batch, every record's first part runs before the one write", async () => {
+    const db = harness.connect({ onQuery: (event) => log.push(event.sql.split(" ")[0] ?? "") });
+    const first = db.model(Member).build({ id: 1, email: "a@example.com" });
+    const second = db.model(Member).build({ id: 2, email: "b@example.com" });
+
+    await db.batch((b) => [b.save(first), b.save(second)]);
+
+    expect(log.filter((line) => !line.startsWith("before"))).toEqual([
+      "aroundSave first",
+      "aroundSave first",
+      "INSERT",
+      "INSERT",
+      "afterCreate",
+      "aroundSave last",
+      "afterSave",
+      "afterCreate",
+      "aroundSave last",
+      "afterSave",
+      "afterCommit",
+      "afterCommit",
+    ]);
+  });
+
   describe("stopping a save", () => {
     const gated = () => harness.connect().model(Gated);
     const rows = async () => harness.connect().model(Gated).count();
