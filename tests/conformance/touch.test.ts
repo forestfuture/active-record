@@ -235,6 +235,16 @@ describe("touch (#50)", () => {
     });
   });
 
+  test("touch writes a record that didn't load updatedAt, and holds it", async () => {
+    const time = new Date("2026-05-06T07:08:09.000Z");
+    const [member] = await db().model(Member).select("id").toArray();
+
+    expect(await member!.touch({ time })).toBe(true);
+
+    expect(member!.updatedAt).toEqual(time);
+    expect((await db().model(Member).find(1)).updatedAt).toEqual(time);
+  });
+
   test("touch resolves to false when the row is gone", async () => {
     const member = await db().model(Member).find(1);
     await harness.exec("DELETE FROM users WHERE id = 1");
