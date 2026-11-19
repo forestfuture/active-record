@@ -125,7 +125,7 @@ export abstract class AttributeWrites extends ModelStatics {
   /**
    * Sets `updatedAt`, and the datetime attributes named, to now (or `{ time }`), straight to
    * the row, with no validation or save callback, as Rails' `touch`. Resolves to whether there
-   * was a row to write.
+   * was a row to write. Inside its Model's `noTouching` block, it writes nothing (#496).
    */
   async touch<R extends Model>(this: R, ...args: TouchArguments<R>): Promise<boolean> {
     requireSaved(this, "touch");
