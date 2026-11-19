@@ -186,7 +186,8 @@ const reporting = async (next: () => Promise<void>) => {
   }
 };
 
-/** What Nested's second aroundSave does in place of `await next()`, set per test. */
+/** What Nested's first and second aroundSave do in place of `await next()`, set per test. */
+let outerAroundSave: (next: () => Promise<void>) => Promise<void>;
 let innerAroundSave: (next: () => Promise<void>) => Promise<void>;
 
 class Nested extends Model.define({
@@ -196,8 +197,9 @@ class Nested extends Model.define({
   static table = "users";
 
   static {
-    this.aroundSave((_nested, next) => reporting(next));
+    this.aroundSave((_nested, next) => outerAroundSave(next));
     this.aroundSave((_nested, next) => innerAroundSave(next));
+    this.beforeCreate(() => void log.push("beforeCreate"));
   }
 }
 
@@ -217,6 +219,7 @@ describe("around callbacks", () => {
     log.length = 0;
     aroundSave = (next) => next();
     aroundDestroy = (next) => next();
+    outerAroundSave = reporting;
   });
 
   test("aroundSave wraps a create: beforeCreate, the INSERT and afterCreate run inside it", async () => {
@@ -405,6 +408,30 @@ describe("around callbacks", () => {
       expect(log).toEqual([
         "next() rejected: CallbackAbort: An aroundSave callback didn't call next()",
       ]);
+      expect(await rows()).toBe(0);
+    });
+
+    test("an outer aroundSave that swallows the inner one's stop still writes nothing", async () => {
+      outerAroundSave = async (next) => {
+        await next().catch(() => log.push("swallowed"));
+      };
+      innerAroundSave = async () => {};
+      const record = harness.connect().model(Nested).build({ id: 1, email: "a@example.com" });
+
+      expect(await record.save()).toBe(false);
+      expect(record.abortReason).toBe("An aroundSave callback didn't call next()");
+      expect(log).toEqual(["swallowed"]);
+      expect(await rows()).toBe(0);
+    });
+
+    test("an outer aroundSave that doesn't await next() still waits for the inner one", async () => {
+      outerAroundSave = async (next) => {
+        void next();
+      };
+      innerAroundSave = async () => {};
+      const record = harness.connect().model(Nested).build({ id: 1, email: "a@example.com" });
+
+      expect(await record.save()).toBe(false);
       expect(await rows()).toBe(0);
     });
 

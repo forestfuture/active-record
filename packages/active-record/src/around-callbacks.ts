@@ -146,14 +146,11 @@ async function around(
   inside: () => Promise<void>,
 ): Promise<void> {
   const callbacks = declared(modelOf(record), kind);
-  let inner: Promise<void> | undefined;
   const runFrom = (index: number): Promise<void> => {
-    if (index === callbacks.length) return (inner = inside());
+    if (index === callbacks.length) return inside();
     return runOne({ record, kind, gate }, callbacks[index]!, () => runFrom(index + 1));
   };
   await runFrom(0);
-  // Awaited here too, for a callback that called next() without awaiting it.
-  await inner;
 }
 
 /** The record an around callback wraps the write of, its kind, and the write's gate. */
@@ -165,8 +162,10 @@ interface Wrapping {
 
 /**
  * Runs one around callback, its `next` running `rest`. One that doesn't call `next` stops the
- * write as `abort()` does, so the `next()` of a callback outside it rejects. Once the write is
- * kept, an `abort()` in it is `AbortAfterPersistence`.
+ * write as `abort()` does, so the `next()` of a callback outside it rejects. What `next()` ran is
+ * awaited once the callback returns, so the rest is finished, and a stop or refusal in it stands,
+ * even when the callback didn't await it or caught its rejection (#48, decision 11). Once the
+ * write is kept, an `abort()` in it is `AbortAfterPersistence`.
  */
 async function runOne(
   { record, kind, gate }: Wrapping,
@@ -182,22 +181,31 @@ async function runOne(
     }
     throw error;
   }
-  if (!next.isCalled()) throw abort(`An ${kind} callback didn't call next()`);
+  const rested = next.rested();
+  if (rested === undefined) throw abort(`An ${kind} callback didn't call next()`);
+  await rested;
 }
 
-/** `next` for one around callback: runs `rest` the first time; `TypeError` after that. */
+/**
+ * `next` for one around callback: runs `rest` the first time; `TypeError` after that. `rested` is
+ * what the first call returned, or `undefined` before one.
+ */
 function nextOnce(
   kind: AroundCallbackKind,
   rest: () => Promise<void>,
-): { call: () => Promise<void>; isCalled: () => boolean } {
-  let isCalled = false;
+): { call: () => Promise<void>; rested: () => Promise<void> | undefined } {
+  let rested: Promise<void> | undefined;
   return {
     call: () => {
-      if (isCalled) return Promise.reject(new TypeError(`${kind}: next() was already called`));
-      isCalled = true;
-      return rest();
+      if (rested !== undefined) {
+        return Promise.reject(new TypeError(`${kind}: next() was already called`));
+      }
+      rested = rest();
+      // Awaited by runOne once the callback returns; handled here until then.
+      rested.catch(() => {});
+      return rested;
     },
-    isCalled: () => isCalled,
+    rested: () => rested,
   };
 }
 
