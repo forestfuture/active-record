@@ -63,12 +63,12 @@
     "jiti": "^2.7.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.14",
+    "@electric-sql/pglite": "^0.5.16",
     "pg": "^8.23.1"
   },
   "peerDependencies": {
     "@cloudflare/workers-types": ">=4",
-    "@electric-sql/pglite": "^0.5.14",
+    "@electric-sql/pglite": "^0.5.16",
     "pg": "^8.23.1"
   },
   "peerDependenciesMeta": {

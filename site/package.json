@@ -10,10 +10,10 @@
     "deploy": "vp run build && wrangler deploy"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261107.1",
+    "@cloudflare/workers-types": "^5.20261112.1",
     "@forestfuture/active-record": "workspace:*",
     "@types/react": "19.3.0",
     "blume": "2.2.7",
-    "wrangler": "^4.158.0"
+    "wrangler": "^4.161.0"
   }
 }
