@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, Model, RecordNotSaved } from "../../packages/active-record/src/index.ts";
+import {
+  belongsTo,
+  hasMany,
+  Model,
+  RecordNotSaved,
+  withDatabase,
+} from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
@@ -61,6 +67,29 @@ class HeardDiscussion extends Model.define({
   }
 }
 
+/** A discussion counting its messages. */
+class CountingDiscussion extends Model.define({
+  id: { type: "integer", null: false },
+  messagesCount: "integer",
+  updatedAt: "datetime",
+}) {
+  static table = "discussions";
+  messages = hasMany(CountedMessage, { foreignKey: "discussionId" });
+}
+
+/** A message counted on its discussion, which it touches with its count. */
+class CountedMessage extends Model.define({
+  id: { type: "integer", null: false },
+  discussionId: "integer",
+}) {
+  static table = "messages";
+  discussion = belongsTo(CountingDiscussion, {
+    foreignKey: "discussionId",
+    counterCache: "messagesCount",
+    touch: true,
+  });
+}
+
 describe("noTouching (#496)", () => {
   let harness: Harness;
   const db = () => harness.connect();
@@ -83,8 +112,10 @@ describe("noTouching (#496)", () => {
 
   /** A time before every test's writes. */
   const stale = new Date("2020-01-01T00:00:00.000Z");
-  const updatedAtOf = async (model: typeof Forum | typeof Discussion, id: number) =>
-    (await db().model(model).find(id)).updatedAt;
+  const updatedAtOf = async (
+    model: typeof Forum | typeof Discussion | typeof CountingDiscussion,
+    id: number,
+  ) => (await db().model(model).find(id)).updatedAt;
   /** A Database whose statements are recorded in `events`. */
   const recorded = (events: QueryEvent[]) =>
     harness.connect({ onQuery: (event) => void events.push(event) });
@@ -192,6 +223,47 @@ describe("noTouching (#496)", () => {
         await expect(discussion.touch("title" as never)).rejects.toThrow(TypeError);
         await expect(db().model(HeardDiscussion).build().touch()).rejects.toThrow(RecordNotSaved);
       });
+    });
+  });
+
+  describe("what it leaves on", () => {
+    /** The writes that touch by an option or by name, which Rails' `no_touching` leaves alone. */
+    const optionTouches: [string, () => Promise<unknown>][] = [
+      ["touchAll", () => CountingDiscussion.where({ id: 1 }).touchAll()],
+      [
+        "updateCounters",
+        () => CountingDiscussion.updateCounters(1, { messagesCount: 1 }, { touch: true }),
+      ],
+      [
+        "incrementColumn",
+        async () =>
+          (await CountingDiscussion.find(1)).incrementColumn("messagesCount", 1, { touch: true }),
+      ],
+      ["resetCounters", () => CountingDiscussion.resetCounters(1, "messages", { touch: true })],
+    ];
+
+    test.each(optionTouches)("%s still sets updatedAt, as in Rails", async (_, write) => {
+      await withDatabase(db(), () => Model.noTouching(write));
+
+      expect(await updatedAtOf(CountingDiscussion, 1)).not.toEqual(stale);
+    });
+
+    test("a save still sets its own record's updatedAt", async () => {
+      const discussion = await db().model(Discussion).find(1);
+
+      await Model.noTouching(() => discussion.update({ title: "Renamed" }));
+
+      expect(await updatedAtOf(Discussion, 1)).not.toEqual(stale);
+    });
+
+    test("a belongsTo with a counter cache still counts, but doesn't touch", async () => {
+      await CountingDiscussion.noTouching(() =>
+        db().model(CountedMessage).create({ discussionId: 1 }),
+      );
+
+      const discussion = await db().model(CountingDiscussion).find(1);
+      expect(discussion.messagesCount).toBe(1);
+      expect(discussion.updatedAt).toEqual(stale);
     });
   });
 });
