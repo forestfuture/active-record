@@ -911,7 +911,7 @@ describe("a belongsTo's touch (#353)", () => {
       expect(heard).not.toContain("afterUpdateCommit");
     });
 
-    test("with a key it's given, is touched in the same batch", async () => {
+    test("with a key it's given, takes the named attributes in its row", async () => {
       const message = db().model(HeardMessage).build({ body: "First" });
       const discussion = message.discussion.build({ id: 7, title: "Keyed" });
 
