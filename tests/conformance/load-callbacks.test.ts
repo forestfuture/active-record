@@ -16,6 +16,7 @@ const hooks: {
   afterInitialize?: () => unknown;
   bioAfterInitialize?: () => unknown;
   articleAfterFind?: (article: Article) => unknown;
+  pinAfterInitialize?: (pin: Pin) => unknown;
 } = {};
 
 class Person extends Model.define({
@@ -115,7 +116,10 @@ class Pin extends Model.define({
   card = belongsTo(Card);
 
   static {
-    this.afterInitialize((pin) => void log.push(`afterInitialize pin of card ${pin.cardId}`));
+    this.afterInitialize((pin) => {
+      log.push(`afterInitialize pin of card ${pin.cardId}`);
+      return hooks.pinAfterInitialize?.(pin) as undefined;
+    });
   }
 }
 
@@ -136,6 +140,7 @@ describe("afterFind and afterInitialize", () => {
     delete hooks.afterInitialize;
     delete hooks.bioAfterInitialize;
     delete hooks.articleAfterFind;
+    delete hooks.pinAfterInitialize;
   });
 
   test("a query runs afterFind, then afterInitialize, for each record it loads", async () => {
@@ -356,5 +361,18 @@ describe("afterFind and afterInitialize", () => {
     };
 
     await expect(people().find(1)).rejects.toBe(aborted);
+  });
+
+  test("a through build whose join's afterInitialize throws leaves the record out", async () => {
+    await harness.exec("INSERT INTO boards (id) VALUES (1)");
+    const board = await harness.connect().model(Board).find(1);
+    const error = new Error("unpinnable");
+    hooks.pinAfterInitialize = () => {
+      throw error;
+    };
+
+    expect(() => board.cards().build({ id: 7 })).toThrow(error);
+
+    expect(await board.cards().size()).toBe(0);
   });
 });

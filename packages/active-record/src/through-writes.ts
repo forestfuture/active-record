@@ -53,8 +53,9 @@ export function throughCollection(through: ThroughOwner): AssociationCollection 
   const collection = ownedCollection(through.owner, through.association);
   const built = (record: Model) => {
     requireWritableThrough(through.association);
-    collection.built(record);
+    // Its join first: one whose afterInitialize throws leaves the record out (#49).
     joinFor(through, record);
+    collection.built(record);
   };
   const requireWritable = (write: CollectionWrite) => {
     if (write === "insert") throw insertError(through.association);
