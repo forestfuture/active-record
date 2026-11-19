@@ -1,5 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, hasOne, Model } from "../../packages/active-record/src/index.ts";
+import {
+  abort,
+  AssociationNotLoaded,
+  belongsTo,
+  hasMany,
+  hasOne,
+  Model,
+} from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const log: string[] = [];
@@ -8,6 +15,7 @@ const hooks: {
   afterFind?: () => unknown;
   afterInitialize?: () => unknown;
   bioAfterInitialize?: () => unknown;
+  articleAfterFind?: (article: Article) => unknown;
 } = {};
 
 class Person extends Model.define({
@@ -42,7 +50,10 @@ class Article extends Model.define({
 
   static {
     this.afterInitialize((article) => void log.push(`afterInitialize ${article.title}`));
-    this.afterFind((article) => void log.push(`afterFind ${article.title}`));
+    this.afterFind((article) => {
+      log.push(`afterFind ${article.title}`);
+      return hooks.articleAfterFind?.(article) as undefined;
+    });
   }
 }
 
@@ -88,6 +99,10 @@ class Board extends Model.define({ id: { type: "integer", null: false } }) {
 
 class Card extends Model.define({ id: { type: "integer", null: false } }) {
   static table = "cards";
+
+  static {
+    this.afterFind((card) => void log.push(`afterFind card ${card.id}`));
+  }
 }
 
 class Pin extends Model.define({
@@ -120,6 +135,7 @@ describe("afterFind and afterInitialize", () => {
     delete hooks.afterFind;
     delete hooks.afterInitialize;
     delete hooks.bioAfterInitialize;
+    delete hooks.articleAfterFind;
   });
 
   test("a query runs afterFind, then afterInitialize, for each record it loads", async () => {
@@ -302,5 +318,43 @@ describe("afterFind and afterInitialize", () => {
     board.cards().build({ id: 7 });
 
     expect(log).toEqual(["afterInitialize pin of card 7"]);
+  });
+
+  // Guards: these pass with the first slice, since hydrate makes every loaded record.
+  test("a preloaded record's afterFind runs before its preloads attach", async () => {
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'First')");
+    const seen: unknown[] = [];
+    hooks.articleAfterFind = (article) => {
+      try {
+        seen.push(article.loaded("author"));
+      } catch (error) {
+        seen.push(error instanceof AssociationNotLoaded);
+      }
+    };
+
+    const [article] = await harness.connect().model(Article).includes("author").toArray();
+
+    expect(seen).toEqual([true]);
+    expect(article!.loaded("author")?.email).toBe("a@example.com");
+  });
+
+  test("a through hasMany's read runs afterFind on the records it reaches", async () => {
+    await harness.exec("INSERT INTO boards (id) VALUES (1)");
+    await harness.exec("INSERT INTO cards (id) VALUES (7)");
+    await harness.exec("INSERT INTO pins (id, board_id, card_id) VALUES (1, 1, 7)");
+    const board = await harness.connect().model(Board).find(1);
+
+    await board.cards().toArray();
+
+    expect(log).toEqual(["afterFind card 7"]);
+  });
+
+  test("an abort() in afterFind reaches the caller unchanged", async () => {
+    const aborted = abort("Not here");
+    hooks.afterFind = () => {
+      throw aborted;
+    };
+
+    await expect(people().find(1)).rejects.toBe(aborted);
   });
 });
