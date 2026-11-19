@@ -113,7 +113,7 @@ A deliberate refusal raised by a pre-write callback, or an **Around callback** b
 _Avoid_: Halt, cancel, returning false
 
 **Around callback**:
-A callback that wraps a record's write: `aroundSave`, `aroundCreate`, `aroundUpdate`, or `aroundDestroy`, given the record and `next`. Its first part runs before the write, then `await next()` runs the rest of the lifecycle up to the matching after-callbacks, waiting while the write's **Batch** is sent, and its last part runs once the write is kept. Not calling `next()` refuses the write, as an **Abort** does.
+A callback that wraps a record's write: `aroundSave`, `aroundCreate`, `aroundUpdate`, or `aroundDestroy`, given the record and `next`. Its first part runs before the write. `await next()` runs the rest of the lifecycle that it wraps, and waits while the write's **Batch** is sent. Its last part runs once the write is kept. Not calling `next()` refuses the write, as an **Abort** does.
 _Avoid_: Wrapper, middleware
 
 **Commit callback**:
