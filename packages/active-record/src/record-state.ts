@@ -406,6 +406,18 @@ export class RecordState {
     }
   }
 
+  /**
+   * After a touch (#50): as `commitColumns`, and `savedChanges` holds only the touched
+   * attributes' changes, as Rails' `touch` applies them. The record's other changes stay unsaved.
+   */
+  commitTouch(names: readonly string[]): void {
+    const changes = this.changes();
+    this.commitColumns(names);
+    this.#savedChanges = Object.fromEntries(
+      names.filter((name) => Object.hasOwn(changes, name)).map((name) => [name, changes[name]!]),
+    );
+  }
+
   /** A save with nothing to write: nothing changes but `savedChanges`. */
   commitClean(): void {
     this.#savedChanges = {};

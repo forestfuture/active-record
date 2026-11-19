@@ -79,7 +79,7 @@ function touchWrite(record: Model, values: Record<string, unknown>): PreparedWri
     statements: [compileUpdate(model, Object.entries(values), recordState.storedKey)],
     commit: ([result]) => {
       recordState.assign(values);
-      recordState.commitColumns(Object.keys(values));
+      recordState.commitTouch(Object.keys(values));
       isWritten = result?.rowsAffected === 1;
     },
     after: () => runAfterCallbacks(record, "afterTouch", "touch"),

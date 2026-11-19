@@ -278,6 +278,20 @@ describe("touch (#50)", () => {
     expect((await db().model(Unstamped).find(1)).createdAt).toEqual(time);
   });
 
+  test("leaves savedChanges holding only the touched attributes", async () => {
+    const time = new Date("2026-05-06T07:08:09.000Z");
+    const member = await db().model(Member).find(1);
+    await member.update({ age: 4 });
+    const saved = member.updatedAt;
+    member.email = "b@example.com";
+
+    await member.touch({ time });
+
+    expect(member.savedChanges()).toEqual({ updatedAt: [saved, time] });
+    expect(member.hasSavedChangeTo("age")).toBe(false);
+    expect(member.changes()).toEqual({ email: ["a@example.com", "b@example.com"] });
+  });
+
   test("writes a record that didn't load updatedAt, and holds it", async () => {
     const time = new Date("2026-05-06T07:08:09.000Z");
     const [member] = await db().model(Member).select("id").toArray();

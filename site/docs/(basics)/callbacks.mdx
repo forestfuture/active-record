@@ -101,7 +101,8 @@ this.afterTouch(async (article) => {
 
 - **No validation or save callback runs** for a touch.
 - **The commit callbacks for an update** run after `afterTouch`: `afterCommit`, `afterUpdateCommit`, and `afterSaveCommit`. When the row is gone, only `afterTouch` runs.
-- **A refused touch** runs `afterRollback`, and the record’s touched attributes go back to what they were.
+- **`savedChanges()`** holds only the touched attributes, so `hasSavedChangeTo("email")` is `false` in a touch’s callbacks.
+- **A refused touch** runs `afterRollback`, and the record stays as it was.
 
 `touchAll` and the counters’ `touch` option run no callbacks.
 
