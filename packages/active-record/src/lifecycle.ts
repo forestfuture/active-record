@@ -1,6 +1,6 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
 import {
-  releasingArounds,
+  withClaimedRecords,
   startDestroy,
   startSave,
   waitWith,
@@ -241,10 +241,8 @@ export async function saveLifecycle(record: Model, context?: ValidationContexts)
   // Each database's records pinned to it before anything runs (#93), and each one's again
   // before anything is written, with any a callback added.
   for (const { records } of savingGroups(record)) await pinBefore(linksOf(records), needs);
-  const claimed: Claimed = new Set();
-  return releasingArounds(
-    claimed,
-    async (): Promise<Outcome> => {
+  return withClaimedRecords(
+    async (claimed): Promise<Outcome> => {
       const plan = await prepareSave(record, claimed, context);
       if (plan.status !== "ready") return plan;
       await runStages(stagesOf(plan), needs);
@@ -373,10 +371,8 @@ function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): Prepared
 export async function destroyLifecycle(record: Model): Promise<DestroyOutcome> {
   const needs = "destroy() needs its records";
   await pinBefore(linksOf([record]), needs);
-  const claimed: Claimed = new Set();
-  return releasingArounds(
-    claimed,
-    async (): Promise<DestroyOutcome> => {
+  return withClaimedRecords(
+    async (claimed): Promise<DestroyOutcome> => {
       const plan = await prepareDestroy(record, claimed);
       if (plan.status !== "ready") return plan;
       await runStages(stagesOf(plan), needs);

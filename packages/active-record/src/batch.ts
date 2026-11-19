@@ -1,5 +1,5 @@
 // A batch's steps, and the free `batch()`: its one database pinned, before-callbacks, one atomic write, then after-callbacks.
-import { releasingArounds } from "./around-callbacks.ts";
+import { withClaimedRecords } from "./around-callbacks.ts";
 import { savingGroups } from "./autosave.ts";
 import { batchEntries, type Batch } from "./batch-builder.ts";
 import { currentRelation } from "./current-database.ts";
@@ -81,12 +81,7 @@ export async function runBatch<const T extends readonly BatchEntry[]>(
   if (all.length === 0 && records.length === 0) return [] as BatchResults<T>;
   const database = await pinBefore(linksOf(records), needs, all);
   // Each record is written once, even if listed twice or already saved by its owner.
-  const claimed: Claimed = new Set();
-  return releasingArounds(
-    claimed,
-    () => prepareAndWrite(entries, { claimed, database, needs }),
-    () => undefined,
-  );
+  return withClaimedRecords((claimed) => prepareAndWrite(entries, { claimed, database, needs }));
 }
 
 /** A batch's records and statements prepared, then written as one, then its after-callbacks. */
