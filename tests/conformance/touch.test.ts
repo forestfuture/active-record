@@ -112,6 +112,9 @@ class LateAborter extends Model.define({
   }
 }
 
+/** A value the method's type refuses, as one from untyped code would arrive. */
+const untyped = (value: unknown) => value as never;
+
 /** A time well before the test runs, so a touched timestamp can't hold it by chance. */
 const stored = new Date("2026-01-02T03:04:05.000Z");
 
@@ -182,6 +185,37 @@ describe("touch (#50)", () => {
     await member.touch("createdAt", { time: later });
     const reloaded = await db().model(Member).find(1);
     expect([reloaded.createdAt, reloaded.updatedAt]).toEqual([later, later]);
+  });
+
+  describe("from untyped code", () => {
+    test("a Date given in place of { time } is a TypeError", async () => {
+      const member = await db().model(Member).find(1);
+      events.length = 0;
+
+      await expect(member.touch(untyped(new Date()))).rejects.toThrow(
+        new TypeError("Member.touch takes a time as { time }; got a Date"),
+      );
+      expect(events).toEqual([]);
+    });
+
+    test("an option touch doesn't take is a TypeError", async () => {
+      const member = await db().model(Member).find(1);
+      events.length = 0;
+
+      await expect(member.touch(untyped({ tim: new Date() }))).rejects.toThrow(
+        new TypeError("Member.touch takes { time }; got tim"),
+      );
+      expect(events).toEqual([]);
+    });
+
+    test("a time that isn't one is a TypeError, before anything is sent", async () => {
+      const member = await db().model(Member).find(1);
+      events.length = 0;
+
+      await expect(member.touch({ time: untyped("now") })).rejects.toThrow(TypeError);
+      expect(events).toEqual([]);
+      expect(member.changes()).toEqual({});
+    });
   });
 
   test("touch naming an attribute that isn't a datetime is a TypeError, before anything is sent", async () => {
