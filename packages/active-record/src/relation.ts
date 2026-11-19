@@ -15,7 +15,7 @@ import {
 import { eachOnce, findByIds, findOne } from "./find.ts";
 import { firstOf, lastOf, soleOf, takeOf, type OneRecordSource } from "./one-record.ts";
 import { listOrdered, type InOrderOfOptions } from "./list-order.ts";
-import { exists, isEmpty, size, upToTwo, type CountSource } from "./record-counts.ts";
+import { countSourceOf, exists, isEmpty, size, upToTwo } from "./record-counts.ts";
 import {
   unscoped,
   withOnly,
@@ -73,6 +73,7 @@ import { destroyTogether } from "./records-together.ts";
 import { grouped, type GroupedRelation, type GroupTerms } from "./grouping.ts";
 import type { RelationState } from "./relation-state.ts";
 import { counterSets, type CounterOptions, type Counters } from "./counters.ts";
+import { touchedValues, type TouchArguments } from "./touch.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
 import {
   eachRecord,
@@ -392,6 +393,15 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /**
+   * Sets `updatedAt`, and the datetime attributes named, to now (or `{ time }`) in every row this
+   * Relation matches, in one statement, as Rails' `touch_all` (#50). Resolves to the number of
+   * rows; skips what `updateAll` skips.
+   */
+  async touchAll(...args: TouchArguments<M>): Promise<number> {
+    return this.updateAll(touchedValues(this.#model, args, "touchAll") as Partial<AttributesOf<M>>);
+  }
+
+  /**
    * Adds to number attributes in every row this Relation matches, now, in one statement:
    * `updateCounters({ viewCount: 1 })` sets `view_count = COALESCE(view_count, 0) + 1`, so
    * concurrent writes all count. Resolves to the number of rows; skips what `updateAll` skips.
@@ -634,7 +644,7 @@ export class Relation<M extends Model, S = {}> {
   #valueSource(): ValueSource {
     return {
       query: this.#query,
-      dialect: () => this.#dialect,
+      dialect: () => this.#executor.dialect,
       runner: this.#runner,
       cached: () => this.#cached(),
     };
@@ -669,10 +679,8 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /** What `size` and the questions about how many records there are read. */
-  #countSource(): CountSource {
-    const collection = this.#collection;
-    const unsavedCount = () => collection.unsavedCount();
-    return { ...this.#valueSource(), unsavedCount, cachedCount: () => collection.cachedCount?.() };
+  #countSource() {
+    return countSourceOf(this.#valueSource(), this.#collection);
   }
 
   /** Whether any record matches, optionally with extra conditions. */
@@ -747,12 +755,12 @@ export class Relation<M extends Model, S = {}> {
    * are never inlined into the SQL (ADR-0006), and none are redacted, filtered attributes included.
    */
   toSql(): QuerySql {
-    return querySql(selectForToSql(this.#dialect, this.#model, this.#query));
+    return querySql(selectForToSql(this.#executor.dialect, this.#model, this.#query));
   }
 
   /** Prints as `Relation<Model> { sql, params }`: the SELECT it would send, without sending it (#104). */
   [inspectCustom](depth: number, options: InspectOptions, inspect: Inspect): string {
-    const compiled = selectForToSql(this.#dialect, this.#model, this.#query);
+    const compiled = selectForToSql(this.#executor.dialect, this.#model, this.#query);
     return inspectRelation(this.#model.name, compiled, { depth, options, inspect });
   }
 
@@ -772,10 +780,6 @@ export class Relation<M extends Model, S = {}> {
 
   get #runnable(): RunnableQuery<M> {
     return { model: this.#model, query: this.#query, runner: this.#runner };
-  }
-
-  get #dialect(): Executor["dialect"] {
-    return this.#executor.dialect;
   }
 
   /** The owner's loaded records for this hasMany, if it has them. */

@@ -1,4 +1,5 @@
-// Touching a record (#50): `touch()`, its timestamps set to now, or a given time, in one UPDATE by its stored key, with no validation or save callback, then `afterTouch` and the update commit callbacks.
+// Touching a record (#50): `touch()`, its timestamps set to now, or a given time, in one UPDATE by its stored key, with no validation or save callback, then `afterTouch` and the update commit callbacks; and what a Relation's `touchAll` sets.
+import type { DatetimeAttributeKey } from "./attribute-writes.ts";
 import { afterRollbackOf, runAfterCallbacks, runCommitCallbacks } from "./callbacks.ts";
 import { compileUpdate } from "./compiler.ts";
 import { touchAssignments } from "./counters.ts";
@@ -12,11 +13,33 @@ export interface TouchOptions {
   time?: Date;
 }
 
-/** `touch`'s arguments: datetime attributes' names, optionally followed by its options. */
-export type TouchArguments<K> = K[] | [...K[], TouchOptions];
+/** `touch`'s arguments on record type `R`: its datetime attributes' names, then its options. */
+export type TouchArguments<R> =
+  | DatetimeAttributeKey<R>[]
+  | [...DatetimeAttributeKey<R>[], TouchOptions];
+
+/**
+ * What `touch(...args)` or `touchAll(...args)` sets: `updatedAt`, and the datetime attributes
+ * named, each to now or `time`. Nothing to set (no `updatedAt`, no names) is a `TypeError`.
+ */
+export function touchedValues(
+  model: ModelClass,
+  args: readonly unknown[],
+  method: "touch" | "touchAll",
+): Record<string, unknown> {
+  const { names, options } = splitTouchArguments(args);
+  const touched = touchAssignments(model, names.length === 0 ? true : names, method, options.time);
+  if (touched.length === 0) {
+    throw new TypeError(
+      `${model.name}.${method} has nothing to touch: ${model.name} has no updatedAt; ` +
+        "name a datetime attribute",
+    );
+  }
+  return Object.fromEntries(touched);
+}
 
 /** The names in `touch`'s arguments, and the options after them. */
-export function splitTouchArguments(args: readonly unknown[]): {
+function splitTouchArguments(args: readonly unknown[]): {
   names: unknown[];
   options: TouchOptions;
 } {
@@ -33,16 +56,7 @@ export function splitTouchArguments(args: readonly unknown[]): {
  * row was written, as Rails' `touch` does. Resolves to whether there was a row to write.
  */
 export async function touchRecord(record: Model, args: readonly unknown[]): Promise<boolean> {
-  const model = record.constructor as ModelClass;
-  const { names, options } = splitTouchArguments(args);
-  const touched = touchAssignments(model, names.length === 0 ? true : names, "touch", options.time);
-  if (touched.length === 0) {
-    throw new TypeError(
-      `${model.name}.touch has nothing to touch: ${model.name} has no updatedAt; ` +
-        "name a datetime attribute",
-    );
-  }
-  const write = touchWrite(record, Object.fromEntries(touched));
+  const write = touchWrite(record, touchedValues(record.constructor as ModelClass, args, "touch"));
   const [result] = await writeAll(record[state].executor, [write]);
   await runAfter([write]);
   return result?.rowsAffected === 1;

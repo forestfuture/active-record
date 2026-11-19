@@ -3,6 +3,7 @@ import type { Model } from "./model.ts";
 import { count, type ValueSource } from "./calculations.ts";
 import { compileExists } from "./compiler.ts";
 import { atMostOne } from "./finder-order.ts";
+import type { OwnedCollection } from "./owned-collection.ts";
 
 /** What answering how many records there are reads: a Relation's values, and its owner's unsaved records. */
 export interface CountSource extends ValueSource {
@@ -10,6 +11,12 @@ export interface CountSource extends ValueSource {
   readonly unsavedCount: () => number;
   /** How many records an association has by its owner's counter cache (#61), if it keeps one. */
   readonly cachedCount?: () => number | undefined;
+}
+
+/** What `size` and the questions about how many records there are read from `values`. */
+export function countSourceOf(values: ValueSource, collection: OwnedCollection): CountSource {
+  const unsavedCount = () => collection.unsavedCount();
+  return { ...values, unsavedCount, cachedCount: () => collection.cachedCount?.() };
 }
 
 /**

@@ -66,6 +66,7 @@ const relationMethods = [
   "upsert",
   "upsertAll",
   "updateAll",
+  "touchAll",
   "deleteAll",
   "destroyAll",
   "destroyBy",

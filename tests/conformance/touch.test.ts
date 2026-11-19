@@ -6,6 +6,7 @@ import {
   RecordDestroyed,
   RecordNotSaved,
   RecordNotUnique,
+  withDatabase,
 } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
@@ -294,6 +295,87 @@ describe("touch (#50)", () => {
         "abort() in afterTouch: the touch has already succeeded",
       );
       expect((await db().model(LateAborter).find(1)).updatedAt).toEqual(touched);
+    });
+  });
+
+  describe("touchAll", () => {
+    beforeEach(async () => {
+      await harness.exec(
+        "INSERT INTO users (id, email, age, is_active, created_at, updated_at) VALUES (2, 'b@example.com', 5, ?, ?, ?), (3, 'c@example.com', 7, ?, ?, ?)",
+        [
+          true,
+          stored.toISOString(),
+          stored.toISOString(),
+          false,
+          stored.toISOString(),
+          stored.toISOString(),
+        ],
+      );
+      events.length = 0;
+    });
+
+    /** Each member's id and updatedAt, by id, read back. */
+    const stamps = async () =>
+      (await db().model(Member).order({ id: "asc" }).toArray()).map((member) => [
+        member.id,
+        member.updatedAt,
+      ]);
+
+    test("touchAll sets updatedAt on the rows a Relation matches, in one UPDATE", async () => {
+      const time = new Date("2026-05-06T07:08:09.000Z");
+
+      expect(
+        await db()
+          .model(Member)
+          .where({ age: [3, 5] })
+          .touchAll({ time }),
+      ).toBe(2);
+
+      expect(statementKinds(events)).toEqual(["UPDATE"]);
+      expect(await stamps()).toEqual([
+        [1, time],
+        [2, time],
+        [3, stored],
+      ]);
+    });
+
+    test("touchAll sets the datetime attributes it names, with updatedAt", async () => {
+      const time = new Date("2026-05-06T07:08:09.000Z");
+
+      await db().model(Member).where({ id: 2 }).touchAll("createdAt", { time });
+
+      const member = await db().model(Member).find(2);
+      expect([member.createdAt, member.updatedAt]).toEqual([time, time]);
+    });
+
+    test("touchAll as a static keeps the default scope", async () => {
+      const time = new Date("2026-05-06T07:08:09.000Z");
+
+      expect(await withDatabase(db(), () => ActiveMember.touchAll({ time }))).toBe(2);
+
+      expect(await stamps()).toEqual([
+        [1, time],
+        [2, time],
+        [3, stored],
+      ]);
+    });
+
+    test("touchAll on none() sends nothing", async () => {
+      expect(await db().model(Member).none().touchAll()).toBe(0);
+      expect(events).toEqual([]);
+    });
+
+    test("touchAll with nothing to touch, or an attribute that isn't a datetime, is a TypeError", async () => {
+      await expect(db().model(Unstamped).touchAll()).rejects.toThrow(
+        new TypeError(
+          "Unstamped.touchAll has nothing to touch: Unstamped has no updatedAt; name a datetime attribute",
+        ),
+      );
+      // @ts-expect-error touchAll names datetime attributes
+      await expect(db().model(Member).touchAll("age")).rejects.toThrow(
+        new TypeError("Member.touchAll: touch takes datetime attributes; age isn't one"),
+      );
+      expect(events).toEqual([]);
     });
   });
 });
