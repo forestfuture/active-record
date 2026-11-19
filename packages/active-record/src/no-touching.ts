@@ -10,8 +10,8 @@ type CoveredModels = readonly AbstractModelClass[];
 let storage: Storage<CoveredModels> | undefined;
 
 /**
- * Runs `fn` with `model`'s records not touched, nor those of the Models extending it, added to
- * those an outer block covers, for the code it runs and everything it awaits.
+ * Runs `fn` with `model`'s records not touched, nor those of the Models extending it, for the
+ * code it runs and everything it awaits. An outer block's Models stay covered too.
  */
 export async function noTouching<R>(
   model: AbstractModelClass,
@@ -25,7 +25,7 @@ export async function noTouching<R>(
   return await storage.run([...outer, model], fn);
 }
 
-/** Whether a `noTouching` block the code runs in covers `model`: its own Model's, or one it extends. */
+/** Whether a `noTouching` block the code runs in was called on `model`, or on a Model it extends. */
 export function isCoveredByNoTouching(model: AbstractModelClass): boolean {
   const covered = storage?.getStore() ?? [];
   return covered.some((each) => each === model || model.prototype instanceof each);
