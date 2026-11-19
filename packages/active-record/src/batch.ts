@@ -1,4 +1,5 @@
 // A batch's steps, and the free `batch()`: its one database pinned, before-callbacks, one atomic write, then after-callbacks.
+import { releasingArounds } from "./around-callbacks.ts";
 import { savingGroups } from "./autosave.ts";
 import { batchEntries, type Batch } from "./batch-builder.ts";
 import { currentRelation } from "./current-database.ts";
@@ -7,7 +8,7 @@ import { prepareDestroy, prepareSave, refusalError, stagesOf, type Claimed } fro
 import { RecordStatement, recordStatementParts } from "./record-statement.ts";
 import { linksOf, state } from "./record-state.ts";
 import { runAfter, writeAll, type PreparedWrite } from "./unit-of-work.ts";
-import { pinBefore, pinClaimed, type Executor } from "./executor.ts";
+import { pinBefore, pinClaimed, type DatabaseExecutor, type Executor } from "./executor.ts";
 import { modelOf, type Model } from "./model.ts";
 import { dependentsElsewhere } from "./dependents.ts";
 import { statementParts, type Statement, type WriteResult } from "./statement.ts";
@@ -81,6 +82,18 @@ export async function runBatch<const T extends readonly BatchEntry[]>(
   const database = await pinBefore(linksOf(records), needs, all);
   // Each record is written once, even if listed twice or already saved by its owner.
   const claimed: Claimed = new Set();
+  return releasingArounds(
+    claimed,
+    () => prepareAndWrite(entries, { claimed, database, needs }),
+    () => undefined,
+  );
+}
+
+/** A batch's records and statements prepared, then written as one, then its after-callbacks. */
+async function prepareAndWrite<const T extends readonly BatchEntry[]>(
+  entries: T,
+  { claimed, database, needs }: { claimed: Claimed; database: DatabaseExecutor; needs: string },
+): Promise<BatchResults<T>> {
   const prepared: PreparedEntry[] = [];
   for (const entry of entries) {
     prepared.push(
