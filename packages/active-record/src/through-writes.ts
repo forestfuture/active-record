@@ -302,11 +302,12 @@ function joinsHeldBy(owner: Model, association: ResolvedAssociation): Associatio
   return ownedCollection(owner, association.hops!.via);
 }
 
-/** A new join record, built through the association it goes through, pointing at `record`. */
+/**
+ * A new join record, built through the association it goes through, pointing at `record` as
+ * `build`'s init, so its afterInitialize sees the key (#49).
+ */
 function joinFor({ association, via }: ThroughOwner, record: Model): Model {
-  const join = via().build();
-  pointOwnerAt(join, association.hops!.source, record);
-  return join;
+  return via().build(undefined, (join) => pointOwnerAt(join, association.hops!.source, record));
 }
 
 /** A through hasOne's accessor (#434): it reads its record, and `set` links the owner to another. */
