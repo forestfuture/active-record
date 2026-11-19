@@ -1,4 +1,5 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
+import { startSave, type Wrapped } from "./around-callbacks.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { isAssociationValid } from "./associated-validation.ts";
 import { contextsOf, type ValidationContexts } from "./validation-context.ts";
@@ -269,7 +270,8 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
   const before = await prepareBefore(record, claimed);
   if ("status" in before) return before;
   const isInsert = record[state].isNew;
-  if (!(await beforeWrite(record, isInsert))) return aborted(record);
+  const wrapped = await beforeWrite(record, isInsert);
+  if (wrapped === undefined) return aborted(record);
   // A hasOne's new record removes the one it replaces in its own batch (#40).
   const removal = await prepareReplacement(record, claimed);
   // A hasOne's touch leaves the records saved after the record to their own saves (#497).
@@ -277,34 +279,42 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
   const touches = await touchesOfSave(record, isInsert, claimed);
   const own = stageOf(record, [record], () => {
     linkOwner(record, before);
-    return [saveWrite(record, isInsert), ...touches];
+    return [saveWrite(record, isInsert, wrapped), ...touches];
   });
   const after = await prepareAfter(record, claimed);
   if (!Array.isArray(after)) return after;
   return withRemoval(assemble(record, own, before, after), removal, record);
 }
 
-/** beforeSave, then beforeCreate or beforeUpdate; `false` if one aborted. */
-async function beforeWrite(record: Model, isInsert: boolean): Promise<boolean> {
-  return (
-    (await runAbortableCallbacks(record, "beforeSave")) &&
-    (await runAbortableCallbacks(record, isInsert ? "beforeCreate" : "beforeUpdate"))
-  );
+/**
+ * beforeSave, then the around callbacks (#48), which run beforeCreate or beforeUpdate inside
+ * them, up to the write; `undefined` if one aborted, with `abortReason` set.
+ */
+async function beforeWrite(record: Model, isInsert: boolean): Promise<Wrapped | undefined> {
+  if (!(await runAbortableCallbacks(record, "beforeSave"))) return undefined;
+  const wrapped = await startSave(record, isInsert);
+  if (!(wrapped instanceof CallbackAbort)) return wrapped;
+  record[state].abortReason = wrapped.reason;
+  return undefined;
 }
 
 /**
  * A save's write: INSERT the assigned attributes (`RETURNING *` loads what D1 stored), or
- * UPDATE the changed ones, plus timestamps; a clean record sends nothing. Its after-callbacks
- * are afterCreate or afterUpdate, then afterSave.
+ * UPDATE the changed ones, plus timestamps; a clean record sends nothing. Once it's kept, its
+ * around callbacks finish (afterCreate or afterUpdate inside them), then afterSave runs; once
+ * it's refused, afterRollback runs, then their `next()` rejects.
  */
-function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
+function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): PreparedWrite {
   const recordState = record[state];
   const model = modelOf(record);
   const after = async () => {
-    await runAfterCallbacks(record, isInsert ? "afterCreate" : "afterUpdate", "save");
+    await wrapped.finish();
     await runAfterCallbacks(record, "afterSave", "save");
   };
-  const afterRollback = afterRollbackOf(record);
+  const afterRollback = async (error: unknown) => {
+    await afterRollbackOf(record)();
+    await wrapped.fail(error);
+  };
   const afterCommit = () => runCommitCallbacks(record, isInsert ? "create" : "update");
   if (isInsert) {
     const own = recordState.insertAssignments();

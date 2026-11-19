@@ -16,8 +16,11 @@ export interface PreparedWrite {
   after(): Promise<void>;
   /** Its commit callbacks, run once every write's after-callbacks have. */
   afterCommit?(): Promise<void>;
-  /** Its rollback callbacks, run when the database refuses the batch it was sent in. */
-  afterRollback?(): Promise<void>;
+  /**
+   * Its rollback callbacks, run when the database refuses the batch it was sent in, with the
+   * error the refusal throws.
+   */
+  afterRollback?(error: unknown): Promise<void>;
   /**
    * Called when its batch fails, before its rollback callbacks: undoes what preparing it changed,
    * and returns an error to throw in place of the database's, if this write explains it (#40).
@@ -45,7 +48,7 @@ export async function writeAll(
   try {
     results = await send(executor, writes);
   } catch (refusal) {
-    await whileHandling(refusal, () => rollBack(writes));
+    await whileHandling(refusal, () => rollBack(writes, refusal));
     throw refusal;
   }
   commitAll(writes, results);
@@ -85,9 +88,9 @@ function commitAll(writes: readonly PreparedWrite[], results: readonly Statement
   }
 }
 
-/** Runs each refused write's rollback callbacks, in order. */
-async function rollBack(writes: readonly PreparedWrite[]): Promise<void> {
-  for (const write of writes) await write.afterRollback?.();
+/** Runs each refused write's rollback callbacks, in order, handing each the refusal's error. */
+async function rollBack(writes: readonly PreparedWrite[], error: unknown): Promise<void> {
+  for (const write of writes) await write.afterRollback?.(error);
 }
 
 /**
@@ -185,7 +188,7 @@ export async function runStages(stages: readonly Stage[], needs: string): Promis
   const failure = await writeStages(stages, databases, written);
   if (failure === undefined) return runAfter(written);
   const { error, refused } = failure;
-  await whileHandling(error, () => rollBack(refused));
+  await whileHandling(error, () => rollBack(refused, error));
   await whileHandling(error, () => runAfter(written));
   throw error;
 }

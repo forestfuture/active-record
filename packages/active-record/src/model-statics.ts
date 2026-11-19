@@ -1,6 +1,8 @@
 // The statics every Model gets from Model: its Relation methods (`Product.where(…)`), `destroy`, `delete` and the counters (`updateCounters`, `incrementCounter`, `decrementCounter`, `resetCounters`) by primary key, and callbacks (`this.beforeSave(…)`), typed and defined from their lists.
 import {
   declare,
+  type AroundCallback,
+  type AroundCallbackKind,
   type CallbackKind,
   type CommitAction,
   type CommitCallbackKind,
@@ -349,6 +351,39 @@ interface CallbackStatics {
   afterInitialize: SyncCallbackStatic;
 }
 
+/** An around callback static (#48): `this.aroundSave(async (record, next) => { …; await next(); … })`. */
+type AroundCallbackStatic = <C extends AbstractModelClass>(
+  this: C,
+  callback: AroundCallback<InstanceType<C>>,
+) => void;
+
+/** The around callbacks as statics: each wraps the rest of a save or destroy (#48). */
+interface AroundStatics {
+  /**
+   * Wraps a save, after `beforeSave`: `await next()` runs `beforeCreate` or `beforeUpdate`, the
+   * write, and `afterCreate` or `afterUpdate`; `afterSave` runs once it's finished. One that
+   * doesn't call `next()` stops the save, as `abort()` does.
+   */
+  aroundSave: AroundCallbackStatic;
+  /** Wraps a create, after `beforeCreate`: `await next()` runs the INSERT; then `afterCreate`. */
+  aroundCreate: AroundCallbackStatic;
+  /** Wraps an update, after `beforeUpdate`: `await next()` runs the UPDATE; then `afterUpdate`. */
+  aroundUpdate: AroundCallbackStatic;
+  /** Wraps a destroy, after `beforeDestroy`: `await next()` runs the DELETE; then `afterDestroy`. */
+  aroundDestroy: AroundCallbackStatic;
+}
+
+/** The around callback kinds, one static each; `satisfies` keeps the list and the type agreed. */
+const aroundKinds = Object.keys({
+  aroundSave: true,
+  aroundCreate: true,
+  aroundUpdate: true,
+  aroundDestroy: true,
+} satisfies Record<AroundCallbackKind, true> satisfies Record<
+  keyof AroundStatics,
+  true
+>) as AroundCallbackKind[];
+
 /** The commit callbacks as statics: each runs after every after-callback of its write. */
 interface CommitStatics {
   /** Runs once a create, update or destroy is kept, after every after-callback. */
@@ -412,6 +447,7 @@ export const ModelStatics = class {} as unknown as (abstract new () => object) &
   OverloadedStatics &
   KeyedWriteStatics &
   CallbackStatics &
+  AroundStatics &
   CommitStatics;
 
 /**
@@ -428,6 +464,11 @@ export function defineStatics(base: typeof Model): void {
         declare(this, kind, on === undefined ? callback : inContext(callback, on));
       },
     );
+  }
+  for (const kind of aroundKinds) {
+    defineStatic(base, kind, function (this: object, callback: AroundCallback<Model>): void {
+      declare(this, kind, callback);
+    });
   }
   for (const [kind, on] of Object.entries(commitKinds) as [CommitCallbackKind, CommitAction[]][]) {
     defineStatic(base, kind, function (this: object, callback: Callback<Model>): void {

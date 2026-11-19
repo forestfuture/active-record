@@ -336,8 +336,8 @@ function inWrite(write: PreparedWrite, target: Model, claimed: ReadonlySet<Model
     afterCommit: async () => {
       if (!isClaimedRow(target, claimed)) await write.afterCommit?.();
     },
-    afterRollback: async () => {
-      if (!isClaimedRow(target, claimed)) await write.afterRollback?.();
+    afterRollback: async (error) => {
+      if (!isClaimedRow(target, claimed)) await write.afterRollback?.(error);
     },
   };
 }
