@@ -74,11 +74,6 @@ export async function touchRecord(record: Model, args: readonly unknown[]): Prom
 /** How a touch write differs when another write makes it (#353). */
 export interface TouchWriteOptions {
   /**
-   * Whether it runs the update commit callbacks: not for a record its write saves itself,
-   * whose own save runs them.
-   */
-  runsCommitCallbacks?: boolean;
-  /**
    * Whether a counter cache's UPDATE, in the same batch, sets the values: then the touch sends
    * nothing of its own, and its record takes them once the batch is written.
    */
@@ -92,7 +87,7 @@ export interface TouchWriteOptions {
 export function touchWrite(
   record: Model,
   values: Record<string, unknown>,
-  { runsCommitCallbacks = true, isCounted = false }: TouchWriteOptions = {},
+  { isCounted = false }: TouchWriteOptions = {},
 ): PreparedWrite {
   const recordState = record[state];
   const model = modelOf(record);
@@ -108,7 +103,7 @@ export function touchWrite(
     },
     after: () => runAfterCallbacks(record, "afterTouch", "touch"),
     afterCommit: async () => {
-      if (isWritten && runsCommitCallbacks) await runCommitCallbacks(record, "update");
+      if (isWritten) await runCommitCallbacks(record, "update");
     },
     afterRollback: afterRollbackOf(record),
   };
