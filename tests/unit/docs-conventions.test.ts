@@ -6,11 +6,15 @@ const pages = guidePages();
 /** How every Rails box opens: Blume's info callout, with the Ruby icon beside its title. */
 const railsBox = /^<Callout type="info" title="(Compared with|Beyond) Rails" icon="\/ruby\.svg">$/;
 
-/** A page's prose: without front matter, fenced code, inline code, links' targets, HTML and JSX. */
+/**
+ * A page's prose: without front matter, fenced code, inline code, links' targets, HTML and JSX,
+ * a component's props across lines included (`<TypeTable type={{ … }} />`).
+ */
 function prose(text: string): string[] {
   const lines: string[] = [];
   let fenced = false;
-  for (const line of text.replace(/^---\n[\s\S]*?\n---\n/, "").split("\n")) {
+  const body = text.replace(/^---\n[\s\S]*?\n---\n/, "").replace(/^<[A-Z]\w*\n[\s\S]*?\/>$/gm, "");
+  for (const line of body.split("\n")) {
     if (line.trimStart().startsWith("```")) fenced = !fenced;
     else if (!fenced) {
       lines.push(
