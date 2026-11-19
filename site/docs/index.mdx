@@ -1,6 +1,6 @@
 ---
 title: Active Record for Cloudflare Workers
-description: Models, validations, callbacks, associations, and composable queries for Cloudflare Workers, in the spirit of Ruby on Rails, on D1 or Postgres, and honest about what each database can and can’t do.
+description: Typed Models and queries, on D1 or Postgres.
 mode: center
 sidebar:
   label: Overview
@@ -9,8 +9,6 @@ sidebar:
 ```package-install
 npm install @forestfuture/active-record
 ```
-
-The same Models and queries run on D1 and on Postgres. See the [PostgreSQL adapter](/postgresql).
 
 <CardGroup cols={2}>
   <Card title="Get started" href="/getting-started" icon="rocket" cta="Read the tutorial">
@@ -23,7 +21,11 @@ The same Models and queries run on D1 and on Postgres. See the [PostgreSQL adapt
 
 ## A Model and its queries
 
+Use a Model in your Worker with no connection setup. It finds its database from its binding:
+
 <CodeGroup>
+
+<include meta="Worker">/_excerpts/getting-started/src/index.ts</include>
 
 <include meta="Model">/_excerpts/getting-started/src/models/user.ts</include>
 
@@ -38,6 +40,17 @@ The same Models and queries run on D1 and on Postgres. See the [PostgreSQL adapt
 </include>
 
 </CodeGroup>
+
+## Choose your database
+
+<CardGroup cols={2}>
+  <Card title="Cloudflare D1" href="/d1" icon="cloud" cta="Use D1">
+    Bind a D1 database, and read from nearby replicas with Sessions.
+  </Card>
+  <Card title="Postgres" href="/postgresql" icon="server" cta="Use Postgres">
+    Connect through Hyperdrive in a Worker, or directly on Node.
+  </Card>
+</CardGroup>
 
 ## What’s inside
 
