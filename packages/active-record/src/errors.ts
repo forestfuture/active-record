@@ -158,7 +158,7 @@ export class AbortAfterPersistence extends ActiveRecordError {
   readonly callback: string;
   readonly reason: string;
 
-  constructor(callback: string, lifecycle: "save" | "destroy", abortion: CallbackAbort) {
+  constructor(callback: string, lifecycle: "save" | "destroy" | "touch", abortion: CallbackAbort) {
     super(`abort() in ${callback}: the ${lifecycle} has already succeeded`, { cause: abortion });
     this.callback = callback;
     this.reason = abortion.reason;

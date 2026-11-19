@@ -23,7 +23,7 @@ export async function runCallbacks(record: Model, kind: CallbackKind): Promise<v
 async function tooLateToAbort(
   run: () => unknown,
   kind: AfterCallbackKind | CommitCallbackKind,
-  lifecycle: "save" | "destroy",
+  lifecycle: "save" | "destroy" | "touch",
 ): Promise<void> {
   try {
     await run();
@@ -37,7 +37,7 @@ async function tooLateToAbort(
 export async function runAfterCallbacks(
   record: Model,
   kind: AfterCallbackKind,
-  lifecycle: "save" | "destroy",
+  lifecycle: "save" | "destroy" | "touch",
 ): Promise<void> {
   await tooLateToAbort(() => runCallbacks(record, kind), kind, lifecycle);
 }
