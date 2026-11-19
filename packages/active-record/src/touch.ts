@@ -1,6 +1,7 @@
 // Touching a record (#50): `touch()`, its timestamps set to now, or a given time, in one UPDATE by its stored key, with no validation or save callback, then `afterTouch` and the update commit callbacks, with the records its belongsTos touch (#353); the touch write other writes make; and what a Relation's `touchAll` sets.
 import type { DatetimeAttributeKey } from "./attribute-writes.ts";
 import { afterRollbackOf, runAfterCallbacks, runCommitCallbacks } from "./callbacks.ts";
+import { attributeFor } from "./attribute.ts";
 import { compileUpdate } from "./compiler.ts";
 import { touchesOfTouch } from "./belongs-to-touch.ts";
 import { touchAssignments } from "./counters.ts";
@@ -71,6 +72,17 @@ export async function touchRecord(record: Model, args: readonly unknown[]): Prom
   return result?.rowsAffected === 1;
 }
 
+/**
+ * The key a touch's UPDATE finds its record's row by: the stored key, or, for a new record the
+ * same batch inserts first (#353), the key it's given.
+ */
+function keyCells(record: Model): unknown {
+  const recordState = record[state];
+  if (!recordState.isNew) return recordState.storedKey;
+  const { primaryKey } = modelOf(record);
+  return attributeFor(modelOf(record), primaryKey).store(recordState.read(primaryKey));
+}
+
 /** How a touch write differs when another write makes it (#353). */
 export interface TouchWriteOptions {
   /**
@@ -93,9 +105,10 @@ export function touchWrite(
   const model = modelOf(record);
   let isWritten = false;
   return {
-    statements: writtenBy
-      ? []
-      : [compileUpdate(model, Object.entries(values), recordState.storedKey)],
+    // Compiled as it's sent: a record the same write inserts has its key by then.
+    get statements() {
+      return writtenBy ? [] : [compileUpdate(model, Object.entries(values), keyCells(record))];
+    },
     commit: ([result]) => {
       recordState.assign(values);
       recordState.commitTouch(Object.keys(values));

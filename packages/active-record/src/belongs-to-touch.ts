@@ -80,7 +80,7 @@ export type TouchCause = "insert" | "update" | "destroy" | "touch";
  */
 interface TouchSession {
   time: Date;
-  touched: Set<string>;
+  touched: Set<string | Model>;
 }
 
 /** Each write's touch session, by the set of records it claims. */
@@ -104,8 +104,12 @@ function sessionOf(claimed: ReadonlySet<Model>, time = new Date()): TouchSession
   return session;
 }
 
-/** A record's table and stored key: what tells two touched records apart. */
-function touchKey(record: Model): string {
+/**
+ * What tells two touched records apart: a saved record's table and stored key, so two instances
+ * of a row are one; a new record has no row yet, so it's itself.
+ */
+function touchKey(record: Model): string | Model {
+  if (record[state].isNew) return record;
   return `${modelOf(record).table} ${JSON.stringify(record[state].storedKeyValue)}`;
 }
 
@@ -133,7 +137,7 @@ export async function touchesOf(
     if (kind !== "belongsTo" || touch === undefined) continue;
     // Its owner is being deleted with it (Rails skips the destroyed owner).
     if (cause === "destroy" && isDestroyedThrough(record, foreignKey)) continue;
-    for (const { target, writtenBy } of await touchedRecords(record, name, cause)) {
+    for (const { target, writtenBy } of await touchedRecords(record, name, cause, claimed)) {
       writes.push(...(await touchOne(target, { touch, writtenBy }, claimed)));
     }
   }
@@ -158,6 +162,7 @@ async function touchedRecords(
   record: Model,
   name: string,
   cause: TouchCause,
+  claimed: ReadonlySet<Model>,
 ): Promise<TouchedRecord[]> {
   const isMovedKey = isMoved(record, name);
   const current = await readAssociation(record, name);
@@ -168,7 +173,7 @@ async function touchedRecords(
   return [
     { target: current, writtenBy: writtenBy(sides.current) },
     { target: stored, writtenBy: writtenBy(sides.stored) },
-  ].filter((each): each is TouchedRecord => isTouchable(each.target));
+  ].filter((each): each is TouchedRecord => isTouchable(each.target, claimed));
 }
 
 /** Whether a saved record's belongsTo `name` points elsewhere than its row does. */
@@ -195,11 +200,15 @@ async function readStored(record: Model, name: string): Promise<Model | null> {
   return (await query) as Model | null;
 }
 
-/** A saved record that isn't destroyed: one there is a row to touch. */
-function isTouchable(record: unknown): record is Model {
+/**
+ * A record with a row to touch once the write is sent: one that's saved and isn't destroyed, or
+ * a new one the write inserts itself, which Rails touches after its insert too.
+ */
+function isTouchable(record: unknown, claimed: ReadonlySet<Model>): record is Model {
   if (!(record instanceof Model)) return false;
   const recordState = record[state];
-  return !recordState.isNew && !recordState.isDestroyed;
+  if (recordState.isNew) return claimed.has(record);
+  return !recordState.isDestroyed;
 }
 
 /**
@@ -228,11 +237,16 @@ async function touchOne(
  * saves itself runs its update commit callbacks once, from its own save.
  */
 function inWrite(write: PreparedWrite, target: Model, claimed: ReadonlySet<Model>): PreparedWrite {
-  const key = touchKey(target);
-  const sameRow = () => [...claimed].filter((each) => touchKey(each) === key);
+  // Asked once the write is kept, when a record it inserted has its key.
+  const sameRow = () => [...claimed].filter((each) => touchKey(each) === touchKey(target));
   const isDestroyed = () => sameRow().some((each) => each[state].isDestroyed);
   return {
-    ...write,
+    // Read as it's sent, not now: a new record's key isn't known yet.
+    get statements() {
+      return write.statements;
+    },
+    commit: (results) => write.commit(results),
+    afterRollback: write.afterRollback,
     after: async () => {
       if (!isDestroyed()) await write.after();
     },
