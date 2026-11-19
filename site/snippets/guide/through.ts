@@ -42,7 +42,6 @@ export async function reading() {
   // #region read
   const tag = await Tag.findByOrThrow({ name: "essays" });
   const articles = await tag.articles().order({ title: "asc" }).toArray(); // one query
-  //    ^?
 
   const article = await Article.findByOrThrow({ title: "Engines" });
   const tags = await article.tags().toArray(); // the other way, through the same taggings
@@ -64,7 +63,6 @@ export async function renamed() {
   // #region has-one
   const tagging = await Tagging.firstOrThrow();
   const author = await tagging.author();
-  //    ^?
   // #endregion has-one
   return { writers, author };
 }
