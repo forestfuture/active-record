@@ -162,6 +162,40 @@ describe("noTouching (#496)", () => {
       expect(statementKinds(events)).toEqual(["INSERT"]); // the discussion isn't read
     });
 
+    test("a record moved to another doesn't read either one", async () => {
+      await harness.exec("INSERT INTO discussions (id, title, updated_at) VALUES (2, 'Two', ?)", [
+        stale.toISOString(),
+      ]);
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+      const events: QueryEvent[] = [];
+      const message = await recorded(events).model(Message).find(1);
+      events.length = 0;
+
+      await Discussion.noTouching(() => message.update({ discussionId: 2 }));
+
+      expect(statementKinds(events)).toEqual(["UPDATE"]);
+    });
+
+    test("a cascade doesn't read the record a covered Model's record would touch", async () => {
+      const events: QueryEvent[] = [];
+      const messages = recorded(events).model(Message);
+
+      await Forum.noTouching(() => messages.create({ discussionId: 1, body: "Hi" }));
+
+      // The discussion is read and touched; its forum isn't read.
+      expect(statementKinds(events)).toEqual(["SELECT", "INSERT", "UPDATE"]);
+    });
+
+    test("a block on only a Model extending the target still reads the record", async () => {
+      const events: QueryEvent[] = [];
+      const messages = recorded(events).model(Message);
+
+      await PinnedDiscussion.noTouching(() => messages.create({ discussionId: 1, body: "Hi" }));
+
+      expect(statementKinds(events)[0]).toBe("SELECT");
+      expect(await updatedAtOf(Discussion, 1)).not.toEqual(stale);
+    });
+
     test("a polymorphic belongsTo reads its record only when a Model it lists is touched", async () => {
       const events: QueryEvent[] = [];
       const stickers = recorded(events).model(Sticker);
