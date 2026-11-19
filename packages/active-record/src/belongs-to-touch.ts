@@ -126,29 +126,49 @@ export function touchesOfTouch(record: Model, time: Date): Promise<PreparedWrite
   return touchesOf(record, "touch", claimed);
 }
 
+/** The kinds of association that touch: a save asks its hasOnes once its autosaves are claimed. */
+export type TouchingKind = "belongsTo" | "hasOne";
+
 /**
- * The touches `record`'s write makes (#353): each record a belongsTo declaring `touch` reaches,
- * loaded if it isn't, touched by its own touch write, and the records it touches in turn. A
- * `noTouching` block leaves out the records it covers (#496), and a belongsTo whose every Model
- * it covers isn't read.
+ * The touches `record`'s write makes (#353): each record a belongsTo or hasOne (#497) declaring
+ * `touch` reaches, of the `kinds` asked for, loaded if it isn't, touched by its own touch write,
+ * and the records it touches in turn. A `noTouching` block leaves out the records it covers
+ * (#496), and an association whose every Model it covers isn't read.
  */
 export async function touchesOf(
   record: Model,
   cause: TouchCause,
   claimed: ReadonlySet<Model>,
+  kinds: readonly TouchingKind[] = ["belongsTo", "hasOne"],
 ): Promise<PreparedWrite[]> {
   const writes: PreparedWrite[] = [];
   const model = modelOf(record);
-  for (const [name, { kind, touch, foreignKey }] of associationsOf(model)) {
-    if (kind !== "belongsTo" || touch === undefined) continue;
-    // Its owner is being deleted with it (Rails skips the destroyed owner).
-    if (cause === "destroy" && isDestroyedThrough(record, foreignKey)) continue;
+  for (const [name, definition] of associationsOf(model)) {
+    if (!isTouching(record, cause, definition, kinds)) continue;
     if (isEveryTargetCovered(model, name)) continue;
     for (const target of await touchedRecords(record, name, claimed)) {
-      writes.push(...(await touchOne(target, touch, claimed)));
+      writes.push(...(await touchOne(target, definition.touch, claimed)));
     }
   }
   return writes;
+}
+
+/**
+ * Whether an association touches on `record`'s write: one of `kinds` declaring `touch`, but not
+ * on a destroy that deletes the record it reaches with its own.
+ */
+function isTouching(
+  record: Model,
+  cause: TouchCause,
+  { kind, touch, foreignKey, dependent }: AssociationDefinition,
+  kinds: readonly TouchingKind[],
+): boolean {
+  if (touch === undefined || !(kinds as readonly string[]).includes(kind)) return false;
+  if (cause !== "destroy") return true;
+  // Its owner is being deleted with it (Rails skips the destroyed owner).
+  if (kind === "belongsTo") return !isDestroyedThrough(record, foreignKey);
+  // A hasOne's record its dependent removes (Rails touches only a persisted one).
+  return dependent !== "destroy" && dependent !== "delete";
 }
 
 /**
@@ -161,9 +181,10 @@ function isEveryTargetCovered(model: ModelClass, name: string): boolean {
 }
 
 /**
- * The records `record`'s belongsTo `name` touches: the one it reaches, and, when its key differs
- * from the row's, the one the row's key reaches, as the association reads it; each with a row to
- * touch once the write is sent.
+ * The records `record`'s association `name` touches: the one it reaches, and, when a belongsTo's
+ * key differs from the row's, the one the row's key reaches, as the association reads it; each
+ * with a row to touch once the write is sent. A hasOne's record the same write saves or destroys
+ * is left to that write (#497): it's written after its owner, and its save sets its time.
  */
 async function touchedRecords(
   record: Model,
@@ -171,6 +192,9 @@ async function touchedRecords(
   claimed: ReadonlySet<Model>,
 ): Promise<Model[]> {
   const current = await readAssociation(record, name);
+  if (associationOf(modelOf(record), name).kind === "hasOne") {
+    return isTouchable(current, claimed) && !isClaimedRow(current, claimed) ? [current] : [];
+  }
   const stored = isMoved(record, name) ? await readStored(record, name) : null;
   return [current, stored].filter((each) => isTouchable(each, claimed));
 }

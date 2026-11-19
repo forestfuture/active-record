@@ -38,7 +38,7 @@ import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
-import { touchesOf } from "./belongs-to-touch.ts";
+import { touchesOf, type TouchingKind } from "./belongs-to-touch.ts";
 import {
   countersOnDestroy,
   countersOnInsert,
@@ -271,25 +271,29 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
   if (!(await beforeWrite(record, isInsert))) return aborted(record);
   // A hasOne's new record removes the one it replaces in its own batch (#40).
   const removal = await prepareReplacement(record, claimed);
-  const touches = await touchesOfSave(record, isInsert, claimed);
+  const touches = await touchesOfSave(record, isInsert, claimed, ["belongsTo"]);
+  // A hasOne's touches (#497), asked once the records saved after it are claimed.
+  let ownTouches: PreparedWrite[] = [];
   const own = stageOf(record, [record], () => {
     linkOwner(record, before);
-    return [saveWrite(record, isInsert), ...touches];
+    return [saveWrite(record, isInsert), ...touches, ...ownTouches];
   });
   const after = await prepareAfter(record, claimed);
   if (!Array.isArray(after)) return after;
+  ownTouches = await touchesOfSave(record, isInsert, claimed, ["hasOne"]);
   return withRemoval(assemble(record, own, before, after), removal, record);
 }
 
-/** The touches a save makes (#353): none for an update with nothing to write. */
+/** The touches a save makes (#353), of the `kinds` asked for: none for an update with nothing to write. */
 function touchesOfSave(
   record: Model,
   isInsert: boolean,
   claimed: Claimed,
+  kinds: readonly TouchingKind[],
 ): Promise<PreparedWrite[]> {
-  if (isInsert) return touchesOf(record, "insert", claimed);
+  if (isInsert) return touchesOf(record, "insert", claimed, kinds);
   const hasChanges = record[state].updateAssignments().length > 0;
-  return hasChanges ? touchesOf(record, "update", claimed) : Promise.resolve([]);
+  return hasChanges ? touchesOf(record, "update", claimed, kinds) : Promise.resolve([]);
 }
 
 /** beforeSave, then beforeCreate or beforeUpdate; `false` if one aborted. */
