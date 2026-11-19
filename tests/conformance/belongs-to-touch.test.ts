@@ -547,4 +547,35 @@ describe("a belongsTo's touch (#353)", () => {
       expect(await updatedAt(2)).toEqual(followUp.updatedAt);
     });
   });
+
+  describe("several records in one write", () => {
+    test("touch the record they belong to once", async () => {
+      const events: QueryEvent[] = [];
+      const database = recorded(events);
+      const discussion = await database.model(Discussion).find(1);
+      discussion.messages().build({ body: "One" });
+      discussion.messages().build({ body: "Two" });
+      events.length = 0;
+
+      await discussion.saveOrThrow();
+
+      expect(statementKinds(events).toSorted()).toEqual(["INSERT", "INSERT", "UPDATE"]);
+    });
+
+    test("in db.batch, b.save and b.destroy touch it once, in the batch", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+      const events: QueryEvent[] = [];
+      const database = recorded(events);
+      const discussion = await database.model(Discussion).find(1);
+      const [message] = await discussion.messages().toArray();
+      const added = database.model(Message).build({ discussionId: 1, body: "New" });
+      events.length = 0;
+
+      await database.batch((b) => [b.save(added), b.destroy(message!)]);
+
+      const writes = statementKinds(events).filter((kind) => kind !== "SELECT");
+      expect(writes.toSorted()).toEqual(["DELETE", "INSERT", "UPDATE"]);
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+    });
+  });
 });
