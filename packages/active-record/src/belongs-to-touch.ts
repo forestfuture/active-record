@@ -1,11 +1,15 @@
 // A belongsTo's `touch` (#353): checking its declaration, and the touches a record's create, update, destroy or touch makes of the records it belongs to, in its batch.
-import { associationsOf, readAssociation } from "./association-fields.ts";
+import { associationOf, associationsOf, readAssociation } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { touchAssignments } from "./counters.ts";
 import { InvalidModel } from "./errors.ts";
 import { Model, modelOf, type ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
-import { isOnDifferentDatabases } from "./resolved-association.ts";
+import {
+  belongsToKeys,
+  isOnDifferentDatabases,
+  resolveAssociation,
+} from "./resolved-association.ts";
 import { touchWrite } from "./touch.ts";
 import type { PreparedWrite } from "./unit-of-work.ts";
 
@@ -106,10 +110,38 @@ export async function touchesOf(
   return writes;
 }
 
-/** The records `record`'s belongsTo `name` touches: the one it reaches, if it's saved. */
+/**
+ * The records `record`'s belongsTo `name` touches, each saved: the one it reaches, and, when
+ * its key differs from the row's, the one the row's key reaches, as the association reads it.
+ */
 async function touchedRecords(record: Model, name: string, _cause: TouchCause): Promise<Model[]> {
   const current = await readAssociation(record, name);
-  return isTouchable(current) ? [current] : [];
+  const stored = isMoved(record, name) ? await readStored(record, name) : null;
+  return [current, stored].filter(isTouchable);
+}
+
+/** Whether a saved record's belongsTo `name` points elsewhere than its row does. */
+function isMoved(record: Model, name: string): boolean {
+  const recordState = record[state];
+  if (recordState.isNew) return false;
+  const definition = associationOf(modelOf(record), name);
+  return belongsToKeys(definition).some((key) => recordState.isAttributeChanged(key));
+}
+
+/**
+ * The record a belongsTo reaches by the key (and a polymorphic one's type) in the record's row,
+ * found through the association, so its scope and the target's default scope apply.
+ */
+async function readStored(record: Model, name: string): Promise<Model | null> {
+  const recordState = record[state];
+  const association = resolveAssociation(modelOf(record), name);
+  const { foreignKey, foreignType } = association.definition;
+  const type = foreignType === undefined ? undefined : recordState.valueInDatabase(foreignType);
+  const branch = association.branches.find((each) => each.type?.value === type);
+  const key = recordState.valueInDatabase(foreignKey);
+  if (branch === undefined || key === null || key === undefined) return null;
+  const query = branch.all(recordState.executor).findBy({ [branch.targetAttribute]: key });
+  return (await query) as Model | null;
 }
 
 /** A saved record that isn't destroyed: one there is a row to touch. */
