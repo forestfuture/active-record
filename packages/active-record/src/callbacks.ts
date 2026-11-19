@@ -9,6 +9,9 @@ import {
 import { AbortAfterPersistence, CallbackAbort } from "./errors.ts";
 import { modelOf, type Model } from "./model.ts";
 
+/** The write an after-callback runs once it's kept, as `AbortAfterPersistence` names it. */
+type WriteLifecycle = ConstructorParameters<typeof AbortAfterPersistence>[1];
+
 /** Runs the Model's callbacks of `kind` in declaration order, awaiting each. */
 export async function runCallbacks(record: Model, kind: CallbackKind): Promise<void> {
   for (const callback of declared(modelOf(record), kind)) {
@@ -23,7 +26,7 @@ export async function runCallbacks(record: Model, kind: CallbackKind): Promise<v
 async function tooLateToAbort(
   run: () => unknown,
   kind: AfterCallbackKind | CommitCallbackKind,
-  lifecycle: "save" | "destroy" | "touch",
+  lifecycle: WriteLifecycle,
 ): Promise<void> {
   try {
     await run();
@@ -37,7 +40,7 @@ async function tooLateToAbort(
 export async function runAfterCallbacks(
   record: Model,
   kind: AfterCallbackKind,
-  lifecycle: "save" | "destroy" | "touch",
+  lifecycle: WriteLifecycle,
 ): Promise<void> {
   await tooLateToAbort(() => runCallbacks(record, kind), kind, lifecycle);
 }

@@ -73,7 +73,7 @@ import { destroyTogether } from "./records-together.ts";
 import { grouped, type GroupedRelation, type GroupTerms } from "./grouping.ts";
 import type { RelationState } from "./relation-state.ts";
 import { counterSets, type CounterOptions, type Counters } from "./counters.ts";
-import { touchedValues, type TouchArguments } from "./touch.ts";
+import { touchValues, type TouchArguments } from "./touch.ts";
 import { paginate, type CountlessPage, type Page, type PageOptions } from "./pagination.ts";
 import {
   eachRecord,
@@ -398,7 +398,7 @@ export class Relation<M extends Model, S = {}> {
    * rows; skips what `updateAll` skips.
    */
   async touchAll(...args: TouchArguments<M>): Promise<number> {
-    return this.updateAll(touchedValues(this.#model, args, "touchAll") as Partial<AttributesOf<M>>);
+    return this.updateAll(touchValues(this.#model, args, "touchAll") as Partial<AttributesOf<M>>);
   }
 
   /**

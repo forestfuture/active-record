@@ -3,7 +3,7 @@ import type { DatetimeAttributeKey } from "./attribute-writes.ts";
 import { afterRollbackOf, runAfterCallbacks, runCommitCallbacks } from "./callbacks.ts";
 import { compileUpdate } from "./compiler.ts";
 import { touchAssignments } from "./counters.ts";
-import type { Model, ModelClass } from "./model.ts";
+import { modelOf, type Model, type ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
 import { runAfter, writeAll, type PreparedWrite } from "./unit-of-work.ts";
 
@@ -22,7 +22,7 @@ export type TouchArguments<R> =
  * What `touch(...args)` or `touchAll(...args)` sets: `updatedAt`, and the datetime attributes
  * named, each to now or `time`. Nothing to set (no `updatedAt`, no names) is a `TypeError`.
  */
-export function touchedValues(
+export function touchValues(
   model: ModelClass,
   args: readonly unknown[],
   method: "touch" | "touchAll",
@@ -61,7 +61,7 @@ function splitTouchArguments(
  * row was written, as Rails' `touch` does. Resolves to whether there was a row to write.
  */
 export async function touchRecord(record: Model, args: readonly unknown[]): Promise<boolean> {
-  const write = touchWrite(record, touchedValues(record.constructor as ModelClass, args, "touch"));
+  const write = touchWrite(record, touchValues(modelOf(record), args, "touch"));
   const [result] = await writeAll(record[state].executor, [write]);
   await runAfter([write]);
   return result?.rowsAffected === 1;
@@ -73,7 +73,7 @@ export async function touchRecord(record: Model, args: readonly unknown[]): Prom
  */
 function touchWrite(record: Model, values: Record<string, unknown>): PreparedWrite {
   const recordState = record[state];
-  const model = record.constructor as ModelClass;
+  const model = modelOf(record);
   let isWritten = false;
   return {
     statements: [compileUpdate(model, Object.entries(values), recordState.storedKey)],
