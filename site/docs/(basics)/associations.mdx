@@ -569,7 +569,7 @@ The article is found through the association, so the association’s scope and A
 
 ### Touching with a counter cache
 
-When the comment also keeps a [counter cache](#counting-records-with-a-counter-cache) on the article, the time is written with the count. Like the count, it’s written even to an article the default scope hides. That article runs no callbacks.
+A comment that also keeps a [counter cache](#counting-records-with-a-counter-cache) on the article touches it the same way, in the same batch as the count. An article the default scope hides is counted, but isn’t touched.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
@@ -577,7 +577,7 @@ Rails’ `touch:` takes `true` or one column. Here it also takes a list of attri
 
 Rails does nothing when the article has no `updated_at`, and writes the time to any column you name. Here both throw `InvalidModel` when the Model is first used.
 
-With a counter cache, Rails sets the time in the counter’s `UPDATE` and runs none of the article’s callbacks. Here the article’s `afterTouch` and commit callbacks run too.
+With a counter cache, Rails sets the time in the counter’s `UPDATE` and runs none of the article’s callbacks. Here the article is touched as it is without one, so its `afterTouch` and commit callbacks run.
 
 When a comment moves to another article, Rails finds the old one without the association’s scope. Here the scope applies to both.
 
