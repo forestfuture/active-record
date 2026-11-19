@@ -131,14 +131,25 @@ describe("noTouching (#496)", () => {
       expect(statementKinds(events)).toEqual(["SELECT", "INSERT"]);
     });
 
-    test("a record updated or destroyed inside doesn't touch it either", async () => {
+    /** A saved message, its discussion's updatedAt set back to `stale` after its insert. */
+    const savedMessage = async () => {
       const message = await db().model(Message).create({ discussionId: 1, body: "Hi" });
       await harness.exec("UPDATE discussions SET updated_at = ?", [stale.toISOString()]);
+      return message;
+    };
 
-      await Discussion.noTouching(async () => {
-        await message.update({ body: "Hello" });
-        await message.destroy();
-      });
+    test("a record updated inside doesn't touch the record it belongs to", async () => {
+      const message = await savedMessage();
+
+      await Discussion.noTouching(() => message.update({ body: "Hello" }));
+
+      expect(await updatedAtOf(Discussion, 1)).toEqual(stale);
+    });
+
+    test("a record destroyed inside doesn't touch the record it belongs to", async () => {
+      const message = await savedMessage();
+
+      await Discussion.noTouching(() => message.destroy());
 
       expect(await updatedAtOf(Discussion, 1)).toEqual(stale);
     });
@@ -151,7 +162,7 @@ describe("noTouching (#496)", () => {
       expect(await updatedAtOf(Discussion, 1)).not.toEqual(stale);
     });
 
-    test("a Model extending it isn't touched either", async () => {
+    test("a record of a Model extending the one turned off isn't touched", async () => {
       await Discussion.noTouching(() => db().model(PinnedMessage).create({ discussionId: 1 }));
 
       expect(await updatedAtOf(Discussion, 1)).toEqual(stale);
