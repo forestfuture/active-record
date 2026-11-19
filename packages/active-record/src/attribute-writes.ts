@@ -1,10 +1,11 @@
-// Changing one attribute (#351): `increment`, `decrement` and `toggle` in memory, and `updateColumns`, `incrementColumn` and `toggleColumn`, straight to the row; the record methods every Model's records inherit from Model.
+// Changing one attribute (#351): `increment`, `decrement` and `toggle` in memory, and `updateColumns`, `incrementColumn` and `toggleColumn`, straight to the row, and `touch` (#50); the record methods every Model's records inherit from Model.
 import { compileUpdate } from "./compiler.ts";
 import { amount, counterSets, requireAttributeType } from "./counters.ts";
 import { RecordNotSaved } from "./errors.ts";
 import type { AttributesOf, Model, ModelClass, SpecsOf } from "./model.ts";
 import { ModelStatics } from "./model-statics.ts";
 import { state } from "./record-state.ts";
+import { touchRecord } from "./touch.ts";
 
 /**
  * The built-in type a spec names: `"integer"` for `"integer"` or `{ type: "integer" }`, and
@@ -108,6 +109,14 @@ export abstract class AttributeWrites extends ModelStatics {
     by = 1,
   ): Promise<boolean> {
     return addToColumn(this, name, -amount(by, "decrementColumn"), "decrementColumn");
+  }
+
+  /**
+   * Sets `updatedAt`, and the datetime attributes named, to now, straight to the row, with no
+   * validation or save callback, as Rails' `touch`. Resolves to whether there was a row to write.
+   */
+  async touch<R extends Model>(this: R, ...names: DatetimeAttributeKey<R>[]): Promise<boolean> {
+    return touchRecord(this, names);
   }
 
   /**
