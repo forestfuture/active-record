@@ -149,7 +149,7 @@ export async function touchesOf(
     if (!isTouching(record, cause, definition, kinds)) continue;
     if (isEveryTargetCovered(model, name)) continue;
     for (const target of await touchedRecords(record, name, definition, claimed)) {
-      writes.push(...(await touchOne(target, definition.touch, claimed)));
+      writes.push(...(await touchOne(target, definition, claimed)));
     }
   }
   return writes;
@@ -237,12 +237,13 @@ function isTouchable(record: unknown, claimed: ReadonlySet<Model>): record is Mo
 }
 
 /**
- * `target`'s touch write, setting what `touch` names, then those it makes in turn; nothing if
- * this write has touched it already, or `noTouching` turned its Model's touches off (#496).
+ * `target`'s touch write, setting what the association's `touch` names, then those it makes in
+ * turn; nothing if this write has touched it already, or `noTouching` turned its Model's touches
+ * off (#496).
  */
 async function touchOne(
   target: Model,
-  touch: unknown,
+  { kind, touch }: AssociationDefinition,
   claimed: ReadonlySet<Model>,
 ): Promise<PreparedWrite[]> {
   const session = sessionOf(claimed);
@@ -256,7 +257,39 @@ async function touchOne(
   const write = touchWrite(target, valuesOf, {
     keepsSavedChanges: () => isClaimedRow(target, claimed),
   });
-  return [inWrite(write, target, claimed), ...(await touchesOf(target, "touch", claimed))];
+  const own = inWrite(write, target, claimed);
+  const touching = kind === "hasOne" ? unlessSavedLater(own, target, claimed) : own;
+  return [touching, ...(await touchesOf(target, "touch", claimed))];
+}
+
+/**
+ * A hasOne's touch write, which sends nothing and runs no callback once the write claims its
+ * record after all (#497): a later entry of the same batch saves or destroys it, and its save
+ * sets its time. Asked as it's sent, when every entry is claimed.
+ */
+function unlessSavedLater(
+  write: PreparedWrite,
+  target: Model,
+  claimed: ReadonlySet<Model>,
+): PreparedWrite {
+  const isLeft = () => isClaimedRow(target, claimed);
+  return {
+    get statements() {
+      return isLeft() ? [] : write.statements;
+    },
+    commit: (results) => {
+      if (!isLeft()) write.commit(results);
+    },
+    after: async () => {
+      if (!isLeft()) await write.after();
+    },
+    afterCommit: async () => {
+      if (!isLeft()) await write.afterCommit?.();
+    },
+    afterRollback: async () => {
+      if (!isLeft()) await write.afterRollback?.();
+    },
+  };
 }
 
 /**
