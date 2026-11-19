@@ -1,5 +1,11 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
-import { startDestroy, startSave, type Wrapped } from "./around-callbacks.ts";
+import {
+  releasingArounds,
+  startDestroy,
+  startSave,
+  waitWith,
+  type Wrapped,
+} from "./around-callbacks.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { isAssociationValid } from "./associated-validation.ts";
 import { contextsOf, type ValidationContexts } from "./validation-context.ts";
@@ -235,10 +241,17 @@ export async function saveLifecycle(record: Model, context?: ValidationContexts)
   // Each database's records pinned to it before anything runs (#93), and each one's again
   // before anything is written, with any a callback added.
   for (const { records } of savingGroups(record)) await pinBefore(linksOf(records), needs);
-  const plan = await prepareSave(record, new Set(), context);
-  if (plan.status !== "ready") return plan;
-  await runStages(stagesOf(plan), needs);
-  return { status: "saved" };
+  const claimed: Claimed = new Set();
+  return releasingArounds(
+    claimed,
+    async (): Promise<Outcome> => {
+      const plan = await prepareSave(record, claimed, context);
+      if (plan.status !== "ready") return plan;
+      await runStages(stagesOf(plan), needs);
+      return { status: "saved" };
+    },
+    (outcome) => (outcome.status === "saved" ? undefined : refusalError(record, outcome, "save")),
+  );
 }
 
 /**
@@ -272,6 +285,7 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
   const isInsert = record[state].isNew;
   const wrapped = await beforeWrite(record, isInsert);
   if (wrapped === undefined) return aborted(record);
+  waitWith(claimed, wrapped);
   // A hasOne's new record removes the one it replaces in its own batch (#40).
   const removal = await prepareReplacement(record, claimed);
   // A hasOne's touch leaves the records saved after the record to their own saves (#497).
@@ -359,10 +373,18 @@ function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): Prepared
 export async function destroyLifecycle(record: Model): Promise<DestroyOutcome> {
   const needs = "destroy() needs its records";
   await pinBefore(linksOf([record]), needs);
-  const plan = await prepareDestroy(record, new Set());
-  if (plan.status !== "ready") return plan;
-  await runStages(stagesOf(plan), needs);
-  return { status: "destroyed" };
+  const claimed: Claimed = new Set();
+  return releasingArounds(
+    claimed,
+    async (): Promise<DestroyOutcome> => {
+      const plan = await prepareDestroy(record, claimed);
+      if (plan.status !== "ready") return plan;
+      await runStages(stagesOf(plan), needs);
+      return { status: "destroyed" };
+    },
+    (outcome) =>
+      outcome.status === "destroyed" ? undefined : refusalError(record, outcome, "destroy"),
+  );
 }
 
 /** Everything a destroy does before writing: beforeDestroy, then its dependents' plans. */
@@ -380,6 +402,7 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
     recordState.abortReason = wrapped.reason;
     return aborted(record);
   }
+  waitWith(claimed, wrapped);
   // A record that was never saved has no row, so no DELETE and no commit callbacks, as in Rails.
   const hasRow = !recordState.isNew;
   const counters = hasRow ? countersOnDestroy(record) : noCounterChanges;

@@ -1,4 +1,5 @@
 // Writing several records' saves or destroys as one, on their database: all of them, or none if one refuses.
+import { releasingArounds } from "./around-callbacks.ts";
 import { pinBefore } from "./executor.ts";
 import {
   prepareDestroy,
@@ -32,14 +33,21 @@ export async function writeTogether(
   needs: string,
 ): Promise<{ record: Model; plan: Exclude<SavePlan | DestroyPlan, Ready> } | undefined> {
   const claimed: Claimed = new Set();
-  const plans: Ready[] = [];
-  for (const record of records) {
-    const plan = await prepare(record, claimed);
-    if (plan.status !== "ready") return { record, plan };
-    plans.push(plan);
-  }
-  await runStages(together(plans), needs);
-  return undefined;
+  const kind = prepare === prepareDestroy ? "destroy" : "save";
+  return releasingArounds(
+    claimed,
+    async () => {
+      const plans: Ready[] = [];
+      for (const record of records) {
+        const plan = await prepare(record, claimed);
+        if (plan.status !== "ready") return { record, plan };
+        plans.push(plan);
+      }
+      await runStages(together(plans), needs);
+      return undefined;
+    },
+    (refused) => refused && refusalError(refused.record, refused.plan, kind),
+  );
 }
 
 /**

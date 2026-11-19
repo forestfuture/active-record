@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
   abort,
+  hasMany,
   AbortAfterPersistence,
   Model,
   RecordNotSaved,
@@ -79,6 +80,61 @@ class Gated extends Model.define({
     this.afterRollback(() => void log.push("afterRollback"));
   }
 }
+
+class Refusing extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+}) {
+  static table = "users";
+
+  static {
+    this.beforeSave(() => {
+      throw abort("Refused");
+    });
+  }
+}
+
+class Exploding extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+}) {
+  static table = "users";
+
+  static {
+    this.afterSave(() => {
+      throw new Error("Exploded");
+    });
+  }
+}
+
+class RefusedPost extends Model.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+  title: "string",
+}) {
+  static table = "posts";
+
+  static {
+    this.beforeSave(() => {
+      throw abort("Refused post");
+    });
+  }
+}
+
+class Author extends Gated {
+  posts = hasMany(RefusedPost, { foreignKey: "userId" });
+}
+
+/** An aroundSave that logs how `next()` settled. */
+const reporting = async (next: () => Promise<void>) => {
+  try {
+    await next();
+    log.push("next() resolved");
+  } catch (error) {
+    log.push(`next() rejected: ${(error as Error).name}: ${(error as Error).message}`);
+    throw error;
+  }
+};
 
 describe("around callbacks", () => {
   let harness: Harness;
@@ -329,6 +385,43 @@ describe("around callbacks", () => {
 
       await expect(saving).rejects.toBe(replaced);
       expect(replaced.cause).toBeInstanceOf(RecordNotUnique);
+    });
+  });
+
+  describe("a write that's never sent", () => {
+    beforeEach(() => harness.reset("posts"));
+
+    test("rejects next() with the batch's error when a later record refuses", async () => {
+      aroundSave = reporting;
+      const db = harness.connect();
+      const waiting = db.model(Gated).build({ id: 1, email: "a@example.com" });
+      const refusing = db.model(Refusing).build({ id: 2, email: "b@example.com" });
+
+      await expect(db.batch((b) => [b.save(waiting), b.save(refusing)])).rejects.toThrow(
+        new RecordNotSaved("Refused"),
+      );
+      expect(log).toEqual(["next() rejected: RecordNotSaved: Refused"]);
+    });
+
+    test("rejects next() with the error saveOrThrow would throw when an autosaved record refuses", async () => {
+      aroundSave = reporting;
+      const author = harness.connect().model(Author).build({ id: 1, email: "a@example.com" });
+      author.posts().build({ id: 10, title: "First" });
+
+      expect(await author.save()).toBe(false);
+      expect(log).toEqual(["next() rejected: RecordNotSaved: Refused post"]);
+    });
+
+    test("rejects next() with the error that skipped its after-callbacks", async () => {
+      aroundSave = reporting;
+      const db = harness.connect();
+      const exploding = db.model(Exploding).build({ id: 1, email: "a@example.com" });
+      const waiting = db.model(Gated).build({ id: 2, email: "b@example.com" });
+
+      await expect(db.batch((b) => [b.save(exploding), b.save(waiting)])).rejects.toThrow(
+        "Exploded",
+      );
+      expect(log).toEqual(["next() rejected: Error: Exploded"]);
     });
   });
 });

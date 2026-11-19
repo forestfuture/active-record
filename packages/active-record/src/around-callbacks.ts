@@ -30,6 +30,10 @@ class WriteGate {
     return this.#status === "open";
   }
 
+  get isWaiting(): boolean {
+    return this.#status === "pending";
+  }
+
   /** Marks the write reached, and waits for it to be kept (or refused). */
   wait(): Promise<void> {
     this.#reach();
@@ -59,6 +63,46 @@ export interface Wrapped {
    * settled, and throws one's error unless it's `error`, which the caller throws.
    */
   fail(error: unknown): Promise<void>;
+  /**
+   * The write was never sent, or its after-callbacks were skipped: if the callbacks still wait,
+   * `next()` rejects with `error`, and this resolves once they've settled, whatever their outcome.
+   */
+  release(error: unknown): Promise<void>;
+}
+
+/** The around callbacks waiting at `next()` in each save or destroy, by its claimed records. */
+const waiting = new WeakMap<object, Wrapped[]>();
+
+/** Keeps `wrapped` with the save or destroy whose claimed records are `claimed`, to release. */
+export function waitWith(claimed: object, wrapped: Wrapped): void {
+  waiting.set(claimed, [...(waiting.get(claimed) ?? []), wrapped]);
+}
+
+/**
+ * Runs `operation`, a save's or destroy's preparing and writing over `claimed`. When it ends, an
+ * around callback still waiting at `next()` (its write never sent, or its after-callbacks
+ * skipped by an error) has `next()` reject with the error it threw, or the one `refusal` gives
+ * for what it returned; then this waits for them, ignoring their errors (#48).
+ */
+export async function releasingArounds<T>(
+  claimed: object,
+  operation: () => Promise<T>,
+  refusal: (result: T) => unknown,
+): Promise<T> {
+  let result: T;
+  try {
+    result = await operation();
+  } catch (error) {
+    await release(claimed, error);
+    throw error;
+  }
+  const error = refusal(result);
+  if (error !== undefined) await release(claimed, error);
+  return result;
+}
+
+async function release(claimed: object, error: unknown): Promise<void> {
+  for (const wrapped of waiting.get(claimed) ?? []) await wrapped.release(error);
 }
 
 /**
@@ -156,6 +200,11 @@ async function started(gate: WriteGate, run: Promise<void>): Promise<Wrapped | C
     finish: async () => {
       gate.open();
       await run;
+    },
+    release: async (error) => {
+      if (!gate.isWaiting) return;
+      gate.fail(error);
+      await run.catch(() => {});
     },
     fail: async (error) => {
       gate.fail(error);
