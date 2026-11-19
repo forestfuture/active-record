@@ -77,6 +77,18 @@ export function startSave(record: Model, isInsert: boolean): Promise<Wrapped | C
 }
 
 /**
+ * Starts a destroy's `aroundDestroy` callbacks, wrapping the write. Resolves once the write is
+ * reached, or to the `CallbackAbort` that stopped it.
+ */
+export function startDestroy(record: Model): Promise<Wrapped | CallbackAbort> {
+  const gate = new WriteGate();
+  return started(
+    gate,
+    around(record, "aroundDestroy", gate, () => gate.wait()),
+  );
+}
+
+/**
  * Runs `record`'s around callbacks of `kind` around `inside`, the first declared outermost, each
  * handed a `next` that runs the rest. One that doesn't call it stops the write, as `abort()` does.
  * Once the write is kept, an `abort()` in one is `AbortAfterPersistence`.
