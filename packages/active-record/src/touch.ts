@@ -1,4 +1,5 @@
-// Touching a record (#50): `touch()`, its timestamps set to now, or a given time, in one UPDATE by its stored key, with no validation or save callback.
+// Touching a record (#50): `touch()`, its timestamps set to now, or a given time, in one UPDATE by its stored key, with no validation or save callback, then `afterTouch`.
+import { runAfterCallbacks } from "./callbacks.ts";
 import { compileUpdate } from "./compiler.ts";
 import { touchAssignments } from "./counters.ts";
 import type { Model, ModelClass } from "./model.ts";
@@ -27,7 +28,7 @@ export function splitTouchArguments(args: readonly unknown[]): {
 
 /**
  * Sets the record's `updatedAt`, and the datetime attributes named, to now or `time`, straight to
- * the row, and holds them, clean. Resolves to whether there was a row to write.
+ * the row, and holds them, clean; then runs `afterTouch`. Resolves to whether there was a row to write.
  */
 export async function touchRecord(record: Model, args: readonly unknown[]): Promise<boolean> {
   const recordState = record[state];
@@ -45,5 +46,6 @@ export async function touchRecord(record: Model, args: readonly unknown[]): Prom
   const update = compileUpdate(model, assignments, recordState.storedKey);
   const [result] = await recordState.executor.write([update]);
   recordState.commitColumns(touched.map(([name]) => name));
+  await runAfterCallbacks(record, "afterTouch", "touch");
   return result?.rowsAffected === 1;
 }

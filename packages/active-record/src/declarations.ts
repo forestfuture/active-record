@@ -44,7 +44,12 @@ export type BeforeCallbackKind =
   | "beforeDestroy";
 
 /** Callbacks that run after a successful write; `abort()` there is `AbortAfterPersistence`. */
-export type AfterCallbackKind = "afterCreate" | "afterUpdate" | "afterSave" | "afterDestroy";
+export type AfterCallbackKind =
+  | "afterCreate"
+  | "afterUpdate"
+  | "afterSave"
+  | "afterDestroy"
+  | "afterTouch";
 
 /** Callbacks that run when the database refused a write it was sent. */
 type RollbackCallbackKind = "afterRollback";

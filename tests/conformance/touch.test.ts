@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model, RecordDestroyed, RecordNotSaved } from "../../packages/active-record/src/index.ts";
+import {
+  abort,
+  AbortAfterPersistence,
+  Model,
+  RecordDestroyed,
+  RecordNotSaved,
+} from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
@@ -36,6 +42,48 @@ class ActiveMember extends Model.define({
   }
 }
 
+/** The callbacks a touched Watched record ran, and what its `afterTouch` saw. */
+const ran: string[] = [];
+
+/** A member that records its callbacks, and could never pass validation. */
+class Watched extends Model.define({
+  id: { type: "integer", null: false },
+  age: "integer",
+  updatedAt: "datetime",
+}) {
+  static table = "users";
+
+  static {
+    this.validates("age", { numericality: { lessThan: 0 } });
+    const kinds = [
+      "beforeValidation",
+      "afterValidation",
+      "beforeSave",
+      "beforeUpdate",
+      "afterUpdate",
+      "afterSave",
+    ] as const;
+    for (const kind of kinds) this[kind](() => void ran.push(kind));
+    this.afterTouch((member) => {
+      ran.push(`afterTouch ${member.changes().updatedAt ? "dirty" : "clean"}`);
+    });
+  }
+}
+
+/** A member whose `afterTouch` aborts, too late to refuse anything. */
+class LateAborter extends Model.define({
+  id: { type: "integer", null: false },
+  updatedAt: "datetime",
+}) {
+  static table = "users";
+
+  static {
+    this.afterTouch(() => {
+      throw abort("Too late");
+    });
+  }
+}
+
 /** A time well before the test runs, so a touched timestamp can't hold it by chance. */
 const stored = new Date("2026-01-02T03:04:05.000Z");
 
@@ -56,6 +104,7 @@ describe("touch (#50)", () => {
       [stored.toISOString(), stored.toISOString()],
     );
     events.length = 0;
+    ran.length = 0;
   });
 
   test("touch sets updatedAt to now in one UPDATE, and resolves to true", async () => {
@@ -170,5 +219,28 @@ describe("touch (#50)", () => {
     await harness.exec("UPDATE users SET is_active = ? WHERE id = 1", [false]);
 
     expect(await member.touch()).toBe(true);
+  });
+
+  describe("callbacks", () => {
+    test("touch runs afterTouch once the row is written, and no validation or save callback", async () => {
+      const member = await db().model(Watched).find(1);
+
+      expect(await member.touch()).toBe(true);
+
+      expect(ran).toEqual(["afterTouch clean"]);
+    });
+
+    test("an abort() in afterTouch is AbortAfterPersistence, and the touch is kept", async () => {
+      const member = await db().model(LateAborter).find(1);
+
+      const touched = new Date("2026-01-02T03:04:06.000Z");
+      const error = await member.touch({ time: touched }).catch((thrown: unknown) => thrown);
+
+      expect(error).toBeInstanceOf(AbortAfterPersistence);
+      expect((error as Error).message).toBe(
+        "abort() in afterTouch: the touch has already succeeded",
+      );
+      expect((await db().model(LateAborter).find(1)).updatedAt).toEqual(touched);
+    });
   });
 });

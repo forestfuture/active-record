@@ -318,6 +318,8 @@ interface CallbackStatics {
   beforeDestroy: CallbackStatic;
   /** Runs after the row was deleted; the record is already destroyed. */
   afterDestroy: CallbackStatic;
+  /** Runs after `touch()` wrote the record's timestamps (#50); no save callback runs for it. */
+  afterTouch: CallbackStatic;
   /**
    * Runs when the database refused the record's save or destroy (a constraint, or another write in
    * its batch). Not for a validation failure or an `abort()`: nothing was sent then.
@@ -369,6 +371,7 @@ const callbackKinds = Object.keys({
   afterSave: true,
   beforeDestroy: true,
   afterDestroy: true,
+  afterTouch: true,
   afterRollback: true,
 } satisfies Record<CallbackKind, true> satisfies Record<
   keyof CallbackStatics,
