@@ -555,6 +555,8 @@ The article is touched as `article.touch()` touches it. It runs its `afterTouch`
 
 <include>/_excerpts/guide/belongs-to-touch/cascade.ts</include>
 
+An article the same save creates, such as one built with `comment.article.build()`, is touched after it’s inserted. It runs `afterTouch` and its create commit callbacks, but not the update ones.
+
 A write touches each record once, however many of its comments touch it.
 
 ### Loading the article
