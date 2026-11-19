@@ -63,6 +63,18 @@ export type CallbackKind =
   | RollbackCallbackKind
   | SyncCallbackKind;
 
+/**
+ * Callbacks that wrap a record's write (#48): each runs its first part, then `await next()`
+ * runs the rest of the lifecycle up to the matching after-callbacks, and its last part follows.
+ */
+export type AroundCallbackKind = "aroundSave" | "aroundCreate" | "aroundUpdate" | "aroundDestroy";
+
+/**
+ * An around callback: `next` runs the rest of the write, resolving once the record's write is kept
+ * and its inner callbacks have run.
+ */
+export type AroundCallback<R> = (record: R, next: () => Promise<void>) => unknown;
+
 /** Callbacks that run last, once their record's write is kept. */
 export type CommitCallbackKind =
   | "afterCommit"
@@ -94,6 +106,8 @@ export type Declarations = {
   commitCallbacks: CommitCallback;
 } & {
   [K in CallbackKind]: Callback<Model>;
+} & {
+  [K in AroundCallbackKind]: AroundCallback<Model>;
 };
 
 /** The declarations of `kind` for `model`: its own, or else its nearest ancestor's. */
