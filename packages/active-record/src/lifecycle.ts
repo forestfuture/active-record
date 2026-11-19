@@ -232,8 +232,10 @@ function aborted(record: Model): { status: "aborted"; reason: string } {
 /**
  * The save lifecycle, in the contract's order:
  * can this record be used → beforeValidation → validators → afterValidation
- * → beforeSave → beforeCreate | beforeUpdate → write (skipped when clean) → commit state
- * → afterCreate | afterUpdate → afterSave.
+ * → beforeSave → aroundSave (to `next()`) → beforeCreate | beforeUpdate
+ * → aroundCreate | aroundUpdate (to `next()`) → write (skipped when clean) → commit state
+ * → aroundCreate | aroundUpdate (the rest) → afterCreate | afterUpdate → aroundSave (the rest)
+ * → afterSave. An around callback still waiting when it ends has its `next()` rejected.
  */
 export async function saveLifecycle(record: Model, context?: ValidationContexts): Promise<Outcome> {
   requireKnownContexts(record, context);
@@ -365,8 +367,8 @@ function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): Prepared
 
 /**
  * The destroy lifecycle: can this record be used → beforeDestroy → its `dependent:` strategies
- * → aroundDestroy, wrapping the DELETE by the stored key (skipped for a never-saved record: there's no row, as in Rails)
- * → mark destroyed → afterDestroy. Every write, dependents' included, is one atomic batch.
+ * → aroundDestroy, wrapping the DELETE by the stored key (skipped for a never-saved record:
+ * there's no row, as in Rails) → mark destroyed → afterDestroy. Every write, dependents' included, is one atomic batch.
  */
 export async function destroyLifecycle(record: Model): Promise<DestroyOutcome> {
   const needs = "destroy() needs its records";
