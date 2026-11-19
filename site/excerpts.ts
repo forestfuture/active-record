@@ -76,7 +76,8 @@ function shownSource(source: string): string {
  * every example says where its names come from, and both come from the type-checked file.
  * The snippets' own model files (any relative import) are shown as the app's: `./models`. The
  * generated schema (`../db/schema`) and the app's base class (`./application-record`) are
- * shown where an app imports them from.
+ * shown where an app imports them from. What the file's own `model` region declares is imported
+ * from `./models` too, so a page can show its Models once and every example beneath them.
  */
 export function exampleBlock(file: string, region: string): string | undefined {
   const code = readFileSync(file, "utf8").replaceAll("\r\n", "\n");
@@ -89,10 +90,38 @@ export function exampleBlock(file: string, region: string): string | undefined {
     const shown = shownSource(source);
     bySource.set(shown, [...(bySource.get(shown) ?? []), ...names.filter(used)]);
   }
+  if (region !== "model") {
+    const local = modelNames(code).filter(used);
+    bySource.set('"./models"', [...(bySource.get('"./models"') ?? []), ...local]);
+  }
   const imports = [...bySource]
     .filter(([, names]) => names.length > 0)
     .map(([source, names]) => `import { ${names.join(", ")} } from ${source};`);
   return imports.length === 0 ? body : `${imports.join("\n")}\n\n${body}`;
+}
+
+/** The names a snippet file's `model` region exports: the Models its page shows once, at the top. */
+function modelNames(code: string): string[] {
+  const model = regionOf(code, "model") ?? "";
+  return [...model.matchAll(/^export (?:class|const|function|type|interface) (\w+)/gm)].map(
+    ([, name]) => name!,
+  );
+}
+
+/**
+ * An example for a `twoslash` fence: the file's `model` region as a hidden models.ts, then the
+ * example as exampleBlock shows it. Readers hover the example's names for their inferred types,
+ * and the build fails if the example doesn't type-check. Undefined without a `model` region.
+ */
+export function twoslashBlock(file: string, region: string): string | undefined {
+  const model = exampleBlock(file, "model");
+  const example = exampleBlock(file, region);
+  if (region === "model" || model === undefined || example === undefined) return undefined;
+  // An expected error was proven by the type check: Twoslash shows it rather than failing on it.
+  const expectsError = example.includes("// @ts-expect-error");
+  const shown = example.replace(/^\/\/ @ts-expect-error.*\n/gm, "");
+  const flags = expectsError ? "// @noErrorValidation\n" : "";
+  return `${flags}// @filename: models.ts\n${model}\n\n// @filename: example.ts\n// ---cut---\n${shown}`;
 }
 
 const regionName = /^[ \t]*\/\/ #region ([\w-]+)$/gm;
@@ -131,6 +160,9 @@ export function writeExcerpts(site: string, out = join(site, "docs/_excerpts")):
       const excerpt = join(out, name.slice(0, -".ts".length), `${region}.ts`);
       mkdirSync(dirname(excerpt), { recursive: true });
       writeFileSync(excerpt, `${exampleBlock(file, region)}\n`);
+      const twoslash = twoslashBlock(file, region);
+      if (twoslash !== undefined)
+        writeFileSync(excerpt.replace(/\.ts$/, ".twoslash.ts"), `${twoslash}\n`);
     }
   }
   writeFileSync(join(out, "skill-rules.md"), skillRules(site));

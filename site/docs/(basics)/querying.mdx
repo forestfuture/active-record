@@ -1,6 +1,6 @@
 ---
 title: Querying
-description: "Reference for querying: a Model's statics, Relations, where and comparisons, sql fragments, rewhere, unscope, and only, excluding, ordering and paging, inOrderOf, paginate, findEach/findInBatches/inBatches, find/findBy/first/count, calculations (sum, average, minimum, maximum), partial records, none(), merge, joins and leftJoins, scopes, default scopes, and preloading."
+description: "Reference for querying: a Model's statics, Relations, conditions (see Conditions), ordering and paging, inOrderOf, paginate, findEach/findInBatches/inBatches, find/findBy/first/count, calculations (sum, average, minimum, maximum), partial records, none(), merge, joins and leftJoins, scopes, default scopes, and preloading."
 ---
 
 A query is a **Relation**. Each method that narrows, orders, or pages it returns a new Relation, and nothing runs until you ask for results:
@@ -19,90 +19,7 @@ A query runs on the current database: the request’s, if it was opened with `wi
 
 ## Adding conditions
 
-Pass `where` an object of attributes that must all match:
-
-<include>/_excerpts/guide/querying/where.ts</include>
-
-- `null` matches NULL, and an array matches any of its values. The list is bound as one value, so it can be any length.
-- `whereNot` negates the whole condition. As in SQL, `whereNot({ role: "admin" })` also leaves out users whose role is NULL.
-- `or` combines two Relations of the same Model that differ only in their conditions.
-- `undefined` throws `TypeError`. Leave the key out, or use `null`.
-
-Values are [cast to the attribute’s type](./models#casting-assigned-values), so `where({ quantity: "42" })` finds 42. A value that can’t be cast matches nothing: `findBy` resolves to `null`, and `find` throws `RecordNotFound`.
-
-:::note
-In a list, values that can’t be cast are left out. So `whereNot({ id: "abc" })` on an integer key excludes nothing.
-:::
-
-### Comparing values
-
-Pass a comparison helper as a value:
-
-<include>/_excerpts/guide/querying/comparisons.ts</include>
-
-`gt`, `gte`, `lt`, `lte`, and `between` work on number, string, and datetime attributes, and dates compare by time. `between` includes both ends. Pass `{ excludeEnd: true }` to leave out the end.
-
-### Writing SQL fragments
-
-For anything else, write an `sql` tagged template. Values are always bound, and `column()` looks up an attribute’s column:
-
-<include>/_excerpts/guide/querying/sql.ts</include>
-
-:::warning[Integer datetimes]
-A value in a fragment is bound as it is, so a `Date` is ISO text. If the attribute is a datetime [stored as a Unix time](./adopt-a-database#reading-unix-timestamps), compare it with `column("publishedAt").value(date)`, which writes the `Date` as the attribute stores it. A bare `Date` (or an ISO datetime string) beside that column in a comparison throws `TypeError`. In an expression, such as `abs(${column("publishedAt")} - ${date})`, or in an `IN` list, Active Record can’t tell what you meant: you’re comparing an integer with text, which SQLite always orders the same way, so `>` matches nothing and `<` matches every row. Check which form the expression needs, and use `value` when it needs the stored one.
-:::
-
-<include>/_excerpts/guide/adopt/fragment.ts</include>
-
-`value` works for any attribute, and writes a boolean as 0 or 1 and a JSON value as text. The value is cast as an assigned one, so a value the attribute can’t hold throws `TypeError` naming the attribute, when `where` is given the fragment. A filtered attribute’s value is hidden from `onQuery`, as it is anywhere else.
-
-### Replacing conditions
-
-Replace the conditions on some attributes with `rewhere`:
-
-<include>/_excerpts/guide/querying/rewhere.ts</include>
-
-Conditions on other attributes stay, and so do `sql` fragments. A default scope’s condition on the attribute is replaced too.
-
-:::note
-A `whereNot` or `or` that names only those attributes is replaced. One that names other attributes too stays.
-:::
-
-Drop parts of a query with `unscope`, or keep only some with `only`:
-
-<include>/_excerpts/guide/querying/unscope.ts</include>
-
-- The parts are `"where"`, `"order"`, `"limit"`, `"offset"`, `"select"`, `"distinct"`, `"includes"`, `"joins"`, `"leftJoins"`, and `"createWith"`. `{ where: "role" }` drops only the conditions on those attributes.
-- A default scope’s parts are dropped too. To start without the default scope, use [`unscoped()`](#defining-a-default-scope).
-- On an association, the link to its owner stays. `user.posts().unscope("where")` is still the user’s posts, and so is `rewhere({ userId })`. Start from `Post` to read past the owner.
-- Merging a Relation built with `unscope` drops those parts from the Relation it’s merged into.
-- A join can’t be dropped while conditions or an order merged onto it use it. That throws `IncompatibleRelation`.
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-`rewhere`, `unscope`, and `only` work as Rails’ do, with the parts named as strings. `group` and `having` aren’t parts, since a grouped Relation is a type of its own. Rails’ `invert_where` and `extending` aren’t offered. Scopes cover `extending`.
-
-</Callout>
-
-<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
-
-On an association, Rails’ `unscope(:where)` drops the link to its owner, so a read can reach records that `create` wouldn’t link to it. Here no rewrite drops the link, so reads and writes agree.
-
-</Callout>
-
-## Leaving records out
-
-Leave out records you already have with `excluding`:
-
-<include>/_excerpts/guide/querying/excluding.ts</include>
-
-It takes records of the Relation’s Model, or arrays of them. A record that isn’t saved yet leaves nothing out.
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-`excluding` is Rails’ `excluding`. Its alias `without` isn’t offered.
-
-</Callout>
+Narrow a query with `where`, `whereNot`, `or`, comparisons such as `gte` and `between`, and `sql` fragments. Replace them with `rewhere`, drop parts with `unscope`, and leave records out with `excluding`. See [Conditions](./conditions).
 
 ## Using raw statements
 
@@ -427,7 +344,7 @@ Queries start from it, and new records take its conditions’ values:
 - `insert`, `insertAll`, `upsert`, and `upsertAll` write its conditions’ values over the values you give. `build` and `create` use the values you give.
 - Several default scopes all apply. A subclass adds its own to its parent’s.
 - An order in a default scope is the Relation’s order. `reorder` replaces it.
-- `rewhere` replaces its condition on an attribute, and [`unscope`](#replacing-conditions) drops its parts.
+- `rewhere` replaces its condition on an attribute, and [`unscope`](./conditions#replacing-conditions) drops its parts.
 
 To leave the default scope out, start from `unscoped()`:
 

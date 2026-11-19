@@ -1,8 +1,7 @@
-import { between, column, gte, lt, sql } from "@forestfuture/active-record";
-import { Post } from "../getting-started/models";
+import { column, sql } from "@forestfuture/active-record";
 import { User } from "./models";
 
-export async function examples(since: Date, until: Date): Promise<unknown> {
+export async function examples(): Promise<unknown> {
   // #region relation
   const admins = User.where({ role: "admin" }).order({ createdAt: "desc" });
   const firstTen = admins.limit(10); // a new Relation; admins is unchanged
@@ -17,30 +16,6 @@ export async function examples(since: Date, until: Date): Promise<unknown> {
   User.where({ role: "admin" }).or(User.where({ isActive: false }));
   // #endregion where
 
-  // #region comparisons
-  Post.where({ publishedAt: gte(since) }); // published_at >= since
-  User.where({ createdAt: lt(since) }); // created_at < since
-  User.where({ createdAt: between(since, until) }); // both ends included
-  User.where({ createdAt: between(since, until, { excludeEnd: true }) });
-  // #endregion comparisons
-
-  // #region sql
-  const email = "Ada@Example.com";
-  User.where(sql`lower(${column("email")}) = lower(${email})`);
-  // #endregion sql
-
-  // #region rewhere
-  const members = User.where({ role: "member", isActive: true });
-  members.rewhere({ role: "admin" }); // is_active = ? AND role = ?
-  // #endregion rewhere
-
-  // #region unscope
-  const recent = User.where({ role: "admin" }).order({ createdAt: "desc" }).limit(10);
-  recent.unscope("order", "limit"); // every admin, unordered
-  recent.unscope({ where: "role" }); // the 10 newest users
-  recent.only("where"); // every admin
-  // #endregion unscope
-
   // #region order
   User.order({ role: "asc", createdAt: "desc" });
   User.order({ role: { direction: "asc", nulls: "last" } });
@@ -53,11 +28,6 @@ export async function examples(since: Date, until: Date): Promise<unknown> {
   User.inOrderOf("role", ["owner", "admin", "member"]); // only those roles, owners first
   User.inOrderOf("role", ["owner", "admin"], { filter: false }); // everyone else last
   // #endregion in-order-of
-
-  // #region excluding
-  const current = await User.firstOrThrow();
-  const others = await User.where({ role: "admin" }).excluding(current).toArray();
-  // #endregion excluding
 
   const results = await gettingResults();
 
@@ -79,7 +49,7 @@ export async function examples(since: Date, until: Date): Promise<unknown> {
   console.log(params); // ["admin", 10]
   // #endregion to-sql
 
-  return [users, text, params, results, roles, nothing, others];
+  return [users, text, params, results, roles, nothing];
 }
 
 /** The Getting results section's finders and terminals. */

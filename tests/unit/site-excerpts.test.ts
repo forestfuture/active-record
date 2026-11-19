@@ -46,6 +46,74 @@ export class Post extends Model.define({ id: "integer" }) {}
 `);
   });
 
+  test("import a file's model region from ./models, and hide it in a Twoslash variant", () => {
+    const page = `import { gte, Model } from "@forestfuture/active-record";
+
+// #region model
+export class Post extends Model.define({ id: "integer", views: "integer" }) {}
+// #endregion model
+
+export async function popular(): Promise<unknown> {
+  // #region popular
+  const posts = await Post.where({ views: gte(100) }).toArray();
+  // #endregion popular
+  return posts;
+}
+`;
+    const site = repository({
+      "site/snippets/guide/posts.ts": page,
+      "packages/active-record/skills/active-record/SKILL.md": skill,
+    });
+    writeExcerpts(site);
+
+    const excerpts = join(site, "docs/_excerpts/guide/posts");
+    const example = `import { gte } from "@forestfuture/active-record";
+import { Post } from "./models";
+
+const posts = await Post.where({ views: gte(100) }).toArray();
+`;
+    expect(readFileSync(join(excerpts, "popular.ts"), "utf8")).toBe(example);
+    expect(readFileSync(join(excerpts, "popular.twoslash.ts"), "utf8"))
+      .toBe(`// @filename: models.ts
+import { Model } from "@forestfuture/active-record";
+
+export class Post extends Model.define({ id: "integer", views: "integer" }) {}
+
+// @filename: example.ts
+// ---cut---
+${example}`);
+    expect(existsSync(join(excerpts, "model.twoslash.ts"))).toBe(false);
+  });
+
+  test("show an expected type error in Twoslash, without failing on it", () => {
+    const page = `import { Model } from "@forestfuture/active-record";
+
+// #region model
+export class Post extends Model.define({ id: "integer" }) {}
+// #endregion model
+
+export function typo(): void {
+  // #region typo
+  // @ts-expect-error: no attribute "idd"
+  Post.where({ idd: 1 });
+  // #endregion typo
+}
+`;
+    const site = repository({
+      "site/snippets/guide/posts.ts": page,
+      "packages/active-record/skills/active-record/SKILL.md": skill,
+    });
+    writeExcerpts(site);
+
+    const twoslash = readFileSync(
+      join(site, "docs/_excerpts/guide/posts/typo.twoslash.ts"),
+      "utf8",
+    );
+    expect(twoslash.startsWith("// @noErrorValidation\n")).toBe(true);
+    expect(twoslash).not.toContain("@ts-expect-error");
+    expect(twoslash).toContain("Post.where({ idd: 1 });");
+  });
+
   test("hold every snippet file whole, at its own path", () => {
     const site = repository({
       "site/snippets/guide/posts.ts": snippet,
