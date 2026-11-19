@@ -40,6 +40,52 @@ class PlainForum extends Model.define({ id: { type: "integer", null: false }, ti
   static table = "forums";
 }
 
+/** A discussion that can be archived, which the scoped belongsTos below don't reach. */
+class ArchivableDiscussion extends Model.define({
+  id: { type: "integer", null: false },
+  archived: "boolean",
+  updatedAt: "datetime",
+}) {
+  static table = "discussions";
+}
+
+/** A message whose discussion is read only while it's open. */
+class OpenMessage extends Model.define({
+  id: { type: "integer", null: false },
+  discussionId: "integer",
+}) {
+  static table = "messages";
+  discussion = belongsTo(ArchivableDiscussion, {
+    foreignKey: "discussionId",
+    touch: true,
+    scope: (q) => q.where({ archived: false }),
+  });
+}
+
+/** A discussion whose default scope hides archived ones. */
+class ListedDiscussion extends Model.define({
+  id: { type: "integer", null: false },
+  archived: "boolean",
+  updatedAt: "datetime",
+}) {
+  static table = "discussions";
+  static {
+    this.defaultScope((q) => q.where({ archived: false }));
+  }
+}
+
+class ListedMessage extends Model.define({
+  id: { type: "integer", null: false },
+  discussionId: "integer",
+}) {
+  static table = "messages";
+  discussion = belongsTo(ListedDiscussion, {
+    foreignKey: "discussionId",
+    touch: true,
+    optional: true,
+  });
+}
+
 describe("a belongsTo's touch (#353)", () => {
   let harness: Harness;
   const db = () => harness.connect();
@@ -204,6 +250,80 @@ describe("a belongsTo's touch (#353)", () => {
       await message.saveOrThrow();
 
       expect(statementKinds(events)).toEqual(["INSERT", "INSERT"]);
+    });
+  });
+
+  describe("updating a record", () => {
+    beforeEach(async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+    });
+
+    test("an update that writes touches the record it belongs to", async () => {
+      const message = await db().model(Message).find(1);
+      message.body = "Edited";
+
+      await message.saveOrThrow();
+
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(await updatedAt(2)).toEqual(stale);
+    });
+
+    test("a save with nothing to write touches nothing", async () => {
+      const events: QueryEvent[] = [];
+      const message = await recorded(events).model(Message).find(1);
+      events.length = 0;
+
+      await message.saveOrThrow();
+
+      expect(events).toEqual([]);
+      expect(await updatedAt(1)).toEqual(stale);
+    });
+
+    test("moving it to another record touches both, the old one found by its stored key", async () => {
+      const message = await db().model(Message).find(1);
+      message.discussionId = 2;
+
+      await message.saveOrThrow();
+
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(await updatedAt(2)).toEqual(await updatedAt(1));
+    });
+
+    test("moving it to none touches the old one", async () => {
+      const message = await db().model(Message).find(1);
+      message.discussionId = null;
+
+      await message.saveOrThrow();
+
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+    });
+  });
+
+  describe("the records it reaches", () => {
+    beforeEach(async () => {
+      await harness.exec("UPDATE discussions SET archived = 1 WHERE id = 1");
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+    });
+
+    test("are found as the association reads them: its scope hides the old one", async () => {
+      const message = await db().model(OpenMessage).find(1);
+      message.discussionId = 2;
+
+      await message.saveOrThrow();
+
+      expect(await updatedAt(1)).toEqual(stale);
+      expect((await updatedAt(2))!.getTime()).toBeGreaterThan(stale.getTime());
+    });
+
+    test("are found through the target's default scope, which can hide the new one", async () => {
+      const message = await db().model(ListedMessage).find(1);
+      message.discussionId = 2;
+      await message.saveOrThrow();
+      message.discussionId = 1;
+
+      await message.saveOrThrow();
+
+      expect(await updatedAt(1)).toEqual(stale);
     });
   });
 });
