@@ -70,11 +70,11 @@ function requireTouchable(label: string, target: ModelClass, names: readonly str
 export type TouchCause = "insert" | "update" | "destroy" | "touch";
 
 /**
- * One write's touches: the time each sets, and the records already touched (by table and key,
- * so each is touched once).
+ * One write's touches: the time each sets, once known, and the records already touched (by table
+ * and key, so each is touched once).
  */
 interface TouchSession {
-  time: Date;
+  time: Date | undefined;
   touched: Set<string | Model>;
 }
 
@@ -82,16 +82,25 @@ interface TouchSession {
 const sessions = new WeakMap<ReadonlySet<Model>, TouchSession>();
 
 /**
- * The touch session of the write claiming `claimed`, started at `time` (now by default) on its
- * first touch.
+ * The touch session of the write claiming `claimed`, started on its first touch, at `time` when
+ * it's given (as `touch()` gives it).
  */
-function sessionOf(claimed: ReadonlySet<Model>, time = new Date()): TouchSession {
+function sessionOf(claimed: ReadonlySet<Model>, time?: Date): TouchSession {
   let session = sessions.get(claimed);
   if (session === undefined) {
     session = { time, touched: new Set() };
     sessions.set(claimed, session);
   }
   return session;
+}
+
+/**
+ * The time the session's touches set: taken when the first is sent, after the write's saves
+ * have stamped their own, so a row a save stamps isn't set back.
+ */
+function timeOf(session: TouchSession): Date {
+  session.time ??= new Date();
+  return session.time;
 }
 
 /**
@@ -198,8 +207,10 @@ async function touchOne(
   const key = touchKey(target);
   if (session.touched.has(key)) return [];
   session.touched.add(key);
-  const values = Object.fromEntries(touchAssignments(model, touch, "touch", session.time));
-  const write = touchWrite(target, values, {
+  let values: Record<string, unknown> | undefined;
+  const valuesOf = () =>
+    (values ??= Object.fromEntries(touchAssignments(model, touch, "touch", timeOf(session))));
+  const write = touchWrite(target, valuesOf, {
     keepsSavedChanges: () => isClaimedRow(target, claimed),
   });
   return [inWrite(write, target, claimed), ...(await touchesOf(target, "touch", claimed))];
@@ -221,9 +232,9 @@ function isClaimedRow(record: Model, claimed: ReadonlySet<Model>): boolean {
 /**
  * A touch write as part of another record's write. What it does to its record is asked as each
  * step runs, when the write's records are claimed and inserted ones have their keys, by row
- * (another instance may be the one claimed): a row the write destroys takes nothing and runs no
- * touch callback (Rails touches only a persisted record), and a row the write saves itself runs
- * its commit and rollback callbacks once, from its own save.
+ * (another instance may be the one claimed): a row destroyed by then takes nothing, and a row the
+ * write destroys runs no touch callback (Rails touches only a persisted record); a row the write
+ * saves itself runs its commit and rollback callbacks once, from its own save.
  */
 function inWrite(write: PreparedWrite, target: Model, claimed: ReadonlySet<Model>): PreparedWrite {
   const isDestroyed = () =>

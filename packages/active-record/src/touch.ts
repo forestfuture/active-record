@@ -66,7 +66,7 @@ export async function touchRecord(record: Model, args: readonly unknown[]): Prom
   const values = touchValues(modelOf(record), args, "touch");
   // Every value is the one time the touch sets.
   const time = Object.values(values)[0] as Date;
-  const writes = [touchWrite(record, values), ...(await touchesOfTouch(record, time))];
+  const writes = [touchWrite(record, () => values), ...(await touchesOfTouch(record, time))];
   const [result] = await writeAll(record[state].executor, writes);
   await runAfter(writes);
   return result?.rowsAffected === 1;
@@ -93,12 +93,13 @@ export interface TouchWriteOptions {
 }
 
 /**
- * The touch's write: `values` sent, then assigned and held clean once the row has them. The
- * record changes only then, so a refused touch leaves it as it was, and runs `afterRollback`.
+ * The touch's write: the values `valuesOf` gives, asked as it's sent, then assigned and held clean
+ * once the row has them. The record changes only then, so a refused touch leaves it as it was,
+ * and runs `afterRollback`.
  */
 export function touchWrite(
   record: Model,
-  values: Record<string, unknown>,
+  valuesOf: () => Record<string, unknown>,
   { keepsSavedChanges }: TouchWriteOptions = {},
 ): PreparedWrite {
   const recordState = record[state];
@@ -107,9 +108,10 @@ export function touchWrite(
   return {
     // Compiled as it's sent: a record the same write inserts has its key by then.
     get statements() {
-      return [compileUpdate(model, Object.entries(values), keyCells(record))];
+      return [compileUpdate(model, Object.entries(valuesOf()), keyCells(record))];
     },
     commit: ([result]) => {
+      const values = valuesOf();
       recordState.assign(values);
       if (keepsSavedChanges?.()) recordState.commitColumns(Object.keys(values));
       else recordState.commitTouch(Object.keys(values));
