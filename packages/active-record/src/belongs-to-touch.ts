@@ -226,8 +226,24 @@ async function touchOne(
   if (session.touched.has(key)) return [];
   session.touched.add(key);
   const values = Object.fromEntries(touchAssignments(model, touch, "touch", session.time));
-  const write = touchWrite(target, values, { writtenBy });
+  const write = touchWrite(target, values, {
+    writtenBy,
+    keepsSavedChanges: () => isClaimedRow(target, claimed),
+  });
   return [inWrite(write, target, claimed), ...(await touchesOf(target, "touch", claimed))];
+}
+
+/**
+ * The records the write claims that are `record`'s row, by table and key, asked once inserted
+ * records have their keys: another instance of the row may be the one claimed.
+ */
+function sameRow(record: Model, claimed: ReadonlySet<Model>): Model[] {
+  return [...claimed].filter((each) => touchKey(each) === touchKey(record));
+}
+
+/** Whether the write saves or destroys `record`'s row itself. */
+function isClaimedRow(record: Model, claimed: ReadonlySet<Model>): boolean {
+  return sameRow(record, claimed).length > 0;
 }
 
 /**
@@ -238,10 +254,8 @@ async function touchOne(
  * its commit and rollback callbacks once, from its own save.
  */
 function inWrite(write: PreparedWrite, target: Model, claimed: ReadonlySet<Model>): PreparedWrite {
-  const sameRow = () => [...claimed].filter((each) => touchKey(each) === touchKey(target));
   const isDestroyed = () =>
-    target[state].isDestroyed || sameRow().some((each) => each[state].isDestroyed);
-  const isClaimedRow = () => sameRow().length > 0;
+    target[state].isDestroyed || sameRow(target, claimed).some((each) => each[state].isDestroyed);
   return {
     // Read as it's sent, not now: a new record's key isn't known yet.
     get statements() {
@@ -254,10 +268,10 @@ function inWrite(write: PreparedWrite, target: Model, claimed: ReadonlySet<Model
       if (!isDestroyed()) await write.after();
     },
     afterCommit: async () => {
-      if (!isClaimedRow()) await write.afterCommit?.();
+      if (!isClaimedRow(target, claimed)) await write.afterCommit?.();
     },
     afterRollback: async () => {
-      if (!isClaimedRow()) await write.afterRollback?.();
+      if (!isClaimedRow(target, claimed)) await write.afterRollback?.();
     },
   };
 }
