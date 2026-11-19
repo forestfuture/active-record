@@ -86,14 +86,18 @@ type CounterName<C extends ModelClass> = NumberAttributeKey<InstanceType<C>>;
 /** One of the datetime attributes of `C`'s records, which a belongsTo's or hasOne's `touch` names. */
 type TouchName<C extends ModelClass> = DatetimeAttributeKey<InstanceType<C>>;
 
+/** What a belongsTo's or hasOne's `touch` sets: `updatedAt`, and the datetime attributes named. */
+type TouchedAttributes<C extends ModelClass> = true | TouchName<C> | readonly TouchName<C>[];
+
 /** What a hasOne takes to touch its record (#497). */
 interface HasOneTouchOptions<C extends ModelClass> {
   /**
-   * Touches the record when this one is created, updated, destroyed or touched, in the same
-   * batch: `true` sets its `updatedAt`, and a datetime attribute's name, or a list, sets those
-   * too. The record is loaded first, so its `afterTouch` and commit callbacks run.
+   * Touches the record when this one is updated, destroyed or touched (not created), in the
+   * same batch: `true` sets its `updatedAt`, and a datetime attribute's name, or a list, sets
+   * those too. The record is loaded first, so its `afterTouch` and commit callbacks run. A
+   * record the same write saves or removes is left to that write.
    */
-  touch?: true | TouchName<C> | readonly TouchName<C>[];
+  touch?: TouchedAttributes<C>;
 }
 
 /** What only a belongsTo takes; `C` is its target, whose attribute a counter cache names. */
@@ -113,7 +117,7 @@ interface BelongsToOptions<C extends ModelClass = ModelClass> {
    * same batch: `true` sets its `updatedAt`, and a datetime attribute's name, or a list, sets
    * those too. The target is loaded first, so its `afterTouch` and commit callbacks run.
    */
-  touch?: true | TouchName<C> | readonly TouchName<C>[];
+  touch?: TouchedAttributes<C>;
 }
 
 /**
