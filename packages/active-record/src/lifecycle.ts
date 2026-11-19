@@ -1,4 +1,5 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
+import { runFindCallbacks } from "./load-callbacks.ts";
 import { isAssociationValid } from "./associated-validation.ts";
 import { contextsOf, type ValidationContexts } from "./validation-context.ts";
 import { requireKnownContexts } from "./listed-contexts.ts";
@@ -390,7 +391,10 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
   return { status: "ready", stages, before: dependents.elsewhere, after: [] };
 }
 
-/** Loads the record's row again by its stored primary key, discarding unsaved changes. */
+/**
+ * Loads the record's row again by its stored primary key, discarding unsaved changes, then runs its
+ * `afterFind` and `afterInitialize` (#49).
+ */
 export async function reloadRecord(record: Model): Promise<void> {
   const recordState = record[state];
   recordState.requireLive("be reloaded");
@@ -412,4 +416,5 @@ export async function reloadRecord(record: Model): Promise<void> {
   recordState.clearAssociations();
   recordState.isMarkedForDestruction = false;
   recordState.loadRow(row);
+  runFindCallbacks(record);
 }

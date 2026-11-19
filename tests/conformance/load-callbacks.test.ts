@@ -124,6 +124,16 @@ describe("afterFind and afterInitialize", () => {
     ]);
   });
 
+  test("reload runs afterFind, then afterInitialize, on the record itself", async () => {
+    const person = await people().find(1);
+    await harness.exec("UPDATE users SET email = 'new@example.com' WHERE id = 1");
+    log.length = 0;
+
+    await person.reload();
+
+    expect(log).toEqual(["afterFind new@example.com", "afterInitialize new@example.com"]);
+  });
+
   test("build runs afterInitialize after its init", () => {
     const person = people().build({ email: "c@example.com" }, (built) => {
       log.push(`init ${built.email}`);
