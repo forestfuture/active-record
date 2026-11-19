@@ -291,10 +291,15 @@ type ValidationCallbackStatic = <C extends AbstractModelClass>(
   options?: ValidationCallbackOptions<ContextOf<C>>,
 ) => void;
 
-/** Declares a callback that runs synchronously as a record is loaded or built: nothing awaits it. */
+/**
+ * Declares a callback that runs synchronously as a record is loaded or built: nothing awaits it,
+ * so its type refuses one that returns a promise (an `async` one), as running it does.
+ */
 type LoadCallbackStatic = <C extends AbstractModelClass>(
   this: C,
-  callback: (record: InstanceType<C>) => void,
+  callback: (
+    record: InstanceType<C>,
+  ) => string | number | bigint | boolean | symbol | null | undefined,
 ) => void;
 
 /** Every callback kind as a static, each documented here, so its doc comment shows on hover. */
