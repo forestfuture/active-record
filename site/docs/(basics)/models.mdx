@@ -551,7 +551,7 @@ import { column, sql } from "@forestfuture/active-record";
 const recent = await User.where(sql`${column("createdAt")} > ${since}`).toArray();
 ```
 
-A plain string is rejected. To write a `Date`, boolean, or JSON value the way an attribute stores it, see [Writing SQL fragments](./querying#writing-sql-fragments).
+A plain string is rejected. To write a `Date`, boolean, or JSON value the way an attribute stores it, see [Writing SQL fragments](./conditions#writing-sql-fragments).
 
 ## Serializing records
 

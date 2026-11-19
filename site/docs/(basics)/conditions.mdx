@@ -1,0 +1,132 @@
+---
+title: Conditions
+description: "Narrowing a query: where, whereNot, or, comparisons, sql fragments, rewhere, unscope, and excluding."
+---
+
+Narrow a query with `where` and the methods beside it. Every example on this page uses this Model and table:
+
+<Tabs syncKey="database">
+<Tab title="Model">
+
+<include meta='title="src/models/user.ts"'>/_excerpts/guide/conditions/model.ts</include>
+
+</Tab>
+<Tab title="D1">
+
+<include meta='title="migrations/…_create_users.sql"'>/_excerpts/guide/conditions-d1.sql</include>
+
+</Tab>
+<Tab title="Postgres">
+
+<include meta='title="migrations/…_create_users.sql"'>
+  /_excerpts/guide/conditions-postgres.sql
+</include>
+
+</Tab>
+</Tabs>
+
+Hover over a name in any example to see its type.
+
+## At a glance
+
+| To match                      | Write                                  | SQL                         |
+| ----------------------------- | -------------------------------------- | --------------------------- |
+| equal values                  | `where({ role: "admin" })`             | `role = ?`                  |
+| NULL                          | `where({ role: null })`                | `role IS NULL`              |
+| any value in a list           | `where({ role: ["admin", "editor"] })` | `role IN (…)`               |
+| anything but a value          | `whereNot({ role: "admin" })`          | `NOT (role = ?)`            |
+| either of two queries         | `where(a).or(User.where(b))`           | `(…) OR (…)`                |
+| a range                       | `where({ createdAt: gte(date) })`      | `created_at >= ?`           |
+| anything else                 | ``where(sql`…`)``                      | your SQL, with values bound |
+| a replacement for a condition | `rewhere({ role: "admin" })`           | drops the old `role = ?`    |
+| fewer parts of a query        | `unscope("order")`, `only("where")`    | drops the parts named       |
+| all but some records          | `excluding(record)`                    | `id NOT IN (…)`             |
+
+## Matching values
+
+Pass `where` an object of attributes that must all match:
+
+<include meta="twoslash">/_excerpts/guide/conditions/where.twoslash.ts</include>
+
+- `null` matches NULL. An array matches any of its values, and is bound as one value, so it can be any length.
+- Values are [cast to the attribute’s type](./models#casting-assigned-values), so text from a query string works as it is. A value that can’t be cast matches nothing: `findBy` resolves to `null`, and `find` throws `RecordNotFound`.
+- `undefined` throws `TypeError`. Leave the key out, or use `null`.
+
+Attribute names are checked when you compile:
+
+<include meta="twoslash">/_excerpts/guide/conditions/typos.twoslash.ts</include>
+
+## Excluding values
+
+Negate a condition with `whereNot`, or combine two queries with `or`:
+
+<include meta="twoslash">/_excerpts/guide/conditions/where-not.twoslash.ts</include>
+
+- `whereNot` negates the whole condition. As in SQL, `whereNot({ role: "admin" })` also leaves out users whose role is NULL.
+- `or` combines two Relations of the same Model that differ only in their conditions.
+
+:::note
+In a list, values that can’t be cast are left out. So `whereNot({ id: "abc" })` on an integer key excludes nothing.
+:::
+
+## Comparing values
+
+Pass a comparison helper as a value:
+
+<include meta="twoslash">/_excerpts/guide/conditions/comparisons.twoslash.ts</include>
+
+`gt`, `gte`, `lt`, `lte`, and `between` work on number, string, and datetime attributes, and dates compare by time. `between` includes both ends, unless you pass `{ excludeEnd: true }`.
+
+## Writing SQL fragments
+
+For anything else, write an `sql` tagged template. Values are always bound, and `column()` looks up an attribute’s column:
+
+<include meta="twoslash">/_excerpts/guide/conditions/sql.twoslash.ts</include>
+
+A value in a fragment is bound as it is, so a `Date` is ISO text. To write a value the way an attribute stores it, use `column(name).value(v)`:
+
+<include>/_excerpts/guide/adopt/fragment.ts</include>
+
+`value` works for any attribute, and writes a boolean as 0 or 1 and a JSON value as text. It casts as assigning would, so a value the attribute can’t hold throws `TypeError` naming the attribute. A filtered attribute’s value is hidden from `onQuery`, as it is anywhere else.
+
+:::warning[Datetimes stored as Unix time]
+For a datetime [stored as a Unix time](./adopt-a-database#reading-unix-timestamps), a bare `Date` beside its column throws `TypeError`. Inside an expression, such as `abs(${column("publishedAt")} - ${date})`, or an `IN` list, nothing can tell, and the integer is compared with text: `>` matches nothing and `<` matches every row. Use `value` there.
+:::
+
+## Replacing conditions
+
+Replace the conditions on some attributes with `rewhere`:
+
+<include meta="twoslash">/_excerpts/guide/conditions/rewhere.twoslash.ts</include>
+
+Conditions on other attributes stay, and so do `sql` fragments. A default scope’s condition on the attribute is replaced too. A `whereNot` or `or` is replaced only if it names no other attributes.
+
+Drop parts of a query with `unscope`, or keep only some with `only`:
+
+<include meta="twoslash">/_excerpts/guide/conditions/unscope.twoslash.ts</include>
+
+- The parts are `"where"`, `"order"`, `"limit"`, `"offset"`, `"select"`, `"distinct"`, `"includes"`, `"joins"`, `"leftJoins"`, and `"createWith"`. `{ where: "role" }` drops only the conditions on those attributes.
+- A default scope’s parts are dropped too. To start without the default scope, use [`unscoped()`](./querying#defining-a-default-scope).
+- On an association, the link to its owner stays: `user.posts().unscope("where")` is still the user’s posts. Start from `Post` to read past the owner.
+- Merging a Relation built with `unscope` drops those parts from the Relation it’s merged into.
+- A join can’t be dropped while a merged condition or order uses it. That throws `IncompatibleRelation`.
+
+## Leaving records out
+
+Leave out records you already have with `excluding`:
+
+<include meta="twoslash">/_excerpts/guide/conditions/excluding.twoslash.ts</include>
+
+It takes records of the Relation’s Model, or arrays of them. A record that isn’t saved yet leaves nothing out.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`rewhere`, `unscope`, `only`, and `excluding` work as Rails’ do, with the parts named as strings. `group` and `having` aren’t parts, since a grouped Relation is a type of its own. `invert_where`, `extending`, and `without` aren’t offered.
+
+</Callout>
+
+<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
+
+On an association, Rails’ `unscope(:where)` drops the link to its owner, so a read can reach records that `create` wouldn’t link to it. Here no rewrite drops the link, so reads and writes agree.
+
+</Callout>
