@@ -3,8 +3,8 @@ import { withClaimedRecords } from "./around-callbacks.ts";
 import { pinBefore } from "./executor.ts";
 import {
   prepareDestroy,
+  prepareSave,
   refusalError,
-  type Claimed,
   type DestroyPlan,
   type Ready,
   type SavePlan,
@@ -19,20 +19,20 @@ import { combine, inGroup, runStages, type Stage } from "./unit-of-work.ts";
  */
 export async function destroyTogether(records: readonly Model[], needs: string): Promise<void> {
   await pinBefore(linksOf(records), needs);
-  const refused = await writeTogether(records, prepareDestroy, needs);
+  const refused = await writeTogether(records, "destroy", needs);
   if (refused !== undefined) throw refusalError(refused.record, refused.plan, "destroy");
 }
 
 /**
- * Prepares each record's save or destroy, then writes them all as one: or, if one refuses, writes
- * nothing and returns it, with its plan.
+ * Prepares each record's save or destroy (as `kind` says), then writes them all as one: or, if one
+ * refuses, writes nothing and returns it, with its plan.
  */
 export async function writeTogether(
   records: readonly Model[],
-  prepare: (record: Model, claimed: Claimed) => Promise<SavePlan | DestroyPlan>,
+  kind: "save" | "destroy",
   needs: string,
 ): Promise<{ record: Model; plan: Exclude<SavePlan | DestroyPlan, Ready> } | undefined> {
-  const kind = prepare === prepareDestroy ? "destroy" : "save";
+  const prepare = kind === "destroy" ? prepareDestroy : prepareSave;
   return withClaimedRecords(
     async (claimed) => {
       const plans: Ready[] = [];

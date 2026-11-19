@@ -2,7 +2,6 @@
 import { savingGroups } from "./autosave.ts";
 import { RecordNotSaved } from "./errors.ts";
 import { pinBefore } from "./executor.ts";
-import { prepareSave } from "./lifecycle.ts";
 import { Model, modelOf } from "./model.ts";
 import type { AssociationCollection } from "./owned-collection.ts";
 import { countedOut } from "./owners-counter.ts";
@@ -103,7 +102,7 @@ async function push(hasMany: OwnersHasMany, records: Model[]): Promise<boolean> 
   await pinForSaving(records, needs);
   link(hasMany, records);
   // Saved as one write, as Rails' collection saves in a transaction: none if one refuses.
-  if ((await writeTogether(records, prepareSave, needs)) !== undefined) return false;
+  if ((await writeTogether(records, "save", needs)) !== undefined) return false;
   for (const record of records) collection.created(record);
   return true;
 }
@@ -224,5 +223,5 @@ async function pinForSaving(records: readonly Model[], needs: string): Promise<v
  */
 export async function saveTogether(records: readonly Model[], needs: string): Promise<boolean> {
   await pinForSaving(records, needs);
-  return (await writeTogether(records, prepareSave, needs)) === undefined;
+  return (await writeTogether(records, "save", needs)) === undefined;
 }
