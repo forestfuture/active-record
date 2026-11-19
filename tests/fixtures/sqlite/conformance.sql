@@ -49,3 +49,8 @@ CREATE TABLE reactions (id INTEGER PRIMARY KEY, reactable_type TEXT, reactable_i
 CREATE TABLE boards (id INTEGER PRIMARY KEY, pins_count INTEGER DEFAULT 0);
 CREATE TABLE cards (id INTEGER PRIMARY KEY);
 CREATE TABLE pins (id INTEGER PRIMARY KEY, board_id INTEGER REFERENCES boards (id), card_id INTEGER REFERENCES cards (id));
+-- A belongsTo's touch (#353): forums' discussions and discussions' messages, each touching its parent.
+CREATE TABLE forums (id INTEGER PRIMARY KEY, title TEXT, updated_at TEXT, last_activity_at TEXT);
+CREATE TABLE discussions (id INTEGER PRIMARY KEY, forum_id INTEGER, title TEXT, archived INTEGER DEFAULT 0, messages_count INTEGER DEFAULT 0, updated_at TEXT, last_message_at TEXT);
+CREATE TABLE messages (id INTEGER PRIMARY KEY, discussion_id INTEGER, body TEXT, updated_at TEXT);
+CREATE TABLE stickers (id INTEGER PRIMARY KEY, stickable_type TEXT, stickable_id INTEGER);

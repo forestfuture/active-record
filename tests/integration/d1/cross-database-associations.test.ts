@@ -185,6 +185,24 @@ class CountedEntry extends LogsRecord.define({
   user = belongsTo(User, { counterCache: "id" });
 }
 
+/** A user with a timestamp, which entries on another database would touch (#353). */
+class StampedUser extends DbRecord.define({
+  id: { type: "integer", null: false },
+  updatedAt: "datetime",
+}) {
+  static override table = "users";
+}
+
+/** Entries touching their user, on another database (#353). */
+class TouchingEntry extends LogsRecord.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+}) {
+  static override table = "entries";
+
+  user = belongsTo(StampedUser, { foreignKey: "userId", touch: true });
+}
+
 const schema = new URL("../../fixtures/cross-database/schema.sql", import.meta.url);
 
 let db: TestDatabase;
@@ -330,6 +348,18 @@ describe("a counter cache across databases (#61)", () => {
       expect(() => CountedEntry.all()).toThrow(
         new InvalidModel(
           'CountedEntry association "user" keeps a counter cache on another database, which it can\'t yet: CountedEntry and User must be on one',
+        ),
+      );
+    });
+  });
+});
+
+describe("a belongsTo's touch across databases (#353)", () => {
+  test("is an InvalidModel at first use: its touch couldn't be written in the record's batch", async () => {
+    await inRequest(async () => {
+      expect(() => TouchingEntry.all()).toThrow(
+        new InvalidModel(
+          'TouchingEntry association "user" touches a record on another database, which it can\'t yet: TouchingEntry and StampedUser must be on one',
         ),
       );
     });

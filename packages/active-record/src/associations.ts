@@ -25,6 +25,7 @@ import { collectionMethods, type CollectionMethods } from "./collection-methods.
 import { ownedCollection } from "./owned-collection.ts";
 import { pointLoadedBack } from "./point-back-at-owner.ts";
 import { ofOwner, type Relation, type Scoped } from "./relation.ts";
+import { checkTouch } from "./belongs-to-touch.ts";
 import { checkCounterCache } from "./counter-caches.ts";
 import { linkOf, resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
 
@@ -122,6 +123,8 @@ export interface AssociationDeclaration extends AssociationOptions, Partial<Thro
    * or the target's attribute's name.
    */
   counterCache?: true | string | { attribute?: string; active?: false };
+  /** A belongsTo's touch of its target (#353): `true`, or datetime attributes' names. */
+  touch?: true | string | readonly string[];
   /** The target Model, read when the association is first used (the field holds the class). */
   target: () => ModelClass;
   /**
@@ -261,6 +264,7 @@ function checkAssociation(
   checkOptional(label, definition);
   checkAutosave(label, definition);
   checkCounterCache(label, model, definition, targets);
+  checkTouch(label, model, definition, targets);
   checkInverseOf(label, { model, name, definition }, targets);
 }
 
