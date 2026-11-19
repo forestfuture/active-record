@@ -734,65 +734,57 @@ describe("a belongsTo's touch (#353)", () => {
       heard.length = 0;
     });
 
-    test("creating sets the count and the time in one UPDATE, and runs the touch's callbacks", async () => {
+    test("creating counts and touches the record, each by its own UPDATE", async () => {
       const events: QueryEvent[] = [];
 
       await recorded(events).model(CountedMessage).create({ discussionId: 1, body: "Hi" });
 
-      expect(statementKinds(events)).toEqual(["SELECT", "INSERT", "UPDATE"]);
+      expect(statementKinds(events)).toEqual(["SELECT", "INSERT", "UPDATE", "UPDATE"]);
       expect(Number(await counted(1))).toBe(1);
       expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
       expect(heard).toEqual(["afterTouch", "afterUpdateCommit"]);
     });
 
-    test("moving its key touches both in the counters' UPDATEs", async () => {
+    test("moving its key moves the count and touches both", async () => {
       await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
       await harness.exec("UPDATE discussions SET messages_count = 1 WHERE id = 1");
-      const events: QueryEvent[] = [];
-      const message = await recorded(events).model(CountedMessage).find(1);
+      const message = await db().model(CountedMessage).find(1);
       message.discussionId = 2;
-      events.length = 0;
 
       await message.saveOrThrow();
 
-      const writes = statementKinds(events).filter((kind) => kind !== "SELECT");
-      expect(writes).toEqual(["UPDATE", "UPDATE", "UPDATE"]);
       expect([Number(await counted(1)), Number(await counted(2))]).toEqual([0, 1]);
       expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
       expect(await updatedAt(2)).toEqual(await updatedAt(1));
     });
 
-    test("destroying touches in the counter's UPDATE", async () => {
+    test("destroying counts out and touches, in the DELETE's batch", async () => {
       await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
       await harness.exec("UPDATE discussions SET messages_count = 1 WHERE id = 1");
       const events: QueryEvent[] = [];
       const message = await recorded(events).model(CountedMessage).find(1);
-      events.length = 0;
-
-      await message.destroyOrThrow();
-
-      const writes = statementKinds(events).filter((kind) => kind !== "SELECT");
-      expect(writes).toEqual(["UPDATE", "DELETE"]);
-      expect(Number(await counted(1))).toBe(0);
-      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
-      expect(heard).toEqual(["afterTouch", "afterUpdateCommit"]);
-    });
-
-    test("destroying with an unsaved key change touches the row's record in its counter's UPDATE, and the new one by its own", async () => {
-      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
-      await harness.exec("UPDATE discussions SET messages_count = 1 WHERE id = 1");
-      const events: QueryEvent[] = [];
-      const message = await recorded(events).model(CountedMessage).find(1);
-      message.discussionId = 2;
       events.length = 0;
 
       await message.destroyOrThrow();
 
       const writes = statementKinds(events).filter((kind) => kind !== "SELECT");
       expect(writes).toEqual(["UPDATE", "DELETE", "UPDATE"]);
-      expect([Number(await counted(1)), Number(await counted(2))]).toEqual([0, 0]);
+      expect(Number(await counted(1))).toBe(0);
       expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
-      expect(await updatedAt(2)).toEqual(await updatedAt(1));
+      expect(heard).toEqual(["afterTouch", "afterUpdateCommit"]);
+    });
+
+    test("destroying a record whose row is gone counts nothing but still touches", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+      await harness.exec("UPDATE discussions SET messages_count = 1 WHERE id = 1");
+      const message = await db().model(CountedMessage).find(1);
+      await harness.exec("DELETE FROM messages WHERE id = 1");
+
+      await message.destroyOrThrow();
+
+      expect(Number(await counted(1))).toBe(1);
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(heard).toEqual(["afterTouch", "afterUpdateCommit"]);
     });
 
     test("a loaded record whose row is gone runs no commit callback", async () => {
@@ -805,24 +797,13 @@ describe("a belongsTo's touch (#353)", () => {
       expect(heard).toEqual(["afterTouch"]);
     });
 
-    test("an update that keeps the count touches by its own UPDATE", async () => {
-      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
-      const message = await db().model(CountedMessage).find(1);
-      message.body = "Edited";
-
-      await message.saveOrThrow();
-
-      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
-      expect(Number(await counted(1))).toBe(0);
-    });
-
-    test("one the default scope hides takes the time with its count, but runs no callback", async () => {
+    test("one the default scope hides is counted but not touched", async () => {
       await harness.exec("UPDATE discussions SET archived = 1 WHERE id = 1");
 
       await db().model(CountedMessage).create({ discussionId: 1, body: "Hi" });
 
       expect(Number(await counted(1))).toBe(1);
-      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(await updatedAt(1)).toEqual(stale);
       expect(heard).toEqual([]);
     });
   });
@@ -942,7 +923,7 @@ describe("a belongsTo's touch (#353)", () => {
       expect(heard).not.toContain("afterRollback");
     });
 
-    test("with a counter cache, holds the time its counter's UPDATE wrote", async () => {
+    test("with a counter cache, holds the time it was touched at", async () => {
       const message = db().model(CountedMessage).build({ body: "First" });
       const discussion = message.discussion.build({});
 

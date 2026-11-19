@@ -86,11 +86,6 @@ function keyCells(record: Model): unknown {
 /** How a touch write differs when another write makes it (#353). */
 export interface TouchWriteOptions {
   /**
-   * When another statement of the batch sets the values (a counter cache's UPDATE, #353): whether
-   * it wrote a row. The touch then sends nothing of its own.
-   */
-  isWrittenByCounter?: () => boolean;
-  /**
    * Whether the record keeps its `savedChanges`, asked as the touch commits: a record the same
    * write saves itself keeps its save's, for its own callbacks, as Rails' deferred touch does.
    */
@@ -104,7 +99,7 @@ export interface TouchWriteOptions {
 export function touchWrite(
   record: Model,
   values: Record<string, unknown>,
-  { isWrittenByCounter, keepsSavedChanges }: TouchWriteOptions = {},
+  { keepsSavedChanges }: TouchWriteOptions = {},
 ): PreparedWrite {
   const recordState = record[state];
   const model = modelOf(record);
@@ -112,15 +107,13 @@ export function touchWrite(
   return {
     // Compiled as it's sent: a record the same write inserts has its key by then.
     get statements() {
-      return isWrittenByCounter
-        ? []
-        : [compileUpdate(model, Object.entries(values), keyCells(record))];
+      return [compileUpdate(model, Object.entries(values), keyCells(record))];
     },
     commit: ([result]) => {
       recordState.assign(values);
       if (keepsSavedChanges?.()) recordState.commitColumns(Object.keys(values));
       else recordState.commitTouch(Object.keys(values));
-      isWritten = isWrittenByCounter ? isWrittenByCounter() : result?.rowsAffected === 1;
+      isWritten = result?.rowsAffected === 1;
     },
     after: () => runAfterCallbacks(record, "afterTouch", "touch"),
     afterCommit: async () => {
