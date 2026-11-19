@@ -65,17 +65,20 @@ class AdminAccount extends Account {
   }
 }
 
-/** What Gated's aroundSave does in place of `await next()`, set per test. */
+/** What Gated's aroundSave and aroundDestroy do in place of `await next()`, set per test. */
 let aroundSave: (next: () => Promise<void>) => Promise<void>;
+let aroundDestroy: (next: () => Promise<void>) => Promise<void>;
 
 class Gated extends Model.define({
   id: { type: "integer", null: false },
   email: "string",
+  updatedAt: "datetime",
 }) {
   static table = "users";
 
   static {
     this.aroundSave((_gated, next) => aroundSave(next));
+    this.aroundDestroy((_gated, next) => aroundDestroy(next));
     this.afterSave(() => void log.push("afterSave"));
     this.afterRollback(() => void log.push("afterRollback"));
   }
@@ -125,6 +128,22 @@ class Author extends Gated {
   posts = hasMany(RefusedPost, { foreignKey: "userId" });
 }
 
+class LoggedPost extends Model.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+  title: "string",
+}) {
+  static table = "posts";
+
+  static {
+    this.afterSave((post) => void log.push(`post afterSave ${post.title}`));
+  }
+}
+
+class Writer extends Gated {
+  posts = hasMany(LoggedPost, { foreignKey: "userId" });
+}
+
 /** An aroundSave that logs how `next()` settled. */
 const reporting = async (next: () => Promise<void>) => {
   try {
@@ -161,9 +180,10 @@ describe("around callbacks", () => {
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
-    await harness.reset("users");
+    await harness.reset("posts", "users");
     log.length = 0;
     aroundSave = (next) => next();
+    aroundDestroy = (next) => next();
   });
 
   test("aroundSave wraps a create: beforeCreate, the INSERT and afterCreate run inside it", async () => {
@@ -314,6 +334,27 @@ describe("around callbacks", () => {
     ]);
   });
 
+  // Guards: these pass since the slices that built them.
+  test("an owner's aroundSave finishes before its autosaved records' after-callbacks", async () => {
+    aroundSave = reporting;
+    const writer = harness.connect().model(Writer).build({ id: 1, email: "a@example.com" });
+    writer.posts().build({ id: 10, title: "First" });
+
+    await writer.saveOrThrow();
+
+    expect(log).toEqual(["next() resolved", "afterSave", "post afterSave First"]);
+  });
+
+  test("touch() runs no around callback", async () => {
+    const gated = await harness.connect().model(Gated).create({ id: 1, email: "a@example.com" });
+    log.length = 0;
+    aroundSave = reporting;
+
+    await gated.touch();
+
+    expect(log).toEqual([]);
+  });
+
   describe("stopping a save", () => {
     const gated = () => harness.connect().model(Gated);
     const rows = async () => harness.connect().model(Gated).count();
@@ -341,6 +382,16 @@ describe("around callbacks", () => {
         "next() rejected: CallbackAbort: An aroundSave callback didn't call next()",
       ]);
       expect(await rows()).toBe(0);
+    });
+
+    test("an aroundDestroy that doesn't call next() stops the destroy", async () => {
+      const record = await gated().create({ id: 1, email: "a@example.com" });
+      aroundDestroy = async () => {};
+
+      expect(await record.destroy()).toBe(false);
+      expect(record.abortReason).toBe("An aroundDestroy callback didn't call next()");
+      expect(record.isDestroyed()).toBe(false);
+      expect(await rows()).toBe(1);
     });
 
     test("an abort() before next() stops the save", async () => {
@@ -415,8 +466,6 @@ describe("around callbacks", () => {
   });
 
   describe("a write that's never sent", () => {
-    beforeEach(() => harness.reset("posts"));
-
     test("rejects next() with the batch's error when a later record refuses", async () => {
       aroundSave = reporting;
       const db = harness.connect();
