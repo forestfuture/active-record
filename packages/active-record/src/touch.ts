@@ -27,7 +27,7 @@ export function touchedValues(
   args: readonly unknown[],
   method: "touch" | "touchAll",
 ): Record<string, unknown> {
-  const { names, options } = splitTouchArguments(args);
+  const { names, options } = splitTouchArguments(args, `${model.name}.${method}`);
   const touched = touchAssignments(model, names.length === 0 ? true : names, method, options.time);
   if (touched.length === 0) {
     throw new TypeError(
@@ -38,16 +38,21 @@ export function touchedValues(
   return Object.fromEntries(touched);
 }
 
-/** The names in `touch`'s arguments, and the options after them. */
-function splitTouchArguments(args: readonly unknown[]): {
-  names: unknown[];
-  options: TouchOptions;
-} {
+/**
+ * The names in `touch`'s arguments, and the options after them, checked as untyped code could
+ * pass a Date for `{ time }`, or a misspelled option, which would touch at now unnoticed.
+ */
+function splitTouchArguments(
+  args: readonly unknown[],
+  method: string,
+): { names: unknown[]; options: TouchOptions } {
   const last = args.at(-1);
-  if (typeof last === "object" && last !== null) {
-    return { names: args.slice(0, -1), options: last as TouchOptions };
-  }
-  return { names: [...args], options: {} };
+  if (last instanceof Date) throw new TypeError(`${method} takes a time as { time }; got a Date`);
+  if (typeof last !== "object" || last === null) return { names: [...args], options: {} };
+  const unknown = Object.keys(last).filter((key) => key !== "time");
+  if (unknown.length > 0)
+    throw new TypeError(`${method} takes { time }; got ${unknown.join(", ")}`);
+  return { names: args.slice(0, -1), options: last as TouchOptions };
 }
 
 /**
