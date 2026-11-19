@@ -1,5 +1,6 @@
 // Records made through a Relation: `build`, `create`, `findOrInitializeBy`'s build and `createOrFindBy`'s create, each handed to its `init`.
 import { RecordNotUnique } from "./errors.ts";
+import { refuseThenable } from "./load-callbacks.ts";
 import { buildRecord, type AttributesOf, type Model, type ModelClass } from "./model.ts";
 import type { OwnedCollection } from "./owned-collection.ts";
 import { state } from "./record-state.ts";
@@ -22,30 +23,16 @@ export function buildThrough<M extends Model>(
   init: ((record: M) => void) | undefined,
 ): M {
   const record = recordToBuild(relation, attributes);
-  refuseThenable(relation.model, init?.(record));
+  refuseInitPromise(relation.model, init?.(record));
   relation.collection.built(record);
   return record;
 }
 
-/**
- * Throws `TypeError` for what a `build` `init` returned if it's a promise or another thenable,
- * which `build` can't await. Its rejection, if it has one, is handled here, so the `TypeError` is
- * the only error.
- */
-function refuseThenable(model: ModelClass, result: unknown): void {
-  if (!isThenable(result)) return;
-  void Promise.resolve(result).catch(() => {});
-  throw new TypeError(
+/** Throws `TypeError` if a `build` `init` returned a promise, which `build` can't await. */
+function refuseInitPromise(model: ModelClass, result: unknown): void {
+  refuseThenable(
+    result,
     `${model.name}.build(): init returned a promise, which build can't await; findOrInitializeBy and create await it`,
-  );
-}
-
-function isThenable(value: unknown): value is PromiseLike<unknown> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "then" in value &&
-    typeof value.then === "function"
   );
 }
 

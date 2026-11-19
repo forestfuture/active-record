@@ -54,7 +54,14 @@ export type AfterCallbackKind =
 /** Callbacks that run when the database refused a write it was sent. */
 type RollbackCallbackKind = "afterRollback";
 
-export type CallbackKind = BeforeCallbackKind | AfterCallbackKind | RollbackCallbackKind;
+/** Callbacks that run, synchronously, as a record is loaded from a row or built (#49). */
+export type LoadCallbackKind = "afterFind" | "afterInitialize";
+
+export type CallbackKind =
+  | BeforeCallbackKind
+  | AfterCallbackKind
+  | RollbackCallbackKind
+  | LoadCallbackKind;
 
 /** Callbacks that run last, once their record's write is kept. */
 export type CommitCallbackKind =
