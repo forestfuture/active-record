@@ -3,6 +3,7 @@ import {
   belongsTo,
   hasMany,
   Model,
+  RecordDestroyed,
   RecordNotSaved,
   withDatabase,
 } from "../../packages/active-record/src/index.ts";
@@ -36,6 +37,26 @@ class Message extends Model.define({
 }) {
   static table = "messages";
   discussion = belongsTo(Discussion, { touch: true, optional: true });
+}
+
+/** An app's base class, which its Models extend. */
+abstract class AppRecord extends Model {}
+
+/** A forum built on the app's base class. */
+class AppForum extends AppRecord.define({
+  id: { type: "integer", null: false },
+  updatedAt: "datetime",
+}) {
+  static table = "forums";
+}
+
+/** A discussion built on the app's base class, touching its forum. */
+class AppDiscussion extends AppRecord.define({
+  id: { type: "integer", null: false },
+  forumId: "integer",
+}) {
+  static table = "discussions";
+  forum = belongsTo(AppForum, { foreignKey: "forumId", touch: true });
 }
 
 /** A discussion of a Model extending Discussion, which Discussion's block covers. */
@@ -154,6 +175,16 @@ describe("noTouching (#496)", () => {
       expect(await updatedAtOf(Discussion, 1)).toEqual(stale);
     });
 
+    test("a record saved in a batch inside doesn't touch the record it belongs to", async () => {
+      const database = db();
+      const message = database.model(Message).build({ discussionId: 1, body: "Hi" });
+
+      await Discussion.noTouching(() => database.batch((b) => [b.save(message)]));
+
+      expect(message.isPersisted()).toBe(true);
+      expect(await updatedAtOf(Discussion, 1)).toEqual(stale);
+    });
+
     test("once the block has ended, its records are touched again", async () => {
       await Discussion.noTouching(() => undefined);
 
@@ -172,6 +203,14 @@ describe("noTouching (#496)", () => {
       await Model.noTouching(() => db().model(Message).create({ discussionId: 1, body: "Hi" }));
 
       expect(await updatedAtOf(Discussion, 1)).toEqual(stale);
+      expect(await updatedAtOf(Forum, 1)).toEqual(stale);
+    });
+
+    test("the app's base class turns off the touches of every Model built on it", async () => {
+      const discussions = db().model(AppDiscussion);
+
+      await AppRecord.noTouching(() => discussions.create({ forumId: 1 }));
+
       expect(await updatedAtOf(Forum, 1)).toEqual(stale);
     });
 
@@ -233,6 +272,9 @@ describe("noTouching (#496)", () => {
       await HeardDiscussion.noTouching(async () => {
         await expect(discussion.touch("title" as never)).rejects.toThrow(TypeError);
         await expect(db().model(HeardDiscussion).build().touch()).rejects.toThrow(RecordNotSaved);
+        const destroyed = await db().model(HeardDiscussion).find(1);
+        await destroyed.destroy();
+        await expect(destroyed.touch()).rejects.toThrow(RecordDestroyed);
       });
     });
   });
