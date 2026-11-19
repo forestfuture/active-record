@@ -696,6 +696,32 @@ describe("a belongsTo's touch (#353)", () => {
       expect(heard).not.toContain("afterUpdateCommit");
     });
 
+    test("a record the batch saves holds its row's time, no earlier than its save's", async () => {
+      /** A message whose beforeSave takes a while, as a slow callback or read can. */
+      class SlowMessage extends Model.define({
+        id: { type: "integer", null: false },
+        body: "string",
+      }) {
+        static table = "messages";
+        static {
+          // oxlint-disable-next-line active-record/no-fixed-delay -- the time passing is what's tested: the save's stamp comes after the touch is planned
+          this.beforeSave(() => new Promise<void>((resolve) => setTimeout(resolve, 20)));
+        }
+      }
+      const database = db();
+      const discussion = await database.model(Discussion).find(1);
+      discussion.title = "Renamed";
+      discussion.messages().build({ body: "Hi" });
+      const slow = database.model(SlowMessage).build({ body: "Slow" });
+
+      await database.batch((b) => [b.save(discussion), b.save(slow)]);
+
+      const row = (await updatedAt(1))!;
+      expect(discussion.updatedAt).toEqual(row);
+      const [, saved] = discussion.savedChangeTo("updatedAt")!;
+      expect(row.getTime()).toBeGreaterThanOrEqual((saved as Date).getTime());
+    });
+
     test("touch the record they belong to once", async () => {
       const events: QueryEvent[] = [];
       const database = recorded(events);
