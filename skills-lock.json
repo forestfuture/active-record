@@ -19,12 +19,6 @@
       "skillPath": "plugins/differential-review/skills/differential-review/SKILL.md",
       "computedHash": "3c330b7d8e2a7a6bba9ff9c7f9971d3b6c17fef84b9382efdd325abdd481371c"
     },
-    "documentation-writer": {
-      "source": "github/awesome-copilot",
-      "sourceType": "github",
-      "skillPath": "skills/documentation-writer/SKILL.md",
-      "computedHash": "ee53d65b163cd7eb953a930c95841cfe398cc2c0bd24c06508bbaa07c432be35"
-    },
     "domain-modeling": {
       "source": "mattpocock/skills",
       "sourceType": "github",

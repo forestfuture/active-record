@@ -61,7 +61,7 @@ A change users will notice (new behavior, a fix, a breaking change, a deprecatio
 
 The guide is in `site/docs/` (a [Blume](https://useblume.dev) site at [active-record.forestfuture.dev](https://active-record.forestfuture.dev), `vp run docs:dev`), and a change in behavior updates its page too. Each page sits in its sidebar group's folder (`(basics)/models.mdx` is `/models`), ordered by the group's `meta.ts`.
 
-- **Pages are organized by [Diátaxis](https://diataxis.fr/)**: tutorial, how-to guides, reference and background. A new page, or a page's new structure, starts from the `documentation-writer` skill: decide its type, audience and goal, and agree the outline in the issue.
+- **Every page stands on its own** ([docs-pages.md](docs/agents/docs-pages.md)): a one-sentence deck, an At a glance table, the Models its examples use, and examples that carry their imports. A new page, or a page's new structure, agrees its outline in the issue.
 - **Write in the guide's voice** ([docs-voice.md](docs/agents/docs-voice.md)): open with what the reader does, assume a competent developer, keep examples short, and put side facts in notes.
 - **Examples use d1-record's syntax**, even for features not built yet. Rails syntax appears only when comparing.
 - **Where d1-record goes beyond Rails or differs from it**, a Rails box says so.
