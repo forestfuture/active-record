@@ -145,7 +145,7 @@ this.afterInitialize((invoice) => {
 });
 ```
 
-- **`build` and `create`** run `afterInitialize` after their `init` function, so it sees what `init` set. Building through a `hasMany` or `hasOne` runs it once the record points at its owner.
+- **`build` and `create`** run `afterInitialize` after their `init` function, so it sees what `init` set. Building through a `hasMany` or `hasOne` runs it once the record points at its owner. Building through a `through` association runs the join record’s `afterInitialize` once it points at the record.
 - **Every load** runs `afterFind`, then `afterInitialize`: a query, an association read, a preload, and `reload()`. Preloaded associations aren’t attached yet when they run.
 - **Saving a record** runs neither, and neither does `new Invoice()`.
 
