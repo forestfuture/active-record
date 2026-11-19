@@ -588,6 +588,33 @@ describe("a belongsTo's touch (#353)", () => {
   });
 
   describe("several records in one write", () => {
+    beforeEach(() => {
+      heard.length = 0;
+    });
+
+    test("a record the batch saves after the one touching it runs its commit callbacks once", async () => {
+      const database = db();
+      const discussion = await database.model(HeardDiscussion).find(1);
+      const message = database.model(HeardMessage).build({ discussionId: 1, body: "Hi" });
+      discussion.title = "Renamed";
+
+      await database.batch((b) => [b.save(message), b.save(discussion)]);
+
+      expect(heard.filter((each) => each === "afterUpdateCommit")).toEqual(["afterUpdateCommit"]);
+    });
+
+    test("a record the batch destroys isn't touched: no afterTouch or update commit callback", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+      const database = db();
+      const discussion = await database.model(HeardDiscussion).find(1);
+      const message = await database.model(HeardMessage).find(1);
+
+      await database.batch((b) => [b.destroy(message), b.destroy(discussion)]);
+
+      expect(heard).not.toContain("afterTouch");
+      expect(heard).not.toContain("afterUpdateCommit");
+    });
+
     test("touch the record they belong to once", async () => {
       const events: QueryEvent[] = [];
       const database = recorded(events);

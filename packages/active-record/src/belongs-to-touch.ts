@@ -224,9 +224,27 @@ async function touchOne(
   if (session.touched.has(key)) return [];
   session.touched.add(key);
   const values = Object.fromEntries(touchAssignments(model, touch, "touch", session.time));
-  const write = touchWrite(target, values, {
-    runsCommitCallbacks: !claimed.has(target),
-    isCounted,
-  });
-  return [write, ...(await touchesOf(target, "touch", claimed))];
+  const write = touchWrite(target, values, { isCounted });
+  return [inWrite(write, target, claimed), ...(await touchesOf(target, "touch", claimed))];
+}
+
+/**
+ * A touch write as part of another record's write, asked once the write is kept, when every
+ * record of the write is claimed, by its row (another instance may be the one claimed): a row
+ * the write destroys runs no touch callback (Rails touches only a persisted record), and one it
+ * saves itself runs its update commit callbacks once, from its own save.
+ */
+function inWrite(write: PreparedWrite, target: Model, claimed: ReadonlySet<Model>): PreparedWrite {
+  const key = touchKey(target);
+  const sameRow = () => [...claimed].filter((each) => touchKey(each) === key);
+  const isDestroyed = () => sameRow().some((each) => each[state].isDestroyed);
+  return {
+    ...write,
+    after: async () => {
+      if (!isDestroyed()) await write.after();
+    },
+    afterCommit: async () => {
+      if (sameRow().length === 0) await write.afterCommit?.();
+    },
+  };
 }
