@@ -266,4 +266,65 @@ describe("noTouching (#496)", () => {
       expect(discussion.updatedAt).toEqual(stale);
     });
   });
+
+  describe("where it applies", () => {
+    test("work running at the same time outside the block still touches", async () => {
+      await harness.exec(
+        "INSERT INTO discussions (id, forum_id, title, updated_at) VALUES (2, 1, 'Two', ?)",
+        [stale.toISOString()],
+      );
+      const messages = db().model(Message);
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+
+      const inside = Discussion.noTouching(async () => {
+        await held;
+        await messages.create({ discussionId: 1, body: "Inside" });
+      });
+      const outside = messages.create({ discussionId: 2, body: "Outside" });
+      await outside;
+      release();
+      await inside;
+
+      expect(await updatedAtOf(Discussion, 1)).toEqual(stale);
+      expect(await updatedAtOf(Discussion, 2)).not.toEqual(stale);
+    });
+
+    test("nested blocks add their Models, and the outer one's stay off after an inner ends", async () => {
+      const messages = db().model(Message);
+
+      await Forum.noTouching(async () => {
+        await Discussion.noTouching(() => messages.create({ discussionId: 1, body: "Hi" }));
+        expect(await updatedAtOf(Discussion, 1)).toEqual(stale);
+        await messages.create({ discussionId: 1, body: "Again" });
+      });
+
+      expect(await updatedAtOf(Discussion, 1)).not.toEqual(stale);
+      expect(await updatedAtOf(Forum, 1)).toEqual(stale);
+    });
+
+    test("withDatabase inside or around it keeps both", async () => {
+      const database = db();
+      await withDatabase(database, () =>
+        Discussion.noTouching(() =>
+          withDatabase(database, () => Message.create({ discussionId: 1, body: "Hi" })),
+        ),
+      );
+
+      expect(await updatedAtOf(Discussion, 1)).toEqual(stale);
+    });
+
+    test("a function that throws rejects with its error, and the block ends", async () => {
+      const failure = new Error("import failed");
+
+      await expect(
+        Discussion.noTouching(() => {
+          throw failure;
+        }),
+      ).rejects.toBe(failure);
+      await db().model(Message).create({ discussionId: 1, body: "Hi" });
+
+      expect(await updatedAtOf(Discussion, 1)).not.toEqual(stale);
+    });
+  });
 });
