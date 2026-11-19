@@ -141,6 +141,8 @@ export async function touchesOf(
   claimed: ReadonlySet<Model>,
   kinds: readonly TouchingKind[] = ["belongsTo", "hasOne"],
 ): Promise<PreparedWrite[]> {
+  // A destroyed row takes no touch back from the records it touches (Rails touches only a persisted one).
+  if (cause === "destroy") sessionOf(claimed).touched.add(touchKey(record));
   const writes: PreparedWrite[] = [];
   const model = modelOf(record);
   for (const [name, definition] of associationsOf(model)) {
