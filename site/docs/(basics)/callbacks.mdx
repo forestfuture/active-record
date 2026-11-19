@@ -1,13 +1,13 @@
 ---
 title: Callbacks
-description: "Registering callbacks, running validation callbacks only on create or update, the order they run in, commit and rollback callbacks, the callbacks a touch runs, abort() to stop a save or destroy, and the callbacks not built yet."
+description: "Registering callbacks, running validation callbacks only on create or update, the order they run in, commit and rollback callbacks, the callbacks a touch runs, callbacks for every record built or loaded, abort() to stop a save or destroy, and the callbacks not built yet."
 ---
 
 Callbacks run your code at points in a record’s lifecycle, such as before it’s validated or after it’s saved.
 
 ## Registering callbacks
 
-Register callbacks in a Model’s `static {}` block. Each receives the record, and may be async:
+Register callbacks in a Model’s `static {}` block. Each receives the record, and may be async, except the [callbacks for a record built or loaded](#running-code-when-a-record-is-built-or-loaded):
 
 <include>/_excerpts/guide/callbacks/callbacks.ts</include>
 
@@ -60,6 +60,9 @@ Once a Model has been used, registering another callback throws `InvalidModel`, 
 | 2              | `afterSaveCommit`    | Last, when `touch()` wrote a row                         | Too late: `AbortAfterPersistence` |
 | **Refused**    |                      |                                                          |                                   |
 | 1              | `afterRollback`      | When the database refuses the save or destroy            | Nothing to stop                   |
+| **Loading**    |                      |                                                          |                                   |
+| 1              | `afterFind`          | After a record is loaded                                 | Nothing to stop                   |
+| 2              | `afterInitialize`    | After a record is loaded, or built                       | Nothing to stop                   |
 
 A save runs either the create pair or the update pair, never both.
 
@@ -132,6 +135,34 @@ The record keeps its unsaved state, and no after-callback or commit callback run
 An error thrown by an `afterRollback` reaches the caller in place of the constraint error, which becomes its `cause`. The `afterRollback` callbacks after it don’t run.
 :::
 
+## Running code when a record is built or loaded
+
+`afterInitialize` runs for every record you build and every record you load. `afterFind` runs for every record you load, just before `afterInitialize`:
+
+```ts
+this.afterInitialize((invoice) => {
+  if (invoice.isNewRecord()) invoice.currency ??= currencyFor(invoice.country);
+});
+```
+
+- **`build` and `create`** run `afterInitialize` after their `init` function, so it sees what `init` set. Building through an association runs it once the record points at its owner.
+- **Every load** runs `afterFind`, then `afterInitialize`: a query, an association read, a preload, and `reload()`. Preloaded associations aren’t attached yet when they run.
+- **Saving a record** runs neither, and neither does `new Invoice()`.
+
+Both callbacks run synchronously, since `build` can’t wait for them. An `async` one is a type error. An error thrown by either reaches the caller, and the query returns no records.
+
+### Handling partial records
+
+A record loaded with [`select`](./querying#selecting-attributes) runs both callbacks too, and reading an attribute it left out throws `MissingAttribute`. Check with `hasAttribute` first:
+
+```ts
+this.afterFind((invoice) => {
+  if (invoice.hasAttribute("total") && invoice.total > 10_000) {
+    console.info(`Large invoice ${invoice.id} loaded`);
+  }
+});
+```
+
 ## Stopping a save
 
 Throw `abort(reason)` from a before-callback to stop a save or destroy:
@@ -159,7 +190,6 @@ In an after-callback, the write has already happened, so `abort()` throws `Abort
 These callbacks aren’t in Active Record yet. The code shows the shape they’re likely to take.
 
 - **Around callbacks** ([#48](https://github.com/forestfuture/active-record/issues/48)): `this.aroundSave(async (record, proceed) => { …; await proceed(); … })`, and `aroundCreate`, `aroundUpdate`, and `aroundDestroy`.
-- **`afterInitialize` and `afterFind`** ([#49](https://github.com/forestfuture/active-record/issues/49)): for every record built or loaded, and every record loaded.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
@@ -168,6 +198,8 @@ These callbacks aren’t in Active Record yet. The code shows the shape they’r
 `after_touch` is `afterTouch`. As in Rails, `touch` runs the commit callbacks too.
 
 `after_rollback` is `afterRollback`. Rails also runs it for a save that fails inside a transaction. Here it runs only when the database refuses a write, since validation and the before-callbacks run before anything is sent.
+
+`after_initialize` and `after_find` are `afterInitialize` and `afterFind`, and run in the same order. Here they can’t be async. `new Invoice()` doesn’t run `afterInitialize`, where Rails’ `new` does: build records through the Model instead, with `Invoice.build()`. `reload()` runs both on the record itself, where Rails runs them on a fresh copy and takes its attributes. `has_attribute?` is `hasAttribute`.
 
 Rails’ `if:` and `unless:` options for callbacks aren’t needed: write the condition inside the callback.
 
