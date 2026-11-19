@@ -1,6 +1,6 @@
 // Around callbacks (#48): `aroundSave`, `aroundCreate`, `aroundUpdate` and `aroundDestroy`, each wrapping the rest of its record's save or destroy, waiting at `next()` while the write's batch is sent.
 import { runAfterCallbacks, runCallbacks } from "./callbacks.ts";
-import { declared, type AroundCallbackKind } from "./declarations.ts";
+import { declared, type AroundCallback, type AroundCallbackKind } from "./declarations.ts";
 import { abort, AbortAfterPersistence, CallbackAbort } from "./errors.ts";
 import { modelOf, type Model } from "./model.ts";
 
@@ -145,35 +145,57 @@ async function around(
 ): Promise<void> {
   const callbacks = declared(modelOf(record), kind);
   let inner: Promise<void> | undefined;
-  const at = async (index: number): Promise<void> => {
-    if (index === callbacks.length) {
-      inner = inside();
-      return inner;
-    }
-    try {
-      await callbacks[index]!(
-        record,
-        nextOnce(kind, () => at(index + 1)),
-      );
-    } catch (error) {
-      if (error instanceof CallbackAbort && gate.isOpen) {
-        throw new AbortAfterPersistence(kind, lifecycleOf(kind), error);
-      }
-      throw error;
-    }
+  const runFrom = (index: number): Promise<void> => {
+    if (index === callbacks.length) return (inner = inside());
+    return runOne({ record, kind, gate }, callbacks[index]!, () => runFrom(index + 1));
   };
-  await at(0);
-  if (inner === undefined) throw abort(`An ${kind} callback didn't call next()`);
+  await runFrom(0);
+  // Awaited here too, for a callback that called next() without awaiting it.
   await inner;
 }
 
+/** The record an around callback wraps the write of, its kind, and the write's gate. */
+interface Wrapping {
+  record: Model;
+  kind: AroundCallbackKind;
+  gate: WriteGate;
+}
+
+/**
+ * Runs one around callback, its `next` running `rest`. One that doesn't call `next` stops the
+ * write as `abort()` does, so the `next()` of a callback outside it rejects. Once the write is
+ * kept, an `abort()` in it is `AbortAfterPersistence`.
+ */
+async function runOne(
+  { record, kind, gate }: Wrapping,
+  callback: AroundCallback<Model>,
+  rest: () => Promise<void>,
+): Promise<void> {
+  const next = nextOnce(kind, rest);
+  try {
+    await callback(record, next.call);
+  } catch (error) {
+    if (error instanceof CallbackAbort && gate.isOpen) {
+      throw new AbortAfterPersistence(kind, lifecycleOf(kind), error);
+    }
+    throw error;
+  }
+  if (!next.isCalled()) throw abort(`An ${kind} callback didn't call next()`);
+}
+
 /** `next` for one around callback: runs `rest` the first time; `TypeError` after that. */
-function nextOnce(kind: AroundCallbackKind, rest: () => Promise<void>): () => Promise<void> {
+function nextOnce(
+  kind: AroundCallbackKind,
+  rest: () => Promise<void>,
+): { call: () => Promise<void>; isCalled: () => boolean } {
   let isCalled = false;
-  return () => {
-    if (isCalled) return Promise.reject(new TypeError(`${kind}: next() was already called`));
-    isCalled = true;
-    return rest();
+  return {
+    call: () => {
+      if (isCalled) return Promise.reject(new TypeError(`${kind}: next() was already called`));
+      isCalled = true;
+      return rest();
+    },
+    isCalled: () => isCalled,
   };
 }
 
