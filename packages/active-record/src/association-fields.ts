@@ -95,7 +95,8 @@ interface HasOneTouchOptions<C extends ModelClass> {
    * Touches the record when this one is updated, destroyed or touched (not created), in the
    * same batch: `true` sets its `updatedAt`, and a datetime attribute's name, or a list, sets
    * those too. The record is loaded first, so its `afterTouch` and commit callbacks run. A
-   * record the same write saves or removes is left to that write.
+   * record this one's own save writes (built through it, or autosaved), or its `dependent`
+   * removes, is left to that write.
    */
   touch?: TouchedAttributes<C>;
 }
