@@ -1,6 +1,6 @@
 // `noTouching` (#496): the Models whose records aren't touched inside a block, held in an AsyncLocalStorage of its own (ADR-0012), and asking whether a record's Model is one.
 import { ActiveRecordError } from "./errors.ts";
-import { newAsyncStorage, NODE_COMPATIBILITY, type Storage } from "./request-store.ts";
+import { newAsyncStorage, NODE_COMPATIBILITY, type Storage } from "./async-storage.ts";
 
 /** The Models whose touches are off, the outermost block's first. */
 type TurnedOff = readonly (abstract new (...args: never) => object)[];
