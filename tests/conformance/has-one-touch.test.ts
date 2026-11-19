@@ -261,6 +261,17 @@ describe("a hasOne's touch (#497)", () => {
   });
 
   describe("destroying its owner", () => {
+    test("its record touching the owner back sends nothing to the deleted row", async () => {
+      const events: QueryEvent[] = [];
+      const forum = await recorded(events).model(TouchedForum).find(1);
+      events.length = 0;
+
+      await forum.destroy();
+
+      const writes = statementKinds(events).filter((kind) => kind !== "SELECT");
+      expect(writes).toEqual(["DELETE", "UPDATE"]);
+    });
+
     test("with no dependent, its record is touched", async () => {
       const forum = await db().model(Forum).find(1);
 

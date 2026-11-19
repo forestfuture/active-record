@@ -645,6 +645,21 @@ describe("a belongsTo's touch (#353)", () => {
     });
   });
 
+  describe("a destroyed record touched back", () => {
+    test("a record its destroyed record touches doesn't touch it back", async () => {
+      await harness.exec("UPDATE discussions SET forum_id = 2 WHERE id = 1");
+      await harness.exec("UPDATE discussions SET forum_id = 1 WHERE id = 2");
+      const events: QueryEvent[] = [];
+      const followUp = await recorded(events).model(FollowUp).find(1);
+      events.length = 0;
+
+      await followUp.destroy();
+
+      const writes = statementKinds(events).filter((kind) => kind !== "SELECT");
+      expect(writes).toEqual(["DELETE", "UPDATE"]);
+    });
+  });
+
   describe("several records in one write", () => {
     beforeEach(() => {
       heard.length = 0;
