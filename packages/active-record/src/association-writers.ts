@@ -245,7 +245,8 @@ function buildOne(
   const { [association.definition.foreignKey]: _given, ...rest } = attributes;
   // Built from the association's records, so it starts with its scope's equality values (#453),
   // pointing at its owner as `build`'s init, so its afterInitialize sees the key (#49). The owner
-  // adopts it only once built: a callback that throws leaves the owner as it was.
+  // adopts it only once built: a callback that throws leaves the owner as it was. Adopting writes
+  // the key again, so the owner's key wins over one the callback set, as it does on `set`.
   const record = association
     .all(owner[state].executor)
     .build(rest as never, (built: Model) => pointAtOwner(owner, association, built));
