@@ -359,7 +359,7 @@ Load only some attributes with `select`. The primary key is always loaded too, s
 
 <include>/_excerpts/guide/querying/select.ts</include>
 
-- Reading an attribute that wasn’t loaded throws `MissingAttribute`, including from a validator or callback.
+- Reading an attribute that wasn’t loaded throws `MissingAttribute`, including from a validator or callback. `record.hasAttribute("email")` says whether it was loaded.
 - Saving a partial record writes only what changed. `reload()` loads the whole row.
 - After `distinct()`, the primary key isn’t added, since it would make every row distinct, so those records can’t be saved.
 
