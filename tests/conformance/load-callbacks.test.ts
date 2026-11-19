@@ -80,6 +80,30 @@ class Contact extends Model.define({
   }
 }
 
+class Board extends Model.define({ id: { type: "integer", null: false } }) {
+  static table = "boards";
+  pins = hasMany(Pin);
+  cards = hasMany(Card, { through: "pins" });
+}
+
+class Card extends Model.define({ id: { type: "integer", null: false } }) {
+  static table = "cards";
+}
+
+class Pin extends Model.define({
+  id: { type: "integer", null: false },
+  boardId: "integer",
+  cardId: "integer",
+}) {
+  static table = "pins";
+  board = belongsTo(Board);
+  card = belongsTo(Card);
+
+  static {
+    this.afterInitialize((pin) => void log.push(`afterInitialize pin of card ${pin.cardId}`));
+  }
+}
+
 describe("afterFind and afterInitialize", () => {
   let harness: Harness;
   const people = () => harness.connect().model(Person);
@@ -89,7 +113,7 @@ describe("afterFind and afterInitialize", () => {
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
-    await harness.reset("posts", "profiles", "users");
+    await harness.reset("pins", "cards", "boards", "posts", "profiles", "users");
     await harness.exec("INSERT INTO users (id, email) VALUES (1, 'a@example.com')");
     await harness.exec("INSERT INTO users (id, email) VALUES (2, 'b@example.com')");
     log.length = 0;
@@ -269,5 +293,14 @@ describe("afterFind and afterInitialize", () => {
 
     expect(person.loaded("bio")?.id).toBe(5);
     expect(await harness.connect().model(Bio).pluck("id")).toEqual([5]);
+  });
+
+  test("a join record built through a through hasMany already points at its record", async () => {
+    await harness.exec("INSERT INTO boards (id) VALUES (1)");
+    const board = await harness.connect().model(Board).find(1);
+
+    board.cards().build({ id: 7 });
+
+    expect(log).toEqual(["afterInitialize pin of card 7"]);
   });
 });
