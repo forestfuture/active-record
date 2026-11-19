@@ -606,7 +606,9 @@ export class Model extends AttributeWrites {
 
   /**
    * Deletes the row and resolves to this record, now a read-only destroyed snapshot.
-   * A row that's already gone still counts. `false` means a `beforeDestroy` callback aborted.
+   * A row that's already gone still counts. `false` means a `beforeDestroy` or `aroundDestroy`
+   * callback aborted (or an `aroundDestroy` didn't call `next()`), or a `restrictWithError`
+   * association refused.
    */
   async destroy(): Promise<this | false> {
     return (await destroyLifecycle(this)).status === "destroyed" ? this : false;
