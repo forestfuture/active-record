@@ -196,18 +196,22 @@ describe("noTouching (#496)", () => {
       expect(await updatedAtOf(Discussion, 1)).not.toEqual(stale);
     });
 
-    test("a polymorphic belongsTo reads its record only when a Model it lists is touched", async () => {
+    /** A sticker on discussion 1, created inside `model`'s block, and the statements it sent. */
+    const stickerInside = async (model: typeof Model) => {
       const events: QueryEvent[] = [];
       const stickers = recorded(events).model(Sticker);
-      const onDiscussion = { stickableType: "Discussion", stickableId: 1 };
+      await model.noTouching(() =>
+        stickers.create({ stickableType: "Discussion", stickableId: 1 }),
+      );
+      return statementKinds(events);
+    };
 
-      await Model.noTouching(() => stickers.create(onDiscussion));
-      const unread = statementKinds(events);
-      events.length = 0;
-      await Forum.noTouching(() => stickers.create(onDiscussion));
+    test("a polymorphic belongsTo whose every Model is covered doesn't read", async () => {
+      expect(await stickerInside(Model)).toEqual(["INSERT"]);
+    });
 
-      expect(unread).toEqual(["INSERT"]);
-      expect(statementKinds(events)).toContain("SELECT");
+    test("a polymorphic belongsTo with a Model still touched reads, and touches", async () => {
+      expect(await stickerInside(Forum)).toContain("SELECT");
       expect(await updatedAtOf(Discussion, 1)).not.toEqual(stale);
     });
 
