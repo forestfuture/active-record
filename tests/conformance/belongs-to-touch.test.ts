@@ -116,6 +116,7 @@ class CountingDiscussion extends Model.define({
   static {
     this.defaultScope((q) => q.where({ archived: false }));
     this.afterTouch(() => void heard.push("afterTouch"));
+    this.afterUpdateCommit(() => void heard.push("afterUpdateCommit"));
   }
 }
 
@@ -653,7 +654,7 @@ describe("a belongsTo's touch (#353)", () => {
       heard.length = 0;
     });
 
-    test("creating sets the count and the time in one UPDATE, and runs afterTouch", async () => {
+    test("creating sets the count and the time in one UPDATE, and runs the touch's callbacks", async () => {
       const events: QueryEvent[] = [];
 
       await recorded(events).model(CountedMessage).create({ discussionId: 1, body: "Hi" });
@@ -661,7 +662,7 @@ describe("a belongsTo's touch (#353)", () => {
       expect(statementKinds(events)).toEqual(["SELECT", "INSERT", "UPDATE"]);
       expect(Number(await counted(1))).toBe(1);
       expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
-      expect(heard).toEqual(["afterTouch"]);
+      expect(heard).toEqual(["afterTouch", "afterUpdateCommit"]);
     });
 
     test("destroying and moving touch in the counters' UPDATEs", async () => {
@@ -686,6 +687,16 @@ describe("a belongsTo's touch (#353)", () => {
       expect([Number(await counted(1)), Number(await counted(2))]).toEqual([0, 0]);
       expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
       expect((await updatedAt(2))!.getTime()).toBeGreaterThan(stale.getTime());
+    });
+
+    test("a loaded record whose row is gone runs no commit callback", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+      const [message] = await db().model(CountedMessage).includes("discussion").toArray();
+      await harness.exec("DELETE FROM discussions WHERE id = 1");
+
+      await message!.destroyOrThrow();
+
+      expect(heard).toEqual(["afterTouch"]);
     });
 
     test("an update that keeps the count touches by its own UPDATE", async () => {

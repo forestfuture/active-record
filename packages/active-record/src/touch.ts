@@ -74,10 +74,10 @@ export async function touchRecord(record: Model, args: readonly unknown[]): Prom
 /** How a touch write differs when another write makes it (#353). */
 export interface TouchWriteOptions {
   /**
-   * Whether a counter cache's UPDATE, in the same batch, sets the values: then the touch sends
-   * nothing of its own, and its record takes them once the batch is written.
+   * When another statement of the batch sets the values (a counter cache's UPDATE, #353): whether
+   * it wrote a row. The touch then sends nothing of its own.
    */
-  isCounted?: boolean;
+  writtenBy?: () => boolean;
 }
 
 /**
@@ -87,19 +87,19 @@ export interface TouchWriteOptions {
 export function touchWrite(
   record: Model,
   values: Record<string, unknown>,
-  { isCounted = false }: TouchWriteOptions = {},
+  { writtenBy }: TouchWriteOptions = {},
 ): PreparedWrite {
   const recordState = record[state];
   const model = modelOf(record);
   let isWritten = false;
   return {
-    statements: isCounted
+    statements: writtenBy
       ? []
       : [compileUpdate(model, Object.entries(values), recordState.storedKey)],
     commit: ([result]) => {
       recordState.assign(values);
       recordState.commitTouch(Object.keys(values));
-      isWritten = isCounted || result?.rowsAffected === 1;
+      isWritten = writtenBy ? writtenBy() : result?.rowsAffected === 1;
     },
     after: () => runAfterCallbacks(record, "afterTouch", "touch"),
     afterCommit: async () => {
