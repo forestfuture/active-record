@@ -52,6 +52,15 @@ class TouchedForum extends Model.define({
   discussion = hasOne(HeardDiscussion, { foreignKey: "forumId", touch: true });
 }
 
+/** A forum saving its discussion's changes with its own. */
+class AutosavingForum extends Model.define({
+  id: { type: "integer", null: false },
+  title: "string",
+}) {
+  static table = "forums";
+  discussion = hasOne(HeardDiscussion, { foreignKey: "forumId", touch: true, autosave: true });
+}
+
 /** Forums whose discussion goes with them, or stays, as their dependent says. */
 class DestroyingForum extends Model.define({ id: { type: "integer", null: false } }) {
   static table = "forums";
@@ -224,6 +233,32 @@ describe("a hasOne's touch (#497)", () => {
       await expect(refused).rejects.toThrow();
       expect(heard).toEqual(["afterRollback"]);
       expect(await updatedAt(1)).toEqual(stale);
+    });
+  });
+
+  describe("a record the same write saves", () => {
+    test("a new one built through the owner is inserted, not touched", async () => {
+      const forum = await db().model(TouchedForum).find(1);
+      const built = forum.discussion.build();
+      forum.title = "Renamed";
+
+      await forum.saveOrThrow();
+
+      expect(built.isPersisted()).toBe(true);
+      expect(heard).not.toContain("afterTouch");
+    });
+
+    test("a changed one the owner autosaves is saved, not touched", async () => {
+      const forum = await db().model(AutosavingForum).find(1);
+      const discussion = (await forum.discussion())!;
+      forum.title = "Renamed";
+      const time = new Date("2030-01-01T00:00:00.000Z");
+      discussion.updatedAt = time;
+
+      await forum.saveOrThrow();
+
+      expect(heard).not.toContain("afterTouch");
+      expect(await updatedAt(1)).toEqual(time);
     });
   });
 });
