@@ -297,10 +297,16 @@ describe("noTouching (#496)", () => {
       await HeardDiscussion.noTouching(async () => {
         await expect(discussion.touch("title" as never)).rejects.toThrow(TypeError);
         await expect(db().model(HeardDiscussion).build().touch()).rejects.toThrow(RecordNotSaved);
-        const destroyed = await db().model(HeardDiscussion).find(1);
-        await destroyed.destroy();
-        await expect(destroyed.touch()).rejects.toThrow(RecordDestroyed);
       });
+    });
+
+    test("on a destroyed record, it still throws RecordDestroyed", async () => {
+      const destroyed = await db().model(HeardDiscussion).find(1);
+      await destroyed.destroy();
+
+      const touched = HeardDiscussion.noTouching(() => destroyed.touch());
+
+      await expect(touched).rejects.toThrow(RecordDestroyed);
     });
   });
 
