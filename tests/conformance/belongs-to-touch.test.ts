@@ -77,6 +77,34 @@ class HeardMessage extends Model.define({
   }
 }
 
+/** A discussion touching its forum's lastActivityAt, as its messages touch it. */
+class ActiveDiscussion extends Model.define({
+  id: { type: "integer", null: false },
+  forumId: "integer",
+  updatedAt: "datetime",
+}) {
+  static table = "discussions";
+  forum = belongsTo(Forum, { touch: "lastActivityAt", optional: true });
+}
+
+class ActiveMessage extends Model.define({
+  id: { type: "integer", null: false },
+  discussionId: "integer",
+}) {
+  static table = "messages";
+  discussion = belongsTo(ActiveDiscussion, { foreignKey: "discussionId", touch: true });
+}
+
+/** A discussion following up another, which it touches: two can follow up each other. */
+class FollowUp extends Model.define({
+  id: { type: "integer", null: false },
+  forumId: "integer",
+  updatedAt: "datetime",
+}) {
+  static table = "discussions";
+  previous = belongsTo(FollowUp, { foreignKey: "forumId", touch: true, optional: true });
+}
+
 /** A discussion destroying its messages with it. */
 class ClosingDiscussion extends Model.define({
   id: { type: "integer", null: false },
@@ -473,6 +501,50 @@ describe("a belongsTo's touch (#353)", () => {
       expect(discussion.isChanged()).toBe(false);
       expect(heard).toEqual(["afterRollback"]);
       expect(await updatedAt(1)).toEqual(stale);
+    });
+  });
+
+  describe("touching in turn", () => {
+    beforeEach(async () => {
+      await harness.exec("INSERT INTO forums (id, title, updated_at) VALUES (1, 'General', ?)", [
+        stale.toISOString(),
+      ]);
+      await harness.exec("UPDATE discussions SET forum_id = 1 WHERE id = 1");
+    });
+
+    test("a touched record touches the records its own touch reaches", async () => {
+      const events: QueryEvent[] = [];
+
+      await recorded(events).model(ActiveMessage).create({ discussionId: 1 });
+
+      expect(statementKinds(events)).toEqual(["SELECT", "SELECT", "INSERT", "UPDATE", "UPDATE"]);
+      const forum = await db().model(Forum).find(1);
+      expect(forum.lastActivityAt!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(forum.updatedAt).toEqual(await updatedAt(1));
+    });
+
+    test("touch() touches the records its belongsTos' touch reaches", async () => {
+      const discussion = await db().model(ActiveDiscussion).find(1);
+
+      await discussion.touch();
+
+      const forum = await db().model(Forum).find(1);
+      expect(forum.lastActivityAt!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(forum.updatedAt).toEqual(discussion.updatedAt);
+    });
+
+    test("each record is touched once, when they touch each other", async () => {
+      await harness.exec("UPDATE discussions SET forum_id = 2 WHERE id = 1");
+      await harness.exec("UPDATE discussions SET forum_id = 1 WHERE id = 2");
+      const events: QueryEvent[] = [];
+      const followUp = await recorded(events).model(FollowUp).find(1);
+      events.length = 0;
+
+      await followUp.touch();
+
+      const writes = statementKinds(events).filter((kind) => kind !== "SELECT");
+      expect(writes).toEqual(["UPDATE", "UPDATE"]);
+      expect(await updatedAt(2)).toEqual(followUp.updatedAt);
     });
   });
 });
