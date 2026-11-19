@@ -12,7 +12,7 @@ import {
   takeReplaced,
 } from "./has-one-replacement.ts";
 import { pointBackAtOwner } from "./point-back-at-owner.ts";
-import { runInitializeCallbacks } from "./load-callbacks.ts";
+import { runBuiltCallbacks } from "./load-callbacks.ts";
 import { buildRecord, type Model } from "./model.ts";
 import { state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
@@ -30,7 +30,7 @@ export function belongsToAccessor(owner: Model, association: ResolvedAssociation
   // On the target's database, which is the owner's unless the association crosses to another.
   const make = (attributes: Record<string, unknown>) => {
     const record = buildRecord(association.target, attributes, targetDatabase(owner, association));
-    runInitializeCallbacks(record);
+    runBuiltCallbacks(record);
     return record;
   };
   // Saved first, so the owner points at its new key (the owner itself isn't saved).

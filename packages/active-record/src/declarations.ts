@@ -55,13 +55,13 @@ export type AfterCallbackKind =
 type RollbackCallbackKind = "afterRollback";
 
 /** Callbacks that run, synchronously, as a record is loaded from a row or built (#49). */
-export type LoadCallbackKind = "afterFind" | "afterInitialize";
+export type SyncCallbackKind = "afterFind" | "afterInitialize";
 
 export type CallbackKind =
   | BeforeCallbackKind
   | AfterCallbackKind
   | RollbackCallbackKind
-  | LoadCallbackKind;
+  | SyncCallbackKind;
 
 /** Callbacks that run last, once their record's write is kept. */
 export type CommitCallbackKind =

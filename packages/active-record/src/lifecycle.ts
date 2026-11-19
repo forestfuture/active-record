@@ -1,5 +1,5 @@
 // Saving and destroying a record: validation, the callback order, and preparing the writes.
-import { runFindCallbacks } from "./load-callbacks.ts";
+import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { isAssociationValid } from "./associated-validation.ts";
 import { contextsOf, type ValidationContexts } from "./validation-context.ts";
 import { requireKnownContexts } from "./listed-contexts.ts";
@@ -416,5 +416,5 @@ export async function reloadRecord(record: Model): Promise<void> {
   recordState.clearAssociations();
   recordState.isMarkedForDestruction = false;
   recordState.loadRow(row);
-  runFindCallbacks(record);
+  runLoadedCallbacks(record);
 }

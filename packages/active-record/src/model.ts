@@ -21,7 +21,7 @@ import { defaultFilterAttributes, type FilterAttribute } from "./filtering.ts";
 import type { Errors } from "./errors-collection.ts";
 import { humanAttributeName, type ErrorMessages } from "./error-messages.ts";
 import { declare } from "./declarations.ts";
-import { runFindCallbacks } from "./load-callbacks.ts";
+import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
   destroyLifecycle,
@@ -795,7 +795,7 @@ export function hydrate<M extends Model>(
   const record = newRecord(model);
   record[state].belongTo(executor);
   record[state].loadRow(row);
-  runFindCallbacks(record);
+  runLoadedCallbacks(record);
   return record;
 }
 

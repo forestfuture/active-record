@@ -1,20 +1,20 @@
 // `afterFind` and `afterInitialize` (#49): the callbacks a record runs, synchronously, as it's loaded from a row or built.
-import { declared, type LoadCallbackKind } from "./declarations.ts";
+import { declared, type SyncCallbackKind } from "./declarations.ts";
 import { modelOf, type Model } from "./model.ts";
 
 /** Runs a record's `afterFind`, then its `afterInitialize`: it was just loaded from a row. */
-export function runFindCallbacks(record: Model): void {
-  runLoadCallbacks(record, "afterFind");
-  runLoadCallbacks(record, "afterInitialize");
+export function runLoadedCallbacks(record: Model): void {
+  runSyncCallbacks(record, "afterFind");
+  runSyncCallbacks(record, "afterInitialize");
 }
 
 /** Runs a record's `afterInitialize`: it was just built, and handed to any `init`. */
-export function runInitializeCallbacks(record: Model): void {
-  runLoadCallbacks(record, "afterInitialize");
+export function runBuiltCallbacks(record: Model): void {
+  runSyncCallbacks(record, "afterInitialize");
 }
 
 /** Runs the Model's callbacks of `kind` in declaration order; none may return a promise. */
-function runLoadCallbacks(record: Model, kind: LoadCallbackKind): void {
+function runSyncCallbacks(record: Model, kind: SyncCallbackKind): void {
   const model = modelOf(record);
   for (const callback of declared(model, kind)) {
     refuseThenable(

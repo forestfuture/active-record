@@ -295,7 +295,7 @@ type ValidationCallbackStatic = <C extends AbstractModelClass>(
  * Declares a callback that runs synchronously as a record is loaded or built: nothing awaits it,
  * so its type refuses one that returns a promise (an `async` one), as running it does.
  */
-type LoadCallbackStatic = <C extends AbstractModelClass>(
+type SyncCallbackStatic = <C extends AbstractModelClass>(
   this: C,
   callback: (
     record: InstanceType<C>,
@@ -341,12 +341,12 @@ interface CallbackStatics {
    * Runs as a record is loaded from a row (#49): by a query, an association read, a preload or
    * `reload`, before `afterInitialize`. Synchronous: one that returns a promise throws `TypeError`.
    */
-  afterFind: LoadCallbackStatic;
+  afterFind: SyncCallbackStatic;
   /**
    * Runs as a record is built (after `build`'s `init`) or loaded (after `afterFind`) (#49).
    * Synchronous: one that returns a promise throws `TypeError`.
    */
-  afterInitialize: LoadCallbackStatic;
+  afterInitialize: SyncCallbackStatic;
 }
 
 /** The commit callbacks as statics: each runs after every after-callback of its write. */
