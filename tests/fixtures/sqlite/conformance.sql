@@ -53,4 +53,4 @@ CREATE TABLE pins (id INTEGER PRIMARY KEY, board_id INTEGER REFERENCES boards (i
 CREATE TABLE forums (id INTEGER PRIMARY KEY, title TEXT, updated_at TEXT, last_activity_at TEXT);
 CREATE TABLE discussions (id INTEGER PRIMARY KEY, forum_id INTEGER, title TEXT, archived INTEGER DEFAULT 0, messages_count INTEGER DEFAULT 0, updated_at TEXT, last_message_at TEXT);
 CREATE TABLE messages (id INTEGER PRIMARY KEY, discussion_id INTEGER, body TEXT, updated_at TEXT);
-CREATE TABLE stickers (id INTEGER PRIMARY KEY, stickable_type TEXT, stickable_id INTEGER);
+CREATE TABLE stickers (id INTEGER PRIMARY KEY, stickable_type TEXT, stickable_id INTEGER, updated_at TEXT);
