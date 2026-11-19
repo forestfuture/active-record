@@ -56,6 +56,9 @@ class HeardDiscussion extends Model.define({
     this.afterTouch(() => void heard.push("afterTouch"));
     this.afterUpdateCommit(() => void heard.push("afterUpdateCommit"));
     this.afterRollback(() => void heard.push("afterRollback"));
+    this.afterSave(
+      (discussion) => void heard.push(`afterSave title ${discussion.hasSavedChangeTo("title")}`),
+    );
   }
 }
 
@@ -562,6 +565,27 @@ describe("a belongsTo's touch (#353)", () => {
       expect(heard.filter((each) => each === "afterUpdateCommit")).toEqual(["afterUpdateCommit"]);
       expect(heard).toContain("afterTouch");
       expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+    });
+
+    test("a record the write saves keeps its save's changes for its callbacks", async () => {
+      const discussion = await db().model(HeardDiscussion).find(1);
+      discussion.title = "Renamed";
+      discussion.messages().build({ body: "Hi" });
+
+      await discussion.saveOrThrow();
+
+      expect(heard).toContain("afterSave title true");
+      expect(discussion.hasSavedChangeTo("title")).toBe(true);
+    });
+
+    test("a record the write inserts keeps its insert's changes for its callbacks", async () => {
+      const message = db().model(HeardMessage).build({ body: "First" });
+      const discussion = message.discussion.build({ title: "New" });
+
+      await message.saveOrThrow();
+
+      expect(heard).toContain("afterSave title true");
+      expect(discussion.hasSavedChangeTo("title")).toBe(true);
     });
 
     test("a write the database refuses leaves the record as it was, and runs afterRollback", async () => {

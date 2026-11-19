@@ -90,6 +90,11 @@ export interface TouchWriteOptions {
    * it wrote a row. The touch then sends nothing of its own.
    */
   writtenBy?: () => boolean;
+  /**
+   * Whether the record keeps its `savedChanges`, asked as the touch commits: a record the same
+   * write saves itself keeps its save's, for its own callbacks, as Rails' deferred touch does.
+   */
+  keepsSavedChanges?: () => boolean;
 }
 
 /**
@@ -99,7 +104,7 @@ export interface TouchWriteOptions {
 export function touchWrite(
   record: Model,
   values: Record<string, unknown>,
-  { writtenBy }: TouchWriteOptions = {},
+  { writtenBy, keepsSavedChanges }: TouchWriteOptions = {},
 ): PreparedWrite {
   const recordState = record[state];
   const model = modelOf(record);
@@ -111,7 +116,8 @@ export function touchWrite(
     },
     commit: ([result]) => {
       recordState.assign(values);
-      recordState.commitTouch(Object.keys(values));
+      if (keepsSavedChanges?.()) recordState.commitColumns(Object.keys(values));
+      else recordState.commitTouch(Object.keys(values));
       isWritten = writtenBy ? writtenBy() : result?.rowsAffected === 1;
     },
     after: () => runAfterCallbacks(record, "afterTouch", "touch"),
