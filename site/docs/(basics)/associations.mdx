@@ -622,8 +622,10 @@ The profile is touched as [a `belongsTo`’s record is](#running-the-articles-ca
 The profile isn’t touched when:
 
 - **The user is new.** A profile built with `user.profile.build()` is inserted with the user, and its insert sets its `updatedAt`.
-- **The same save writes it**, such as a changed one with `autosave: true`. Its own save sets its `updatedAt`.
+- **The user’s own save writes it**, such as a profile built through the user, or a changed one with `autosave: true`. Its own save sets its `updatedAt`.
 - **The user’s `dependent` removes it**, with `"destroy"` or `"delete"`. With `"nullify"`, it’s touched once it no longer points at the user.
+
+A profile saved as its own entry in the user’s batch is still touched, whether it comes before or after the user.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
