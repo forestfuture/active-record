@@ -1,6 +1,6 @@
 # Docs voice
 
-The guide reads like Laravel's documentation: friendly, direct, and quick to scan. The `documentation-writer` skill decides a page's structure (its Diátaxis type, audience and outline). This page decides how its sentences read.
+The guide reads like Laravel's documentation: friendly, direct, and quick to scan. [docs-pages.md](docs-pages.md) decides a page's layout. This page decides how its sentences read.
 
 ## Rules
 
