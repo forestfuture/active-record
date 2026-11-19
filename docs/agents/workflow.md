@@ -60,7 +60,7 @@ Rules that matter here:
 
 ## 4. Review
 
-Run the `code-review` skill, with `main` (the branch's merge-base) as the fixed point and the issue as the spec. The standards sources are `CONTRIBUTING.md`, `CODING_STANDARDS.md` and [docs-voice.md](docs-voice.md). Commits from before the pull-request flow sit inside older ranges, so for those, give both reviewers the issue's own commits (`git log --grep='(#N)'`) and tell them to ignore the rest.
+Run the `code-review` skill, with `main` (the branch's merge-base) as the fixed point and the issue as the spec. The standards sources are `CONTRIBUTING.md`, `CODING_STANDARDS.md`, [docs-pages.md](docs-pages.md) and [docs-voice.md](docs-voice.md). Commits from before the pull-request flow sit inside older ranges, so for those, give both reviewers the issue's own commits (`git log --grep='(#N)'`) and tell them to ignore the rest.
 
 **Security.** When the change touches SQL compilation, the conditions a Relation keeps (an association's owner key, a default scope, and the methods that drop or replace conditions, such as `unscope`, `rewhere`, `merge` and `or`), attribute assignment or conversion, code generation or file writing in the CLI, or CI and release, also run the `differential-review` skill over the same range, as a third report. Write its report file outside the repo. The whole library gets a `security-review` before each release that changes those areas; each one adds a dated entry to the guide's Security page.
 

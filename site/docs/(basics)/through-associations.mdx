@@ -32,7 +32,7 @@ description: "Read and write records through a join Model, such as an article’
     },
     scope: {
       type: "(q) => Relation",
-      description: "Narrows or orders the records.",
+      description: "Narrows or orders the records, as on any association.",
     },
     dependent: {
       type: '"destroy" | "deleteAll"',
@@ -40,6 +40,8 @@ description: "Read and write records through a join Model, such as an article’
     },
   }}
 />
+
+`scope` works as it does on any association. See [Scoping associations](./associations#scoping-associations).
 
 ## The Models
 
@@ -70,7 +72,7 @@ Read a through association as you would any `hasMany`:
 <include meta="twoslash">/_excerpts/guide/through/read.twoslash.ts</include>
 
 - `through` names one of the Model’s own associations, here `taggings`. The join Model’s association with the same name, singular or plural, leads on to the records: `articles` follows each tagging’s `article`.
-- `tag.articles()` is a Relation, with every Relation method, read in one query.
+- `tag.articles()` is a Relation, with every Relation method, read in one query. Its writes go to the taggings, as [below](#writing-through-it).
 - Each record comes back once, however many join records point at it.
 - The scopes of both associations it goes through apply, and so does its own `scope`.
 
@@ -84,7 +86,7 @@ The join records and the articles load with the tags’ own query, in one round 
 
 ## Naming the source
 
-If the join Model’s association has another name, pass it as `source`. `writers` follows each article’s `author`:
+If the join Model’s association has another name, pass it as `source`, as `writers` does to follow each article’s `author`:
 
 <include meta="twoslash">/_excerpts/guide/through/source.twoslash.ts</include>
 
@@ -92,13 +94,15 @@ If the join Model’s association has another name, pass it as `source`. `writer
 
 ## Going through a belongsTo or a hasOne
 
-`through` can name a `belongsTo`, a `hasMany`, or a `hasOne`, and the association it follows can be any of the three. A `hasOne` goes through a `belongsTo` or a `hasOne`. A tagging’s `author` is its article’s author:
+A `hasOne` can go through a `belongsTo`, as a tagging’s `author` does through its `article`:
 
 <include meta="twoslash">/_excerpts/guide/through/has-one.twoslash.ts</include>
 
+`through` can name a `belongsTo`, a `hasMany`, or a `hasOne`, and the association it follows can be any of the three. A `hasOne` goes through a `belongsTo` or a `hasOne`.
+
 ## Writing through it
 
-Add records with `push`, `build`, and `create`. Each makes the join record that links the owner to the record:
+Add records with `push`, `build`, and `create`, which each make the join record that links the owner to the record:
 
 <include meta="twoslash">/_excerpts/guide/through/write.twoslash.ts</include>
 
@@ -138,7 +142,10 @@ A `hasMany` through a join Model takes `dependent: "destroy"` or `dependent: "de
 
 ## Setting a hasOne through another
 
-A `hasOne` that goes through another `hasOne` has `set`. `await member.club.set(club)` points the member’s membership at the club, or creates a membership if there isn’t one, with the equality values of the membership association’s `scope`. `set(null)` destroys the membership. It has no `build` or `create`.
+A `hasOne` that goes through another `hasOne` has `set`, and no `build` or `create`:
+
+- `set(record)` points the owner’s join record at the record, or creates the join record if there isn’t one, with the equality values of the join association’s `scope`.
+- `set(null)` destroys the join record.
 
 ## Spotting read-only associations
 

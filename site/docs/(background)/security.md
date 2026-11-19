@@ -1,6 +1,6 @@
 ---
 title: Security
-description: "What Active Record protects against, what it leaves to your app, and the reviews it has had."
+description: "Active Record guards your queries and records against what a request sends, and its tests check each guarantee."
 ---
 
 ## What Active Record protects against

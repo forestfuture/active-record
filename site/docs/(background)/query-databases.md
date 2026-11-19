@@ -1,6 +1,6 @@
 ---
 title: Database resolution
-description: "How a query finds its database in a Worker, where one isolate serves many requests."
+description: "A query finds its database through the Model’s binding, the request, or a database you pass, since one Worker isolate serves many requests."
 ---
 
 ## One isolate, many requests
