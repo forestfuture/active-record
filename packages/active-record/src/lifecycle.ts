@@ -38,7 +38,7 @@ import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
-import { touchesOf } from "./belongs-to-touch.ts";
+import { touchesOf, touchTimeOf } from "./belongs-to-touch.ts";
 import {
   countersOnDestroy,
   countersOnInsert,
@@ -274,7 +274,7 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
   const touches = await touchesOfSave(record, isInsert, claimed);
   const own = stageOf(record, [record], () => {
     linkOwner(record, before);
-    return [saveWrite(record, isInsert), ...touches];
+    return [saveWrite(record, isInsert, touchTimeOf(claimed)), ...touches];
   });
   const after = await prepareAfter(record, claimed);
   if (!Array.isArray(after)) return after;
@@ -305,7 +305,7 @@ async function beforeWrite(record: Model, isInsert: boolean): Promise<boolean> {
  * UPDATE the changed ones, plus timestamps; a clean record sends nothing. Its after-callbacks
  * are afterCreate or afterUpdate, then afterSave.
  */
-function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
+function saveWrite(record: Model, isInsert: boolean, time: Date): PreparedWrite {
   const recordState = record[state];
   const model = modelOf(record);
   const after = async () => {
@@ -317,7 +317,7 @@ function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
   if (isInsert) {
     const own = recordState.insertAssignments();
     const insert = compileInsert(model, [...own, ...timestampsFor(model, "insert", own)]);
-    const counters = countersOnInsert(record);
+    const counters = countersOnInsert(record, time);
     return {
       statements: counters.around(insert),
       commit: (results) => {
@@ -335,7 +335,7 @@ function saveWrite(record: Model, isInsert: boolean): PreparedWrite {
     return { statements: [], commit, after, afterCommit, afterRollback };
   }
   const stamps = timestampsFor(model, "update", own);
-  const counters = countersOnUpdate(record);
+  const counters = countersOnUpdate(record, time);
   const update = compileUpdate(model, [...own, ...stamps], recordState.storedKey);
   return {
     statements: counters.around(update),
@@ -375,7 +375,7 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
   if (dependents.status !== "ready") return dependents;
   // A record that was never saved has no row, so no DELETE and no commit callbacks, as in Rails.
   const hasRow = !recordState.isNew;
-  const counters = hasRow ? countersOnDestroy(record) : noCounterChanges;
+  const counters = hasRow ? countersOnDestroy(record, touchTimeOf(claimed)) : noCounterChanges;
   const deletion = hasRow
     ? counters.around(compileDelete(modelOf(record), recordState.storedKey))
     : [];

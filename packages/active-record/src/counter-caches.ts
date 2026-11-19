@@ -1,8 +1,9 @@
 // Counter caches (#61): a belongsTo's `counterCache`, kept up to date by statements written in the same atomic batch as its record's insert, update or delete, and checking it and a hasMany's.
-import { associationsOf } from "./association-fields.ts";
+import { associationOf, associationsOf } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { attributeFor } from "./attribute.ts";
-import type { CompiledSql } from "./compiler.ts";
+import type { Assignment, CompiledSql } from "./compiler.ts";
+import { touchAssignments } from "./counters.ts";
 import type { StatementResult } from "./driver.ts";
 import { valueMark } from "./dialect.ts";
 import { pluralize } from "./inflections.ts";
@@ -187,6 +188,8 @@ export interface CounterCache {
   type: { attribute: string; value: string } | undefined;
   /** Whether `size` reads it: not while it's declared `active: false`. */
   isActive: boolean;
+  /** What a record's write sets on the target with its count, by its belongsTo's `touch` (#353). */
+  touched: readonly Assignment[];
 }
 
 /** The counter caches a Model's records keep: each belongsTo's declaring one, on each target. */
@@ -204,7 +207,19 @@ export function countersOf(owner: ModelClass): CounterCache[] {
       targetKey: targetAttribute,
       type,
       isActive,
+      touched: [],
     }));
+  });
+}
+
+/**
+ * The counter caches a record's write keeps, each setting what its belongsTo's `touch` names
+ * to `time` with its count (#353), as Rails' counter cache passes its `touch` to the counter.
+ */
+function countersOfWrite(owner: ModelClass, time: Date): CounterCache[] {
+  return countersOf(owner).map((counter) => {
+    const { touch } = associationOf(owner, counter.name);
+    return { ...counter, touched: touchAssignments(counter.target, touch, "touch", time) };
   });
 }
 
@@ -250,9 +265,9 @@ function counterChanges(
 export const noCounterChanges: CounterChanges = { around: (own) => [own], commit: () => {} };
 
 /** Counting a new record in: each counter cache whose key is set, on its target by that key. */
-export function countersOnInsert(record: Model): CounterChanges {
+export function countersOnInsert(record: Model, time: Date): CounterChanges {
   const recordState = record[state];
-  const counted = countersOf(modelOf(record)).filter((counter) => {
+  const counted = countersOfWrite(modelOf(record), time).filter((counter) => {
     const key = recordState.read(counter.foreignKey);
     return (
       key !== null && key !== undefined && isTypeOfTarget(counter, (name) => recordState.read(name))
@@ -270,10 +285,10 @@ export function countersOnInsert(record: Model): CounterChanges {
  * row, so a row already gone counts nothing, and a key changed in the database since the record
  * was read counts out the target it has now.
  */
-export function countersOnDestroy(record: Model): CounterChanges {
+export function countersOnDestroy(record: Model, time: Date): CounterChanges {
   const recordState = record[state];
   const skipped = destroyedThrough.get(record);
-  const counted = countersOf(modelOf(record)).filter(
+  const counted = countersOfWrite(modelOf(record), time).filter(
     (counter) =>
       counter.foreignKey !== skipped &&
       isTypeOfTarget(counter, (name) => recordState.valueInDatabase(name)),
@@ -288,9 +303,9 @@ export function countersOnDestroy(record: Model): CounterChanges {
  * it, so a row that isn't there counts nothing. A loaded new target counts it in memory, as
  * Rails' `increment!` does.
  */
-export function countersOnUpdate(record: Model): CounterChanges {
+export function countersOnUpdate(record: Model, time: Date): CounterChanges {
   const recordState = record[state];
-  const moved = countersOf(modelOf(record)).filter(({ foreignKey, type }) =>
+  const moved = countersOfWrite(modelOf(record), time).filter(({ foreignKey, type }) =>
     [foreignKey, type?.attribute].some(
       (name) => name !== undefined && recordState.isAttributeChanged(name),
     ),
@@ -419,12 +434,25 @@ export function compileCountersChange(
     const column = quoteIdentifier(attributeFor(target, attribute).column);
     return `${column} = COALESCE(${column}, 0) ${change.sql}`;
   });
+  const touched = touchSets(target, counters);
   const keyColumn = quoteIdentifier(attributeFor(target, targetKey).column);
   return {
-    sql: `UPDATE ${quoteIdentifier(target.table)} SET ${sets.join(", ")} WHERE ${keyColumn} = ${key.sql}`,
-    params: [...counters.flatMap(() => change.params), ...key.params],
+    sql: `UPDATE ${quoteIdentifier(target.table)} SET ${[...sets, touched.sql].filter(Boolean).join(", ")} WHERE ${keyColumn} = ${key.sql}`,
+    params: [...counters.flatMap(() => change.params), ...touched.params, ...key.params],
     model: target,
   };
+}
+
+/** `x = ?, …` for each attribute the counters' touch sets (#353), once each; empty for none. */
+function touchSets(target: ModelClass, counters: readonly CounterCache[]): SqlPart {
+  const touched = new Map(counters.flatMap((counter) => counter.touched));
+  const params: unknown[] = [];
+  const sets = [...touched].map(([name, time]) => {
+    const attribute = attributeFor(target, name);
+    attribute.bind(params, time);
+    return `${quoteIdentifier(attribute.column)} = ${valueMark}`;
+  });
+  return { sql: sets.join(", "), params };
 }
 
 /** `type = ?`: a polymorphic row's type naming the counter's target, its value bound. */
