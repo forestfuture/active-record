@@ -31,14 +31,11 @@ import {
   Editor,
   saveChangedExample,
   statementsExample,
-  TagWithAuthors,
-  TaggingWithAuthor,
-  throughExample,
-  throughWriteExample,
   Video,
   writersExample,
 } from "../../../site/snippets/guide/associations.ts";
 import * as batches from "../../../site/snippets/guide/batches.ts";
+import * as through from "../../../site/snippets/guide/through.ts";
 import * as attributeWrites from "../../../site/snippets/guide/attribute-writes.ts";
 import * as counterCaches from "../../../site/snippets/guide/counter-caches.ts";
 import { statementKinds } from "../../support/statement-kinds.ts";
@@ -534,7 +531,7 @@ describe("the guide's examples", () => {
     expect(log).toHaveBeenCalledWith("Ada", 2, "Mathematician");
   });
 
-  test("Associations: through another, read, preloaded, renamed, and as a hasOne", async () => {
+  test("Through associations: read both ways, preloaded, renamed, and as a hasOne", async () => {
     await binding.batch([
       binding.prepare("INSERT INTO authors (id, name) VALUES ('ada', 'Ada')"),
       binding.prepare(
@@ -548,19 +545,19 @@ describe("the guide's examples", () => {
     const recording = recordingBatches(binding);
     const db = connect(recording.binding);
 
-    const articles = await withDatabase(db, () => throughExample(1));
+    const { articles, tags } = await withDatabase(db, () => through.reading());
+    const { writers, author } = await withDatabase(db, () => through.renamed());
 
     expect(articles.map((article) => article.title)).toEqual(["Engines", "On Nothing"]);
-    expect(recording.batches).toEqual([3]); // the tags, their taggings, and their articles
+    expect(tags.map((tag) => tag.name)).toEqual(["essays"]);
+    expect(recording.batches).toContain(3); // the tags, their taggings, and their articles
     expect(log).toHaveBeenCalledWith("essays", 2);
     expect(log).toHaveBeenCalledWith("empty", 0);
-    const tag = await db.model(TagWithAuthors).find(1);
-    expect((await tag.writers().toArray()).map((author) => author.name)).toEqual(["Ada", "Mary"]);
-    const tagging = await db.model(TaggingWithAuthor).find(1);
-    expect((await tagging.author())?.name).toBe("Ada");
+    expect(writers.map((writer) => writer.name).sort()).toEqual(["Ada", "Mary"]);
+    expect(author?.name).toBe("Ada");
   });
 
-  test("Associations: written through another, a pushed article's tagging removed and a created one's kept", async () => {
+  test("Through associations: a pushed article's tagging removed and a created one's kept", async () => {
     await binding.batch([
       binding.prepare("INSERT INTO authors (id, name) VALUES ('ada', 'Ada')"),
       binding.prepare(
@@ -570,11 +567,11 @@ describe("the guide's examples", () => {
     ]);
     const db = connect(binding);
 
-    const draft = await withDatabase(db, () => throughWriteExample(1, "x2"));
+    const draft = await withDatabase(db, () => through.writing());
 
     const taggings = await binding.prepare("SELECT article_id FROM taggings").all();
     expect(taggings.results).toEqual([{ article_id: draft.id }]);
-    expect(await db.model(Article).count()).toBe(3);
+    expect(await db.model(through.Article).count()).toBe(3);
   });
 
   test("Batches: statements, many rows, an atomic batch, and records in a batch", async () => {

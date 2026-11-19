@@ -10,6 +10,7 @@ export default defineMeta({
     "validations",
     "callbacks",
     "associations",
+    "through-associations",
     "batches",
     "connecting",
     "command-line",
