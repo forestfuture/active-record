@@ -449,6 +449,15 @@ describe("touch (#50)", () => {
       expect(reloaded.createdAt).not.toEqual(stored);
     });
 
+    test("runs no afterTouch or commit callback", async () => {
+      const member = await db().model(Watched).find(1);
+
+      await member.incrementColumn("age", 1, { touch: true });
+      await member.decrementColumn("age", 1, { touch: true });
+
+      expect(ran).toEqual([]);
+    });
+
     test("incrementColumn with touch naming an attribute that isn't a datetime is a TypeError", async () => {
       const member = await db().model(Member).find(1);
       events.length = 0;
