@@ -33,8 +33,13 @@ export async function touchRecord(record: Model, args: readonly unknown[]): Prom
   const recordState = record[state];
   const model = record.constructor as ModelClass;
   const { names, options } = splitTouchArguments(args);
-  const touch = names.length === 0 ? true : names;
-  const touched = touchAssignments(model, touch, "touch", options.time);
+  const touched = touchAssignments(model, names.length === 0 ? true : names, "touch", options.time);
+  if (touched.length === 0) {
+    throw new TypeError(
+      `${model.name}.touch has nothing to touch: ${model.name} has no updatedAt; ` +
+        "name a datetime attribute",
+    );
+  }
   recordState.assign(Object.fromEntries(touched));
   const assignments = touched.map(([name]): [string, unknown] => [name, recordState.read(name)]);
   const update = compileUpdate(model, assignments, recordState.storedKey);

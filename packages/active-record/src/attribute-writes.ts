@@ -120,6 +120,7 @@ export abstract class AttributeWrites extends ModelStatics {
     this: R,
     ...args: TouchArguments<DatetimeAttributeKey<R>>
   ): Promise<boolean> {
+    requireSaved(this, "touch");
     return touchRecord(this, args);
   }
 
