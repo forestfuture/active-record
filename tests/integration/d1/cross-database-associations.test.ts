@@ -203,6 +203,13 @@ class TouchingEntry extends LogsRecord.define({
   user = belongsTo(StampedUser, { foreignKey: "userId", touch: true });
 }
 
+/** An entry touching a user on another database through its hasOne (#497). */
+class UserTouchingEntry extends LogsRecord.define({ id: { type: "integer", null: false } }) {
+  static override table = "entries";
+
+  user = hasOne(StampedUser, { foreignKey: "id", touch: true });
+}
+
 const schema = new URL("../../fixtures/cross-database/schema.sql", import.meta.url);
 
 let db: TestDatabase;
@@ -360,6 +367,18 @@ describe("a belongsTo's touch across databases (#353)", () => {
       expect(() => TouchingEntry.all()).toThrow(
         new InvalidModel(
           'TouchingEntry association "user" touches a record on another database, which it can\'t yet: TouchingEntry and StampedUser must be on one',
+        ),
+      );
+    });
+  });
+});
+
+describe("a hasOne's touch across databases (#497)", () => {
+  test("is an InvalidModel at first use: its touch couldn't be written in the owner's batch", async () => {
+    await inRequest(async () => {
+      expect(() => UserTouchingEntry.all()).toThrow(
+        new InvalidModel(
+          'UserTouchingEntry association "user" touches a record on another database, which it can\'t yet: UserTouchingEntry and StampedUser must be on one',
         ),
       );
     });
