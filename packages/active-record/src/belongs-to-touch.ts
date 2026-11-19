@@ -82,6 +82,11 @@ interface TouchSession {
 /** Each write's touch session, by the set of records it claims. */
 const sessions = new WeakMap<ReadonlySet<Model>, TouchSession>();
 
+/** The time the write claiming `claimed` touches records at, which its counters' touch sets too. */
+export function touchTimeOf(claimed: ReadonlySet<Model>): Date {
+  return sessionOf(claimed).time;
+}
+
 /** The touch session of the write claiming `claimed`, started on its first touch. */
 function sessionOf(claimed: ReadonlySet<Model>): TouchSession {
   let session = sessions.get(claimed);
@@ -121,21 +126,56 @@ export async function touchesOf(
     if (kind !== "belongsTo" || touch === undefined) continue;
     // Its owner is being deleted with it (Rails skips the destroyed owner).
     if (cause === "destroy" && isDestroyedThrough(record, foreignKey)) continue;
-    for (const target of await touchedRecords(record, name, cause)) {
-      writes.push(...(await touchOne(target, touch, claimed)));
+    for (const { target, isCounted } of await touchedRecords(record, name, cause)) {
+      writes.push(...(await touchOne(target, { touch, isCounted }, claimed)));
     }
   }
   return writes;
 }
 
+/** A record a write touches, and whether its counter's UPDATE sets the time (#353). */
+interface TouchedRecord {
+  target: Model;
+  isCounted: boolean;
+}
+
 /**
  * The records `record`'s belongsTo `name` touches, each saved: the one it reaches, and, when
  * its key differs from the row's, the one the row's key reaches, as the association reads it.
+ * Each is counted when the write changes its counter cache, whose UPDATE then sets the time.
  */
-async function touchedRecords(record: Model, name: string, _cause: TouchCause): Promise<Model[]> {
+async function touchedRecords(
+  record: Model,
+  name: string,
+  cause: TouchCause,
+): Promise<TouchedRecord[]> {
+  const isMovedKey = isMoved(record, name);
   const current = await readAssociation(record, name);
-  const stored = isMoved(record, name) ? await readStored(record, name) : null;
-  return [current, stored].filter(isTouchable);
+  const stored = isMovedKey ? await readStored(record, name) : null;
+  const counting = countedBy(record, name, cause, isMovedKey);
+  return [
+    { target: current, isCounted: counting.current },
+    { target: stored, isCounted: counting.stored },
+  ].filter((each): each is TouchedRecord => isTouchable(each.target));
+}
+
+/**
+ * Which of a belongsTo's records the write's counter cache changes, as counter-caches.ts does:
+ * the new one on insert, the row's on destroy, both when an update moves the key.
+ */
+function countedBy(
+  record: Model,
+  name: string,
+  cause: TouchCause,
+  isMovedKey: boolean,
+): { current: boolean; stored: boolean } {
+  if (associationOf(modelOf(record), name).counterCache === undefined) {
+    return { current: false, stored: false };
+  }
+  if (cause === "insert") return { current: true, stored: false };
+  if (cause === "update") return { current: isMovedKey, stored: isMovedKey };
+  if (cause === "destroy") return { current: !isMovedKey, stored: isMovedKey };
+  return { current: false, stored: false };
 }
 
 /** Whether a saved record's belongsTo `name` points elsewhere than its row does. */
@@ -170,12 +210,12 @@ function isTouchable(record: unknown): record is Model {
 }
 
 /**
- * `target`'s touch write, setting what `touch` names, then those it makes in turn; nothing if
- * this write has touched it already.
+ * `target`'s touch write, setting what `touch` names (in its counter's UPDATE, when counted),
+ * then those it makes in turn; nothing if this write has touched it already.
  */
 async function touchOne(
   target: Model,
-  touch: unknown,
+  { touch, isCounted }: { touch: unknown; isCounted: boolean },
   claimed: ReadonlySet<Model>,
 ): Promise<PreparedWrite[]> {
   const session = sessionOf(claimed);
@@ -184,6 +224,9 @@ async function touchOne(
   if (session.touched.has(key)) return [];
   session.touched.add(key);
   const values = Object.fromEntries(touchAssignments(model, touch, "touch", session.time));
-  const write = touchWrite(target, values, { runsCommitCallbacks: !claimed.has(target) });
+  const write = touchWrite(target, values, {
+    runsCommitCallbacks: !claimed.has(target),
+    isCounted,
+  });
   return [write, ...(await touchesOf(target, "touch", claimed))];
 }

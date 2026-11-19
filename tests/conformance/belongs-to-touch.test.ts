@@ -105,6 +105,35 @@ class FollowUp extends Model.define({
   previous = belongsTo(FollowUp, { foreignKey: "forumId", touch: true, optional: true });
 }
 
+/** A discussion counting its messages, whose default scope hides archived ones. */
+class CountingDiscussion extends Model.define({
+  id: { type: "integer", null: false },
+  archived: "boolean",
+  messagesCount: "integer",
+  updatedAt: "datetime",
+}) {
+  static table = "discussions";
+  static {
+    this.defaultScope((q) => q.where({ archived: false }));
+    this.afterTouch(() => void heard.push("afterTouch"));
+  }
+}
+
+/** A message counted on its discussion, which it touches with its count. */
+class CountedMessage extends Model.define({
+  id: { type: "integer", null: false },
+  discussionId: "integer",
+  body: "string",
+}) {
+  static table = "messages";
+  discussion = belongsTo(CountingDiscussion, {
+    foreignKey: "discussionId",
+    counterCache: "messagesCount",
+    touch: true,
+    optional: true,
+  });
+}
+
 /** A discussion destroying its messages with it. */
 class ClosingDiscussion extends Model.define({
   id: { type: "integer", null: false },
@@ -576,6 +605,71 @@ describe("a belongsTo's touch (#353)", () => {
       const writes = statementKinds(events).filter((kind) => kind !== "SELECT");
       expect(writes.toSorted()).toEqual(["DELETE", "INSERT", "UPDATE"]);
       expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+    });
+  });
+
+  describe("with a counter cache", () => {
+    const counted = async (id: number) =>
+      (await harness.exec("SELECT messages_count AS n FROM discussions WHERE id = ?", [id]))[0]?.n;
+
+    beforeEach(() => {
+      heard.length = 0;
+    });
+
+    test("creating sets the count and the time in one UPDATE, and runs afterTouch", async () => {
+      const events: QueryEvent[] = [];
+
+      await recorded(events).model(CountedMessage).create({ discussionId: 1, body: "Hi" });
+
+      expect(statementKinds(events)).toEqual(["SELECT", "INSERT", "UPDATE"]);
+      expect(Number(await counted(1))).toBe(1);
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(heard).toEqual(["afterTouch"]);
+    });
+
+    test("destroying and moving touch in the counters' UPDATEs", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+      await harness.exec("UPDATE discussions SET messages_count = 1 WHERE id = 1");
+      const events: QueryEvent[] = [];
+      const messages = recorded(events).model(CountedMessage);
+      const moved = await messages.find(1);
+      moved.discussionId = 2;
+      events.length = 0;
+
+      await moved.saveOrThrow();
+      const writes = statementKinds(events).filter((kind) => kind !== "SELECT");
+      events.length = 0;
+      await moved.destroyOrThrow();
+
+      expect(writes).toEqual(["UPDATE", "UPDATE", "UPDATE"]);
+      expect(statementKinds(events).filter((kind) => kind !== "SELECT")).toEqual([
+        "UPDATE",
+        "DELETE",
+      ]);
+      expect([Number(await counted(1)), Number(await counted(2))]).toEqual([0, 0]);
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+      expect((await updatedAt(2))!.getTime()).toBeGreaterThan(stale.getTime());
+    });
+
+    test("an update that keeps the count touches by its own UPDATE", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+      const message = await db().model(CountedMessage).find(1);
+      message.body = "Edited";
+
+      await message.saveOrThrow();
+
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(Number(await counted(1))).toBe(0);
+    });
+
+    test("one the default scope hides takes the time with its count, but runs no callback", async () => {
+      await harness.exec("UPDATE discussions SET archived = 1 WHERE id = 1");
+
+      await db().model(CountedMessage).create({ discussionId: 1, body: "Hi" });
+
+      expect(Number(await counted(1))).toBe(1);
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(heard).toEqual([]);
     });
   });
 });

@@ -78,6 +78,11 @@ export interface TouchWriteOptions {
    * whose own save runs them.
    */
   runsCommitCallbacks?: boolean;
+  /**
+   * Whether a counter cache's UPDATE, in the same batch, sets the values: then the touch sends
+   * nothing of its own, and its record takes them once the batch is written.
+   */
+  isCounted?: boolean;
 }
 
 /**
@@ -87,17 +92,19 @@ export interface TouchWriteOptions {
 export function touchWrite(
   record: Model,
   values: Record<string, unknown>,
-  { runsCommitCallbacks = true }: TouchWriteOptions = {},
+  { runsCommitCallbacks = true, isCounted = false }: TouchWriteOptions = {},
 ): PreparedWrite {
   const recordState = record[state];
   const model = modelOf(record);
   let isWritten = false;
   return {
-    statements: [compileUpdate(model, Object.entries(values), recordState.storedKey)],
+    statements: isCounted
+      ? []
+      : [compileUpdate(model, Object.entries(values), recordState.storedKey)],
     commit: ([result]) => {
       recordState.assign(values);
       recordState.commitTouch(Object.keys(values));
-      isWritten = result?.rowsAffected === 1;
+      isWritten = isCounted || result?.rowsAffected === 1;
     },
     after: () => runAfterCallbacks(record, "afterTouch", "touch"),
     afterCommit: async () => {
