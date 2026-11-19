@@ -46,6 +46,12 @@ class Bio extends Model.define({
   }
 }
 
+class Member extends Person {
+  static {
+    this.afterFind((member) => void log.push(`member afterFind ${member.email}`));
+  }
+}
+
 describe("afterFind and afterInitialize", () => {
   let harness: Harness;
   const people = () => harness.connect().model(Person);
@@ -69,6 +75,52 @@ describe("afterFind and afterInitialize", () => {
       "afterInitialize a@example.com",
       "afterFind b@example.com",
       "afterInitialize b@example.com",
+    ]);
+  });
+
+  // Guards: every load makes its records the same way, so these pass with the first test.
+  test("find, findBy and findEach run afterFind on each record", async () => {
+    await people().find(1);
+    await people().findBy({ email: "b@example.com" });
+    for await (const person of people().findEach({ batchSize: 1 })) void person;
+
+    expect(log.filter((line) => line.startsWith("afterFind"))).toEqual([
+      "afterFind a@example.com",
+      "afterFind b@example.com",
+      "afterFind a@example.com",
+      "afterFind b@example.com",
+    ]);
+  });
+
+  test("association reads and preloads run them on the records they load", async () => {
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'First')");
+    const article = await harness.connect().model(Article).find(10);
+    const person = await people().find(1);
+    log.length = 0;
+
+    await article.author();
+    await person.articles().toArray();
+    await harness.connect().model(Article).includes("author").toArray();
+
+    expect(log).toEqual([
+      "afterFind a@example.com",
+      "afterInitialize a@example.com",
+      "afterFind First",
+      "afterInitialize First",
+      "afterFind First",
+      "afterInitialize First",
+      "afterFind a@example.com",
+      "afterInitialize a@example.com",
+    ]);
+  });
+
+  test("a subclass runs its parent's callbacks, then its own", async () => {
+    await harness.connect().model(Member).find(1);
+
+    expect(log).toEqual([
+      "afterFind a@example.com",
+      "member afterFind a@example.com",
+      "afterInitialize a@example.com",
     ]);
   });
 
