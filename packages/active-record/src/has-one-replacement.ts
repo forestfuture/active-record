@@ -1,5 +1,5 @@
 // Replacing a hasOne's record (#40): what a new record does to the old one, by `dependent:`, written in one batch with the new one.
-import { releasingArounds } from "./around-callbacks.ts";
+import { withClaimedRecords } from "./around-callbacks.ts";
 import { compileDelete } from "./compiler.ts";
 import { NotNullViolation, RecordNotSaved } from "./errors.ts";
 import {
@@ -116,15 +116,10 @@ export function withRemoval(plan: Ready, removal: Ready | undefined, record: Mod
 export async function removeReplaced(replacement: Replacement): Promise<void> {
   const old = await replacedRecord(null, replacement);
   if (old === null) return;
-  const claimed = new Set<Model>();
-  await releasingArounds(
-    claimed,
-    async () => {
-      const removal = await prepareRemoval(old, replacement.association, claimed);
-      await runStages(stagesOf(removal), "set() needs its records");
-    },
-    () => undefined,
-  );
+  await withClaimedRecords(async (claimed) => {
+    const removal = await prepareRemoval(old, replacement.association, claimed);
+    await runStages(stagesOf(removal), "set() needs its records");
+  });
 }
 
 /**

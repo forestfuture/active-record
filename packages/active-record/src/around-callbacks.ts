@@ -2,6 +2,7 @@
 import { runAfterCallbacks, runCallbacks } from "./callbacks.ts";
 import { declared, type AroundCallback, type AroundCallbackKind } from "./declarations.ts";
 import { abort, AbortAfterPersistence, CallbackAbort } from "./errors.ts";
+import type { Claimed } from "./lifecycle.ts";
 import { modelOf, type Model } from "./model.ts";
 
 type Lifecycle = "save" | "destroy";
@@ -79,19 +80,20 @@ export function waitWith(claimed: object, wrapped: Wrapped): void {
 }
 
 /**
- * Runs `operation`, a save's or destroy's preparing and writing over `claimed`. When it ends, an
- * around callback still waiting at `next()` (its write never sent, or its after-callbacks
- * skipped by an error) has `next()` reject with the error it threw, or the one `refusal` gives
- * for what it returned; then this waits for them, ignoring their errors (#48).
+ * Runs `operation`, a save's or destroy's preparing and writing, handing it a new set for the
+ * records it claims. When it ends, an around callback still waiting at `next()` (its write never
+ * sent, or its after-callbacks skipped by an error) has `next()` reject with the error it threw,
+ * or the one `refusal` gives for what it returned; then this waits for them, ignoring their
+ * errors (#48).
  */
-export async function releasingArounds<T>(
-  claimed: object,
-  operation: () => Promise<T>,
-  refusal: (result: T) => unknown,
+export async function withClaimedRecords<T>(
+  operation: (claimed: Claimed) => Promise<T>,
+  refusal: (result: T) => unknown = () => undefined,
 ): Promise<T> {
+  const claimed: Claimed = new Set();
   let result: T;
   try {
-    result = await operation();
+    result = await operation(claimed);
   } catch (error) {
     await release(claimed, error);
     throw error;
