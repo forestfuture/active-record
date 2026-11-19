@@ -109,8 +109,12 @@ The `cast`, `serialize` and `deserialize` of one **Attribute**, from `Model.type
 _Avoid_: Attribute type (that is the declared type, `"datetime"`), codec, serializer
 
 **Abort**:
-A deliberate refusal raised by a pre-write callback with `abort(reason)`. It cancels the write without being a validation failure.
+A deliberate refusal raised by a pre-write callback, or an **Around callback** before `next()`, with `abort(reason)`. It cancels the write without being a validation failure.
 _Avoid_: Halt, cancel, returning false
+
+**Around callback**:
+A callback that wraps a record's write: `aroundSave`, `aroundCreate`, `aroundUpdate`, or `aroundDestroy`, given the record and `next`. Its first part runs before the write, then `await next()` runs the rest of the lifecycle up to the matching after-callbacks, waiting while the write's **Batch** is sent, and its last part runs once the write is kept. Not calling `next()` refuses the write, as an **Abort** does.
+_Avoid_: Wrapper, middleware
 
 **Commit callback**:
 A callback that runs last, once its record's write is kept: `afterCommit`, or one narrowed to a kind of write (`afterCreateCommit`, `afterUpdateCommit`, `afterSaveCommit`, `afterDestroyCommit`). It runs after every after-callback, including those of every record in a **Batch**. Its counterpart, `afterRollback`, runs when the database refuses a write it was sent.
