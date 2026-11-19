@@ -1,9 +1,10 @@
-// Touching a record (#50): `touch()`, its timestamps set to now, or a given time, in one UPDATE by its stored key, with no validation or save callback, then `afterTouch`.
-import { runAfterCallbacks } from "./callbacks.ts";
+// Touching a record (#50): `touch()`, its timestamps set to now, or a given time, in one UPDATE by its stored key, with no validation or save callback, then `afterTouch` and the update commit callbacks.
+import { afterRollbackOf, runAfterCallbacks, runCommitCallbacks } from "./callbacks.ts";
 import { compileUpdate } from "./compiler.ts";
 import { touchAssignments } from "./counters.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
+import { runAfter, writeAll, type PreparedWrite } from "./unit-of-work.ts";
 
 /** What `touch` and `touchAll` take after the attributes they name: the `time` to set. */
 export interface TouchOptions {
@@ -28,10 +29,10 @@ export function splitTouchArguments(args: readonly unknown[]): {
 
 /**
  * Sets the record's `updatedAt`, and the datetime attributes named, to now or `time`, straight to
- * the row, and holds them, clean; then runs `afterTouch`. Resolves to whether there was a row to write.
+ * the row, and holds them, clean; then runs `afterTouch`, and the update commit callbacks when a
+ * row was written, as Rails' `touch` does. Resolves to whether there was a row to write.
  */
 export async function touchRecord(record: Model, args: readonly unknown[]): Promise<boolean> {
-  const recordState = record[state];
   const model = record.constructor as ModelClass;
   const { names, options } = splitTouchArguments(args);
   const touched = touchAssignments(model, names.length === 0 ? true : names, "touch", options.time);
@@ -41,11 +42,39 @@ export async function touchRecord(record: Model, args: readonly unknown[]): Prom
         "name a datetime attribute",
     );
   }
-  recordState.assign(Object.fromEntries(touched));
-  const assignments = touched.map(([name]): [string, unknown] => [name, recordState.read(name)]);
-  const update = compileUpdate(model, assignments, recordState.storedKey);
-  const [result] = await recordState.executor.write([update]);
-  recordState.commitColumns(touched.map(([name]) => name));
-  await runAfterCallbacks(record, "afterTouch", "touch");
+  const write = touchWrite(record, Object.fromEntries(touched));
+  const [result] = await writeAll(record[state].executor, [write]);
+  await runAfter([write]);
   return result?.rowsAffected === 1;
+}
+
+/**
+ * The touch's write: `values` assigned and sent, then held clean; or, if the database refuses it,
+ * the values from before, and `afterRollback`.
+ */
+function touchWrite(record: Model, values: Record<string, unknown>): PreparedWrite {
+  const recordState = record[state];
+  const names = Object.keys(values);
+  const before = Object.fromEntries(names.map((name) => [name, recordState.read(name)]));
+  recordState.assign(values);
+  const assignments = names.map((name): [string, unknown] => [name, recordState.read(name)]);
+  let isWritten = false;
+  return {
+    statements: [
+      compileUpdate(record.constructor as ModelClass, assignments, recordState.storedKey),
+    ],
+    commit: ([result]) => {
+      recordState.commitColumns(names);
+      isWritten = result?.rowsAffected === 1;
+    },
+    after: () => runAfterCallbacks(record, "afterTouch", "touch"),
+    afterCommit: async () => {
+      if (isWritten) await runCommitCallbacks(record, "update");
+    },
+    failed: () => {
+      recordState.assign(before);
+      return undefined;
+    },
+    afterRollback: afterRollbackOf(record),
+  };
 }
