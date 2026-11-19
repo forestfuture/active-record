@@ -354,6 +354,14 @@ function changeThroughRow(
  */
 const destroyedThrough = new WeakMap<Model, string>();
 
+/**
+ * Whether `record` is being destroyed through its owner's association by `foreignKey`, whose
+ * owner is deleted with it, so it isn't touched either (#353).
+ */
+export function isDestroyedThrough(record: Model, foreignKey: string): boolean {
+  return destroyedThrough.get(record) === foreignKey;
+}
+
 /** Prepares `record`'s destroy through its owner's association, whose `foreignKey` is given. */
 export async function destroyingThrough<T>(
   record: Model,

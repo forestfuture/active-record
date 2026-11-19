@@ -40,6 +40,15 @@ class PlainForum extends Model.define({ id: { type: "integer", null: false }, ti
   static table = "forums";
 }
 
+/** A discussion destroying its messages with it. */
+class ClosingDiscussion extends Model.define({
+  id: { type: "integer", null: false },
+  updatedAt: "datetime",
+}) {
+  static table = "discussions";
+  messages = hasMany(Message, { foreignKey: "discussionId", dependent: "destroy" });
+}
+
 /** A discussion that can be archived, which the scoped belongsTos below don't reach. */
 class ArchivableDiscussion extends Model.define({
   id: { type: "integer", null: false },
@@ -324,6 +333,42 @@ describe("a belongsTo's touch (#353)", () => {
       await message.saveOrThrow();
 
       expect(await updatedAt(1)).toEqual(stale);
+    });
+  });
+
+  describe("destroying a record", () => {
+    beforeEach(async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+    });
+
+    test("touches the record it belongs to, in the same batch", async () => {
+      const events: QueryEvent[] = [];
+      const message = await recorded(events).model(Message).find(1);
+      events.length = 0;
+
+      await message.destroyOrThrow();
+
+      expect(statementKinds(events)).toEqual(["SELECT", "DELETE", "UPDATE"]);
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+    });
+
+    test("through the record's dependent: destroy doesn't touch that record", async () => {
+      const events: QueryEvent[] = [];
+      const discussion = await recorded(events).model(ClosingDiscussion).find(1);
+      events.length = 0;
+
+      await discussion.destroyOrThrow();
+
+      expect(statementKinds(events)).toEqual(["SELECT", "DELETE", "DELETE"]);
+    });
+
+    test("a record that was never saved touches nothing", async () => {
+      const events: QueryEvent[] = [];
+      const message = recorded(events).model(Message).build({ discussionId: 1 });
+
+      await message.destroyOrThrow();
+
+      expect(events).toEqual([]);
     });
   });
 });
