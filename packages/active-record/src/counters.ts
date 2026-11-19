@@ -20,15 +20,19 @@ export interface CounterOptions<R> {
 }
 
 /**
- * What `touch` sets, each to now: `updatedAt` when the Model has it, and those named, each a
+ * What `touch` sets, each to `now`: `updatedAt` when the Model has it, and those named, each a
  * datetime attribute (a `TypeError` naming `method` otherwise).
  */
-export function touchAssignments(model: ModelClass, touch: unknown, method: string): Assignment[] {
+export function touchAssignments(
+  model: ModelClass,
+  touch: unknown,
+  method: string,
+  now = new Date(),
+): Assignment[] {
   if (touch === undefined || touch === false) return [];
   const named = touch === true ? [] : Array.isArray(touch) ? touch : [touch];
   const updatedAt = model.attributeDefinitions.get("updatedAt")?.type === "datetime";
   const names = [...new Set([...(updatedAt ? ["updatedAt"] : []), ...named.map(String)])];
-  const now = new Date();
   return names.map((name): Assignment => {
     if (attributeOf(model, name).type !== "datetime") {
       throw new TypeError(

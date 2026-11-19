@@ -72,6 +72,20 @@ describe("touch (#50)", () => {
     expect(member.changes()).toEqual({});
   });
 
+  test("touch sets the time it's given, alone or after names", async () => {
+    const time = new Date("2026-05-06T07:08:09.000Z");
+    const member = await db().model(Member).find(1);
+
+    await member.touch({ time });
+    expect((await db().model(Member).find(1)).updatedAt).toEqual(time);
+    expect(member.updatedAt).toEqual(time);
+
+    const later = new Date("2026-06-07T08:09:10.000Z");
+    await member.touch("createdAt", { time: later });
+    const reloaded = await db().model(Member).find(1);
+    expect([reloaded.createdAt, reloaded.updatedAt]).toEqual([later, later]);
+  });
+
   test("touch naming an attribute that isn't a datetime is a TypeError, before anything is sent", async () => {
     const member = await db().model(Member).find(1);
     events.length = 0;

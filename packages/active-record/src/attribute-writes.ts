@@ -5,7 +5,7 @@ import { RecordNotSaved } from "./errors.ts";
 import type { AttributesOf, Model, ModelClass, SpecsOf } from "./model.ts";
 import { ModelStatics } from "./model-statics.ts";
 import { state } from "./record-state.ts";
-import { touchRecord } from "./touch.ts";
+import { touchRecord, type TouchArguments } from "./touch.ts";
 
 /**
  * The built-in type a spec names: `"integer"` for `"integer"` or `{ type: "integer" }`, and
@@ -112,11 +112,15 @@ export abstract class AttributeWrites extends ModelStatics {
   }
 
   /**
-   * Sets `updatedAt`, and the datetime attributes named, to now, straight to the row, with no
-   * validation or save callback, as Rails' `touch`. Resolves to whether there was a row to write.
+   * Sets `updatedAt`, and the datetime attributes named, to now (or `{ time }`), straight to
+   * the row, with no validation or save callback, as Rails' `touch`. Resolves to whether there
+   * was a row to write.
    */
-  async touch<R extends Model>(this: R, ...names: DatetimeAttributeKey<R>[]): Promise<boolean> {
-    return touchRecord(this, names);
+  async touch<R extends Model>(
+    this: R,
+    ...args: TouchArguments<DatetimeAttributeKey<R>>
+  ): Promise<boolean> {
+    return touchRecord(this, args);
   }
 
   /**
