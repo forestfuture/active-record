@@ -203,8 +203,10 @@ class Nested extends Model.define({
 
 describe("around callbacks", () => {
   let harness: Harness;
-  const members = () =>
-    harness.connect({ onQuery: (event) => log.push(event.sql.split(" ")[0] ?? "") }).model(Member);
+  /** A database whose statements log their first word (INSERT, UPDATE, …) with the callbacks. */
+  const logging = () =>
+    harness.connect({ onQuery: (event) => log.push(event.sql.split(" ")[0] ?? "") });
+  const members = () => logging().model(Member);
 
   beforeAll(async () => {
     harness = await openHarness();
@@ -232,7 +234,7 @@ describe("around callbacks", () => {
     ]);
   });
 
-  test("aroundSave wraps an update the same way", async () => {
+  test("aroundSave wraps an update: beforeUpdate, the UPDATE and afterUpdate run inside it", async () => {
     const member = await members().create({ id: 1, email: "a@example.com" });
     log.length = 0;
 
@@ -251,10 +253,7 @@ describe("around callbacks", () => {
   });
 
   test("aroundCreate wraps the INSERT inside aroundSave, the first declared outermost", async () => {
-    await harness
-      .connect({ onQuery: (event) => log.push(event.sql.split(" ")[0] ?? "") })
-      .model(Account)
-      .create({ id: 1, email: "a@example.com" });
+    await logging().model(Account).create({ id: 1, email: "a@example.com" });
 
     expect(log).toEqual([
       "aroundSave 1 first",
@@ -271,9 +270,7 @@ describe("around callbacks", () => {
   });
 
   test("aroundUpdate wraps the UPDATE, and a subclass's run inside its parent's", async () => {
-    const accounts = harness
-      .connect({ onQuery: (event) => log.push(event.sql.split(" ")[0] ?? "") })
-      .model(AdminAccount);
+    const accounts = logging().model(AdminAccount);
     const account = await accounts.create({ id: 1, email: "a@example.com" });
     log.length = 0;
 
@@ -293,9 +290,7 @@ describe("around callbacks", () => {
   });
 
   test("a clean save runs aroundSave and aroundUpdate, with nothing sent", async () => {
-    const accounts = harness
-      .connect({ onQuery: (event) => log.push(event.sql.split(" ")[0] ?? "") })
-      .model(Account);
+    const accounts = logging().model(Account);
     const account = await accounts.create({ id: 1, email: "a@example.com" });
     log.length = 0;
 
@@ -312,9 +307,7 @@ describe("around callbacks", () => {
   });
 
   test("aroundDestroy wraps the DELETE, between beforeDestroy and afterDestroy", async () => {
-    const accounts = harness
-      .connect({ onQuery: (event) => log.push(event.sql.split(" ")[0] ?? "") })
-      .model(Account);
+    const accounts = logging().model(Account);
     const account = await accounts.create({ id: 1, email: "a@example.com" });
     log.length = 0;
 
@@ -343,7 +336,7 @@ describe("around callbacks", () => {
   });
 
   test("in a batch, every record's first part runs before the one write", async () => {
-    const db = harness.connect({ onQuery: (event) => log.push(event.sql.split(" ")[0] ?? "") });
+    const db = logging();
     const first = db.model(Member).build({ id: 1, email: "a@example.com" });
     const second = db.model(Member).build({ id: 2, email: "b@example.com" });
 
