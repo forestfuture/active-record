@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { Model, RecordDestroyed, RecordNotSaved } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
@@ -13,6 +13,27 @@ class Member extends Model.define({
   updatedAt: "datetime",
 }) {
   static table = "users";
+}
+
+/** Members with no `updatedAt`, so touching one needs a name. */
+class Unstamped extends Model.define({
+  id: { type: "integer", null: false },
+  createdAt: "datetime",
+}) {
+  static table = "users";
+}
+
+/** Members whose default scope leaves out inactive ones. */
+class ActiveMember extends Model.define({
+  id: { type: "integer", null: false },
+  isActive: "boolean",
+  updatedAt: "datetime",
+}) {
+  static table = "users";
+
+  static {
+    this.defaultScope((members) => members.where({ isActive: true }));
+  }
 }
 
 /** A time well before the test runs, so a touched timestamp can't hold it by chance. */
@@ -96,5 +117,58 @@ describe("touch (#50)", () => {
     );
     expect(events).toEqual([]);
     expect(member.changes()).toEqual({});
+  });
+
+  describe("what it refuses", () => {
+    test("a new record is RecordNotSaved, before anything is sent", async () => {
+      const member = db().model(Member).build({ email: "b@example.com" });
+
+      await expect(member.touch()).rejects.toThrow(
+        new RecordNotSaved("Member record hasn't been saved, so touch has no row to write"),
+      );
+      expect(events).toEqual([]);
+      expect(member.updatedAt).toBeNull();
+    });
+
+    test("a destroyed record is RecordDestroyed", async () => {
+      const member = await db().model(Member).find(1);
+      await member.destroy();
+      events.length = 0;
+
+      await expect(member.touch()).rejects.toThrow(RecordDestroyed);
+      expect(events).toEqual([]);
+    });
+
+    test("a Model with no updatedAt, touched with no names, is a TypeError", async () => {
+      const member = await db().model(Unstamped).find(1);
+      events.length = 0;
+
+      await expect(member.touch()).rejects.toThrow(
+        new TypeError(
+          "Unstamped.touch has nothing to touch: Unstamped has no updatedAt; name a datetime attribute",
+        ),
+      );
+      expect(events).toEqual([]);
+    });
+
+    test("a Model with no updatedAt touches the attributes it names", async () => {
+      const member = await db().model(Unstamped).find(1);
+
+      expect(await member.touch("createdAt", { time: stored })).toBe(true);
+    });
+  });
+
+  test("touch resolves to false when the row is gone", async () => {
+    const member = await db().model(Member).find(1);
+    await harness.exec("DELETE FROM users WHERE id = 1");
+
+    expect(await member.touch()).toBe(false);
+  });
+
+  test("touch writes the row by its key, whatever the default scope", async () => {
+    const member = await db().model(ActiveMember).find(1);
+    await harness.exec("UPDATE users SET is_active = ? WHERE id = 1", [false]);
+
+    expect(await member.touch()).toBe(true);
   });
 });
