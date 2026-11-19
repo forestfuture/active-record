@@ -215,6 +215,15 @@ describe("a hasOne's touch (#497)", () => {
       expect(statementKinds(events)).toEqual(["SELECT", "UPDATE", "UPDATE"]);
     });
 
+    test("an owner created touches nothing, even a record already pointing at its key", async () => {
+      const events: QueryEvent[] = [];
+
+      await recorded(events).model(Forum).create({ id: 2, title: "Two" });
+
+      expect(statementKinds(events)).toEqual(["INSERT"]);
+      expect(await updatedAt(2)).toEqual(stale);
+    });
+
     test("a save with nothing to write touches nothing", async () => {
       const events: QueryEvent[] = [];
       const forum = await recorded(events).model(Forum).find(1);
