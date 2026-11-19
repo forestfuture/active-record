@@ -4,6 +4,7 @@ import type { AssociationDefinition } from "./associations.ts";
 import { isDestroyedThrough } from "./counter-caches.ts";
 import { touchAssignments } from "./counters.ts";
 import { InvalidModel } from "./errors.ts";
+import { isTouchingOff } from "./no-touching.ts";
 import { Model, modelOf, type ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
 import {
@@ -194,8 +195,8 @@ function isTouchable(record: unknown, claimed: ReadonlySet<Model>): record is Mo
 }
 
 /**
- * `target`'s touch write, setting what `touch` names,
- * then those it makes in turn; nothing if this write has touched it already.
+ * `target`'s touch write, setting what `touch` names, then those it makes in turn; nothing if
+ * this write has touched it already, or `noTouching` turned its Model's touches off (#496).
  */
 async function touchOne(
   target: Model,
@@ -205,7 +206,7 @@ async function touchOne(
   const session = sessionOf(claimed);
   const model = modelOf(target);
   const key = touchKey(target);
-  if (session.touched.has(key)) return [];
+  if (session.touched.has(key) || isTouchingOff(model)) return [];
   session.touched.add(key);
   let values: Record<string, unknown> | undefined;
   const valuesOf = () =>
