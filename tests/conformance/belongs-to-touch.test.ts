@@ -711,4 +711,21 @@ describe("a belongsTo's touch (#353)", () => {
       expect(await updatedAt(1)).toEqual(await forumUpdatedAt());
     });
   });
+
+  describe("writes that skip callbacks", () => {
+    test("don't touch: updateColumns, updateAll and insert", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, body) VALUES (1, 1, 'Hi')");
+      const events: QueryEvent[] = [];
+      const messages = recorded(events).model(Message);
+      const message = await messages.find(1);
+      events.length = 0;
+
+      await message.updateColumns({ body: "Edited" });
+      await messages.where({ id: 1 }).updateAll({ body: "Again" });
+      await messages.insert({ discussionId: 1, body: "Bulk" });
+
+      expect(events.map((event) => event.model)).toEqual(["Message", "Message", "Message"]);
+      expect(await updatedAt(1)).toEqual(stale);
+    });
+  });
 });
