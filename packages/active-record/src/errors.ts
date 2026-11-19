@@ -151,8 +151,8 @@ export class RecordNotSaved extends ActiveRecordError {
 
 /**
  * `abort()` was thrown from an after-write callback (`afterSave`, `afterCreate`, `afterUpdate`,
- * `afterDestroy`, `afterTouch`). That's a mistake: the write already succeeded and nothing rolls
- * back.
+ * `afterDestroy`, `afterTouch`), or from an around callback once its `next()` resolved. That's a
+ * mistake: the write already succeeded and nothing rolls back.
  */
 export class AbortAfterPersistence extends ActiveRecordError {
   override name = "AbortAfterPersistence";
