@@ -38,6 +38,7 @@ import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
+import { touchesOf } from "./belongs-to-touch.ts";
 import {
   countersOnDestroy,
   countersOnInsert,
@@ -270,13 +271,25 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
   if (!(await beforeWrite(record, isInsert))) return aborted(record);
   // A hasOne's new record removes the one it replaces in its own batch (#40).
   const removal = await prepareReplacement(record, claimed);
+  const touches = await touchesOfSave(record, isInsert, claimed);
   const own = stageOf(record, [record], () => {
     linkOwner(record, before);
-    return [saveWrite(record, isInsert)];
+    return [saveWrite(record, isInsert), ...touches];
   });
   const after = await prepareAfter(record, claimed);
   if (!Array.isArray(after)) return after;
   return withRemoval(assemble(record, own, before, after), removal, record);
+}
+
+/** The touches a save makes (#353): none for an update with nothing to write. */
+function touchesOfSave(
+  record: Model,
+  isInsert: boolean,
+  claimed: Claimed,
+): Promise<PreparedWrite[]> {
+  if (isInsert) return touchesOf(record, "insert", claimed);
+  const writes = record[state].updateAssignments().length > 0;
+  return writes ? touchesOf(record, "update", claimed) : Promise.resolve([]);
 }
 
 /** beforeSave, then beforeCreate or beforeUpdate; `false` if one aborted. */

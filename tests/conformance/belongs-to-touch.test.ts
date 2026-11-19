@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import { belongsTo, hasMany, InvalidModel, Model } from "../../packages/active-record/src/index.ts";
+import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { statementKinds } from "../support/statement-kinds.ts";
 
 class Forum extends Model.define({
   id: { type: "integer", null: false },
@@ -48,7 +50,18 @@ describe("a belongsTo's touch (#353)", () => {
   afterAll(() => harness.dispose());
   beforeEach(async () => {
     await harness.reset("messages", "discussions", "forums");
+    await harness.exec(
+      "INSERT INTO discussions (id, title, updated_at) VALUES (1, 'One', ?), (2, 'Two', ?)",
+      [stale.toISOString(), stale.toISOString()],
+    );
   });
+
+  /** A time before every test's writes. */
+  const stale = new Date("2020-01-01T00:00:00.000Z");
+  const updatedAt = async (id: number) => (await db().model(Discussion).find(id)).updatedAt;
+  /** A Database whose statements are recorded in `events`. */
+  const recorded = (events: QueryEvent[]) =>
+    harness.connect({ onQuery: (event) => void events.push(event) });
 
   describe("declaring it", () => {
     test("a target without updatedAt touched with true is an InvalidModel at first use", () => {
@@ -144,6 +157,53 @@ describe("a belongsTo's touch (#353)", () => {
 
       expect(db().model(Named).build()).toBeInstanceOf(Named);
       expect(db().model(Message).build()).toBeInstanceOf(Message);
+    });
+  });
+
+  describe("creating a record", () => {
+    test("touches the record it belongs to, loaded, in the same batch", async () => {
+      const events: QueryEvent[] = [];
+      const discussion = await recorded(events).model(Discussion).find(1);
+      events.length = 0;
+
+      await discussion.messages().create({ body: "Hi" });
+
+      expect(statementKinds(events)).toEqual(["INSERT", "UPDATE"]);
+      expect(events.map((event) => event.model)).toEqual(["Message", "Discussion"]);
+      expect(discussion.updatedAt!.getTime()).toBeGreaterThan(stale.getTime());
+      expect(discussion.isChanged()).toBe(false);
+      expect(await updatedAt(1)).toEqual(discussion.updatedAt);
+      expect(await updatedAt(2)).toEqual(stale);
+    });
+
+    test("loads it first when it isn't loaded", async () => {
+      const events: QueryEvent[] = [];
+
+      const message = await recorded(events).model(Message).create({ discussionId: 1, body: "Hi" });
+
+      expect(statementKinds(events)).toEqual(["SELECT", "INSERT", "UPDATE"]);
+      expect((await updatedAt(1))!.getTime()).toBeGreaterThan(stale.getTime());
+      expect((await message.discussion())!.updatedAt).toEqual(await updatedAt(1));
+    });
+
+    test("a key that finds no record, or none, touches nothing", async () => {
+      const events: QueryEvent[] = [];
+      const messages = recorded(events).model(Message);
+
+      await messages.create({ discussionId: 99, body: "Lost" });
+      await messages.create({ body: "Alone" });
+
+      expect(statementKinds(events)).toEqual(["SELECT", "INSERT", "INSERT"]);
+    });
+
+    test("a new record it belongs to isn't touched: its insert sets updatedAt", async () => {
+      const events: QueryEvent[] = [];
+      const message = recorded(events).model(Message).build({ body: "First" });
+      message.discussion.build({ title: "New" });
+
+      await message.saveOrThrow();
+
+      expect(statementKinds(events)).toEqual(["INSERT", "INSERT"]);
     });
   });
 });
