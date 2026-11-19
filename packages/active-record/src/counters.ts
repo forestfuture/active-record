@@ -58,7 +58,7 @@ export function counterSets(
   model: ModelClass,
   counters: Readonly<Record<string, unknown>>,
   method: string,
-  { touch, touched = touchAssignments(model, touch, method) }: CounterTouch = {},
+  { touch, touched }: CounterTouch = {},
 ): SafeSql {
   const entries = Object.entries(counters);
   if (entries.length === 0) throw new TypeError(`${method} needs at least one counter`);
@@ -70,7 +70,7 @@ export function counterSets(
     values.push(column(name), column(name), column(name).value(amount(by, method)));
     strings.push(" = COALESCE(", ", 0) + ", "");
   }
-  for (const [name, now] of touched) {
+  for (const [name, now] of touched ?? touchAssignments(model, touch, method)) {
     strings[strings.length - 1] = ", ";
     values.push(column(name), column(name).value(now));
     strings.push(" = ", "");
