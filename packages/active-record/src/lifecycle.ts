@@ -38,7 +38,7 @@ import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
-import { touchesOf, type TouchingKind } from "./belongs-to-touch.ts";
+import { touchesOf, type TouchingKind } from "./association-touch.ts";
 import {
   countersOnDestroy,
   countersOnInsert,
