@@ -1,5 +1,13 @@
 # @forestfuture/active-record
 
+## 0.8.1
+
+### Patch Changes
+
+- [#492](https://github.com/forestfuture/active-record/pull/492) [`980f06a`](https://github.com/forestfuture/active-record/commit/980f06a977b412d138614f1dfaaf5db1dadae683) Thanks [@christopherstyles](https://github.com/christopherstyles)! - Inverse associations ([#62](https://github.com/forestfuture/active-record/issues/62)). A record loaded through its owner's `hasMany` or `hasOne`, by the association, its finders, a Relation narrowed from it, or `includes`, has the owner loaded as its `belongsTo`, the same object, so `await post.author()` sends no query. Through an `autosave: true` belongsTo, saving such a record now also saves the owner's unsaved changes, since the owner is loaded. A `belongsTo`'s record, read or preloaded, has the owner as its inverse `hasOne`. A record built through a new owner keeps pointing back after saving fills in its foreign key. The inverse is inferred by foreign key, so it's found with a `foreignKey:` option too; name it with `inverseOf: "author"` (on an association with a `scope:`, for one), or turn it off with `inverseOf: false`. A wrong `inverseOf` is `InvalidModel` when the Model is first used.
+
+- [#495](https://github.com/forestfuture/active-record/pull/495) [`e2d8ed1`](https://github.com/forestfuture/active-record/commit/e2d8ed1350f7b3e61ebece08194f5c60b92d6abf) Thanks [@christopherstyles](https://github.com/christopherstyles)! - Touching records ([#50](https://github.com/forestfuture/active-record/issues/50)). `record.touch()` sets `updatedAt`, and any datetime attributes named, to now (or `{ time }`) without a save, then runs `afterTouch` and the update commit callbacks. A Relation's `touchAll()` touches every row it matches in one statement, and `incrementColumn` and `decrementColumn` take `{ touch }`.
+
 ## 0.8.0
 
 ### Minor Changes
