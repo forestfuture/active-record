@@ -1,9 +1,11 @@
 ---
 title: Read replicas
-description: "With D1 read replication, keep each user's reads at least as new as their own writes: withSession opens a D1 Session for each request and carries its bookmark in a cookie or a header."
+description: "Keep each user’s reads at least as new as their own writes, with D1 read replication."
 ---
 
-With [D1 read replication](https://developers.cloudflare.com/d1/best-practices/read-replication/), reads can come from a nearby replica that may be a moment behind. A D1 **Session** keeps each user’s reads at least as new as their own writes.
+:::note
+[D1 read replication](https://developers.cloudflare.com/d1/best-practices/read-replication/) serves reads from a nearby replica, which may be a moment behind. A D1 **Session** keeps a user’s reads in order with their writes.
+:::
 
 ## Opening a Session for each request
 

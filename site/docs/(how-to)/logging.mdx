@@ -1,9 +1,11 @@
 ---
 title: Logging
-description: "See the SQL your Worker sends to D1: every query app-wide, one request's queries with its ID, only in development, in Workers Logs, and as Server-Timing."
+description: "Log the SQL your Worker sends with an onQuery listener."
 ---
 
-Log the SQL your Worker sends to D1 with an `onQuery` listener. It’s called once for every statement, writes and batches included, with:
+## What a listener receives
+
+An `onQuery` listener is called once for every statement, writes and batches included, with:
 
 | Field           |                                                                  |
 | --------------- | ---------------------------------------------------------------- |

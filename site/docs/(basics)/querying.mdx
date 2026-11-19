@@ -1,7 +1,9 @@
 ---
 title: Querying
-description: "Reference for querying: a Model's statics, Relations, conditions (see Conditions), ordering and paging, inOrderOf, paginate, findEach/findInBatches/inBatches, find/findBy/first/count, calculations (sum, average, minimum, maximum), partial records, none(), merge, joins and leftJoins, scopes, default scopes, and preloading."
+description: "Build a query as a Relation, and run it when you ask for results."
 ---
+
+## Building a Relation
 
 A query is a **Relation**. Each method that narrows, orders, or pages it returns a new Relation, and nothing runs until you ask for results:
 

@@ -1,9 +1,7 @@
 ---
 title: Schema and ApplicationRecord
-description: "Why Active Record generates a Model's attributes from your migrations and Model files, how the generated schema compares to Rails' schema.rb, and how a Model extending ApplicationRecord gets its table's attributes."
+description: "Active Record reads a table’s columns from your migrations when you generate the schema, not when your Worker runs."
 ---
-
-In Rails, a migration describes a table, and the model never repeats it: Rails reads the columns from the database when the app runs. Active Record keeps that idea, with one change TypeScript requires: it reads the columns when you **generate** the schema, not when your Worker runs.
 
 ## Migrations are the source of truth
 

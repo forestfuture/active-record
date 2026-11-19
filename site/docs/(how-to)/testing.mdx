@@ -1,9 +1,11 @@
 ---
 title: Testing
-description: "Test Models and your Worker against a real D1 database with Vitest and Miniflare: create the tables from your migrations, and give the code a database with withDatabase."
+description: "Test Models and your Worker against a real D1 database with Vitest and Miniflare."
 ---
 
-Test your Models and Worker against a real D1 database, with your migrations applied. [Miniflare](https://developers.cloudflare.com/workers/testing/miniflare/) runs Cloudflare’s runtime, D1 included, inside Node:
+## Installing
+
+[Miniflare](https://developers.cloudflare.com/workers/testing/miniflare/) runs Cloudflare’s runtime, D1 included, inside Node:
 
 ```sh
 npm install --save-dev vitest miniflare@4
