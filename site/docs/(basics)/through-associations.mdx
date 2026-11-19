@@ -3,26 +3,6 @@ title: Through associations
 description: "Read and write records through a join Model, such as an article’s tags through its taggings."
 ---
 
-Through associations are declared the same way for D1 and Postgres. The examples use these Models and tables:
-
-<Tabs syncKey="database">
-<Tab title="Models">
-
-<include>/_excerpts/guide/through/model.ts</include>
-
-</Tab>
-<Tab title="D1">
-
-<include>/_excerpts/guide/through-d1.sql</include>
-
-</Tab>
-<Tab title="Postgres">
-
-<include>/_excerpts/guide/through-postgres.sql</include>
-
-</Tab>
-</Tabs>
-
 ## At a glance
 
 | To                                      | Write                                                        |
@@ -60,6 +40,28 @@ Through associations are declared the same way for D1 and Postgres. The examples
     },
   }}
 />
+
+## The Models
+
+The examples use these Models and tables:
+
+<Tabs syncKey="database">
+<Tab title="Models">
+
+<include>/_excerpts/guide/through/model.ts</include>
+
+</Tab>
+<Tab title="D1">
+
+<include>/_excerpts/guide/through-d1.sql</include>
+
+</Tab>
+<Tab title="Postgres">
+
+<include>/_excerpts/guide/through-postgres.sql</include>
+
+</Tab>
+</Tabs>
 
 ## Reading records
 

@@ -3,7 +3,24 @@ title: Conditions
 description: "Filter a query’s records by their attributes."
 ---
 
-Conditions are written the same way for D1 and Postgres. The examples use this Model and table:
+## At a glance
+
+| To match                      | Write                                  | SQL                         |
+| ----------------------------- | -------------------------------------- | --------------------------- |
+| equal values                  | `where({ role: "admin" })`             | `role = ?`                  |
+| NULL                          | `where({ role: null })`                | `role IS NULL`              |
+| any value in a list           | `where({ role: ["admin", "editor"] })` | `role IN (…)`               |
+| anything but a value          | `whereNot({ role: "admin" })`          | `NOT (role = ?)`            |
+| either of two queries         | `where(a).or(User.where(b))`           | `(…) OR (…)`                |
+| a range                       | `where({ createdAt: gte(date) })`      | `created_at >= ?`           |
+| anything else                 | ``where(sql`…`)``                      | your SQL, with values bound |
+| a replacement for a condition | `rewhere({ role: "admin" })`           | drops the old `role = ?`    |
+| fewer parts of a query        | `unscope("order")`, `only("where")`    | drops the parts named       |
+| all but some records          | `excluding(record)`                    | `id NOT IN (…)`             |
+
+## The Model
+
+The examples use this Model and table:
 
 <Tabs syncKey="database">
 <Tab title="Model">
@@ -24,21 +41,6 @@ Conditions are written the same way for D1 and Postgres. The examples use this M
 
 </Tab>
 </Tabs>
-
-## At a glance
-
-| To match                      | Write                                  | SQL                         |
-| ----------------------------- | -------------------------------------- | --------------------------- |
-| equal values                  | `where({ role: "admin" })`             | `role = ?`                  |
-| NULL                          | `where({ role: null })`                | `role IS NULL`              |
-| any value in a list           | `where({ role: ["admin", "editor"] })` | `role IN (…)`               |
-| anything but a value          | `whereNot({ role: "admin" })`          | `NOT (role = ?)`            |
-| either of two queries         | `where(a).or(User.where(b))`           | `(…) OR (…)`                |
-| a range                       | `where({ createdAt: gte(date) })`      | `created_at >= ?`           |
-| anything else                 | ``where(sql`…`)``                      | your SQL, with values bound |
-| a replacement for a condition | `rewhere({ role: "admin" })`           | drops the old `role = ?`    |
-| fewer parts of a query        | `unscope("order")`, `only("where")`    | drops the parts named       |
-| all but some records          | `excluding(record)`                    | `id NOT IN (…)`             |
 
 ## Matching values
 
