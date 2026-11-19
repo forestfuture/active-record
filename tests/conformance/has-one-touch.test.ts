@@ -143,6 +143,46 @@ class NullifyingForum extends Model.define({ id: { type: "integer", null: false 
   discussion = hasOne(Discussion, { foreignKey: "forumId", touch: true, dependent: "nullify" });
 }
 
+/** A forum setting its discussion's lastMessageAt, with its updatedAt. */
+class NamedForum extends Model.define({
+  id: { type: "integer", null: false },
+  title: "string",
+}) {
+  static table = "forums";
+  discussion = hasOne(Discussion, { foreignKey: "forumId", touch: "lastMessageAt" });
+}
+
+/** A forum whose discussion is read only while it's open. */
+class OpenForum extends Model.define({
+  id: { type: "integer", null: false },
+  title: "string",
+}) {
+  static table = "forums";
+  discussion = hasOne(ListedDiscussion, {
+    foreignKey: "forumId",
+    touch: true,
+    scope: (q) => q.where({ archived: false }),
+  });
+}
+
+/** A discussion touching its one message, as its forum touches it. */
+class MessageTouchingDiscussion extends Model.define({
+  id: { type: "integer", null: false },
+  forumId: "integer",
+  updatedAt: "datetime",
+}) {
+  static table = "discussions";
+  message = hasOne(Message, { foreignKey: "discussionId", touch: true });
+}
+
+class CascadingForum extends Model.define({
+  id: { type: "integer", null: false },
+  title: "string",
+}) {
+  static table = "forums";
+  discussion = hasOne(MessageTouchingDiscussion, { foreignKey: "forumId", touch: true });
+}
+
 /** A discussion without timestamps, which `touch: true` has nothing to set on. */
 class PlainDiscussion extends Model.define({
   id: { type: "integer", null: false },
@@ -179,14 +219,22 @@ describe("a hasOne's touch (#497)", () => {
     harness.connect({ onQuery: (event) => void events.push(event) });
 
   describe("declaring it", () => {
-    test("true, a datetime attribute, or a list of them, is declared", () => {
-      class Named extends Model.define({ id: { type: "integer", null: false } }) {
+    test("true, or a datetime attribute's name, is declared", () => {
+      expect(db().model(Forum).build()).toBeInstanceOf(Forum);
+      expect(db().model(NamedForum).build()).toBeInstanceOf(NamedForum);
+    });
+
+    test("a named attribute that isn't a datetime is an InvalidModel", () => {
+      class Misnamed extends Model.define({ id: { type: "integer", null: false } }) {
         static table = "forums";
-        discussion = hasOne(Discussion, { foreignKey: "forumId", touch: ["lastMessageAt"] });
+        discussion = hasOne(Discussion, { foreignKey: "forumId", touch: "title" as never });
       }
 
-      expect(db().model(Forum).build()).toBeInstanceOf(Forum);
-      expect(db().model(Named).build()).toBeInstanceOf(Named);
+      expect(() => db().model(Misnamed).build()).toThrow(
+        new InvalidModel(
+          'Misnamed association "discussion": touch takes Discussion\'s datetime attributes; "title" isn\'t one',
+        ),
+      );
     });
 
     test("a target without updatedAt touched with true is an InvalidModel at first use", () => {
@@ -222,6 +270,38 @@ describe("a hasOne's touch (#497)", () => {
 
       expect(statementKinds(events)).toEqual(["INSERT"]);
       expect(await updatedAt(2)).toEqual(stale);
+    });
+
+    test("a named attribute is set with updatedAt, to one time", async () => {
+      const forum = await db().model(NamedForum).find(1);
+
+      await forum.update({ title: "Renamed" });
+
+      const discussion = await db().model(Discussion).find(1);
+      expect(discussion.lastMessageAt).not.toBeNull();
+      expect(discussion.lastMessageAt).toEqual(discussion.updatedAt);
+    });
+
+    test("a loaded record is touched with no query to read it", async () => {
+      const events: QueryEvent[] = [];
+      const forum = await recorded(events).model(Forum).find(1);
+      await forum.discussion();
+      events.length = 0;
+
+      await forum.update({ title: "Renamed" });
+
+      expect(statementKinds(events)).toEqual(["UPDATE", "UPDATE"]);
+    });
+
+    test("its record touches the record it has in turn", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, updated_at) VALUES (1, 1, ?)", [
+        stale.toISOString(),
+      ]);
+      const forum = await db().model(CascadingForum).find(1);
+
+      await forum.update({ title: "Renamed" });
+
+      expect((await db().model(Message).find(1)).updatedAt).not.toEqual(stale);
     });
 
     test("a save with nothing to write touches nothing", async () => {
@@ -323,7 +403,7 @@ describe("a hasOne's touch (#497)", () => {
   });
 
   describe("a record the same write saves", () => {
-    test("a new one built through the owner is inserted, not touched", async () => {
+    test("a new one built through the owner, replacing its record, is inserted, not touched", async () => {
       const forum = await db().model(TouchedForum).find(1);
       const built = forum.discussion.build();
       forum.title = "Renamed";
@@ -370,6 +450,15 @@ describe("a hasOne's touch (#497)", () => {
       await forum.update({ title: "Renamed" });
 
       expect((await db().model(Message).find(1)).updatedAt).not.toEqual(stale);
+    });
+
+    test("a record the association's scope hides isn't touched", async () => {
+      await harness.exec("UPDATE discussions SET archived = ?", [true]);
+      const forum = await db().model(OpenForum).find(1);
+
+      await forum.update({ title: "Renamed" });
+
+      expect(await updatedAt(1)).toEqual(stale);
     });
 
     test("a record the target's default scope hides isn't touched", async () => {
