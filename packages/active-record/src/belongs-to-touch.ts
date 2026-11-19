@@ -231,27 +231,33 @@ async function touchOne(
 }
 
 /**
- * A touch write as part of another record's write, asked once the write is kept, when every
- * record of the write is claimed, by its row (another instance may be the one claimed): a row
- * the write destroys runs no touch callback (Rails touches only a persisted record), and one it
- * saves itself runs its update commit callbacks once, from its own save.
+ * A touch write as part of another record's write. What it does to its record is asked as each
+ * step runs, when the write's records are claimed and inserted ones have their keys, by row
+ * (another instance may be the one claimed): a row the write destroys takes nothing and runs no
+ * touch callback (Rails touches only a persisted record), and a row the write saves itself runs
+ * its commit and rollback callbacks once, from its own save.
  */
 function inWrite(write: PreparedWrite, target: Model, claimed: ReadonlySet<Model>): PreparedWrite {
-  // Asked once the write is kept, when a record it inserted has its key.
   const sameRow = () => [...claimed].filter((each) => touchKey(each) === touchKey(target));
-  const isDestroyed = () => sameRow().some((each) => each[state].isDestroyed);
+  const isDestroyed = () =>
+    target[state].isDestroyed || sameRow().some((each) => each[state].isDestroyed);
+  const isClaimedRow = () => sameRow().length > 0;
   return {
     // Read as it's sent, not now: a new record's key isn't known yet.
     get statements() {
       return write.statements;
     },
-    commit: (results) => write.commit(results),
-    afterRollback: write.afterRollback,
+    commit: (results) => {
+      if (!isDestroyed()) write.commit(results);
+    },
     after: async () => {
       if (!isDestroyed()) await write.after();
     },
     afterCommit: async () => {
-      if (sameRow().length === 0) await write.afterCommit?.();
+      if (!isClaimedRow()) await write.afterCommit?.();
+    },
+    afterRollback: async () => {
+      if (!isClaimedRow()) await write.afterRollback?.();
     },
   };
 }
