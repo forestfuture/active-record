@@ -6,7 +6,7 @@ import { compileUpdate } from "./compiler.ts";
 import { touchesOfTouch } from "./belongs-to-touch.ts";
 import { touchAssignments } from "./counters.ts";
 import { modelOf, type Model, type ModelClass } from "./model.ts";
-import { isTouchingOff } from "./no-touching.ts";
+import { isCoveredByNoTouching } from "./no-touching.ts";
 import { state } from "./record-state.ts";
 import { runAfter, writeAll, type PreparedWrite } from "./unit-of-work.ts";
 
@@ -67,7 +67,7 @@ function splitTouchArguments(
 export async function touchRecord(record: Model, args: readonly unknown[]): Promise<boolean> {
   const values = touchValues(modelOf(record), args, "touch");
   // Inside `noTouching` (#496), once its arguments are checked, it writes nothing.
-  if (isTouchingOff(modelOf(record))) return false;
+  if (isCoveredByNoTouching(modelOf(record))) return false;
   // Every value is the one time the touch sets.
   const time = Object.values(values)[0] as Date;
   const writes = [touchWrite(record, () => values), ...(await touchesOfTouch(record, time))];

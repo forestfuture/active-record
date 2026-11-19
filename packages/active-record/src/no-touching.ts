@@ -1,22 +1,23 @@
-// `noTouching` (#496): the Models whose records aren't touched inside a block, held in an AsyncLocalStorage of its own (ADR-0012), and asking whether a record's Model is one.
-import { ActiveRecordError } from "./errors.ts";
+// `noTouching` (#496): the Models whose records aren't touched inside a block, held in an AsyncLocalStorage of its own (ADR-0012), and asking whether a block covers a record's Model.
 import { newAsyncStorage, NODE_COMPATIBILITY, type Storage } from "./async-storage.ts";
+import { ActiveRecordError } from "./errors.ts";
+import type { AbstractModelClass } from "./model.ts";
 
-/** The Models whose touches are off, the outermost block's first. */
-type TurnedOff = readonly (abstract new (...args: never) => object)[];
+/** The Models the running `noTouching` blocks were called on, the outermost block's first. */
+type CoveredModels = readonly AbstractModelClass[];
 
 /** The storage, once `noTouching` has been called. */
-let storage: Storage<TurnedOff> | undefined;
+let storage: Storage<CoveredModels> | undefined;
 
 /**
- * Runs `fn` with `model`'s touches off, and those of the Models extending it, added to those an
- * outer block turned off, for the code it runs and everything it awaits.
+ * Runs `fn` with `model`'s records not touched, nor those of the Models extending it, added to
+ * those an outer block covers, for the code it runs and everything it awaits.
  */
 export async function noTouching<R>(
-  model: TurnedOff[number],
+  model: AbstractModelClass,
   fn: () => R | Promise<R>,
 ): Promise<R> {
-  storage ??= newAsyncStorage<TurnedOff>();
+  storage ??= newAsyncStorage<CoveredModels>();
   if (storage === undefined) {
     throw new ActiveRecordError(`noTouching needs Node.js compatibility: ${NODE_COMPATIBILITY}`);
   }
@@ -24,8 +25,8 @@ export async function noTouching<R>(
   return await storage.run([...outer, model], fn);
 }
 
-/** Whether a `noTouching` block the code runs in turned off touching `model`'s records. */
-export function isTouchingOff(model: TurnedOff[number]): boolean {
-  const off = storage?.getStore() ?? [];
-  return off.some((each) => each === model || model.prototype instanceof each);
+/** Whether a `noTouching` block the code runs in covers `model`: its own Model's, or one it extends. */
+export function isCoveredByNoTouching(model: AbstractModelClass): boolean {
+  const covered = storage?.getStore() ?? [];
+  return covered.some((each) => each === model || model.prototype instanceof each);
 }

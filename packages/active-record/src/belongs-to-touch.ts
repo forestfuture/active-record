@@ -4,7 +4,7 @@ import type { AssociationDefinition } from "./associations.ts";
 import { isDestroyedThrough } from "./counter-caches.ts";
 import { touchAssignments } from "./counters.ts";
 import { InvalidModel } from "./errors.ts";
-import { isTouchingOff } from "./no-touching.ts";
+import { isCoveredByNoTouching } from "./no-touching.ts";
 import { Model, modelOf, type ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
 import {
@@ -206,7 +206,7 @@ async function touchOne(
   const session = sessionOf(claimed);
   const model = modelOf(target);
   const key = touchKey(target);
-  if (session.touched.has(key) || isTouchingOff(model)) return [];
+  if (session.touched.has(key) || isCoveredByNoTouching(model)) return [];
   session.touched.add(key);
   let values: Record<string, unknown> | undefined;
   const valuesOf = () =>
