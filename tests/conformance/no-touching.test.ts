@@ -32,6 +32,19 @@ class Message extends Model.define({
   discussion = belongsTo(Discussion, { touch: true, optional: true });
 }
 
+/** A discussion of a Model extending Discussion, which Discussion's block covers. */
+class PinnedDiscussion extends Discussion {
+  static override table = "discussions";
+}
+
+class PinnedMessage extends Model.define({
+  id: { type: "integer", null: false },
+  discussionId: "integer",
+}) {
+  static table = "messages";
+  discussion = belongsTo(PinnedDiscussion, { foreignKey: "discussionId", touch: true });
+}
+
 describe("noTouching (#496)", () => {
   let harness: Harness;
   const db = () => harness.connect();
@@ -86,6 +99,40 @@ describe("noTouching (#496)", () => {
       await Discussion.noTouching(() => undefined);
 
       await db().model(Message).create({ discussionId: 1, body: "Hi" });
+
+      expect(await updatedAtOf(Discussion, 1)).not.toEqual(stale);
+    });
+
+    test("a Model extending it isn't touched either", async () => {
+      await Discussion.noTouching(() => db().model(PinnedMessage).create({ discussionId: 1 }));
+
+      expect(await updatedAtOf(Discussion, 1)).toEqual(stale);
+    });
+
+    test("Model.noTouching turns every Model's touches off", async () => {
+      await Model.noTouching(() => db().model(Message).create({ discussionId: 1, body: "Hi" }));
+
+      expect(await updatedAtOf(Discussion, 1)).toEqual(stale);
+      expect(await updatedAtOf(Forum, 1)).toEqual(stale);
+    });
+
+    test("other Models are still touched: the discussion, but not its forum", async () => {
+      await Forum.noTouching(() => db().model(Message).create({ discussionId: 1, body: "Hi" }));
+
+      expect(await updatedAtOf(Discussion, 1)).not.toEqual(stale);
+      expect(await updatedAtOf(Forum, 1)).toEqual(stale);
+    });
+
+    test("a record that isn't touched doesn't touch its own in turn", async () => {
+      await Discussion.noTouching(() =>
+        db().model(Message).create({ discussionId: 1, body: "Hi" }),
+      );
+
+      expect(await updatedAtOf(Forum, 1)).toEqual(stale);
+    });
+
+    test("it's the touched record's Model that counts, not the one touching it", async () => {
+      await Message.noTouching(() => db().model(Message).create({ discussionId: 1, body: "Hi" }));
 
       expect(await updatedAtOf(Discussion, 1)).not.toEqual(stale);
     });
