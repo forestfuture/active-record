@@ -106,7 +106,7 @@ export class Batch {
     { touch }: CounterOptions<M> = {},
   ): Statement {
     const rows = this.#rows(target);
-    const sets = counterSets(rows[queryOf].model, counters, "updateCounters", touch);
+    const sets = counterSets(rows[queryOf].model, counters, "updateCounters", { touch });
     return rows[preparedWrites].updateAll(sets);
   }
 

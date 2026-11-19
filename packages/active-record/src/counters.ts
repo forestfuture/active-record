@@ -1,4 +1,4 @@
-// Counters (#351): adding to number attributes in the row, `SET x = COALESCE(x, 0) + n`, for `updateCounters` and a record's `incrementColumn`; the amounts they add; the timestamps `touch` sets with them (#61); and refusing an attribute of the wrong type, for them and for `toggle`.
+// Counters (#351): adding to number attributes in the row, `SET x = COALESCE(x, 0) + n`, for `updateCounters` and a record's `incrementColumn`; the amounts they add; the timestamps their `touch` option sets (#61), which a record's `touch()` and a Relation's `touchAll` set too (#50); and refusing an attribute of the wrong type, for them and for `toggle`.
 import type { DatetimeAttributeKey, NumberAttributeKey } from "./attribute-writes.ts";
 import type { Assignment } from "./compiler.ts";
 import { attributeOf } from "./metadata.ts";
@@ -17,6 +17,12 @@ type Touch<R> = true | DatetimeAttributeKey<R> | readonly DatetimeAttributeKey<R
 /** What the counter writes take besides their counters: `touch`. */
 export interface CounterOptions<R> {
   touch?: Touch<R>;
+}
+
+/** A counter write's timestamps: its `touch` option, or the assignments it already made. */
+interface CounterTouch {
+  touch?: unknown;
+  touched?: readonly Assignment[];
 }
 
 /**
@@ -45,13 +51,14 @@ export function touchAssignments(
 
 /**
  * `x = COALESCE(x, 0) + ?, …` for each counter, so a NULL counts as zero and concurrent writes
- * all count. `{}`, an attribute that isn't a number, or an amount that isn't one, is a `TypeError`.
+ * all count, then the timestamps `touch` sets (or those already `touched`). `{}`, an attribute
+ * that isn't a number, or an amount that isn't one, is a `TypeError`.
  */
 export function counterSets(
   model: ModelClass,
   counters: Readonly<Record<string, unknown>>,
   method: string,
-  touch?: unknown,
+  { touch, touched = touchAssignments(model, touch, method) }: CounterTouch = {},
 ): SafeSql {
   const entries = Object.entries(counters);
   if (entries.length === 0) throw new TypeError(`${method} needs at least one counter`);
@@ -63,7 +70,7 @@ export function counterSets(
     values.push(column(name), column(name), column(name).value(amount(by, method)));
     strings.push(" = COALESCE(", ", 0) + ", "");
   }
-  for (const [name, now] of touchAssignments(model, touch, method)) {
+  for (const [name, now] of touched) {
     strings[strings.length - 1] = ", ";
     values.push(column(name), column(name).value(now));
     strings.push(" = ", "");

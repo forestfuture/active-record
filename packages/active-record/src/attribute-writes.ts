@@ -165,18 +165,19 @@ async function addToColumn(
   const recordState = record[state];
   requireSaved(record, method);
   const model = modelOf(record);
-  const touched = touchAssignments(model, touch, method).map(([each]) => each);
+  const touched = touchAssignments(model, touch, method);
+  const touchedNames = touched.map(([each]) => each);
   const after = (numberValue(record, name, method) ?? 0) + by;
   const delta = after - ((recordState.valueInDatabase(name) as number | null) ?? 0);
   recordState.write(name, after);
   const update = compileUpdate(
     model,
-    counterSets(model, { [name]: delta }, method, touch),
+    counterSets(model, { [name]: delta }, method, { touched }),
     recordState.storedKey,
-    [name, ...touched],
+    [name, ...touchedNames],
   );
   const [result] = await recordState.executor.write([update]);
-  recordState.commitColumns([name, ...touched], result?.rows[0]);
+  recordState.commitColumns([name, ...touchedNames], result?.rows[0]);
   return result?.rowsAffected === 1;
 }
 
