@@ -107,7 +107,7 @@ this.afterTouch(async (article) => {
 `touchAll` and the counters’ `touch` option run no callbacks.
 
 :::warning[A touch runs the update commit callbacks]
-Every `touch()` runs `afterUpdateCommit`. To send an email only when a record is saved, register it with `afterUpdate` instead. It runs once the database has kept the save.
+A `touch()` that writes a row runs `afterUpdateCommit`. To send an email only when a record is saved, register it with `afterUpdate` instead. It runs once the database has kept the save.
 :::
 
 ## Handling a refused write
