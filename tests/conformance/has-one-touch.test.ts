@@ -61,6 +61,72 @@ class AutosavingForum extends Model.define({
   discussion = hasOne(HeardDiscussion, { foreignKey: "forumId", touch: true, autosave: true });
 }
 
+/** A sticker on a forum, which the forum touches through its polymorphic hasOne. */
+class Sticker extends Model.define({
+  id: { type: "integer", null: false },
+  stickableType: "string",
+  stickableId: "integer",
+  updatedAt: "datetime",
+}) {
+  static table = "stickers";
+}
+
+class StickeredForum extends Model.define({
+  id: { type: "integer", null: false },
+  title: "string",
+}) {
+  static table = "forums";
+  sticker = hasOne(Sticker, { as: "stickable", touch: true });
+}
+
+class Message extends Model.define({
+  id: { type: "integer", null: false },
+  discussionId: "integer",
+  updatedAt: "datetime",
+}) {
+  static table = "messages";
+}
+
+/** A discussion with one message. */
+class OneMessageDiscussion extends Model.define({
+  id: { type: "integer", null: false },
+  forumId: "integer",
+}) {
+  static table = "discussions";
+  message = hasOne(Message, { foreignKey: "discussionId" });
+}
+
+/** A forum touching the message it reaches through its discussion. */
+class ThroughForum extends Model.define({
+  id: { type: "integer", null: false },
+  title: "string",
+}) {
+  static table = "forums";
+  discussion = hasOne(OneMessageDiscussion, { foreignKey: "forumId" });
+  message = hasOne(Message, { through: "discussion", touch: true });
+}
+
+/** A discussion whose default scope hides archived ones. */
+class ListedDiscussion extends Model.define({
+  id: { type: "integer", null: false },
+  forumId: "integer",
+  archived: "boolean",
+  updatedAt: "datetime",
+}) {
+  static table = "discussions";
+  static {
+    this.defaultScope((q) => q.where({ archived: false }));
+  }
+}
+
+class ListingForum extends Model.define({
+  id: { type: "integer", null: false },
+  title: "string",
+}) {
+  static table = "forums";
+  discussion = hasOne(ListedDiscussion, { foreignKey: "forumId", touch: true });
+}
+
 /** Forums whose discussion goes with them, or stays, as their dependent says. */
 class DestroyingForum extends Model.define({ id: { type: "integer", null: false } }) {
   static table = "forums";
@@ -95,7 +161,7 @@ describe("a hasOne's touch (#497)", () => {
   afterAll(() => harness.dispose());
   beforeEach(async () => {
     heard.length = 0;
-    await harness.reset("messages", "discussions", "forums");
+    await harness.reset("stickers", "messages", "discussions", "forums");
     await harness.exec("INSERT INTO forums (id, title, updated_at) VALUES (1, 'Forum', ?)", [
       stale.toISOString(),
     ]);
@@ -259,6 +325,51 @@ describe("a hasOne's touch (#497)", () => {
 
       expect(heard).not.toContain("afterTouch");
       expect(await updatedAt(1)).toEqual(time);
+    });
+  });
+
+  describe("which record it reaches", () => {
+    test("a polymorphic hasOne touches its record", async () => {
+      await harness.exec(
+        "INSERT INTO stickers (id, stickable_type, stickable_id, updated_at) VALUES (1, 'StickeredForum', 1, ?)",
+        [stale.toISOString()],
+      );
+      const forum = await db().model(StickeredForum).find(1);
+
+      await forum.update({ title: "Renamed" });
+
+      expect((await db().model(Sticker).find(1)).updatedAt).not.toEqual(stale);
+    });
+
+    test("a hasOne through another touches the record it reaches through it", async () => {
+      await harness.exec("INSERT INTO messages (id, discussion_id, updated_at) VALUES (1, 1, ?)", [
+        stale.toISOString(),
+      ]);
+      const forum = await db().model(ThroughForum).find(1);
+
+      await forum.update({ title: "Renamed" });
+
+      expect((await db().model(Message).find(1)).updatedAt).not.toEqual(stale);
+    });
+
+    test("a record the target's default scope hides isn't touched", async () => {
+      await harness.exec("UPDATE discussions SET archived = ?", [true]);
+      const forum = await db().model(ListingForum).find(1);
+
+      await forum.update({ title: "Renamed" });
+
+      expect(await updatedAt(1)).toEqual(stale);
+    });
+
+    test("inside its Model's noTouching, it isn't read or touched", async () => {
+      const events: QueryEvent[] = [];
+      const forum = await recorded(events).model(Forum).find(1);
+      events.length = 0;
+
+      await Discussion.noTouching(() => forum.update({ title: "Renamed" }));
+
+      expect(statementKinds(events)).toEqual(["UPDATE"]);
+      expect(await updatedAt(1)).toEqual(stale);
     });
   });
 });
