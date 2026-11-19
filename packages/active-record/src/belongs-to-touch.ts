@@ -174,8 +174,8 @@ function isTouching(
 }
 
 /**
- * Whether a `noTouching` block covers every Model belongsTo `name` can reach (#496): its one
- * Model, or each a polymorphic one lists. Then nothing it reaches is touched, so it isn't read.
+ * Whether a `noTouching` block covers every Model association `name` can reach (#496): its one
+ * Model, or each a polymorphic belongsTo lists. Then nothing it reaches is touched, so it isn't read.
  */
 function isEveryTargetCovered(model: ModelClass, name: string): boolean {
   const { branches } = resolveAssociation(model, name);
