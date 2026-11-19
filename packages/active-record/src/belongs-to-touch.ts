@@ -75,13 +75,12 @@ function requireTouchable(label: string, target: ModelClass, names: readonly str
 export type TouchCause = "insert" | "update" | "destroy" | "touch";
 
 /**
- * One write's touches: the time each sets, the records already touched (by table and key, so
- * each is touched once), and the records the write saves or destroys itself.
+ * One write's touches: the time each sets, and the records already touched (by table and key,
+ * so each is touched once).
  */
 interface TouchSession {
   time: Date;
   touched: Set<string>;
-  claimed: ReadonlySet<Model>;
 }
 
 /** Each write's touch session, by the set of records it claims. */
@@ -92,11 +91,14 @@ export function touchTimeOf(claimed: ReadonlySet<Model>): Date {
   return sessionOf(claimed).time;
 }
 
-/** The touch session of the write claiming `claimed`, started on its first touch. */
-function sessionOf(claimed: ReadonlySet<Model>): TouchSession {
+/**
+ * The touch session of the write claiming `claimed`, started at `time` (now by default) on its
+ * first touch.
+ */
+function sessionOf(claimed: ReadonlySet<Model>, time = new Date()): TouchSession {
   let session = sessions.get(claimed);
   if (session === undefined) {
-    session = { time: new Date(), touched: new Set(), claimed };
+    session = { time, touched: new Set() };
     sessions.set(claimed, session);
   }
   return session;
@@ -113,7 +115,7 @@ function touchKey(record: Model): string {
  */
 export function touchesOfTouch(record: Model, time: Date): Promise<PreparedWrite[]> {
   const claimed = new Set([record]);
-  sessions.set(claimed, { time, touched: new Set([touchKey(record)]), claimed });
+  sessionOf(claimed, time).touched.add(touchKey(record));
   return touchesOf(record, "touch", claimed);
 }
 

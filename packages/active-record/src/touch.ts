@@ -1,4 +1,4 @@
-// Touching a record (#50): `touch()`, its timestamps set to now, or a given time, in one UPDATE by its stored key, with no validation or save callback, then `afterTouch` and the update commit callbacks; and what a Relation's `touchAll` sets.
+// Touching a record (#50): `touch()`, its timestamps set to now, or a given time, in one UPDATE by its stored key, with no validation or save callback, then `afterTouch` and the update commit callbacks, with the records its belongsTos touch (#353); the touch write other writes make; and what a Relation's `touchAll` sets.
 import type { DatetimeAttributeKey } from "./attribute-writes.ts";
 import { afterRollbackOf, runAfterCallbacks, runCommitCallbacks } from "./callbacks.ts";
 import { compileUpdate } from "./compiler.ts";

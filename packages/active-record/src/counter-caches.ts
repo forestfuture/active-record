@@ -1,4 +1,4 @@
-// Counter caches (#61): a belongsTo's `counterCache`, kept up to date by statements written in the same atomic batch as its record's insert, update or delete, and checking it and a hasMany's.
+// Counter caches (#61): a belongsTo's `counterCache`, kept up to date by statements written in the same atomic batch as its record's insert, update or delete, which also set what its `touch` names (#353) and tell whether they wrote; and checking it and a hasMany's.
 import { associationOf, associationsOf } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import type { TouchCause } from "./belongs-to-touch.ts";
@@ -190,7 +190,7 @@ export interface CounterCache {
   /** Whether `size` reads it: not while it's declared `active: false`. */
   isActive: boolean;
   /** What a record's write sets on the target with its count, by its belongsTo's `touch` (#353). */
-  touched: readonly Assignment[];
+  touching: readonly Assignment[];
 }
 
 /** The counter caches a Model's records keep: each belongsTo's declaring one, on each target. */
@@ -208,7 +208,7 @@ export function countersOf(owner: ModelClass): CounterCache[] {
       targetKey: targetAttribute,
       type,
       isActive,
-      touched: [],
+      touching: [],
     }));
   });
 }
@@ -220,7 +220,7 @@ export function countersOf(owner: ModelClass): CounterCache[] {
 function countersOfWrite(owner: ModelClass, time: Date): CounterCache[] {
   return countersOf(owner).map((counter) => {
     const { touch } = associationOf(owner, counter.name);
-    return { ...counter, touched: touchAssignments(counter.target, touch, "touch", time) };
+    return { ...counter, touching: touchAssignments(counter.target, touch, "touch", time) };
   });
 }
 
@@ -493,20 +493,20 @@ export function compileCountersChange(
     const column = quoteIdentifier(attributeFor(target, attribute).column);
     return `${column} = COALESCE(${column}, 0) ${change.sql}`;
   });
-  const touched = touchSets(target, counters);
+  const touches = touchSets(target, counters);
   const keyColumn = quoteIdentifier(attributeFor(target, targetKey).column);
   return {
-    sql: `UPDATE ${quoteIdentifier(target.table)} SET ${[...sets, touched.sql].filter(Boolean).join(", ")} WHERE ${keyColumn} = ${key.sql}`,
-    params: [...counters.flatMap(() => change.params), ...touched.params, ...key.params],
+    sql: `UPDATE ${quoteIdentifier(target.table)} SET ${[...sets, touches.sql].filter(Boolean).join(", ")} WHERE ${keyColumn} = ${key.sql}`,
+    params: [...counters.flatMap(() => change.params), ...touches.params, ...key.params],
     model: target,
   };
 }
 
 /** `x = ?, …` for each attribute the counters' touch sets (#353), once each; empty for none. */
 function touchSets(target: ModelClass, counters: readonly CounterCache[]): SqlPart {
-  const touched = new Map(counters.flatMap((counter) => counter.touched));
+  const assigned = new Map(counters.flatMap((counter) => counter.touching));
   const params: unknown[] = [];
-  const sets = [...touched].map(([name, time]) => {
+  const sets = [...assigned].map(([name, time]) => {
     const attribute = attributeFor(target, name);
     attribute.bind(params, time);
     return `${quoteIdentifier(attribute.column)} = ${valueMark}`;
