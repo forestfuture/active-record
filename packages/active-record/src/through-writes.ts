@@ -102,13 +102,32 @@ async function push(hasMany: OwnersHasManyThrough, records: Model[]): Promise<bo
     for (const record of records) collection.built(record);
     return true;
   }
-  const joins = records.map((record) => joinFor(hasMany, record));
   const viaCollection = joinsHeldBy(owner, association);
+  const joins = joinsFor(hasMany, records, viaCollection);
   const save = () => saveTogether(joins, "push() needs its records");
   if (!(await undoneUnless(save, isTrue, () => viaCollection.removed(joins)))) return false;
   for (const join of joins) viaCollection.created(join);
   for (const record of records) collection.created(record);
   return true;
+}
+
+/**
+ * A join record for each of `records`. When one can't be built (its afterInitialize throws, #49),
+ * those built before it are forgotten, so the owner's next save doesn't link their records.
+ */
+function joinsFor(
+  hasMany: OwnersHasManyThrough,
+  records: readonly Model[],
+  viaCollection: AssociationCollection,
+): Model[] {
+  const joins: Model[] = [];
+  try {
+    for (const record of records) joins.push(joinFor(hasMany, record));
+  } catch (error) {
+    viaCollection.removed(joins);
+    throw error;
+  }
+  return joins;
 }
 
 /** How `delete` removes join records: by the association's `dependent:`, deleting by default. */

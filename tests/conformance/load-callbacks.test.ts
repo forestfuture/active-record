@@ -375,4 +375,21 @@ describe("afterFind and afterInitialize", () => {
 
     expect(await board.cards().size()).toBe(0);
   });
+
+  test("a push whose second join's afterInitialize throws links neither record", async () => {
+    await harness.exec("INSERT INTO boards (id) VALUES (1)");
+    await harness.exec("INSERT INTO cards (id) VALUES (7), (8)");
+    const db = harness.connect();
+    const board = await db.model(Board).find(1);
+    const cards = await db.model(Card).order({ id: "asc" }).toArray();
+    const error = new Error("unpinnable");
+    hooks.pinAfterInitialize = (pin) => {
+      if (pin.cardId === 8) throw error;
+    };
+
+    await expect(board.cards().push(...cards)).rejects.toBe(error);
+    await board.saveOrThrow();
+
+    expect(await db.model(Pin).count()).toBe(0);
+  });
 });
