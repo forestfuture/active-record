@@ -378,4 +378,43 @@ describe("touch (#50)", () => {
       expect(events).toEqual([]);
     });
   });
+
+  describe("incrementColumn's touch", () => {
+    test("incrementColumn with touch sets updatedAt in the counter's UPDATE, and holds it", async () => {
+      const member = await db().model(Member).find(1);
+      events.length = 0;
+
+      expect(await member.incrementColumn("age", 2, { touch: true })).toBe(true);
+
+      expect(statementKinds(events)).toEqual(["UPDATE"]);
+      const reloaded = await db().model(Member).find(1);
+      expect(reloaded.age).toBe(5);
+      expect(reloaded.updatedAt).not.toEqual(stored);
+      expect(member.updatedAt).toEqual(reloaded.updatedAt);
+      expect(member.changes()).toEqual({});
+    });
+
+    test("decrementColumn with touch naming an attribute sets it with updatedAt", async () => {
+      const member = await db().model(Member).find(1);
+
+      await member.decrementColumn("age", 1, { touch: "createdAt" });
+
+      const reloaded = await db().model(Member).find(1);
+      expect([reloaded.age, member.createdAt]).toEqual([2, reloaded.createdAt]);
+      expect(reloaded.createdAt).toEqual(reloaded.updatedAt);
+      expect(reloaded.createdAt).not.toEqual(stored);
+    });
+
+    test("incrementColumn with touch naming an attribute that isn't a datetime is a TypeError", async () => {
+      const member = await db().model(Member).find(1);
+      events.length = 0;
+
+      // @ts-expect-error touch names datetime attributes
+      await expect(member.incrementColumn("age", 1, { touch: "email" })).rejects.toThrow(
+        new TypeError("Member.incrementColumn: touch takes datetime attributes; email isn't one"),
+      );
+      expect(events).toEqual([]);
+      expect(member.changes()).toEqual({});
+    });
+  });
 });
