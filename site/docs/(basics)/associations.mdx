@@ -1,6 +1,6 @@
 ---
 title: Associations
-description: "belongsTo, hasMany, and hasOne: inferred foreign keys, polymorphic associations, reading, inverse associations, preloading with includes, autosave, writing through associations, scopes, associations through another, and dependent strategies."
+description: "belongsTo, hasMany, and hasOne: inferred foreign keys, polymorphic associations, reading, inverse associations, preloading with includes, autosave, writing through associations, scopes, associations through another, dependent strategies, counter caches, and touching the record a record belongs to."
 ---
 
 Associations connect Models: `belongsTo`, `hasMany`, and `hasOne`.
@@ -521,7 +521,65 @@ In Rails, removing records through a scoped association leaves the count too hig
 
 Rails counts a comment twice when two `belongs_to`s keep the same counter. Here that throws `InvalidModel`.
 
-Rails’ `belongs_to … touch: true` also touches the article when its count changes. That option isn’t built yet ([#353](https://github.com/forestfuture/active-record/issues/353)).
+</Callout>
+
+## Touching the record it belongs to
+
+To set an article’s `updatedAt` whenever one of its comments changes, declare `touch: true` on the comment’s `belongsTo`:
+
+<include>/_excerpts/guide/belongs-to-touch/declare.ts</include>
+
+Creating, updating, or destroying a comment then touches its article. So does calling `touch()` on the comment:
+
+<include>/_excerpts/guide/belongs-to-touch/touching.ts</include>
+
+The article’s new time is written in the same atomic batch as the comment. A save with nothing to write doesn’t touch it. Changing a comment’s `articleId` touches both the old article and the new one.
+
+:::note
+`updateColumns`, `updateAll`, `insert`, and the other bulk writes don’t touch the article, since they run no callbacks.
+:::
+
+To set another datetime attribute too, name it. It’s set to the same time as `updatedAt`:
+
+<include>/_excerpts/guide/belongs-to-touch/named.ts</include>
+
+To set several, list them: `touch: ["lastCommentedAt", "lastActivityAt"]`.
+
+:::note
+A Model without `updatedAt` needs a named attribute. Touching a Model on [another database](./several-databases) throws `InvalidModel`, since the touch couldn’t be written in the same batch.
+:::
+
+### Running the article’s callbacks
+
+The article is touched as `article.touch()` touches it. It runs its `afterTouch` callbacks, then its update commit callbacks. An article that declares `touch` on its own `belongsTo` touches that record too:
+
+<include>/_excerpts/guide/belongs-to-touch/cascade.ts</include>
+
+A write touches each record once, however many of its comments touch it.
+
+### Loading the article
+
+The article is loaded before the comment is written, so its callbacks can run. A loaded article sends no query, such as one reached through `article.comments()`. Each level of the chain that isn’t loaded takes one query, and each one waits for the one before it. Preload the chain to skip them:
+
+<include>/_excerpts/guide/belongs-to-touch/preload.ts</include>
+
+The article is found through the association, so the association’s scope and Article’s default scope apply. An article they hide isn’t touched.
+
+### Touching with a counter cache
+
+When the comment also keeps a [counter cache](#counting-records-with-a-counter-cache) on the article, the time is set in the same `UPDATE` as the count. That `UPDATE` ignores the article’s default scope, like the count does. A hidden article still takes the time, but runs no callbacks.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails’ `touch:` takes `true` or one column. Here it also takes a list of attributes.
+
+Rails does nothing when the article has no `updated_at`, and writes the time to any column you name. Here both throw `InvalidModel` when the Model is first used.
+
+With a counter cache, Rails sets the time in the counter’s `UPDATE` and runs none of the article’s callbacks. Here the article’s `afterTouch` and commit callbacks run too.
+
+When a comment moves to another article, Rails finds the old one without the association’s scope. Here the scope applies to both.
+
+Rails’ `no_touching` isn’t built yet ([#496](https://github.com/forestfuture/active-record/issues/496)), and neither is `has_one … touch:` ([#497](https://github.com/forestfuture/active-record/issues/497)).
 
 </Callout>
 

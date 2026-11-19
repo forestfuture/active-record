@@ -92,6 +92,8 @@ To mark a record as changed without saving it, call `touch`. It sets `updatedAt`
 
 `touch` resolves to `true`, or `false` when the row is gone. A record that was never saved throws `RecordNotSaved`. On a Model with no `updatedAt`, name at least one attribute.
 
+To touch the record a record belongs to whenever it changes, declare `touch` on its `belongsTo`. See [Touching the record it belongs to](./associations#touching-the-record-it-belongs-to).
+
 ### Updating counters
 
 To add to a number without loading the record, pass its primary key to `updateCounters`:
