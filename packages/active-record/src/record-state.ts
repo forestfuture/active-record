@@ -140,12 +140,12 @@ export class RecordState {
 
   // Attributes
 
-  /** An attribute's value; `MissingAttribute` if it wasn't loaded (left out of `select`). */
   /** Whether `name` is one of the Model's attributes and loaded: not left out of `select(...)`. */
   hasAttribute(name: string): boolean {
     return this.#model.attributeDefinitions.has(name) && Object.hasOwn(this.#values, name);
   }
 
+  /** An attribute's value; `MissingAttribute` if it wasn't loaded (left out of `select`). */
   read(name: string): unknown {
     this.#requireAttribute(name);
     if (!Object.hasOwn(this.#values, name)) {
