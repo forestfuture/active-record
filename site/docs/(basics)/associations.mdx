@@ -1,6 +1,6 @@
 ---
 title: Associations
-description: "belongsTo, hasMany, and hasOne: inferred foreign keys, polymorphic associations, reading, inverse associations, preloading with includes, autosave, writing through associations, scopes, associations through another, dependent strategies, counter caches, and touching the record a record belongs to."
+description: "belongsTo, hasMany, and hasOne: inferred foreign keys, polymorphic associations, reading, inverse associations, preloading with includes, autosave, writing through associations, scopes, associations through another, dependent strategies, counter caches, and touching the record a record belongs to or has."
 ---
 
 Associations connect Models: `belongsTo`, `hasMany`, and `hasOne`.
@@ -603,7 +603,35 @@ When a comment moves to another article, Rails finds the old one without the ass
 
 When a comment’s `belongs_to` has both `counter_cache:` and `touch:`, Rails’ `no_touching` still touches the article, since the time is set in the counter’s `UPDATE`. Here the article is only counted. Inside the block, Rails’ `touch` returns `nil`, and here it resolves to `false`. Rails also loads each comment’s article for its touch, then leaves it alone. Here the touch doesn’t load it, though a required `belongsTo` still checks that its article exists.
 
-Rails’ `has_one … touch:` isn’t built yet ([#497](https://github.com/forestfuture/active-record/issues/497)).
+</Callout>
+
+## Touching the record it has
+
+To set a profile’s `updatedAt` whenever its user changes, declare `touch: true` on the user’s `hasOne`:
+
+<include>/_excerpts/guide/has-one-touch/declare.ts</include>
+
+Updating or destroying a user then touches its profile, in the same atomic batch as the user. So does calling `touch()` on the user:
+
+<include>/_excerpts/guide/has-one-touch/touching.ts</include>
+
+A save with nothing to write doesn’t touch the profile. A `hasOne` through another touches the record it reaches.
+
+The profile is touched as [a `belongsTo`’s record is](#running-the-articles-callbacks). It takes the names of datetime attributes to set, runs its `afterTouch` and update commit callbacks, and touches its own records in turn. It’s found through the association, so a profile the association’s scope or Profile’s default scope hides isn’t touched. Inside [`Profile.noTouching`](#turning-touches-off), it isn’t loaded or touched.
+
+A few writes leave the profile to themselves:
+
+- **A new user** touches nothing. A profile built with `user.profile.build()` is inserted with the user, and its insert sets its `updatedAt`.
+- **A profile saved with the user**, such as a changed one with `autosave: true`, sets its `updatedAt` in its own save.
+- **A profile the user’s `dependent` removes** isn’t touched with `"destroy"` or `"delete"`. With `"nullify"`, it’s touched once it no longer points at the user.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails’ `has_one … touch:` takes `true` or one column. Here it also takes a list of attributes.
+
+Rails touches a changed profile before its autosave saves it, so its `after_touch` runs too. Here only its save writes it.
+
+After a user is created, Rails finds and touches a profile that already points at the new user’s key. Here a new user touches nothing, so a create sends no query for it.
 
 </Callout>
 
