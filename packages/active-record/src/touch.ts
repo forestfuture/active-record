@@ -63,31 +63,23 @@ export async function touchRecord(record: Model, args: readonly unknown[]): Prom
 }
 
 /**
- * The touch's write: `values` assigned and sent, then held clean; or, if the database refuses it,
- * the values from before, and `afterRollback`.
+ * The touch's write: `values` sent, then assigned and held clean once the row has them. The
+ * record changes only then, so a refused touch leaves it as it was, and runs `afterRollback`.
  */
 function touchWrite(record: Model, values: Record<string, unknown>): PreparedWrite {
   const recordState = record[state];
-  const names = Object.keys(values);
-  const before = Object.fromEntries(names.map((name) => [name, recordState.read(name)]));
-  recordState.assign(values);
-  const assignments = names.map((name): [string, unknown] => [name, recordState.read(name)]);
+  const model = record.constructor as ModelClass;
   let isWritten = false;
   return {
-    statements: [
-      compileUpdate(record.constructor as ModelClass, assignments, recordState.storedKey),
-    ],
+    statements: [compileUpdate(model, Object.entries(values), recordState.storedKey)],
     commit: ([result]) => {
-      recordState.commitColumns(names);
+      recordState.assign(values);
+      recordState.commitColumns(Object.keys(values));
       isWritten = result?.rowsAffected === 1;
     },
     after: () => runAfterCallbacks(record, "afterTouch", "touch"),
     afterCommit: async () => {
       if (isWritten) await runCommitCallbacks(record, "update");
-    },
-    failed: () => {
-      recordState.assign(before);
-      return undefined;
     },
     afterRollback: afterRollbackOf(record),
   };
