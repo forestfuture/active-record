@@ -4,6 +4,7 @@ import {
   AbortAfterPersistence,
   Model,
   RecordNotSaved,
+  RecordNotUnique,
 } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -72,6 +73,7 @@ class Gated extends Model.define({
   static {
     this.aroundSave((_gated, next) => aroundSave(next));
     this.afterSave(() => void log.push("afterSave"));
+    this.afterRollback(() => void log.push("afterRollback"));
   }
 }
 
@@ -218,6 +220,39 @@ describe("around callbacks", () => {
         new TypeError("aroundSave: next() was already called"),
       );
       expect(await rows()).toBe(1);
+    });
+  });
+
+  describe("a write the database refuses", () => {
+    beforeEach(() => harness.exec("INSERT INTO users (id, email) VALUES (1, 'taken@example.com')"));
+    const duplicate = () =>
+      harness.connect().model(Gated).create({ id: 1, email: "a@example.com" });
+
+    test("rejects next() after afterRollback, and the save throws the refusal even if it's caught", async () => {
+      aroundSave = async (next) => {
+        try {
+          await next();
+        } catch (error) {
+          log.push(`next() rejected: ${(error as Error).name}`);
+        }
+      };
+
+      await expect(duplicate()).rejects.toThrow(RecordNotUnique);
+      expect(log).toEqual(["afterRollback", "next() rejected: RecordNotUnique"]);
+    });
+
+    test("an error the around callback throws instead reaches the caller, the refusal its cause", async () => {
+      const replaced = new Error("Couldn't save");
+      aroundSave = async (next) => {
+        await next().catch(() => {
+          throw replaced;
+        });
+      };
+
+      const saving = duplicate();
+
+      await expect(saving).rejects.toBe(replaced);
+      expect(replaced.cause).toBeInstanceOf(RecordNotUnique);
     });
   });
 });
