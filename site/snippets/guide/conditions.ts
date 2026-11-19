@@ -14,7 +14,6 @@ export class User extends Model.define({
 export async function matching(): Promise<unknown> {
   // #region where
   const admins = await User.where({ role: "admin", isActive: true }).toArray();
-  //    ^?
 
   User.where({ role: null }); // role IS NULL
   User.where({ role: ["admin", "editor"] }); // role IN (…), any number of values
@@ -48,7 +47,6 @@ export async function comparing(): Promise<unknown> {
   // #region sql
   const email = "Ada@Example.com";
   const ada = await User.findBy(sql`lower(${column("email")}) = lower(${email})`);
-  //    ^?
   // #endregion sql
   return ada;
 }

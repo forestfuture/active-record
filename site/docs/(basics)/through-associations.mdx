@@ -1,9 +1,9 @@
 ---
 title: Through associations
-description: "Many-to-many and other associations through another: through and source, reading, preloading, writing with push, build, and create, and removing join records."
+description: "Read and write records through a join Model, such as an article’s tags through its taggings."
 ---
 
-Reach records through another association with `through`. Tags and articles are many-to-many, through taggings. Every example on this page uses these Models and tables:
+Through associations are declared the same way for D1 and Postgres. The examples use these Models and tables:
 
 <Tabs syncKey="database">
 <Tab title="Models">
@@ -23,8 +23,6 @@ Reach records through another association with `through`. Tags and articles are 
 </Tab>
 </Tabs>
 
-Hover over a name in any example to see its type.
-
 ## At a glance
 
 | To                                      | Write                                                        |
@@ -38,11 +36,30 @@ Hover over a name in any example to see its type.
 | create a record and link it             | `tag.articles().create({ … })`                               |
 | unlink a record                         | `tag.articles().delete(article)`                             |
 
-| Option    | Does                                                                                            |
-| --------- | ----------------------------------------------------------------------------------------------- |
-| `through` | The association to go through                                                                   |
-| `source`  | The join Model’s association to follow. Defaults to this association’s name, singular or plural |
-| `scope`   | Narrows or orders the records. See [Scoping associations](./associations#scoping-associations)  |
+### Options
+
+<TypeTable
+  type={{
+    through: {
+      type: "string",
+      required: true,
+      description: "The association to go through.",
+    },
+    source: {
+      type: "string",
+      description:
+        "The join Model’s association to follow. Defaults to this association’s name, singular or plural.",
+    },
+    scope: {
+      type: "(q) => Relation",
+      description: "Narrows or orders the records.",
+    },
+    dependent: {
+      type: '"destroy" | "deleteAll"',
+      description: "What destroying the owner does to the join records. hasMany only.",
+    },
+  }}
+/>
 
 ## Reading records
 
