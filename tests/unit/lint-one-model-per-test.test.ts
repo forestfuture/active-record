@@ -162,6 +162,25 @@ ruleTester.run("one-model-per-test", oneModelPerTest, {
       errors: [{ messageId: "secondModel" }],
     },
     {
+      name: "a touch (#50)",
+      code: `test("touches", async () => {
+        expect(await db.model(User).create({})).toBeDefined();
+        const post = await db.model(Post).find(1);
+        expect(await post.touch()).toBe(true);
+      });`,
+      errors: [{ messageId: "secondModel" }],
+    },
+    {
+      name: "a touchAll static (#50)",
+      code: `test("touches", async () => {
+        await expect(User.touchAll()).rejects.toThrow(TypeError);
+        expect(await Post.touchAll()).toBe(1);
+      });
+      class User extends Model {}
+      class Post extends Model {}`,
+      errors: [{ messageId: "secondModel" }],
+    },
+    {
       name: "a bulk write through unscoped()",
       code: `test("deletes", async () => {
         expect(await User.create({})).toBeDefined();

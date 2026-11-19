@@ -138,7 +138,7 @@ describe("touch (#50)", () => {
     ran.length = 0;
   });
 
-  test("touch sets updatedAt to now in one UPDATE, and resolves to true", async () => {
+  test("sets updatedAt to now in one UPDATE, and resolves to true", async () => {
     const member = await db().model(Member).find(1);
     const before = Date.now();
     events.length = 0;
@@ -152,7 +152,7 @@ describe("touch (#50)", () => {
     expect(member.updatedAt).toEqual(reloaded.updatedAt);
   });
 
-  test("touch leaves the record's other changes unsaved, and the touched ones clean", async () => {
+  test("leaves the record's other changes unsaved, and the touched ones clean", async () => {
     const member = await db().model(Member).find(1);
     member.age = 9;
 
@@ -162,7 +162,7 @@ describe("touch (#50)", () => {
     expect((await db().model(Member).find(1)).age).toBe(3);
   });
 
-  test("touch sets the datetime attributes it names, with updatedAt", async () => {
+  test("sets the datetime attributes it names, with updatedAt", async () => {
     const member = await db().model(Member).find(1);
 
     await member.touch("createdAt");
@@ -173,18 +173,24 @@ describe("touch (#50)", () => {
     expect(member.changes()).toEqual({});
   });
 
-  test("touch sets the time it's given, alone or after names", async () => {
+  test("sets the time it's given", async () => {
     const time = new Date("2026-05-06T07:08:09.000Z");
     const member = await db().model(Member).find(1);
 
     await member.touch({ time });
+
     expect((await db().model(Member).find(1)).updatedAt).toEqual(time);
     expect(member.updatedAt).toEqual(time);
+  });
 
-    const later = new Date("2026-06-07T08:09:10.000Z");
-    await member.touch("createdAt", { time: later });
+  test("sets the time it's given after names", async () => {
+    const time = new Date("2026-06-07T08:09:10.000Z");
+    const member = await db().model(Member).find(1);
+
+    await member.touch("createdAt", { time });
+
     const reloaded = await db().model(Member).find(1);
-    expect([reloaded.createdAt, reloaded.updatedAt]).toEqual([later, later]);
+    expect([reloaded.createdAt, reloaded.updatedAt]).toEqual([time, time]);
   });
 
   describe("from untyped code", () => {
@@ -218,7 +224,7 @@ describe("touch (#50)", () => {
     });
   });
 
-  test("touch naming an attribute that isn't a datetime is a TypeError, before anything is sent", async () => {
+  test("naming an attribute that isn't a datetime is a TypeError, before anything is sent", async () => {
     const member = await db().model(Member).find(1);
     events.length = 0;
 
@@ -261,15 +267,18 @@ describe("touch (#50)", () => {
       );
       expect(events).toEqual([]);
     });
-
-    test("a Model with no updatedAt touches the attributes it names", async () => {
-      const member = await db().model(Unstamped).find(1);
-
-      expect(await member.touch("createdAt", { time: stored })).toBe(true);
-    });
   });
 
-  test("touch writes a record that didn't load updatedAt, and holds it", async () => {
+  test("on a Model with no updatedAt, sets the attributes it names", async () => {
+    const time = new Date("2026-05-06T07:08:09.000Z");
+    const member = await db().model(Unstamped).find(1);
+
+    expect(await member.touch("createdAt", { time })).toBe(true);
+
+    expect((await db().model(Unstamped).find(1)).createdAt).toEqual(time);
+  });
+
+  test("writes a record that didn't load updatedAt, and holds it", async () => {
     const time = new Date("2026-05-06T07:08:09.000Z");
     const [member] = await db().model(Member).select("id").toArray();
 
@@ -279,14 +288,14 @@ describe("touch (#50)", () => {
     expect((await db().model(Member).find(1)).updatedAt).toEqual(time);
   });
 
-  test("touch resolves to false when the row is gone", async () => {
+  test("resolves to false when the row is gone", async () => {
     const member = await db().model(Member).find(1);
     await harness.exec("DELETE FROM users WHERE id = 1");
 
     expect(await member.touch()).toBe(false);
   });
 
-  test("touch writes the row by its key, whatever the default scope", async () => {
+  test("writes the row by its key, whatever the default scope", async () => {
     const member = await db().model(ActiveMember).find(1);
     await harness.exec("UPDATE users SET is_active = ? WHERE id = 1", [false]);
 
@@ -294,7 +303,7 @@ describe("touch (#50)", () => {
   });
 
   describe("callbacks", () => {
-    test("touch runs afterTouch once the row is written, and no validation or save callback", async () => {
+    test("afterTouch runs once the row is written, and no validation or save callback", async () => {
       const member = await db().model(Watched).find(1);
 
       expect(await member.touch()).toBe(true);
@@ -307,7 +316,7 @@ describe("touch (#50)", () => {
       ]);
     });
 
-    test("with no row to write, touch runs afterTouch but no commit callback", async () => {
+    test("with no row to write, afterTouch runs but no commit callback", async () => {
       const member = await db().model(Watched).find(1);
       await harness.exec("DELETE FROM users WHERE id = 1");
 
@@ -365,7 +374,7 @@ describe("touch (#50)", () => {
         member.updatedAt,
       ]);
 
-    test("touchAll sets updatedAt on the rows a Relation matches, in one UPDATE", async () => {
+    test("sets updatedAt on the rows a Relation matches, in one UPDATE", async () => {
       const time = new Date("2026-05-06T07:08:09.000Z");
 
       expect(
@@ -383,7 +392,7 @@ describe("touch (#50)", () => {
       ]);
     });
 
-    test("touchAll sets the datetime attributes it names, with updatedAt", async () => {
+    test("sets the datetime attributes it names, with updatedAt", async () => {
       const time = new Date("2026-05-06T07:08:09.000Z");
 
       await db().model(Member).where({ id: 2 }).touchAll("createdAt", { time });
@@ -392,7 +401,7 @@ describe("touch (#50)", () => {
       expect([member.createdAt, member.updatedAt]).toEqual([time, time]);
     });
 
-    test("touchAll as a static keeps the default scope", async () => {
+    test("as a static, keeps the default scope", async () => {
       const time = new Date("2026-05-06T07:08:09.000Z");
 
       expect(await withDatabase(db(), () => ActiveMember.touchAll({ time }))).toBe(2);
@@ -404,17 +413,21 @@ describe("touch (#50)", () => {
       ]);
     });
 
-    test("touchAll on none() sends nothing", async () => {
+    test("on none(), sends nothing", async () => {
       expect(await db().model(Member).none().touchAll()).toBe(0);
       expect(events).toEqual([]);
     });
 
-    test("touchAll with nothing to touch, or an attribute that isn't a datetime, is a TypeError", async () => {
+    test("with nothing to touch is a TypeError", async () => {
       await expect(db().model(Unstamped).touchAll()).rejects.toThrow(
         new TypeError(
           "Unstamped.touchAll has nothing to touch: Unstamped has no updatedAt; name a datetime attribute",
         ),
       );
+      expect(events).toEqual([]);
+    });
+
+    test("naming an attribute that isn't a datetime is a TypeError", async () => {
       // @ts-expect-error touchAll names datetime attributes
       await expect(db().model(Member).touchAll("age")).rejects.toThrow(
         new TypeError("Member.touchAll: touch takes datetime attributes; age isn't one"),
@@ -424,7 +437,7 @@ describe("touch (#50)", () => {
   });
 
   describe("incrementColumn's touch", () => {
-    test("incrementColumn with touch sets updatedAt in the counter's UPDATE, and holds it", async () => {
+    test("sets updatedAt in the counter's UPDATE, and holds it", async () => {
       const member = await db().model(Member).find(1);
       events.length = 0;
 
@@ -438,7 +451,7 @@ describe("touch (#50)", () => {
       expect(member.changes()).toEqual({});
     });
 
-    test("decrementColumn with touch naming an attribute sets it with updatedAt", async () => {
+    test("decrementColumn, naming an attribute, sets it with updatedAt", async () => {
       const member = await db().model(Member).find(1);
 
       await member.decrementColumn("age", 1, { touch: "createdAt" });
@@ -458,7 +471,7 @@ describe("touch (#50)", () => {
       expect(ran).toEqual([]);
     });
 
-    test("incrementColumn with touch naming an attribute that isn't a datetime is a TypeError", async () => {
+    test("naming an attribute that isn't a datetime is a TypeError", async () => {
       const member = await db().model(Member).find(1);
       events.length = 0;
 
