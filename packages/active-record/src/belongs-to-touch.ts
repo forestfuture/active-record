@@ -125,8 +125,9 @@ export function touchesOfTouch(record: Model, time: Date): Promise<PreparedWrite
 
 /**
  * The touches `record`'s write makes (#353): each record a belongsTo declaring `touch` reaches,
- * loaded if it isn't, touched by its own touch write, and the records it touches in turn; none
- * a `noTouching` block covers, and those it can reach only aren't read (#496).
+ * loaded if it isn't, touched by its own touch write, and the records it touches in turn. A
+ * `noTouching` block leaves out the records it covers (#496), and a belongsTo whose every Model
+ * it covers isn't read.
  */
 export async function touchesOf(
   record: Model,
@@ -134,11 +135,12 @@ export async function touchesOf(
   claimed: ReadonlySet<Model>,
 ): Promise<PreparedWrite[]> {
   const writes: PreparedWrite[] = [];
-  for (const [name, { kind, touch, foreignKey }] of associationsOf(modelOf(record))) {
+  const model = modelOf(record);
+  for (const [name, { kind, touch, foreignKey }] of associationsOf(model)) {
     if (kind !== "belongsTo" || touch === undefined) continue;
     // Its owner is being deleted with it (Rails skips the destroyed owner).
     if (cause === "destroy" && isDestroyedThrough(record, foreignKey)) continue;
-    if (isEveryTargetCovered(modelOf(record), name)) continue;
+    if (isEveryTargetCovered(model, name)) continue;
     for (const target of await touchedRecords(record, name, claimed)) {
       writes.push(...(await touchOne(target, touch, claimed)));
     }
