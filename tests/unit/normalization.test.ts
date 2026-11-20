@@ -19,30 +19,30 @@ class Account extends Model.define({
 
 const accounts = db.model(Account);
 
-describe("normalizes", () => {
-  test("normalizes a value assigned through the setter", () => {
+describe("an assigned value", () => {
+  test("is normalized through the setter", () => {
     const account = accounts.build();
     account.email = "  Jane@Example.COM ";
     expect(account.email).toBe("jane@example.com");
   });
 
-  test("normalizes the values build is given", () => {
+  test("is normalized when build is given it", () => {
     const account = accounts.build({ email: " Sam@Example.com" });
     expect(account.email).toBe("sam@example.com");
   });
 
-  test("normalizes the values assign is given", () => {
+  test("is normalized when assign is given it", () => {
     const account = accounts.build().assign({ email: "Sam@Example.com " });
     expect(account.email).toBe("sam@example.com");
   });
 
-  test("tracks the normalized value as the change", () => {
+  test("is tracked as a change to its normalized value", () => {
     const account = accounts.build();
     account.email = " Jane@Example.com";
     expect(account.changes()).toEqual({ email: [null, "jane@example.com"] });
   });
 
-  test("normalizes an attribute's default", () => {
+  test("is normalized when it's a default", () => {
     class Invite extends Model.define({
       id: { type: "integer", null: false },
       code: { type: "string", default: () => " ab12 " },
@@ -57,7 +57,7 @@ describe("normalizes", () => {
     expect(db.model(Invite).build().code).toBe("AB12");
   });
 
-  test("hands with the attribute's type, without null", () => {
+  test("reaches with as the attribute's type, without null", () => {
     class Visit extends Model.define({
       id: { type: "integer", null: false },
       path: "string",
@@ -84,7 +84,7 @@ describe("normalizes", () => {
     expect(db.model(Visit).build({ path: "/", count: 1 }).count).toBe(1);
   });
 
-  test("refuses a function of another type", () => {
+  test("is refused a function returning another type", () => {
     class Visit extends Model.define({
       id: { type: "integer", null: false },
       path: "string",
@@ -189,24 +189,27 @@ describe("several normalizations", () => {
     expect(db.model(Slug).build({ text: "a" }).text).toBe("a-first-second");
   });
 
-  test("run a parent class's first, and leave the parent's own records alone", () => {
-    class Handle extends Model.define({
-      id: { type: "integer", null: false },
-      name: "string",
-    }) {
-      static table = "handles";
+  class Handle extends Model.define({
+    id: { type: "integer", null: false },
+    name: "string",
+  }) {
+    static table = "handles";
 
-      static {
-        this.normalizes("name", { with: (name) => name.trim() });
-      }
+    static {
+      this.normalizes("name", { with: (name) => name.trim() });
     }
-    class LoudHandle extends Handle {
-      static {
-        this.normalizes("name", { with: (name) => `${name}!` });
-      }
+  }
+  class LoudHandle extends Handle {
+    static {
+      this.normalizes("name", { with: (name) => `${name}!` });
     }
+  }
 
+  test("run a parent class's first", () => {
     expect(db.model(LoudHandle).build({ name: " sam " }).name).toBe("sam!");
+  });
+
+  test("declared on a subclass leave the parent class's records alone", () => {
     expect(db.model(Handle).build({ name: " sam " }).name).toBe("sam");
   });
 });
