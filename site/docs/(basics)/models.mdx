@@ -20,6 +20,23 @@ seo:
 | build a record without saving it     | `Product.build({ name: "Lamp" })`, never `new Product()`        |
 | take only some fields from a request | `Product.permit(await request.json(), "name", "metadata")`      |
 
+<TypeTable
+  type={{
+    with: {
+      type: "(value) => value",
+      description:
+        "The function `normalizes` runs. It takes a value already cast to the attribute’s type, and returns the one to keep.",
+      required: true,
+    },
+    applyToNull: {
+      type: "boolean",
+      default: "false",
+      description:
+        "Hands `null` to `normalizes`’s `with` too. By default, `null` is kept as it is.",
+    },
+  }}
+/>
+
 Each part of a Model has a page of its own:
 
 | To                                         | See                                  |
@@ -108,22 +125,6 @@ A virtual attribute named for one of the table’s columns throws `InvalidModel`
 Declare a normalization in `static {}` to change each value assigned to an attribute into one form, as `Account` does with `email`:
 
 <include>/_excerpts/pages/models/examples/normalize.mdx</include>
-
-<TypeTable
-  type={{
-    with: {
-      type: "(value) => value",
-      description:
-        "Takes a value already cast to the attribute’s type, and returns the one to keep.",
-      required: true,
-    },
-    applyToNull: {
-      type: "boolean",
-      default: "false",
-      description: "Hands `null` to `with` too. By default, `null` is kept as it is.",
-    },
-  }}
-/>
 
 - **It runs whenever a value is assigned.** That covers the setter, `build`, `create`, `update`, a default, and bulk writes such as `insert`, `upsert`, and `updateAll`. Several normalizations of one attribute run in order, a parent class’s first.
 - **Queries normalize their values too.** `where`, `findBy`, `find`, lists, comparisons, and `column()` values in an `sql` fragment match what was stored. Plain values in an `sql` fragment are left as they are, and `where({ email: null })` still matches `NULL`.
