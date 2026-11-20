@@ -65,7 +65,7 @@ The guide is in `site/docs/` (a [Blume](https://useblume.dev) site at [active-re
 - **Write in the guide's voice** ([docs-voice.md](docs/agents/docs-voice.md)): open with what the reader does, assume a competent developer, keep examples short, and put side facts in notes.
 - **Examples use d1-record's syntax**, even for features not built yet. Rails syntax appears only when comparing.
 - **Where d1-record goes beyond Rails or differs from it**, a Rails box says so.
-- **Larger examples live in `site/snippets/`**, where `vp check` type-checks them against the library and `tests/integration/d1/site-examples.test.ts` runs them against D1. A page embeds one with `<include>`, from the excerpts `site/excerpts.ts` writes. An example written inline in a page imports what it uses.
+- **Larger examples live in `site/snippets/`**, where `vp check` type-checks them against the library and the site tests run them: a standalone page’s on D1 and Postgres, from its project in `site/snippets/pages/` (`tests/integration/d1/site-pages.test.ts`, `tests/integration/pg/site-pages.test.ts`), and the rest on D1 (`tests/integration/d1/site-examples.test.ts`). A page embeds one with `<include>`, from the excerpts `site/excerpts.ts` writes. An example written inline in a page imports what it uses.
 
 ## Naming and attribution
 

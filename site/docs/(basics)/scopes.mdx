@@ -31,13 +31,18 @@ The examples use these Models, whose attributes come from their tables through t
 
 </CodeGroup>
 
+## Defining scopes
+
+Declare a scope as a static that receives the Relation, plus any arguments, and returns a narrower one:
+
+<include meta='title="src/models/post.ts"'>/_excerpts/pages/scopes/src/models/post.ts</include>
+
 ## Calling scopes
 
 Call a scope as a static, or on any Relation of the Model:
 
 <include meta="twoslash">/_excerpts/pages/scopes/examples/scopes.twoslash.ts</include>
 
-- A scope is a static that receives the Relation, plus any arguments, and returns a narrower one. `Post` above declares two.
 - Its arguments, and anything it computes such as `new Date()`, are evaluated when you call it.
 - Scopes are inherited, including those on your app’s base class ([Shared behavior](./shared-behavior)). A subclass can replace one with `static override published = this.scope(…)`.
 - A scope can’t reuse a Relation method’s name (`where`, `count`) or a Model static’s (`validates`, `scope`, `all`).
@@ -47,14 +52,15 @@ Call a scope as a static, or on any Relation of the Model:
 A scope whose body names its own class needs its type written out: `static roots: ScopeStatic<[]> = this.scope(…)`.
 :::
 
-An [enum](./models#declaring-enums) gives its Model a scope for each name, and a `not…` scope: `Ticket.open()` and `Ticket.notOpen()`.
+An [enum](./models#declaring-enums) gives its Model a scope for each name, and a `not…` scope: `Ticket.open()` and `Ticket.notOpen()`. Conditions take its names, one or a list: `Ticket.where({ status: ["open", "in_progress"] })`.
 
 ## Narrowing every query
 
-A default scope, declared in the class’s `static {}` block as `Product` does, narrows every query on the Model, and new records take its conditions’ values:
+Declare a default scope in the class’s `static {}` block, as `Product` does, to narrow every query on the Model:
 
 <include meta="twoslash">/_excerpts/pages/scopes/examples/default-scope.twoslash.ts</include>
 
+- New records take its conditions’ values.
 - It applies to everything that queries the Model: `find`, `count`, `updateAll`, `deleteAll`, its scopes, and associations that read it, preloads included.
 - `reload`, uniqueness validation, and a record’s own `save` and `destroy` ignore it, since they work by primary key.
 - `insert`, `insertAll`, `upsert`, and `upsertAll` write its conditions’ values over the values you give. `build` and `create` use the values you give.

@@ -13,19 +13,20 @@ import { connect } from "../../../packages/active-record/src/adapters/d1/index.t
 import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
-import * as ordering from "../../../site/snippets/pages/ordering/examples.ts";
+import * as joins from "../../../site/snippets/pages/joins/examples.ts";
+import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
 import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
-import * as through from "../../../site/snippets/pages/through/examples.ts";
+import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
 import { Post as IteratedPost } from "../../../site/snippets/pages/batch-iteration/src/models/post.ts";
-import { ApplicationRecord as PagedRecord } from "../../../site/snippets/pages/ordering/src/models/application-record.ts";
-import { Article } from "../../../site/snippets/pages/through/src/models/article.ts";
+import { ApplicationRecord as PagedRecord } from "../../../site/snippets/pages/ordering-and-pagination/src/models/application-record.ts";
+import { Article } from "../../../site/snippets/pages/through-associations/src/models/article.ts";
 import {
   pageMigrations,
   pageProject,
   schemaCommand,
   standalonePages,
-} from "../../support/page-models.ts";
+} from "../../support/page-projects.ts";
 
 /** A D1 database with a page's own tables, from its project's migrations, `tables` emptied before each test. */
 function pageDatabase(page: string, tables: string[]): () => TestDatabase {
@@ -91,7 +92,7 @@ describe("the Conditions page's examples", () => {
 
 // The Through associations page's examples, on the four tables it shows.
 describe("the Through associations page's examples", () => {
-  const binding = pageDatabase("through", ["taggings", "tags", "articles", "authors"]);
+  const binding = pageDatabase("through-associations", ["taggings", "tags", "articles", "authors"]);
   // The examples log what they show; the tests check it here rather than print it.
   const log = vi.spyOn(console, "log").mockImplementation(() => {});
   afterAll(() => log.mockRestore());
@@ -160,7 +161,7 @@ describe("the Through associations page's examples", () => {
 
 // The Ordering and pagination page's examples, on the posts table it shows.
 describe("the Ordering and pagination page's examples", () => {
-  const binding = pageDatabase("ordering", ["posts"]);
+  const binding = pageDatabase("ordering-and-pagination", ["posts"]);
   beforeEach(async () => {
     await binding()
       .prepare(
@@ -350,8 +351,50 @@ describe("the Scopes page's examples", () => {
   });
 });
 
+// The Joins page's examples, on the four tables it shows.
+describe("the Joins page's examples", () => {
+  const binding = pageDatabase("joins", ["comments", "articles", "profiles", "authors"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO authors (id, name) VALUES ('mary', 'Mary'), ('ada', 'Ada')",
+        "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'mary', 'Poet')",
+        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'mary', 'On Nothing'), ('x2', 'ada', 'Engines')",
+        "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x1', 'Hm.'), ('c2', 'x1', 'Yes.')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const names = (records: { name?: string; title?: string }[]) =>
+    records.map((record) => record.name ?? record.title);
+
+  test("joins with distinct() finds each author with a commented article once", async () => {
+    const commented = await withDatabase(connect(binding()), () => joins.joining());
+
+    expect(names(commented)).toEqual(["Mary"]);
+  });
+
+  test("leftJoins keeps the authors with no profile", async () => {
+    const everyAuthor = await withDatabase(connect(binding()), () => joins.leftJoining());
+
+    expect(names(everyAuthor).sort((a, b) => String(a).localeCompare(String(b)))).toEqual([
+      "Ada",
+      "Mary",
+    ]);
+  });
+
+  test("a merged Relation filters and sorts by the joined Model", async () => {
+    const { byMary, byAuthorName } = await withDatabase(connect(binding()), () => joins.merging());
+
+    expect([names(byMary), names(byAuthorName)]).toEqual([
+      ["On Nothing"],
+      ["Engines", "On Nothing"],
+    ]);
+  });
+});
+
 // Each page shows its Models beside its D1 tables: its project's schema is what its migrations generate.
-describe("the standalone pages’ generated schemas", () => {
+describe("the standalone pages' generated schemas", () => {
   test.each(standalonePages)("%s's schema is current", async (page) => {
     expect(await schemaCommand(pageProject(page).pathname, true)).toMatchObject({ code: 0 });
   });
