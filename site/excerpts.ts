@@ -63,8 +63,13 @@ function codeOnly(code: string): string {
   return code.replace(/"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|\/\/.*$/gm, "");
 }
 
-/** Where an import is shown from: the app's base class, its schema, or its models. */
+/**
+ * Where an import is shown from. In a page's project (`pages/<page>/`), its `src/` is the app's,
+ * so `./src/models/user` is `./models/user`. Elsewhere, the app's base class, its schema, or its
+ * models.
+ */
 function shownSource(source: string): string {
+  if (/^["']\.\/src\//.test(source)) return source.replace("/src/", "/");
   if (!/^["']\./.test(source)) return source;
   if (/\/schema["']$/.test(source)) return source;
   if (/\/application-record["']$/.test(source)) return '"./application-record"';
@@ -74,10 +79,10 @@ function shownSource(source: string): string {
 /**
  * An example as shown: the snippet file's imports that the region uses, then the region. So
  * every example says where its names come from, and both come from the type-checked file.
- * The snippets' own model files (any relative import) are shown as the app's: `./models`. The
- * generated schema (`../db/schema`) and the app's base class (`./application-record`) are
- * shown where an app imports them from. What the file's own `model` region declares is imported
- * from `./models` too, so a page can show its Models once and every example beneath them.
+ * A page project's `./src/models/user` is shown as the app's `./models/user`. Elsewhere, the
+ * snippets' own model files (any relative import) are shown as `./models`, and the generated
+ * schema (`../db/schema`) and the app's base class (`./application-record`) where an app imports
+ * them from.
  */
 export function exampleBlock(file: string, region: string): string | undefined {
   const code = readFileSync(file, "utf8").replaceAll("\r\n", "\n");
@@ -89,35 +94,73 @@ export function exampleBlock(file: string, region: string): string | undefined {
   const add = (source: string, names: string[]) =>
     bySource.set(source, [...(bySource.get(source) ?? []), ...names]);
   for (const { source, names } of importsOf(code)) add(shownSource(source), names.filter(used));
-  if (region !== "model") add('"./models"', modelNames(code).filter(used));
   const imports = [...bySource]
     .filter(([, names]) => names.length > 0)
     .map(([source, names]) => `import { ${names.join(", ")} } from ${source};`);
   return imports.length === 0 ? body : `${imports.join("\n")}\n\n${body}`;
 }
 
-/** The names a snippet file's `model` region exports: the Models its page shows once, at the top. */
-function modelNames(code: string): string[] {
-  const model = regionOf(code, "model") ?? "";
-  return [...model.matchAll(/^export (?:class|const|function|type|interface) (\w+)/gm)].map(
-    ([, name]) => name!,
-  );
+/**
+ * The source a page project's examples compile with, hidden: each of its `src/` files under a
+ * Twoslash `@filename` line. Undefined for a file outside a page's project.
+ */
+function hiddenSources(file: string): string | undefined {
+  const root = /^(.*\/pages\/[^/]+)\/[^/]+\.ts$/.exec(file)?.[1];
+  if (root === undefined) return undefined;
+  const src = join(root, "src");
+  return readdirSync(src, { recursive: true, encoding: "utf8" })
+    .filter((name) => name.endsWith(".ts"))
+    .sort()
+    .map((name) => `// @filename: ${name}\n${readFileSync(join(src, name), "utf8").trimEnd()}`)
+    .join("\n\n");
+}
+
+/** An example's `// @ts-expect-error` line: proven by the type check, and left out of what's shown. */
+const expectedError = /^\/\/ @ts-expect-error.*\n/gm;
+
+/**
+ * An example for a `twoslash` fence, from a page's project (`pages/<page>/examples.ts`): the
+ * project's `src/` files, hidden, then the example as exampleBlock shows it. Readers hover the
+ * example's names for their inferred types, and the build fails if the example doesn't
+ * type-check. Undefined outside a page's project.
+ */
+export function twoslashBlock(file: string, region: string): string | undefined {
+  const files = hiddenSources(file);
+  const example = exampleBlock(file, region);
+  if (files === undefined || example === undefined) return undefined;
+  // An expected error was proven by the type check: Twoslash shows it rather than failing on it.
+  const expectsError = example.includes("// @ts-expect-error");
+  const shown = example.replace(expectedError, "");
+  const flags = expectsError ? "// @noErrorValidation\n" : "";
+  return `${flags}${files}\n\n// @filename: example.ts\n// ---cut---\n${shown}`;
 }
 
 /**
- * An example for a `twoslash` fence: the file's `model` region as a hidden models.ts, then the
- * example as exampleBlock shows it. Readers hover the example's names for their inferred types,
- * and the build fails if the example doesn't type-check. Undefined without a `model` region.
+ * A page project's example as an MDX partial: the Twoslash version for the site, and the plain
+ * example for agents. Blume serves agents (each page's `.md` and `llms-full.txt`) a fence as
+ * written, so the Twoslash version's hidden project would reach them with every example; the
+ * page shows its Models once, under The Model. Undefined outside a page's project.
  */
-export function twoslashBlock(file: string, region: string): string | undefined {
-  const model = exampleBlock(file, "model");
-  const example = exampleBlock(file, region);
-  if (region === "model" || model === undefined || example === undefined) return undefined;
-  // An expected error was proven by the type check: Twoslash shows it rather than failing on it.
-  const expectsError = example.includes("// @ts-expect-error");
-  const shown = example.replace(/^\/\/ @ts-expect-error.*\n/gm, "");
-  const flags = expectsError ? "// @noErrorValidation\n" : "";
-  return `${flags}// @filename: models.ts\n${model}\n\n// @filename: example.ts\n// ---cut---\n${shown}`;
+export function examplePartial(file: string, region: string): string | undefined {
+  const twoslash = twoslashBlock(file, region);
+  const example = exampleBlock(file, region)?.replace(expectedError, "");
+  if (twoslash === undefined || example === undefined) return undefined;
+  return [
+    '<Visibility for="web">',
+    "",
+    "```ts twoslash",
+    twoslash,
+    "```",
+    "",
+    "</Visibility>",
+    '<Visibility for="agents">',
+    "",
+    "```ts",
+    example,
+    "```",
+    "",
+    "</Visibility>",
+  ].join("\n");
 }
 
 const regionName = /^[ \t]*\/\/ #region ([\w-]+)$/gm;
@@ -140,10 +183,11 @@ function skillRules(site: string): string {
 }
 
 /**
- * Rewrites `out` (docs/_excerpts) from snippets/: `guide/models/declare.ts` is
- * snippets/guide/models.ts's `declare` region as exampleBlock shows it, `guide/models.ts` the file
- * itself, and `skill-rules.md` the agent skill's rules. Blume publishes no `_` folder, and an
- * <include> must read from inside the content root.
+ * Rewrites `out` (docs/_excerpts) from snippets/: `guide/connecting/session.ts` is
+ * snippets/guide/connecting.ts's `session` region as exampleBlock shows it, a page project's
+ * `pages/<page>/examples/<region>.mdx` its examplePartial, every snippet file itself, and
+ * `skill-rules.md` the agent skill's rules. Blume publishes no `_` folder, and an <include> must
+ * read from inside the content root.
  */
 export function writeExcerpts(site: string, out = join(site, "docs/_excerpts")): void {
   const snippets = join(site, "snippets");
@@ -156,9 +200,8 @@ export function writeExcerpts(site: string, out = join(site, "docs/_excerpts")):
       const excerpt = join(out, name.slice(0, -".ts".length), `${region}.ts`);
       mkdirSync(dirname(excerpt), { recursive: true });
       writeFileSync(excerpt, `${exampleBlock(file, region)}\n`);
-      const twoslash = twoslashBlock(file, region);
-      if (twoslash !== undefined)
-        writeFileSync(excerpt.replace(/\.ts$/, ".twoslash.ts"), `${twoslash}\n`);
+      const partial = examplePartial(file, region);
+      if (partial !== undefined) writeFileSync(excerpt.replace(/\.ts$/, ".mdx"), `${partial}\n`);
     }
   }
   writeFileSync(join(out, "skill-rules.md"), skillRules(site));

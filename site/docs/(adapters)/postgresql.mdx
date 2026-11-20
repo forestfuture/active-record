@@ -1,6 +1,8 @@
 ---
 title: PostgreSQL
 description: "Run your Models on Postgres, through Hyperdrive in a Worker or directly on Node."
+seo:
+  description: "Use Active Record on Postgres: install pg, connect through Hyperdrive or a Pool, and what works differently from D1, from transactions to sorting."
 ---
 
 ## Installing
@@ -82,13 +84,13 @@ A [batch](./batches#batching-writes) is written whole or not at all, as on D1. O
 
 ## Reads run one after another
 
-On D1, a [preload](./associations#preloading-associations) or a [page](./querying#paginating) sends all its queries [in one round trip](./d1#sending-queries-in-one-round-trip). On Postgres they run one after another, on one client. A page’s `total` comes from its own query, so a write between the two can make it disagree with the page’s records for a moment.
+On D1, a [preload](./preloading) or a [page](./ordering-and-pagination#paginating) sends all its queries [in one round trip](./d1#sending-queries-in-one-round-trip). On Postgres they run one after another, on one client. A page’s `total` comes from its own query, so a write between the two can make it disagree with the page’s records for a moment.
 
 Queries you send at once with `Promise.all` inside one `withDatabase` call also run one after another, on that call’s client.
 
 ## Large integers
 
-A `bigint` column reads as a number. A value past `Number.MAX_SAFE_INTEGER` throws a `TypeError` naming its attribute, rather than reading as a number that’s slightly wrong. For exact numbers of any size, use a `numeric` column and a [`decimal`](./models#storing-exact-numbers-days-and-times) attribute, which keeps every digit.
+A `bigint` column reads as a number. A value past `Number.MAX_SAFE_INTEGER` throws a `TypeError` naming its attribute, rather than reading as a number that’s slightly wrong. For exact numbers of any size, use a `numeric` column and a [`decimal`](./attribute-types#storing-exact-numbers-days-and-times) attribute, which keeps every digit.
 
 ## Placeholders
 
@@ -96,7 +98,7 @@ A `bigint` column reads as a number. A value past `Number.MAX_SAFE_INTEGER` thro
 
 ## Raw SQL stays on its database
 
-An [`sql` fragment](./querying#using-raw-statements) is sent as you wrote it. A fragment that uses SQLite’s functions fails on Postgres, and one that uses Postgres’s fails on D1.
+An [`sql` fragment](./conditions#writing-sql-fragments) is sent as you wrote it. A fragment that uses SQLite’s functions fails on Postgres, and one that uses Postgres’s fails on D1.
 
 ## Sorting
 

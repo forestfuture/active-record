@@ -1,26 +1,58 @@
 ---
 title: Callbacks
 description: "Run your code at points in a record’s lifecycle, such as before it’s validated or after it’s saved."
+seo:
+  description: "Run code at points in an Active Record record’s lifecycle: before validation, around a save, after commit, and abort() to stop a save or destroy."
 ---
+
+## At a glance
+
+| To                                         | Write                                                      |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| run code before a record is validated      | `this.beforeValidation((order) => { … })`                  |
+| run code only when a record is created     | `beforeCreate`, or `beforeValidation(…, { on: "create" })` |
+| run code on both sides of a write          | `this.aroundSave(async (order, next) => { await next() })` |
+| send an email once a record is created     | `this.afterCreateCommit(async (user) => { … })`            |
+| run code after `touch()`                   | `this.afterTouch(…)`                                       |
+| run code when the database refuses a write | `this.afterRollback(…)`                                    |
+| fill in a new record’s defaults            | `this.afterInitialize(…)`                                  |
+| stop a save or destroy                     | `throw abort("reason")` in a before-callback               |
+
+## The Models
+
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates. Each registers its callbacks in its `static {}` block, and `mail.ts` and `cache.ts` stand in for the app’s own services:
+
+<CodeGroup>
+
+<include meta="order.ts">/_excerpts/pages/callbacks/src/models/order.ts</include>
+
+<include meta="user.ts">/_excerpts/pages/callbacks/src/models/user.ts</include>
+
+<include meta="article.ts">/_excerpts/pages/callbacks/src/models/article.ts</include>
+
+<include meta="invoice.ts">/_excerpts/pages/callbacks/src/models/invoice.ts</include>
+
+<include meta="mail.ts">/_excerpts/pages/callbacks/src/mail.ts</include>
+
+<include meta="cache.ts">/_excerpts/pages/callbacks/src/cache.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/callbacks/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/callbacks/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/callbacks/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
 
 ## Registering callbacks
 
-Register callbacks in a Model’s `static {}` block. Each receives the record, and may be async, except the [callbacks for a record built or loaded](#running-code-when-a-record-is-built-or-loaded):
+Register callbacks in a Model’s `static {}` block, as `Order` does, and they run as the record is saved:
 
-<include>/_excerpts/guide/callbacks/callbacks.ts</include>
+<include>/_excerpts/pages/callbacks/examples/callbacks.mdx</include>
 
-Callbacks of one kind run in the order declared. A subclass runs its parent’s callbacks, then its own.
-
-To run a validation callback only in some [validation contexts](./validations#validating-only-when-creating-or-updating), pass `on` to `beforeValidation` or `afterValidation`:
-
-```ts
-this.beforeValidation(
-  (order) => {
-    order.placedAt = new Date();
-  },
-  { on: "create" },
-);
-```
+- Each callback receives the record, and may be async, except the [callbacks for a record built or loaded](#running-code-when-a-record-is-built-or-loaded).
+- Callbacks of one kind run in the order declared. A subclass runs its parent’s callbacks, then its own.
+- Pass `on` to `beforeValidation` or `afterValidation` to run it only in some [validation contexts](./validations#validating-only-when-creating-or-updating), as `Order`’s second `beforeValidation` does.
 
 :::note
 Once a Model has been used, registering another callback throws `InvalidModel`, so request code can’t add one that leaks into later requests.
@@ -39,7 +71,7 @@ Once a Model has been used, registering another callback throws `InvalidModel`, 
 | 5              | `beforeUpdate`       | Before updating a persisted record                       | Stops the save                    |
 | 6              | `aroundCreate`       | Its first part, before `next()`                          | Stops the save                    |
 | 6              | `aroundUpdate`       | Its first part, before `next()`                          | Stops the save                    |
-|                | _The write to D1_    | Skipped when a persisted record has no changes           |                                   |
+|                | _The write_          | Skipped when a persisted record has no changes           |                                   |
 | 7              | `aroundCreate`       | Its last part, once `next()` resolves                    | Too late: `AbortAfterPersistence` |
 | 7              | `aroundUpdate`       | Its last part, once `next()` resolves                    | Too late: `AbortAfterPersistence` |
 | 8              | `afterCreate`        | After inserting a new record                             | Too late: `AbortAfterPersistence` |
@@ -53,13 +85,13 @@ Once a Model has been used, registering another callback throws `InvalidModel`, 
 | **Destroying** |                      |                                                          |                                   |
 | 1              | `beforeDestroy`      | Before the `dependent` strategies and the DELETE         | Stops the destroy                 |
 | 2              | `aroundDestroy`      | Its first part, before `next()`                          | Stops the destroy                 |
-|                | _The delete in D1_   | With the dependents, in one batch                        |                                   |
+|                | _The delete_         | With the dependents, in one batch                        |                                   |
 | 3              | `aroundDestroy`      | Its last part, once `next()` resolves                    | Too late: `AbortAfterPersistence` |
 | 4              | `afterDestroy`       | After the record is destroyed                            | Too late: `AbortAfterPersistence` |
 | 5              | `afterCommit`        | Last, after every after-callback                         | Too late: `AbortAfterPersistence` |
 | 5              | `afterDestroyCommit` | Last, after the record is destroyed                      | Too late: `AbortAfterPersistence` |
 | **Touching**   |                      |                                                          |                                   |
-|                | _The write to D1_    | `updatedAt`, and any attributes named                    |                                   |
+|                | _The write_          | `updatedAt`, and any attributes named                    |                                   |
 | 1              | `afterTouch`         | After `touch()` writes the record’s timestamps           | Too late: `AbortAfterPersistence` |
 | 2              | `afterCommit`        | Last, when `touch()` wrote a row                         | Too late: `AbortAfterPersistence` |
 | 2              | `afterUpdateCommit`  | Last, when `touch()` wrote a row                         | Too late: `AbortAfterPersistence` |
@@ -82,15 +114,7 @@ The database has kept a save’s writes before any after-callback runs. An error
 
 ## Wrapping a save or destroy
 
-An around callback runs code on both sides of a write. Call `next()` to run the rest of the save, and await it:
-
-```ts
-this.aroundSave(async (order, next) => {
-  const started = Date.now();
-  await next();
-  console.info(`Saved order ${order.id} in ${Date.now() - started} ms`);
-});
-```
+An around callback runs code on both sides of a write, as `Order`’s `aroundSave` does. Call `next()` to run the rest of the save, and await it.
 
 - **`aroundSave`** runs after `beforeSave`. Its `next()` runs `beforeCreate` or `beforeUpdate`, the write, and `afterCreate` or `afterUpdate`. `afterSave` runs once the callback finishes.
 - **`aroundCreate`**, **`aroundUpdate`**, and **`aroundDestroy`** wrap only the write, between the matching before- and after-callbacks.
@@ -110,13 +134,11 @@ To release something you hold during the write, put `await next()` in a `try` bl
 
 ## Running code after the commit
 
-Commit callbacks run last, after every after-callback of the save. In a [batch](./batches#batching-records), they wait for every record’s after-callbacks. Register one to run code once everything is written:
+Register a commit callback, as `User` does, to run code once everything is written:
 
-```ts
-this.afterCreateCommit(async (user) => {
-  await sendWelcomeEmail(user.email);
-});
-```
+<include>/_excerpts/pages/callbacks/examples/commit.mdx</include>
+
+Commit callbacks run last, after every after-callback of the save. In a [batch](./batches#batching-records), they wait for every record’s after-callbacks.
 
 - **`afterCommit`** runs after a create, an update, or a destroy.
 - **`afterCreateCommit`**, **`afterUpdateCommit`**, and **`afterDestroyCommit`** run after one kind of write. **`afterSaveCommit`** runs after a create or an update.
@@ -128,20 +150,16 @@ Destroying a record that was never saved runs no commit callback, since there wa
 
 ## Running code after a touch
 
-`afterTouch` runs after [`touch()`](./persistence#touching-a-record) writes a record’s timestamps:
+`afterTouch` runs after [`touch()`](./persistence#touching-a-record) writes a record’s timestamps, as `Article`’s does:
 
-```ts
-this.afterTouch(async (article) => {
-  await purgeCachedPage(article.id);
-});
-```
+<include>/_excerpts/pages/callbacks/examples/touch.mdx</include>
 
 - **No validation or save callback runs** for a touch.
 - **The commit callbacks for an update** run after `afterTouch`: `afterCommit`, `afterUpdateCommit`, and `afterSaveCommit`. When the row is gone, only `afterTouch` runs.
 - **`savedChanges()`** holds only the touched attributes, so `hasSavedChangeTo("email")` is `false` in a touch’s callbacks.
 - **A refused touch** runs `afterRollback`, and the record stays as it was.
 
-A `belongsTo` declared with [`touch`](./associations#touching-the-record-it-belongs-to) touches its record the same way. Saving a comment can run its article’s `afterTouch` and commit callbacks.
+A `belongsTo` declared with [`touch`](./touching#touching-the-record-it-belongs-to) touches its record the same way. Saving a comment can run its article’s `afterTouch` and commit callbacks.
 
 `touchAll` and the counters’ `touch` option run no callbacks.
 
@@ -151,13 +169,9 @@ A `touch()` that writes a row runs `afterUpdateCommit`. To send an email only wh
 
 ## Handling a refused write
 
-`afterRollback` runs when the database refuses a record’s save or destroy:
+`afterRollback` runs when the database refuses a record’s save or destroy, as `Order`’s does for a number that’s taken:
 
-```ts
-this.afterRollback((order) => {
-  console.warn(`Order ${order.id} wasn’t saved`);
-});
-```
+<include>/_excerpts/pages/callbacks/examples/rollback.mdx</include>
 
 - **A constraint error** refuses the record’s write, and the save then throws the [constraint error](./errors#constraint-errors).
 - **In a batch**, one refused write refuses them all, so `afterRollback` runs for every record in it.
@@ -171,13 +185,9 @@ An error thrown by an `afterRollback` reaches the caller in place of the constra
 
 ## Running code when a record is built or loaded
 
-`afterInitialize` runs for every record you build and every record you load. `afterFind` runs for every record you load, just before `afterInitialize`:
+`afterInitialize` runs for every record you build and every record you load, as `Invoice`’s fills in a new invoice’s currency. `afterFind` runs for every record you load, just before `afterInitialize`:
 
-```ts
-this.afterInitialize((invoice) => {
-  if (invoice.isNewRecord()) invoice.currency ??= currencyFor(invoice.country);
-});
-```
+<include>/_excerpts/pages/callbacks/examples/initialize.mdx</include>
 
 - **`build` and `create`** run `afterInitialize` after their `init` function, so it sees what `init` set. Building through a `hasMany` or `hasOne` runs it once the record points at its owner. Building through a `through` association runs the join record’s `afterInitialize` once it points at the record.
 - **Every load** runs `afterFind`, then `afterInitialize`: a query, an association read, a preload, and `reload()`. Preloaded associations aren’t attached yet when they run.
@@ -187,27 +197,15 @@ Both callbacks run synchronously, since `build` can’t wait for them. An `async
 
 ### Handling partial records
 
-A record loaded with [`select`](./querying#selecting-attributes) runs both callbacks too, and reading an attribute it left out throws `MissingAttribute`. Check with `hasAttribute` first:
+A record loaded with [`select`](./querying#selecting-attributes) runs both callbacks too, and reading an attribute it left out throws `MissingAttribute`. Check with `hasAttribute` first, as `Invoice`’s `afterFind` does:
 
-```ts
-this.afterFind((invoice) => {
-  if (invoice.hasAttribute("total") && invoice.total > 10_000) {
-    console.info(`Large invoice ${invoice.id} loaded`);
-  }
-});
-```
+<include>/_excerpts/pages/callbacks/examples/partial.mdx</include>
 
 ## Stopping a save
 
-Throw `abort(reason)` from a before-callback to stop a save or destroy:
+Throw `abort(reason)` from a before-callback to stop a save or destroy, as `Order`’s `beforeSave` does for a suspended order:
 
-```ts
-import { abort } from "@forestfuture/active-record";
-
-this.beforeSave((order) => {
-  if (order.suspended) throw abort("Orders can't change while suspended");
-});
-```
+<include>/_excerpts/pages/callbacks/examples/abort.mdx</include>
 
 - **`save()`** resolves to `false` and writes nothing. The record keeps its changes, and `record.abortReason` holds the reason.
 - **`saveOrThrow()`** throws `RecordNotSaved` with the reason.

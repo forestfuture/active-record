@@ -1,19 +1,40 @@
 ---
 title: Errors
 description: "Catch Active Record’s errors, and see when each one is thrown."
+seo:
+  description: "Every error Active Record throws, from RecordNotFound and RecordInvalid to constraint errors, how to catch them with ActiveRecordError, and when each is thrown."
 ---
+
+## At a glance
+
+| To                                         | Check                                                       |
+| ------------------------------------------ | ----------------------------------------------------------- |
+| tell Active Record’s errors from any other | `error instanceof ActiveRecordError`                        |
+| return a 404 for a missing record          | `error instanceof RecordNotFound`                           |
+| read why an `OrThrow` save failed          | `error instanceof RecordInvalid`, then `error.record`       |
+| catch a duplicate the table refused        | `error instanceof RecordNotUnique`, then `error.attributes` |
+
+## The Models
+
+The examples use this Model, whose attributes come from its table through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="user.ts">/_excerpts/pages/errors/src/models/user.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/errors/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/errors/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/errors/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
 
 ## Checking for Active Record’s errors
 
 Every error Active Record throws extends `ActiveRecordError`, so one check separates them from anything else:
 
-```ts
-import { ActiveRecordError } from "@forestfuture/active-record";
-
-if (error instanceof ActiveRecordError) {
-  // one of Active Record's own
-}
-```
+<include>/_excerpts/pages/errors/examples/check.mdx</include>
 
 ## Lifecycle errors
 
@@ -62,7 +83,7 @@ A name from a request, such as `?include=` or a JSON key, only ever matches the 
 
 ## Constraint errors
 
-When D1 refuses a write because of a constraint, it throws a subclass of `ConstraintViolation`:
+When the database refuses a write because of a constraint, Active Record throws a subclass of `ConstraintViolation`:
 
 | Error               | Constraint              |
 | ------------------- | ----------------------- |
@@ -71,8 +92,8 @@ When D1 refuses a write because of a constraint, it throws a subclass of `Constr
 | `NotNullViolation`  | `NOT NULL`              |
 | `CheckViolation`    | `CHECK`                 |
 
-Each has D1’s original error as `cause`, the `table`, and, where D1’s message names them, the `columns` and `attributes`:
+Each has the database’s original error as `cause`, the `table`, and, where the database’s message names them, the `columns` and `attributes`. `User` has no uniqueness validation, so its UNIQUE index refuses a taken email:
 
-<include>/_excerpts/guide/errors/not-unique.ts</include>
+<include>/_excerpts/pages/errors/examples/not-unique.mdx</include>
 
 Every method throws them, `save()` as well as `saveOrThrow()`. The record keeps its changes, so you can fix them and save again.

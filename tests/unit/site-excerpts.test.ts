@@ -46,12 +46,18 @@ export class Post extends Model.define({ id: "integer" }) {}
 `);
   });
 
-  test("import a file's model region from ./models, and hide it in a Twoslash variant", () => {
-    const page = `import { gte, Model } from "@forestfuture/active-record";
+  /** A page's project, as site/snippets/pages/posts/ holds it: its Model, schema and examples. */
+  const project = (examples: string) => ({
+    "site/snippets/pages/posts/src/db/schema.ts": 'export const posts = { views: "integer" };\n',
+    "site/snippets/pages/posts/src/models/post.ts": "export class Post {}\n",
+    "site/snippets/pages/posts/examples.ts": examples,
+    "packages/active-record/skills/active-record/SKILL.md": skill,
+  });
 
-// #region model
-export class Post extends Model.define({ id: "integer", views: "integer" }) {}
-// #endregion model
+  test("show a page project's example with Twoslash on the site, its src/ hidden, and plain to agents", () => {
+    const site = repository(
+      project(`import { gte } from "@forestfuture/active-record";
+import { Post } from "./src/models/post";
 
 export async function popular(): Promise<unknown> {
   // #region popular
@@ -59,38 +65,45 @@ export async function popular(): Promise<unknown> {
   // #endregion popular
   return posts;
 }
-`;
-    const site = repository({
-      "site/snippets/guide/posts.ts": page,
-      "packages/active-record/skills/active-record/SKILL.md": skill,
-    });
+`),
+    );
     writeExcerpts(site);
 
-    const excerpts = join(site, "docs/_excerpts/guide/posts");
+    const excerpts = join(site, "docs/_excerpts/pages/posts/examples");
     const example = `import { gte } from "@forestfuture/active-record";
-import { Post } from "./models";
+import { Post } from "./models/post";
 
 const posts = await Post.where({ views: gte(100) }).toArray();
 `;
     expect(readFileSync(join(excerpts, "popular.ts"), "utf8")).toBe(example);
-    expect(readFileSync(join(excerpts, "popular.twoslash.ts"), "utf8"))
-      .toBe(`// @filename: models.ts
-import { Model } from "@forestfuture/active-record";
+    expect(readFileSync(join(excerpts, "popular.mdx"), "utf8")).toBe(`<Visibility for="web">
 
-export class Post extends Model.define({ id: "integer", views: "integer" }) {}
+\`\`\`ts twoslash
+// @filename: db/schema.ts
+export const posts = { views: "integer" };
+
+// @filename: models/post.ts
+export class Post {}
 
 // @filename: example.ts
 // ---cut---
-${example}`);
-    expect(existsSync(join(excerpts, "model.twoslash.ts"))).toBe(false);
+${example.trimEnd()}
+\`\`\`
+
+</Visibility>
+<Visibility for="agents">
+
+\`\`\`ts
+${example.trimEnd()}
+\`\`\`
+
+</Visibility>
+`);
   });
 
   test("show an expected type error in Twoslash, without failing on it", () => {
-    const page = `import { Model } from "@forestfuture/active-record";
-
-// #region model
-export class Post extends Model.define({ id: "integer" }) {}
-// #endregion model
+    const site = repository(
+      project(`import { Post } from "./src/models/post";
 
 export function typo(): void {
   // #region typo
@@ -98,20 +111,27 @@ export function typo(): void {
   Post.where({ idd: 1 });
   // #endregion typo
 }
-`;
+`),
+    );
+    writeExcerpts(site);
+
+    const partial = readFileSync(
+      join(site, "docs/_excerpts/pages/posts/examples/typo.mdx"),
+      "utf8",
+    );
+    expect(partial).toContain("```ts twoslash\n// @noErrorValidation\n");
+    expect(partial).not.toContain("@ts-expect-error");
+    expect(partial.match(/Post\.where\(\{ idd: 1 \}\);/g)).toHaveLength(2); // on the site, and for agents
+  });
+
+  test("write no partial outside a page's project", () => {
     const site = repository({
-      "site/snippets/guide/posts.ts": page,
+      "site/snippets/guide/posts.ts": snippet,
       "packages/active-record/skills/active-record/SKILL.md": skill,
     });
     writeExcerpts(site);
 
-    const twoslash = readFileSync(
-      join(site, "docs/_excerpts/guide/posts/typo.twoslash.ts"),
-      "utf8",
-    );
-    expect(twoslash.startsWith("// @noErrorValidation\n")).toBe(true);
-    expect(twoslash).not.toContain("@ts-expect-error");
-    expect(twoslash).toContain("Post.where({ idd: 1 });");
+    expect(existsSync(join(site, "docs/_excerpts/guide/posts/declare.mdx"))).toBe(false);
   });
 
   test("hold every snippet file whole, at its own path", () => {

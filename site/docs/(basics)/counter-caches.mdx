@@ -1,0 +1,105 @@
+---
+title: Counter caches
+description: "Keep a count of a record’s associated records on the record itself, so reading it needs no query."
+seo:
+  description: "Active Record counter caches: keep a hasMany’s count on its owner with counterCache, read it with size(), reset it with resetCounters, and backfill one."
+---
+
+## At a glance
+
+| To                                      | Write                                                              |
+| --------------------------------------- | ------------------------------------------------------------------ |
+| keep an article’s count of comments     | `belongsTo(Article, { counterCache: true })`, with `commentsCount` |
+| keep it in an attribute of another name | `counterCache: "replyCount"`, on the `belongsTo` and the `hasMany` |
+| read the count, with no query           | `article.comments().size()`, `isEmpty()`, `hasAny()`               |
+| set the count from the rows             | `Article.resetCounters(id, "comments")`                            |
+| fill in a new counter before it’s read  | `counterCache: { attribute: "commentsCount", active: false }`      |
+
+## The Models
+
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="article.ts">/_excerpts/pages/counter-caches/src/models/article.ts</include>
+
+<include meta="comment.ts">/_excerpts/pages/counter-caches/src/models/comment.ts</include>
+
+<include meta="forum.ts">/_excerpts/pages/counter-caches/src/models/forum.ts</include>
+
+<include meta="reply.ts">/_excerpts/pages/counter-caches/src/models/reply.ts</include>
+
+<include meta="imported-comment.ts">
+  /_excerpts/pages/counter-caches/src/models/imported-comment.ts
+</include>
+
+<include meta="schema.ts">/_excerpts/pages/counter-caches/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/counter-caches/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/counter-caches/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
+
+## Declaring a counter cache
+
+Declare `counterCache` on the counted records’ `belongsTo`, as `Comment` does, and give the owner an attribute for the count:
+
+- The attribute is named for the counted Model: `commentsCount` for comments.
+- To keep it in another attribute, name it, as `Reply` does: `counterCache: "replyCount"`.
+- A polymorphic `belongsTo` counts a record on whichever listed Model its type names, so each of them declares the attribute.
+- A counter cache on a Model on [another database](./several-databases) throws `InvalidModel`, since its count couldn’t be written in the same batch. So do two `belongsTo`s on one foreign key that keep the same attribute, since each comment would count twice.
+
+## Counting records
+
+Creating a comment adds one to its article’s count, and destroying it takes one away:
+
+<include>/_excerpts/pages/counter-caches/examples/counting.mdx</include>
+
+- Changing a comment’s `articleId` moves the count to the other article. An article you’ve loaded takes the new count too, without a save.
+- Removing comments through the article’s association counts them out: `delete`, `clear`, and `deleteAll()` on `article.comments()`. Removing records through an association through another counts out its join records the same way.
+- Bulk writes leave the count alone: `insert`, `insertAll`, `upsert`, `updateAll`, and `deleteAll()` on any other Relation.
+
+:::tip
+Each change is written in the same atomic batch as the comment, so the count can’t drift from the rows.
+:::
+
+## Reading the count
+
+`size()`, `isEmpty()`, and `hasAny()` on the association read the count, without a query:
+
+<include>/_excerpts/pages/counter-caches/examples/size.mdx</include>
+
+- An association reads the counter named for it: `comments` reads `commentsCount`. If its counter has another name, name it on the `hasMany` too, as `Forum` does.
+- An association with any other name counts its rows, so one narrowed by a scope counts only its own records.
+- `count()` always counts the rows.
+
+## Resetting a count
+
+Set a count from the rows with `resetCounters`, after a bulk write for example:
+
+<include>/_excerpts/pages/counter-caches/examples/reset.mdx</include>
+
+- It takes one association’s name or a list of them, and sets every counter the association’s records keep on the article.
+- `touch: true` also sets `updatedAt`.
+- An association with a scope can’t reset a counter, since its records aren’t all the ones counted.
+
+## Adding a counter to existing records
+
+Declare a new counter with `active: false`, as `ImportedComment` does, to fill it in before anything reads it:
+
+- A new counter starts at zero, even for an article that already has comments.
+- With `active: false`, writes keep the count up to date, while `size()` and the others count the rows.
+- Run `resetCounters` for each article, then remove `active: false`.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails takes one from the article the comment’s key pointed at when it was loaded. Here the count is taken from the article the comment’s row points at as it’s deleted, so a comment that’s already gone, or that another request moved, doesn’t throw the count off.
+
+`counterCache` names an attribute, where Rails’ `counter_cache` names a column. Rails also makes the counter read-only. Here it’s an ordinary attribute.
+
+In Rails, removing records through a scoped association leaves the count too high, and `reset_counters` on one writes the scope’s count into the counter. Here the removal counts its records out, and `resetCounters` refuses the scoped association.
+
+Rails counts a comment twice when two `belongs_to`s keep the same counter. Here that throws `InvalidModel`.
+
+</Callout>

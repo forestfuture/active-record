@@ -1,6 +1,8 @@
 ---
 title: Multiple databases
 description: "Use two or more databases from one Worker, on D1, Postgres, or both."
+seo:
+  description: "Use several databases from one Cloudflare Worker with Active Record, on D1, Postgres, or both: a schema and base class for each, Sessions, and tests."
 ---
 
 ## Binding the databases
@@ -87,7 +89,7 @@ Each read goes to the database its Model is on:
 
 <include>/_excerpts/guide/several-databases/reading-associations.ts</include>
 
-`includes` loads the users from `DB` once the entries are loaded, in one more round trip. Each other database a [preload](./associations#preloading-associations) reaches adds one.
+`includes` loads the users from `DB` once the entries are loaded, in one more round trip. Each other database a [preload](./preloading) reaches adds one.
 
 Records you create through an association are written to their own database:
 

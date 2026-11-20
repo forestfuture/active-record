@@ -1,6 +1,8 @@
 ---
 title: Generators
 description: "Write a table’s migration and its Model from a short description."
+seo:
+  description: "Generate a table’s migration and its Active Record Model from a short description, write columns and references, and keep the generated schema current."
 ---
 
 :::note
@@ -35,7 +37,7 @@ The table is `products`, with an `id` generated in code, `created_at`, and `upda
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-Keys are UUIDs, not auto-incrementing integers. With `--id integer`, a record and the records built through it no longer save atomically. See [Autosaving](./associations#autosaving).
+Keys are UUIDs, not auto-incrementing integers. With `--id integer`, a record and the records built through it no longer save atomically. See [Autosaving](./autosaving#saving-a-graph).
 
 </Callout>
 

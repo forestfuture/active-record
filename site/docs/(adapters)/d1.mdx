@@ -1,6 +1,8 @@
 ---
 title: D1
 description: "Run your Models on Cloudflare D1."
+seo:
+  description: "Use Active Record on Cloudflare D1: install the adapter, bind a database, read replicas with Sessions, one round trip per page, and what differs on D1."
 ---
 
 ## Installing
@@ -31,7 +33,7 @@ With read replication, wrap each request in [`withSession`](./read-your-own-writ
 
 ## Sending queries in one round trip
 
-D1 sends a batch of queries in one round trip. A [preload](./associations#preloading-associations) sends its whole tree on one database that way, with the records’ own query, so `includes({ articles: "comments" })` is three queries in one round trip. A [page](./querying#paginating) sends its `COUNT` and its records together, with their preloads.
+D1 sends a batch of queries in one round trip. A [preload](./preloading) sends its whole tree on one database that way, with the records’ own query, so `includes({ articles: "comments" })` is three queries in one round trip. A [page](./ordering-and-pagination#paginating) sends its `COUNT` and its records together, with their preloads.
 
 A batch runs as one transaction, so every query in it reads the same data. A preload’s nested query that would bind more than 100 values waits for the records above it, and takes one more round trip.
 
@@ -44,7 +46,7 @@ D1 can’t hold a transaction open while your Worker awaits, so there’s no `tr
 What you can make atomic is a set of writes prepared in advance: [`batch`](./batches#batching-writes) sends bulk writes and records together, and D1 writes all of them or none. Active Record uses the same batches itself:
 
 - A destroy’s [`dependent` strategies](./associations#destroying-dependent-records) on the owner’s database are written in one batch with its DELETE.
-- A record [autosaved](./associations#autosaving) with its owner joins the owner’s batch when it’s on the owner’s database and the owner’s key is known in advance.
+- A record [autosaved](./autosaving#saving-a-graph) with its owner joins the owner’s batch when it’s on the owner’s database and the owner’s key is known in advance.
 
 ## Generating keys in code
 
@@ -53,7 +55,7 @@ Rows in a batch can only point at each other through keys that exist before it�
 - A graph of new records built through associations on one database saves in one atomic batch.
 - A batch can insert rows that point at each other.
 
-When D1 generates the key (`INTEGER PRIMARY KEY`), it doesn’t exist until the row is written. An owner is written first, then the records built through it in the next batch, a level at a time, and the batches aren’t atomic together. See [Autosaving](./associations#autosaving).
+When D1 generates the key (`INTEGER PRIMARY KEY`), it doesn’t exist until the row is written. An owner is written first, then the records built through it in the next batch, a level at a time, and the batches aren’t atomic together. See [Autosaving](./autosaving#saving-a-graph).
 
 ## Uniqueness is checked twice
 
@@ -77,4 +79,4 @@ Once D1 has accepted a write, it’s done. An error thrown by an after-callback 
 
 ## Decimals keep about 15 digits
 
-SQLite stores a [`decimal`](./models#storing-exact-numbers-days-and-times) as a number, so D1 keeps about 15 significant digits of it and rounds the rest: `"1.2345678901234567891"` reads back as `"1.234567890123457"`. Postgres keeps every digit.
+SQLite stores a [`decimal`](./attribute-types#storing-exact-numbers-days-and-times) as a number, so D1 keeps about 15 significant digits of it and rounds the rest: `"1.2345678901234567891"` reads back as `"1.234567890123457"`. Postgres keeps every digit.

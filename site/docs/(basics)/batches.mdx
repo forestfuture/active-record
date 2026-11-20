@@ -1,18 +1,51 @@
 ---
 title: Bulk writes and batches
 description: "Write many rows in one statement, and send several writes that all succeed or all fail."
+seo:
+  description: "Write many rows in one SQL statement with insertAll, upsert, updateAll, and deleteAll, and send writes in an atomic batch on D1 or one Postgres transaction."
 ---
+
+## At a glance
+
+| To                                          | Write                                                    |
+| ------------------------------------------- | -------------------------------------------------------- |
+| update or delete every row a Relation finds | `updateAll({ … })`, `deleteAll()`, `deleteBy({ … })`     |
+| insert rows without loading records         | `insert({ … })`, `insertAll([…])`                        |
+| insert, or update a row that clashes        | `upsert({ … }, { uniqueBy: "email" })`, `upsertAll([…])` |
+| get attributes back from an insert          | `{ returning: ["id", "body"] }`                          |
+| write several statements atomically         | `batch((b) => [b.insert(…), b.updateAll(…)])`            |
+| save or destroy records in that batch       | `b.save(record)`, `b.destroy(record)`                    |
+
+## The Models
+
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="author.ts">/_excerpts/pages/batches/src/models/author.ts</include>
+
+<include meta="article.ts">/_excerpts/pages/batches/src/models/article.ts</include>
+
+<include meta="comment.ts">/_excerpts/pages/batches/src/models/comment.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/batches/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/batches/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/batches/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
 
 ## Writing many rows
 
 Call a bulk write on a Relation. It runs straight away, without validations or callbacks:
 
-<include>/_excerpts/guide/batches/statements.ts</include>
+<include>/_excerpts/pages/batches/examples/statements.mdx</include>
 
 - **`updateAll(changes)`** takes attributes or an `sql` fragment, and resolves to the number of rows updated. It leaves `updatedAt` alone. With a `limit` or `offset`, the Relation’s order picks which rows are written.
 - **`deleteAll()`** resolves to the number of rows deleted. On `none()`, both send nothing and resolve to `0`.
 - **`deleteBy(conditions)`** is `where(conditions).deleteAll()`. **`Comment.delete(id)`** deletes by primary key, and takes an array of keys too. Both resolve to the number of rows deleted.
-- **`insert(attrs)`** writes one row. It resolves to `{ rowsAffected, rows }`, and `rows` holds the new row’s primary key. Declared defaults and timestamps fill what isn’t given. A Relation’s equality conditions are written over what is given. So `Post.where({ userId: 1 }).insert({ title: "Hi", userId: 2 })` writes `userId: 1`.
+- **`insert(attrs)`** writes one row. It resolves to `{ rowsAffected, rows }`, and `rows` holds the new row’s primary key. Declared defaults and timestamps fill what isn’t given. A Relation’s equality conditions are written over what is given. So `Article.where({ authorId: jane.id }).insert({ title: "Hi", authorId: sam.id })` writes Jane’s key.
 
 :::note
 To run each record’s callbacks, destroy the records with [`destroyAll`](./persistence#destroying-many-records) instead.
@@ -22,7 +55,7 @@ To run each record’s callbacks, destroy the records with [`destroyAll`](./pers
 
 Insert many rows at once with `insertAll`:
 
-<include>/_excerpts/guide/batches/insert-all.ts</include>
+<include>/_excerpts/pages/batches/examples/insert-all.mdx</include>
 
 - **`insertAll(rows)`** inserts every row, however many. Every row must have the same attributes. A duplicate throws and writes nothing.
 - **`{ onDuplicate: "skip" }`** skips rows that clash with a unique index.
@@ -34,7 +67,7 @@ Insert many rows at once with `insertAll`:
 
 Inserts and upserts return the primary key of each row they write. Name other attributes with `returning`:
 
-<include>/_excerpts/guide/batches/returning.ts</include>
+<include>/_excerpts/pages/batches/examples/returning.mdx</include>
 
 - **`rows`** has one entry for each row written, typed from the attributes you name. A row skipped as a duplicate isn’t in it.
 - **`returning: false`** returns no rows.
@@ -50,7 +83,7 @@ These are Rails’ `insert_all`, `upsert_all`, `update_all`, and `delete_all`, w
 
 Prepare several writes in `batch`’s callback to write them atomically:
 
-<include>/_excerpts/guide/batches/batch.ts</include>
+<include>/_excerpts/pages/batches/examples/batch.mdx</include>
 
 The callback gets `b`, with a method for each bulk write: `insert`, `insertAll`, `upsert`, `upsertAll`, `updateAll`, `updateCounters`, and `deleteAll`. Each takes what it writes to, then the same arguments as the write itself. Pass a Model to write to its table, or a Relation to write to its rows, such as `Article.where(…)` or `author.articles()`.
 
@@ -62,7 +95,7 @@ The callback gets `b`, with a method for each bulk write: `insert`, `insertAll`,
 - **Relations in `db.batch`:** `Article.where(…)` uses the current database. Build it with `db.model(Article).where(…)` to write on `db`.
 
 :::note
-The callback returns its writes without awaiting anything, since the batch is sent to D1 as one. Load what the writes need before you call `batch`. D1 can’t keep a transaction open across `await`s, so a batch is how you make writes atomic.
+The callback returns its writes without awaiting anything, since the batch is sent as one: an atomic batch on D1, and one transaction on Postgres. Load what the writes need before you call `batch`. D1 can’t keep a transaction open across `await`s, so a batch is how you make writes atomic.
 :::
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
@@ -75,31 +108,21 @@ A batch reads like a `transaction do … end` block, but its callback only prepa
 
 Add a record’s save or destroy to a batch with `b.save(record)` and `b.destroy(record)`. Its validations and callbacks still run:
 
-<include>/_excerpts/guide/batches/records.ts</include>
+<include>/_excerpts/pages/batches/examples/records.mdx</include>
 
 When the batch runs:
 
 1. Each record, in order, is validated and runs its before-callbacks. The first that’s invalid or aborts throws `RecordInvalid`, `RecordNotSaved`, or `RecordNotDestroyed`, and nothing is sent.
-2. Every write goes to D1 as one atomic batch. If D1 refuses it with a constraint error, nothing is written, every record keeps its unsaved state, and each record’s `afterRollback` runs.
+2. Every write is sent as one atomic batch. If the database refuses it with a constraint error, nothing is written, every record keeps its unsaved state, and each record’s `afterRollback` runs.
 3. Each record takes its saved state, then its after-callbacks run.
 4. Every record’s [commit callbacks](./callbacks#running-code-after-the-commit) run, in the same order.
 
 A record’s autosaved associations and `dependent` strategies join the same batch. A record listed twice, or already saved by its owner’s autosave, is written once.
 
-To validate a record in a context of your own, such as the `"signup"` context of [`Member`](./validations#naming-your-own-contexts), pass the context to `b.save`:
-
-```ts
-import { batch } from "@forestfuture/active-record";
-
-await batch((b) => [b.save(member, { context: "signup" })]);
-```
+To validate a record in a [context of your own](./validations#naming-your-own-contexts), pass the context to `b.save`, such as `b.save(member, { context: "signup" })`.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
 In a Rails transaction, one record’s `after_save` runs before the next record’s `before_save`. In a batch, every before-callback runs first.
 
 </Callout>
-
-Bulk writes and records mix in one batch. From the [Getting started](./getting-started) project, this publishes every draft and destroys a user with their posts:
-
-<include>/_excerpts/getting-started/src/publish/batch.ts</include>

@@ -1,13 +1,52 @@
 ---
 title: Persistence
 description: "Save, update, and destroy records."
+seo:
+  description: "Save, create, update, and destroy Active Record records, catch RecordInvalid from the OrThrow variants, findOrCreateBy, increment, touch, and reload."
 ---
+
+## At a glance
+
+| To                                         | Write                                                     |
+| ------------------------------------------ | --------------------------------------------------------- |
+| save a record, true or false               | `user.save()`, `User.create({ … })`, `user.update({ … })` |
+| throw when it can’t be saved               | `saveOrThrow()`, `createOrThrow()`, `updateOrThrow()`     |
+| return a 422 for an invalid record         | catch `RecordInvalid`, then read `error.record.errors`    |
+| change one attribute in memory             | `increment("viewCount")`, `toggle("isPinned")`            |
+| write straight to the row                  | `incrementColumn(…)`, `updateColumns({ … })`              |
+| set `updatedAt` without saving             | `touch()`                                                 |
+| add to a number without loading the record | `Article.updateCounters(id, { viewCount: 1 })`            |
+| find a record, or create one               | `findOrCreateBy({ … })`, `createOrFindBy({ … })`          |
+| destroy a record, or many                  | `destroy()`, `destroyAll()`, `destroyBy({ … })`           |
+| load a record’s row again                  | `reload()`                                                |
+
+## The Models
+
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="user.ts">/_excerpts/pages/persistence/src/models/user.ts</include>
+
+<include meta="post.ts">/_excerpts/pages/persistence/src/models/post.ts</include>
+
+<include meta="article.ts">/_excerpts/pages/persistence/src/models/article.ts</include>
+
+<include meta="label.ts">/_excerpts/pages/persistence/src/models/label.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/persistence/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/persistence/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/persistence/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
 
 ## Saving records
 
 Save a record with `save`. It validates the record, runs its callbacks, and resolves to `true` or `false`:
 
-<include>/_excerpts/guide/persistence/save.ts</include>
+<include>/_excerpts/pages/persistence/examples/save.mdx</include>
 
 A new record is inserted, and a persisted one updates only the attributes that changed. `save` resolves to `false` for one of two reasons:
 
@@ -20,13 +59,7 @@ A new record is inserted, and a persisted one updates only the attributes that c
 
 When a failure is exceptional, use the `OrThrow` version of each method:
 
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-A TypeScript method name can’t contain `!`, so the `OrThrow` suffix takes its place. `saveOrThrow`, `createOrThrow`, `updateOrThrow`, and `destroyOrThrow` are Rails’ `save!`, `create!`, `update!`, and `destroy!`.
-
-</Callout>
-
-<include>/_excerpts/guide/persistence/or-throw.ts</include>
+<include>/_excerpts/pages/persistence/examples/or-throw.mdx</include>
 
 Instead of returning `false`, they throw:
 
@@ -54,13 +87,19 @@ Instead of returning `false`, they throw:
 
 - **Constraint errors**, such as `RecordNotUnique`, since the database refused the write. See [Errors](./errors#constraint-errors).
 - **An error thrown by a callback**, other than `abort()`, even from an after-callback once the record is saved.
-- **D1’s own errors.**
+- **The database’s own errors.**
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+A TypeScript method name can’t contain `!`, so the `OrThrow` suffix takes its place. `saveOrThrow`, `createOrThrow`, `updateOrThrow`, and `destroyOrThrow` are Rails’ `save!`, `create!`, `update!`, and `destroy!`.
+
+</Callout>
 
 ## Changing one attribute
 
 To bump a number or flip a flag, use `increment`, `decrement`, or `toggle`. They change the record without saving it, so save it afterwards:
 
-<include>/_excerpts/guide/attribute-writes/in-memory.ts</include>
+<include>/_excerpts/pages/persistence/examples/in-memory.mdx</include>
 
 `increment` and `decrement` take an amount as their second argument, and count `null` as zero. `toggle` turns `null` into `true`.
 
@@ -68,7 +107,7 @@ To bump a number or flip a flag, use `increment`, `decrement`, or `toggle`. They
 
 To write a value without validations, callbacks, or a new `updatedAt`, use a method ending in `Column`. Each one writes to the row at once:
 
-<include>/_excerpts/guide/attribute-writes/columns.ts</include>
+<include>/_excerpts/pages/persistence/examples/columns.mdx</include>
 
 - **`incrementColumn` and `decrementColumn`** add to the value in the row, not the one the record loaded. When two requests increment the same row, both count. The record then holds the row’s new value. To set `updatedAt` in the same write, pass `{ touch: true }` after the amount.
 - **`toggleColumn`** writes the flipped value.
@@ -80,7 +119,7 @@ Each resolves to `true`, or `false` when the row is gone. The record’s other u
 
 To mark a record as changed without saving it, call `touch`. It sets `updatedAt` to the current time in the row:
 
-<include>/_excerpts/guide/attribute-writes/touching.ts</include>
+<include>/_excerpts/pages/persistence/examples/touching.mdx</include>
 
 - **Name datetime attributes** to set them as well as `updatedAt`.
 - **Pass `{ time }` last** to set a time other than now.
@@ -88,15 +127,15 @@ To mark a record as changed without saving it, call `touch`. It sets `updatedAt`
 
 `touch` skips validations and the save callbacks, and the record’s other unsaved changes stay unsaved. It runs `afterTouch`, then the commit callbacks for an update. See [Running code after a touch](./callbacks#running-code-after-a-touch).
 
-`touch` resolves to `true`, or `false` when the row is gone. A record that was never saved throws `RecordNotSaved`. On a Model with no `updatedAt`, name at least one attribute. Inside a [`noTouching` block](./associations#turning-touches-off) for its Model, `touch` writes nothing and resolves to `false`.
+`touch` resolves to `true`, or `false` when the row is gone. A record that was never saved throws `RecordNotSaved`. On a Model with no `updatedAt`, name at least one attribute. Inside a [`noTouching` block](./touching#turning-touches-off) for its Model, `touch` writes nothing and resolves to `false`.
 
-To touch the record a record belongs to whenever it changes, declare `touch` on its `belongsTo`. See [Touching the record it belongs to](./associations#touching-the-record-it-belongs-to).
+To touch the record a record belongs to whenever it changes, declare `touch` on its `belongsTo`. See [Touching the record it belongs to](./touching#touching-the-record-it-belongs-to).
 
 ### Updating counters
 
 To add to a number without loading the record, pass its primary key to `updateCounters`:
 
-<include>/_excerpts/guide/attribute-writes/counters.ts</include>
+<include>/_excerpts/pages/persistence/examples/counters.mdx</include>
 
 - **`Article.updateCounters(ids, counters)`** adds to the rows with those keys, even ones a default scope leaves out.
 - **A Relation’s `updateCounters(counters)`** adds to every row it matches.
@@ -104,12 +143,12 @@ To add to a number without loading the record, pass its primary key to `updateCo
 
 Each one sends a single statement and resolves to the number of rows it changed. Like `updateAll`, it skips validations and callbacks. To set `updatedAt` too, pass `{ touch: true }`. To set other datetime attributes as well, name them, as in `{ touch: "viewedAt" }`.
 
-To keep a count of an association’s records, see [counter caches](./associations#counting-records-with-a-counter-cache).
+To keep a count of an association’s records, see [counter caches](./counter-caches).
 
 :::warning[Counting by key skips the default scope]
 `Article.updateCounters`, `incrementCounter`, and `decrementCounter` find rows by primary key alone. If a default scope keeps tenants apart or hides deleted rows, a key from a request can reach a row it hides. Start from a Relation instead, which keeps the default scope:
 
-<include>/_excerpts/guide/attribute-writes/scoped-counter.ts</include>
+<include>/_excerpts/pages/persistence/examples/scoped-counter.mdx</include>
 
 :::
 
@@ -133,7 +172,7 @@ Rails’ `increment!` keeps the value it worked out. `incrementColumn` reads the
 
 Find a record by its attributes, or create one with them when there isn’t one, with `findOrCreateBy`:
 
-<include>/_excerpts/guide/find-or-create/find-or-create.ts</include>
+<include>/_excerpts/pages/persistence/examples/find-or-create.mdx</include>
 
 `findOrCreateBy` creates the record as `create` does, so check `isPersisted()` or `errors` if it might not save. `findOrCreateByOrThrow` throws `RecordInvalid` instead. `findOrInitializeBy` builds the record without saving it.
 
@@ -145,13 +184,13 @@ The attributes you pass become the new record’s values, so each must be one va
 
 To give a new record attributes that aren’t part of the search, use `createWith`:
 
-<include>/_excerpts/guide/find-or-create/create-with.ts</include>
+<include>/_excerpts/pages/persistence/examples/create-with.mdx</include>
 
 The Relation’s `build`, `create`, and `insert` use them too. Attributes you pass to `build` and `create` win over them. `insert`, `insertAll`, `upsert`, and `upsertAll` write them over the attributes you pass. `createWith(null)` removes them.
 
 To set attributes in code, pass a function as the last argument. It gets the new record once its attributes are assigned, before it’s saved:
 
-<include>/_excerpts/guide/find-or-create/init.ts</include>
+<include>/_excerpts/pages/persistence/examples/init.mdx</include>
 
 The function runs only when a record is made. `build`, `create`, and `createOrThrow` take one too. Each method awaits it, except `build`, which returns the record at once. An async function given to `build` throws a `TypeError`.
 
@@ -159,7 +198,7 @@ The function runs only when a record is made. `build`, `create`, and `createOrTh
 
 Two requests can both find nothing, and both create a record. When a UNIQUE index covers the attributes, use `createOrFindBy` instead. It inserts first, and finds the existing row when the index refuses the duplicate:
 
-<include>/_excerpts/guide/find-or-create/create-or-find.ts</include>
+<include>/_excerpts/pages/persistence/examples/create-or-find.mdx</include>
 
 `createOrFindByOrThrow` throws `RecordInvalid` when the record is invalid.
 
@@ -184,7 +223,7 @@ Rails reads a list in their attributes as `IN`, as `find_by` does. These methods
 
 Destroy a record with `destroy`:
 
-<include>/_excerpts/guide/persistence/destroy.ts</include>
+<include>/_excerpts/pages/persistence/examples/destroy.mdx</include>
 
 It runs the destroy callbacks and the associations’ [`dependent` options](./associations#destroying-dependent-records), then deletes the row. A destroyed record’s attributes stay readable, but setting one, or calling `save`, `update`, `destroy`, or `reload`, throws `RecordDestroyed`.
 
@@ -196,7 +235,7 @@ If another request already deleted the row, `save` and `destroy` still succeed.
 
 Destroy every record a query matches with `destroyAll`:
 
-<include>/_excerpts/guide/persistence/destroy-many.ts</include>
+<include>/_excerpts/pages/persistence/examples/destroy-many.mdx</include>
 
 - **`destroyAll()`** loads the records, runs each one’s destroy callbacks and `dependent` options, and deletes them all in one write. It resolves to the destroyed records.
 - **`destroyBy(conditions)`** is `where(conditions).destroyAll()`.
@@ -214,14 +253,14 @@ Rails’ `destroy_all` on a Relation destroys each record in a transaction of it
 
 ### Destroying a large set
 
-`destroyAll` holds every record it matches in memory, and writes them together. To destroy a large set in smaller writes, destroy it [a batch at a time](./querying#writing-a-batch-at-a-time):
+`destroyAll` holds every record it matches in memory, and writes them together. To destroy a large set in smaller writes, destroy it [a batch at a time](./batch-iteration#writing-a-batch-at-a-time):
 
-<include>/_excerpts/guide/persistence/destroy-in-batches.ts</include>
+<include>/_excerpts/pages/persistence/examples/destroy-in-batches.mdx</include>
 
 Each batch is its own write, so a batch that fails leaves the earlier batches destroyed.
 
 :::note
-A batch bounds memory, not queries. Each record reads its `"destroy"` and restricted associations with a query of its own, so a large set sends as many reads, a batch at a time or not. On D1, that counts toward [the queries one Worker invocation can send](./querying#staying-within-d1s-query-limit).
+A batch bounds memory, not queries. Each record reads its `"destroy"` and restricted associations with a query of its own, so a large set sends as many reads, a batch at a time or not. On D1, that counts toward [the queries one Worker invocation can send](./batch-iteration#staying-within-d1s-query-limit).
 :::
 
 ## Checking a record’s state
@@ -232,17 +271,17 @@ A batch bounds memory, not queries. Each record reads its `"destroy"` and restri
 | Persisted (loaded, or after a successful save)   | `false`         | `true`          | `false`         |
 | Destroyed (after a successful `destroy()`)       | `false`         | `false`         | `true`          |
 
-`isPreviouslyNewRecord()` says whether the last save created the record. Use it in an after-callback that should only run for new records:
+`isPreviouslyNewRecord()` says whether the last save created the record. `Article` uses it in an after-callback that runs only for new records:
 
-<include>/_excerpts/guide/attribute-writes/previously-new.ts</include>
+<include>/_excerpts/pages/persistence/examples/previously-new.mdx</include>
 
 It’s `false` again once the record is saved again or destroyed.
 
 ## Reloading records
 
-Load a record’s row again with `reload`, discarding unsaved changes and loaded associations:
+Load a record’s row again with `reload`, which discards unsaved changes and loaded associations:
 
-<include>/_excerpts/guide/persistence/reload.ts</include>
+<include>/_excerpts/pages/persistence/examples/reload.mdx</include>
 
 It throws `RecordNotFound` if the row is gone, or the record was never saved.
 

@@ -1,6 +1,8 @@
 ---
 title: Through associations
 description: "Read and write records through a join Model, such as an article’s tags through its taggings."
+seo:
+  description: "Many-to-many associations in Active Record: hasMany and hasOne through a join Model, with source, preloading, push, build, create, and removing join records."
 ---
 
 ## At a glance
@@ -45,31 +47,33 @@ description: "Read and write records through a join Model, such as an article’
 
 ## The Models
 
-The examples use these Models and tables:
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates:
 
-<Tabs syncKey="database">
-<Tab title="Models">
+<CodeGroup>
 
-<include>/_excerpts/guide/through/model.ts</include>
+<include meta="author.ts">/_excerpts/pages/through-associations/src/models/author.ts</include>
 
-</Tab>
-<Tab title="D1">
+<include meta="article.ts">/_excerpts/pages/through-associations/src/models/article.ts</include>
 
-<include>/_excerpts/guide/through-d1.sql</include>
+<include meta="tag.ts">/_excerpts/pages/through-associations/src/models/tag.ts</include>
 
-</Tab>
-<Tab title="Postgres">
+<include meta="tagging.ts">/_excerpts/pages/through-associations/src/models/tagging.ts</include>
 
-<include>/_excerpts/guide/through-postgres.sql</include>
+<include meta="schema.ts">/_excerpts/pages/through-associations/src/db/schema.ts</include>
 
-</Tab>
-</Tabs>
+<include meta="D1">/_excerpts/pages/through-associations/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">
+  /_excerpts/pages/through-associations/postgres/0001_create_tables.sql
+</include>
+
+</CodeGroup>
 
 ## Reading records
 
 Read a through association as you would any `hasMany`:
 
-<include meta="twoslash">/_excerpts/guide/through/read.twoslash.ts</include>
+<include>/_excerpts/pages/through-associations/examples/read.mdx</include>
 
 - `through` names one of the Model’s own associations, here `taggings`. The join Model’s association with the same name, singular or plural, leads on to the records: `articles` follows each tagging’s `article`.
 - `tag.articles()` is a Relation, with every Relation method, read in one query. Its writes go to the taggings, as [below](#writing-through-it).
@@ -80,7 +84,7 @@ Read a through association as you would any `hasMany`:
 
 Preload the records for every tag with `includes`:
 
-<include meta="twoslash">/_excerpts/guide/through/preload.twoslash.ts</include>
+<include>/_excerpts/pages/through-associations/examples/preload.mdx</include>
 
 The join records and the articles load with the tags’ own query, in one round trip on D1. The join records aren’t kept as `taggings` unless you include them too.
 
@@ -88,7 +92,7 @@ The join records and the articles load with the tags’ own query, in one round 
 
 If the join Model’s association has another name, pass it as `source`, as `writers` does to follow each article’s `author`:
 
-<include meta="twoslash">/_excerpts/guide/through/source.twoslash.ts</include>
+<include>/_excerpts/pages/through-associations/examples/source.mdx</include>
 
 `writers` goes through `articles`, which goes through `taggings`. An association can go through any number of others this way.
 
@@ -96,7 +100,7 @@ If the join Model’s association has another name, pass it as `source`, as `wri
 
 A `hasOne` can go through a `belongsTo`, as a tagging’s `author` does through its `article`:
 
-<include meta="twoslash">/_excerpts/guide/through/has-one.twoslash.ts</include>
+<include>/_excerpts/pages/through-associations/examples/has-one.mdx</include>
 
 `through` can name a `belongsTo`, a `hasMany`, or a `hasOne`, and the association it follows can be any of the three. A `hasOne` goes through a `belongsTo` or a `hasOne`.
 
@@ -104,7 +108,7 @@ A `hasOne` can go through a `belongsTo`, as a tagging’s `author` does through 
 
 Add records with `push`, `build`, and `create`, which each make the join record that links the owner to the record:
 
-<include meta="twoslash">/_excerpts/guide/through/write.twoslash.ts</include>
+<include>/_excerpts/pages/through-associations/examples/write.mdx</include>
 
 - `push(article)` saves a tagging for each article, in one write. A new article is saved first.
 - `build(attributes)` builds the article and its tagging. Saving the tag saves both. Saving the article on its own saves no tagging.

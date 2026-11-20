@@ -1,6 +1,8 @@
 ---
 title: Console
 description: "Try queries and fix records by hand in a console with your Models loaded."
+seo:
+  description: "Open an Active Record console on your local or remote database with your Models loaded, to try queries and fix records by hand, and see where its history lives."
 ---
 
 ## Opening the console
@@ -37,7 +39,7 @@ Leave with `quit`, `exit`, or Ctrl-D. Ctrl-C stops a line that’s still running
 - **`db`,** your connected database, for `db.batch(...)` and `db.model(...)`.
 - **Top-level `await`,** and `const` and `let`, which last until you leave.
 
-A record prints as it does in a log: its class and attributes, with a filtered attribute as `[FILTERED]` and an unsaved change next to the value it had. [Printing records](./models#printing-records) has the details.
+A record prints as it does in a log: its class and attributes, with a filtered attribute as `[FILTERED]` and an unsaved change next to the value it had. [Printing records](./serialization#printing-records) has the details.
 
 An error prints and the console carries on.
 

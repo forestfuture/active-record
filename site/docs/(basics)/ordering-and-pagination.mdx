@@ -1,0 +1,129 @@
+---
+title: Ordering and pagination
+description: "Sort a query’s records, and split them into pages."
+seo:
+  description: "Sort Active Record queries with order, reorder, and inOrderOf, place NULLs the same on D1 and Postgres, and paginate with a page total or without a count."
+---
+
+## At a glance
+
+| To                          | Write                                                          |
+| --------------------------- | -------------------------------------------------------------- |
+| sort by attributes          | `order({ publishedAt: "desc", title: "asc" })`                 |
+| place NULLs                 | `order({ publishedAt: { direction: "desc", nulls: "last" } })` |
+| replace the order           | `reorder({ createdAt: "desc" })`, or `reorder()` to drop it    |
+| sort by a list of values    | `inOrderOf("status", ["published", "draft"])`                  |
+| skip and take rows          | `limit(20).offset(40)`                                         |
+| get one page with its total | `paginate({ page, perPage: 20 })`                              |
+| get a page without counting | `paginate({ page, count: false })`                             |
+
+<TypeTable
+  type={{
+    page: {
+      type: "number | string | null",
+      default: "1",
+      description: "The page to read. Text from a query string works as it is.",
+    },
+    perPage: {
+      type: "number | string | null",
+      default: "25",
+      description: "Records on each page, up to maxPerPage.",
+    },
+    count: {
+      type: "boolean",
+      default: "true",
+      description: "Whether to count every matching record for total and totalPages.",
+    },
+  }}
+/>
+
+## The Model
+
+The examples use this Model, whose attributes come from its table through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="post.ts">/_excerpts/pages/ordering-and-pagination/src/models/post.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/ordering-and-pagination/src/db/schema.ts</include>
+
+<include meta="D1">
+  /_excerpts/pages/ordering-and-pagination/migrations/0001_create_posts.sql
+</include>
+
+<include meta="Postgres">
+  /_excerpts/pages/ordering-and-pagination/postgres/0001_create_posts.sql
+</include>
+
+</CodeGroup>
+
+## Ordering records
+
+Sort by each key in turn with `order`, and page with `limit` and `offset`:
+
+<include>/_excerpts/pages/ordering-and-pagination/examples/order.mdx</include>
+
+Calling `order` again adds more keys. `reorder` replaces the order so far, and `reorder()` removes it.
+
+:::note
+On D1, NULLs sort first in ascending order and last in descending order. Postgres does the opposite. Place them with `nulls: "first"` or `nulls: "last"` to sort them the same on both.
+:::
+
+## Ordering by a list of values
+
+Sort records by where their value comes in a list with `inOrderOf`:
+
+<include>/_excerpts/pages/ordering-and-pagination/examples/in-order-of.mdx</include>
+
+- By default, only records whose value is in the list are kept. Pass `filter: false` to keep the rest, after them.
+- Values are cast as `where`’s are, and `null` places NULL. The list is bound as one value, so it can be any length.
+- An order written after it sorts the records that tie, and `last()` reverses it.
+- It can’t be combined with `distinct()`, which throws `IncompatibleRelation`.
+- The database looks each record’s value up in the list, so a long list costs more on a large table. Keep it to the values you mean to order by.
+
+## Paginating
+
+`paginate` resolves to one page of records and the total they’re a page of:
+
+<include>/_excerpts/pages/ordering-and-pagination/examples/paginate.mdx</include>
+
+- `page` and `perPage` take numbers, or text from a query string. Missing, `null`, or empty, they mean the first page and the default size. Anything that isn’t a whole number from 1 throws `TypeError`.
+- Pages sort by the Relation’s order, then by the primary key, so records that tie keep their pages between requests.
+- A page past the last has no records, but still has the real `total`.
+- `includes()` preloads the page’s associations, with one more query per association.
+- On D1, the count, the records, and their preloads take [one round trip](./d1#sending-queries-in-one-round-trip). On Postgres they run [one after another](./postgresql#reads-run-one-after-another).
+- A Relation with its own `limit` or `offset` throws `IncompatibleRelation`.
+
+## Skipping the count
+
+Pass `count: false` when you only need to know whether there’s a next page:
+
+<include>/_excerpts/pages/ordering-and-pagination/examples/countless.mdx</include>
+
+Counting reads every matching row, and D1 bills each row it reads. Without it, the page has no `total` or `totalPages`.
+
+## Setting the page size
+
+Set `perPage` and `maxPerPage` on your app’s base class to change the default size and its cap:
+
+<include meta='title="src/models/application-record.ts"'>
+  /_excerpts/pages/ordering-and-pagination/src/models/application-record.ts
+</include>
+
+By default, a page holds 25 records, and none holds more than 100.
+
+:::note
+D1 limits neither the rows a query returns nor the size of its response. `maxPerPage` keeps one request from reading, and paying for, too many rows, within a Worker’s 128 MB of memory and a query’s 30 seconds.
+:::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`inOrderOf` is Rails’ `in_order_of`, `filter: false` included. Rails writes the list into a `CASE`, one bound value per item. Here the list is one bound value, so it fits D1’s limit of 100.
+
+</Callout>
+
+<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
+
+Rails leaves pagination to gems such as Kaminari and Pagy. Active Record builds it in, and on D1 sends the count and the page together.
+
+</Callout>

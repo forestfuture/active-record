@@ -1,6 +1,8 @@
 ---
 title: Active Record for Cloudflare Workers
 description: Typed Models and queries, on D1 or Postgres.
+seo:
+  description: "Active Record for Cloudflare Workers: typed Models, validations, callbacks, associations, and composable queries, on D1 or Postgres through Hyperdrive."
 mode: center
 sidebar:
   label: Overview
@@ -29,11 +31,11 @@ Use a Model in your Worker with no connection setup. It finds its database from 
 
 <include meta="Model">/_excerpts/getting-started/src/models/user.ts</include>
 
-<include meta="Querying">/_excerpts/guide/querying/where.ts</include>
+<include meta="Querying">/_excerpts/pages/conditions/examples/where.ts</include>
 
-<include meta="Saving">/_excerpts/guide/persistence/save.ts</include>
+<include meta="Saving">/_excerpts/pages/persistence/examples/save.ts</include>
 
-<include meta="Batches">/_excerpts/guide/batches/batch.ts</include>
+<include meta="Batches">/_excerpts/pages/batches/examples/batch.ts</include>
 
 <include meta="Table">
   /_excerpts/getting-started/migrations/20261108090504_create_posts.sql

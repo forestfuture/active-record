@@ -1,0 +1,85 @@
+---
+title: Joins
+description: "Find records by their associated records, and filter or sort by a joined Model’s attributes."
+seo:
+  description: "Join Active Record associations with joins and leftJoins, get each record once with distinct, and filter or sort by a joined Model’s attributes with merge."
+---
+
+## At a glance
+
+| To                                     | Write                                                |
+| -------------------------------------- | ---------------------------------------------------- |
+| find records that have a linked record | `Author.joins("articles")`                           |
+| join through several associations      | `Author.joins({ articles: "comments" })`             |
+| get each record once                   | `.distinct()`                                        |
+| keep records with no linked record     | `Author.leftJoins("profile")`                        |
+| filter or sort by the joined Model     | `Article.joins("author").merge(Author.where({ … }))` |
+
+## The Models
+
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="author.ts">/_excerpts/pages/joins/src/models/author.ts</include>
+
+<include meta="profile.ts">/_excerpts/pages/joins/src/models/profile.ts</include>
+
+<include meta="article.ts">/_excerpts/pages/joins/src/models/article.ts</include>
+
+<include meta="comment.ts">/_excerpts/pages/joins/src/models/comment.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/joins/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/joins/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/joins/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
+
+## Joining associations
+
+`joins` finds the records that have a linked record, through an association or nested ones:
+
+<include>/_excerpts/pages/joins/examples/joins.mdx</include>
+
+- A record comes back once for each linked record, so an author with three commented articles appears three times. `distinct()` gets each record once.
+- A joined query loads only its own Model’s columns, and every Relation method works on it. `count()` counts the rows `toArray()` returns, and `updateAll` and `deleteAll` write the records the join finds.
+- The association’s `scope` and the joined Model’s default scope are part of the join. So joining an association scoped to published articles finds only authors with a published article.
+
+## Keeping records without a link
+
+`leftJoins` joins the same way, but keeps the records that have no linked record:
+
+<include>/_excerpts/pages/joins/examples/left-joins.mdx</include>
+
+## Filtering by a joined Model
+
+Merge a Relation of the joined Model to filter or sort by its attributes:
+
+<include>/_excerpts/pages/joins/examples/merge.mdx</include>
+
+Its conditions, its scopes, and its order apply to the joined table. As with any `merge`, the joined Model’s order replaces the receiver’s.
+
+:::note
+The merged Relation can only add conditions and an order. A `limit`, `offset`, `select`, `distinct()`, `includes`, or `joins` of its own throws `IncompatibleRelation`. Merging a Model the query doesn’t join, or joins more than once, throws it too. So does `distinct()` on a query ordered by a joined Model.
+:::
+
+## Joining what can’t be joined
+
+Some associations can’t be joined, and joining one throws `IncompatibleRelation` when you write the query:
+
+- **A Model on another database.** A join reads one database.
+- **A polymorphic `belongsTo`**, since its records may be in several tables. Join the `as:` association of each Model instead, such as `Photo.joins("likes")`.
+- **An association through another.** Merge a Relation of the joined Model instead, and preload with `includes`.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+- Rails builds the SQL for a merged Model the query doesn’t join, and the database rejects it when the query runs. Active Record throws `IncompatibleRelation` when you write it.
+- Rails applies a merged Relation’s `limit` to the whole query. Active Record refuses it.
+- Rails leaves `distinct` with an order on a joined table to the database, which Postgres refuses and SQLite runs. Active Record throws `IncompatibleRelation` on both.
+- With a `hasMany` join, Rails’ `find(1, 2)` counts the duplicate rows and raises `RecordNotFound`. Active Record returns each record once.
+- With a `hasMany` join, Rails’ `destroy_all` destroys a record once for each of its rows, running its callbacks each time. Active Record destroys each record once.
+- Rails’ `where(author: { name: "Jane" })`, `where.missing`, `eager_load`, and joins through another association aren’t here yet.
+
+</Callout>

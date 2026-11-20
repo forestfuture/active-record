@@ -1,0 +1,112 @@
+---
+title: Calculations
+description: "Count, add up, average, and find the extremes of an attribute, overall or per group, without loading the records."
+seo:
+  description: "Count, sum, average, minimum, and maximum in Active Record without loading records, per group with group and having, and exact money sums on D1."
+---
+
+## At a glance
+
+| To                             | Write                                                     | Returns                         |
+| ------------------------------ | --------------------------------------------------------- | ------------------------------- |
+| add up an attribute            | `sum("priceCents")`                                       | a number, 0 with no rows        |
+| average it                     | `average("priceCents")`                                   | a number, or `null`             |
+| find the smallest or largest   | `minimum("priceCents")`, `maximum("createdAt")`           | the attribute’s type, or `null` |
+| calculate an expression        | ``average(sql`…`)``                                       | what the database returns       |
+| calculate per group            | `group("isAvailable").count()`                            | a `Map` from group to result    |
+| keep some groups               | `group("isAvailable").having(…)`, with an `sql` condition | a grouped Relation              |
+| choose the calculation by name | `calculate("sum", "priceCents")`                          | as the calculation named        |
+
+## The Model
+
+The examples use this Model, whose attributes come from its table through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="product.ts">/_excerpts/pages/calculations/src/models/product.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/calculations/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/calculations/migrations/0001_create_products.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/calculations/postgres/0001_create_products.sql</include>
+
+</CodeGroup>
+
+## Calculating values
+
+Add up, average, or find the extremes of an attribute:
+
+<include>/_excerpts/pages/calculations/examples/calculations.mdx</include>
+
+- `sum` and `average` take number attributes: integers, reals, and decimals. A decimal’s sum is text, such as `"12.8"`.
+- `minimum` and `maximum` take any attribute you can compare. The result has the attribute’s own type, so a datetime’s is a `Date`.
+- NULLs are left out. With no rows, `sum` is 0 and the others are `null`. On `none()`, they answer without a query.
+
+:::warning[Exact sums on D1]
+D1 adds up a decimal column as floating-point numbers. A sum keeps about 15 digits, and small errors can build up over many rows. For an exact sum on D1, store the amount as whole cents in an integer column, as `priceCents` does, with a [custom type](./custom-types#defining-a-type) such as money if you like. D1 adds whole numbers exactly, and `sum` returns the custom type’s value.
+:::
+
+## Calculating over some rows
+
+A calculation covers the rows `toArray()` would return, so a `limit`, an `offset`, or `distinct()` decides which values count:
+
+<include>/_excerpts/pages/calculations/examples/limit.mdx</include>
+
+## Calculating an expression
+
+Pass an `sql` fragment to calculate an expression:
+
+<include>/_excerpts/pages/calculations/examples/fragment.mdx</include>
+
+A fragment’s `sum` and `average` are numbers. Its `minimum` and `maximum` are the values the database returns.
+
+:::note
+`calculate("sum", "priceCents")` runs the calculation its first argument names. Use it when the name comes from elsewhere, such as a report’s settings.
+:::
+
+## Calculating per group
+
+Group the rows by an attribute to calculate each group’s total:
+
+<include>/_excerpts/pages/calculations/examples/group.mdx</include>
+
+- Each calculation returns a `Map` from the group’s value to its result. `count`, `sum`, `average`, `minimum`, and `maximum` all work this way.
+- The keys have the attribute’s own type, so a boolean’s key is `true` or `false`, a datetime’s is a `Date`, and an enum’s is its name. Rows with a NULL value form a group with a `null` key.
+- The groups come in the order the database returns them, unless you order them.
+
+## Grouping by several values
+
+Pass each attribute or expression to `group`:
+
+<include>/_excerpts/pages/calculations/examples/group-fragment.mdx</include>
+
+Each key is then an array of the values, in the order you passed them. An expression’s value is whatever the database returns.
+
+:::note
+A `Map` finds an array or `Date` key only if it’s the same object, so `get([true, "cheap"])` finds nothing. Loop over the `Map` to read those groups.
+:::
+
+## Keeping some groups
+
+Pass a condition on the groups’ totals to `having`:
+
+<include>/_excerpts/pages/calculations/examples/having.mdx</include>
+
+## Ordering groups
+
+Order the groups by a grouped attribute or by a total, and a `limit` then picks groups:
+
+<include>/_excerpts/pages/calculations/examples/group-order.mdx</include>
+
+- `where`, `limit`, `offset`, and `distinct()` work before or after `group`. After `distinct()`, `count`, `sum`, and `average` take each group’s distinct values.
+- You can only order by attributes you group by, or by an `sql` fragment. `group` drops an earlier order by any other attribute, such as one from a default scope. It keeps an earlier fragment, so call `reorder()` before `group` when a default scope orders by one. With a `limit` or `offset`, `group` throws instead of dropping an order, so call `reorder()` first there too.
+- On `none()`, each calculation returns an empty `Map` without a query.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`average` always returns a number, where Rails returns a BigDecimal for integers and decimals. Rails puts a `limit` on the one row of its result, so `limit(3).sum(:price_cents)` adds up every row. Here, the limit picks the rows. Text attributes can’t be summed.
+
+Grouped results are a `Map`, not a Hash, so a key that’s an array or a time matches only by identity. A grouped Relation has no records, so there’s no `to_a` on it. Ordering groups by an attribute that isn’t grouped throws an error instead of reaching the database, and `group` drops such an order written before it, where Rails sends it and Postgres refuses it.
+
+</Callout>

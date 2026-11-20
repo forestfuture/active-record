@@ -1,0 +1,89 @@
+---
+title: Scopes
+description: "Name a reusable part of a query, or narrow every query on a Model with a default scope."
+seo:
+  description: "Define named scopes on Active Record Models, call them on any Relation, narrow every query with a default scope, and leave it out with unscoped()."
+---
+
+## At a glance
+
+| To                               | Write                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------ |
+| declare a scope                  | `static published = this.scope((q) => q.whereNot({ … }))`                |
+| declare one that takes arguments | `static publishedSince = this.scope((q, since: Date) => q.where({ … }))` |
+| call it                          | `Post.published()`, or on any Relation: `Post.where(…).published()`      |
+| narrow every query               | `static { this.defaultScope((q) => q.where({ isAvailable: true })) }`    |
+| leave the default scope out      | `Product.unscoped()`                                                     |
+
+## The Models
+
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="post.ts">/_excerpts/pages/scopes/src/models/post.ts</include>
+
+<include meta="product.ts">/_excerpts/pages/scopes/src/models/product.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/scopes/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/scopes/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/scopes/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
+
+## Defining scopes
+
+Declare a scope as a static that receives the Relation, plus any arguments, and returns a narrower one:
+
+<include meta='title="src/models/post.ts"'>/_excerpts/pages/scopes/src/models/post.ts</include>
+
+## Calling scopes
+
+Call a scope as a static, or on any Relation of the Model:
+
+<include>/_excerpts/pages/scopes/examples/scopes.mdx</include>
+
+- Its arguments, and anything it computes such as `new Date()`, are evaluated when you call it.
+- Scopes are inherited, including those on your app’s base class ([Shared behavior](./shared-behavior)). A subclass can replace one with `static override published = this.scope(…)`.
+- A scope can’t reuse a Relation method’s name (`where`, `count`) or a Model static’s (`validates`, `scope`, `all`).
+- Inside a scope, `q` has every Relation method but not the Model’s other scopes. Share logic between scopes with a plain function.
+
+:::note
+A scope whose body names its own class needs its type written out: `static roots: ScopeStatic<[]> = this.scope(…)`.
+:::
+
+An [enum](./enums#declaring-enums) gives its Model a scope for each name, and a `not…` scope: `Ticket.open()` and `Ticket.notOpen()`. Conditions take its names, one or a list: `Ticket.where({ status: ["open", "in_progress"] })`.
+
+## Narrowing every query
+
+Declare a default scope in the class’s `static {}` block, as `Product` does, to narrow every query on the Model:
+
+<include>/_excerpts/pages/scopes/examples/default-scope.mdx</include>
+
+- New records take its conditions’ values.
+- It applies to everything that queries the Model: `find`, `count`, `updateAll`, `deleteAll`, its scopes, and associations that read it, preloads included.
+- `reload`, uniqueness validation, and a record’s own `save` and `destroy` ignore it, since they work by primary key.
+- `insert`, `insertAll`, `upsert`, and `upsertAll` write its conditions’ values over the values you give. `build` and `create` use the values you give.
+- Several default scopes all apply. A subclass adds its own to its parent’s.
+- An order in a default scope is the Relation’s order. `reorder` replaces it.
+- `rewhere` replaces its condition on an attribute, and [`unscope`](./conditions#replacing-conditions) drops its parts.
+
+## Leaving the default scope out
+
+Start from `unscoped()` to leave the default scope out:
+
+<include>/_excerpts/pages/scopes/examples/unscoped.mdx</include>
+
+`unscoped()` is a Model static only. With a database you hold, call it inside [`withDatabase`](./connecting#using-the-requests-database).
+
+:::warning[Default scopes hide records from associations too]
+A default scope that hides soft-deleted records also hides them from every association. A comment on a deleted post then fails to save with “Post must exist”. And `dependent: "destroy"` leaves a deleted post’s comments behind. An upsert that updates a deleted post writes `deletedAt: null`, which brings the post back. It does this even when you pass a `deletedAt`. For soft deletes, use a named scope, such as `static kept = this.scope((q) => q.where({ deletedAt: null }))`, and call `Post.kept()` where deleted posts should stay hidden.
+:::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`this.defaultScope` is Rails’ `default_scope`, applied the same way. `unscoped()` is only a static: Rails also has it on a Relation, where `Post.where(…).unscoped` drops every condition, the Relation’s own included. Rails’ block form, `Post.unscoped { … }`, and `all_queries: true` aren’t here.
+
+</Callout>

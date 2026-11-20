@@ -1,0 +1,99 @@
+---
+title: Autosaving
+description: "Save a record with the records built, changed, or marked for destruction through its associations."
+seo:
+  description: "Autosave Active Record associations: create records through a hasMany, save a graph with its owner in one batch, save changed records, and markForDestruction."
+---
+
+## At a glance
+
+| To                                               | Write                                                           |
+| ------------------------------------------------ | --------------------------------------------------------------- |
+| create a record with its owner’s key             | `article.comments().create({ body: "…" })`                      |
+| build records to save with their owner           | `author.articles().build({ … })`, `author.profile.build({ … })` |
+| save the owner and every record built through it | `author.saveOrThrow()`                                          |
+| save the loaded records that changed too         | `hasMany(Article, { autosave: true })`                          |
+| destroy a record when its owner saves            | `article.markForDestruction()`                                  |
+
+## The Models
+
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="author.ts">/_excerpts/pages/autosaving/src/models/author.ts</include>
+
+<include meta="article.ts">/_excerpts/pages/autosaving/src/models/article.ts</include>
+
+<include meta="comment.ts">/_excerpts/pages/autosaving/src/models/comment.ts</include>
+
+<include meta="profile.ts">/_excerpts/pages/autosaving/src/models/profile.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/autosaving/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/autosaving/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/autosaving/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
+
+## Creating related records
+
+Create a record through a `hasMany`, and it gets the owner’s key:
+
+<include>/_excerpts/pages/autosaving/examples/create-through.mdx</include>
+
+## Saving a graph
+
+Build records through an association, then save the owner, and they’re saved with it:
+
+<include>/_excerpts/pages/autosaving/examples/autosave.mdx</include>
+
+- The built records are validated with the owner. An invalid article makes the author invalid (“Articles is invalid”), with its own errors on the article. To validate the records an association loaded too, use [`validatesAssociated`](./validations#validating-associated-records).
+- Each built article’s `author` is the owner, without a query, even before either is saved.
+- When the owner’s key is generated in code, as here, everything is written in one atomic batch. Records on [another database](./several-databases#associating-models-on-different-databases) are written there separately.
+
+:::warning[Keys D1 generates]
+When D1 generates the key, with an `INTEGER PRIMARY KEY`, the key doesn’t exist until the owner is written. So the owner is written first, and its records follow in the next batch, a level at a time. The batches aren’t atomic together: if a record fails at the second level, the save throws with the owner already saved. Generate keys in code wherever a graph must save all at once.
+:::
+
+## Saving changed records
+
+Declare an association with `autosave: true`, as `Author`’s `articles` does, to save the changes to its loaded records with their owner:
+
+<include>/_excerpts/pages/autosaving/examples/save-changed.mdx</include>
+
+- By default, only new records are saved with their owner.
+- Saving the author saves each article that changed, in the same atomic batch. Unchanged articles aren’t validated or written.
+- Only the records the association holds count: those it loaded, and those built through it. A record you found with a query of its own isn’t saved.
+- The changed records are validated with the owner. An invalid one’s errors are copied to the owner under the association’s name: an article with a blank title gives the author an `articles.title` error, “Articles title can’t be blank”.
+- `autosave: true` works on a `hasOne` and a `belongsTo` too. A `belongsTo`’s record is saved before its owner.
+
+## Removing records on save
+
+Mark a record with `markForDestruction()` to destroy it when its owner is saved:
+
+<include>/_excerpts/pages/autosaving/examples/mark-for-destruction.mdx</include>
+
+- Marking writes nothing, and the marked articles stay in `author.articles()` until the author is saved. Then each is destroyed with its callbacks and `dependent` strategies, in the same batch as the author, and leaves the association. Changed articles are saved after the destroys.
+- `isMarkedForDestruction()` reads the mark, and `reload()` clears it. A marked record that was never saved is dropped from the association, and nothing is written for it.
+- Through a `belongsTo`, the owner’s foreign key is set to `null`, and the owner is written before its record is destroyed.
+- If a marked record refuses to be destroyed, because its `beforeDestroy` aborts or a `restrictWithError` strategy stops it, nothing is written. `save()` returns `false`, and `saveOrThrow()` throws `RecordNotDestroyed`. The marked record holds the reason, in `abortReason` or `errors`.
+
+:::note
+A mark only counts through an association declared `autosave: true`.
+:::
+
+## Not built yet
+
+These features aren’t in Active Record yet. The code shows the shape they’re likely to take.
+
+- **Autosaving through an association through another** ([#450](https://github.com/forestfuture/active-record/issues/450)): `articles = hasMany(Article, { through: "taggings", autosave: true })`, which saves the tag’s changed articles with it.
+- **Never autosaving** ([#378](https://github.com/forestfuture/active-record/issues/378)): `articles = hasMany(Article, { autosave: false })`, which never saves the association’s records with the owner, not even new ones.
+- **Numbered autosave errors** ([#379](https://github.com/forestfuture/active-record/issues/379)): `hasMany(Article, { autosave: true, indexErrors: true })`, which names a copied error by the record’s position, `articles[1].title`.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`autosave: true`, `markForDestruction`, and the copied errors work as in Rails. Rails destroys a marked `belongs_to` record before it saves the owner. Here the owner is written first, so a foreign key constraint doesn’t refuse the delete. When a marked record refuses to be destroyed, Rails raises from `save` for a `has_many`, and saves the owner anyway for a `has_one` or `belongs_to`. Here the save is refused the same way for every association.
+
+</Callout>

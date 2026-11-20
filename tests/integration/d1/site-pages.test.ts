@@ -1,30 +1,1335 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import { UnknownAttribute, withDatabase } from "../../../packages/active-record/src/index.ts";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  onTestFinished,
+  test,
+  vi,
+} from "vite-plus/test";
+import {
+  MissingAttribute,
+  Model,
+  RecordNotUnique,
+  StrictValidationFailed,
+  UnknownAttribute,
+  withDatabase,
+} from "../../../packages/active-record/src/index.ts";
+import { inspect } from "node:util";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
-import * as conditions from "../../../site/snippets/guide/conditions.ts";
-import * as through from "../../../site/snippets/guide/through.ts";
-import { cpSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import * as associations from "../../../site/snippets/pages/associations/examples.ts";
+import { Article as AssociatedArticle } from "../../../site/snippets/pages/associations/src/models/article.ts";
+import { Author as AssociatedAuthor } from "../../../site/snippets/pages/associations/src/models/author.ts";
+import { Comment as AssociatedComment } from "../../../site/snippets/pages/associations/src/models/comment.ts";
+import { Profile as AssociatedProfile } from "../../../site/snippets/pages/associations/src/models/profile.ts";
+import * as attributeTypes from "../../../site/snippets/pages/attribute-types/examples.ts";
+import { Article as AutosavedArticle } from "../../../site/snippets/pages/autosaving/src/models/article.ts";
+import { Comment as AutosavedComment } from "../../../site/snippets/pages/autosaving/src/models/comment.ts";
+import * as autosaving from "../../../site/snippets/pages/autosaving/examples.ts";
+import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
+import * as batches from "../../../site/snippets/pages/batches/examples.ts";
+import { Article as BatchedArticle } from "../../../site/snippets/pages/batches/src/models/article.ts";
+import { Author as BatchedAuthor } from "../../../site/snippets/pages/batches/src/models/author.ts";
+import { Comment as BatchedComment } from "../../../site/snippets/pages/batches/src/models/comment.ts";
+import * as callbacks from "../../../site/snippets/pages/callbacks/examples.ts";
+import { Order as CallbackOrder } from "../../../site/snippets/pages/callbacks/src/models/order.ts";
+import { app } from "../../../site/snippets/pages/connecting/src/app.ts";
+import * as connecting from "../../../site/snippets/pages/connecting/examples.ts";
+import { User as ConnectedUser } from "../../../site/snippets/pages/connecting/src/models/user.ts";
+import * as customTypes from "../../../site/snippets/pages/custom-types/examples.ts";
+import * as errors from "../../../site/snippets/pages/errors/examples.ts";
+import * as sharedBehavior from "../../../site/snippets/pages/shared-behavior/examples.ts";
+import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
+import * as changeTracking from "../../../site/snippets/pages/change-tracking/examples.ts";
+import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
+import * as counterCaches from "../../../site/snippets/pages/counter-caches/examples.ts";
+import * as enums from "../../../site/snippets/pages/enums/examples.ts";
+import * as joins from "../../../site/snippets/pages/joins/examples.ts";
+import * as logging from "../../../site/snippets/pages/logging/examples.ts";
+import { User as LoggedUser } from "../../../site/snippets/pages/logging/src/models/user.ts";
+import * as models from "../../../site/snippets/pages/models/examples.ts";
+import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
+import * as persistence from "../../../site/snippets/pages/persistence/examples.ts";
+import { Article as PersistedArticle } from "../../../site/snippets/pages/persistence/src/models/article.ts";
+import { Post as PersistedPost } from "../../../site/snippets/pages/persistence/src/models/post.ts";
+import * as preloadingPage from "../../../site/snippets/pages/preloading/examples.ts";
+import * as querying from "../../../site/snippets/pages/querying/examples.ts";
+import * as rawStatements from "../../../site/snippets/pages/raw-statements/examples.ts";
+import * as serialization from "../../../site/snippets/pages/serialization/examples.ts";
+import { Account as SerializedAccount } from "../../../site/snippets/pages/serialization/src/models/account.ts";
+import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
+import * as untrustedInput from "../../../site/snippets/pages/untrusted-input/examples.ts";
+import { Account as UntrustedAccount } from "../../../site/snippets/pages/untrusted-input/src/models/account.ts";
+import * as validations from "../../../site/snippets/pages/validations/examples.ts";
+import testedWorker from "../../../site/snippets/pages/testing/src/index.ts";
+import { User as TestedUser } from "../../../site/snippets/pages/testing/src/models/user.ts";
+import * as touching from "../../../site/snippets/pages/touching/examples.ts";
+import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
+import { statementKinds } from "../../support/statement-kinds.ts";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
-import { pageModelsAndTables } from "../../support/page-models.ts";
-import { scratchDirs } from "../../support/scratch.ts";
+import { Post as IteratedPost } from "../../../site/snippets/pages/batch-iteration/src/models/post.ts";
+import { ApplicationRecord as PagedRecord } from "../../../site/snippets/pages/ordering-and-pagination/src/models/application-record.ts";
+import { Article } from "../../../site/snippets/pages/through-associations/src/models/article.ts";
+import {
+  pageMigrations,
+  pageProject,
+  quietLog,
+  schemaCommand,
+  standalonePages,
+} from "../../support/page-projects.ts";
 
-const scratch = scratchDirs();
-
-/** A D1 database with a page's own tables (site/snippets/guide/<page>-d1.sql), emptied before each test. */
+/** A D1 database with a page's own tables, from its project's migrations, `tables` emptied before each test. */
 function pageDatabase(page: string, tables: string[]): () => TestDatabase {
   let binding: TestDatabase;
   let dispose: () => Promise<void>;
   beforeAll(async () => {
-    const schema = new URL(`../../../site/snippets/guide/${page}-d1.sql`, import.meta.url);
-    ({ db: binding, dispose } = await createTestDatabase(schema));
+    ({ db: binding, dispose } = await createTestDatabase(pageMigrations(page, "migrations")));
   });
   afterAll(() => dispose());
   beforeEach(async () => {
+    if (tables.length === 0) return;
     await binding.batch(tables.map((table) => binding.prepare(`DELETE FROM ${table}`)));
   });
   return () => binding;
 }
+
+// The Attribute types page's examples, on the products table it shows.
+describe("the Attribute types page's examples", () => {
+  const binding = pageDatabase("attribute-types", ["products"]);
+  const log = quietLog();
+  const run = <T>(fn: () => Promise<T> | T) => withDatabase(connect(binding()), async () => fn());
+
+  test("each type holds the JavaScript value the page shows", async () => {
+    const lamp = await run(attributeTypes.building);
+    const saved = await run(async () => {
+      await lamp.save();
+      return lamp.reload();
+    });
+
+    expect(log.calls()).toEqual([["12.5"], ["09:30:00"], [null]]);
+    expect(saved.price).toBe("12.5");
+    expect([saved.weightKg, saved.stock, saved.inStock]).toEqual([1.2, 3, true]);
+    expect([saved.launchesOn, saved.opensAt]).toEqual(["2026-01-02", "09:30:00"]);
+    expect(saved.details).toEqual({ colors: ["red", "blue"] });
+    expect(saved.photo).toEqual(new Uint8Array([1, 2, 3]));
+    expect(saved.createdAt).toBeInstanceOf(Date);
+  });
+
+  test("assigned text is cast, and a decimal rounds to its column's scale", async () => {
+    const lamp = await run(attributeTypes.casting);
+
+    expect([lamp.price, lamp.stock, lamp.inStock]).toEqual(["1.56", 42, true]);
+  });
+
+  test("a value that can't be cast throws TypeError naming the attribute", () => {
+    expect(() => attributeTypes.refusing()).toThrow('Product: "no" isn\'t a boolean for "inStock"');
+  });
+
+  test("a form's file saves as bytes", async () => {
+    const form = new FormData();
+    form.set("photo", new File([new Uint8Array([7, 8])], "photo.png"));
+
+    const product = await run(() => attributeTypes.addPhoto(form));
+
+    expect([product.name, product.photo]).toEqual(["photo.png", new Uint8Array([7, 8])]);
+  });
+});
+
+// The Enums page's examples, on the tables it shows.
+describe("the Enums page's examples", () => {
+  const binding = pageDatabase("enums", ["tickets", "conversations", "surveys", "tasks"]);
+  const log = quietLog();
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO tickets (id, title, status, priority) VALUES ('t1', 'Outage', 'open', 2), ('t2', 'Typo', 'in_progress', 1), ('t3', 'Old', 'closed', 2)",
+        "INSERT INTO conversations (id, status, comments) VALUES ('c1', 'active', 'active')",
+        "INSERT INTO tasks (id, state) VALUES ('k1', 'open')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const run = <T>(fn: () => Promise<T> | T) => withDatabase(connect(binding()), async () => fn());
+
+  test("an enum's scopes, predicates and setters work, and conditions take its names", async () => {
+    const { ticket, unfinished } = await run(enums.closingUrgent);
+
+    expect([ticket?.title, ticket?.status, unfinished]).toEqual(["Outage", "closed", 1]);
+  });
+
+  test("enumValues gives each name's stored value", async () => {
+    expect(await run(enums.listingValues)).toEqual({ low: 0, normal: 1, high: 2 });
+  });
+
+  test("a prefix and a suffix keep two enums' methods apart", async () => {
+    expect(await run(enums.prefixing)).toBe(true);
+  });
+
+  test("validate: true reports an unknown value as an inclusion error", async () => {
+    const survey = await run(enums.validating);
+
+    expect(survey.errors.fullMessages()).toEqual(["Answer is not included in the list"]);
+    expect(log.calls()).toEqual([[["Answer is not included in the list"]]]);
+  });
+
+  test("enum: true turns on the methods of an enum read from a CHECK", async () => {
+    const task = await run(enums.finishing);
+
+    expect([task.state, task.isDone()]).toEqual(["done", true]);
+  });
+});
+
+// The Change tracking page's examples, on the users table it shows.
+describe("the Change tracking page's examples", () => {
+  const binding = pageDatabase("change-tracking", ["users"]);
+  const log = quietLog();
+  beforeEach(async () => {
+    await binding()
+      .prepare(
+        "INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES ('jane', 'jane@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
+      )
+      .run();
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+
+  test("a record reports its unsaved changes, and its callback reads the saved one", async () => {
+    const user = await run(changeTracking.changing);
+
+    expect([user.email, user.isChanged()]).toEqual(["jane@work.example", false]);
+    expect(log.calls()).toEqual([
+      [["email"]],
+      ["jane@example.com"],
+      [true],
+      ["Email changed from jane@example.com to jane@work.example"],
+      [false],
+    ]);
+  });
+
+  test("restoreAttributes undoes the changes it names", async () => {
+    const user = await run(changeTracking.restoring);
+
+    expect([user.email, user.role, user.changed()]).toEqual([
+      "jane@example.com",
+      "owner",
+      ["role"],
+    ]);
+  });
+});
+
+// The Serialization page's examples, on the accounts table it shows.
+describe("the Serialization page's examples", () => {
+  const binding = pageDatabase("serialization", ["accounts"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare(
+        "INSERT INTO accounts (id, email, password_digest, api_key, iban, created_at, updated_at) VALUES ('jane', 'jane@example.com', 'digest', 'key-1', 'DE89', '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
+      )
+      .run();
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+
+  test("toJSON leaves the hidden attributes out, and attributes() keeps them", async () => {
+    const { body, attributes } = await run(serialization.serializing);
+    const json = JSON.parse(body) as Record<string, unknown>;
+
+    expect(Object.keys(json).sort((a, b) => a.localeCompare(b))).toEqual([
+      "createdAt",
+      "email",
+      "iban",
+      "id",
+      "updatedAt",
+    ]);
+    expect(json["createdAt"]).toBe("2026-01-15T00:00:00.000Z");
+    expect([attributes.passwordDigest, attributes.apiKey]).toEqual(["digest", "key-1"]);
+    expect(attributes.createdAt).toBeInstanceOf(Date);
+  });
+
+  test("a Model's hidden list replaces its base class's, which it repeats", () => {
+    expect(SerializedAccount.hiddenAttributes).toEqual(["passwordDigest", "apiKey"]);
+  });
+
+  test("Response.json sends the record without its hidden attributes, or a 404", async () => {
+    const found = await run(() =>
+      serialization.show(new Request("https://example.com/?email=jane@example.com")),
+    );
+    const missing = await run(() =>
+      serialization.show(new Request("https://example.com/?email=no@example.com")),
+    );
+
+    expect(await found.json()).not.toHaveProperty("passwordDigest");
+    expect(missing.status).toBe(404);
+  });
+
+  test("a printed record shows filtered attributes as [FILTERED]", async () => {
+    const { account } = await run(serialization.serializing);
+
+    const printed = inspect(account);
+
+    expect(printed).toContain("email: [FILTERED]");
+    expect(printed).toContain("iban: [FILTERED]");
+    expect(printed).toContain("passwordDigest: [FILTERED]");
+    const relation = await run(async () =>
+      inspect(SerializedAccount.where({ email: "jane@example.com" })),
+    );
+    expect(relation).toContain("params: [ [FILTERED] ]");
+  });
+});
+
+// The Models page's examples, on the tables it shows.
+describe("the Models page's examples", () => {
+  const binding = pageDatabase("models", ["products", "billing_accounts"]);
+  const log = quietLog();
+  beforeEach(async () => {
+    await binding()
+      .prepare(
+        "INSERT INTO products (id, name, status, archived, created_at, updated_at) VALUES ('p1', 'Desk', 'published', 0, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'), ('p2', 'Chair', 'draft', 1, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
+      )
+      .run();
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+
+  test("build generates the id, applies defaults and overrides, and save sets timestamps", async () => {
+    const lamp = await run(models.building);
+
+    expect(lamp.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(lamp.publicId).toMatch(/^[0-9a-f-]{36}$/);
+    expect([lamp.status, lamp.archived, lamp.metadata]).toEqual([
+      "published",
+      false,
+      { color: "red" },
+    ]);
+    expect(lamp.createdAt).toBeInstanceOf(Date);
+    expect(log.calls().slice(1)).toEqual([["draft"], [false], [null]]);
+  });
+
+  test("permit keeps only the named fields", async () => {
+    const request = new Request("https://example.com/", {
+      method: "POST",
+      body: JSON.stringify({ name: "Lamp", status: "published", archived: true }),
+    });
+
+    const lamp = await run(() => models.createProduct(request));
+
+    expect([lamp.name, lamp.status, lamp.archived]).toEqual(["Lamp", "draft", false]);
+  });
+
+  test("a subclass shares its parent's table", async () => {
+    const { published } = await run(models.naming);
+
+    expect(published.map((product) => product.name)).toEqual(["Desk"]);
+  });
+
+  test("a Model can name another table", async () => {
+    const { account } = await run(models.naming);
+
+    expect(account.email).toBe("jane@example.com");
+  });
+
+  test("a Model declared with define reads a view", async () => {
+    const counts = await run(models.countingByView);
+
+    expect(counts.map((count) => [count.status, count.total])).toEqual([
+      ["draft", 1],
+      ["published", 1],
+    ]);
+  });
+});
+
+// The Preloading page's examples, on the tables it shows.
+describe("the Preloading page's examples", () => {
+  const binding = pageDatabase("preloading", [
+    "likes",
+    "photos",
+    "videos",
+    "comments",
+    "articles",
+    "profiles",
+    "authors",
+  ]);
+  const log = quietLog();
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO authors (id, name) VALUES ('jane', 'Jane'), ('sam', 'Sam')",
+        "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'jane', 'Poet')",
+        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'jane', 'On Nothing'), ('x2', 'sam', 'Engines')",
+        "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x1', 'Hm.')",
+        "INSERT INTO photos (id, title) VALUES ('ph', 'Sunset')",
+        "INSERT INTO videos (id, title) VALUES ('vi', 'Launch')",
+        "INSERT INTO likes (id, likeable_type, likeable_id) VALUES ('l1', 'Photo', 'ph'), ('x9', 'Video', 'vi')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+
+  test("includes loads every author's profile, articles and comments in one round trip", async () => {
+    const recording = recordingBatches(binding());
+
+    const authors = await withDatabase(connect(recording.binding), () =>
+      preloadingPage.preloading(),
+    );
+
+    expect(recording.batches).toEqual([4]); // the authors, profiles, articles, and comments
+    expect(authors).toHaveLength(2);
+    expect(log.calls()).toContainEqual(["Jane", 1, "Poet"]);
+    expect(log.calls()).toContainEqual(["Sam", 1, undefined]);
+  });
+
+  test("a polymorphic association preloads each listed Model in the same round trip", async () => {
+    const recording = recordingBatches(binding());
+
+    await withDatabase(connect(recording.binding), () => preloadingPage.preloadingPolymorphic());
+
+    expect(recording.batches).toEqual([3]); // the likes, photos, and videos
+    expect(
+      log
+        .calls()
+        .map(([title]) => String(title))
+        .sort((a, b) => a.localeCompare(b)),
+    ).toEqual(["Launch", "Sunset"]);
+  });
+});
+
+// The Autosaving page's examples, on the tables it shows.
+describe("the Autosaving page's examples", () => {
+  const binding = pageDatabase("autosaving", ["comments", "profiles", "articles", "authors"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO authors (id, name) VALUES ('jane', 'Jane')",
+        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'jane', 'On Nothing'), ('x2', 'jane', 'Draft')",
+        "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x2', 'Hm.')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const db = () => connect(binding());
+  const run = <T>(fn: () => Promise<T>) => withDatabase(db(), fn);
+  const titles = async () =>
+    await db().model(AutosavedArticle).order({ title: "asc" }).pluck("title");
+
+  test("a record created through a hasMany gets its owner's key", async () => {
+    const comment = await run(autosaving.creatingThrough);
+
+    expect(comment.articleId).toBe("x1");
+  });
+
+  test("records built through associations save with their owner", async () => {
+    const author = await run(autosaving.savingAGraph);
+
+    expect(author.isPersisted()).toBe(true);
+    expect(await titles()).toEqual(["Draft", "Getting started", "Going further", "On Nothing"]);
+  });
+
+  test("autosave: true saves the loaded records that changed", async () => {
+    await run(autosaving.savingChanges);
+
+    expect(await titles()).toEqual(["DRAFT", "ON NOTHING"]);
+  });
+
+  test("a record marked for destruction is destroyed, with its comments, when its owner saves", async () => {
+    await run(autosaving.removingDrafts);
+
+    expect(await titles()).toEqual(["On Nothing"]);
+    expect(await db().model(AutosavedComment).count()).toBe(0);
+  });
+});
+
+// The Counter caches page's examples, on the tables it shows.
+describe("the Counter caches page's examples", () => {
+  const binding = pageDatabase("counter-caches", ["comments", "articles"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare("INSERT INTO articles (id, title, comments_count) VALUES ('a', 'Hello', 5)")
+      .run();
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+  // A count that drifted to 5, with no comments, tells the counter from the rows.
+
+  test("creating a comment counts it in, and destroying it counts it out", async () => {
+    const article = await run(counterCaches.counting);
+
+    expect(article.commentsCount).toBe(5);
+    expect((await run(() => article.reload())).commentsCount).toBe(5);
+  });
+
+  test("size() reads the counter, not the rows", async () => {
+    expect(await run(counterCaches.reading)).toBe(5);
+  });
+
+  test("resetCounters sets the count from the rows, and touches the article", async () => {
+    const article = await run(counterCaches.resetting);
+
+    expect(article.commentsCount).toBe(0);
+    expect(article.updatedAt).toBeInstanceOf(Date);
+  });
+});
+
+// The Touching page's examples, on the tables it shows.
+describe("the Touching page's examples", () => {
+  const binding = pageDatabase("touching", ["profiles", "users", "comments", "articles", "blogs"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO blogs (id, updated_at) VALUES ('b', '2020-01-01T00:00:00.000Z')",
+        "INSERT INTO articles (id, blog_id, title, updated_at) VALUES ('a', 'b', 'Hello', '2020-01-01T00:00:00.000Z')",
+        "INSERT INTO comments (id, article_id, body, updated_at) VALUES ('c1', 'a', 'Old', '2020-01-01T00:00:00.000Z')",
+        "INSERT INTO users (id, name, updated_at) VALUES ('sam', 'Sam', '2020-01-01T00:00:00.000Z')",
+        "INSERT INTO profiles (id, user_id, bio, updated_at) VALUES ('p', 'sam', 'Poet', '2020-01-01T00:00:00.000Z')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const updatedAt = async (table: string) =>
+    (await binding().prepare(`SELECT updated_at FROM ${table}`).first())?.["updated_at"];
+  const stale = "2020-01-01T00:00:00.000Z";
+  const run = <T>(fn: () => Promise<T>, onQuery?: (event: { sql: string }) => void) =>
+    withDatabase(connect(binding(), { onQuery }), fn);
+
+  test("each write to a comment touches its article, and the article its blog", async () => {
+    await run(touching.touching);
+
+    expect(await updatedAt("articles")).not.toBe(stale);
+    expect(await updatedAt("blogs")).toBe(await updatedAt("articles"));
+  });
+
+  test("a named attribute is set with updatedAt", async () => {
+    const article = await run(touching.replying);
+
+    expect(article.lastCommentedAt).toEqual(article.updatedAt);
+  });
+
+  test("a preloaded chain touches with no query to load it", async () => {
+    const events: { sql: string }[] = [];
+
+    await run(touching.preloading, (event) => void events.push(event));
+
+    expect(statementKinds(events)).toEqual([
+      "SELECT",
+      "SELECT",
+      "SELECT",
+      "UPDATE",
+      "UPDATE",
+      "UPDATE",
+    ]);
+  });
+
+  test("an import inside noTouching touches its article once, after it", async () => {
+    const events: { sql: string }[] = [];
+
+    await run(touching.importing, (event) => void events.push(event));
+
+    const kinds = statementKinds(events);
+    expect(kinds.filter((kind) => kind === "UPDATE")).toHaveLength(2); // the article, then its blog
+    expect(kinds.slice(-2)).toEqual(["UPDATE", "UPDATE"]);
+    expect(await updatedAt("articles")).not.toBe(stale);
+  });
+
+  test("updating a user touches its profile", async () => {
+    await run(touching.renaming);
+
+    expect(await updatedAt("profiles")).not.toBe(stale);
+  });
+});
+
+// The Associations page's examples, on the tables it shows.
+describe("the Associations page's examples", () => {
+  const binding = pageDatabase("associations", [
+    "likes",
+    "videos",
+    "photos",
+    "categories",
+    "comments",
+    "articles",
+    "profiles",
+    "authors",
+  ]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO authors (id, name) VALUES ('jane', 'Jane'), ('sam', 'Sam')",
+        "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'jane', 'Poet')",
+        "INSERT INTO articles (id, author_id, title, published) VALUES ('x1', 'jane', 'On Nothing', 1), ('x2', 'jane', 'Draft', 0)",
+        "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x1', 'Hm.')",
+        "INSERT INTO categories (id, name, parent_id) VALUES ('t', 'Top', NULL), ('b', 'Beta', 't'), ('a', 'Alpha', 't')",
+        "INSERT INTO photos (id, title) VALUES ('ph', 'Sunset')",
+        "INSERT INTO videos (id, title) VALUES ('vi', 'Launch')",
+        "INSERT INTO likes (id, likeable_type, likeable_id) VALUES ('l1', 'Photo', 'ph')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const db = (onQuery?: (event: { sql: string }) => void) => connect(binding(), { onQuery });
+  const run = <T>(fn: () => Promise<T>, onQuery?: (event: { sql: string }) => void) =>
+    withDatabase(db(onQuery), fn);
+  const names = (records: { title?: string; name?: string; bio?: string | null }[]) =>
+    records.map((record) => record.title ?? record.name ?? record.bio);
+
+  test("a belongsTo reads its record, and set() points it at another", async () => {
+    const { author, article } = await run(associations.readingTheAuthor);
+    const newAuthor = await db().model(AssociatedAuthor).findByOrThrow({ name: "Sam" });
+
+    expect([author?.name, article.authorId]).toEqual(["Jane", newAuthor.id]);
+  });
+
+  test("a hasMany reads, builds, and bulk-deletes the owner's records", async () => {
+    const articles = await run(associations.readingArticles);
+
+    expect(names(articles).sort((a, b) => String(a).localeCompare(String(b)))).toEqual([
+      "Draft",
+      "On Nothing",
+    ]);
+    expect(await db().model(AssociatedArticle).where({ title: "Untitled" }).count()).toBe(0);
+  });
+
+  test("a hasOne reads its record, and set() replaces it", async () => {
+    expect((await run(associations.readingTheProfile))?.bio).toBe("Poet");
+
+    await run(associations.replacingTheProfile);
+
+    expect(await db().model(AssociatedProfile).pluck("bio")).toEqual(["Novelist"]);
+  });
+
+  test("a polymorphic like reads its record, and moves to a video", async () => {
+    const { liked, likes } = await run(associations.liking);
+
+    expect(liked?.constructor.name).toBe("Photo");
+    expect(likes).toHaveLength(1);
+  });
+
+  test("a loaded association is cached, and points back without a query", async () => {
+    const reads: string[] = [];
+    const { author, again } = await run(associations.caching, ({ sql }) => void reads.push(sql));
+    const back = await run(associations.pointingBack);
+
+    expect(reads).toHaveLength(2); // the article, then its author once
+    expect(again).toBe(author);
+    expect(back.sameAuthor).toBe(back.author);
+  });
+
+  test("a scoped association reads only its records, and a self-reference nests", async () => {
+    const published = await run(associations.scoping);
+    const { top, children, parent } = await run(associations.nesting);
+
+    expect(names(published)).toEqual(["On Nothing"]);
+    expect([top?.name, names(children ?? []), parent?.name]).toEqual([
+      "Top",
+      ["Alpha", "Beta"],
+      "Top",
+    ]);
+  });
+
+  test("deleteAll through an association, and destroying with dependents", async () => {
+    await run(associations.deletingComments);
+    expect(await db().model(AssociatedComment).count()).toBe(0);
+
+    await run(associations.destroying);
+
+    expect(await db().model(AssociatedAuthor).pluck("name")).toEqual(["Sam"]);
+    expect([
+      await db().model(AssociatedArticle).count(),
+      await db().model(AssociatedProfile).count(),
+    ]).toEqual([0, 0]);
+  });
+});
+
+// The Persistence page's examples, on the tables it shows.
+describe("the Persistence page's examples", () => {
+  const binding = pageDatabase("persistence", ["posts", "users", "articles", "labels"]);
+  const log = quietLog();
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO users (id, email, is_active) VALUES ('jane', 'jane@example.com', 1)",
+        "INSERT INTO posts (id, user_id, title, published_at) VALUES ('p1', 'jane', 'Draft', NULL), ('p2', 'jane', 'Live', '2026-01-01T00:00:00.000Z')",
+        "INSERT INTO articles (id, title, view_count, is_pinned) VALUES ('a', 'Hello', 0, 0)",
+        "INSERT INTO labels (id, name, color) VALUES ('l', 'travel', 'red')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const db = () => connect(binding());
+  const run = <T>(fn: () => Promise<T>) => withDatabase(db(), fn);
+
+  test("save resolves to false with the errors, and create and update save", async () => {
+    const { user, created } = await run(persistence.saving);
+
+    expect(user.errors.fullMessages()).toEqual(["Email has already been taken"]);
+    expect([created.isPersisted(), created.isActive]).toEqual([true, false]);
+  });
+
+  test("createOrThrow's RecordInvalid becomes a 422", async () => {
+    const post = (email: string) =>
+      new Request("https://example.com/", { method: "POST", body: JSON.stringify({ email }) });
+
+    const created = await run(() => persistence.signUp(post("sam@example.com")));
+    const taken = await run(() => persistence.signUp(post("jane@example.com")));
+
+    expect([created.status, taken.status]).toEqual([201, 422]);
+    expect(await taken.json()).toEqual({ errors: ["Email has already been taken"] });
+  });
+
+  test("increment and toggle change the record, then save writes them", async () => {
+    const article = await run(persistence.changingInMemory);
+
+    expect([article.viewCount, article.isPinned]).toEqual([1, true]);
+  });
+
+  test("the Column methods write straight to the row", async () => {
+    await run(persistence.writingColumns);
+
+    const article = await db().model(PersistedArticle).findByOrThrow({ title: "Renamed" });
+    expect([article.viewCount, article.isPinned]).toEqual([1, true]);
+  });
+
+  test("touch sets updatedAt, a named attribute, or a given time", async () => {
+    const article = await run(persistence.touching);
+
+    expect(article.updatedAt).toEqual(new Date("2026-01-01T00:00:00Z"));
+    expect(article.viewedAt).toBeInstanceOf(Date);
+  });
+
+  test("the counters add to the rows they find", async () => {
+    expect((await run(persistence.counting)).viewCount).toBe(6);
+    expect((await run(persistence.countingInScope)).viewCount).toBe(7);
+  });
+
+  test("isPreviouslyNewRecord is true only after the save that creates", async () => {
+    await run(persistence.creatingArticles);
+
+    expect(log.calls()).toEqual([["New article: Fresh"]]);
+  });
+
+  test("the find-or-create methods find, build, or create as their comments say", async () => {
+    const labels = await run(persistence.findingOrCreating);
+
+    expect(labels.map((label) => [label.name, label.color, label.isPersisted()])).toEqual([
+      ["travel", "red", true],
+      ["food", null, false],
+      ["music", "blue", true],
+      ["art", "green", true],
+      ["news", null, true],
+    ]);
+  });
+
+  test("destroy removes the record and its dependents, and reload discards changes", async () => {
+    const user = await run(persistence.reloading);
+    expect(user.email).toBe("jane@example.com");
+
+    const destroyed = await run(persistence.destroying);
+
+    expect(destroyed.isDestroyed()).toBe(true);
+    expect(await db().model(PersistedPost).count()).toBe(0);
+  });
+
+  test("destroyAll and destroyBy destroy every record they match", async () => {
+    const drafts = await run(persistence.destroyingMany);
+
+    expect(drafts.map((post) => post.title)).toEqual(["Draft"]);
+    expect(await db().model(PersistedPost).count()).toBe(0);
+  });
+
+  test("inBatches destroys a batch at a time", async () => {
+    await run(persistence.destroyingInBatches);
+
+    expect(await db().model(PersistedPost).pluck("title")).toEqual(["Live"]);
+  });
+});
+
+// The Validations page's examples, on the tables it shows.
+describe("the Validations page's examples", () => {
+  const binding = pageDatabase("validations", [
+    "tracks",
+    "playlists",
+    "accounts",
+    "events",
+    "invoices",
+    "members",
+    "bookings",
+    "products",
+  ]);
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+
+  test("isValid validates without saving", async () => {
+    expect(await run(validations.checking)).toBe(true);
+  });
+
+  test("comparison with another attribute refuses an end at the start", async () => {
+    const event = await run(validations.comparing);
+
+    expect(event.errors.fullMessages()).toEqual([
+      "Ends at must be greater than 2026-05-01T10:00:00.000Z",
+    ]);
+  });
+
+  test("a strict rule throws instead of collecting an error", async () => {
+    await expect(run(validations.throwing)).rejects.toThrow(
+      new StrictValidationFailed("Currency is not included in the list"),
+    );
+  });
+
+  test("a context runs its own rules, and both run when both are passed", async () => {
+    const member = await run(validations.signingUp);
+
+    expect(member.isPersisted()).toBe(true);
+  });
+
+  test("an invalid track makes its playlist invalid", async () => {
+    const { playlist, track } = await run(validations.validatingTracks);
+
+    expect(playlist.errors.fullMessages()).toEqual(["Tracks is invalid"]);
+    expect(track.errors.fullMessages()).toEqual(["Title can't be blank"]);
+  });
+
+  test("the errors read as the example's comments say", async () => {
+    const account = await run(validations.readingErrors);
+
+    expect(account.errors.get("email")).toEqual(["can't be blank"]);
+    expect(account.errors.fullMessages()).toEqual([
+      "Email can't be blank",
+      "Handle needs at least 3 characters",
+      "Handle is invalid",
+      "Plan is not included in the list",
+      "Seats is not a number",
+    ]);
+    expect(account.errors.toArray()).toContainEqual({
+      attribute: "handle",
+      type: "tooShort",
+      message: "needs at least 3 characters",
+      values: { count: 3 },
+    });
+  });
+
+  test("errors added in a callback read as the add example shows", async () => {
+    const booking = await run(validations.addingErrors);
+
+    expect(booking.errors.fullMessages()).toEqual([
+      "Starts at must be on the hour",
+      "The room is closed on Sundays",
+    ]);
+  });
+
+  test("changed messages and names read as the messages example shows", async () => {
+    const product = await run(validations.readingMessages);
+
+    expect(product.errors.fullMessages()).toEqual([
+      "Name needs a name customers will see",
+      "Name needs at least 3 characters",
+      "Price must be more than 0",
+    ]);
+  });
+});
+
+// The Callbacks page's examples, on the tables it shows.
+describe("the Callbacks page's examples", () => {
+  const binding = pageDatabase("callbacks", ["orders", "users", "articles", "invoices"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO orders (id, number, email, total_cents, is_suspended) VALUES ('2', '1002', 'sam@example.com', 1500, 1)",
+        "INSERT INTO articles (id, title, updated_at) VALUES ('3', 'Hello', '2026-01-01T00:00:00.000Z')",
+        "INSERT INTO invoices (id, country, currency, total_cents) VALUES ('4', 'US', 'USD', 2000000), ('5', 'GB', 'GBP', 100)",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const log = quietLog();
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+  const logged = () => log.calls().map(([line]) => String(line));
+
+  test("the Order's callbacks run in their order on create and update", async () => {
+    const order = await run(callbacks.placing);
+
+    expect(order.email).toBe("jane@example.com");
+    expect(order.placedAt).toBeInstanceOf(Date);
+    expect(logged().filter((line) => !line.startsWith("Saved order"))).toEqual([
+      "jane@example.com",
+      String(order.placedAt),
+      "Shipped email to jane@example.com",
+    ]);
+    expect(logged().filter((line) => line.startsWith("Saved order 1001 in "))).toHaveLength(2);
+  });
+
+  test("afterCreateCommit runs once the user is created", async () => {
+    await run(callbacks.signingUp);
+
+    expect(logged()).toEqual(["Welcome email to sam@example.com"]);
+  });
+
+  test("touch runs afterTouch", async () => {
+    const article = await run(callbacks.touching);
+
+    expect(logged()).toEqual([`Purged /articles/${article.id}`]);
+  });
+
+  test("a refused write runs afterRollback, then the save throws", async () => {
+    await run(() => callbacks.placing());
+
+    await expect(run(callbacks.refusing)).rejects.toThrow(RecordNotUnique);
+    expect(logged().at(-1)).toBe("Order 1001 wasn't saved");
+  });
+
+  test("afterInitialize fills in a new invoice's currency", async () => {
+    const invoice = await run(callbacks.building);
+
+    expect(invoice.currency).toBe("GBP");
+  });
+
+  test("afterFind checks hasAttribute, so a partial record loads", async () => {
+    const { invoices, large } = await run(callbacks.loadingPartly);
+
+    expect(invoices).toHaveLength(2);
+    expect(large).toHaveLength(1);
+    expect(logged()).toEqual([`Large invoice ${large[0]?.id} loaded`]);
+  });
+
+  test("abort() in beforeSave stops the save, with its reason", async () => {
+    const order = await run(callbacks.stopping);
+
+    expect(order.abortReason).toBe("Orders can't change while suspended");
+    expect(logged()).toEqual(["Orders can't change while suspended"]);
+    const reloaded = await run(() => CallbackOrder.findByOrThrow({ number: "1002" }));
+    expect(reloaded.totalCents).toBe(1500);
+  });
+});
+
+// The Bulk writes and batches page's examples, on the tables it shows.
+describe("the Bulk writes and batches page's examples", () => {
+  const binding = pageDatabase("batches", ["comments", "articles", "authors"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO authors (id, name, email) VALUES ('1', 'Jane', 'jane@example.com'), ('2', 'Sam', 'sam@example.com')",
+        "INSERT INTO articles (id, author_id, title) VALUES ('3', '1', 'Getting started'), ('4', '2', 'Hello again')",
+        "INSERT INTO comments (id, article_id, body) VALUES ('5', '3', 'Nice!'), ('6', '4', 'Thanks')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const log = quietLog();
+  const db = () => connect(binding());
+  const run = <T>(fn: () => Promise<T>) => withDatabase(db(), fn);
+  const titles = () => db().model(BatchedArticle).order({ title: "asc" }).pluck("title");
+
+  test("the bulk writes delete, update, and insert as their comments say", async () => {
+    const commentId = await run(batches.writingRows);
+
+    expect(log.calls()).toEqual([[1, 1, commentId]]);
+    expect(await titles()).toEqual(["EDITED", "Hello again"]);
+  });
+
+  test("insertAll inserts every row, upsert updates by email, and a skipped duplicate writes nothing", async () => {
+    await run(batches.insertingMany);
+
+    expect(await db().model(BatchedComment).count()).toBe(4);
+    expect(await db().model(BatchedAuthor).order({ name: "asc" }).pluck("name")).toEqual([
+      "Jane Doe",
+      "Sam",
+    ]);
+  });
+
+  test("returning names the attributes each written row comes back with", async () => {
+    const rows = await run(batches.returningRows);
+
+    expect(new Set(rows.map(({ body }) => body))).toEqual(new Set(["One", "Two"]));
+    expect(log.calls()).toEqual(expect.arrayContaining(rows.map(({ id, body }) => [id, body])));
+    expect(await db().model(BatchedComment).count()).toBe(5);
+  });
+
+  test("a batch's rows point at a key generated in code", async () => {
+    const authorId = await run(batches.batchingWrites);
+
+    expect(
+      await db().model(BatchedArticle).where({ authorId }).order({ title: "asc" }).pluck("title"),
+    ).toEqual(["Getting started", "Hello"]);
+  });
+
+  test("records and bulk writes save, destroy, and delete in one batch", async () => {
+    const { savedArticle, savedAuthor } = await run(batches.batchingRecords);
+
+    expect([savedArticle, savedAuthor].map((record) => record.isPersisted())).toEqual([true, true]);
+    expect(await titles()).toEqual(["Getting started, again"]);
+    expect(await db().model(BatchedAuthor).order({ name: "asc" }).pluck("name")).toEqual([
+      "Jane",
+      "Kim",
+    ]);
+    expect(await db().model(BatchedComment).count()).toBe(0);
+  });
+});
+
+// The Connections page's examples, on the tables it shows.
+describe("the Connections page's examples", () => {
+  const binding = pageDatabase("connecting", ["posts", "users"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO users (id, email) VALUES ('1', 'jane@example.com')",
+        "INSERT INTO posts (id, user_id, title) VALUES ('2', '1', 'Hello'), ('3', '1', 'Getting started')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const log = quietLog();
+  const env = () => ({ DB: binding() }) as unknown as Parameters<typeof connecting.findJane>[0];
+
+  test("the app's Models query the database a request runs them on", async () => {
+    const response = await withDatabase(connect(binding()), () =>
+      app.fetch(new Request("https://example.com/?email=jane%40example.com")),
+    );
+
+    expect(await response.json()).toEqual(["Getting started", "Hello"]);
+  });
+
+  test("the Worker opens a database for each request, and logs its queries", async () => {
+    const response = await connecting.worker.fetch(
+      new Request("https://example.com/?email=jane%40example.com"),
+      env(),
+    );
+
+    expect(await response.json()).toEqual(["Getting started", "Hello"]);
+    expect(log.calls().length).toBeGreaterThan(0);
+  });
+
+  test("db.model and db.models query the database they come from", async () => {
+    const jane = await connecting.findJane(env());
+
+    expect(jane.email).toBe("jane@example.com");
+    expect(await connecting.listPosts(env())).toEqual(["Getting started", "Hello"]);
+  });
+
+  test("batch saves the user and the post that points at it", async () => {
+    await withDatabase(connect(binding()), connecting.signingUp);
+
+    const sam = await connect(binding())
+      .model(ConnectedUser)
+      .findByOrThrow({ email: "sam@example.com" });
+    expect(await sam.posts().pluck("title")).toEqual(["Hello"]);
+  });
+});
+
+// The Errors page's examples, on the table it shows.
+describe("the Errors page's examples", () => {
+  const binding = pageDatabase("errors", ["users"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare(
+        "INSERT INTO users (id, email) VALUES ('00000000-0000-4000-8000-000000000001', 'jane@example.com')",
+      )
+      .run();
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+
+  test("a found user is returned", async () => {
+    const response = await run(() => errors.showUser("00000000-0000-4000-8000-000000000001"));
+
+    expect(response.status).toBe(200);
+  });
+
+  test("RecordNotFound becomes a 404", async () => {
+    const response = await run(() => errors.showUser("00000000-0000-4000-8000-000000000099"));
+
+    expect(response.status).toBe(404);
+  });
+
+  test("the UNIQUE index's RecordNotUnique names the email, and becomes a taken error", async () => {
+    const user = await run(() => errors.signUp("jane@example.com"));
+
+    expect(user.isPersisted()).toBe(false);
+    expect(user.errors.fullMessages()).toEqual(["Email has already been taken"]);
+  });
+});
+
+// The Custom types page's examples, on the tables it shows.
+describe("the Custom types page's examples", () => {
+  const binding = pageDatabase("custom-types", ["products", "shirts"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO products (id, name, price_cents) VALUES ('1', 'Pin', 500), ('2', 'Lamp', 12000), ('3', 'Desk', 30000)",
+        "INSERT INTO shirts (id, name, sizes) VALUES ('4', 'Oxford', 'S,M')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const raw = async (sql: string) => (await binding().prepare(sql).all()).results;
+  const log = quietLog();
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+
+  test("money is stored as cents, and the queries find and order by it", async () => {
+    const { cheap, pricey } = await run(customTypes.pricing);
+
+    expect(cheap.map((product) => product.name)).toEqual(["Pin"]);
+    expect(pricey.map((product) => String(product.priceCents))).toEqual(["$300.00", "$120.00"]);
+  });
+
+  test("permitting a value cast throws for is the TypeError the page shows", () => {
+    expect(customTypes.refusing).toThrow(
+      new TypeError('Product: "abc" isn\'t a valid value for "priceCents"'),
+    );
+  });
+
+  test("a size pushed onto the list is a change, and save writes it", async () => {
+    await run(customTypes.addingSize);
+
+    expect(log.calls()).toEqual([[true]]);
+    expect(await raw("SELECT sizes FROM shirts")).toEqual([{ sizes: "S,M,XL" }]);
+  });
+});
+
+// The Shared behavior page's examples, on the tables it shows.
+describe("the Shared behavior page's examples", () => {
+  const binding = pageDatabase("shared-behavior", ["products", "invoices"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare(
+        "INSERT INTO products (id, name, created_at) VALUES ('1', 'Desk', '2026-01-01T00:00:00.000Z')",
+      )
+      .run();
+  });
+  const log = quietLog();
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+
+  test("every Model has the base class's method, scope, and callback", async () => {
+    const { lamp, newest } = await run(sharedBehavior.sharing);
+
+    expect(log.calls()).toEqual([["Saving Product"], [lamp.label()]]);
+    expect(lamp.label()).toMatch(/^Product \{"id":"[^"]+","name":"Lamp","createdAt":"[^"]+"\}$/);
+    expect(newest?.name).toBe("Lamp");
+  });
+
+  test("an abstract class's callback runs only for the Models that extend it", async () => {
+    await run(sharedBehavior.auditing);
+
+    expect(log.calls()).toEqual([["Saving Invoice"], ["Saved Invoice"]]);
+  });
+});
+
+// The Untrusted input page's examples, on the tables it shows.
+describe("the Untrusted input page's examples", () => {
+  const binding = pageDatabase("untrusted-input", ["accounts", "invitations"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare(
+        "INSERT INTO invitations (id, email, token, accepted_at) VALUES ('1', 'jane@example.com', NULL, '2026-01-01T00:00:00.000Z'), ('2', 'sam@example.com', 'k3y', NULL)",
+      )
+      .run();
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+  const json = (body: unknown) =>
+    new Request("https://example.com/", { method: "POST", body: JSON.stringify(body) });
+
+  test("permit keeps the fields it names, and the record saves them", async () => {
+    const account = await run(() =>
+      untrustedInput.signUp(json({ email: "jane@example.com", handle: "jane", plan: "pro" })),
+    );
+
+    expect([account.email, account.handle, account.plan]).toEqual([
+      "jane@example.com",
+      "jane",
+      null,
+    ]);
+  });
+
+  test("a value that can't be used, or a body that isn't JSON, is a 400; a valid one saves", async () => {
+    const account = await run(() =>
+      UntrustedAccount.create({ email: "jane@example.com", handle: "jane" }),
+    );
+    const update = (body: string) =>
+      run(() =>
+        untrustedInput.updateAccount(
+          new Request(`https://example.com/?id=${account.id}`, { method: "POST", body }),
+        ),
+      );
+
+    expect((await update(JSON.stringify({ seats: "many" }))).status).toBe(400);
+    expect((await update("{nope")).status).toBe(400);
+    expect((await update(JSON.stringify(["seats"]))).status).toBe(400);
+
+    const saved = await update(JSON.stringify({ seats: "3" }));
+    expect([saved.status, ((await saved.json()) as { seats: number }).seats]).toEqual([200, 3]);
+  });
+
+  test("an untrusted null never reaches the query, so an accepted invitation stays accepted", async () => {
+    for (const token of [null, [null], ""]) {
+      expect((await run(() => untrustedInput.accept(json({ token })))).status).toBe(400);
+    }
+    expect((await run(() => untrustedInput.accept(json({ token: "nope" })))).status).toBe(404);
+
+    const accepted = await run(() => untrustedInput.accept(json({ token: "k3y" })));
+    expect(await accepted.text()).toBe("Welcome, sam@example.com");
+  });
+});
+
+// The Logging page's examples, on the table it shows.
+describe("the Logging page's examples", () => {
+  const binding = pageDatabase("logging", ["users"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare("INSERT INTO users (id, email, iban) VALUES ('1', 'jane@example.com', 'GB00')")
+      .run();
+  });
+  const log = quietLog();
+  const env = (vars = {}) =>
+    ({ DB: binding(), ...vars }) as unknown as Parameters<typeof logging.worker.fetch>[1];
+  const lines = () => log.calls().map(([line]) => String(line));
+
+  test("the app-wide listener logs every query, with the request's listener first", async () => {
+    const response = await logging.worker.fetch(
+      new Request("https://example.com/?email=jane%40example.com", {
+        headers: { "cf-ray": "ray-1" },
+      }),
+      env(),
+    );
+
+    expect(response.status).toBe(200);
+    const [requestLine, appWide] = lines();
+    expect(JSON.parse(requestLine ?? "")).toMatchObject({
+      requestId: "ray-1",
+      model: "User",
+      params: ["[FILTERED]", 1],
+    });
+    expect(appWide).toMatch(/^User \d+\.\dms SELECT /);
+  });
+
+  test("the development listener logs only when LOG_SQL is set", async () => {
+    await logging.development.fetch(
+      new Request("https://example.com/?email=jane%40example.com", {
+        headers: { "cf-ray": "ray-1" },
+      }),
+      env(),
+    );
+    const quiet = lines().length;
+    log.calls().splice(0);
+    await logging.development.fetch(
+      new Request("https://example.com/?email=jane%40example.com", {
+        headers: { "cf-ray": "ray-1" },
+      }),
+      env({ LOG_SQL: "1" }),
+    );
+
+    expect([quiet, lines().length]).toEqual([1, 2]);
+  });
+
+  test("the Server-Timing header counts the request's queries", async () => {
+    const response = await logging.timed.fetch(
+      new Request("https://example.com/?email=jane%40example.com", {
+        headers: { "cf-ray": "ray-1" },
+      }),
+      env(),
+    );
+
+    expect(response.headers.get("server-timing")).toMatch(/^db;dur=\d+\.\d;desc="1 queries"$/);
+  });
+
+  test("the base class filters the defaults and the attributes it adds", () => {
+    expect(LoggedUser.filterAttributes).toEqual([
+      ...Model.filterAttributes,
+      "iban",
+      /^dateOfBirth$/,
+    ]);
+  });
+});
+
+// The Testing page's tests, run here on the Model and Worker it shows.
+describe("the Testing page's examples", () => {
+  const binding = pageDatabase("testing", ["users"]);
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+
+  test("emails are saved in lowercase", async () => {
+    await run(async () => {
+      const user = await TestedUser.create({ email: "Jane@Example.com" });
+      expect((await TestedUser.find(user.id)).email).toBe("jane@example.com");
+    });
+  });
+
+  test("GET lists users", async () => {
+    await run(() => TestedUser.create({ email: "sam@example.com" }));
+    const response = (await run(() => testedWorker.fetch())) as Response; // the Worker's Response type
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(["sam@example.com"]);
+  });
+});
+
+// The Querying page's examples, on the users table it shows.
+describe("the Querying page's examples", () => {
+  const binding = pageDatabase("querying", ["users"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare(`INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES
+          ('jane', 'jane@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z'),
+          ('kim', 'kim@example.com', 'editor', 1, '2025-12-01T00:00:00.000Z', '2025-12-01T00:00:00.000Z'),
+          ('lee', 'lee@example.com', 'admin', 0, '2026-01-20T00:00:00.000Z', '2026-01-20T00:00:00.000Z'),
+          ('olive', 'olive@example.com', 'owner', 1, '2025-11-01T00:00:00.000Z', '2025-11-01T00:00:00.000Z')`)
+      .run();
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+  const ids = (users: { id: string }[]) => users.map((user) => user.id);
+
+  test("a Relation runs only when asked, and narrowing it returns a new one", async () => {
+    expect(ids(await run(querying.building))).toEqual(["lee", "jane"]);
+  });
+
+  test("the finders find what their comments say", async () => {
+    const found = await run(querying.finding);
+
+    expect([found.user.id, found.nobody, found.again.id, found.oldest?.id]).toEqual([
+      "jane",
+      null,
+      "jane",
+      "jane",
+    ]);
+    expect([found.newest?.id, found.owner.id]).toEqual(["lee", "olive"]);
+  });
+
+  test("pluck, pick and ids read attributes without loading records", async () => {
+    const { emails, pairs, latest, adminIds } = await run(querying.reading);
+
+    expect(emails).toEqual([
+      "jane@example.com",
+      "kim@example.com",
+      "lee@example.com",
+      "olive@example.com",
+    ]);
+    expect(pairs[0]).toEqual(["jane", "jane@example.com"]);
+    expect(latest).toBe("lee@example.com");
+    expect(adminIds.map(String).sort((a, b) => a.localeCompare(b))).toEqual(["jane", "lee"]);
+  });
+
+  test("count and the checks answer as their comments say", async () => {
+    expect(await run(querying.counting)).toEqual({
+      admins: 2,
+      hasAdmins: true,
+      severalAdmins: true,
+      oneOwner: true,
+    });
+  });
+
+  test("select loads only some attributes, and the primary key", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => log.mockRestore());
+
+    const { first, roles } = await run(querying.selecting);
+
+    expect(log.mock.calls).toEqual([["jane@example.com"], ["jane"]]);
+    expect(() => first?.role).toThrow(MissingAttribute);
+    expect(roles.map(String).sort((a, b) => a.localeCompare(b))).toEqual([
+      "admin",
+      "editor",
+      "owner",
+    ]);
+  });
+
+  test("none() matches nothing, merge combines Relations, and toSql keeps values apart", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => log.mockRestore());
+
+    expect(await run(querying.matchingNothing)).toEqual([]);
+    expect(ids(await run(querying.merging))).toEqual(["lee"]);
+    expect(querying.seeingSql().params).toEqual(["admin", 10]);
+  });
+});
 
 // The Conditions page's examples, on the users table it shows.
 describe("the Conditions page's examples", () => {
@@ -33,10 +1338,10 @@ describe("the Conditions page's examples", () => {
     await binding()
       .prepare(
         `INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES
-          ('ada', 'ada@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z'),
-          ('grace', 'grace@example.com', 'editor', 1, '2025-12-01T00:00:00.000Z', '2025-12-01T00:00:00.000Z'),
-          ('linus', 'linus@example.com', 'admin', 0, '2026-01-20T00:00:00.000Z', '2026-01-20T00:00:00.000Z'),
-          ('hopper', 'hopper@example.com', NULL, 0, '2025-11-01T00:00:00.000Z', '2025-11-01T00:00:00.000Z')`,
+          ('jane', 'jane@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z'),
+          ('kim', 'kim@example.com', 'editor', 1, '2025-12-01T00:00:00.000Z', '2025-12-01T00:00:00.000Z'),
+          ('lee', 'lee@example.com', 'admin', 0, '2026-01-20T00:00:00.000Z', '2026-01-20T00:00:00.000Z'),
+          ('alex', 'alex@example.com', NULL, 0, '2025-11-01T00:00:00.000Z', '2025-11-01T00:00:00.000Z')`,
       )
       .run();
   });
@@ -47,9 +1352,9 @@ describe("the Conditions page's examples", () => {
       conditions.matching(),
     );
 
-    expect(ids(admins)).toEqual(["ada"]);
-    expect(ids(others)).toEqual(["grace"]);
-    expect(ids(either)).toEqual(["ada", "hopper", "linus"]);
+    expect(ids(admins)).toEqual(["jane"]);
+    expect(ids(others)).toEqual(["kim"]);
+    expect(ids(either)).toEqual(["alex", "jane", "lee"]);
   });
 
   test("a misspelled attribute throws UnknownAttribute", () => {
@@ -57,10 +1362,12 @@ describe("the Conditions page's examples", () => {
   });
 
   test("an sql fragment and a column's value find the users they show", async () => {
-    const { ada, newcomers } = await withDatabase(connect(binding()), () => conditions.comparing());
+    const { user, newcomers } = await withDatabase(connect(binding()), () =>
+      conditions.comparing(),
+    );
 
-    expect(ada?.id).toBe("ada");
-    expect(ids(newcomers)).toEqual(["ada", "linus"]);
+    expect(user?.id).toBe("jane");
+    expect(ids(newcomers)).toEqual(["jane", "lee"]);
   });
 
   test("rewhere replaces the role, and excluding leaves out the record", async () => {
@@ -68,24 +1375,21 @@ describe("the Conditions page's examples", () => {
       conditions.rewriting(),
     );
 
-    expect(ids(activeAdmins)).toEqual(["ada"]);
-    expect(ids(everyoneElse)).toEqual(["grace", "hopper", "linus"]);
+    expect(ids(activeAdmins)).toEqual(["jane"]);
+    expect(ids(everyoneElse)).toEqual(["alex", "kim", "lee"]);
   });
 });
 
 // The Through associations page's examples, on the four tables it shows.
 describe("the Through associations page's examples", () => {
-  const binding = pageDatabase("through", ["taggings", "tags", "articles", "authors"]);
-  // The examples log what they show; the tests check it here rather than print it.
-  const log = vi.spyOn(console, "log").mockImplementation(() => {});
-  afterAll(() => log.mockRestore());
+  const binding = pageDatabase("through-associations", ["taggings", "tags", "articles", "authors"]);
+  const log = quietLog();
   beforeEach(async () => {
-    log.mockClear();
     const db = binding();
     await db.batch([
-      db.prepare("INSERT INTO authors (id, name) VALUES ('mary', 'Mary'), ('ada', 'Ada')"),
+      db.prepare("INSERT INTO authors (id, name) VALUES ('jane', 'Jane'), ('sam', 'Sam')"),
       db.prepare(
-        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'mary', 'On Nothing'), ('x2', 'ada', 'Engines')",
+        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'jane', 'On Nothing'), ('x2', 'sam', 'Engines')",
       ),
       db.prepare("INSERT INTO tags (id, name) VALUES (1, 'essays'), (2, 'empty')"),
     ]);
@@ -111,8 +1415,8 @@ describe("the Through associations page's examples", () => {
     await withDatabase(connect(recording.binding), () => through.preloading());
 
     expect(recording.batches).toEqual([3]); // the tags, their taggings, and their articles
-    expect(log).toHaveBeenCalledWith("essays", 2);
-    expect(log).toHaveBeenCalledWith("empty", 0);
+    expect(log.calls()).toContainEqual(["essays", 2]);
+    expect(log.calls()).toContainEqual(["empty", 0]);
   });
 
   test("follows each article's author through source", async () => {
@@ -120,7 +1424,7 @@ describe("the Through associations page's examples", () => {
 
     const writers = await withDatabase(connect(binding()), () => through.followingSource());
 
-    expect(writers.map((writer) => writer.name).sort()).toEqual(["Ada", "Mary"]);
+    expect(writers.map((writer) => writer.name).sort()).toEqual(["Jane", "Sam"]);
   });
 
   test("reaches a tagging's author through its article", async () => {
@@ -128,7 +1432,7 @@ describe("the Through associations page's examples", () => {
 
     const author = await withDatabase(connect(binding()), () => through.throughBelongsTo());
 
-    expect(author?.name).toBe("Ada");
+    expect(author?.name).toBe("Sam");
   });
 
   test("removes a pushed article's tagging and keeps a created one's", async () => {
@@ -138,35 +1442,264 @@ describe("the Through associations page's examples", () => {
 
     const taggings = await binding().prepare("SELECT article_id FROM taggings").all();
     expect(taggings.results).toEqual([{ article_id: draft.id }]);
-    expect(await db.model(through.Article).count()).toBe(3);
+    expect(await db.model(Article).count()).toBe(3);
   });
 });
 
-// Each page shows its Models beside its D1 tables; the attributes generated from those tables are
-// the ones its Models declare.
-describe("the standalone pages’ Models, against their D1 tables", () => {
-  test.each(["conditions", "through"])("%s declares what its tables generate", async (page) => {
-    const cwd = scratch(`page-${page}-`);
-    writeFileSync(
-      join(cwd, "active-record.jsonc"),
-      '{ "databases": { "DB": { "adapter": "d1" } } }',
-    );
-    writeFileSync(
-      join(cwd, "wrangler.jsonc"),
-      '{ "name": "page", "d1_databases": [{ "binding": "DB", "database_name": "page", "database_id": "x" }] }',
-    );
-    mkdirSync(join(cwd, "migrations"));
-    cpSync(
-      new URL(`../../../site/snippets/guide/${page}-d1.sql`, import.meta.url),
-      join(cwd, "migrations/0001_create_tables.sql"),
+// The Ordering and pagination page's examples, on the posts table it shows.
+describe("the Ordering and pagination page's examples", () => {
+  const binding = pageDatabase("ordering-and-pagination", ["posts"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare(
+        `INSERT INTO posts (id, title, status, published_at, created_at, updated_at) VALUES
+          ('a', 'Alpha', 'published', '2026-01-02T00:00:00.000Z', '2026-01-02T00:00:00.000Z', '2026-01-02T00:00:00.000Z'),
+          ('b', 'Beta', 'published', '2026-01-03T00:00:00.000Z', '2026-01-03T00:00:00.000Z', '2026-01-03T00:00:00.000Z'),
+          ('c', 'Gamma', 'draft', NULL, '2026-01-04T00:00:00.000Z', '2026-01-04T00:00:00.000Z'),
+          ('d', 'Delta', 'archived', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`,
+      )
+      .run();
+  });
+  const titles = (posts: { title: string }[]) => posts.map((post) => post.title);
+
+  test("order sorts by each key in turn, with NULL last when descending on D1", async () => {
+    const newest = await withDatabase(connect(binding()), () => ordering.ordering());
+
+    expect(titles(newest)).toEqual(["Beta", "Alpha", "Delta", "Gamma"]);
+  });
+
+  test("inOrderOf keeps the listed values first, and with filter: false the rest after", async () => {
+    const { byStatus, everyPost } = await withDatabase(connect(binding()), () =>
+      ordering.inOrder(),
     );
 
-    const { declared, generated } = await pageModelsAndTables(
-      cwd,
-      page,
-      (model) => `${model.toLowerCase()}s`,
+    expect(byStatus.map((post) => post.status)).toEqual(["published", "published", "draft"]);
+    expect(everyPost.map((post) => post.status).slice(0, 2)).toEqual(["published", "published"]);
+    expect(everyPost).toHaveLength(4);
+  });
+
+  test("a page from the query string has its records and total", async () => {
+    const response = await withDatabase(connect(binding()), () =>
+      ordering.listPosts(new Request("https://example.com/?page=1")),
     );
 
-    expect(declared).toEqual(generated);
+    expect(await response.json()).toMatchObject({ page: 1, perPage: 20, total: 4, hasNext: false });
+  });
+
+  test("a page without its count still says whether there's a next one", async () => {
+    const { records, hasNext } = await withDatabase(connect(binding()), () => ordering.countless());
+
+    expect([records.length, hasNext]).toEqual([2, false]);
+  });
+
+  test("the base class sets the page size and its cap", () => {
+    expect([PagedRecord.perPage, PagedRecord.maxPerPage]).toEqual([20, 50]);
+  });
+});
+
+// The Batch iteration page's examples, on the posts table it shows.
+describe("the Batch iteration page's examples", () => {
+  const binding = pageDatabase("batch-iteration", ["posts"]);
+  const log = quietLog();
+  beforeEach(async () => {
+    await binding()
+      .prepare(
+        "INSERT INTO posts (id, title, published_at) VALUES (1, 'One', '2026-01-01T00:00:00.000Z'), (2, 'Two', NULL), (3, 'Three', NULL)",
+      )
+      .run();
+  });
+  const logged = () => log.calls().map(([value]) => value);
+
+  test("findEach visits each matching record in key order", async () => {
+    await withDatabase(connect(binding()), () => batchIteration.eachPost());
+
+    expect(logged()).toEqual(["Two", "Three"]);
+  });
+
+  test("findInBatches yields arrays of up to batchSize records", async () => {
+    await withDatabase(connect(binding()), () => batchIteration.eachBatch());
+
+    expect(logged()).toEqual([2, 1]);
+  });
+
+  test("inBatches writes each batch's records", async () => {
+    const db = connect(binding());
+
+    await withDatabase(db, () => batchIteration.publishDrafts());
+
+    expect(await db.model(IteratedPost).where({ publishedAt: null }).count()).toBe(0);
+  });
+
+  test("start and finish bound the keys, and order: desc walks down", async () => {
+    const titles = await withDatabase(connect(binding()), () => batchIteration.choosing());
+
+    expect(titles).toEqual(["One", "Two", "Three", "Two", "One"]);
+  });
+});
+
+// The Calculations page's examples (#344, #345), on the products table it shows.
+describe("the Calculations page's examples", () => {
+  const binding = pageDatabase("calculations", []);
+  const days = ["2026-01-02T00:00:00.000Z", "2026-03-04T00:00:00.000Z"];
+  beforeAll(async () => {
+    for (const [name, cents, available, createdAt] of [
+      ["Pin", 500, 1, days[0]],
+      ["Lamp", 12_000, 1, days[1]],
+      ["Desk", 30_000, 0, days[0]],
+      ["Mug", 1_000, 1, days[0]],
+    ] as const) {
+      await binding()
+        .prepare(
+          "INSERT INTO products (id, name, price_cents, is_available, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(name, name, cents, available, createdAt, createdAt)
+        .run();
+    }
+  });
+
+  test("each resolves as its comment says", async () => {
+    const results = await withDatabase(connect(binding()), () => calculations.calculations());
+
+    expect(results).toEqual({
+      total: 13_500,
+      averagePrice: 10_875,
+      cheapest: 500,
+      newest: new Date(days[1]!),
+      topThree: 43_000,
+      averageDollars: 108.75,
+    });
+  });
+
+  test("each grouped calculation resolves as its comment says (#345)", async () => {
+    const results = await withDatabase(connect(binding()), () => calculations.groups());
+
+    expect(results).toEqual({
+      byAvailability: new Map([
+        [true, 3],
+        [false, 1],
+      ]),
+      inStock: 3,
+      valueByAvailability: new Map([
+        [true, 13_500],
+        [false, 30_000],
+      ]),
+      byBand: new Map([
+        [[true, "cheap"], 2],
+        [[true, "pricey"], 1],
+        [[false, "pricey"], 1],
+      ]),
+      crowdedCounts: new Map([[true, 3]]),
+      largest: new Map([[true, 3]]),
+    });
+  });
+});
+
+// The Scopes page's examples, on the posts and products tables it shows.
+describe("the Scopes page's examples", () => {
+  const binding = pageDatabase("scopes", ["posts", "products"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch([
+      db.prepare(
+        "INSERT INTO posts (id, title, published_at) VALUES ('a', 'Hello', '2026-02-01T00:00:00.000Z'), ('b', 'Old', '2025-06-01T00:00:00.000Z'), ('c', 'Draft', NULL)",
+      ),
+      db.prepare(
+        "INSERT INTO products (id, name, is_available) VALUES ('p', 'Pen', 1), ('i', 'Ink', 0)",
+      ),
+    ]);
+  });
+  const names = (records: { title?: string; name?: string }[]) =>
+    records.map((record) => record.title ?? record.name ?? "").sort((a, b) => a.localeCompare(b));
+
+  test("scopes narrow a query, take arguments, and chain on any Relation", async () => {
+    const { published, thisYear, hellos } = await withDatabase(connect(binding()), () =>
+      scopes.calling(),
+    );
+
+    expect([names(published), names(thisYear), hellos]).toEqual([["Hello", "Old"], ["Hello"], 1]);
+  });
+
+  test("a default scope narrows every query and gives new records its values", async () => {
+    const { listed, draft } = await withDatabase(connect(binding()), () => scopes.defaulting());
+
+    expect([names(listed), draft.isAvailable]).toEqual([["Pen"], true]);
+  });
+
+  test("unscoped() leaves the default scope out", async () => {
+    const everything = await withDatabase(connect(binding()), () => scopes.unscoping());
+
+    expect(names(everything)).toEqual(["Ink", "Pen"]);
+  });
+});
+
+// The Joins page's examples, on the four tables it shows.
+describe("the Joins page's examples", () => {
+  const binding = pageDatabase("joins", ["comments", "articles", "profiles", "authors"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO authors (id, name) VALUES ('jane', 'Jane'), ('sam', 'Sam')",
+        "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'jane', 'Poet')",
+        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'jane', 'On Nothing'), ('x2', 'sam', 'Engines')",
+        "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x1', 'Hm.'), ('c2', 'x1', 'Yes.')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const names = (records: { name?: string; title?: string }[]) =>
+    records.map((record) => record.name ?? record.title);
+
+  test("joins with distinct() finds each author with a commented article once", async () => {
+    const commented = await withDatabase(connect(binding()), () => joins.joining());
+
+    expect(names(commented)).toEqual(["Jane"]);
+  });
+
+  test("leftJoins keeps the authors with no profile", async () => {
+    const everyAuthor = await withDatabase(connect(binding()), () => joins.leftJoining());
+
+    expect(names(everyAuthor).sort((a, b) => String(a).localeCompare(String(b)))).toEqual([
+      "Jane",
+      "Sam",
+    ]);
+  });
+
+  test("a merged Relation filters and sorts by the joined Model", async () => {
+    const { byJane, byAuthorName } = await withDatabase(connect(binding()), () => joins.merging());
+
+    expect([names(byJane), names(byAuthorName)]).toEqual([
+      ["On Nothing"],
+      ["On Nothing", "Engines"],
+    ]);
+  });
+});
+
+// The Raw statements page's examples, on the invoices table it shows.
+describe("the Raw statements page's examples", () => {
+  const binding = pageDatabase("raw-statements", []);
+  beforeAll(async () => {
+    await binding().batch([
+      binding().prepare("INSERT INTO invoices VALUES (1, 10, 1767225600)"), // 2026-01-01
+      binding().prepare("INSERT INTO invoices VALUES (2, 20, 1767312000)"), // 2026-01-02
+      binding().prepare("INSERT INTO invoices VALUES (3, 30, NULL)"),
+    ]);
+  });
+
+  test("serialize binds the integer the column holds, so the comparison works", async () => {
+    const rows = await rawStatements.paidSince(binding(), new Date("2026-01-02T00:00:00.000Z"));
+
+    expect(rows).toEqual([{ id: 2, total: 20 }]);
+  });
+
+  test("deserialize reads the cell as a Date, and NULL as null", async () => {
+    expect(await rawStatements.paidAt(binding(), 1)).toEqual(new Date("2026-01-01T00:00:00.000Z"));
+    expect(await rawStatements.paidAt(binding(), 3)).toBeNull();
+  });
+});
+
+// Each page shows its Models beside its D1 tables: its project's schema is what its migrations generate.
+describe("the standalone pages' generated schemas", () => {
+  test.each(standalonePages)("%s's schema is current", async (page) => {
+    expect(await schemaCommand(pageProject(page).pathname, true)).toMatchObject({ code: 0 });
   });
 });

@@ -1,6 +1,8 @@
 ---
 title: Existing databases
 description: "Use Active Record with a D1 database whose tables you already have."
+seo:
+  description: "Use Active Record with an existing D1 database managed by Drizzle or Prisma, or with no migrations at all, and fix columns of the wrong type with overrides."
 ---
 
 ## Using Drizzle’s migrations
@@ -91,7 +93,7 @@ Fix a column’s type with an override in its Model. It changes how the column i
 
 <include>/_excerpts/guide/adopt/overrides.ts</include>
 
-A Postgres enum type or a `CHECK (column IN (…))` makes its column an enum of the names it lists. Its type and its checks come from the database. Its methods stay off until you turn them on with `enum: true`. See [Reading enums from the database](./models#reading-enums-from-the-database).
+A Postgres enum type or a `CHECK (column IN (…))` makes its column an enum of the names it lists. Its type and its checks come from the database. Its methods stay off until you turn them on with `enum: true`. See [Reading enums from the database](./enums#reading-enums-from-the-database).
 
 ## Reading Unix timestamps
 
@@ -113,7 +115,7 @@ A `Date` beside that column in a `sql` fragment throws `TypeError`: a fragment h
 :::
 
 :::note
-In a raw `env.DB.prepare(...)` statement, bind `Article.typeForAttribute("publishedAt").serialize(date)`, and read a cell with `deserialize`. See [Using raw statements](./querying#using-raw-statements).
+In a raw `env.DB.prepare(...)` statement, bind `Article.typeForAttribute("publishedAt").serialize(date)`, and read a cell with `deserialize`. See [Raw statements](./raw-statements).
 :::
 
 :::note

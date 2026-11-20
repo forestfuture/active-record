@@ -1,19 +1,52 @@
 ---
 title: Logging
 description: "Log the SQL your Worker sends with an onQuery listener."
+seo:
+  description: "Log the SQL your Cloudflare Worker sends with an Active Record onQuery listener: every query app-wide, one request’s queries, Workers Logs, and Server-Timing."
 ---
+
+## At a glance
+
+| To                                     | Write                                                                    |
+| -------------------------------------- | ------------------------------------------------------------------------ |
+| log every query, app-wide              | `static override onQuery` on `ApplicationRecord`                         |
+| log one request’s queries, with its ID | `withDatabase(connect(env.DB, { onQuery }), …)`                          |
+| send the database time to the browser  | add up `durationMs` into a `Server-Timing` header                        |
+| keep more attributes out of the logs   | `static override filterAttributes = [...Model.filterAttributes, "iban"]` |
+
+## The Models
+
+The examples use this Model, whose attributes come from its table through the schema `active-record schema` generates, and the app’s Worker:
+
+<CodeGroup>
+
+<include meta="user.ts">/_excerpts/pages/logging/src/models/user.ts</include>
+
+<include meta="application-record.ts">
+  /_excerpts/pages/logging/src/models/application-record.ts
+</include>
+
+<include meta="app.ts">/_excerpts/pages/logging/src/app.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/logging/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/logging/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/logging/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
 
 ## Receiving each query
 
 An `onQuery` listener is called once for every statement, writes and batches included, with:
 
-| Field           |                                                                  |
-| --------------- | ---------------------------------------------------------------- |
-| `model`         | The Model’s class name, such as `"Product"`                      |
-| `sql`, `params` | The statement and its bound values                               |
-| `durationMs`    | How long it took; in a batch, D1’s own timing for each statement |
-| `meta`          | D1’s result metadata (rows read and written, …)                  |
-| `error`         | D1’s error, when it failed                                       |
+| Field           |                                                                     |
+| --------------- | ------------------------------------------------------------------- |
+| `model`         | The Model’s class name, such as `"Product"`                         |
+| `sql`, `params` | The statement and its bound values                                  |
+| `durationMs`    | How long it took; in a D1 batch, D1’s own timing for each statement |
+| `meta`          | The database’s result metadata, such as D1’s rows read and written  |
+| `error`         | The database’s error, when it failed                                |
 
 Send these wherever you like. A listener never changes a query’s outcome: one that throws is logged with `console.error`, and the query’s result stands.
 
@@ -30,7 +63,7 @@ If both are set, the request’s listener runs first, then the base class’s.
 
 Set `onQuery` on your app’s base class, in `application-record.ts`, to see every statement of every Model:
 
-<include>/_excerpts/guide/connecting/app-wide.ts</include>
+<include>/_excerpts/pages/logging/src/models/application-record.ts</include>
 
 It can’t tell requests apart. A Model can set its own `static override onQuery`, which replaces the base class’s for that Model.
 
@@ -38,7 +71,7 @@ It can’t tell requests apart. A Model can set its own `static override onQuery
 
 To group a request’s queries, open its database with a listener that knows the request, and run the request inside `withDatabase`:
 
-<include>/_excerpts/guide/connecting/per-request.ts</include>
+<include>/_excerpts/pages/logging/examples/per-request.mdx</include>
 
 Logged as JSON, each line can be filtered by `requestId` in [Workers Logs](https://developers.cloudflare.com/workers/observability/logs/workers-logs/). Turn them on with `"observability": { "enabled": true }` in your Wrangler config.
 
@@ -50,27 +83,25 @@ Logged as JSON, each line can be filtered by `requestId` in [Workers Logs](https
 
 Check a variable that only `.dev.vars` sets, such as `LOG_SQL=1`. For one request’s listener:
 
-<include>/_excerpts/guide/connecting/development.ts</include>
+<include>/_excerpts/pages/logging/examples/development.mdx</include>
 
 The app-wide listener reads the variable from `cloudflare:workers` when a query runs:
 
-<include>/_excerpts/guide/connecting/app-wide-development.ts</include>
+<include>/_excerpts/pages/logging/development/app-wide-development.mdx</include>
 
 ## Timing queries in the browser
 
 To see a request’s database time in the browser’s developer tools, add it up, and send it as a `Server-Timing` header:
 
-<include>/_excerpts/guide/connecting/server-timing.ts</include>
+<include>/_excerpts/pages/logging/examples/server-timing.mdx</include>
 
 ## Keeping secrets out of the logs
 
-Listeners see the values of passwords, tokens, keys, and emails as `"[FILTERED]"`, while D1 still gets the real values. [Models](./models#filtering-attributes) lists the attributes filtered by default, and everywhere their values are hidden.
+Listeners see the values of passwords, tokens, keys, and emails as `"[FILTERED]"`, while the database still gets the real values. [Serialization](./serialization#filtering-attributes) lists the attributes filtered by default, and everywhere their values are hidden.
 
 ### Filtering more attributes
 
-Name them on your app’s base class, spreading in the defaults:
-
-<include>/_excerpts/guide/filtering/add.ts</include>
+Name them on your app’s base class, spreading in the defaults, as `ApplicationRecord` does with `iban` and `dateOfBirth`.
 
 A string matches any attribute whose snake_case name contains it, so `"iban"` also covers `ibanNumber`. A string can be in camelCase or snake_case: `"ibanNumber"` and `"iban_number"` both match `ibanNumber`. Use a RegExp to match one name exactly.
 

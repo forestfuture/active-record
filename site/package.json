@@ -7,7 +7,8 @@
     "dev": "node excerpts.ts && blume dev",
     "build": "node excerpts.ts && blume build && blume validate --strict",
     "preview": "vp run build && wrangler dev",
-    "deploy": "vp run build && wrangler deploy"
+    "deploy": "vp run build && wrangler deploy",
+    "eval": "node excerpts.ts && blume eval --agent claude"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261112.1",

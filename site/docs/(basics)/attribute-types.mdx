@@ -1,0 +1,167 @@
+---
+title: Attribute types
+description: "Each attribute holds one type of value, and every value you assign is cast to it."
+seo:
+  description: "Active Record attribute types, from string, decimal, and datetime to json and binary, how each is stored on D1 and Postgres, and how values are cast."
+---
+
+## At a glance
+
+| Type       | JavaScript     | D1 column                                    | Postgres column     |
+| ---------- | -------------- | -------------------------------------------- | ------------------- |
+| `string`   | `string`       | `TEXT`                                       | `TEXT`, `UUID`      |
+| `integer`  | `number`       | `INTEGER`                                    | `INTEGER`, `BIGINT` |
+| `real`     | `number`       | `REAL`                                       | `DOUBLE PRECISION`  |
+| `decimal`  | `string`       | `NUMERIC`, `DECIMAL`                         | `NUMERIC`           |
+| `boolean`  | `boolean`      | `BOOLEAN`, stored as `0` or `1`              | `BOOLEAN`           |
+| `datetime` | `Date`         | `DATETIME`, as ISO-8601 text, or a Unix time | `TIMESTAMPTZ`       |
+| `date`     | `string`       | `DATE`, as text                              | `DATE`              |
+| `time`     | `string`       | `TIME`, as text                              | `TIME`              |
+| `json`     | any JSON value | `JSON`, as JSON text                         | `JSONB`             |
+| `binary`   | `Uint8Array`   | `BLOB`                                       | `BYTEA`             |
+
+An attribute can be `null` unless its column is `NOT NULL`, and its TypeScript type includes `| null` to match.
+
+## The Model
+
+The examples use this Model, whose attributes come from its table through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="product.ts">/_excerpts/pages/attribute-types/src/models/product.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/attribute-types/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/attribute-types/migrations/0001_create_products.sql</include>
+
+<include meta="Postgres">
+  /_excerpts/pages/attribute-types/postgres/0001_create_products.sql
+</include>
+
+</CodeGroup>
+
+## Assigning values
+
+Assign each attribute its type’s JavaScript value:
+
+<include>/_excerpts/pages/attribute-types/examples/types.mdx</include>
+
+- A `datetime` read from text with no time zone, such as SQLite’s `DEFAULT CURRENT_TIMESTAMP` writes, is UTC in any time zone.
+- A `datetime` can be kept as a Unix time in an `INTEGER` column, as Drizzle writes it. Declare it with `storage: "unixSeconds"` or `"unixMilliseconds"`; [Reading Unix timestamps](./adopt-a-database#reading-unix-timestamps) shows how.
+- For a value none of these hold, such as money, define a [custom type](./custom-types).
+
+:::note
+On D1, a `JSON` column generates a `json` attribute. A `TEXT` column, as [D1 recommends](https://developers.cloudflare.com/d1/sql-api/query-json/#types), needs an [override](./models#overriding-attributes): `details: "json"`. Add `CHECK (json_valid(details))` to have D1 reject invalid JSON. A column that holds both ISO text and SQLite’s date text compares as text; see [Comparing dates in two forms](./adopt-a-database#comparing-dates-in-two-forms).
+:::
+
+## Storing bytes
+
+Read a file’s bytes before you assign them to a `binary` attribute, since a file from a form is read asynchronously:
+
+<include>/_excerpts/pages/attribute-types/examples/bytes.mdx</include>
+
+- It reads back as a `Uint8Array`, and prints as `<3 bytes of binary data>`, so logs never hold the bytes.
+- A D1 row holds at most 2 MB. Keep larger files in [R2](https://developers.cloudflare.com/r2/), and store their keys.
+
+:::tip
+`insertAll` and `upsertAll` take any number of rows of bytes. On D1, rows that add up to more than its 2 MB limit on one value go as several statements in one batch, which writes all of them or none. D1 counts the batch as one query.
+:::
+
+## Storing exact numbers, days, and times
+
+A `decimal` holds an exact number, such as a price, as text, and a `date` and a `time` hold a day and a time of day:
+
+- A decimal takes text, a number, or a `bigint`, and reads in one form, without trailing zeros or an exponent, so `"12.50"` and `"12.5"` are the same value. A number keeps 16 significant digits, so `0.1 + 0.2` is `"0.3"`.
+- Conditions, comparisons, and `order` compare decimals as numbers, and so do the `numericality` and `comparison` validations.
+- A column’s `scale`, from `NUMERIC(10, 2)`, rounds a decimal to that many places, half away from zero, as Postgres rounds, so a record holds what the database stores. Its `precision` limits its digits in all. A value with too many digits before the point throws `TypeError`, and a `precision` without a `scale` rounds to whole numbers.
+- A `date` holds a day, such as `"2026-01-02"`, and a `time` a time of day, such as `"09:30:00"`. Neither has a time zone. A time always has its seconds, and a fraction only when it has one: `"09:30:15.25"`. The end of the day is `"24:00:00"`.
+- Days and times compare and sort in order. A `Date` can’t be assigned to either, since its day and time depend on the time zone. For today’s date in UTC, assign `new Date().toISOString().slice(0, 10)`.
+
+:::warning[D1 rounds long decimals]
+D1 keeps about 15 significant digits of a decimal, and rounds the rest. Postgres keeps every digit.
+:::
+
+:::tip
+To do arithmetic with decimals, wrap a decimal library in a [custom type](./custom-types) stored as `"decimal"`.
+:::
+
+## Casting assigned values
+
+Every value is cast to its attribute’s type when it’s assigned, so text from JSON, a form, or a query string becomes the right type:
+
+<include>/_excerpts/pages/attribute-types/examples/casting.mdx</include>
+
+Values are cast wherever they’re assigned: `build`, `create`, `assign`, `update`, a property setter, a default, [`permit`](./untrusted-input#permitting-fields), and the values given to `insert`, `insertAll`, `upsert`, `upsertAll`, and `updateAll`. `null` is always NULL. Only unambiguous values are accepted:
+
+| Type       | Accepts                                                                                                                                |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `boolean`  | `true`, `false`, `1`, `0`, `"1"`, `"0"`, and `"true"`, `"false"`, `"on"`, `"off"` in any case                                          |
+| `integer`  | a safe integer, or a string that’s wholly one, with an optional sign and spaces around it: `"42"`, `" -7 "`, `"+3"`                    |
+| `real`     | a finite number, or a string that’s wholly one, with an optional sign, point, and exponent: `"1.5"`, `".5"`, `"5."`, `"-2e3"`          |
+| `decimal`  | a finite number, a `bigint`, or a string that’s wholly a decimal number, as for a `real`: `"12.50"`, `"-2e3"`                          |
+| `string`   | a string                                                                                                                               |
+| `datetime` | a valid `Date`; a date, `"2026-01-02"` (midnight UTC); or a date and time with `Z` or a `±HH:MM` offset: `"2026-01-02T09:30:00+02:00"` |
+| `date`     | a day that exists, as `"YYYY-MM-DD"`: `"2026-01-02"`                                                                                   |
+| `time`     | a time of day, with or without seconds and up to six digits of a fraction: `"09:30"`, `"09:30:15.25"`                                  |
+| `json`     | any value JSON can write                                                                                                               |
+| `binary`   | a `Uint8Array`, or an `ArrayBuffer`                                                                                                    |
+
+## Refusing other values
+
+Anything else throws `TypeError` naming the Model and the attribute, and the attribute keeps its value:
+
+<include>/_excerpts/pages/attribute-types/examples/refused.mdx</include>
+
+The error shows at most 60 characters of the value, and none of a [filtered attribute](./serialization#filtering-attributes)’s. Among the values refused:
+
+- `""` for every type but `string`.
+- `1.7`, `"12abc"`, `"1e3"`, and integers past `Number.MAX_SAFE_INTEGER`, for an `integer`.
+- `NaN` and `Infinity`.
+- A number, boolean, or `Date` for a `string`.
+- For a `datetime`: a time without an offset, a lowercase `t` or `z`, a day that doesn’t exist (`"2026-02-30"`), other formats, and numbers.
+- For a `decimal`: text with anything but a number in it, a number too large or too small for a JavaScript `number`, such as `"1e400"` or `"1e-400"`, and one with more digits after its point than Postgres holds.
+- For a `date` or a `time`: a `Date`, a time zone, a day or time that doesn’t exist (`"2026-02-30"`, `"24:00:01"`), other formats (`"2026-1-2"`, `"9:30"`), and numbers.
+- For a `json`: a value JSON can’t write, such as a `BigInt`, an object that refers to itself, a function, or a symbol.
+- For a `binary`: text, an array of numbers, or another typed array.
+
+:::note
+A `json` attribute stores what `JSON.stringify` writes: a `Map` becomes `{}` and `NaN` becomes `null`. Convert them before assigning. After a save, the record holds what was stored.
+:::
+
+## Reading stored cells
+
+A stored cell is checked the same way, when the record loads or `pluck` reads it. One that isn’t the attribute’s type fails with the same error, shows the same value, and fails a list that holds it whole. These cells fail:
+
+- For a `boolean`: anything but `0` and `1`.
+- For an `integer`: text, a fraction, or a number outside the safe integer range.
+- For a `real`: anything but a finite number.
+- For a `string`: anything but text.
+- For a `datetime`: text that isn’t a date or a date and time (`"garbage"`, `"12"`), or a number. A number is a [Unix time](./adopt-a-database#reading-unix-timestamps), which needs a `storage`.
+- For a `datetime` with a `storage`: anything but a number, or one past what a `Date` can hold.
+- For a `decimal`: anything but a number or a decimal’s text.
+- For a `date`: anything but a day’s text. A date and time, such as `"2026-01-02T00:00:00.000Z"`, fails too; see [Reading `DATE` columns](./upgrading#reading-date-columns).
+- For a `time`: anything but a time of day’s text.
+- For a `json`: text that isn’t JSON.
+- For a `binary`: anything but bytes.
+
+See [Fixing cells of the wrong type](./adopt-a-database#fixing-cells-of-the-wrong-type).
+
+## Casting conditions and keys
+
+Conditions are cast the same way, so `where({ stock: "42" })` finds 42. A condition value that can’t be cast matches nothing, so `find("abc")` on an integer key throws `RecordNotFound`.
+
+- A condition reads a number as its digits for a `string` attribute, and a record built from that Relation starts with what it matched: `where({ name: 7 }).build()` has the name `"7"`.
+- A key copied from another record through an association is cast too, so an integer key written into a text foreign key becomes its digits.
+- A `json` value JSON can’t write matches nothing, never the rows whose cell is `NULL`. In a list, it’s left out and the rest still match.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails holds a `decimal` as a `BigDecimal`, a `date` as a `Date`, and a `time` as a `Time` on 1 January 2000. Here each one is text, which reads the same from every database and goes into JSON as it is.
+
+</Callout>
+
+<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
+
+Rails casts leniently: `"12abc"` becomes `12`, `1.7` becomes `1`, any other text is `true`, and `""` is `nil`. Active Record refuses each, so `inStock=no` from a form can’t save `true`, and an empty field can’t silently become `null`.
+
+</Callout>

@@ -1,0 +1,364 @@
+# Questions an agent must answer from the guide alone (`vp run eval`, `blume eval`). Each lists
+# the facts a correct answer states, and the page that should answer it. See
+# docs/agents/docs-pages.md.
+questions:
+  - id: where-null
+    question: "How do I find users whose role is NULL?"
+    expected:
+      - "User.where({ role: null })"
+    routes: /conditions
+  - id: where-list
+    question: "How do I match any of several values in a condition, and is there a limit on how many?"
+    expected:
+      - 'pass an array, such as where({ role: ["admin", "editor"] })'
+      - "the list is bound as one value, so it can be any length"
+    routes: /conditions
+  - id: case-insensitive-email
+    question: "How do I find a user by email, ignoring case?"
+    expected:
+      - 'an sql tagged template with column("email"), comparing lower() of the column and of the value'
+      - "values in the template are bound, never written into the SQL"
+    routes: /conditions
+  - id: many-to-many
+    question: "How do I declare a many-to-many association between tags and articles?"
+    expected:
+      - "a join Model, such as Tagging, that belongsTo both the article and the tag"
+      - 'on Tag, hasMany(Article, { through: "taggings" }) beside hasMany(Tagging)'
+    routes: /through-associations
+  - id: remove-from-many-to-many
+    question: "How do I remove an article from a tag without deleting the article?"
+    expected:
+      - "tag.articles().delete(article) deletes the join record (the tagging)"
+      - "the article itself stays"
+    routes: /through-associations
+  - id: null-order
+    question: "Do NULLs sort first or last on D1 and on Postgres, and how do I make them sort the same on both?"
+    expected:
+      - "D1 sorts NULLs first in ascending order, and Postgres last; descending is the opposite"
+      - 'pass nulls: "first" or nulls: "last" to order'
+    routes: /ordering-and-pagination
+  - id: paginate-query-string
+    question: "How do I paginate posts using a page number from the query string?"
+    expected:
+      - "paginate({ page, perPage }) takes the page as text from the query string"
+      - "it resolves to the records and the total, with totalPages and hasNext"
+    routes: /ordering-and-pagination
+  - id: paginate-without-count
+    question: "How do I paginate without counting every matching row?"
+    expected:
+      - "paginate({ page, count: false })"
+      - "the page then has no total or totalPages, only whether there's a next page"
+    routes: /ordering-and-pagination
+  - id: large-table
+    question: "How do I loop over every row of a large table without loading it all into memory?"
+    expected:
+      - "findEach (or findInBatches for arrays) loads the records a batch at a time"
+      - "batches of 1,000 by default, in primary-key order"
+    routes: /batch-iteration
+  - id: batches-not-atomic
+    question: "If I update a large table with inBatches and one batch fails, are the earlier batches rolled back?"
+    expected:
+      - "no; each batch is its own write, and the batches before it stay written"
+    routes: /batch-iteration
+  - id: sum-without-loading
+    question: "How do I add up a column's values without loading the records?"
+    expected:
+      - 'sum("priceCents") on the Model or a Relation'
+      - "with no rows, sum is 0"
+    routes: /calculations
+  - id: count-per-group
+    question: "How do I count records for each value of an attribute?"
+    expected:
+      - 'group("attribute").count()'
+      - "it returns a Map from each group's value to its count"
+    routes: /calculations
+  - id: define-scope
+    question: "How do I define a reusable named query on a Model?"
+    expected:
+      - "a static declared with this.scope((q) => …) that returns a narrower Relation"
+      - "it's called as a static, such as Post.published(), or on any Relation of the Model"
+    routes: /scopes
+  - id: bypass-default-scope
+    question: "How do I query records that a Model's default scope hides?"
+    expected:
+      - "start from Model.unscoped()"
+    routes: /scopes
+  - id: join-duplicates
+    question: "Why does joining an association return the same author several times, and how do I get each once?"
+    expected:
+      - "a joined query returns a row for each linked record"
+      - "add distinct() to get each record once"
+    routes: /joins
+  - id: filter-by-joined
+    question: "How do I find articles whose author is named Jane?"
+    expected:
+      - 'Article.joins("author").merge(Author.where({ name: "Jane" }))'
+    routes: /joins
+  - id: raw-bind-date
+    question: "I send my own SQL to D1. How do I bind a Date for a column that stores Unix seconds?"
+    expected:
+      - 'Invoice.typeForAttribute("paidAt").serialize(date) gives the integer the column holds'
+      - "bind that value in the statement"
+    routes: /raw-statements
+  - id: raw-read-bigint-postgres
+    question: "Reading a BIGINT Unix time cell with my own pg query, deserialize throws a TypeError. Why?"
+    expected:
+      - "pg reads a BIGINT cell as text unless its type parsers are set"
+      - "pass Number(cell) to deserialize"
+    routes: /raw-statements
+  - id: find-or-null
+    question: "How do I look up a user by email and get null, not an error, when there's none?"
+    expected:
+      - "User.findBy({ email }) resolves to null when nothing matches"
+      - "findByOrThrow throws RecordNotFound instead"
+    routes: /querying
+  - id: pluck-emails
+    question: "How do I get every user's email as an array of strings, without loading the records?"
+    expected:
+      - 'User.pluck("email")'
+    routes: /querying
+  - id: decimal-as-text
+    question: "Why does a decimal attribute read as a string, and how do I store a price exactly?"
+    expected:
+      - 'a decimal attribute holds its exact number as text, such as "12.5"'
+      - "a NUMERIC(10, 2) column's scale rounds it to two places"
+    routes: /attribute-types
+  - id: cast-form-boolean
+    question: 'A form sends inStock="true" as text. Does Active Record store it as a boolean, and what happens with "no"?'
+    expected:
+      - '"true" is cast to true when it''s assigned'
+      - '"no" throws a TypeError naming the Model and attribute'
+    routes: /attribute-types
+  - id: enum-scope-and-setter
+    question: "My tickets have a status of open, in_progress or closed. How do I find tickets that aren't closed, and close one?"
+    expected:
+      - 'declare status: { enum: ["open", "in_progress", "closed"] } in an override'
+      - "Ticket.notClosed() finds them, and ticket.saveAsClosed() sets and saves the status"
+    routes: /enums
+  - id: email-changed-callback
+    question: "In an after-save callback, how do I tell whether the email just changed, and what it was before?"
+    expected:
+      - 'savedChangeTo("email") gives the old and new values, or hasSavedChangeTo("email") says whether it changed'
+      - "after a save the record is clean, so the unsaved-change methods no longer see it"
+    routes: /change-tracking
+  - id: hide-password-digest
+    question: "How do I make sure Response.json(user) never sends the passwordDigest attribute?"
+    expected:
+      - "name it in static hiddenAttributes, on the app's base class to cover every Model"
+      - "a Model's own list replaces the base class's, so it repeats the names it still wants hidden"
+    routes: /serialization
+  - id: boolean-in-integer
+    question: "My table stores a flag as 0 or 1 in a plain INTEGER column. How do I read it as a boolean on the Model?"
+    expected:
+      - 'override the attribute in static attributes, such as archived: "boolean", written as const'
+      - "changing its type drops the generated default, so give the override a default if it needs one"
+    routes: /models
+  - id: n-plus-one
+    question: "Listing authors with their articles sends a query per author. How do I load them all at once?"
+    expected:
+      - 'Author.includes("articles") preloads them, with one query per association'
+      - "on D1 the whole tree goes in one round trip"
+    routes: /preloading
+  - id: save-graph-atomically
+    question: "How do I save a new author with two new articles and a profile all at once?"
+    expected:
+      - "build the articles and profile through the author's associations, then save the author"
+      - "with keys generated in code, it's all written in one atomic batch"
+    routes: /autosaving
+  - id: comments-count
+    question: "How do I show each article's number of comments without counting the comments table every time?"
+    expected:
+      - "declare counterCache: true on the comment's belongsTo, with a commentsCount attribute on the article"
+      - "article.comments().size() reads the count with no query"
+    routes: /counter-caches
+  - id: touch-parent
+    question: "How do I update an article's updatedAt whenever one of its comments is saved, and skip that during a bulk import?"
+    expected:
+      - "declare touch: true on the comment's belongsTo"
+      - "run the import inside Article.noTouching(async () => { … }), then touch the article once"
+    routes: /touching
+  - id: polymorphic-likes
+    question: "A like can belong to a photo or a video. How do I declare that?"
+    expected:
+      - "likeable = belongsTo([Photo, Video]) on Like, using likeableType and likeableId"
+      - 'hasMany(Like, { as: "likeable" }) on each of Photo and Video'
+    routes: /associations
+  - id: save-or-throw
+    question: "In a sign-up handler, how do I return a 422 with the errors when a new user isn't valid?"
+    expected:
+      - "createOrThrow throws RecordInvalid, with the record on error.record"
+      - "catch it and return error.record.errors.fullMessages() with a 422, and rethrow anything else"
+    routes: /persistence
+  - id: create-or-find
+    question: "Two requests at once might both create the same label. How do I find or create it safely?"
+    expected:
+      - "Label.createOrFindBy({ name }) inserts first, and finds the existing row when a UNIQUE index refuses the duplicate"
+      - "leave out a uniqueness validation on those attributes, so the index decides"
+    routes: /persistence
+  - id: validate-on-create
+    question: "How do I require a password when a member signs up, but not when they update their profile later?"
+    expected:
+      - 'this.validates("password", { presence: true, on: "create" })'
+    routes: /validations
+  - id: custom-error-message
+    question: 'How do I change the "can''t be blank" message for every Model in my app?'
+    expected:
+      - 'call this.errorMessages({ blank: "…" }) in the static block of the app''s ApplicationRecord'
+    routes: /validations
+  - id: welcome-email-after-commit
+    question: "How do I send a welcome email only after a new user has been saved to the database?"
+    expected:
+      - "this.afterCreateCommit(async (user) => { await sendWelcomeEmail(user.email) }) in the User Model's static block"
+    routes: /callbacks
+  - id: abort-a-save
+    question: "How can a callback stop an order from being saved, and how do I see why?"
+    expected:
+      - 'throw abort("reason") from a before-callback such as beforeSave'
+      - "save() resolves to false and record.abortReason holds the reason; saveOrThrow() throws RecordNotSaved"
+    routes: /callbacks
+  - id: upsert-by-email
+    question: "How do I insert an author, or update their name if one with that email already exists, in one statement?"
+    expected:
+      - 'Author.upsert({ name, email }, { uniqueBy: "email" }), which needs a unique index on email'
+      - "it runs no validations or callbacks"
+    routes: /batches
+  - id: atomic-batch
+    question: "How do I create an author and their first article so that both are written or neither is?"
+    expected:
+      - "generate the author's key in code, then batch((b) => [b.insert(Author, { id, … }), b.insert(Article, { authorId: id, … })])"
+      - "or build both and pass b.save(record) for each, which runs their validations and callbacks"
+    routes: /batches
+  - id: log-one-request
+    question: "How do I log every SQL query one request runs, without changing each query?"
+    expected:
+      - "open a database for the request with connect(env.DB, { onQuery }) and run the app's code inside withDatabase(db, () => …)"
+      - "every query from a Model inside, and everything it awaits, uses that database"
+    routes: /connecting
+  - id: catch-not-found
+    question: "In a Worker route, how do I return a 404 when User.find doesn't find the record?"
+    expected:
+      - "catch the error and check error instanceof RecordNotFound, returning a 404 Response"
+      - "rethrow anything else"
+    routes: /errors
+  - id: money-type
+    question: "How do I store a price as whole cents in an integer column but read it as a Money object?"
+    expected:
+      - 'defineType({ storedAs: "integer", cast, serialize, deserialize }) returning Money from cast and deserialize, and cents from serialize'
+      - "give it to the attribute in static override attributes = { priceCents: money } as const"
+    routes: /custom-types
+  - id: shared-scope
+    question: "How do I give every Model in my app a newest scope without writing it on each one?"
+    expected:
+      - "declare static newest = this.scope((q) => q.order(sql`created_at DESC`)) on ApplicationRecord"
+      - "use an sql fragment, since it runs on each Model's own table"
+    routes: /shared-behavior
+  - id: permit-fields
+    question: "A sign-up request's JSON body might include fields like plan or seats. How do I create the account from only its email and handle?"
+    expected:
+      - 'Account.permit(await request.json(), "email", "handle"), then Account.create(permitted)'
+      - "permit casts each value, and a value it can't cast throws a TypeError to return a 400 for"
+    routes: /untrusted-input
+  - id: log-request-queries
+    question: "How do I log each request's SQL queries as JSON lines tagged with the request's ID for Workers Logs?"
+    expected:
+      - "in the Worker's fetch, connect(env.DB, { onQuery }) with a listener that logs JSON including a requestId such as the cf-ray header"
+      - "run the app inside withDatabase(db, () => app.fetch(request))"
+    routes: /logging
+  - id: test-a-model
+    question: "How do I test a Model in Vitest when there's no Worker binding?"
+    expected:
+      - "create a D1 database with Miniflare and apply the migrations to it"
+      - "run the test's code inside withDatabase(connect(binding), async () => { … })"
+    routes: /testing
+  - id: optional-belongs-to
+    question: "A comment's belongsTo article is required. How do I let a comment be saved without one?"
+    expected:
+      - "declare belongsTo(Article, { optional: true })"
+      - 'without it, a missing article adds a "must exist" error'
+    routes: /associations
+  - id: destroy-on-owner-save
+    question: "How do I remove one of an author's loaded articles only when the author is next saved?"
+    expected:
+      - "declare the association with autosave: true, call article.markForDestruction(), then save the author"
+      - "marking writes nothing until the author is saved"
+    routes: /autosaving
+  - id: restore-changes
+    question: "How do I undo the unsaved change to a user's email but keep their other changes?"
+    expected:
+      - 'user.restoreAttributes(["email"])'
+    routes: /change-tracking
+  - id: new-throws-no-database
+    question: "Why does saving a record made with new User() throw NoDatabase, and what should I write instead?"
+    expected:
+      - "a record made with new has no database"
+      - "build records with User.build({ … })"
+    routes: /connecting
+  - id: reset-counter
+    question: "After a bulk insert of comments, an article's commentsCount is wrong. How do I fix it?"
+    expected:
+      - "bulk writes leave the count alone"
+      - 'Article.resetCounters(id, "comments") sets it from the rows'
+    routes: /counter-caches
+  - id: refuse-custom-value
+    question: "How should a custom attribute type refuse a value it can't hold, and what does the caller see?"
+    expected:
+      - "throw from cast"
+      - "assigning or permitting the value throws a TypeError naming the Model and attribute, with the type's error as its cause"
+    routes: /custom-types
+  - id: enum-validate
+    question: "How do I make an unknown status name an invalid record, reported with the record's errors?"
+    expected:
+      - "declare the enum with validate: true"
+    routes: /enums
+  - id: incompatible-relation
+    question: "Why does combining two Relations with or() throw IncompatibleRelation?"
+    expected:
+      - "or() needs both Relations to be of the same Model and database"
+      - "both sides must also have the same select, order, limit, offset, distinct and includes"
+    routes: /errors
+  - id: filter-iban
+    question: "How do I keep IBANs out of the SQL my onQuery listener logs?"
+    expected:
+      - 'static override filterAttributes = [...Model.filterAttributes, "iban"] on ApplicationRecord'
+      - 'listeners then see the value as "[FILTERED]"'
+    routes: /logging
+  - id: rename-table
+    question: "My Account Model's table is called billing_accounts. How do I point the Model at it?"
+    expected:
+      - 'static override table = "billing_accounts"'
+    routes: /models
+  - id: preload-nested
+    question: "How do I load authors with their articles and each article's comments, without a query per record?"
+    expected:
+      - 'Author.includes({ articles: "comments" })'
+      - 'read them with author.loaded("articles"), which sends no query'
+    routes: /preloading
+  - id: hidden-vs-filtered
+    question: "What's the difference between hiddenAttributes and filterAttributes?"
+    expected:
+      - "hiddenAttributes keeps values out of toJSON, so Response.json and JSON.stringify"
+      - "filterAttributes shows values as [FILTERED] in onQuery listeners, error messages and printed records"
+    routes: /serialization
+  - id: share-with-some
+    question: "How do I give only some of my Models an afterSave callback, without repeating it on each?"
+    expected:
+      - "put it on an abstract class between those Models and ApplicationRecord, with static override abstract = true"
+      - "each Model that extends it keeps its own table"
+    routes: /shared-behavior
+  - id: test-worker
+    question: "In a Vitest test, how do I call my Worker's fetch handler so its queries use the test's D1 database?"
+    expected:
+      - "call worker.fetch(request) inside withDatabase(connect(binding), …)"
+      - "a Worker that uses withSession gets the test's database as env.DB instead"
+    routes: /testing
+  - id: touch-on-comment
+    question: "How do I update an article's updatedAt whenever one of its comments is saved or destroyed?"
+    expected:
+      - "declare belongsTo(Article, { touch: true }) on Comment"
+    routes: /touching
+  - id: untrusted-null
+    question: "Why should I check that a token from a JSON body is a string before Invitation.findBy({ token })?"
+    expected:
+      - "JSON can send null or a list"
+      - "findBy({ token: null }) matches rows whose token is NULL, and a list matches any of its values"
+    routes: /untrusted-input

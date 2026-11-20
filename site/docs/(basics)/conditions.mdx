@@ -1,6 +1,8 @@
 ---
 title: Conditions
 description: "Filter a query’s records by their attributes."
+seo:
+  description: "Filter Active Record queries with where, whereNot, or, comparisons like gte and between, sql fragments, rewhere, unscope, and excluding, on D1 or Postgres."
 ---
 
 ## At a glance
@@ -21,45 +23,39 @@ description: "Filter a query’s records by their attributes."
 
 ## The Model
 
-The examples use this Model and table:
+The examples use this Model, whose attributes come from its table through the schema `active-record schema` generates:
 
-<Tabs syncKey="database">
-<Tab title="Model">
+<CodeGroup>
 
-<include>/_excerpts/guide/conditions/model.ts</include>
+<include meta="user.ts">/_excerpts/pages/conditions/src/models/user.ts</include>
 
-</Tab>
-<Tab title="D1">
+<include meta="schema.ts">/_excerpts/pages/conditions/src/db/schema.ts</include>
 
-<include>/_excerpts/guide/conditions-d1.sql</include>
+<include meta="D1">/_excerpts/pages/conditions/migrations/0001_create_users.sql</include>
 
-</Tab>
-<Tab title="Postgres">
+<include meta="Postgres">/_excerpts/pages/conditions/postgres/0001_create_users.sql</include>
 
-<include>/_excerpts/guide/conditions-postgres.sql</include>
-
-</Tab>
-</Tabs>
+</CodeGroup>
 
 ## Matching values
 
 Pass `where` an object of attributes that must all match:
 
-<include meta="twoslash">/_excerpts/guide/conditions/where.twoslash.ts</include>
+<include>/_excerpts/pages/conditions/examples/where.mdx</include>
 
 - `null` matches NULL. An array matches any of its values, and is bound as one value, so it can be any length.
-- Values are [cast to the attribute’s type](./models#casting-assigned-values), so text from a query string works as it is: `where({ isActive: "false" })` finds inactive users. A value that can’t be cast matches nothing: `findBy` resolves to `null`, and `find` throws `RecordNotFound`.
+- Values are [cast to the attribute’s type](./attribute-types#casting-assigned-values), so text from a query string works as it is: `where({ isActive: "false" })` finds inactive users. A value that can’t be cast matches nothing: `findBy` resolves to `null`, and `find` throws `RecordNotFound`.
 - `undefined` throws `TypeError`. Leave the key out, or use `null`.
 
 Attribute names are checked when you compile, and a misspelled one that gets past the compiler throws `UnknownAttribute`:
 
-<include meta="twoslash">/_excerpts/guide/conditions/typos.twoslash.ts</include>
+<include>/_excerpts/pages/conditions/examples/typos.mdx</include>
 
 ## Negating conditions
 
 Negate a condition with `whereNot`, or combine two queries with `or`:
 
-<include meta="twoslash">/_excerpts/guide/conditions/where-not.twoslash.ts</include>
+<include>/_excerpts/pages/conditions/examples/where-not.mdx</include>
 
 - `whereNot` negates the whole condition. As in SQL, `whereNot({ role: "admin" })` also leaves out users whose role is NULL.
 - `or` combines two Relations of the same Model that differ only in their conditions.
@@ -72,7 +68,7 @@ In a list, values that can’t be cast are left out. So `whereNot({ id: "abc" })
 
 Pass a comparison helper as a value:
 
-<include meta="twoslash">/_excerpts/guide/conditions/comparisons.twoslash.ts</include>
+<include>/_excerpts/pages/conditions/examples/comparisons.mdx</include>
 
 `gt`, `gte`, `lt`, `lte`, and `between` work on number, string, and datetime attributes, and dates compare by time. `between` includes both ends, unless you pass `{ excludeEnd: true }`.
 
@@ -80,11 +76,11 @@ Pass a comparison helper as a value:
 
 Write anything else as an `sql` tagged template, with `column()` for an attribute’s column:
 
-<include meta="twoslash">/_excerpts/guide/conditions/sql.twoslash.ts</include>
+<include>/_excerpts/pages/conditions/examples/sql.mdx</include>
 
 Values are always bound, as they are, so a `Date` is ISO text. To write a value the way its attribute stores it, use `column(name).value(v)`:
 
-<include meta="twoslash">/_excerpts/guide/conditions/value.twoslash.ts</include>
+<include>/_excerpts/pages/conditions/examples/value.mdx</include>
 
 `value` works for any attribute, and writes a boolean as 0 or 1 and a JSON value as text. It casts as assigning would, so a value the attribute can’t hold throws `TypeError` naming the attribute, when `where` is given the fragment. A filtered attribute’s value is hidden from `onQuery`, as it is anywhere else.
 
@@ -96,16 +92,16 @@ For a datetime [stored as a Unix time](./adopt-a-database#reading-unix-timestamp
 
 Replace the conditions on some attributes with `rewhere`:
 
-<include meta="twoslash">/_excerpts/guide/conditions/rewhere.twoslash.ts</include>
+<include>/_excerpts/pages/conditions/examples/rewhere.mdx</include>
 
 Conditions on other attributes stay, and so do `sql` fragments. A default scope’s condition on the attribute is replaced too. A `whereNot` or `or` is replaced only if it names no other attributes.
 
 Drop parts of a query with `unscope`, or keep only some with `only`:
 
-<include meta="twoslash">/_excerpts/guide/conditions/unscope.twoslash.ts</include>
+<include>/_excerpts/pages/conditions/examples/unscope.mdx</include>
 
 - The parts are `"where"`, `"order"`, `"limit"`, `"offset"`, `"select"`, `"distinct"`, `"includes"`, `"joins"`, `"leftJoins"`, and `"createWith"`. `{ where: "role" }` drops only the conditions on those attributes.
-- A default scope’s parts are dropped too. To start without the default scope, use [`unscoped()`](./querying#defining-a-default-scope).
+- A default scope’s parts are dropped too. To start without the default scope, use [`unscoped()`](./scopes#leaving-the-default-scope-out).
 - On an association, the link to its owner stays: `user.posts().unscope("where")` is still the user’s posts, and so is `rewhere({ userId })`. Start from `Post` to read past the owner.
 - Merging a Relation built with `unscope` drops those parts from the Relation it’s merged into.
 - A join can’t be dropped while a merged condition or order uses it. That throws `IncompatibleRelation`.
@@ -114,7 +110,7 @@ Drop parts of a query with `unscope`, or keep only some with `only`:
 
 Leave out records you already have with `excluding`:
 
-<include meta="twoslash">/_excerpts/guide/conditions/excluding.twoslash.ts</include>
+<include>/_excerpts/pages/conditions/examples/excluding.mdx</include>
 
 It takes records of the Relation’s Model, or arrays of them. A record that isn’t saved yet leaves nothing out.
 

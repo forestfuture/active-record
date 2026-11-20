@@ -1,0 +1,53 @@
+---
+title: Change tracking
+description: "A record knows what’s changed since it was loaded or last saved."
+seo:
+  description: "Track Active Record changes: changed, attributeWas, and isAttributeChanged before a save, savedChangeTo after it, and restoreAttributes to undo unsaved changes."
+---
+
+## At a glance
+
+| To                                          | Write                                                                     |
+| ------------------------------------------- | ------------------------------------------------------------------------- |
+| check for unsaved changes                   | `isChanged()`, `changed()`, `changes()`                                   |
+| read an attribute’s value before the change | `attributeWas("email")`                                                   |
+| check one attribute’s change                | `isAttributeChanged("email", { from: "…" })`, `willSaveChangeTo("email")` |
+| read what the last save changed             | `savedChanges()`, `savedChangeTo("email")`, `hasSavedChangeTo("email")`   |
+| undo unsaved changes                        | `restoreAttributes()`, or `restoreAttributes(["email"])`                  |
+
+## The Model
+
+The examples use this Model, whose attributes come from its table through the schema `active-record schema` generates. Its `afterSave` callback reads what each save changed:
+
+<CodeGroup>
+
+<include meta="user.ts">/_excerpts/pages/change-tracking/src/models/user.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/change-tracking/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/change-tracking/migrations/0001_create_users.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/change-tracking/postgres/0001_create_users.sql</include>
+
+</CodeGroup>
+
+## Reading changes
+
+Read a record’s changes before it’s saved, and what the save changed after:
+
+<include>/_excerpts/pages/change-tracking/examples/changes.mdx</include>
+
+- `isChanged()`, `changed()`, `changedAttributes()`, and `changes()` describe the unsaved changes. A new record’s changes run from its defaults, so a default it keeps isn’t a change.
+- `attributeWas`, `isAttributeChanged`, and `willSaveChangeTo` look at one attribute’s unsaved change. Use them in before-callbacks.
+- `savedChanges()`, `savedChangeTo`, `hasSavedChangeTo`, and `attributeBeforeLastSave` look at the last save. Use them in after-callbacks, where the record is already clean, as `User` does.
+- An update writes only the attributes that changed, and a save with nothing changed sends nothing.
+
+:::note
+Changes are found by comparing stored values, so editing a `json` value, a `Date`, or a `binary` attribute’s bytes in place counts as a change.
+:::
+
+## Undoing changes
+
+Undo unsaved changes with `restoreAttributes`, to every attribute or the ones you name:
+
+<include>/_excerpts/pages/change-tracking/examples/restore.mdx</include>

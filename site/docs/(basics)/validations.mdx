@@ -1,26 +1,66 @@
 ---
 title: Validations
 description: "Check a record before it’s saved, and see why an invalid one wasn’t."
+seo:
+  description: "Validate Active Record records before saving: presence, length, format, uniqueness, numericality, and more, with contexts, custom rules, and error messages."
 ---
+
+## At a glance
+
+| To                                    | Write                                                             |
+| ------------------------------------- | ----------------------------------------------------------------- |
+| declare a rule                        | `this.validates("email", { presence: true })`                     |
+| validate without saving               | `await record.isValid()`                                          |
+| read why a record is invalid          | `record.errors.fullMessages()`, `errors.get("email")`             |
+| run a rule only when creating         | `on: "create"`                                                    |
+| run rules for a step of your own      | `static validationContexts = ["signup"] as const`, `on: "signup"` |
+| validate an association’s records too | `this.validatesAssociated("tracks")`                              |
+| add an error yourself                 | `record.errors.add("base", "…")`, in a validation callback        |
+| change a message                      | `message: "…"`, or `this.errorMessages({ blank: "…" })`           |
+
+## The Models
+
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates. Each declares its validations in its `static {}` block:
+
+<CodeGroup>
+
+<include meta="account.ts">/_excerpts/pages/validations/src/models/account.ts</include>
+
+<include meta="event.ts">/_excerpts/pages/validations/src/models/event.ts</include>
+
+<include meta="invoice.ts">/_excerpts/pages/validations/src/models/invoice.ts</include>
+
+<include meta="member.ts">/_excerpts/pages/validations/src/models/member.ts</include>
+
+<include meta="playlist.ts">/_excerpts/pages/validations/src/models/playlist.ts</include>
+
+<include meta="track.ts">/_excerpts/pages/validations/src/models/track.ts</include>
+
+<include meta="booking.ts">/_excerpts/pages/validations/src/models/booking.ts</include>
+
+<include meta="product.ts">/_excerpts/pages/validations/src/models/product.ts</include>
+
+<include meta="application-record.ts">
+  /_excerpts/pages/validations/src/models/application-record.ts
+</include>
+
+<include meta="schema.ts">/_excerpts/pages/validations/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/validations/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/validations/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
 
 ## Declaring validations
 
-Declare validations in a Model’s `static {}` block with `this.validates`:
+Declare validations in a Model’s `static {}` block with `this.validates`, as `Account` does, then check a record with `isValid()`:
 
-<include>/_excerpts/guide/validations/validates.ts</include>
+<include>/_excerpts/pages/validations/examples/is-valid.mdx</include>
 
-Attribute names are typed, so a misspelled attribute is a compile error.
-
-`save()` validates first, and resolves to `false` when a record is invalid. To validate without saving, call `isValid()`:
-
-```ts
-const account = Account.build(permitted);
-const valid = await account.isValid();
-```
-
-:::note
-`isValid()` is async, since `uniqueness` asks D1.
-:::
+- Attribute names are typed, so a misspelled attribute is a compile error.
+- `save()` validates first, and resolves to `false` when a record is invalid.
+- `isValid()` is async, since `uniqueness` asks the database.
 
 ## Available validators
 
@@ -53,12 +93,12 @@ The default messages are in English: “can’t be blank”, “is too short (mi
 
 - **`presence`** fails a string that’s only whitespace. For a boolean, use `inclusion: [true, false]`, since `false` is a value.
 - **`absence`** passes what `presence` fails: `null` and a string that’s only whitespace. So `false` fails it.
-- **`inclusion`** is added for you by an [enum](./models#reading-and-assigning-other-values) declared `validate: true`.
+- **`inclusion`** is added for you by an [enum](./enums#reading-and-assigning-other-values) declared `validate: true`.
 - **`exclusion`** passes `null` unless the list holds it.
-- **`numericality`** only accepts numbers, so a numeric string such as `"12"` is `notANumber`. A [`decimal`](./models#storing-exact-numbers-days-and-times) attribute’s text is the exception: it’s compared with each bound as a number, exactly.
+- **`numericality`** only accepts numbers, so a numeric string such as `"12"` is `notANumber`. A [`decimal`](./attribute-types#storing-exact-numbers-days-and-times) attribute’s text is the exception: it’s compared with each bound as a number, exactly.
 - **`comparison`** compares a number with a number, a string with a string, or a Date with a Date by its time. A `decimal` attribute compares as a number, with a number or a decimal’s text. A bound is a value, or a function of the record (see [Comparing with another attribute](#comparing-with-another-attribute)). A blank value fails once, as `blank`. Blank means `null` or a string that’s only whitespace. Comparing a number with a Date, or any two different kinds, throws `TypeError`. Against a bound of `NaN` or an invalid Date, only `otherThan` passes.
 - **`acceptance`** is for a box that must be ticked. It passes `true` and `"1"`, or the values you give in `{ accept: [...] }`. A checkbox left unticked sends nothing, so `null` fails too. To let `null` pass, add `allowNull: true`.
-- **`uniqueness`** leaves the record itself out when updating, and never treats `null` as taken, as SQLite’s UNIQUE does. `caseSensitive: false` compares with SQLite’s `lower()`, which only lowercases ASCII letters.
+- **`uniqueness`** leaves the record itself out when updating, and never treats `null` as taken, since a UNIQUE index lets several rows hold NULL. `caseSensitive: false` compares with the database’s `lower()`: on D1, SQLite’s lowercases only ASCII letters.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
@@ -78,9 +118,9 @@ Two requests can both check that an email is free, then both insert it. `uniquen
 
 ### Comparing with another attribute
 
-Give `comparison` a function of the record to compare with another attribute:
+Give `comparison` a function of the record to compare with another attribute, as `Event` does:
 
-<include>/_excerpts/guide/validations/comparison.ts</include>
+<include>/_excerpts/pages/validations/examples/comparison.mdx</include>
 
 When the function returns `null`, that bound is skipped. Validate the other attribute’s presence to report it.
 
@@ -92,22 +132,15 @@ Rails names the other attribute with a symbol, `comparison: { greater_than: :sta
 
 ### Raising instead of collecting errors
 
-For a value only a bug in your own code could set, pass `strict: true`. A failing rule then throws `StrictValidationFailed` with its full message, instead of adding an error:
+Pass `strict: true`, as `Invoice` does, for a value only a bug in your own code could set. A failing rule then throws `StrictValidationFailed` with its full message, instead of adding an error:
 
-<include>/_excerpts/guide/validations/strict.ts</include>
-
-```ts
-const invoice = Invoice.build({ total: 1200, currency: "GBP" });
-await invoice.isValid(); // throws "Currency is not included in the list"
-```
+<include>/_excerpts/pages/validations/examples/strict.mdx</include>
 
 `isValid()`, `save()`, and `saveOrThrow()` all throw it, and the validations after it don’t run. To throw an error class of your own, pass the class as `strict`, such as `strict: UnknownCurrency`. It’s made with the same message.
 
 ## Validating only when creating or updating
 
-By default, a rule runs on every save. To run it only when a record is created, pass `on: "create"`:
-
-<include>/_excerpts/guide/validations/contexts.ts</include>
+Pass `on: "create"` to run a rule only when a record is created, as `Member` does with `password`. By default, a rule runs on every save.
 
 A new record is validated in the `"create"` context, and a saved one in `"update"`. A rule with `on` runs only in the contexts it names, so `password` is checked when a member is created, and not when one is updated. To name several contexts, pass a list, such as `on: ["create", "signup"]`.
 
@@ -115,19 +148,11 @@ A new record is validated in the `"create"` context, and a saved one in `"update
 
 ### Naming your own contexts
 
-For a step of your own, such as a signup form, list its name in the Model’s `static validationContexts`, with `as const`. Then pass it to `isValid` or `save`:
+List a step of your own, such as a signup form, in the Model’s `static validationContexts`, with `as const`, as `Member` does. Then pass it to `isValid` or `save`:
 
-```ts
-const member = Member.build({ email: "ada@example.com", password: "secret" });
-await member.isValid("signup"); // false: invite code can't be blank
-await member.save({ context: "signup" });
-```
+<include>/_excerpts/pages/validations/examples/contexts.mdx</include>
 
-Rules without `on` run in every context. A context you pass takes the place of `"create"` or `"update"`, so the `on: "create"` rules don’t run. To run both, pass both:
-
-```ts
-await member.save({ context: ["create", "signup"] });
-```
+Rules without `on` run in every context. A context you pass takes the place of `"create"` or `"update"`, so the `on: "create"` rules don’t run. To run both, pass both, as the example does.
 
 `"create"` and `"update"` are always there, so list only your own. A context the Model doesn’t list is a compile error in `on` and `exceptOn`. Passed to `isValid` or `save`, it throws `TypeError`.
 
@@ -137,7 +162,7 @@ List contexts on each Model. A Model’s subclass shares its list, and an abstra
 
 ### Validating associated records in a context
 
-When you pass a context of your own, the records validated with the owner are validated in it too. These are the records checked by `validatesAssociated`, and the records [saved with their owner](./associations#autosaving). With `"create"` or `"update"`, each record uses its own: a new record is validated in `"create"` even when its owner is updated. A list that holds a context of your own reaches them whole, so `["create", "signup"]` runs the `on: "create"` rules of related records that are already saved, too.
+When you pass a context of your own, the records validated with the owner are validated in it too. These are the records checked by `validatesAssociated`, and the records [saved with their owner](./autosaving#saving-a-graph). With `"create"` or `"update"`, each record uses its own: a new record is validated in `"create"` even when its owner is updated. A list that holds a context of your own reaches them whole, so `["create", "signup"]` runs the `on: "create"` rules of related records that are already saved, too.
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
@@ -153,11 +178,11 @@ Rails accepts any context name, so a misspelled one quietly runs none of its rul
 
 ## Validating associated records
 
-To validate an association’s records with their owner, call `this.validatesAssociated`:
+Call `this.validatesAssociated`, as `Playlist` does, to validate an association’s records with their owner:
 
-<include>/_excerpts/guide/validations/associated.ts</include>
+<include>/_excerpts/pages/validations/examples/associated.mdx</include>
 
-An invalid track makes its playlist invalid, with a “Tracks is invalid” error, and keeps its own errors. If the association isn’t loaded, validating the playlist loads it, with one query. A record marked for destruction isn’t validated. Records built through an association are [validated with their owner](./associations#autosaving) even without `validatesAssociated`.
+An invalid track makes its playlist invalid, with a “Tracks is invalid” error, and keeps its own errors. If the association isn’t loaded, validating the playlist loads it, with one query. A record marked for destruction isn’t validated. Records built through an association are [validated with their owner](./autosaving#saving-a-graph) even without `validatesAssociated`.
 
 `validatesAssociated` takes `if`, `unless`, `on`, `exceptOn`, `message`, and `strict`, as `validates` does. The association’s name is typed, so a misspelled one is a compile error.
 
@@ -179,25 +204,23 @@ Rails’ `validates_associated` on both sides of an association recurses until t
 
 A record’s `errors` hold each failed rule:
 
-<include>/_excerpts/guide/validations/errors.ts</include>
+<include>/_excerpts/pages/validations/examples/errors.mdx</include>
 
 Printing `errors`, in the console or a log, lists each failure’s attribute, type, and message. `fullMessages()` puts the attribute’s name in front, so `createdAt` reads as “Created at”. Errors on the record as a whole go on `"base"`, and read without a prefix.
 
 An error with a number in its message, such as `tooShort`, has it in `toArray()` too:
 
 ```ts
-{ attribute: "handle", type: "tooShort", message: "is too short (minimum is 3 characters)", values: { count: 3 } }
+{ attribute: "handle", type: "tooShort", message: "needs at least 3 characters", values: { count: 3 } }
 ```
 
 ## Adding errors
 
-For a rule the validators don’t cover, add errors in a `beforeValidation` or `afterValidation` callback. A record with any errors is invalid:
+Add errors in a `beforeValidation` or `afterValidation` callback for a rule the validators don’t cover, as `Booking` does. A record with any errors is invalid:
 
-<include>/_excerpts/guide/validations/custom.ts</include>
+<include>/_excerpts/pages/validations/examples/add.mdx</include>
 
-`errors.add` takes the attribute, or `"base"`, then either a `type` or a message. A `type` takes its message from the Model’s `errorMessages`, as `onTheHour` does above. See [Changing error messages](#changing-error-messages). A message is used as written, and its type is `"invalid"`:
-
-<include>/_excerpts/guide/validations/add.ts</include>
+`errors.add` takes the attribute, or `"base"`, then either a `type` or a message. A `type` takes its message from the Model’s `errorMessages`, as `onTheHour` does. See [Changing error messages](#changing-error-messages). A message is used as written, and its type is `"invalid"`.
 
 To fill in a placeholder, pass its value with the type:
 
@@ -221,19 +244,13 @@ Rails’ `errors.add(:starts_at, :on_the_hour)` is `errors.add("startsAt", { typ
 
 ## Changing error messages
 
-To change the message of one validation, pass `message` to `validates`. To change a message for every Model, call `this.errorMessages` in your app’s base class:
-
-<include>/_excerpts/guide/error-messages/base.ts</include>
+Pass `message` to `validates` to change one validation’s message, or call `this.errorMessages` in your app’s base class to change a message for every Model, as `ApplicationRecord` does with `tooShort`:
 
 Each key is a [built-in error type](#finding-a-built-in-message), or a type of your own. A message with a count, such as `tooShort`, can have a form for one and a form for any other count.
 
-A Model’s own messages win over the base class’s, and a later call’s over an earlier one’s. Messages under `attributes` apply to one attribute:
+A Model’s own messages win over the base class’s, and a later call’s over an earlier one’s. Messages under `attributes` apply to one attribute, as `Product`’s do. Each message is looked up when you read it:
 
-<include>/_excerpts/guide/error-messages/model.ts</include>
-
-Each message is looked up when you read it:
-
-<include>/_excerpts/guide/error-messages/read.ts</include>
+<include>/_excerpts/pages/validations/examples/messages.mdx</include>
 
 ### Naming attributes
 
@@ -249,10 +266,10 @@ In a Model, `attributes` and `humanAttributeNames` can only name the Model’s a
 
 A message can show these values:
 
-- **`%{count}`**: the rule’s number or bound, such as the `minimum` of `tooShort` or the bound of `greaterThan`. A Date bound shows as an ISO string. A bound’s function that returns a [filtered attribute](./models#filtering-attributes)’s value shows `[FILTERED]`.
+- **`%{count}`**: the rule’s number or bound, such as the `minimum` of `tooShort` or the bound of `greaterThan`. A Date bound shows as an ISO string. A bound’s function that returns a [filtered attribute](./serialization#filtering-attributes)’s value shows `[FILTERED]`.
 - **`%{attribute}`**: the attribute’s name, as `fullMessages()` shows it.
-- **`%{model}`**: the Model’s name in words, so `BlogPost` reads as “Blog post”. It’s the class name, unless the Model sets [`static modelName`](/models#naming-models).
-- **`%{value}`**: the attribute’s value. A [filtered attribute](./models#filtering-attributes) shows `[FILTERED]`.
+- **`%{model}`**: the Model’s name in words, so `BlogPost` reads as “Blog post”. It’s the class name, unless the Model sets [`static modelName`](./models#naming-models).
+- **`%{value}`**: the attribute’s value. A [filtered attribute](./serialization#filtering-attributes) shows `[FILTERED]`.
 
 A value passed to `errors.add` with the type, such as `count`, fills in the placeholder of the same name.
 
