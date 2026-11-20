@@ -124,7 +124,7 @@ describe("a virtual attribute", () => {
       expect(user.savedChanges()).toMatchObject({ termsOfService: [false, true] });
     });
 
-    test("alone, save updates only updatedAt, as Rails does", async () => {
+    test("alone, save updates only updatedAt", async () => {
       const user = await db().model(User).create({ email: "jane@example.com" });
       const before = user.updatedAt;
       events.length = 0;
@@ -153,7 +153,7 @@ describe("a virtual attribute", () => {
   });
 
   describe("changed in memory", () => {
-    test("toggles, as Rails toggles any attribute", async () => {
+    test("toggles", async () => {
       const user = await db().model(User).create({ email: "jane@example.com" });
 
       user.toggle("termsOfService");
@@ -181,7 +181,7 @@ describe("a virtual attribute", () => {
       expect(member.nickname).toBeNull();
     });
 
-    test("goes back to its default on reload, as Rails does", async () => {
+    test("goes back to its default on reload", async () => {
       const user = await db()
         .model(User)
         .create({ email: "jane@example.com", nickname: "Janie", termsOfService: true });
@@ -195,7 +195,7 @@ describe("a virtual attribute", () => {
   });
 
   describe("in JSON", () => {
-    test("is sent, but a confirmation isn't, as Rails sends neither confirmation", async () => {
+    test("is sent, but a confirmation isn't", async () => {
       const account = await db().model(Account).create({
         email: "jane@example.com",
         emailConfirmation: "jane@example.com",

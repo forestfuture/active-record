@@ -200,7 +200,7 @@ describe("confirmation", () => {
     ]);
   });
 
-  test("skips a null confirmation, as Rails does", async () => {
+  test("skips a null confirmation", async () => {
     expect(await errorsOf(signups.build({ email: "jane@example.com" }))).toEqual([]);
   });
 

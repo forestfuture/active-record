@@ -223,7 +223,7 @@ export class RecordState {
 
   /**
    * Loads a D1 row; the record becomes persisted and clean. Its virtual attributes, which no row
-   * holds, start at their defaults, as Rails' do on a load or `reload` (#356); an insert's re-read
+   * holds, start at their defaults, on a load or `reload` (#356); an insert's re-read
    * row keeps the values it was saved with (`keepVirtual`).
    */
   loadRow(row: Record<string, unknown>, { keepVirtual = false } = {}): void {

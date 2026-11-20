@@ -144,7 +144,7 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     requires: "enum",
     onRetype: "drop",
   },
-  // Rails' attributes API: an attribute that isn't a column (#356). It has no column to name,
+  // An attribute that isn't a column (#356). It has no column to name,
   // generate an id in, or store an epoch or an enum's values in.
   virtual: {
     isWellFormed: (value) => typeof value === "boolean",
