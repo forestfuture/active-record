@@ -9,7 +9,8 @@ export async function signUp(request: Request) {
 // #endregion permit
 
 // #region bad-request
-export async function updateAccount(account: Account, request: Request): Promise<Response> {
+export async function updateAccount(request: Request): Promise<Response> {
+  const account = await Account.find(new URL(request.url).searchParams.get("id") ?? "");
   let permitted;
   try {
     permitted = Account.permit(await request.json(), "handle", "seats");

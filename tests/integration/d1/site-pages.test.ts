@@ -4,7 +4,6 @@ import {
   beforeEach,
   describe,
   expect,
-  type MockInstance,
   onTestFinished,
   test,
   vi,
@@ -20,10 +19,10 @@ import {
 import { inspect } from "node:util";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import * as associations from "../../../site/snippets/pages/associations/examples.ts";
-import { Article as Story } from "../../../site/snippets/pages/associations/src/models/article.ts";
-import { Author as Writer } from "../../../site/snippets/pages/associations/src/models/author.ts";
-import { Comment as Remark } from "../../../site/snippets/pages/associations/src/models/comment.ts";
-import { Profile as Bio } from "../../../site/snippets/pages/associations/src/models/profile.ts";
+import { Article as AssociatedArticle } from "../../../site/snippets/pages/associations/src/models/article.ts";
+import { Author as AssociatedAuthor } from "../../../site/snippets/pages/associations/src/models/author.ts";
+import { Comment as AssociatedComment } from "../../../site/snippets/pages/associations/src/models/comment.ts";
+import { Profile as AssociatedProfile } from "../../../site/snippets/pages/associations/src/models/profile.ts";
 import * as attributeTypes from "../../../site/snippets/pages/attribute-types/examples.ts";
 import { Article as AutosavedArticle } from "../../../site/snippets/pages/autosaving/src/models/article.ts";
 import { Comment as AutosavedComment } from "../../../site/snippets/pages/autosaving/src/models/comment.ts";
@@ -75,6 +74,7 @@ import { Article } from "../../../site/snippets/pages/through-associations/src/m
 import {
   pageMigrations,
   pageProject,
+  quietLog,
   schemaCommand,
   standalonePages,
 } from "../../support/page-projects.ts";
@@ -92,20 +92,6 @@ function pageDatabase(page: string, tables: string[]): () => TestDatabase {
     await binding.batch(tables.map((table) => binding.prepare(`DELETE FROM ${table}`)));
   });
   return () => binding;
-}
-
-/**
- * console.log, quiet for a describe whose examples log what they show: the tests check the calls
- * instead. Made in beforeAll, so describes that don't run yet don't share it; cleared before each.
- */
-function quietLog(): { calls: () => unknown[][] } {
-  let log: MockInstance<typeof console.log>;
-  beforeAll(() => {
-    log = vi.spyOn(console, "log").mockImplementation(() => {});
-  });
-  afterAll(() => log.mockRestore());
-  beforeEach(() => log.mockClear());
-  return { calls: () => log.mock.calls };
 }
 
 // The Attribute types page's examples, on the products table it shows.
@@ -201,16 +187,16 @@ describe("the Change tracking page's examples", () => {
   beforeEach(async () => {
     await binding()
       .prepare(
-        "INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES ('ada', 'jane@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
+        "INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES ('jane', 'jane@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
       )
       .run();
   });
   const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
 
   test("a record reports its unsaved changes, and its callback reads the saved one", async () => {
-    const ada = await run(changeTracking.changing);
+    const user = await run(changeTracking.changing);
 
-    expect([ada.email, ada.isChanged()]).toEqual(["jane@work.example", false]);
+    expect([user.email, user.isChanged()]).toEqual(["jane@work.example", false]);
     expect(log.calls()).toEqual([
       [["email"]],
       ["jane@example.com"],
@@ -221,9 +207,13 @@ describe("the Change tracking page's examples", () => {
   });
 
   test("restoreAttributes undoes the changes it names", async () => {
-    const ada = await run(changeTracking.restoring);
+    const user = await run(changeTracking.restoring);
 
-    expect([ada.email, ada.role, ada.changed()]).toEqual(["jane@example.com", "owner", ["role"]]);
+    expect([user.email, user.role, user.changed()]).toEqual([
+      "jane@example.com",
+      "owner",
+      ["role"],
+    ]);
   });
 });
 
@@ -233,7 +223,7 @@ describe("the Serialization page's examples", () => {
   beforeEach(async () => {
     await binding()
       .prepare(
-        "INSERT INTO accounts (id, email, password_digest, api_key, iban, created_at, updated_at) VALUES ('ada', 'jane@example.com', 'digest', 'key-1', 'DE89', '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
+        "INSERT INTO accounts (id, email, password_digest, api_key, iban, created_at, updated_at) VALUES ('jane', 'jane@example.com', 'digest', 'key-1', 'DE89', '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
       )
       .run();
   });
@@ -324,10 +314,15 @@ describe("the Models page's examples", () => {
     expect([lamp.name, lamp.status, lamp.archived]).toEqual(["Lamp", "draft", false]);
   });
 
-  test("a subclass shares its parent's table, and a Model can name another table", async () => {
-    const { published, account } = await run(models.naming);
+  test("a subclass shares its parent's table", async () => {
+    const { published } = await run(models.naming);
 
     expect(published.map((product) => product.name)).toEqual(["Desk"]);
+  });
+
+  test("a Model can name another table", async () => {
+    const { account } = await run(models.naming);
+
     expect(account.email).toBe("jane@example.com");
   });
 
@@ -357,9 +352,9 @@ describe("the Preloading page's examples", () => {
     const db = binding();
     await db.batch(
       [
-        "INSERT INTO authors (id, name) VALUES ('mary', 'Jane'), ('ada', 'Sam')",
-        "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'mary', 'Poet')",
-        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'mary', 'On Nothing'), ('x2', 'ada', 'Engines')",
+        "INSERT INTO authors (id, name) VALUES ('jane', 'Jane'), ('sam', 'Sam')",
+        "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'jane', 'Poet')",
+        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'jane', 'On Nothing'), ('x2', 'sam', 'Engines')",
         "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x1', 'Hm.')",
         "INSERT INTO photos (id, title) VALUES ('ph', 'Sunset')",
         "INSERT INTO videos (id, title) VALUES ('vi', 'Launch')",
@@ -403,8 +398,8 @@ describe("the Autosaving page's examples", () => {
     const db = binding();
     await db.batch(
       [
-        "INSERT INTO authors (id, name) VALUES ('mary', 'Jane')",
-        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'mary', 'On Nothing'), ('x2', 'mary', 'Draft')",
+        "INSERT INTO authors (id, name) VALUES ('jane', 'Jane')",
+        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'jane', 'On Nothing'), ('x2', 'jane', 'Draft')",
         "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x2', 'Hm.')",
       ].map((sql) => db.prepare(sql)),
     );
@@ -481,8 +476,8 @@ describe("the Touching page's examples", () => {
         "INSERT INTO blogs (id, updated_at) VALUES ('b', '2020-01-01T00:00:00.000Z')",
         "INSERT INTO articles (id, blog_id, title, updated_at) VALUES ('a', 'b', 'Hello', '2020-01-01T00:00:00.000Z')",
         "INSERT INTO comments (id, article_id, body, updated_at) VALUES ('c1', 'a', 'Old', '2020-01-01T00:00:00.000Z')",
-        "INSERT INTO users (id, name, updated_at) VALUES ('ada', 'Sam', '2020-01-01T00:00:00.000Z')",
-        "INSERT INTO profiles (id, user_id, bio, updated_at) VALUES ('p', 'ada', 'Poet', '2020-01-01T00:00:00.000Z')",
+        "INSERT INTO users (id, name, updated_at) VALUES ('sam', 'Sam', '2020-01-01T00:00:00.000Z')",
+        "INSERT INTO profiles (id, user_id, bio, updated_at) VALUES ('p', 'sam', 'Poet', '2020-01-01T00:00:00.000Z')",
       ].map((sql) => db.prepare(sql)),
     );
   });
@@ -554,9 +549,9 @@ describe("the Associations page's examples", () => {
     const db = binding();
     await db.batch(
       [
-        "INSERT INTO authors (id, name) VALUES ('mary', 'Jane'), ('ada', 'Sam')",
-        "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'mary', 'Poet')",
-        "INSERT INTO articles (id, author_id, title, published) VALUES ('x1', 'mary', 'On Nothing', 1), ('x2', 'mary', 'Draft', 0)",
+        "INSERT INTO authors (id, name) VALUES ('jane', 'Jane'), ('sam', 'Sam')",
+        "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'jane', 'Poet')",
+        "INSERT INTO articles (id, author_id, title, published) VALUES ('x1', 'jane', 'On Nothing', 1), ('x2', 'jane', 'Draft', 0)",
         "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x1', 'Hm.')",
         "INSERT INTO categories (id, name, parent_id) VALUES ('t', 'Top', NULL), ('b', 'Beta', 't'), ('a', 'Alpha', 't')",
         "INSERT INTO photos (id, title) VALUES ('ph', 'Sunset')",
@@ -573,9 +568,9 @@ describe("the Associations page's examples", () => {
 
   test("a belongsTo reads its record, and set() points it at another", async () => {
     const { author, article } = await run(associations.readingTheAuthor);
-    const ada = await db().model(Writer).findByOrThrow({ name: "Sam" });
+    const newAuthor = await db().model(AssociatedAuthor).findByOrThrow({ name: "Sam" });
 
-    expect([author?.name, article.authorId]).toEqual(["Jane", ada.id]);
+    expect([author?.name, article.authorId]).toEqual(["Jane", newAuthor.id]);
   });
 
   test("a hasMany reads, builds, and bulk-deletes the owner's records", async () => {
@@ -585,7 +580,7 @@ describe("the Associations page's examples", () => {
       "Draft",
       "On Nothing",
     ]);
-    expect(await db().model(Story).where({ title: "Untitled" }).count()).toBe(0);
+    expect(await db().model(AssociatedArticle).where({ title: "Untitled" }).count()).toBe(0);
   });
 
   test("a hasOne reads its record, and set() replaces it", async () => {
@@ -593,7 +588,7 @@ describe("the Associations page's examples", () => {
 
     await run(associations.replacingTheProfile);
 
-    expect(await db().model(Bio).pluck("bio")).toEqual(["Novelist"]);
+    expect(await db().model(AssociatedProfile).pluck("bio")).toEqual(["Novelist"]);
   });
 
   test("a polymorphic like reads its record, and moves to a video", async () => {
@@ -627,12 +622,15 @@ describe("the Associations page's examples", () => {
 
   test("deleteAll through an association, and destroying with dependents", async () => {
     await run(associations.deletingComments);
-    expect(await db().model(Remark).count()).toBe(0);
+    expect(await db().model(AssociatedComment).count()).toBe(0);
 
     await run(associations.destroying);
 
-    expect(await db().model(Writer).pluck("name")).toEqual(["Sam"]);
-    expect([await db().model(Story).count(), await db().model(Bio).count()]).toEqual([0, 0]);
+    expect(await db().model(AssociatedAuthor).pluck("name")).toEqual(["Sam"]);
+    expect([
+      await db().model(AssociatedArticle).count(),
+      await db().model(AssociatedProfile).count(),
+    ]).toEqual([0, 0]);
   });
 });
 
@@ -1016,11 +1014,16 @@ describe("the Errors page's examples", () => {
   });
   const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
 
-  test("RecordNotFound becomes a 404, and a found user is returned", async () => {
-    const found = await run(() => errors.showUser("00000000-0000-4000-8000-000000000001"));
-    const missing = await run(() => errors.showUser("00000000-0000-4000-8000-000000000099"));
+  test("a found user is returned", async () => {
+    const response = await run(() => errors.showUser("00000000-0000-4000-8000-000000000001"));
 
-    expect([found.status, missing.status]).toEqual([200, 404]);
+    expect(response.status).toBe(200);
+  });
+
+  test("RecordNotFound becomes a 404", async () => {
+    const response = await run(() => errors.showUser("00000000-0000-4000-8000-000000000099"));
+
+    expect(response.status).toBe(404);
   });
 
   test("the UNIQUE index's RecordNotUnique names the email, and becomes a taken error", async () => {
@@ -1126,15 +1129,19 @@ describe("the Untrusted input page's examples", () => {
     const account = await run(() =>
       UntrustedAccount.create({ email: "jane@example.com", handle: "jane" }),
     );
-    const raw = (body: string) => new Request("https://example.com/", { method: "POST", body });
-    const update = (request: Request) => run(() => untrustedInput.updateAccount(account, request));
+    const update = (body: string) =>
+      run(() =>
+        untrustedInput.updateAccount(
+          new Request(`https://example.com/?id=${account.id}`, { method: "POST", body }),
+        ),
+      );
 
-    expect((await update(json({ seats: "many" }))).status).toBe(400);
-    expect((await update(raw("{nope"))).status).toBe(400);
-    expect((await update(json(["seats"]))).status).toBe(400);
+    expect((await update(JSON.stringify({ seats: "many" }))).status).toBe(400);
+    expect((await update("{nope")).status).toBe(400);
+    expect((await update(JSON.stringify(["seats"]))).status).toBe(400);
 
-    const saved = await update(json({ seats: "3" }));
-    expect([saved.status, account.seats]).toEqual([200, 3]);
+    const saved = await update(JSON.stringify({ seats: "3" }));
+    expect([saved.status, ((await saved.json()) as { seats: number }).seats]).toEqual([200, 3]);
   });
 
   test("an untrusted null never reaches the query, so an accepted invitation stays accepted", async () => {
@@ -1245,9 +1252,9 @@ describe("the Querying page's examples", () => {
   beforeEach(async () => {
     await binding()
       .prepare(`INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES
-          ('ada', 'jane@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z'),
-          ('grace', 'grace@example.com', 'editor', 1, '2025-12-01T00:00:00.000Z', '2025-12-01T00:00:00.000Z'),
-          ('linus', 'linus@example.com', 'admin', 0, '2026-01-20T00:00:00.000Z', '2026-01-20T00:00:00.000Z'),
+          ('jane', 'jane@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z'),
+          ('kim', 'kim@example.com', 'editor', 1, '2025-12-01T00:00:00.000Z', '2025-12-01T00:00:00.000Z'),
+          ('lee', 'lee@example.com', 'admin', 0, '2026-01-20T00:00:00.000Z', '2026-01-20T00:00:00.000Z'),
           ('olive', 'olive@example.com', 'owner', 1, '2025-11-01T00:00:00.000Z', '2025-11-01T00:00:00.000Z')`)
       .run();
   });
@@ -1255,33 +1262,33 @@ describe("the Querying page's examples", () => {
   const ids = (users: { id: string }[]) => users.map((user) => user.id);
 
   test("a Relation runs only when asked, and narrowing it returns a new one", async () => {
-    expect(ids(await run(querying.building))).toEqual(["linus", "ada"]);
+    expect(ids(await run(querying.building))).toEqual(["lee", "jane"]);
   });
 
   test("the finders find what their comments say", async () => {
     const found = await run(querying.finding);
 
     expect([found.user.id, found.nobody, found.again.id, found.oldest?.id]).toEqual([
-      "ada",
+      "jane",
       null,
-      "ada",
-      "ada",
+      "jane",
+      "jane",
     ]);
-    expect([found.newest?.id, found.owner.id]).toEqual(["linus", "olive"]);
+    expect([found.newest?.id, found.owner.id]).toEqual(["lee", "olive"]);
   });
 
   test("pluck, pick and ids read attributes without loading records", async () => {
     const { emails, pairs, latest, adminIds } = await run(querying.reading);
 
     expect(emails).toEqual([
-      "grace@example.com",
       "jane@example.com",
-      "linus@example.com",
+      "kim@example.com",
+      "lee@example.com",
       "olive@example.com",
     ]);
-    expect(pairs[0]).toEqual(["grace", "grace@example.com"]);
-    expect(latest).toBe("linus@example.com");
-    expect(adminIds.map(String).sort((a, b) => a.localeCompare(b))).toEqual(["ada", "linus"]);
+    expect(pairs[0]).toEqual(["jane", "jane@example.com"]);
+    expect(latest).toBe("lee@example.com");
+    expect(adminIds.map(String).sort((a, b) => a.localeCompare(b))).toEqual(["jane", "lee"]);
   });
 
   test("count and the checks answer as their comments say", async () => {
@@ -1299,7 +1306,7 @@ describe("the Querying page's examples", () => {
 
     const { first, roles } = await run(querying.selecting);
 
-    expect(log.mock.calls).toEqual([["grace@example.com"], ["grace"]]);
+    expect(log.mock.calls).toEqual([["jane@example.com"], ["jane"]]);
     expect(() => first?.role).toThrow(MissingAttribute);
     expect(roles.map(String).sort((a, b) => a.localeCompare(b))).toEqual([
       "admin",
@@ -1313,7 +1320,7 @@ describe("the Querying page's examples", () => {
     onTestFinished(() => log.mockRestore());
 
     expect(await run(querying.matchingNothing)).toEqual([]);
-    expect(ids(await run(querying.merging))).toEqual(["linus"]);
+    expect(ids(await run(querying.merging))).toEqual(["lee"]);
     expect(querying.seeingSql().params).toEqual(["admin", 10]);
   });
 });
@@ -1325,10 +1332,10 @@ describe("the Conditions page's examples", () => {
     await binding()
       .prepare(
         `INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES
-          ('ada', 'jane@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z'),
-          ('grace', 'grace@example.com', 'editor', 1, '2025-12-01T00:00:00.000Z', '2025-12-01T00:00:00.000Z'),
-          ('linus', 'linus@example.com', 'admin', 0, '2026-01-20T00:00:00.000Z', '2026-01-20T00:00:00.000Z'),
-          ('hopper', 'hopper@example.com', NULL, 0, '2025-11-01T00:00:00.000Z', '2025-11-01T00:00:00.000Z')`,
+          ('jane', 'jane@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z'),
+          ('kim', 'kim@example.com', 'editor', 1, '2025-12-01T00:00:00.000Z', '2025-12-01T00:00:00.000Z'),
+          ('lee', 'lee@example.com', 'admin', 0, '2026-01-20T00:00:00.000Z', '2026-01-20T00:00:00.000Z'),
+          ('alex', 'alex@example.com', NULL, 0, '2025-11-01T00:00:00.000Z', '2025-11-01T00:00:00.000Z')`,
       )
       .run();
   });
@@ -1339,9 +1346,9 @@ describe("the Conditions page's examples", () => {
       conditions.matching(),
     );
 
-    expect(ids(admins)).toEqual(["ada"]);
-    expect(ids(others)).toEqual(["grace"]);
-    expect(ids(either)).toEqual(["ada", "hopper", "linus"]);
+    expect(ids(admins)).toEqual(["jane"]);
+    expect(ids(others)).toEqual(["kim"]);
+    expect(ids(either)).toEqual(["alex", "jane", "lee"]);
   });
 
   test("a misspelled attribute throws UnknownAttribute", () => {
@@ -1353,8 +1360,8 @@ describe("the Conditions page's examples", () => {
       conditions.comparing(),
     );
 
-    expect(user?.id).toBe("ada");
-    expect(ids(newcomers)).toEqual(["ada", "linus"]);
+    expect(user?.id).toBe("jane");
+    expect(ids(newcomers)).toEqual(["jane", "lee"]);
   });
 
   test("rewhere replaces the role, and excluding leaves out the record", async () => {
@@ -1362,8 +1369,8 @@ describe("the Conditions page's examples", () => {
       conditions.rewriting(),
     );
 
-    expect(ids(activeAdmins)).toEqual(["ada"]);
-    expect(ids(everyoneElse)).toEqual(["grace", "hopper", "linus"]);
+    expect(ids(activeAdmins)).toEqual(["jane"]);
+    expect(ids(everyoneElse)).toEqual(["alex", "kim", "lee"]);
   });
 });
 
@@ -1374,9 +1381,9 @@ describe("the Through associations page's examples", () => {
   beforeEach(async () => {
     const db = binding();
     await db.batch([
-      db.prepare("INSERT INTO authors (id, name) VALUES ('mary', 'Jane'), ('ada', 'Sam')"),
+      db.prepare("INSERT INTO authors (id, name) VALUES ('jane', 'Jane'), ('sam', 'Sam')"),
       db.prepare(
-        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'mary', 'On Nothing'), ('x2', 'ada', 'Engines')",
+        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'jane', 'On Nothing'), ('x2', 'sam', 'Engines')",
       ),
       db.prepare("INSERT INTO tags (id, name) VALUES (1, 'essays'), (2, 'empty')"),
     ]);
@@ -1626,9 +1633,9 @@ describe("the Joins page's examples", () => {
     const db = binding();
     await db.batch(
       [
-        "INSERT INTO authors (id, name) VALUES ('mary', 'Jane'), ('ada', 'Sam')",
-        "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'mary', 'Poet')",
-        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'mary', 'On Nothing'), ('x2', 'ada', 'Engines')",
+        "INSERT INTO authors (id, name) VALUES ('jane', 'Jane'), ('sam', 'Sam')",
+        "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'jane', 'Poet')",
+        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'jane', 'On Nothing'), ('x2', 'sam', 'Engines')",
         "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x1', 'Hm.'), ('c2', 'x1', 'Yes.')",
       ].map((sql) => db.prepare(sql)),
     );
