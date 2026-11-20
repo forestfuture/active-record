@@ -5,11 +5,44 @@ seo:
   description: "Share methods, callbacks, and scopes across every Active Record Model by writing them once on your app’s ApplicationRecord base class."
 ---
 
+## At a glance
+
+| To                                      | Write, on `ApplicationRecord`                            |
+| --------------------------------------- | -------------------------------------------------------- |
+| give every record a method              | `label() { … }`                                          |
+| run a callback for every Model          | `this.beforeSave(…)`, in `static {}`                     |
+| give every Model a scope                | ``static newest = this.scope((q) => q.order(sql`…`))``   |
+| share behavior between only some Models | an `abstract` class between them and `ApplicationRecord` |
+
+## The Models
+
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="application-record.ts">
+  /_excerpts/pages/shared-behavior/src/models/application-record.ts
+</include>
+
+<include meta="product.ts">/_excerpts/pages/shared-behavior/src/models/product.ts</include>
+
+<include meta="auditable.ts">/_excerpts/pages/shared-behavior/src/models/auditable.ts</include>
+
+<include meta="invoice.ts">/_excerpts/pages/shared-behavior/src/models/invoice.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/shared-behavior/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/shared-behavior/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/shared-behavior/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
+
 ## Sharing methods, callbacks, and scopes
 
-Write them on `ApplicationRecord`, in `src/models/application-record.ts`:
+Write them on `ApplicationRecord`, in `src/models/application-record.ts`, and every Model has them, as `Product` does:
 
-<include>/_excerpts/guide/application-record/shared.ts</include>
+<include>/_excerpts/pages/shared-behavior/examples/shared.mdx</include>
 
 Each is shared like this:
 
@@ -31,31 +64,17 @@ A Model can replace a shared method or scope by declaring one of the same name.
 
 Inside `ApplicationRecord`, `this` is a record of any Model. It has every record method, such as `save()` and `attributes()`, but no attributes, since those differ from table to table:
 
-- Read attributes through `this.attributes()`, as `label()` does above.
-- Write shared scopes with `sql` fragments, since they run on each Model’s own table: `static newest = this.scope((q) => q.order(sql\`created_at DESC\`))`.
+- Read attributes through `this.attributes()`, as `label()` does.
+- Write shared scopes with `sql` fragments, as `newest` does, since they run on each Model’s own table.
 - Validations name attributes, so they belong on each Model. Put shared checks in a callback instead.
 
 `ApplicationRecord` has no table of its own, so `db.model(ApplicationRecord)` throws `InvalidModel`. Once a Model has been used, `ApplicationRecord` is sealed with it, so request code can’t add callbacks to every Model.
 
 ## Sharing behavior between some Models
 
-To share behavior between only some Models, put it on a class between them and `ApplicationRecord`, marked `abstract`:
+To share behavior between only some Models, put it on a class between them and `ApplicationRecord`, marked `abstract`, as `Auditable` is:
 
-```ts
-import { ApplicationRecord } from "./application-record";
-
-export abstract class Auditable extends ApplicationRecord {
-  static override abstract = true;
-
-  static {
-    this.afterSave((record) => {
-      console.log(`Saved ${record.constructor.name}`);
-    });
-  }
-}
-
-export class Invoice extends Auditable {}
-```
+<include>/_excerpts/pages/shared-behavior/examples/some.mdx</include>
 
 `Auditable` has no table. Each class that extends it has its own, so `Invoice` reads and writes `invoices`.
 

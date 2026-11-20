@@ -39,6 +39,7 @@ import * as connecting from "../../../site/snippets/pages/connecting/examples.ts
 import { User as ConnectedUser } from "../../../site/snippets/pages/connecting/src/models/user.ts";
 import * as customTypes from "../../../site/snippets/pages/custom-types/examples.ts";
 import * as errors from "../../../site/snippets/pages/errors/examples.ts";
+import * as sharedBehavior from "../../../site/snippets/pages/shared-behavior/examples.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as changeTracking from "../../../site/snippets/pages/change-tracking/examples.ts";
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
@@ -1057,6 +1058,34 @@ describe("the Custom types page's examples", () => {
 
     expect(log.calls()).toEqual([[true]]);
     expect(await raw("SELECT sizes FROM shirts")).toEqual([{ sizes: "S,M,XL" }]);
+  });
+});
+
+// The Shared behavior page's examples, on the tables it shows.
+describe("the Shared behavior page's examples", () => {
+  const binding = pageDatabase("shared-behavior", ["products", "invoices"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare(
+        "INSERT INTO products (id, name, created_at) VALUES ('1', 'Desk', '2026-01-01T00:00:00.000Z')",
+      )
+      .run();
+  });
+  const log = quietLog();
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+
+  test("every Model has the base class's method, scope, and callback", async () => {
+    const { lamp, newest } = await run(sharedBehavior.sharing);
+
+    expect(log.calls()).toEqual([["Saving Product"], [lamp.label()]]);
+    expect(lamp.label()).toMatch(/^Product \{"id":"[^"]+","name":"Lamp","createdAt":"[^"]+"\}$/);
+    expect(newest?.name).toBe("Lamp");
+  });
+
+  test("an abstract class's callback runs only for the Models that extend it", async () => {
+    await run(sharedBehavior.auditing);
+
+    expect(log.calls()).toEqual([["Saving Invoice"], ["Saved Invoice"]]);
   });
 });
 

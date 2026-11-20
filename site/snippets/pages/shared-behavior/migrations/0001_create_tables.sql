@@ -1,0 +1,10 @@
+CREATE TABLE products (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  created_at DATETIME NOT NULL
+);
+CREATE TABLE invoices (
+  id TEXT PRIMARY KEY NOT NULL,
+  total_cents INTEGER NOT NULL,
+  created_at DATETIME NOT NULL
+);
