@@ -6,7 +6,7 @@ How a guide page is built. Readers land on one page from a search or an agent, a
 
 ## The layout
 
-1. **The deck** is the front matter's `description`: one declarative sentence saying what the page lets you do. "Filter a query’s records by their attributes." Not a list of keywords, and no code formatting, since it renders as plain text.
+1. **The deck** is the front matter's `description`: one declarative sentence saying what the page lets you do. "Filter a query’s records by their attributes." Not a list of keywords, and no code formatting, since it renders as plain text. Its `seo.description`, 110 to 160 characters, is the fuller summary search engines and `llms.txt` show: name what the page covers, methods included. `blume audit` checks the length.
 2. **Nothing between the deck and the first heading.** A paragraph there reads as a second deck. A note, tip, or warning box may sit there. Otherwise, start with a heading.
 3. **`## At a glance`**: a table of each task and the code it takes (and the SQL it writes, for a query). Options go beneath it in a `<TypeTable>`, written by hand: agents read it as a Markdown table, while an `<AutoTypeTable>` reaches them as raw JSX.
 4. **`## The Model` (or `## The Models`)**: one sentence, then a `<CodeGroup>` with a tab for each Model file (`user.ts`), the generated `schema.ts`, and the `D1` and `Postgres` migrations. The Models are written as an app writes them: `class User extends ApplicationRecord {}`, with only their behavior, and their attributes come from the generated schema. Never `Model.define`, which an agent would copy into apps.
@@ -37,3 +37,4 @@ pages/<page>/
 - Don't pin a type with `// ^?`: its popup never closes.
 - To show a compile error, put `// @ts-expect-error` above the line. `vp check` proves the error is there, and the page shows it.
 - Add the page to `standalonePages` in `tests/support/page-projects.ts`, and test its examples in `tests/integration/d1/site-pages.test.ts` and `tests/integration/pg/site-pages.test.ts`. Those tests also fail if the project's schema isn't what its migrations generate, or if its Postgres migrations generate other attributes. On Postgres, the examples run on the schema the Postgres migrations generate, with the same Models, as an app that moves to Postgres does.
+- Add two or three questions a reader would ask about the page to `site/evals.yaml`, each with the facts a right answer states and the page as its route. `vp run eval` in `site/` has Claude Code answer them from the guide alone, and grade the answers. A full run costs a few dollars, so run it after changing pages, not on every commit.
