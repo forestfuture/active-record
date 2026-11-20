@@ -136,6 +136,61 @@ describe("an attribute alias", () => {
     });
   });
 
+  describe("in a write", () => {
+    const emails = () => harness.exec("SELECT email FROM users ORDER BY id");
+
+    test("builds and creates a record", async () => {
+      const users = db().model(User);
+      const form = User.permit({ login: "jane@example.com", role: "admin" }, "login");
+
+      const built = users.build(form);
+      const created = await users.create({ login: "sam@example.com", years: 40 });
+
+      expect(built.email).toBe("jane@example.com");
+      expect([created.email, created.age]).toEqual(["sam@example.com", 40]);
+    });
+
+    test("creates through a Relation's conditions and createWith", async () => {
+      const users = db().model(User);
+
+      const found = await users.findOrCreateBy({ login: "jane@example.com" });
+      const made = await users
+        .createWith({ years: 30 })
+        .findOrCreateBy({ login: "sam@example.com" });
+
+      expect(found.email).toBe("jane@example.com");
+      expect([made.email, made.age]).toEqual(["sam@example.com", 30]);
+    });
+
+    test("inserts and upserts rows", async () => {
+      const users = db().model(User);
+
+      await users.insert({ login: "jane@example.com" });
+      const { rows } = await users.insertAll([{ login: "sam@example.com", years: 40 }], {
+        returning: ["login"],
+      });
+      await users.upsert({ login: "jane@example.com", years: 31 }, { uniqueBy: ["login"] });
+
+      expect(rows).toEqual([{ email: "sam@example.com" }]); // keyed as select loads it
+      expect(await harness.exec("SELECT email, age FROM users ORDER BY id")).toEqual([
+        { email: "jane@example.com", age: 31 },
+        { email: "sam@example.com", age: 40 },
+      ]);
+    });
+
+    test("updates rows and columns", async () => {
+      const user = await db().model(User).create({ email: "jane@example.com", age: 30 });
+
+      await db().model(User).updateAll({ login: "sam@example.com" });
+      await user.updateColumns({ years: 31 });
+      await user.incrementColumn("years");
+      user.increment("years");
+
+      expect(await emails()).toEqual([{ email: "sam@example.com" }]);
+      expect(user.age).toBe(33);
+    });
+  });
+
   describe("its changes", () => {
     test("are listed under the attribute it names", async () => {
       const user = await db().model(User).create({ email: "jane@example.com" });
