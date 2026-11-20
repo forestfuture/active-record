@@ -48,10 +48,8 @@ export async function signingUp() {
 export async function confirming() {
   // #region confirmation
   const form = { email: "jane@example.com", emailConfirmation: "jane@exmaple.com" };
-  const member = Member.build({
-    ...Member.permit(form, "email", "emailConfirmation"),
-    password: "secret",
-  });
+  const permitted = Member.permit(form, "email", "emailConfirmation");
+  const member = Member.build({ ...permitted, password: "secret" });
   await member.isValid(); // false: "Email confirmation doesn't match Email"
   console.log(member.toJSON().emailConfirmation); // undefined: never sent back
   // #endregion confirmation

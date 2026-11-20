@@ -15,6 +15,7 @@ import {
   type AttributeSpecs,
   type AttributeType,
   type ValueSource,
+  virtualNullProblem,
 } from "./metadata.ts";
 import { state } from "./record-state.ts";
 import {
@@ -485,14 +486,7 @@ function virtualSpec(
   }
   const problem =
     specProblem(where, spec as SpecOverride & { type: AttributeType }) ??
-    nonNullProblem(where, spec);
+    virtualNullProblem(where, spec);
   if (problem !== undefined) throw new InvalidModel(problem);
   return spec as AttributeSpecs[string];
-}
-
-/** A virtual attribute declared non-null with no default, which would read as null (#356). */
-function nonNullProblem(where: string, spec: SpecOverride): string | undefined {
-  return spec.null === false && spec.default === undefined
-    ? `${where} is virtual and null: false, so it needs a default`
-    : undefined;
 }

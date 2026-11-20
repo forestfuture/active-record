@@ -77,7 +77,7 @@ An attribute whose values listeners, errors, and a printed record show as `"[FIL
 _Avoid_: Redacted, masked, sensitive field; and "filter" alone, which means a **Scope**'s conditions
 
 **Virtual attribute**:
-An **Attribute** declared with `virtual: true` that isn't a **Column**: typed, cast and change-tracked, but never read from a row or written to one, and never named in a query. A `confirmation` rule reads one, which `toJSON()` leaves out.
+An **Attribute** declared with `virtual: true` that isn't a **Column**: typed, cast, and change-tracked, but never read from a row or written to one, and never named in a query. A `confirmation` rule reads one, which `toJSON()` leaves out.
 _Avoid_: Transient, non-persisted, attr_accessor
 
 **Hidden attribute**:
