@@ -601,6 +601,14 @@ export class Model extends AttributeWrites {
   }
 
   /**
+   * Normalizes an attribute's value as assigning it again would (#354): for a value loaded from
+   * a row stored before its normalization was declared, which loading leaves as it was.
+   */
+  normalizeAttribute<R extends Model>(this: R, name: AttributeKey<R>): void {
+    this[state].write(name, this[state].read(name));
+  }
+
+  /**
    * Inserts a new record or updates a persisted one; `false` if it's invalid, a callback aborted,
    * or a record it destroys refused (#37). `context` validates it in that context (`"signup"`), as
    * `isValid(context)` does.
