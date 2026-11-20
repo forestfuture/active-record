@@ -11,18 +11,19 @@ import {
 import { UnknownAttribute, withDatabase } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import * as batchIteration from "../../../site/snippets/guide/batch-iteration.ts";
+import * as calculations from "../../../site/snippets/guide/calculations.ts";
 import * as conditions from "../../../site/snippets/guide/conditions.ts";
 import * as ordering from "../../../site/snippets/guide/ordering.ts";
 import * as through from "../../../site/snippets/guide/through.ts";
 import { cpSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
-import { pageModelsAndTables } from "../../support/page-models.ts";
+import { pageModelsAndTables, standalonePages } from "../../support/page-models.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
 const scratch = scratchDirs();
 
-/** A D1 database with a page's own tables (site/snippets/guide/<page>-d1.sql), emptied before each test. */
+/** A D1 database with a page's own tables (site/snippets/guide/<page>-d1.sql), `tables` emptied before each test. */
 function pageDatabase(page: string, tables: string[]): () => TestDatabase {
   let binding: TestDatabase;
   let dispose: () => Promise<void>;
@@ -32,6 +33,7 @@ function pageDatabase(page: string, tables: string[]): () => TestDatabase {
   });
   afterAll(() => dispose());
   beforeEach(async () => {
+    if (tables.length === 0) return;
     await binding.batch(tables.map((table) => binding.prepare(`DELETE FROM ${table}`)));
   });
   return () => binding;
@@ -252,34 +254,88 @@ describe("the Batch iteration page's examples", () => {
   });
 });
 
+// The Calculations page's examples (#344, #345), on the products table it shows.
+describe("the Calculations page's examples", () => {
+  const binding = pageDatabase("calculations", []);
+  const days = ["2026-01-02T00:00:00.000Z", "2026-03-04T00:00:00.000Z"];
+  beforeAll(async () => {
+    for (const [name, cents, available, createdAt] of [
+      ["Pin", 500, 1, days[0]],
+      ["Lamp", 12_000, 1, days[1]],
+      ["Desk", 30_000, 0, days[0]],
+      ["Mug", 1_000, 1, days[0]],
+    ] as const) {
+      await binding()
+        .prepare(
+          "INSERT INTO products (id, name, price_cents, is_available, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(name, name, cents, available, createdAt, createdAt)
+        .run();
+    }
+  });
+
+  test("each resolves as its comment says", async () => {
+    const results = await withDatabase(connect(binding()), () => calculations.calculations());
+
+    expect(results).toEqual({
+      total: 13_500,
+      averagePrice: 10_875,
+      cheapest: 500,
+      newest: new Date(days[1]!),
+      topThree: 43_000,
+      averageDollars: 108.75,
+    });
+  });
+
+  test("each grouped calculation resolves as its comment says (#345)", async () => {
+    const results = await withDatabase(connect(binding()), () => calculations.groups());
+
+    expect(results).toEqual({
+      byAvailability: new Map([
+        [true, 3],
+        [false, 1],
+      ]),
+      inStock: 3,
+      valueByAvailability: new Map([
+        [true, 13_500],
+        [false, 30_000],
+      ]),
+      byBand: new Map([
+        [[true, "cheap"], 2],
+        [[true, "pricey"], 1],
+        [[false, "pricey"], 1],
+      ]),
+      crowdedCounts: new Map([[true, 3]]),
+      largest: new Map([[true, 3]]),
+    });
+  });
+});
+
 // Each page shows its Models beside its D1 tables; the attributes generated from those tables are
 // the ones its Models declare.
 describe("the standalone pages’ Models, against their D1 tables", () => {
-  test.each(["conditions", "through", "ordering", "batch-iteration"])(
-    "%s declares what its tables generate",
-    async (page) => {
-      const cwd = scratch(`page-${page}-`);
-      writeFileSync(
-        join(cwd, "active-record.jsonc"),
-        '{ "databases": { "DB": { "adapter": "d1" } } }',
-      );
-      writeFileSync(
-        join(cwd, "wrangler.jsonc"),
-        '{ "name": "page", "d1_databases": [{ "binding": "DB", "database_name": "page", "database_id": "x" }] }',
-      );
-      mkdirSync(join(cwd, "migrations"));
-      cpSync(
-        new URL(`../../../site/snippets/guide/${page}-d1.sql`, import.meta.url),
-        join(cwd, "migrations/0001_create_tables.sql"),
-      );
+  test.each(standalonePages)("%s declares what its tables generate", async (page) => {
+    const cwd = scratch(`page-${page}-`);
+    writeFileSync(
+      join(cwd, "active-record.jsonc"),
+      '{ "databases": { "DB": { "adapter": "d1" } } }',
+    );
+    writeFileSync(
+      join(cwd, "wrangler.jsonc"),
+      '{ "name": "page", "d1_databases": [{ "binding": "DB", "database_name": "page", "database_id": "x" }] }',
+    );
+    mkdirSync(join(cwd, "migrations"));
+    cpSync(
+      new URL(`../../../site/snippets/guide/${page}-d1.sql`, import.meta.url),
+      join(cwd, "migrations/0001_create_tables.sql"),
+    );
 
-      const { declared, generated } = await pageModelsAndTables(
-        cwd,
-        page,
-        (model) => `${model.toLowerCase()}s`,
-      );
+    const { declared, generated } = await pageModelsAndTables(
+      cwd,
+      page,
+      (model) => `${model.toLowerCase()}s`,
+    );
 
-      expect(declared).toEqual(generated);
-    },
-  );
+    expect(declared).toEqual(generated);
+  });
 });

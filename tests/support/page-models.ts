@@ -47,3 +47,12 @@ export async function pageModelsAndTables(
   );
   return { declared, generated };
 }
+
+/** The guide pages laid out as docs/agents/docs-pages.md says, by their snippet file's name. */
+export const standalonePages = [
+  "conditions",
+  "through",
+  "ordering",
+  "batch-iteration",
+  "calculations",
+];
