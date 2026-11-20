@@ -146,11 +146,12 @@ export async function runAlone<Row>(statement: Statement<Row>): Promise<WriteRes
 /** Reads the attributes `names` of each returned row, each as its type. */
 function rowReader(model: ModelClass, names: readonly string[]): RowReader {
   if (names.length === 0) return noRows;
-  const attributes = names.map((name) => attributeFor(model, name));
+  // Each row is keyed by the names `returning` gave, an alias's included (#509).
+  const attributes = names.map((name) => [name, attributeFor(model, name)] as const);
   return (rows) =>
     rows.map((row) =>
       Object.fromEntries(
-        attributes.map((attribute) => [attribute.name, attribute.read(row[attribute.column])]),
+        attributes.map(([name, attribute]) => [name, attribute.read(row[attribute.column])]),
       ),
     );
 }

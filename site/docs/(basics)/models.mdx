@@ -147,7 +147,8 @@ Add `aliasOf` to give an attribute a second name, as `Product` does with `title`
 
 - **It reads and writes the attribute it names,** typed as that attribute.
 - **Queries and writes take either name:** `where`, `order`, `pluck`, `select`, `group`, the calculations, `build`, `create`, `permit`, `insert`, `upsert`, and `updateAll`.
-- **The record holds the value once,** under the attribute’s name. `attributes()`, `toJSON()`, and `changes()` list `name`, and a row `select` or `returning` loads is keyed by `name`. `attributeWas("title")` and the other methods that take a name read it through the alias.
+- **The record holds the value once,** under the attribute’s name. `attributes()`, `toJSON()`, and `changes()` list `name`, and so does a record `select("title")` loads. `attributeWas("title")` and the other methods that take a name read it through the alias.
+- **A row that gives both `title` and `name`** throws `TypeError`, since they’re one column.
 - **`validates("title", …)` reads through the alias,** and its errors go under `title`.
 
 :::note

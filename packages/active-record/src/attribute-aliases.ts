@@ -3,7 +3,7 @@
 import { InvalidModel } from "./errors.ts";
 
 /** An alias in `static attributes` or `define`: `title: { aliasOf: "name" }` reads as "title is an alias of name". */
-export interface AliasAttribute {
+export interface AttributeAlias {
   readonly aliasOf: string;
 }
 
@@ -30,26 +30,26 @@ export type WithoutAliases<O> = {
 };
 
 /** Whether a declared attribute is an alias: an object with `aliasOf`. */
-export function isAlias(declared: unknown): declared is AliasAttribute {
+export function isAlias(declared: unknown): declared is AttributeAlias {
   return typeof declared === "object" && declared !== null && "aliasOf" in declared;
 }
 
 /**
- * The aliases a Model's declared attributes hold, by alias, each to the attribute it names; `where`
- * prefixes an alias's name in an error (`"Post."`, or nothing for `define`).
+ * The aliases a Model's declared attributes hold, by alias, each to the attribute it names;
+ * `prefix` goes before an alias's name in an error (`"Post."`, or nothing for `define`).
  */
 export function aliasesIn(
-  where: string,
+  prefix: string,
   declared: Readonly<Record<string, unknown>>,
   attributes: ReadonlyMap<string, unknown>,
 ): ReadonlyMap<string, string> {
-  const given = Object.entries(declared).filter((entry): entry is [string, AliasAttribute] =>
+  const given = Object.entries(declared).filter((entry): entry is [string, AttributeAlias] =>
     isAlias(entry[1]),
   );
   const aliases = new Map(given.map(([name, { aliasOf }]) => [name, aliasOf]));
   for (const [name, alias] of given) {
     const problem = aliasProblem(name, alias, aliases, attributes);
-    if (problem !== undefined) throw new InvalidModel(`${where}${name}${problem}`);
+    if (problem !== undefined) throw new InvalidModel(`${prefix}${name}${problem}`);
   }
   return aliases;
 }
@@ -60,7 +60,7 @@ export function aliasesIn(
  */
 function aliasProblem(
   name: string,
-  alias: AliasAttribute,
+  alias: AttributeAlias,
   aliases: ReadonlyMap<string, string>,
   attributes: ReadonlyMap<string, unknown>,
 ): string | undefined {
@@ -84,4 +84,25 @@ export function attributeName(
   name: string,
 ): string {
   return model.attributeAliases?.get(name) ?? name;
+}
+
+/**
+ * `values` keyed by attribute: an alias's value under the attribute it names, so a row writes
+ * each column once. Giving both an alias and its attribute is a `TypeError`.
+ */
+export function withAttributeNames(
+  model: { readonly name: string; readonly attributeAliases?: ReadonlyMap<string, string> },
+  values: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  const givenAs = new Map<string, string>();
+  for (const given of Object.keys(values)) {
+    const name = attributeName(model, given);
+    const earlier = givenAs.get(name);
+    if (earlier !== undefined) {
+      const alias = given === name ? earlier : given;
+      throw new TypeError(`${model.name}: ${alias} is an alias of ${name}, so give one of them`);
+    }
+    givenAs.set(name, given);
+  }
+  return Object.fromEntries([...givenAs].map(([name, given]) => [name, values[given]]));
 }

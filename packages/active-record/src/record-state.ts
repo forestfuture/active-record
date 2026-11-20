@@ -323,6 +323,13 @@ export class RecordState {
     return this.#isMatching(name, this.valueInDatabase(name), this.#values[name], options);
   }
 
+  /** The last save's change to the attribute, or an alias's, `[before, after]`, if it changed it. */
+  savedChangeOf(given: string): readonly [unknown, unknown] | undefined {
+    const name = attributeName(this.#model, given);
+    this.read(name);
+    return this.#savedChanges[name];
+  }
+
   /** Whether the last save changed the attribute, optionally `from` and `to` given values. */
   hasSavedChangeTo(given: string, options: ChangeOptions = {}): boolean {
     const name = attributeName(this.#model, given);
@@ -426,8 +433,8 @@ export class RecordState {
    * stored, or what `row` returned for them, and have no unsaved change. The rest, and
    * `savedChanges`, are as they were.
    */
-  commitColumns(names: readonly string[], row: Record<string, unknown> = {}): void {
-    for (const name of names) {
+  commitColumns(given: readonly string[], row: Record<string, unknown> = {}): void {
+    for (const name of given.map((each) => attributeName(this.#model, each))) {
       const { column } = this.#definition(name);
       const attribute = this.#attribute(name);
       this.#values[name] = column in row ? attribute.read(row[column]) : this.#copyOf(name);
@@ -439,7 +446,8 @@ export class RecordState {
    * After a touch (#50): as `commitColumns`, and `savedChanges` holds only the touched
    * attributes' changes. The record's other changes stay unsaved.
    */
-  commitTouch(names: readonly string[]): void {
+  commitTouch(given: readonly string[]): void {
+    const names = given.map((each) => attributeName(this.#model, each));
     const changes = this.changes();
     this.commitColumns(names);
     this.#savedChanges = Object.fromEntries(

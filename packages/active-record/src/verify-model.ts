@@ -154,7 +154,8 @@ function namesListedByAttributelessAncestors(model: ModelClass): Set<string> {
  */
 function rejectUnknownMessageNames(model: ModelClass): void {
   const associations = associationsOf(model).keys();
-  const known = new Set(["base", ...model.attributeDefinitions.keys(), ...associations]);
+  const attributes = [...model.attributeDefinitions.keys(), ...model.attributeAliases.keys()];
+  const known = new Set(["base", ...attributes, ...associations]);
   for (const { from, declaration, names } of attributesNamedInMessages(model)) {
     const unknown = names.find((name) => !known.has(name));
     if (unknown === undefined || hasNoAttributes(from)) continue;
