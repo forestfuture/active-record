@@ -20,7 +20,7 @@ export function countSourceOf(values: ValueSource, collection: OwnedCollection):
 }
 
 /**
- * The number of records, as Rails' `size`: a loaded association's (built records included)
+ * The number of records: a loaded association's (built records included)
  * without a query, or its owner's counter cache's (#61); otherwise a `COUNT(*)`; plus an
  * association's unsaved built records.
  */
@@ -33,7 +33,7 @@ export async function size(source: CountSource): Promise<number> {
 
 /**
  * Whether there are no records: a loaded association answers itself, or one whose owner keeps a
- * counter cache by it, as Rails' `empty?` does (#61); else `!exists()`.
+ * counter cache by it (#61); else `!exists()`.
  */
 export async function isEmpty(source: CountSource): Promise<boolean> {
   const cached = source.cached();
@@ -50,7 +50,7 @@ export async function exists({ query, dialect, runner }: ValueSource): Promise<b
 }
 
 /**
- * How many records there are, counting no further than two, as Rails' `many?` and `one?` count:
+ * How many records there are, counting no further than two:
  * a loaded association's, or a `COUNT` of at most two rows, plus an association's unsaved ones.
  */
 export async function upToTwo(source: CountSource): Promise<number> {

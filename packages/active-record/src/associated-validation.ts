@@ -7,7 +7,7 @@ import { validityOf, type ValidationPass } from "./validation-pass.ts";
 
 /**
  * Whether every record of `owner`'s association `name` is valid, reading it as its accessor does
- * (a query when it isn't loaded). A record marked for destruction isn't validated, as in Rails.
+ * (a query when it isn't loaded). A record marked for destruction isn't validated.
  */
 export async function isAssociationValid(
   owner: Model,

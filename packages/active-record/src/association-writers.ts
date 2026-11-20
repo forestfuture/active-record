@@ -19,7 +19,7 @@ import type { ResolvedAssociation } from "./resolved-association.ts";
 
 /**
  * A belongsTo's accessor for `owner`: `await post.author()`, plus `set`, `build`, `create` and
- * `createOrThrow`, as Rails' `post.author =`, `build_author` and `create_author`.
+ * `createOrThrow`.
  */
 export function belongsToAccessor(owner: Model, association: ResolvedAssociation): unknown {
   const read = () =>
@@ -56,8 +56,8 @@ export function belongsToAccessor(owner: Model, association: ResolvedAssociation
 
 /**
  * A polymorphic belongsTo's accessor for `owner` (#60): `await remark.commentable()`, the record
- * of the Model its type names, read through that Model's branch. No `build` or `create`, as in
- * Rails: which Model to make isn't known.
+ * of the Model its type names, read through that Model's branch. No `build` or `create`: which
+ * Model to make isn't known.
  */
 export function polymorphicBelongsToAccessor(
   owner: Model,
@@ -130,7 +130,7 @@ export function undoPointing(owner: Model, association: ResolvedAssociation): ()
 
 /**
  * A hasOne's accessor for `owner`: `await user.profile()`, plus `set`, `build`, `create` and
- * `createOrThrow`, as Rails' `user.profile =`, `build_profile` and `create_profile`. A new record
+ * `createOrThrow`. A new record
  * replaces the owner's old one, removed by `dependent:` when the new one is written (#40).
  */
 export function hasOneAccessor(owner: Model, association: ResolvedAssociation): unknown {
@@ -147,7 +147,7 @@ export function hasOneAccessor(owner: Model, association: ResolvedAssociation): 
 
 /**
  * A hasOne's `set`: on a saved owner, `record` is saved at once, pointing at it, and the old
- * record removed in the same batch, as Rails' `user.profile =` does; if `record` doesn't save,
+ * record removed in the same batch; if `record` doesn't save,
  * it throws `RecordNotSaved` and the association stays as it was. On an unsaved owner, both
  * wait for its save.
  * `null` removes the old record.
@@ -163,7 +163,7 @@ async function setOne(
     const undo = undoAdopting(owner, association, record);
     adopt(owner, association, record);
     if (owner[state].isNew) return;
-    // As in Rails, a save that fails or throws leaves the association as it was.
+    // A save that fails or throws leaves the association as it was.
     let saved = false;
     try {
       saved = await record.save();
@@ -207,8 +207,8 @@ function undoAdopting(owner: Model, association: ResolvedAssociation, record: Mo
 }
 
 /**
- * A hasOne's `create` or `createOrThrow` (by `save`): needs a saved owner, as in Rails. A
- * record that doesn't save is kept as built, so saving the owner tries again, as Rails does.
+ * A hasOne's `create` or `createOrThrow` (by `save`): needs a saved owner. A record
+ * that doesn't save is kept as built, so saving the owner tries again.
  */
 function createOne(
   owner: Model,
@@ -223,7 +223,7 @@ function createOne(
   };
 }
 
-/** As in Rails, records can't be created through an owner that hasn't been saved. */
+/** Records can't be created through an owner that hasn't been saved. */
 function requireSavedOwner(owner: Model, association: ResolvedAssociation): void {
   if (!owner[state].isNew) return;
   throw new RecordNotSaved(

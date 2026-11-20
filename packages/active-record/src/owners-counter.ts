@@ -44,7 +44,7 @@ function ownersCounters(association: ResolvedAssociation): readonly CounterCache
 }
 
 /**
- * The one of its counters a hasMany reads, as Rails' `has_cached_counter?`: the attribute named
+ * The one of its counters a hasMany reads: the attribute named
  * for the association (`replies` → `repliesCount`), or its `counterCache`.
  */
 function namedCounter(association: ResolvedAssociation): CounterCache | undefined {
@@ -66,7 +66,7 @@ function readCounter(association: ResolvedAssociation): CounterCache | undefined
 const countersByHasMany = new WeakMap<ResolvedAssociation, readonly CounterCache[]>();
 
 /**
- * How many records `owner`'s hasMany has by its counter cache, read as Rails reads it (`null` is
+ * How many records `owner`'s hasMany has by its counter cache (`null` is
  * 0); undefined without one, while it's `active: false`, or when the owner's counter wasn't loaded
  * (left out of `select`).
  */
@@ -82,7 +82,7 @@ export function ownersCount(owner: Model, association: ResolvedAssociation): num
 /**
  * `statement`, which removes the rows `query` matches from `owner`'s hasMany (deleting them, or
  * nullifying their key), with each of the owner's counters taken down by how many it removes, in
- * the same batch, as Rails' collection `delete_all` does: in one statement where the dialect can
+ * the same batch: in one statement where the dialect can
  * count the removed rows (Postgres) and the removal can't change the owner's row, or by a COUNT of
  * the rows `query` matches sent just before it. Once written, a loaded owner's counters change by
  * how many it removed. Without a counter cache, `statement` itself.
@@ -175,7 +175,7 @@ export async function resetCounters(
 /**
  * The counters `names` reset, each by the hasMany whose records it counts, checked before anything
  * is read: each hasMany's records keep a counter cache, and it has no scope, whose rows wouldn't
- * be all a counter counts (Rails would write them in). Every counter on its key is reset, as a
+ * be all a counter counts. Every counter on its key is reset, as a
  * bulk removal counts out of each; one named twice is set once, since a column takes one value.
  */
 function countersToReset(

@@ -9,7 +9,7 @@ import { column, SafeSql } from "./sql.ts";
 export type Counters<R> = { [K in NumberAttributeKey<R>]?: number };
 
 /**
- * What a counter's write also sets to now (#61), as Rails' `touch:`: `true` for `updatedAt`, or
+ * What a counter's write also sets to now (#61): `true` for `updatedAt`, or
  * a datetime attribute's name, or several, set with `updatedAt`.
  */
 type Touch<R> = true | DatetimeAttributeKey<R> | readonly DatetimeAttributeKey<R>[];

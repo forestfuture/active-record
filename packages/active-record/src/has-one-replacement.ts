@@ -146,7 +146,7 @@ function isSameRow(one: Model, other: Model): boolean {
   return modelOf(one) === modelOf(other) && Object.is(one[state].storedKey, other[state].storedKey);
 }
 
-/** The old record's removal, as Rails removes it: destroyed, deleted, or else nullified. */
+/** The old record's removal: destroyed, deleted, or else nullified. */
 async function prepareRemoval(
   old: Model,
   association: ResolvedAssociation,
@@ -174,7 +174,7 @@ async function prepareRemoval(
 
 /**
  * The old record with its foreign key, and with `as` its type (#60), set to null, saved: validated, with its callbacks. One that
- * can't be saved, refused or by a NOT NULL foreign key, throws `RecordNotSaved` as in Rails, and
+ * can't be saved, refused or by a NOT NULL foreign key, throws `RecordNotSaved`, and
  * nothing is written; one refused before writing keeps its key.
  */
 async function nullify(
@@ -241,7 +241,7 @@ function undoneOnFailure(
   return { ...plan, stages };
 }
 
-/** Rails' message for an old record that can't be nullified. */
+/** The message for an old record that can't be nullified. */
 function failedToRemove(name: string): string {
   return (
     `Failed to remove the existing associated ${name}. ` +

@@ -239,7 +239,7 @@ export class ResolvedAssociation {
 
   /**
    * Whether `deleteAll()` on the association itself deletes the records (`dependent:
-   * "destroy"` or `"deleteAll"`) rather than nullifying their foreign key, as in Rails.
+   * "destroy"` or `"deleteAll"`) rather than nullifying their foreign key.
    */
   get isDeletingOnDeleteAll(): boolean {
     const { dependent } = this.definition;
@@ -269,7 +269,7 @@ export class ResolvedAssociation {
 
   /**
    * The target's attributes a hasMany or hasOne sets to null to stop its records pointing at
-   * the owner: the foreign key, and with `as` the type too (#60), as Rails nullifies both.
+   * the owner: the foreign key, and with `as` the type too (#60).
    */
   get nullifiedAttributes(): readonly string[] {
     const { foreignKey, foreignType, as } = this.definition;
@@ -359,9 +359,9 @@ function linkFor(
 }
 
 /**
- * A polymorphic link's type (#60), the name of the Model whose table it is, as Rails stores its
- * base class's name: a polymorphic belongsTo branch's owner holds its target's, and the records
- * of a hasMany or hasOne with `as` hold their owner's.
+ * A polymorphic link's type (#60), the name of the Model whose table it is (a subclass's base
+ * class): a polymorphic belongsTo branch's owner holds its target's, and the records of a
+ * hasMany or hasOne with `as` hold their owner's.
  */
 function typeOf(
   { targets, as, foreignType }: AssociationDefinition,

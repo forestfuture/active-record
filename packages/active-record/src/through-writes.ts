@@ -46,7 +46,7 @@ export type ThroughOwner = Omit<OwnersHasManyThrough, "collection" | "relation">
  * A through hasMany's collection, as its owner holds it: a record built through it gets a join
  * record, built through the association it goes through, that points at it, and one created
  * through it is saved with it. Its own `deleteAll()` deletes the owner's join records to the
- * records it reaches, as Rails' does, where a narrowed one's deletes the records themselves, as
+ * records it reaches, where a narrowed one's deletes the records themselves, as
  * any Relation's does. Inserting records through it throws `ReadonlyAssociation`.
  */
 export function throughCollection(through: ThroughOwner): AssociationCollection {
@@ -88,7 +88,7 @@ export function throughCollectionMethods<M extends Model>(
 }
 
 /**
- * Links the owner to each record with a new join record, as Rails' `<<` does: built through
+ * Links the owner to each record with a new join record: built through
  * the association it goes through, pointing at the record, then saved together, each saving
  * its record first if that's new. Resolves to `false`, with nothing written, if one can't be.
  */
@@ -170,7 +170,7 @@ async function clear({ owner, association, collection, relation }: OwnersHasMany
 
 /**
  * Destroys the owner's join records to every record the association holds, callbacks included,
- * as Rails' `destroy_all` does through a join Model, and resolves to the records, which stay. It
+ * and resolves to the records, which stay. It
  * then reads as empty without a query.
  */
 async function destroyAll<M extends Model>(hasMany: OwnersHasManyThrough): Promise<M[]> {
@@ -205,7 +205,7 @@ function deleteJoins(
 
 /**
  * `statement`, deleting the owner's join records `query` finds, with the owner's counter cache
- * of them counting them out, as Rails' has_many :through does (#61).
+ * of them counting them out (#61).
  */
 function countedOutJoins(
   statement: Statement,
@@ -216,8 +216,7 @@ function countedOutJoins(
 }
 
 /**
- * Takes records out of the association, as Rails' `delete` and `destroy` do through a join
- * Model: removes the owner's join records that point at them, as `removal` says (`"destroy"`
+ * Takes records out of the association through its join Model: removes the owner's join records that point at them, as `removal` says (`"destroy"`
  * runs their callbacks, in one write that a refusal stops whole), and forgets those built
  * through it. The records themselves stay; one the owner doesn't reach removes nothing.
  */
@@ -341,7 +340,7 @@ export function throughHasOne(
 }
 
 /**
- * A through hasOne's `set`, as Rails' `has_one :through` writer: points the owner's join record
+ * A through hasOne's `set`: points the owner's join record
  * at `record`, saving it, or builds one through the association it goes through (saved now, or
  * with a new owner); `null` destroys the join record. A join record that can't be saved throws
  * `RecordNotSaved`, and one built for it is forgotten.
@@ -372,7 +371,7 @@ async function setThrough(
   owner[state].associations.set(name, ownerAttribute, record);
 }
 
-/** Destroys the owner's join record (one not saved yet is just forgotten), as Rails does. */
+/** Destroys the owner's join record (one not saved yet is just forgotten). */
 async function removeJoin(owner: Model, via: ResolvedAssociation, join: Model): Promise<void> {
   if (!join[state].isNew) await join.destroyOrThrow();
   forget(owner, via, join);

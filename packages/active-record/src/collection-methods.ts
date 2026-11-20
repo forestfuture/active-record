@@ -13,16 +13,16 @@ import { linksOf, state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";
 import { destroyTogether, writeTogether } from "./records-together.ts";
 
-/** What `user.posts()` has besides its Relation's methods, as Rails' collection proxy does. */
+/** What `user.posts()` has besides its Relation's methods. */
 export interface CollectionMethods<M extends Model> {
   /**
-   * Adds records to the association (Rails' `<<`): sets each one's foreign key and saves them
+   * Adds records to the association: sets each one's foreign key and saves them
    * together, resolving to `false`, with nothing written, if one can't be saved.
    */
   push(...records: M[]): Promise<boolean>;
   /**
-   * Removes records from the association by its `dependent:` strategy, as Rails' collection
-   * `delete`: destroys them with `"destroy"`, deletes their rows with `"deleteAll"`, and
+   * Removes records from the association by its `dependent:` strategy:
+   * destroys them with `"destroy"`, deletes their rows with `"deleteAll"`, and
    * otherwise sets their foreign key to NULL. Resolves to the records.
    */
   delete(...records: M[]): Promise<M[]>;
@@ -101,7 +101,7 @@ async function push(hasMany: OwnersHasMany, records: Model[]): Promise<boolean> 
   for (const record of records) record[state].requireLive("be saved");
   await pinForSaving(records, needs);
   link(hasMany, records);
-  // Saved as one write, as Rails' collection saves in a transaction: none if one refuses.
+  // Saved as one write: none if one refuses.
   if ((await writeTogether(records, "save", needs)) !== undefined) return false;
   for (const record of records) collection.created(record);
   return true;
@@ -122,7 +122,7 @@ function link({ owner, association, collection }: OwnersHasMany, records: readon
 /**
  * Removes `records` from the association, as `removal` says (`needs` begins the error for records
  * on two databases). Those with no row of their own to change (new records, or any of a new
- * owner's) just leave it, as in Rails.
+ * owner's) just leave it.
  */
 async function remove<M extends Model>(
   hasMany: OwnersHasMany,
@@ -159,7 +159,7 @@ async function removeRows(
   await runAlone(countedOut(statement, owner, association, rows[queryOf]));
 }
 
-/** Throws `TypeError` for a record that isn't of the association's Model, as Rails raises. */
+/** Throws `TypeError` for a record that isn't of the association's Model. */
 export function requireTargets(
   association: ResolvedAssociation,
   records: readonly unknown[],

@@ -28,8 +28,8 @@ function counterCacheOf({ counterCache }: AssociationDefinition): {
 }
 
 /**
- * The counter a belongsTo's `counterCache` keeps on its target: the attribute it names, or by
- * Rails' convention the owner's plural name + `Count` (`Reply` → `repliesCount`).
+ * The counter a belongsTo's `counterCache` keeps on its target: the attribute it names, or
+ * the owner's plural name + `Count` (`Reply` → `repliesCount`).
  */
 function counterAttribute(owner: ModelClass, definition: AssociationDefinition): string {
   const named = counterCacheOf(definition).attribute;
@@ -225,7 +225,7 @@ export interface CounterChanges {
   around(own: CompiledSql): CompiledSql[];
   /**
    * Once the batch is written, with the results of `around`'s statements: if the record's own
-   * statement changed its row, each loaded target takes the change, as Rails changes it only
+   * statement changed its row, each loaded target takes the change: only
    * when a row was affected.
    */
   commit(results: readonly StatementResult[]): void;
@@ -285,8 +285,7 @@ export function countersOnDestroy(record: Model): CounterChanges {
 /**
  * Moving a record's count when its foreign key, or a polymorphic belongsTo's type, changes: out
  * of the target its stored row points at before the UPDATE, and into the one it points at after
- * it, so a row that isn't there counts nothing. A loaded new target counts it in memory, as
- * Rails' `increment!` does.
+ * it, so a row that isn't there counts nothing. A loaded new target counts it in memory.
  */
 export function countersOnUpdate(record: Model): CounterChanges {
   const recordState = record[state];
@@ -314,7 +313,7 @@ function countLoaded(record: Model, counters: readonly CounterCache[], by: numbe
 
 /**
  * A record whose counter the database changed by `by` takes the change, as stored: the
- * attribute, if loaded, changes by `by` and has no unsaved change, as after Rails' `increment!`.
+ * attribute, if loaded, changes by `by` and has no unsaved change.
  */
 export function addToCount(record: Model, attribute: string, by: number): void {
   const recordState = record[state];
@@ -349,8 +348,8 @@ function changeThroughRow(
 
 /**
  * The foreign key of the association each record is being destroyed through, by its owner's
- * `dependent: "destroy"`: that owner is deleted with it, so its counter isn't changed, as Rails
- * skips it (`destroyed_by_association`). Not request state: set only while a destroy is prepared.
+ * `dependent: "destroy"`: that owner is deleted with it, so its counter isn't changed.
+ * Not request state: set only while a destroy is prepared.
  */
 const destroyedThrough = new WeakMap<Model, string>();
 

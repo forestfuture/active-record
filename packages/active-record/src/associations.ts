@@ -30,7 +30,7 @@ import { checkCounterCache } from "./counter-caches.ts";
 import { linkOf, resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
 
 /**
- * An association's scope, as Rails' `has_many :posts, -> { order(:created_at) }`: it receives
+ * An association's scope, such as `(q) => q.order({ createdAt: "asc" })`: it receives
  * the target's Relation, with its scopes, and returns a narrowed one.
  */
 type AssociationScope<C extends ModelClass> = (
@@ -41,7 +41,7 @@ type AssociationScope<C extends ModelClass> = (
 export interface AssociationOptions<C extends ModelClass = ModelClass> {
   /**
    * The attribute holding the link: on the owner for belongsTo, on the target otherwise.
-   * Inferred when left out, as Rails does: a belongsTo's name + `Id` (`author` → `authorId`),
+   * Inferred when left out: a belongsTo's name + `Id` (`author` → `authorId`),
    * or for a hasMany/hasOne the owner's `modelName` + `Id` (`User` → `userId`).
    */
   foreignKey?: string;
@@ -53,7 +53,7 @@ export interface AssociationOptions<C extends ModelClass = ModelClass> {
   dependent?: Dependent;
   /**
    * Saving the owner also saves this association's loaded records that changed, and destroys
-   * those marked with `markForDestruction()`, as Rails' `autosave: true` does (#37).
+   * those marked with `markForDestruction()` (#37).
    */
   autosave?: true;
   /**
@@ -87,7 +87,7 @@ export interface ThroughOptions<C extends ModelClass = ModelClass> {
  */
 export type ThroughDependent = "destroy" | "deleteAll";
 
-/** Rails' `dependent:` strategies for a hasMany. */
+/** What a hasMany's `dependent:` does to its records when the owner is destroyed. */
 export type HasManyDependent =
   | "destroy"
   | "deleteAll"
@@ -95,7 +95,7 @@ export type HasManyDependent =
   | "restrictWithException"
   | "restrictWithError";
 
-/** Rails' `dependent:` strategies for a hasOne: `delete` in place of `deleteAll`. */
+/** What a hasOne's `dependent:` does to its record: `delete` in place of `deleteAll`. */
 export type HasOneDependent =
   | "destroy"
   | "delete"
@@ -119,7 +119,7 @@ export interface AssociationDeclaration extends AssociationOptions, Partial<Thro
   /** A belongsTo that may point at nothing: its record isn't required (#339). */
   optional?: boolean;
   /**
-   * A belongsTo's counter on its target (#61): `true` for the attribute Rails' convention names,
+   * A belongsTo's counter on its target (#61): `true` for the target's plural name + `Count`,
    * or the target's attribute's name.
    */
   counterCache?: true | string | { attribute?: string; active?: false };
@@ -151,7 +151,7 @@ export interface AssociationDefinition extends AssociationDeclaration {
 
 /**
  * `await post.author()`: the owning record, or null. `post.author.set(user)` points the post at
- * another record (Rails' `post.author = user`), and `build`/`create` make a new one for it.
+ * another record, and `build`/`create` make a new one for it.
  */
 export interface BelongsTo<C extends ModelClass> {
   (): Promise<InstanceType<C> | null>;
@@ -174,8 +174,8 @@ export interface PolymorphicBelongsTo<C extends ModelClass> {
 
 /**
  * `await user.profile()`: the one associated record, or null. `await user.profile.set(profile)`
- * gives the user another (Rails' `user.profile = profile`), and `build(attrs)` and
- * `create(attrs)` make a new one pointing at the user (Rails' `build_profile`). Each replaces the
+ * gives the user another, and `build(attrs)` and
+ * `create(attrs)` make a new one pointing at the user. Each replaces the
  * old record, removed by `dependent:` when the new one is written.
  */
 export interface HasOne<C extends ModelClass> {
@@ -209,7 +209,7 @@ type ThroughWrite = "insert" | "insertAll" | "upsert" | "upsertAll";
 
 /**
  * `await mark.note()` for a hasOne through another (#59): its record, or null. `set(note)`
- * points the owner's join record at another (#434); as in Rails, it has no `build` or `create`.
+ * points the owner's join record at another (#434); it has no `build` or `create`.
  */
 export interface HasOneThrough<C extends ModelClass> {
   (): Promise<InstanceType<C> | null>;

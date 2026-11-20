@@ -45,9 +45,9 @@ export interface PlannedBefore {
 }
 
 /**
- * The records an owner autosaves are validated with it, one after another, as Rails'
- * `validate: true` does: an invalid one adds "is invalid" to its association's name, or with
- * `autosave: true` its errors, each under the association's name (`posts.title`), as Rails does.
+ * The records an owner autosaves are validated with it, one after another: an
+ * invalid one adds "is invalid" to its association's name, or with
+ * `autosave: true` its errors, each under the association's name (`posts.title`).
  */
 export async function validateAutosaves(
   owner: Model,
@@ -175,7 +175,7 @@ const isHere = (each: { association: ResolvedAssociation }) => !each.association
  * An owner's save plan, from its own stage and its autosaves'. The records it autosaves on its
  * database join its stages: the new records it points at in its batch when their keys are known,
  * else in the one before; those saved after it as `withAfter` says. Those on another database
- * (#228) are written there separately, as Rails does, by the association: the ones it points at
+ * (#228) are written there separately, by the association: the ones it points at
  * before it, and the others after it.
  */
 export function assemble(

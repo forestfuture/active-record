@@ -129,13 +129,13 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     problemFor: enumProblem,
     onRetype: "drop",
   },
-  // Words around an enum's names in its methods' names, as Rails' `prefix:` and `suffix:` (#340).
+  // Words around an enum's names in its methods' names (#340).
   prefix: affixRule("prefix"),
   suffix: affixRule("suffix"),
-  // Rails' `scopes: false` and `instance_methods: false`: `true`, the default, gives nothing.
+  // `false` leaves out the enum's scopes or instance methods; `true`, the default, adds nothing.
   scopes: methodsSwitch("scopes"),
   instanceMethods: methodsSwitch("instanceMethods"),
-  // Rails' `validate: true`: an unknown value is kept, and makes the record invalid.
+  // `validate: true`: an unknown value is kept, and makes the record invalid.
   validate: {
     isWellFormed: isEnumValidation,
     describedAs: "validate",
