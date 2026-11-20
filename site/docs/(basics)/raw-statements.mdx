@@ -1,0 +1,69 @@
+---
+title: Raw statements
+description: "Bind and read values in SQL you send yourself, as each attribute stores them."
+seo:
+  description: "Send your own SQL beside Active Record: typeForAttribute’s serialize, deserialize, and cast convert values the way an attribute stores them, on D1 or Postgres."
+---
+
+:::warning[Postgres reads BIGINT cells as text]
+`pg` reads a `BIGINT` cell as text, unless you set its type parsers. Active Record’s own clients convert it, but a query you send through your own `pg` client doesn’t. Pass `Number(cell)` to `deserialize`.
+:::
+
+## At a glance
+
+| To                                      | Write                                |
+| --------------------------------------- | ------------------------------------ |
+| get an attribute’s conversions          | `Invoice.typeForAttribute("paidAt")` |
+| bind a value as the attribute stores it | `serialize(date)`                    |
+| read a cell as the attribute’s value    | `deserialize(row.paid_at)`           |
+| get the JavaScript value for an input   | `cast("2026-01-02")`                 |
+
+## The Model
+
+The example uses this Model, whose attributes come from its table through the schema `active-record schema` generates. Its table stores `paid_at` as Unix seconds, so the Model overrides it as a datetime:
+
+<CodeGroup>
+
+<include meta="invoice.ts">/_excerpts/pages/raw-statements/src/models/invoice.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/raw-statements/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/raw-statements/migrations/0001_create_invoices.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/raw-statements/postgres/0001_create_invoices.sql</include>
+
+</CodeGroup>
+
+## Binding values
+
+Bind what `serialize` gives when you send SQL yourself:
+
+<include>/_excerpts/pages/raw-statements/examples/bind.mdx</include>
+
+`serialize` writes the `Date` as `paidAt` stores it: an integer here, ISO text for a plain `datetime`. On Postgres, bind it as `$1` through your `pg` client.
+
+For a cache key, or the value a test expects of a raw row, `serialize` gives the stored form too.
+
+## Reading cells
+
+Turn a cell from a raw query into the attribute’s value with `deserialize`:
+
+<include>/_excerpts/pages/raw-statements/examples/read.mdx</include>
+
+## Converting values
+
+`cast` gives the JavaScript value for an input, without converting it to the stored form: `cast("2026-01-02")` is a `Date`. It keeps a `Date`’s milliseconds, where `serialize` floors them for `unixSeconds`.
+
+- `serialize` and `cast` take what assigning would: a `Date` or an ISO string for a `datetime`, `"42"` for an `integer`. Anything else throws `TypeError` naming the Model and attribute, and so does `undefined`. Use `null` for NULL.
+- `deserialize` reads a cell as loading a record does, and NULL and `undefined` are `null`. It throws the same `TypeError` for a cell that isn’t the attribute’s type. See [Fixing cells of the wrong type](./adopt-a-database#fixing-cells-of-the-wrong-type).
+- A filtered attribute’s value is hidden in those errors, as it is anywhere else.
+
+:::note
+`typeForAttribute` needs no connection to a database, and the attribute’s name is checked when you compile.
+:::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`typeForAttribute` is `type_for_attribute`, with the same `cast`, `serialize`, and `deserialize`. Active Record’s are strict: a value the attribute can’t hold throws, where Rails casts it leniently.
+
+</Callout>

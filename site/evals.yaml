@@ -94,3 +94,15 @@ questions:
     expected:
       - 'Article.joins("author").merge(Author.where({ name: "Mary" }))'
     routes: /joins
+  - id: raw-bind-date
+    question: "I send my own SQL to D1. How do I bind a Date for a column that stores Unix seconds?"
+    expected:
+      - 'Invoice.typeForAttribute("paidAt").serialize(date) gives the integer the column holds'
+      - "bind that value in the statement"
+    routes: /raw-statements
+  - id: raw-read-bigint-postgres
+    question: "Reading a BIGINT Unix time cell with my own pg query, deserialize throws a TypeError. Why?"
+    expected:
+      - "pg reads a BIGINT cell as text unless its type parsers are set"
+      - "pass Number(cell) to deserialize"
+    routes: /raw-statements

@@ -12,6 +12,7 @@ export const standalonePages = [
   "calculations",
   "scopes",
   "joins",
+  "raw-statements",
 ];
 
 /** A page's project folder, or a path in it. */
