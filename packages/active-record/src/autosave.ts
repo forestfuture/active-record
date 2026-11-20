@@ -32,8 +32,8 @@ export interface Before {
 
 /**
  * The records `owner` was pointed at through belongsTo while they were new. Its foreign keys
- * are linked to them when it's saved, even if they were saved on their own since (they're linked
- * whenever the association was set); the ones still new and not already part of the write
+ * are linked to them when it's saved, even if they were saved on their own since;
+ * the ones still new and not already part of the write
  * (`claimed`) are saved first. Through an `autosave: true` belongsTo, its loaded record is saved
  * first too when it changed, or destroyed after it when it's marked (#37).
  */
