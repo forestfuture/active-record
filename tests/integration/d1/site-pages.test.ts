@@ -18,6 +18,7 @@ import { connect } from "../../../packages/active-record/src/adapters/d1/index.t
 import * as attributeTypes from "../../../site/snippets/pages/attribute-types/examples.ts";
 import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
+import * as changeTracking from "../../../site/snippets/pages/change-tracking/examples.ts";
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
 import * as enums from "../../../site/snippets/pages/enums/examples.ts";
 import * as joins from "../../../site/snippets/pages/joins/examples.ts";
@@ -149,6 +150,39 @@ describe("the Enums page's examples", () => {
     const task = await run(enums.finishing);
 
     expect([task.state, task.isDone()]).toEqual(["done", true]);
+  });
+});
+
+// The Change tracking page's examples, on the users table it shows.
+describe("the Change tracking page's examples", () => {
+  const binding = pageDatabase("change-tracking", ["users"]);
+  const log = quietLog();
+  beforeEach(async () => {
+    await binding()
+      .prepare(
+        "INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES ('ada', 'ada@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
+      )
+      .run();
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+
+  test("a record reports its unsaved changes, and its callback reads the saved one", async () => {
+    const ada = await run(changeTracking.changing);
+
+    expect([ada.email, ada.isChanged()]).toEqual(["ada@lovelace.dev", false]);
+    expect(log.calls()).toEqual([
+      [["email"]],
+      ["ada@example.com"],
+      [true],
+      ["Email changed from ada@example.com to ada@lovelace.dev"],
+      [false],
+    ]);
+  });
+
+  test("restoreAttributes undoes the changes it names", async () => {
+    const ada = await run(changeTracking.restoring);
+
+    expect([ada.email, ada.role, ada.changed()]).toEqual(["ada@example.com", "owner", ["role"]]);
   });
 });
 
