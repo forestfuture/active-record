@@ -266,6 +266,19 @@ describe("a normalized attribute's written values", () => {
     expect(await storedEmails()).toEqual(["jane@example.com"]);
   });
 
+  test("update stores the value normalized", async () => {
+    const member = await members().create({ id: 1, email: "jane@example.com" });
+    await member.update({ email: " Sam@Example.com " });
+    expect(await storedEmails()).toEqual(["sam@example.com"]);
+  });
+
+  test("assigning a value that normalizes to the stored one changes nothing", async () => {
+    await members().create({ id: 1, email: "jane@example.com" });
+    const member = await members().find(1);
+    member.email = " Jane@Example.com";
+    expect(member.isChanged()).toBe(false);
+  });
+
   test("insert stores the value normalized", async () => {
     await members().insert({ id: 1, email: " Jane@Example.com " });
     expect(await storedEmails()).toEqual(["jane@example.com"]);
