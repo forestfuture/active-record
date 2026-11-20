@@ -135,3 +135,9 @@ questions:
       - 'declare status: { enum: ["open", "in_progress", "closed"] } in an override'
       - "Ticket.notClosed() finds them, and ticket.saveAsClosed() sets and saves the status"
     routes: /enums
+  - id: email-changed-callback
+    question: "In an after-save callback, how do I tell whether the email just changed, and what it was before?"
+    expected:
+      - 'savedChangeTo("email") gives the old and new values, or hasSavedChangeTo("email") says whether it changed'
+      - "after a save the record is clean, so the unsaved-change methods no longer see it"
+    routes: /change-tracking
