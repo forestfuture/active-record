@@ -1,4 +1,4 @@
-import { batch, Model, withDatabase } from "@forestfuture/active-record";
+import { Model, withDatabase } from "@forestfuture/active-record";
 import {
   connect,
   withSession,
@@ -7,18 +7,7 @@ import {
 } from "@forestfuture/active-record/d1";
 import { env as workerEnv } from "cloudflare:workers";
 import { schema } from "../db/schema";
-import { Post, User } from "../getting-started/models";
-
-export const plain = {
-  async fetch(_request: Request, _env: Env): Promise<Response> {
-    // #region binding
-    // No setup: each Model queries the binding its generated schema names during the request.
-    const user = await User.findByOrThrow({ email: "ada@example.com" });
-    const posts = await Post.where({ userId: user.id }).order({ id: "desc" }).toArray();
-    // #endregion binding
-    return Response.json(posts);
-  },
-} satisfies ExportedHandler<Env>;
+import { User } from "../getting-started/models";
 
 async function handle(_request: Request): Promise<Response> {
   const user = await User.createOrThrow({ email: "ada@example.com" });
@@ -139,30 +128,6 @@ export async function inATest(binding: D1Database): Promise<void> {
     console.log(await User.count()); // 1
   });
   // #endregion test
-}
-
-export const explicit = {
-  async fetch(_request: Request, env: Env): Promise<Response> {
-    // #region explicit
-    const db = connect(env.DB);
-    const user = await db.model(User).findByOrThrow({ email: "ada@example.com" });
-    // #endregion explicit
-    // #region models
-    const models = db.models({ User, Post });
-    const posts = await models.Post.where({ userId: user.id }).toArray();
-    // #endregion models
-    return Response.json(posts);
-  },
-} satisfies ExportedHandler<Env>;
-
-export async function batched(): Promise<void> {
-  // #region batch
-  const user = User.build({ email: "grace@example.com" });
-  const post = Post.build({ userId: user.id, title: "Hello" });
-
-  // Atomic: all written, or none.
-  await batch((b) => [b.save(user), b.save(post), b.deleteAll(Post.where({ userId: "old" }))]);
-  // #endregion batch
 }
 
 export function several(env: Env, handle: () => Promise<Response>) {

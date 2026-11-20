@@ -228,3 +228,9 @@ questions:
       - "generate the author's key in code, then batch((b) => [b.insert(Author, { id, … }), b.insert(Article, { authorId: id, … })])"
       - "or build both and pass b.save(record) for each, which runs their validations and callbacks"
     routes: /batches
+  - id: log-one-request
+    question: "How do I log every SQL query one request runs, without changing each query?"
+    expected:
+      - "open a database for the request with connect(env.DB, { onQuery }) and run the app's code inside withDatabase(db, () => …)"
+      - "every query from a Model inside, and everything it awaits, uses that database"
+    routes: /connecting
