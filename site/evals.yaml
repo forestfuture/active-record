@@ -165,3 +165,9 @@ questions:
       - "build the articles and profile through the author's associations, then save the author"
       - "with keys generated in code, it's all written in one atomic batch"
     routes: /autosaving
+  - id: comments-count
+    question: "How do I show each article's number of comments without counting the comments table every time?"
+    expected:
+      - "declare counterCache: true on the comment's belongsTo, with a commentsCount attribute on the article"
+      - "article.comments().size() reads the count with no query"
+    routes: /counter-caches

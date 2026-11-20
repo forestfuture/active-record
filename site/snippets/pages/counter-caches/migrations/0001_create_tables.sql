@@ -1,0 +1,19 @@
+CREATE TABLE articles (
+  id TEXT PRIMARY KEY NOT NULL,
+  title TEXT NOT NULL,
+  comments_count INTEGER NOT NULL DEFAULT 0,
+  updated_at DATETIME
+);
+CREATE TABLE comments (
+  id TEXT PRIMARY KEY NOT NULL,
+  article_id TEXT NOT NULL REFERENCES articles (id),
+  body TEXT NOT NULL
+);
+CREATE TABLE forums (
+  id TEXT PRIMARY KEY NOT NULL,
+  reply_count INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE replies (
+  id TEXT PRIMARY KEY NOT NULL,
+  forum_id TEXT NOT NULL REFERENCES forums (id)
+);
