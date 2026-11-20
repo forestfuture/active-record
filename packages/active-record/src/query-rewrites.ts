@@ -1,4 +1,5 @@
 // Rewriting a query (#350): `rewhere`, `unscope` and `only`, dropping parts of a query (its conditions, or those on some attributes, its order, page, and the rest), and the keys `excluding` leaves out.
+import { normalizedConditions } from "./normalized-conditions.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import {
   Either,
@@ -233,7 +234,8 @@ export function withConditionsReplaced(
   const names = Object.keys(conditions);
   if (names.length === 0) return query;
   const rest = withoutConditionsOn(query, names);
-  return { ...rest, conditions: [...rest.conditions, conditions as Record<string, unknown>] };
+  const normalized = normalizedConditions(query.model, conditions as Record<string, unknown>);
+  return { ...rest, conditions: [...rest.conditions, normalized] };
 }
 
 /** `query` without these records (`excluding`), by primary key: `NOT (id IN (…))`. */

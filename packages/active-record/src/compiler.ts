@@ -647,7 +647,9 @@ function compileFragment(fragment: SafeSql, source: Source, params: unknown[]): 
     if (value instanceof ColumnReference) {
       text += columnIn(source, value.attribute);
     } else if (value instanceof ColumnValue) {
-      attributeFor(source.model, value.attribute).bind(params, value.assigned);
+      // Normalized as an assigned value is (#354).
+      const attribute = attributeFor(source.model, value.attribute);
+      attribute.bindCells(params, attribute.write(attribute.assigned(value.assigned)));
       text += valueMark;
     } else {
       params.push(writeUntypedValue(value));
