@@ -146,17 +146,7 @@ The type is saved in your rows. A Model’s name is its class name unless it set
 
 ### Preloading polymorphic records
 
-`includes` preloads a polymorphic association with one query for each listed Model:
-
-<include>/_excerpts/guide/associations/polymorphic-preload.ts</include>
-
-Each query runs the likes’ query again to find their keys, even for a Model no like points at. Index what that query filters and sorts by. A nested include can name an association that only some listed Models have: `includes({ likeable: "album" })` loads the photos’ albums and skips the videos.
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-Rails declares `belongs_to :likeable, polymorphic: true` without a list, and finds the class from the stored name. Here you list the Models, so `await like.likeable()` is typed `Photo | Video | null`. Rails preloads a polymorphic association after the likes load, with one query per type it finds. Here every listed Model’s query goes with the likes’ own, in one round trip. The cost is that each of them reads the likes’ query again, even for a Model no like points at. Records built through `video.likes()` point back at the video without a query, which Rails doesn’t do for a polymorphic association.
-
-</Callout>
+`Like.includes("likeable")` preloads a polymorphic association with one query for each listed Model. See [Preloading polymorphic records](./preloading#preloading-polymorphic-records).
 
 ## Naming foreign keys
 
@@ -232,36 +222,7 @@ Rails finds an inverse by its name. `has_many :articles` on `Author` looks for `
 
 ## Preloading associations
 
-Load an association for every record at once with `includes`, with one query per association however many records there are:
-
-<include>/_excerpts/guide/associations/preload.ts</include>
-
-Nest with an object: `includes({ articles: "comments" })` or `includes({ articles: ["comments", "tags"] })`.
-
-The example above sends four queries, however many authors there are. On D1, the whole tree goes [in one round trip](./d1#sending-queries-in-one-round-trip) with the authors’ own query. An association to [another database](./several-databases#associating-models-on-different-databases) takes one more.
-
-:::note
-With a `limit` or `offset`, `includes` ends the order with the primary key, so the preloads find the same records the query loads.
-:::
-
-<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
-
-Rails sends each association’s preload query on its own, so every association adds a round trip. On D1, the whole tree on one database takes one.
-
-</Callout>
-
-:::note
-`hasMany` and `hasOne` find their records by the foreign key, both with `includes` and when you read one record’s association, such as `author.articles()`. Add an index to the foreign key column. Otherwise D1 reads every row of the table for each lookup, and bills you for each row it reads. A `references` column from the [generators](./generators) is indexed already, and you can add an index to any other foreign key yourself:
-
-```sql
-CREATE INDEX index_articles_on_author_id ON articles (author_id);
-```
-
-`includes` also runs the query’s own conditions again for each association it preloads. With a `limit` or `offset`, it runs the query’s order again as well. Index the columns the query filters and sorts by, too. Otherwise D1 reads those rows again for every association, and bills you each time.
-
-:::
-
-`record.loaded("profile")` reads a preloaded association synchronously, and throws `AssociationNotLoaded` if it wasn’t loaded, so a template never sends a query. `record.isLoaded("profile")` checks first.
+Load an association for many records at once with `includes`, one query per association. See [Preloading](./preloading).
 
 ## Creating related records
 

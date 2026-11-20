@@ -153,3 +153,9 @@ questions:
       - 'override the attribute in static attributes, such as archived: "boolean", written as const'
       - "changing its type drops the generated default, so give the override a default if it needs one"
     routes: /models
+  - id: n-plus-one
+    question: "Listing authors with their articles sends a query per author. How do I load them all at once?"
+    expected:
+      - 'Author.includes("articles") preloads them, with one query per association'
+      - "on D1 the whole tree goes in one round trip"
+    routes: /preloading

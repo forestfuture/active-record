@@ -20,6 +20,7 @@ export default defineMeta({
     "validations",
     "callbacks",
     "associations",
+    "preloading",
     "through-associations",
     "batches",
     "connecting",
