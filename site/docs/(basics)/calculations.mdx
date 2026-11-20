@@ -42,7 +42,7 @@ Add up, average, or find the extremes of an attribute:
 - NULLs are left out. With no rows, `sum` is 0 and the others are `null`. On `none()`, they answer without a query.
 
 :::warning[Exact sums on D1]
-D1 adds up a decimal column as floating-point numbers. A sum keeps about 15 digits, and small errors can build up over many rows. For an exact sum on D1, store the amount as whole cents in an integer column, as `priceCents` does, or with a [custom type](./custom-types#defining-a-type) such as money. Postgres adds up a `numeric` column exactly.
+D1 adds up a decimal column as floating-point numbers. A sum keeps about 15 digits, and small errors can build up over many rows. For an exact sum on D1, store the amount as whole cents in an integer column, as `priceCents` does, with a [custom type](./custom-types#defining-a-type) such as money if you like. D1 adds whole numbers exactly, and `sum` returns the custom type’s value.
 :::
 
 ## Calculating over some rows
@@ -58,6 +58,10 @@ Pass an `sql` fragment to calculate an expression:
 <include meta="twoslash">/_excerpts/pages/calculations/examples/fragment.twoslash.ts</include>
 
 A fragment’s `sum` and `average` are numbers. Its `minimum` and `maximum` are the values the database returns.
+
+:::note
+`calculate("sum", "priceCents")` runs the calculation its first argument names. Use it when the name comes from elsewhere, such as a report’s settings.
+:::
 
 ## Calculating per group
 

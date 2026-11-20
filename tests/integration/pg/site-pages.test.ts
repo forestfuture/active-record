@@ -1,22 +1,24 @@
-import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
+import { afterAll, beforeAll, describe, expect, onTestFinished, test, vi } from "vite-plus/test";
 import { withDatabase } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
-import * as ordering from "../../../site/snippets/pages/ordering/examples.ts";
+import * as joins from "../../../site/snippets/pages/joins/examples.ts";
+import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
 import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
-import * as through from "../../../site/snippets/pages/through/examples.ts";
+import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Tag } from "../../../site/snippets/pages/through/src/models/tag.ts";
+import { Post as IteratedPost } from "../../../site/snippets/pages/batch-iteration/src/models/post.ts";
+import { Tag } from "../../../site/snippets/pages/through-associations/src/models/tag.ts";
 import {
   generatedAttributes,
   pageMigrations,
   pageProject,
   schemaCommand,
   standalonePages,
-} from "../../support/page-models.ts";
+} from "../../support/page-projects.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 import { writePgProject } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
@@ -104,7 +106,7 @@ describe("the Conditions page's examples, on Postgres", () => {
 // The Through associations page's examples, on the Postgres tables it shows.
 describe("the Through associations page's examples, on Postgres", () => {
   const schema = pageSchema(
-    "through",
+    "through-associations",
     `INSERT INTO authors (id, name) VALUES ('${ada}', 'Ada'), ('${mary}', 'Mary');
      INSERT INTO articles (id, author_id, title) VALUES
        ('${ada}', '${ada}', 'Engines'), ('${mary}', '${mary}', 'On Nothing');
@@ -130,7 +132,7 @@ describe("the Through associations page's examples, on Postgres", () => {
 // The Ordering and pagination page's examples, on the Postgres table it shows.
 describe("the Ordering and pagination page's examples, on Postgres", () => {
   const schema = pageSchema(
-    "ordering",
+    "ordering-and-pagination",
     `INSERT INTO posts (id, title, status, published_at, created_at, updated_at) VALUES
       ('${ada}', 'Alpha', 'published', '2026-01-02Z', '2026-01-02Z', '2026-01-02Z'),
       ('${mary}', 'Gamma', 'draft', NULL, '2026-01-04Z', '2026-01-04Z')`,
@@ -147,6 +149,17 @@ describe("the Ordering and pagination page's examples, on Postgres", () => {
     expect(newest.map((post) => post.title)).toEqual(["Gamma", "Alpha"]);
     expect(await response.json()).toMatchObject({ total: 2, hasNext: false });
   });
+
+  test("inOrderOf keeps the listed values first, and a page without its count still pages", async () => {
+    const db = connect(schema().url);
+
+    const { byStatus, everyPost } = await withDatabase(db, () => ordering.inOrder());
+    const { records, hasNext } = await withDatabase(db, () => ordering.countless());
+
+    expect(byStatus.map((post) => post.status)).toEqual(["published", "draft"]);
+    expect(everyPost).toHaveLength(2);
+    expect([records, hasNext]).toEqual([[], false]);
+  });
 });
 
 // The Batch iteration page's examples, on the Postgres table it shows.
@@ -160,6 +173,24 @@ describe("the Batch iteration page's examples, on Postgres", () => {
     const titles = await withDatabase(connect(schema().url), () => batchIteration.choosing());
 
     expect(titles).toEqual(["One", "Two", "Three", "Two", "One"]);
+  });
+
+  test("findEach and findInBatches visit the records in key order", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => log.mockRestore());
+
+    await withDatabase(connect(schema().url), () => batchIteration.eachPost());
+    await withDatabase(connect(schema().url), () => batchIteration.eachBatch());
+
+    expect(log.mock.calls.map(([value]) => value)).toEqual(["Two", "Three", 2, 1]);
+  });
+
+  test("inBatches writes each batch's records", async () => {
+    const db = connect(schema().url);
+
+    await withDatabase(db, () => batchIteration.publishDrafts());
+
+    expect(await db.model(IteratedPost).where({ publishedAt: null }).count()).toBe(0);
   });
 });
 
@@ -175,16 +206,34 @@ describe("the Calculations page's examples, on Postgres", () => {
   test("a sum and a grouped count resolve on Postgres", async () => {
     const db = connect(schema().url);
 
-    const { total, newest } = await withDatabase(db, () => calculations.calculations());
-    const { byAvailability } = await withDatabase(db, () => calculations.groups());
+    const values = await withDatabase(db, () => calculations.calculations());
+    const { largest, ...groups } = await withDatabase(db, () => calculations.groups());
 
-    expect([total, newest]).toEqual([500, new Date("2026-03-04Z")]);
-    expect(byAvailability).toEqual(
-      new Map([
+    expect(values).toEqual({
+      total: 500,
+      averagePrice: 15_250,
+      cheapest: 500,
+      newest: new Date("2026-03-04Z"),
+      topThree: 30_500,
+      averageDollars: 152.5,
+    });
+    expect(groups).toEqual({
+      byAvailability: new Map([
         [true, 1],
         [false, 1],
       ]),
-    );
+      inStock: 1,
+      valueByAvailability: new Map([
+        [true, 500],
+        [false, 30_000],
+      ]),
+      byBand: new Map([
+        [[true, "cheap"], 1],
+        [[false, "pricey"], 1],
+      ]),
+      crowdedCounts: new Map(),
+    });
+    expect(largest.size).toBe(1); // the two groups tie, so either
   });
 });
 
@@ -207,11 +256,40 @@ describe("the Scopes page's examples, on Postgres", () => {
       ["Pen"],
     ]);
   });
+
+  test("unscoped() leaves the default scope out on Postgres", async () => {
+    const everything = await withDatabase(connect(schema().url), () => scopes.unscoping());
+
+    expect(everything.map((product) => product.name).sort((a, b) => a.localeCompare(b))).toEqual([
+      "Ink",
+      "Pen",
+    ]);
+  });
+});
+
+// The Joins page's examples, on the Postgres tables it shows.
+describe("the Joins page's examples, on Postgres", () => {
+  const schema = pageSchema(
+    "joins",
+    "INSERT INTO authors (id, name) VALUES ('00000000-0000-4000-8000-000000000001', 'Mary'), ('00000000-0000-4000-8000-000000000002', 'Ada');\nINSERT INTO profiles (id, author_id, bio) VALUES ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Poet');\nINSERT INTO articles (id, author_id, title) VALUES ('00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000001', 'On Nothing'), ('00000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000002', 'Engines');\nINSERT INTO comments (id, article_id, body) VALUES ('00000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-000000000004', 'Hm.'), ('00000000-0000-4000-8000-000000000007', '00000000-0000-4000-8000-000000000004', 'Yes.')",
+  );
+
+  test("joins, leftJoins and merge find the records they show", async () => {
+    const db = connect(schema().url);
+
+    const commented = await withDatabase(db, () => joins.joining());
+    const everyAuthor = await withDatabase(db, () => joins.leftJoining());
+    const { byAuthorName } = await withDatabase(db, () => joins.merging());
+
+    expect(commented.map((author) => author.name)).toEqual(["Mary"]);
+    expect(everyAuthor).toHaveLength(2);
+    expect(byAuthorName.map((article) => article.title)).toEqual(["Engines", "On Nothing"]);
+  });
 });
 
 // Each page shows its Models beside its Postgres tables, which generate the same attributes as its
 // D1 ones. PGlite starts for each schema read, which takes seconds.
-describe("the standalone pages’ Postgres tables", { timeout: 60_000 }, () => {
+describe("the standalone pages' Postgres tables", { timeout: 60_000 }, () => {
   test.each(standalonePages)("%s's generate the attributes its D1 tables do", async (page) => {
     const cwd = await onPostgres(page, true);
 

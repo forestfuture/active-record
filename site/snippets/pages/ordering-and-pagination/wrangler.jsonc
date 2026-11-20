@@ -1,0 +1,6 @@
+{
+  "name": "ordering-and-pagination",
+  "d1_databases": [
+    { "binding": "DB", "database_name": "ordering-and-pagination", "database_id": "…" },
+  ],
+}

@@ -40,7 +40,6 @@ import * as counterCaches from "../../../site/snippets/guide/counter-caches.ts";
 import { statementKinds } from "../../support/statement-kinds.ts";
 import * as belongsToTouch from "../../../site/snippets/guide/belongs-to-touch.ts";
 import * as hasOneTouch from "../../../site/snippets/guide/has-one-touch.ts";
-import { joinsExample } from "../../../site/snippets/guide/joins.ts";
 import {
   addExample,
   Booking,
@@ -340,18 +339,6 @@ describe("the guide's examples", () => {
     expect(drafts).toHaveLength(1);
     expect(drafts[0]!.loaded("editor")).toBe(editor);
     expect(built.loaded("editor")).toBe(editor);
-  });
-
-  test("Querying: joining associations, and merging a joined Model's Relation (#24)", async () => {
-    const db = connect(binding);
-    await db.model(Author).insert({ id: "ada", name: "Ada" });
-
-    const { authors, everyAuthor, titles, inOrder } = await withDatabase(db, () => joinsExample());
-
-    expect(authors.map((author) => author.name)).toEqual(["Mary"]);
-    expect(everyAuthor.map((author) => author.name).sort()).toEqual(["Ada", "Mary"]);
-    expect(titles).toEqual(["On Nothing"]);
-    expect(inOrder).toEqual(["On Nothing"]);
   });
 
   test("Associations: each kind's reference example, as the guide shows it", async () => {

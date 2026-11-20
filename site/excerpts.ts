@@ -79,9 +79,10 @@ function shownSource(source: string): string {
 /**
  * An example as shown: the snippet file's imports that the region uses, then the region. So
  * every example says where its names come from, and both come from the type-checked file.
- * The snippets' own model files (any relative import) are shown as the app's: `./models`. The
- * generated schema (`../db/schema`) and the app's base class (`./application-record`) are
- * shown where an app imports them from.
+ * A page project's `./src/models/user` is shown as the app's `./models/user`. Elsewhere, the
+ * snippets' own model files (any relative import) are shown as `./models`, and the generated
+ * schema (`../db/schema`) and the app's base class (`./application-record`) where an app imports
+ * them from.
  */
 export function exampleBlock(file: string, region: string): string | undefined {
   const code = readFileSync(file, "utf8").replaceAll("\r\n", "\n");
@@ -99,8 +100,11 @@ export function exampleBlock(file: string, region: string): string | undefined {
   return imports.length === 0 ? body : `${imports.join("\n")}\n\n${body}`;
 }
 
-/** A page project's `src/` files, the folder that holds them, as Twoslash files; undefined elsewhere. */
-function projectFiles(file: string): string | undefined {
+/**
+ * The source a page project's examples compile with, hidden: each of its `src/` files under a
+ * Twoslash `@filename` line. Undefined for a file outside a page's project.
+ */
+function hiddenSources(file: string): string | undefined {
   const root = /^(.*\/pages\/[^/]+)\/[^/]+\.ts$/.exec(file)?.[1];
   if (root === undefined) return undefined;
   const src = join(root, "src");
@@ -118,7 +122,7 @@ function projectFiles(file: string): string | undefined {
  * type-check. Undefined outside a page's project.
  */
 export function twoslashBlock(file: string, region: string): string | undefined {
-  const files = projectFiles(file);
+  const files = hiddenSources(file);
   const example = exampleBlock(file, region);
   if (files === undefined || example === undefined) return undefined;
   // An expected error was proven by the type check: Twoslash shows it rather than failing on it.
