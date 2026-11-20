@@ -36,6 +36,12 @@ describe("normalizes", () => {
     expect(account.email).toBe("sam@example.com");
   });
 
+  test("tracks the normalized value as the change", () => {
+    const account = accounts.build();
+    account.email = " Jane@Example.com";
+    expect(account.changes()).toEqual({ email: [null, "jane@example.com"] });
+  });
+
   test("normalizes an attribute's default", () => {
     class Invite extends Model.define({
       id: { type: "integer", null: false },
