@@ -5,52 +5,88 @@ seo:
   description: "Build Active Record queries as lazy Relations, and run them with find, findBy, first, count, pluck, and exists, with links to conditions, joins, and paging."
 ---
 
+## At a glance
+
+| To                              | Write                                                  |
+| ------------------------------- | ------------------------------------------------------ |
+| build a query                   | `User.where({ role: "admin" }).order({ … }).limit(10)` |
+| run it                          | `.toArray()`, `.first()`, `.count()`                   |
+| find one record                 | `find(id)`, `findBy({ … })`, `findByOrThrow({ … })`    |
+| read attributes without records | `pluck("email")`, `pick("email")`, `ids()`             |
+| check for records               | `exists({ … })`, `hasAny()`, `hasMoreThanOne()`        |
+| load only some attributes       | `select("email")`                                      |
+| match nothing, without a query  | `none()`                                               |
+| combine two queries             | `where(…).merge(other)`                                |
+| see the SQL                     | `toSql()`                                              |
+
+Each part of a query has a page of its own:
+
+| To                                          | See                                                               |
+| ------------------------------------------- | ----------------------------------------------------------------- |
+| filter with `where`, comparisons, and `sql` | [Conditions](./conditions)                                        |
+| sort and page                               | [Ordering and pagination](./ordering-and-pagination)              |
+| count, add up, and group                    | [Calculations](./calculations)                                    |
+| name reusable queries                       | [Scopes](./scopes)                                                |
+| filter by associated records                | [Joins](./joins)                                                  |
+| walk a large table                          | [Batch iteration](./batch-iteration)                              |
+| send your own SQL                           | [Raw statements](./raw-statements)                                |
+| load associations with each record          | [Preloading associations](./associations#preloading-associations) |
+
+## The Model
+
+The examples use this Model, whose attributes come from its table through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="user.ts">/_excerpts/pages/querying/src/models/user.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/querying/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/querying/migrations/0001_create_users.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/querying/postgres/0001_create_users.sql</include>
+
+</CodeGroup>
+
 ## Building a Relation
 
-A query is a **Relation**. Each method that narrows, orders, or pages it returns a new Relation, and nothing runs until you ask for results:
+A query is a **Relation**, and each method that narrows, orders, or pages it returns a new one:
 
-<include>/_excerpts/guide/querying/relation.ts</include>
+<include>/_excerpts/pages/querying/examples/relation.mdx</include>
 
-:::note
-Relations have no `then`, so an `async` function that returns one never runs it by accident. Ask for results with a method such as `toArray()`, `first()`, or `count()`.
-:::
+- Nothing runs until you ask for results, with a method such as `toArray()`, `first()`, or `count()`.
+- Relations have no `then`, so an `async` function that returns one never runs it by accident.
+- Every Relation method is also a static of every Model: `User.where(…)`, `User.find(id)`, `User.count()`. `User.all()` is the Relation itself.
+- A query runs on the current database: the request’s, if it was opened with `withDatabase`, or the Model’s binding. To use another, start from `db.model(User)`. See [Connections](./connecting).
 
-## Starting a query
+## Finding records
 
-Every Relation method is also a static of every Model: `User.where(…)`, `User.find(id)`, `User.count()`, `User.create(…)`. `User.all()` is the Relation itself, and scopes are statics too: `User.active()`.
+Find one record with a finder:
 
-A query runs on the current database: the request’s, if it was opened with `withDatabase`, or the Model’s binding. To use another, start from `db.model(User)`. See [Connections](./connecting).
-
-## Adding conditions
-
-Narrow a query with `where`, `whereNot`, `or`, comparisons such as `gte` and `between`, and `sql` fragments. Replace them with `rewhere`, drop parts with `unscope`, and leave records out with `excluding`. See [Conditions](./conditions).
-
-## Using raw statements
-
-Bind and read values in SQL you send yourself with `typeForAttribute`’s `serialize` and `deserialize`. See [Raw statements](./raw-statements).
-
-## Ordering and paging
-
-Sort with `order` and `inOrderOf`, and split records into pages with `paginate`. See [Ordering and pagination](./ordering-and-pagination).
-
-## Iterating over many records
-
-Work through a large table a batch at a time with `findEach`, `findInBatches`, and `inBatches`. See [Batch iteration](./batch-iteration).
-
-## Getting results
-
-Run a query with one of these methods:
-
-<include>/_excerpts/guide/querying/terminal.ts</include>
+<include>/_excerpts/pages/querying/examples/find.mdx</include>
 
 - `find` throws `RecordNotFound` if the id is missing. Given several ids, it returns them in order, from one query, and throws if any are missing.
-- `findBy` resolves to `null` when nothing matches, and `findByOrThrow` throws `RecordNotFound`.
-- `findOrCreateBy` creates the record when nothing matches. See [Finding or creating a record](./persistence#finding-or-creating-a-record).
-- `first` and `last` sort by the primary key unless the Relation has an order, and `last` reverses that order. An `sql` fragment can’t be reversed, so `last` throws `IrreversibleOrder` there.
+- `findBy` resolves to `null` when nothing matches, and `findByOrThrow` throws `RecordNotFound`. `findOrCreateBy` creates the record. See [Finding or creating a record](./persistence#finding-or-creating-a-record).
+- `first` and `last` sort by the primary key unless the Relation has an order, and `last` reverses that order. An `sql` fragment can’t be reversed, so `last` throws `IrreversibleOrder` there. `take` reads a record with no order at all.
 - `firstOrThrow`, `lastOrThrow`, and `takeOrThrow` throw `RecordNotFound` instead of resolving to `null`.
 - `sole` resolves to the only matching record. It throws `RecordNotFound` when nothing matches, and `SoleRecordExceeded` when more than one does. `findSoleBy(conditions)` is short for `where(conditions).sole()`.
-- `pick` reads one attribute from the first record. Given several attributes, it reads a tuple. It resolves to `null` when nothing matches.
+
+## Reading attributes
+
+Read attributes without loading records with `pluck`, `pick`, and `ids`:
+
+<include>/_excerpts/pages/querying/examples/pluck.mdx</include>
+
+- `pluck` reads one attribute from every record, or a tuple of several.
+- `pick` reads from the first record, and resolves to `null` when nothing matches.
 - `ids` plucks every primary key. On a loaded association, it leaves out records you’ve built that don’t have a key yet.
+
+## Counting and checking
+
+Count records, or check whether any match:
+
+<include>/_excerpts/pages/querying/examples/count.mdx</include>
+
 - `count()` always agrees with what `toArray()` returns, even with `limit`, `offset`, or `distinct`.
 - `size()`, `isEmpty()`, and `hasAny()` count records, or check for any. On a loaded association, they answer without a query.
 - `hasMoreThanOne()` and `hasExactlyOne()` count no further than two records. On a loaded association, they answer without a query too.
@@ -59,79 +95,46 @@ Run a query with one of these methods:
 `exists()`, `isEmpty()`, and `hasAny()` ignore the Relation’s order, so D1 stops at the first matching row. `count()` ignores it too, unless a `limit` or `offset` needs it. D1 bills each row it reads, so checks and counts stay cheap on an ordered Relation, such as an ordered association.
 :::
 
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-`size()`, `isEmpty()`, and `hasAny()` are Rails’ `size`, `empty?`, and `any?`, and `hasMoreThanOne()` and `hasExactlyOne()` are `many?` and `one?`. `firstOrThrow()` is `first!`, and `findSoleBy` is `find_sole_by`. There’s no `second` or `third`. Use `offset(1).first()` instead. Rails’ `ids` gives `nil` for a built record with no key, where `ids()` leaves it out.
-
-</Callout>
-
-## Calculating values
-
-Count, add up, average, and find the extremes of an attribute, overall or per group, with `sum`, `average`, `minimum`, `maximum`, and `group`. See [Calculations](./calculations).
-
 ## Selecting attributes
 
-Load only some attributes with `select`. The primary key is always loaded too, so the records can still be saved:
+Load only some attributes with `select`:
 
-<include>/_excerpts/guide/querying/select.ts</include>
+<include>/_excerpts/pages/querying/examples/select.mdx</include>
 
+- The primary key is always loaded too, so the records can still be saved.
 - Reading an attribute that wasn’t loaded throws `MissingAttribute`, including from a validator or callback. `record.hasAttribute("email")` says whether it was loaded.
 - Saving a partial record writes only what changed. `reload()` loads the whole row.
 - After `distinct()`, the primary key isn’t added, since it would make every row distinct, so those records can’t be saved.
 
 ## Matching nothing
 
-`none()` matches nothing without asking D1, so it needs no database to answer. Chaining more onto it keeps it empty:
+`none()` matches nothing without asking the database, and chaining more onto it keeps it empty:
 
-<include>/_excerpts/guide/querying/none.ts</include>
+<include>/_excerpts/pages/querying/examples/none.mdx</include>
+
+## Merging Relations
+
+Combine two Relations of the same Model with `merge`:
+
+<include>/_excerpts/pages/querying/examples/merge.mdx</include>
+
+Their conditions are joined with AND, and anything the argument sets, such as an order, limit, or select, replaces the receiver’s. To merge a Relation of another Model, join that Model first. See [Joins](./joins#filtering-by-a-joined-model).
 
 ## Seeing a query’s SQL
 
 See the SQL a Relation’s `toArray()` would send, without sending it, with `toSql()`:
 
-<include>/_excerpts/guide/querying/to-sql.ts</include>
+<include>/_excerpts/pages/querying/examples/to-sql.mdx</include>
 
-The values come back in `params`, apart from the SQL.
-
-A `none()` Relation shows `1 = 0`, the condition that matches nothing.
-
-:::note
-`toSql()` returns the real values, filtered attributes included. To see what a query sent, with those filtered, use [`onQuery`](./logging).
-:::
-
-Bulk writes and [batches](./batches#batching-writes) have no `toSql()`. Use [`onQuery`](./logging) to see what they sent.
+- The values come back in `params`, apart from the SQL. Postgres numbers its placeholders: `$1`, `$2`.
+- A `none()` Relation shows `1 = 0`, the condition that matches nothing.
+- `toSql()` returns the real values, filtered attributes included. To see what a query sent, with those filtered, use [`onQuery`](./logging).
+- Bulk writes and [batches](./batches#batching-writes) have no `toSql()`. Use [`onQuery`](./logging) to see what they sent.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-`toSql()` is Rails’ `to_sql`, except that Rails writes the values into the SQL and `toSql()` keeps them in `params`.
+`size()`, `isEmpty()`, and `hasAny()` are Rails’ `size`, `empty?`, and `any?`, and `hasMoreThanOne()` and `hasExactlyOne()` are `many?` and `one?`. `firstOrThrow()` is `first!`, and `findSoleBy` is `find_sole_by`. There’s no `second` or `third`. Use `offset(1).first()` instead. Rails’ `ids` gives `nil` for a built record with no key, where `ids()` leaves it out.
+
+`merge` replaces the receiver’s order, where Rails adds the argument’s to it. `toSql()` is Rails’ `to_sql`, except that Rails writes the values into the SQL and `toSql()` keeps them in `params`.
 
 </Callout>
-
-## Defining scopes
-
-Name a reusable part of a query with `this.scope`, or narrow every query on a Model with `this.defaultScope`. See [Scopes](./scopes).
-
-## Merging Relations
-
-Combine two Relations of the same Model with `merge`. Their conditions are joined with AND, and anything the argument sets, such as an order, limit, or select, replaces the receiver’s:
-
-```ts
-const recent = User.order({ createdAt: "desc" }).limit(10);
-const admins = await User.where({ role: "admin" }).merge(recent).toArray();
-```
-
-To merge a Relation of another Model, join that Model first. See [Joining associations](#joining-associations).
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-Rails adds the argument’s order to the receiver’s. Active Record replaces it.
-
-</Callout>
-
-## Joining associations
-
-Find records by their associated records with `joins` and `leftJoins`, and filter by a joined Model with `merge`. See [Joins](./joins).
-
-## Preloading associations
-
-`includes` loads associations for every record, with one query per association. See [Associations](./associations#preloading-associations).

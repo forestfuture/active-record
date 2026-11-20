@@ -6,6 +6,7 @@ import * as calculations from "../../../site/snippets/pages/calculations/example
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
 import * as joins from "../../../site/snippets/pages/joins/examples.ts";
 import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
+import * as querying from "../../../site/snippets/pages/querying/examples.ts";
 import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
 import { readdirSync, readFileSync } from "node:fs";
@@ -81,6 +82,37 @@ function pageSchema(page: string, seed: string): () => PgSchema {
 
 const ada = "00000000-0000-4000-8000-00000000000a";
 const mary = "00000000-0000-4000-8000-00000000000b";
+
+// The Querying page's examples, on the Postgres table it shows.
+describe("the Querying page's examples, on Postgres", () => {
+  const schema = pageSchema(
+    "querying",
+    `INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES
+      ('${ada}', 'ada@example.com', 'admin', true, '2026-01-15Z', '2026-01-15Z'),
+      ('${mary}', 'mary@example.com', 'owner', true, '2025-11-01Z', '2025-11-01Z')`,
+  );
+
+  test("finders, plucks and checks resolve, and toSql shows numbered placeholders", async () => {
+    const db = connect(schema().url);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => log.mockRestore());
+
+    const { again, newest, owner } = await withDatabase(db, () => querying.finding());
+    const { emails } = await withDatabase(db, () => querying.reading());
+    const counts = await withDatabase(db, () => querying.counting());
+    const { sql } = await withDatabase(db, async () => querying.seeingSql());
+
+    expect([again.email, newest?.email, owner.email]).toEqual([
+      "ada@example.com",
+      "ada@example.com",
+      "mary@example.com",
+    ]);
+    expect(emails).toEqual(["ada@example.com", "mary@example.com"]);
+    expect(counts).toEqual({ admins: 1, hasAdmins: true, severalAdmins: false, oneOwner: true });
+    // oxlint-disable-next-line active-record/no-sql-text -- the page says Postgres numbers its placeholders
+    expect(sql).toMatch(/\$1.*\$2/);
+  });
+});
 
 // The Conditions page's examples, on the Postgres table it shows.
 describe("the Conditions page's examples, on Postgres", () => {
