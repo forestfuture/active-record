@@ -1,5 +1,5 @@
 // `find` by primary key: one id or several, in order, keeping a Relation's conditions; `RecordNotFound` when any is missing.
-import { attributeFor, noMatch } from "./attribute.ts";
+import { attributeFor } from "./attribute.ts";
 import { RecordNotFound } from "./errors.ts";
 import { normalizedConditions } from "./normalized-values.ts";
 import { shownKey } from "./filtering.ts";
@@ -72,16 +72,13 @@ async function findSome<M extends Model>(
 }
 
 /**
- * The primary keys `find(...)` looks up: each cast to the key's type as a condition is, and
- * normalized (#354), then each once. One that can't be cast stays as given, matches nothing, and is
- * reported missing.
+ * The primary keys `find(...)` looks up: each cast to the key's type as a condition is and
+ * normalized (#354), then each once. One that can't be cast stays as given, matches nothing,
+ * and is reported missing.
  */
 function keysToFind(model: ModelClass, ids: readonly unknown[]): (string | number)[] {
   const key = attributeFor(model, model.primaryKey);
-  const keys = ids.map((id) => {
-    const cast = key.normalizedCondition(id);
-    return (cast === noMatch ? id : cast) as string | number;
-  });
+  const keys = ids.map((id) => key.normalizedCondition(id) as string | number);
   return [...new Set(keys)];
 }
 

@@ -1,5 +1,5 @@
 // Relation: the chainable query (`where`, `order`, …), its finders, terminals, and bulk writes.
-import { writtenConditions } from "./normalized-values.ts";
+import { checkedConditions } from "./normalized-values.ts";
 import { jointly, type Executor } from "./executor.ts";
 import { querySql, type QuerySql } from "./compiler.ts";
 import { includeTree } from "./preload.ts";
@@ -152,16 +152,16 @@ export class Relation<M extends Model, S = {}> {
   }
 
   where(conditions: Conditions<M> | SafeSql): Scoped<M, S> {
-    const written = writtenConditions(this.#model, conditions, "where");
-    if (written === undefined) return this.#scoped(this);
-    return this.#with({ conditions: [...this.#query.conditions, written] });
+    const checked = checkedConditions(this.#model, conditions, "where");
+    if (checked === undefined) return this.#scoped(this);
+    return this.#with({ conditions: [...this.#query.conditions, checked] });
   }
 
   /** Negates the whole condition: `NOT (…)`. Rows where it is NULL are excluded too. */
   whereNot(conditions: Conditions<M> | SafeSql): Scoped<M, S> {
-    const written = writtenConditions(this.#model, conditions, "whereNot");
-    if (written === undefined) return this.#scoped(this);
-    return this.#with({ conditions: [...this.#query.conditions, new Negated(written)] });
+    const checked = checkedConditions(this.#model, conditions, "whereNot");
+    if (checked === undefined) return this.#scoped(this);
+    return this.#with({ conditions: [...this.#query.conditions, new Negated(checked)] });
   }
 
   /**
