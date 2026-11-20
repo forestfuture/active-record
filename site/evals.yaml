@@ -117,3 +117,15 @@ questions:
     expected:
       - 'User.pluck("email")'
     routes: /querying
+  - id: decimal-as-text
+    question: "Why does a decimal attribute read as a string, and how do I store a price exactly?"
+    expected:
+      - 'a decimal attribute holds its exact number as text, such as "12.5"'
+      - "a NUMERIC(10, 2) column's scale rounds it to two places"
+    routes: /attribute-types
+  - id: cast-form-boolean
+    question: 'A form sends inStock="true" as text. Does Active Record store it as a boolean, and what happens with "no"?'
+    expected:
+      - '"true" is cast to true when it''s assigned'
+      - '"no" throws a TypeError naming the Model and attribute'
+    routes: /attribute-types

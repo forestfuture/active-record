@@ -44,7 +44,7 @@ Pass `where` an object of attributes that must all match:
 <include>/_excerpts/pages/conditions/examples/where.mdx</include>
 
 - `null` matches NULL. An array matches any of its values, and is bound as one value, so it can be any length.
-- Values are [cast to the attribute’s type](./models#casting-assigned-values), so text from a query string works as it is: `where({ isActive: "false" })` finds inactive users. A value that can’t be cast matches nothing: `findBy` resolves to `null`, and `find` throws `RecordNotFound`.
+- Values are [cast to the attribute’s type](./attribute-types#casting-assigned-values), so text from a query string works as it is: `where({ isActive: "false" })` finds inactive users. A value that can’t be cast matches nothing: `findBy` resolves to `null`, and `find` throws `RecordNotFound`.
 - `undefined` throws `TypeError`. Leave the key out, or use `null`.
 
 Attribute names are checked when you compile, and a misspelled one that gets past the compiler throws `UnknownAttribute`:

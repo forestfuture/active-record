@@ -63,7 +63,7 @@ The generated `schema.ts` now declares `schema` with `defineSchema({ … })`, wh
 
 ### Reading `DATE` columns
 
-The generated schema now reads a `DATE` column as a [`date`](./models#storing-exact-numbers-days-and-times), a day’s text such as `"2026-01-02"`, where it was a `datetime`. Update code that reads one as a `Date`, or keep the attribute a `datetime` with an override:
+The generated schema now reads a `DATE` column as a [`date`](./attribute-types#storing-exact-numbers-days-and-times), a day’s text such as `"2026-01-02"`, where it was a `datetime`. Update code that reads one as a `Date`, or keep the attribute a `datetime` with an override:
 
 ```ts
 import { ApplicationRecord } from "./application-record";
@@ -88,11 +88,11 @@ UPDATE events SET starts_on = substr(starts_on, 1, 10) WHERE length(starts_on) >
 
 Postgres stores a `date` without a time, so its rows need no change.
 
-A `TIME` column is now a [`time`](./models#storing-exact-numbers-days-and-times), where it was a `string`, and reads as `"09:30:00"`. A `NUMERIC` or `DECIMAL` column is now a `decimal`, where it was an error.
+A `TIME` column is now a [`time`](./attribute-types#storing-exact-numbers-days-and-times), where it was a `string`, and reads as `"09:30:00"`. A `NUMERIC` or `DECIMAL` column is now a `decimal`, where it was an error.
 
 ### Typing serialized values
 
-`typeForAttribute(name).serialize` now returns `string | number | Uint8Array | null`, since a [`binary` attribute](./models#storing-bytes) is stored as bytes. Code that gives its result a narrower type, such as `string | number | null`, needs the wider one.
+`typeForAttribute(name).serialize` now returns `string | number | Uint8Array | null`, since a [`binary` attribute](./attribute-types#storing-bytes) is stored as bytes. Code that gives its result a narrower type, such as `string | number | null`, needs the wider one.
 
 ## Upgrading from 0.6 to 0.7
 

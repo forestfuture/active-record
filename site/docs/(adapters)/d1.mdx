@@ -79,4 +79,4 @@ Once D1 has accepted a write, it’s done. An error thrown by an after-callback 
 
 ## Decimals keep about 15 digits
 
-SQLite stores a [`decimal`](./models#storing-exact-numbers-days-and-times) as a number, so D1 keeps about 15 significant digits of it and rounds the rest: `"1.2345678901234567891"` reads back as `"1.234567890123457"`. Postgres keeps every digit.
+SQLite stores a [`decimal`](./attribute-types#storing-exact-numbers-days-and-times) as a number, so D1 keeps about 15 significant digits of it and rounds the rest: `"1.2345678901234567891"` reads back as `"1.234567890123457"`. Postgres keeps every digit.
