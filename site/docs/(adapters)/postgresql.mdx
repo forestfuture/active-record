@@ -90,7 +90,7 @@ Queries you send at once with `Promise.all` inside one `withDatabase` call also 
 
 ## Large integers
 
-A `bigint` column reads as a number. A value past `Number.MAX_SAFE_INTEGER` throws a `TypeError` naming its attribute, rather than reading as a number that’s slightly wrong. For exact numbers of any size, use a `numeric` column and a [`decimal`](./models#storing-exact-numbers-days-and-times) attribute, which keeps every digit.
+A `bigint` column reads as a number. A value past `Number.MAX_SAFE_INTEGER` throws a `TypeError` naming its attribute, rather than reading as a number that’s slightly wrong. For exact numbers of any size, use a `numeric` column and a [`decimal`](./attribute-types#storing-exact-numbers-days-and-times) attribute, which keeps every digit.
 
 ## Placeholders
 

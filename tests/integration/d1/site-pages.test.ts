@@ -15,6 +15,7 @@ import {
   withDatabase,
 } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import * as attributeTypes from "../../../site/snippets/pages/attribute-types/examples.ts";
 import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
@@ -63,6 +64,48 @@ function quietLog(): { calls: () => unknown[][] } {
   beforeEach(() => log.mockClear());
   return { calls: () => log.mock.calls };
 }
+
+// The Attribute types page's examples, on the products table it shows.
+describe("the Attribute types page's examples", () => {
+  const binding = pageDatabase("attribute-types", ["products"]);
+  const log = quietLog();
+  const run = <T>(fn: () => Promise<T> | T) => withDatabase(connect(binding()), async () => fn());
+
+  test("each type holds the JavaScript value the page shows", async () => {
+    const lamp = await run(attributeTypes.building);
+    const saved = await run(async () => {
+      await lamp.save();
+      return lamp.reload();
+    });
+
+    expect(log.calls()).toEqual([["12.5"], ["09:30:00"], [null]]);
+    expect(saved.price).toBe("12.5");
+    expect([saved.weightKg, saved.stock, saved.inStock]).toEqual([1.2, 3, true]);
+    expect([saved.launchesOn, saved.opensAt]).toEqual(["2026-01-02", "09:30:00"]);
+    expect(saved.details).toEqual({ colors: ["red", "blue"] });
+    expect(saved.photo).toEqual(new Uint8Array([1, 2, 3]));
+    expect(saved.createdAt).toBeInstanceOf(Date);
+  });
+
+  test("assigned text is cast, and a decimal rounds to its column's scale", async () => {
+    const lamp = await run(attributeTypes.casting);
+
+    expect([lamp.price, lamp.stock, lamp.inStock]).toEqual(["1.56", 42, true]);
+  });
+
+  test("a value that can't be cast throws TypeError naming the attribute", () => {
+    expect(() => attributeTypes.refusing()).toThrow('Product: "no" isn\'t a boolean for "inStock"');
+  });
+
+  test("a form's file saves as bytes", async () => {
+    const form = new FormData();
+    form.set("photo", new File([new Uint8Array([7, 8])], "photo.png"));
+
+    const product = await run(() => attributeTypes.addPhoto(form));
+
+    expect([product.name, product.photo]).toEqual(["photo.png", new Uint8Array([7, 8])]);
+  });
+});
 
 // The Querying page's examples, on the users table it shows.
 describe("the Querying page's examples", () => {
