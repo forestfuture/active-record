@@ -3,7 +3,7 @@ import { type AnyCustomType, type CustomType, isCustomType } from "./custom-type
 import { copiedKeys } from "./spec-keys.ts";
 import type { EnumNames, EnumValues, IntegerEnum, TextEnum } from "./enum-values.ts";
 import type { EpochStorage } from "./epoch-storage.ts";
-import { UnknownAttribute } from "./errors.ts";
+import { InvalidModel, UnknownAttribute } from "./errors.ts";
 import type { ModelClass } from "./model.ts";
 import { underscore } from "./naming.ts";
 
@@ -84,9 +84,13 @@ type NoDigits = { precision?: never; scale?: never };
 /** The spec's keys that only some types have, each written by the type's own branch below. */
 type PerTypeKeys = "type" | "generateId" | "storage" | "enum" | "precision" | "scale";
 
-export type AttributeSpec =
-  | AttributeType
-  | AnyCustomType
+export type AttributeSpec = AttributeType | AnyCustomType | (SpecObjectByType & Placement);
+
+/** A column, or a virtual attribute, which has none (#356). */
+type Placement = { virtual?: false } | { virtual: true; column?: never };
+
+/** A spec written out, by its type: the keys each type may have. */
+type SpecObjectByType =
   | (Omit<SpecObject, "default" | PerTypeKeys> & {
       type: "string";
       storage?: never;
@@ -215,11 +219,23 @@ export function specObjectOf(spec: AttributeSpec): SpecObject {
 export function define(name: string, spec: AttributeSpec): AttributeDefinition {
   if (typeof spec === "string") return { type: spec, column: underscore(name) };
   if (isCustomType(spec)) return { ...resolvedType(spec), column: underscore(name) };
+  if (spec.virtual === true) return defineVirtual(name, spec);
   return {
     ...resolvedType(spec.type),
     column: spec.column ?? underscore(name),
     ...copiedKeys(spec),
   };
+}
+
+/**
+ * A virtual attribute's definition (#356): no column (`""`, unless one was given, which a Model's
+ * check refuses), and non-null only with a default.
+ */
+function defineVirtual(name: string, spec: SpecObject): AttributeDefinition {
+  if (spec.null === false && spec.default === undefined) {
+    throw new InvalidModel(`${name} is virtual and null: false, so it needs a default`);
+  }
+  return { ...resolvedType(spec.type), column: spec.column ?? "", ...copiedKeys(spec) };
 }
 
 /** A spec's type as a definition holds it: a custom type as the type it's stored as, and itself. */

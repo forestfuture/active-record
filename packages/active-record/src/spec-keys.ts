@@ -150,7 +150,7 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     isWellFormed: (value) => typeof value === "boolean",
     describedAs: "virtual",
     isGiven: isGivenUnless(false),
-    conflictsWith: ["generateId", "storage", "enum"],
+    conflictsWith: ["column", "generateId", "storage", "enum"],
   },
 };
 
