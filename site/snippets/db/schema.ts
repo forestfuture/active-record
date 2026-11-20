@@ -77,13 +77,6 @@ declare module "../guide/adopt" {
   interface Post extends TableAttributes<typeof posts, (typeof Post)["attributes"]> {}
 }
 
-declare module "../guide/application-record" {
-  interface Account extends TableAttributes<
-    typeof billingAccounts,
-    (typeof Account)["attributes"]
-  > {}
-}
-
 declare module "../guide/coming-from-rails" {
   interface Product extends TableAttributes<typeof products, (typeof Product)["attributes"]> {}
 }
