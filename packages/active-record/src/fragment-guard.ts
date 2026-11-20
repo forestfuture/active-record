@@ -1,6 +1,6 @@
 // Refuses a bare date compared directly with an integer-stored attribute's column in a fragment (#149).
 import { castValue, uncastable, zonelessDateTime } from "./conversion.ts";
-import { attributeOf } from "./metadata.ts";
+import { columnOf } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
 import { ColumnReference, type SafeSql } from "./sql.ts";
 
@@ -66,7 +66,7 @@ export function refuseBareDates(model: ModelClass, fragment: SafeSql): void {
     if (kind === undefined) return;
     const reference = columnBefore(fragment, index) ?? columnAfter(fragment, index);
     if (reference === undefined) return;
-    const { storage } = attributeOf(model, reference.attribute);
+    const { storage } = columnOf(model, reference.attribute);
     if (storage === undefined) return;
     throw new TypeError(
       `${model.name}: a ${kind} beside "${reference.attribute}", which is stored as ${storage}, ` +

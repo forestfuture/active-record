@@ -11,7 +11,7 @@ import {
   type QueryDescription,
   type UnscopedPart,
 } from "./query.ts";
-import { attributeOf } from "./metadata.ts";
+import { columnOf } from "./metadata.ts";
 import { isPlainObject } from "./permit.ts";
 import { checkConditions, requireAttributeConditions } from "./relation-checks.ts";
 import { Model, primaryKeyOf, type AttributesOf, type ModelClass } from "./model.ts";
@@ -200,7 +200,7 @@ function unscopedPart(query: QueryDescription, given: UnscopeGiven): UnscopedPar
     );
   }
   const attributes = typeof given.where === "string" ? [given.where] : [...given.where];
-  for (const name of attributes) attributeOf(query.model, name);
+  for (const name of attributes) columnOf(query.model, name);
   return { where: attributes };
 }
 

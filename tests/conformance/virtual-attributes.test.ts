@@ -3,7 +3,11 @@
    type are defined when the Model's attributes resolve. */
 // Virtual attributes (#356): attributes that aren't columns, never read from a row or written to one.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model, type TableAttributes } from "../../packages/active-record/src/index.ts";
+import {
+  Model,
+  UnknownAttribute,
+  type TableAttributes,
+} from "../../packages/active-record/src/index.ts";
 import { d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
@@ -25,7 +29,7 @@ const schema = {
     users: { attributes: users, primaryKey: "id" },
     samples: { attributes: samples, primaryKey: "id" },
   },
-  models: { User: "users", Sample: "samples" },
+  models: { User: "users", Sample: "samples", Member: "users" },
 } as const;
 
 abstract class ApplicationRecord extends Model {
@@ -39,6 +43,16 @@ class User extends ApplicationRecord {
   } as const;
 }
 interface User extends TableAttributes<typeof users, (typeof User)["attributes"]> {}
+
+// Ignoring a column, so its queries name their columns instead of `*`.
+class Member extends ApplicationRecord {
+  static override table = "users";
+  static override attributes = {
+    role: false,
+    nickname: { type: "string", virtual: true },
+  } as const;
+}
+interface Member extends TableAttributes<typeof users, (typeof Member)["attributes"]> {}
 
 class Sample extends ApplicationRecord {
   static override attributes = { note: { type: "string", virtual: true } } as const;
@@ -136,6 +150,14 @@ describe("a virtual attribute", () => {
       expect(user.changes()).toEqual({});
     });
 
+    test("loads on a Model that names its columns", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'jane@example.com')");
+
+      const member = await db().model(Member).find(1);
+
+      expect(member.nickname).toBeNull();
+    });
+
     test("goes back to its default on reload, as Rails does", async () => {
       const user = await db()
         .model(User)
@@ -146,6 +168,36 @@ describe("a virtual attribute", () => {
       expect(user.termsOfService).toBe(false);
       expect(user.nickname).toBeNull();
       expect(user.changes()).toEqual({});
+    });
+  });
+
+  describe("in a query", () => {
+    const refusal = new UnknownAttribute(
+      "User.nickname is a virtual attribute, which has no column to query",
+    );
+
+    test("is refused when the query is written, before anything is sent", async () => {
+      const users = db().model(User);
+
+      expect(() => users.where({ nickname: "Janie" })).toThrow(refusal);
+      expect(() => users.order({ nickname: "asc" })).toThrow(refusal);
+      expect(() => users.select("nickname")).toThrow(refusal);
+      await expect(users.pluck("nickname")).rejects.toThrow(refusal);
+      await expect(users.findBy({ nickname: "Janie" })).rejects.toThrow(refusal);
+      await expect(
+        users.findOrCreateBy({ email: "jane@example.com", nickname: "Janie" }),
+      ).rejects.toThrow(refusal);
+      expect(events).toEqual([]);
+    });
+
+    test("is refused in a bulk insert or update", async () => {
+      const users = db().model(User);
+
+      await expect(users.insert({ email: "jane@example.com", nickname: "Janie" })).rejects.toThrow(
+        refusal,
+      );
+      await expect(users.updateAll({ nickname: "Janie" })).rejects.toThrow(refusal);
+      expect(events).toEqual([]);
     });
   });
 });

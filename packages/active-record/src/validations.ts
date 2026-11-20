@@ -9,7 +9,7 @@ import { isBlank } from "./blank.ts";
 import { orderDecimal } from "./decimal-values.ts";
 import { addFailure, fullMessageOf, type Errors, type Failure } from "./errors-collection.ts";
 import { StrictValidationFailed } from "./errors.ts";
-import { attributeOf } from "./metadata.ts";
+import { attributeOf, columnOf } from "./metadata.ts";
 import {
   isInContext,
   type ValidationContext,
@@ -345,6 +345,6 @@ export function checkValidatedNames(
   attributeOf(model, attribute);
   const { uniqueness } = options;
   if (typeof uniqueness === "object") {
-    for (const name of uniqueness.scope ?? []) attributeOf(model, name);
+    for (const name of uniqueness.scope ?? []) columnOf(model, name);
   }
 }

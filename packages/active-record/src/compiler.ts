@@ -391,10 +391,17 @@ export function compileDelete(model: ModelClass<Model>, storedKey: unknown): Com
   };
 }
 
-/** A whole row: `*`, or the declared columns when the Model ignores some of its table's. */
+/**
+ * A whole row: `*`, or the declared columns when the Model ignores some of its table's (not its
+ * virtual attributes, which have none, #356).
+ */
 function allColumns(source: Source): string {
   if (isIgnoringColumns(source.model)) {
-    return columnsIn(source, [...source.model.attributeDefinitions.keys()]);
+    const columns = [...source.model.attributeDefinitions].filter(([, { virtual }]) => !virtual);
+    return columnsIn(
+      source,
+      columns.map(([name]) => name),
+    );
   }
   return source.qualified ? `${source.name}.*` : "*";
 }

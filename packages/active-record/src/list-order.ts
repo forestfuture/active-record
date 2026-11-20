@@ -1,5 +1,5 @@
 // `inOrderOf` (#350): ordering by an attribute's place in a list of values, as Rails' `in_order_of`.
-import { attributeOf } from "./metadata.ts";
+import { columnOf } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
 import type { AttributeOrder, QueryDescription } from "./query.ts";
 import { checkConditions } from "./relation-checks.ts";
@@ -32,7 +32,7 @@ export function listOrdered(
  * them last, as Rails' `in_order_of(…, filter: false)` places it.
  */
 function listOrder(model: ModelClass, attribute: string, values: unknown): AttributeOrder {
-  const { type } = attributeOf(model, attribute);
+  const { type } = columnOf(model, attribute);
   if (!Array.isArray(values)) {
     throw new TypeError(`inOrderOf() takes a list of "${attribute}" values`);
   }

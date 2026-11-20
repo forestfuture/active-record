@@ -9,7 +9,7 @@ import {
 import type { StatementResult } from "./driver.ts";
 import type { Executor } from "./executor.ts";
 import { attributeFor } from "./attribute.ts";
-import { attributeOf, initialValues, requireDefined } from "./metadata.ts";
+import { initialValues, requireDefined, columnOf } from "./metadata.ts";
 import type { AttributesOf, ModelClass } from "./model.ts";
 import { timestampsFor } from "./timestamps.ts";
 
@@ -160,7 +160,7 @@ function rowReader(model: ModelClass, names: readonly string[]): RowReader {
  * rest (where app-generated keys come from), then `createdAt`/`updatedAt` unless given.
  */
 function insertAssignments(model: ModelClass, attributes: Record<string, unknown>): Assignment[] {
-  for (const name of Object.keys(attributes)) attributeOf(model, name);
+  for (const name of Object.keys(attributes)) columnOf(model, name);
   const values = [...Object.entries(attributes), ...initialValues(model, attributes)];
   for (const [name, value] of values) requireDefined(model, name, value);
   return [...values, ...timestampsFor(model, "insert", values)];
