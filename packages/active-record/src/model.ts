@@ -21,6 +21,7 @@ import { defaultFilterAttributes, type FilterAttribute } from "./filtering.ts";
 import type { Errors } from "./errors-collection.ts";
 import { humanAttributeName, type ErrorMessages } from "./error-messages.ts";
 import { declare, declared } from "./declarations.ts";
+import type { NormalizeOptions } from "./normalization.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
@@ -375,6 +376,24 @@ export class Model extends AttributeWrites {
     // A generated Model's attributes are fixed when it's first used, and checked then.
     if (hasSettledAttributes(this)) checkValidatedNames(this, validation);
     declare(this, "validations", validation);
+  }
+
+  /**
+   * Declares a normalization (#354), e.g. `this.normalizes("email", { with: (email) =>
+   * email.trim().toLowerCase() })` in `static {}`: each value assigned to the attribute, once
+   * cast, becomes what `with` returns for it.
+   */
+  static normalizes<C extends AbstractModelClass, K extends AttributeKey<InstanceType<C>>>(
+    this: C,
+    attribute: K,
+    options: NormalizeOptions<AttributesOf<InstanceType<C>>[K]>,
+  ): void {
+    const { with: normalize, applyToNull = false } = options;
+    declare(this, "normalizations", {
+      attribute,
+      with: normalize as (value: unknown) => unknown,
+      applyToNull,
+    });
   }
 
   /**

@@ -24,6 +24,7 @@ import {
   requireDefined,
 } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
+import { normalizationsOf } from "./normalization.ts";
 
 /** What `condition()` and `conditionCell()` give for a value that can't match anything. */
 export const noMatch = uncastable;
@@ -77,6 +78,20 @@ export class Attribute {
     // A validated enum keeps an unknown value for its validation to refuse (#340).
     if (cast === uncastable && this.#isValidatedEnum()) return value;
     return this.#orRefuse(cast, value);
+  }
+
+  /** An assigned value cast, then normalized (#354): what a record keeps for it. */
+  assigned(value: unknown): unknown {
+    return this.normalize(this.cast(value));
+  }
+
+  /** An already cast value through each of the attribute's normalizations, in order (#354). */
+  normalize(value: unknown): unknown {
+    let normalized = value;
+    for (const normalization of normalizationsOf(this.#model, this.name)) {
+      normalized = normalization.with(normalized);
+    }
+    return normalized;
   }
 
   /** Whether it's an enum declared `validate: true`, which keeps an unknown value it's given. */
