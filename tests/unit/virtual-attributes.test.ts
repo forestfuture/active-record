@@ -49,6 +49,20 @@ describe("a virtual attribute", () => {
     expect(user.termsOfService).toBe(true);
   });
 
+  test("tracks its changes", () => {
+    const user = db.model(User).build({ email: "jane@example.com" });
+    user.termsOfService = true;
+
+    expect(user.changes()).toMatchObject({ termsOfService: [null, true] });
+    expect(user.isAttributeChanged("termsOfService")).toBe(true);
+  });
+
+  test("is in attributes()", () => {
+    const user = db.model(User).build({ email: "jane@example.com", termsOfService: true });
+
+    expect(user.attributes()).toMatchObject({ termsOfService: true });
+  });
+
   test("reads as null until assigned", () => {
     expect(db.model(User).build({ email: "jane@example.com" }).termsOfService).toBeNull();
   });

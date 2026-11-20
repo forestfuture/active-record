@@ -134,7 +134,7 @@ function markTouched(record: Model, claimed: ReadonlySet<Model>, time?: Date): v
 }
 
 /**
- * The touches `record`'s save makes: none for an update with nothing to write. Its own row takes
+ * The touches `record`'s save makes: none for an update that changes nothing. Its own row takes
  * none of them back (#497), as its save sets its time; another entry of its batch may touch it.
  */
 export async function touchesOfSave(
@@ -142,7 +142,7 @@ export async function touchesOfSave(
   isInsert: boolean,
   claimed: ReadonlySet<Model>,
 ): Promise<PreparedWrite[]> {
-  if (!isInsert && record[state].updateAssignments().length === 0) return [];
+  if (!isInsert && record[state].changedNames().length === 0) return [];
   const cause = isInsert ? "insert" : "update";
   const { touched } = sessionOf(claimed);
   const key = touchKey(record);
