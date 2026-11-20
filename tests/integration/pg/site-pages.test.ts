@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { withDatabase } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 import * as conditions from "../../../site/snippets/guide/conditions.ts";
+import * as ordering from "../../../site/snippets/guide/ordering.ts";
 import * as through from "../../../site/snippets/guide/through.ts";
 import { readFileSync } from "node:fs";
 import { pageModelsAndTables } from "../../support/page-models.ts";
@@ -75,28 +76,53 @@ describe("the Through associations page's examples, on Postgres", () => {
   });
 });
 
+// The Ordering and pagination page's examples, on the Postgres table it shows.
+describe("the Ordering and pagination page's examples, on Postgres", () => {
+  const schema = pageSchema(
+    "ordering",
+    `INSERT INTO posts (id, title, status, published_at, created_at, updated_at) VALUES
+      ('${ada}', 'Alpha', 'published', '2026-01-02Z', '2026-01-02Z', '2026-01-02Z'),
+      ('${mary}', 'Gamma', 'draft', NULL, '2026-01-04Z', '2026-01-04Z')`,
+  );
+
+  test("order puts NULL first when descending on Postgres, and pages count", async () => {
+    const db = connect(schema().url);
+
+    const newest = await withDatabase(db, () => ordering.ordering());
+    const response = await withDatabase(db, () =>
+      ordering.listPosts(new Request("https://example.com/?page=1")),
+    );
+
+    expect(newest.map((post) => post.title)).toEqual(["Gamma", "Alpha"]);
+    expect(await response.json()).toMatchObject({ total: 2, hasNext: false });
+  });
+});
+
 // Each page shows its Models beside its Postgres tables; the attributes generated from those
 // tables are the ones its Models declare. PGlite starts for each schema read, which takes seconds.
 describe("the standalone pages’ Models, against their Postgres tables", { timeout: 60_000 }, () => {
-  test.each(["conditions", "through"])("%s declares what its tables generate", async (page) => {
-    const sql = readFileSync(
-      new URL(`../../../site/snippets/guide/${page}-postgres.sql`, import.meta.url),
-      "utf8",
-    );
-    const cwd = writePgProject(
-      scratch(`pg-page-${page}-`, true),
-      { HYPERDRIVE: {} },
-      {
-        "migrations/0001_create_tables.sql": sql,
-      },
-    );
+  test.each(["conditions", "through", "ordering"])(
+    "%s declares what its tables generate",
+    async (page) => {
+      const sql = readFileSync(
+        new URL(`../../../site/snippets/guide/${page}-postgres.sql`, import.meta.url),
+        "utf8",
+      );
+      const cwd = writePgProject(
+        scratch(`pg-page-${page}-`, true),
+        { HYPERDRIVE: {} },
+        {
+          "migrations/0001_create_tables.sql": sql,
+        },
+      );
 
-    const { declared, generated } = await pageModelsAndTables(
-      cwd,
-      page,
-      (model) => `${model.toLowerCase()}s`,
-    );
+      const { declared, generated } = await pageModelsAndTables(
+        cwd,
+        page,
+        (model) => `${model.toLowerCase()}s`,
+      );
 
-    expect(declared).toEqual(generated);
-  });
+      expect(declared).toEqual(generated);
+    },
+  );
 });
