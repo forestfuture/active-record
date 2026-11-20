@@ -23,6 +23,7 @@ export default defineMeta({
     "preloading",
     "autosaving",
     "counter-caches",
+    "touching",
     "through-associations",
     "batches",
     "connecting",

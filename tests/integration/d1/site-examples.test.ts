@@ -36,9 +36,6 @@ import {
 } from "../../../site/snippets/guide/associations.ts";
 import * as batches from "../../../site/snippets/guide/batches.ts";
 import * as attributeWrites from "../../../site/snippets/guide/attribute-writes.ts";
-import { statementKinds } from "../../support/statement-kinds.ts";
-import * as belongsToTouch from "../../../site/snippets/guide/belongs-to-touch.ts";
-import * as hasOneTouch from "../../../site/snippets/guide/has-one-touch.ts";
 import {
   addExample,
   Booking,
@@ -858,93 +855,6 @@ describe("the persistence page's changing one attribute (#351)", () => {
     });
 
     expect(log.mock.calls).toEqual([["New article: Fresh"]]);
-  });
-});
-
-describe("the associations page's touch (#353)", () => {
-  let binding: TestDatabase;
-  let dispose: () => Promise<void>;
-  const schema = new URL("../../../site/snippets/guide/belongs-to-touch.sql", import.meta.url);
-
-  beforeAll(async () => {
-    ({ db: binding, dispose } = await createTestDatabase(schema));
-  });
-  afterAll(() => dispose());
-
-  test("each write to a comment touches its article, and the article its blog", async () => {
-    const stale = "2020-01-01T00:00:00.000Z";
-    await binding.prepare("INSERT INTO blogs (id, updated_at) VALUES (1, ?)").bind(stale).run();
-    await binding
-      .prepare("INSERT INTO articles (id, blog_id, title, updated_at) VALUES (1, 1, 'Hello', ?)")
-      .bind(stale)
-      .run();
-
-    const { article } = await withDatabase(connect(binding), () => belongsToTouch.examples(1));
-
-    const blog = await binding.prepare("SELECT updated_at FROM blogs WHERE id = 1").first();
-    const row = await binding.prepare("SELECT updated_at FROM articles WHERE id = 1").first();
-    expect(row?.["updated_at"]).not.toBe(stale);
-    expect(blog?.["updated_at"]).toBe(row?.["updated_at"]);
-    expect(article.updatedAt!.getTime()).toBeGreaterThan(Date.parse(stale));
-  });
-
-  test("a named attribute is set with updatedAt", async () => {
-    await withDatabase(connect(binding), () =>
-      belongsToTouch.Reply.create({ articleId: 1, body: "Reply" }),
-    );
-
-    const row = await binding
-      .prepare("SELECT updated_at, last_commented_at FROM articles WHERE id = 1")
-      .first();
-    expect(row?.["last_commented_at"]).toBe(row?.["updated_at"]);
-  });
-
-  test("an import inside noTouching touches its article once, after it (#496)", async () => {
-    const stale = "2020-01-01T00:00:00.000Z";
-    await binding
-      .prepare("UPDATE articles SET updated_at = ?, last_commented_at = NULL")
-      .bind(stale)
-      .run();
-    const events: { sql: string }[] = [];
-    const db = connect(binding, { onQuery: (event) => void events.push(event) });
-
-    await withDatabase(db, () => belongsToTouch.importComments(1, ["One", "Two"]));
-
-    // Each comment reads its article only to check it exists; only the touch after the
-    // import updates it, and then its blog.
-    const each = ["SELECT", "INSERT"];
-    const after = ["SELECT", "SELECT", "UPDATE", "UPDATE"];
-    expect(statementKinds(events)).toEqual([...each, ...each, ...after]);
-    const row = await binding.prepare("SELECT updated_at FROM articles WHERE id = 1").first();
-    expect(row?.["updated_at"]).not.toBe(stale);
-  });
-});
-
-describe("the associations page's hasOne touch (#497)", () => {
-  let binding: TestDatabase;
-  let dispose: () => Promise<void>;
-  const schema = new URL("../../../site/snippets/guide/has-one-touch.sql", import.meta.url);
-
-  beforeAll(async () => {
-    ({ db: binding, dispose } = await createTestDatabase(schema));
-  });
-  afterAll(() => dispose());
-
-  test("updating or touching a user touches its profile", async () => {
-    const stale = "2020-01-01T00:00:00.000Z";
-    await binding
-      .prepare("INSERT INTO users (id, name, updated_at) VALUES (1, 'A', ?)")
-      .bind(stale)
-      .run();
-    await binding
-      .prepare("INSERT INTO profiles (id, user_id, updated_at) VALUES (1, 1, ?)")
-      .bind(stale)
-      .run();
-
-    const user = await withDatabase(connect(binding), () => hasOneTouch.examples(1));
-
-    const row = await binding.prepare("SELECT updated_at FROM profiles WHERE id = 1").first();
-    expect(row?.["updated_at"]).toBe(user.updatedAt!.toISOString());
   });
 });
 

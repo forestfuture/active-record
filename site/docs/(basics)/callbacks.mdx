@@ -143,7 +143,7 @@ this.afterTouch(async (article) => {
 - **`savedChanges()`** holds only the touched attributes, so `hasSavedChangeTo("email")` is `false` in a touch’s callbacks.
 - **A refused touch** runs `afterRollback`, and the record stays as it was.
 
-A `belongsTo` declared with [`touch`](./associations#touching-the-record-it-belongs-to) touches its record the same way. Saving a comment can run its article’s `afterTouch` and commit callbacks.
+A `belongsTo` declared with [`touch`](./touching#touching-the-record-it-belongs-to) touches its record the same way. Saving a comment can run its article’s `afterTouch` and commit callbacks.
 
 `touchAll` and the counters’ `touch` option run no callbacks.
 
