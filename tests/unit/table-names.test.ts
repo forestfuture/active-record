@@ -11,7 +11,7 @@ function modelNamed(name: string) {
   return { [name]: class extends Model.define({ id: "integer" }) {} }[name]!;
 }
 
-// A class name and its table, from Active Support's inflector tests.
+// A class name and its table.
 const inflected: [string, string][] = [
   ["User", "users"],
   ["BlogPost", "blog_posts"],
