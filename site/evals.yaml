@@ -147,3 +147,9 @@ questions:
       - "name it in static hiddenAttributes, on the app's base class to cover every Model"
       - "a Model's own list replaces the base class's, so it repeats the names it still wants hidden"
     routes: /serialization
+  - id: boolean-in-integer
+    question: "My table stores a flag as 0 or 1 in a plain INTEGER column. How do I read it as a boolean on the Model?"
+    expected:
+      - 'override the attribute in static attributes, such as archived: "boolean", written as const'
+      - "changing its type drops the generated default, so give the override a default if it needs one"
+    routes: /models

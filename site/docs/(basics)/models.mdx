@@ -2,131 +2,119 @@
 title: Models
 description: "A Model describes one table, reads its attributes from your migrations, and declares only behavior."
 seo:
-  description: "Active Record Models for Cloudflare Workers: attributes from your migrations, types and casting, enums, building records, change tracking, and serialization."
+  description: "Define Active Record Models on ApplicationRecord, with attributes from your migrations, overrides, table names, building records, permit, ids, and timestamps."
 ---
+
+## At a glance
+
+| To                                   | Write                                                           |
+| ------------------------------------ | --------------------------------------------------------------- |
+| define a Model                       | `class Product extends ApplicationRecord {}`                    |
+| read a column as another type        | `static override attributes = { archived: "boolean" } as const` |
+| ignore a column                      | `static override attributes = { legacyNotes: false } as const`  |
+| type an attribute more narrowly      | `declare status: "draft" \| "published"`                        |
+| use another table name               | `static override table = "billing_accounts"`                    |
+| declare attributes for a view        | `class ProductCount extends ApplicationRecord.define({ … }) {}` |
+| build a record without saving it     | `Product.build({ name: "Lamp" })`                               |
+| take only some fields from a request | `Product.permit(await request.json(), "name", "metadata")`      |
+
+Each part of a Model has a page of its own:
+
+| To                                         | See                                  |
+| ------------------------------------------ | ------------------------------------ |
+| learn each type, and how values are cast   | [Attribute types](./attribute-types) |
+| give an attribute a fixed set of names     | [Enums](./enums)                     |
+| see what changed before and after a save   | [Change tracking](./change-tracking) |
+| send records as JSON, and keep secrets out | [Serialization](./serialization)     |
+| check records before they’re saved         | [Validations](./validations)         |
+| run code as records are saved              | [Callbacks](./callbacks)             |
+| share behavior across every Model          | [Shared behavior](./shared-behavior) |
+
+## The Models
+
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="product.ts">/_excerpts/pages/models/src/models/product.ts</include>
+
+<include meta="featured-product.ts">/_excerpts/pages/models/src/models/featured-product.ts</include>
+
+<include meta="account.ts">/_excerpts/pages/models/src/models/account.ts</include>
+
+<include meta="product-count.ts">/_excerpts/pages/models/src/models/product-count.ts</include>
+
+<include meta="application-record.ts">
+  /_excerpts/pages/models/src/models/application-record.ts
+</include>
+
+<include meta="schema.ts">/_excerpts/pages/models/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/models/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/models/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
 
 ## Defining Models
 
-### Generating `ApplicationRecord`
+Define each Model by extending `ApplicationRecord`, as `Account` does:
 
-The first time you run `active-record schema`, it writes `src/models/application-record.ts`:
+- **The class name names the table,** so `Product` reads and writes `products`. The table’s attributes, primary key, and types come from `src/db/schema.ts`.
+- **[`active-record schema`](./command-line#active-record-schema) writes that file** from your migrations and your Models. Run it after you add a Model or a migration. [`active-record g model`](./generators) runs it for you.
+- **The first time it runs, it writes `src/models/application-record.ts`.** It’s an ordinary class, and yours to edit. The schema it holds gives each Model its attributes and the binding its queries use. Methods, callbacks, and scopes you write on it are every Model’s; see [Shared behavior](./shared-behavior). It has no table of its own, so you can’t query it.
+- **A subclass shares its parent’s table,** as `FeaturedProduct` does, and inherits a copy of its parent’s attributes, validations, callbacks, scopes, and associations. Declaring more on the child never changes the parent. Single-table inheritance isn’t supported.
+- **You can still set `static primaryKey`,** as long as it names an attribute.
 
-```ts
-import { Model } from "@forestfuture/active-record";
-import { schema } from "../db/schema";
+## Overriding attributes
 
-export abstract class ApplicationRecord extends Model {
-  static override schema = schema;
-}
-```
-
-It’s an ordinary class, and yours to edit. The schema it holds gives each Model its attributes and the D1 binding its queries use. Methods, callbacks, and scopes you write on it are every Model’s. See [Shared behavior](./shared-behavior).
-
-`ApplicationRecord` has no table of its own, so you can’t query it.
-
-### Extending `ApplicationRecord`
-
-Define each Model by extending `ApplicationRecord`:
-
-<include>/_excerpts/guide/models/generated.ts</include>
-
-The class name names the table, so `Product` reads and writes `products`. The table’s attributes, primary key, and types come from `src/db/schema.ts`.
-
-[`active-record schema`](./command-line#active-record-schema) writes that file from your migrations and your Models. Run it after you add a Model or a migration. [`active-record g model`](./generators) runs it for you.
-
-A subclass shares its parent’s table:
-
-```ts
-import { Product } from "./models";
-
-export class FeaturedProduct extends Product {}
-```
-
-You can still set `static primaryKey`, as long as it names an attribute.
-
-### Overriding attributes
-
-Generated attributes are usually all you need. When a column holds something its type doesn’t say, such as a boolean in a plain `INTEGER`, override the attribute in `static attributes`:
-
-<include>/_excerpts/guide/overrides/overrides.ts</include>
-
-Write the object `as const`, so TypeScript keeps each type name. Without it, the class is a compile error.
-
-An override is one of these:
+Override an attribute in `static attributes` when a column holds something its type doesn’t say, as `Product` does with a boolean in a plain `INTEGER`. Write the object `as const`, so TypeScript keeps each type name. An override is one of these:
 
 | Override                                  | Does                                                                                                           |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `"boolean"` (a type name)                 | Reads and writes the attribute as that type                                                                    |
 | `money` (a [custom type](./custom-types)) | Reads and writes the attribute as that type                                                                    |
 | `{ type?, null?, default?, generateId? }` | Replaces those parts of the generated attribute; `null: false` makes it non-null in TypeScript                 |
-| `{ enum, prefix?, suffix?, … }`           | Makes the attribute an [enum](#declaring-enums), of its column’s type                                          |
+| `{ enum, prefix?, suffix?, … }`           | Makes the attribute an [enum](./enums), of its column’s type                                                   |
 | `{ enum: true }`, `{ enum: false }`       | Turns on the methods of an [enum read from the database](./enums#reading-enums-from-the-database), or drops it |
 | `false`                                   | Ignores the column: it’s never typed, read, or written, and queries name their columns instead of `*`          |
 
-An override of an attribute the table doesn’t have throws `InvalidModel`, and `active-record schema` reports it. So does an override that changes a column or ignores the primary key.
-
-- **Changing a `type`** drops the generated default or `generateId`, so the column’s own default applies unless you give one.
+- **Changing a `type`** drops the generated default or `generateId`, so the column’s own default applies unless you give one. `archived` gives one, so a new product reads `false` before it’s saved.
 - **A `default` and `generateId`** replace each other, so an attribute has one or the other. `generateId` is only for strings.
 - **A `default`** isn’t type-checked yet ([#74](https://github.com/forestfuture/active-record/issues/74)). One that returns a value the type can’t cast throws `TypeError` when a record is built.
 - **Ignoring a `NOT NULL` column** without a default makes inserts fail, so give it a default in a migration first.
+- **An override of an attribute the table doesn’t have** throws `InvalidModel`, and `active-record schema` reports it. So does an override that changes a column or ignores the primary key.
 
-### Narrowing types
+## Narrowing types
 
-To give an attribute a narrower type than its column’s, declare it in the class:
+Declare an attribute in the class to give it a narrower type than its column’s, as `Product` does with `status`:
 
-```ts
-import { ApplicationRecord } from "./application-record";
-
-export class Post extends ApplicationRecord {
-  declare status: "draft" | "published";
-}
-```
-
-`post.status` is now typed `"draft" | "published"`, when you read it and when you assign it. `where` and `build` still take any string, and nothing checks the value read from D1. To have the values checked, and get a method for each, declare an [enum](#declaring-enums) instead.
+- `product.status` is typed `"draft" | "published"`, when you read it and when you assign it.
+- `where` and `build` still take any string, and nothing checks the value read from the database. To have the values checked, and get a method for each, declare an [enum](./enums) instead.
 
 ## Declaring attributes yourself
 
-For a view, or a table your migrations don’t make, declare the attributes with `define`. TypeScript infers the record’s properties from the object:
+Declare the attributes with `define` for a view, or a table your migrations don’t make, as `ProductCount` does:
 
-<include>/_excerpts/guide/models/declare.ts</include>
+<include>/_excerpts/pages/models/examples/view.mdx</include>
 
-An attribute is a type name, or `{ type, column?, null?, default? }`. To share your base class’s behavior and binding, call `define` on it: `ApplicationRecord.define({...})`.
+- TypeScript infers the record’s properties from the object.
+- An attribute is a type name, or `{ type, column?, null?, default? }`.
+- Calling `define` on `ApplicationRecord` shares your base class’s behavior and binding.
 
 ## Naming Models
 
-A Model’s name is its class name. The [generated schema](./schema) lists the Model by it, and its table name, its foreign keys, and its error messages are made from it. Read it with `modelName`:
+A Model’s name is its class name, read with `modelName`:
 
-```ts
-import { BlogPost } from "./blog-post";
+<include>/_excerpts/pages/models/examples/naming.mdx</include>
 
-BlogPost.modelName; // "BlogPost"
-```
-
-If your bundler renames classes, set `static modelName` to the class name, so the Model keeps its name once bundled:
-
-```ts
-import { ApplicationRecord } from "./application-record";
-
-export class BlogPost extends ApplicationRecord {
-  static override modelName = "BlogPost";
-}
-```
-
-A subclass inherits a `modelName` its parent sets. Otherwise, each class has its own: `Admin.modelName` is `"Admin"`, though `Admin` shares `User`’s table. Printing a record shows its class name.
-
-:::note
-Wrangler keeps class names by default, even when minifying. Without `modelName`, a bundler that renames `User` to `e` makes the first query throw `InvalidModel`, because no Model named `e` is in the generated schema. Keeping class names in your bundler’s settings works too.
-:::
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-`modelName` is a string, where Rails’ `model_name` is an object.
-
-</Callout>
+- The [generated schema](./schema) lists the Model by its name, and its table name, its foreign keys, and its error messages are made from it.
+- If your bundler renames classes, set `static override modelName = "BlogPost"`, so the Model keeps its name once bundled. Without it, a bundler that renames `User` to `e` makes the first query throw `InvalidModel`, because no Model named `e` is in the generated schema. Wrangler keeps class names by default, even when minifying.
+- A subclass inherits a `modelName` its parent sets. Otherwise, each class has its own: `FeaturedProduct.modelName` is `"FeaturedProduct"`, though it shares `Product`’s table.
 
 ## Naming tables
 
-A Model takes its table name from its [name](#naming-models): snake_case, pluralized.
+A Model takes its table name from its name, snake_case and pluralized, unless it sets `static table`, as `Account` does:
 
 | Class      | Table        |
 | ---------- | ------------ |
@@ -136,17 +124,7 @@ A Model takes its table name from its [name](#naming-models): snake_case, plural
 | `Person`   | `people`     |
 | `Sheep`    | `sheep`      |
 
-To use another name, set `static table`:
-
-```ts
-import { ApplicationRecord } from "./application-record";
-
-export class Account extends ApplicationRecord {
-  static override table = "billing_accounts";
-}
-```
-
-A subclass shares its parent’s table. A class with no name to take one from must set `static table`.
+A class with no name to take one from must set `static table`.
 
 :::note
 Pluralization follows English rules, quirks included: `Human` becomes `humen` and `Leaf` becomes `leafs`. There’s no way to add your own rules, so set `table` instead.
@@ -164,46 +142,30 @@ Attributes are camelCase, and map to snake_case columns:
 | `userID`            | `user_id`             |
 | `sha256Hash`        | `sha256_hash`         |
 
-To map an attribute to a column with another name, give it `{ column: "..." }`. Conditions, ordering, and association keys always name attributes; only SQL fragments name columns.
-
-## Attribute types
-
-Each attribute holds one type of value: `string`, `integer`, `real`, `decimal`, `boolean`, `datetime`, `date`, `time`, `json`, or `binary`. See [Attribute types](./attribute-types).
-
-## Declaring enums
-
-Give an attribute a fixed set of names, with a predicate, a setter, and scopes for each, by declaring an enum in an override. See [Enums](./enums).
-
-## Casting assigned values
-
-Every value is cast to its attribute’s type when it’s assigned, and a value that can’t be cast throws `TypeError`. See [Casting assigned values](./attribute-types#casting-assigned-values).
+To map an attribute to a column with another name, give it `{ column: "..." }`. Conditions, ordering, and association keys always name attributes; only [SQL fragments](./conditions#writing-sql-fragments) name columns.
 
 ## Building records
 
 Build a record without touching the database with `build`:
 
-<include>/_excerpts/guide/models/build.ts</include>
+<include>/_excerpts/pages/models/examples/build.mdx</include>
 
 - **Defaults** and [generated ids](#generating-ids) run at `build()`, so a key generated in code exists before the record is saved. That lets records that point at each other be saved together, in one atomic batch.
-- **Unassigned attributes** read as `null`, and aren’t written on insert, so the column’s database default applies. After the insert, the record loads what D1 stored.
+- **Unassigned attributes** read as `null`, and aren’t written on insert, so the column’s database default applies. After the insert, the record loads what the database stored.
 - **Unknown attributes** throw `UnknownAttribute`, and `undefined` throws `TypeError`. Use `null` to store NULL.
-
-`assign(attrs)` sets several attributes without saving. `update(attrs)` assigns, then saves.
+- `assign(attrs)` sets several attributes without saving. `update(attrs)` assigns, then saves.
 
 :::note
-A record keeps the database it was built or loaded through, for its later saves and association loads. A record made with `new User()` has none, so build records with `User.build(…)`.
+A record keeps the database it was built or loaded through, for its later saves and association loads. A record made with `new Product()` has none, so build records with `Product.build(…)`.
 :::
 
-### Permitting fields
+## Permitting fields
 
-Keep only the attributes you name from untrusted input with `permit`. It casts each value as assigning would, and its result goes straight into `build`, `create`, or `update`:
+Keep only the attributes you name from untrusted input with `permit`, whose result goes straight into `build`, `create`, or `update`:
 
-```ts
-const permitted = Account.permit(await request.json(), "email", "handle");
-const account = await Account.create(permitted);
-```
+<include>/_excerpts/pages/models/examples/permit.mdx</include>
 
-It reads three kinds of input:
+It casts each value as assigning would, and reads three kinds of input:
 
 | Input             | Read                                                             |
 | ----------------- | ---------------------------------------------------------------- |
@@ -219,83 +181,22 @@ It reads three kinds of input:
 
 ## Generating ids
 
-A `TEXT` primary key gets its value from the Model’s `generateId` when you don’t give one. By default, that’s a UUID:
+A `TEXT` or `UUID` primary key gets its value from the Model’s `generateId` when you don’t give one. By default, that’s a UUID:
 
-```ts
-const post = Post.build({ title: "Hello" });
-post.id; // "3b241101-e2bb-4255-8caf-4136c566a962"
-```
-
-To use another kind of id across your app, override `generateId` on your app’s base class:
-
-```ts
-import { Model } from "@forestfuture/active-record";
-import { uuidv7 } from "uuidv7";
-import { schema } from "../db/schema";
-
-export abstract class ApplicationRecord extends Model {
-  static override schema = schema;
-  static override generateId = () => uuidv7();
-}
-```
-
-`generateId` gets the attribute’s name, so it can prefix ids: `` `${attribute}_${uuidv7()}` ``.
-
-To generate another string attribute the same way, turn it on with an override:
-
-```ts
-import { ApplicationRecord } from "./application-record";
-
-export class Post extends ApplicationRecord {
-  static override attributes = { publicId: { generateId: true } } as const;
-}
-```
-
-In a Model declared with `define`, write it on the attribute: `id: { type: "string", null: false, generateId: true }`.
-
-:::note
-For one attribute with its own format, use a `default`: ``shareToken: { default: () => `share_${uuidv7()}` }``. A value made from other attributes, such as a slug, belongs in a [callback](./callbacks), since `generateId` never sees the record.
-:::
-
-<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
-
-Rails has no `generateId`. Its UUID keys come from the database (`gen_random_uuid()` in PostgreSQL), which D1 can’t do for a key a batch needs before the row is written. See [Primary keys](./coming-from-rails#primary-keys).
-
-</Callout>
+- To use another kind of id across your app, override it on your app’s base class: `static override generateId = () => uuidv7()`. It gets the attribute’s name, so it can prefix ids: `` `${attribute}_${uuidv7()}` ``.
+- To generate another string attribute the same way, turn it on with an override, as `Product` does with `publicId: { generateId: true }`.
+- For one attribute with its own format, use a `default`: ``shareToken: { default: () => `share_${uuidv7()}` }``. A value made from other attributes, such as a slug, belongs in a [callback](./callbacks), since `generateId` never sees the record.
 
 ## Using timestamps
 
-Declare `createdAt` and `updatedAt` as `datetime` attributes, and they’re managed for you. Both are set when a record is created, and `updatedAt` whenever a save changes something. A save with nothing to change leaves `updatedAt` alone, and a timestamp you assign yourself is kept.
+Declare `createdAt` and `updatedAt` as `datetime` attributes, and they’re managed for you:
 
-## Tracking changes
-
-A record knows what’s changed since it was loaded or last saved, with `changed()`, `attributeWas`, and `savedChangeTo`. See [Change tracking](./change-tracking).
-
-## Writing SQL fragments
-
-For anything the query methods can’t express, write an `sql` tagged template. Values are always bound, and `column()` looks up an attribute’s column:
-
-```ts
-import { column, sql } from "@forestfuture/active-record";
-
-const recent = await User.where(sql`${column("createdAt")} > ${since}`).toArray();
-```
-
-A plain string is rejected. To write a `Date`, boolean, or JSON value the way an attribute stores it, see [Writing SQL fragments](./conditions#writing-sql-fragments).
-
-## Serializing records
-
-Turn records into JSON with `toJSON()`, keep attributes out of responses with `hiddenAttributes` and out of logs with `filterAttributes`, and print records in the console. See [Serialization](./serialization).
-
-## Sharing behavior
-
-A subclass, such as `class Admin extends User`, inherits a copy of its parent’s attributes, validations, callbacks, scopes, and associations. Declaring more on the child never changes the parent. Single-table inheritance isn’t supported.
-
-To share methods, callbacks, and scopes across every Model, write them on your app’s base class. See [Shared behavior](./shared-behavior).
+- Both are set when a record is created, and `updatedAt` whenever a save changes something.
+- A save with nothing to change leaves `updatedAt` alone, and a timestamp you assign yourself is kept.
 
 ## Checking declarations
 
-The first time a Model is used, by its first query or `db.model(X)`, its declaration is checked. It throws `InvalidModel` for:
+A Model’s declaration is checked the first time it’s used, by its first query or `db.model(X)`, and it throws `InvalidModel` for:
 
 - A Model `active-record schema` hasn’t seen, or whose table has changed since. Run it again.
 - No table name: an empty `table`, or a class with no name to infer one from.
@@ -306,3 +207,15 @@ The first time a Model is used, by its first query or `db.model(X)`, its declara
 - A class field that hides an attribute, such as `email!: string` in the class body.
 
 After that, a Model’s declarations are fixed, so request code can’t change them.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`modelName` is a string, where Rails’ `model_name` is an object.
+
+</Callout>
+
+<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
+
+Rails has no `generateId`. Its UUID keys come from the database (`gen_random_uuid()` in PostgreSQL), which D1 can’t do for a key a batch needs before the row is written. See [Primary keys](./coming-from-rails#primary-keys).
+
+</Callout>
