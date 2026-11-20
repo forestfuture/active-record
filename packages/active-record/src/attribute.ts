@@ -116,7 +116,7 @@ export class Attribute {
   }
 
   /** Whether the attribute has a normalization, so its conditions need normalizing (#354). */
-  get isNormalized(): boolean {
+  get hasNormalization(): boolean {
     return normalizationsOf(this.#model, this.name).length > 0;
   }
 
@@ -171,6 +171,11 @@ export class Attribute {
   /** An assigned value cast, then in the form D1 stores. */
   store(value: unknown): unknown {
     return this.write(this.cast(value));
+  }
+
+  /** An assigned value cast and normalized (#354), then in the form D1 stores. */
+  storeNormalized(value: unknown): unknown {
+    return this.write(this.assigned(value));
   }
 
   /**

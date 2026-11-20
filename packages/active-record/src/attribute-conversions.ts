@@ -38,7 +38,7 @@ export function conversionsFor<T>(model: ModelClass, attribute: string): Attribu
   return Object.freeze({
     cast: (input: unknown) => resolved.assigned(input) as T,
     serialize: (input: unknown) =>
-      resolved.write(resolved.assigned(input)) as string | number | Uint8Array | null,
+      resolved.storeNormalized(input) as string | number | Uint8Array | null,
     deserialize: (stored: unknown) => resolved.read(stored) as T,
   });
 }

@@ -651,7 +651,7 @@ function compileFragment(fragment: SafeSql, source: Source, params: unknown[]): 
     } else if (value instanceof ColumnValue) {
       // Normalized as an assigned value is (#354).
       const attribute = attributeFor(source.model, value.attribute);
-      attribute.bindCells(params, attribute.write(attribute.assigned(value.assigned)));
+      attribute.bindCells(params, attribute.storeNormalized(value.assigned));
       text += valueMark;
     } else {
       params.push(writeUntypedValue(value));

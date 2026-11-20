@@ -1,5 +1,5 @@
 // PreparedWrites: a Relation's bulk writes as Statements, unsent, for a Batch to prepare, and building them.
-import { assignedValues } from "./normalized-values.ts";
+import { attributeFor } from "./attribute.ts";
 import { type Assignment, compileDeleteAll, compileUpdateAll, type Conflict } from "./compiler.ts";
 import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import {
@@ -107,7 +107,7 @@ function assignedChanges(
   changes: Assignment[] | SafeSql,
 ): Assignment[] | SafeSql {
   if (changes instanceof SafeSql) return changes;
-  return Object.entries(assignedValues(model, Object.fromEntries(changes)));
+  return changes.map(([name, value]) => [name, attributeFor(model, name).assigned(value)]);
 }
 
 function updateAllStatement<M extends Model>(

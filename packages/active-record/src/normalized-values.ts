@@ -22,7 +22,7 @@ export function asStored<T extends object>(conditions: T): T {
  * `where`'s or `whereNot`'s conditions, checked when they're written and normalized, or
  * `undefined` when they add none (`{}`).
  */
-export function writtenConditions<T extends object>(
+export function checkedConditions<T extends object>(
   model: ModelClass,
   conditions: T,
   method: string,
@@ -41,7 +41,7 @@ export function normalizedConditions<T extends object>(model: ModelClass, condit
   let changed = false;
   const entries = Object.entries(conditions).map(([name, value]) => {
     const attribute = attributeFor(model, name);
-    if (!attribute.isNormalized) return [name, value];
+    if (!attribute.hasNormalization) return [name, value];
     changed = true;
     return [name, normalizedValue(attribute, value)];
   });
