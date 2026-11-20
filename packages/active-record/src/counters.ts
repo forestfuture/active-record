@@ -1,7 +1,7 @@
 // Counters (#351): adding to number attributes in the row, `SET x = COALESCE(x, 0) + n`, for `updateCounters` and a record's `incrementColumn`; the amounts they add; the timestamps their `touch` option sets (#61), which a record's `touch()` and a Relation's `touchAll` set too (#50); and refusing an attribute of the wrong type, for them and for `toggle`.
 import type { DatetimeAttributeKey, NumberAttributeKey } from "./attribute-writes.ts";
 import type { Assignment } from "./compiler.ts";
-import { attributeOf } from "./metadata.ts";
+import { columnOf } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
 import { column, SafeSql } from "./sql.ts";
 
@@ -40,7 +40,7 @@ export function touchAssignments(
   const updatedAt = model.attributeDefinitions.get("updatedAt")?.type === "datetime";
   const names = [...new Set([...(updatedAt ? ["updatedAt"] : []), ...named.map(String)])];
   return names.map((name): Assignment => {
-    if (attributeOf(model, name).type !== "datetime") {
+    if (columnOf(model, name).type !== "datetime") {
       throw new TypeError(
         `${model.name}.${method}: touch takes datetime attributes; ${name} isn't one`,
       );
@@ -99,7 +99,7 @@ export function requireAttributeType(
   method: string,
   ...types: string[]
 ): void {
-  const definition = attributeOf(model, name);
+  const definition = columnOf(model, name);
   const isPlain = definition.enum === undefined && definition.customType === undefined;
   if (!isPlain || !types.includes(definition.type)) {
     throw new TypeError(

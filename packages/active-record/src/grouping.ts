@@ -1,7 +1,7 @@
 // `group` (#345): a Relation grouped by attributes or `sql` fragments, whose calculations resolve to a Map from each group's key to its result.
 import { attributeFor } from "./attribute.ts";
 import { IncompatibleRelation } from "./errors.ts";
-import { attributeOf } from "./metadata.ts";
+import { columnOf } from "./metadata.ts";
 import {
   compileGrouped,
   keyAlias,
@@ -303,7 +303,7 @@ function checkTerms(model: ModelClass<Model>, { terms }: Grouping): void {
   }
   for (const term of terms) {
     if (term instanceof SafeSql) checkFragment(model, term);
-    else if (attributeOf(model, term).type === "json") {
+    else if (columnOf(model, term).type === "json") {
       throw new TypeError(`group() can't group by "${term}", a json attribute`);
     }
   }

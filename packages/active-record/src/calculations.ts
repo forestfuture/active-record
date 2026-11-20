@@ -1,6 +1,6 @@
 // Reading values instead of records: `count`, `pluck`, `pick`, `ids`, and the calculations `sum`, `average`, `minimum` and `maximum` (#344).
 import { attributeFor, withArticle } from "./attribute.ts";
-import { attributeOf, type AttributeDefinition, type AttributeType } from "./metadata.ts";
+import { type AttributeDefinition, type AttributeType, columnOf } from "./metadata.ts";
 import { compileCalculation, compileCount, compileSelect, type Calculation } from "./compiler.ts";
 import type { Dialect } from "./dialect.ts";
 import type { QueryRunner } from "./load.ts";
@@ -138,7 +138,7 @@ function readAs(
   attribute: string,
 ): ResultReader {
   const resolved = attributeFor(query.model, attribute);
-  const definition = attributeOf(query.model, attribute);
+  const definition = columnOf(query.model, attribute);
   if (calculation === "sum" || calculation === "average") {
     requireNumber(definition, attribute, calculation);
   } else {

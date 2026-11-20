@@ -242,6 +242,23 @@ export function attributeOf(
   return attribute;
 }
 
+/**
+ * Looks up an attribute a query reads or writes as a column: `UnknownAttribute` for a name the
+ * Model doesn't have, or a virtual attribute, which has none (#356).
+ */
+export function columnOf(
+  model: Parameters<typeof attributeOf>[0],
+  name: string,
+): AttributeDefinition {
+  const attribute = attributeOf(model, name);
+  if (attribute.virtual === true) {
+    throw new UnknownAttribute(
+      `${model.name}.${name} is a virtual attribute, which has no column to query`,
+    );
+  }
+  return attribute;
+}
+
 /** The attribute names mapped to `column` (usually one; none if the column isn't declared). */
 export function attributesForColumn(model: ModelClass, column: string): string[] {
   return [...model.attributeDefinitions]

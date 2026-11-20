@@ -20,6 +20,7 @@ import {
   type AttributeDefinition,
   type AttributeType,
   attributeOf,
+  columnOf,
   requireDefined,
 } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
@@ -35,7 +36,6 @@ export const noMatch = uncastable;
 export class Attribute {
   readonly #model: ModelClass;
   readonly name: string;
-  readonly column: string;
   readonly #definition: AttributeDefinition;
 
   /** @internal Use `attributeFor`. */
@@ -43,7 +43,11 @@ export class Attribute {
     this.#model = model;
     this.name = name;
     this.#definition = attributeOf(model, name);
-    this.column = this.#definition.column;
+  }
+
+  /** Its column; `UnknownAttribute` for a virtual attribute, which has none (#356). */
+  get column(): string {
+    return columnOf(this.#model, this.name).column;
   }
 
   /** Whether it's a `string` attribute, which D1 compares as text, not by number. */

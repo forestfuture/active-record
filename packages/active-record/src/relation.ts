@@ -34,7 +34,7 @@ import {
   type Condition,
   type QueryDescription,
 } from "./query.ts";
-import { attributeOf } from "./metadata.ts";
+import { attributeOf, columnOf } from "./metadata.ts";
 import type { AttributesOf, IncludeSpec, JoinSpec, Model, ModelClass } from "./model.ts";
 import { SafeSql } from "./sql.ts";
 import {
@@ -256,7 +256,7 @@ export class Relation<M extends Model, S = {}> {
 
   /** Loads only these attributes (a partial record); the primary key is always loaded. */
   select(...attributes: (keyof AttributesOf<M> & string)[]): Scoped<M, S> {
-    for (const name of attributes) attributeOf(this.#model, name);
+    for (const name of attributes) columnOf(this.#model, name);
     return this.#with({ select: attributes });
   }
 
