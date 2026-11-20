@@ -5,6 +5,19 @@ import type { ModelClass } from "./model.ts";
 import { checkConditions, isEmptyConditions } from "./relation-checks.ts";
 import { SafeSql } from "./sql.ts";
 
+/** Conditions on values copied from records, as they're stored: never normalized again. */
+const storedConditions = new WeakSet<object>();
+
+/**
+ * @internal Marks conditions on keys copied from records (an association's link, a lookup by a
+ * loaded record's key), so `where` keeps them as they are: normalizing a stored key could find
+ * another record's row (#354).
+ */
+export function asStored<T extends object>(conditions: T): T {
+  storedConditions.add(conditions);
+  return conditions;
+}
+
 /**
  * `where`'s or `whereNot`'s conditions, checked when they're written and normalized, or
  * `undefined` when they add none (`{}`).
@@ -24,7 +37,7 @@ export function writtenConditions<T extends object>(
  * is kept as it is: its typed values are normalized as it's compiled.
  */
 export function normalizedConditions<T extends object>(model: ModelClass, conditions: T): T {
-  if (conditions instanceof SafeSql) return conditions;
+  if (conditions instanceof SafeSql || storedConditions.has(conditions)) return conditions;
   let changed = false;
   const entries = Object.entries(conditions).map(([name, value]) => {
     const attribute = attributeFor(model, name);

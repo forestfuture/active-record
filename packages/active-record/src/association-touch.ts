@@ -1,4 +1,5 @@
 // A belongsTo's `touch` (#353) and a hasOne's (#497): checking its declaration, and the touches a record's create, update, destroy or touch makes of the records it belongs to or has, in its batch.
+import { asStored } from "./normalized-values.ts";
 import { associationsOf, readAssociation } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { isDestroyedThrough } from "./counter-caches.ts";
@@ -260,7 +261,9 @@ async function readStored(record: Model, name: string): Promise<Model | null> {
   const branch = association.branches.find((each) => each.type?.value === type);
   const key = recordState.valueInDatabase(foreignKey);
   if (branch === undefined || key === null || key === undefined) return null;
-  const query = branch.all(recordState.executor).findBy({ [branch.targetAttribute]: key });
+  const query = branch
+    .all(recordState.executor)
+    .findBy(asStored({ [branch.targetAttribute]: key }));
   return (await query) as Model | null;
 }
 

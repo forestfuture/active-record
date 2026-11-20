@@ -2,6 +2,7 @@
 // and an association's link to its owner isn't.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
+  belongsTo,
   between,
   column,
   gte,
@@ -318,5 +319,131 @@ describe("a record loaded with a value stored before its normalization", () => {
   test("starts a virtual attribute at its default, normalized", async () => {
     const invitee = await db().model(Invitee).find(1);
     expect(invitee.greeting).toBe("Welcome");
+  });
+});
+
+// Normalizers that map key 2 to key 1, so a lookup by a key copied from a record would find
+// another record's row if the key were normalized.
+const twoToOne = (key: number) => (key === 2 ? 1 : key);
+
+class Writer extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+}) {
+  static table = "users";
+
+  static {
+    this.normalizes("id", { with: twoToOne });
+  }
+}
+
+class Note extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  writer = belongsTo(Writer, { foreignKey: "userId" });
+
+  static {
+    this.normalizes("id", { with: twoToOne });
+  }
+}
+
+class Owner extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+}) {
+  static table = "users";
+
+  notes = hasMany(Note, { foreignKey: "userId", dependent: "deleteAll" });
+  assignments = hasMany(Assignment, { foreignKey: "userId" });
+  projects = hasMany(Project, { through: "assignments" });
+}
+
+class Project extends Model.define({
+  id: { type: "integer", null: false },
+  name: { type: "string", null: false },
+}) {
+  static table = "projects";
+}
+
+class Assignment extends Model.define({
+  id: { type: "integer", null: false },
+  userId: "integer",
+  projectId: "integer",
+}) {
+  static table = "assignments";
+
+  project = belongsTo(Project);
+
+  static {
+    this.normalizes("projectId", { with: twoToOne });
+  }
+}
+
+describe("a lookup by a key copied from a record", () => {
+  let harness: Harness;
+
+  beforeAll(async () => {
+    harness = await openHarness();
+  });
+  afterAll(() => harness.dispose());
+
+  const db = () => harness.connect();
+
+  beforeEach(async () => {
+    await harness.reset("assignments", "projects", "posts", "users");
+    await harness.exec("INSERT INTO users (id, email) VALUES (?, ?)", [1, "a@example.com"]);
+    await harness.exec("INSERT INTO users (id, email) VALUES (?, ?)", [2, "b@example.com"]);
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (?, ?, ?)", [1, 1, "One"]);
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (?, ?, ?)", [2, 2, "Two"]);
+  });
+
+  test("a belongsTo reads the record its key names", async () => {
+    const note = await db().model(Note).findByOrThrow({ title: "Two" });
+
+    const writer = await note.writer();
+
+    expect(writer?.email).toBe("b@example.com");
+  });
+
+  test("a preload finds each owner's records by its own key", async () => {
+    const notes = await db().model(Note).includes("writer").order({ title: "asc" }).toArray();
+
+    const emails = notes.map((note) => note.loaded("writer")?.email);
+
+    expect(emails).toEqual(["a@example.com", "b@example.com"]);
+  });
+
+  test("deleting a record through a hasMany deletes its own row", async () => {
+    const owner = await db().model(Owner).find(2);
+    const [note] = await owner.notes().toArray();
+
+    await owner.notes().delete(note!);
+
+    const rows = await harness.exec("SELECT title FROM posts ORDER BY id");
+    expect(rows.map(({ title }) => title)).toEqual(["One"]);
+  });
+
+  test("removing a record through a through association removes its own join row", async () => {
+    await harness.exec("INSERT INTO projects (id, name) VALUES (?, ?)", [1, "Garden"]);
+    await harness.exec("INSERT INTO projects (id, name) VALUES (?, ?)", [2, "Kitchen"]);
+    await harness.exec(
+      "INSERT INTO assignments (id, user_id, project_id) VALUES (?, ?, ?)",
+      [10, 1, 1],
+    );
+    await harness.exec(
+      "INSERT INTO assignments (id, user_id, project_id) VALUES (?, ?, ?)",
+      [20, 1, 2],
+    );
+    const owner = await db().model(Owner).find(1);
+    const kitchen = await db().model(Project).find(2);
+
+    await owner.projects().delete(kitchen);
+
+    const rows = await harness.exec("SELECT id FROM assignments ORDER BY id");
+    expect(rows.map(({ id }) => Number(id))).toEqual([10]);
   });
 });

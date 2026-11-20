@@ -1,4 +1,5 @@
 // Writing through a through association (#434): the join records that link its owner to its records, created and removed.
+import { asStored } from "./normalized-values.ts";
 import type { HasOne, ThroughDependent } from "./associations.ts";
 import {
   hasOneAccessor,
@@ -237,7 +238,7 @@ async function remove<M extends Model>(
   if (stored.length > 0) {
     const keys = stored.map((record) => record[state].read(source.targetAttribute));
     // Narrowed from the association's Relation, so its deleteAll deletes rather than nullifying.
-    const joins = via().where({ [source.ownerAttribute]: keys } as never);
+    const joins = via().where(asStored({ [source.ownerAttribute]: keys }) as never);
     if (removal === "deleteAll") {
       const statement = joins[preparedWrites].deleteAll();
       await runAlone(countedOutJoins(statement, hasMany, joins[queryOf]));
