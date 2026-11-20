@@ -422,7 +422,7 @@ describe("names", () => {
     expect(modelName("line_items")).toEqual({
       ok: true,
       className: "LineItem",
-      note: "line_items looks plural, so the Model is LineItem, as Rails names it",
+      note: "line_items looks plural, so the Model is LineItem",
     });
     expect(modelName("People")).toMatchObject({ className: "Person" });
   });

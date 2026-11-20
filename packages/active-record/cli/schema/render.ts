@@ -212,8 +212,8 @@ function declarationsSource({ tables, models }: SchemaSource): string {
 
 /**
  * The generated `schema.ts`: each table's attributes, the binding with every table and Model,
- * and each Model's attributes added to its class. It's the schema as a document, like Rails'
- * `schema.rb`; the app's base class (`renderBase`) holds it.
+ * and each Model's attributes added to its class. It's the schema as a document; the app's
+ * base class (`renderBase`) holds it.
  */
 export function renderSchema(schema: SchemaSource, source: string): string {
   const hasModels = schema.models.length > 0;
@@ -237,8 +237,8 @@ ${schemaValueSource(schema)}${declarations}
 }
 
 /**
- * The app's base class for a database's Models, written once and then the app's own, as Rails'
- * `ApplicationRecord` is: `class Product extends ApplicationRecord {}`.
+ * The app's base class for a database's Models, written once and then the app's own:
+ * `class Product extends ApplicationRecord {}`.
  */
 export function renderBase(className: string, schemaImport: string): string {
   return `import { Model } from "@forestfuture/active-record";

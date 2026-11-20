@@ -32,7 +32,7 @@ export function migrationFiles(dir: string): MigrationFile[] | string {
   return ownTransactions(files.map(({ file, sql }) => ({ name: file, sql }))) ?? files;
 }
 
-/** One lock per database and schema: a run while another holds it is refused, as Rails refuses it. */
+/** One lock per database and schema: a run while another holds it is refused. */
 const lock = `hashtext('active-record migrate ' || current_database() || '.' || current_schema())`;
 
 /** The versions already applied, once the table that records them is there. */
