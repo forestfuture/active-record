@@ -5,6 +5,33 @@ seo:
   description: "Test Active Record Models and your Cloudflare Worker against a real D1 database with Vitest and Miniflare, with your migrations applied to each test database."
 ---
 
+## At a glance
+
+| To                             | Write                                                        |
+| ------------------------------ | ------------------------------------------------------------ |
+| get a real D1 database in Node | Miniflare’s `getD1Database`, with your migrations applied    |
+| run a Model’s code in a test   | `withDatabase(connect(database.binding), async () => { … })` |
+| call your Worker in a test     | `withDatabase(…, () => worker.fetch(request))`               |
+| query a database you hold      | `connect(database.binding).model(User)`                      |
+
+## The Models
+
+The tests below check this Model and Worker, with the users table its migration creates:
+
+<CodeGroup>
+
+<include meta="user.ts">/_excerpts/pages/testing/src/models/user.ts</include>
+
+<include meta="index.ts">/_excerpts/pages/testing/src/index.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/testing/src/db/schema.ts</include>
+
+<include meta="0001_create_users.sql">
+  /_excerpts/pages/testing/migrations/0001_create_users.sql
+</include>
+
+</CodeGroup>
+
 ## Installing
 
 [Miniflare](https://developers.cloudflare.com/workers/testing/miniflare/) runs Cloudflare’s runtime, D1 included, inside Node:
@@ -40,7 +67,7 @@ export async function testDatabase(folder = "migrations") {
 
 ## Testing Models
 
-Outside a Worker there’s no binding, so run the test’s code inside `withDatabase`:
+Outside a Worker there’s no binding, so run the test’s code inside `withDatabase`. This checks that `User` saves emails in lowercase:
 
 ```ts test/users.test.ts
 import { withDatabase } from "@forestfuture/active-record";
@@ -55,8 +82,8 @@ afterAll(() => database.dispose());
 
 test("emails are saved in lowercase", async () => {
   await withDatabase(connect(database.binding), async () => {
-    const user = await User.create({ email: "Ada@Example.com" });
-    expect((await User.find(user.id)).email).toBe("ada@example.com");
+    const user = await User.create({ email: "Jane@Example.com" });
+    expect((await User.find(user.id)).email).toBe("jane@example.com");
   });
 });
 ```
@@ -65,7 +92,7 @@ Outside a Worker, the database given to `withDatabase` serves every Model on its
 
 ## Testing your Worker
 
-Call your Worker’s `fetch` handler inside `withDatabase` too, and its queries use the test’s database:
+Call your Worker’s `fetch` handler inside `withDatabase` too, and its queries use the test’s database. This calls the Worker in `src/index.ts`:
 
 ```ts test/worker.test.ts
 import { withDatabase } from "@forestfuture/active-record";

@@ -56,6 +56,8 @@ import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
 import * as untrustedInput from "../../../site/snippets/pages/untrusted-input/examples.ts";
 import { Account as UntrustedAccount } from "../../../site/snippets/pages/untrusted-input/src/models/account.ts";
 import * as validations from "../../../site/snippets/pages/validations/examples.ts";
+import testedWorker from "../../../site/snippets/pages/testing/src/index.ts";
+import { User as TestedUser } from "../../../site/snippets/pages/testing/src/models/user.ts";
 import * as touching from "../../../site/snippets/pages/touching/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
 import { readdirSync, readFileSync } from "node:fs";
@@ -1055,6 +1057,30 @@ describe("the Logging page's examples, on Postgres", () => {
     expect(log.calls().map(([line]) => String(line))).toEqual([
       expect.stringMatching(/^User \d+\.\dms SELECT /),
     ]);
+  });
+});
+
+// The Testing page's tests, run here on the Model and Worker it shows, on Postgres.
+describe("the Testing page's examples, on Postgres", () => {
+  const schema = pageSchema("testing", "SELECT 1");
+  beforeEach(async () => {
+    await schema().pool.query({ text: "DELETE FROM users" });
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
+
+  test("emails are saved in lowercase", async () => {
+    await run(async () => {
+      const user = await TestedUser.create({ email: "Jane@Example.com" });
+      expect((await TestedUser.find(user.id)).email).toBe("jane@example.com");
+    });
+  });
+
+  test("GET lists users", async () => {
+    await run(() => TestedUser.create({ email: "sam@example.com" }));
+    const response = (await run(() => testedWorker.fetch())) as Response; // the Worker's Response type
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(["sam@example.com"]);
   });
 });
 

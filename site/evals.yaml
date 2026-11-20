@@ -264,3 +264,9 @@ questions:
       - "in the Worker's fetch, connect(env.DB, { onQuery }) with a listener that logs JSON including a requestId such as the cf-ray header"
       - "run the app inside withDatabase(db, () => app.fetch(request))"
     routes: /logging
+  - id: test-a-model
+    question: "How do I test a Model in Vitest when there's no Worker binding?"
+    expected:
+      - "create a D1 database with Miniflare and apply the migrations to it"
+      - "run the test's code inside withDatabase(connect(binding), async () => { … })"
+    routes: /testing
