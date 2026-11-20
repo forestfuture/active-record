@@ -336,13 +336,26 @@ export class Model extends AttributeWrites {
   /**
    * An attribute's conversions, for SQL the library doesn't write:
    * `Post.typeForAttribute("publishedAt").serialize(date)` is what `publishedAt` stores a `Date`
-   * as, whatever its `storage`; `cast` and `deserialize` go the other way.
+   * as, whatever its `storage`; `cast` and `deserialize` go the other way. `cast` and `serialize`
+   * normalize the value, as assigning it does (#354).
    */
   static typeForAttribute<C extends QueryableClass, K extends AttributeKey<InstanceType<C>>>(
     this: C,
     name: K,
   ): AttributeConversions<AttributesOf<InstanceType<C>>[K]> {
     return conversionsFor(this, name);
+  }
+
+  /**
+   * `value` as assigning it to `name` keeps it: cast, then normalized (#354), so
+   * `Account.normalizeValueFor("email", " Jane@Example.com")` is `"jane@example.com"`.
+   */
+  static normalizeValueFor<C extends QueryableClass, K extends AttributeKey<InstanceType<C>>>(
+    this: C,
+    name: K,
+    value: unknown,
+  ): AttributesOf<InstanceType<C>>[K] {
+    return conversionsFor<AttributesOf<InstanceType<C>>[K]>(this, name).cast(value);
   }
 
   /**

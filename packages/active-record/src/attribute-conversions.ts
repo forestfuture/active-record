@@ -12,12 +12,12 @@ import type { ModelClass } from "./model.ts";
 export interface AttributeConversions<T> {
   /**
    * `input` as the attribute's JavaScript value, as assigning it would: strict, so `TypeError`
-   * naming the Model and attribute when it can't be. `null` stays `null`; `undefined` throws.
+   * naming the Model and attribute when it can't be, and normalized (#354). `null` stays `null`; `undefined` throws.
    * Nothing is floored: a `Date` with milliseconds keeps them, whatever the attribute's `storage`.
    */
   readonly cast: (input: unknown) => T;
   /**
-   * `input`, cast, as D1 stores it: an ISO string, an integer for a `storage` attribute (seconds
+   * `input`, cast and normalized, as D1 stores it: an ISO string, an integer for a `storage` attribute (seconds
    * are floored), `0` or `1`, JSON text, bytes for a `binary` attribute, or a custom type's value
    * as its stored type keeps it (#20). The value `column(attribute).value(input)` binds inside
    * an `sql` fragment; `undefined` throws as assigning it does.
@@ -36,8 +36,9 @@ export interface AttributeConversions<T> {
 export function conversionsFor<T>(model: ModelClass, attribute: string): AttributeConversions<T> {
   const resolved = attributeFor(model, attribute);
   return Object.freeze({
-    cast: (input: unknown) => resolved.cast(input) as T,
-    serialize: (input: unknown) => resolved.store(input) as string | number | Uint8Array | null,
+    cast: (input: unknown) => resolved.assigned(input) as T,
+    serialize: (input: unknown) =>
+      resolved.write(resolved.assigned(input)) as string | number | Uint8Array | null,
     deserialize: (stored: unknown) => resolved.read(stored) as T,
   });
 }

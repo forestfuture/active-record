@@ -1,7 +1,7 @@
 // Normalizations (#354): `this.normalizes(name, { with })`, applied to a value as it's assigned.
 // These tests need no database.
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import { InvalidModel, Model } from "../../packages/active-record/src/index.ts";
+import { InvalidModel, Model, UnknownAttribute } from "../../packages/active-record/src/index.ts";
 import { connect, d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
 
 const db = connect({} as never);
@@ -282,5 +282,37 @@ describe("a generated Model's normalization", () => {
     expect(() => db.model(Person).build()).toThrow(
       new InvalidModel('Person normalizes "legacyNotes", which isn\'t one of its attributes'),
     );
+  });
+});
+
+describe("normalizeValueFor", () => {
+  test("casts a value, then normalizes it", () => {
+    const email = Account.normalizeValueFor("email", "  Jane@Example.COM ");
+    expectTypeOf(email).toEqualTypeOf<string | null>();
+    expect(email).toBe("jane@example.com");
+  });
+
+  test("leaves null alone", () => {
+    expect(Account.normalizeValueFor("email", null)).toBeNull();
+  });
+
+  test("casts an attribute with no normalization", () => {
+    expect(Account.normalizeValueFor("id", "7")).toBe(7);
+  });
+
+  test("throws UnknownAttribute for a name that isn't an attribute", () => {
+    // @ts-expect-error -- not an attribute
+    expect(() => Account.normalizeValueFor("mail", "x")).toThrow(
+      new UnknownAttribute('Account has no attribute "mail"'),
+    );
+  });
+});
+
+describe("typeForAttribute", () => {
+  test("casts and serializes a value normalized", () => {
+    const { cast, serialize, deserialize } = Account.typeForAttribute("email");
+    expect(cast(" Jane@Example.com")).toBe("jane@example.com");
+    expect(serialize(" Jane@Example.com")).toBe("jane@example.com");
+    expect(deserialize(" Jane@Example.com")).toBe(" Jane@Example.com");
   });
 });
