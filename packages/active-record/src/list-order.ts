@@ -1,4 +1,4 @@
-// `inOrderOf` (#350): ordering by an attribute's place in a list of values, as Rails' `in_order_of`.
+// `inOrderOf` (#350): ordering by an attribute's place in a list of values.
 import { columnOf } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
 import type { AttributeOrder, QueryDescription } from "./query.ts";
@@ -6,13 +6,13 @@ import { checkConditions } from "./relation-checks.ts";
 
 /** What `inOrderOf` takes after its list: whether to keep only the records with a listed value. */
 export interface InOrderOfOptions {
-  /** Keep only the records whose value is in the list (the default), as Rails does; `false` keeps every one, those not in it last. */
+  /** Keep only the records whose value is in the list (the default); `false` keeps every one, those not in it last. */
   filter?: boolean;
 }
 
 /**
  * `query` ordered by `attribute`'s place in `values` after its own order, and, with `filter`,
- * matching only those values, as Rails' `in_order_of`.
+ * matching only those values.
  */
 export function listOrdered(
   query: QueryDescription,
@@ -29,7 +29,7 @@ export function listOrdered(
 
 /**
  * The order term sorting by `attribute`'s place in `values`: earliest first, and a value not in
- * them last, as Rails' `in_order_of(…, filter: false)` places it.
+ * them last, where `filter: false` places it.
  */
 function listOrder(model: ModelClass, attribute: string, values: unknown): AttributeOrder {
   const { type } = columnOf(model, attribute);

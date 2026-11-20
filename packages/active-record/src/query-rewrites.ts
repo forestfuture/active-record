@@ -54,7 +54,7 @@ function requirePart(part: unknown): asserts part is QueryPart {
   }
 }
 
-/** `query` with only the parts named, as Rails' `only`: every other part is dropped. */
+/** `query` with only the parts named: every other part is dropped. */
 export function withOnly(query: QueryDescription, parts: readonly QueryPart[]): QueryDescription {
   for (const part of parts) requirePart(part);
   const dropped = (Object.keys(WITHOUT) as QueryPart[]).filter((part) => !parts.includes(part));
@@ -92,7 +92,7 @@ function joinedPathsIn(condition: Condition): string[] {
 }
 
 /**
- * `query` without its conditions on `attributes`, as Rails' `unscope(where:)`: an object condition
+ * `query` without its conditions on `attributes` (`unscope({ where })`): an object condition
  * loses those keys, and a `whereNot` or `or` condition goes when it names only them. A fragment,
  * a condition merged onto a join, and one naming other attributes too are kept.
  */
@@ -212,8 +212,8 @@ function withoutUnscoped(query: QueryDescription, part: UnscopedPart): QueryDesc
 }
 
 /**
- * `into` with the parts `other` was unscoped of dropped, before `other` merges into it, as Rails'
- * merge does; only for a Relation of the same Model, whose parts they name.
+ * `into` with the parts `other` was unscoped of dropped, before `other` merges into it,
+ * so an unscope carries over; only for a Relation of the same Model, whose parts they name.
  */
 export function withUnscopesOf(into: QueryDescription, other: QueryDescription): QueryDescription {
   if (other.unscoped === undefined || other.model !== into.model) return into;
@@ -221,7 +221,7 @@ export function withUnscopesOf(into: QueryDescription, other: QueryDescription):
 }
 
 /**
- * `query` with `conditions` in place of those on their attributes (`rewhere`), as Rails' `rewhere`:
+ * `query` with `conditions` in place of those on their attributes (`rewhere`):
  * conditions on other attributes, and fragments, are kept.
  */
 export function withConditionsReplaced(

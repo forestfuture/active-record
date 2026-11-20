@@ -265,7 +265,7 @@ export function compileInsertRows(
 
 /**
  * `ON CONFLICT DO NOTHING`, or `ON CONFLICT (…) DO UPDATE SET` the `update` attributes (every
- * inserted one by default) except the `uniqueBy` ones and `createdAt`, as Rails' upsert does,
+ * inserted one by default) except the `uniqueBy` ones and `createdAt`,
  * `WHERE` the clashing row already has the new row's `ownedBy` values (#451).
  */
 function compileConflict(
@@ -337,7 +337,7 @@ function compileSets(
 }
 
 /**
- * The WHERE clause for writing to the rows `query` describes, as Rails does it: its conditions;
+ * The WHERE clause for writing to the rows `query` describes: its conditions;
  * with a limit or offset, or joins (#24), `<primary key> IN (SELECT <primary key> … ORDER …
  * LIMIT … OFFSET)`; `1 = 0` for `none()`. Order without a limit, select and includes don't
  * matter to a write.
@@ -427,7 +427,7 @@ export function compileCount(
   if (attribute === undefined) return countOver(compileSelect(dialect, toCount), "*");
   const column = columnIn(unqualifiedSource(query.model), attribute);
   if (query.distinct && hasLimitOrOffset(query)) {
-    // As Rails counts it: the limit and offset pick from the distinct values, the ones
+    // The limit and offset pick from the distinct values, the ones
     // `pluck(attr)` returns, and the non-null ones are counted (#250). A `DISTINCT` on the
     // outer `COUNT` would count what's left of every row.
     return countOver(compileSelect(dialect, toCount, { attributes: [attribute] }), column);

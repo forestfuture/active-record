@@ -58,7 +58,7 @@ export class RecordState {
   readonly autosaves = new PendingAutosaves();
   /** Destroyed when its owner is saved through an `autosave: true` association (#37). */
   isMarkedForDestruction = false;
-  /** Whether its last save created it, as Rails' `previously_new_record?` (#351). */
+  /** Whether its last save created it (#351). */
   isPreviouslyNew = false;
   /** The contexts it's being validated in, while it is (#51). */
   validationContexts: readonly string[] = [];
@@ -257,7 +257,7 @@ export class RecordState {
 
   /**
    * A new record's assigned attributes that differ from their initial values (a declared default
-   * or generated id, else null), as Rails' changes run from defaults (#41); or a persisted
+   * or generated id, else null), so its changes run from its defaults (#41); or a persisted
    * one's that differ from the Snapshot. Both compare stored forms.
    */
   changedNames(): string[] {
@@ -298,7 +298,7 @@ export class RecordState {
 
   /**
    * An attribute's value as last loaded or saved (a copy). A new record's is its initial
-   * value (a default or generated id), or null, as Rails' `attribute_was` is.
+   * value (a default or generated id), or null, which `attributeWas` returns.
    */
   valueInDatabase(name: string): unknown {
     this.read(name);
@@ -428,7 +428,7 @@ export class RecordState {
 
   /**
    * After a touch (#50): as `commitColumns`, and `savedChanges` holds only the touched
-   * attributes' changes, as Rails' `touch` applies them. The record's other changes stay unsaved.
+   * attributes' changes. The record's other changes stay unsaved.
    */
   commitTouch(names: readonly string[]): void {
     const changes = this.changes();

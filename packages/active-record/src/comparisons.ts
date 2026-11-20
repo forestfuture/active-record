@@ -41,24 +41,24 @@ export function gt<T>(value: T): Comparison<T> {
   return new Comparison(">", [value]);
 }
 
-/** `attribute >= value`, like Rails' endless range `value..` */
+/** `attribute >= value`: everything from `value` on. */
 export function gte<T>(value: T): Comparison<T> {
   return new Comparison(">=", [value]);
 }
 
-/** `attribute < value`, like Rails' beginless range `...value` */
+/** `attribute < value`: everything before `value`. */
 export function lt<T>(value: T): Comparison<T> {
   return new Comparison("<", [value]);
 }
 
-/** `attribute <= value`, like Rails' beginless range `..value` */
+/** `attribute <= value`: everything up to `value`, `value` included. */
 export function lte<T>(value: T): Comparison<T> {
   return new Comparison("<=", [value]);
 }
 
 /**
- * `attribute BETWEEN start AND end`, both ends included, like Rails' `start..end`. With
- * `excludeEnd`, `start <= attribute < end`, like `start...end` (e.g. a window of days).
+ * `attribute BETWEEN start AND end`, both ends included. With
+ * `excludeEnd`, `start <= attribute < end` (e.g. a window of days).
  */
 export function between<T>(
   start: T,
