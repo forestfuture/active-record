@@ -5,7 +5,6 @@ import type { SchemaAdapter } from "./adapter.ts";
 import { ancestors } from "./ancestors.ts";
 import {
   aliasesIn,
-  defineAliasAccessors,
   isAlias,
   type AliasAttribute,
   type AliasSpecs,
@@ -267,7 +266,10 @@ function tableOwnerOf(
   return schema === undefined ? undefined : { owner: chain[index - 1] as GeneratedClass, schema };
 }
 
-/** The attribute accessors on a prototype, reading and writing a record's values. */
+/**
+ * The attribute accessors on a prototype, reading and writing a record's values; an alias's
+ * (#509) read and write the attribute it names, which the record resolves.
+ */
 export function defineAttributeAccessors(prototype: object, names: Iterable<string>): void {
   type Record = {
     [state]: { read(name: string): unknown; write(name: string, value: unknown): void };
@@ -351,8 +353,10 @@ export function settleGenerated(model: object): void {
   if (found === undefined) {
     found = find(owner, place.schema);
     bindTable(owner, found.table, { isIgnoringColumns: found.isIgnoringColumns });
-    defineAttributeAccessors(owner.prototype, found.definitions.keys());
-    defineAliasAccessors(owner.prototype, found.aliases);
+    defineAttributeAccessors(owner.prototype, [
+      ...found.definitions.keys(),
+      ...found.aliases.keys(),
+    ]);
     defineEnumMethods(owner.prototype, found.definitions);
     defineEnumStatics(owner, found.definitions);
     settled.set(owner, found);

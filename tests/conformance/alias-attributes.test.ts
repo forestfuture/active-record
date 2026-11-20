@@ -3,7 +3,12 @@
    type are defined when the Model's attributes resolve. */
 // Attribute aliases (#509): another name for an attribute, which reads, writes and queries it.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model, type TableAttributes } from "../../packages/active-record/src/index.ts";
+import {
+  Model,
+  column,
+  sql,
+  type TableAttributes,
+} from "../../packages/active-record/src/index.ts";
 import { d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
@@ -68,6 +73,66 @@ describe("an attribute alias", () => {
 
       expect(user.email).toBe("sam@example.com");
       expect(await harness.exec("SELECT email FROM users")).toEqual([{ email: "sam@example.com" }]);
+    });
+  });
+
+  describe("in a query", () => {
+    const seed = () =>
+      harness.exec(
+        "INSERT INTO users (id, email, age) VALUES (1, 'jane@example.com', 30), (2, 'sam@example.com', 40)",
+      );
+
+    test("matches its attribute in a condition", async () => {
+      await seed();
+      const users = db().model(User);
+
+      expect((await users.where({ login: "sam@example.com" }).toArray()).map((u) => u.id)).toEqual([
+        2,
+      ]);
+      expect(
+        (await users.whereNot({ login: "sam@example.com" }).toArray()).map((u) => u.id),
+      ).toEqual([1]);
+      expect((await users.findBy({ login: "jane@example.com" }))?.id).toBe(1);
+      expect(await users.where(sql`${column("years")} > ${35}`).pluck("id")).toEqual([2]);
+    });
+
+    test("orders, plucks, selects and groups by its attribute", async () => {
+      await seed();
+      const users = db().model(User);
+
+      expect(await users.order({ login: "desc" }).pluck("login")).toEqual([
+        "sam@example.com",
+        "jane@example.com",
+      ]);
+      const [first] = await users.select("login").order({ id: "asc" }).toArray();
+      expect(first!.email).toBe("jane@example.com");
+      expect(await users.group("years").count()).toEqual(
+        new Map([
+          [30, 1],
+          [40, 1],
+        ]),
+      );
+    });
+
+    test("calculates over its attribute", async () => {
+      await seed();
+      const users = db().model(User);
+
+      expect(await users.sum("years")).toBe(70);
+      expect(await users.maximum("years")).toBe(40);
+    });
+
+    test("is the same condition as its attribute's, so rewhere and unscope replace either", async () => {
+      await seed();
+      const users = db().model(User);
+
+      const replaced = users
+        .where({ email: "jane@example.com" })
+        .rewhere({ login: "sam@example.com" });
+      const dropped = users.where({ login: "sam@example.com" }).unscope({ where: "email" });
+
+      expect(await replaced.pluck("id")).toEqual([2]);
+      expect((await dropped.pluck("id")).sort()).toEqual([1, 2]);
     });
   });
 
