@@ -1,42 +1,6 @@
-import { belongsTo, hasMany, hasOne, Model } from "@forestfuture/active-record";
-
-// #region model
-export class Author extends Model.define({
-  id: { type: "string", null: false, generateId: true },
-  name: { type: "string", null: false },
-}) {
-  articles = hasMany(Article);
-}
-
-export class Article extends Model.define({
-  id: { type: "string", null: false, generateId: true },
-  authorId: { type: "string", null: false },
-  title: { type: "string", null: false },
-}) {
-  author = belongsTo(Author);
-  taggings = hasMany(Tagging);
-  tags = hasMany(Tag, { through: "taggings" }); // each tagging's tag
-}
-
-export class Tag extends Model.define({
-  id: { type: "integer", null: false },
-  name: { type: "string", null: false },
-}) {
-  taggings = hasMany(Tagging);
-  articles = hasMany(Article, { through: "taggings" }); // each tagging's article
-  writers = hasMany(Author, { through: "articles", source: "author" }); // each article's author
-}
-
-export class Tagging extends Model.define({
-  id: { type: "integer", null: false },
-  articleId: { type: "string", null: false },
-  tagId: { type: "integer", null: false },
-}) {
-  article = belongsTo(Article);
-  tag = belongsTo(Tag);
-  author = hasOne(Author, { through: "article" }); // the article's author
-}
-// #endregion model
+import { Article } from "./src/models/article";
+import { Tag } from "./src/models/tag";
+import { Tagging } from "./src/models/tagging";
 
 export async function reading() {
   // #region read

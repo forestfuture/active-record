@@ -1,58 +1,43 @@
-// Checks a standalone guide page's Models against its tables: what `active-record schema` generates from the page's SQL, attribute by attribute.
-import { readFileSync } from "node:fs";
+// A standalone guide page's project (site/snippets/pages/<page>/): its migrations, and the schema `active-record schema` generates from them.
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { runSchema } from "../../packages/active-record/cli/schema/command.ts";
 
-/** Each class's `Model.define({ … })` attributes in a snippet file, one trimmed line each. */
-function declaredAttributes(snippet: string): Map<string, string[]> {
-  const code = readFileSync(
-    new URL(`../../site/snippets/guide/${snippet}.ts`, import.meta.url),
-    "utf8",
-  );
-  const classes = code.matchAll(
-    /^export class (\w+) extends Model\.define\(\{\n([\s\S]*?)\n\}\)/gm,
-  );
-  return new Map([...classes].map(([, name, body]) => [name!, lines(body!)]));
-}
-
-/** Each table's attributes in a generated schema, one trimmed line each. */
-function generatedAttributes(schema: string): Map<string, string[]> {
-  const tables = schema.matchAll(/^export const (\w+) = \{\n([\s\S]*?)\n\} as const;/gm);
-  return new Map([...tables].map(([, table, body]) => [table!, lines(body!)]));
-}
-
-/** An object literal's lines, without comments or indentation. */
-const lines = (body: string) =>
-  body
-    .split("\n")
-    .map((line) => line.replace(/\s*\/\/.*$/, "").trim())
-    .filter(Boolean);
-
-/**
- * The page's Models next to the attributes generated from its tables, by Model: `cwd` is a
- * project whose migrations hold the page's SQL, and `tableOf` names each Model's table.
- */
-export async function pageModelsAndTables(
-  cwd: string,
-  snippet: string,
-  tableOf: (model: string) => string,
-): Promise<{ declared: Record<string, string[]>; generated: Record<string, string[]> }> {
-  const said: string[] = [];
-  const code = await runSchema({ cwd }, (line) => said.push(line));
-  if (code !== 0) throw new Error(said.join("\n"));
-  const tables = generatedAttributes(readFileSync(join(cwd, "src/db/schema.ts"), "utf8"));
-  const declared = Object.fromEntries(declaredAttributes(snippet));
-  const generated = Object.fromEntries(
-    Object.keys(declared).map((model) => [model, tables.get(tableOf(model)) ?? []]),
-  );
-  return { declared, generated };
-}
-
-/** The guide pages laid out as docs/agents/docs-pages.md says, by their snippet file's name. */
+/** The guide pages laid out as docs/agents/docs-pages.md says, by their project's folder name. */
 export const standalonePages = [
   "conditions",
   "through",
   "ordering",
   "batch-iteration",
   "calculations",
+  "scopes",
 ];
+
+/** A page's project folder, or a path in it. */
+export const pageProject = (page: string, path = "") =>
+  new URL(`../../site/snippets/pages/${page}/${path}`, import.meta.url);
+
+/** A page's migrations, in order: its D1 ones (`migrations`) or its Postgres ones (`postgres`). */
+export function pageMigrations(page: string, folder: "migrations" | "postgres"): URL[] {
+  const dir = pageProject(page, `${folder}/`);
+  return readdirSync(dir)
+    .filter((name) => name.endsWith(".sql"))
+    .sort()
+    .map((name) => new URL(name, dir));
+}
+
+/** What `active-record schema` exits with, and what it prints, in `cwd`. */
+export async function schemaCommand(cwd: string, check = false) {
+  const said: string[] = [];
+  const code = await runSchema({ cwd, check }, (line) => said.push(line));
+  return { code, said: said.join("\n") };
+}
+
+/** Each table's attributes in a project's generated schema, one trimmed line each. */
+export function generatedAttributes(cwd: string): Record<string, string[]> {
+  const schema = readFileSync(join(cwd, "src/db/schema.ts"), "utf8");
+  const tables = schema.matchAll(/^export const (\w+) = \{\n([\s\S]*?)\n\} as const;/gm);
+  return Object.fromEntries(
+    [...tables].map(([, table, body]) => [table!, body!.split("\n").map((line) => line.trim())]),
+  );
+}

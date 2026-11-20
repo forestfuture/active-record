@@ -130,10 +130,6 @@ declare module "../guide/coming-from-rails" {
   interface Product extends TableAttributes<typeof products, (typeof Product)["attributes"]> {}
 }
 
-declare module "../guide/default-scopes" {
-  interface Product extends TableAttributes<typeof products, (typeof Product)["attributes"]> {}
-}
-
 declare module "../guide/error-messages" {
   interface Product extends TableAttributes<typeof products, (typeof Product)["attributes"]> {}
 }
