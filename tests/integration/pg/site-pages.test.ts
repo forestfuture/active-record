@@ -313,6 +313,17 @@ describe("the Models page's examples, on Postgres", () => {
     expect(published.map((product) => product.name)).toEqual(["Desk"]);
   });
 
+  test("a virtual attribute is cast from a form, and never saved", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+
+    const account = await run(models.signingUp);
+
+    expect([account.isPersisted(), account.termsOfService]).toEqual([true, true]);
+  });
+
   test("a Model can name another table", async () => {
     const { account } = await run(models.naming);
 
@@ -694,6 +705,18 @@ describe("the Validations page's examples, on Postgres", () => {
     await expect(run(validations.throwing)).rejects.toThrow(
       new StrictValidationFailed("Currency is not included in the list"),
     );
+  });
+
+  test("confirmation fails a confirmation that doesn't match, which JSON leaves out", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+
+    const member = await run(validations.confirming);
+
+    expect(member.errors.fullMessages()).toEqual(["Email confirmation doesn't match Email"]);
+    expect(member.toJSON()).not.toHaveProperty("emailConfirmation");
   });
 
   test("a context runs its own rules, and both run when both are passed", async () => {

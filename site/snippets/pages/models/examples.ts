@@ -24,6 +24,16 @@ export async function createProduct(request: Request) {
 }
 // #endregion permit
 
+export async function signingUp() {
+  // #region virtual
+  const form = { email: "jane@example.com", termsOfService: "1" };
+  const account = Account.build(Account.permit(form, "email", "termsOfService"));
+  console.log(account.termsOfService); // true, cast from the form's "1"
+  await account.save(); // inserts the email alone
+  // #endregion virtual
+  return account;
+}
+
 export async function naming() {
   // #region naming
   console.log(FeaturedProduct.modelName); // "FeaturedProduct"

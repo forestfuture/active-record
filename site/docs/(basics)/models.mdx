@@ -12,6 +12,7 @@ seo:
 | define a Model                       | `class Product extends ApplicationRecord {}`                    |
 | read a column as another type        | `static override attributes = { archived: "boolean" } as const` |
 | ignore a column                      | `static override attributes = { legacyNotes: false } as const`  |
+| add an attribute that isn’t a column | `termsOfService: { type: "boolean", virtual: true }`            |
 | type an attribute more narrowly      | `declare status: "draft" \| "published"`                        |
 | use another table name               | `static override table = "billing_accounts"`                    |
 | declare attributes for a view        | `class ProductCount extends ApplicationRecord.define({ … }) {}` |
@@ -84,6 +85,20 @@ Override an attribute in `static attributes` when a column holds something its t
 - **A `default`** isn’t type-checked yet ([#74](https://github.com/forestfuture/active-record/issues/74)). One that returns a value the type can’t cast throws `TypeError` when a record is built.
 - **Ignoring a `NOT NULL` column** without a default makes inserts fail, so give it a default in a migration first.
 - **An override of an attribute the table doesn’t have** throws `InvalidModel`, and `active-record schema` reports it. So does an override that changes a column or ignores the primary key.
+
+## Adding virtual attributes
+
+Add an attribute that isn’t a column with `virtual: true`, as `Account` does with `termsOfService`. It holds a value a form sends but the table doesn’t keep:
+
+<include>/_excerpts/pages/models/examples/virtual.mdx</include>
+
+- **It’s typed and cast** like a column’s attribute. `permit` takes it, and its changes are tracked.
+- **It’s never saved.** An insert or an update leaves it out. A save that changes only virtual attributes sets `updatedAt` alone, or writes nothing on a table without timestamps.
+- **A loaded record starts it at its default,** or `null`, and so does `reload`.
+- **A query can’t name it,** since there’s no column to match. `where`, `order`, `select`, `pluck`, `insert`, and `updateAll` throw `UnknownAttribute`.
+- **It’s in `toJSON()`,** unless a [`confirmation`](./validations#confirming-a-value) rule reads it. List any other one in [`hiddenAttributes`](./serialization) to keep it out.
+- **A name the table has** as a column throws `InvalidModel`, and so does `virtual` with `column` or `enum`. `null: false` needs a `default`.
+- **With `define`,** write `virtual: true` in the same way.
 
 ## Narrowing types
 
