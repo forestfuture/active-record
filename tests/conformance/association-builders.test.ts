@@ -256,7 +256,7 @@ describe("building and setting hasOne and belongsTo", () => {
       expect(await db().model(Profile).where({ userId: 1 }).pluck("bio")).toEqual(["Elsewhere"]);
     });
 
-    test("a create() that fails is kept, so saving the owner tries it again, as in Rails", async () => {
+    test("a create() that fails is kept, so saving the owner tries it again", async () => {
       const user = await db().model(User).find(1);
       const profile = await user.profile.create({ bio: "" });
       expect(profile.isPersisted()).toBe(false);

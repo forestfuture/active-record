@@ -18,7 +18,7 @@ class User extends Model.define({
 }) {
   static table = "users";
 
-  // Newest first, as Rails' `has_many :posts, -> { order(created_at: :desc) }`.
+  // Newest first.
   posts = hasMany(Post, {
     foreignKey: "userId",
     scope: (q) => q.order({ createdAt: "desc" }),

@@ -349,7 +349,7 @@ describe("noTouching (#496)", () => {
   });
 
   describe("what it leaves on", () => {
-    /** The writes that touch by an option or by name, which Rails' `no_touching` leaves alone. */
+    /** The writes that touch by an option or by name, which `noTouching` leaves alone. */
     const optionTouches: [string, () => Promise<unknown>][] = [
       ["touchAll", () => CountingDiscussion.where({ id: 1 }).touchAll()],
       [
@@ -364,7 +364,7 @@ describe("noTouching (#496)", () => {
       ["resetCounters", () => CountingDiscussion.resetCounters(1, "messages", { touch: true })],
     ];
 
-    test.each(optionTouches)("%s still sets updatedAt, as in Rails", async (_, write) => {
+    test.each(optionTouches)("%s still sets updatedAt", async (_, write) => {
       await withDatabase(db(), () => Model.noTouching(write));
 
       expect(await updatedAtOf(CountingDiscussion, 1)).not.toEqual(stale);

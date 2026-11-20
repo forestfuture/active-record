@@ -8,7 +8,7 @@ import {
 } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
-// The scopes a join takes into its ON clause, as Rails does: the association's, and the
+// The scopes a join takes into its ON clause: the association's, and the
 // joined Model's default scopes.
 
 class Writer extends Model.define({
@@ -137,7 +137,7 @@ describe("joins with scopes", () => {
     expect(idsOf(await writers.toArray())).toEqual([1, 3]);
   });
 
-  // A guard: an order can't change which rows a join finds, so it's left out, as Rails does.
+  // A guard: an order can't change which rows a join finds, so it's left out.
   test("a scope's order is left out of the join", async () => {
     const writers = db().model(Writer).joins("orderedArticles").order({ id: "asc" });
 

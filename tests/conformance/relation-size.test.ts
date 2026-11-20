@@ -54,7 +54,7 @@ describe("size, isEmpty and hasAny", () => {
     expect(events).toHaveLength(0);
   });
 
-  test("an association that isn't loaded counts, adding its unsaved built records, as Rails' size does", async () => {
+  test("an association that isn't loaded counts, adding its unsaved built records", async () => {
     const user = await db().model(User).find(1);
     user.posts().build({ title: "C" });
     events.length = 0;

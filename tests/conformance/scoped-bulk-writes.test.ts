@@ -18,8 +18,7 @@ class PublishedPost extends Post {
   }
 }
 
-// A bulk write takes its Relation's equality values over the ones it's given, as Rails'
-// insert_all merges scope_for_create into each row (#470).
+// A bulk write takes its Relation's equality values over the ones it's given (#470).
 describe("a bulk write through a Relation's conditions", () => {
   let harness: Harness;
   const db = () => harness.connect();

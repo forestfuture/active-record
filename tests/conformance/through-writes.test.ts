@@ -656,7 +656,7 @@ describe("writing through an association through another", () => {
       ]);
     });
 
-    test('"destroy" leaves clear deleting the join records without callbacks, as in Rails', async () => {
+    test('"destroy" leaves clear deleting the join records without callbacks', async () => {
       const user = await db().model(DestroyingUser).find(1);
 
       await user.projects().clear();

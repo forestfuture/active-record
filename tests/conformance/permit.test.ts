@@ -81,7 +81,7 @@ describe("Model.permit", () => {
     expect(() => User.permit({}, "password")).toThrow(UnknownAttribute);
   });
 
-  test("reads FormData and URLSearchParams; a repeated key takes its last value, as in Rails", async () => {
+  test("reads FormData and URLSearchParams; a repeated key takes its last value", async () => {
     const form = new FormData();
     form.append("email", "ada@example.com");
     form.append("isActive", "on");

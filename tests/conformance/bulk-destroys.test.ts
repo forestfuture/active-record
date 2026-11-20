@@ -217,7 +217,7 @@ describe("destroying many records", () => {
         const destroyed = await post.comments().destroyAll();
 
         expect(destroyed.map((comment) => comment.body)).toEqual(["a", "b", "new"]);
-        // A record that was never saved just leaves the association, as in Rails.
+        // A record that was never saved just leaves the association.
         expect(built.isNewRecord()).toBe(true);
         expect(await bodies()).toEqual(["c", "d"]);
         queries.length = 0;

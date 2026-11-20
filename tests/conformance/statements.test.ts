@@ -275,7 +275,7 @@ describe("statements", () => {
       expect(log).toEqual([]);
     });
 
-    test("updateAll leaves updatedAt alone, as in Rails", async () => {
+    test("updateAll leaves updatedAt alone", async () => {
       const db = harness.connect();
       await db.model(User).insert({ id: 1, email: "a@example.com" });
       await db
@@ -389,7 +389,7 @@ describe("statements", () => {
       );
     });
 
-    test("on none(), deleteAll and updateAll send nothing and resolve to 0, as in Rails", async () => {
+    test("on none(), deleteAll and updateAll send nothing and resolve to 0", async () => {
       const events: QueryEvent[] = [];
       const db = harness.connect({ onQuery: (event) => events.push(event) });
       await seedUsers(db);
@@ -430,7 +430,7 @@ describe("statements", () => {
         return db.model(Comment).order({ id: "asc" }).pluck("id", "postId");
       }
 
-      test("deleteAll on the association nullifies the foreign key, as Rails' has_many does", async () => {
+      test("deleteAll on the association nullifies the foreign key", async () => {
         const db = harness.connect();
         await seedComments(db);
         const post = await db.model(Post).find(1);
@@ -454,7 +454,7 @@ describe("statements", () => {
         expect(await db.model(Post).count()).toBe(2);
       });
 
-      test("once the association is narrowed, deleteAll deletes, as a Rails association relation does", async () => {
+      test("once the association is narrowed, deleteAll deletes", async () => {
         const db = harness.connect();
         await seedComments(db);
         const post = await db.model(Post).find(1);
@@ -715,7 +715,7 @@ describe("statements", () => {
       expect((await harness.connect().model(Post).find(1)).createdAt).toEqual(past);
     });
 
-    test("createdAt and updatedAt are set on every row, as Rails' insert_all does", async () => {
+    test("createdAt and updatedAt are set on every row", async () => {
       const before = Date.now();
 
       await harness

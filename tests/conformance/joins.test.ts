@@ -56,7 +56,7 @@ describe("joins", () => {
 
   // Guards: the join is the association's link, whichever side holds the foreign key.
   describe("a hasMany", () => {
-    test("finds a record once for each linked record, as Rails does", async () => {
+    test("finds a record once for each linked record", async () => {
       const users = await db().model(User).joins("posts").order({ id: "asc" }).toArray();
 
       expect(users.map((user) => user.id)).toEqual([1, 1, 2]);
@@ -121,7 +121,7 @@ describe("joins", () => {
       expect((await users.toArray()).map((user) => user.id)).toEqual([2]);
     });
 
-    test("takes Rails' alias, the association's plural and the table it's joined to", () => {
+    test("takes an alias of the association's plural and the table it's joined to", () => {
       const { sql } = db().model(User).joins({ posts: "user" }).toSql();
 
       // oxlint-disable-next-line active-record/no-sql-text -- only the SQL shows a table's alias
