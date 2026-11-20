@@ -55,70 +55,7 @@ For a cache key, or the value a test expects of a raw row, `serialize` gives the
 
 ## Ordering and paging
 
-Sort by each key in turn with `order`, and page with `limit` and `offset`:
-
-<include>/_excerpts/guide/querying/order.ts</include>
-
-Calling `order` again adds more keys. `reorder` replaces the order so far, and `reorder()` removes it. To get a page with its total, use [`paginate`](#paginating).
-
-:::note
-On D1, NULLs sort first in ascending order, and on Postgres last. Place them with `nulls: "first"` or `nulls: "last"` to sort them the same on both.
-:::
-
-### Ordering by a list of values
-
-Sort records by where their value comes in a list with `inOrderOf`:
-
-<include>/_excerpts/guide/querying/in-order-of.ts</include>
-
-- By default, only records whose value is in the list are kept. Pass `filter: false` to keep the rest, after them.
-- Values are cast as `where`’s are, and `null` places NULL. The list is bound as one value, so it can be any length.
-- An order written after it sorts the records that tie, and `last()` reverses it.
-- It can’t be combined with `distinct()`, which throws `IncompatibleRelation`.
-- The database looks each record’s value up in the list, so a long list costs more on a large table. Keep it to the values you mean to order by.
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-`inOrderOf` is Rails’ `in_order_of`, `filter: false` included. Rails writes the list into a `CASE`, one bound value per item. Here the list is one bound value, so it fits D1’s limit of 100.
-
-</Callout>
-
-## Paginating
-
-`paginate` resolves to one page of records and the total they’re a page of:
-
-<include>/_excerpts/guide/paginating/paginate.ts</include>
-
-- `page` and `perPage` take numbers, or text from a query string. Missing, `null`, or empty, they mean the first page and the default size. Anything that isn’t a whole number from 1 throws `TypeError`.
-- Pages sort by the Relation’s order, then by the primary key, so records that tie keep their pages between requests.
-- A page past the last has no records, but still has the real `total`.
-- `includes()` preloads the page’s associations, with one more query per association.
-- On D1, the count, the records, and their preloads take [one round trip](./d1#sending-queries-in-one-round-trip).
-- A Relation with its own `limit` or `offset` throws `IncompatibleRelation`.
-
-### Skipping the count
-
-Counting reads every matching row, and D1 bills each row it reads. If you only need to know whether there’s a next page, pass `count: false`:
-
-<include>/_excerpts/guide/paginating/countless.ts</include>
-
-The page then has no `total` or `totalPages`.
-
-### Setting the page size
-
-By default, a page holds 25 records, and none holds more than 100. To change both, set `perPage` and `maxPerPage` on your app’s base class:
-
-<include>/_excerpts/guide/paginating/per-page.ts</include>
-
-:::note
-D1 limits neither the rows a query returns nor the size of its response. `maxPerPage` keeps one request from reading, and paying for, too many rows, within a Worker’s 128 MB of memory and a query’s 30 seconds.
-:::
-
-<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
-
-Rails leaves pagination to gems such as Kaminari and Pagy. Active Record builds it in, and on D1 sends the count and the page together.
-
-</Callout>
+Sort with `order` and `inOrderOf`, and split records into pages with `paginate`. See [Ordering and pagination](./ordering-and-pagination).
 
 ## Iterating over many records
 
