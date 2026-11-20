@@ -1,0 +1,10 @@
+CREATE TABLE products (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  price_cents INTEGER NOT NULL
+);
+CREATE TABLE shirts (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  sizes TEXT NOT NULL DEFAULT ''
+);

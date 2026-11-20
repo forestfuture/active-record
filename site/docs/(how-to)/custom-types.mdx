@@ -5,11 +5,42 @@ seo:
   description: "Define a custom Active Record attribute type, such as money in cents or a list of sizes, stored in its column as a built-in type, and use it on any Model."
 ---
 
+## At a glance
+
+| To                                     | Write                                                               |
+| -------------------------------------- | ------------------------------------------------------------------- |
+| define a type stored as a built-in one | `defineType({ storedAs: "integer", cast, serialize, deserialize })` |
+| give a generated attribute the type    | `static override attributes = { priceCents: money } as const`       |
+| refuse a value                         | throw from `cast`                                                   |
+| query by the type’s values             | `Product.where({ priceCents: new Money(500) })`                     |
+
+## The Models
+
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates, with the types in `src/types/`:
+
+<CodeGroup>
+
+<include meta="product.ts">/_excerpts/pages/custom-types/src/models/product.ts</include>
+
+<include meta="shirt.ts">/_excerpts/pages/custom-types/src/models/shirt.ts</include>
+
+<include meta="money.ts">/_excerpts/pages/custom-types/src/types/money.ts</include>
+
+<include meta="sizes.ts">/_excerpts/pages/custom-types/src/types/sizes.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/custom-types/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/custom-types/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/custom-types/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
+
 ## Defining a type
 
 Define a type with `defineType`, naming the built-in type it’s stored as. This one keeps money as whole cents in an integer column:
 
-<include>/_excerpts/guide/custom-types/money.ts</include>
+<include>/_excerpts/pages/custom-types/src/types/money.ts</include>
 
 A type has three functions:
 
@@ -27,26 +58,19 @@ None of them is called with `null`, which is always NULL.
 
 ## Using a type
 
-Give the type to a generated attribute in `static attributes`:
+Give the type to a generated attribute in `static attributes`, as `Product` does:
 
-<include>/_excerpts/guide/custom-types/override.ts</include>
+<include>/_excerpts/pages/custom-types/src/models/product.ts</include>
 
 Changing an attribute’s type drops its generated default, as any [override](./models#overriding-attributes) of a type does. Give it a `default` if it needs one.
 
-A Model that declares its attributes itself takes the type in place of a type’s name:
-
-<include>/_excerpts/guide/custom-types/declare.ts</include>
+A Model that declares its attributes itself, with `Model.define`, takes the type in place of a type’s name: `total: { type: money, null: false }`.
 
 ## Refusing values
 
 Throw from `cast` for a value the type can’t hold. Assigning or permitting that value then throws a `TypeError` naming the Model and attribute, with your error as its `cause`:
 
-```ts
-import { Product } from "./models/product";
-
-Product.permit({ priceCents: "abc" }, "priceCents");
-// TypeError: Product: "abc" isn't a valid value for "priceCents"
-```
+<include>/_excerpts/pages/custom-types/examples/refuse.mdx</include>
 
 The same happens when `deserialize` throws for a stored value, and when `serialize` returns a value its stored type can’t hold. For a [filtered attribute](./serialization#filtering-attributes), the error has no `cause`, since yours may show the value.
 
@@ -54,19 +78,19 @@ The same happens when `deserialize` throws for a stored value, and when `seriali
 
 Conditions take the type’s values, and anything `cast` takes:
 
-<include>/_excerpts/guide/custom-types/query.ts</include>
+<include>/_excerpts/pages/custom-types/examples/query.mdx</include>
 
 Values compare and sort as their stored values do, so money sorts by cents. A value `cast` throws for matches nothing.
 
 ## Changing values in place
 
-A type can hold a value you change in place. This one keeps a list of sizes as text:
+A type can hold a value you change in place. This one keeps a list of sizes as text, and `Shirt` gives it to `sizes`:
 
-<include>/_excerpts/guide/custom-types/sizes.ts</include>
+<include>/_excerpts/pages/custom-types/src/types/sizes.ts</include>
 
 Changes are found by comparing what `serialize` returns, so a size pushed onto the list is a change, and `save()` writes it:
 
-<include>/_excerpts/guide/custom-types/in-place.ts</include>
+<include>/_excerpts/pages/custom-types/examples/in-place.mdx</include>
 
 An equal value in another object, such as a new `Money` of the same cents, isn’t a change.
 

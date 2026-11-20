@@ -17,7 +17,6 @@ import { runInit } from "../../../packages/active-record/cli/init/command.ts";
 import { parseJsonc } from "../../../packages/active-record/cli/project/config-file.ts";
 import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
 import { Post, User } from "../../../site/snippets/getting-started/models.ts";
-import * as customTypes from "../../../site/snippets/guide/custom-types.ts";
 import { createdSince, oldestFirst, Reminder } from "../../../site/snippets/guide/mixed-dates.ts";
 import * as untrusted from "../../../site/snippets/guide/untrusted-input.ts";
 import * as filtering from "../../../site/snippets/guide/filtering.ts";
@@ -426,64 +425,5 @@ describe("Multiple databases: each Model on its own binding", () => {
       { email: "ada@example.com" },
     ]);
     expect(await messages()).toEqual([{ message: "ada@example.com signed up" }]);
-  });
-});
-
-// The Custom types page's examples, on its own tables in the guide's schema.
-describe("the custom types page's examples (#20)", () => {
-  let binding: TestDatabase;
-  let dispose: () => Promise<void>;
-  const schema = new URL("../../../site/snippets/guide/schema.sql", import.meta.url);
-  const { Money, Product, Shirt } = customTypes;
-
-  beforeAll(async () => {
-    ({ db: binding, dispose } = await createTestDatabase(schema));
-    // The Models' binding is DB, which an earlier test may have set to a database now gone.
-    Object.assign(workers.env, { DB: binding });
-  });
-  afterAll(() => dispose());
-
-  // Shirt is declared with define, so it has no binding of its own: it takes the request's.
-  const run = <T>(work: () => Promise<T>) => withDatabase(connect(binding), work);
-
-  test("money is stored as cents, and the queries find and order by it", async () => {
-    await run(async () => {
-      for (const [name, cents] of [
-        ["Pin", 500],
-        ["Lamp", 12_000],
-        ["Desk", 30_000],
-      ] as const) {
-        await Product.create({ name, priceCents: new Money(cents) });
-      }
-
-      const { cheap, pricey } = await customTypes.pricedProducts();
-
-      expect(cheap.map((product) => product.name)).toEqual(["Pin"]);
-      expect(pricey.map((product) => String(product.priceCents))).toEqual(["$300.00", "$120.00"]);
-    });
-    const [row] = (
-      await binding.prepare("SELECT price_cents FROM products WHERE name = 'Pin'").all()
-    ).results;
-    expect(row).toEqual({ price_cents: 500 });
-  });
-
-  test("permitting a value cast throws for is the TypeError the page shows", () => {
-    expect(() => Product.permit({ priceCents: "abc" }, "priceCents")).toThrow(
-      new TypeError('Product: "abc" isn\'t a valid value for "priceCents"'),
-    );
-  });
-
-  test("a size pushed onto the list is a change, and save writes it", async () => {
-    await run(async () => {
-      await Shirt.create({ id: 1, sizes: ["S", "M"] });
-      const shirt = await Shirt.find(1);
-
-      customTypes.addSize(shirt);
-
-      expect(shirt.isChanged()).toBe(true);
-      await shirt.save();
-    });
-    const [row] = (await binding.prepare("SELECT sizes FROM shirts").all()).results;
-    expect(row).toEqual({ sizes: "S,M,XL" });
   });
 });

@@ -95,7 +95,3 @@ declare module "../guide/generators" {
 declare module "../guide/several-databases" {
   interface User extends TableAttributes<typeof users, (typeof User)["attributes"]> {}
 }
-
-declare module "../guide/custom-types" {
-  interface Product extends TableAttributes<typeof products, (typeof Product)["attributes"]> {}
-}

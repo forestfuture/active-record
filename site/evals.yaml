@@ -240,3 +240,9 @@ questions:
       - "catch the error and check error instanceof RecordNotFound, returning a 404 Response"
       - "rethrow anything else"
     routes: /errors
+  - id: money-type
+    question: "How do I store a price as whole cents in an integer column but read it as a Money object?"
+    expected:
+      - 'defineType({ storedAs: "integer", cast, serialize, deserialize }) returning Money from cast and deserialize, and cents from serialize'
+      - "give it to the attribute in static override attributes = { priceCents: money } as const"
+    routes: /custom-types
