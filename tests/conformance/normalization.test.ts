@@ -492,3 +492,69 @@ describe("a lookup by a key copied from a record", () => {
     expect(rows.map(({ id }) => Number(id))).toEqual([10]);
   });
 });
+
+// A polymorphic link's type normalized to lowercase: the link keeps the Model's name.
+class Remark extends Model.define({
+  id: { type: "integer", null: false },
+  body: "string",
+  commentableType: "string",
+  commentableId: "integer",
+}) {
+  static table = "remarks";
+
+  commentable = belongsTo([Article], { optional: true });
+
+  static {
+    this.normalizes("commentableType", { with: (type) => type.toLowerCase() });
+  }
+}
+
+class Article extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  remarks = hasMany(Remark, { as: "commentable" });
+}
+
+describe("a polymorphic link's type", () => {
+  let harness: Harness;
+
+  beforeAll(async () => {
+    harness = await openHarness();
+  });
+  afterAll(() => harness.dispose());
+
+  const db = () => harness.connect();
+  const storedTypes = async () =>
+    (await harness.exec("SELECT commentable_type FROM remarks")).map(
+      ({ commentable_type }) => commentable_type,
+    );
+
+  beforeEach(async () => {
+    await harness.reset("remarks", "posts", "users");
+    await harness.exec("INSERT INTO users (id, email) VALUES (?, ?)", [1, "a@example.com"]);
+    await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (?, ?, ?)", [1, 1, "One"]);
+  });
+
+  test("is the Model's name when a belongsTo is set", async () => {
+    const article = await db().model(Article).find(1);
+    const remark = db().model(Remark).build({ id: 1, body: "Nice" });
+
+    remark.commentable.set(article);
+    await remark.saveOrThrow();
+
+    expect(await storedTypes()).toEqual(["Article"]);
+  });
+
+  test("is the Model's name when a record is pushed onto a hasMany", async () => {
+    const article = await db().model(Article).find(1);
+    const remark = await db().model(Remark).create({ id: 1, body: "Nice" });
+
+    await article.remarks().push(remark);
+
+    expect(await storedTypes()).toEqual(["Article"]);
+  });
+});

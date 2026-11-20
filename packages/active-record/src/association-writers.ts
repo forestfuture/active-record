@@ -89,7 +89,9 @@ function pointPolymorphicAt(
 ): void {
   requireSettable(association, record);
   const branch = record === null ? undefined : association.branchForRecord(record);
-  owner[state].write(association.definition.foreignType!, branch?.type!.value ?? null);
+  // The link's type, as its key, isn't normalized (#354).
+  const type = branch?.type!.value ?? null;
+  owner[state].writeKey(association.definition.foreignType!, type, association.name);
   pointOwnerAt(owner, branch ?? association, record);
 }
 
