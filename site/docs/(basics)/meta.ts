@@ -7,6 +7,7 @@ export default defineMeta({
     "attribute-types",
     "enums",
     "change-tracking",
+    "serialization",
     "querying",
     "conditions",
     "ordering-and-pagination",

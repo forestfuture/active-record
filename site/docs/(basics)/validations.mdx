@@ -251,10 +251,10 @@ In a Model, `attributes` and `humanAttributeNames` can only name the Model’s a
 
 A message can show these values:
 
-- **`%{count}`**: the rule’s number or bound, such as the `minimum` of `tooShort` or the bound of `greaterThan`. A Date bound shows as an ISO string. A bound’s function that returns a [filtered attribute](./models#filtering-attributes)’s value shows `[FILTERED]`.
+- **`%{count}`**: the rule’s number or bound, such as the `minimum` of `tooShort` or the bound of `greaterThan`. A Date bound shows as an ISO string. A bound’s function that returns a [filtered attribute](./serialization#filtering-attributes)’s value shows `[FILTERED]`.
 - **`%{attribute}`**: the attribute’s name, as `fullMessages()` shows it.
 - **`%{model}`**: the Model’s name in words, so `BlogPost` reads as “Blog post”. It’s the class name, unless the Model sets [`static modelName`](/models#naming-models).
-- **`%{value}`**: the attribute’s value. A [filtered attribute](./models#filtering-attributes) shows `[FILTERED]`.
+- **`%{value}`**: the attribute’s value. A [filtered attribute](./serialization#filtering-attributes) shows `[FILTERED]`.
 
 A value passed to `errors.add` with the type, such as `count`, fills in the placeholder of the same name.
 

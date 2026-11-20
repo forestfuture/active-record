@@ -1,0 +1,124 @@
+---
+title: Serialization
+description: "Turn records into JSON, keep secrets out of responses and logs, and print records in the console."
+seo:
+  description: "Serialize Active Record records with toJSON and Response.json, hide attributes from responses, filter secrets from logs, and print records and Relations."
+---
+
+## At a glance
+
+| To                                        | Write                                                                    |
+| ----------------------------------------- | ------------------------------------------------------------------------ |
+| send a record as JSON                     | `Response.json(account)`                                                 |
+| read its attributes as JavaScript values  | `account.attributes()`                                                   |
+| keep an attribute out of JSON             | `static override hiddenAttributes = ["passwordDigest"]`                  |
+| show an attribute as `[FILTERED]` in logs | `static override filterAttributes = [...Model.filterAttributes, "iban"]` |
+| see a record or a Relation                | `console.log(account)`                                                   |
+
+| Setting            | Keeps values out of                                      | Default                                       |
+| ------------------ | -------------------------------------------------------- | --------------------------------------------- |
+| `hiddenAttributes` | `toJSON()`, so `Response.json` and `JSON.stringify`      | nothing                                       |
+| `filterAttributes` | `onQuery` listeners, error messages, and printed records | passwords, emails, tokens, keys, and the like |
+
+## The Model
+
+The examples use this Model, whose attributes come from its table through the schema `active-record schema` generates. Your app’s base class holds the settings every Model shares:
+
+<CodeGroup>
+
+<include meta="application-record.ts">
+  /_excerpts/pages/serialization/src/models/application-record.ts
+</include>
+
+<include meta="account.ts">/_excerpts/pages/serialization/src/models/account.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/serialization/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/serialization/migrations/0001_create_accounts.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/serialization/postgres/0001_create_accounts.sql</include>
+
+</CodeGroup>
+
+## Serializing records
+
+`toJSON()` gives a record’s attributes with dates as ISO strings, and `attributes()` gives them with JavaScript values:
+
+<include>/_excerpts/pages/serialization/examples/json.mdx</include>
+
+Associations are never included, so a response never loads more than you asked for. `Response.json(record)` uses `toJSON()`:
+
+<include>/_excerpts/pages/serialization/examples/response.mdx</include>
+
+## Hiding attributes
+
+Name an attribute in `static hiddenAttributes` on your app’s base class to keep it out of every Model’s `toJSON()`, as `ApplicationRecord` does with `passwordDigest`:
+
+- A Model’s own list replaces the base class’s, so `Account` repeats it beside `apiKey`.
+- By default, nothing is hidden, and each name must match an attribute exactly.
+- `attributes()` still returns every attribute, so you can send a hidden one on purpose.
+
+:::note
+A name a Model doesn’t have throws `InvalidModel` when the Model is first used, so a typo can’t leave an attribute in your responses. The base class’s names are the exception: a Model without that attribute ignores them.
+:::
+
+## Filtering attributes
+
+`onQuery` listeners, error messages, and printed records show a filtered attribute’s values as `"[FILTERED]"`, while the database still gets the real values. [Logging](./logging#keeping-secrets-out-of-the-logs) shows a listener:
+
+- **Which attributes:** `static filterAttributes`, a list of strings and RegExps, inherited from your app’s base class. By default, it’s `passw`, `email`, `secret`, `token`, `_key`, `crypt`, `salt`, `certificate`, `otp`, `ssn`, `cvv`, `cvc`. Setting it replaces the list; `[]` filters nothing.
+- **Matching:** a string matches when the attribute’s snake_case name contains it, in any case: `passwordDigest` (`password_digest`) contains `passw`, and `apiKey` (`api_key`) contains `_key`. A string can also be written as the attribute is, so `"secretAt"`, `"secret_at"`, and `"secret"` all match `secretAt`. A RegExp matches the attribute or its snake_case name.
+- **Hidden in `QueryEvent.params`:** the values bound for the attribute in inserts (in a multi-row insert’s JSON, its column in every row), updates, `updateAll`, conditions, lists and comparisons, and a filtered primary key in a record’s `UPDATE` and `DELETE`.
+- **Hidden in errors:** a cast error’s value, and a filtered primary key in `RecordNotFound`.
+- **Not hidden:** a bare value inside an `sql` fragment, which has no attribute (write it as `column("token").value(token)` to filter it); and `toJSON()` and `attributes()`, which are your data, not logs ([Hiding attributes](#hiding-attributes) keeps names out of `toJSON()`).
+
+## Printing records
+
+`console.log(account)`, a failed test, and the console show a record’s class and attributes:
+
+```text
+Account {
+  id: '3b241101-e2bb-4255-8caf-4136c566a962',
+  email: [FILTERED],
+  passwordDigest: [FILTERED],
+  apiKey: [FILTERED],
+  iban: [FILTERED],
+  createdAt: 2026-01-15T00:00:00.000Z,
+  updatedAt: 2026-01-15T00:00:00.000Z
+}
+```
+
+- **Filtered attributes** print as `[FILTERED]`, without quotes so it can’t be mistaken for a string, and in a distinct color when the terminal shows colors. An attribute with no value still prints `null`.
+- **Unsaved changes** print the new value and the old one: `'Johnny' (was 'Alice')`. Once the record is saved, the flag goes. A changed filtered attribute prints `[FILTERED] (changed)`, and so does a column a partial record never loaded. A new record flags nothing, since all of it is unsaved.
+- **A partial record** prints only the columns it loaded, and bytes print as how many there are: `<3 bytes of binary data>`.
+- **Hidden attributes** still print: they keep values out of `toJSON()`, not out of your console. Printing never loads an association.
+
+A Relation prints the SELECT it would send, without sending it, with a filtered attribute’s value in `params` as `[FILTERED]`:
+
+```text
+Relation<Account> {
+  sql: 'SELECT * FROM "accounts" WHERE (("email" = ?))',
+  params: [ [FILTERED] ]
+}
+```
+
+Printing can’t wait for the database, so to see the records, `await` it or call `toArray()`. A record’s `errors` print each failure, so a failed `save()` shows why in the console:
+
+```text
+Errors [
+  { attribute: 'name', type: 'blank', message: "can't be blank" },
+  { attribute: 'email', type: 'too_short', message: 'is too short' }
+]
+```
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+The default filter list is Rails’ own `filter_parameters` list, and the filtered values read as they do in Rails’ logs. A record prints as Rails’ `inspect` does. A Rails Relation runs its query to print its records, which a synchronous `console.log` can’t do here.
+
+</Callout>
+
+<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
+
+Rails’ `serializable_hash(except:)` is per call, and `filter_attributes` only covers logs and inspection. Active Record keeps a class-level list, so `Response.json(user)` is safe without each call site remembering to strip the attribute. Rails also doesn’t mark unsaved changes when it prints a record. Active Record does, so a pending edit is visible in the console before you save it.
+
+</Callout>
