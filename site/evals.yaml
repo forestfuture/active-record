@@ -171,3 +171,9 @@ questions:
       - "declare counterCache: true on the comment's belongsTo, with a commentsCount attribute on the article"
       - "article.comments().size() reads the count with no query"
     routes: /counter-caches
+  - id: touch-parent
+    question: "How do I update an article's updatedAt whenever one of its comments is saved, and skip that during a bulk import?"
+    expected:
+      - "declare touch: true on the comment's belongsTo"
+      - "run the import inside Article.noTouching(async () => { … }), then touch the article once"
+    routes: /touching

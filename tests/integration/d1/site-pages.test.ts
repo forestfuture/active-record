@@ -35,7 +35,9 @@ import * as rawStatements from "../../../site/snippets/pages/raw-statements/exam
 import * as serialization from "../../../site/snippets/pages/serialization/examples.ts";
 import { Account as SerializedAccount } from "../../../site/snippets/pages/serialization/src/models/account.ts";
 import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
+import * as touching from "../../../site/snippets/pages/touching/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
+import { statementKinds } from "../../support/statement-kinds.ts";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
 import { Post as IteratedPost } from "../../../site/snippets/pages/batch-iteration/src/models/post.ts";
 import { ApplicationRecord as PagedRecord } from "../../../site/snippets/pages/ordering-and-pagination/src/models/application-record.ts";
@@ -441,6 +443,73 @@ describe("the Counter caches page's examples", () => {
 
     expect(article.commentsCount).toBe(0);
     expect(article.updatedAt).toBeInstanceOf(Date);
+  });
+});
+
+// The Touching page's examples, on the tables it shows.
+describe("the Touching page's examples", () => {
+  const binding = pageDatabase("touching", ["profiles", "users", "comments", "articles", "blogs"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO blogs (id, updated_at) VALUES ('b', '2020-01-01T00:00:00.000Z')",
+        "INSERT INTO articles (id, blog_id, title, updated_at) VALUES ('a', 'b', 'Hello', '2020-01-01T00:00:00.000Z')",
+        "INSERT INTO comments (id, article_id, body, updated_at) VALUES ('c1', 'a', 'Old', '2020-01-01T00:00:00.000Z')",
+        "INSERT INTO users (id, name, updated_at) VALUES ('ada', 'Ada', '2020-01-01T00:00:00.000Z')",
+        "INSERT INTO profiles (id, user_id, bio, updated_at) VALUES ('p', 'ada', 'Poet', '2020-01-01T00:00:00.000Z')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const updatedAt = async (table: string) =>
+    (await binding().prepare(`SELECT updated_at FROM ${table}`).first())?.["updated_at"];
+  const stale = "2020-01-01T00:00:00.000Z";
+  const run = <T>(fn: () => Promise<T>, onQuery?: (event: { sql: string }) => void) =>
+    withDatabase(connect(binding(), { onQuery }), fn);
+
+  test("each write to a comment touches its article, and the article its blog", async () => {
+    await run(touching.touching);
+
+    expect(await updatedAt("articles")).not.toBe(stale);
+    expect(await updatedAt("blogs")).toBe(await updatedAt("articles"));
+  });
+
+  test("a named attribute is set with updatedAt", async () => {
+    const article = await run(touching.replying);
+
+    expect(article.lastCommentedAt).toEqual(article.updatedAt);
+  });
+
+  test("a preloaded chain touches with no query to load it", async () => {
+    const events: { sql: string }[] = [];
+
+    await run(touching.preloading, (event) => void events.push(event));
+
+    expect(statementKinds(events)).toEqual([
+      "SELECT",
+      "SELECT",
+      "SELECT",
+      "UPDATE",
+      "UPDATE",
+      "UPDATE",
+    ]);
+  });
+
+  test("an import inside noTouching touches its article once, after it", async () => {
+    const events: { sql: string }[] = [];
+
+    await run(touching.importing, (event) => void events.push(event));
+
+    const kinds = statementKinds(events);
+    expect(kinds.filter((kind) => kind === "UPDATE")).toHaveLength(2); // the article, then its blog
+    expect(kinds.slice(-2)).toEqual(["UPDATE", "UPDATE"]);
+    expect(await updatedAt("articles")).not.toBe(stale);
+  });
+
+  test("updating a user touches its profile", async () => {
+    await run(touching.renaming);
+
+    expect(await updatedAt("profiles")).not.toBe(stale);
   });
 });
 
