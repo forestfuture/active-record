@@ -330,3 +330,37 @@ describe("normalizeAttribute", () => {
     expect(() => account.normalizeAttribute("mail")).toThrow(UnknownAttribute);
   });
 });
+
+describe("a condition on a normalized attribute", () => {
+  // Plain JavaScript, past the types: a rank over 100 normalizes to nothing.
+  class Rank extends Model.define({
+    id: { type: "integer", null: false },
+    level: "integer",
+  }) {
+    static table = "ranks";
+
+    static {
+      this.normalizes("id", { with: ((id: number) => (id > 100 ? undefined : id)) as never });
+      this.normalizes("level", { with: (level) => Math.abs(level) });
+    }
+  }
+  const ranks = db.model(Rank);
+
+  test("that can't be cast names its value when a record is built from it", () => {
+    expect(() => ranks.where({ level: "high" as never }).build()).toThrow(
+      new TypeError('Rank: "high" isn\'t an integer for "level"'),
+    );
+  });
+
+  test("throws when its normalization returns what the attribute can't hold", () => {
+    expect(() => ranks.whereNot({ id: 200 })).toThrow(
+      new TypeError('Rank: got undefined for "id"; use null to store NULL'),
+    );
+  });
+
+  test("throws for find's keys when their normalization returns what the key can't hold", async () => {
+    await expect(ranks.find([1, 200])).rejects.toThrow(
+      new TypeError('Rank: got undefined for "id"; use null to store NULL'),
+    );
+  });
+});
