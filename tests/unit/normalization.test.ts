@@ -1,8 +1,8 @@
 // Normalizations (#354): `this.normalizes(name, { with })`, applied to a value as it's assigned.
 // These tests need no database.
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { InvalidModel, Model } from "../../packages/active-record/src/index.ts";
+import { connect, d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
 
 const db = connect({} as never);
 
@@ -78,7 +78,7 @@ describe("normalizes", () => {
     expect(db.model(Visit).build({ path: "/", count: 1 }).count).toBe(1);
   });
 
-  test("refuses a name that isn't an attribute, and a function of another type", () => {
+  test("refuses a function of another type", () => {
     class Visit extends Model.define({
       id: { type: "integer", null: false },
       path: "string",
@@ -86,8 +86,6 @@ describe("normalizes", () => {
       static table = "visits";
 
       static {
-        // @ts-expect-error -- not an attribute
-        this.normalizes("pathname", { with: (path: string) => path });
         // @ts-expect-error -- a string attribute's normalizer returns a string
         this.normalizes("path", { with: (path) => path.length });
       }
@@ -165,5 +163,124 @@ describe("what with returns", () => {
 
   test("throws what with throws", () => {
     expect(() => tags.build({ name: "bad" })).toThrow(new RangeError("no bad names"));
+  });
+});
+
+describe("several normalizations", () => {
+  test("run in the order they're declared", () => {
+    class Slug extends Model.define({
+      id: { type: "integer", null: false },
+      text: "string",
+    }) {
+      static table = "slugs";
+
+      static {
+        this.normalizes("text", { with: (text) => `${text}-first` });
+        this.normalizes("text", { with: (text) => `${text}-second` });
+      }
+    }
+
+    expect(db.model(Slug).build({ text: "a" }).text).toBe("a-first-second");
+  });
+
+  test("run a parent class's first, and leave the parent's own records alone", () => {
+    class Handle extends Model.define({
+      id: { type: "integer", null: false },
+      name: "string",
+    }) {
+      static table = "handles";
+
+      static {
+        this.normalizes("name", { with: (name) => name.trim() });
+      }
+    }
+    class LoudHandle extends Handle {
+      static {
+        this.normalizes("name", { with: (name) => `${name}!` });
+      }
+    }
+
+    expect(db.model(LoudHandle).build({ name: " sam " }).name).toBe("sam!");
+    expect(db.model(Handle).build({ name: " sam " }).name).toBe("sam");
+  });
+});
+
+describe("a normalization's attribute", () => {
+  test("must be one of the Model's attributes", () => {
+    const defining = () =>
+      class Visit extends Model.define({
+        id: { type: "integer", null: false },
+        path: "string",
+      }) {
+        static table = "visits";
+
+        static {
+          // @ts-expect-error -- not an attribute
+          this.normalizes("pathname", { with: (path: string) => path });
+        }
+      };
+
+    expect(defining).toThrow(
+      new InvalidModel('Visit normalizes "pathname", which isn\'t one of its attributes'),
+    );
+  });
+
+  test("may be virtual", () => {
+    class Signup extends Model.define({
+      id: { type: "integer", null: false },
+      nickname: { type: "string", virtual: true },
+    }) {
+      static table = "signups";
+
+      static {
+        this.normalizes("nickname", { with: (nickname) => nickname.trim() });
+      }
+    }
+
+    expect(db.model(Signup).build({ nickname: " sam " }).nickname).toBe("sam");
+  });
+
+  test("is declared before the Model is used", () => {
+    class Note extends Model.define({
+      id: { type: "integer", null: false },
+      body: "string",
+    }) {
+      static table = "notes";
+    }
+    db.model(Note).build();
+
+    expect(() => Note.normalizes("body", { with: (body) => body.trim() })).toThrow(InvalidModel);
+  });
+});
+
+describe("a generated Model's normalization", () => {
+  const people = {
+    id: { type: "integer", null: false },
+    email: { type: "string", null: false },
+    legacyNotes: "string",
+  } as const;
+
+  abstract class AppRecord extends Model {
+    static override schema = {
+      adapter: d1({ binding: "DB" }),
+      tables: { people: { attributes: people, primaryKey: "id" } },
+      models: { Person: "people" },
+    } as const;
+  }
+
+  test("of an ignored column is refused when the Model is first used", () => {
+    class Person extends AppRecord {
+      static override attributes = { legacyNotes: false } as const;
+
+      static {
+        this.normalizes("legacyNotes" as never, {
+          with: ((notes: string) => notes.trim()) as never,
+        });
+      }
+    }
+
+    expect(() => db.model(Person).build()).toThrow(
+      new InvalidModel('Person normalizes "legacyNotes", which isn\'t one of its attributes'),
+    );
   });
 });
