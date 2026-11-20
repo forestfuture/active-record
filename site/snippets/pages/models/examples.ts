@@ -35,6 +35,26 @@ export async function signingUp() {
   return account;
 }
 
+export async function normalizing() {
+  // #region normalize
+  const account = await Account.create({ email: " Jane@Example.COM " });
+  console.log(account.email); // "jane@example.com"
+
+  const found = await Account.findBy({ email: "JANE@example.com" }); // the same account
+  console.log(Account.normalizeValueFor("email", " Sam@Example.com")); // "sam@example.com"
+  // #endregion normalize
+  return { account, found };
+}
+
+export async function normalizingOldRows() {
+  // #region normalize-old-rows
+  for await (const account of Account.findEach()) {
+    account.normalizeAttribute("email");
+    await account.save(); // writes only the accounts whose email changed
+  }
+  // #endregion normalize-old-rows
+}
+
 export async function naming() {
   // #region naming
   console.log(FeaturedProduct.modelName); // "FeaturedProduct"
