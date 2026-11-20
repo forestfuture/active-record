@@ -1,6 +1,5 @@
 // `inOrderOf` (#350): ordering by an attribute's place in a list of values.
-import { attributeFor } from "./attribute.ts";
-import { normalizedConditions, normalizedValue } from "./normalized-values.ts";
+import { normalizedConditions } from "./normalized-values.ts";
 import { columnOf } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
 import type { AttributeOrder, QueryDescription } from "./query.ts";
@@ -47,7 +46,6 @@ function listOrder(model: ModelClass, attribute: string, values: unknown): Attri
   if (type === "json") {
     throw new TypeError(`inOrderOf() can't order by "${attribute}", a json attribute`);
   }
-  // Each value normalized as a condition's is (#354), so the order matches what's stored.
-  const listed = normalizedValue(attributeFor(model, attribute), values) as unknown[];
-  return { attribute, direction: "asc", nulls: "last", inOrderOf: listed };
+  // Kept as given: the compiler normalizes them (#354), so a grouping that writes it again doesn't.
+  return { attribute, direction: "asc", nulls: "last", inOrderOf: [...values] };
 }
