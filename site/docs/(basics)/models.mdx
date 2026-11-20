@@ -54,14 +54,14 @@ Write the object `as const`, so TypeScript keeps each type name. Without it, the
 
 An override is one of these:
 
-| Override                                  | Does                                                                                                    |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `"boolean"` (a type name)                 | Reads and writes the attribute as that type                                                             |
-| `money` (a [custom type](./custom-types)) | Reads and writes the attribute as that type                                                             |
-| `{ type?, null?, default?, generateId? }` | Replaces those parts of the generated attribute; `null: false` makes it non-null in TypeScript          |
-| `{ enum, prefix?, suffix?, … }`           | Makes the attribute an [enum](#declaring-enums), of its column’s type                                   |
-| `{ enum: true }`, `{ enum: false }`       | Turns on the methods of an [enum read from the database](#reading-enums-from-the-database), or drops it |
-| `false`                                   | Ignores the column: it’s never typed, read, or written, and queries name their columns instead of `*`   |
+| Override                                  | Does                                                                                                           |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `"boolean"` (a type name)                 | Reads and writes the attribute as that type                                                                    |
+| `money` (a [custom type](./custom-types)) | Reads and writes the attribute as that type                                                                    |
+| `{ type?, null?, default?, generateId? }` | Replaces those parts of the generated attribute; `null: false` makes it non-null in TypeScript                 |
+| `{ enum, prefix?, suffix?, … }`           | Makes the attribute an [enum](#declaring-enums), of its column’s type                                          |
+| `{ enum: true }`, `{ enum: false }`       | Turns on the methods of an [enum read from the database](./enums#reading-enums-from-the-database), or drops it |
+| `false`                                   | Ignores the column: it’s never typed, read, or written, and queries name their columns instead of `*`          |
 
 An override of an attribute the table doesn’t have throws `InvalidModel`, and `active-record schema` reports it. So does an override that changes a column or ignores the primary key.
 
@@ -172,94 +172,7 @@ Each attribute holds one type of value: `string`, `integer`, `real`, `decimal`, 
 
 ## Declaring enums
 
-An enum gives an attribute a fixed set of names. Declare one with `enum` in an override:
-
-<include>/_excerpts/guide/enums/declare.ts</include>
-
-The attribute’s type is the union of its names, here `"open" | "in_progress" | "closed" | null`. A list of names stores each name as itself, as text. An object stores each name as the value you give it, an integer for an `INTEGER` column or text for a `TEXT` one. A Model declared with `define` gives the type too: `status: { type: "string", enum: ["open", "closed"] }`.
-
-### Using an enum’s methods
-
-Each name gets a predicate and a setter on records, and two scopes on the Model:
-
-<include>/_excerpts/guide/enums/methods.ts</include>
-
-| Method                                              | Does                                                                   |
-| --------------------------------------------------- | ---------------------------------------------------------------------- |
-| `ticket.isOpen()`                                   | Whether `status` is `"open"`                                           |
-| `ticket.saveAsOpen()`, `ticket.saveAsOpenOrThrow()` | Sets `status` to `"open"` and saves the record, with its other changes |
-| `Ticket.open()`, `Ticket.notOpen()`                 | Scopes of the records whose `status` is, or isn’t, `"open"`            |
-
-A name in snake_case reads in camelCase: `in_progress` gives `isInProgress()` and `Ticket.inProgress()`. `saveAsOpen()` returns `false` when the record is invalid, as `save` does, and `saveAsOpenOrThrow()` throws.
-
-`where`, `whereNot`, `pluck`, and every write take and give names, too. To read the names with their stored values, call `enumValues`:
-
-<include>/_excerpts/guide/enums/values.ts</include>
-
-:::note
-Record methods follow your override as soon as you save it. The scopes are typed in the generated schema, so run `active-record schema` (or keep `--watch` running) after you add an enum.
-:::
-
-### Keeping names apart
-
-Two enums that share a name would give the same methods. Add a `prefix` or a `suffix`, `true` for the attribute’s name or a word of your own:
-
-<include>/_excerpts/guide/enums/affixes.ts</include>
-
-A method name that’s taken, by another enum, an attribute, a record method, or a static, throws `InvalidModel` when the Model is first used, and `active-record schema` reports it. So does a name TypeScript can’t declare, such as `in-progress` or `new`. Map a readable name to the stored value instead: `enum: { inProgress: "in-progress" }`. To leave an enum’s methods out, declare it with `scopes: false` or `instanceMethods: false`.
-
-### Reading and assigning other values
-
-Assigning a value that isn’t one of an enum’s names, or one of its stored values, throws `TypeError`, and a condition with one matches nothing. A stored value that the enum doesn’t list reads as `null`, so rows written by a newer deploy don’t break an older one. This holds even for an attribute declared `null: false`.
-
-To rename a name without touching stored rows, map the new name to the old value: `enum: { drafted: "draft" }`. Otherwise, migrate the rows in the same deploy.
-
-To report an unknown value as a validation error instead of throwing, declare the enum with `validate: true`:
-
-<include>/_excerpts/guide/enums/validate.ts</include>
-
-A survey answered `"maybe"` is then invalid, with an `inclusion` error, and so is one with no answer, unless you declare `validate: { allowNull: true }`.
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-  Rails declares `enum :status, [:open, :closed]` and stores a list by position. Here a list stores
-  the names, so reordering it changes nothing. `published?` is `isPublished()`, `published!` is
-  `saveAsPublished()` or `saveAsPublishedOrThrow()`, `not_published` is `notPublished()`, and
-  `Post.statuses` is `Post.enumValues("status")`. Two names stored as one value are refused.
-</Callout>
-
-### Reading enums from the database
-
-When the database restricts a column to a list of names, `active-record schema` writes the list into the generated schema. A Postgres enum type does it, and so does a `CHECK` like this one:
-
-```sql
-CREATE TABLE tasks (
-  id TEXT PRIMARY KEY,
-  state TEXT NOT NULL CHECK (state IN ('open', 'done'))
-);
-```
-
-The generated spec holds the names, with the enum’s methods turned off:
-
-<include>/_excerpts/db/schema/generated-enum.ts</include>
-
-The attribute’s type is `"open" | "done"`, assigning any other value throws `TypeError`, and `enumValues` works as for any enum. The predicates, setters, and scopes wait until you turn them on.
-
-Turn them on by overriding the attribute with `enum: true`:
-
-<include>/_excerpts/guide/enums/generated-on.ts</include>
-
-`enum: true` keeps the database’s names, so a name a later migration adds gets its methods the next time you run `active-record schema`. A `scopes: false` or `instanceMethods: false` beside it still leaves those out, and `scopes: true` or `instanceMethods: true` alone turns on one kind. Names that clash only matter once their methods are on, and you fix them as in [Keeping names apart](#keeping-names-apart).
-
-If you’d rather keep the column a plain string, override it with `enum: false`. A list of your own, such as `enum: ["open", "done", "archived"]`, replaces the database’s, with its methods on.
-
-:::note
-`active-record schema` reads a `CHECK` whose only condition is `column IN (…)` with text values, or `column IS NULL OR column IN (…)`. Any other `CHECK` leaves the column as it was, and a list of numbers stays an `integer`. Postgres stores a one-name `IN ('open')` as `= 'open'`, so it isn’t read there.
-:::
-
-<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
-  Rails reads no enums from the database: each one is declared in its Model. Here the database gives
-  an enum its names and its type, and the Model still declares its methods, with `enum: true`.
-</Callout>
+Give an attribute a fixed set of names, with a predicate, a setter, and scopes for each, by declaring an enum in an override. See [Enums](./enums).
 
 ## Casting assigned values
 

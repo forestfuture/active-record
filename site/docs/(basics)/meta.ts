@@ -5,6 +5,7 @@ export default defineMeta({
   pages: [
     "models",
     "attribute-types",
+    "enums",
     "querying",
     "conditions",
     "ordering-and-pagination",

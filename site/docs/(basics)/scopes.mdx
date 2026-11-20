@@ -54,7 +54,7 @@ Call a scope as a static, or on any Relation of the Model:
 A scope whose body names its own class needs its type written out: `static roots: ScopeStatic<[]> = this.scope(…)`.
 :::
 
-An [enum](./models#declaring-enums) gives its Model a scope for each name, and a `not…` scope: `Ticket.open()` and `Ticket.notOpen()`. Conditions take its names, one or a list: `Ticket.where({ status: ["open", "in_progress"] })`.
+An [enum](./enums#declaring-enums) gives its Model a scope for each name, and a `not…` scope: `Ticket.open()` and `Ticket.notOpen()`. Conditions take its names, one or a list: `Ticket.where({ status: ["open", "in_progress"] })`.
 
 ## Narrowing every query
 
