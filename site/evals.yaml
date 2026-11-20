@@ -246,3 +246,9 @@ questions:
       - 'defineType({ storedAs: "integer", cast, serialize, deserialize }) returning Money from cast and deserialize, and cents from serialize'
       - "give it to the attribute in static override attributes = { priceCents: money } as const"
     routes: /custom-types
+  - id: shared-scope
+    question: "How do I give every Model in my app a newest scope without writing it on each one?"
+    expected:
+      - "declare static newest = this.scope((q) => q.order(sql`created_at DESC`)) on ApplicationRecord"
+      - "use an sql fragment, since it runs on each Model's own table"
+    routes: /shared-behavior
