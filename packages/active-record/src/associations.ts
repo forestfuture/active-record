@@ -119,8 +119,8 @@ export interface AssociationDeclaration extends AssociationOptions, Partial<Thro
   /** A belongsTo that may point at nothing: its record isn't required (#339). */
   optional?: boolean;
   /**
-   * A belongsTo's counter on its target (#61): `true` for the target's plural name + `Count`,
-   * or the target's attribute's name.
+   * A belongsTo's counter on its target (#61): `true` for the owner's plural name + `Count`
+   * (`Reply` → `repliesCount`), or the target's attribute's name.
    */
   counterCache?: true | string | { attribute?: string; active?: false };
   /** A belongsTo's or hasOne's touch of its target (#353, #497): `true`, or datetime attributes' names. */
