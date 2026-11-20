@@ -41,13 +41,17 @@ The examples use this Model, whose attributes come from its table through the sc
 
 <CodeGroup>
 
-<include meta="post.ts">/_excerpts/pages/ordering/src/models/post.ts</include>
+<include meta="post.ts">/_excerpts/pages/ordering-and-pagination/src/models/post.ts</include>
 
-<include meta="schema.ts">/_excerpts/pages/ordering/src/db/schema.ts</include>
+<include meta="schema.ts">/_excerpts/pages/ordering-and-pagination/src/db/schema.ts</include>
 
-<include meta="D1">/_excerpts/pages/ordering/migrations/0001_create_posts.sql</include>
+<include meta="D1">
+  /_excerpts/pages/ordering-and-pagination/migrations/0001_create_posts.sql
+</include>
 
-<include meta="Postgres">/_excerpts/pages/ordering/postgres/0001_create_posts.sql</include>
+<include meta="Postgres">
+  /_excerpts/pages/ordering-and-pagination/postgres/0001_create_posts.sql
+</include>
 
 </CodeGroup>
 
@@ -55,7 +59,9 @@ The examples use this Model, whose attributes come from its table through the sc
 
 Sort by each key in turn with `order`, and page with `limit` and `offset`:
 
-<include meta="twoslash">/_excerpts/pages/ordering/examples/order.twoslash.ts</include>
+<include meta="twoslash">
+  /_excerpts/pages/ordering-and-pagination/examples/order.twoslash.ts
+</include>
 
 Calling `order` again adds more keys. `reorder` replaces the order so far, and `reorder()` removes it.
 
@@ -67,7 +73,9 @@ On D1, NULLs sort first in ascending order and last in descending order. Postgre
 
 Sort records by where their value comes in a list with `inOrderOf`:
 
-<include meta="twoslash">/_excerpts/pages/ordering/examples/in-order-of.twoslash.ts</include>
+<include meta="twoslash">
+  /_excerpts/pages/ordering-and-pagination/examples/in-order-of.twoslash.ts
+</include>
 
 - By default, only records whose value is in the list are kept. Pass `filter: false` to keep the rest, after them.
 - Values are cast as `where`’s are, and `null` places NULL. The list is bound as one value, so it can be any length.
@@ -79,20 +87,24 @@ Sort records by where their value comes in a list with `inOrderOf`:
 
 `paginate` resolves to one page of records and the total they’re a page of:
 
-<include meta="twoslash">/_excerpts/pages/ordering/examples/paginate.twoslash.ts</include>
+<include meta="twoslash">
+  /_excerpts/pages/ordering-and-pagination/examples/paginate.twoslash.ts
+</include>
 
 - `page` and `perPage` take numbers, or text from a query string. Missing, `null`, or empty, they mean the first page and the default size. Anything that isn’t a whole number from 1 throws `TypeError`.
 - Pages sort by the Relation’s order, then by the primary key, so records that tie keep their pages between requests.
 - A page past the last has no records, but still has the real `total`.
 - `includes()` preloads the page’s associations, with one more query per association.
-- On D1, the count, the records, and their preloads take [one round trip](./d1#sending-queries-in-one-round-trip). On Postgres they run one after another.
+- On D1, the count, the records, and their preloads take [one round trip](./d1#sending-queries-in-one-round-trip). On Postgres they run [one after another](./postgresql#reads-run-one-after-another).
 - A Relation with its own `limit` or `offset` throws `IncompatibleRelation`.
 
 ## Skipping the count
 
 Pass `count: false` when you only need to know whether there’s a next page:
 
-<include meta="twoslash">/_excerpts/pages/ordering/examples/countless.twoslash.ts</include>
+<include meta="twoslash">
+  /_excerpts/pages/ordering-and-pagination/examples/countless.twoslash.ts
+</include>
 
 Counting reads every matching row, and D1 bills each row it reads. Without it, the page has no `total` or `totalPages`.
 
@@ -101,7 +113,7 @@ Counting reads every matching row, and D1 bills each row it reads. Without it, t
 Set `perPage` and `maxPerPage` on your app’s base class to change the default size and its cap:
 
 <include meta='title="src/models/application-record.ts"'>
-  /_excerpts/pages/ordering/src/models/application-record.ts
+  /_excerpts/pages/ordering-and-pagination/src/models/application-record.ts
 </include>
 
 By default, a page holds 25 records, and none holds more than 100.

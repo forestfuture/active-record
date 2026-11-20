@@ -154,52 +154,7 @@ Rails adds the argument’s order to the receiver’s. Active Record replaces it
 
 ## Joining associations
 
-`joins` finds the records that have a linked record, through the associations you’ve declared. Name an association, or nest them in an object:
-
-<include>/_excerpts/guide/joins/joins.ts</include>
-
-A record comes back once for each linked record, so an author with three commented articles appears three times. Add `distinct()` to get each record once.
-
-A joined query loads only its own Model’s columns, and every Relation method works on it. `count()` counts the rows `toArray()` returns, and `updateAll` and `deleteAll` write the records the join finds.
-
-The association’s `scope` and the joined Model’s default scope are part of the join. So joining an association scoped to published articles finds only authors with a published article.
-
-### Keeping records without a link
-
-`leftJoins` joins the same way, but keeps the records that have no linked record:
-
-<include>/_excerpts/guide/joins/left-joins.ts</include>
-
-### Filtering by a joined Model
-
-Merge a Relation of the joined Model to filter or sort by its attributes:
-
-<include>/_excerpts/guide/joins/merge.ts</include>
-
-Its conditions, its scopes, and its order apply to the joined table. As with any `merge`, the joined Model’s order replaces the receiver’s.
-
-:::note
-The merged Relation can only add conditions and an order. A `limit`, `offset`, `select`, `distinct()`, `includes`, or `joins` of its own throws `IncompatibleRelation`. Merging a Model the query doesn’t join, or joins more than once, throws it too. So does `distinct()` on a query ordered by a joined Model.
-:::
-
-:::note
-A join reads one database. Joining an association to a Model on another database throws `IncompatibleRelation` when you write the query.
-:::
-
-:::note
-A polymorphic `belongsTo` can’t be joined, because its records may be in several tables. Joining one throws `IncompatibleRelation`. Join the `as:` association of each Model instead, such as `Photo.joins("likes")`.
-:::
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-- Rails builds the SQL for a merged Model the query doesn’t join, and the database rejects it when the query runs. Active Record throws `IncompatibleRelation` when you write it.
-- Rails applies a merged Relation’s `limit` to the whole query. Active Record refuses it.
-- Rails leaves `distinct` with an order on a joined table to the database, which Postgres refuses and SQLite runs. Active Record throws `IncompatibleRelation` on both.
-- With a `hasMany` join, Rails’ `find(1, 2)` counts the duplicate rows and raises `RecordNotFound`. Active Record returns each record once.
-- With a `hasMany` join, Rails’ `destroy_all` destroys a record once for each of its rows, running its callbacks each time. Active Record destroys each record once.
-- Rails’ `where(author: { name: "Mary" })`, `where.missing`, `eager_load`, and joins through another association aren’t here yet. Joining a `through` association throws `IncompatibleRelation`. Merge a Relation of the joined Model instead, and preload with `includes`.
-
-</Callout>
+Find records by their associated records with `joins` and `leftJoins`, and filter by a joined Model with `merge`. See [Joins](./joins).
 
 ## Preloading associations
 
