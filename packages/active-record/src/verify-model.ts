@@ -84,7 +84,9 @@ function rejectReservedAttributeNames(model: ModelClass): void {
 function rejectBadSpecs(model: ModelClass): void {
   for (const [name, definition] of model.attributeDefinitions) {
     // Checked by the type it was declared with: a custom type's, not the one it's stored as.
-    const declared = { ...definition, type: definition.customType ?? definition.type };
+    // A virtual attribute's column is "" unless one was given (#356).
+    const column = definition.column === "" ? undefined : definition.column;
+    const declared = { ...definition, column, type: definition.customType ?? definition.type };
     const problem = specProblem(`${model.name}.${name}`, declared);
     if (problem !== undefined) throw new InvalidModel(problem);
   }

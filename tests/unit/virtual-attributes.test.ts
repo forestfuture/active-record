@@ -107,3 +107,32 @@ describe("declaring a virtual attribute", () => {
     );
   });
 });
+
+describe("a virtual attribute on a declared Model", () => {
+  class Visitor extends Model.define({
+    id: { type: "integer", null: false },
+    email: "string",
+    termsOfService: { type: "boolean", virtual: true, default: () => false },
+  }) {}
+
+  test("is typed, cast and defaulted like a generated Model's", () => {
+    const visitor = db
+      .model(Visitor)
+      .build(Visitor.permit({ termsOfService: "1" }, "termsOfService"));
+
+    expectTypeOf(visitor.termsOfService).toEqualTypeOf<boolean | null>();
+    expect(visitor.termsOfService).toBe(true);
+    expect(db.model(Visitor).build().termsOfService).toBe(false);
+  });
+
+  test("with a column is a compile error, and an InvalidModel", () => {
+    expect(() => {
+      class Columned extends Model.define({
+        id: { type: "integer", null: false },
+        // @ts-expect-error -- a virtual attribute has no column
+        nickname: { type: "string", virtual: true, column: "nick" },
+      }) {}
+      return db.model(Columned);
+    }).toThrow(new InvalidModel("Columned.nickname has both virtual and column; keep one"));
+  });
+});
