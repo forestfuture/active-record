@@ -195,3 +195,13 @@ questions:
       - "Label.createOrFindBy({ name }) inserts first, and finds the existing row when a UNIQUE index refuses the duplicate"
       - "leave out a uniqueness validation on those attributes, so the index decides"
     routes: /persistence
+  - id: validate-on-create
+    question: "How do I require a password when a member signs up, but not when they update their profile later?"
+    expected:
+      - 'this.validates("password", { presence: true, on: "create" })'
+    routes: /validations
+  - id: custom-error-message
+    question: 'How do I change the "can''t be blank" message for every Model in my app?'
+    expected:
+      - 'call this.errorMessages({ blank: "…" }) in the static block of the app''s ApplicationRecord'
+    routes: /validations

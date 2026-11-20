@@ -8,7 +8,7 @@ import {
   test,
   vi,
 } from "vite-plus/test";
-import { withDatabase } from "../../../packages/active-record/src/index.ts";
+import { StrictValidationFailed, withDatabase } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 import * as associations from "../../../site/snippets/pages/associations/examples.ts";
 import { Article as Story } from "../../../site/snippets/pages/associations/src/models/article.ts";
@@ -35,6 +35,7 @@ import * as preloadingPage from "../../../site/snippets/pages/preloading/example
 import * as querying from "../../../site/snippets/pages/querying/examples.ts";
 import * as serialization from "../../../site/snippets/pages/serialization/examples.ts";
 import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
+import * as validations from "../../../site/snippets/pages/validations/examples.ts";
 import * as touching from "../../../site/snippets/pages/touching/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
 import { readdirSync, readFileSync } from "node:fs";
@@ -630,6 +631,82 @@ describe("the Persistence page's examples, on Postgres", () => {
     await run(persistence.destroyingInBatches);
 
     expect(await db().model(PersistedPost).pluck("title")).toEqual(["Live"]);
+  });
+});
+
+// The Validations page's examples, on the tables it shows, on Postgres.
+describe("the Validations page's examples, on Postgres", () => {
+  const schema = pageSchema("validations", "SELECT 1");
+  beforeEach(async () => {
+    await schema().pool.query({
+      text: "DELETE FROM tracks; DELETE FROM playlists; DELETE FROM accounts; DELETE FROM events; DELETE FROM invoices; DELETE FROM members; DELETE FROM bookings; DELETE FROM products",
+    });
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
+
+  test("isValid validates without saving", async () => {
+    expect(await run(validations.checking)).toBe(true);
+  });
+
+  test("comparison with another attribute refuses an end at the start", async () => {
+    const event = await run(validations.comparing);
+
+    expect(event.errors.fullMessages()).toEqual([
+      "Ends at must be greater than 2026-05-01T10:00:00.000Z",
+    ]);
+  });
+
+  test("a strict rule throws instead of collecting an error", async () => {
+    await expect(run(validations.throwing)).rejects.toThrow(
+      new StrictValidationFailed("Currency is not included in the list"),
+    );
+  });
+
+  test("a context runs its own rules, and both run when both are passed", async () => {
+    const member = await run(validations.signingUp);
+
+    expect(member.isPersisted()).toBe(true);
+  });
+
+  test("an invalid track makes its playlist invalid", async () => {
+    const { playlist, track } = await run(validations.validatingTracks);
+
+    expect(playlist.errors.fullMessages()).toEqual(["Tracks is invalid"]);
+    expect(track.errors.fullMessages()).toEqual(["Title can't be blank"]);
+  });
+
+  test("the errors read as the example's comments say", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => log.mockRestore());
+    const account = await run(validations.readingErrors);
+
+    expect(account.errors.get("email")).toEqual(["can't be blank"]);
+    expect(account.errors.fullMessages()).toEqual([
+      "Email can't be blank",
+      "Handle needs at least 3 characters",
+      "Handle is invalid",
+      "Plan is not included in the list",
+      "Seats is not a number",
+    ]);
+  });
+
+  test("errors added in a callback read as the add example shows", async () => {
+    const booking = await run(validations.addingErrors);
+
+    expect(booking.errors.fullMessages()).toEqual([
+      "Starts at must be on the hour",
+      "The room is closed on Sundays",
+    ]);
+  });
+
+  test("changed messages and names read as the messages example shows", async () => {
+    const product = await run(validations.readingMessages);
+
+    expect(product.errors.fullMessages()).toEqual([
+      "Name needs a name customers will see",
+      "Name needs at least 3 characters",
+      "Price must be more than 0",
+    ]);
   });
 });
 
