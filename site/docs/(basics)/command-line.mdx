@@ -230,7 +230,7 @@ Also:
 - **Primary keys:** the key column is the Model’s `primaryKey`. A `TEXT` key gets `generateId: true`, so the Model’s [`generateId`](./models#generating-ids) makes it; an `INTEGER PRIMARY KEY` is left to D1. A table with no key, or a key of several columns, is an error.
 - **Defaults:** literal defaults (numbers, strings, `TRUE`/`FALSE`, JSON) are copied, so a new record shows them before it’s saved. A decimal’s, a date’s, or a time’s is copied in its type’s form (`1.50` as `"1.5"`). Expressions such as `CURRENT_TIMESTAMP` are left to D1.
 - **Foreign keys** take the referenced column’s type. They don’t create associations, which are behavior you declare.
-- **Enums:** a `TEXT` column with `CHECK (column IN ('open', 'done'))` gets `enum: ["open", "done"]`, with its methods off until the Model turns them on. See [Reading enums from the database](./models#reading-enums-from-the-database).
+- **Enums:** a `TEXT` column with `CHECK (column IN ('open', 'done'))` gets `enum: ["open", "done"]`, with its methods off until the Model turns them on. See [Reading enums from the database](./enums#reading-enums-from-the-database).
 - **Left out:** SQLite’s own tables, Cloudflare’s (`_cf_…`), the migrations table, and virtual tables.
 
 **Notes it prints** when the schema is written:

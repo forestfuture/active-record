@@ -5,6 +5,7 @@ import * as attributeTypes from "../../../site/snippets/pages/attribute-types/ex
 import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
+import * as enums from "../../../site/snippets/pages/enums/examples.ts";
 import * as joins from "../../../site/snippets/pages/joins/examples.ts";
 import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
 import * as querying from "../../../site/snippets/pages/querying/examples.ts";
@@ -123,6 +124,42 @@ describe("the Attribute types page's examples, on Postgres", () => {
     const product = await run(() => attributeTypes.addPhoto(form));
 
     expect([product.name, product.photo]).toEqual(["photo.png", new Uint8Array([7, 8])]);
+  });
+});
+
+// The Enums page's examples, on the tables it shows, on Postgres.
+describe("the Enums page's examples, on Postgres", () => {
+  const schema = pageSchema(
+    "enums",
+    "INSERT INTO tickets (id, title, status, priority) VALUES ('00000000-0000-4000-8000-000000000001', 'Outage', 'open', 2), ('00000000-0000-4000-8000-000000000002', 'Typo', 'in_progress', 1), ('00000000-0000-4000-8000-000000000003', 'Old', 'closed', 2);\nINSERT INTO conversations (id, status, comments) VALUES ('00000000-0000-4000-8000-000000000004', 'active', 'active');\nINSERT INTO tasks (id, state) VALUES ('00000000-0000-4000-8000-000000000005', 'open')",
+  );
+  const run = <T>(fn: () => Promise<T> | T) =>
+    withDatabase(connect(schema().url), async () => fn());
+
+  test("an enum's scopes, predicates and setters work, and conditions take its names", async () => {
+    const { ticket, unfinished } = await run(enums.closingUrgent);
+
+    expect([ticket?.title, ticket?.status, unfinished]).toEqual(["Outage", "closed", 1]);
+  });
+
+  test("enumValues gives each name's stored value", async () => {
+    expect(await run(enums.listingValues)).toEqual({ low: 0, normal: 1, high: 2 });
+  });
+
+  test("a prefix and a suffix keep two enums' methods apart", async () => {
+    expect(await run(enums.prefixing)).toBe(true);
+  });
+
+  test("validate: true reports an unknown value as an inclusion error", async () => {
+    const survey = await run(enums.validating);
+
+    expect(survey.errors.fullMessages()).toEqual(["Answer is not included in the list"]);
+  });
+
+  test("enum: true turns on the methods of an enum read from a CHECK", async () => {
+    const task = await run(enums.finishing);
+
+    expect([task.state, task.isDone()]).toEqual(["done", true]);
   });
 });
 

@@ -55,7 +55,7 @@ The default messages are in English: “can’t be blank”, “is too short (mi
 
 - **`presence`** fails a string that’s only whitespace. For a boolean, use `inclusion: [true, false]`, since `false` is a value.
 - **`absence`** passes what `presence` fails: `null` and a string that’s only whitespace. So `false` fails it.
-- **`inclusion`** is added for you by an [enum](./models#reading-and-assigning-other-values) declared `validate: true`.
+- **`inclusion`** is added for you by an [enum](./enums#reading-and-assigning-other-values) declared `validate: true`.
 - **`exclusion`** passes `null` unless the list holds it.
 - **`numericality`** only accepts numbers, so a numeric string such as `"12"` is `notANumber`. A [`decimal`](./attribute-types#storing-exact-numbers-days-and-times) attribute’s text is the exception: it’s compared with each bound as a number, exactly.
 - **`comparison`** compares a number with a number, a string with a string, or a Date with a Date by its time. A `decimal` attribute compares as a number, with a number or a decimal’s text. A bound is a value, or a function of the record (see [Comparing with another attribute](#comparing-with-another-attribute)). A blank value fails once, as `blank`. Blank means `null` or a string that’s only whitespace. Comparing a number with a Date, or any two different kinds, throws `TypeError`. Against a bound of `NaN` or an invalid Date, only `otherThan` passes.

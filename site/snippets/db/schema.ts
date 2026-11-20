@@ -1,6 +1,6 @@
 // As `active-record schema` generates it, for the guide's examples (their Models are declared in
 // several files, so it's kept by hand rather than generated).
-import { defineSchema, type ScopeStatic, type TableAttributes } from "@forestfuture/active-record";
+import { defineSchema, type TableAttributes } from "@forestfuture/active-record";
 import { d1 } from "@forestfuture/active-record/d1";
 
 /** billing_accounts */
@@ -38,27 +38,6 @@ export const articles = {
   updatedAt: "integer",
 } as const;
 
-/** tickets */
-export const tickets = {
-  id: { type: "string", null: false, generateId: true },
-  status: "string",
-  priority: "integer",
-} as const;
-
-// #region generated-enum
-/** tasks — state TEXT NOT NULL CHECK (state IN ('open', 'done')) */
-export const tasks = {
-  id: { type: "string", null: false, generateId: true },
-  state: {
-    type: "string",
-    null: false,
-    enum: ["open", "done"],
-    scopes: false,
-    instanceMethods: false,
-  },
-} as const;
-// #endregion generated-enum
-
 /** categories */
 export const categories = {
   id: { type: "string", null: false, generateId: true },
@@ -80,8 +59,6 @@ export const schema = defineSchema({
     products: { attributes: products, primaryKey: "id" },
     posts: { attributes: posts, primaryKey: "id" },
     articles: { attributes: articles, primaryKey: "id" },
-    tickets: { attributes: tickets, primaryKey: "id" },
-    tasks: { attributes: tasks, primaryKey: "id" },
     categories: { attributes: categories, primaryKey: "id" },
     users: { attributes: users, primaryKey: "id" },
   },
@@ -91,26 +68,7 @@ export const schema = defineSchema({
     Category: "categories",
     Post: "posts",
     Product: "products",
-    Task: "tasks",
-    Ticket: "tickets",
     User: "users",
-  },
-  enumScopes: {
-    Task: ["open", "notOpen", "done", "notDone"],
-    Ticket: [
-      "open",
-      "notOpen",
-      "inProgress",
-      "notInProgress",
-      "closed",
-      "notClosed",
-      "low",
-      "notLow",
-      "normal",
-      "notNormal",
-      "high",
-      "notHigh",
-    ],
   },
 });
 
@@ -152,29 +110,4 @@ declare module "../guide/custom-types" {
 
 declare module "../guide/overrides" {
   interface Product extends TableAttributes<typeof products, (typeof Product)["attributes"]> {}
-}
-
-declare module "../guide/enums" {
-  interface Ticket extends TableAttributes<typeof tickets, (typeof Ticket)["attributes"]> {}
-  namespace Ticket {
-    export const open: ScopeStatic<[]>;
-    export const notOpen: ScopeStatic<[]>;
-    export const inProgress: ScopeStatic<[]>;
-    export const notInProgress: ScopeStatic<[]>;
-    export const closed: ScopeStatic<[]>;
-    export const notClosed: ScopeStatic<[]>;
-    export const low: ScopeStatic<[]>;
-    export const notLow: ScopeStatic<[]>;
-    export const normal: ScopeStatic<[]>;
-    export const notNormal: ScopeStatic<[]>;
-    export const high: ScopeStatic<[]>;
-    export const notHigh: ScopeStatic<[]>;
-  }
-  interface Task extends TableAttributes<typeof tasks, (typeof Task)["attributes"]> {}
-  namespace Task {
-    export const open: ScopeStatic<[]>;
-    export const notOpen: ScopeStatic<[]>;
-    export const done: ScopeStatic<[]>;
-    export const notDone: ScopeStatic<[]>;
-  }
 }
