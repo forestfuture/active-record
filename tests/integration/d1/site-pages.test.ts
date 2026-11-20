@@ -17,6 +17,9 @@ import {
 import { inspect } from "node:util";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import * as attributeTypes from "../../../site/snippets/pages/attribute-types/examples.ts";
+import { Article as AutosavedArticle } from "../../../site/snippets/pages/autosaving/src/models/article.ts";
+import { Comment as AutosavedComment } from "../../../site/snippets/pages/autosaving/src/models/comment.ts";
+import * as autosaving from "../../../site/snippets/pages/autosaving/examples.ts";
 import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as changeTracking from "../../../site/snippets/pages/change-tracking/examples.ts";
@@ -357,6 +360,56 @@ describe("the Preloading page's examples", () => {
         .map(([title]) => String(title))
         .sort((a, b) => a.localeCompare(b)),
     ).toEqual(["Launch", "Sunset"]);
+  });
+});
+
+// The Autosaving page's examples, on the tables it shows.
+describe("the Autosaving page's examples", () => {
+  const binding = pageDatabase("autosaving", ["comments", "profiles", "articles", "authors"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO authors (id, name) VALUES ('mary', 'Mary')",
+        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'mary', 'On Nothing'), ('x2', 'mary', 'Draft')",
+        "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x2', 'Hm.')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const db = () => connect(binding());
+  const run = <T>(fn: () => Promise<T>) => withDatabase(db(), fn);
+  const titles = async () =>
+    await db().model(AutosavedArticle).order({ title: "asc" }).pluck("title");
+
+  test("a record created through a hasMany gets its owner's key", async () => {
+    const comment = await run(autosaving.creatingThrough);
+
+    expect(comment.articleId).toBe("x1");
+  });
+
+  test("records built through associations save with their owner", async () => {
+    const ada = await run(autosaving.savingAGraph);
+
+    expect(ada.isPersisted()).toBe(true);
+    expect(await titles()).toEqual([
+      "Draft",
+      "Notes on the Analytical Engine",
+      "On Nothing",
+      "Sketch of the Engine",
+    ]);
+  });
+
+  test("autosave: true saves the loaded records that changed", async () => {
+    await run(autosaving.savingChanges);
+
+    expect(await titles()).toEqual(["DRAFT", "ON NOTHING"]);
+  });
+
+  test("a record marked for destruction is destroyed, with its comments, when its owner saves", async () => {
+    await run(autosaving.removingDrafts);
+
+    expect(await titles()).toEqual(["On Nothing"]);
+    expect(await db().model(AutosavedComment).count()).toBe(0);
   });
 });
 

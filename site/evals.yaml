@@ -159,3 +159,9 @@ questions:
       - 'Author.includes("articles") preloads them, with one query per association'
       - "on D1 the whole tree goes in one round trip"
     routes: /preloading
+  - id: save-graph-atomically
+    question: "How do I save a new author with two new articles and a profile all at once?"
+    expected:
+      - "build the articles and profile through the author's associations, then save the author"
+      - "with keys generated in code, it's all written in one atomic batch"
+    routes: /autosaving
