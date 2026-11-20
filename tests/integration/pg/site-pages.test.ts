@@ -11,6 +11,9 @@ import {
 import { withDatabase } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 import * as attributeTypes from "../../../site/snippets/pages/attribute-types/examples.ts";
+import { Article as AutosavedArticle } from "../../../site/snippets/pages/autosaving/src/models/article.ts";
+import { Comment as AutosavedComment } from "../../../site/snippets/pages/autosaving/src/models/comment.ts";
+import * as autosaving from "../../../site/snippets/pages/autosaving/examples.ts";
 import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as changeTracking from "../../../site/snippets/pages/change-tracking/examples.ts";
@@ -304,6 +307,54 @@ describe("the Preloading page's examples, on Postgres", () => {
         .map(([title]) => String(title))
         .sort((a, b) => a.localeCompare(b)),
     ).toEqual(["Launch", "Sunset"]);
+  });
+});
+
+// The Autosaving page's examples, on the tables it shows, on Postgres.
+describe("the Autosaving page's examples, on Postgres", () => {
+  const schema = pageSchema("autosaving", "SELECT 1");
+  beforeEach(async () => {
+    await schema().pool.query({
+      text: "DELETE FROM comments; DELETE FROM profiles; DELETE FROM articles; DELETE FROM authors",
+    });
+    await schema().pool.query({
+      text: "INSERT INTO authors (id, name) VALUES ('00000000-0000-4000-8000-000000000001', 'Mary');\nINSERT INTO articles (id, author_id, title) VALUES ('00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000001', 'On Nothing'), ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Draft');\nINSERT INTO comments (id, article_id, body) VALUES ('00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000003', 'Hm.')",
+    });
+  });
+  const db = () => connect(schema().url);
+  const run = <T>(fn: () => Promise<T>) => withDatabase(db(), fn);
+  const titles = async () =>
+    await db().model(AutosavedArticle).order({ title: "asc" }).pluck("title");
+
+  test("a record created through a hasMany gets its owner's key", async () => {
+    const comment = await run(autosaving.creatingThrough);
+
+    expect(comment.articleId).toBe("00000000-0000-4000-8000-000000000002");
+  });
+
+  test("records built through associations save with their owner", async () => {
+    const ada = await run(autosaving.savingAGraph);
+
+    expect(ada.isPersisted()).toBe(true);
+    expect(await titles()).toEqual([
+      "Draft",
+      "Notes on the Analytical Engine",
+      "On Nothing",
+      "Sketch of the Engine",
+    ]);
+  });
+
+  test("autosave: true saves the loaded records that changed", async () => {
+    await run(autosaving.savingChanges);
+
+    expect(await titles()).toEqual(["DRAFT", "ON NOTHING"]);
+  });
+
+  test("a record marked for destruction is destroyed, with its comments, when its owner saves", async () => {
+    await run(autosaving.removingDrafts);
+
+    expect(await titles()).toEqual(["On Nothing"]);
+    expect(await db().model(AutosavedComment).count()).toBe(0);
   });
 });
 

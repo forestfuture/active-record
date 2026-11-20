@@ -21,6 +21,7 @@ export default defineMeta({
     "callbacks",
     "associations",
     "preloading",
+    "autosaving",
     "through-associations",
     "batches",
     "connecting",
