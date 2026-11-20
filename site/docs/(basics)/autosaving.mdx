@@ -84,6 +84,14 @@ Mark a record with `markForDestruction()` to destroy it when its owner is saved:
 A mark only counts through an association declared `autosave: true`.
 :::
 
+## Not built yet
+
+These features aren’t in Active Record yet. The code shows the shape they’re likely to take.
+
+- **Autosaving through an association through another** ([#450](https://github.com/forestfuture/active-record/issues/450)): `articles = hasMany(Article, { through: "taggings", autosave: true })`, which saves the tag’s changed articles with it.
+- **Never autosaving** ([#378](https://github.com/forestfuture/active-record/issues/378)): `articles = hasMany(Article, { autosave: false })`, which never saves the association’s records with the owner, not even new ones.
+- **Numbered autosave errors** ([#379](https://github.com/forestfuture/active-record/issues/379)): `hasMany(Article, { autosave: true, indexErrors: true })`, which names a copied error by the record’s position, `articles[1].title`.
+
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
 `autosave: true`, `markForDestruction`, and the copied errors work as in Rails. Rails destroys a marked `belongs_to` record before it saves the owner. Here the owner is written first, so a foreign key constraint doesn’t refuse the delete. When a marked record refuses to be destroyed, Rails raises from `save` for a `has_many`, and saves the owner anyway for a `has_one` or `belongs_to`. Here the save is refused the same way for every association.

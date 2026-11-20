@@ -260,10 +260,7 @@ Set what destroying the owner does to its records with `dependent`:
 
 These features aren’t in Active Record yet. The code shows the shape they’re likely to take.
 
-- **Autosaving through an association through another** ([#450](https://github.com/forestfuture/active-record/issues/450)): `articles = hasMany(Article, { through: "taggings", autosave: true })`, which saves the tag’s changed articles with it.
 - **Associations through another across databases** ([#435](https://github.com/forestfuture/active-record/issues/435)): an association whose hops are on different databases, read with a query per database.
-- **Never autosaving** ([#378](https://github.com/forestfuture/active-record/issues/378)): `articles = hasMany(Article, { autosave: false })`, which never saves the association’s records with the owner, not even new ones.
-- **Numbered autosave errors** ([#379](https://github.com/forestfuture/active-record/issues/379)): `hasMany(Article, { autosave: true, indexErrors: true })`, which names a copied error by the record’s position, `articles[1].title`.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
