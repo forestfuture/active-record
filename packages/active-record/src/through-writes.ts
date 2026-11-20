@@ -216,9 +216,10 @@ function countedOutJoins(
 }
 
 /**
- * Takes records out of the association through its join Model: removes the owner's join records that point at them, as `removal` says (`"destroy"`
- * runs their callbacks, in one write that a refusal stops whole), and forgets those built
- * through it. The records themselves stay; one the owner doesn't reach removes nothing.
+ * Takes records out of the association through its join Model: removes the owner's join records
+ * that point at them, as `removal` says (`"destroy"` runs their callbacks, in one write that a
+ * refusal stops whole), and forgets those built through it. The records themselves stay; one the
+ * owner doesn't reach removes nothing.
  */
 async function remove<M extends Model>(
   hasMany: OwnersHasManyThrough,

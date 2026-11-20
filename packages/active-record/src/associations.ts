@@ -174,9 +174,8 @@ export interface PolymorphicBelongsTo<C extends ModelClass> {
 
 /**
  * `await user.profile()`: the one associated record, or null. `await user.profile.set(profile)`
- * gives the user another, and `build(attrs)` and
- * `create(attrs)` make a new one pointing at the user. Each replaces the
- * old record, removed by `dependent:` when the new one is written.
+ * gives the user another, and `build(attrs)` and `create(attrs)` make a new one pointing at the
+ * user. Each replaces the old record, removed by `dependent:` when the new one is written.
  */
 export interface HasOne<C extends ModelClass> {
   (): Promise<InstanceType<C> | null>;

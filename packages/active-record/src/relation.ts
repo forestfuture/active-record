@@ -166,8 +166,8 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /**
-   * Replaces the conditions on these attributes with these: those on other
-   * attributes, and fragments, are kept.
+   * Replaces the conditions on these attributes with these: those on other attributes, and
+   * fragments, are kept.
    */
   rewhere(conditions: Conditions<M>): Scoped<M, S> {
     return this.#describing(withConditionsReplaced(this.#query, conditions));
@@ -651,8 +651,8 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /**
-   * The number of records: a loaded association's (built records included)
-   * without a query; otherwise a `COUNT(*)`, plus an association's unsaved built records.
+   * The number of records: a loaded association's (built records included) without a query;
+   * otherwise a `COUNT(*)`, plus an association's unsaved built records.
    */
   async size(): Promise<number> {
     return size(this.#countSource());

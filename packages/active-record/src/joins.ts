@@ -90,7 +90,8 @@ function joinOf(
 }
 
 /**
- * Throws `IncompatibleRelation` for a polymorphic belongsTo (#60): its records may be in several tables, and a join reads one.
+ * Throws `IncompatibleRelation` for a polymorphic belongsTo (#60): its records may be in several
+ * tables, and a join reads one.
  */
 function refusePolymorphic(association: ResolvedAssociation): void {
   if (association.isBranched) {

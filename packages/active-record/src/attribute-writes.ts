@@ -74,9 +74,9 @@ export abstract class AttributeWrites extends ModelStatics {
   }
 
   /**
-   * Writes these attributes straight to the row, with no validation, callback or `updatedAt`,
-   * and leaves the record clean for them. Resolves to whether there
-   * was a row to write. A new record is `RecordNotSaved`.
+   * Writes these attributes straight to the row, with no validation, callback or `updatedAt`, and
+   * leaves the record clean for them. Resolves to whether there was a row to write. A new record is
+   * `RecordNotSaved`.
    */
   async updateColumns<R extends Model>(
     this: R,
@@ -96,10 +96,10 @@ export abstract class AttributeWrites extends ModelStatics {
 
   /**
    * Adds `by` to a number attribute in the row, as `SET x = COALESCE(x, 0) + by`, so concurrent
-   * writes all count, with no validation, callback or `updatedAt`; the record then holds the
-   * row's new value. An unsaved change to it is added too. With
-   * `{ touch }`, the same UPDATE sets `updatedAt` (and any datetime attributes named) to now, and
-   * the record holds them (#50). Resolves to whether there was a row to write.
+   * writes all count, with no validation, callback or `updatedAt`; the record then holds the row's
+   * new value. An unsaved change to it is added too. With `{ touch }`, the same UPDATE sets
+   * `updatedAt` (and any datetime attributes named) to now, and the record holds them (#50).
+   * Resolves to whether there was a row to write.
    */
   async incrementColumn<R extends Model>(
     this: R,
@@ -123,9 +123,9 @@ export abstract class AttributeWrites extends ModelStatics {
   }
 
   /**
-   * Sets `updatedAt`, and the datetime attributes named, to now (or `{ time }`), straight to
-   * the row, with no validation or save callback. Resolves to whether there
-   * was a row to write. Inside its Model's `noTouching` block, it writes nothing (#496).
+   * Sets `updatedAt`, and the datetime attributes named, to now (or `{ time }`), straight to the
+   * row, with no validation or save callback. Resolves to whether there was a row to write. Inside
+   * its Model's `noTouching` block, it writes nothing (#496).
    */
   async touch<R extends Model>(this: R, ...args: TouchArguments<R>): Promise<boolean> {
     requireSaved(this, "touch");
