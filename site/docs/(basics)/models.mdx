@@ -13,7 +13,7 @@ seo:
 | read a column as another type        | `static override attributes = { archived: "boolean" } as const` |
 | ignore a column                      | `static override attributes = { legacyNotes: false } as const`  |
 | add an attribute that isn’t a column | `termsOfService: { type: "boolean", virtual: true }`            |
-| clean up a value as it’s assigned    | `this.normalizes("email", { with: (email) => email.trim() })`   |
+| normalize a value as it’s assigned   | `this.normalizes("email", { with: (email) => email.trim() })`   |
 | type an attribute more narrowly      | `declare status: "draft" \| "published"`                        |
 | use another table name               | `static override table = "billing_accounts"`                    |
 | declare attributes for a view        | `class ProductCount extends ApplicationRecord.define({ … }) {}` |
@@ -105,18 +105,32 @@ A virtual attribute named for one of the table’s columns throws `InvalidModel`
 
 ## Normalizing attributes
 
-Declare a normalization in `static {}` to clean up each value assigned to an attribute, as `Account` does with `email`:
+Declare a normalization in `static {}` to change each value assigned to an attribute into one form, as `Account` does with `email`:
 
 <include>/_excerpts/pages/models/examples/normalize.mdx</include>
 
-- **It runs whenever a value is assigned:** the setter, `build`, `create`, `update`, a default, and bulk writes such as `insert`, `upsert`, and `updateAll`. `with` gets the value already cast to the attribute’s type.
-- **Queries normalize their values too,** so `where`, `findBy`, `find`, lists, comparisons, and `column()` values in an `sql` fragment match what was stored. Plain values in an `sql` fragment are left as they are.
-- **`null` is skipped,** and `where({ email: null })` still matches `NULL`. Add `applyToNull: true` to have `with` get `null` as well.
-- **Several normalizations of one attribute run in order,** a parent class’s first.
+<TypeTable
+  type={{
+    with: {
+      type: "(value) => value",
+      description:
+        "Takes a value already cast to the attribute’s type, and returns the one to keep.",
+      required: true,
+    },
+    applyToNull: {
+      type: "boolean",
+      default: "false",
+      description: "Hands `null` to `with` too. By default, `null` is kept as it is.",
+    },
+  }}
+/>
+
+- **It runs whenever a value is assigned.** That covers the setter, `build`, `create`, `update`, a default, and bulk writes such as `insert`, `upsert`, and `updateAll`. Several normalizations of one attribute run in order, a parent class’s first.
+- **Queries normalize their values too.** `where`, `findBy`, `find`, lists, comparisons, and `column()` values in an `sql` fragment match what was stored. Plain values in an `sql` fragment are left as they are, and `where({ email: null })` still matches `NULL`.
 - **`Account.normalizeValueFor("email", value)`** returns a value as assigning it would keep it.
 
 :::warning[Rows saved before stay as they were]
-A record loaded from the database keeps its stored value, and a query for that value no longer finds it, since the query is normalized. Normalize each old row, and save it:
+A record loaded from the database keeps its stored value, and a query for that value no longer finds it, since the query is normalized. The same goes for a default scope’s conditions. Normalize each old row, and save it:
 
 <include>/_excerpts/pages/models/examples/normalize-old-rows.mdx</include>
 
