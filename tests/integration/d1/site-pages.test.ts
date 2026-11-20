@@ -24,6 +24,7 @@ import * as batchIteration from "../../../site/snippets/pages/batch-iteration/ex
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as changeTracking from "../../../site/snippets/pages/change-tracking/examples.ts";
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
+import * as counterCaches from "../../../site/snippets/pages/counter-caches/examples.ts";
 import * as enums from "../../../site/snippets/pages/enums/examples.ts";
 import * as joins from "../../../site/snippets/pages/joins/examples.ts";
 import * as models from "../../../site/snippets/pages/models/examples.ts";
@@ -410,6 +411,36 @@ describe("the Autosaving page's examples", () => {
 
     expect(await titles()).toEqual(["On Nothing"]);
     expect(await db().model(AutosavedComment).count()).toBe(0);
+  });
+});
+
+// The Counter caches page's examples, on the tables it shows.
+describe("the Counter caches page's examples", () => {
+  const binding = pageDatabase("counter-caches", ["comments", "articles"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare("INSERT INTO articles (id, title, comments_count) VALUES ('a', 'Hello', 5)")
+      .run();
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+  // A count that drifted to 5, with no comments, tells the counter from the rows.
+
+  test("creating a comment counts it in, and destroying it counts it out", async () => {
+    const article = await run(counterCaches.counting);
+
+    expect(article.commentsCount).toBe(5);
+    expect((await run(() => article.reload())).commentsCount).toBe(5);
+  });
+
+  test("size() reads the counter, not the rows", async () => {
+    expect(await run(counterCaches.reading)).toBe(5);
+  });
+
+  test("resetCounters sets the count from the rows, and touches the article", async () => {
+    const article = await run(counterCaches.resetting);
+
+    expect(article.commentsCount).toBe(0);
+    expect(article.updatedAt).toBeInstanceOf(Date);
   });
 });
 

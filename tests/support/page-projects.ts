@@ -5,6 +5,7 @@ import { runSchema } from "../../packages/active-record/cli/schema/command.ts";
 
 /** The guide pages laid out as docs/agents/docs-pages.md says, by their project's folder name. */
 export const standalonePages = [
+  "counter-caches",
   "autosaving",
   "preloading",
   "models",

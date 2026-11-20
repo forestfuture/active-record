@@ -36,7 +36,6 @@ import {
 } from "../../../site/snippets/guide/associations.ts";
 import * as batches from "../../../site/snippets/guide/batches.ts";
 import * as attributeWrites from "../../../site/snippets/guide/attribute-writes.ts";
-import * as counterCaches from "../../../site/snippets/guide/counter-caches.ts";
 import { statementKinds } from "../../support/statement-kinds.ts";
 import * as belongsToTouch from "../../../site/snippets/guide/belongs-to-touch.ts";
 import * as hasOneTouch from "../../../site/snippets/guide/has-one-touch.ts";
@@ -859,33 +858,6 @@ describe("the persistence page's changing one attribute (#351)", () => {
     });
 
     expect(log.mock.calls).toEqual([["New article: Fresh"]]);
-  });
-});
-
-describe("the associations page's counter caches (#61)", () => {
-  let binding: TestDatabase;
-  let dispose: () => Promise<void>;
-  const schema = new URL("../../../site/snippets/guide/counter-caches.sql", import.meta.url);
-
-  beforeAll(async () => {
-    ({ db: binding, dispose } = await createTestDatabase(schema));
-  });
-  afterAll(() => dispose());
-
-  test("the count follows each create and destroy, and size reads it", async () => {
-    await binding.prepare("INSERT INTO articles (id, title) VALUES (1, 'Hello')").run();
-    // A count that drifted, which resetCounters puts right.
-    await binding.prepare("UPDATE articles SET comments_count = 5 WHERE id = 1").run();
-
-    const { article, count } = await withDatabase(connect(binding), () =>
-      counterCaches.examples(1),
-    );
-
-    // 5, plus the first comment, less it destroyed, plus the second: the counter, not the rows.
-    expect(count).toBe(6);
-    expect(article.commentsCount).toBe(6);
-    const row = await binding.prepare("SELECT * FROM articles WHERE id = 1").first();
-    expect(row).toMatchObject({ comments_count: 1, updated_at: expect.any(String) });
   });
 });
 
