@@ -1,4 +1,4 @@
-// What a migration's name says it does, as Rails' generator reads it, and the indexes the generators name.
+// What a migration's name says it does, and the indexes the generators name.
 import { pluralize } from "../../src/inflections.ts";
 import { underscore } from "../../src/naming.ts";
 

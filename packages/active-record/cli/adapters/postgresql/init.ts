@@ -3,7 +3,7 @@ import { basename } from "node:path";
 import type { InitResult } from "@forestfuture/active-record/cli";
 import { hyperdriveIn, type Hyperdrive } from "./wrangler.ts";
 
-/** The local database a project's folder suggests, named as Rails names it: `shop_development`. */
+/** The local database a project's folder suggests: `shop_development`. */
 function guessedUrl(dir: string): string {
   const name = basename(dir)
     .toLowerCase()

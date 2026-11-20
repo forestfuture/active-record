@@ -33,7 +33,8 @@ function classSource({ className, associations, base }: ModelToWrite): string {
 
 /**
  * A Model's source, with its imports: the library's `belongsTo` when it has one, the app's
- * base class (`ApplicationRecord`), and, in a file of its own, each target's file (`./order`), as Rails assumes it exists.
+ * base class (`ApplicationRecord`), and, in a file of its own, each target's file (`./order`),
+ * assumed to exist.
  */
 export function modelSource(
   model: ModelToWrite,
