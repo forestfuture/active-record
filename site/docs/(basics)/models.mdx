@@ -88,7 +88,7 @@ Override an attribute in `static attributes` when a column holds something its t
 
 ## Adding virtual attributes
 
-Add an attribute that isn’t a column with `virtual: true`, as `Account` does with `termsOfService`. It holds a value a form sends but the table doesn’t keep:
+Add `virtual: true` for a value a form sends but the table doesn’t keep, as `Account` does with `termsOfService`:
 
 <include>/_excerpts/pages/models/examples/virtual.mdx</include>
 
@@ -97,8 +97,10 @@ Add an attribute that isn’t a column with `virtual: true`, as `Account` does w
 - **A loaded record starts it at its default,** or `null`, and so does `reload`.
 - **A query can’t name it,** since there’s no column to match. `where`, `order`, `select`, `pluck`, `insert`, and `updateAll` throw `UnknownAttribute`.
 - **It’s in `toJSON()`,** unless a [`confirmation`](./validations#confirming-a-value) rule reads it. List any other one in [`hiddenAttributes`](./serialization) to keep it out.
-- **A name the table has** as a column throws `InvalidModel`, and so does `virtual` with `column` or `enum`. `null: false` needs a `default`.
-- **With `define`,** write `virtual: true` in the same way.
+
+:::note
+A virtual attribute named for one of the table’s columns throws `InvalidModel`, and so does `virtual` with `column` or `enum`. With `null: false`, give it a `default`. A Model declared with `define` takes `virtual: true` in the same way.
+:::
 
 ## Narrowing types
 

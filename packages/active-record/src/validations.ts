@@ -233,6 +233,11 @@ const acceptance: Check = (value, { acceptance: rule }) => {
   return isListed(accepted, value) ? [] : [{ type: "accepted" }];
 };
 
+/** Whether a `validates` call's options hold a `confirmation` rule (#356). */
+function hasConfirmation({ confirmation }: ValidationOptions<never>): boolean {
+  return confirmation !== undefined && confirmation !== false;
+}
+
 /** The attribute a `confirmation` rule compares with `attribute`'s value (#356). */
 function confirmationOf(attribute: string): string {
   return `${attribute}Confirmation`;
@@ -374,7 +379,7 @@ export function checkValidatedNames(
   // `validatesAssociated`'s names are checked once the Model's associations are known.
   if (associated) return;
   attributeOf(model, attribute);
-  if (options.confirmation !== undefined && options.confirmation !== false) {
+  if (hasConfirmation(options)) {
     checkConfirmation(model, attribute);
   }
   const { uniqueness } = options;
@@ -389,7 +394,7 @@ export function checkValidatedNames(
  */
 export function confirmationNames(validations: readonly Validation[]): string[] {
   return validations
-    .filter(({ options }) => options.confirmation !== undefined && options.confirmation !== false)
+    .filter(({ options }) => hasConfirmation(options))
     .map(({ attribute }) => confirmationOf(attribute));
 }
 

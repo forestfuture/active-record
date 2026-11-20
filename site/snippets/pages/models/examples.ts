@@ -27,7 +27,8 @@ export async function createProduct(request: Request) {
 export async function signingUp() {
   // #region virtual
   const form = { email: "jane@example.com", termsOfService: "1" };
-  const account = Account.build(Account.permit(form, "email", "termsOfService"));
+  const permitted = Account.permit(form, "email", "termsOfService");
+  const account = Account.build(permitted);
   console.log(account.termsOfService); // true, cast from the form's "1"
   await account.save(); // inserts the email alone
   // #endregion virtual

@@ -232,10 +232,19 @@ export function define(name: string, spec: AttributeSpec): AttributeDefinition {
  * check refuses), and non-null only with a default.
  */
 function defineVirtual(name: string, spec: SpecObject): AttributeDefinition {
-  if (spec.null === false && spec.default === undefined) {
-    throw new InvalidModel(`${name} is virtual and null: false, so it needs a default`);
-  }
+  const problem = virtualNullProblem(name, spec);
+  if (problem !== undefined) throw new InvalidModel(problem);
   return { ...resolvedType(spec.type), column: spec.column ?? "", ...copiedKeys(spec) };
+}
+
+/** A virtual attribute declared non-null with no default, which would read as null (#356). */
+export function virtualNullProblem(
+  where: string,
+  spec: Pick<SpecObject, "null" | "default">,
+): string | undefined {
+  return spec.null === false && spec.default === undefined
+    ? `${where} is virtual and null: false, so it needs a default`
+    : undefined;
 }
 
 /** A spec's type as a definition holds it: a custom type as the type it's stored as, and itself. */
