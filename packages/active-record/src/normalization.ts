@@ -1,5 +1,6 @@
 // Normalizations (#354): what `normalizes` declares, and the ones each attribute's assigned values go through.
 import { declared } from "./declarations.ts";
+import { InvalidModel } from "./errors.ts";
 
 /**
  * What `normalizes` takes for an attribute whose values are `T`: a function given a value of
@@ -20,4 +21,15 @@ export interface Normalization {
 /** The normalizations declared for one of `model`'s attributes, a parent class's first. */
 export function normalizationsOf(model: object, attribute: string): Normalization[] {
   return declared(model, "normalizations").filter((each) => each.attribute === attribute);
+}
+
+/** Refuses a normalization of a name that isn't one of `model`'s attributes. */
+export function checkNormalizedName(
+  model: { readonly name: string; readonly attributeDefinitions: ReadonlyMap<string, unknown> },
+  attribute: string,
+): void {
+  if (model.attributeDefinitions.has(attribute)) return;
+  throw new InvalidModel(
+    `${model.name} normalizes "${attribute}", which isn't one of its attributes`,
+  );
 }

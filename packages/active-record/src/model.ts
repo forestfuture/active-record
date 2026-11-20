@@ -21,7 +21,7 @@ import { defaultFilterAttributes, type FilterAttribute } from "./filtering.ts";
 import type { Errors } from "./errors-collection.ts";
 import { humanAttributeName, type ErrorMessages } from "./error-messages.ts";
 import { declare, declared } from "./declarations.ts";
-import type { NormalizeOptions } from "./normalization.ts";
+import { checkNormalizedName, type NormalizeOptions } from "./normalization.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
@@ -389,6 +389,8 @@ export class Model extends AttributeWrites {
     options: NormalizeOptions<AttributesOf<InstanceType<C>>[K]>,
   ): void {
     const { with: normalize, applyToNull = false } = options;
+    // A generated Model's attributes are fixed when it's first used, and checked then.
+    if (hasSettledAttributes(this)) checkNormalizedName(this, attribute);
     declare(this, "normalizations", {
       attribute,
       with: normalize as (value: unknown) => unknown,

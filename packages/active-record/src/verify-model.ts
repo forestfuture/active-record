@@ -1,5 +1,5 @@
 // Checks a Model's declaration the first time it's used, then seals its declarations.
-// It checks the table, the primary key, the attribute names, the spec keys, hidden attributes, message names, validated associations, validation contexts, and page sizes.
+// It checks the table, the primary key, the attribute names, the spec keys, hidden attributes, message names, validated associations, normalized attributes, validation contexts, and page sizes.
 import { methodsOffFixes } from "./enum-switch.ts";
 import { ancestors, staticBelow } from "./ancestors.ts";
 import { associationsOf, declarationIn, probeOf } from "./association-fields.ts";
@@ -12,6 +12,7 @@ import { isReservedScopeName } from "./scoped-relation.ts";
 import { specProblem } from "./spec-keys.ts";
 import { isGenerated, settleGenerated } from "./generated-model.ts";
 import { checkValidatedNames } from "./validations.ts";
+import { checkNormalizedName } from "./normalization.ts";
 import { rejectUnlistedContexts } from "./listed-contexts.ts";
 import { rejectAbstract, requireModelName, requireTableName } from "./table-names.ts";
 
@@ -31,6 +32,9 @@ export function verifyModel(model: ModelClass): void {
   rejectBadSpecs(model);
   rejectEnumNameClashes(model);
   for (const validation of declared(model, "validations")) checkValidatedNames(model, validation);
+  for (const { attribute } of declared(model, "normalizations")) {
+    checkNormalizedName(model, attribute);
+  }
   rejectUnknownAssociated(model);
   rejectUnlistedContexts(model);
   rejectUnknownHiddenAttributes(model);
