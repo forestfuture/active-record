@@ -87,8 +87,9 @@ async function onPostgres(page: string, outsideTheRepo = false): Promise<string>
  * generate, and its Models stay as they are.
  */
 function pageSchema(page: string, seed: string): () => PgSchema {
-  let schema: PgSchema;
-  let restore: () => void;
+  let schema: PgSchema | undefined;
+  let restore = () => {};
+  // PGlite reads the Postgres schema, which takes seconds with coverage on.
   beforeAll(async () => {
     schema = await openPgSchema(pageMigrations(page, "postgres"));
     await schema.pool.query({ text: seed });
@@ -98,12 +99,12 @@ function pageSchema(page: string, seed: string): () => PgSchema {
     const d1Schema = ApplicationRecord.schema;
     ApplicationRecord.schema = generated.schema;
     restore = () => (ApplicationRecord.schema = d1Schema);
-  });
+  }, 60_000);
   afterAll(async () => {
     restore();
-    await schema.dispose();
+    await schema?.dispose();
   });
-  return () => schema;
+  return () => schema!;
 }
 
 const ada = "00000000-0000-4000-8000-00000000000a";
