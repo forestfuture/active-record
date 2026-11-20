@@ -453,8 +453,7 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * Loads the association again, replacing what's cached, and returns its record
-   * or records.
+   * Loads the association again, replacing what's cached, and returns its record or records.
    */
   async reloadAssociation<K extends AssociationName<this>>(name: K): Promise<LoadedValue<this[K]>> {
     associationOf(this.constructor as ModelClass, name);
