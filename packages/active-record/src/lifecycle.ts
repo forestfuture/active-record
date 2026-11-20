@@ -346,11 +346,16 @@ function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): Prepared
     };
   }
   const own = recordState.updateAssignments();
-  if (own.length === 0) {
+  if (recordState.changedNames().length === 0) {
     const commit = () => recordState.commitClean();
     return { statements: [], commit, after, afterCommit, afterRollback };
   }
   const stamps = timestampsFor(model, "update", own);
+  // Only virtual attributes changed, on a table with no updatedAt: nothing to write (#356).
+  if (own.length + stamps.length === 0) {
+    const commit = () => recordState.commitUpdate([]);
+    return { statements: [], commit, after, afterCommit, afterRollback };
+  }
   const counters = countersOnUpdate(record);
   const update = compileUpdate(model, [...own, ...stamps], recordState.storedKey);
   return {

@@ -40,6 +40,11 @@ class User extends ApplicationRecord {
 }
 interface User extends TableAttributes<typeof users, (typeof User)["attributes"]> {}
 
+class Sample extends ApplicationRecord {
+  static override attributes = { note: { type: "string", virtual: true } } as const;
+}
+interface Sample extends TableAttributes<typeof samples, (typeof Sample)["attributes"]> {}
+
 describe("a virtual attribute", () => {
   let harness: Harness;
 
@@ -78,6 +83,45 @@ describe("a virtual attribute", () => {
       expect(statementKinds(events)).toEqual(["UPDATE"]);
       expect(bound()).toContain("admin");
       expect(bound()).not.toContain("Janie");
+    });
+  });
+
+  describe("its changes", () => {
+    test("are saved with the record's, and it keeps its value", async () => {
+      const user = await db()
+        .model(User)
+        .create({ email: "jane@example.com", termsOfService: true });
+
+      expect(user.termsOfService).toBe(true);
+      expect(user.changes()).toEqual({});
+      expect(user.savedChanges()).toMatchObject({ termsOfService: [false, true] });
+    });
+
+    test("alone, save updates only updatedAt, as Rails does", async () => {
+      const user = await db().model(User).create({ email: "jane@example.com" });
+      const before = user.updatedAt;
+      events.length = 0;
+
+      user.nickname = "Janie";
+      await user.save();
+
+      expect(statementKinds(events)).toEqual(["UPDATE"]);
+      expect(bound()).not.toContain("Janie");
+      expect(user.updatedAt).not.toEqual(before);
+      expect(user.changes()).toEqual({});
+      expect(user.savedChanges()).toMatchObject({ nickname: [null, "Janie"] });
+    });
+
+    test("alone, on a table with no timestamps, save sends nothing", async () => {
+      const sample = await db().model(Sample).create({ label: "a" });
+      events.length = 0;
+
+      sample.note = "checked";
+      await sample.save();
+
+      expect(events).toEqual([]);
+      expect(sample.changes()).toEqual({});
+      expect(sample.savedChanges()).toEqual({ note: [null, "checked"] });
     });
   });
 });
