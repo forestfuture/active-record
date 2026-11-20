@@ -8,7 +8,7 @@ import {
   test,
   vi,
 } from "vite-plus/test";
-import { gte, Model, withDatabase } from "../../../packages/active-record/src/index.ts";
+import { gte, withDatabase } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -18,7 +18,6 @@ import { parseJsonc } from "../../../packages/active-record/cli/project/config-f
 import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
 import { Post, User } from "../../../site/snippets/getting-started/models.ts";
 import { createdSince, oldestFirst, Reminder } from "../../../site/snippets/guide/mixed-dates.ts";
-import * as filtering from "../../../site/snippets/guide/filtering.ts";
 import worker from "../../../site/snippets/getting-started/src/index.ts";
 import * as several from "../../../site/snippets/guide/several-databases.ts";
 import { publishDraftsAndRemove } from "../../../site/snippets/getting-started/src/publish.ts";
@@ -179,16 +178,6 @@ describe("Change a table", () => {
     expect(created.isPersisted()).toBe(true);
     expect(JSON.stringify(user)).not.toContain("bio");
     await dispose();
-  });
-});
-
-describe("Log queries: keep secrets out of the logs", () => {
-  test("the base class adds to Rails' defaults", () => {
-    expect(filtering.Base.filterAttributes).toEqual([
-      ...Model.filterAttributes,
-      "iban",
-      /^dateOfBirth$/,
-    ]);
   });
 });
 

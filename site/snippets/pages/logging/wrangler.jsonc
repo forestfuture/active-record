@@ -1,0 +1,4 @@
+{
+  "name": "logging",
+  "d1_databases": [{ "binding": "DB", "database_name": "logging", "database_id": "…" }],
+}

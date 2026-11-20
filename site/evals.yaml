@@ -258,3 +258,9 @@ questions:
       - 'Account.permit(await request.json(), "email", "handle"), then Account.create(permitted)'
       - "permit casts each value, and a value it can't cast throws a TypeError to return a 400 for"
     routes: /untrusted-input
+  - id: log-request-queries
+    question: "How do I log each request's SQL queries as JSON lines tagged with the request's ID for Workers Logs?"
+    expected:
+      - "in the Worker's fetch, connect(env.DB, { onQuery }) with a listener that logs JSON including a requestId such as the cf-ray header"
+      - "run the app inside withDatabase(db, () => app.fetch(request))"
+    routes: /logging

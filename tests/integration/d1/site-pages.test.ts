@@ -11,6 +11,7 @@ import {
 } from "vite-plus/test";
 import {
   MissingAttribute,
+  Model,
   RecordNotUnique,
   StrictValidationFailed,
   UnknownAttribute,
@@ -46,6 +47,8 @@ import * as conditions from "../../../site/snippets/pages/conditions/examples.ts
 import * as counterCaches from "../../../site/snippets/pages/counter-caches/examples.ts";
 import * as enums from "../../../site/snippets/pages/enums/examples.ts";
 import * as joins from "../../../site/snippets/pages/joins/examples.ts";
+import * as logging from "../../../site/snippets/pages/logging/examples.ts";
+import { User as LoggedUser } from "../../../site/snippets/pages/logging/src/models/user.ts";
 import * as models from "../../../site/snippets/pages/models/examples.ts";
 import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
 import * as persistence from "../../../site/snippets/pages/persistence/examples.ts";
@@ -1140,6 +1143,76 @@ describe("the Untrusted input page's examples", () => {
 
     const accepted = await run(() => untrustedInput.accept(json({ token: "k3y" })));
     expect(await accepted.text()).toBe("Welcome, sam@example.com");
+  });
+});
+
+// The Logging page's examples, on the table it shows.
+describe("the Logging page's examples", () => {
+  const binding = pageDatabase("logging", ["users"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare("INSERT INTO users (id, email, iban) VALUES ('1', 'jane@example.com', 'GB00')")
+      .run();
+  });
+  const log = quietLog();
+  const env = (vars = {}) =>
+    ({ DB: binding(), ...vars }) as unknown as Parameters<typeof logging.worker.fetch>[1];
+  const lines = () => log.calls().map(([line]) => String(line));
+
+  test("the app-wide listener logs every query, with the request's listener first", async () => {
+    const response = await logging.worker.fetch(
+      new Request("https://example.com/?email=jane%40example.com", {
+        headers: { "cf-ray": "ray-1" },
+      }),
+      env(),
+    );
+
+    expect(response.status).toBe(200);
+    const [requestLine, appWide] = lines();
+    expect(JSON.parse(requestLine ?? "")).toMatchObject({
+      requestId: "ray-1",
+      model: "User",
+      params: ["[FILTERED]", 1],
+    });
+    expect(appWide).toMatch(/^User \d+\.\dms SELECT /);
+  });
+
+  test("the development listener logs only when LOG_SQL is set", async () => {
+    await logging.development.fetch(
+      new Request("https://example.com/?email=jane%40example.com", {
+        headers: { "cf-ray": "ray-1" },
+      }),
+      env(),
+    );
+    const quiet = lines().length;
+    log.calls().splice(0);
+    await logging.development.fetch(
+      new Request("https://example.com/?email=jane%40example.com", {
+        headers: { "cf-ray": "ray-1" },
+      }),
+      env({ LOG_SQL: "1" }),
+    );
+
+    expect([quiet, lines().length]).toEqual([1, 2]);
+  });
+
+  test("the Server-Timing header counts the request's queries", async () => {
+    const response = await logging.timed.fetch(
+      new Request("https://example.com/?email=jane%40example.com", {
+        headers: { "cf-ray": "ray-1" },
+      }),
+      env(),
+    );
+
+    expect(response.headers.get("server-timing")).toMatch(/^db;dur=\d+\.\d;desc="1 queries"$/);
+  });
+
+  test("the base class filters the defaults and the attributes it adds", () => {
+    expect(LoggedUser.filterAttributes).toEqual([
+      ...Model.filterAttributes,
+      "iban",
+      /^dateOfBirth$/,
+    ]);
   });
 });
 

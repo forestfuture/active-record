@@ -43,6 +43,7 @@ import * as conditions from "../../../site/snippets/pages/conditions/examples.ts
 import * as counterCaches from "../../../site/snippets/pages/counter-caches/examples.ts";
 import * as enums from "../../../site/snippets/pages/enums/examples.ts";
 import * as joins from "../../../site/snippets/pages/joins/examples.ts";
+import { app as loggedApp } from "../../../site/snippets/pages/logging/src/app.ts";
 import * as models from "../../../site/snippets/pages/models/examples.ts";
 import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
 import * as persistence from "../../../site/snippets/pages/persistence/examples.ts";
@@ -1033,6 +1034,27 @@ describe("the Untrusted input page's examples, on Postgres", () => {
 
     const accepted = await run(() => untrustedInput.accept(json({ token: "k3y" })));
     expect(await accepted.text()).toBe("Welcome, sam@example.com");
+  });
+});
+
+// The Logging page's app-wide listener, on Postgres; its Workers call D1's connect.
+describe("the Logging page's examples, on Postgres", () => {
+  const schema = pageSchema("logging", "SELECT 1");
+  beforeEach(async () => {
+    await schema().pool.query({
+      text: "DELETE FROM users; INSERT INTO users (id, email) VALUES ('00000000-0000-4000-8000-000000000001', 'jane@example.com')",
+    });
+  });
+  const log = quietLog();
+
+  test("the base class's listener logs every query", async () => {
+    const request = new Request("https://example.com/?email=jane%40example.com");
+    const response = await withDatabase(connect(schema().url), () => loggedApp.fetch(request));
+
+    expect(response.status).toBe(200);
+    expect(log.calls().map(([line]) => String(line))).toEqual([
+      expect.stringMatching(/^User \d+\.\dms SELECT /),
+    ]);
   });
 });
 
