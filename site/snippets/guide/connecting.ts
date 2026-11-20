@@ -29,49 +29,9 @@ export const api = {
 } satisfies ExportedHandler<Env>;
 // #endregion session-header
 
-// #region app-wide
-// src/models/application-record.ts: every query, from every Model, whichever database runs it.
-export abstract class ApplicationRecord extends Model {
-  static override schema = schema;
-
-  static override onQuery: QueryListener = ({ model, sql, durationMs, error }) => {
-    console.log(`${model} ${durationMs.toFixed(1)}ms ${sql}`, error ?? "");
-  };
-}
-// #endregion app-wide
-
-/** What your app exports as its Worker today: a framework's, or your own. */
-declare const app: ExportedHandler<Env> & { fetch: NonNullable<ExportedHandler<Env>["fetch"]> };
-
-// #region per-request
-// src/worker.ts: one request's queries, tagged with its ID, as JSON lines for Workers Logs.
-// `app` stands for what your app exports as its Worker today: a framework's handler, or your own.
-export const logged = {
-  fetch(request, env, ctx) {
-    const requestId = request.headers.get("cf-ray") ?? crypto.randomUUID();
-    const db = connect(env.DB, {
-      onQuery: ({ model, sql, params, durationMs, error }) =>
-        console.log(
-          JSON.stringify({
-            requestId,
-            model,
-            ms: Math.round(durationMs),
-            sql,
-            params,
-            error: error instanceof Error ? error.message : undefined,
-          }),
-        ),
-    });
-
-    // Every query from a Model inside (Product.find, user.save(), …) goes through db.
-    return withDatabase(db, () => app.fetch(request, env, ctx));
-  },
-} satisfies ExportedHandler<Env>;
-// #endregion per-request
-
 // #region app-wide-development
-// Logs only when LOG_SQL is set (in .dev.vars), read from the Worker's env when a query runs.
-export abstract class QuietInProduction extends Model {
+// src/models/application-record.ts: logs only when LOG_SQL is set (in .dev.vars), read when a query runs.
+export abstract class ApplicationRecord extends Model {
   static override schema = schema;
 
   static override onQuery: QueryListener = ({ model, sql, durationMs }) => {
@@ -81,44 +41,6 @@ export abstract class QuietInProduction extends Model {
   };
 }
 // #endregion app-wide-development
-
-export const development = {
-  fetch(request, env: Env & { LOG_SQL?: string }, ctx) {
-    // #region development
-    // LOG_SQL=1 in .dev.vars: logging in development only, nothing in production.
-    const onQuery: QueryListener | undefined = env.LOG_SQL
-      ? ({ model, sql, durationMs }) => console.log(`${model} ${durationMs.toFixed(1)}ms ${sql}`)
-      : undefined;
-
-    return withDatabase(connect(env.DB, { onQuery }), () => app.fetch(request, env, ctx));
-    // #endregion development
-  },
-} satisfies ExportedHandler<Env & { LOG_SQL?: string }>;
-
-export const timed = {
-  async fetch(_request: Request, env: Env): Promise<Response> {
-    // #region server-timing
-    let queries = 0;
-    let total = 0;
-    const db = connect(env.DB, {
-      onQuery({ durationMs }) {
-        queries += 1;
-        total += durationMs;
-      },
-    });
-
-    const response = await withDatabase(db, async () =>
-      Response.json(await User.active().toArray()),
-    );
-    // Shown in the browser's developer tools, under the request's Timing.
-    response.headers.append(
-      "server-timing",
-      `d1;dur=${total.toFixed(1)};desc="${queries} queries"`,
-    );
-    return response;
-    // #endregion server-timing
-  },
-} satisfies ExportedHandler<Env>;
 
 export async function inATest(binding: D1Database): Promise<void> {
   // #region test
