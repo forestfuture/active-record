@@ -246,7 +246,7 @@ import { schema } from ${stringLiteral(schemaImport)};
 
 /**
  * The base class for this app's Models: \`class Product extends ${className} {}\`. Methods,
- * callbacks and scopes written here are shared by every Model, as in Rails' ApplicationRecord.
+ * callbacks and scopes written here are shared by every Model.
  * It's abstract: it has no table of its own.
  */
 export abstract class ${className} extends Model {
@@ -268,7 +268,7 @@ export abstract class ${className} extends Model {
   //   console.log(\`\${model} \${durationMs.toFixed(1)}ms \${sql}\`);
 
   // Values of attributes named like these show as "[FILTERED]" to onQuery and in errors. These
-  // are Rails' defaults (passwords, tokens, keys, emails…); add yours, or leave one out:
+  // are the defaults (passwords, tokens, keys, emails…); add yours, or leave one out:
   // static override filterAttributes = [...Model.filterAttributes, "iban"];
 
   // Attributes toJSON() leaves out, so Response.json(record) never sends them (exact names;
