@@ -40,6 +40,7 @@ export const builtInMessages: ErrorMessages = {
   inclusion: "is not included in the list",
   exclusion: "is reserved",
   accepted: "must be accepted",
+  confirmation: "doesn't match %{attribute}",
   taken: "has already been taken",
   tooShort: {
     one: "is too short (minimum is 1 character)",
@@ -186,7 +187,10 @@ export function messageOf(source: MessageSource, entry: ErrorEntry): string {
   const text = messageText(templateFor(model, entry.attribute, entry.type), entry);
   if (text === undefined) throw missingMessage(model, entry);
   return text.replace(/%\{(\w+)\}/g, (placeholder, name: string) => {
-    if (name === "attribute") return humanAttributeName(model, entry.attribute);
+    // A confirmation's message names the attribute it confirms, given in its values (#356).
+    if (name === "attribute") {
+      return String(ownValue(entry.values, name) ?? humanAttributeName(model, entry.attribute));
+    }
     if (name === "model") return inWords(model.modelName);
     if (name === "value") return shownValue(source, entry.attribute);
     return String(ownValue(entry.values, name) ?? placeholder);
