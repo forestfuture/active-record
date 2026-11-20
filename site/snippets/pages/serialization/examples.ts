@@ -2,7 +2,7 @@ import { Account } from "./src/models/account";
 
 export async function serializing() {
   // #region json
-  const account = await Account.findByOrThrow({ email: "ada@example.com" });
+  const account = await Account.findByOrThrow({ email: "jane@example.com" });
 
   const body = JSON.stringify(account); // dates as ISO strings, passwordDigest and apiKey left out
   const attributes = account.attributes(); // every attribute, dates as Date

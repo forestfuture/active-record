@@ -90,9 +90,9 @@ questions:
       - "add distinct() to get each record once"
     routes: /joins
   - id: filter-by-joined
-    question: "How do I find articles whose author is named Mary?"
+    question: "How do I find articles whose author is named Jane?"
     expected:
-      - 'Article.joins("author").merge(Author.where({ name: "Mary" }))'
+      - 'Article.joins("author").merge(Author.where({ name: "Jane" }))'
     routes: /joins
   - id: raw-bind-date
     question: "I send my own SQL to D1. How do I bind a Date for a column that stores Unix seconds?"

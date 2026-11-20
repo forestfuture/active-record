@@ -7,13 +7,13 @@ seo:
 
 ## At a glance
 
-| To                                               | Write                                                     |
-| ------------------------------------------------ | --------------------------------------------------------- |
-| create a record with its owner’s key             | `article.comments().create({ body: "…" })`                |
-| build records to save with their owner           | `ada.articles().build({ … })`, `ada.profile.build({ … })` |
-| save the owner and every record built through it | `ada.saveOrThrow()`                                       |
-| save the loaded records that changed too         | `hasMany(Article, { autosave: true })`                    |
-| destroy a record when its owner saves            | `article.markForDestruction()`                            |
+| To                                               | Write                                                           |
+| ------------------------------------------------ | --------------------------------------------------------------- |
+| create a record with its owner’s key             | `article.comments().create({ body: "…" })`                      |
+| build records to save with their owner           | `author.articles().build({ … })`, `author.profile.build({ … })` |
+| save the owner and every record built through it | `author.saveOrThrow()`                                          |
+| save the loaded records that changed too         | `hasMany(Article, { autosave: true })`                          |
+| destroy a record when its owner saves            | `article.markForDestruction()`                                  |
 
 ## The Models
 
