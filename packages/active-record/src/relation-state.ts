@@ -1,4 +1,5 @@
 // What a Relation is made of, for the modules that write through it, and what those writes take from it: its values for new rows, and whether its owner can have them.
+import { assignedValues } from "./normalized-values.ts";
 import { castInherited } from "./attribute.ts";
 import { RecordNotSaved } from "./errors.ts";
 import type { Executor } from "./executor.ts";
@@ -38,7 +39,11 @@ export function bulkRowValues(
   relation: RelationState<Model>,
   given: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> {
-  return { ...given, ...scopeValues(relation), ...ownersValues(relation) };
+  const { model, query, collection } = relation;
+  // Normalized as assigned values are (#354); the conditions' values were when they were written.
+  const inherited = castInherited(model, inheritedAttributes(query.conditions), collection.link);
+  const created = assignedValues(model, query.createWith ?? {});
+  return { ...assignedValues(model, given), ...inherited, ...created, ...ownersValues(relation) };
 }
 
 /** `relation`'s values for a new row: its conditions' equality values, its `createWith` over them. */

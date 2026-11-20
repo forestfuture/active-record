@@ -1,4 +1,4 @@
-// A query's conditions normalized (#354): each value of an attribute with a normalization, as `where`, `whereNot`, `rewhere` and `inOrderOf` take it, before the Relation keeps it.
+// Values normalized where a Relation takes them (#354): its conditions, as `where`, `whereNot`, `rewhere` and `inOrderOf` take them, and a bulk write's values.
 import { attributeFor, type Attribute } from "./attribute.ts";
 import { Comparison, comparisonParts } from "./comparisons.ts";
 import type { ModelClass } from "./model.ts";
@@ -47,4 +47,20 @@ export function normalizedValue(attribute: Attribute, value: unknown): unknown {
     );
   }
   return attribute.normalizedCondition(value);
+}
+
+/**
+ * A bulk write's values (an inserted row, `createWith`, `updateAll`'s changes), each cast and
+ * normalized as assigning it would be.
+ */
+export function assignedValues(
+  model: ModelClass,
+  values: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(values).map(([name, value]) => [
+      name,
+      attributeFor(model, name).assigned(value),
+    ]),
+  );
 }

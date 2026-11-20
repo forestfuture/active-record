@@ -1,7 +1,7 @@
 // `find` by primary key: one id or several, in order, keeping a Relation's conditions; `RecordNotFound` when any is missing.
 import { attributeFor, noMatch } from "./attribute.ts";
 import { RecordNotFound } from "./errors.ts";
-import { normalizedConditions } from "./normalized-conditions.ts";
+import { normalizedConditions } from "./normalized-values.ts";
 import { shownKey } from "./filtering.ts";
 import type { QueryRunner, RunnableQuery } from "./load.ts";
 import { primaryKeyOf, type Model, type ModelClass } from "./model.ts";
