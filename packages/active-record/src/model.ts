@@ -20,7 +20,7 @@ import { type AttributeConversions, conversionsFor } from "./attribute-conversio
 import { defaultFilterAttributes, type FilterAttribute } from "./filtering.ts";
 import type { Errors } from "./errors-collection.ts";
 import { humanAttributeName, type ErrorMessages } from "./error-messages.ts";
-import { declare } from "./declarations.ts";
+import { declare, declared } from "./declarations.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
@@ -61,6 +61,7 @@ import type { ContextOf, SaveOptions, ValidationContexts } from "./validation-co
 import { scopeBodies, scopeName, useModelBase } from "./scoped-relation.ts";
 import {
   checkValidatedNames,
+  confirmationNames,
   type AssociatedValidationOptions,
   type Validation,
   type ValidationOptions,
@@ -685,13 +686,18 @@ export class Model extends AttributeWrites {
 
   /**
    * The loaded attributes as JSON-ready values (dates as ISO strings), without the Model's
-   * `hiddenAttributes`, for `Response.json(record)`.
+   * `hiddenAttributes` or the virtual attributes its `confirmation` rules read, for
+   * `Response.json(record)`.
    */
   toJSON(): Record<string, unknown> {
-    const { hiddenAttributes } = modelOf(this);
+    const model = modelOf(this);
+    const hidden = [
+      ...model.hiddenAttributes,
+      ...confirmationNames(declared(model, "validations")),
+    ];
     return Object.fromEntries(
       Object.entries(this[state].attributes())
-        .filter(([name]) => !hiddenAttributes.includes(name))
+        .filter(([name]) => !hidden.includes(name))
         .map(([name, value]) => [name, value instanceof Date ? value.toISOString() : value]),
     );
   }

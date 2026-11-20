@@ -383,6 +383,16 @@ export function checkValidatedNames(
   }
 }
 
+/**
+ * The virtual attributes the `confirmation` rules among `validations` read, which `toJSON()`
+ * leaves out, as Rails sends no confirmation (#356).
+ */
+export function confirmationNames(validations: readonly Validation[]): string[] {
+  return validations
+    .filter(({ options }) => options.confirmation !== undefined && options.confirmation !== false)
+    .map(({ attribute }) => confirmationOf(attribute));
+}
+
 /** A `confirmation` rule needs its virtual attribute declared (#356). */
 function checkConfirmation(model: Parameters<typeof attributeOf>[0], attribute: string): void {
   const name = confirmationOf(attribute);

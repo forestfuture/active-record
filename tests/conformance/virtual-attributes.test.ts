@@ -29,7 +29,7 @@ const schema = {
     users: { attributes: users, primaryKey: "id" },
     samples: { attributes: samples, primaryKey: "id" },
   },
-  models: { User: "users", Sample: "samples", Member: "users" },
+  models: { User: "users", Sample: "samples", Member: "users", Account: "users" },
 } as const;
 
 abstract class ApplicationRecord extends Model {
@@ -58,6 +58,19 @@ class Sample extends ApplicationRecord {
   static override attributes = { note: { type: "string", virtual: true } } as const;
 }
 interface Sample extends TableAttributes<typeof samples, (typeof Sample)["attributes"]> {}
+
+// Confirming its email, with a virtual attribute for the confirmation.
+class Account extends ApplicationRecord {
+  static override table = "users";
+  static override attributes = {
+    nickname: { type: "string", virtual: true },
+    emailConfirmation: { type: "string", virtual: true },
+  } as const;
+  static {
+    this.validates("email", { confirmation: true });
+  }
+}
+interface Account extends TableAttributes<typeof users, (typeof Account)["attributes"]> {}
 
 describe("a virtual attribute", () => {
   let harness: Harness;
@@ -168,6 +181,20 @@ describe("a virtual attribute", () => {
       expect(user.termsOfService).toBe(false);
       expect(user.nickname).toBeNull();
       expect(user.changes()).toEqual({});
+    });
+  });
+
+  describe("in JSON", () => {
+    test("is sent, but a confirmation isn't, as Rails sends neither confirmation", async () => {
+      const account = await db().model(Account).create({
+        email: "jane@example.com",
+        emailConfirmation: "jane@example.com",
+        nickname: "Janie",
+      });
+
+      expect(account.toJSON()).toMatchObject({ nickname: "Janie" });
+      expect(account.toJSON()).not.toHaveProperty("emailConfirmation");
+      expect(account.attributes()).toMatchObject({ emailConfirmation: "jane@example.com" });
     });
   });
 
