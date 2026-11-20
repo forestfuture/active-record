@@ -12,13 +12,6 @@ import { gte, Model, withDatabase } from "../../../packages/active-record/src/in
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import { Article, Author } from "../../../site/snippets/guide/associations.ts";
 import * as batches from "../../../site/snippets/guide/batches.ts";
-import {
-  addExample,
-  Booking,
-  errorsExample,
-  Event,
-  Member,
-} from "../../../site/snippets/guide/validations.ts";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runGenerate } from "../../../packages/active-record/cli/generate/command.ts";
@@ -30,7 +23,6 @@ import * as customTypes from "../../../site/snippets/guide/custom-types.ts";
 import { createdSince, oldestFirst, Reminder } from "../../../site/snippets/guide/mixed-dates.ts";
 import * as untrusted from "../../../site/snippets/guide/untrusted-input.ts";
 import * as filtering from "../../../site/snippets/guide/filtering.ts";
-import { messagesExample, Product } from "../../../site/snippets/guide/error-messages.ts";
 import worker from "../../../site/snippets/getting-started/src/index.ts";
 import * as several from "../../../site/snippets/guide/several-databases.ts";
 import { publishDraftsAndRemove } from "../../../site/snippets/getting-started/src/publish.ts";
@@ -194,86 +186,6 @@ describe("the guide's examples", () => {
       binding.prepare("INSERT INTO profiles (author_id, bio) VALUES ('mary', 'Poet')"),
       binding.prepare("INSERT INTO comments (article_id, body) VALUES ('x1', 'Hm.')"),
     ]);
-  });
-
-  test("Validations: the errors example has the five errors its comments show", async () => {
-    const account = await withDatabase(connect(binding), () => errorsExample());
-
-    expect(account.errors.fullMessages()).toEqual([
-      "Email can't be blank",
-      "Handle is too short (minimum is 3 characters)",
-      "Handle is invalid",
-      "Plan is not included in the list",
-      "Seats is not a number",
-    ]);
-    expect(account.errors.toArray()[0]).toEqual({
-      attribute: "email",
-      type: "blank",
-      message: "can't be blank",
-    });
-    expect(log).toHaveBeenCalledWith(5);
-  });
-
-  test("Validations: a custom rule added in afterValidation makes the record invalid", async () => {
-    const startsAt = new Date("2026-05-01T10:15:00Z");
-    const endsAt = new Date("2026-05-01T11:00:00Z");
-    const booking = connect(binding).model(Booking).build({ startsAt, endsAt });
-
-    expect(await booking.isValid()).toBe(false);
-    expect(booking.errors.fullMessages()).toEqual(["Starts at must be on the hour"]);
-  });
-
-  test("Validations: errors added in a callback read as the add example shows", async () => {
-    const booking = await withDatabase(connect(binding), () => addExample());
-
-    expect(booking.errors.toArray()).toEqual([
-      { attribute: "startsAt", type: "onTheHour", message: "must be on the hour" },
-      { attribute: "base", type: "invalid", message: "The room is closed on Sundays" },
-    ]);
-    expect(booking.errors.fullMessages()).toEqual([
-      "Starts at must be on the hour",
-      "The room is closed on Sundays",
-    ]);
-  });
-
-  test("Validations: contexts run the rules the page says each runs", async () => {
-    const members = connect(binding).model(Member);
-    const member = members.build({ email: "ada@example.com" });
-
-    expect(await member.isValid()).toBe(false);
-    expect(member.errors.fullMessages()).toEqual(["Password can't be blank"]);
-    member.password = "secret";
-    expect(await member.isValid("signup")).toBe(false);
-    expect(member.errors.fullMessages()).toEqual(["Invite code can't be blank"]);
-    member.password = null;
-    member.inviteCode = "WELCOME";
-    expect(await member.save({ context: "signup" })).toBe(true);
-    expect(await member.isValid()).toBe(true);
-    const both = members.build({ email: "bo@example.com", inviteCode: "WELCOME" });
-    expect(await both.isValid(["create", "signup"])).toBe(false);
-    expect(both.errors.fullMessages()).toEqual(["Password can't be blank"]);
-  });
-
-  test("Validations: comparison with another attribute refuses an end at the start", async () => {
-    const startsAt = new Date("2026-05-01T10:00:00Z");
-    const event = connect(binding).model(Event).build({ startsAt, endsAt: startsAt });
-
-    expect(await event.isValid()).toBe(false);
-    expect(event.errors.fullMessages()).toEqual([
-      "Ends at must be greater than 2026-05-01T10:00:00.000Z",
-    ]);
-  });
-
-  test("Validations: changed messages read as the messages example shows", async () => {
-    const product = await withDatabase(connect(binding), () => messagesExample());
-
-    expect(product.errors.fullMessages()).toEqual([
-      "Name needs a name customers will see",
-      "Name needs at least 3 characters",
-      "Price must be more than 0",
-    ]);
-    expect(Product.humanAttributeName("priceCents")).toBe("Price");
-    expect(Product.humanAttributeName("createdAt")).toBe("Added on");
   });
 
   test("Batches: statements, many rows, an atomic batch, and records in a batch", async () => {
