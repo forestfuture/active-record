@@ -205,3 +205,14 @@ questions:
     expected:
       - 'call this.errorMessages({ blank: "…" }) in the static block of the app''s ApplicationRecord'
     routes: /validations
+  - id: welcome-email-after-commit
+    question: "How do I send a welcome email only after a new user has been saved to the database?"
+    expected:
+      - "this.afterCreateCommit(async (user) => { await sendWelcomeEmail(user.email) }) in the User Model's static block"
+    routes: /callbacks
+  - id: abort-a-save
+    question: "How can a callback stop an order from being saved, and how do I see why?"
+    expected:
+      - 'throw abort("reason") from a before-callback such as beforeSave'
+      - "save() resolves to false and record.abortReason holds the reason; saveOrThrow() throws RecordNotSaved"
+    routes: /callbacks
