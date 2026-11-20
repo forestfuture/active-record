@@ -96,7 +96,10 @@ function unmatchedNote(declared: string, where: string): string {
   );
 }
 
-/** A column declared exactly TEXT or INTEGER, refined by its name (`createdAt` a datetime, `isActive` a boolean, …). */
+/**
+ * A column declared exactly TEXT or INTEGER, refined by its name: `created_at` a datetime,
+ * `is_active` a boolean, and so on.
+ */
 function refinedByName(
   column: Column,
   type: AttributeType,
