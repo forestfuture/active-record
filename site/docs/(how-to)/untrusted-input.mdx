@@ -42,7 +42,7 @@ Only permit the fields you want from a request:
 `permit` can also read `FormData` or `URLSearchParams`.
 :::
 
-Permitted values are cast to their attribute’s types, so `"42"` becomes `42` for an integer. [Models](./attribute-types#casting-assigned-values) lists what each type accepts. A page number from a query string can go straight to [`paginate`](./ordering-and-pagination#paginating), which casts it too.
+Permitted values are cast to their attribute’s types, so `"42"` becomes `42` for an integer. [Attribute types](./attribute-types#casting-assigned-values) lists what each type accepts. A page number from a query string can go straight to [`paginate`](./ordering-and-pagination#paginating), which casts it too.
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 

@@ -7,6 +7,6 @@ export abstract class ApplicationRecord extends Model {
   // Left out of toJSON(), so Response.json(record) never sends them:
   static override hiddenAttributes = ["passwordDigest"];
 
-  // Shown as [FILTERED] in logs, errors, and printed records: Rails' defaults, and an IBAN.
+  // Shown as [FILTERED] in logs, errors, and printed records: the defaults, and an IBAN.
   static override filterAttributes = [...Model.filterAttributes, "iban"];
 }
