@@ -85,11 +85,15 @@ export class Attribute {
     return this.normalize(this.cast(value));
   }
 
-  /** An already cast value through each of the attribute's normalizations, in order (#354). */
+  /**
+   * An already cast value through each of the attribute's normalizations, in order (#354): null
+   * only through those declared `applyToNull`.
+   */
   normalize(value: unknown): unknown {
     let normalized = value;
-    for (const normalization of normalizationsOf(this.#model, this.name)) {
-      normalized = normalization.with(normalized);
+    for (const { with: normalize, applyToNull } of normalizationsOf(this.#model, this.name)) {
+      if (normalized === null && !applyToNull) continue;
+      normalized = normalize(normalized);
     }
     return normalized;
   }

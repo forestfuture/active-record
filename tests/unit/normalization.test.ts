@@ -95,3 +95,32 @@ describe("normalizes", () => {
     expect(Visit.table).toBe("visits");
   });
 });
+
+describe("normalizes and null", () => {
+  test("leaves null alone", () => {
+    const account = accounts.build({ email: "jane@example.com" });
+    account.email = null;
+    expect(account.email).toBeNull();
+  });
+
+  test("hands null to with when it applies to null", () => {
+    class Profile extends Model.define({
+      id: { type: "integer", null: false },
+      bio: "string",
+    }) {
+      static table = "profiles";
+
+      static {
+        this.normalizes("bio", {
+          with: (bio) => {
+            expectTypeOf(bio).toEqualTypeOf<string | null>();
+            return bio?.trim() ?? "";
+          },
+          applyToNull: true,
+        });
+      }
+    }
+
+    expect(db.model(Profile).build({ bio: null }).bio).toBe("");
+  });
+});
