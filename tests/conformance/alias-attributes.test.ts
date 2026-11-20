@@ -2,6 +2,7 @@
    declarations active-record schema generates, which merge from another file: the accessors they
    type are defined when the Model's attributes resolve. */
 // Attribute aliases (#509): another name for an attribute, which reads, writes and queries it.
+import { inspect } from "node:util";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
   Model,
@@ -26,7 +27,7 @@ const users = {
 const schema = {
   adapter: d1({ binding: "DB" }),
   tables: { users: { attributes: users, primaryKey: "id" } },
-  models: { User: "users" },
+  models: { User: "users", Member: "users" },
 } as const;
 
 abstract class ApplicationRecord extends Model {
@@ -40,6 +41,16 @@ class User extends ApplicationRecord {
   } as const;
 }
 interface User extends TableAttributes<typeof users, (typeof User)["attributes"]> {}
+
+// Validating through its aliases.
+class Member extends ApplicationRecord {
+  static override table = "users";
+  static override attributes = { login: { aliasOf: "email" } } as const;
+  static {
+    this.validates("login", { format: /@/, uniqueness: true });
+  }
+}
+interface Member extends TableAttributes<typeof users, (typeof Member)["attributes"]> {}
 
 describe("an attribute alias", () => {
   let harness: Harness;
@@ -188,6 +199,35 @@ describe("an attribute alias", () => {
 
       expect(await emails()).toEqual([{ email: "sam@example.com" }]);
       expect(user.age).toBe(33);
+    });
+  });
+
+  describe("as a record's attributes", () => {
+    test("is left out, since its attribute holds the value", async () => {
+      const user = await db().model(User).create({ email: "jane@example.com" });
+
+      expect(Object.keys(user.attributes())).not.toContain("login");
+      expect(Object.keys(user.toJSON())).not.toContain("login");
+      expect(inspect(user)).not.toContain("login");
+    });
+  });
+
+  describe("validated", () => {
+    test("reads its attribute, and its errors go under the alias", async () => {
+      const member = db().model(Member).build({ email: "jane" });
+
+      expect(await member.isValid()).toBe(false);
+      expect(member.errors.fullMessages()).toEqual(["Login is invalid"]);
+    });
+
+    test("for uniqueness, queries its attribute", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'jane@example.com')");
+      const member = db().model(Member).build({ login: "jane@example.com" });
+
+      expect(await member.isValid()).toBe(false);
+      expect(member.errors.toArray().map(({ attribute, type }) => `${attribute} ${type}`)).toEqual([
+        "login taken",
+      ]);
     });
   });
 
