@@ -107,7 +107,3 @@ declare module "../guide/several-databases" {
 declare module "../guide/custom-types" {
   interface Product extends TableAttributes<typeof products, (typeof Product)["attributes"]> {}
 }
-
-declare module "../guide/overrides" {
-  interface Product extends TableAttributes<typeof products, (typeof Product)["attributes"]> {}
-}

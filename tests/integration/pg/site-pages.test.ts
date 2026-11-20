@@ -17,6 +17,7 @@ import * as changeTracking from "../../../site/snippets/pages/change-tracking/ex
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
 import * as enums from "../../../site/snippets/pages/enums/examples.ts";
 import * as joins from "../../../site/snippets/pages/joins/examples.ts";
+import * as models from "../../../site/snippets/pages/models/examples.ts";
 import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
 import * as querying from "../../../site/snippets/pages/querying/examples.ts";
 import * as serialization from "../../../site/snippets/pages/serialization/examples.ts";
@@ -221,6 +222,62 @@ describe("the Serialization page's examples, on Postgres", () => {
     expect(json["createdAt"]).toBe("2026-01-15T00:00:00.000Z");
     expect([attributes.passwordDigest, attributes.apiKey]).toEqual(["digest", "key-1"]);
     expect(attributes.createdAt).toBeInstanceOf(Date);
+  });
+});
+
+// The Models page's examples, on the tables it shows, on Postgres.
+describe("the Models page's examples, on Postgres", () => {
+  const schema = pageSchema("models", "SELECT 1");
+  beforeEach(async () => {
+    await schema().pool.query({ text: "DELETE FROM products; DELETE FROM billing_accounts" });
+    await schema().pool.query({
+      text: "INSERT INTO products (id, name, status, archived, created_at, updated_at) VALUES ('00000000-0000-4000-8000-000000000001', 'Desk', 'published', 0, '2026-01-01Z', '2026-01-01Z'), ('00000000-0000-4000-8000-000000000002', 'Chair', 'draft', 1, '2026-01-01Z', '2026-01-01Z')",
+    });
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
+
+  test("build generates the id, applies defaults and overrides, and save sets timestamps", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+    const lamp = await run(models.building);
+
+    expect(lamp.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(lamp.publicId).toMatch(/^[0-9a-f-]{36}$/);
+    expect([lamp.status, lamp.archived, lamp.metadata]).toEqual([
+      "published",
+      false,
+      { color: "red" },
+    ]);
+    expect(lamp.createdAt).toBeInstanceOf(Date);
+  });
+
+  test("permit keeps only the named fields", async () => {
+    const request = new Request("https://example.com/", {
+      method: "POST",
+      body: JSON.stringify({ name: "Lamp", status: "published", archived: true }),
+    });
+
+    const lamp = await run(() => models.createProduct(request));
+
+    expect([lamp.name, lamp.status, lamp.archived]).toEqual(["Lamp", "draft", false]);
+  });
+
+  test("a subclass shares its parent's table, and a Model can name another table", async () => {
+    const { published, account } = await run(models.naming);
+
+    expect(published.map((product) => product.name)).toEqual(["Desk"]);
+    expect(account.email).toBe("ada@example.com");
+  });
+
+  test("a Model declared with define reads a view", async () => {
+    const counts = await run(models.countingByView);
+
+    expect(counts.map((count) => [count.status, count.total])).toEqual([
+      ["draft", 1],
+      ["published", 1],
+    ]);
   });
 });
 
