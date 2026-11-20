@@ -5,7 +5,7 @@
  * `userID` → `user_id`, `sha256Hash` → `sha256_hash`.
  */
 export function underscore(name: string): string {
-  // One substitution does the work of two; a capital gets an underscore before it after a
+  // One substitution, where the usual rule takes two; a capital gets an underscore before it after a
   // lowercase letter or digit, or after a capital or digit when a lowercase letter follows. Each
   // is a zero-width check at one position, so the time is linear in the name. A capture of a
   // whole run of capitals retries from every start, and is quadratic (#116).
