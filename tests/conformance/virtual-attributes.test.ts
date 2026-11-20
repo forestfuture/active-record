@@ -124,4 +124,28 @@ describe("a virtual attribute", () => {
       expect(sample.savedChanges()).toEqual({ note: [null, "checked"] });
     });
   });
+
+  describe("on a loaded record", () => {
+    test("starts at its default, or null, unchanged", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'jane@example.com')");
+
+      const user = await db().model(User).find(1);
+
+      expect(user.termsOfService).toBe(false);
+      expect(user.nickname).toBeNull();
+      expect(user.changes()).toEqual({});
+    });
+
+    test("goes back to its default on reload, as Rails does", async () => {
+      const user = await db()
+        .model(User)
+        .create({ email: "jane@example.com", nickname: "Janie", termsOfService: true });
+
+      await user.reload();
+
+      expect(user.termsOfService).toBe(false);
+      expect(user.nickname).toBeNull();
+      expect(user.changes()).toEqual({});
+    });
+  });
 });
