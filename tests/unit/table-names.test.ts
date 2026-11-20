@@ -11,7 +11,7 @@ function modelNamed(name: string) {
   return { [name]: class extends Model.define({ id: "integer" }) {} }[name]!;
 }
 
-// Rails' tableize cases (from Rails' inflector tests): a class name, and its table.
+// A class name and its table, from Active Support's inflector tests.
 const inflected: [string, string][] = [
   ["User", "users"],
   ["BlogPost", "blog_posts"],
@@ -72,7 +72,7 @@ const inflected: [string, string][] = [
 ];
 
 describe("inferred table names", () => {
-  // Rails' tableize: underscore, then pluralize by Active Support's English inflections.
+  // Underscore, then pluralize by the English inflections.
   test.each(inflected)("%s → %s", (className, table) => {
     expect(modelNamed(className).table).toBe(table);
   });

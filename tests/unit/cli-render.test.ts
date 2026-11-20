@@ -266,7 +266,7 @@ export const schema = defineSchema({
     );
   });
 
-  test("the app's base class holds the schema, named as Rails names it, and the app's to edit", () => {
+  test("the app's base class holds the schema, named for its binding, and the app's to edit", () => {
     const source = renderBase("LogsRecord", "../db/LOGS");
 
     expect(source).toMatch(
