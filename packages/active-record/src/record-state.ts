@@ -162,7 +162,7 @@ export class RecordState {
    */
   write(name: string, value: unknown): void {
     this.#requireNotDestroyed("be changed");
-    this.#store(name, this.#attribute(name).cast(value));
+    this.#store(name, this.#attribute(name).assigned(value));
   }
 
   /**

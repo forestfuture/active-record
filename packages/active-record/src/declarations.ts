@@ -1,8 +1,9 @@
-// A Model's declared callbacks, validations, error messages and default scopes, inherited, and sealed on its first use.
+// A Model's declared callbacks, validations, normalizations, error messages and default scopes, inherited, and sealed on its first use.
 import { ancestors } from "./ancestors.ts";
 import { InvalidModel } from "./errors.ts";
 import type { Callback, Model } from "./model.ts";
 import type { ErrorMessages } from "./error-messages.ts";
+import type { Normalization } from "./normalization.ts";
 import type { Scope } from "./relation.ts";
 import type { Validation } from "./validations.ts";
 
@@ -104,6 +105,8 @@ export type Declarations = {
   /** Default scopes (#25): applied, in order, to every Relation the Model starts. */
   defaultScopes: Scope<Model>;
   commitCallbacks: CommitCallback;
+  /** Normalizations (#354): applied, in order, to an attribute's assigned values. */
+  normalizations: Normalization;
 } & {
   [K in CallbackKind]: Callback<Model>;
 } & {
