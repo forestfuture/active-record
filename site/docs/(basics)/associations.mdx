@@ -2,22 +2,74 @@
 title: Associations
 description: "Connect Models with belongsTo, hasMany, and hasOne."
 seo:
-  description: "Connect Active Record Models with belongsTo, hasMany, and hasOne: foreign keys, polymorphic associations, preloading, autosave, counter caches, and touch."
+  description: "Connect Active Record Models with belongsTo, hasMany, and hasOne: reading and setting records, polymorphic associations, foreign keys, scopes, and dependents."
 ---
+
+## At a glance
+
+| To                                           | Write                                                                       |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| point at the record a foreign key names      | `author = belongsTo(Author)`                                                |
+| reach the records that point at this one     | `articles = hasMany(Article)`                                               |
+| reach the one record that points at this one | `profile = hasOne(Profile)`                                                 |
+| point at a record of one of several Models   | `likeable = belongsTo([Photo, Video])`, `hasMany(Like, { as: "likeable" })` |
+| narrow or order an association               | `hasMany(Article, { scope: (q) => q.where({ … }) })`                        |
+| remove records with their owner              | `hasMany(Article, { dependent: "destroy" })`                                |
+
+Each part of associations has a page of its own:
+
+| To                                                | See                                            |
+| ------------------------------------------------- | ---------------------------------------------- |
+| load an association for many records at once      | [Preloading](./preloading)                     |
+| save records with their owner                     | [Autosaving](./autosaving)                     |
+| reach records through another association         | [Through associations](./through-associations) |
+| keep a count of a record’s associated records     | [Counter caches](./counter-caches)             |
+| set `updatedAt` when an associated record changes | [Touching](./touching)                         |
+| filter by associated records                      | [Joins](./joins)                               |
+
+## The Models
+
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="author.ts">/_excerpts/pages/associations/src/models/author.ts</include>
+
+<include meta="article.ts">/_excerpts/pages/associations/src/models/article.ts</include>
+
+<include meta="profile.ts">/_excerpts/pages/associations/src/models/profile.ts</include>
+
+<include meta="comment.ts">/_excerpts/pages/associations/src/models/comment.ts</include>
+
+<include meta="category.ts">/_excerpts/pages/associations/src/models/category.ts</include>
+
+<include meta="like.ts">/_excerpts/pages/associations/src/models/like.ts</include>
+
+<include meta="photo.ts">/_excerpts/pages/associations/src/models/photo.ts</include>
+
+<include meta="video.ts">/_excerpts/pages/associations/src/models/video.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/associations/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/associations/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/associations/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
 
 ## Defining associations
 
-Declare each association as a field, passing the target Model’s class. The field’s name is the association’s name:
+Declare each association as a field, passing the target Model’s class, as the Models above do:
 
-<include>/_excerpts/guide/associations/declare.ts</include>
-
-Models can refer to each other in any order. A subclass inherits its parent’s associations, and can redeclare one to change it.
+- The field’s name is the association’s name.
+- Models can refer to each other in any order.
+- A subclass inherits its parent’s associations, and can redeclare one to change it.
 
 ## belongsTo
 
-Use `belongsTo` on the Model whose table holds the foreign key. A post belongs to its author:
+Use `belongsTo` on the Model whose table holds the foreign key, as an article belongs to its author:
 
-<include>/_excerpts/guide/associations/belongs-to.ts</include>
+<include>/_excerpts/pages/associations/examples/belongs-to.mdx</include>
 
 - **`await record.author()`** reads the associated record, or `null`.
 - **`record.author.set(user)`** points the record at another record, and `set(null)` clears it. It’s written when the record is saved.
@@ -33,37 +85,28 @@ Use `belongsTo` on the Model whose table holds the foreign key. A post belongs t
 | `autosave`   | `true` saves the record’s changes with this record. See [Saving changed records](./autosaving#saving-changed-records) |
 | `inverseOf`  | The target’s `hasOne` that points back, or `false`. See [Inverse associations](#inverse-associations)                 |
 
-### Requiring the record
+## Requiring the record
 
-Saving a record checks that each `belongsTo` points at a record that exists. If the foreign key is `null`, or no row has that key, the save fails with “must exist” on the association, such as `author`. The record it finds stays loaded. A saved record whose foreign key hasn’t changed isn’t checked again.
+Saving a record checks that each `belongsTo` points at a record that exists, unless it’s declared `optional: true`, as a category’s `parent` is:
 
-If a record may point at nothing, pass `optional: true`. A top-level category has no parent:
-
-<include>/_excerpts/guide/generators/self-reference.ts</include>
-
-A record built through a `hasMany` or `hasOne` already points at its owner, so it passes the check before either is saved. See [Autosaving](./autosaving#saving-a-graph).
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-Rails requires a `belongs_to` record by default too, and `optional: true` works the same. As in Rails 7.1, an unchanged foreign key isn’t checked. There’s no setting to turn the check off for every association, like Rails’ `belongs_to_required_by_default`.
-
-</Callout>
+- If the foreign key is `null`, or no row has that key, the save fails with “must exist” on the association, such as `author`. The record it finds stays loaded.
+- A saved record whose foreign key hasn’t changed isn’t checked again.
+- A record built through a `hasMany` or `hasOne` already points at its owner, so it passes the check before either is saved. See [Autosaving](./autosaving#saving-a-graph).
 
 ## hasMany
 
-Use `hasMany` on the Model the other table’s foreign key points at. A user has many posts:
+Use `hasMany` on the Model the other table’s foreign key points at, as an author has many articles:
 
-<include>/_excerpts/guide/associations/has-many.ts</include>
+<include>/_excerpts/pages/associations/examples/has-many.mdx</include>
 
-- **`record.posts()`** is a Relation of the associated records, with every Relation method and the target’s scopes.
-- **`record.posts().build(attrs)`** builds a record with the owner’s key, saved with the owner. See [Autosaving](./autosaving#saving-a-graph).
-- **`record.posts().create(attrs)`** and **`createOrThrow(attrs)`** save a new record at once. The owner must already be saved.
-- **`record.posts().push(...records)`** adds records. It sets their foreign key and saves them in one write, or resolves to `false` and saves none if one can’t be saved. On an unsaved owner, they’re saved with it.
-- **`record.posts().delete(...records)`** removes records by the `dependent` strategy. It destroys them for `"destroy"`, deletes them for `"deleteAll"`, and otherwise sets their foreign key to `NULL`.
-- **`record.posts().destroy(...records)`** destroys records with their callbacks, whatever the strategy.
-- **`record.posts().clear()`** removes every record, as `deleteAll()` does.
-- **`record.posts().destroyAll()`** destroys every record with its callbacks, whatever the strategy, and leaves the association empty.
-- **`insert`, `upsert`, `updateAll`, and `deleteAll`** write to the owner’s records. See [Writing many rows](#writing-many-rows).
+- **`record.articles()`** is a Relation of the associated records, with every Relation method and the target’s scopes.
+- **`record.articles().build(attrs)`** builds a record with the owner’s key, saved with the owner. See [Autosaving](./autosaving#saving-a-graph).
+- **`record.articles().create(attrs)`** and **`createOrThrow(attrs)`** save a new record at once. The owner must already be saved.
+- **`record.articles().push(...records)`** adds records. It sets their foreign key and saves them in one write, or resolves to `false` and saves none if one can’t be saved. On an unsaved owner, they’re saved with it.
+- **`record.articles().delete(...records)`** removes records by the `dependent` strategy. It destroys them for `"destroy"`, deletes them for `"deleteAll"`, and otherwise sets their foreign key to `NULL`.
+- **`record.articles().destroy(...records)`** destroys records with their callbacks, whatever the strategy.
+- **`record.articles().clear()`** removes every record, as `deleteAll()` does.
+- **`record.articles().destroyAll()`** destroys every record with its callbacks, whatever the strategy, and leaves the association empty.
 
 | Option       | Does                                                                                                                |
 | ------------ | ------------------------------------------------------------------------------------------------------------------- |
@@ -76,9 +119,9 @@ Use `hasMany` on the Model the other table’s foreign key points at. A user has
 
 ## hasOne
 
-Use `hasOne` like `hasMany`, when there’s at most one record. A user has one profile:
+Use `hasOne` like `hasMany`, when there’s at most one record, as an author has one profile:
 
-<include>/_excerpts/guide/associations/has-one.ts</include>
+<include>/_excerpts/pages/associations/examples/has-one.mdx</include>
 
 - **`await record.profile()`** reads the associated record, or `null`. If several records point at the owner, it’s the first by the scope’s order, then the primary key.
 - **`await record.profile.set(profile)`** gives the owner another record, and `set(null)` removes it. On a saved owner, the record is saved at once, so await it. On an unsaved owner, it’s saved with the owner.
@@ -87,11 +130,11 @@ Use `hasOne` like `hasMany`, when there’s at most one record. A user has one p
 
 `hasOne` takes the same options as `hasMany`.
 
-### Replacing the record
+## Replacing the record
 
 Giving a saved owner a new record removes its old one, by the association’s `dependent` strategy:
 
-<include>/_excerpts/guide/associations/has-one-replace.ts</include>
+<include>/_excerpts/pages/associations/examples/has-one-replace.mdx</include>
 
 | `dependent`                               | What happens to the old record                   |
 | ----------------------------------------- | ------------------------------------------------ |
@@ -99,162 +142,97 @@ Giving a saved owner a new record removes its old one, by the association’s `d
 | `"delete"`                                | It’s deleted, without callbacks                  |
 | `"nullify"`, a restrict strategy, or none | Its foreign key is set to `NULL`, and it’s saved |
 
-The old record is removed in the same atomic batch that writes the new one. That’s at once for `set` and `create`, and when the owner is saved for `build`.
-
-If the old record can’t be saved with a `NULL` foreign key, the write throws `RecordNotSaved`, and nothing is written. If the new record doesn’t save, the old one stays. `set` throws `RecordNotSaved` and leaves the association as it was. `create` returns the unsaved record, and saving the owner tries again.
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-`await user.profile.set(profile)` is Rails’ `user.profile = profile`. Rails removes the old record as soon as you build a new one, so a build that’s never saved still loses it. Here, `build` waits for the owner’s save.
-
-</Callout>
+- The old record is removed in the same atomic batch that writes the new one. That’s at once for `set` and `create`, and when the owner is saved for `build`.
+- If the old record can’t be saved with a `NULL` foreign key, the write throws `RecordNotSaved`, and nothing is written.
+- If the new record doesn’t save, the old one stays. `set` throws `RecordNotSaved` and leaves the association as it was. `create` returns the unsaved record, and saving the owner tries again.
 
 ## Polymorphic associations
 
-A polymorphic `belongsTo` points at a record of any of several Models, listed in an array. A like can belong to a photo or a video:
+A polymorphic `belongsTo` points at a record of any of several Models, listed in an array, as a like belongs to a photo or a video:
 
-<include>/_excerpts/guide/associations/polymorphic-declare.ts</include>
+<include>/_excerpts/pages/associations/examples/polymorphic.mdx</include>
 
-The record holds the link in two attributes: a type, which names the Model, and a foreign key. They’re the association’s name with `Type` and `Id`, so `likeable` uses `likeableType` and `likeableId`. On each listed Model, a `hasMany` or `hasOne` names the `belongsTo` with `as`, and reads the records whose type is that Model.
-
-- **`await like.likeable()`** reads the record of the Model the type names, or `null`.
-- **`like.likeable.set(video)`** sets both the type and the foreign key, and `set(null)` clears both. It’s written when the record is saved.
+- The record holds the link in two attributes: a type, which names the Model, and a foreign key. They’re the association’s name with `Type` and `Id`, so `likeable` uses `likeableType` and `likeableId`.
+- On each listed Model, a `hasMany` or `hasOne` names the `belongsTo` with `as`, and reads the records whose type is that Model.
+- **`await like.likeable()`** reads the record of the Model the type names, or `null`, and **`like.likeable.set(video)`** sets both the type and the foreign key. `set(null)` clears both.
 - **`video.likes()`** works like any `hasMany`. Records built, created, or pushed through it get the video’s type and key. Removing records through it, or by a `"nullify"` strategy, clears both.
-
-Here’s each of them at work:
-
-<include>/_excerpts/guide/associations/polymorphic-read.ts</include>
+- To preload one, see [Preloading polymorphic records](./preloading#preloading-polymorphic-records).
 
 | Option        | Does                                                                                                                                  |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `foreignType` | The attribute that holds the type. Defaults to the association’s name + `Type`, or on a `hasMany` or `hasOne`, the `as` name + `Type` |
 | `as`          | On a `hasMany` or `hasOne`: the name of the target’s polymorphic `belongsTo`. Its foreign key defaults to that name + `Id`            |
 
-The polymorphic `belongsTo` also takes `foreignKey`, `primaryKey`, `optional`, and `autosave`, as any `belongsTo` does.
+The polymorphic `belongsTo` also takes `foreignKey`, `primaryKey`, `optional`, and `autosave`, as any `belongsTo` does. It has no `build` or `create`, since it can’t tell which Model to make, and no `scope`. Neither D1 nor Postgres can enforce a foreign key that points at a different table in each row.
 
-:::note
-The polymorphic side has no `build` or `create`, since it can’t tell which Model to make, and no `scope`. Neither D1 nor Postgres can enforce a foreign key that points at a different table in each row.
-:::
+## Storing the type
 
-### Storing the type
+The type holds the listed Model’s `modelName`, such as `"Photo"`:
 
-The type holds the listed Model’s `modelName`, such as `"Photo"`. A subclass of a listed Model is stored as the Model whose table it shares. If a stored type names none of the listed Models, reading the association throws `UnknownModelName`.
+- A subclass of a listed Model is stored as the Model whose table it shares.
+- If a stored type names none of the listed Models, reading the association throws `UnknownModelName`.
 
 :::warning[Set modelName if your bundler renames classes]
-The type is saved in your rows. A Model’s name is its class name unless it sets `static modelName`, so a bundler that renames `Photo` to `e` saves `"e"`, and a later build can’t read those rows. Wrangler keeps class names by default. With any other bundler, set `static modelName` on each listed Model. See [Naming Models](/models#naming-models).
+The type is saved in your rows. A Model’s name is its class name unless it sets `static modelName`, so a bundler that renames `Photo` to `e` saves `"e"`, and a later build can’t read those rows. Wrangler keeps class names by default. With any other bundler, set `static modelName` on each listed Model. See [Naming Models](./models#naming-models).
 :::
-
-### Preloading polymorphic records
-
-`Like.includes("likeable")` preloads a polymorphic association with one query for each listed Model. See [Preloading polymorphic records](./preloading#preloading-polymorphic-records).
 
 ## Naming foreign keys
 
-A foreign key names an attribute, such as `authorId`, rather than a column. By default, it’s inferred:
+A foreign key names an attribute, such as `authorId`, rather than a column, and by default it’s inferred:
 
 - **`belongsTo`** uses the association’s name + `Id`. `author = belongsTo(Author)` uses the record’s own `authorId`.
 - **`hasMany` and `hasOne`** use the Model’s name + `Id`, on the target. `Author`’s associations use `authorId`, `BlogPost`’s use `blogPostId`, and `APIKey`’s use `apiKeyId`.
-
-If the name doesn’t follow the convention, pass `foreignKey`:
-
-```ts
-import { belongsTo } from "@forestfuture/active-record";
-
-export class Post extends ApplicationRecord {
-  author = belongsTo(User, { foreignKey: "userId" });
-}
-```
-
-Keys are checked the first time a Model is used, and a missing attribute throws `InvalidModel`.
-
-<Expandable title="Bundlers and class names">
-
-A Model’s name is its class name, unless it sets `static modelName`. Wrangler keeps class names by default, even when minifying. If a bundler renames `Author` to `e`, the inferred `eId` doesn’t exist, and the first use of the Model throws `InvalidModel`, saying where the key came from. Set `static modelName = "Author"` (see [Naming Models](/models#naming-models)), pass `foreignKey`, or keep class names in your bundler’s settings.
-
-</Expandable>
+- If the name doesn’t follow the convention, pass `foreignKey`, as `Category` does with `parentId`.
+- Keys are checked the first time a Model is used, and a missing attribute throws `InvalidModel`. If a bundler renames `Author` to `e`, the inferred `eId` doesn’t exist; set `static modelName` (see [Naming Models](./models#naming-models)), pass `foreignKey`, or keep class names in your bundler’s settings.
 
 ## Caching loaded records
 
-A loaded association is cached on the record. Reading `author()` again doesn’t query, and neither does `articles().toArray()` once the collection is loaded:
+A loaded association is cached on the record, so reading it again sends no query:
 
-<include>/_excerpts/guide/associations/read.ts</include>
+<include>/_excerpts/pages/associations/examples/read.mdx</include>
 
 - Changing a foreign key makes the next read query again.
 - `reload()` clears the cache, and `await record.reloadAssociation("articles")` reloads one association.
 - A write through a `hasMany` clears its loaded collection: `insert`, `upsert`, `updateAll` and `deleteAll`, alone or in `db.batch`, even after `where` or `order`, or with the association joined by `or()`, `merge()` or a scope. `create`, `push`, `delete`, `destroy`, and `clear` on the association itself update it instead, so the next read still doesn’t query.
 - A write made another way, such as `Article.where({ authorId: author.id }).deleteAll()`, doesn’t touch a loaded collection: reload the association to see it.
-
-<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
-
-After `author.articles().where({ title: "Untitled" }).deleteAll()`, you’d expect `author.articles()` not to hold the untitled articles any more, and here it doesn’t. In Rails it still does, until you reload: only a write on the association itself (`author.articles.delete_all`) resets what it has loaded, while a write after `where`, `or`, `merge` or a scope runs on a separate relation. In Active Record any write built from `author.articles()` clears it, at the cost of one query on the next read.
-
-</Callout>
-
-:::note
-A `belongsTo` whose foreign key is `null`, or an association on an unsaved owner, reads without a query.
-:::
+- A `belongsTo` whose foreign key is `null`, or an association on an unsaved owner, reads without a query.
 
 ## Inverse associations
 
-A record loaded through its owner’s `hasMany` or `hasOne` has the owner loaded already. Reading it back doesn’t send a query:
+A record loaded through its owner’s `hasMany` or `hasOne` has the owner loaded already, so reading it back sends no query:
 
-<include>/_excerpts/guide/associations/inverse.ts</include>
+<include>/_excerpts/pages/associations/examples/inverse.mdx</include>
 
-- Every record the association loads points back: from `toArray()`, `first()`, `find()`, `findBy()`, a Relation narrowed from it such as `author.articles().where(…)`, and [`includes`](#preloading-associations).
+- Every record the association loads points back: from `toArray()`, `first()`, `find()`, `findBy()`, a Relation narrowed from it, and [`includes`](./preloading).
 - Records built or created through the association point back too, before either is saved.
 - A `belongsTo`’s record points back through its `hasOne`. After `await profile.author()`, the author’s `profile()` is that profile. A `hasMany` isn’t filled this way, because one record isn’t the whole collection.
-- The owner is the same object on both sides, so a change to it shows from either one.
-- If the `belongsTo` is declared `autosave: true`, saving one of those records also saves the owner’s unsaved changes. See [Saving changed records](./autosaving#saving-changed-records).
-
-The inverse is the target’s first `belongsTo` that points at the owner’s Model through the same foreign key. None is found when either association has a `scope`, or for an association [through another](#reaching-records-through-another-association).
-
-If you want another inverse, or one for an association with a `scope`, name it with `inverseOf`:
-
-<include>/_excerpts/guide/associations/inverse-of.ts</include>
-
-`inverseOf` on a `hasMany` or `hasOne` names a `belongsTo`, and on a `belongsTo` it names a `hasOne`. On a polymorphic `belongsTo`, each Model it lists needs that `hasOne`. `inverseOf: false` turns the inverse off. If the association you name doesn’t link back through the same keys, using the Model throws `InvalidModel`.
-
-<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
-
-Rails finds an inverse by its name. `has_many :articles` on `Author` looks for `belongs_to :author` on `Article`. It finds none when you pass `foreign_key:`, or when the `belongs_to` has another name, such as `belongs_to :writer, class_name: "Author"`. Then you add `inverse_of` yourself. Active Record finds the inverse by its foreign key instead, so it finds `writer = belongsTo(Author, { foreignKey: "authorId" })` too. It also finds a polymorphic `belongsTo`’s `hasOne` without `inverseOf`, where Rails needs `inverse_of`.
-
-</Callout>
-
-## Preloading associations
-
-Load an association for many records at once with `includes`, one query per association. See [Preloading](./preloading).
-
-## Creating related records
-
-Records built or created through an association get the owner’s key, and records built through one are saved with their owner. See [Autosaving](./autosaving).
+- The owner is the same object on both sides, so a change to it shows from either one. If the `belongsTo` is declared `autosave: true`, saving one of those records also saves the owner’s unsaved changes.
+- The inverse is the target’s first `belongsTo` that points at the owner’s Model through the same foreign key. None is found when either association has a `scope`, or for an association [through another](./through-associations). Name it with `inverseOf` then, as `publishedArticles` does.
+- `inverseOf` on a `hasMany` or `hasOne` names a `belongsTo`, and on a `belongsTo` it names a `hasOne`. On a polymorphic `belongsTo`, each Model it lists needs that `hasOne`. `inverseOf: false` turns the inverse off. If the association you name doesn’t link back through the same keys, using the Model throws `InvalidModel`.
 
 ## Scoping associations
 
-Narrow or order an association’s records with `scope`:
+Narrow or order an association’s records with `scope`, as `Author`’s `publishedArticles` does:
 
-<include>/_excerpts/guide/associations/scoped.ts</include>
+<include>/_excerpts/pages/associations/examples/scoped.mdx</include>
 
-The scope applies to reads and preloads alike, and records created through the association take its equality values. `q` is the target’s Relation, with its attributes and scopes. The target’s [default scope](./scopes#narrowing-every-query) applies too.
+- The scope applies to reads and preloads alike, and records created through the association take its equality values.
+- `q` is the target’s Relation, with its attributes and scopes. The target’s [default scope](./scopes#narrowing-every-query) applies too.
+- A scope that uses `limit`, `offset`, or `distinct` can’t be preloaded, since it would apply to every owner’s records together. `includes` throws `IncompatibleRelation` before it sends any preload.
 
-:::note
-A scope that uses `limit`, `offset`, or `distinct` can’t be preloaded, since it would apply to every owner’s records together. `includes` throws `IncompatibleRelation` before it sends any preload.
-:::
+## Associating a Model with itself
 
-<Expandable title="A Model’s association to itself, scoped with its own scopes">
+Point a Model’s association at its own class, with its own foreign key, as `Category` does:
 
-TypeScript can’t infer this one case: `children = hasMany(Category, { scope: (q) => q.top() })` inside `Category`, where `top` is one of `Category`’s scopes. Write the field’s type out:
+<include>/_excerpts/pages/associations/examples/self-referencing.mdx</include>
 
-<include>/_excerpts/guide/associations/self-referencing.ts</include>
-
-</Expandable>
-
-## Reaching records through another association
-
-Reach records through another association with `through`, such as a tag’s articles through its taggings. See [Through associations](./through-associations).
+TypeScript can’t infer an association whose scope uses its own Model’s scopes, such as `children` ordered by `alphabetical()`, so write the field’s type out: `HasMany<typeof Category>`.
 
 ## Destroying dependent records
 
 Set what destroying the owner does to its records with `dependent`:
+
+<include>/_excerpts/pages/associations/examples/dependent.mdx</include>
 
 | Strategy                   | What happens                                                                            |
 | -------------------------- | --------------------------------------------------------------------------------------- |
@@ -264,37 +242,19 @@ Set what destroying the owner does to its records with `dependent`:
 | `"restrictWithException"`  | The destroy throws `DeleteRestriction` while there are records                          |
 | `"restrictWithError"`      | The destroy returns `false`, with an error on the owner’s `base`                        |
 
-Everything a destroy does on the owner’s database, its DELETE included, is written in one atomic batch. Records on [another database](./several-databases#associating-models-on-different-databases) are written there separately. Strategies run after the owner’s `beforeDestroy` callbacks, so an `abort()` leaves the records alone.
-
-:::note
-Without a strategy, it’s up to the database. If the table declares the foreign key with `REFERENCES`, destroying an owner whose records still point at it throws `InvalidForeignKey`.
-:::
-
-## Counting records with a counter cache
-
-Keep a count of an article’s comments on the article with `counterCache`, and read it with `size()`, with no query. See [Counter caches](./counter-caches).
-
-## Touching associated records
-
-Set an article’s `updatedAt` whenever one of its comments changes, or a profile’s whenever its user changes, with `touch: true`. See [Touching](./touching).
+- Everything a destroy does on the owner’s database, its DELETE included, is written in one atomic batch. Records on [another database](./several-databases#associating-models-on-different-databases) are written there separately.
+- Strategies run after the owner’s `beforeDestroy` callbacks, so an `abort()` leaves the records alone.
+- Without a strategy, it’s up to the database. If the table declares the foreign key with `REFERENCES`, destroying an owner whose records still point at it throws `InvalidForeignKey`.
 
 ## Writing many rows
 
 `insert`, `updateAll`, and `deleteAll` work through a `hasMany`, scoped to the owner’s records:
 
-<include>/_excerpts/guide/associations/statements.ts</include>
+<include>/_excerpts/pages/associations/examples/statements.mdx</include>
 
-In a batch, pass the association to the write: `b.deleteAll(article.comments())`.
-
-`upsert` and `upsertAll` through a `hasMany` only update the owner’s records. When a row clashes with another owner’s record, that record stays as it is. The row isn’t written, counted, or returned. To find out whether a row was skipped, compare `rowsAffected` with the number of rows you gave.
-
-<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
-
-In Rails, `upsert_all` through an association writes the owner’s key into a clashing row. So `current_user.posts.upsert_all(rows)`, given an id from a request, moves another user’s post to the current user. Here that row is skipped, as `onDuplicate: "skip"` skips a duplicate.
-
-</Callout>
-
-`deleteAll()` on the association follows its `dependent` strategy: it deletes the records for `"destroy"` or `"deleteAll"`, and otherwise sets their foreign keys to `NULL`. See [Bulk writes and batches](./batches).
+- In a batch, pass the association to the write: `b.deleteAll(article.comments())`.
+- `upsert` and `upsertAll` through a `hasMany` only update the owner’s records. When a row clashes with another owner’s record, that record stays as it is. The row isn’t written, counted, or returned. To find out whether a row was skipped, compare `rowsAffected` with the number of rows you gave.
+- `deleteAll()` on the association follows its `dependent` strategy: it deletes the records for `"destroy"` or `"deleteAll"`, and otherwise sets their foreign keys to `NULL`. See [Bulk writes and batches](./batches).
 
 ## Not built yet
 
@@ -304,3 +264,23 @@ These features aren’t in Active Record yet. The code shows the shape they’re
 - **Associations through another across databases** ([#435](https://github.com/forestfuture/active-record/issues/435)): an association whose hops are on different databases, read with a query per database.
 - **Never autosaving** ([#378](https://github.com/forestfuture/active-record/issues/378)): `articles = hasMany(Article, { autosave: false })`, which never saves the association’s records with the owner, not even new ones.
 - **Numbered autosave errors** ([#379](https://github.com/forestfuture/active-record/issues/379)): `hasMany(Article, { autosave: true, indexErrors: true })`, which names a copied error by the record’s position, `articles[1].title`.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails requires a `belongs_to` record by default too, and `optional: true` works the same. As in Rails 7.1, an unchanged foreign key isn’t checked. There’s no setting to turn the check off for every association, like Rails’ `belongs_to_required_by_default`.
+
+`await user.profile.set(profile)` is Rails’ `user.profile = profile`. Rails removes the old record as soon as you build a new one, so a build that’s never saved still loses it. Here, `build` waits for the owner’s save.
+
+Rails declares `belongs_to :likeable, polymorphic: true` without a list, and finds the class from the stored name. Here you list the Models, so `await like.likeable()` is typed `Photo | Video | null`. Records built through `video.likes()` point back at the video without a query, which Rails doesn’t do for a polymorphic association.
+
+</Callout>
+
+<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
+
+After `author.articles().where({ title: "Untitled" }).deleteAll()`, `author.articles()` no longer holds the untitled articles. In Rails it still does, until you reload: only a write on the association itself resets what it has loaded. In Active Record any write built from `author.articles()` clears it, at the cost of one query on the next read.
+
+Rails finds an inverse by its name, and finds none when you pass `foreign_key:` or name the `belongs_to` otherwise. Active Record finds the inverse by its foreign key, so it finds `writer = belongsTo(Author, { foreignKey: "authorId" })` too, and a polymorphic `belongsTo`’s `hasOne` without `inverseOf`.
+
+In Rails, `upsert_all` through an association writes the owner’s key into a clashing row. So `current_user.posts.upsert_all(rows)`, given an id from a request, moves another user’s post to the current user. Here that row is skipped, as `onDuplicate: "skip"` skips a duplicate.
+
+</Callout>

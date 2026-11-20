@@ -16,6 +16,11 @@ import {
 } from "../../../packages/active-record/src/index.ts";
 import { inspect } from "node:util";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import * as associations from "../../../site/snippets/pages/associations/examples.ts";
+import { Article as Story } from "../../../site/snippets/pages/associations/src/models/article.ts";
+import { Author as Writer } from "../../../site/snippets/pages/associations/src/models/author.ts";
+import { Comment as Remark } from "../../../site/snippets/pages/associations/src/models/comment.ts";
+import { Profile as Bio } from "../../../site/snippets/pages/associations/src/models/profile.ts";
 import * as attributeTypes from "../../../site/snippets/pages/attribute-types/examples.ts";
 import { Article as AutosavedArticle } from "../../../site/snippets/pages/autosaving/src/models/article.ts";
 import { Comment as AutosavedComment } from "../../../site/snippets/pages/autosaving/src/models/comment.ts";
@@ -510,6 +515,104 @@ describe("the Touching page's examples", () => {
     await run(touching.renaming);
 
     expect(await updatedAt("profiles")).not.toBe(stale);
+  });
+});
+
+// The Associations page's examples, on the tables it shows.
+describe("the Associations page's examples", () => {
+  const binding = pageDatabase("associations", [
+    "likes",
+    "videos",
+    "photos",
+    "categories",
+    "comments",
+    "articles",
+    "profiles",
+    "authors",
+  ]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO authors (id, name) VALUES ('mary', 'Mary'), ('ada', 'Ada')",
+        "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'mary', 'Poet')",
+        "INSERT INTO articles (id, author_id, title, published) VALUES ('x1', 'mary', 'On Nothing', 1), ('x2', 'mary', 'Draft', 0)",
+        "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x1', 'Hm.')",
+        "INSERT INTO categories (id, name, parent_id) VALUES ('t', 'Top', NULL), ('b', 'Beta', 't'), ('a', 'Alpha', 't')",
+        "INSERT INTO photos (id, title) VALUES ('ph', 'Sunset')",
+        "INSERT INTO videos (id, title) VALUES ('vi', 'Launch')",
+        "INSERT INTO likes (id, likeable_type, likeable_id) VALUES ('l1', 'Photo', 'ph')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const db = (onQuery?: (event: { sql: string }) => void) => connect(binding(), { onQuery });
+  const run = <T>(fn: () => Promise<T>, onQuery?: (event: { sql: string }) => void) =>
+    withDatabase(db(onQuery), fn);
+  const names = (records: { title?: string; name?: string; bio?: string | null }[]) =>
+    records.map((record) => record.title ?? record.name ?? record.bio);
+
+  test("a belongsTo reads its record, and set() points it at another", async () => {
+    const { author, article } = await run(associations.readingTheAuthor);
+    const ada = await db().model(Writer).findByOrThrow({ name: "Ada" });
+
+    expect([author?.name, article.authorId]).toEqual(["Mary", ada.id]);
+  });
+
+  test("a hasMany reads, builds, and bulk-deletes the owner's records", async () => {
+    const articles = await run(associations.readingArticles);
+
+    expect(names(articles).sort((a, b) => String(a).localeCompare(String(b)))).toEqual([
+      "Draft",
+      "On Nothing",
+    ]);
+    expect(await db().model(Story).where({ title: "Untitled" }).count()).toBe(0);
+  });
+
+  test("a hasOne reads its record, and set() replaces it", async () => {
+    expect((await run(associations.readingTheProfile))?.bio).toBe("Poet");
+
+    await run(associations.replacingTheProfile);
+
+    expect(await db().model(Bio).pluck("bio")).toEqual(["Novelist"]);
+  });
+
+  test("a polymorphic like reads its record, and moves to a video", async () => {
+    const { liked, likes } = await run(associations.liking);
+
+    expect(liked?.constructor.name).toBe("Photo");
+    expect(likes).toHaveLength(1);
+  });
+
+  test("a loaded association is cached, and points back without a query", async () => {
+    const reads: string[] = [];
+    const { author, again } = await run(associations.caching, ({ sql }) => void reads.push(sql));
+    const back = await run(associations.pointingBack);
+
+    expect(reads).toHaveLength(2); // the article, then its author once
+    expect(again).toBe(author);
+    expect(back.author).toBe(back.mary);
+  });
+
+  test("a scoped association reads only its records, and a self-reference nests", async () => {
+    const published = await run(associations.scoping);
+    const { top, children, parent } = await run(associations.nesting);
+
+    expect(names(published)).toEqual(["On Nothing"]);
+    expect([top?.name, names(children ?? []), parent?.name]).toEqual([
+      "Top",
+      ["Alpha", "Beta"],
+      "Top",
+    ]);
+  });
+
+  test("deleteAll through an association, and destroying with dependents", async () => {
+    await run(associations.deletingComments);
+    expect(await db().model(Remark).count()).toBe(0);
+
+    await run(associations.destroying);
+
+    expect(await db().model(Writer).pluck("name")).toEqual(["Ada"]);
+    expect([await db().model(Story).count(), await db().model(Bio).count()]).toEqual([0, 0]);
   });
 });
 

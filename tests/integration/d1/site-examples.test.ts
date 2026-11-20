@@ -10,30 +10,7 @@ import {
 } from "vite-plus/test";
 import { gte, Model, withDatabase } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
-import {
-  Article,
-  Author,
-  autosaveExample,
-  belongsToExample,
-  createThroughExample,
-  hasManyExample,
-  hasOneExample,
-  Like,
-  markForDestructionExample,
-  Photo,
-  polymorphicExample,
-  polymorphicPreloadExample,
-  Profile,
-  preloadExample,
-  replaceProfileExample,
-  readExample,
-  inverseExample,
-  Editor,
-  saveChangedExample,
-  statementsExample,
-  Video,
-  writersExample,
-} from "../../../site/snippets/guide/associations.ts";
+import { Article, Author } from "../../../site/snippets/guide/associations.ts";
 import * as batches from "../../../site/snippets/guide/batches.ts";
 import * as attributeWrites from "../../../site/snippets/guide/attribute-writes.ts";
 import {
@@ -59,7 +36,7 @@ import { messagesExample, Product } from "../../../site/snippets/guide/error-mes
 import worker from "../../../site/snippets/getting-started/src/index.ts";
 import * as several from "../../../site/snippets/guide/several-databases.ts";
 import { publishDraftsAndRemove } from "../../../site/snippets/getting-started/src/publish.ts";
-import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
+import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
 const scratch = scratchDirs();
@@ -299,149 +276,6 @@ describe("the guide's examples", () => {
     ]);
     expect(Product.humanAttributeName("priceCents")).toBe("Price");
     expect(Product.humanAttributeName("createdAt")).toBe("Added on");
-  });
-
-  test("Associations: reading, creating through, and deleting through an association", async () => {
-    const db = connect(binding);
-    const { author, profile, latest } = await withDatabase(db, () => readExample("x1"));
-    const comment = await withDatabase(db, () => createThroughExample("x1"));
-
-    expect([author?.name, profile?.bio, latest?.title]).toEqual(["Mary", "Poet", "On Nothing"]);
-    expect(comment.articleId).toBe("x1");
-
-    await statementsExample(await db.model(Article).find("x1"));
-    expect(
-      await db
-        .model(Article)
-        .find("x1")
-        .then((article) => article.comments().count()),
-    ).toBe(0);
-  });
-
-  test("Associations: inverse associations, inferred and named (#62)", async () => {
-    const db = connect(binding);
-    await binding
-      .prepare("INSERT INTO articles (id, author_id, title) VALUES ('x9', 'mary', 'Untitled')")
-      .run();
-    const { author, sameAuthor } = await withDatabase(db, () => inverseExample("mary"));
-    const editor = await db.model(Editor).find("mary");
-    const drafts = await editor.drafts().toArray();
-    const built = editor.drafts().build({ title: "Untitled" });
-
-    expect(sameAuthor).toBe(author);
-    expect(drafts).toHaveLength(1);
-    expect(drafts[0]!.loaded("editor")).toBe(editor);
-    expect(built.loaded("editor")).toBe(editor);
-  });
-
-  test("Associations: each kind's reference example, as the guide shows it", async () => {
-    const db = connect(binding);
-    const editor = await db.model(Author).createOrThrow({ name: "Ed" });
-
-    const articles = await withDatabase(db, () => hasManyExample("mary")); // builds an Untitled one, then deletes it
-    const author = await withDatabase(db, () => belongsToExample("x1", editor));
-    const profile = await withDatabase(db, () => hasOneExample("mary"));
-
-    expect(articles.map((article) => article.title)).toEqual(["On Nothing"]);
-    expect(author?.name).toBe("Mary");
-    expect(await db.model(Article).pluck("authorId", "title")).toEqual([[editor.id, "On Nothing"]]);
-    expect(profile?.bio).toBe("Poet");
-
-    await withDatabase(db, () => replaceProfileExample("mary"));
-    expect(await db.model(Profile).where({ authorId: "mary" }).pluck("bio")).toEqual(["Novelist"]);
-  });
-
-  test("Associations: a polymorphic like reads, moves to a video, and preloads", async () => {
-    const queries: string[] = [];
-    const db = connect(binding, { onQuery: ({ sql }) => queries.push(sql) });
-    await binding.batch([
-      binding.prepare("DELETE FROM likes"),
-      binding.prepare("DELETE FROM photos"),
-      binding.prepare("DELETE FROM videos"),
-      binding.prepare("INSERT INTO photos (id, title) VALUES (1, 'Dunes')"),
-      binding.prepare("INSERT INTO videos (id, title) VALUES (1, 'Tides')"),
-      binding.prepare("INSERT INTO likes (id, likeable_type, likeable_id) VALUES (1, 'Photo', 1)"),
-    ]);
-    const video = await db.model(Video).find(1);
-
-    const { liked, likes } = await withDatabase(db, () => polymorphicExample(1, video));
-
-    expect(liked).toBeInstanceOf(Photo);
-    expect(likes.map((like) => like.id)).toEqual([1]);
-    expect(await db.model(Like).pluck("likeableType", "likeableId")).toEqual([["Video", 1]]);
-    queries.length = 0;
-    const preloaded = await withDatabase(db, () => polymorphicPreloadExample());
-    expect(preloaded[0]!.loaded("likeable")).toBeInstanceOf(Video);
-    expect(queries).toHaveLength(3);
-    expect(log).toHaveBeenCalledWith("Tides");
-  });
-
-  test("Associations: autosave writes the graph in one batch; set() links new and saved authors", async () => {
-    const queries: string[] = [];
-    const db = connect(binding, { onQuery: ({ sql }) => queries.push(sql) });
-    const ada = await withDatabase(db, () => autosaveExample());
-    const batched = queries.length;
-    const { draft, another, grace } = await withDatabase(db, () => writersExample(ada));
-
-    expect(batched).toBe(4); // the author, two articles and the profile (atomicity: autosave tests)
-    expect(await db.model(Article).where({ authorId: ada.id }).pluck("title")).toEqual(
-      expect.arrayContaining([
-        "Notes on the Analytical Engine",
-        "Sketch of the Engine",
-        "Untitled",
-      ]),
-    );
-    expect((await ada.profile())?.bio).toBe("Mathematician");
-    expect(draft.authorId).toBe(ada.id);
-    expect(grace.isPersisted()).toBe(true);
-    expect(another.authorId).toBe(grace.id);
-  });
-
-  /** An author with a draft and another article, stored. */
-  async function authorWithArticles(db: ReturnType<typeof connect>) {
-    const author = await db.model(Author).createOrThrow({ name: "Ed" });
-    await db.model(Article).createOrThrow({ authorId: author.id, title: "Draft one" });
-    await db.model(Article).createOrThrow({ authorId: author.id, title: "Kept" });
-    return author;
-  }
-
-  test("Associations: autosave: true saves the changed articles (#37)", async () => {
-    const db = connect(binding);
-    const author = await authorWithArticles(db);
-
-    await withDatabase(db, () => saveChangedExample(author.id));
-
-    const titles = db.model(Article).where({ authorId: author.id }).order({ title: "asc" });
-    expect(await titles.pluck("title")).toEqual(["DRAFT ONE", "KEPT"]);
-  });
-
-  test("Associations: autosave: true destroys the marked drafts (#37)", async () => {
-    const db = connect(binding);
-    const author = await authorWithArticles(db);
-
-    const articles = await withDatabase(db, () => markForDestructionExample(author.id));
-
-    const destroyed = articles.filter((article) => article.isDestroyed());
-    expect(destroyed.map((article) => article.title)).toEqual(["Draft one"]);
-    expect(await db.model(Article).where({ authorId: author.id }).pluck("title")).toEqual(["Kept"]);
-  });
-
-  test("Associations: the preload takes 4 queries in 1 round trip, and the loop none", async () => {
-    await withDatabase(connect(binding), () => autosaveExample());
-    const queries: string[] = [];
-    const recording = recordingBatches(binding);
-
-    const authors = await withDatabase(
-      connect(recording.binding, { onQuery: ({ sql }) => queries.push(sql) }),
-      () => preloadExample(),
-    );
-
-    expect(authors.map((author) => author.name).sort()).toEqual(["Ada", "Mary"]);
-    // The authors, profiles, articles and comments, all in one batch.
-    expect(queries).toHaveLength(4);
-    expect(recording.batches).toEqual([4]);
-    expect(log).toHaveBeenCalledWith("Mary", 1, "Poet");
-    expect(log).toHaveBeenCalledWith("Ada", 2, "Mathematician");
   });
 
   test("Batches: statements, many rows, an atomic batch, and records in a batch", async () => {
