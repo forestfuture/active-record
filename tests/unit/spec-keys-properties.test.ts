@@ -217,6 +217,7 @@ describe("a spec's keys", () => {
       scopes: true,
       instanceMethods: true,
       validate: true,
+      virtual: true,
     } satisfies Record<keyof SpecObject, true>;
 
     expect(overridableKeyNames.split(", ")).toEqual(
