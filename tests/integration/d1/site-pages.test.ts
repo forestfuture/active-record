@@ -793,6 +793,12 @@ describe("the Validations page's examples", () => {
       "Plan is not included in the list",
       "Seats is not a number",
     ]);
+    expect(account.errors.toArray()).toContainEqual({
+      attribute: "handle",
+      type: "tooShort",
+      message: "needs at least 3 characters",
+      values: { count: 3 },
+    });
   });
 
   test("errors added in a callback read as the add example shows", async () => {
