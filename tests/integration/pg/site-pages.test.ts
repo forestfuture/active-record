@@ -31,6 +31,9 @@ import { Author as BatchedAuthor } from "../../../site/snippets/pages/batches/sr
 import { Comment as BatchedComment } from "../../../site/snippets/pages/batches/src/models/comment.ts";
 import * as callbacks from "../../../site/snippets/pages/callbacks/examples.ts";
 import { Order as CallbackOrder } from "../../../site/snippets/pages/callbacks/src/models/order.ts";
+import { app } from "../../../site/snippets/pages/connecting/src/app.ts";
+import * as connecting from "../../../site/snippets/pages/connecting/examples.ts";
+import { User as ConnectedUser } from "../../../site/snippets/pages/connecting/src/models/user.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as changeTracking from "../../../site/snippets/pages/change-tracking/examples.ts";
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
@@ -862,6 +865,33 @@ describe("the Bulk writes and batches page's examples, on Postgres", () => {
       "Kim",
     ]);
     expect(await db().model(BatchedComment).count()).toBe(0);
+  });
+});
+
+// The Connections page's examples that don't call D1's connect, on Postgres.
+describe("the Connections page's examples, on Postgres", () => {
+  const schema = pageSchema("connecting", "SELECT 1");
+  beforeEach(async () => {
+    await schema().pool.query({ text: "DELETE FROM posts; DELETE FROM users" });
+    await schema().pool.query({
+      text: "INSERT INTO users (id, email) VALUES ('00000000-0000-4000-8000-000000000001', 'jane@example.com');\nINSERT INTO posts (id, user_id, title) VALUES ('00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000001', 'Hello'), ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Getting started')",
+    });
+  });
+  const db = () => connect(schema().url);
+
+  test("the app's Models query the database a request runs them on", async () => {
+    const response = await withDatabase(db(), () =>
+      app.fetch(new Request("https://example.com/?email=jane%40example.com")),
+    );
+
+    expect(await response.json()).toEqual(["Getting started", "Hello"]);
+  });
+
+  test("batch saves the user and the post that points at it", async () => {
+    await withDatabase(db(), connecting.signingUp);
+
+    const sam = await db().model(ConnectedUser).findByOrThrow({ email: "sam@example.com" });
+    expect(await sam.posts().pluck("title")).toEqual(["Hello"]);
   });
 });
 

@@ -34,6 +34,9 @@ import { Author as BatchedAuthor } from "../../../site/snippets/pages/batches/sr
 import { Comment as BatchedComment } from "../../../site/snippets/pages/batches/src/models/comment.ts";
 import * as callbacks from "../../../site/snippets/pages/callbacks/examples.ts";
 import { Order as CallbackOrder } from "../../../site/snippets/pages/callbacks/src/models/order.ts";
+import { app } from "../../../site/snippets/pages/connecting/src/app.ts";
+import * as connecting from "../../../site/snippets/pages/connecting/examples.ts";
+import { User as ConnectedUser } from "../../../site/snippets/pages/connecting/src/models/user.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as changeTracking from "../../../site/snippets/pages/change-tracking/examples.ts";
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
@@ -938,6 +941,56 @@ describe("the Bulk writes and batches page's examples", () => {
       "Kim",
     ]);
     expect(await db().model(BatchedComment).count()).toBe(0);
+  });
+});
+
+// The Connections page's examples, on the tables it shows.
+describe("the Connections page's examples", () => {
+  const binding = pageDatabase("connecting", ["posts", "users"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO users (id, email) VALUES ('1', 'jane@example.com')",
+        "INSERT INTO posts (id, user_id, title) VALUES ('2', '1', 'Hello'), ('3', '1', 'Getting started')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const log = quietLog();
+  const env = () => ({ DB: binding() }) as unknown as Parameters<typeof connecting.findJane>[0];
+
+  test("the app's Models query the database a request runs them on", async () => {
+    const response = await withDatabase(connect(binding()), () =>
+      app.fetch(new Request("https://example.com/?email=jane%40example.com")),
+    );
+
+    expect(await response.json()).toEqual(["Getting started", "Hello"]);
+  });
+
+  test("the Worker opens a database for each request, and logs its queries", async () => {
+    const response = await connecting.worker.fetch(
+      new Request("https://example.com/?email=jane%40example.com"),
+      env(),
+    );
+
+    expect(await response.json()).toEqual(["Getting started", "Hello"]);
+    expect(log.calls().length).toBeGreaterThan(0);
+  });
+
+  test("db.model and db.models query the database they come from", async () => {
+    const jane = await connecting.findJane(env());
+
+    expect(jane.email).toBe("jane@example.com");
+    expect(await connecting.listPosts(env())).toEqual(["Getting started", "Hello"]);
+  });
+
+  test("batch saves the user and the post that points at it", async () => {
+    await withDatabase(connect(binding()), connecting.signingUp);
+
+    const sam = await connect(binding())
+      .model(ConnectedUser)
+      .findByOrThrow({ email: "sam@example.com" });
+    expect(await sam.posts().pluck("title")).toEqual(["Hello"]);
   });
 });
 

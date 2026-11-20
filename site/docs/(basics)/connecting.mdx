@@ -17,15 +17,33 @@ Most apps only use the binding.
 
 [Database resolution](./query-databases) explains why there are three, and [which one you need](./query-databases#which-do-i-need).
 
+## The Models
+
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="user.ts">/_excerpts/pages/connecting/src/models/user.ts</include>
+
+<include meta="post.ts">/_excerpts/pages/connecting/src/models/post.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/connecting/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/connecting/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/connecting/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
+
 :::note
 The examples use D1’s `connect`, from `@forestfuture/active-record/d1`. On Postgres, `connect` comes from `@forestfuture/active-record/postgresql` and takes your Hyperdrive binding. See [PostgreSQL](./postgresql#connecting).
 :::
 
 ## Using the binding
 
-Each Model names the binding it queries, so a Model queries by itself during any request:
+Each Model names the binding it queries, so a Model queries by itself during any request, as the app’s Worker does:
 
-<include>/_excerpts/guide/connecting/binding.ts</include>
+<include>/_excerpts/pages/connecting/src/app.ts</include>
 
 `active-record schema` writes the binding into the generated schema your app’s base class holds. On D1 it comes from your Wrangler config’s `d1_databases`, and on Postgres from your `active-record.jsonc`.
 
@@ -39,17 +57,7 @@ The binding is only there during a request, inside a Worker. Tests and scripts t
 
 Some things belong to one request, such as a D1 Session that reads its own writes, or logging tagged with the request’s ID. Open a database for the request, and run its code inside `withDatabase`:
 
-```ts
-import { withDatabase } from "@forestfuture/active-record";
-import { connect } from "@forestfuture/active-record/d1";
-
-export default {
-  fetch(request, env) {
-    const db = connect(env.DB, { onQuery: log });
-    return withDatabase(db, () => app.fetch(request, env));
-  },
-};
-```
+<include>/_excerpts/pages/connecting/examples/request.mdx</include>
 
 Every query started from a Model inside it, and everything it awaits, uses that database instead of the binding.
 
@@ -68,11 +76,11 @@ These pages use a request’s database:
 
 Start a query from a database you hold with `db.model`. It ignores `withDatabase`:
 
-<include>/_excerpts/guide/connecting/explicit.ts</include>
+<include>/_excerpts/pages/connecting/examples/explicit.mdx</include>
 
 To name your Models once, use `db.models`:
 
-<include>/_excerpts/guide/connecting/models.ts</include>
+<include>/_excerpts/pages/connecting/examples/models.mdx</include>
 
 `connect(env.DB, { session, onQuery })` takes the same options as a request’s database.
 
@@ -80,6 +88,6 @@ To name your Models once, use `db.models`:
 
 `batch` saves and destroys records and runs bulk writes atomically:
 
-<include>/_excerpts/guide/connecting/batch.ts</include>
+<include>/_excerpts/pages/connecting/examples/batch.mdx</include>
 
 `batch` writes a Model’s rows on the current database. `db.batch` uses an explicit one. See [Bulk writes and batches](./batches).
