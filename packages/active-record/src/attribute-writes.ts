@@ -7,6 +7,7 @@ import {
   touchAssignments,
   type CounterOptions,
 } from "./counters.ts";
+import { withAttributeNames } from "./attribute-aliases.ts";
 import { RecordNotSaved } from "./errors.ts";
 import type { AttributesOf, Model, ModelClass, SpecsOf } from "./model.ts";
 import { ModelStatics } from "./model-statics.ts";
@@ -184,11 +185,12 @@ async function addToColumn(
 /** Assigns `attributes`, then UPDATEs only them by the stored key, and marks them saved. */
 async function writeColumns(
   record: Model,
-  attributes: Record<string, unknown>,
+  given: Record<string, unknown>,
   method: string,
 ): Promise<boolean> {
   const recordState = record[state];
   requireSaved(record, method);
+  const attributes = withAttributeNames(modelOf(record), given);
   const names = Object.keys(attributes);
   if (names.length === 0) throw new TypeError(`${method} needs at least one attribute to write`);
   recordState.assign(attributes);

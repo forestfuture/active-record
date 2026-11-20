@@ -46,6 +46,18 @@ describe("an attribute alias", () => {
     expectTypeOf<User["login"]>().toEqualTypeOf<string>();
     expectTypeOf<User["years"]>().toEqualTypeOf<number | null>();
   });
+
+  test("is a name queries take", () => {
+    const users = db.model(User);
+    // Never run: it compiles only if each method takes the alias.
+    const querying = () => [
+      users.where({ login: "jane@example.com" }),
+      users.order({ login: "asc" }),
+      users.pluck("login"),
+    ];
+
+    expectTypeOf(querying).toBeFunction();
+  });
 });
 
 /** A Model on the users table declaring `attributes`, as plain JavaScript might. */

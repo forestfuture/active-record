@@ -1,5 +1,5 @@
 // Attribute metadata: each attribute's type, column and default, resolved from its spec.
-import { attributeName } from "./attribute-aliases.ts";
+import { attributeName, type AttributeAlias } from "./attribute-aliases.ts";
 import { type AnyCustomType, type CustomType, isCustomType } from "./custom-types.ts";
 import { copiedKeys } from "./spec-keys.ts";
 import type { EnumNames, EnumValues, IntegerEnum, TextEnum } from "./enum-values.ts";
@@ -137,7 +137,7 @@ type SpecObjectByType =
 export type AttributeSpecs = Record<string, AttributeSpec>;
 
 /** What `define` takes: attribute specs, and aliases of them (#509). */
-export type DeclaredAttributes = Record<string, AttributeSpec | { readonly aliasOf: string }>;
+export type DeclaredAttributes = Record<string, AttributeSpec | AttributeAlias>;
 
 /**
  * `A`, with any key a spec doesn't have typed `never`, so a misspelled one (`nul: false`) is a

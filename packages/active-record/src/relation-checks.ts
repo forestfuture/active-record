@@ -1,6 +1,7 @@
 // What a Relation's methods take, checked when a query is written, not when it runs.
 import type { Assignment, Conflict } from "./compiler.ts";
 import { Comparison } from "./comparisons.ts";
+import { withAttributeNames } from "./attribute-aliases.ts";
 import { attributeFor } from "./attribute.ts";
 import { refuseBareDates } from "./fragment-guard.ts";
 import { type AttributeType, columnOf } from "./metadata.ts";
@@ -156,7 +157,8 @@ export function checkConditions(model: ModelClass, conditions: object, method: s
 export function checkChanges(model: ModelClass, changes: object): Assignment[] | SafeSql {
   checkConditions(model, changes, "updateAll");
   if (changes instanceof SafeSql) return changes;
-  const assignments = Object.entries(changes);
+  // An alias's value is its attribute's, so each column is set once (#509).
+  const assignments = Object.entries(withAttributeNames(model, changes as Record<string, unknown>));
   if (assignments.length === 0) {
     throw new TypeError("updateAll() needs at least one attribute to change");
   }

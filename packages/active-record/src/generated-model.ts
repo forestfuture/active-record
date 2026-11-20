@@ -1,12 +1,12 @@
 // A generated Model (`class Post extends ApplicationRecord {}`): the generated schema's types, its
-// table, primary key and attributes from the schema its base class holds (overrides checked),
-// settled on first use, and its binding (#232).
+// table, primary key, attributes and aliases from the schema its base class holds (overrides
+// checked), settled on first use, and its binding (#232).
 import type { SchemaAdapter } from "./adapter.ts";
 import { ancestors } from "./ancestors.ts";
 import {
   aliasesIn,
   isAlias,
-  type AliasAttribute,
+  type AttributeAlias,
   type AliasSpecs,
   type WithoutAliases,
 } from "./attribute-aliases.ts";
@@ -94,7 +94,7 @@ type AttributeOverride =
       virtual?: false;
     })
   | VirtualAttribute
-  | AliasAttribute;
+  | AttributeAlias;
 
 /**
  * An attribute that isn't a column (#356): its type, and optionally nullability and a default,

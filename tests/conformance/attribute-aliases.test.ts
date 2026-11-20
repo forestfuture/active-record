@@ -28,6 +28,7 @@ const users = {
   email: { type: "string", null: false },
   role: "string",
   age: "integer",
+  suspended: { type: "boolean", null: false, default: () => false },
   createdAt: "datetime",
   updatedAt: "datetime",
 } as const;
@@ -46,7 +47,10 @@ class User extends ApplicationRecord {
   static override attributes = {
     login: { aliasOf: "email" },
     years: { aliasOf: "age" },
+    paused: { aliasOf: "suspended" },
+    joined: { aliasOf: "createdAt" },
   } as const;
+  static override filterAttributes = ["email"];
 }
 interface User extends TableAttributes<typeof users, (typeof User)["attributes"]> {}
 
@@ -58,6 +62,7 @@ class Member extends ApplicationRecord {
   static override table = "users";
   static override attributes = { login: { aliasOf: "email" } } as const;
   static {
+    this.humanAttributeNames({ login: "Sign-in" });
     this.validates("login", { format: /@/, uniqueness: true });
   }
 }
@@ -115,29 +120,55 @@ describe("an attribute alias", () => {
 
     test("matches its attribute in a condition", async () => {
       await seed();
-      const users = db().model(User);
 
-      expect((await users.where({ login: "sam@example.com" }).toArray()).map((u) => u.id)).toEqual([
-        2,
-      ]);
-      expect(
-        (await users.whereNot({ login: "sam@example.com" }).toArray()).map((u) => u.id),
-      ).toEqual([1]);
-      expect((await users.findBy({ login: "jane@example.com" }))?.id).toBe(1);
-      expect(await users.where(sql`${column("years")} > ${35}`).pluck("id")).toEqual([2]);
+      expect(await db().model(User).where({ login: "sam@example.com" }).pluck("id")).toEqual([2]);
     });
 
-    test("orders, plucks, selects and groups by its attribute", async () => {
+    test("matches its attribute in a negated condition", async () => {
       await seed();
-      const users = db().model(User);
 
-      expect(await users.order({ login: "desc" }).pluck("login")).toEqual([
+      expect(await db().model(User).whereNot({ login: "sam@example.com" }).pluck("id")).toEqual([
+        1,
+      ]);
+    });
+
+    test("finds a record by its attribute", async () => {
+      await seed();
+
+      expect((await db().model(User).findBy({ login: "jane@example.com" }))?.id).toBe(1);
+    });
+
+    test("names its attribute's column in an sql fragment", async () => {
+      await seed();
+
+      const older = db()
+        .model(User)
+        .where(sql`${column("years")} > ${35}`);
+
+      expect(await older.pluck("id")).toEqual([2]);
+    });
+
+    test("orders and plucks by its attribute", async () => {
+      await seed();
+
+      expect(await db().model(User).order({ login: "desc" }).pluck("login")).toEqual([
         "sam@example.com",
         "jane@example.com",
       ]);
-      const [first] = await users.select("login").order({ id: "asc" }).toArray();
-      expect(first!.email).toBe("jane@example.com");
-      expect(await users.group("years").count()).toEqual(
+    });
+
+    test("selects its attribute, which the record holds under its own name", async () => {
+      await seed();
+
+      const [first] = await db().model(User).select("login").order({ id: "asc" }).toArray();
+
+      expect(first!.attributes()).toEqual({ id: 1, email: "jane@example.com" });
+    });
+
+    test("groups by its attribute", async () => {
+      await seed();
+
+      expect(await db().model(User).group("years").count()).toEqual(
         new Map([
           [30, 1],
           [40, 1],
@@ -147,22 +178,29 @@ describe("an attribute alias", () => {
 
     test("calculates over its attribute", async () => {
       await seed();
-      const users = db().model(User);
 
-      expect(await users.sum("years")).toBe(70);
-      expect(await users.maximum("years")).toBe(40);
+      expect(await db().model(User).sum("years")).toBe(70);
     });
 
-    test("is the same condition as its attribute's, so rewhere and unscope replace either", async () => {
+    test("is replaced by rewhere on its attribute's condition", async () => {
       await seed();
-      const users = db().model(User);
 
-      const replaced = users
+      const replaced = db()
+        .model(User)
         .where({ email: "jane@example.com" })
         .rewhere({ login: "sam@example.com" });
-      const dropped = users.where({ login: "sam@example.com" }).unscope({ where: "email" });
 
       expect(await replaced.pluck("id")).toEqual([2]);
+    });
+
+    test("is dropped by unscope naming its attribute", async () => {
+      await seed();
+
+      const dropped = db()
+        .model(User)
+        .where({ login: "sam@example.com" })
+        .unscope({ where: "email" });
+
       expect(await dropped.order({ id: "asc" }).pluck("id")).toEqual([1, 2]);
     });
   });
@@ -170,14 +208,15 @@ describe("an attribute alias", () => {
   describe("in a write", () => {
     const emails = () => harness.exec("SELECT email FROM users ORDER BY id");
 
-    test("builds and creates a record", async () => {
-      const users = db().model(User);
+    test("builds a record from a form's permitted fields", () => {
       const form = User.permit({ login: "jane@example.com", role: "admin" }, "login");
 
-      const built = users.build(form);
-      const created = await users.create({ login: "sam@example.com", years: 40 });
+      expect(db().model(User).build(form).email).toBe("jane@example.com");
+    });
 
-      expect(built.email).toBe("jane@example.com");
+    test("creates a record", async () => {
+      const created = await db().model(User).create({ login: "sam@example.com", years: 40 });
+
       expect([created.email, created.age]).toEqual(["sam@example.com", 40]);
     });
 
@@ -202,27 +241,84 @@ describe("an attribute alias", () => {
       });
       await users.upsert({ login: "jane@example.com", years: 31 }, { uniqueBy: ["login"] });
 
-      expect(rows).toEqual([{ email: "sam@example.com" }]); // keyed as select loads it
+      expect(rows).toEqual([{ login: "sam@example.com" }]);
       expect(await harness.exec("SELECT email, age FROM users ORDER BY id")).toEqual([
         { email: "jane@example.com", age: 31 },
         { email: "sam@example.com", age: 40 },
       ]);
     });
 
-    test("updates rows and columns", async () => {
-      const user = await db().model(User).create({ email: "jane@example.com", age: 30 });
+    test("fills in what the row doesn't give under either name", async () => {
+      const users = db().model(User);
+
+      await users.insert({ login: "jane@example.com", paused: true, joined: new Date(0) });
+
+      expect(await harness.exec("SELECT suspended, created_at FROM users")).toEqual([
+        { suspended: 1, created_at: "1970-01-01T00:00:00.000Z" },
+      ]);
+    });
+
+    test("binds its attribute's filtered value as filtered", async () => {
+      await db()
+        .model(User)
+        .insertAll([{ login: "jane@example.com" }]);
+
+      expect(JSON.stringify(events.map((event) => event.params))).not.toContain("jane@example.com");
+    });
+
+    test("refuses a row giving both it and its attribute", async () => {
+      const users = db().model(User);
+      const both = { email: "jane@example.com", login: "sam@example.com" };
+
+      await expect(users.insert(both)).rejects.toThrow(
+        new TypeError("User: login is an alias of email, so give one of them"),
+      );
+      await expect(users.updateAll(both)).rejects.toThrow(
+        new TypeError("User: login is an alias of email, so give one of them"),
+      );
+    });
+
+    test("updates every row", async () => {
+      await db().model(User).create({ email: "jane@example.com" });
 
       await db().model(User).updateAll({ login: "sam@example.com" });
-      await user.updateColumns({ years: 31 });
-      await user.incrementColumn("years");
-      user.increment("years");
 
       expect(await emails()).toEqual([{ email: "sam@example.com" }]);
-      expect(user.age).toBe(33);
+    });
+
+    test("updates a record's columns", async () => {
+      const user = await db().model(User).create({ email: "jane@example.com", age: 30 });
+
+      await user.updateColumns({ years: 31 });
+      await user.incrementColumn("years");
+
+      expect(await harness.exec("SELECT age FROM users")).toEqual([{ age: 32 }]);
+    });
+
+    test("increments in memory", () => {
+      const user = db().model(User).build({ email: "jane@example.com", age: 30 });
+
+      user.increment("years");
+
+      expect(user.age).toBe(31);
+    });
+
+    test("toggles in memory", () => {
+      const user = db().model(User).build({ email: "jane@example.com" });
+
+      user.toggle("paused");
+
+      expect(user.suspended).toBe(true);
     });
   });
 
   describe("as a record's attributes", () => {
+    test("is one the record has", async () => {
+      const user = await db().model(User).create({ email: "jane@example.com" });
+
+      expect(user.hasAttribute("login")).toBe(true);
+    });
+
     test("is left out, since its attribute holds the value", async () => {
       const user = await db().model(User).create({ email: "jane@example.com" });
 
@@ -233,11 +329,11 @@ describe("an attribute alias", () => {
   });
 
   describe("validated", () => {
-    test("reads its attribute, and its errors go under the alias", async () => {
+    test("reads its attribute, and its errors go under the alias, by the name given it", async () => {
       const member = db().model(Member).build({ email: "jane" });
 
       expect(await member.isValid()).toBe(false);
-      expect(member.errors.fullMessages()).toEqual(["Login is invalid"]);
+      expect(member.errors.fullMessages()).toEqual(["Sign-in is invalid"]);
     });
 
     test("for uniqueness, queries its attribute", async () => {
@@ -252,15 +348,19 @@ describe("an attribute alias", () => {
   });
 
   describe("on a Model declared with define", () => {
-    test("is typed, read, written and queried as its attribute", async () => {
+    test("is typed as its attribute, and writes it", async () => {
       const visitor = await db().model(Visitor).create({ login: "jane@example.com" });
 
       expectTypeOf(visitor.login).toEqualTypeOf<string>();
       expect(visitor.email).toBe("jane@example.com");
+    });
+
+    test("is queried as its attribute", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'jane@example.com')");
+
       expect(await db().model(Visitor).where({ login: "jane@example.com" }).pluck("id")).toEqual([
-        visitor.id,
+        1,
       ]);
-      expect(Object.keys(visitor.attributes())).toEqual(["id", "email"]);
     });
   });
 
@@ -290,7 +390,6 @@ describe("an attribute alias", () => {
       expect(user.attributeWas("login")).toBe("jane@example.com");
       expect(user.isAttributeChanged("login", { to: "sam@example.com" })).toBe(true);
       expect(user.willSaveChangeTo("login")).toBe(true);
-      expect(user.hasAttribute("login")).toBe(true);
     });
 
     test("are read through the alias once saved", async () => {

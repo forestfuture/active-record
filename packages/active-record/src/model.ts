@@ -23,7 +23,7 @@ import type { Errors } from "./errors-collection.ts";
 import { humanAttributeName, type ErrorMessages } from "./error-messages.ts";
 import { declare, declared } from "./declarations.ts";
 import { checkNormalizedName, type NormalizeOptions } from "./normalization.ts";
-import { aliasesIn, attributeName, isAlias, type DefinedSpecs } from "./attribute-aliases.ts";
+import { aliasesIn, isAlias, type DefinedSpecs } from "./attribute-aliases.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
@@ -203,7 +203,10 @@ export class Model extends AttributeWrites {
   declare static primaryKey: string;
   declare static attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
 
-  /** Each attribute alias (`title: { aliasOf: "name" }`), by alias, to the attribute it names (#509). */
+  /**
+   * Each attribute alias (`title: { aliasOf: "name" }`), by alias, to the attribute it names (#509).
+   * @internal
+   */
   declare static attributeAliases: ReadonlyMap<string, string>;
   /**
    * The generated schema, on an app's base class (`static override schema = schema`): the
@@ -283,8 +286,8 @@ export class Model extends AttributeWrites {
   static define<B extends BaseClass, const A extends DeclaredAttributes>(
     this: B,
     specs: A & ExactSpecs<A>,
-  ): ModelBaseFor<SpecsGiven<DefinedSpecs<A>>, B> {
-    return defineModel(specs as A, this) as never;
+  ): ModelBaseFor<SpecsOrWidened<DefinedSpecs<A>>, B> {
+    return defineModel<A, B>(specs, this);
   }
 
   /**
@@ -572,8 +575,7 @@ export class Model extends AttributeWrites {
     this: R,
     name: K,
   ): [before: AttributesOf<R>[K], after: AttributesOf<R>[K]] | undefined {
-    this[state].read(name);
-    const change = this[state].savedChanges()[attributeName(modelOf(this), name)];
+    const change = this[state].savedChangeOf(name);
     return change === undefined
       ? undefined
       : ([...change] as [AttributesOf<R>[K], AttributesOf<R>[K]]);
@@ -593,8 +595,7 @@ export class Model extends AttributeWrites {
     this: R,
     name: K,
   ): AttributesOf<R>[K] {
-    this[state].read(name);
-    const change = this[state].savedChanges()[attributeName(modelOf(this), name)];
+    const change = this[state].savedChangeOf(name);
     return (
       change === undefined ? this[state].valueInDatabase(name) : change[0]
     ) as AttributesOf<R>[K];
@@ -810,13 +811,13 @@ export type ModelBaseFor<
  * `S` as attribute specs: itself, or when it isn't (a spec that's a compile error), widened, so
  * `define` still gives a class to extend and the error stays on the spec.
  */
-type SpecsGiven<S> = S extends AttributeSpecs ? S : S & AttributeSpecs;
+type SpecsOrWidened<S> = S extends AttributeSpecs ? S : S & AttributeSpecs;
 
 /** `Model.define({...})` on `base`: a class with the attributes' accessors, extending `base`. */
-function defineModel<const A extends DeclaredAttributes, B extends BaseClass>(
-  specs: A,
+function defineModel<A extends DeclaredAttributes, B extends BaseClass>(
+  specs: DeclaredAttributes,
   base: B,
-): ModelBaseFor<SpecsGiven<DefinedSpecs<A>>, B> {
+): ModelBaseFor<SpecsOrWidened<DefinedSpecs<A>>, B> {
   const Parent = base as unknown as typeof Model;
   const definitions = new Map(
     Object.entries(specs).flatMap(([name, spec]) =>

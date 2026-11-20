@@ -19,6 +19,7 @@ import {
   type UpsertOptions,
 } from "./relation-checks.ts";
 import { SafeSql } from "./sql.ts";
+import { withAttributeNames } from "./attribute-aliases.ts";
 import { insertStatement, Statement, type ReturnedRow } from "./statement.ts";
 
 /** @internal The library's key for a Relation's bulk writes, as Statements. */
@@ -92,7 +93,9 @@ function insertRows<Row>(
   { method, returning }: { method: string; returning?: Returning<Model> | undefined },
 ): Statement<Row> {
   requireSavedOwner(relation, "insert");
-  const values = rows.map((row) => bulkRowValues(relation, row));
+  const values = rows.map((row) =>
+    bulkRowValues(relation, withAttributeNames(relation.model, row)),
+  );
   return insertStatement(relation.executor, relation.model, values, {
     conflict,
     method,
