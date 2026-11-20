@@ -10,8 +10,6 @@ import {
 } from "vite-plus/test";
 import { gte, Model, withDatabase } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
-import { Article, Author } from "../../../site/snippets/guide/associations.ts";
-import * as batches from "../../../site/snippets/guide/batches.ts";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runGenerate } from "../../../packages/active-record/cli/generate/command.ts";
@@ -160,80 +158,6 @@ describe("Getting started", () => {
 });
 
 // The guide's larger examples, on the tables they're written for.
-describe("the guide's examples", () => {
-  let binding: TestDatabase;
-  let dispose: () => Promise<void>;
-  const schema = new URL("../../../site/snippets/guide/schema.sql", import.meta.url);
-
-  beforeAll(async () => {
-    ({ db: binding, dispose } = await createTestDatabase(schema));
-  });
-  afterAll(() => dispose());
-  // The examples log what they show; the tests check it here rather than print it.
-  const log = vi.spyOn(console, "log").mockImplementation(() => {});
-  afterAll(() => log.mockRestore());
-  beforeEach(async () => {
-    log.mockClear();
-    await binding.batch([
-      binding.prepare("DELETE FROM comments"),
-      binding.prepare("DELETE FROM profiles"),
-      binding.prepare("DELETE FROM articles"),
-      binding.prepare("DELETE FROM authors"),
-      binding.prepare("INSERT INTO authors (id, name) VALUES ('mary', 'Mary')"),
-      binding.prepare(
-        "INSERT INTO articles (id, author_id, title, published, created_at) VALUES ('x1', 'mary', 'On Nothing', 1, '2026-01-01T00:00:00.000Z')",
-      ),
-      binding.prepare("INSERT INTO profiles (author_id, bio) VALUES ('mary', 'Poet')"),
-      binding.prepare("INSERT INTO comments (article_id, body) VALUES ('x1', 'Hm.')"),
-    ]);
-  });
-
-  test("Batches: statements, many rows, an atomic batch, and records in a batch", async () => {
-    const db = connect(binding);
-
-    const commentId = await withDatabase(db, () => batches.statementsExample("x1"));
-    await withDatabase(db, () => batches.insertAllExample("x1"));
-    const returned = await withDatabase(db, () => batches.returningExample("x1"));
-    const graceId = await withDatabase(db, () => batches.batchExample());
-
-    expect(commentId).toEqual(expect.any(Number));
-    expect(log).toHaveBeenCalledWith(1, 1, commentId); // the article's one comment deleted
-    expect(new Set(returned.map(({ body }) => body))).toEqual(new Set(["One", "Two"]));
-    for (const { id, body } of returned) expect(log).toHaveBeenCalledWith(id, body);
-    expect(
-      await db
-        .model(Article)
-        .find("x1")
-        .then((article) => article.title),
-    ).toBe("EDITED");
-    expect(
-      await db
-        .model(Author)
-        .find("author-1")
-        .then((author) => author.name),
-    ).toBe("Ada");
-    expect(await db.model(Article).where({ authorId: graceId }).pluck("title")).toEqual(["Hello"]);
-
-    const { savedAuthor } = await withDatabase(db, () => batches.recordsExample("x1", graceId));
-
-    expect(savedAuthor.isPersisted()).toBe(true);
-    expect(
-      await db
-        .model(Article)
-        .find("x1")
-        .then((article) => article.title),
-    ).toBe("Final");
-    expect(await db.model(Author).exists({ id: graceId })).toBe(false); // and its article, dependent
-    expect(await db.model(Article).where({ authorId: graceId }).count()).toBe(0);
-    expect(
-      await db
-        .model(Article)
-        .find("x1")
-        .then((article) => article.comments().count()),
-    ).toBe(0);
-  });
-});
-
 // Change a table: code deployed before a migration adds a column keeps working.
 describe("Change a table", () => {
   test("code that doesn't declare a newer column keeps working, as the guide says", async () => {

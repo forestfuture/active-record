@@ -216,3 +216,15 @@ questions:
       - 'throw abort("reason") from a before-callback such as beforeSave'
       - "save() resolves to false and record.abortReason holds the reason; saveOrThrow() throws RecordNotSaved"
     routes: /callbacks
+  - id: upsert-by-email
+    question: "How do I insert an author, or update their name if one with that email already exists, in one statement?"
+    expected:
+      - 'Author.upsert({ name, email }, { uniqueBy: "email" }), which needs a unique index on email'
+      - "it runs no validations or callbacks"
+    routes: /batches
+  - id: atomic-batch
+    question: "How do I create an author and their first article so that both are written or neither is?"
+    expected:
+      - "generate the author's key in code, then batch((b) => [b.insert(Author, { id, … }), b.insert(Article, { authorId: id, … })])"
+      - "or build both and pass b.save(record) for each, which runs their validations and callbacks"
+    routes: /batches
