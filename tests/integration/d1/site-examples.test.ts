@@ -62,7 +62,6 @@ import { findOrCreate } from "../../../site/snippets/guide/find-or-create.ts";
 import { createdSince, oldestFirst, Reminder } from "../../../site/snippets/guide/mixed-dates.ts";
 import { paidAt, paidSince } from "../../../site/snippets/guide/raw-statements.ts";
 import * as untrusted from "../../../site/snippets/guide/untrusted-input.ts";
-import * as iterating from "../../../site/snippets/guide/iterating.ts";
 import * as filtering from "../../../site/snippets/guide/filtering.ts";
 import * as hidden from "../../../site/snippets/guide/hidden-attributes.ts";
 import { messagesExample, Product } from "../../../site/snippets/guide/error-messages.ts";
@@ -200,19 +199,6 @@ describe("Getting started", () => {
     expect(await db.model(User).pluck("email")).toEqual(["grace@example.com"]);
     expect(await db.model(Post).where({ publishedAt: null }).count()).toBe(0);
     expect(await db.model(Post).count()).toBe(1);
-  });
-
-  test("Querying: the iterating examples walk the users and posts a batch at a time", async () => {
-    const db = connect(binding);
-    const grace = await db.model(User).findByOrThrow({ email: "grace@example.com" });
-    await db.model(Post).create({ userId: grace.id, title: "A draft" });
-
-    const seen = await withDatabase(db, () => iterating.examples(grace.id, grace.id));
-
-    expect(seen.slice(0, 3)).toEqual(Array(3).fill("grace@example.com"));
-    // Random keys, so the posts come in no order a test can know.
-    expect(new Set(seen.slice(3))).toEqual(new Set(["Hello, world", "Untitled"]));
-    expect(await db.model(Post).where({ publishedAt: null }).pluck("title")).toEqual(["Untitled"]);
   });
 });
 

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { withDatabase } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/postgresql/index.ts";
+import * as batchIteration from "../../../site/snippets/guide/batch-iteration.ts";
 import * as conditions from "../../../site/snippets/guide/conditions.ts";
 import * as ordering from "../../../site/snippets/guide/ordering.ts";
 import * as through from "../../../site/snippets/guide/through.ts";
@@ -98,10 +99,24 @@ describe("the Ordering and pagination page's examples, on Postgres", () => {
   });
 });
 
+// The Batch iteration page's examples, on the Postgres table it shows.
+describe("the Batch iteration page's examples, on Postgres", () => {
+  const schema = pageSchema(
+    "batch-iteration",
+    "INSERT INTO posts (title, published_at) VALUES ('One', '2026-01-01Z'), ('Two', NULL), ('Three', NULL)",
+  );
+
+  test("start and finish bound the keys, and order: desc walks down", async () => {
+    const titles = await withDatabase(connect(schema().url), () => batchIteration.choosing());
+
+    expect(titles).toEqual(["One", "Two", "Three", "Two", "One"]);
+  });
+});
+
 // Each page shows its Models beside its Postgres tables; the attributes generated from those
 // tables are the ones its Models declare. PGlite starts for each schema read, which takes seconds.
 describe("the standalone pages’ Models, against their Postgres tables", { timeout: 60_000 }, () => {
-  test.each(["conditions", "through", "ordering"])(
+  test.each(["conditions", "through", "ordering", "batch-iteration"])(
     "%s declares what its tables generate",
     async (page) => {
       const sql = readFileSync(
