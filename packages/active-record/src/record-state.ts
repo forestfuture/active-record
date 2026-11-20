@@ -241,11 +241,11 @@ export class RecordState {
     this.#markSaved(row, loadedCount);
   }
 
-  /** A virtual attribute's value on a loaded record: its default, cast, or null (#356). */
+  /** A virtual attribute's value on a loaded record: its default, cast and normalized, or null (#356). */
   #virtualDefault(name: string, definition: AttributeDefinition): unknown {
     return definition.default === undefined
       ? null
-      : this.#attribute(name).cast(definition.default());
+      : this.#attribute(name).assigned(definition.default());
   }
 
   /** The loaded attributes as a plain object (the record's own values, not copies). */

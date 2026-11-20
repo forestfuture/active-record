@@ -316,3 +316,17 @@ describe("typeForAttribute", () => {
     expect(deserialize(" Jane@Example.com")).toBe(" Jane@Example.com");
   });
 });
+
+describe("normalizeAttribute", () => {
+  test("leaves null alone", () => {
+    const account = accounts.build();
+    account.normalizeAttribute("email");
+    expect(account.email).toBeNull();
+  });
+
+  test("takes only an attribute's name", () => {
+    const account = accounts.build();
+    // @ts-expect-error -- not an attribute
+    expect(() => account.normalizeAttribute("mail")).toThrow(UnknownAttribute);
+  });
+});

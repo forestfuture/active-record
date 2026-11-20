@@ -23,6 +23,19 @@ class Member extends Model.define({
   }
 }
 
+// A virtual attribute whose default is normalized, as any value assigned to it.
+class Invitee extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+  greeting: { type: "string", virtual: true, default: () => "  Welcome " },
+}) {
+  static table = "users";
+
+  static {
+    this.normalizes("greeting", { with: (greeting) => greeting.trim() });
+  }
+}
+
 // A role that's never null once assigned: "member" in its place.
 class Teammate extends Model.define({
   id: { type: "integer", null: false },
@@ -254,5 +267,47 @@ describe("a normalized attribute's written values", () => {
     const member = await members().create({ id: 1, email: "jane@example.com" });
     await member.updateColumns({ email: " Sam@Example.com " });
     expect(await storedEmails()).toEqual(["sam@example.com"]);
+  });
+});
+
+describe("a record loaded with a value stored before its normalization", () => {
+  let harness: Harness;
+
+  beforeAll(async () => {
+    harness = await openHarness();
+  });
+  afterAll(() => harness.dispose());
+
+  const db = () => harness.connect();
+
+  beforeEach(async () => {
+    await harness.reset("posts", "users");
+    await harness.exec("INSERT INTO users (id, email) VALUES (?, ?)", [1, " Jane@Example.com"]);
+  });
+
+  test("keeps the value as it's stored, unchanged", async () => {
+    const member = await db().model(Member).find(1);
+    expect(member.email).toBe(" Jane@Example.com");
+    expect(member.isChanged()).toBe(false);
+  });
+
+  test("isn't found by the value it's stored with", async () => {
+    expect(await db().model(Member).findBy({ email: " Jane@Example.com" })).toBeNull();
+  });
+
+  test("normalizeAttribute normalizes the value, and save stores it", async () => {
+    const member = await db().model(Member).find(1);
+
+    member.normalizeAttribute("email");
+
+    expect(member.changes()).toEqual({ email: [" Jane@Example.com", "jane@example.com"] });
+    await member.saveOrThrow();
+    const [row] = await harness.exec("SELECT email FROM users WHERE id = 1");
+    expect(row?.email).toBe("jane@example.com");
+  });
+
+  test("starts a virtual attribute at its default, normalized", async () => {
+    const invitee = await db().model(Invitee).find(1);
+    expect(invitee.greeting).toBe("Welcome");
   });
 });
