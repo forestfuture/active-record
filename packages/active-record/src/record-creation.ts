@@ -1,6 +1,7 @@
 // Records made through a Relation: `build`, `create`, `findOrInitializeBy`'s build and `createOrFindBy`'s create, each handed to its `init`.
 import { RecordNotUnique } from "./errors.ts";
-import { refuseThenable, runBuiltCallbacks } from "./load-callbacks.ts";
+import { runBuiltCallbacks } from "./load-callbacks.ts";
+import { refuseThenable } from "./thenables.ts";
 import { buildRecord, type AttributesOf, type Model, type ModelClass } from "./model.ts";
 import type { OwnedCollection } from "./owned-collection.ts";
 import { state } from "./record-state.ts";

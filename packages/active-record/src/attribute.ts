@@ -24,6 +24,7 @@ import {
   requireDefined,
 } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
+import { refuseThenable } from "./thenables.ts";
 import { normalizationsOf } from "./normalization.ts";
 
 /** What `condition()` and `conditionCell()` give for a value that can't match anything. */
@@ -87,13 +88,19 @@ export class Attribute {
 
   /**
    * An already cast value through each of the attribute's normalizations, in order (#354): null
-   * only through those declared `applyToNull`.
+   * only through those declared `applyToNull`. Each result is cast again, so it's a value of the
+   * attribute's type, whatever plain JavaScript returns; a promise is refused.
    */
   normalize(value: unknown): unknown {
     let normalized = value;
     for (const { with: normalize, applyToNull } of normalizationsOf(this.#model, this.name)) {
       if (normalized === null && !applyToNull) continue;
-      normalized = normalize(normalized);
+      const result = normalize(normalized);
+      refuseThenable(
+        result,
+        `${this.#model.name} normalizes "${this.name}" with a function that returned a promise; a normalization runs synchronously`,
+      );
+      normalized = this.cast(result);
     }
     return normalized;
   }
