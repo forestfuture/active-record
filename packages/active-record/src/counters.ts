@@ -1,7 +1,7 @@
 // Counters (#351): adding to number attributes in the row, `SET x = COALESCE(x, 0) + n`, for `updateCounters` and a record's `incrementColumn`; the amounts they add; the timestamps their `touch` option sets (#61), which a record's `touch()` and a Relation's `touchAll` set too (#50); and refusing an attribute of the wrong type, for them and for `toggle`.
 import type { DatetimeAttributeKey, NumberAttributeKey } from "./attribute-writes.ts";
 import type { Assignment } from "./compiler.ts";
-import { columnOf } from "./metadata.ts";
+import { attributeOf, columnOf } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
 import { column, SafeSql } from "./sql.ts";
 
@@ -65,6 +65,7 @@ export function counterSets(
   const strings = [""];
   const values: unknown[] = [];
   for (const [index, [name, by]] of entries.entries()) {
+    columnOf(model, name); // a counter is written in SQL, so it needs a column (#356)
     requireAttributeType(model, name, method, "integer", "real");
     if (index > 0) strings[strings.length - 1] = ", ";
     values.push(column(name), column(name), column(name).value(amount(by, method)));
@@ -99,7 +100,7 @@ export function requireAttributeType(
   method: string,
   ...types: string[]
 ): void {
-  const definition = columnOf(model, name);
+  const definition = attributeOf(model, name);
   const isPlain = definition.enum === undefined && definition.customType === undefined;
   if (!isPlain || !types.includes(definition.type)) {
     throw new TypeError(

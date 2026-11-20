@@ -152,6 +152,16 @@ describe("a virtual attribute", () => {
     });
   });
 
+  describe("changed in memory", () => {
+    test("toggles, as Rails toggles any attribute", async () => {
+      const user = await db().model(User).create({ email: "jane@example.com" });
+
+      user.toggle("termsOfService");
+
+      expect(user.termsOfService).toBe(true);
+    });
+  });
+
   describe("on a loaded record", () => {
     test("starts at its default, or null, unchanged", async () => {
       await harness.exec("INSERT INTO users (id, email) VALUES (1, 'jane@example.com')");
@@ -214,6 +224,31 @@ describe("a virtual attribute", () => {
       await expect(
         users.findOrCreateBy({ email: "jane@example.com", nickname: "Janie" }),
       ).rejects.toThrow(refusal);
+      expect(events).toEqual([]);
+    });
+
+    test("with a default is left out of a bulk insert that doesn't name it", async () => {
+      const users = db().model(User);
+
+      await users.insert({ email: "jane@example.com" });
+      await users.insertAll([{ email: "sam@example.com" }]);
+      await users.upsert({ id: 1, email: "jane@example.org" });
+
+      expect(await harness.exec("SELECT email FROM users ORDER BY id")).toEqual([
+        { email: "jane@example.org" },
+        { email: "sam@example.com" },
+      ]);
+    });
+
+    test("is refused by the writes that name its column", async () => {
+      const user = await db().model(User).create({ email: "jane@example.com" });
+      const refused = new UnknownAttribute(
+        "User.termsOfService is a virtual attribute, which has no column to query",
+      );
+      events.length = 0;
+
+      await expect(user.toggleColumn("termsOfService")).rejects.toThrow(refused);
+      await expect(user.updateColumns({ termsOfService: true })).rejects.toThrow(refused);
       expect(events).toEqual([]);
     });
 

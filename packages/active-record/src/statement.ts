@@ -161,7 +161,11 @@ function rowReader(model: ModelClass, names: readonly string[]): RowReader {
  */
 function insertAssignments(model: ModelClass, attributes: Record<string, unknown>): Assignment[] {
   for (const name of Object.keys(attributes)) columnOf(model, name);
-  const values = [...Object.entries(attributes), ...initialValues(model, attributes)];
+  // A virtual attribute's default is the record's, never the row's (#356).
+  const initial = initialValues(model, attributes).filter(
+    ([name]) => model.attributeDefinitions.get(name)?.virtual !== true,
+  );
+  const values = [...Object.entries(attributes), ...initial];
   for (const [name, value] of values) requireDefined(model, name, value);
   return [...values, ...timestampsFor(model, "insert", values)];
 }

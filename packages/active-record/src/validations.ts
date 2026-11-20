@@ -383,6 +383,7 @@ export function checkValidatedNames(
     checkConfirmation(model, attribute);
   }
   const { uniqueness } = options;
+  if (uniqueness !== undefined && uniqueness !== false) columnOf(model, attribute);
   if (typeof uniqueness === "object") {
     for (const name of uniqueness.scope ?? []) columnOf(model, name);
   }
