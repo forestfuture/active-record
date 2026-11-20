@@ -130,8 +130,8 @@ export function undoPointing(owner: Model, association: ResolvedAssociation): ()
 
 /**
  * A hasOne's accessor for `owner`: `await user.profile()`, plus `set`, `build`, `create` and
- * `createOrThrow`. A new record
- * replaces the owner's old one, removed by `dependent:` when the new one is written (#40).
+ * `createOrThrow`. A new record replaces the owner's old one, removed by `dependent:` when the new
+ * one is written (#40).
  */
 export function hasOneAccessor(owner: Model, association: ResolvedAssociation): unknown {
   const read = () =>

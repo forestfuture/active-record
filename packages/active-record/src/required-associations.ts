@@ -6,10 +6,10 @@ import { state } from "./record-state.ts";
 import { belongsToKeys } from "./resolved-association.ts";
 
 /**
- * Adds "must exist" (type `required`) to each of the record's required belongsTo associations
- * whose record isn't there. One is checked only when its key is null or has an unsaved change,
- * so a saved record whose key hasn't changed costs no query. The record is read through its accessor, so it's loaded and kept. A
- * record marked for destruction counts as missing.
+ * Adds "must exist" (type `required`) to each of the record's required belongsTo associations whose
+ * record isn't there. One is checked only when its key is null or has an unsaved change, so a saved
+ * record whose key hasn't changed costs no query. The record is read through its accessor, so it's
+ * loaded and kept. A record marked for destruction counts as missing.
  */
 export async function validateRequiredAssociations(record: Model): Promise<void> {
   for (const [name, definition] of associationsOf(modelOf(record))) {

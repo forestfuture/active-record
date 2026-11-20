@@ -31,7 +31,7 @@ export interface ErrorMessages<N extends string = string> {
   readonly restrictDependentDestroy?: RestrictMessages;
 }
 
-/** @internal The built-in English messages, used where no class has its own (listed in the guide). */
+/** @internal The built-in English messages, where no class has its own (listed in the guide). */
 export const builtInMessages: ErrorMessages = {
   blank: "can't be blank",
   present: "must be blank",

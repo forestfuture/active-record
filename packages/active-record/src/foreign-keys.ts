@@ -1,4 +1,4 @@
-// Foreign keys for associations, and a polymorphic association's type attribute (#60): the one declared, or inferred from the association's and class's names.
+// Associations' foreign keys and polymorphic type attributes (#60), declared or inferred.
 import type { AssociationDeclaration, AssociationDefinition } from "./associations.ts";
 import { camelize, underscore } from "./naming.ts";
 

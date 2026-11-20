@@ -225,8 +225,8 @@ export interface CounterChanges {
   around(own: CompiledSql): CompiledSql[];
   /**
    * Once the batch is written, with the results of `around`'s statements: if the record's own
-   * statement changed its row, each loaded target takes the change: only
-   * when a row was affected.
+   * statement changed its row, each loaded target takes the change.
+   * A statement that affected no row changes nothing.
    */
   commit(results: readonly StatementResult[]): void;
 }

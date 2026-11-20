@@ -38,8 +38,8 @@ export interface OwnedCollection {
   /** Why records can't be created through it, if they can't: its owner has no key. */
   readonly refusal: string | undefined;
   /**
-   * The attributes `deleteAll()` sets to NULL rather than deleting, when
-   * its `dependent:` doesn't delete: the foreign key, and a type (#60); undefined when it deletes.
+   * The attributes `deleteAll()` sets to NULL rather than deleting, when its `dependent:` doesn't
+   * delete: the foreign key, and a type (#60); undefined when it deletes.
    */
   readonly nullifies: readonly string[] | undefined;
   /**
