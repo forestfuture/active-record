@@ -1,12 +1,4 @@
-import { Model } from "@forestfuture/active-record";
-
-// #region model
-export class Post extends Model.define({
-  id: { type: "integer", null: false },
-  title: { type: "string", null: false },
-  publishedAt: "datetime",
-}) {}
-// #endregion model
+import { Post } from "./src/models/post";
 
 export async function eachPost() {
   // #region find-each

@@ -1,15 +1,5 @@
-import { column, Model, sql } from "@forestfuture/active-record";
-
-// #region model
-export class Post extends Model.define({
-  id: { type: "string", null: false, generateId: true },
-  title: { type: "string", null: false },
-  status: "string",
-  publishedAt: "datetime",
-  createdAt: { type: "datetime", null: false },
-  updatedAt: { type: "datetime", null: false },
-}) {}
-// #endregion model
+import { column, sql } from "@forestfuture/active-record";
+import { Post } from "./src/models/post";
 
 export async function ordering() {
   // #region order
@@ -49,10 +39,3 @@ export async function countless() {
   // #endregion countless
   return { records, hasNext };
 }
-
-// #region per-page
-export class ApplicationRecord extends Model {
-  static override perPage = 20; // when paginate() isn't given a perPage
-  static override maxPerPage = 50; // a larger perPage is capped at this
-}
-// #endregion per-page

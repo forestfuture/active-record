@@ -133,65 +133,7 @@ Bulk writes and [batches](./batches#batching-writes) have no `toSql()`. Use [`on
 
 ## Defining scopes
 
-A scope is a named, reusable part of a query. Declare one as a static that receives the Relation, plus any arguments, and returns a narrower one:
-
-<include>/_excerpts/guide/models/declare.ts</include>
-
-Call it as a static, or on any Relation of the Model:
-
-<include>/_excerpts/guide/models/scopes.ts</include>
-
-- A scope’s arguments, and anything it computes such as `new Date()`, are evaluated when you call it.
-- Scopes are inherited, including those on your app’s base class ([Shared behavior](./shared-behavior)). A subclass can replace one with `static override active = this.scope(…)`.
-- A scope can’t reuse a Relation method’s name (`where`, `count`) or a Model static’s (`validates`, `scope`, `all`).
-- Inside a scope, `q` has every Relation method but not the Model’s other scopes. Share logic between scopes with a plain function.
-
-:::note
-A scope whose body names its own class needs its type written out: `static roots: ScopeStatic<[]> = this.scope(…)`.
-:::
-
-An [enum](./models#declaring-enums) gives its Model a scope for each name, and a `not…` scope: `Ticket.open()` and `Ticket.notOpen()`. Conditions take its names, one or a list: `Ticket.where({ status: ["open", "in_progress"] })`.
-
-## Defining a default scope
-
-A default scope narrows every query on a Model. Declare one in the class’s `static {}` block:
-
-<include>/_excerpts/guide/default-scopes/declare.ts</include>
-
-Queries start from it, and new records take its conditions’ values:
-
-<include>/_excerpts/guide/default-scopes/queries.ts</include>
-
-- It applies to everything that queries the Model: `find`, `count`, `updateAll`, `deleteAll`, its scopes, and associations that read it, preloads included.
-- `reload`, uniqueness validation, and a record’s own `save` and `destroy` ignore it, since they work by primary key.
-- `insert`, `insertAll`, `upsert`, and `upsertAll` write its conditions’ values over the values you give. `build` and `create` use the values you give.
-- Several default scopes all apply. A subclass adds its own to its parent’s.
-- An order in a default scope is the Relation’s order. `reorder` replaces it.
-- `rewhere` replaces its condition on an attribute, and [`unscope`](./conditions#replacing-conditions) drops its parts.
-
-To leave the default scope out, start from `unscoped()`:
-
-<include>/_excerpts/guide/default-scopes/unscoped.ts</include>
-
-`unscoped()` is a Model static only. With a database you hold, call it inside [`withDatabase`](./connecting#using-the-requests-database).
-
-:::warning[Default scopes hide records from associations too]
-A default scope that hides soft-deleted records also hides them from every association. A comment on a deleted post then fails to save with “Post must exist”. And `dependent: "destroy"` leaves a deleted post’s comments behind. An upsert that updates a deleted post writes `deletedAt: null`, which brings the post back. It does this even when you pass a `deletedAt`. For soft deletes, use a named scope instead:
-
-```ts
-class Post extends ApplicationRecord {
-  static kept = this.scope((q) => q.where({ deletedAt: null }));
-}
-```
-
-Then call `Post.kept()` where deleted posts should stay hidden.
-:::
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-`this.defaultScope` is Rails’ `default_scope`, applied the same way. `unscoped()` is only a static: Rails also has it on a Relation, where `Post.where(…).unscoped` drops every condition, the Relation’s own included. Rails’ block form, `Post.unscoped { … }`, and `all_queries: true` aren’t here.
-
-</Callout>
+Name a reusable part of a query with `this.scope`, or narrow every query on a Model with `this.defaultScope`. See [Scopes](./scopes).
 
 ## Merging Relations
 

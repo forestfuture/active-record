@@ -17,31 +17,25 @@ description: "Count, add up, average, and find the extremes of an attribute, ove
 
 ## The Model
 
-The examples use this Model and table:
+The examples use this Model, whose attributes come from its table through the schema `active-record schema` generates:
 
-<Tabs syncKey="database">
-<Tab title="Model">
+<CodeGroup>
 
-<include>/_excerpts/guide/calculations/model.ts</include>
+<include meta="product.ts">/_excerpts/pages/calculations/src/models/product.ts</include>
 
-</Tab>
-<Tab title="D1">
+<include meta="schema.ts">/_excerpts/pages/calculations/src/db/schema.ts</include>
 
-<include>/_excerpts/guide/calculations-d1.sql</include>
+<include meta="D1">/_excerpts/pages/calculations/migrations/0001_create_products.sql</include>
 
-</Tab>
-<Tab title="Postgres">
+<include meta="Postgres">/_excerpts/pages/calculations/postgres/0001_create_products.sql</include>
 
-<include>/_excerpts/guide/calculations-postgres.sql</include>
-
-</Tab>
-</Tabs>
+</CodeGroup>
 
 ## Calculating values
 
 Add up, average, or find the extremes of an attribute:
 
-<include meta="twoslash">/_excerpts/guide/calculations/calculations.twoslash.ts</include>
+<include meta="twoslash">/_excerpts/pages/calculations/examples/calculations.twoslash.ts</include>
 
 - `sum` and `average` take number attributes: integers, reals, and decimals. A decimal’s sum is text, such as `"12.8"`.
 - `minimum` and `maximum` take any attribute you can compare. The result has the attribute’s own type, so a datetime’s is a `Date`.
@@ -55,13 +49,13 @@ D1 adds up a decimal column as floating-point numbers. A sum keeps about 15 digi
 
 A calculation covers the rows `toArray()` would return, so a `limit`, an `offset`, or `distinct()` decides which values count:
 
-<include meta="twoslash">/_excerpts/guide/calculations/limit.twoslash.ts</include>
+<include meta="twoslash">/_excerpts/pages/calculations/examples/limit.twoslash.ts</include>
 
 ## Calculating an expression
 
 Pass an `sql` fragment to calculate an expression:
 
-<include meta="twoslash">/_excerpts/guide/calculations/fragment.twoslash.ts</include>
+<include meta="twoslash">/_excerpts/pages/calculations/examples/fragment.twoslash.ts</include>
 
 A fragment’s `sum` and `average` are numbers. Its `minimum` and `maximum` are the values the database returns.
 
@@ -69,7 +63,7 @@ A fragment’s `sum` and `average` are numbers. Its `minimum` and `maximum` are 
 
 Group the rows by an attribute to calculate each group’s total:
 
-<include meta="twoslash">/_excerpts/guide/calculations/group.twoslash.ts</include>
+<include meta="twoslash">/_excerpts/pages/calculations/examples/group.twoslash.ts</include>
 
 - Each calculation returns a `Map` from the group’s value to its result. `count`, `sum`, `average`, `minimum`, and `maximum` all work this way.
 - The keys have the attribute’s own type, so a boolean’s key is `true` or `false`, a datetime’s is a `Date`, and an enum’s is its name. Rows with a NULL value form a group with a `null` key.
@@ -79,7 +73,7 @@ Group the rows by an attribute to calculate each group’s total:
 
 Pass each attribute or expression to `group`:
 
-<include meta="twoslash">/_excerpts/guide/calculations/group-fragment.twoslash.ts</include>
+<include meta="twoslash">/_excerpts/pages/calculations/examples/group-fragment.twoslash.ts</include>
 
 Each key is then an array of the values, in the order you passed them. An expression’s value is whatever the database returns.
 
@@ -91,13 +85,13 @@ A `Map` finds an array or `Date` key only if it’s the same object, so `get([tr
 
 Pass a condition on the groups’ totals to `having`:
 
-<include meta="twoslash">/_excerpts/guide/calculations/having.twoslash.ts</include>
+<include meta="twoslash">/_excerpts/pages/calculations/examples/having.twoslash.ts</include>
 
 ## Ordering groups
 
 Order the groups by a grouped attribute or by a total, and a `limit` then picks groups:
 
-<include meta="twoslash">/_excerpts/guide/calculations/group-order.twoslash.ts</include>
+<include meta="twoslash">/_excerpts/pages/calculations/examples/group-order.twoslash.ts</include>
 
 - `where`, `limit`, `offset`, and `distinct()` work before or after `group`. After `distinct()`, `count`, `sum`, and `average` take each group’s distinct values.
 - You can only order by attributes you group by, or by an `sql` fragment. `group` drops an earlier order by any other attribute, such as one from a default scope. It keeps an earlier fragment, so call `reorder()` before `group` when a default scope orders by one. With a `limit` or `offset`, `group` throws instead of dropping an order, so call `reorder()` first there too.

@@ -10,26 +10,29 @@ import {
 } from "vite-plus/test";
 import { UnknownAttribute, withDatabase } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
-import * as batchIteration from "../../../site/snippets/guide/batch-iteration.ts";
-import * as calculations from "../../../site/snippets/guide/calculations.ts";
-import * as conditions from "../../../site/snippets/guide/conditions.ts";
-import * as ordering from "../../../site/snippets/guide/ordering.ts";
-import * as through from "../../../site/snippets/guide/through.ts";
-import { cpSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
+import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
+import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
+import * as ordering from "../../../site/snippets/pages/ordering/examples.ts";
+import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
+import * as through from "../../../site/snippets/pages/through/examples.ts";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
-import { pageModelsAndTables, standalonePages } from "../../support/page-models.ts";
-import { scratchDirs } from "../../support/scratch.ts";
+import { Post as IteratedPost } from "../../../site/snippets/pages/batch-iteration/src/models/post.ts";
+import { ApplicationRecord as PagedRecord } from "../../../site/snippets/pages/ordering/src/models/application-record.ts";
+import { Article } from "../../../site/snippets/pages/through/src/models/article.ts";
+import {
+  pageMigrations,
+  pageProject,
+  schemaCommand,
+  standalonePages,
+} from "../../support/page-models.ts";
 
-const scratch = scratchDirs();
-
-/** A D1 database with a page's own tables (site/snippets/guide/<page>-d1.sql), `tables` emptied before each test. */
+/** A D1 database with a page's own tables, from its project's migrations, `tables` emptied before each test. */
 function pageDatabase(page: string, tables: string[]): () => TestDatabase {
   let binding: TestDatabase;
   let dispose: () => Promise<void>;
   beforeAll(async () => {
-    const schema = new URL(`../../../site/snippets/guide/${page}-d1.sql`, import.meta.url);
-    ({ db: binding, dispose } = await createTestDatabase(schema));
+    ({ db: binding, dispose } = await createTestDatabase(pageMigrations(page, "migrations")));
   });
   afterAll(() => dispose());
   beforeEach(async () => {
@@ -151,7 +154,7 @@ describe("the Through associations page's examples", () => {
 
     const taggings = await binding().prepare("SELECT article_id FROM taggings").all();
     expect(taggings.results).toEqual([{ article_id: draft.id }]);
-    expect(await db.model(through.Article).count()).toBe(3);
+    expect(await db.model(Article).count()).toBe(3);
   });
 });
 
@@ -202,9 +205,7 @@ describe("the Ordering and pagination page's examples", () => {
   });
 
   test("the base class sets the page size and its cap", () => {
-    expect([ordering.ApplicationRecord.perPage, ordering.ApplicationRecord.maxPerPage]).toEqual([
-      20, 50,
-    ]);
+    expect([PagedRecord.perPage, PagedRecord.maxPerPage]).toEqual([20, 50]);
   });
 });
 
@@ -244,7 +245,7 @@ describe("the Batch iteration page's examples", () => {
 
     await withDatabase(db, () => batchIteration.publishDrafts());
 
-    expect(await db.model(batchIteration.Post).where({ publishedAt: null }).count()).toBe(0);
+    expect(await db.model(IteratedPost).where({ publishedAt: null }).count()).toBe(0);
   });
 
   test("start and finish bound the keys, and order: desc walks down", async () => {
@@ -311,31 +312,47 @@ describe("the Calculations page's examples", () => {
   });
 });
 
-// Each page shows its Models beside its D1 tables; the attributes generated from those tables are
-// the ones its Models declare.
-describe("the standalone pages’ Models, against their D1 tables", () => {
-  test.each(standalonePages)("%s declares what its tables generate", async (page) => {
-    const cwd = scratch(`page-${page}-`);
-    writeFileSync(
-      join(cwd, "active-record.jsonc"),
-      '{ "databases": { "DB": { "adapter": "d1" } } }',
-    );
-    writeFileSync(
-      join(cwd, "wrangler.jsonc"),
-      '{ "name": "page", "d1_databases": [{ "binding": "DB", "database_name": "page", "database_id": "x" }] }',
-    );
-    mkdirSync(join(cwd, "migrations"));
-    cpSync(
-      new URL(`../../../site/snippets/guide/${page}-d1.sql`, import.meta.url),
-      join(cwd, "migrations/0001_create_tables.sql"),
+// The Scopes page's examples, on the posts and products tables it shows.
+describe("the Scopes page's examples", () => {
+  const binding = pageDatabase("scopes", ["posts", "products"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch([
+      db.prepare(
+        "INSERT INTO posts (id, title, published_at) VALUES ('a', 'Hello', '2026-02-01T00:00:00.000Z'), ('b', 'Old', '2025-06-01T00:00:00.000Z'), ('c', 'Draft', NULL)",
+      ),
+      db.prepare(
+        "INSERT INTO products (id, name, is_available) VALUES ('p', 'Pen', 1), ('i', 'Ink', 0)",
+      ),
+    ]);
+  });
+  const names = (records: { title?: string; name?: string }[]) =>
+    records.map((record) => record.title ?? record.name ?? "").sort((a, b) => a.localeCompare(b));
+
+  test("scopes narrow a query, take arguments, and chain on any Relation", async () => {
+    const { published, thisYear, hellos } = await withDatabase(connect(binding()), () =>
+      scopes.calling(),
     );
 
-    const { declared, generated } = await pageModelsAndTables(
-      cwd,
-      page,
-      (model) => `${model.toLowerCase()}s`,
-    );
+    expect([names(published), names(thisYear), hellos]).toEqual([["Hello", "Old"], ["Hello"], 1]);
+  });
 
-    expect(declared).toEqual(generated);
+  test("a default scope narrows every query and gives new records its values", async () => {
+    const { listed, draft } = await withDatabase(connect(binding()), () => scopes.defaulting());
+
+    expect([names(listed), draft.isAvailable]).toEqual([["Pen"], true]);
+  });
+
+  test("unscoped() leaves the default scope out", async () => {
+    const everything = await withDatabase(connect(binding()), () => scopes.unscoping());
+
+    expect(names(everything)).toEqual(["Ink", "Pen"]);
+  });
+});
+
+// Each page shows its Models beside its D1 tables: its project's schema is what its migrations generate.
+describe("the standalone pages’ generated schemas", () => {
+  test.each(standalonePages)("%s's schema is current", async (page) => {
+    expect(await schemaCommand(pageProject(page).pathname, true)).toMatchObject({ code: 0 });
   });
 });
