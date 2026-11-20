@@ -40,7 +40,7 @@ describe("comparison conditions", () => {
     expect(await ids(users.where({ age: lte(18) }))).toEqual([1, 2]);
   });
 
-  test("between includes both ends, like a Rails a..b range; excludeEnd is a...b", async () => {
+  test("between includes both ends; excludeEnd leaves the end out", async () => {
     const users = harness.connect().model(User);
 
     expect(await ids(users.where({ age: between(12, 18) }))).toEqual([1, 2]);

@@ -102,7 +102,7 @@ describe("finding records", () => {
       expect(await users.find([])).toEqual([]);
     });
 
-    test('ids are cast to the key\'s type first, as Rails does, so "01" and 1 are the same id', async () => {
+    test('ids are cast to the key\'s type first, so "01" and 1 are the same id', async () => {
       const users = harness.connect().model(User);
 
       expect((await users.find("03", 2)).map((user) => user.id)).toEqual([3, 2]);

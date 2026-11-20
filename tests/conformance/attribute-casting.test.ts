@@ -290,7 +290,7 @@ describe("values assigned to attributes are cast to the attribute's type (#81)",
   });
 
   // A condition's value is cast as an assigned one is; one that can't be cast matches nothing,
-  // as in Rails 6.1+, so it's never a NULL match or an error (#81).
+  // so it's never a NULL match or an error (#81).
   describe("conditions", () => {
     beforeEach(async () => {
       await samples().insertAll([
@@ -329,7 +329,7 @@ describe("values assigned to attributes are cast to the attribute's type (#81)",
       expect(await samples().exists({ stamp: untyped("yesterday") })).toBe(false);
     });
 
-    // NOT of "matches nothing" is "matches everything", as in Rails 6.1+: excluding a record by
+    // NOT of "matches nothing" is "matches everything": excluding a record by
     // an untrusted id that can't be cast excludes nothing.
     test("whereNot with a value that can't be cast matches every row, NULLs included", async () => {
       expect(
@@ -340,7 +340,7 @@ describe("values assigned to attributes are cast to the attribute's type (#81)",
     });
 
     // A number can't be mistaken for anything else, so a condition reads it as its digits, as
-    // find() does for a text key, and as Rails does. Assigning one to a string is still refused.
+    // find() does for a text key. Assigning one to a string is still refused.
     test("a number matches a string attribute as its decimal string", async () => {
       await samples().insert({ id: 4, label: "7" });
 

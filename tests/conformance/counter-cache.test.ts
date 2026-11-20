@@ -238,7 +238,7 @@ describe("counter caches", () => {
     expect(await repliesCount(1)).toBe(2);
   });
 
-  test("upsert and updateAll skip the counter, as in Rails", async () => {
+  test("upsert and updateAll skip the counter", async () => {
     const replies = db().model(Reply);
 
     await replies.upsert({ id: 1, topicId: 1, body: "a" });
@@ -272,7 +272,7 @@ describe("counter caches", () => {
     expect(counted?.params).toEqual(["[FILTERED]", 1]);
   });
 
-  test("bulk inserts skip the counter, as in Rails", async () => {
+  test("bulk inserts skip the counter", async () => {
     await db()
       .model(Reply)
       .insertAll([
@@ -494,7 +494,7 @@ describe("counter caches", () => {
       expect([await repliesCount(1), topic.repliesCount]).toEqual([1, 1]);
     });
 
-    test("a Relation narrowed from it deletes without counting, as in Rails", async () => {
+    test("a Relation narrowed from it deletes without counting", async () => {
       const topic = await db().model(Topic).find(1);
 
       await topic.replies().where({ body: "a" }).deleteAll();
@@ -503,7 +503,7 @@ describe("counter caches", () => {
     });
   });
 
-  describe("which hasMany reads a counter, as Rails' has_cached_counter?", () => {
+  describe("which hasMany reads a counter", () => {
     // Topic's replies are named for their counter, so they read repliesCount.
     class Moderated extends Topic {
       // Another name, and a scope: it counts rows.

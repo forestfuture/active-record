@@ -27,7 +27,7 @@ class Session extends Model.define({
   static primaryKey = "token";
 }
 
-// What onQuery listeners see of a filtered attribute's values: "[FILTERED]", as in Rails' logs.
+// What onQuery listeners see of a filtered attribute's values: "[FILTERED]".
 // The database still gets the real values (#83).
 describe("filterAttributes", () => {
   let harness: Harness;
@@ -181,7 +181,7 @@ describe("filterAttributes", () => {
         static override filterAttributes = filterAttributes;
       };
 
-    test("Rails' defaults match a camelCase attribute's snake_case name, in any case", async () => {
+    test("the defaults match a camelCase attribute's snake_case name, in any case", async () => {
       expect(await hiddenNames(named(Model.filterAttributes))).toEqual([
         "passwordDigest", // passw
         "apiKey", // _key, as api_key

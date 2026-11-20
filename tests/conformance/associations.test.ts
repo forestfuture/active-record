@@ -133,7 +133,7 @@ describe("associations", () => {
     expect(await user.posts().count()).toBe(2);
   });
 
-  test("creating through an unsaved owner throws RecordNotSaved, as in Rails; building is allowed", async () => {
+  test("creating through an unsaved owner throws RecordNotSaved; building is allowed", async () => {
     const owner = harness.connect().model(User).build({ email: "new@example.com" });
 
     expect(owner.posts().build({ title: "Later" }).userId).toBeNull();

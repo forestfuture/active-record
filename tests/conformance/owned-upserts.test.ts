@@ -172,7 +172,7 @@ describe("upserting through an owner's hasMany (#451)", () => {
         return database.model(Post).whereNot({ title: "Own" }).merge(user.posts());
       },
     ],
-  ])("%s upserts any row its conditions name, as Rails does", async (_, relation) => {
+  ])("%s upserts any row its conditions name", async (_, relation) => {
     const unowned = await relation();
 
     await unowned.upsert({ id: 2, title: "Mine now" });

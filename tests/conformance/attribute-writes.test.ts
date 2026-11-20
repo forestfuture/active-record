@@ -248,7 +248,7 @@ describe("changing one attribute (#351)", () => {
       expect((await db().model(Member).find(1)).age).toBe(7);
     });
 
-    test("sends an unsaved change to the attribute with the increment, as Rails", async () => {
+    test("sends an unsaved change to the attribute with the increment", async () => {
       const member = await db().model(Member).find(1);
       member.age = 10;
 
@@ -422,7 +422,7 @@ describe("changing one attribute (#351)", () => {
       expect(await ages()).toEqual([0, null]);
     });
 
-    test("a Model's static writes a row its default scope leaves out, as Rails", async () => {
+    test("a Model's static writes a row its default scope leaves out", async () => {
       expect(await withDatabase(db(), () => ActiveMember.updateCounters(2, { age: 4 }))).toBe(1);
 
       expect(await ages()).toEqual([3, 4]);

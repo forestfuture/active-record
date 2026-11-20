@@ -276,7 +276,7 @@ describe("enum attributes (#340)", () => {
       ).toBe(0);
     });
 
-    test("in a stored cell reads as null, as Rails reads it, and saving leaves it", async () => {
+    test("in a stored cell reads as null, and saving leaves it", async () => {
       await harness.exec(
         "INSERT INTO articles (id, title, status, priority) VALUES (1, 'Old', 'archived', 3)",
       );
@@ -412,7 +412,7 @@ describe("enum attributes (#340)", () => {
   });
 
   describe("prefix and suffix", () => {
-    // Two enums sharing names, kept apart by a prefix and a suffix, as Rails' options do.
+    // Two enums sharing names, kept apart by a prefix and a suffix.
     class Conversation extends Model.define({
       id: { type: "integer", null: false },
       status: { type: "string", enum: ["active", "archived"], prefix: true },
