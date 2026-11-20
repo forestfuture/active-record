@@ -106,3 +106,14 @@ questions:
       - "pg reads a BIGINT cell as text unless its type parsers are set"
       - "pass Number(cell) to deserialize"
     routes: /raw-statements
+  - id: find-or-null
+    question: "How do I look up a user by email and get null, not an error, when there's none?"
+    expected:
+      - "User.findBy({ email }) resolves to null when nothing matches"
+      - "findByOrThrow throws RecordNotFound instead"
+    routes: /querying
+  - id: pluck-emails
+    question: "How do I get every user's email as an array of strings, without loading the records?"
+    expected:
+      - 'User.pluck("email")'
+    routes: /querying

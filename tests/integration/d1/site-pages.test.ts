@@ -5,16 +5,22 @@ import {
   describe,
   expect,
   type MockInstance,
+  onTestFinished,
   test,
   vi,
 } from "vite-plus/test";
-import { UnknownAttribute, withDatabase } from "../../../packages/active-record/src/index.ts";
+import {
+  MissingAttribute,
+  UnknownAttribute,
+  withDatabase,
+} from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
 import * as joins from "../../../site/snippets/pages/joins/examples.ts";
 import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
+import * as querying from "../../../site/snippets/pages/querying/examples.ts";
 import * as rawStatements from "../../../site/snippets/pages/raw-statements/examples.ts";
 import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
@@ -43,6 +49,99 @@ function pageDatabase(page: string, tables: string[]): () => TestDatabase {
   });
   return () => binding;
 }
+
+/**
+ * console.log, quiet for a describe whose examples log what they show: the tests check the calls
+ * instead. Made in beforeAll, so describes that don't run yet don't share it; cleared before each.
+ */
+function quietLog(): { calls: () => unknown[][] } {
+  let log: MockInstance<typeof console.log>;
+  beforeAll(() => {
+    log = vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+  afterAll(() => log.mockRestore());
+  beforeEach(() => log.mockClear());
+  return { calls: () => log.mock.calls };
+}
+
+// The Querying page's examples, on the users table it shows.
+describe("the Querying page's examples", () => {
+  const binding = pageDatabase("querying", ["users"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare(`INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES
+          ('ada', 'ada@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z'),
+          ('grace', 'grace@example.com', 'editor', 1, '2025-12-01T00:00:00.000Z', '2025-12-01T00:00:00.000Z'),
+          ('linus', 'linus@example.com', 'admin', 0, '2026-01-20T00:00:00.000Z', '2026-01-20T00:00:00.000Z'),
+          ('olive', 'olive@example.com', 'owner', 1, '2025-11-01T00:00:00.000Z', '2025-11-01T00:00:00.000Z')`)
+      .run();
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+  const ids = (users: { id: string }[]) => users.map((user) => user.id);
+
+  test("a Relation runs only when asked, and narrowing it returns a new one", async () => {
+    expect(ids(await run(querying.building))).toEqual(["linus", "ada"]);
+  });
+
+  test("the finders find what their comments say", async () => {
+    const found = await run(querying.finding);
+
+    expect([found.ada.id, found.nobody, found.again.id, found.oldest?.id]).toEqual([
+      "ada",
+      null,
+      "ada",
+      "ada",
+    ]);
+    expect([found.newest?.id, found.owner.id]).toEqual(["linus", "olive"]);
+  });
+
+  test("pluck, pick and ids read attributes without loading records", async () => {
+    const { emails, pairs, latest, adminIds } = await run(querying.reading);
+
+    expect(emails).toEqual([
+      "ada@example.com",
+      "grace@example.com",
+      "linus@example.com",
+      "olive@example.com",
+    ]);
+    expect(pairs[0]).toEqual(["ada", "ada@example.com"]);
+    expect(latest).toBe("linus@example.com");
+    expect(adminIds.map(String).sort((a, b) => a.localeCompare(b))).toEqual(["ada", "linus"]);
+  });
+
+  test("count and the checks answer as their comments say", async () => {
+    expect(await run(querying.counting)).toEqual({
+      admins: 2,
+      hasAdmins: true,
+      severalAdmins: true,
+      oneOwner: true,
+    });
+  });
+
+  test("select loads only some attributes, and the primary key", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => log.mockRestore());
+
+    const { first, roles } = await run(querying.selecting);
+
+    expect(log.mock.calls).toEqual([["ada@example.com"], ["ada"]]);
+    expect(() => first?.role).toThrow(MissingAttribute);
+    expect(roles.map(String).sort((a, b) => a.localeCompare(b))).toEqual([
+      "admin",
+      "editor",
+      "owner",
+    ]);
+  });
+
+  test("none() matches nothing, merge combines Relations, and toSql keeps values apart", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => log.mockRestore());
+
+    expect(await run(querying.matchingNothing)).toEqual([]);
+    expect(ids(await run(querying.merging))).toEqual(["linus"]);
+    expect(querying.seeingSql().params).toEqual(["admin", 10]);
+  });
+});
 
 // The Conditions page's examples, on the users table it shows.
 describe("the Conditions page's examples", () => {
@@ -94,11 +193,8 @@ describe("the Conditions page's examples", () => {
 // The Through associations page's examples, on the four tables it shows.
 describe("the Through associations page's examples", () => {
   const binding = pageDatabase("through-associations", ["taggings", "tags", "articles", "authors"]);
-  // The examples log what they show; the tests check it here rather than print it.
-  const log = vi.spyOn(console, "log").mockImplementation(() => {});
-  afterAll(() => log.mockRestore());
+  const log = quietLog();
   beforeEach(async () => {
-    log.mockClear();
     const db = binding();
     await db.batch([
       db.prepare("INSERT INTO authors (id, name) VALUES ('mary', 'Mary'), ('ada', 'Ada')"),
@@ -129,8 +225,8 @@ describe("the Through associations page's examples", () => {
     await withDatabase(connect(recording.binding), () => through.preloading());
 
     expect(recording.batches).toEqual([3]); // the tags, their taggings, and their articles
-    expect(log).toHaveBeenCalledWith("essays", 2);
-    expect(log).toHaveBeenCalledWith("empty", 0);
+    expect(log.calls()).toContainEqual(["essays", 2]);
+    expect(log.calls()).toContainEqual(["empty", 0]);
   });
 
   test("follows each article's author through source", async () => {
@@ -214,21 +310,15 @@ describe("the Ordering and pagination page's examples", () => {
 // The Batch iteration page's examples, on the posts table it shows.
 describe("the Batch iteration page's examples", () => {
   const binding = pageDatabase("batch-iteration", ["posts"]);
-  // The examples log what they show; the tests check it here rather than print it.
-  let log: MockInstance<typeof console.log>;
-  beforeAll(() => {
-    log = vi.spyOn(console, "log").mockImplementation(() => {});
-  });
-  afterAll(() => log.mockRestore());
+  const log = quietLog();
   beforeEach(async () => {
-    log.mockClear();
     await binding()
       .prepare(
         "INSERT INTO posts (id, title, published_at) VALUES (1, 'One', '2026-01-01T00:00:00.000Z'), (2, 'Two', NULL), (3, 'Three', NULL)",
       )
       .run();
   });
-  const logged = () => log.mock.calls.map(([value]) => value);
+  const logged = () => log.calls().map(([value]) => value);
 
   test("findEach visits each matching record in key order", async () => {
     await withDatabase(connect(binding()), () => batchIteration.eachPost());
