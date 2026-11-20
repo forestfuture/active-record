@@ -5,11 +5,38 @@ seo:
   description: "Handle untrusted input with Active Record: permit only the fields you want, return a 400 for values that can’t be cast, and check values before querying."
 ---
 
+## At a glance
+
+| To                                     | Write                                                     |
+| -------------------------------------- | --------------------------------------------------------- |
+| take only the fields you want          | `Account.permit(await request.json(), "email", "handle")` |
+| return a 400 for a value you can’t use | catch `TypeError` and `SyntaxError`                       |
+| query with a value from a request      | check `typeof token === "string"` first                   |
+| widen a query                          | `rewhere` and `unscope`, with names you chose             |
+
+## The Models
+
+The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="account.ts">/_excerpts/pages/untrusted-input/src/models/account.ts</include>
+
+<include meta="invitation.ts">/_excerpts/pages/untrusted-input/src/models/invitation.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/untrusted-input/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/untrusted-input/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/untrusted-input/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
+
 ## Permitting fields
 
 Only permit the fields you want from a request:
 
-<include>/_excerpts/guide/untrusted-input/permit.ts</include>
+<include>/_excerpts/pages/untrusted-input/examples/permit.mdx</include>
 
 :::note
 `permit` can also read `FormData` or `URLSearchParams`.
@@ -40,13 +67,13 @@ const account = await Account.create(fields);
 
 A value that can’t be cast throws a `TypeError`, and a body that isn’t JSON throws a `SyntaxError`. Return a 400 for either:
 
-<include>/_excerpts/guide/untrusted-input/bad-request.ts</include>
+<include>/_excerpts/pages/untrusted-input/examples/bad-request.mdx</include>
 
 ## Querying with request values
 
-Check that a value is a string before you query with it:
+Check that a value is a string before you query with it. An accepted invitation’s token is NULL, so an unchecked `null` would find one:
 
-<include>/_excerpts/guide/untrusted-input/null-check.ts</include>
+<include>/_excerpts/pages/untrusted-input/examples/null-check.mdx</include>
 
 JSON can send `null` or a list. `findBy({ token: null })` matches rows whose token is NULL, and `findBy({ token: [first, second] })` matches a row with either token.
 
