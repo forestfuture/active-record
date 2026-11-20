@@ -343,13 +343,20 @@ describe("a record loaded with a value stored before its normalization", () => {
     expect(await db().model(Member).findBy({ email: " Jane@Example.com" })).toBeNull();
   });
 
-  test("normalizeAttribute normalizes the value, and save stores it", async () => {
+  test("normalizeAttribute changes the value to its normalized form", async () => {
     const member = await db().model(Member).find(1);
 
     member.normalizeAttribute("email");
 
     expect(member.changes()).toEqual({ email: [" Jane@Example.com", "jane@example.com"] });
+  });
+
+  test("save stores the value normalizeAttribute normalized", async () => {
+    const member = await db().model(Member).find(1);
+    member.normalizeAttribute("email");
+
     await member.saveOrThrow();
+
     const [row] = await harness.exec("SELECT email FROM users WHERE id = 1");
     expect(row?.email).toBe("jane@example.com");
   });
