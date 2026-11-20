@@ -180,10 +180,11 @@ function skillRules(site: string): string {
 }
 
 /**
- * Rewrites `out` (docs/_excerpts) from snippets/: `guide/models/declare.ts` is
- * snippets/guide/models.ts's `declare` region as exampleBlock shows it, `guide/models.ts` the file
- * itself, and `skill-rules.md` the agent skill's rules. Blume publishes no `_` folder, and an
- * <include> must read from inside the content root.
+ * Rewrites `out` (docs/_excerpts) from snippets/: `guide/untrusted-input/permit.ts` is
+ * snippets/guide/untrusted-input.ts's `permit` region as exampleBlock shows it, a page project's
+ * `pages/<page>/examples/<region>.mdx` its examplePartial, every snippet file itself, and
+ * `skill-rules.md` the agent skill's rules. Blume publishes no `_` folder, and an <include> must
+ * read from inside the content root.
  */
 export function writeExcerpts(site: string, out = join(site, "docs/_excerpts")): void {
   const snippets = join(site, "snippets");

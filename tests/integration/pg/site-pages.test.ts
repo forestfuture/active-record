@@ -34,6 +34,7 @@ import { Order as CallbackOrder } from "../../../site/snippets/pages/callbacks/s
 import { app } from "../../../site/snippets/pages/connecting/src/app.ts";
 import * as connecting from "../../../site/snippets/pages/connecting/examples.ts";
 import { User as ConnectedUser } from "../../../site/snippets/pages/connecting/src/models/user.ts";
+import * as errors from "../../../site/snippets/pages/errors/examples.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as changeTracking from "../../../site/snippets/pages/change-tracking/examples.ts";
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
@@ -892,6 +893,31 @@ describe("the Connections page's examples, on Postgres", () => {
 
     const sam = await db().model(ConnectedUser).findByOrThrow({ email: "sam@example.com" });
     expect(await sam.posts().pluck("title")).toEqual(["Hello"]);
+  });
+});
+
+// The Errors page's examples, on the table it shows, on Postgres.
+describe("the Errors page's examples, on Postgres", () => {
+  const schema = pageSchema("errors", "SELECT 1");
+  beforeEach(async () => {
+    await schema().pool.query({
+      text: "DELETE FROM users; INSERT INTO users (id, email) VALUES ('00000000-0000-4000-8000-000000000001', 'jane@example.com')",
+    });
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
+
+  test("RecordNotFound becomes a 404, and a found user is returned", async () => {
+    const found = await run(() => errors.showUser("00000000-0000-4000-8000-000000000001"));
+    const missing = await run(() => errors.showUser("00000000-0000-4000-8000-000000000099"));
+
+    expect([found.status, missing.status]).toEqual([200, 404]);
+  });
+
+  test("the UNIQUE index's RecordNotUnique names the email, and becomes a taken error", async () => {
+    const user = await run(() => errors.signUp("jane@example.com"));
+
+    expect(user.isPersisted()).toBe(false);
+    expect(user.errors.fullMessages()).toEqual(["Email has already been taken"]);
   });
 });
 

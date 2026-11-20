@@ -92,10 +92,6 @@ declare module "../guide/generators" {
   interface Category extends TableAttributes<typeof categories, (typeof Category)["attributes"]> {}
 }
 
-declare module "../guide/models" {
-  interface Product extends TableAttributes<typeof products, (typeof Product)["attributes"]> {}
-}
-
 declare module "../guide/several-databases" {
   interface User extends TableAttributes<typeof users, (typeof User)["attributes"]> {}
 }

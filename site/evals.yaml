@@ -234,3 +234,9 @@ questions:
       - "open a database for the request with connect(env.DB, { onQuery }) and run the app's code inside withDatabase(db, () => …)"
       - "every query from a Model inside, and everything it awaits, uses that database"
     routes: /connecting
+  - id: catch-not-found
+    question: "In a Worker route, how do I return a 404 when User.find doesn't find the record?"
+    expected:
+      - "catch the error and check error instanceof RecordNotFound, returning a 404 Response"
+      - "rethrow anything else"
+    routes: /errors
