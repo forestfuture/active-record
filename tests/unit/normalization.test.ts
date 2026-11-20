@@ -1,7 +1,12 @@
 // Normalizations (#354): `this.normalizes(name, { with })`, applied to a value as it's assigned.
 // These tests need no database.
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import { InvalidModel, Model, UnknownAttribute } from "../../packages/active-record/src/index.ts";
+import {
+  InvalidModel,
+  lt,
+  Model,
+  UnknownAttribute,
+} from "../../packages/active-record/src/index.ts";
 import { connect, d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
 
 const db = connect({} as never);
@@ -354,6 +359,21 @@ describe("a condition on a normalized attribute", () => {
     }
   }
   const ranks = db.model(Rank);
+
+  test("compares with a value past a decimal's precision, as any condition does", () => {
+    class Price extends Model.define({
+      id: { type: "integer", null: false },
+      amount: { type: "decimal", precision: 10, scale: 2 },
+    }) {
+      static table = "prices";
+
+      static {
+        this.normalizes("amount", { with: (amount) => amount });
+      }
+    }
+
+    expect(() => db.model(Price).where({ amount: lt("1e9") })).not.toThrow();
+  });
 
   test("that can't be cast names its value when a record is built from it", () => {
     expect(() => ranks.where({ level: "high" as never }).build()).toThrow(
