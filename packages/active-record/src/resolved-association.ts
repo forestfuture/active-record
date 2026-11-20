@@ -253,7 +253,8 @@ export class ResolvedAssociation {
   writeOwnersType(record: Model): void {
     if (this.definition.as === undefined) return;
     const { attribute, value } = this.type!;
-    record[state].write(attribute, value);
+    // The link's type, as its key, isn't normalized (#354).
+    record[state].writeKey(attribute, value, this.name);
   }
 
   /**
