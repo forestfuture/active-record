@@ -270,3 +270,95 @@ questions:
       - "create a D1 database with Miniflare and apply the migrations to it"
       - "run the test's code inside withDatabase(connect(binding), async () => { … })"
     routes: /testing
+  - id: optional-belongs-to
+    question: "A comment's belongsTo article is required. How do I let a comment be saved without one?"
+    expected:
+      - "declare belongsTo(Article, { optional: true })"
+      - 'without it, a missing article adds a "must exist" error'
+    routes: /associations
+  - id: destroy-on-owner-save
+    question: "How do I remove one of an author's loaded articles only when the author is next saved?"
+    expected:
+      - "declare the association with autosave: true, call article.markForDestruction(), then save the author"
+      - "marking writes nothing until the author is saved"
+    routes: /autosaving
+  - id: restore-changes
+    question: "How do I undo the unsaved change to a user's email but keep their other changes?"
+    expected:
+      - 'user.restoreAttributes(["email"])'
+    routes: /change-tracking
+  - id: new-throws-no-database
+    question: "Why does saving a record made with new User() throw NoDatabase, and what should I write instead?"
+    expected:
+      - "a record made with new has no database"
+      - "build records with User.build({ … })"
+    routes: /connecting
+  - id: reset-counter
+    question: "After a bulk insert of comments, an article's commentsCount is wrong. How do I fix it?"
+    expected:
+      - "bulk writes leave the count alone"
+      - 'Article.resetCounters(id, "comments") sets it from the rows'
+    routes: /counter-caches
+  - id: refuse-custom-value
+    question: "How should a custom attribute type refuse a value it can't hold, and what does the caller see?"
+    expected:
+      - "throw from cast"
+      - "assigning or permitting the value throws a TypeError naming the Model and attribute, with the type's error as its cause"
+    routes: /custom-types
+  - id: enum-validate
+    question: "How do I make an unknown status name an invalid record, reported with the record's errors?"
+    expected:
+      - "declare the enum with validate: true"
+    routes: /enums
+  - id: incompatible-relation
+    question: "Why does combining two Relations with or() throw IncompatibleRelation?"
+    expected:
+      - "or() needs both Relations to be of the same Model and database"
+      - "both sides must also have the same select, order, limit, offset, distinct and includes"
+    routes: /errors
+  - id: filter-iban
+    question: "How do I keep IBANs out of the SQL my onQuery listener logs?"
+    expected:
+      - 'static override filterAttributes = [...Model.filterAttributes, "iban"] on ApplicationRecord'
+      - 'listeners then see the value as "[FILTERED]"'
+    routes: /logging
+  - id: rename-table
+    question: "My Account Model's table is called billing_accounts. How do I point the Model at it?"
+    expected:
+      - 'static override table = "billing_accounts"'
+    routes: /models
+  - id: preload-nested
+    question: "How do I load authors with their articles and each article's comments, without a query per record?"
+    expected:
+      - 'Author.includes({ articles: "comments" })'
+      - 'read them with author.loaded("articles"), which sends no query'
+    routes: /preloading
+  - id: hidden-vs-filtered
+    question: "What's the difference between hiddenAttributes and filterAttributes?"
+    expected:
+      - "hiddenAttributes keeps values out of toJSON, so Response.json and JSON.stringify"
+      - "filterAttributes shows values as [FILTERED] in onQuery listeners, error messages and printed records"
+    routes: /serialization
+  - id: share-with-some
+    question: "How do I give only some of my Models an afterSave callback, without repeating it on each?"
+    expected:
+      - "put it on an abstract class between those Models and ApplicationRecord, with static override abstract = true"
+      - "each Model that extends it keeps its own table"
+    routes: /shared-behavior
+  - id: test-worker
+    question: "In a Vitest test, how do I call my Worker's fetch handler so its queries use the test's D1 database?"
+    expected:
+      - "call worker.fetch(request) inside withDatabase(connect(binding), …)"
+      - "a Worker that uses withSession gets the test's database as env.DB instead"
+    routes: /testing
+  - id: touch-on-comment
+    question: "How do I update an article's updatedAt whenever one of its comments is saved or destroyed?"
+    expected:
+      - "declare belongsTo(Article, { touch: true }) on Comment"
+    routes: /touching
+  - id: untrusted-null
+    question: "Why should I check that a token from a JSON body is a string before Invitation.findBy({ token })?"
+    expected:
+      - "JSON can send null or a list"
+      - "findBy({ token: null }) matches rows whose token is NULL, and a list matches any of its values"
+    routes: /untrusted-input
