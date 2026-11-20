@@ -8,6 +8,7 @@ export default defineMeta({
     "conditions",
     "ordering-and-pagination",
     "batch-iteration",
+    "calculations",
     "persistence",
     "validations",
     "callbacks",

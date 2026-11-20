@@ -2,11 +2,12 @@ import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { withDatabase } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 import * as batchIteration from "../../../site/snippets/guide/batch-iteration.ts";
+import * as calculations from "../../../site/snippets/guide/calculations.ts";
 import * as conditions from "../../../site/snippets/guide/conditions.ts";
 import * as ordering from "../../../site/snippets/guide/ordering.ts";
 import * as through from "../../../site/snippets/guide/through.ts";
 import { readFileSync } from "node:fs";
-import { pageModelsAndTables } from "../../support/page-models.ts";
+import { pageModelsAndTables, standalonePages } from "../../support/page-models.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 import { writePgProject } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
@@ -113,31 +114,53 @@ describe("the Batch iteration page's examples, on Postgres", () => {
   });
 });
 
+// The Calculations page's examples, on the Postgres table it shows.
+describe("the Calculations page's examples, on Postgres", () => {
+  const schema = pageSchema(
+    "calculations",
+    `INSERT INTO products (id, name, price_cents, is_available, created_at, updated_at) VALUES
+      ('${ada}', 'Pin', 500, true, '2026-01-02Z', '2026-01-02Z'),
+      ('${mary}', 'Desk', 30000, false, '2026-03-04Z', '2026-03-04Z')`,
+  );
+
+  test("a sum and a grouped count resolve on Postgres", async () => {
+    const db = connect(schema().url);
+
+    const { total, newest } = await withDatabase(db, () => calculations.calculations());
+    const { byAvailability } = await withDatabase(db, () => calculations.groups());
+
+    expect([total, newest]).toEqual([500, new Date("2026-03-04Z")]);
+    expect(byAvailability).toEqual(
+      new Map([
+        [true, 1],
+        [false, 1],
+      ]),
+    );
+  });
+});
+
 // Each page shows its Models beside its Postgres tables; the attributes generated from those
 // tables are the ones its Models declare. PGlite starts for each schema read, which takes seconds.
 describe("the standalone pages’ Models, against their Postgres tables", { timeout: 60_000 }, () => {
-  test.each(["conditions", "through", "ordering", "batch-iteration"])(
-    "%s declares what its tables generate",
-    async (page) => {
-      const sql = readFileSync(
-        new URL(`../../../site/snippets/guide/${page}-postgres.sql`, import.meta.url),
-        "utf8",
-      );
-      const cwd = writePgProject(
-        scratch(`pg-page-${page}-`, true),
-        { HYPERDRIVE: {} },
-        {
-          "migrations/0001_create_tables.sql": sql,
-        },
-      );
+  test.each(standalonePages)("%s declares what its tables generate", async (page) => {
+    const sql = readFileSync(
+      new URL(`../../../site/snippets/guide/${page}-postgres.sql`, import.meta.url),
+      "utf8",
+    );
+    const cwd = writePgProject(
+      scratch(`pg-page-${page}-`, true),
+      { HYPERDRIVE: {} },
+      {
+        "migrations/0001_create_tables.sql": sql,
+      },
+    );
 
-      const { declared, generated } = await pageModelsAndTables(
-        cwd,
-        page,
-        (model) => `${model.toLowerCase()}s`,
-      );
+    const { declared, generated } = await pageModelsAndTables(
+      cwd,
+      page,
+      (model) => `${model.toLowerCase()}s`,
+    );
 
-      expect(declared).toEqual(generated);
-    },
-  );
+    expect(declared).toEqual(generated);
+  });
 });

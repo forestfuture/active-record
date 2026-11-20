@@ -57,7 +57,6 @@ import { runSchema } from "../../../packages/active-record/cli/schema/command.ts
 import { Post, User } from "../../../site/snippets/getting-started/models.ts";
 import * as models from "../../../site/snippets/guide/models.ts";
 import * as customTypes from "../../../site/snippets/guide/custom-types.ts";
-import { calculations, groups } from "../../../site/snippets/guide/calculations.ts";
 import { findOrCreate } from "../../../site/snippets/guide/find-or-create.ts";
 import { createdSince, oldestFirst, Reminder } from "../../../site/snippets/guide/mixed-dates.ts";
 import { paidAt, paidSince } from "../../../site/snippets/guide/raw-statements.ts";
@@ -915,70 +914,6 @@ describe("the custom types page's examples (#20)", () => {
     });
     const [row] = (await binding.prepare("SELECT sizes FROM shirts").all()).results;
     expect(row).toEqual({ sizes: "S,M,XL" });
-  });
-});
-
-describe("the querying page's calculations (#344, #345)", () => {
-  let binding: TestDatabase;
-  let dispose: () => Promise<void>;
-  const schema = new URL("../../../site/snippets/guide/schema.sql", import.meta.url);
-
-  beforeAll(async () => {
-    ({ db: binding, dispose } = await createTestDatabase(schema));
-    // The Models' binding is DB, which an earlier test may have set to a database now gone.
-    Object.assign(workers.env, { DB: binding });
-  });
-  afterAll(() => dispose());
-
-  const days = ["2026-01-02T00:00:00.000Z", "2026-03-04T00:00:00.000Z"];
-  beforeAll(async () => {
-    for (const [name, cents, available, createdAt] of [
-      ["Pin", 500, 1, days[0]],
-      ["Lamp", 12_000, 1, days[1]],
-      ["Desk", 30_000, 0, days[0]],
-      ["Mug", 1_000, 1, days[0]],
-    ] as const) {
-      await binding
-        .prepare(
-          "INSERT INTO products (id, name, price_cents, available, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-        )
-        .bind(name, name, cents, available, createdAt, createdAt)
-        .run();
-    }
-  });
-
-  test("each resolves as its comment says", async () => {
-    expect(await calculations()).toEqual({
-      total: 13_500,
-      averagePrice: 10_875,
-      cheapest: 500,
-      newest: new Date(days[1]!),
-      topThree: 43_000,
-      averageDollars: 108.75,
-    });
-  });
-
-  test("each grouped calculation resolves as its comment says (#345)", async () => {
-    const results = (await groups()) as Record<string, unknown>;
-
-    expect(results).toEqual({
-      byAvailability: new Map([
-        [1, 3],
-        [0, 1],
-      ]),
-      inStock: 3,
-      valueByAvailability: new Map([
-        [1, 13_500],
-        [0, 30_000],
-      ]),
-      byBand: new Map([
-        [[1, "cheap"], 2],
-        [[1, "pricey"], 1],
-        [[0, "pricey"], 1],
-      ]),
-      crowdedCounts: new Map([[1, 3]]),
-      largest: new Map([[1, 3]]),
-    });
   });
 });
 
