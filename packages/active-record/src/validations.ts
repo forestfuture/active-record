@@ -391,7 +391,7 @@ export function checkValidatedNames(
 
 /**
  * The virtual attributes the `confirmation` rules among `validations` read, which `toJSON()`
- * leaves out, as Rails sends no confirmation (#356).
+ * leaves out, so a confirmation is never sent back (#356).
  */
 export function confirmationNames(validations: readonly Validation[]): string[] {
   return validations
