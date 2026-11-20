@@ -8,7 +8,6 @@ import {
   test,
   vi,
 } from "vite-plus/test";
-import type { MockInstance } from "vite-plus/test";
 import {
   RecordNotUnique,
   StrictValidationFailed,
@@ -16,10 +15,10 @@ import {
 } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 import * as associations from "../../../site/snippets/pages/associations/examples.ts";
-import { Article as Story } from "../../../site/snippets/pages/associations/src/models/article.ts";
-import { Author as Writer } from "../../../site/snippets/pages/associations/src/models/author.ts";
-import { Comment as Remark } from "../../../site/snippets/pages/associations/src/models/comment.ts";
-import { Profile as Bio } from "../../../site/snippets/pages/associations/src/models/profile.ts";
+import { Article as AssociatedArticle } from "../../../site/snippets/pages/associations/src/models/article.ts";
+import { Author as AssociatedAuthor } from "../../../site/snippets/pages/associations/src/models/author.ts";
+import { Comment as AssociatedComment } from "../../../site/snippets/pages/associations/src/models/comment.ts";
+import { Profile as AssociatedProfile } from "../../../site/snippets/pages/associations/src/models/profile.ts";
 import * as attributeTypes from "../../../site/snippets/pages/attribute-types/examples.ts";
 import { Article as AutosavedArticle } from "../../../site/snippets/pages/autosaving/src/models/article.ts";
 import { Comment as AutosavedComment } from "../../../site/snippets/pages/autosaving/src/models/comment.ts";
@@ -69,6 +68,7 @@ import {
   generatedAttributes,
   pageMigrations,
   pageProject,
+  quietLog,
   schemaCommand,
   standalonePages,
 } from "../../support/page-projects.ts";
@@ -112,13 +112,13 @@ async function onPostgres(page: string, outsideTheRepo = false): Promise<string>
  * moves to Postgres does, the page's ApplicationRecord takes the schema its Postgres migrations
  * generate, and its Models stay as they are.
  */
-function pageSchema(page: string, seed: string): () => PgSchema {
+function pageSchema(page: string, seed?: string): () => PgSchema {
   let schema: PgSchema | undefined;
   let restore = () => {};
   // PGlite reads the Postgres schema, which takes seconds with coverage on.
   beforeAll(async () => {
     schema = await openPgSchema(pageMigrations(page, "postgres"));
-    await schema.pool.query({ text: seed });
+    if (seed !== undefined) await schema.pool.query({ text: seed });
     const generated = await import(join(await onPostgres(page), "src/db/schema.ts"));
     const base = await import(pageProject(page, "src/models/application-record.ts").pathname);
     const { ApplicationRecord } = base as { ApplicationRecord: { schema: unknown } };
@@ -133,23 +133,12 @@ function pageSchema(page: string, seed: string): () => PgSchema {
   return () => schema!;
 }
 
-const ada = "00000000-0000-4000-8000-00000000000a";
-const mary = "00000000-0000-4000-8000-00000000000b";
-
-/** Silences console.log for a describe's tests, and reads what each one logged. */
-function quietLog(): { calls: () => unknown[][] } {
-  let log: MockInstance<typeof console.log>;
-  beforeAll(() => {
-    log = vi.spyOn(console, "log").mockImplementation(() => {});
-  });
-  afterAll(() => log.mockRestore());
-  beforeEach(() => log.mockClear());
-  return { calls: () => log.mock.calls };
-}
+const firstId = "00000000-0000-4000-8000-00000000000a";
+const secondId = "00000000-0000-4000-8000-00000000000b";
 
 // The Attribute types page's examples, on the products table it shows, on Postgres.
 describe("the Attribute types page's examples, on Postgres", () => {
-  const schema = pageSchema("attribute-types", "SELECT 1");
+  const schema = pageSchema("attribute-types");
 
   const run = <T>(fn: () => Promise<T> | T) =>
     withDatabase(connect(schema().url), async () => fn());
@@ -227,7 +216,7 @@ describe("the Enums page's examples, on Postgres", () => {
 
 // The Change tracking page's examples, on the users table it shows, on Postgres.
 describe("the Change tracking page's examples, on Postgres", () => {
-  const schema = pageSchema("change-tracking", "SELECT 1");
+  const schema = pageSchema("change-tracking");
 
   beforeEach(async () => {
     await schema().pool.query({ text: "DELETE FROM users" });
@@ -238,15 +227,19 @@ describe("the Change tracking page's examples, on Postgres", () => {
   const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
 
   test("a record reports its unsaved changes, and its callback reads the saved one", async () => {
-    const ada = await run(changeTracking.changing);
+    const user = await run(changeTracking.changing);
 
-    expect([ada.email, ada.isChanged()]).toEqual(["jane@work.example", false]);
+    expect([user.email, user.isChanged()]).toEqual(["jane@work.example", false]);
   });
 
   test("restoreAttributes undoes the changes it names", async () => {
-    const ada = await run(changeTracking.restoring);
+    const user = await run(changeTracking.restoring);
 
-    expect([ada.email, ada.role, ada.changed()]).toEqual(["jane@example.com", "owner", ["role"]]);
+    expect([user.email, user.role, user.changed()]).toEqual([
+      "jane@example.com",
+      "owner",
+      ["role"],
+    ]);
   });
 });
 
@@ -277,7 +270,7 @@ describe("the Serialization page's examples, on Postgres", () => {
 
 // The Models page's examples, on the tables it shows, on Postgres.
 describe("the Models page's examples, on Postgres", () => {
-  const schema = pageSchema("models", "SELECT 1");
+  const schema = pageSchema("models");
   beforeEach(async () => {
     await schema().pool.query({ text: "DELETE FROM products; DELETE FROM billing_accounts" });
     await schema().pool.query({
@@ -314,10 +307,15 @@ describe("the Models page's examples, on Postgres", () => {
     expect([lamp.name, lamp.status, lamp.archived]).toEqual(["Lamp", "draft", false]);
   });
 
-  test("a subclass shares its parent's table, and a Model can name another table", async () => {
-    const { published, account } = await run(models.naming);
+  test("a subclass shares its parent's table", async () => {
+    const { published } = await run(models.naming);
 
     expect(published.map((product) => product.name)).toEqual(["Desk"]);
+  });
+
+  test("a Model can name another table", async () => {
+    const { account } = await run(models.naming);
+
     expect(account.email).toBe("jane@example.com");
   });
 
@@ -358,7 +356,7 @@ describe("the Preloading page's examples, on Postgres", () => {
 
 // The Autosaving page's examples, on the tables it shows, on Postgres.
 describe("the Autosaving page's examples, on Postgres", () => {
-  const schema = pageSchema("autosaving", "SELECT 1");
+  const schema = pageSchema("autosaving");
   beforeEach(async () => {
     await schema().pool.query({
       text: "DELETE FROM comments; DELETE FROM profiles; DELETE FROM articles; DELETE FROM authors",
@@ -401,7 +399,7 @@ describe("the Autosaving page's examples, on Postgres", () => {
 
 // The Counter caches page's examples, on the tables it shows, on Postgres.
 describe("the Counter caches page's examples, on Postgres", () => {
-  const schema = pageSchema("counter-caches", "SELECT 1");
+  const schema = pageSchema("counter-caches");
   beforeEach(async () => {
     await schema().pool.query({ text: "DELETE FROM comments; DELETE FROM articles" });
     await schema().pool.query({
@@ -432,7 +430,7 @@ describe("the Counter caches page's examples, on Postgres", () => {
 
 // The Touching page's examples, on the tables it shows, on Postgres.
 describe("the Touching page's examples, on Postgres", () => {
-  const schema = pageSchema("touching", "SELECT 1");
+  const schema = pageSchema("touching");
   beforeEach(async () => {
     await schema().pool.query({
       text: "DELETE FROM profiles; DELETE FROM users; DELETE FROM comments; DELETE FROM articles; DELETE FROM blogs",
@@ -482,7 +480,7 @@ describe("the Touching page's examples, on Postgres", () => {
 
 // The Associations page's examples, on the tables it shows, on Postgres.
 describe("the Associations page's examples, on Postgres", () => {
-  const schema = pageSchema("associations", "SELECT 1");
+  const schema = pageSchema("associations");
   beforeEach(async () => {
     await schema().pool.query({
       text: "DELETE FROM likes; DELETE FROM videos; DELETE FROM photos; DELETE FROM categories; DELETE FROM comments; DELETE FROM articles; DELETE FROM profiles; DELETE FROM authors",
@@ -499,9 +497,9 @@ describe("the Associations page's examples, on Postgres", () => {
 
   test("a belongsTo reads its record, and set() points it at another", async () => {
     const { author, article } = await run(associations.readingTheAuthor);
-    const ada = await db().model(Writer).findByOrThrow({ name: "Sam" });
+    const newAuthor = await db().model(AssociatedAuthor).findByOrThrow({ name: "Sam" });
 
-    expect([author?.name, article.authorId]).toEqual(["Jane", ada.id]);
+    expect([author?.name, article.authorId]).toEqual(["Jane", newAuthor.id]);
   });
 
   test("a hasMany reads, builds, and bulk-deletes the owner's records", async () => {
@@ -511,7 +509,7 @@ describe("the Associations page's examples, on Postgres", () => {
       "Draft",
       "On Nothing",
     ]);
-    expect(await db().model(Story).where({ title: "Untitled" }).count()).toBe(0);
+    expect(await db().model(AssociatedArticle).where({ title: "Untitled" }).count()).toBe(0);
   });
 
   test("a hasOne reads its record, and set() replaces it", async () => {
@@ -519,7 +517,7 @@ describe("the Associations page's examples, on Postgres", () => {
 
     await run(associations.replacingTheProfile);
 
-    expect(await db().model(Bio).pluck("bio")).toEqual(["Novelist"]);
+    expect(await db().model(AssociatedProfile).pluck("bio")).toEqual(["Novelist"]);
   });
 
   test("a polymorphic like reads its record, and moves to a video", async () => {
@@ -553,18 +551,21 @@ describe("the Associations page's examples, on Postgres", () => {
 
   test("deleteAll through an association, and destroying with dependents", async () => {
     await run(associations.deletingComments);
-    expect(await db().model(Remark).count()).toBe(0);
+    expect(await db().model(AssociatedComment).count()).toBe(0);
 
     await run(associations.destroying);
 
-    expect(await db().model(Writer).pluck("name")).toEqual(["Sam"]);
-    expect([await db().model(Story).count(), await db().model(Bio).count()]).toEqual([0, 0]);
+    expect(await db().model(AssociatedAuthor).pluck("name")).toEqual(["Sam"]);
+    expect([
+      await db().model(AssociatedArticle).count(),
+      await db().model(AssociatedProfile).count(),
+    ]).toEqual([0, 0]);
   });
 });
 
 // The Persistence page's examples, on the tables it shows, on Postgres.
 describe("the Persistence page's examples, on Postgres", () => {
-  const schema = pageSchema("persistence", "SELECT 1");
+  const schema = pageSchema("persistence");
   beforeEach(async () => {
     await schema().pool.query({
       text: "DELETE FROM posts; DELETE FROM users; DELETE FROM articles; DELETE FROM labels",
@@ -669,7 +670,7 @@ describe("the Persistence page's examples, on Postgres", () => {
 
 // The Validations page's examples, on the tables it shows, on Postgres.
 describe("the Validations page's examples, on Postgres", () => {
-  const schema = pageSchema("validations", "SELECT 1");
+  const schema = pageSchema("validations");
   beforeEach(async () => {
     await schema().pool.query({
       text: "DELETE FROM tracks; DELETE FROM playlists; DELETE FROM accounts; DELETE FROM events; DELETE FROM invoices; DELETE FROM members; DELETE FROM bookings; DELETE FROM products",
@@ -745,7 +746,7 @@ describe("the Validations page's examples, on Postgres", () => {
 
 // The Callbacks page's examples, on the tables it shows, on Postgres.
 describe("the Callbacks page's examples, on Postgres", () => {
-  const schema = pageSchema("callbacks", "SELECT 1");
+  const schema = pageSchema("callbacks");
   beforeEach(async () => {
     await schema().pool.query({
       text: "DELETE FROM orders; DELETE FROM users; DELETE FROM articles; DELETE FROM invoices",
@@ -816,7 +817,7 @@ describe("the Callbacks page's examples, on Postgres", () => {
 
 // The Bulk writes and batches page's examples, on the tables it shows, on Postgres.
 describe("the Bulk writes and batches page's examples, on Postgres", () => {
-  const schema = pageSchema("batches", "SELECT 1");
+  const schema = pageSchema("batches");
   beforeEach(async () => {
     await schema().pool.query({
       text: "DELETE FROM comments; DELETE FROM articles; DELETE FROM authors",
@@ -878,7 +879,7 @@ describe("the Bulk writes and batches page's examples, on Postgres", () => {
 
 // The Connections page's examples that don't call D1's connect, on Postgres.
 describe("the Connections page's examples, on Postgres", () => {
-  const schema = pageSchema("connecting", "SELECT 1");
+  const schema = pageSchema("connecting");
   beforeEach(async () => {
     await schema().pool.query({ text: "DELETE FROM posts; DELETE FROM users" });
     await schema().pool.query({
@@ -905,7 +906,7 @@ describe("the Connections page's examples, on Postgres", () => {
 
 // The Errors page's examples, on the table it shows, on Postgres.
 describe("the Errors page's examples, on Postgres", () => {
-  const schema = pageSchema("errors", "SELECT 1");
+  const schema = pageSchema("errors");
   beforeEach(async () => {
     await schema().pool.query({
       text: "DELETE FROM users; INSERT INTO users (id, email) VALUES ('00000000-0000-4000-8000-000000000001', 'jane@example.com')",
@@ -913,11 +914,16 @@ describe("the Errors page's examples, on Postgres", () => {
   });
   const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
 
-  test("RecordNotFound becomes a 404, and a found user is returned", async () => {
-    const found = await run(() => errors.showUser("00000000-0000-4000-8000-000000000001"));
-    const missing = await run(() => errors.showUser("00000000-0000-4000-8000-000000000099"));
+  test("a found user is returned", async () => {
+    const response = await run(() => errors.showUser("00000000-0000-4000-8000-000000000001"));
 
-    expect([found.status, missing.status]).toEqual([200, 404]);
+    expect(response.status).toBe(200);
+  });
+
+  test("RecordNotFound becomes a 404", async () => {
+    const response = await run(() => errors.showUser("00000000-0000-4000-8000-000000000099"));
+
+    expect(response.status).toBe(404);
   });
 
   test("the UNIQUE index's RecordNotUnique names the email, and becomes a taken error", async () => {
@@ -930,7 +936,7 @@ describe("the Errors page's examples, on Postgres", () => {
 
 // The Custom types page's examples, on the tables it shows, on Postgres.
 describe("the Custom types page's examples, on Postgres", () => {
-  const schema = pageSchema("custom-types", "SELECT 1");
+  const schema = pageSchema("custom-types");
   beforeEach(async () => {
     await schema().pool.query({ text: "DELETE FROM products; DELETE FROM shirts" });
     await schema().pool.query({
@@ -964,7 +970,7 @@ describe("the Custom types page's examples, on Postgres", () => {
 
 // The Shared behavior page's examples, on the tables it shows, on Postgres.
 describe("the Shared behavior page's examples, on Postgres", () => {
-  const schema = pageSchema("shared-behavior", "SELECT 1");
+  const schema = pageSchema("shared-behavior");
   beforeEach(async () => {
     await schema().pool.query({
       text: "DELETE FROM products; DELETE FROM invoices; INSERT INTO products (id, name, created_at) VALUES ('00000000-0000-4000-8000-000000000001', 'Desk', '2026-01-01T00:00:00Z')",
@@ -990,7 +996,7 @@ describe("the Shared behavior page's examples, on Postgres", () => {
 
 // The Untrusted input page's examples, on the tables it shows, on Postgres.
 describe("the Untrusted input page's examples, on Postgres", () => {
-  const schema = pageSchema("untrusted-input", "SELECT 1");
+  const schema = pageSchema("untrusted-input");
   beforeEach(async () => {
     await schema().pool.query({ text: "DELETE FROM accounts; DELETE FROM invitations" });
     await schema().pool.query({
@@ -1017,15 +1023,19 @@ describe("the Untrusted input page's examples, on Postgres", () => {
     const account = await run(() =>
       UntrustedAccount.create({ email: "jane@example.com", handle: "jane" }),
     );
-    const raw = (body: string) => new Request("https://example.com/", { method: "POST", body });
-    const update = (request: Request) => run(() => untrustedInput.updateAccount(account, request));
+    const update = (body: string) =>
+      run(() =>
+        untrustedInput.updateAccount(
+          new Request(`https://example.com/?id=${account.id}`, { method: "POST", body }),
+        ),
+      );
 
-    expect((await update(json({ seats: "many" }))).status).toBe(400);
-    expect((await update(raw("{nope"))).status).toBe(400);
-    expect((await update(json(["seats"]))).status).toBe(400);
+    expect((await update(JSON.stringify({ seats: "many" }))).status).toBe(400);
+    expect((await update("{nope")).status).toBe(400);
+    expect((await update(JSON.stringify(["seats"]))).status).toBe(400);
 
-    const saved = await update(json({ seats: "3" }));
-    expect([saved.status, account.seats]).toEqual([200, 3]);
+    const saved = await update(JSON.stringify({ seats: "3" }));
+    expect([saved.status, ((await saved.json()) as { seats: number }).seats]).toEqual([200, 3]);
   });
 
   test("an untrusted null never reaches the query, so an accepted invitation stays accepted", async () => {
@@ -1041,7 +1051,7 @@ describe("the Untrusted input page's examples, on Postgres", () => {
 
 // The Logging page's app-wide listener, on Postgres; its Workers call D1's connect.
 describe("the Logging page's examples, on Postgres", () => {
-  const schema = pageSchema("logging", "SELECT 1");
+  const schema = pageSchema("logging");
   beforeEach(async () => {
     await schema().pool.query({
       text: "DELETE FROM users; INSERT INTO users (id, email) VALUES ('00000000-0000-4000-8000-000000000001', 'jane@example.com')",
@@ -1062,7 +1072,7 @@ describe("the Logging page's examples, on Postgres", () => {
 
 // The Testing page's tests, run here on the Model and Worker it shows, on Postgres.
 describe("the Testing page's examples, on Postgres", () => {
-  const schema = pageSchema("testing", "SELECT 1");
+  const schema = pageSchema("testing");
   beforeEach(async () => {
     await schema().pool.query({ text: "DELETE FROM users" });
   });
@@ -1089,8 +1099,8 @@ describe("the Querying page's examples, on Postgres", () => {
   const schema = pageSchema(
     "querying",
     `INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES
-      ('${ada}', 'jane@example.com', 'admin', true, '2026-01-15Z', '2026-01-15Z'),
-      ('${mary}', 'mary@example.com', 'owner', true, '2025-11-01Z', '2025-11-01Z')`,
+      ('${firstId}', 'jane@example.com', 'admin', true, '2026-01-15Z', '2026-01-15Z'),
+      ('${secondId}', 'sam@example.com', 'owner', true, '2025-11-01Z', '2025-11-01Z')`,
   );
 
   test("finders, plucks and checks resolve, and toSql shows numbered placeholders", async () => {
@@ -1106,9 +1116,9 @@ describe("the Querying page's examples, on Postgres", () => {
     expect([again.email, newest?.email, owner.email]).toEqual([
       "jane@example.com",
       "jane@example.com",
-      "mary@example.com",
+      "sam@example.com",
     ]);
-    expect(emails).toEqual(["jane@example.com", "mary@example.com"]);
+    expect(emails).toEqual(["jane@example.com", "sam@example.com"]);
     expect(counts).toEqual({ admins: 1, hasAdmins: true, severalAdmins: false, oneOwner: true });
     // oxlint-disable-next-line active-record/no-sql-text -- the page says Postgres numbers its placeholders
     expect(sql).toMatch(/\$1.*\$2/);
@@ -1120,8 +1130,8 @@ describe("the Conditions page's examples, on Postgres", () => {
   const schema = pageSchema(
     "conditions",
     `INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES
-      ('${ada}', 'jane@example.com', 'admin', true, '2026-01-15Z', '2026-01-15Z'),
-      ('${mary}', 'mary@example.com', 'editor', true, '2025-12-01Z', '2025-12-01Z')`,
+      ('${firstId}', 'jane@example.com', 'admin', true, '2026-01-15Z', '2026-01-15Z'),
+      ('${secondId}', 'sam@example.com', 'editor', true, '2025-12-01Z', '2025-12-01Z')`,
   );
 
   test("where, whereNot, and an sql fragment find the users they show", async () => {
@@ -1131,8 +1141,8 @@ describe("the Conditions page's examples, on Postgres", () => {
     const { user: found, newcomers } = await withDatabase(db, () => conditions.comparing());
 
     expect(admins.map((user) => user.email)).toEqual(["jane@example.com"]);
-    expect(others.map((user) => user.email)).toEqual(["mary@example.com"]);
-    expect(found?.id).toBe(ada);
+    expect(others.map((user) => user.email)).toEqual(["sam@example.com"]);
+    expect(found?.id).toBe(firstId);
     expect(newcomers.map((user) => user.email)).toEqual(["jane@example.com"]);
   });
 });
@@ -1141,9 +1151,9 @@ describe("the Conditions page's examples, on Postgres", () => {
 describe("the Through associations page's examples, on Postgres", () => {
   const schema = pageSchema(
     "through-associations",
-    `INSERT INTO authors (id, name) VALUES ('${ada}', 'Sam'), ('${mary}', 'Jane');
+    `INSERT INTO authors (id, name) VALUES ('${firstId}', 'Sam'), ('${secondId}', 'Jane');
      INSERT INTO articles (id, author_id, title) VALUES
-       ('${ada}', '${ada}', 'Engines'), ('${mary}', '${mary}', 'On Nothing');
+       ('${firstId}', '${firstId}', 'Engines'), ('${secondId}', '${secondId}', 'On Nothing');
      INSERT INTO tags (name) VALUES ('essays');
      INSERT INTO taggings (article_id, tag_id) SELECT id, 1 FROM articles;`,
   );
@@ -1168,8 +1178,8 @@ describe("the Ordering and pagination page's examples, on Postgres", () => {
   const schema = pageSchema(
     "ordering-and-pagination",
     `INSERT INTO posts (id, title, status, published_at, created_at, updated_at) VALUES
-      ('${ada}', 'Alpha', 'published', '2026-01-02Z', '2026-01-02Z', '2026-01-02Z'),
-      ('${mary}', 'Gamma', 'draft', NULL, '2026-01-04Z', '2026-01-04Z')`,
+      ('${firstId}', 'Alpha', 'published', '2026-01-02Z', '2026-01-02Z', '2026-01-02Z'),
+      ('${secondId}', 'Gamma', 'draft', NULL, '2026-01-04Z', '2026-01-04Z')`,
   );
 
   test("order puts NULL first when descending on Postgres, and pages count", async () => {
@@ -1233,8 +1243,8 @@ describe("the Calculations page's examples, on Postgres", () => {
   const schema = pageSchema(
     "calculations",
     `INSERT INTO products (id, name, price_cents, is_available, created_at, updated_at) VALUES
-      ('${ada}', 'Pin', 500, true, '2026-01-02Z', '2026-01-02Z'),
-      ('${mary}', 'Desk', 30000, false, '2026-03-04Z', '2026-03-04Z')`,
+      ('${firstId}', 'Pin', 500, true, '2026-01-02Z', '2026-01-02Z'),
+      ('${secondId}', 'Desk', 30000, false, '2026-03-04Z', '2026-03-04Z')`,
   );
 
   test("a sum and a grouped count resolve on Postgres", async () => {
@@ -1275,8 +1285,8 @@ describe("the Calculations page's examples, on Postgres", () => {
 describe("the Scopes page's examples, on Postgres", () => {
   const schema = pageSchema(
     "scopes",
-    `INSERT INTO posts (id, title, published_at) VALUES ('${ada}', 'Hello', '2026-02-01Z'), ('${mary}', 'Draft', NULL);
-     INSERT INTO products (id, name, is_available) VALUES ('${ada}', 'Pen', true), ('${mary}', 'Ink', false);`,
+    `INSERT INTO posts (id, title, published_at) VALUES ('${firstId}', 'Hello', '2026-02-01Z'), ('${secondId}', 'Draft', NULL);
+     INSERT INTO products (id, name, is_available) VALUES ('${firstId}', 'Pen', true), ('${secondId}', 'Ink', false);`,
   );
 
   test("a scope and a default scope narrow their queries on Postgres", async () => {

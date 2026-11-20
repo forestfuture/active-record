@@ -1,5 +1,6 @@
 // A standalone guide page's project (site/snippets/pages/<page>/): its migrations, and the schema `active-record schema` generates from them.
 import { readdirSync, readFileSync } from "node:fs";
+import { afterAll, beforeAll, beforeEach, vi, type MockInstance } from "vite-plus/test";
 import { join } from "node:path";
 import { runSchema } from "../../packages/active-record/cli/schema/command.ts";
 
@@ -64,4 +65,18 @@ export function generatedAttributes(cwd: string): Record<string, string[]> {
   return Object.fromEntries(
     [...tables].map(([, table, body]) => [table!, body!.split("\n").map((line) => line.trim())]),
   );
+}
+
+/**
+ * console.log, quiet for a describe whose examples log what they show: the tests check the calls
+ * instead. Made in beforeAll, so describes that don't run yet don't share it; cleared before each.
+ */
+export function quietLog(): { calls: () => unknown[][] } {
+  let log: MockInstance<typeof console.log>;
+  beforeAll(() => {
+    log = vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+  afterAll(() => log.mockRestore());
+  beforeEach(() => log.mockClear());
+  return { calls: () => log.mock.calls };
 }
