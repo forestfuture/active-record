@@ -1,6 +1,8 @@
 ---
 title: Schema and ApplicationRecord
 description: "Active Record reads a table’s columns from your migrations when you generate the schema, not when your Worker runs."
+seo:
+  description: "Why Active Record generates a Model’s attributes from your migrations when you run active-record schema, and how the generated schema compares to Rails’."
 ---
 
 ## Migrations are the source of truth

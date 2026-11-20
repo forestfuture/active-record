@@ -1,6 +1,8 @@
 ---
 title: Security
 description: "Active Record prevents SQL injection and casts what a request sends, but authorization and which fields a request may set are up to your app."
+seo:
+  description: "What Active Record protects against, from SQL injection to prototype pollution, what it leaves to your app, the tests behind each guarantee, and its reviews."
 ---
 
 ## What Active Record protects against
