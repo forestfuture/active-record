@@ -485,8 +485,11 @@ export class RecordState {
     for (const name of Object.keys(this.#values)) this.#values[name] = this.#copyOf(name);
   }
 
+  /** The columns among `names` and their values: a virtual attribute has no column (#356). */
   #assignmentsOf(names: readonly string[]): Assignment[] {
-    return names.map((name): Assignment => [name, this.#values[name]]);
+    return names
+      .filter((name) => this.#definition(name).virtual !== true)
+      .map((name): Assignment => [name, this.#values[name]]);
   }
 
   /**
