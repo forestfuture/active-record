@@ -62,7 +62,6 @@ import { findOrCreate } from "../../../site/snippets/guide/find-or-create.ts";
 import { createdSince, oldestFirst, Reminder } from "../../../site/snippets/guide/mixed-dates.ts";
 import { paidAt, paidSince } from "../../../site/snippets/guide/raw-statements.ts";
 import * as untrusted from "../../../site/snippets/guide/untrusted-input.ts";
-import * as paginating from "../../../site/snippets/guide/paginating.ts";
 import * as iterating from "../../../site/snippets/guide/iterating.ts";
 import * as filtering from "../../../site/snippets/guide/filtering.ts";
 import * as hidden from "../../../site/snippets/guide/hidden-attributes.ts";
@@ -203,30 +202,6 @@ describe("Getting started", () => {
     expect(await db.model(Post).count()).toBe(1);
   });
 
-  test("Querying: the paginate examples page the posts, newest first", async () => {
-    const db = connect(binding);
-    const grace = await db.model(User).findByOrThrow({ email: "grace@example.com" });
-    for (const day of [1, 2]) {
-      const publishedAt = new Date(Date.UTC(2030, 0, day));
-      await db.model(Post).create({ userId: grace.id, title: `Day ${day}`, publishedAt });
-    }
-
-    const response = await paginating.listPosts(new Request("https://example.com/?page=1"));
-    const second = await withDatabase(db, paginating.countless);
-
-    expect(await response.json()).toMatchObject({
-      records: [{ title: "Day 2" }, { title: "Day 1" }, { title: "Hello, world" }],
-      page: 1,
-      perPage: 20,
-      total: 3,
-      totalPages: 1,
-      hasNext: false,
-      hasPrevious: false,
-    });
-    expect(second).toEqual({ records: [], hasNext: false });
-    expect([paginating.Base.perPage, paginating.Base.maxPerPage]).toEqual([20, 50]);
-  });
-
   test("Querying: the iterating examples walk the users and posts a batch at a time", async () => {
     const db = connect(binding);
     const grace = await db.model(User).findByOrThrow({ email: "grace@example.com" });
@@ -236,7 +211,7 @@ describe("Getting started", () => {
 
     expect(seen.slice(0, 3)).toEqual(Array(3).fill("grace@example.com"));
     // Random keys, so the posts come in no order a test can know.
-    expect(new Set(seen.slice(3))).toEqual(new Set(["Day 1", "Day 2", "Hello, world", "Untitled"]));
+    expect(new Set(seen.slice(3))).toEqual(new Set(["Hello, world", "Untitled"]));
     expect(await db.model(Post).where({ publishedAt: null }).pluck("title")).toEqual(["Untitled"]);
   });
 });

@@ -6,6 +6,7 @@ export default defineMeta({
     "models",
     "querying",
     "conditions",
+    "ordering-and-pagination",
     "persistence",
     "validations",
     "callbacks",

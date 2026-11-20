@@ -1,4 +1,3 @@
-import { column, sql } from "@forestfuture/active-record";
 import { User } from "./models";
 
 export async function examples(): Promise<unknown> {
@@ -15,19 +14,6 @@ export async function examples(): Promise<unknown> {
   User.whereNot({ role: "admin" }); // NOT (role = ?)
   User.where({ role: "admin" }).or(User.where({ isActive: false }));
   // #endregion where
-
-  // #region order
-  User.order({ role: "asc", createdAt: "desc" });
-  User.order({ role: { direction: "asc", nulls: "last" } });
-  User.order(sql`lower(${column("email")})`);
-  User.order({ role: "asc" }).reorder({ email: "asc" }); // replaces the order
-  User.order({ createdAt: "desc" }).limit(20).offset(40); // page 3
-  // #endregion order
-
-  // #region in-order-of
-  User.inOrderOf("role", ["owner", "admin", "member"]); // only those roles, owners first
-  User.inOrderOf("role", ["owner", "admin"], { filter: false }); // everyone else last
-  // #endregion in-order-of
 
   const results = await gettingResults();
 

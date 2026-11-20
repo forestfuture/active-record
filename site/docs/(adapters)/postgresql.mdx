@@ -82,7 +82,7 @@ A [batch](./batches#batching-writes) is written whole or not at all, as on D1. O
 
 ## Reads run one after another
 
-On D1, a [preload](./associations#preloading-associations) or a [page](./querying#paginating) sends all its queries [in one round trip](./d1#sending-queries-in-one-round-trip). On Postgres they run one after another, on one client. A page’s `total` comes from its own query, so a write between the two can make it disagree with the page’s records for a moment.
+On D1, a [preload](./associations#preloading-associations) or a [page](./ordering-and-pagination#paginating) sends all its queries [in one round trip](./d1#sending-queries-in-one-round-trip). On Postgres they run one after another, on one client. A page’s `total` comes from its own query, so a write between the two can make it disagree with the page’s records for a moment.
 
 Queries you send at once with `Promise.all` inside one `withDatabase` call also run one after another, on that call’s client.
 
