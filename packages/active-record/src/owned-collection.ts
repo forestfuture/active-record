@@ -25,7 +25,7 @@ export interface OwnedCollection {
    * changed the association meanwhile (#181). Only the association itself has it, not narrowed ones.
    */
   startFill?<M extends Model>(): (records: readonly M[]) => M[];
-  /** A record created through it joins the loaded records, as in Rails. */
+  /** A record created through it joins the loaded records. */
   created(record: Model): void;
   /** A record built through it, for autosave. It points back at the owner, as one created does. */
   built(record: Model): void;
@@ -38,8 +38,8 @@ export interface OwnedCollection {
   /** Why records can't be created through it, if they can't: its owner has no key. */
   readonly refusal: string | undefined;
   /**
-   * The attributes `deleteAll()` sets to NULL rather than deleting, as Rails' has_many does
-   * without a deleting `dependent:`: the foreign key, and a type (#60); undefined when it deletes.
+   * The attributes `deleteAll()` sets to NULL rather than deleting, when
+   * its `dependent:` doesn't delete: the foreign key, and a type (#60); undefined when it deletes.
    */
   readonly nullifies: readonly string[] | undefined;
   /**
@@ -145,8 +145,7 @@ function withKey(
   const { associations: loadedAssociations, autosaves } = owner[state];
   const { name, ownerAttribute, definition } = association;
   const built = () => autosaves.built(name);
-  // The stored records, then those built through it and not among them, as Rails merges new
-  // records into what it loads.
+  // The stored records, then those built through it and not among them.
   const withBuilt = <M extends Model>(stored: readonly M[]): M[] => [
     ...stored,
     // Built through this association, so they're of its target Model, as the stored ones are.

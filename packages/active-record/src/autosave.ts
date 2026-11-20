@@ -10,7 +10,7 @@ import { resolveAssociation, type ResolvedAssociation } from "./resolved-associa
 export interface Linked {
   association: ResolvedAssociation;
   record: Model;
-  /** A hasMany's loaded record, saved as it is: Rails doesn't point it at the owner again. */
+  /** A hasMany's loaded record, saved as it is, without pointing it at the owner again. */
   keepsKey?: true;
   /** Marked for destruction (#37): destroyed, not saved. */
   destroys?: true;
@@ -32,7 +32,7 @@ export interface Before {
 
 /**
  * The records `owner` was pointed at through belongsTo while they were new. Its foreign keys
- * are linked to them when it's saved, even if they were saved on their own since (Rails links
+ * are linked to them when it's saved, even if they were saved on their own since (they're linked
  * whenever the association was set); the ones still new and not already part of the write
  * (`claimed`) are saved first. Through an `autosave: true` belongsTo, its loaded record is saved
  * first too when it changed, or destroyed after it when it's marked (#37).
@@ -53,7 +53,7 @@ export function autosavedBefore(owner: Model, claimed: ReadonlySet<Model>): Befo
       ...pointedAt.filter(unsaved),
       ...loadedSaved.filter((each) => !marked(each) && isChangedForAutosave(each.record)),
     ],
-    // A new one marked is destroyed too, writing nothing, as Rails does.
+    // A new one marked is destroyed too, writing nothing.
     destroyed: [
       ...all.filter((each) => marked(each) && unsaved(each)),
       ...loadedSaved.filter(marked),
@@ -82,7 +82,7 @@ function linkedThrough(model: ModelClass, name: string, record: Model): Linked {
 }
 
 /**
- * Clears the foreign keys that point the owner at records it destroys (Rails' `self[fk] = nil`),
+ * Clears the foreign keys that point the owner at records it destroys,
  * and a polymorphic belongsTo's type with it (#60), as `set(null)` does, and forgets a new one it
  * was to save first.
  */
@@ -99,7 +99,7 @@ export function unlink(owner: Model, destroyed: readonly Linked[]): void {
  * they're declared, leaving out any record already claimed by the write being prepared: the
  * records built through each that are still new, or with `autosave: true` what `withAutosave`
  * says. While the owner is new, a hasMany's are every record added to it, saved ones pushed onto
- * it included, as Rails saves a new owner's whole collection, and a hasOne's is its record, saved
+ * it included, since a new owner saves its whole collection, and a hasOne's is its record, saved
  * or not.
  */
 export function autosavedAfter(owner: Model, claimed: ReadonlySet<Model>): Linked[] {
@@ -117,7 +117,7 @@ export function autosavedAfter(owner: Model, claimed: ReadonlySet<Model>): Linke
 }
 
 /**
- * What an `autosave: true` association writes after its owner (#37), as Rails does: its saved
+ * What an `autosave: true` association writes after its owner (#37): its saved
  * records marked for destruction are destroyed, then its loaded records that changed are saved,
  * then those built through it. Marked records never saved are left out (`dropUnsavedMarked`).
  */
@@ -147,7 +147,7 @@ function withAutosave(
 
 /**
  * Takes the records marked for destruction that were never saved out of `owner`'s `autosave:
- * true` associations, writing nothing, as Rails does when it saves the owner.
+ * true` associations, writing nothing, when the owner is saved.
  */
 export function dropUnsavedMarked(owner: Model): void {
   const model = modelOf(owner);
@@ -191,8 +191,8 @@ function loaded(owner: Model, name: string): readonly Model[] {
 }
 
 /**
- * Whether saving `record` through an `autosave: true` association would write anything, as Rails'
- * `changed_for_autosave?`: it's new, changed or marked for destruction, or so is a record of one of its own `autosave:
+ * Whether saving `record` through an `autosave: true` association would write anything:
+ * it's new, changed or marked for destruction, or so is a record of one of its own `autosave:
  * true` associations, at any level. `seen` stops a loop of records loaded through each other.
  */
 function isChangedForAutosave(record: Model, seen = new Set<Model>()): boolean {

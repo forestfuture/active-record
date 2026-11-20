@@ -179,7 +179,7 @@ export async function touchesOf(
   cause: TouchCause,
   claimed: ReadonlySet<Model>,
 ): Promise<PreparedWrite[]> {
-  // Rails touches only a persisted record.
+  // Only a persisted record is touched.
   if (cause === "destroy") markTouched(record, claimed);
   const writes: PreparedWrite[] = [];
   const model = modelOf(record);
@@ -205,9 +205,9 @@ function isTouching(
   if (touch === undefined) return false;
   if (kind === "hasOne" && cause === "insert") return false;
   if (cause !== "destroy") return true;
-  // Its owner is being deleted with it (Rails skips the destroyed owner).
+  // Its owner is being deleted with it, so it isn't touched.
   if (kind === "belongsTo") return !isDestroyedThrough(record, foreignKey);
-  // A hasOne's record its dependent removes (Rails touches only a persisted one).
+  // A hasOne's record its dependent removes (only a persisted one is touched).
   return dependent !== "destroy" && dependent !== "delete";
 }
 
@@ -266,7 +266,7 @@ async function readStored(record: Model, name: string): Promise<Model | null> {
 
 /**
  * A record with a row to touch once the write is sent: one that's saved and isn't destroyed, or
- * a new one the write inserts itself, which Rails touches after its insert too.
+ * a new one the write inserts itself, touched after its insert.
  */
 function isTouchable(record: unknown, claimed: ReadonlySet<Model>): record is Model {
   if (!(record instanceof Model)) return false;
@@ -316,7 +316,7 @@ function isClaimedRow(record: Model, claimed: ReadonlySet<Model>): boolean {
  * A touch write as part of another record's write. What it does to its record is asked as each
  * step runs, when the write's records are claimed and inserted ones have their keys, by row
  * (another instance may be the one claimed): a row destroyed by then takes nothing, and a row the
- * write destroys runs no touch callback (Rails touches only a persisted record); a row the write
+ * write destroys runs no touch callback (only a persisted record is touched); a row the write
  * saves itself runs its commit and rollback callbacks once, from its own save.
  */
 function inWrite(write: PreparedWrite, target: Model, claimed: ReadonlySet<Model>): PreparedWrite {
