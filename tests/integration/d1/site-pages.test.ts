@@ -345,6 +345,13 @@ describe("the Models page's examples", () => {
     expect(results).toEqual([{ email: "jane@example.com" }]);
   });
 
+  test("an alias reads, writes and queries its attribute", async () => {
+    const { lamp, titles } = await run(models.aliasing);
+
+    expect(titles).toEqual(["Lamp"]);
+    expect(lamp.changes()).toEqual({ name: ["Lamp", "Desk lamp"] });
+  });
+
   test("a Model can name another table", async () => {
     const { account } = await run(models.naming);
 

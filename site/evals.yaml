@@ -386,3 +386,9 @@ questions:
       - 'this.validates("email", { confirmation: true }), with a virtual emailConfirmation attribute'
       - "a mismatch is an error on emailConfirmation, and toJSON() leaves the confirmation out"
     routes: /validations
+  - id: alias-attribute
+    question: "My products table's column is name, but the app calls it title. How do I use title in code and in queries?"
+    expected:
+      - 'an alias in static attributes: title: { aliasOf: "name" }'
+      - "where, order, pluck, create and the rest take title, and changes and toJSON list name"
+    routes: /models

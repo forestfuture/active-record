@@ -76,6 +76,10 @@ _Avoid_: Raw value, database value, value from D1
 An attribute whose values listeners, errors, and a printed record show as `"[FILTERED]"` (passwords, tokens, keys, emails), named by the Model's `filterAttributes`. D1 still gets the real values.
 _Avoid_: Redacted, masked, sensitive field; and "filter" alone, which means a **Scope**'s conditions
 
+**Attribute alias**:
+A second name for an **Attribute**, declared as `title: { aliasOf: "name" }`, that reads, writes and queries the attribute it names. The record holds the value once, under the attribute's own name. Not the alias a joined table goes by in a query.
+_Avoid_: Alias attribute, synonym, renamed column
+
 **Normalization**:
 A function a Model declares with `normalizes` for one **Attribute**, run on each value assigned to it once cast, and on each value a query compares with it, so `" Jane@Example.com"` is kept and found as `"jane@example.com"`. It skips `null` unless declared `applyToNull`, and a value loaded from a row stays as it was stored.
 _Avoid_: Sanitizing, cleaning, formatting
