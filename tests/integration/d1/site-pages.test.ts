@@ -28,6 +28,10 @@ import { Article as AutosavedArticle } from "../../../site/snippets/pages/autosa
 import { Comment as AutosavedComment } from "../../../site/snippets/pages/autosaving/src/models/comment.ts";
 import * as autosaving from "../../../site/snippets/pages/autosaving/examples.ts";
 import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
+import * as batches from "../../../site/snippets/pages/batches/examples.ts";
+import { Article as BatchedArticle } from "../../../site/snippets/pages/batches/src/models/article.ts";
+import { Author as BatchedAuthor } from "../../../site/snippets/pages/batches/src/models/author.ts";
+import { Comment as BatchedComment } from "../../../site/snippets/pages/batches/src/models/comment.ts";
 import * as callbacks from "../../../site/snippets/pages/callbacks/examples.ts";
 import { Order as CallbackOrder } from "../../../site/snippets/pages/callbacks/src/models/order.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
@@ -870,6 +874,70 @@ describe("the Callbacks page's examples", () => {
     expect(logged()).toEqual(["Orders can't change while suspended"]);
     const reloaded = await run(() => CallbackOrder.findByOrThrow({ number: "1002" }));
     expect(reloaded.totalCents).toBe(1500);
+  });
+});
+
+// The Bulk writes and batches page's examples, on the tables it shows.
+describe("the Bulk writes and batches page's examples", () => {
+  const binding = pageDatabase("batches", ["comments", "articles", "authors"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO authors (id, name, email) VALUES ('1', 'Jane', 'jane@example.com'), ('2', 'Sam', 'sam@example.com')",
+        "INSERT INTO articles (id, author_id, title) VALUES ('3', '1', 'Getting started'), ('4', '2', 'Hello again')",
+        "INSERT INTO comments (id, article_id, body) VALUES ('5', '3', 'Nice!'), ('6', '4', 'Thanks')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const log = quietLog();
+  const db = () => connect(binding());
+  const run = <T>(fn: () => Promise<T>) => withDatabase(db(), fn);
+  const titles = () => db().model(BatchedArticle).order({ title: "asc" }).pluck("title");
+
+  test("the bulk writes delete, update, and insert as their comments say", async () => {
+    const commentId = await run(batches.writingRows);
+
+    expect(log.calls()).toEqual([[1, 1, commentId]]);
+    expect(await titles()).toEqual(["EDITED", "Hello again"]);
+  });
+
+  test("insertAll inserts every row, upsert updates by email, and a skipped duplicate writes nothing", async () => {
+    await run(batches.insertingMany);
+
+    expect(await db().model(BatchedComment).count()).toBe(4);
+    expect(await db().model(BatchedAuthor).order({ name: "asc" }).pluck("name")).toEqual([
+      "Jane Doe",
+      "Sam",
+    ]);
+  });
+
+  test("returning names the attributes each written row comes back with", async () => {
+    const rows = await run(batches.returningRows);
+
+    expect(new Set(rows.map(({ body }) => body))).toEqual(new Set(["One", "Two"]));
+    expect(log.calls()).toEqual(expect.arrayContaining(rows.map(({ id, body }) => [id, body])));
+    expect(await db().model(BatchedComment).count()).toBe(5);
+  });
+
+  test("a batch's rows point at a key generated in code", async () => {
+    const authorId = await run(batches.batchingWrites);
+
+    expect(
+      await db().model(BatchedArticle).where({ authorId }).order({ title: "asc" }).pluck("title"),
+    ).toEqual(["Getting started", "Hello"]);
+  });
+
+  test("records and bulk writes save, destroy, and delete in one batch", async () => {
+    const { savedArticle, savedAuthor } = await run(batches.batchingRecords);
+
+    expect([savedArticle, savedAuthor].map((record) => record.isPersisted())).toEqual([true, true]);
+    expect(await titles()).toEqual(["Getting started, again"]);
+    expect(await db().model(BatchedAuthor).order({ name: "asc" }).pluck("name")).toEqual([
+      "Jane",
+      "Kim",
+    ]);
+    expect(await db().model(BatchedComment).count()).toBe(0);
   });
 });
 

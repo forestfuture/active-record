@@ -25,6 +25,10 @@ import { Article as AutosavedArticle } from "../../../site/snippets/pages/autosa
 import { Comment as AutosavedComment } from "../../../site/snippets/pages/autosaving/src/models/comment.ts";
 import * as autosaving from "../../../site/snippets/pages/autosaving/examples.ts";
 import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
+import * as batches from "../../../site/snippets/pages/batches/examples.ts";
+import { Article as BatchedArticle } from "../../../site/snippets/pages/batches/src/models/article.ts";
+import { Author as BatchedAuthor } from "../../../site/snippets/pages/batches/src/models/author.ts";
+import { Comment as BatchedComment } from "../../../site/snippets/pages/batches/src/models/comment.ts";
 import * as callbacks from "../../../site/snippets/pages/callbacks/examples.ts";
 import { Order as CallbackOrder } from "../../../site/snippets/pages/callbacks/src/models/order.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
@@ -796,6 +800,68 @@ describe("the Callbacks page's examples, on Postgres", () => {
     expect(logged()).toEqual(["Orders can't change while suspended"]);
     const reloaded = await run(() => CallbackOrder.findByOrThrow({ number: "1002" }));
     expect(reloaded.totalCents).toBe(1500);
+  });
+});
+
+// The Bulk writes and batches page's examples, on the tables it shows, on Postgres.
+describe("the Bulk writes and batches page's examples, on Postgres", () => {
+  const schema = pageSchema("batches", "SELECT 1");
+  beforeEach(async () => {
+    await schema().pool.query({
+      text: "DELETE FROM comments; DELETE FROM articles; DELETE FROM authors",
+    });
+    await schema().pool.query({
+      text: "INSERT INTO authors (id, name, email) VALUES ('00000000-0000-4000-8000-000000000001', 'Jane', 'jane@example.com'), ('00000000-0000-4000-8000-000000000002', 'Sam', 'sam@example.com');\nINSERT INTO articles (id, author_id, title) VALUES ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Getting started'), ('00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000002', 'Hello again');\nINSERT INTO comments (id, article_id, body) VALUES ('00000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000003', 'Nice!'), ('00000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-000000000004', 'Thanks')",
+    });
+  });
+  const log = quietLog();
+  const db = () => connect(schema().url);
+  const run = <T>(fn: () => Promise<T>) => withDatabase(db(), fn);
+  const titles = () => db().model(BatchedArticle).order({ title: "asc" }).pluck("title");
+
+  test("the bulk writes delete, update, and insert as their comments say", async () => {
+    const commentId = await run(batches.writingRows);
+
+    expect(log.calls()).toEqual([[1, 1, commentId]]);
+    expect(await titles()).toEqual(["EDITED", "Hello again"]);
+  });
+
+  test("insertAll inserts every row, upsert updates by email, and a skipped duplicate writes nothing", async () => {
+    await run(batches.insertingMany);
+
+    expect(await db().model(BatchedComment).count()).toBe(4);
+    expect(await db().model(BatchedAuthor).order({ name: "asc" }).pluck("name")).toEqual([
+      "Jane Doe",
+      "Sam",
+    ]);
+  });
+
+  test("returning names the attributes each written row comes back with", async () => {
+    const rows = await run(batches.returningRows);
+
+    expect(new Set(rows.map(({ body }) => body))).toEqual(new Set(["One", "Two"]));
+    expect(log.calls()).toEqual(expect.arrayContaining(rows.map(({ id, body }) => [id, body])));
+    expect(await db().model(BatchedComment).count()).toBe(5);
+  });
+
+  test("a batch's rows point at a key generated in code", async () => {
+    const authorId = await run(batches.batchingWrites);
+
+    expect(
+      await db().model(BatchedArticle).where({ authorId }).order({ title: "asc" }).pluck("title"),
+    ).toEqual(["Getting started", "Hello"]);
+  });
+
+  test("records and bulk writes save, destroy, and delete in one batch", async () => {
+    const { savedArticle, savedAuthor } = await run(batches.batchingRecords);
+
+    expect([savedArticle, savedAuthor].map((record) => record.isPersisted())).toEqual([true, true]);
+    expect(await titles()).toEqual(["Getting started, again"]);
+    expect(await db().model(BatchedAuthor).order({ name: "asc" }).pluck("name")).toEqual([
+      "Jane",
+      "Kim",
+    ]);
+    expect(await db().model(BatchedComment).count()).toBe(0);
   });
 });
 
