@@ -269,20 +269,7 @@ Declare `createdAt` and `updatedAt` as `datetime` attributes, and they’re mana
 
 ## Tracking changes
 
-Records know what’s changed since they were loaded or last saved:
-
-<include>/_excerpts/guide/models/dirty.ts</include>
-
-- `isChanged()`, `changed()`, `changedAttributes()`, and `changes()` describe the unsaved changes. A new record’s changes run from its defaults, so a default it keeps isn’t a change.
-- `attributeWas`, `isAttributeChanged`, and `willSaveChangeTo` look at one attribute’s unsaved change. Use them in before-callbacks.
-- `savedChanges()`, `savedChangeTo`, `hasSavedChangeTo`, and `attributeBeforeLastSave` look at the last save. Use them in after-callbacks, where the record is already clean.
-- `restoreAttributes()` undoes unsaved changes, to every attribute or the ones you name.
-
-An update writes only the attributes that changed, and a save with nothing changed sends nothing.
-
-:::note
-Changes are found by comparing stored values, so editing a `json` value, a `Date`, or a `binary` attribute’s bytes in place counts as a change.
-:::
+A record knows what’s changed since it was loaded or last saved, with `changed()`, `attributeWas`, and `savedChangeTo`. See [Change tracking](./change-tracking).
 
 ## Writing SQL fragments
 
