@@ -855,9 +855,10 @@ export function buildRecord<M extends Model>(
   model: ModelClass<M>,
   attributes: Record<string, unknown>,
   executor: Executor,
+  kept: Record<string, unknown> = {},
 ): M {
   const record = newRecord(model);
   record[state].belongTo(executor);
-  record[state].build(attributes);
+  record[state].build(attributes, kept);
   return record;
 }

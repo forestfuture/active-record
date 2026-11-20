@@ -189,12 +189,14 @@ export class RecordState {
   }
 
   /** A new record: every attribute reads as null until assigned, and initial values are made now. */
-  build(attributes: Record<string, unknown>): void {
+  build(attributes: Record<string, unknown>, kept: Record<string, unknown> = {}): void {
     for (const name of this.#model.attributeDefinitions.keys()) this.#values[name] = null;
     for (const [name, value] of initialValues(this.#model)) {
       this.write(name, value);
       this.#initialValues.set(name, this.#storedForm(name));
     }
+    // Cast already, and normalized or a key, so stored as they are (#354).
+    for (const [name, value] of Object.entries(kept)) this.#store(name, value);
     this.assign(attributes);
   }
 

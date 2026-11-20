@@ -364,3 +364,29 @@ describe("a condition on a normalized attribute", () => {
     );
   });
 });
+
+describe("a record built from a Relation", () => {
+  class Label extends Model.define({
+    id: { type: "integer", null: false },
+    text: "string",
+  }) {
+    static table = "labels";
+
+    static {
+      this.normalizes("text", { with: (text) => `${text}!` });
+    }
+  }
+  const labels = db.model(Label);
+
+  test("takes a condition's value as the query normalized it, once", () => {
+    expect(labels.where({ text: "a" }).build().text).toBe("a!");
+  });
+
+  test("normalizes a createWith value once", () => {
+    expect(labels.createWith({ text: "a" }).build().text).toBe("a!");
+  });
+
+  test("normalizes a given value once, over a condition's", () => {
+    expect(labels.where({ text: "a" }).build({ text: "b" }).text).toBe("b!");
+  });
+});
