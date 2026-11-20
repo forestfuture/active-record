@@ -16,3 +16,4 @@ Judgement calls the `code-review` skill's Standards axis checks, beyond what `vp
 
 - A module's first line says what it owns (lint enforces it); update it when the module gains a responsibility.
 - Extract a dense pipeline into a named helper instead of casting through it.
+- **Comments and test names say what the code does, not where the idea came from.** Rails is the project's starting point, not its goal, so write "start at their defaults on a load", not "as Rails does". A deliberate difference is stated as the behavior and its reason. Rails comparisons belong in the guide's Compared with Rails boxes and in `docs/contract.md`. Older code still names it ([#511](https://github.com/forestfuture/active-record/issues/511)).
