@@ -35,7 +35,7 @@ class Category extends Model.define({
 
 // Postgres runs a statement on a snapshot of its own (READ COMMITTED), so a COUNT sent before a
 // DELETE can miss a row another request commits between them. Counting the rows the DELETE
-// returns, in the same statement, counts exactly the rows it removed, as Rails does (#61).
+// returns, in the same statement, counts exactly the rows it removed (#61).
 describe("a hasMany's bulk removal on Postgres", () => {
   let schema: PgSchema;
   const events: QueryEvent[] = [];

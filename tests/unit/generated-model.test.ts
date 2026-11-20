@@ -91,7 +91,7 @@ const schema = {
   },
 } as const;
 
-/** An app's base class, as Rails' ApplicationRecord, with a method, a static and a scope. */
+/** An app's base class, with a method, a static and a scope. */
 abstract class AppRecord extends Model {
   static override schema = schema;
 

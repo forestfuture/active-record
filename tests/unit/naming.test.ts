@@ -49,7 +49,7 @@ describe("underscore", () => {
     expect(milliseconds(() => user.errors.fullMessages())).toBeLessThan(LIMIT_MS);
   });
 
-  test("gives the names Rails' rule gives, for every short string", () => {
+  test("gives the names the two-substitution rule gives, for every short string", () => {
     const different: string[] = [];
     for (const name of strings(7)) {
       if (underscore(name) !== originalUnderscore(name)) different.push(name);

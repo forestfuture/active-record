@@ -3,7 +3,7 @@ import { guidePages } from "../support/guide-pages.ts";
 
 const pages = guidePages();
 
-/** How every Rails box opens: Blume's info callout, with the Ruby icon beside its title. */
+/** How every comparison box opens: Blume's info callout, with the Ruby icon beside its title. */
 const railsBox = /^<Callout type="info" title="(Compared with|Beyond) Rails" icon="\/ruby\.svg">$/;
 
 /**
@@ -30,7 +30,7 @@ function prose(text: string): string[] {
 
 // The guide's conventions that a tool can check (docs/agents/docs-voice.md).
 describe("the guide's pages", () => {
-  test("show Rails boxes as info callouts with the Ruby icon", () => {
+  test("show comparison boxes as info callouts with the Ruby icon", () => {
     const boxes = pages.flatMap(({ name, text }) =>
       text
         .split("\n")

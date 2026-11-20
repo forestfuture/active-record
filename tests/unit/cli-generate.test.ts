@@ -190,7 +190,7 @@ CREATE INDEX index_line_items_on_order_id ON line_items (order_id);
     );
   });
 
-  test("AddSkuToProducts adds columns, and a reference added later can be null, as in Rails", () => {
+  test("AddSkuToProducts adds columns, and a reference added later can be null", () => {
     expect(
       sqlFor("AddSkuToProducts", ["sku:string:unique", "active:boolean!=true", "user:references"]),
     ).toBe(
@@ -219,7 +219,7 @@ ALTER TABLE products DROP COLUMN code;
     );
   });
 
-  test("the table in a migration's name is made plural, as Rails makes it", () => {
+  test("the table in a migration's name is made plural", () => {
     expect(sqlFor("CreateWidget", ["title"])).toMatch(/^CREATE TABLE widgets \(/);
     expect(sqlFor("AddSkuToProduct", ["sku"])).toBe("ALTER TABLE products ADD COLUMN sku TEXT;\n");
   });
@@ -289,7 +289,7 @@ describe("D1's notes on a migration's references", () => {
   });
 });
 
-describe("migration file names: a UTC timestamp, as Rails writes them", () => {
+describe("migration file names: a UTC timestamp", () => {
   const now = new Date("2026-11-08T09:05:03.250Z");
 
   test("the current UTC second, then the name in snake_case", () => {
@@ -416,7 +416,7 @@ export class LineItem extends LogsRecord {
 });
 
 describe("names", () => {
-  test("a Model's name is made singular and a class, as Rails makes it, with a note when it was plural", () => {
+  test("a Model's name is made singular and a class, with a note when it was plural", () => {
     expect(modelName("LineItem")).toEqual({ ok: true, className: "LineItem" });
     expect(modelName("line_item")).toEqual({ ok: true, className: "LineItem" });
     expect(modelName("line_items")).toEqual({

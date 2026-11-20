@@ -77,7 +77,7 @@ describe("a schema generated from migrations", () => {
     const user = await db.model(User).createOrThrow({ email: "ada@example.com" });
     const built = db.model(Product).build({ userId: user.id, name: "Lamp", priceCents: 4500 });
 
-    // Generated defaults show on a new record, as Rails' column defaults do.
+    // Generated defaults show on a new record.
     expect([built.available, built.tagline, typeof built.id]).toEqual([true, "New!", "string"]);
     await built.update({
       rating: 4.5,
