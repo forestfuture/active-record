@@ -46,6 +46,17 @@ export function aliasesIn(
   return aliases;
 }
 
+/**
+ * The attribute `name` names: itself, or the one it's an alias of. Every name a query, a write, a
+ * validation or a change-tracking method takes goes through it.
+ */
+export function attributeName(
+  model: { readonly attributeAliases: ReadonlyMap<string, string> },
+  name: string,
+): string {
+  return model.attributeAliases.get(name) ?? name;
+}
+
 /** Each alias's accessors on a prototype, reading and writing the attribute it names. */
 export function defineAliasAccessors(
   prototype: object,
