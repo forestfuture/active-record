@@ -24,14 +24,14 @@ Use `belongsTo` on the Model whose table holds the foreign key. A post belongs t
 - **`record.author.build(attrs)`** builds a record to point at. It’s validated with the record, and saved before it, so the foreign key can be filled in.
 - **`record.author.create(attrs)`** and **`createOrThrow(attrs)`** save a new record at once, and point at it. The record itself isn’t saved.
 
-| Option       | Does                                                                                                      |
-| ------------ | --------------------------------------------------------------------------------------------------------- |
-| `foreignKey` | The attribute on this record that holds the link. Defaults to the association’s name + `Id`               |
-| `primaryKey` | The attribute on the target it points at. Defaults to the target’s primary key                            |
-| `scope`      | Narrows the target, `(q) => q.where(…)`. See [Scoping associations](#scoping-associations)                |
-| `optional`   | Lets the record point at nothing. See [Requiring the record](#requiring-the-record)                       |
-| `autosave`   | `true` saves the record’s changes with this record. See [Saving changed records](#saving-changed-records) |
-| `inverseOf`  | The target’s `hasOne` that points back, or `false`. See [Inverse associations](#inverse-associations)     |
+| Option       | Does                                                                                                                  |
+| ------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `foreignKey` | The attribute on this record that holds the link. Defaults to the association’s name + `Id`                           |
+| `primaryKey` | The attribute on the target it points at. Defaults to the target’s primary key                                        |
+| `scope`      | Narrows the target, `(q) => q.where(…)`. See [Scoping associations](#scoping-associations)                            |
+| `optional`   | Lets the record point at nothing. See [Requiring the record](#requiring-the-record)                                   |
+| `autosave`   | `true` saves the record’s changes with this record. See [Saving changed records](./autosaving#saving-changed-records) |
+| `inverseOf`  | The target’s `hasOne` that points back, or `false`. See [Inverse associations](#inverse-associations)                 |
 
 ### Requiring the record
 
@@ -41,7 +41,7 @@ If a record may point at nothing, pass `optional: true`. A top-level category ha
 
 <include>/_excerpts/guide/generators/self-reference.ts</include>
 
-A record built through a `hasMany` or `hasOne` already points at its owner, so it passes the check before either is saved. See [Autosaving](#autosaving).
+A record built through a `hasMany` or `hasOne` already points at its owner, so it passes the check before either is saved. See [Autosaving](./autosaving#saving-a-graph).
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
@@ -56,7 +56,7 @@ Use `hasMany` on the Model the other table’s foreign key points at. A user has
 <include>/_excerpts/guide/associations/has-many.ts</include>
 
 - **`record.posts()`** is a Relation of the associated records, with every Relation method and the target’s scopes.
-- **`record.posts().build(attrs)`** builds a record with the owner’s key, saved with the owner. See [Autosaving](#autosaving).
+- **`record.posts().build(attrs)`** builds a record with the owner’s key, saved with the owner. See [Autosaving](./autosaving#saving-a-graph).
 - **`record.posts().create(attrs)`** and **`createOrThrow(attrs)`** save a new record at once. The owner must already be saved.
 - **`record.posts().push(...records)`** adds records. It sets their foreign key and saves them in one write, or resolves to `false` and saves none if one can’t be saved. On an unsaved owner, they’re saved with it.
 - **`record.posts().delete(...records)`** removes records by the `dependent` strategy. It destroys them for `"destroy"`, deletes them for `"deleteAll"`, and otherwise sets their foreign key to `NULL`.
@@ -65,14 +65,14 @@ Use `hasMany` on the Model the other table’s foreign key points at. A user has
 - **`record.posts().destroyAll()`** destroys every record with its callbacks, whatever the strategy, and leaves the association empty.
 - **`insert`, `upsert`, `updateAll`, and `deleteAll`** write to the owner’s records. See [Writing many rows](#writing-many-rows).
 
-| Option       | Does                                                                                                             |
-| ------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `foreignKey` | The attribute on the target’s records that holds the link. Defaults to this Model’s class name + `Id`            |
-| `primaryKey` | The attribute on this record the foreign key points at. Defaults to the primary key                              |
-| `scope`      | Narrows or orders the records, `(q) => q.order(…)`. See [Scoping associations](#scoping-associations)            |
-| `dependent`  | What destroying the owner does to the records. See [Destroying dependent records](#destroying-dependent-records) |
-| `autosave`   | `true` saves the records’ changes with the owner. See [Saving changed records](#saving-changed-records)          |
-| `inverseOf`  | The target’s `belongsTo` that points back, or `false`. See [Inverse associations](#inverse-associations)         |
+| Option       | Does                                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `foreignKey` | The attribute on the target’s records that holds the link. Defaults to this Model’s class name + `Id`               |
+| `primaryKey` | The attribute on this record the foreign key points at. Defaults to the primary key                                 |
+| `scope`      | Narrows or orders the records, `(q) => q.order(…)`. See [Scoping associations](#scoping-associations)               |
+| `dependent`  | What destroying the owner does to the records. See [Destroying dependent records](#destroying-dependent-records)    |
+| `autosave`   | `true` saves the records’ changes with the owner. See [Saving changed records](./autosaving#saving-changed-records) |
+| `inverseOf`  | The target’s `belongsTo` that points back, or `false`. See [Inverse associations](#inverse-associations)            |
 
 ## hasOne
 
@@ -204,7 +204,7 @@ A record loaded through its owner’s `hasMany` or `hasOne` has the owner loaded
 - Records built or created through the association point back too, before either is saved.
 - A `belongsTo`’s record points back through its `hasOne`. After `await profile.author()`, the author’s `profile()` is that profile. A `hasMany` isn’t filled this way, because one record isn’t the whole collection.
 - The owner is the same object on both sides, so a change to it shows from either one.
-- If the `belongsTo` is declared `autosave: true`, saving one of those records also saves the owner’s unsaved changes. See [Saving changed records](#saving-changed-records).
+- If the `belongsTo` is declared `autosave: true`, saving one of those records also saves the owner’s unsaved changes. See [Saving changed records](./autosaving#saving-changed-records).
 
 The inverse is the target’s first `belongsTo` that points at the owner’s Model through the same foreign key. None is found when either association has a `scope`, or for an association [through another](#reaching-records-through-another-association).
 
@@ -226,57 +226,7 @@ Load an association for many records at once with `includes`, one query per asso
 
 ## Creating related records
 
-Records built or created through a `hasMany` get the owner’s key:
-
-<include>/_excerpts/guide/associations/create-through.ts</include>
-
-### Autosaving
-
-A record built through an association is saved with its owner. Build a whole graph, then save the owner:
-
-<include>/_excerpts/guide/associations/autosave.ts</include>
-
-The built records are validated with the owner. An invalid article makes the author invalid (“Articles is invalid”), with its own errors on the article. To validate the records an association loaded too, use [`validatesAssociated`](./validations#validating-associated-records). Each built article’s `author` is the owner, without a query, even before either is saved.
-
-When the owner’s key is generated in code, as here, everything is written in one atomic batch. Records on [another database](./several-databases#associating-models-on-different-databases) are written there separately.
-
-#### Saving changed records
-
-By default, only new records are saved with their owner. Declare an association with `autosave: true` to save the changes to its loaded records too, as `Author`’s `articles` does above:
-
-<include>/_excerpts/guide/associations/save-changed.ts</include>
-
-Saving the author saves each article that changed, in the same atomic batch. Unchanged articles aren’t validated or written. Only the records the association holds count: those it loaded, and those built through it. A record you found with a query of its own isn’t saved.
-
-The changed records are validated with the owner. An invalid one’s errors are copied to the owner under the association’s name: an article with a blank title gives the author an `articles.title` error, “Articles title can’t be blank”.
-
-`autosave: true` works on a `hasOne` and a `belongsTo` too. A `belongsTo`’s record is saved before its owner.
-
-#### Removing records on save
-
-Mark a record with `markForDestruction()` to destroy it when its owner is saved:
-
-<include>/_excerpts/guide/associations/mark-for-destruction.ts</include>
-
-Marking writes nothing, and the marked articles stay in `author.articles()` until the author is saved. Then each is destroyed with its callbacks and `dependent` strategies, in the same batch as the author, and leaves the association. Changed articles are saved after the destroys.
-
-`isMarkedForDestruction()` reads the mark, and `reload()` clears it. A marked record that was never saved is dropped from the association, and nothing is written for it. Through a `belongsTo`, the owner’s foreign key is set to `null`, and the owner is written before its record is destroyed.
-
-If a marked record refuses to be destroyed, because its `beforeDestroy` aborts or a `restrictWithError` strategy stops it, nothing is written. `save()` returns `false`, and `saveOrThrow()` throws `RecordNotDestroyed`. The marked record holds the reason, in `abortReason` or `errors`.
-
-:::note
-A mark only counts through an association declared `autosave: true`.
-:::
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-`autosave: true`, `markForDestruction`, and the copied errors work as in Rails. Rails destroys a marked `belongs_to` record before it saves the owner. Here the owner is written first, so a foreign key constraint doesn’t refuse the delete. When a marked record refuses to be destroyed, Rails raises from `save` for a `has_many`, and saves the owner anyway for a `has_one` or `belongs_to`. Here the save is refused the same way for every association.
-
-</Callout>
-
-:::warning[Keys D1 generates]
-When D1 generates the key, with an `INTEGER PRIMARY KEY`, the key doesn’t exist until the owner is written. So the owner is written first, and its records follow in the next batch, a level at a time. The batches aren’t atomic together: if a record fails at the second level, the save throws with the owner already saved. Generate keys in code wherever a graph must save all at once.
-:::
+Records built or created through an association get the owner’s key, and records built through one are saved with their owner. See [Autosaving](./autosaving).
 
 ## Scoping associations
 
