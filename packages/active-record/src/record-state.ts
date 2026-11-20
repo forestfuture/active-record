@@ -221,16 +221,31 @@ export class RecordState {
     this.autosaves.clearAll();
   }
 
-  /** Loads a D1 row; the record becomes persisted and clean. */
-  loadRow(row: Record<string, unknown>): void {
+  /**
+   * Loads a D1 row; the record becomes persisted and clean. Its virtual attributes, which no row
+   * holds, start at their defaults, as Rails' do on a load or `reload` (#356); an insert's re-read
+   * row keeps the values it was saved with (`keepVirtual`).
+   */
+  loadRow(row: Record<string, unknown>, { keepVirtual = false } = {}): void {
     let loadedCount = 0;
     for (const [name, definition] of this.#model.attributeDefinitions) {
+      if (definition.virtual === true) {
+        if (!keepVirtual) this.#values[name] = this.#virtualDefault(name, definition);
+        continue;
+      }
       const { column } = definition;
       if (!(column in row)) continue;
       this.#values[name] = this.#attribute(name).read(row[column]);
       loadedCount++;
     }
     this.#markSaved(row, loadedCount);
+  }
+
+  /** A virtual attribute's value on a loaded record: its default, cast, or null (#356). */
+  #virtualDefault(name: string, definition: AttributeDefinition): unknown {
+    return definition.default === undefined
+      ? null
+      : this.#attribute(name).cast(definition.default());
   }
 
   /** The loaded attributes as a plain object (the record's own values, not copies). */
@@ -371,7 +386,7 @@ export class RecordState {
       this.#settle();
       this.#markSaved();
     } else {
-      this.loadRow(row);
+      this.loadRow(row, { keepVirtual: true });
     }
     this.#savedChanges = Object.fromEntries(
       [...before]
@@ -535,6 +550,7 @@ export class RecordState {
 
   /** Whether the row the Snapshot was loaded from has a cell for `name`. */
   #isInRow(name: string): boolean {
-    return this.#snapshotRow !== undefined && this.#definition(name).column in this.#snapshotRow;
+    const { column, virtual } = this.#definition(name);
+    return this.#snapshotRow !== undefined && virtual !== true && column in this.#snapshotRow;
   }
 }
