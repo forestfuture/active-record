@@ -1,6 +1,8 @@
 ---
 title: Database resolution
 description: "A query finds its database through the Model’s binding, the request, or a database you pass, since one Worker isolate serves many requests."
+seo:
+  description: "How an Active Record query finds its database in a Cloudflare Worker: the Model’s binding, the request’s database, or one you pass explicitly."
 ---
 
 ## One isolate, many requests
