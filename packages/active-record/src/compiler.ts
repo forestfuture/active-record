@@ -612,8 +612,8 @@ function compileOrderTerm(context: Context, term: OrderTerm): string {
 }
 
 /**
- * `column`'s place among `values` (#350), bound as one list: each converted as a condition's
- * value is, and those that can't be left out, as a list condition leaves them out.
+ * `column`'s place among `values` (#350), bound as one list: each converted and normalized as a
+ * condition's value is (#354), and those that can't be left out, as a list condition leaves them out.
  */
 function placeInList(
   { dialect, source, params }: Context,
@@ -624,7 +624,9 @@ function placeInList(
   const column = columnIn({ ...source, qualified: true }, name);
   const attribute = attributeFor(source.model, name);
   const cells = values
-    .map((value) => (value === null ? null : attribute.conditionCell(value)))
+    .map((value) =>
+      value === null ? null : attribute.conditionCell(attribute.normalizedCondition(value)),
+    )
     .filter((cell) => cell !== noMatch);
   const list = dialect.placeInList(column, cells, attribute);
   attribute.bindCells(params, list.value);

@@ -171,6 +171,31 @@ describe("a normalized attribute's conditions", () => {
     expect(found.map(({ email }) => email)).toEqual(["b@example.com", "a@example.com"]);
   });
 
+  test("a grouped inOrderOf orders by its values normalized once", async () => {
+    // Not idempotent, so a second normalization would change the order's values.
+    class Shout extends Model.define({
+      id: { type: "integer", null: false },
+      email: { type: "string", null: false },
+    }) {
+      static table = "users";
+
+      static {
+        this.normalizes("email", { with: (email) => `${email}!` });
+      }
+    }
+    await harness.exec("UPDATE users SET email = email || '!'");
+
+    // Grouping drops the id order, and keeps the list's order.
+    const counts = await db()
+      .model(Shout)
+      .order({ id: "asc" })
+      .inOrderOf("email", ["b@example.com", "a@example.com"])
+      .group("email")
+      .count();
+
+    expect([...counts.keys()]).toEqual(["b@example.com!", "a@example.com!"]);
+  });
+
   test("a typed value in an sql fragment matches as it's normalized", async () => {
     const found = await db()
       .model(Member)
