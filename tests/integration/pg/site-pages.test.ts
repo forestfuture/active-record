@@ -27,6 +27,7 @@ import * as preloadingPage from "../../../site/snippets/pages/preloading/example
 import * as querying from "../../../site/snippets/pages/querying/examples.ts";
 import * as serialization from "../../../site/snippets/pages/serialization/examples.ts";
 import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
+import * as touching from "../../../site/snippets/pages/touching/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -40,6 +41,7 @@ import {
   schemaCommand,
   standalonePages,
 } from "../../support/page-projects.ts";
+import { statementKinds } from "../../support/statement-kinds.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 import { writePgProject } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
@@ -387,6 +389,56 @@ describe("the Counter caches page's examples, on Postgres", () => {
 
     expect(article.commentsCount).toBe(0);
     expect(article.updatedAt).toBeInstanceOf(Date);
+  });
+});
+
+// The Touching page's examples, on the tables it shows, on Postgres.
+describe("the Touching page's examples, on Postgres", () => {
+  const schema = pageSchema("touching", "SELECT 1");
+  beforeEach(async () => {
+    await schema().pool.query({
+      text: "DELETE FROM profiles; DELETE FROM users; DELETE FROM comments; DELETE FROM articles; DELETE FROM blogs",
+    });
+    await schema().pool.query({
+      text: "INSERT INTO blogs (id, updated_at) VALUES ('00000000-0000-4000-8000-000000000001', '2020-01-01T00:00:00.000Z');\nINSERT INTO articles (id, blog_id, title, updated_at) VALUES ('00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000001', 'Hello', '2020-01-01T00:00:00.000Z');\nINSERT INTO comments (id, article_id, body, updated_at) VALUES ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000002', 'Old', '2020-01-01T00:00:00.000Z');\nINSERT INTO users (id, name, updated_at) VALUES ('00000000-0000-4000-8000-000000000004', 'Ada', '2020-01-01T00:00:00.000Z');\nINSERT INTO profiles (id, user_id, bio, updated_at) VALUES ('00000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000004', 'Poet', '2020-01-01T00:00:00.000Z')",
+    });
+  });
+  const updatedAt = async (table: string) => {
+    const { rows } = await schema().pool.query({ text: `SELECT updated_at FROM ${table}` });
+    return (rows[0]!["updated_at"] as Date).toISOString();
+  };
+  const stale = "2020-01-01T00:00:00.000Z";
+  const run = <T>(fn: () => Promise<T>, onQuery?: (event: { sql: string }) => void) =>
+    withDatabase(connect(schema().url, { onQuery }), fn);
+
+  test("each write to a comment touches its article, and the article its blog", async () => {
+    await run(touching.touching);
+
+    expect(await updatedAt("articles")).not.toBe(stale);
+    expect(await updatedAt("blogs")).toBe(await updatedAt("articles"));
+  });
+
+  test("a named attribute is set with updatedAt", async () => {
+    const article = await run(touching.replying);
+
+    expect(article.lastCommentedAt).toEqual(article.updatedAt);
+  });
+
+  test("an import inside noTouching touches its article once, after it", async () => {
+    const events: { sql: string }[] = [];
+
+    await run(touching.importing, (event) => void events.push(event));
+
+    const kinds = statementKinds(events);
+    expect(kinds.filter((kind) => kind === "UPDATE")).toHaveLength(2); // the article, then its blog
+    expect(kinds.slice(-2)).toEqual(["UPDATE", "UPDATE"]);
+    expect(await updatedAt("articles")).not.toBe(stale);
+  });
+
+  test("updating a user touches its profile", async () => {
+    await run(touching.renaming);
+
+    expect(await updatedAt("profiles")).not.toBe(stale);
   });
 });
 

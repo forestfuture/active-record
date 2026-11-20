@@ -54,7 +54,7 @@ export default {
 Every query started from a Model inside it, and everything it awaits, uses that database instead of the binding.
 
 :::warning[Node.js compatibility]
-`withDatabase` uses Workers’ `AsyncLocalStorage`. It’s on by default for compatibility dates from 2026-08-04. For an earlier date, add `"compatibility_flags": ["nodejs_compat"]` to your Wrangler config, or `withDatabase` throws `NoDatabase`. On D1, only `withDatabase` and [`noTouching`](./associations#turning-touches-off) need it. On Postgres, `pg` needs it too.
+`withDatabase` uses Workers’ `AsyncLocalStorage`. It’s on by default for compatibility dates from 2026-08-04. For an earlier date, add `"compatibility_flags": ["nodejs_compat"]` to your Wrangler config, or `withDatabase` throws `NoDatabase`. On D1, only `withDatabase` and [`noTouching`](./touching#turning-touches-off) need it. On Postgres, `pg` needs it too.
 :::
 
 These pages use a request’s database:
