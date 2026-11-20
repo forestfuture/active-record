@@ -43,17 +43,36 @@ export function aliasesIn(
   declared: Readonly<Record<string, unknown>>,
   attributes: ReadonlyMap<string, unknown>,
 ): ReadonlyMap<string, string> {
-  const aliases = new Map<string, string>();
-  for (const [name, each] of Object.entries(declared)) {
-    if (!isAlias(each)) continue;
-    if (!attributes.has(each.aliasOf)) {
-      throw new InvalidModel(
-        `${where}${name} is an alias of ${each.aliasOf}, which isn't an attribute`,
-      );
-    }
-    aliases.set(name, each.aliasOf);
+  const given = Object.entries(declared).filter((entry): entry is [string, AliasAttribute] =>
+    isAlias(entry[1]),
+  );
+  const aliases = new Map(given.map(([name, { aliasOf }]) => [name, aliasOf]));
+  for (const [name, alias] of given) {
+    const problem = aliasProblem(name, alias, aliases, attributes);
+    if (problem !== undefined) throw new InvalidModel(`${where}${name}${problem}`);
   }
   return aliases;
+}
+
+/**
+ * What's wrong with an alias, after its name: another key, a name that's an attribute already,
+ * an alias of an alias, or of a name that isn't an attribute.
+ */
+function aliasProblem(
+  name: string,
+  alias: AliasAttribute,
+  aliases: ReadonlyMap<string, string>,
+  attributes: ReadonlyMap<string, unknown>,
+): string | undefined {
+  const { aliasOf } = alias;
+  if (Object.keys(alias).length !== 1 || typeof aliasOf !== "string") {
+    return ': an alias is { aliasOf: "attribute" }, and nothing else';
+  }
+  if (attributes.has(name)) return " is an attribute already, so it can't be an alias";
+  const target = aliases.get(aliasOf);
+  if (target !== undefined) return ` is an alias of ${aliasOf}, an alias itself; name ${target}`;
+  if (!attributes.has(aliasOf)) return ` is an alias of ${aliasOf}, which isn't an attribute`;
+  return undefined;
 }
 
 /**
