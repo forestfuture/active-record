@@ -19,6 +19,7 @@ import * as enums from "../../../site/snippets/pages/enums/examples.ts";
 import * as joins from "../../../site/snippets/pages/joins/examples.ts";
 import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
 import * as querying from "../../../site/snippets/pages/querying/examples.ts";
+import * as serialization from "../../../site/snippets/pages/serialization/examples.ts";
 import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
 import { readdirSync, readFileSync } from "node:fs";
@@ -195,6 +196,31 @@ describe("the Change tracking page's examples, on Postgres", () => {
     const ada = await run(changeTracking.restoring);
 
     expect([ada.email, ada.role, ada.changed()]).toEqual(["ada@example.com", "owner", ["role"]]);
+  });
+});
+
+// The Serialization page's examples, on the accounts table it shows, on Postgres.
+describe("the Serialization page's examples, on Postgres", () => {
+  const schema = pageSchema(
+    "serialization",
+    "INSERT INTO accounts (id, email, password_digest, api_key, iban, created_at, updated_at) VALUES ('00000000-0000-4000-8000-00000000000a', 'ada@example.com', 'digest', 'key-1', 'DE89', '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
+  );
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
+
+  test("toJSON leaves the hidden attributes out, and attributes() keeps them", async () => {
+    const { body, attributes } = await run(serialization.serializing);
+    const json = JSON.parse(body) as Record<string, unknown>;
+
+    expect(Object.keys(json).sort((a, b) => a.localeCompare(b))).toEqual([
+      "createdAt",
+      "email",
+      "iban",
+      "id",
+      "updatedAt",
+    ]);
+    expect(json["createdAt"]).toBe("2026-01-15T00:00:00.000Z");
+    expect([attributes.passwordDigest, attributes.apiKey]).toEqual(["digest", "key-1"]);
+    expect(attributes.createdAt).toBeInstanceOf(Date);
   });
 });
 

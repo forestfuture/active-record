@@ -48,7 +48,7 @@ Product.permit({ priceCents: "abc" }, "priceCents");
 // TypeError: Product: "abc" isn't a valid value for "priceCents"
 ```
 
-The same happens when `deserialize` throws for a stored value, and when `serialize` returns a value its stored type can’t hold. For a [filtered attribute](./models#filtering-attributes), the error has no `cause`, since yours may show the value.
+The same happens when `deserialize` throws for a stored value, and when `serialize` returns a value its stored type can’t hold. For a [filtered attribute](./serialization#filtering-attributes), the error has no `cause`, since yours may show the value.
 
 ## Querying by a type
 
