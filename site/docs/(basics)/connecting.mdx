@@ -2,7 +2,7 @@
 title: Connections
 description: "Give a query its database: the Model’s binding, the request’s database, or one you pass."
 seo:
-  description: "How Active Record queries find their database: the Model’s binding with no setup, withDatabase for a request’s D1 Session or logging, or connect(env.DB)."
+  description: "How Active Record queries find their database: the Model’s binding, withDatabase for one request, connect(env.DB), and why new User() throws NoDatabase."
 ---
 
 ## At a glance
@@ -47,7 +47,11 @@ Each Model names the binding it queries, so a Model queries by itself during any
 
 `active-record schema` writes the binding into the generated schema your app’s base class holds. On D1 it comes from your Wrangler config’s `d1_databases`, and on Postgres from your `active-record.jsonc`.
 
-Records remember their database, so `user.save()` and `user.posts()` use the same one later. Build records with `User.build(…)`: a record made with `new User()` has no database, and throws `NoDatabase` when it needs one.
+Records remember their database, so `user.save()` and `user.posts()` use the same one later.
+
+:::warning[Build records, never `new`]
+Build records with `User.build(…)`. A record made with `new User()` has no database, so saving it throws `NoDatabase`.
+:::
 
 :::note
 The binding is only there during a request, inside a Worker. Tests and scripts that run in Node get their database from `withDatabase`. See [Testing](./testing).
