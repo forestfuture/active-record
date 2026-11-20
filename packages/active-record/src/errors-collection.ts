@@ -29,6 +29,8 @@ export const fullMessageOf = Symbol("fullMessageOf");
 /** @internal A failure the library found: its type, the values its message shows, and any message given. */
 export type Failure = Pick<ErrorEntry, "type" | "message" | "form"> & {
   values?: ErrorValues;
+  /** The attribute it's added on, if not the validated one: a confirmation's (#356). */
+  attribute?: string;
 };
 
 /** A record's validation errors: `record.errors`. Cleared at the start of each validation run. */

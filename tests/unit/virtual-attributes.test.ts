@@ -7,6 +7,7 @@ import { describe, expect, expectTypeOf, test } from "vite-plus/test";
 import {
   InvalidModel,
   Model,
+  type Errors,
   type TableAttributes,
 } from "../../packages/active-record/src/index.ts";
 import { d1, connect } from "../../packages/active-record/src/adapters/d1/index.ts";
@@ -134,5 +135,87 @@ describe("a virtual attribute on a declared Model", () => {
       }) {}
       return db.model(Columned);
     }).toThrow(new InvalidModel("Columned.nickname has both virtual and column; keep one"));
+  });
+});
+
+/** Validates `record`, returning its errors as `attribute type`, and their full messages. */
+async function errorsOf(record: { isValid(): Promise<boolean>; errors: Errors }) {
+  await record.isValid();
+  const { errors } = record;
+  return [
+    ...errors.toArray().map(({ attribute, type }) => `${attribute} ${type}`),
+    ...errors.fullMessages(),
+  ];
+}
+
+describe("confirmation", () => {
+  class Signup extends Model.define({
+    id: "integer",
+    email: "string",
+    emailConfirmation: { type: "string", virtual: true },
+    code: "string",
+    codeConfirmation: { type: "string", virtual: true },
+  }) {
+    static table = "signups";
+    static {
+      this.validates("email", { confirmation: true });
+      this.validates("code", { confirmation: { caseSensitive: false } });
+    }
+  }
+  const signups = connect({} as never).model(Signup);
+
+  test("passes a confirmation that matches", async () => {
+    const signup = signups.build({
+      email: "jane@example.com",
+      emailConfirmation: "jane@example.com",
+    });
+
+    expect(await errorsOf(signup)).toEqual([]);
+  });
+
+  test("fails one that doesn't, on the confirmation, naming the attribute", async () => {
+    const signup = signups.build({
+      email: "jane@example.com",
+      emailConfirmation: "jane@exmaple.com",
+    });
+
+    expect(await errorsOf(signup)).toEqual([
+      "emailConfirmation confirmation",
+      "Email confirmation doesn't match Email",
+    ]);
+  });
+
+  test("skips a null confirmation, as Rails does", async () => {
+    expect(await errorsOf(signups.build({ email: "jane@example.com" }))).toEqual([]);
+  });
+
+  test("compares case-sensitively unless caseSensitive is false", async () => {
+    const signup = signups.build({
+      email: "jane@example.com",
+      emailConfirmation: "JANE@example.com",
+      code: "abc",
+      codeConfirmation: "ABC",
+    });
+
+    expect(await errorsOf(signup)).toEqual([
+      "emailConfirmation confirmation",
+      "Email confirmation doesn't match Email",
+    ]);
+  });
+
+  test("without a virtual attribute for the confirmation is an InvalidModel", () => {
+    expect(
+      () =>
+        class Account extends Model.define({ id: "integer", password: "string" }) {
+          static {
+            this.validates("password", { confirmation: true });
+          }
+        },
+    ).toThrow(
+      new InvalidModel(
+        'Account validates("password", { confirmation }), so it needs a virtual attribute ' +
+          'passwordConfirmation: { type: "string", virtual: true }',
+      ),
+    );
   });
 });
