@@ -166,7 +166,7 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /**
-   * Replaces the conditions on these attributes with these, as Rails' `rewhere`: those on other
+   * Replaces the conditions on these attributes with these: those on other
    * attributes, and fragments, are kept.
    */
   rewhere(conditions: Conditions<M>): Scoped<M, S> {
@@ -174,20 +174,20 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /**
-   * Drops parts of the query, as Rails' `unscope`: `unscope("order", "limit")`, or the conditions
+   * Drops parts of the query: `unscope("order", "limit")`, or the conditions
    * on some attributes, `unscope({ where: "role" })`. A default scope's are dropped too.
    */
   unscope(...parts: (QueryPart | { where: AttributeNames<M> })[]): Scoped<M, S> {
     return this.#describing(parts.reduce(unscoped, this.#query));
   }
 
-  /** Keeps only these parts of the query, as Rails' `only`: `only("where", "order")`. */
+  /** Keeps only these parts of the query: `only("where", "order")`. */
   only(...parts: QueryPart[]): Scoped<M, S> {
     return this.#describing(withOnly(this.#query, parts));
   }
 
   /**
-   * Leaves these records out, by primary key, as Rails' `excluding`: `excluding(post)`, or
+   * Leaves these records out, by primary key: `excluding(post)`, or
    * `excluding(posts)`. A record not yet saved leaves nothing out.
    */
   excluding(...records: (M | readonly M[])[]): Scoped<M, S> {
@@ -211,7 +211,7 @@ export class Relation<M extends Model, S = {}> {
   /**
    * ANDs `other`'s conditions onto this Relation's. For select, order, limit, offset and
    * distinct, a clause `other` sets explicitly replaces this one's; one it doesn't set is kept.
-   * Orders are replaced, not concatenated (a deliberate difference from Rails). `other` may be a
+   * Orders are replaced, not concatenated, so a merged order reads as written. `other` may be a
    * Relation of a Model this one joins once (#24): its conditions apply to the joined table.
    */
   merge<T extends Model = M, O = S>(other: Relation<T, O>): Scoped<M, S> {
@@ -227,14 +227,14 @@ export class Relation<M extends Model, S = {}> {
     return this.#with({ order: [...this.#query.order, ...orderTerms(this.#model, spec, "order")] });
   }
 
-  /** Replaces the order so far, as in Rails; `reorder()` removes it. */
+  /** Replaces the order so far; `reorder()` removes it. */
   reorder(spec?: OrderSpec<M> | SafeSql): Scoped<M, S> {
     const order = spec === undefined ? [] : orderTerms(this.#model, spec, "reorder");
     return this.#with({ order, reordered: true });
   }
 
   /**
-   * Orders by `attribute`'s place in `values`, then by any order after it, as Rails' `in_order_of`:
+   * Orders by `attribute`'s place in `values`, then by any order after it:
    * `inOrderOf("status", ["open", "paid"])`. Keeps only the records with one of them, unless
    * `filter: false`, which keeps the rest after them.
    */
@@ -333,7 +333,7 @@ export class Relation<M extends Model, S = {}> {
    * wrote and the `returning` attributes of each (the primary key by default; `false` for none).
    * Skips validations and callbacks; declared defaults, generated ids, and timestamps apply, and
    * this Relation's equality conditions are inserted over the given attributes (#470). A
-   * duplicate throws, unless `onDuplicate: "skip"` (Rails' `insert`). `b.insert` is the same
+   * duplicate throws, unless `onDuplicate: "skip"`. `b.insert` is the same
    * write, for a batch.
    */
   async insert<const R extends Returning<M> | undefined = undefined>(
@@ -344,7 +344,7 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /**
-   * Inserts several rows with the same attributes now (Rails' `insert_all!`): in one statement,
+   * Inserts several rows with the same attributes now: in one statement,
    * or several in one atomic batch when they pass the database's cap on one value.
    */
   async insertAll<const R extends Returning<M> | undefined = undefined>(
@@ -357,8 +357,8 @@ export class Relation<M extends Model, S = {}> {
   /**
    * Inserts a row now, or updates it when it clashes with the unique index on `uniqueBy` (the
    * primary key by default): every given attribute and every value this Relation writes into the
-   * row (#475), except the `uniqueBy` ones and `createdAt`, with `updatedAt` set, as Rails'
-   * `upsert` does. Resolves as `insert` does, returning inserted and updated rows.
+   * row (#475), except the `uniqueBy` ones and `createdAt`, with `updatedAt` set.
+   * Resolves as `insert` does, returning inserted and updated rows.
    */
   async upsert<const R extends Returning<M> | undefined = undefined>(
     attributes: Partial<AttributesOf<M>>,
@@ -367,7 +367,7 @@ export class Relation<M extends Model, S = {}> {
     return runAlone(this[preparedWrites].upsert(attributes, options));
   }
 
-  /** `upsert` for several rows with the same attributes, now (Rails' `upsert_all`). */
+  /** `upsert` for several rows with the same attributes, now. */
   async upsertAll<const R extends Returning<M> | undefined = undefined>(
     rows: readonly Partial<AttributesOf<M>>[],
     options: UpsertOptions<M> & { returning?: R } = {},
@@ -383,8 +383,8 @@ export class Relation<M extends Model, S = {}> {
   /**
    * Updates every row this Relation matches, now, setting attribute values or an `sql`
    * fragment: ``updateAll(sql`${column("views")} = ${column("views")} + 1`)``. Resolves to the
-   * number of rows updated. Skips validations and callbacks, and leaves `updatedAt` alone, as in
-   * Rails. A `none()` Relation sends nothing and resolves to 0.
+   * number of rows updated. Skips validations and callbacks, and leaves `updatedAt` alone.
+   * A `none()` Relation sends nothing and resolves to 0.
    */
   async updateAll(changes: Partial<AttributesOf<M>> | SafeSql): Promise<number> {
     checkChanges(this.#model, changes);
@@ -394,7 +394,7 @@ export class Relation<M extends Model, S = {}> {
 
   /**
    * Sets `updatedAt`, and the datetime attributes named, to now (or `{ time }`) in every row this
-   * Relation matches, in one statement, as Rails' `touch_all` (#50). Resolves to the number of
+   * Relation matches, in one statement (#50). Resolves to the number of
    * rows; skips what `updateAll` skips.
    */
   async touchAll(...args: TouchArguments<M>): Promise<number> {
@@ -413,7 +413,7 @@ export class Relation<M extends Model, S = {}> {
   /**
    * Deletes every row this Relation matches, now, resolving to the number of rows. On a hasMany
    * association itself (`user.posts().deleteAll()`), the rows' foreign key is set to NULL
-   * instead unless its `dependent:` deletes, as in Rails. A `none()` Relation sends nothing and
+   * instead unless its `dependent:` deletes. A `none()` Relation sends nothing and
    * resolves to 0.
    */
   async deleteAll(): Promise<number> {
@@ -470,7 +470,7 @@ export class Relation<M extends Model, S = {}> {
   /**
    * The record with this primary key, keeping this Relation's conditions. With several ids,
    * `find(1, 2)` or `find([1, 2])`, the records in the ids' order (or this Relation's order,
-   * if it has one), as Rails does; `RecordNotFound` if any is missing.
+   * if it has one); `RecordNotFound` if any is missing.
    */
   async find(id: string | number): Promise<M>;
   async find(ids: readonly (string | number)[]): Promise<M[]>;
@@ -651,7 +651,7 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /**
-   * The number of records, as Rails' `size`: a loaded association's (built records included)
+   * The number of records: a loaded association's (built records included)
    * without a query; otherwise a `COUNT(*)`, plus an association's unsaved built records.
    */
   async size(): Promise<number> {
@@ -663,17 +663,17 @@ export class Relation<M extends Model, S = {}> {
     return isEmpty(this.#countSource());
   }
 
-  /** Whether there are any records: the opposite of `isEmpty()` (Rails' `any?`). */
+  /** Whether there are any records: the opposite of `isEmpty()`. */
   async hasAny(): Promise<boolean> {
     return !(await this.isEmpty());
   }
 
-  /** Whether more than one record matches, as Rails' `many?`: one `COUNT` of at most two rows. */
+  /** Whether more than one record matches: one `COUNT` of at most two rows. */
   async hasMoreThanOne(): Promise<boolean> {
     return (await upToTwo(this.#countSource())) > 1;
   }
 
-  /** Whether exactly one record matches, as Rails' `one?`: one `COUNT` of at most two rows. */
+  /** Whether exactly one record matches: one `COUNT` of at most two rows. */
   async hasExactlyOne(): Promise<boolean> {
     return (await upToTwo(this.#countSource())) === 1;
   }
@@ -751,7 +751,7 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /**
-   * The SQL `toArray()` sends, and its bound values, without sending it (Rails' `to_sql`). Values
+   * The SQL `toArray()` sends, and its bound values, without sending it. Values
    * are never inlined into the SQL (ADR-0006), and none are redacted, filtered attributes included.
    */
   toSql(): QuerySql {

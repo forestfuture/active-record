@@ -13,7 +13,7 @@ export const FILTERED = "[FILTERED]";
 export type FilterAttribute = string | RegExp;
 
 /**
- * Rails' default `filter_parameters` for a new app: an attribute whose snake_case name holds
+ * The default filter list, of common secret and personal names: an attribute whose snake_case name holds
  * one of these, in any case, is filtered (`passwordDigest`, `apiKey`, `resetToken`, `email`).
  */
 export const defaultFilterAttributes: readonly FilterAttribute[] = [

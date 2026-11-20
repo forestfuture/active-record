@@ -184,7 +184,7 @@ export type ErrorAttributeName<R> = [AttributesOf<R>] extends [never]
 export type AttributesOf<M> = M extends { readonly [attributeTypes]?: infer A } ? A : never;
 
 /**
- * The library's base class, as Rails' `ActiveRecord::Base`: an app's base class extends it, and
+ * The library's base class: an app's base class extends it, and
  * methods, statics, callbacks and scopes declared there are shared by every Model built on it.
  * It has no table, so it's never used as a Model itself.
  */
@@ -192,7 +192,7 @@ export class Model extends AttributeWrites {
   /** The table's name: inferred from `modelName` (`BlogPost` → `blog_posts`) unless set. */
   declare static table: string;
   /**
-   * The Model's name, as Rails' `model_name`: its class name unless set (`static modelName =
+   * The Model's name: its class name unless set (`static modelName =
    * "BlogPost"`), so names inferred from it survive a bundler that renames classes.
    */
   declare static modelName: string;
@@ -224,10 +224,10 @@ export class Model extends AttributeWrites {
   static onQuery: QueryListener | undefined;
 
   /**
-   * Attributes whose values listeners and errors show as "[FILTERED]", as Rails'
-   * `filter_attributes`: an attribute whose snake_case name holds a string entry, lowercased
-   * or read in snake_case (`"apiKey"` as `api_key`), or matches a RegExp. Rails' defaults;
-   * replace them on the app's base class (#83).
+   * Attributes whose values listeners and errors show as "[FILTERED]": an attribute
+   * whose snake_case name holds a string entry, lowercased or read in snake_case (`"apiKey"` as
+   * `api_key`), or matches a RegExp. The defaults cover common secret and personal names
+   * (`password`, `token`, `email`, …); replace them on the app's base class (#83).
    */
   static filterAttributes: readonly FilterAttribute[] = defaultFilterAttributes;
 
@@ -239,7 +239,7 @@ export class Model extends AttributeWrites {
 
   /**
    * Runs `fn` with this Model's records not touched, nor those of the Models extending it
-   * (`Model.noTouching` covers every Model), as Rails' `no_touching`: a belongsTo's `touch`
+   * (`Model.noTouching` covers every Model): a belongsTo's `touch`
    * leaves them alone, and their `touch()` writes nothing. Resolves to what `fn` returns.
    */
   static noTouching<R>(fn: () => R | Promise<R>): Promise<R> {
@@ -282,7 +282,7 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * Declares a scope, as Rails' `scope :active, -> { … }`: `static active = this.scope((q) =>
+   * Declares a scope: `static active = this.scope((q) =>
    * q.where({ isActive: true }))`. It's a static (`User.active()`) and a Relation method
    * (`User.where(…).active()`), inherited like any static. Inside it, `q` has every Relation
    * method, but not the Model's other scopes (their types would refer to themselves).
@@ -300,7 +300,7 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * All of this Model's records, as Rails' `Product.all`: a Relation on the current database
+   * All of this Model's records: a Relation on the current database
    * (the request's, set with `withDatabase`, or else the binding in its base class's schema).
    */
   static all<C extends QueryableClass>(this: C): Scoped<InstanceType<C>, ScopesOf<C>> {
@@ -309,7 +309,7 @@ export class Model extends AttributeWrites {
 
   /**
    * Only the named attributes of untrusted input (a JSON body, `FormData` or
-   * `URLSearchParams`), as Rails' `params.permit`:
+   * `URLSearchParams`):
    * `User.create(User.permit(await request.json(), "email", "name"))`. Every other key is
    * dropped, and each value is cast as assigning it would be.
    */
@@ -322,7 +322,7 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * An enum's names, each with the value it's stored as, frozen (#340), as Rails' `Post.statuses`:
+   * An enum's names, each with the value it's stored as, frozen (#340):
    * `Post.enumValues("status")` is `{ draft: "draft", published: "published" }`.
    */
   static enumValues<C extends QueryableClass, K extends EnumAttributeKey<InstanceType<C>>>(
@@ -333,7 +333,7 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * An attribute's conversions, for SQL d1-record doesn't write, as Rails' `type_for_attribute`:
+   * An attribute's conversions, for SQL the library doesn't write:
    * `Post.typeForAttribute("publishedAt").serialize(date)` is what `publishedAt` stores a `Date`
    * as, whatever its `storage`; `cast` and `deserialize` go the other way.
    */
@@ -345,7 +345,7 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * Declares a default scope (#25), as Rails' `default_scope { … }`, in `static {}`:
+   * Declares a default scope (#25), in `static {}`:
    * `this.defaultScope((q) => q.where({ deletedAt: null }))`. Every query on the Model, its
    * associations' included, starts from it, and new records take its equality values. Several
    * are applied in order; a subclass adds to its parent's. `unscoped()` leaves them out.
@@ -358,7 +358,7 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * All of this Model's records without its default scopes (#25), as Rails' `Product.unscoped`,
+   * All of this Model's records without its default scopes (#25),
    * on the current database. Only a static: a Relation keeps what it has.
    */
   static unscoped<C extends QueryableClass>(this: C): Scoped<InstanceType<C>, ScopesOf<C>> {
@@ -453,8 +453,8 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * Loads the association again, replacing what's cached, and returns it: Rails'
-   * `reload_author`, or `user.posts.reload` for a hasMany.
+   * Loads the association again, replacing what's cached, and returns it,
+   * a belongsTo's record or a hasMany's records.
    */
   async reloadAssociation<K extends AssociationName<this>>(name: K): Promise<LoadedValue<this[K]>> {
     associationOf(this.constructor as ModelClass, name);
@@ -503,14 +503,13 @@ export class Model extends AttributeWrites {
     return this[state].savedChanges();
   }
 
-  /** The attribute's value before its unsaved change, as stored (Rails' `attribute_was`). */
+  /** The attribute's value before its unsaved change, as stored. */
   attributeWas<R extends Model, K extends AttributeKey<R>>(this: R, name: K): AttributesOf<R>[K] {
     return this[state].valueInDatabase(name) as AttributesOf<R>[K];
   }
 
   /**
-   * Whether the attribute has an unsaved change, optionally `from` and/or `to` given values
-   * (Rails' `attribute_changed?(name, from:, to:)`).
+   * Whether the attribute has an unsaved change, optionally `from` and/or `to` given values.
    */
   isAttributeChanged<R extends Model, K extends AttributeKey<R>>(
     this: R,
@@ -521,7 +520,7 @@ export class Model extends AttributeWrites {
   }
 
   /** Whether saving now would write a change to the attribute (for before-callbacks). */
-  // oxlint-disable-next-line active-record/predicate-name -- public, named as Rails' will_save_change_to_attribute?
+  // oxlint-disable-next-line active-record/predicate-name -- public, reads as a phrase: willSaveChangeTo("email")
   willSaveChangeTo<R extends Model, K extends AttributeKey<R>>(
     this: R,
     name: K,
@@ -563,7 +562,7 @@ export class Model extends AttributeWrites {
     ) as AttributesOf<R>[K];
   }
 
-  /** Undoes unsaved changes to these attributes (all of them by default), as Rails' `restore_attributes`. */
+  /** Undoes unsaved changes to these attributes (all of them by default). */
   restoreAttributes<R extends Model>(this: R, names?: readonly AttributeKey<R>[]): void {
     this[state].restore(names);
   }
@@ -630,7 +629,7 @@ export class Model extends AttributeWrites {
 
   /**
    * Marks the record to be destroyed when its owner is saved, through an association declared
-   * `autosave: true`, as Rails' `mark_for_destruction` does. Nothing is written until then, and
+   * `autosave: true`. Nothing is written until then, and
    * `reload()` clears the mark.
    */
   markForDestruction(): void {
@@ -648,7 +647,7 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * Whether its last save created it, as Rails' `previously_new_record?`: true in a create's
+   * Whether its last save created it: true in a create's
    * after-callbacks and after it, false once it's saved again or destroyed.
    */
   isPreviouslyNewRecord(): boolean {
@@ -666,7 +665,7 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * Whether the record has the attribute `name` loaded (Rails' `has_attribute?`): `false` for one
+   * Whether the record has the attribute `name` loaded: `false` for one
    * `select(...)` left out, whose read throws `MissingAttribute`, and for a name the Model doesn't
    * declare. A callback that runs for partial records, such as `afterFind`, checks it first.
    */

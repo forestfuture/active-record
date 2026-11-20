@@ -18,7 +18,7 @@ export interface RelationState<M extends Model> {
 /**
  * @internal The values of a record built or created through `relation`, given `given`: its
  * conditions' equality values, then its `createWith` attributes, then the given ones, with its
- * owner's key over them all, as Rails sets the owner's key last: the owner's own, whatever the
+ * owner's key over them all, set last: the owner's own, whatever the
  * conditions say, so a narrowed, merged or `or()`ed hasMany gives it too.
  */
 export function builtRecordValues(
@@ -31,8 +31,8 @@ export function builtRecordValues(
 /**
  * @internal The values of a row a bulk write (`insert`, `upsert` and their `All` forms) writes
  * through `relation`, given `given`: the given ones, then its conditions' equality values, then
- * its `createWith` attributes, then its owner's, as Rails' `insert_all` merges the scope's
- * values over each row's (#470), where `build` and `create` take the given ones over them.
+ * its `createWith` attributes, then its owner's, so the scope's values go over each
+ * row's (#470), where `build` and `create` take the given ones over them.
  */
 export function bulkRowValues(
   relation: RelationState<Model>,
@@ -61,7 +61,7 @@ export function ownersValues({ model, collection }: RelationState<Model>): Recor
 
 /**
  * @internal Throws when records can't be created or inserted through `relation`:
- * `ReadonlyAssociation` where its collection refuses `write` (#434), or, as in Rails,
+ * `ReadonlyAssociation` where its collection refuses `write` (#434), or
  * `RecordNotSaved` for an owner with no key yet.
  */
 export function requireSavedOwner(relation: RelationState<Model>, write: CollectionWrite): void {
