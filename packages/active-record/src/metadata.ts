@@ -49,8 +49,8 @@ export interface SpecObject {
   /** `false` to give records no predicate or `saveAs…` setter for each enum name (#340). */
   instanceMethods?: boolean;
   /**
-   * Validates an enum's value instead of refusing an unknown one when it's assigned, as Rails'
-   * `validate: true` does: a record holding another value, or null unless `allowNull`, is invalid.
+   * Validates an enum's value instead of refusing an unknown one when it's assigned: a
+   * record holding another value, or null unless `allowNull`, is invalid.
    */
   validate?: EnumValidation;
   /**

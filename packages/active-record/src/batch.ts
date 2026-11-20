@@ -149,7 +149,7 @@ function statementEntry(statement: Statement<unknown>): PreparedEntry {
   return { writes: () => [write], result: () => written };
 }
 
-/** A record's prepared save or destroy; a refusal throws, as a Rails transaction's `save!` does. */
+/** A record's prepared save or destroy; a refusal throws, so nothing in the batch is written. */
 async function recordEntry(
   statement: RecordStatement,
   claimed: Claimed,

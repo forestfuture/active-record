@@ -92,7 +92,7 @@ function repeatProblem(entries: readonly [string, string | number][]): string | 
 
 /**
  * The validations an enum declared `validate: true` adds, before a Model's own: its value must be
- * one of its names, and not null unless `allowNull`, as Rails' `validate: true` adds them.
+ * one of its names, and not null unless `allowNull`.
  */
 export function enumValidations(
   definitions: ReadonlyMap<string, AttributeDefinition>,

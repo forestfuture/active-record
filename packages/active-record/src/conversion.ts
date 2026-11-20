@@ -165,8 +165,8 @@ function customConverter(type: AnyCustomType, stored: Converter): Converter {
 
 /**
  * An enum's values are its names (#340). A name is cast as itself, and so is the value it's
- * stored as (`1`, or `"1"` from a form), as Rails accepts; anything else is `uncastable`. A stored
- * cell of its type that's none of its values reads as null, as Rails reads it, so a row written
+ * stored as (`1`, or `"1"` from a form); anything else is `uncastable`. A stored
+ * cell of its type that's none of its values reads as null, so a row written
  * by code that lists a newer value doesn't fail every list it's in; one of another type is
  * `uncastable`, as for any attribute of that type (#159).
  */
@@ -195,7 +195,7 @@ export function castValue(attribute: Convertible, value: unknown): unknown {
 /**
  * A condition's value as the attribute's type, or `uncastable`: as `castValue`, except that a
  * finite number matches a string attribute as its decimal string (`7` → `"7"`), as `find` does
- * for a text key and as Rails does, so a foreign key of another type still finds its target.
+ * for a text key, so a foreign key of another type still finds its target.
  */
 export function castCondition(attribute: Convertible, value: unknown): unknown {
   return castKey(withoutPrecision(attribute), value);

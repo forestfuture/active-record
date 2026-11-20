@@ -172,7 +172,7 @@ interface OverloadedStatics {
     ): Promise<CalculatedValue<InstanceType<C>, K, unknown> | null>;
   };
   paginate: PaginateStatic;
-  /** The class's Relation ordered by `attribute`'s place in `values` (#350), as Rails' `in_order_of`. */
+  /** The class's Relation ordered by `attribute`'s place in `values` (#350). */
   inOrderOf: <C extends QueryableClass, K extends keyof AttributesOf<InstanceType<C>> & string>(
     this: C,
     attribute: K,
@@ -451,7 +451,7 @@ export const ModelStatics = class {} as unknown as (abstract new () => object) &
   CommitStatics;
 
 /**
- * Defines the statics on `base`: every Relation method, as Rails delegates them to `all`, and
+ * Defines the statics on `base`: every Relation method, called on `all()`, and
  * a static for each callback kind, which declares a callback of that kind.
  */
 export function defineStatics(base: typeof Model): void {

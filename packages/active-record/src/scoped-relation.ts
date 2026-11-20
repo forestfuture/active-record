@@ -142,7 +142,7 @@ export function relationFor<C extends ModelClass>(
 
 /**
  * Models whose default scopes are being applied now, so a body that queries its own Model
- * (`Post.where(…)`) gets a Relation without them, as Rails' `ignore_default_scope` does,
+ * (`Post.where(…)`) gets a Relation without them,
  * rather than applying them again forever. Module-level, but not request state (ADR-0003): it's
  * emptied before `withDefaultScopes` returns, with no await in between.
  */

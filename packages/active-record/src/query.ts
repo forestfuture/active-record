@@ -101,7 +101,7 @@ export interface Join {
   readonly ownerAttribute: string;
   /** Its own attribute that links them. */
   readonly targetAttribute: string;
-  /** Its scope's conditions, part of the join itself (`ON`), as Rails puts them. */
+  /** Its scope's conditions, part of the join itself (`ON`). */
   readonly on: readonly Condition[];
   /** The associations of its Model joined to it in turn. */
   readonly joins: readonly Join[];

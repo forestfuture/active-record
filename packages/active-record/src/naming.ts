@@ -1,11 +1,11 @@
-// camelCase attribute names to snake_case columns and back, as Rails' `underscore` and `camelize`.
+// camelCase attribute names to snake_case columns and back.
 /**
  * Converts a camelCase attribute name to its snake_case column name, treating
- * a run of capitals as one word (Rails' `underscore`): `htmlURL` → `html_url`,
+ * a run of capitals as one word: `htmlURL` → `html_url`,
  * `userID` → `user_id`, `sha256Hash` → `sha256_hash`.
  */
 export function underscore(name: string): string {
-  // Rails writes this as two substitutions; a capital gets an underscore before it after a
+  // One substitution does the work of two; a capital gets an underscore before it after a
   // lowercase letter or digit, or after a capital or digit when a lowercase letter follows. Each
   // is a zero-width check at one position, so the time is linear in the name. A capture of a
   // whole run of capitals retries from every start, and is quadratic (#116).

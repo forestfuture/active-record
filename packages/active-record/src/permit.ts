@@ -9,7 +9,7 @@ export type Permitted<C extends ModelClass, K extends string> = Partial<
 >;
 
 /**
- * The named attributes of untrusted `input`, as Rails' `params.permit`: every other key is
+ * The named attributes of untrusted `input`: every other key is
  * dropped, so it never reaches a record (#82). Each value is cast as assigning it would be
  * (#81), so the result is what its type says even before it's assigned.
  */

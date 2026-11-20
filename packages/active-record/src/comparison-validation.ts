@@ -12,7 +12,7 @@ export type Comparable = number | string | Date;
 /** A bound: a value, or a function of the record being validated (`(event) => event.startsAt`). */
 export type ComparisonBound<R = never> = Comparable | ((record: R) => Comparable | null);
 
-/** The bounds of a `comparison` rule, with Rails' error types as keys. `R` is the record type. */
+/** The bounds of a `comparison` rule, with its error types as keys. `R` is the record type. */
 export interface ComparisonOptions<R = never> {
   greaterThan?: ComparisonBound<R>;
   greaterThanOrEqualTo?: ComparisonBound<R>;
@@ -108,7 +108,7 @@ function orderAgainst(value: unknown, bound: Comparable, subject: ValidationSubj
 
 /**
  * @internal The failures of a value against each bound of `rule`, in `ORDER_CHECKS`' order: `blank` once
- * for a blank value (null, or only whitespace), as Rails does, and none for a bound that's null.
+ * for a blank value (null, or only whitespace), and none for a bound that's null.
  */
 export function comparisonFailures(
   value: unknown,

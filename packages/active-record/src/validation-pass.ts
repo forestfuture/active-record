@@ -26,7 +26,7 @@ export interface ValidationPass {
 
 /**
  * A pass for validating a record, in `context` if given, and the records validated with it,
- * which share the context only if it's custom, as Rails does.
+ * which share the context only if it's custom.
  */
 export function newPass(context?: ValidationContexts): ValidationPass {
   return {

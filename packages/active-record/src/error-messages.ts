@@ -31,7 +31,7 @@ export interface ErrorMessages<N extends string = string> {
   readonly restrictDependentDestroy?: RestrictMessages;
 }
 
-/** @internal Rails' English messages, used where no class has its own (listed in the guide). */
+/** @internal The built-in English messages, used where no class has its own (listed in the guide). */
 export const builtInMessages: ErrorMessages = {
   blank: "can't be blank",
   present: "must be blank",
@@ -139,7 +139,7 @@ function catalogOf(model: ModelClass): Catalog {
   return catalog;
 }
 
-/** The message for a type: for the attribute, then the class's own, nearest class first (Rails' order). */
+/** The message for a type: for the attribute, then the class's own, nearest class first. */
 function templateFor(model: ModelClass, attribute: string, type: string): Template | undefined {
   if (type === "attributes") return undefined;
   for (const messages of catalogOf(model).messages) {

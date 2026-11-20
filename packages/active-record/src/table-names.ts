@@ -33,7 +33,7 @@ export function modelNameOf(model: object): string {
 }
 
 /**
- * Gives the library's base class `modelName`: each class's own name, as Rails' `model_name`,
+ * Gives the library's base class `modelName`: each class's own name,
  * unless it sets `static modelName = "…"`, which the classes extending it inherit (a set one is
  * a value, found before this getter). Empty for a class with no name: anonymous, or `export
  * default`.
@@ -49,8 +49,8 @@ export function defineModelName(root: object): void {
 }
 
 /**
- * The `modelName` of the class that extends `base` directly, the one a table is named after, as
- * in Rails; empty when it has none (anonymous, `export default`, or `Model.define({...})` itself).
+ * The `modelName` of the class that extends `base` directly, the one a table is named after;
+ * empty when it has none (anonymous, `export default`, or `Model.define({...})` itself).
  */
 function modelNameBelow(base: object, model: object): string {
   let current = model;
@@ -61,7 +61,7 @@ function modelNameBelow(base: object, model: object): string {
 }
 
 /**
- * A class name's table, by Rails' `tableize`: the name through `underscore`, pluralized
+ * A class name's table: the name through `underscore`, pluralized
  * (`BlogPost` → `blog_posts`, `Person` → `people`). The generators name tables with it too.
  */
 export function tableize(className: string): string {
@@ -130,7 +130,7 @@ function boundTableOf(model: object): (BoundTable & { owner: object }) | undefin
 
 /**
  * Whether a Model ignores some of its table's columns, so its queries name their columns rather
- * than `*` and an ignored column is never read, as in Rails. The nearest bound table decides.
+ * than `*` and an ignored column is never read. The nearest bound table decides.
  * Remembered per Model: its table is bound when it's first used, before any query, so the
  * answer can't change.
  */
@@ -145,7 +145,7 @@ export function isIgnoringColumns(model: object): boolean {
 
 /**
  * An abstract base class (the app's `ApplicationRecord`, or one marked `static abstract = true`)
- * has no table, as Rails' `abstract_class`: it's only inherited from, so using it is an
+ * has no table: it's only inherited from, so using it is an
  * `InvalidModel`.
  */
 export function rejectAbstract(model: ModelClass): void {
