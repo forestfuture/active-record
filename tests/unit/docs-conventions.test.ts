@@ -53,6 +53,14 @@ describe("the guide's pages", () => {
     expect(escaped).toEqual([]);
   });
 
+  test("include examples as partials, so agents never get a Twoslash fence's hidden files", () => {
+    const hidden = pages.flatMap(({ name, text }) =>
+      [...text.matchAll(/twoslash\.ts|@filename/g)].map(([match]) => `${name}: ${match}`),
+    );
+
+    expect(hidden).toEqual([]);
+  });
+
   test("use smart quotes and apostrophes in prose", () => {
     const straight = pages.flatMap(({ name, text }) =>
       prose(text)

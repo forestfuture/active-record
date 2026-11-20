@@ -14,7 +14,7 @@ The agent skill gives your agent the guide and its rules, and is what most proje
 | Resource                                                 | What it is                                                                                                                                    |
 | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`llms.txt`](/llms.txt)                                  | An index of the guide, each page with what it covers, following [llmstxt.org](https://llmstxt.org). Start here when an agent can fetch pages. |
-| [`llms-full.txt`](/llms-full.txt)                        | The whole guide in one Markdown file, about 55K tokens.                                                                                       |
+| [`llms-full.txt`](/llms-full.txt)                        | The whole guide in one Markdown file.                                                                                                         |
 | Any page + `.md`                                         | Every page as Markdown: [`/associations.md`](/associations.md).                                                                               |
 | `/.well-known/agent-skills/active-record/SKILL.md`       | The skill below, published where agents look for a site’s skills.                                                                             |
 | `node_modules/@forestfuture/active-record/llms-full.txt` | The same guide, shipped in the package. It matches the version you’ve installed, and an agent can read it without fetching anything.          |
