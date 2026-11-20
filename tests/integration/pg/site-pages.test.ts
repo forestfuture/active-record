@@ -8,7 +8,12 @@ import {
   test,
   vi,
 } from "vite-plus/test";
-import { StrictValidationFailed, withDatabase } from "../../../packages/active-record/src/index.ts";
+import type { MockInstance } from "vite-plus/test";
+import {
+  RecordNotUnique,
+  StrictValidationFailed,
+  withDatabase,
+} from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 import * as associations from "../../../site/snippets/pages/associations/examples.ts";
 import { Article as Story } from "../../../site/snippets/pages/associations/src/models/article.ts";
@@ -20,6 +25,8 @@ import { Article as AutosavedArticle } from "../../../site/snippets/pages/autosa
 import { Comment as AutosavedComment } from "../../../site/snippets/pages/autosaving/src/models/comment.ts";
 import * as autosaving from "../../../site/snippets/pages/autosaving/examples.ts";
 import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
+import * as callbacks from "../../../site/snippets/pages/callbacks/examples.ts";
+import { Order as CallbackOrder } from "../../../site/snippets/pages/callbacks/src/models/order.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as changeTracking from "../../../site/snippets/pages/change-tracking/examples.ts";
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
@@ -65,19 +72,19 @@ async function onPostgres(page: string, outsideTheRepo = false): Promise<string>
       readFileSync(file, "utf8"),
     ]),
   );
-  const models = pageProject(page, "src/models/");
-  const modelFiles = Object.fromEntries(
-    readdirSync(models).map((name) => [
-      `src/models/${name}`,
-      readFileSync(new URL(name, models), "utf8"),
-    ]),
+  // The app's own files, its Models among them; the schema is generated for Postgres.
+  const src = pageProject(page, "src/");
+  const sources = Object.fromEntries(
+    readdirSync(src, { recursive: true, encoding: "utf8" })
+      .filter((name) => name.endsWith(".ts") && name !== "db/schema.ts")
+      .map((name) => [`src/${name}`, readFileSync(new URL(name, src), "utf8")]),
   );
   const cwd = writePgProject(
     scratch(`pg-page-${page}-`, outsideTheRepo),
     { DB: {} },
     {
       ...migrations,
-      ...modelFiles,
+      ...sources,
     },
   );
   const { code, said } = await schemaCommand(cwd);
@@ -113,6 +120,17 @@ function pageSchema(page: string, seed: string): () => PgSchema {
 
 const ada = "00000000-0000-4000-8000-00000000000a";
 const mary = "00000000-0000-4000-8000-00000000000b";
+
+/** Silences console.log for a describe's tests, and reads what each one logged. */
+function quietLog(): { calls: () => unknown[][] } {
+  let log: MockInstance<typeof console.log>;
+  beforeAll(() => {
+    log = vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+  afterAll(() => log.mockRestore());
+  beforeEach(() => log.mockClear());
+  return { calls: () => log.mock.calls };
+}
 
 // The Attribute types page's examples, on the products table it shows, on Postgres.
 describe("the Attribute types page's examples, on Postgres", () => {
@@ -707,6 +725,77 @@ describe("the Validations page's examples, on Postgres", () => {
       "Name needs at least 3 characters",
       "Price must be more than 0",
     ]);
+  });
+});
+
+// The Callbacks page's examples, on the tables it shows, on Postgres.
+describe("the Callbacks page's examples, on Postgres", () => {
+  const schema = pageSchema("callbacks", "SELECT 1");
+  beforeEach(async () => {
+    await schema().pool.query({
+      text: "DELETE FROM orders; DELETE FROM users; DELETE FROM articles; DELETE FROM invoices",
+    });
+    await schema().pool.query({
+      text: "INSERT INTO orders (id, number, email, total_cents, is_suspended) VALUES ('00000000-0000-4000-8000-000000000002', '1002', 'sam@example.com', 1500, true);\nINSERT INTO articles (id, title, updated_at) VALUES ('00000000-0000-4000-8000-000000000003', 'Hello', '2026-01-01T00:00:00.000Z');\nINSERT INTO invoices (id, country, currency, total_cents) VALUES ('00000000-0000-4000-8000-000000000004', 'US', 'USD', 2000000), ('00000000-0000-4000-8000-000000000005', 'GB', 'GBP', 100)",
+    });
+  });
+  const log = quietLog();
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
+  const logged = () => log.calls().map(([line]) => String(line));
+
+  test("the Order's callbacks run in their order on create and update", async () => {
+    const order = await run(callbacks.placing);
+
+    expect(order.email).toBe("jane@example.com");
+    expect(order.placedAt).toBeInstanceOf(Date);
+    expect(logged().filter((line) => !line.startsWith("Saved order"))).toEqual([
+      "jane@example.com",
+      String(order.placedAt),
+      "Shipped email to jane@example.com",
+    ]);
+    expect(logged().filter((line) => line.startsWith("Saved order 1001 in "))).toHaveLength(2);
+  });
+
+  test("afterCreateCommit runs once the user is created", async () => {
+    await run(callbacks.signingUp);
+
+    expect(logged()).toEqual(["Welcome email to sam@example.com"]);
+  });
+
+  test("touch runs afterTouch", async () => {
+    const article = await run(callbacks.touching);
+
+    expect(logged()).toEqual([`Purged /articles/${article.id}`]);
+  });
+
+  test("a refused write runs afterRollback, then the save throws", async () => {
+    await run(() => callbacks.placing());
+
+    await expect(run(callbacks.refusing)).rejects.toThrow(RecordNotUnique);
+    expect(logged().at(-1)).toBe("Order 1001 wasn't saved");
+  });
+
+  test("afterInitialize fills in a new invoice's currency", async () => {
+    const invoice = await run(callbacks.building);
+
+    expect(invoice.currency).toBe("GBP");
+  });
+
+  test("afterFind checks hasAttribute, so a partial record loads", async () => {
+    const { invoices, large } = await run(callbacks.loadingPartly);
+
+    expect(invoices).toHaveLength(2);
+    expect(large).toHaveLength(1);
+    expect(logged()).toEqual([`Large invoice ${large[0]?.id} loaded`]);
+  });
+
+  test("abort() in beforeSave stops the save, with its reason", async () => {
+    const order = await run(callbacks.stopping);
+
+    expect(order.abortReason).toBe("Orders can't change while suspended");
+    expect(logged()).toEqual(["Orders can't change while suspended"]);
+    const reloaded = await run(() => CallbackOrder.findByOrThrow({ number: "1002" }));
+    expect(reloaded.totalCents).toBe(1500);
   });
 });
 

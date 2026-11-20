@@ -11,6 +11,7 @@ import {
 } from "vite-plus/test";
 import {
   MissingAttribute,
+  RecordNotUnique,
   StrictValidationFailed,
   UnknownAttribute,
   withDatabase,
@@ -27,6 +28,8 @@ import { Article as AutosavedArticle } from "../../../site/snippets/pages/autosa
 import { Comment as AutosavedComment } from "../../../site/snippets/pages/autosaving/src/models/comment.ts";
 import * as autosaving from "../../../site/snippets/pages/autosaving/examples.ts";
 import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
+import * as callbacks from "../../../site/snippets/pages/callbacks/examples.ts";
+import { Order as CallbackOrder } from "../../../site/snippets/pages/callbacks/src/models/order.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as changeTracking from "../../../site/snippets/pages/change-tracking/examples.ts";
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
@@ -794,6 +797,79 @@ describe("the Validations page's examples", () => {
       "Name needs at least 3 characters",
       "Price must be more than 0",
     ]);
+  });
+});
+
+// The Callbacks page's examples, on the tables it shows.
+describe("the Callbacks page's examples", () => {
+  const binding = pageDatabase("callbacks", ["orders", "users", "articles", "invoices"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO orders (id, number, email, total_cents, is_suspended) VALUES ('2', '1002', 'sam@example.com', 1500, 1)",
+        "INSERT INTO articles (id, title, updated_at) VALUES ('3', 'Hello', '2026-01-01T00:00:00.000Z')",
+        "INSERT INTO invoices (id, country, currency, total_cents) VALUES ('4', 'US', 'USD', 2000000), ('5', 'GB', 'GBP', 100)",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const log = quietLog();
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+  const logged = () => log.calls().map(([line]) => String(line));
+
+  test("the Order's callbacks run in their order on create and update", async () => {
+    const order = await run(callbacks.placing);
+
+    expect(order.email).toBe("jane@example.com");
+    expect(order.placedAt).toBeInstanceOf(Date);
+    expect(logged().filter((line) => !line.startsWith("Saved order"))).toEqual([
+      "jane@example.com",
+      String(order.placedAt),
+      "Shipped email to jane@example.com",
+    ]);
+    expect(logged().filter((line) => line.startsWith("Saved order 1001 in "))).toHaveLength(2);
+  });
+
+  test("afterCreateCommit runs once the user is created", async () => {
+    await run(callbacks.signingUp);
+
+    expect(logged()).toEqual(["Welcome email to sam@example.com"]);
+  });
+
+  test("touch runs afterTouch", async () => {
+    const article = await run(callbacks.touching);
+
+    expect(logged()).toEqual([`Purged /articles/${article.id}`]);
+  });
+
+  test("a refused write runs afterRollback, then the save throws", async () => {
+    await run(() => callbacks.placing());
+
+    await expect(run(callbacks.refusing)).rejects.toThrow(RecordNotUnique);
+    expect(logged().at(-1)).toBe("Order 1001 wasn't saved");
+  });
+
+  test("afterInitialize fills in a new invoice's currency", async () => {
+    const invoice = await run(callbacks.building);
+
+    expect(invoice.currency).toBe("GBP");
+  });
+
+  test("afterFind checks hasAttribute, so a partial record loads", async () => {
+    const { invoices, large } = await run(callbacks.loadingPartly);
+
+    expect(invoices).toHaveLength(2);
+    expect(large).toHaveLength(1);
+    expect(logged()).toEqual([`Large invoice ${large[0]?.id} loaded`]);
+  });
+
+  test("abort() in beforeSave stops the save, with its reason", async () => {
+    const order = await run(callbacks.stopping);
+
+    expect(order.abortReason).toBe("Orders can't change while suspended");
+    expect(logged()).toEqual(["Orders can't change while suspended"]);
+    const reloaded = await run(() => CallbackOrder.findByOrThrow({ number: "1002" }));
+    expect(reloaded.totalCents).toBe(1500);
   });
 });
 
