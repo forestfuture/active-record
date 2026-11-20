@@ -41,7 +41,7 @@ The examples use these Models, whose attributes come from their tables through t
 
 `joins` finds the records that have a linked record, through an association or nested ones:
 
-<include meta="twoslash">/_excerpts/pages/joins/examples/joins.twoslash.ts</include>
+<include>/_excerpts/pages/joins/examples/joins.mdx</include>
 
 - A record comes back once for each linked record, so an author with three commented articles appears three times. `distinct()` gets each record once.
 - A joined query loads only its own Model’s columns, and every Relation method works on it. `count()` counts the rows `toArray()` returns, and `updateAll` and `deleteAll` write the records the join finds.
@@ -51,13 +51,13 @@ The examples use these Models, whose attributes come from their tables through t
 
 `leftJoins` joins the same way, but keeps the records that have no linked record:
 
-<include meta="twoslash">/_excerpts/pages/joins/examples/left-joins.twoslash.ts</include>
+<include>/_excerpts/pages/joins/examples/left-joins.mdx</include>
 
 ## Filtering by a joined Model
 
 Merge a Relation of the joined Model to filter or sort by its attributes:
 
-<include meta="twoslash">/_excerpts/pages/joins/examples/merge.twoslash.ts</include>
+<include>/_excerpts/pages/joins/examples/merge.mdx</include>
 
 Its conditions, its scopes, and its order apply to the joined table. As with any `merge`, the joined Model’s order replaces the receiver’s.
 

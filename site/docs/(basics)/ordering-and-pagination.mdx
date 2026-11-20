@@ -61,9 +61,7 @@ The examples use this Model, whose attributes come from its table through the sc
 
 Sort by each key in turn with `order`, and page with `limit` and `offset`:
 
-<include meta="twoslash">
-  /_excerpts/pages/ordering-and-pagination/examples/order.twoslash.ts
-</include>
+<include>/_excerpts/pages/ordering-and-pagination/examples/order.mdx</include>
 
 Calling `order` again adds more keys. `reorder` replaces the order so far, and `reorder()` removes it.
 
@@ -75,9 +73,7 @@ On D1, NULLs sort first in ascending order and last in descending order. Postgre
 
 Sort records by where their value comes in a list with `inOrderOf`:
 
-<include meta="twoslash">
-  /_excerpts/pages/ordering-and-pagination/examples/in-order-of.twoslash.ts
-</include>
+<include>/_excerpts/pages/ordering-and-pagination/examples/in-order-of.mdx</include>
 
 - By default, only records whose value is in the list are kept. Pass `filter: false` to keep the rest, after them.
 - Values are cast as `where`’s are, and `null` places NULL. The list is bound as one value, so it can be any length.
@@ -89,9 +85,7 @@ Sort records by where their value comes in a list with `inOrderOf`:
 
 `paginate` resolves to one page of records and the total they’re a page of:
 
-<include meta="twoslash">
-  /_excerpts/pages/ordering-and-pagination/examples/paginate.twoslash.ts
-</include>
+<include>/_excerpts/pages/ordering-and-pagination/examples/paginate.mdx</include>
 
 - `page` and `perPage` take numbers, or text from a query string. Missing, `null`, or empty, they mean the first page and the default size. Anything that isn’t a whole number from 1 throws `TypeError`.
 - Pages sort by the Relation’s order, then by the primary key, so records that tie keep their pages between requests.
@@ -104,9 +98,7 @@ Sort records by where their value comes in a list with `inOrderOf`:
 
 Pass `count: false` when you only need to know whether there’s a next page:
 
-<include meta="twoslash">
-  /_excerpts/pages/ordering-and-pagination/examples/countless.twoslash.ts
-</include>
+<include>/_excerpts/pages/ordering-and-pagination/examples/countless.mdx</include>
 
 Counting reads every matching row, and D1 bills each row it reads. Without it, the page has no `total` or `totalPages`.
 
