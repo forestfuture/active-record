@@ -92,17 +92,38 @@ export class Attribute {
    * attribute's type, whatever plain JavaScript returns; a promise is refused.
    */
   normalize(value: unknown): unknown {
+    return this.#normalized(value, (result) => this.cast(result));
+  }
+
+  /**
+   * A condition's value cast, then normalized as an assigned value is (#354), or `noMatch`: each
+   * result is cast again as a condition's, so one that can't be matches nothing.
+   */
+  normalizedCondition(value: unknown): unknown {
+    const cast = this.condition(value);
+    if (cast === noMatch) return noMatch;
+    return this.#normalized(cast, (result) => this.condition(result));
+  }
+
+  /** `value` through each normalization, each result cast by `recast`, stopping at `noMatch`. */
+  #normalized(value: unknown, recast: (result: unknown) => unknown): unknown {
     let normalized = value;
     for (const { with: normalize, applyToNull } of normalizationsOf(this.#model, this.name)) {
+      if (normalized === noMatch) break;
       if (normalized === null && !applyToNull) continue;
       const result = normalize(normalized);
       refuseThenable(
         result,
         `${this.#model.name} normalizes "${this.name}" with a function that returned a promise; a normalization runs synchronously`,
       );
-      normalized = this.cast(result);
+      normalized = recast(result);
     }
     return normalized;
+  }
+
+  /** Whether the attribute has a normalization, so its conditions need normalizing (#354). */
+  get isNormalized(): boolean {
+    return normalizationsOf(this.#model, this.name).length > 0;
   }
 
   /** Whether it's an enum declared `validate: true`, which keeps an unknown value it's given. */
@@ -126,6 +147,8 @@ export class Attribute {
    * matches nothing, so a value from a URL is never an error.
    */
   condition(value: unknown): unknown {
+    // A normalized condition that can't match anything stays so (#354).
+    if (value === noMatch) return noMatch;
     return castCondition(this.#definition, value);
   }
 

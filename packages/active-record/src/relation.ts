@@ -1,4 +1,5 @@
 // Relation: the chainable query (`where`, `order`, …), its finders, terminals, and bulk writes.
+import { writtenConditions } from "./normalized-conditions.ts";
 import { jointly, type Executor } from "./executor.ts";
 import { querySql, type QuerySql } from "./compiler.ts";
 import { includeTree } from "./preload.ts";
@@ -39,11 +40,9 @@ import type { AttributesOf, IncludeSpec, JoinSpec, Model, ModelClass } from "./m
 import { SafeSql } from "./sql.ts";
 import {
   checkChanges,
-  checkConditions,
   checkQuery,
   requireSameModel,
   scopeResultError,
-  isEmptyConditions,
   orderTerms,
   type Conditions,
   type InsertOptions,
@@ -153,16 +152,16 @@ export class Relation<M extends Model, S = {}> {
   }
 
   where(conditions: Conditions<M> | SafeSql): Scoped<M, S> {
-    checkConditions(this.#model, conditions, "where");
-    if (isEmptyConditions(conditions)) return this.#scoped(this);
-    return this.#with({ conditions: [...this.#query.conditions, conditions] });
+    const written = writtenConditions(this.#model, conditions, "where");
+    if (written === undefined) return this.#scoped(this);
+    return this.#with({ conditions: [...this.#query.conditions, written] });
   }
 
   /** Negates the whole condition: `NOT (…)`. Rows where it is NULL are excluded too. */
   whereNot(conditions: Conditions<M> | SafeSql): Scoped<M, S> {
-    checkConditions(this.#model, conditions, "whereNot");
-    if (isEmptyConditions(conditions)) return this.#scoped(this);
-    return this.#with({ conditions: [...this.#query.conditions, new Negated(conditions)] });
+    const written = writtenConditions(this.#model, conditions, "whereNot");
+    if (written === undefined) return this.#scoped(this);
+    return this.#with({ conditions: [...this.#query.conditions, new Negated(written)] });
   }
 
   /**
