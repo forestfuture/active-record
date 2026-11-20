@@ -13,6 +13,7 @@ import {
   type AttributeProperties,
   type AttributeDefinition,
   type AttributeSpecs,
+  type DeclaredAttributes,
   type ExactSpecs,
 } from "./metadata.ts";
 import { type Permitted, permitted } from "./permit.ts";
@@ -22,7 +23,7 @@ import type { Errors } from "./errors-collection.ts";
 import { humanAttributeName, type ErrorMessages } from "./error-messages.ts";
 import { declare, declared } from "./declarations.ts";
 import { checkNormalizedName, type NormalizeOptions } from "./normalization.ts";
-import { attributeName } from "./attribute-aliases.ts";
+import { aliasesIn, attributeName, isAlias, type DefinedSpecs } from "./attribute-aliases.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
@@ -279,11 +280,11 @@ export class Model extends AttributeWrites {
    * `class Visit extends Model.define({ path: "string" }) {}`. It's built on the class it's
    * called on, so a Model made with `ApplicationRecord.define({...})` shares the app's base.
    */
-  static define<B extends BaseClass, const A extends AttributeSpecs>(
+  static define<B extends BaseClass, const A extends DeclaredAttributes>(
     this: B,
     specs: A & ExactSpecs<A>,
-  ): ModelBaseFor<A, B> {
-    return defineModel(specs, this);
+  ): ModelBaseFor<SpecsGiven<DefinedSpecs<A>>, B> {
+    return defineModel(specs as A, this) as never;
   }
 
   /**
@@ -805,16 +806,27 @@ export type ModelBaseFor<
   Omit<B, "prototype"> &
   EnumStatics<A>;
 
+/**
+ * `S` as attribute specs: itself, or when it isn't (a spec that's a compile error), widened, so
+ * `define` still gives a class to extend and the error stays on the spec.
+ */
+type SpecsGiven<S> = S extends AttributeSpecs ? S : S & AttributeSpecs;
+
 /** `Model.define({...})` on `base`: a class with the attributes' accessors, extending `base`. */
-function defineModel<const A extends AttributeSpecs, B extends BaseClass>(
+function defineModel<const A extends DeclaredAttributes, B extends BaseClass>(
   specs: A,
   base: B,
-): ModelBaseFor<A, B> {
+): ModelBaseFor<SpecsGiven<DefinedSpecs<A>>, B> {
   const Parent = base as unknown as typeof Model;
+  const definitions = new Map(
+    Object.entries(specs).flatMap(([name, spec]) =>
+      isAlias(spec) ? [] : [[name, define(name, spec)] as const],
+    ),
+  );
+  const aliases = aliasesIn("", specs, definitions);
   class DefinedModel extends Parent {
-    static override attributeDefinitions: ReadonlyMap<string, AttributeDefinition> = new Map(
-      Object.entries(specs).map(([name, spec]) => [name, define(name, spec)]),
-    );
+    static override attributeDefinitions: ReadonlyMap<string, AttributeDefinition> = definitions;
+    static override attributeAliases: ReadonlyMap<string, string> = aliases;
   }
   inferTableNames(DefinedModel);
   defineAttributeAccessors(DefinedModel.prototype, Object.keys(specs));
