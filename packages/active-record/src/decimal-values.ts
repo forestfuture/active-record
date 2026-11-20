@@ -18,7 +18,7 @@ const maxFractionDigits = 16383;
  */
 const maxTextLength = maxWholeDigits + maxFractionDigits + 64;
 
-/** A number's significant digits when it's cast, as a float's are. */
+/** The significant digits a number keeps when it's cast to a decimal. */
 const numberPrecision = 16;
 
 /**
