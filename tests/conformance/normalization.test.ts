@@ -199,6 +199,15 @@ describe("a normalized attribute's conditions", () => {
     expect(found.map(({ id }) => id)).toEqual([2]);
   });
 
+  test("a record created through an association keeps its owner's key", async () => {
+    const author = await db().model(Author).find(2);
+
+    const entry = await author.entries().create({ id: 3, title: "Three" });
+
+    const [row] = await harness.exec("SELECT user_id FROM posts WHERE id = 3");
+    expect([entry.userId, Number(row?.user_id)]).toEqual([2, 2]);
+  });
+
   test("an association's link to its owner is kept as the owner's key", async () => {
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (?, ?, ?)", [1, 1, "One"]);
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (?, ?, ?)", [2, 2, "Two"]);

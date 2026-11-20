@@ -124,5 +124,6 @@ function newRecord<M extends Model>(
   relation: RelationState<M>,
   attributes: Partial<AttributesOf<M>>,
 ): M {
-  return buildRecord(relation.model, builtRecordValues(relation, attributes), relation.executor);
+  const { assigned, kept } = builtRecordValues(relation, attributes);
+  return buildRecord(relation.model, assigned, relation.executor, kept);
 }

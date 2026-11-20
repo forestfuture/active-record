@@ -16,17 +16,43 @@ export interface RelationState<M extends Model> {
   readonly collection: OwnedCollection;
 }
 
+/** @internal A built record's values: those to assign, and those it keeps as they are. */
+export interface BuiltValues {
+  /** `createWith`'s and the given ones, normalized as they're assigned. */
+  readonly assigned: Record<string, unknown>;
+  /** The conditions' equality values, normalized when they were written, and the owner's key. */
+  readonly kept: Record<string, unknown>;
+}
+
 /**
  * @internal The values of a record built or created through `relation`, given `given`: its
  * conditions' equality values, then its `createWith` attributes, then the given ones, with its
  * owner's key over them all, set last: the owner's own, whatever the
- * conditions say, so a narrowed, merged or `or()`ed hasMany gives it too.
+ * conditions say, so a narrowed, merged or `or()`ed hasMany gives it too. Only the assigned ones
+ * are normalized (#354): a condition's value already was, and the owner's key never is.
  */
 export function builtRecordValues(
   relation: RelationState<Model>,
   given: Readonly<Record<string, unknown>>,
+): BuiltValues {
+  const { model, query, collection } = relation;
+  const inherited = castInherited(model, inheritedAttributes(query.conditions), collection.link);
+  const assigned = { ...query.createWith, ...given };
+  const owners = ownersValues(relation);
+  return {
+    assigned: without(assigned, owners),
+    kept: { ...without(inherited, assigned), ...owners },
+  };
+}
+
+/** `values` without the names `others` has. */
+function without(
+  values: Readonly<Record<string, unknown>>,
+  others: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> {
-  return { ...scopeValues(relation), ...given, ...ownersValues(relation) };
+  return Object.fromEntries(
+    Object.entries(values).filter(([name]) => !Object.hasOwn(others, name)),
+  );
 }
 
 /**
@@ -44,12 +70,6 @@ export function bulkRowValues(
   const inherited = castInherited(model, inheritedAttributes(query.conditions), collection.link);
   const created = assignedValues(model, query.createWith ?? {});
   return { ...assignedValues(model, given), ...inherited, ...created, ...ownersValues(relation) };
-}
-
-/** `relation`'s values for a new row: its conditions' equality values, its `createWith` over them. */
-function scopeValues({ model, query, collection }: RelationState<Model>): Record<string, unknown> {
-  const inherited = castInherited(model, inheritedAttributes(query.conditions), collection.link);
-  return { ...inherited, ...query.createWith };
 }
 
 /**
