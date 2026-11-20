@@ -200,6 +200,9 @@ export class Model extends AttributeWrites {
   /** The primary key attribute: the generated table's, or `"id"` unless set. */
   declare static primaryKey: string;
   declare static attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
+
+  /** Each attribute alias (`title: { aliasOf: "name" }`), by alias, to the attribute it names (#509). */
+  declare static attributeAliases: ReadonlyMap<string, string>;
   /**
    * The generated schema, on an app's base class (`static override schema = schema`): the
    * Models built on it have its tables' attributes, and query its binding.
