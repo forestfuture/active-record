@@ -144,6 +144,14 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     requires: "enum",
     onRetype: "drop",
   },
+  // Rails' attributes API: an attribute that isn't a column (#356). It has no column to name,
+  // generate an id in, or store an epoch or an enum's values in.
+  virtual: {
+    isWellFormed: (value) => typeof value === "boolean",
+    describedAs: "virtual",
+    isGiven: isGivenUnless(false),
+    conflictsWith: ["generateId", "storage", "enum"],
+  },
 };
 
 /** The rule for a decimal's precision or scale: a whole number of digits. */
@@ -375,6 +383,7 @@ export function copiedKeys(
     | "suffix"
     | "scopes"
     | "instanceMethods"
+    | "virtual"
   >
 > {
   const copied = entries

@@ -53,6 +53,11 @@ export interface SpecObject {
    * `validate: true` does: a record holding another value, or null unless `allowNull`, is invalid.
    */
   validate?: EnumValidation;
+  /**
+   * An attribute that isn't a column (#356): cast and tracked like one, never read from a row or
+   * written to one, and refused in queries.
+   */
+  virtual?: boolean;
 }
 
 /** How an enum's value is validated: `true`, or `{ allowNull: true }` to let it be null. */
@@ -156,6 +161,8 @@ export interface AttributeDefinition {
   scopes?: boolean;
   instanceMethods?: boolean;
   validate?: EnumValidation;
+  /** Not a column: never read or written, and refused in queries (#356). */
+  virtual?: true;
 }
 
 /** The JavaScript value an attribute of a built-in type holds: a `Date` for a `datetime`. */
