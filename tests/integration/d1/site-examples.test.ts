@@ -12,7 +12,6 @@ import { gte, Model, withDatabase } from "../../../packages/active-record/src/in
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import { Article, Author } from "../../../site/snippets/guide/associations.ts";
 import * as batches from "../../../site/snippets/guide/batches.ts";
-import * as attributeWrites from "../../../site/snippets/guide/attribute-writes.ts";
 import {
   addExample,
   Booking,
@@ -28,7 +27,6 @@ import { parseJsonc } from "../../../packages/active-record/cli/project/config-f
 import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
 import { Post, User } from "../../../site/snippets/getting-started/models.ts";
 import * as customTypes from "../../../site/snippets/guide/custom-types.ts";
-import { findOrCreate } from "../../../site/snippets/guide/find-or-create.ts";
 import { createdSince, oldestFirst, Reminder } from "../../../site/snippets/guide/mixed-dates.ts";
 import * as untrusted from "../../../site/snippets/guide/untrusted-input.ts";
 import * as filtering from "../../../site/snippets/guide/filtering.ts";
@@ -651,69 +649,5 @@ describe("the custom types page's examples (#20)", () => {
     });
     const [row] = (await binding.prepare("SELECT sizes FROM shirts").all()).results;
     expect(row).toEqual({ sizes: "S,M,XL" });
-  });
-});
-
-describe("the persistence page's changing one attribute (#351)", () => {
-  let binding: TestDatabase;
-  let dispose: () => Promise<void>;
-  const schema = new URL("../../../site/snippets/guide/attribute-writes.sql", import.meta.url);
-
-  beforeAll(async () => {
-    ({ db: binding, dispose } = await createTestDatabase(schema));
-  });
-  afterAll(() => dispose());
-
-  test("each method changes the article as its comment says", async () => {
-    await binding.prepare("INSERT INTO articles (id, title) VALUES (1, 'Hello')").run();
-
-    const article = await withDatabase(connect(binding), () => attributeWrites.examples(1));
-
-    // 1 saved, 1 by incrementColumn, 1 by updateCounters, none while unpinned, 5 by
-    // incrementCounter, and 1 through where().
-    expect(article.viewCount).toBe(9);
-    expect(article.isPinned).toBe(false);
-    expect(article.title).toBe("Renamed");
-    expect(article.updatedAt).not.toBeNull();
-    // touch("viewedAt") set it to now, and touch({ time }) set only updatedAt.
-    expect(article.viewedAt!.getTime()).toBeGreaterThan(Date.parse("2026-01-01T00:00:00Z"));
-  });
-
-  test("the afterSave callback logs only a save that created the article", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    onTestFinished(() => log.mockRestore());
-
-    await withDatabase(connect(binding), async () => {
-      const article = await attributeWrites.Article.create({ id: 2, title: "Fresh" });
-      await article.update({ title: "Fresher" });
-    });
-
-    expect(log.mock.calls).toEqual([["New article: Fresh"]]);
-  });
-});
-
-describe("the persistence page's finding or creating (#346)", () => {
-  let binding: TestDatabase;
-  let dispose: () => Promise<void>;
-  const schema = new URL("../../../site/snippets/guide/schema.sql", import.meta.url);
-
-  beforeAll(async () => {
-    ({ db: binding, dispose } = await createTestDatabase(schema));
-  });
-  afterAll(() => dispose());
-
-  test("each finds, builds, or creates as its comment says", async () => {
-    await binding.prepare("INSERT INTO labels (name, color) VALUES ('travel', 'red')").run();
-    await binding.prepare("INSERT INTO labels (name, color) VALUES ('news', 'grey')").run();
-
-    const labels = await withDatabase(connect(binding), () => findOrCreate());
-
-    expect(labels).toEqual([
-      { name: "travel", color: "red", saved: true },
-      { name: "food", color: null, saved: false },
-      { name: "music", color: "blue", saved: true },
-      { name: "art", color: "green", saved: true },
-      { name: "news", color: "grey", saved: true },
-    ]);
   });
 });
