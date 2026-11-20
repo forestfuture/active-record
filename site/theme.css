@@ -2,3 +2,35 @@
   font-size: 1rem;
   line-height: calc(1.5 / 1);
 }
+
+/*
+ * A Twoslash block can't scroll, since Blume shows its hover popups by leaving it unclipped
+ * (overflow: visible !important). So a long line wraps inside the block, instead of running
+ * past its edge and widening the page.
+ */
+.prose pre.twoslash > code,
+.prose pre.twoslash .twoslash-meta-line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* An error's message line is as wide as the block, not as wide as the message. */
+.prose pre.twoslash .twoslash-meta-line {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* A popup takes no space until it's shown, so its long type can't widen the page. */
+.twoslash .twoslash-hover:not(:hover) .twoslash-popup-container {
+  display: none;
+}
+
+/* A shown popup is as wide as its type, up to Blume's limit, and wraps beyond it. */
+.twoslash .twoslash-popup-container {
+  width: max-content;
+}
+
+.twoslash .twoslash-popup-container code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
