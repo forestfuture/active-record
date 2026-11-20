@@ -16,6 +16,14 @@ export type AliasSpecs<S, O> = {
     : never;
 };
 
+/** `define`'s attributes `A`, with each alias typed as the attribute it names; `A` itself without one. */
+export type DefinedSpecs<A> = [AliasNames<A>] extends [never]
+  ? A
+  : WithoutAliases<A> & AliasSpecs<WithoutAliases<A>, A>;
+
+/** The names of the aliases among `A`. */
+type AliasNames<A> = { [K in keyof A]: A[K] extends { aliasOf: string } ? K : never }[keyof A];
+
 /** The declared attributes `O` without their aliases. */
 export type WithoutAliases<O> = {
   [K in keyof O as O[K] extends { aliasOf: string } ? never : K]: O[K];
@@ -26,9 +34,12 @@ export function isAlias(declared: unknown): declared is AliasAttribute {
   return typeof declared === "object" && declared !== null && "aliasOf" in declared;
 }
 
-/** The aliases a Model's declared attributes hold, by alias, each to the attribute it names. */
+/**
+ * The aliases a Model's declared attributes hold, by alias, each to the attribute it names; `where`
+ * prefixes an alias's name in an error (`"Post."`, or nothing for `define`).
+ */
 export function aliasesIn(
-  model: string,
+  where: string,
   declared: Readonly<Record<string, unknown>>,
   attributes: ReadonlyMap<string, unknown>,
 ): ReadonlyMap<string, string> {
@@ -37,7 +48,7 @@ export function aliasesIn(
     if (!isAlias(each)) continue;
     if (!attributes.has(each.aliasOf)) {
       throw new InvalidModel(
-        `${model}.${name} is an alias of ${each.aliasOf}, which isn't an attribute`,
+        `${where}${name} is an alias of ${each.aliasOf}, which isn't an attribute`,
       );
     }
     aliases.set(name, each.aliasOf);

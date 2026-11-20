@@ -136,6 +136,9 @@ type SpecObjectByType =
 
 export type AttributeSpecs = Record<string, AttributeSpec>;
 
+/** What `define` takes: attribute specs, and aliases of them (#509). */
+export type DeclaredAttributes = Record<string, AttributeSpec | { readonly aliasOf: string }>;
+
 /**
  * `A`, with any key a spec doesn't have typed `never`, so a misspelled one (`nul: false`) is a
  * compile error: a generic parameter skips TypeScript's own check for unknown keys (#102).
@@ -143,9 +146,11 @@ export type AttributeSpecs = Record<string, AttributeSpec>;
 export type ExactSpecs<A> = {
   [K in keyof A]: A[K] extends AnyCustomType
     ? A[K]
-    : A[K] extends object
-      ? A[K] & Record<Exclude<keyof A[K], keyof SpecObject>, never>
-      : A[K];
+    : A[K] extends { aliasOf: string }
+      ? A[K] & Record<Exclude<keyof A[K], "aliasOf">, never>
+      : A[K] extends object
+        ? A[K] & Record<Exclude<keyof A[K], keyof SpecObject>, never>
+        : A[K];
 };
 
 /** An attribute's resolved metadata. */

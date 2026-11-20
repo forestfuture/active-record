@@ -3,7 +3,15 @@
    type are defined when the Model's attributes resolve. */
 // Attribute aliases (#509): another name for an attribute, which reads, writes and queries it.
 import { inspect } from "node:util";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  expectTypeOf,
+  test,
+} from "vite-plus/test";
 import {
   Model,
   column,
@@ -51,6 +59,15 @@ class Member extends ApplicationRecord {
   }
 }
 interface Member extends TableAttributes<typeof users, (typeof Member)["attributes"]> {}
+
+// Declaring its attributes, aliases among them, with define.
+class Visitor extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+  login: { aliasOf: "email" },
+}) {
+  static override table = "users";
+}
 
 describe("an attribute alias", () => {
   let harness: Harness;
@@ -143,7 +160,7 @@ describe("an attribute alias", () => {
       const dropped = users.where({ login: "sam@example.com" }).unscope({ where: "email" });
 
       expect(await replaced.pluck("id")).toEqual([2]);
-      expect((await dropped.pluck("id")).sort()).toEqual([1, 2]);
+      expect(await dropped.order({ id: "asc" }).pluck("id")).toEqual([1, 2]);
     });
   });
 
@@ -228,6 +245,19 @@ describe("an attribute alias", () => {
       expect(member.errors.toArray().map(({ attribute, type }) => `${attribute} ${type}`)).toEqual([
         "login taken",
       ]);
+    });
+  });
+
+  describe("on a Model declared with define", () => {
+    test("is typed, read, written and queried as its attribute", async () => {
+      const visitor = await db().model(Visitor).create({ login: "jane@example.com" });
+
+      expectTypeOf(visitor.login).toEqualTypeOf<string>();
+      expect(visitor.email).toBe("jane@example.com");
+      expect(await db().model(Visitor).where({ login: "jane@example.com" }).pluck("id")).toEqual([
+        visitor.id,
+      ]);
+      expect(Object.keys(visitor.attributes())).toEqual(["id", "email"]);
     });
   });
 
