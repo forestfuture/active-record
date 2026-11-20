@@ -63,6 +63,8 @@ import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
 import * as untrustedInput from "../../../site/snippets/pages/untrusted-input/examples.ts";
 import { Account as UntrustedAccount } from "../../../site/snippets/pages/untrusted-input/src/models/account.ts";
 import * as validations from "../../../site/snippets/pages/validations/examples.ts";
+import testedWorker from "../../../site/snippets/pages/testing/src/index.ts";
+import { User as TestedUser } from "../../../site/snippets/pages/testing/src/models/user.ts";
 import * as touching from "../../../site/snippets/pages/touching/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
 import { statementKinds } from "../../support/statement-kinds.ts";
@@ -1213,6 +1215,27 @@ describe("the Logging page's examples", () => {
       "iban",
       /^dateOfBirth$/,
     ]);
+  });
+});
+
+// The Testing page's tests, run here on the Model and Worker it shows.
+describe("the Testing page's examples", () => {
+  const binding = pageDatabase("testing", ["users"]);
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+
+  test("emails are saved in lowercase", async () => {
+    await run(async () => {
+      const user = await TestedUser.create({ email: "Jane@Example.com" });
+      expect((await TestedUser.find(user.id)).email).toBe("jane@example.com");
+    });
+  });
+
+  test("GET lists users", async () => {
+    await run(() => TestedUser.create({ email: "sam@example.com" }));
+    const response = (await run(() => testedWorker.fetch())) as Response; // the Worker's Response type
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(["sam@example.com"]);
   });
 });
 
