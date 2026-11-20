@@ -1,0 +1,121 @@
+---
+title: Batch iteration
+description: "Work through a large table a batch of records at a time, so it never sits in memory all at once."
+---
+
+:::note
+Nothing is atomic across batches: each batch is its own query, and its own write. To write several statements all at once or not at all, use a [batch](./batches).
+:::
+
+## At a glance
+
+| To                             | Write                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------ |
+| visit each record              | `for await (const post of Post.findEach())`                              |
+| visit each batch as an array   | `for await (const posts of Post.findInBatches())`                        |
+| write a batch at a time        | `for await (const batch of drafts.inBatches()) await batch.updateAll(…)` |
+| bound the keys                 | `findEach({ start: 1, finish: 100 })`                                    |
+| walk from the largest key down | `findInBatches({ order: "desc" })`                                       |
+
+<TypeTable
+  type={{
+    batchSize: {
+      type: "number",
+      default: "1000",
+      description: "Records in each batch: a whole number from 1.",
+    },
+    start: {
+      type: "primary key",
+      description: "The first key to visit, included. The largest, with order: desc.",
+    },
+    finish: {
+      type: "primary key",
+      description: "The last key to visit, included. The smallest, with order: desc.",
+    },
+    order: {
+      type: '"asc" | "desc"',
+      default: '"asc"',
+      description: "Which way to walk the primary key.",
+    },
+  }}
+/>
+
+## The Model
+
+The examples use this Model and table:
+
+<Tabs syncKey="database">
+<Tab title="Model">
+
+<include>/_excerpts/guide/batch-iteration/model.ts</include>
+
+</Tab>
+<Tab title="D1">
+
+<include>/_excerpts/guide/batch-iteration-d1.sql</include>
+
+</Tab>
+<Tab title="Postgres">
+
+<include>/_excerpts/guide/batch-iteration-postgres.sql</include>
+
+</Tab>
+</Tabs>
+
+## Visiting each record
+
+`findEach` loads a Relation’s records a batch at a time, and yields them one by one:
+
+<include meta="twoslash">/_excerpts/guide/batch-iteration/find-each.twoslash.ts</include>
+
+Batches go in primary-key order, 1,000 records each by default. Each batch is one query, and starts after the last batch’s key, so a deep batch costs no more than the first.
+
+## Visiting each batch
+
+`findInBatches` yields each batch as an array:
+
+<include meta="twoslash">/_excerpts/guide/batch-iteration/find-in-batches.twoslash.ts</include>
+
+`includes()` preloads each batch’s associations. Breaking out of the loop sends no more queries.
+
+## Writing a batch at a time
+
+`inBatches` yields a Relation of each batch’s records, for `updateAll`, `deleteAll`, and `destroyAll`:
+
+<include meta="twoslash">/_excerpts/guide/batch-iteration/in-batches.twoslash.ts</include>
+
+- One query reads each batch’s keys, and the write you run is another.
+- A batch’s Relation keeps your conditions, so a row that stopped matching since the keys were read isn’t written.
+- Each batch is its own write. If one fails, the batches before it stay written.
+
+## Choosing the batches
+
+Every method takes the same options:
+
+<include meta="twoslash">/_excerpts/guide/batch-iteration/options.twoslash.ts</include>
+
+- `batchSize` sets the records in each batch: a whole number from 1, or `TypeError`.
+- `start` and `finish` bound the primary key, both included. With `order: "desc"`, `start` is the largest key and `finish` the smallest.
+- A `limit()` caps the records across every batch.
+- Batches follow the primary key, so a Relation with its own order throws `IncompatibleRelation`, a default scope’s order included. Remove it with `reorder()` first: `Post.reorder().findEach()`.
+- An `offset()` throws too, so bound the walk with `start` instead.
+
+:::note
+A row added while you iterate is visited only if its key sorts after the batch you’re on. With random keys, such as UUIDs, whether a new row is visited comes down to chance.
+:::
+
+## Staying within D1’s query limit
+
+On D1, one Worker invocation can send up to 1,000 queries, or 50 on the Free plan:
+
+- `findEach` and `findInBatches` send one per batch.
+- `inBatches` sends one for the keys, and one for an `updateAll` or `deleteAll`.
+- A `destroyAll` loads the batch’s records and reads each record’s `"destroy"` and restricted associations, each with a query of its own. It then sends its deletes as one D1 batch, which counts as one query.
+
+A larger `batchSize` sends fewer queries, up to D1’s 50 MB limit on a query’s result. For a table larger than that, split the work across invocations, each with its own `start` and `finish`, such as one Queue message per range.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+`findEach`, `findInBatches`, and `inBatches` are `find_each`, `find_in_batches`, and `in_batches`, as async iterators rather than blocks. `inBatches` takes `batchSize`, not `of:`. Rails ignores a Relation’s order with a warning, and applies an offset to every batch. Here both throw `IncompatibleRelation`.
+
+</Callout>
