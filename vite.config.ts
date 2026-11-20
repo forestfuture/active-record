@@ -255,7 +255,13 @@ export default defineConfig({
     ],
   },
   fmt: {
-    // Kept verbatim: the original design brief, and skills vendored from upstream.
-    ignorePatterns: ["docs/brief.md", ".claude/skills/**", "skills-lock.json"],
+    // Kept verbatim: the original design brief, skills vendored from upstream, and the guide's
+    // page projects' schemas, as active-record schema writes them.
+    ignorePatterns: [
+      "docs/brief.md",
+      ".claude/skills/**",
+      "skills-lock.json",
+      "site/snippets/pages/*/src/db/schema.ts",
+    ],
   },
 });

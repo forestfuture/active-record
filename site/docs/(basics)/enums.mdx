@@ -1,0 +1,128 @@
+---
+title: Enums
+description: "Give an attribute a fixed set of names, with a predicate, a setter, and scopes for each."
+seo:
+  description: "Active Record enums: declare an attribute’s names as a list or with stored values, use their predicates, setters, and scopes, and read enums from CHECKs."
+---
+
+## At a glance
+
+| To                                  | Write                                                         |
+| ----------------------------------- | ------------------------------------------------------------- |
+| store each name as itself           | `status: { enum: ["open", "in_progress", "closed"] }`         |
+| store each name as a value          | `priority: { enum: { low: 0, normal: 1, high: 2 } }`          |
+| check a record’s name               | `ticket.isOpen()`                                             |
+| set it and save                     | `ticket.saveAsClosed()`, `ticket.saveAsClosedOrThrow()`       |
+| find records by name                | `Ticket.open()`, `Ticket.notClosed()`, `where({ status: … })` |
+| read names with their stored values | `Ticket.enumValues("priority")`                               |
+| keep two enums’ methods apart       | `prefix: true`, `suffix: true`                                |
+| report an unknown name as invalid   | `validate: true`                                              |
+| use the names a `CHECK` lists       | `state: { enum: true }`                                       |
+
+## The Models
+
+The examples use these Models. Their attributes come from their tables through the schema `active-record schema` generates, and each declares its enum in an override:
+
+<CodeGroup>
+
+<include meta="ticket.ts">/_excerpts/pages/enums/src/models/ticket.ts</include>
+
+<include meta="conversation.ts">/_excerpts/pages/enums/src/models/conversation.ts</include>
+
+<include meta="survey.ts">/_excerpts/pages/enums/src/models/survey.ts</include>
+
+<include meta="task.ts">/_excerpts/pages/enums/src/models/task.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/enums/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/enums/migrations/0001_create_tables.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/enums/postgres/0001_create_tables.sql</include>
+
+</CodeGroup>
+
+## Declaring enums
+
+Declare an enum with `enum` in an override, as `Ticket` does:
+
+- The attribute’s type is the union of its names: `"open" | "in_progress" | "closed" | null`.
+- A list of names stores each name as itself, as text.
+- An object stores each name as the value you give it, an integer for an `INTEGER` column or text for a `TEXT` one.
+
+## Using an enum’s methods
+
+Each name gets a predicate and a setter on records, and two scopes on the Model:
+
+<include>/_excerpts/pages/enums/examples/methods.mdx</include>
+
+| Method                                                  | Does                                                                     |
+| ------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `ticket.isOpen()`                                       | Whether `status` is `"open"`                                             |
+| `ticket.saveAsClosed()`, `ticket.saveAsClosedOrThrow()` | Sets `status` to `"closed"` and saves the record, with its other changes |
+| `Ticket.open()`, `Ticket.notOpen()`                     | Scopes of the records whose `status` is, or isn’t, `"open"`              |
+
+- A name in snake_case reads in camelCase: `in_progress` gives `isInProgress()` and `Ticket.inProgress()`.
+- `saveAsClosed()` returns `false` when the record is invalid, as `save` does, and `saveAsClosedOrThrow()` throws.
+- `where`, `whereNot`, `pluck`, and every write take and give names, one or a list.
+
+:::note
+Record methods follow your override as soon as you save it. The scopes are typed in the generated schema, so run `active-record schema` (or keep `--watch` running) after you add an enum.
+:::
+
+## Reading stored values
+
+Read an enum’s names with their stored values with `enumValues`:
+
+<include>/_excerpts/pages/enums/examples/values.mdx</include>
+
+## Keeping names apart
+
+Add a `prefix` or a `suffix` when two enums share a name, `true` for the attribute’s name or a word of your own, as `Conversation` does:
+
+<include>/_excerpts/pages/enums/examples/affixes.mdx</include>
+
+- A method name that’s taken, by another enum, an attribute, a record method, or a static, throws `InvalidModel` when the Model is first used, and `active-record schema` reports it.
+- So does a name TypeScript can’t declare, such as `in-progress` or `new`. Map a readable name to the stored value instead: `enum: { inProgress: "in-progress" }`.
+- To leave an enum’s methods out, declare it with `scopes: false` or `instanceMethods: false`.
+
+## Reading and assigning other values
+
+Assigning a value that isn’t one of an enum’s names, or one of its stored values, throws `TypeError`, and a condition with one matches nothing:
+
+- A stored value that the enum doesn’t list reads as `null`, so rows written by a newer deploy don’t break an older one. This holds even for an attribute declared `null: false`.
+- To rename a name without touching stored rows, map the new name to the old value: `enum: { drafted: "draft" }`. Otherwise, migrate the rows in the same deploy.
+
+## Validating names
+
+Declare an enum with `validate: true`, as `Survey` does, to report an unknown value as a validation error instead of throwing:
+
+<include>/_excerpts/pages/enums/examples/validate.mdx</include>
+
+A survey with no answer is invalid too, unless you declare `validate: { allowNull: true }`.
+
+## Reading enums from the database
+
+`active-record schema` writes the names a database restricts a column to into the generated schema, with the enum’s methods off. A Postgres enum type does it, and so does a `CHECK` such as the `tasks` table’s. Turn the methods on with `enum: true`, as `Task` does:
+
+<include>/_excerpts/pages/enums/examples/generated-on.mdx</include>
+
+- The attribute’s type is `"open" | "done"`, assigning any other value throws `TypeError`, and `enumValues` works as for any enum.
+- `enum: true` keeps the database’s names, so a name a later migration adds gets its methods the next time you run `active-record schema`.
+- A `scopes: false` or `instanceMethods: false` beside it still leaves those out, and `scopes: true` or `instanceMethods: true` alone turns on one kind. Names that clash only matter once their methods are on, and you fix them as in [Keeping names apart](#keeping-names-apart).
+- To keep the column a plain string, override it with `enum: false`. A list of your own, such as `enum: ["open", "done", "archived"]`, replaces the database’s, with its methods on.
+
+:::note
+`active-record schema` reads a `CHECK` whose only condition is `column IN (…)` with text values, or `column IS NULL OR column IN (…)`. Any other `CHECK` leaves the column as it was, and a list of numbers stays an `integer`. Postgres stores a one-name `IN ('open')` as `= 'open'`, so it isn’t read there.
+:::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails declares `enum :status, [:open, :closed]` and stores a list by position. Here a list stores the names, so reordering it changes nothing. `published?` is `isPublished()`, `published!` is `saveAsPublished()` or `saveAsPublishedOrThrow()`, `not_published` is `notPublished()`, and `Post.statuses` is `Post.enumValues("status")`. Two names stored as one value are refused.
+
+</Callout>
+
+<Callout type="info" title="Beyond Rails" icon="/ruby.svg">
+
+Rails reads no enums from the database: each one is declared in its Model. Here the database gives an enum its names and its type, and the Model still declares its methods, with `enum: true`.
+
+</Callout>

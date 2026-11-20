@@ -129,3 +129,9 @@ questions:
       - '"true" is cast to true when it''s assigned'
       - '"no" throws a TypeError naming the Model and attribute'
     routes: /attribute-types
+  - id: enum-scope-and-setter
+    question: "My tickets have a status of open, in_progress or closed. How do I find tickets that aren't closed, and close one?"
+    expected:
+      - 'declare status: { enum: ["open", "in_progress", "closed"] } in an override'
+      - "Ticket.notClosed() finds them, and ticket.saveAsClosed() sets and saves the status"
+    routes: /enums
