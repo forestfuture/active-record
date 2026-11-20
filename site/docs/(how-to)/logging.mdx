@@ -87,7 +87,7 @@ Check a variable that only `.dev.vars` sets, such as `LOG_SQL=1`. For one reques
 
 The app-wide listener reads the variable from `cloudflare:workers` when a query runs:
 
-<include>/_excerpts/guide/connecting/app-wide-development.ts</include>
+<include>/_excerpts/pages/logging/development/app-wide-development.mdx</include>
 
 ## Timing queries in the browser
 
@@ -97,7 +97,7 @@ To see a request’s database time in the browser’s developer tools, add it up
 
 ## Keeping secrets out of the logs
 
-Listeners see the values of passwords, tokens, keys, and emails as `"[FILTERED]"`, while the database still gets the real values. [Models](./serialization#filtering-attributes) lists the attributes filtered by default, and everywhere their values are hidden.
+Listeners see the values of passwords, tokens, keys, and emails as `"[FILTERED]"`, while the database still gets the real values. [Serialization](./serialization#filtering-attributes) lists the attributes filtered by default, and everywhere their values are hidden.
 
 ### Filtering more attributes
 

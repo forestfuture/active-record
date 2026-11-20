@@ -115,6 +115,9 @@ function hiddenSources(file: string): string | undefined {
     .join("\n\n");
 }
 
+/** An example's `// @ts-expect-error` line: proven by the type check, and left out of what's shown. */
+const expectedError = /^\/\/ @ts-expect-error.*\n/gm;
+
 /**
  * An example for a `twoslash` fence, from a page's project (`pages/<page>/examples.ts`): the
  * project's `src/` files, hidden, then the example as exampleBlock shows it. Readers hover the
@@ -127,7 +130,7 @@ export function twoslashBlock(file: string, region: string): string | undefined 
   if (files === undefined || example === undefined) return undefined;
   // An expected error was proven by the type check: Twoslash shows it rather than failing on it.
   const expectsError = example.includes("// @ts-expect-error");
-  const shown = example.replace(/^\/\/ @ts-expect-error.*\n/gm, "");
+  const shown = example.replace(expectedError, "");
   const flags = expectsError ? "// @noErrorValidation\n" : "";
   return `${flags}${files}\n\n// @filename: example.ts\n// ---cut---\n${shown}`;
 }
@@ -140,7 +143,7 @@ export function twoslashBlock(file: string, region: string): string | undefined 
  */
 export function examplePartial(file: string, region: string): string | undefined {
   const twoslash = twoslashBlock(file, region);
-  const example = exampleBlock(file, region)?.replace(/^\/\/ @ts-expect-error.*\n/gm, "");
+  const example = exampleBlock(file, region)?.replace(expectedError, "");
   if (twoslash === undefined || example === undefined) return undefined;
   return [
     '<Visibility for="web">',

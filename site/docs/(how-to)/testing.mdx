@@ -14,7 +14,7 @@ seo:
 | call your Worker in a test     | `withDatabase(…, () => worker.fetch(request))`               |
 | query a database you hold      | `connect(database.binding).model(User)`                      |
 
-## The Models
+## The Model
 
 The tests below check this Model and Worker, with the users table its migration creates:
 
@@ -26,9 +26,9 @@ The tests below check this Model and Worker, with the users table its migration 
 
 <include meta="schema.ts">/_excerpts/pages/testing/src/db/schema.ts</include>
 
-<include meta="0001_create_users.sql">
-  /_excerpts/pages/testing/migrations/0001_create_users.sql
-</include>
+<include meta="D1">/_excerpts/pages/testing/migrations/0001_create_users.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/testing/postgres/0001_create_users.sql</include>
 
 </CodeGroup>
 
