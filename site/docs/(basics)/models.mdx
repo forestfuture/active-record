@@ -14,6 +14,7 @@ seo:
 | ignore a column                      | `static override attributes = { legacyNotes: false } as const`  |
 | add an attribute that isn’t a column | `termsOfService: { type: "boolean", virtual: true }`            |
 | normalize a value as it’s assigned   | `this.normalizes("email", { with: (email) => email.trim() })`   |
+| give an attribute another name       | `title: { aliasOf: "name" }`                                    |
 | type an attribute more narrowly      | `declare status: "draft" \| "published"`                        |
 | use another table name               | `static override table = "billing_accounts"`                    |
 | declare attributes for a view        | `class ProductCount extends ApplicationRecord.define({ … }) {}` |
@@ -137,6 +138,27 @@ A record loaded from the database keeps its stored value, and a query for that v
 
 An `UPDATE` in a migration does the same for a large table.
 :::
+
+## Aliasing attributes
+
+Add `aliasOf` to give an attribute a second name, as `Product` does with `title` for `name`:
+
+<include>/_excerpts/pages/models/examples/alias.mdx</include>
+
+- **It reads and writes the attribute it names,** typed as that attribute.
+- **Queries and writes take either name:** `where`, `order`, `pluck`, `select`, `group`, the calculations, `build`, `create`, `permit`, `insert`, `upsert`, and `updateAll`.
+- **The record holds the value once,** under the attribute’s name. `attributes()`, `toJSON()`, and `changes()` list `name`, and a row `select` or `returning` loads is keyed by `name`. `attributeWas("title")` and the other methods that take a name read it through the alias.
+- **`validates("title", …)` reads through the alias,** and its errors go under `title`.
+
+:::note
+An alias of a name that isn’t an attribute throws `InvalidModel`, and so does one named for an attribute, an alias of another alias, or `aliasOf` with any other key. Settings that name an attribute, such as an association’s `foreignKey` or `hiddenAttributes`, take its own name. A Model declared with `define` takes `aliasOf` in the same way.
+:::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails declares an alias with `alias_attribute :title, :name`. Here it goes with the attributes, so it’s typed from the same place. Rails’ `select(:title)` loads the column as `title`; here it loads it as `name`, which `title` reads. Rails follows an alias of an alias; here, name the attribute.
+
+</Callout>
 
 ## Narrowing types
 

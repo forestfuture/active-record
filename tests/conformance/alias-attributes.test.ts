@@ -50,6 +50,9 @@ class User extends ApplicationRecord {
 }
 interface User extends TableAttributes<typeof users, (typeof User)["attributes"]> {}
 
+// A subclass, sharing its parent's table and attributes.
+class Admin extends User {}
+
 // Validating through its aliases.
 class Member extends ApplicationRecord {
   static override table = "users";
@@ -258,6 +261,16 @@ describe("an attribute alias", () => {
         visitor.id,
       ]);
       expect(Object.keys(visitor.attributes())).toEqual(["id", "email"]);
+    });
+  });
+
+  describe("on a subclass", () => {
+    test("is inherited with its parent's attributes", async () => {
+      const admin = await db().model(Admin).create({ login: "jane@example.com" });
+
+      expect(await db().model(Admin).where({ login: "jane@example.com" }).pluck("id")).toEqual([
+        admin.id,
+      ]);
     });
   });
 

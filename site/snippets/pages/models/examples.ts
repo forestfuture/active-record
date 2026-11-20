@@ -55,6 +55,18 @@ export async function normalizingOldRows() {
   // #endregion normalize-old-rows
 }
 
+export async function aliasing() {
+  // #region alias
+  const lamp = await Product.create({ title: "Lamp" }); // writes name
+  console.log(lamp.name); // "Lamp"
+  const titles = await Product.where({ title: "Lamp" }).pluck("title");
+  console.log(titles); // ["Lamp"]
+  lamp.title = "Desk lamp";
+  console.log(lamp.changes()); // { name: ["Lamp", "Desk lamp"] }
+  // #endregion alias
+  return { lamp, titles };
+}
+
 export async function naming() {
   // #region naming
   console.log(FeaturedProduct.modelName); // "FeaturedProduct"

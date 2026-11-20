@@ -346,6 +346,18 @@ describe("the Models page's examples, on Postgres", () => {
     expect(rows).toEqual([{ email: "jane@example.com" }]);
   });
 
+  test("an alias reads, writes and queries its attribute", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+
+    const { lamp, titles } = await run(models.aliasing);
+
+    expect(titles).toEqual(["Lamp"]);
+    expect(lamp.changes()).toEqual({ name: ["Lamp", "Desk lamp"] });
+  });
+
   test("a Model can name another table", async () => {
     const { account } = await run(models.naming);
 
