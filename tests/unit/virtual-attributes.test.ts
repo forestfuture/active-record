@@ -7,6 +7,7 @@ import { describe, expect, expectTypeOf, test } from "vite-plus/test";
 import {
   InvalidModel,
   Model,
+  UnknownAttribute,
   type Errors,
   type TableAttributes,
 } from "../../packages/active-record/src/index.ts";
@@ -25,7 +26,7 @@ const users = {
 const schema = {
   adapter: d1({ binding: "DB" }),
   tables: { users: { attributes: users, primaryKey: "id" } },
-  models: { User: "users", Clashing: "users", Unset: "users", Listed: "users" },
+  models: { User: "users", Clashing: "users", Unset: "users", Listed: "users", Generated: "users" },
 } as const;
 
 abstract class AppRecord extends Model {
@@ -91,6 +92,20 @@ describe("declaring a virtual attribute", () => {
     }
     expect(() => db.model(Unset)).toThrow(
       new InvalidModel("Unset.agreed is virtual and null: false, so it needs a default"),
+    );
+  });
+
+  test("with a generated id is a compile error, and an InvalidModel", () => {
+    const generated = {
+      // @ts-expect-error -- a generated id is a stored key, and a virtual attribute isn't stored
+      token: { type: "string", virtual: true, generateId: true },
+    } as const satisfies Overrides;
+    class Generated extends AppRecord {
+      static override table = "users";
+      static override attributes: Overrides = generated as never;
+    }
+    expect(() => db.model(Generated)).toThrow(
+      new InvalidModel("Generated.token has both virtual and generateId; keep one"),
     );
   });
 
@@ -215,6 +230,26 @@ describe("confirmation", () => {
       new InvalidModel(
         'Account validates("password", { confirmation }), so it needs a virtual attribute ' +
           'passwordConfirmation: { type: "string", virtual: true }',
+      ),
+    );
+  });
+});
+
+describe("uniqueness on a virtual attribute", () => {
+  test("is an UnknownAttribute when it's declared, since it has no column to query", () => {
+    expect(
+      () =>
+        class Nicknamed extends Model.define({
+          id: "integer",
+          nickname: { type: "string", virtual: true },
+        }) {
+          static {
+            this.validates("nickname", { uniqueness: true });
+          }
+        },
+    ).toThrow(
+      new UnknownAttribute(
+        "Nicknamed.nickname is a virtual attribute, which has no column to query",
       ),
     );
   });
