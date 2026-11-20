@@ -1,0 +1,96 @@
+# Questions an agent must answer from the guide alone (`vp run eval`, `blume eval`). Each lists
+# the facts a correct answer states, and the page that should answer it. See
+# docs/agents/docs-pages.md.
+questions:
+  - id: where-null
+    question: "How do I find users whose role is NULL?"
+    expected:
+      - "User.where({ role: null })"
+    routes: /conditions
+  - id: where-list
+    question: "How do I match any of several values in a condition, and is there a limit on how many?"
+    expected:
+      - 'pass an array, such as where({ role: ["admin", "editor"] })'
+      - "the list is bound as one value, so it can be any length"
+    routes: /conditions
+  - id: case-insensitive-email
+    question: "How do I find a user by email, ignoring case?"
+    expected:
+      - 'an sql tagged template with column("email"), comparing lower() of the column and of the value'
+      - "values in the template are bound, never written into the SQL"
+    routes: /conditions
+  - id: many-to-many
+    question: "How do I declare a many-to-many association between tags and articles?"
+    expected:
+      - "a join Model, such as Tagging, that belongsTo both the article and the tag"
+      - 'on Tag, hasMany(Article, { through: "taggings" }) beside hasMany(Tagging)'
+    routes: /through-associations
+  - id: remove-from-many-to-many
+    question: "How do I remove an article from a tag without deleting the article?"
+    expected:
+      - "tag.articles().delete(article) deletes the join record (the tagging)"
+      - "the article itself stays"
+    routes: /through-associations
+  - id: null-order
+    question: "Do NULLs sort first or last on D1 and on Postgres, and how do I make them sort the same on both?"
+    expected:
+      - "D1 sorts NULLs first in ascending order, and Postgres last; descending is the opposite"
+      - 'pass nulls: "first" or nulls: "last" to order'
+    routes: /ordering-and-pagination
+  - id: paginate-query-string
+    question: "How do I paginate posts using a page number from the query string?"
+    expected:
+      - "paginate({ page, perPage }) takes the page as text from the query string"
+      - "it resolves to the records and the total, with totalPages and hasNext"
+    routes: /ordering-and-pagination
+  - id: paginate-without-count
+    question: "How do I paginate without counting every matching row?"
+    expected:
+      - "paginate({ page, count: false })"
+      - "the page then has no total or totalPages, only whether there's a next page"
+    routes: /ordering-and-pagination
+  - id: large-table
+    question: "How do I loop over every row of a large table without loading it all into memory?"
+    expected:
+      - "findEach (or findInBatches for arrays) loads the records a batch at a time"
+      - "batches of 1,000 by default, in primary-key order"
+    routes: /batch-iteration
+  - id: batches-not-atomic
+    question: "If I update a large table with inBatches and one batch fails, are the earlier batches rolled back?"
+    expected:
+      - "no; each batch is its own write, and the batches before it stay written"
+    routes: /batch-iteration
+  - id: sum-without-loading
+    question: "How do I add up a column's values without loading the records?"
+    expected:
+      - 'sum("priceCents") on the Model or a Relation'
+      - "with no rows, sum is 0"
+    routes: /calculations
+  - id: count-per-group
+    question: "How do I count records for each value of an attribute?"
+    expected:
+      - 'group("attribute").count()'
+      - "it returns a Map from each group's value to its count"
+    routes: /calculations
+  - id: define-scope
+    question: "How do I define a reusable named query on a Model?"
+    expected:
+      - "a static declared with this.scope((q) => …) that returns a narrower Relation"
+      - "it's called as a static, such as Post.published(), or on any Relation of the Model"
+    routes: /scopes
+  - id: bypass-default-scope
+    question: "How do I query records that a Model's default scope hides?"
+    expected:
+      - "start from Model.unscoped()"
+    routes: /scopes
+  - id: join-duplicates
+    question: "Why does joining an association return the same author several times, and how do I get each once?"
+    expected:
+      - "a joined query returns a row for each linked record"
+      - "add distinct() to get each record once"
+    routes: /joins
+  - id: filter-by-joined
+    question: "How do I find articles whose author is named Mary?"
+    expected:
+      - 'Article.joins("author").merge(Author.where({ name: "Mary" }))'
+    routes: /joins
