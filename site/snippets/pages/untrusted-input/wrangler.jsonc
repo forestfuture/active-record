@@ -1,0 +1,4 @@
+{
+  "name": "untrusted-input",
+  "d1_databases": [{ "binding": "DB", "database_name": "untrusted-input", "database_id": "…" }],
+}

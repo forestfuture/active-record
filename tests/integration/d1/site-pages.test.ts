@@ -57,6 +57,8 @@ import * as rawStatements from "../../../site/snippets/pages/raw-statements/exam
 import * as serialization from "../../../site/snippets/pages/serialization/examples.ts";
 import { Account as SerializedAccount } from "../../../site/snippets/pages/serialization/src/models/account.ts";
 import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
+import * as untrustedInput from "../../../site/snippets/pages/untrusted-input/examples.ts";
+import { Account as UntrustedAccount } from "../../../site/snippets/pages/untrusted-input/src/models/account.ts";
 import * as validations from "../../../site/snippets/pages/validations/examples.ts";
 import * as touching from "../../../site/snippets/pages/touching/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
@@ -1086,6 +1088,58 @@ describe("the Shared behavior page's examples", () => {
     await run(sharedBehavior.auditing);
 
     expect(log.calls()).toEqual([["Saving Invoice"], ["Saved Invoice"]]);
+  });
+});
+
+// The Untrusted input page's examples, on the tables it shows.
+describe("the Untrusted input page's examples", () => {
+  const binding = pageDatabase("untrusted-input", ["accounts", "invitations"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare(
+        "INSERT INTO invitations (id, email, token, accepted_at) VALUES ('1', 'jane@example.com', NULL, '2026-01-01T00:00:00.000Z'), ('2', 'sam@example.com', 'k3y', NULL)",
+      )
+      .run();
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+  const json = (body: unknown) =>
+    new Request("https://example.com/", { method: "POST", body: JSON.stringify(body) });
+
+  test("permit keeps the fields it names, and the record saves them", async () => {
+    const account = await run(() =>
+      untrustedInput.signUp(json({ email: "jane@example.com", handle: "jane", plan: "pro" })),
+    );
+
+    expect([account.email, account.handle, account.plan]).toEqual([
+      "jane@example.com",
+      "jane",
+      null,
+    ]);
+  });
+
+  test("a value that can't be used, or a body that isn't JSON, is a 400; a valid one saves", async () => {
+    const account = await run(() =>
+      UntrustedAccount.create({ email: "jane@example.com", handle: "jane" }),
+    );
+    const raw = (body: string) => new Request("https://example.com/", { method: "POST", body });
+    const update = (request: Request) => run(() => untrustedInput.updateAccount(account, request));
+
+    expect((await update(json({ seats: "many" }))).status).toBe(400);
+    expect((await update(raw("{nope"))).status).toBe(400);
+    expect((await update(json(["seats"]))).status).toBe(400);
+
+    const saved = await update(json({ seats: "3" }));
+    expect([saved.status, account.seats]).toEqual([200, 3]);
+  });
+
+  test("an untrusted null never reaches the query, so an accepted invitation stays accepted", async () => {
+    for (const token of [null, [null], ""]) {
+      expect((await run(() => untrustedInput.accept(json({ token })))).status).toBe(400);
+    }
+    expect((await run(() => untrustedInput.accept(json({ token: "nope" })))).status).toBe(404);
+
+    const accepted = await run(() => untrustedInput.accept(json({ token: "k3y" })));
+    expect(await accepted.text()).toBe("Welcome, sam@example.com");
   });
 });
 

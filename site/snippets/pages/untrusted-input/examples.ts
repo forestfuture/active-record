@@ -1,27 +1,12 @@
-import { Model } from "@forestfuture/active-record";
+import { Account } from "./src/models/account";
+import { Invitation } from "./src/models/invitation";
 
-export class Account extends Model.define({
-  id: { type: "integer", null: false },
-  email: { type: "string", null: false },
-  handle: { type: "string", null: false },
-  plan: "string",
-  seats: "integer",
-}) {}
-
-export class Invitation extends Model.define({
-  id: { type: "integer", null: false },
-  email: { type: "string", null: false },
-  token: "string", // NULL once the invitation is accepted
-  acceptedAt: "datetime",
-}) {}
-
-export async function signUp(request: Request): Promise<Account> {
-  // #region permit
-  const permitted = Account.permit(await request.json(), "email", "handle");
-  const account = await Account.create(permitted);
-  // #endregion permit
-  return account;
+// #region permit
+export async function signUp(request: Request) {
+  const permitted = Account.permit(await request.json(), "email", "handle"); // drops plan and seats
+  return Account.create(permitted);
 }
+// #endregion permit
 
 // #region bad-request
 export async function updateAccount(account: Account, request: Request): Promise<Response> {
