@@ -14,6 +14,7 @@ import {
   UnknownAttribute,
   withDatabase,
 } from "../../../packages/active-record/src/index.ts";
+import { inspect } from "node:util";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import * as attributeTypes from "../../../site/snippets/pages/attribute-types/examples.ts";
 import * as batchIteration from "../../../site/snippets/pages/batch-iteration/examples.ts";
@@ -25,6 +26,8 @@ import * as joins from "../../../site/snippets/pages/joins/examples.ts";
 import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
 import * as querying from "../../../site/snippets/pages/querying/examples.ts";
 import * as rawStatements from "../../../site/snippets/pages/raw-statements/examples.ts";
+import * as serialization from "../../../site/snippets/pages/serialization/examples.ts";
+import { Account as SerializedAccount } from "../../../site/snippets/pages/serialization/src/models/account.ts";
 import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
@@ -183,6 +186,65 @@ describe("the Change tracking page's examples", () => {
     const ada = await run(changeTracking.restoring);
 
     expect([ada.email, ada.role, ada.changed()]).toEqual(["ada@example.com", "owner", ["role"]]);
+  });
+});
+
+// The Serialization page's examples, on the accounts table it shows.
+describe("the Serialization page's examples", () => {
+  const binding = pageDatabase("serialization", ["accounts"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare(
+        "INSERT INTO accounts (id, email, password_digest, api_key, iban, created_at, updated_at) VALUES ('ada', 'ada@example.com', 'digest', 'key-1', 'DE89', '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
+      )
+      .run();
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+
+  test("toJSON leaves the hidden attributes out, and attributes() keeps them", async () => {
+    const { body, attributes } = await run(serialization.serializing);
+    const json = JSON.parse(body) as Record<string, unknown>;
+
+    expect(Object.keys(json).sort((a, b) => a.localeCompare(b))).toEqual([
+      "createdAt",
+      "email",
+      "iban",
+      "id",
+      "updatedAt",
+    ]);
+    expect(json["createdAt"]).toBe("2026-01-15T00:00:00.000Z");
+    expect([attributes.passwordDigest, attributes.apiKey]).toEqual(["digest", "key-1"]);
+    expect(attributes.createdAt).toBeInstanceOf(Date);
+  });
+
+  test("a Model's hidden list replaces its base class's, which it repeats", () => {
+    expect(SerializedAccount.hiddenAttributes).toEqual(["passwordDigest", "apiKey"]);
+  });
+
+  test("Response.json sends the record without its hidden attributes, or a 404", async () => {
+    const found = await run(() =>
+      serialization.show(new Request("https://example.com/?email=ada@example.com")),
+    );
+    const missing = await run(() =>
+      serialization.show(new Request("https://example.com/?email=no@example.com")),
+    );
+
+    expect(await found.json()).not.toHaveProperty("passwordDigest");
+    expect(missing.status).toBe(404);
+  });
+
+  test("a printed record shows filtered attributes as [FILTERED]", async () => {
+    const { account } = await run(serialization.serializing);
+
+    const printed = inspect(account);
+
+    expect(printed).toContain("email: [FILTERED]");
+    expect(printed).toContain("iban: [FILTERED]");
+    expect(printed).toContain("passwordDigest: [FILTERED]");
+    const relation = await run(async () =>
+      inspect(SerializedAccount.where({ email: "ada@example.com" })),
+    );
+    expect(relation).toContain("params: [ [FILTERED] ]");
   });
 });
 

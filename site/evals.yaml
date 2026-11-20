@@ -141,3 +141,9 @@ questions:
       - 'savedChangeTo("email") gives the old and new values, or hasSavedChangeTo("email") says whether it changed'
       - "after a save the record is clean, so the unsaved-change methods no longer see it"
     routes: /change-tracking
+  - id: hide-password-digest
+    question: "How do I make sure Response.json(user) never sends the passwordDigest attribute?"
+    expected:
+      - "name it in static hiddenAttributes, on the app's base class to cover every Model"
+      - "a Model's own list replaces the base class's, so it repeats the names it still wants hidden"
+    routes: /serialization

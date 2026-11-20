@@ -112,7 +112,7 @@ Anything else throws `TypeError` naming the Model and the attribute, and the att
 
 <include>/_excerpts/pages/attribute-types/examples/refused.mdx</include>
 
-The error shows at most 60 characters of the value, and none of a [filtered attribute](./models#filtering-attributes)’s. Among the values refused:
+The error shows at most 60 characters of the value, and none of a [filtered attribute](./serialization#filtering-attributes)’s. Among the values refused:
 
 - `""` for every type but `string`.
 - `1.7`, `"12abc"`, `"1e3"`, and integers past `Number.MAX_SAFE_INTEGER`, for an `integer`.
