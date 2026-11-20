@@ -132,7 +132,7 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
   // Words around an enum's names in its methods' names (#340).
   prefix: affixRule("prefix"),
   suffix: affixRule("suffix"),
-  // `false` leaves out the enum's scopes or instance methods; `true`, the default, adds nothing.
+  // `false` leaves out the enum's scopes or instance methods; `true`, the default, changes nothing.
   scopes: methodsSwitch("scopes"),
   instanceMethods: methodsSwitch("instanceMethods"),
   // `validate: true`: an unknown value is kept, and makes the record invalid.
