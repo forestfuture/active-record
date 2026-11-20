@@ -12,6 +12,7 @@ import {
   type QueryDescription,
   type UnscopedPart,
 } from "./query.ts";
+import { attributeName } from "./attribute-aliases.ts";
 import { columnOf } from "./metadata.ts";
 import { isPlainObject } from "./permit.ts";
 import { checkConditions, requireAttributeConditions } from "./relation-checks.ts";
@@ -101,10 +102,12 @@ function withoutConditionsOn(
   query: QueryDescription,
   attributes: readonly string[],
 ): QueryDescription {
-  const dropped = new Set(attributes);
+  // An alias and its attribute are one condition's attribute (#509).
+  const resolved = new Set(attributes.map((name) => attributeName(query.model, name)));
+  const isDropped = (name: string) => resolved.has(attributeName(query.model, name));
   const link = new Set(query.ownerLink);
   const conditions = query.conditions.flatMap((condition) =>
-    link.has(condition) ? [condition] : remainderOf(condition, dropped),
+    link.has(condition) ? [condition] : remainderOf(condition, isDropped),
   );
   return keepingOwnerLink({ ...query, conditions });
 }
@@ -141,14 +144,13 @@ function isAttributeValues(condition: Condition): condition is Record<string, un
 }
 
 /** What's left of `condition` once those on `dropped` attributes go: itself, part of it, or nothing. */
-function remainderOf(condition: Condition, dropped: ReadonlySet<string>): Condition[] {
+function remainderOf(condition: Condition, isDropped: (name: string) => boolean): Condition[] {
   if (isAttributeValues(condition)) {
-    const left = Object.entries(condition).filter(([name]) => !dropped.has(name));
+    const left = Object.entries(condition).filter(([name]) => !isDropped(name));
     return left.length === 0 ? [] : [Object.fromEntries(left)];
   }
   const named = attributesNamed(condition);
-  const isOnlyDropped =
-    named !== undefined && named.size > 0 && [...named].every((name) => dropped.has(name));
+  const isOnlyDropped = named !== undefined && named.size > 0 && [...named].every(isDropped);
   return isOnlyDropped ? [] : [condition];
 }
 

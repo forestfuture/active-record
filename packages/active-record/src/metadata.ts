@@ -1,4 +1,5 @@
 // Attribute metadata: each attribute's type, column and default, resolved from its spec.
+import { attributeName } from "./attribute-aliases.ts";
 import { type AnyCustomType, type CustomType, isCustomType } from "./custom-types.ts";
 import { copiedKeys } from "./spec-keys.ts";
 import type { EnumNames, EnumValues, IntegerEnum, TextEnum } from "./enum-values.ts";
@@ -252,15 +253,16 @@ function resolvedType(type: SpecObject["type"]): Pick<AttributeDefinition, "type
   return isCustomType(type) ? { type: type.storedAs, customType: type } : { type };
 }
 
-/** Looks up a declared attribute; throws `UnknownAttribute` for any other name. */
+/** Looks up a declared attribute, or the one an alias names; throws `UnknownAttribute` for any other name. */
 export function attributeOf(
   model: {
     readonly name: string;
     readonly attributeDefinitions: ModelClass["attributeDefinitions"];
+    readonly attributeAliases?: ModelClass["attributeAliases"];
   },
   name: string,
 ): AttributeDefinition {
-  const attribute = model.attributeDefinitions.get(name);
+  const attribute = model.attributeDefinitions.get(attributeName(model, name));
   if (attribute === undefined) {
     throw new UnknownAttribute(`${model.name} has no attribute "${name}"`);
   }

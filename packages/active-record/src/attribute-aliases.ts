@@ -1,7 +1,6 @@
 // Attribute aliases (#509): another name for an attribute (`title: { aliasOf: "name" }`), declared
-// with a Model's attributes, its accessors, and the one place an alias resolves to its attribute.
+// with a Model's attributes, and the one place an alias resolves to its attribute.
 import { InvalidModel } from "./errors.ts";
-import { state } from "./record-state.ts";
 
 /** An alias in `static attributes` or `define`: `title: { aliasOf: "name" }` reads as "title is an alias of name". */
 export interface AliasAttribute {
@@ -51,28 +50,8 @@ export function aliasesIn(
  * validation or a change-tracking method takes goes through it.
  */
 export function attributeName(
-  model: { readonly attributeAliases: ReadonlyMap<string, string> },
+  model: { readonly attributeAliases?: ReadonlyMap<string, string> },
   name: string,
 ): string {
-  return model.attributeAliases.get(name) ?? name;
-}
-
-/** Each alias's accessors on a prototype, reading and writing the attribute it names. */
-export function defineAliasAccessors(
-  prototype: object,
-  aliases: ReadonlyMap<string, string>,
-): void {
-  type Record = {
-    [state]: { read(name: string): unknown; write(name: string, value: unknown): void };
-  };
-  for (const [alias, name] of aliases) {
-    Object.defineProperty(prototype, alias, {
-      get(this: Record) {
-        return this[state].read(name);
-      },
-      set(this: Record, value: unknown) {
-        this[state].write(name, value);
-      },
-    });
-  }
+  return model.attributeAliases?.get(name) ?? name;
 }

@@ -4,6 +4,7 @@
 // D1 stores, read a cell back, and bind it hidden from listeners when the attribute is filtered.
 // Records, Relations, associations, preloads, and the compiler all go through here, so no caller
 // has to cast or bind a value its own way.
+import { attributeName } from "./attribute-aliases.ts";
 import { isSameCell } from "./binary-values.ts";
 import {
   castCondition,
@@ -301,7 +302,8 @@ const resolved = new WeakMap<ModelClass, Map<string, Attribute>>();
  * The resolved attribute of a Model, remembered per class (derived from the class, ADR-0003):
  * `UnknownAttribute` for a name it doesn't have.
  */
-export function attributeFor(model: ModelClass, name: string): Attribute {
+export function attributeFor(model: ModelClass, given: string): Attribute {
+  const name = attributeName(model, given);
   let attributes = resolved.get(model);
   if (attributes === undefined) {
     attributes = new Map();
