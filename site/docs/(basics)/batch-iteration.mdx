@@ -62,7 +62,7 @@ The examples use this Model, whose attributes come from its table through the sc
 
 `findEach` loads a Relation’s records a batch at a time, and yields them one by one:
 
-<include meta="twoslash">/_excerpts/pages/batch-iteration/examples/find-each.twoslash.ts</include>
+<include>/_excerpts/pages/batch-iteration/examples/find-each.mdx</include>
 
 Batches go in primary-key order, 1,000 records each by default. Each batch is one query, and starts after the last batch’s key, so a deep batch costs no more than the first.
 
@@ -70,9 +70,7 @@ Batches go in primary-key order, 1,000 records each by default. Each batch is on
 
 `findInBatches` yields each batch as an array:
 
-<include meta="twoslash">
-  /_excerpts/pages/batch-iteration/examples/find-in-batches.twoslash.ts
-</include>
+<include>/_excerpts/pages/batch-iteration/examples/find-in-batches.mdx</include>
 
 `includes()` preloads each batch’s associations. Breaking out of the loop sends no more queries.
 
@@ -80,7 +78,7 @@ Batches go in primary-key order, 1,000 records each by default. Each batch is on
 
 `inBatches` yields a Relation of each batch’s records, for `updateAll`, `deleteAll`, and `destroyAll`:
 
-<include meta="twoslash">/_excerpts/pages/batch-iteration/examples/in-batches.twoslash.ts</include>
+<include>/_excerpts/pages/batch-iteration/examples/in-batches.mdx</include>
 
 - One query reads each batch’s keys, and the write you run is another.
 - A batch’s Relation keeps your conditions, so a row that stopped matching since the keys were read isn’t written.
@@ -90,7 +88,7 @@ Batches go in primary-key order, 1,000 records each by default. Each batch is on
 
 Every method takes the same options:
 
-<include meta="twoslash">/_excerpts/pages/batch-iteration/examples/options.twoslash.ts</include>
+<include>/_excerpts/pages/batch-iteration/examples/options.mdx</include>
 
 - `batchSize` sets the records in each batch: a whole number from 1, or `TypeError`.
 - `start` and `finish` bound the primary key, both included. With `order: "desc"`, `start` is the largest key and `finish` the smallest.

@@ -43,7 +43,7 @@ Declare a scope as a static that receives the Relation, plus any arguments, and 
 
 Call a scope as a static, or on any Relation of the Model:
 
-<include meta="twoslash">/_excerpts/pages/scopes/examples/scopes.twoslash.ts</include>
+<include>/_excerpts/pages/scopes/examples/scopes.mdx</include>
 
 - Its arguments, and anything it computes such as `new Date()`, are evaluated when you call it.
 - Scopes are inherited, including those on your app’s base class ([Shared behavior](./shared-behavior)). A subclass can replace one with `static override published = this.scope(…)`.
@@ -60,7 +60,7 @@ An [enum](./models#declaring-enums) gives its Model a scope for each name, and a
 
 Declare a default scope in the class’s `static {}` block, as `Product` does, to narrow every query on the Model:
 
-<include meta="twoslash">/_excerpts/pages/scopes/examples/default-scope.twoslash.ts</include>
+<include>/_excerpts/pages/scopes/examples/default-scope.mdx</include>
 
 - New records take its conditions’ values.
 - It applies to everything that queries the Model: `find`, `count`, `updateAll`, `deleteAll`, its scopes, and associations that read it, preloads included.
@@ -74,7 +74,7 @@ Declare a default scope in the class’s `static {}` block, as `Product` does, t
 
 Start from `unscoped()` to leave the default scope out:
 
-<include meta="twoslash">/_excerpts/pages/scopes/examples/unscoped.twoslash.ts</include>
+<include>/_excerpts/pages/scopes/examples/unscoped.mdx</include>
 
 `unscoped()` is a Model static only. With a database you hold, call it inside [`withDatabase`](./connecting#using-the-requests-database).
 

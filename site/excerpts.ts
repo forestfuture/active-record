@@ -132,6 +132,34 @@ export function twoslashBlock(file: string, region: string): string | undefined 
   return `${flags}${files}\n\n// @filename: example.ts\n// ---cut---\n${shown}`;
 }
 
+/**
+ * A page project's example as an MDX partial: the Twoslash version for the site, and the plain
+ * example for agents. Blume serves agents (each page's `.md` and `llms-full.txt`) a fence as
+ * written, so the Twoslash version's hidden project would reach them with every example; the
+ * page shows its Models once, under The Model. Undefined outside a page's project.
+ */
+export function examplePartial(file: string, region: string): string | undefined {
+  const twoslash = twoslashBlock(file, region);
+  const example = exampleBlock(file, region)?.replace(/^\/\/ @ts-expect-error.*\n/gm, "");
+  if (twoslash === undefined || example === undefined) return undefined;
+  return [
+    '<Visibility for="web">',
+    "",
+    "```ts twoslash",
+    twoslash,
+    "```",
+    "",
+    "</Visibility>",
+    '<Visibility for="agents">',
+    "",
+    "```ts",
+    example,
+    "```",
+    "",
+    "</Visibility>",
+  ].join("\n");
+}
+
 const regionName = /^[ \t]*\/\/ #region ([\w-]+)$/gm;
 
 /** A snippet file's region names, each once. */
@@ -168,9 +196,8 @@ export function writeExcerpts(site: string, out = join(site, "docs/_excerpts")):
       const excerpt = join(out, name.slice(0, -".ts".length), `${region}.ts`);
       mkdirSync(dirname(excerpt), { recursive: true });
       writeFileSync(excerpt, `${exampleBlock(file, region)}\n`);
-      const twoslash = twoslashBlock(file, region);
-      if (twoslash !== undefined)
-        writeFileSync(excerpt.replace(/\.ts$/, ".twoslash.ts"), `${twoslash}\n`);
+      const partial = examplePartial(file, region);
+      if (partial !== undefined) writeFileSync(excerpt.replace(/\.ts$/, ".mdx"), `${partial}\n`);
     }
   }
   writeFileSync(join(out, "skill-rules.md"), skillRules(site));
