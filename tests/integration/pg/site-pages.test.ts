@@ -19,6 +19,7 @@ import * as enums from "../../../site/snippets/pages/enums/examples.ts";
 import * as joins from "../../../site/snippets/pages/joins/examples.ts";
 import * as models from "../../../site/snippets/pages/models/examples.ts";
 import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
+import * as preloadingPage from "../../../site/snippets/pages/preloading/examples.ts";
 import * as querying from "../../../site/snippets/pages/querying/examples.ts";
 import * as serialization from "../../../site/snippets/pages/serialization/examples.ts";
 import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
@@ -278,6 +279,31 @@ describe("the Models page's examples, on Postgres", () => {
       ["draft", 1],
       ["published", 1],
     ]);
+  });
+});
+
+// The Preloading page's examples, on the Postgres tables it shows.
+describe("the Preloading page's examples, on Postgres", () => {
+  const schema = pageSchema(
+    "preloading",
+    "INSERT INTO authors (id, name) VALUES ('00000000-0000-4000-8000-000000000001', 'Mary'), ('00000000-0000-4000-8000-000000000002', 'Ada');\nINSERT INTO profiles (id, author_id, bio) VALUES ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Poet');\nINSERT INTO articles (id, author_id, title) VALUES ('00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000001', 'On Nothing'), ('00000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000002', 'Engines');\nINSERT INTO comments (id, article_id, body) VALUES ('00000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-000000000004', 'Hm.');\nINSERT INTO photos (id, title) VALUES ('00000000-0000-4000-8000-000000000007', 'Sunset');\nINSERT INTO videos (id, title) VALUES ('00000000-0000-4000-8000-000000000008', 'Launch');\nINSERT INTO likes (id, likeable_type, likeable_id) VALUES ('00000000-0000-4000-8000-000000000009', 'Photo', '00000000-0000-4000-8000-000000000007'), ('00000000-0000-4000-8000-000000000000', 'Video', '00000000-0000-4000-8000-000000000008')",
+  );
+
+  test("includes and a polymorphic include load what the page shows", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => log.mockRestore());
+    const db = connect(schema().url);
+
+    await withDatabase(db, () => preloadingPage.preloading());
+    await withDatabase(db, () => preloadingPage.preloadingPolymorphic());
+
+    expect(log.mock.calls).toContainEqual(["Mary", 1, "Poet"]);
+    expect(
+      log.mock.calls
+        .slice(2)
+        .map(([title]) => String(title))
+        .sort((a, b) => a.localeCompare(b)),
+    ).toEqual(["Launch", "Sunset"]);
   });
 });
 

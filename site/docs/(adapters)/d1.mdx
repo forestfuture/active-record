@@ -33,7 +33,7 @@ With read replication, wrap each request in [`withSession`](./read-your-own-writ
 
 ## Sending queries in one round trip
 
-D1 sends a batch of queries in one round trip. A [preload](./associations#preloading-associations) sends its whole tree on one database that way, with the records’ own query, so `includes({ articles: "comments" })` is three queries in one round trip. A [page](./ordering-and-pagination#paginating) sends its `COUNT` and its records together, with their preloads.
+D1 sends a batch of queries in one round trip. A [preload](./preloading) sends its whole tree on one database that way, with the records’ own query, so `includes({ articles: "comments" })` is three queries in one round trip. A [page](./ordering-and-pagination#paginating) sends its `COUNT` and its records together, with their preloads.
 
 A batch runs as one transaction, so every query in it reads the same data. A preload’s nested query that would bind more than 100 values waits for the records above it, and takes one more round trip.
 
