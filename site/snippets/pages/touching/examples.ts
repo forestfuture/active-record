@@ -44,9 +44,9 @@ export async function importing() {
 
 export async function renaming() {
   // #region has-one
-  const ada = await User.findByOrThrow({ name: "Ada" });
-  await ada.update({ name: "Ada Lovelace" }); // sets her profile's updatedAt
-  await ada.touch(); // and again
+  const user = await User.findByOrThrow({ name: "Sam" });
+  await user.update({ name: "Sam Smith" }); // sets the user's profile's updatedAt
+  await user.touch(); // and again
   // #endregion has-one
-  return ada;
+  return user;
 }

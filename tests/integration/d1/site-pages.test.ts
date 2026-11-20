@@ -176,7 +176,7 @@ describe("the Change tracking page's examples", () => {
   beforeEach(async () => {
     await binding()
       .prepare(
-        "INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES ('ada', 'ada@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
+        "INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES ('ada', 'jane@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
       )
       .run();
   });
@@ -185,12 +185,12 @@ describe("the Change tracking page's examples", () => {
   test("a record reports its unsaved changes, and its callback reads the saved one", async () => {
     const ada = await run(changeTracking.changing);
 
-    expect([ada.email, ada.isChanged()]).toEqual(["ada@lovelace.dev", false]);
+    expect([ada.email, ada.isChanged()]).toEqual(["jane@work.example", false]);
     expect(log.calls()).toEqual([
       [["email"]],
-      ["ada@example.com"],
+      ["jane@example.com"],
       [true],
-      ["Email changed from ada@example.com to ada@lovelace.dev"],
+      ["Email changed from jane@example.com to jane@work.example"],
       [false],
     ]);
   });
@@ -198,7 +198,7 @@ describe("the Change tracking page's examples", () => {
   test("restoreAttributes undoes the changes it names", async () => {
     const ada = await run(changeTracking.restoring);
 
-    expect([ada.email, ada.role, ada.changed()]).toEqual(["ada@example.com", "owner", ["role"]]);
+    expect([ada.email, ada.role, ada.changed()]).toEqual(["jane@example.com", "owner", ["role"]]);
   });
 });
 
@@ -208,7 +208,7 @@ describe("the Serialization page's examples", () => {
   beforeEach(async () => {
     await binding()
       .prepare(
-        "INSERT INTO accounts (id, email, password_digest, api_key, iban, created_at, updated_at) VALUES ('ada', 'ada@example.com', 'digest', 'key-1', 'DE89', '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
+        "INSERT INTO accounts (id, email, password_digest, api_key, iban, created_at, updated_at) VALUES ('ada', 'jane@example.com', 'digest', 'key-1', 'DE89', '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
       )
       .run();
   });
@@ -236,7 +236,7 @@ describe("the Serialization page's examples", () => {
 
   test("Response.json sends the record without its hidden attributes, or a 404", async () => {
     const found = await run(() =>
-      serialization.show(new Request("https://example.com/?email=ada@example.com")),
+      serialization.show(new Request("https://example.com/?email=jane@example.com")),
     );
     const missing = await run(() =>
       serialization.show(new Request("https://example.com/?email=no@example.com")),
@@ -255,7 +255,7 @@ describe("the Serialization page's examples", () => {
     expect(printed).toContain("iban: [FILTERED]");
     expect(printed).toContain("passwordDigest: [FILTERED]");
     const relation = await run(async () =>
-      inspect(SerializedAccount.where({ email: "ada@example.com" })),
+      inspect(SerializedAccount.where({ email: "jane@example.com" })),
     );
     expect(relation).toContain("params: [ [FILTERED] ]");
   });
@@ -303,7 +303,7 @@ describe("the Models page's examples", () => {
     const { published, account } = await run(models.naming);
 
     expect(published.map((product) => product.name)).toEqual(["Desk"]);
-    expect(account.email).toBe("ada@example.com");
+    expect(account.email).toBe("jane@example.com");
   });
 
   test("a Model declared with define reads a view", async () => {
@@ -332,7 +332,7 @@ describe("the Preloading page's examples", () => {
     const db = binding();
     await db.batch(
       [
-        "INSERT INTO authors (id, name) VALUES ('mary', 'Mary'), ('ada', 'Ada')",
+        "INSERT INTO authors (id, name) VALUES ('mary', 'Jane'), ('ada', 'Sam')",
         "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'mary', 'Poet')",
         "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'mary', 'On Nothing'), ('x2', 'ada', 'Engines')",
         "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x1', 'Hm.')",
@@ -352,8 +352,8 @@ describe("the Preloading page's examples", () => {
 
     expect(recording.batches).toEqual([4]); // the authors, profiles, articles, and comments
     expect(authors).toHaveLength(2);
-    expect(log.calls()).toContainEqual(["Mary", 1, "Poet"]);
-    expect(log.calls()).toContainEqual(["Ada", 1, undefined]);
+    expect(log.calls()).toContainEqual(["Jane", 1, "Poet"]);
+    expect(log.calls()).toContainEqual(["Sam", 1, undefined]);
   });
 
   test("a polymorphic association preloads each listed Model in the same round trip", async () => {
@@ -378,7 +378,7 @@ describe("the Autosaving page's examples", () => {
     const db = binding();
     await db.batch(
       [
-        "INSERT INTO authors (id, name) VALUES ('mary', 'Mary')",
+        "INSERT INTO authors (id, name) VALUES ('mary', 'Jane')",
         "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'mary', 'On Nothing'), ('x2', 'mary', 'Draft')",
         "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x2', 'Hm.')",
       ].map((sql) => db.prepare(sql)),
@@ -396,15 +396,10 @@ describe("the Autosaving page's examples", () => {
   });
 
   test("records built through associations save with their owner", async () => {
-    const ada = await run(autosaving.savingAGraph);
+    const author = await run(autosaving.savingAGraph);
 
-    expect(ada.isPersisted()).toBe(true);
-    expect(await titles()).toEqual([
-      "Draft",
-      "Notes on the Analytical Engine",
-      "On Nothing",
-      "Sketch of the Engine",
-    ]);
+    expect(author.isPersisted()).toBe(true);
+    expect(await titles()).toEqual(["Draft", "Getting started", "Going further", "On Nothing"]);
   });
 
   test("autosave: true saves the loaded records that changed", async () => {
@@ -461,7 +456,7 @@ describe("the Touching page's examples", () => {
         "INSERT INTO blogs (id, updated_at) VALUES ('b', '2020-01-01T00:00:00.000Z')",
         "INSERT INTO articles (id, blog_id, title, updated_at) VALUES ('a', 'b', 'Hello', '2020-01-01T00:00:00.000Z')",
         "INSERT INTO comments (id, article_id, body, updated_at) VALUES ('c1', 'a', 'Old', '2020-01-01T00:00:00.000Z')",
-        "INSERT INTO users (id, name, updated_at) VALUES ('ada', 'Ada', '2020-01-01T00:00:00.000Z')",
+        "INSERT INTO users (id, name, updated_at) VALUES ('ada', 'Sam', '2020-01-01T00:00:00.000Z')",
         "INSERT INTO profiles (id, user_id, bio, updated_at) VALUES ('p', 'ada', 'Poet', '2020-01-01T00:00:00.000Z')",
       ].map((sql) => db.prepare(sql)),
     );
@@ -534,7 +529,7 @@ describe("the Associations page's examples", () => {
     const db = binding();
     await db.batch(
       [
-        "INSERT INTO authors (id, name) VALUES ('mary', 'Mary'), ('ada', 'Ada')",
+        "INSERT INTO authors (id, name) VALUES ('mary', 'Jane'), ('ada', 'Sam')",
         "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'mary', 'Poet')",
         "INSERT INTO articles (id, author_id, title, published) VALUES ('x1', 'mary', 'On Nothing', 1), ('x2', 'mary', 'Draft', 0)",
         "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x1', 'Hm.')",
@@ -553,9 +548,9 @@ describe("the Associations page's examples", () => {
 
   test("a belongsTo reads its record, and set() points it at another", async () => {
     const { author, article } = await run(associations.readingTheAuthor);
-    const ada = await db().model(Writer).findByOrThrow({ name: "Ada" });
+    const ada = await db().model(Writer).findByOrThrow({ name: "Sam" });
 
-    expect([author?.name, article.authorId]).toEqual(["Mary", ada.id]);
+    expect([author?.name, article.authorId]).toEqual(["Jane", ada.id]);
   });
 
   test("a hasMany reads, builds, and bulk-deletes the owner's records", async () => {
@@ -590,7 +585,7 @@ describe("the Associations page's examples", () => {
 
     expect(reads).toHaveLength(2); // the article, then its author once
     expect(again).toBe(author);
-    expect(back.author).toBe(back.mary);
+    expect(back.sameAuthor).toBe(back.author);
   });
 
   test("a scoped association reads only its records, and a self-reference nests", async () => {
@@ -611,7 +606,7 @@ describe("the Associations page's examples", () => {
 
     await run(associations.destroying);
 
-    expect(await db().model(Writer).pluck("name")).toEqual(["Ada"]);
+    expect(await db().model(Writer).pluck("name")).toEqual(["Sam"]);
     expect([await db().model(Story).count(), await db().model(Bio).count()]).toEqual([0, 0]);
   });
 });
@@ -622,7 +617,7 @@ describe("the Querying page's examples", () => {
   beforeEach(async () => {
     await binding()
       .prepare(`INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES
-          ('ada', 'ada@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z'),
+          ('ada', 'jane@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z'),
           ('grace', 'grace@example.com', 'editor', 1, '2025-12-01T00:00:00.000Z', '2025-12-01T00:00:00.000Z'),
           ('linus', 'linus@example.com', 'admin', 0, '2026-01-20T00:00:00.000Z', '2026-01-20T00:00:00.000Z'),
           ('olive', 'olive@example.com', 'owner', 1, '2025-11-01T00:00:00.000Z', '2025-11-01T00:00:00.000Z')`)
@@ -638,7 +633,7 @@ describe("the Querying page's examples", () => {
   test("the finders find what their comments say", async () => {
     const found = await run(querying.finding);
 
-    expect([found.ada.id, found.nobody, found.again.id, found.oldest?.id]).toEqual([
+    expect([found.user.id, found.nobody, found.again.id, found.oldest?.id]).toEqual([
       "ada",
       null,
       "ada",
@@ -651,12 +646,12 @@ describe("the Querying page's examples", () => {
     const { emails, pairs, latest, adminIds } = await run(querying.reading);
 
     expect(emails).toEqual([
-      "ada@example.com",
       "grace@example.com",
+      "jane@example.com",
       "linus@example.com",
       "olive@example.com",
     ]);
-    expect(pairs[0]).toEqual(["ada", "ada@example.com"]);
+    expect(pairs[0]).toEqual(["grace", "grace@example.com"]);
     expect(latest).toBe("linus@example.com");
     expect(adminIds.map(String).sort((a, b) => a.localeCompare(b))).toEqual(["ada", "linus"]);
   });
@@ -676,7 +671,7 @@ describe("the Querying page's examples", () => {
 
     const { first, roles } = await run(querying.selecting);
 
-    expect(log.mock.calls).toEqual([["ada@example.com"], ["ada"]]);
+    expect(log.mock.calls).toEqual([["grace@example.com"], ["grace"]]);
     expect(() => first?.role).toThrow(MissingAttribute);
     expect(roles.map(String).sort((a, b) => a.localeCompare(b))).toEqual([
       "admin",
@@ -702,7 +697,7 @@ describe("the Conditions page's examples", () => {
     await binding()
       .prepare(
         `INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES
-          ('ada', 'ada@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z'),
+          ('ada', 'jane@example.com', 'admin', 1, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z'),
           ('grace', 'grace@example.com', 'editor', 1, '2025-12-01T00:00:00.000Z', '2025-12-01T00:00:00.000Z'),
           ('linus', 'linus@example.com', 'admin', 0, '2026-01-20T00:00:00.000Z', '2026-01-20T00:00:00.000Z'),
           ('hopper', 'hopper@example.com', NULL, 0, '2025-11-01T00:00:00.000Z', '2025-11-01T00:00:00.000Z')`,
@@ -726,9 +721,11 @@ describe("the Conditions page's examples", () => {
   });
 
   test("an sql fragment and a column's value find the users they show", async () => {
-    const { ada, newcomers } = await withDatabase(connect(binding()), () => conditions.comparing());
+    const { user, newcomers } = await withDatabase(connect(binding()), () =>
+      conditions.comparing(),
+    );
 
-    expect(ada?.id).toBe("ada");
+    expect(user?.id).toBe("ada");
     expect(ids(newcomers)).toEqual(["ada", "linus"]);
   });
 
@@ -749,7 +746,7 @@ describe("the Through associations page's examples", () => {
   beforeEach(async () => {
     const db = binding();
     await db.batch([
-      db.prepare("INSERT INTO authors (id, name) VALUES ('mary', 'Mary'), ('ada', 'Ada')"),
+      db.prepare("INSERT INTO authors (id, name) VALUES ('mary', 'Jane'), ('ada', 'Sam')"),
       db.prepare(
         "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'mary', 'On Nothing'), ('x2', 'ada', 'Engines')",
       ),
@@ -786,7 +783,7 @@ describe("the Through associations page's examples", () => {
 
     const writers = await withDatabase(connect(binding()), () => through.followingSource());
 
-    expect(writers.map((writer) => writer.name).sort()).toEqual(["Ada", "Mary"]);
+    expect(writers.map((writer) => writer.name).sort()).toEqual(["Jane", "Sam"]);
   });
 
   test("reaches a tagging's author through its article", async () => {
@@ -794,7 +791,7 @@ describe("the Through associations page's examples", () => {
 
     const author = await withDatabase(connect(binding()), () => through.throughBelongsTo());
 
-    expect(author?.name).toBe("Ada");
+    expect(author?.name).toBe("Sam");
   });
 
   test("removes a pushed article's tagging and keeps a created one's", async () => {
@@ -1001,7 +998,7 @@ describe("the Joins page's examples", () => {
     const db = binding();
     await db.batch(
       [
-        "INSERT INTO authors (id, name) VALUES ('mary', 'Mary'), ('ada', 'Ada')",
+        "INSERT INTO authors (id, name) VALUES ('mary', 'Jane'), ('ada', 'Sam')",
         "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'mary', 'Poet')",
         "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'mary', 'On Nothing'), ('x2', 'ada', 'Engines')",
         "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x1', 'Hm.'), ('c2', 'x1', 'Yes.')",
@@ -1014,24 +1011,24 @@ describe("the Joins page's examples", () => {
   test("joins with distinct() finds each author with a commented article once", async () => {
     const commented = await withDatabase(connect(binding()), () => joins.joining());
 
-    expect(names(commented)).toEqual(["Mary"]);
+    expect(names(commented)).toEqual(["Jane"]);
   });
 
   test("leftJoins keeps the authors with no profile", async () => {
     const everyAuthor = await withDatabase(connect(binding()), () => joins.leftJoining());
 
     expect(names(everyAuthor).sort((a, b) => String(a).localeCompare(String(b)))).toEqual([
-      "Ada",
-      "Mary",
+      "Jane",
+      "Sam",
     ]);
   });
 
   test("a merged Relation filters and sorts by the joined Model", async () => {
-    const { byMary, byAuthorName } = await withDatabase(connect(binding()), () => joins.merging());
+    const { byJane, byAuthorName } = await withDatabase(connect(binding()), () => joins.merging());
 
-    expect([names(byMary), names(byAuthorName)]).toEqual([
+    expect([names(byJane), names(byAuthorName)]).toEqual([
       ["On Nothing"],
-      ["Engines", "On Nothing"],
+      ["On Nothing", "Engines"],
     ]);
   });
 });

@@ -195,7 +195,7 @@ describe("the Change tracking page's examples, on Postgres", () => {
   beforeEach(async () => {
     await schema().pool.query({ text: "DELETE FROM users" });
     await schema().pool.query({
-      text: "INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES ('00000000-0000-4000-8000-00000000000a', 'ada@example.com', 'admin', true, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
+      text: "INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES ('00000000-0000-4000-8000-00000000000a', 'jane@example.com', 'admin', true, '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
     });
   });
   const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
@@ -203,13 +203,13 @@ describe("the Change tracking page's examples, on Postgres", () => {
   test("a record reports its unsaved changes, and its callback reads the saved one", async () => {
     const ada = await run(changeTracking.changing);
 
-    expect([ada.email, ada.isChanged()]).toEqual(["ada@lovelace.dev", false]);
+    expect([ada.email, ada.isChanged()]).toEqual(["jane@work.example", false]);
   });
 
   test("restoreAttributes undoes the changes it names", async () => {
     const ada = await run(changeTracking.restoring);
 
-    expect([ada.email, ada.role, ada.changed()]).toEqual(["ada@example.com", "owner", ["role"]]);
+    expect([ada.email, ada.role, ada.changed()]).toEqual(["jane@example.com", "owner", ["role"]]);
   });
 });
 
@@ -217,7 +217,7 @@ describe("the Change tracking page's examples, on Postgres", () => {
 describe("the Serialization page's examples, on Postgres", () => {
   const schema = pageSchema(
     "serialization",
-    "INSERT INTO accounts (id, email, password_digest, api_key, iban, created_at, updated_at) VALUES ('00000000-0000-4000-8000-00000000000a', 'ada@example.com', 'digest', 'key-1', 'DE89', '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
+    "INSERT INTO accounts (id, email, password_digest, api_key, iban, created_at, updated_at) VALUES ('00000000-0000-4000-8000-00000000000a', 'jane@example.com', 'digest', 'key-1', 'DE89', '2026-01-15T00:00:00.000Z', '2026-01-15T00:00:00.000Z')",
   );
   const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
 
@@ -281,7 +281,7 @@ describe("the Models page's examples, on Postgres", () => {
     const { published, account } = await run(models.naming);
 
     expect(published.map((product) => product.name)).toEqual(["Desk"]);
-    expect(account.email).toBe("ada@example.com");
+    expect(account.email).toBe("jane@example.com");
   });
 
   test("a Model declared with define reads a view", async () => {
@@ -298,7 +298,7 @@ describe("the Models page's examples, on Postgres", () => {
 describe("the Preloading page's examples, on Postgres", () => {
   const schema = pageSchema(
     "preloading",
-    "INSERT INTO authors (id, name) VALUES ('00000000-0000-4000-8000-000000000001', 'Mary'), ('00000000-0000-4000-8000-000000000002', 'Ada');\nINSERT INTO profiles (id, author_id, bio) VALUES ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Poet');\nINSERT INTO articles (id, author_id, title) VALUES ('00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000001', 'On Nothing'), ('00000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000002', 'Engines');\nINSERT INTO comments (id, article_id, body) VALUES ('00000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-000000000004', 'Hm.');\nINSERT INTO photos (id, title) VALUES ('00000000-0000-4000-8000-000000000007', 'Sunset');\nINSERT INTO videos (id, title) VALUES ('00000000-0000-4000-8000-000000000008', 'Launch');\nINSERT INTO likes (id, likeable_type, likeable_id) VALUES ('00000000-0000-4000-8000-000000000009', 'Photo', '00000000-0000-4000-8000-000000000007'), ('00000000-0000-4000-8000-000000000000', 'Video', '00000000-0000-4000-8000-000000000008')",
+    "INSERT INTO authors (id, name) VALUES ('00000000-0000-4000-8000-000000000001', 'Jane'), ('00000000-0000-4000-8000-000000000002', 'Sam');\nINSERT INTO profiles (id, author_id, bio) VALUES ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Poet');\nINSERT INTO articles (id, author_id, title) VALUES ('00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000001', 'On Nothing'), ('00000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000002', 'Engines');\nINSERT INTO comments (id, article_id, body) VALUES ('00000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-000000000004', 'Hm.');\nINSERT INTO photos (id, title) VALUES ('00000000-0000-4000-8000-000000000007', 'Sunset');\nINSERT INTO videos (id, title) VALUES ('00000000-0000-4000-8000-000000000008', 'Launch');\nINSERT INTO likes (id, likeable_type, likeable_id) VALUES ('00000000-0000-4000-8000-000000000009', 'Photo', '00000000-0000-4000-8000-000000000007'), ('00000000-0000-4000-8000-000000000000', 'Video', '00000000-0000-4000-8000-000000000008')",
   );
 
   test("includes and a polymorphic include load what the page shows", async () => {
@@ -309,7 +309,7 @@ describe("the Preloading page's examples, on Postgres", () => {
     await withDatabase(db, () => preloadingPage.preloading());
     await withDatabase(db, () => preloadingPage.preloadingPolymorphic());
 
-    expect(log.mock.calls).toContainEqual(["Mary", 1, "Poet"]);
+    expect(log.mock.calls).toContainEqual(["Jane", 1, "Poet"]);
     expect(
       log.mock.calls
         .slice(2)
@@ -327,7 +327,7 @@ describe("the Autosaving page's examples, on Postgres", () => {
       text: "DELETE FROM comments; DELETE FROM profiles; DELETE FROM articles; DELETE FROM authors",
     });
     await schema().pool.query({
-      text: "INSERT INTO authors (id, name) VALUES ('00000000-0000-4000-8000-000000000001', 'Mary');\nINSERT INTO articles (id, author_id, title) VALUES ('00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000001', 'On Nothing'), ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Draft');\nINSERT INTO comments (id, article_id, body) VALUES ('00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000003', 'Hm.')",
+      text: "INSERT INTO authors (id, name) VALUES ('00000000-0000-4000-8000-000000000001', 'Jane');\nINSERT INTO articles (id, author_id, title) VALUES ('00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000001', 'On Nothing'), ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Draft');\nINSERT INTO comments (id, article_id, body) VALUES ('00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000003', 'Hm.')",
     });
   });
   const db = () => connect(schema().url);
@@ -342,15 +342,10 @@ describe("the Autosaving page's examples, on Postgres", () => {
   });
 
   test("records built through associations save with their owner", async () => {
-    const ada = await run(autosaving.savingAGraph);
+    const author = await run(autosaving.savingAGraph);
 
-    expect(ada.isPersisted()).toBe(true);
-    expect(await titles()).toEqual([
-      "Draft",
-      "Notes on the Analytical Engine",
-      "On Nothing",
-      "Sketch of the Engine",
-    ]);
+    expect(author.isPersisted()).toBe(true);
+    expect(await titles()).toEqual(["Draft", "Getting started", "Going further", "On Nothing"]);
   });
 
   test("autosave: true saves the loaded records that changed", async () => {
@@ -406,7 +401,7 @@ describe("the Touching page's examples, on Postgres", () => {
       text: "DELETE FROM profiles; DELETE FROM users; DELETE FROM comments; DELETE FROM articles; DELETE FROM blogs",
     });
     await schema().pool.query({
-      text: "INSERT INTO blogs (id, updated_at) VALUES ('00000000-0000-4000-8000-000000000001', '2020-01-01T00:00:00.000Z');\nINSERT INTO articles (id, blog_id, title, updated_at) VALUES ('00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000001', 'Hello', '2020-01-01T00:00:00.000Z');\nINSERT INTO comments (id, article_id, body, updated_at) VALUES ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000002', 'Old', '2020-01-01T00:00:00.000Z');\nINSERT INTO users (id, name, updated_at) VALUES ('00000000-0000-4000-8000-000000000004', 'Ada', '2020-01-01T00:00:00.000Z');\nINSERT INTO profiles (id, user_id, bio, updated_at) VALUES ('00000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000004', 'Poet', '2020-01-01T00:00:00.000Z')",
+      text: "INSERT INTO blogs (id, updated_at) VALUES ('00000000-0000-4000-8000-000000000001', '2020-01-01T00:00:00.000Z');\nINSERT INTO articles (id, blog_id, title, updated_at) VALUES ('00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000001', 'Hello', '2020-01-01T00:00:00.000Z');\nINSERT INTO comments (id, article_id, body, updated_at) VALUES ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000002', 'Old', '2020-01-01T00:00:00.000Z');\nINSERT INTO users (id, name, updated_at) VALUES ('00000000-0000-4000-8000-000000000004', 'Sam', '2020-01-01T00:00:00.000Z');\nINSERT INTO profiles (id, user_id, bio, updated_at) VALUES ('00000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000004', 'Poet', '2020-01-01T00:00:00.000Z')",
     });
   });
   const updatedAt = async (table: string) => {
@@ -456,7 +451,7 @@ describe("the Associations page's examples, on Postgres", () => {
       text: "DELETE FROM likes; DELETE FROM videos; DELETE FROM photos; DELETE FROM categories; DELETE FROM comments; DELETE FROM articles; DELETE FROM profiles; DELETE FROM authors",
     });
     await schema().pool.query({
-      text: "INSERT INTO authors (id, name) VALUES ('00000000-0000-4000-8000-000000000001', 'Mary'), ('00000000-0000-4000-8000-000000000002', 'Ada');\nINSERT INTO profiles (id, author_id, bio) VALUES ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Poet');\nINSERT INTO articles (id, author_id, title, published) VALUES ('00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000001', 'On Nothing', true), ('00000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000001', 'Draft', false);\nINSERT INTO comments (id, article_id, body) VALUES ('00000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-000000000004', 'Hm.');\nINSERT INTO categories (id, name, parent_id) VALUES ('00000000-0000-4000-8000-000000000007', 'Top', NULL), ('00000000-0000-4000-8000-000000000008', 'Beta', '00000000-0000-4000-8000-000000000007'), ('00000000-0000-4000-8000-000000000009', 'Alpha', '00000000-0000-4000-8000-000000000007');\nINSERT INTO photos (id, title) VALUES ('00000000-0000-4000-8000-00000000000a', 'Sunset');\nINSERT INTO videos (id, title) VALUES ('00000000-0000-4000-8000-00000000000b', 'Launch');\nINSERT INTO likes (id, likeable_type, likeable_id) VALUES ('00000000-0000-4000-8000-00000000000c', 'Photo', '00000000-0000-4000-8000-00000000000a')",
+      text: "INSERT INTO authors (id, name) VALUES ('00000000-0000-4000-8000-000000000001', 'Jane'), ('00000000-0000-4000-8000-000000000002', 'Sam');\nINSERT INTO profiles (id, author_id, bio) VALUES ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Poet');\nINSERT INTO articles (id, author_id, title, published) VALUES ('00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000001', 'On Nothing', true), ('00000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000001', 'Draft', false);\nINSERT INTO comments (id, article_id, body) VALUES ('00000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-000000000004', 'Hm.');\nINSERT INTO categories (id, name, parent_id) VALUES ('00000000-0000-4000-8000-000000000007', 'Top', NULL), ('00000000-0000-4000-8000-000000000008', 'Beta', '00000000-0000-4000-8000-000000000007'), ('00000000-0000-4000-8000-000000000009', 'Alpha', '00000000-0000-4000-8000-000000000007');\nINSERT INTO photos (id, title) VALUES ('00000000-0000-4000-8000-00000000000a', 'Sunset');\nINSERT INTO videos (id, title) VALUES ('00000000-0000-4000-8000-00000000000b', 'Launch');\nINSERT INTO likes (id, likeable_type, likeable_id) VALUES ('00000000-0000-4000-8000-00000000000c', 'Photo', '00000000-0000-4000-8000-00000000000a')",
     });
   });
   const db = (onQuery?: (event: { sql: string }) => void) => connect(schema().url, { onQuery });
@@ -467,9 +462,9 @@ describe("the Associations page's examples, on Postgres", () => {
 
   test("a belongsTo reads its record, and set() points it at another", async () => {
     const { author, article } = await run(associations.readingTheAuthor);
-    const ada = await db().model(Writer).findByOrThrow({ name: "Ada" });
+    const ada = await db().model(Writer).findByOrThrow({ name: "Sam" });
 
-    expect([author?.name, article.authorId]).toEqual(["Mary", ada.id]);
+    expect([author?.name, article.authorId]).toEqual(["Jane", ada.id]);
   });
 
   test("a hasMany reads, builds, and bulk-deletes the owner's records", async () => {
@@ -504,7 +499,7 @@ describe("the Associations page's examples, on Postgres", () => {
 
     expect(reads).toHaveLength(2); // the article, then its author once
     expect(again).toBe(author);
-    expect(back.author).toBe(back.mary);
+    expect(back.sameAuthor).toBe(back.author);
   });
 
   test("a scoped association reads only its records, and a self-reference nests", async () => {
@@ -525,7 +520,7 @@ describe("the Associations page's examples, on Postgres", () => {
 
     await run(associations.destroying);
 
-    expect(await db().model(Writer).pluck("name")).toEqual(["Ada"]);
+    expect(await db().model(Writer).pluck("name")).toEqual(["Sam"]);
     expect([await db().model(Story).count(), await db().model(Bio).count()]).toEqual([0, 0]);
   });
 });
@@ -535,7 +530,7 @@ describe("the Querying page's examples, on Postgres", () => {
   const schema = pageSchema(
     "querying",
     `INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES
-      ('${ada}', 'ada@example.com', 'admin', true, '2026-01-15Z', '2026-01-15Z'),
+      ('${ada}', 'jane@example.com', 'admin', true, '2026-01-15Z', '2026-01-15Z'),
       ('${mary}', 'mary@example.com', 'owner', true, '2025-11-01Z', '2025-11-01Z')`,
   );
 
@@ -550,11 +545,11 @@ describe("the Querying page's examples, on Postgres", () => {
     const { sql } = await withDatabase(db, async () => querying.seeingSql());
 
     expect([again.email, newest?.email, owner.email]).toEqual([
-      "ada@example.com",
-      "ada@example.com",
+      "jane@example.com",
+      "jane@example.com",
       "mary@example.com",
     ]);
-    expect(emails).toEqual(["ada@example.com", "mary@example.com"]);
+    expect(emails).toEqual(["jane@example.com", "mary@example.com"]);
     expect(counts).toEqual({ admins: 1, hasAdmins: true, severalAdmins: false, oneOwner: true });
     // oxlint-disable-next-line active-record/no-sql-text -- the page says Postgres numbers its placeholders
     expect(sql).toMatch(/\$1.*\$2/);
@@ -566,7 +561,7 @@ describe("the Conditions page's examples, on Postgres", () => {
   const schema = pageSchema(
     "conditions",
     `INSERT INTO users (id, email, role, is_active, created_at, updated_at) VALUES
-      ('${ada}', 'ada@example.com', 'admin', true, '2026-01-15Z', '2026-01-15Z'),
+      ('${ada}', 'jane@example.com', 'admin', true, '2026-01-15Z', '2026-01-15Z'),
       ('${mary}', 'mary@example.com', 'editor', true, '2025-12-01Z', '2025-12-01Z')`,
   );
 
@@ -574,12 +569,12 @@ describe("the Conditions page's examples, on Postgres", () => {
     const db = connect(schema().url);
 
     const { admins, others } = await withDatabase(db, () => conditions.matching());
-    const { ada: found, newcomers } = await withDatabase(db, () => conditions.comparing());
+    const { user: found, newcomers } = await withDatabase(db, () => conditions.comparing());
 
-    expect(admins.map((user) => user.email)).toEqual(["ada@example.com"]);
+    expect(admins.map((user) => user.email)).toEqual(["jane@example.com"]);
     expect(others.map((user) => user.email)).toEqual(["mary@example.com"]);
     expect(found?.id).toBe(ada);
-    expect(newcomers.map((user) => user.email)).toEqual(["ada@example.com"]);
+    expect(newcomers.map((user) => user.email)).toEqual(["jane@example.com"]);
   });
 });
 
@@ -587,7 +582,7 @@ describe("the Conditions page's examples, on Postgres", () => {
 describe("the Through associations page's examples, on Postgres", () => {
   const schema = pageSchema(
     "through-associations",
-    `INSERT INTO authors (id, name) VALUES ('${ada}', 'Ada'), ('${mary}', 'Mary');
+    `INSERT INTO authors (id, name) VALUES ('${ada}', 'Sam'), ('${mary}', 'Jane');
      INSERT INTO articles (id, author_id, title) VALUES
        ('${ada}', '${ada}', 'Engines'), ('${mary}', '${mary}', 'On Nothing');
      INSERT INTO tags (name) VALUES ('essays');
@@ -751,7 +746,7 @@ describe("the Scopes page's examples, on Postgres", () => {
 describe("the Joins page's examples, on Postgres", () => {
   const schema = pageSchema(
     "joins",
-    "INSERT INTO authors (id, name) VALUES ('00000000-0000-4000-8000-000000000001', 'Mary'), ('00000000-0000-4000-8000-000000000002', 'Ada');\nINSERT INTO profiles (id, author_id, bio) VALUES ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Poet');\nINSERT INTO articles (id, author_id, title) VALUES ('00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000001', 'On Nothing'), ('00000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000002', 'Engines');\nINSERT INTO comments (id, article_id, body) VALUES ('00000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-000000000004', 'Hm.'), ('00000000-0000-4000-8000-000000000007', '00000000-0000-4000-8000-000000000004', 'Yes.')",
+    "INSERT INTO authors (id, name) VALUES ('00000000-0000-4000-8000-000000000001', 'Jane'), ('00000000-0000-4000-8000-000000000002', 'Sam');\nINSERT INTO profiles (id, author_id, bio) VALUES ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Poet');\nINSERT INTO articles (id, author_id, title) VALUES ('00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000001', 'On Nothing'), ('00000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000002', 'Engines');\nINSERT INTO comments (id, article_id, body) VALUES ('00000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-000000000004', 'Hm.'), ('00000000-0000-4000-8000-000000000007', '00000000-0000-4000-8000-000000000004', 'Yes.')",
   );
 
   test("joins, leftJoins and merge find the records they show", async () => {
@@ -761,9 +756,9 @@ describe("the Joins page's examples, on Postgres", () => {
     const everyAuthor = await withDatabase(db, () => joins.leftJoining());
     const { byAuthorName } = await withDatabase(db, () => joins.merging());
 
-    expect(commented.map((author) => author.name)).toEqual(["Mary"]);
+    expect(commented.map((author) => author.name)).toEqual(["Jane"]);
     expect(everyAuthor).toHaveLength(2);
-    expect(byAuthorName.map((article) => article.title)).toEqual(["Engines", "On Nothing"]);
+    expect(byAuthorName.map((article) => article.title)).toEqual(["On Nothing", "Engines"]);
   });
 });
 

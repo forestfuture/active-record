@@ -10,8 +10,8 @@ export async function readingTheAuthor() {
   const article = await Article.findByOrThrow({ title: "On Nothing" });
   const author = await article.author(); // an Author, or null
 
-  const ada = await Author.findByOrThrow({ name: "Ada" });
-  article.author.set(ada); // written when the article is saved
+  const other = await Author.findByOrThrow({ name: "Sam" });
+  article.author.set(other); // written when the article is saved
   await article.save();
   // #endregion belongs-to
   return { author, article };
@@ -19,32 +19,32 @@ export async function readingTheAuthor() {
 
 export async function readingArticles() {
   // #region has-many
-  const mary = await Author.findByOrThrow({ name: "Mary" });
-  const articles = await mary.articles().toArray(); // a Relation of her articles
+  const author = await Author.findByOrThrow({ name: "Jane" });
+  const articles = await author.articles().toArray(); // a Relation of the author's articles
 
-  mary.articles().build({ title: "Untitled" }); // saved with her, with her key
-  await mary.save();
+  author.articles().build({ title: "Untitled" }); // saved with the author, with its key
+  await author.save();
 
-  await mary.articles().where({ title: "Untitled" }).deleteAll(); // scoped to her articles
+  await author.articles().where({ title: "Untitled" }).deleteAll(); // scoped to the author's articles
   // #endregion has-many
   return articles;
 }
 
 export async function readingTheProfile() {
   // #region has-one
-  const mary = await Author.findByOrThrow({ name: "Mary" });
-  const profile = await mary.profile(); // a Profile, or null
-  if (profile === null) await mary.profile.create({ bio: "Writer" }); // saved at once
+  const author = await Author.findByOrThrow({ name: "Jane" });
+  const profile = await author.profile(); // a Profile, or null
+  if (profile === null) await author.profile.create({ bio: "Writer" }); // saved at once
   // #endregion has-one
   return profile;
 }
 
 export async function replacingTheProfile() {
   // #region has-one-replace
-  const mary = await Author.findByOrThrow({ name: "Mary" });
-  await mary.profile.set(Profile.build({ bio: "Novelist" })); // and deletes her old one, in one batch
+  const author = await Author.findByOrThrow({ name: "Jane" });
+  await author.profile.set(Profile.build({ bio: "Novelist" })); // and deletes the old one, in one batch
   // #endregion has-one-replace
-  return mary;
+  return author;
 }
 
 export async function liking() {
@@ -72,17 +72,17 @@ export async function caching() {
 
 export async function pointingBack() {
   // #region inverse
-  const mary = await Author.findByOrThrow({ name: "Mary" });
-  const [article] = await mary.articles().toArray();
-  const author = await article?.author(); // mary herself, with no query
+  const author = await Author.findByOrThrow({ name: "Jane" });
+  const [article] = await author.articles().toArray();
+  const sameAuthor = await article?.author(); // author itself, with no query
   // #endregion inverse
-  return { mary, author };
+  return { author, sameAuthor };
 }
 
 export async function scoping() {
   // #region scoped
-  const mary = await Author.findByOrThrow({ name: "Mary" });
-  const published = await mary.publishedArticles().toArray(); // only her published ones
+  const author = await Author.findByOrThrow({ name: "Jane" });
+  const published = await author.publishedArticles().toArray(); // only the published ones
   // #endregion scoped
   return published;
 }
@@ -106,8 +106,8 @@ export async function deletingComments() {
 
 export async function destroying() {
   // #region dependent
-  const mary = await Author.findByOrThrow({ name: "Mary" });
-  await mary.destroy(); // her articles, their comments, and her profile go too, in one batch
+  const author = await Author.findByOrThrow({ name: "Jane" });
+  await author.destroy(); // its articles, their comments, and its profile go too, in one batch
   // #endregion dependent
-  return mary;
+  return author;
 }

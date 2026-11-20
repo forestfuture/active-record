@@ -17,12 +17,12 @@ export async function leftJoining() {
 
 export async function merging() {
   // #region merge
-  const byMary = await Article.joins("author")
-    .merge(Author.where({ name: "Mary" }))
+  const byJane = await Article.joins("author")
+    .merge(Author.where({ name: "Jane" }))
     .toArray();
   const byAuthorName = await Article.joins("author")
     .merge(Author.order({ name: "asc" }))
     .toArray();
   // #endregion merge
-  return { byMary, byAuthorName };
+  return { byJane, byAuthorName };
 }
