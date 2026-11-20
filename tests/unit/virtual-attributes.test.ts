@@ -219,3 +219,28 @@ describe("confirmation", () => {
     );
   });
 });
+
+describe("acceptance on a virtual attribute", () => {
+  class Registration extends Model.define({
+    id: "integer",
+    termsOfService: { type: "boolean", virtual: true },
+  }) {
+    static table = "registrations";
+    static {
+      this.validates("termsOfService", { acceptance: true });
+    }
+  }
+  const registrations = connect({} as never).model(Registration);
+
+  // A guard: acceptance reads the attribute as any validator does.
+  test("passes a ticked box from a form, and fails an unticked one", async () => {
+    const form = (ticked: string) =>
+      Registration.permit({ termsOfService: ticked }, "termsOfService");
+
+    expect(await errorsOf(registrations.build(form("1")))).toEqual([]);
+    expect(await errorsOf(registrations.build(form("0")))).toEqual([
+      "termsOfService accepted",
+      "Terms of service must be accepted",
+    ]);
+  });
+});
