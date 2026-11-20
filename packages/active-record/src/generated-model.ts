@@ -3,6 +3,14 @@
 // settled on first use, and its binding (#232).
 import type { SchemaAdapter } from "./adapter.ts";
 import { ancestors } from "./ancestors.ts";
+import {
+  aliasesIn,
+  defineAliasAccessors,
+  isAlias,
+  type AliasAttribute,
+  type AliasSpecs,
+  type WithoutAliases,
+} from "./attribute-aliases.ts";
 import { type AnyCustomType, isCustomType } from "./custom-types.ts";
 import type { IntegerEnum, TextEnum } from "./enum-values.ts";
 import { defineEnumMethods, defineEnumStatics } from "./enum-methods.ts";
@@ -86,7 +94,8 @@ type AttributeOverride =
       enum?: never;
       virtual?: false;
     })
-  | VirtualAttribute;
+  | VirtualAttribute
+  | AliasAttribute;
 
 /**
  * An attribute that isn't a column (#356): its type, and optionally nullability and a default,
@@ -156,9 +165,13 @@ type Overridden<S, O> = O extends AttributeType | AnyCustomType
 
 /**
  * A table's attributes after its overrides: changed ones merged, ignored ones gone, and virtual
- * ones added (#356).
+ * ones (#356) and aliases (#509) added.
  */
-export type OverriddenSpecs<A, O> = {
+export type OverriddenSpecs<A, O> = ColumnSpecs<A, WithoutAliases<O>> &
+  AliasSpecs<ColumnSpecs<A, WithoutAliases<O>>, O>;
+
+/** A table's attributes after the overrides that aren't aliases. */
+type ColumnSpecs<A, O> = {
   -readonly [
     K in keyof A as K extends keyof O ? (O[K] extends false ? never : K) : K
   ]: K extends keyof O ? Overridden<A[K], O[K]> : A[K];
@@ -212,10 +225,12 @@ interface Generated {
   readonly table: string;
   readonly primaryKey: string;
   readonly definitions: ReadonlyMap<string, AttributeDefinition>;
+  readonly aliases: ReadonlyMap<string, string>;
   readonly isIgnoringColumns: boolean;
 }
 
 const noAttributes: ReadonlyMap<string, AttributeDefinition> = new Map();
+const noAliases: ReadonlyMap<string, string> = new Map();
 
 /**
  * What each generated Model settled on when it was first used, by class (a subclass shares its
@@ -299,14 +314,16 @@ function find(owner: GeneratedClass, schema: DatabaseSchema): Generated {
   if (tableSchema === undefined) {
     throw new InvalidModel(`${owner.name}'s table, ${table}, isn't in the generated schema`);
   }
-  const { specs, isIgnoringColumns } = specsFor(owner.name, tableSchema, owner.attributes ?? {});
+  const declared = owner.attributes ?? {};
+  const { specs, isIgnoringColumns } = specsFor(owner.name, tableSchema, declared);
   const definitions = new Map(
     Object.entries(specs).map(([name, spec]) => [name, define(name, spec)]),
   );
+  const aliases = aliasesIn(owner.name, declared, definitions);
   const primaryKey = Object.hasOwn(owner, "primaryKey")
     ? owner.primaryKey!
     : tableSchema.primaryKey;
-  return { table, primaryKey, definitions, isIgnoringColumns };
+  return { table, primaryKey, definitions, aliases, isIgnoringColumns };
 }
 
 /**
@@ -335,6 +352,7 @@ export function settleGenerated(model: object): void {
     found = find(owner, place.schema);
     bindTable(owner, found.table, { isIgnoringColumns: found.isIgnoringColumns });
     defineAttributeAccessors(owner.prototype, found.definitions.keys());
+    defineAliasAccessors(owner.prototype, found.aliases);
     defineEnumMethods(owner.prototype, found.definitions);
     defineEnumStatics(owner, found.definitions);
     settled.set(owner, found);
@@ -370,6 +388,7 @@ export function defineGeneratedStatics(root: object): void {
     table: (model) => generated(model)?.table ?? "",
     primaryKey: (model) => generated(model)?.primaryKey ?? "id",
     attributeDefinitions: (model) => generated(model)?.definitions ?? noAttributes,
+    attributeAliases: (model) => generated(model)?.aliases ?? noAliases,
   };
   for (const [name, read] of Object.entries(statics)) {
     Object.defineProperty(root, name, {
@@ -426,7 +445,9 @@ function specsFor(
 ): { specs: AttributeSpecs; isIgnoringColumns: boolean } {
   const changes = new Map<string, ReturnType<typeof checked>>();
   const virtual: AttributeSpecs = {};
-  for (const [attribute, override] of Object.entries(overrides)) {
+  // An alias names an attribute rather than changing one (#509); `aliasesIn` checks it.
+  const given = Object.entries(overrides).filter(([, override]) => !isAlias(override));
+  for (const [attribute, override] of given) {
     if (override === undefined) continue;
     if (isVirtual(override)) {
       virtual[attribute] = virtualSpec(name, attribute, table, override);
