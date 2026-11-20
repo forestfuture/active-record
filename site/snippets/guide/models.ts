@@ -62,16 +62,3 @@ export async function examples(): Promise<unknown> {
   // #endregion json
   return { admins, recent, body, attributes };
 }
-
-/** The guide's casting example: values that arrive as text are cast as they're assigned. */
-export function castingExample(user: User): void {
-  // #region casting
-  // Values from JSON, a form or a query string often arrive as text:
-  user.assign(JSON.parse('{ "isActive": "false", "legacyId": " 42 " }'));
-  console.log(user.isActive); // false, not the truthy string "false"
-  console.log(user.legacyId); // 42
-
-  user.assign(JSON.parse('{ "isActive": "no" }'));
-  // TypeError: User: "no" isn't a boolean for "isActive"
-  // #endregion casting
-}

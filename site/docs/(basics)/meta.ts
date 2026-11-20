@@ -4,6 +4,7 @@ export default defineMeta({
   order: 2,
   pages: [
     "models",
+    "attribute-types",
     "querying",
     "conditions",
     "ordering-and-pagination",

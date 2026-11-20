@@ -54,7 +54,6 @@ import { runInit } from "../../../packages/active-record/cli/init/command.ts";
 import { parseJsonc } from "../../../packages/active-record/cli/project/config-file.ts";
 import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
 import { Post, User } from "../../../site/snippets/getting-started/models.ts";
-import * as models from "../../../site/snippets/guide/models.ts";
 import * as customTypes from "../../../site/snippets/guide/custom-types.ts";
 import { findOrCreate } from "../../../site/snippets/guide/find-or-create.ts";
 import { createdSince, oldestFirst, Reminder } from "../../../site/snippets/guide/mixed-dates.ts";
@@ -519,22 +518,6 @@ describe("Change a table", () => {
     expect(created.isPersisted()).toBe(true);
     expect(JSON.stringify(user)).not.toContain("bio");
     await dispose();
-  });
-});
-
-describe("Models: assigned values are cast", () => {
-  test("the example casts as its comments say, then throws the TypeError it shows", () => {
-    // Building and assigning send nothing, so no database is needed.
-    const user = connect({} as never)
-      .model(models.User)
-      .build({ email: "ada@example.com" });
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
-
-    expect(() => models.castingExample(user)).toThrow(
-      new TypeError('User: "no" isn\'t a boolean for "isActive"'),
-    );
-    expect(log.mock.calls).toEqual([[false], [42]]);
-    log.mockRestore();
   });
 });
 
