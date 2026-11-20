@@ -11,6 +11,7 @@ import * as through from "../../../site/snippets/pages/through-associations/exam
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Post as IteratedPost } from "../../../site/snippets/pages/batch-iteration/src/models/post.ts";
+import { Invoice } from "../../../site/snippets/pages/raw-statements/src/models/invoice.ts";
 import { Tag } from "../../../site/snippets/pages/through-associations/src/models/tag.ts";
 import {
   generatedAttributes,
@@ -284,6 +285,30 @@ describe("the Joins page's examples, on Postgres", () => {
     expect(commented.map((author) => author.name)).toEqual(["Mary"]);
     expect(everyAuthor).toHaveLength(2);
     expect(byAuthorName.map((article) => article.title)).toEqual(["Engines", "On Nothing"]);
+  });
+});
+
+// The Raw statements page's conversions, through pg on the Postgres table it shows.
+describe("the Raw statements page's conversions, on Postgres", () => {
+  const schema = pageSchema(
+    "raw-statements",
+    "INSERT INTO invoices (total, paid_at) VALUES (10, 1767225600), (20, 1767312000), (30, NULL)",
+  );
+
+  test("serialize's value binds as $1, and deserialize reads a BIGINT cell once it's a number", async () => {
+    const { serialize, deserialize } = Invoice.typeForAttribute("paidAt");
+
+    const { rows } = await schema().pool.query({
+      text: "SELECT total, paid_at FROM invoices WHERE paid_at >= $1 ORDER BY id",
+      values: [serialize(new Date("2026-01-02T00:00:00.000Z"))],
+    });
+
+    // pg reads a BIGINT cell as text; the adapter's own clients convert it, a raw query doesn't.
+    expect(rows.map((row) => typeof row["paid_at"])).toEqual(["string"]);
+    expect(() => deserialize(rows[0]!["paid_at"])).toThrow(TypeError);
+    expect(rows.map((row) => [row["total"], deserialize(Number(row["paid_at"]))])).toEqual([
+      [20, new Date("2026-01-02T00:00:00.000Z")],
+    ]);
   });
 });
 

@@ -11,6 +11,7 @@ export default defineMeta({
     "scopes",
     "joins",
     "batch-iteration",
+    "raw-statements",
     "persistence",
     "validations",
     "callbacks",
