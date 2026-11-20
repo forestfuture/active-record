@@ -183,3 +183,15 @@ questions:
       - "likeable = belongsTo([Photo, Video]) on Like, using likeableType and likeableId"
       - 'hasMany(Like, { as: "likeable" }) on each of Photo and Video'
     routes: /associations
+  - id: save-or-throw
+    question: "In a sign-up handler, how do I return a 422 with the errors when a new user isn't valid?"
+    expected:
+      - "createOrThrow throws RecordInvalid, with the record on error.record"
+      - "catch it and return error.record.errors.fullMessages() with a 422, and rethrow anything else"
+    routes: /persistence
+  - id: create-or-find
+    question: "Two requests at once might both create the same label. How do I find or create it safely?"
+    expected:
+      - "Label.createOrFindBy({ name }) inserts first, and finds the existing row when a UNIQUE index refuses the duplicate"
+      - "leave out a uniqueness validation on those attributes, so the index decides"
+    routes: /persistence

@@ -28,6 +28,9 @@ import * as enums from "../../../site/snippets/pages/enums/examples.ts";
 import * as joins from "../../../site/snippets/pages/joins/examples.ts";
 import * as models from "../../../site/snippets/pages/models/examples.ts";
 import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
+import * as persistence from "../../../site/snippets/pages/persistence/examples.ts";
+import { Article as PersistedArticle } from "../../../site/snippets/pages/persistence/src/models/article.ts";
+import { Post as PersistedPost } from "../../../site/snippets/pages/persistence/src/models/post.ts";
 import * as preloadingPage from "../../../site/snippets/pages/preloading/examples.ts";
 import * as querying from "../../../site/snippets/pages/querying/examples.ts";
 import * as serialization from "../../../site/snippets/pages/serialization/examples.ts";
@@ -522,6 +525,111 @@ describe("the Associations page's examples, on Postgres", () => {
 
     expect(await db().model(Writer).pluck("name")).toEqual(["Sam"]);
     expect([await db().model(Story).count(), await db().model(Bio).count()]).toEqual([0, 0]);
+  });
+});
+
+// The Persistence page's examples, on the tables it shows, on Postgres.
+describe("the Persistence page's examples, on Postgres", () => {
+  const schema = pageSchema("persistence", "SELECT 1");
+  beforeEach(async () => {
+    await schema().pool.query({
+      text: "DELETE FROM posts; DELETE FROM users; DELETE FROM articles; DELETE FROM labels",
+    });
+    await schema().pool.query({
+      text: "INSERT INTO users (id, email, is_active) VALUES ('00000000-0000-4000-8000-000000000001', 'jane@example.com', true);\nINSERT INTO posts (id, user_id, title, published_at) VALUES ('00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000001', 'Draft', NULL), ('00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001', 'Live', '2026-01-01T00:00:00.000Z');\nINSERT INTO articles (id, title, view_count, is_pinned) VALUES ('00000000-0000-4000-8000-000000000004', 'Hello', 0, false);\nINSERT INTO labels (id, name, color) VALUES ('00000000-0000-4000-8000-000000000005', 'travel', 'red')",
+    });
+  });
+  const db = () => connect(schema().url);
+  const run = <T>(fn: () => Promise<T>) => withDatabase(db(), fn);
+
+  test("save resolves to false with the errors, and create and update save", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => log.mockRestore());
+    const { user, created } = await run(persistence.saving);
+
+    expect(user.errors.fullMessages()).toEqual(["Email has already been taken"]);
+    expect([created.isPersisted(), created.isActive]).toEqual([true, false]);
+  });
+
+  test("createOrThrow's RecordInvalid becomes a 422", async () => {
+    const post = (email: string) =>
+      new Request("https://example.com/", { method: "POST", body: JSON.stringify({ email }) });
+
+    const created = await run(() => persistence.signUp(post("sam@example.com")));
+    const taken = await run(() => persistence.signUp(post("jane@example.com")));
+
+    expect([created.status, taken.status]).toEqual([201, 422]);
+    expect(await taken.json()).toEqual({ errors: ["Email has already been taken"] });
+  });
+
+  test("increment and toggle change the record, then save writes them", async () => {
+    const article = await run(persistence.changingInMemory);
+
+    expect([article.viewCount, article.isPinned]).toEqual([1, true]);
+  });
+
+  test("the Column methods write straight to the row", async () => {
+    await run(persistence.writingColumns);
+
+    const article = await db().model(PersistedArticle).findByOrThrow({ title: "Renamed" });
+    expect([article.viewCount, article.isPinned]).toEqual([1, true]);
+  });
+
+  test("touch sets updatedAt, a named attribute, or a given time", async () => {
+    const article = await run(persistence.touching);
+
+    expect(article.updatedAt).toEqual(new Date("2026-01-01T00:00:00Z"));
+    expect(article.viewedAt).toBeInstanceOf(Date);
+  });
+
+  test("the counters add to the rows they find", async () => {
+    expect((await run(persistence.counting)).viewCount).toBe(6);
+    expect((await run(persistence.countingInScope)).viewCount).toBe(7);
+  });
+
+  test("isPreviouslyNewRecord is true only after the save that creates", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => log.mockRestore());
+    await run(persistence.creatingArticles);
+
+    expect(log.mock.calls).toEqual([["New article: Fresh"]]);
+  });
+
+  test("the find-or-create methods find, build, or create as their comments say", async () => {
+    const labels = await run(persistence.findingOrCreating);
+
+    expect(labels.map((label) => [label.name, label.color, label.isPersisted()])).toEqual([
+      ["travel", "red", true],
+      ["food", null, false],
+      ["music", "blue", true],
+      ["art", "green", true],
+      ["news", null, true],
+    ]);
+  });
+
+  test("destroy removes the record and its dependents, and reload discards changes", async () => {
+    const user = await run(persistence.reloading);
+    expect(user.email).toBe("jane@example.com");
+
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    onTestFinished(() => log.mockRestore());
+    const destroyed = await run(persistence.destroying);
+
+    expect(destroyed.isDestroyed()).toBe(true);
+    expect(await db().model(PersistedPost).count()).toBe(0);
+  });
+
+  test("destroyAll and destroyBy destroy every record they match", async () => {
+    const drafts = await run(persistence.destroyingMany);
+
+    expect(drafts.map((post) => post.title)).toEqual(["Draft"]);
+    expect(await db().model(PersistedPost).count()).toBe(0);
+  });
+
+  test("inBatches destroys a batch at a time", async () => {
+    await run(persistence.destroyingInBatches);
+
+    expect(await db().model(PersistedPost).pluck("title")).toEqual(["Live"]);
   });
 });
 
