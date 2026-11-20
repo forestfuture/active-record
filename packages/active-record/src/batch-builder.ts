@@ -1,5 +1,6 @@
 // Batch: what `batch((b) => [...])` hands its callback, to prepare each write the batch runs.
 import { requireKnownContexts } from "./listed-contexts.ts";
+import { isThenable } from "./thenables.ts";
 import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import { counterSets, type CounterOptions, type Counters } from "./counters.ts";
 import { preparedWrites } from "./prepared-writes.ts";
@@ -154,9 +155,4 @@ export function batchEntries<T>(build: (b: Batch) => T, relationOf: RelationOf):
     );
   }
   return entries;
-}
-
-/** Whether `value` is a Promise or another thenable, as an async callback returns. */
-function isThenable(value: unknown): value is PromiseLike<unknown> {
-  return typeof (value as { then?: unknown } | null)?.then === "function";
 }

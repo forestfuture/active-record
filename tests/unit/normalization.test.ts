@@ -124,3 +124,46 @@ describe("normalizes and null", () => {
     expect(db.model(Profile).build({ bio: null }).bio).toBe("");
   });
 });
+
+describe("what with returns", () => {
+  class Tag extends Model.define({
+    id: { type: "integer", null: false },
+    name: "string",
+    weight: "integer",
+  }) {
+    static table = "tags";
+
+    static {
+      // Plain JavaScript, past the types: a list for a string, a promise, and a throw.
+      this.normalizes("name", {
+        with: ((name: string) => (name === "list" ? [name] : name)) as never,
+      });
+      this.normalizes("weight", { with: (async (weight: number) => weight) as never });
+      this.normalizes("name", {
+        with: (name) => {
+          if (name === "bad") throw new RangeError("no bad names");
+          return name;
+        },
+      });
+    }
+  }
+  const tags = db.model(Tag);
+
+  test("is cast again, refused when the attribute's type can't hold it", () => {
+    expect(() => tags.build({ name: "list" })).toThrow(
+      new TypeError('Tag: ["list"] isn\'t a string for "name"'),
+    );
+  });
+
+  test("is refused when it's a promise", () => {
+    expect(() => tags.build({ weight: 2 })).toThrow(
+      new TypeError(
+        'Tag normalizes "weight" with a function that returned a promise; a normalization runs synchronously',
+      ),
+    );
+  });
+
+  test("throws what with throws", () => {
+    expect(() => tags.build({ name: "bad" })).toThrow(new RangeError("no bad names"));
+  });
+});
