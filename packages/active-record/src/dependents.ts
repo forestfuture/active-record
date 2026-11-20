@@ -1,4 +1,5 @@
 // What destroying a record does to its `dependent` associations, planned before the DELETE: on its database, or as separate writes on another's.
+import { asStored } from "./normalized-values.ts";
 import { associationsOf } from "./association-fields.ts";
 import { DeleteRestriction } from "./errors.ts";
 import { addFailure } from "./errors-collection.ts";
@@ -121,7 +122,9 @@ function recordsOf(owner: Model, association: ResolvedAssociation): Scoped<Model
   const left = leaving.get(owner);
   if (left !== undefined && isLeftThrough(left, association)) {
     const { primaryKey } = association.target;
-    records = records.whereNot({ [primaryKey]: left.owner[state].storedKeyValue } as never);
+    records = records.whereNot(
+      asStored({ [primaryKey]: left.owner[state].storedKeyValue }) as never,
+    );
   }
   return association.definition.kind === "hasOne" ? association.inOrder(records).limit(1) : records;
 }

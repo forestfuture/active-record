@@ -1,4 +1,5 @@
 // A hasMany's collection methods on `user.posts()`: `push`, `delete`, `destroy`, `clear` and `destroyAll`, kept in step with what the owner holds.
+import { asStored } from "./normalized-values.ts";
 import { savingGroups } from "./autosave.ts";
 import { RecordNotSaved } from "./errors.ts";
 import { pinBefore } from "./executor.ts";
@@ -152,7 +153,7 @@ async function removeRows(
   // narrowed from that deletes rather than nullifying, and clears what the owner has loaded.
   const rows = association
     .linkedTo(owner[state].executor, association.keyOf(owner))
-    .where({ [target.primaryKey]: keys });
+    .where(asStored({ [target.primaryKey]: keys }));
   const writes = rows[preparedWrites];
   // The foreign key was checked as a target attribute when the Model was prepared.
   const statement = deletes ? writes.deleteAll() : writes.updateAll(association.nullified as never);

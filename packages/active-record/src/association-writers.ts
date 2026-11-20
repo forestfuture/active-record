@@ -1,4 +1,5 @@
 // The belongsTo and hasOne accessors: `post.author()` and `user.profile()`, and their `set`, `build`, and `create`.
+import { asStored } from "./normalized-values.ts";
 import { throughHasOne } from "./through-writes.ts";
 import { cachedRead } from "./associations.ts";
 import { RecordNotSaved } from "./errors.ts";
@@ -24,7 +25,9 @@ import type { ResolvedAssociation } from "./resolved-association.ts";
 export function belongsToAccessor(owner: Model, association: ResolvedAssociation): unknown {
   const read = () =>
     cachedRead(owner, association, (key) =>
-      association.all(owner[state].executor).findBy({ [association.targetAttribute]: key }),
+      association
+        .all(owner[state].executor)
+        .findBy(asStored({ [association.targetAttribute]: key })),
     );
   const set = (record: Model | null) => pointOwnerAt(owner, association, record);
   // On the target's database, which is the owner's unless the association crosses to another.
@@ -67,7 +70,7 @@ export function polymorphicBelongsToAccessor(
     cachedRead(owner, association, (key) => {
       const branch = association.branchForOwner(owner);
       if (branch === undefined) return Promise.resolve(null);
-      return branch.all(owner[state].executor).findBy({ [branch.targetAttribute]: key });
+      return branch.all(owner[state].executor).findBy(asStored({ [branch.targetAttribute]: key }));
     });
   return Object.assign(read, {
     set: (record: Model | null) => pointPolymorphicAt(owner, association, record),

@@ -1,4 +1,5 @@
 // `includes()`: preloading associations, the whole tree planned to go to D1 with its query (#217), and each level on another database to its own (#228).
+import { asStored } from "./normalized-values.ts";
 import { attributeFor } from "./attribute.ts";
 import type { CompiledSql } from "./compiler.ts";
 import type { Dialect } from "./dialect.ts";
@@ -366,7 +367,7 @@ function linkedQuery(
   const keys = owners.records.map((record) => record[state].read(ownerAttribute));
   const distinct = [...new Set(keys.filter((key) => key !== null && key !== undefined))];
   if (distinct.length === 0) return undefined;
-  return scopedQuery(association, base.where({ [targetAttribute]: distinct }));
+  return scopedQuery(association, base.where(asStored({ [targetAttribute]: distinct })));
 }
 
 /** `relation`, of `association`'s targets, in its order, as a preload: none for a `none()`. */
