@@ -1,15 +1,5 @@
-import { column, Model, sql } from "@forestfuture/active-record";
-
-// #region model
-export class Product extends Model.define({
-  id: { type: "string", null: false, generateId: true },
-  name: { type: "string", null: false },
-  priceCents: { type: "integer", null: false },
-  isAvailable: { type: "boolean", null: false },
-  createdAt: { type: "datetime", null: false },
-  updatedAt: { type: "datetime", null: false },
-}) {}
-// #endregion model
+import { column, sql } from "@forestfuture/active-record";
+import { Product } from "./src/models/product";
 
 export async function calculations() {
   // #region calculations

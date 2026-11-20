@@ -42,31 +42,25 @@ Nothing is atomic across batches: each batch is its own query, and its own write
 
 ## The Model
 
-The examples use this Model and table:
+The examples use this Model, whose attributes come from its table through the schema `active-record schema` generates:
 
-<Tabs syncKey="database">
-<Tab title="Model">
+<CodeGroup>
 
-<include>/_excerpts/guide/batch-iteration/model.ts</include>
+<include meta="post.ts">/_excerpts/pages/batch-iteration/src/models/post.ts</include>
 
-</Tab>
-<Tab title="D1">
+<include meta="schema.ts">/_excerpts/pages/batch-iteration/src/db/schema.ts</include>
 
-<include>/_excerpts/guide/batch-iteration-d1.sql</include>
+<include meta="D1">/_excerpts/pages/batch-iteration/migrations/0001_create_posts.sql</include>
 
-</Tab>
-<Tab title="Postgres">
+<include meta="Postgres">/_excerpts/pages/batch-iteration/postgres/0001_create_posts.sql</include>
 
-<include>/_excerpts/guide/batch-iteration-postgres.sql</include>
-
-</Tab>
-</Tabs>
+</CodeGroup>
 
 ## Visiting each record
 
 `findEach` loads a Relation’s records a batch at a time, and yields them one by one:
 
-<include meta="twoslash">/_excerpts/guide/batch-iteration/find-each.twoslash.ts</include>
+<include meta="twoslash">/_excerpts/pages/batch-iteration/examples/find-each.twoslash.ts</include>
 
 Batches go in primary-key order, 1,000 records each by default. Each batch is one query, and starts after the last batch’s key, so a deep batch costs no more than the first.
 
@@ -74,7 +68,9 @@ Batches go in primary-key order, 1,000 records each by default. Each batch is on
 
 `findInBatches` yields each batch as an array:
 
-<include meta="twoslash">/_excerpts/guide/batch-iteration/find-in-batches.twoslash.ts</include>
+<include meta="twoslash">
+  /_excerpts/pages/batch-iteration/examples/find-in-batches.twoslash.ts
+</include>
 
 `includes()` preloads each batch’s associations. Breaking out of the loop sends no more queries.
 
@@ -82,7 +78,7 @@ Batches go in primary-key order, 1,000 records each by default. Each batch is on
 
 `inBatches` yields a Relation of each batch’s records, for `updateAll`, `deleteAll`, and `destroyAll`:
 
-<include meta="twoslash">/_excerpts/guide/batch-iteration/in-batches.twoslash.ts</include>
+<include meta="twoslash">/_excerpts/pages/batch-iteration/examples/in-batches.twoslash.ts</include>
 
 - One query reads each batch’s keys, and the write you run is another.
 - A batch’s Relation keeps your conditions, so a row that stopped matching since the keys were read isn’t written.
@@ -92,7 +88,7 @@ Batches go in primary-key order, 1,000 records each by default. Each batch is on
 
 Every method takes the same options:
 
-<include meta="twoslash">/_excerpts/guide/batch-iteration/options.twoslash.ts</include>
+<include meta="twoslash">/_excerpts/pages/batch-iteration/examples/options.twoslash.ts</include>
 
 - `batchSize` sets the records in each batch: a whole number from 1, or `TypeError`.
 - `start` and `finish` bound the primary key, both included. With `order: "desc"`, `start` is the largest key and `finish` the smallest.

@@ -63,8 +63,13 @@ function codeOnly(code: string): string {
   return code.replace(/"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|\/\/.*$/gm, "");
 }
 
-/** Where an import is shown from: the app's base class, its schema, or its models. */
+/**
+ * Where an import is shown from. In a page's project (`pages/<page>/`), its `src/` is the app's,
+ * so `./src/models/user` is `./models/user`. Elsewhere, the app's base class, its schema, or its
+ * models.
+ */
 function shownSource(source: string): string {
+  if (/^["']\.\/src\//.test(source)) return source.replace("/src/", "/");
   if (!/^["']\./.test(source)) return source;
   if (/\/schema["']$/.test(source)) return source;
   if (/\/application-record["']$/.test(source)) return '"./application-record"';
@@ -76,8 +81,7 @@ function shownSource(source: string): string {
  * every example says where its names come from, and both come from the type-checked file.
  * The snippets' own model files (any relative import) are shown as the app's: `./models`. The
  * generated schema (`../db/schema`) and the app's base class (`./application-record`) are
- * shown where an app imports them from. What the file's own `model` region declares is imported
- * from `./models` too, so a page can show its Models once and every example beneath them.
+ * shown where an app imports them from.
  */
 export function exampleBlock(file: string, region: string): string | undefined {
   const code = readFileSync(file, "utf8").replaceAll("\r\n", "\n");
@@ -89,35 +93,39 @@ export function exampleBlock(file: string, region: string): string | undefined {
   const add = (source: string, names: string[]) =>
     bySource.set(source, [...(bySource.get(source) ?? []), ...names]);
   for (const { source, names } of importsOf(code)) add(shownSource(source), names.filter(used));
-  if (region !== "model") add('"./models"', modelNames(code).filter(used));
   const imports = [...bySource]
     .filter(([, names]) => names.length > 0)
     .map(([source, names]) => `import { ${names.join(", ")} } from ${source};`);
   return imports.length === 0 ? body : `${imports.join("\n")}\n\n${body}`;
 }
 
-/** The names a snippet file's `model` region exports: the Models its page shows once, at the top. */
-function modelNames(code: string): string[] {
-  const model = regionOf(code, "model") ?? "";
-  return [...model.matchAll(/^export (?:class|const|function|type|interface) (\w+)/gm)].map(
-    ([, name]) => name!,
-  );
+/** A page project's `src/` files, the folder that holds them, as Twoslash files; undefined elsewhere. */
+function projectFiles(file: string): string | undefined {
+  const root = /^(.*\/pages\/[^/]+)\/[^/]+\.ts$/.exec(file)?.[1];
+  if (root === undefined) return undefined;
+  const src = join(root, "src");
+  return readdirSync(src, { recursive: true, encoding: "utf8" })
+    .filter((name) => name.endsWith(".ts"))
+    .sort()
+    .map((name) => `// @filename: ${name}\n${readFileSync(join(src, name), "utf8").trimEnd()}`)
+    .join("\n\n");
 }
 
 /**
- * An example for a `twoslash` fence: the file's `model` region as a hidden models.ts, then the
- * example as exampleBlock shows it. Readers hover the example's names for their inferred types,
- * and the build fails if the example doesn't type-check. Undefined without a `model` region.
+ * An example for a `twoslash` fence, from a page's project (`pages/<page>/examples.ts`): the
+ * project's `src/` files, hidden, then the example as exampleBlock shows it. Readers hover the
+ * example's names for their inferred types, and the build fails if the example doesn't
+ * type-check. Undefined outside a page's project.
  */
 export function twoslashBlock(file: string, region: string): string | undefined {
-  const model = exampleBlock(file, "model");
+  const files = projectFiles(file);
   const example = exampleBlock(file, region);
-  if (region === "model" || model === undefined || example === undefined) return undefined;
+  if (files === undefined || example === undefined) return undefined;
   // An expected error was proven by the type check: Twoslash shows it rather than failing on it.
   const expectsError = example.includes("// @ts-expect-error");
   const shown = example.replace(/^\/\/ @ts-expect-error.*\n/gm, "");
   const flags = expectsError ? "// @noErrorValidation\n" : "";
-  return `${flags}// @filename: models.ts\n${model}\n\n// @filename: example.ts\n// ---cut---\n${shown}`;
+  return `${flags}${files}\n\n// @filename: example.ts\n// ---cut---\n${shown}`;
 }
 
 const regionName = /^[ \t]*\/\/ #region ([\w-]+)$/gm;

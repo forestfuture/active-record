@@ -1,15 +1,5 @@
-import { between, column, gte, lt, Model, sql } from "@forestfuture/active-record";
-
-// #region model
-export class User extends Model.define({
-  id: { type: "string", null: false, generateId: true },
-  email: { type: "string", null: false },
-  role: "string",
-  isActive: "boolean",
-  createdAt: { type: "datetime", null: false },
-  updatedAt: { type: "datetime", null: false },
-}) {}
-// #endregion model
+import { between, column, gte, lt, sql } from "@forestfuture/active-record";
+import { User } from "./src/models/user";
 
 export async function matching() {
   // #region where
