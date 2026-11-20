@@ -15,7 +15,7 @@ seo:
 | type an attribute more narrowly      | `declare status: "draft" \| "published"`                        |
 | use another table name               | `static override table = "billing_accounts"`                    |
 | declare attributes for a view        | `class ProductCount extends ApplicationRecord.define({ … }) {}` |
-| build a record without saving it     | `Product.build({ name: "Lamp" })`                               |
+| build a record without saving it     | `Product.build({ name: "Lamp" })`, never `new Product()`        |
 | take only some fields from a request | `Product.permit(await request.json(), "name", "metadata")`      |
 
 Each part of a Model has a page of its own:

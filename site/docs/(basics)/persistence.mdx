@@ -2,7 +2,7 @@
 title: Persistence
 description: "Save, update, and destroy records."
 seo:
-  description: "Save, create, update, and destroy Active Record records, their OrThrow variants, findOrCreateBy, increment and touch, destroying many records, and reload."
+  description: "Save, create, update, and destroy Active Record records, catch RecordInvalid from the OrThrow variants, findOrCreateBy, increment, touch, and reload."
 ---
 
 ## At a glance
@@ -11,6 +11,7 @@ seo:
 | ------------------------------------------ | --------------------------------------------------------- |
 | save a record, true or false               | `user.save()`, `User.create({ … })`, `user.update({ … })` |
 | throw when it can’t be saved               | `saveOrThrow()`, `createOrThrow()`, `updateOrThrow()`     |
+| return a 422 for an invalid record         | catch `RecordInvalid`, then read `error.record.errors`    |
 | change one attribute in memory             | `increment("viewCount")`, `toggle("isPinned")`            |
 | write straight to the row                  | `incrementColumn(…)`, `updateColumns({ … })`              |
 | set `updatedAt` without saving             | `touch()`                                                 |
