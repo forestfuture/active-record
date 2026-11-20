@@ -76,6 +76,10 @@ _Avoid_: Raw value, database value, value from D1
 An attribute whose values listeners, errors, and a printed record show as `"[FILTERED]"` (passwords, tokens, keys, emails), named by the Model's `filterAttributes`. D1 still gets the real values.
 _Avoid_: Redacted, masked, sensitive field; and "filter" alone, which means a **Scope**'s conditions
 
+**Normalization**:
+A function a Model declares with `normalizes` for one **Attribute**, run on each value assigned to it once cast, and on each value a query compares with it, so `" Jane@Example.com"` is kept and found as `"jane@example.com"`. It skips `null` unless declared `applyToNull`, and a value loaded from a row stays as it was stored.
+_Avoid_: Sanitizing, cleaning, formatting
+
 **Virtual attribute**:
 An **Attribute** declared with `virtual: true` that isn't a **Column**: typed, cast, and change-tracked, but never read from a row or written to one, and never named in a query. A `confirmation` rule reads one, which `toJSON()` leaves out.
 _Avoid_: Transient, non-persisted, attr_accessor

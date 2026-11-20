@@ -327,6 +327,24 @@ describe("the Models page's examples", () => {
     expect(log.calls().at(-1)).toEqual([true]);
   });
 
+  test("a normalization cleans up an assigned value and a query's", async () => {
+    const { account, found } = await run(models.normalizing);
+
+    expect([account.email, found?.id]).toEqual(["jane@example.com", account.id]);
+    expect(log.calls().at(-1)).toEqual(["sam@example.com"]);
+  });
+
+  test("normalizeAttribute and save clean up a row stored before", async () => {
+    await binding()
+      .prepare("INSERT INTO billing_accounts (id, email) VALUES ('a1', ' Jane@Example.com')")
+      .run();
+
+    await run(models.normalizingOldRows);
+
+    const { results } = await binding().prepare("SELECT email FROM billing_accounts").all();
+    expect(results).toEqual([{ email: "jane@example.com" }]);
+  });
+
   test("a Model can name another table", async () => {
     const { account } = await run(models.naming);
 

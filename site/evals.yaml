@@ -368,6 +368,18 @@ questions:
       - 'a virtual attribute in static attributes, such as termsOfService: { type: "boolean", virtual: true }'
       - "it's cast and taken by permit, but never saved, and a query can't name it"
     routes: /models
+  - id: normalize-email
+    question: 'Users sign up with emails like " Jane@Example.COM". How do I store them trimmed and lowercased, and still find them by what they type at login?'
+    expected:
+      - 'this.normalizes("email", { with: (email) => email.trim().toLowerCase() }) in the Model''s static {}'
+      - "every assigned value is normalized, and so are a query's values, so findBy with the typed email finds the stored row"
+    routes: /models
+  - id: normalize-old-rows
+    question: "I added a normalization to email, and now some older users can't be found by their email. Why, and how do I fix it?"
+    expected:
+      - "rows saved before the normalization keep their stored value, while the query's value is normalized"
+      - 'load each record, call normalizeAttribute("email"), and save it (or update them in a migration)'
+    routes: /models
   - id: confirm-email
     question: "How do I make a user type their email twice, and check both match?"
     expected:
