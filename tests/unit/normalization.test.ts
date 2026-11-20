@@ -387,6 +387,12 @@ describe("a condition on a normalized attribute", () => {
     );
   });
 
+  test("throws for an order's list when its normalization returns what the attribute can't hold", () => {
+    expect(() => ranks.inOrderOf("id", [1, 200], { filter: false })).toThrow(
+      new TypeError('Rank: got undefined for "id"; use null to store NULL'),
+    );
+  });
+
   test("throws for find's keys when their normalization returns what the key can't hold", async () => {
     await expect(ranks.find([1, 200])).rejects.toThrow(
       new TypeError('Rank: got undefined for "id"; use null to store NULL'),
