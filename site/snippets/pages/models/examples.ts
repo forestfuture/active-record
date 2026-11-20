@@ -28,7 +28,7 @@ export async function naming() {
   // #region naming
   console.log(FeaturedProduct.modelName); // "FeaturedProduct"
   const published = await FeaturedProduct.where({ status: "published" }).toArray(); // from products
-  const account = await Account.create({ email: "ada@example.com" }); // into billing_accounts
+  const account = await Account.create({ email: "jane@example.com" }); // into billing_accounts
   // #endregion naming
   return { published, account };
 }

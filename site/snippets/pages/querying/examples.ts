@@ -11,14 +11,14 @@ export async function building() {
 
 export async function finding() {
   // #region find
-  const ada = await User.findByOrThrow({ email: "ada@example.com" }); // or RecordNotFound
+  const user = await User.findByOrThrow({ email: "jane@example.com" }); // or RecordNotFound
   const nobody = await User.findBy({ email: "nobody@example.com" }); // null
-  const again = await User.find(ada.id); // by primary key, or RecordNotFound
+  const again = await User.find(user.id); // by primary key, or RecordNotFound
   const oldest = await User.first(); // by primary key, unless ordered
   const newest = await User.order({ createdAt: "asc" }).last(); // the order reversed
   const owner = await User.findSoleBy({ role: "owner" }); // the only one, or throws
   // #endregion find
-  return { ada, nobody, again, oldest, newest, owner };
+  return { user, nobody, again, oldest, newest, owner };
 }
 
 export async function reading() {

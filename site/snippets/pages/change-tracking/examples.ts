@@ -2,24 +2,24 @@ import { User } from "./src/models/user";
 
 export async function changing() {
   // #region changes
-  const ada = await User.findByOrThrow({ email: "ada@example.com" });
-  ada.email = "ada@lovelace.dev";
+  const user = await User.findByOrThrow({ email: "jane@example.com" });
+  user.email = "jane@work.example";
 
-  console.log(ada.changed()); // ["email"]
-  console.log(ada.attributeWas("email")); // "ada@example.com"
-  console.log(ada.isAttributeChanged("email", { from: "ada@example.com" })); // true
+  console.log(user.changed()); // ["email"]
+  console.log(user.attributeWas("email")); // "jane@example.com"
+  console.log(user.isAttributeChanged("email", { from: "jane@example.com" })); // true
 
-  await ada.save(); // logs "Email changed from ada@example.com to ada@lovelace.dev"
-  console.log(ada.isChanged()); // false
+  await user.save(); // logs "Email changed from jane@example.com to jane@work.example"
+  console.log(user.isChanged()); // false
   // #endregion changes
-  return ada;
+  return user;
 }
 
 export async function restoring() {
   // #region restore
-  const ada = await User.findByOrThrow({ email: "ada@example.com" });
-  ada.assign({ email: "typo@example", role: "owner" });
-  ada.restoreAttributes(["email"]); // back to "ada@example.com"; role stays changed
+  const user = await User.findByOrThrow({ email: "jane@example.com" });
+  user.assign({ email: "typo@example", role: "owner" });
+  user.restoreAttributes(["email"]); // back to "jane@example.com"; role stays changed
   // #endregion restore
-  return ada;
+  return user;
 }

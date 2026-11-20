@@ -38,8 +38,8 @@ export async function comparing() {
   // #endregion comparisons
 
   // #region sql
-  const email = "Ada@Example.com";
-  const ada = await User.findBy(sql`lower(${column("email")}) = lower(${email})`);
+  const email = "Jane@Example.com";
+  const user = await User.findBy(sql`lower(${column("email")}) = lower(${email})`);
   // #endregion sql
 
   // #region value
@@ -48,7 +48,7 @@ export async function comparing() {
     sql`${createdAt} >= ${createdAt.value(new Date("2026-01-01"))}`,
   ).toArray();
   // #endregion value
-  return { ada, newcomers };
+  return { user, newcomers };
 }
 
 export async function rewriting() {
@@ -65,7 +65,7 @@ export async function rewriting() {
   // #endregion unscope
 
   // #region excluding
-  const me = await User.findByOrThrow({ email: "ada@example.com" });
+  const me = await User.findByOrThrow({ email: "jane@example.com" });
   const everyoneElse = await User.excluding(me).toArray();
   // #endregion excluding
   return { activeAdmins, everyoneElse };
