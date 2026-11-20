@@ -37,6 +37,7 @@ import { Order as CallbackOrder } from "../../../site/snippets/pages/callbacks/s
 import { app } from "../../../site/snippets/pages/connecting/src/app.ts";
 import * as connecting from "../../../site/snippets/pages/connecting/examples.ts";
 import { User as ConnectedUser } from "../../../site/snippets/pages/connecting/src/models/user.ts";
+import * as customTypes from "../../../site/snippets/pages/custom-types/examples.ts";
 import * as errors from "../../../site/snippets/pages/errors/examples.ts";
 import * as calculations from "../../../site/snippets/pages/calculations/examples.ts";
 import * as changeTracking from "../../../site/snippets/pages/change-tracking/examples.ts";
@@ -1019,6 +1020,43 @@ describe("the Errors page's examples", () => {
 
     expect(user.isPersisted()).toBe(false);
     expect(user.errors.fullMessages()).toEqual(["Email has already been taken"]);
+  });
+});
+
+// The Custom types page's examples, on the tables it shows.
+describe("the Custom types page's examples", () => {
+  const binding = pageDatabase("custom-types", ["products", "shirts"]);
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO products (id, name, price_cents) VALUES ('1', 'Pin', 500), ('2', 'Lamp', 12000), ('3', 'Desk', 30000)",
+        "INSERT INTO shirts (id, name, sizes) VALUES ('4', 'Oxford', 'S,M')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+  const raw = async (sql: string) => (await binding().prepare(sql).all()).results;
+  const log = quietLog();
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+
+  test("money is stored as cents, and the queries find and order by it", async () => {
+    const { cheap, pricey } = await run(customTypes.pricing);
+
+    expect(cheap.map((product) => product.name)).toEqual(["Pin"]);
+    expect(pricey.map((product) => String(product.priceCents))).toEqual(["$300.00", "$120.00"]);
+  });
+
+  test("permitting a value cast throws for is the TypeError the page shows", () => {
+    expect(customTypes.refusing).toThrow(
+      new TypeError('Product: "abc" isn\'t a valid value for "priceCents"'),
+    );
+  });
+
+  test("a size pushed onto the list is a change, and save writes it", async () => {
+    await run(customTypes.addingSize);
+
+    expect(log.calls()).toEqual([[true]]);
+    expect(await raw("SELECT sizes FROM shirts")).toEqual([{ sizes: "S,M,XL" }]);
   });
 });
 
