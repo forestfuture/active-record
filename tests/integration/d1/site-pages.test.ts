@@ -15,6 +15,7 @@ import * as calculations from "../../../site/snippets/pages/calculations/example
 import * as conditions from "../../../site/snippets/pages/conditions/examples.ts";
 import * as joins from "../../../site/snippets/pages/joins/examples.ts";
 import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
+import * as rawStatements from "../../../site/snippets/pages/raw-statements/examples.ts";
 import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
@@ -390,6 +391,29 @@ describe("the Joins page's examples", () => {
       ["On Nothing"],
       ["Engines", "On Nothing"],
     ]);
+  });
+});
+
+// The Raw statements page's examples, on the invoices table it shows.
+describe("the Raw statements page's examples", () => {
+  const binding = pageDatabase("raw-statements", []);
+  beforeAll(async () => {
+    await binding().batch([
+      binding().prepare("INSERT INTO invoices VALUES (1, 10, 1767225600)"), // 2026-01-01
+      binding().prepare("INSERT INTO invoices VALUES (2, 20, 1767312000)"), // 2026-01-02
+      binding().prepare("INSERT INTO invoices VALUES (3, 30, NULL)"),
+    ]);
+  });
+
+  test("serialize binds the integer the column holds, so the comparison works", async () => {
+    const rows = await rawStatements.paidSince(binding(), new Date("2026-01-02T00:00:00.000Z"));
+
+    expect(rows).toEqual([{ id: 2, total: 20 }]);
+  });
+
+  test("deserialize reads the cell as a Date, and NULL as null", async () => {
+    expect(await rawStatements.paidAt(binding(), 1)).toEqual(new Date("2026-01-01T00:00:00.000Z"));
+    expect(await rawStatements.paidAt(binding(), 3)).toBeNull();
   });
 });
 

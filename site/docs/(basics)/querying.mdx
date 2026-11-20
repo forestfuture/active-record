@@ -27,33 +27,7 @@ Narrow a query with `where`, `whereNot`, `or`, comparisons such as `gte` and `be
 
 ## Using raw statements
 
-Bind what `serialize` gives when you send SQL to D1 yourself. `typeForAttribute` returns an attribute’s conversions:
-
-<include>/_excerpts/guide/raw-statements/bind.ts</include>
-
-`serialize` writes the `Date` as `paidAt` stores it: an integer here, ISO text for a plain `datetime`.
-
-Turn a cell from a raw query into the attribute’s value with `deserialize`:
-
-<include>/_excerpts/guide/raw-statements/read.ts</include>
-
-For a cache key, or the value a test expects of a raw row, `serialize` gives the stored form too.
-
-`cast` gives the JavaScript value for an input, without converting it to the stored form: `cast("2026-01-02")` is a `Date`. It keeps a `Date`’s milliseconds, where `serialize` floors them for `unixSeconds`.
-
-- **`serialize` and `cast`** take what assigning would: a `Date` or an ISO string for a `datetime`, `"42"` for an `integer`. Anything else throws `TypeError` naming the Model and attribute, and so does `undefined`. Use `null` for NULL.
-- **`deserialize`** reads a cell as loading a record does, and NULL and `undefined` are `null`. It throws the same `TypeError` for a cell that isn’t the attribute’s type. See [Fixing cells of the wrong type](./adopt-a-database#fixing-cells-of-the-wrong-type).
-- **A filtered attribute’s value** is hidden in those errors, as it is anywhere else.
-
-:::note
-`typeForAttribute` needs no connection to D1, and the attribute’s name is checked when you compile.
-:::
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-`typeForAttribute` is `type_for_attribute`, with the same `cast`, `serialize`, and `deserialize`. Active Record’s are strict: a value the attribute can’t hold throws, where Rails casts it leniently.
-
-</Callout>
+Bind and read values in SQL you send yourself with `typeForAttribute`’s `serialize` and `deserialize`. See [Raw statements](./raw-statements).
 
 ## Ordering and paging
 
