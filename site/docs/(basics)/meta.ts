@@ -7,6 +7,7 @@ export default defineMeta({
     "querying",
     "conditions",
     "ordering-and-pagination",
+    "batch-iteration",
     "persistence",
     "validations",
     "callbacks",

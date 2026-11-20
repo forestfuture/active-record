@@ -1,6 +1,16 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vite-plus/test";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  type MockInstance,
+  test,
+  vi,
+} from "vite-plus/test";
 import { UnknownAttribute, withDatabase } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import * as batchIteration from "../../../site/snippets/guide/batch-iteration.ts";
 import * as conditions from "../../../site/snippets/guide/conditions.ts";
 import * as ordering from "../../../site/snippets/guide/ordering.ts";
 import * as through from "../../../site/snippets/guide/through.ts";
@@ -196,10 +206,56 @@ describe("the Ordering and pagination page's examples", () => {
   });
 });
 
+// The Batch iteration page's examples, on the posts table it shows.
+describe("the Batch iteration page's examples", () => {
+  const binding = pageDatabase("batch-iteration", ["posts"]);
+  // The examples log what they show; the tests check it here rather than print it.
+  let log: MockInstance<typeof console.log>;
+  beforeAll(() => {
+    log = vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+  afterAll(() => log.mockRestore());
+  beforeEach(async () => {
+    log.mockClear();
+    await binding()
+      .prepare(
+        "INSERT INTO posts (id, title, published_at) VALUES (1, 'One', '2026-01-01T00:00:00.000Z'), (2, 'Two', NULL), (3, 'Three', NULL)",
+      )
+      .run();
+  });
+  const logged = () => log.mock.calls.map(([value]) => value);
+
+  test("findEach visits each matching record in key order", async () => {
+    await withDatabase(connect(binding()), () => batchIteration.eachPost());
+
+    expect(logged()).toEqual(["Two", "Three"]);
+  });
+
+  test("findInBatches yields arrays of up to batchSize records", async () => {
+    await withDatabase(connect(binding()), () => batchIteration.eachBatch());
+
+    expect(logged()).toEqual([2, 1]);
+  });
+
+  test("inBatches writes each batch's records", async () => {
+    const db = connect(binding());
+
+    await withDatabase(db, () => batchIteration.publishDrafts());
+
+    expect(await db.model(batchIteration.Post).where({ publishedAt: null }).count()).toBe(0);
+  });
+
+  test("start and finish bound the keys, and order: desc walks down", async () => {
+    const titles = await withDatabase(connect(binding()), () => batchIteration.choosing());
+
+    expect(titles).toEqual(["One", "Two", "Three", "Two", "One"]);
+  });
+});
+
 // Each page shows its Models beside its D1 tables; the attributes generated from those tables are
 // the ones its Models declare.
 describe("the standalone pages’ Models, against their D1 tables", () => {
-  test.each(["conditions", "through", "ordering"])(
+  test.each(["conditions", "through", "ordering", "batch-iteration"])(
     "%s declares what its tables generate",
     async (page) => {
       const cwd = scratch(`page-${page}-`);
