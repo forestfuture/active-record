@@ -61,6 +61,7 @@ export async function readingErrors() {
   await account.isValid(); // false
 
   account.errors.get("email"); // ["can't be blank"]
+  // "needs at least 3 characters" is ApplicationRecord's tooShort message, not the built-in one.
   account.errors.fullMessages(); // ["Email can't be blank", "Handle needs at least 3 characters", …]
   account.errors.toArray(); // [{ attribute: "email", type: "blank", message: "can't be blank" }, …]
   console.log(account.errors.size); // 5
