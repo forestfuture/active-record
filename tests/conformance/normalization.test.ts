@@ -196,3 +196,63 @@ describe("a normalized attribute's conditions", () => {
     expect(entries.map(({ title }) => title)).toEqual(["Two"]);
   });
 });
+
+describe("a normalized attribute's written values", () => {
+  let harness: Harness;
+
+  beforeAll(async () => {
+    harness = await openHarness();
+  });
+  afterAll(() => harness.dispose());
+
+  const members = () => harness.connect().model(Member);
+  const storedEmails = async () =>
+    (await harness.exec("SELECT email FROM users ORDER BY id")).map(({ email }) => email);
+
+  beforeEach(async () => {
+    await harness.reset("posts", "users");
+  });
+
+  test("create stores the value normalized", async () => {
+    await members().create({ id: 1, email: " Jane@Example.com " });
+    expect(await storedEmails()).toEqual(["jane@example.com"]);
+  });
+
+  test("insert stores the value normalized", async () => {
+    await members().insert({ id: 1, email: " Jane@Example.com " });
+    expect(await storedEmails()).toEqual(["jane@example.com"]);
+  });
+
+  test("insertAll stores each row's value normalized", async () => {
+    await members().insertAll([
+      { id: 1, email: " Jane@Example.com" },
+      { id: 2, email: "Sam@Example.com " },
+    ]);
+    expect(await storedEmails()).toEqual(["jane@example.com", "sam@example.com"]);
+  });
+
+  test("upsert stores the value normalized", async () => {
+    await members().insert({ id: 1, email: "jane@example.com" });
+    await members().upsert({ id: 1, email: " Sam@Example.com " });
+    expect(await storedEmails()).toEqual(["sam@example.com"]);
+  });
+
+  test("an insert stores a createWith value normalized", async () => {
+    await members()
+      .createWith({ email: " Jane@Example.com " })
+      .insert({ id: 1 } as never);
+    expect(await storedEmails()).toEqual(["jane@example.com"]);
+  });
+
+  test("updateAll stores the value normalized", async () => {
+    await members().insert({ id: 1, email: "jane@example.com" });
+    await members().updateAll({ email: " Sam@Example.com " });
+    expect(await storedEmails()).toEqual(["sam@example.com"]);
+  });
+
+  test("updateColumns stores the value normalized", async () => {
+    const member = await members().create({ id: 1, email: "jane@example.com" });
+    await member.updateColumns({ email: " Sam@Example.com " });
+    expect(await storedEmails()).toEqual(["sam@example.com"]);
+  });
+});

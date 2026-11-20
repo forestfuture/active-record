@@ -1,5 +1,5 @@
 // Relation: the chainable query (`where`, `order`, …), its finders, terminals, and bulk writes.
-import { writtenConditions } from "./normalized-conditions.ts";
+import { writtenConditions } from "./normalized-values.ts";
 import { jointly, type Executor } from "./executor.ts";
 import { querySql, type QuerySql } from "./compiler.ts";
 import { includeTree } from "./preload.ts";

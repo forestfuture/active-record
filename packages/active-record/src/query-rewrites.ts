@@ -1,5 +1,5 @@
 // Rewriting a query (#350): `rewhere`, `unscope` and `only`, dropping parts of a query (its conditions, or those on some attributes, its order, page, and the rest), and the keys `excluding` leaves out.
-import { normalizedConditions } from "./normalized-conditions.ts";
+import { normalizedConditions } from "./normalized-values.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import {
   Either,

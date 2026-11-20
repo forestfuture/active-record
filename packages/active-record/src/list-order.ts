@@ -1,6 +1,6 @@
 // `inOrderOf` (#350): ordering by an attribute's place in a list of values.
 import { attributeFor } from "./attribute.ts";
-import { normalizedConditions, normalizedValue } from "./normalized-conditions.ts";
+import { normalizedConditions, normalizedValue } from "./normalized-values.ts";
 import { columnOf } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
 import type { AttributeOrder, QueryDescription } from "./query.ts";
