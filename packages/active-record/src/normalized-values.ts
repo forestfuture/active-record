@@ -49,7 +49,7 @@ export function normalizedConditions<T extends object>(model: ModelClass, condit
 }
 
 /** One condition's value normalized: a list item by item, a comparison by its values. */
-export function normalizedValue(attribute: Attribute, value: unknown): unknown {
+function normalizedValue(attribute: Attribute, value: unknown): unknown {
   if (value === null) return null;
   if (Array.isArray(value)) return value.map((item) => normalizedValue(attribute, item));
   if (value instanceof Comparison) {
