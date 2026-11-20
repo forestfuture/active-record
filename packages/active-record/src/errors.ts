@@ -41,7 +41,7 @@ export class DeleteRestriction extends ActiveRecordError {
   override name = "DeleteRestriction";
 }
 
-/** `last()` can't reverse an order given as an `sql` fragment (Rails' IrreversibleOrderError). */
+/** `last()` can't reverse an order given as an `sql` fragment. */
 export class IrreversibleOrder extends ActiveRecordError {
   override name = "IrreversibleOrder";
 }
@@ -190,7 +190,7 @@ export class ReadonlyAssociation extends ActiveRecordError {
 
 /**
  * A polymorphic belongsTo's type that names none of the Models it lists (#60), read from the
- * database, as Rails raises when it can't find the class a type names.
+ * database.
  */
 export class UnknownModelName extends ActiveRecordError {
   override name = "UnknownModelName";

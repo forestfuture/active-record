@@ -222,7 +222,7 @@ export class GroupedRelation<M extends Model, G extends readonly GroupTerm<M>[]>
 }
 
 /**
- * A count of rows as Rails counts it after `select()`: of the one selected attribute's values.
+ * A count of rows after `select()`: of the one selected attribute's values.
  * Several selected attributes have no one count.
  */
 function withSelected(

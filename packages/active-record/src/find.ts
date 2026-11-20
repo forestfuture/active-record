@@ -71,7 +71,7 @@ async function findSome<M extends Model>(
 
 /**
  * The primary keys `find(...)` looks up: each cast to the key's type as a condition is, then
- * each once, as Rails does. One that can't be cast stays as given, matches nothing, and is
+ * each once. One that can't be cast stays as given, matches nothing, and is
  * reported missing.
  */
 function keysToFind(model: ModelClass, ids: readonly unknown[]): (string | number)[] {

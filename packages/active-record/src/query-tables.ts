@@ -55,7 +55,7 @@ export interface Tables {
 }
 
 /**
- * Names each of `query`'s joined tables as Rails does: by its table's name, or when that's
+ * Names each of `query`'s joined tables: by its table's name, or when that's
  * taken (in any case), `<plural association>_<table joined to>`, cut to the 63 bytes Postgres
  * keeps, then with `_2`, `_3`, … if that's taken too.
  */

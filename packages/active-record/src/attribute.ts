@@ -151,7 +151,7 @@ export class Attribute {
   /**
    * Whether two values are the same as stored (dates by time, json and bytes by content). Each is
    * cast as a condition's value first, so `isAttributeChanged`'s `from` and `to` compare as
-   * Rails' do, and one that can't be cast is the same as nothing (#20).
+   * conditions do, and one that can't be cast is the same as nothing (#20).
    */
   isSame(a: unknown, b: unknown): boolean {
     const [x, y] = [this.#comparable(a), this.#comparable(b)];

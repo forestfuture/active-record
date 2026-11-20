@@ -279,7 +279,7 @@ export async function prepareSave(
  */
 export async function prepareWrites(record: Model, claimed: Claimed): Promise<SavePlan> {
   claimed.add(record);
-  // New belongsTo records first: the record needs their keys (Rails' belongs_to autosave).
+  // New belongsTo records first: the record needs their keys.
   const before = await prepareBefore(record, claimed);
   if ("status" in before) return before;
   const isInsert = record[state].isNew;
@@ -373,7 +373,8 @@ function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): Prepared
 /**
  * The destroy lifecycle: can this record be used → beforeDestroy → its `dependent:` strategies
  * → aroundDestroy, wrapping the DELETE by the stored key (skipped for a never-saved record:
- * there's no row, as in Rails) → mark destroyed → afterDestroy. Every write, dependents' included, is one atomic batch.
+ * there's no row) → mark destroyed → afterDestroy. Every write, dependents' included, is one
+ * atomic batch.
  */
 export async function destroyLifecycle(record: Model): Promise<DestroyOutcome> {
   const needs = "destroy() needs its records";
@@ -406,7 +407,7 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
     return aborted(record);
   }
   waitWith(claimed, wrapped);
-  // A record that was never saved has no row, so no DELETE and no commit callbacks, as in Rails.
+  // A record that was never saved has no row, so no DELETE and no commit callbacks.
   const hasRow = !recordState.isNew;
   const counters = hasRow ? countersOnDestroy(record) : noCounterChanges;
   const deletion = hasRow

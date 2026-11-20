@@ -75,7 +75,7 @@ export abstract class AttributeWrites extends ModelStatics {
 
   /**
    * Writes these attributes straight to the row, with no validation, callback or `updatedAt`,
-   * and leaves the record clean for them, as Rails' `update_columns`. Resolves to whether there
+   * and leaves the record clean for them. Resolves to whether there
    * was a row to write. A new record is `RecordNotSaved`.
    */
   async updateColumns<R extends Model>(
@@ -97,7 +97,7 @@ export abstract class AttributeWrites extends ModelStatics {
   /**
    * Adds `by` to a number attribute in the row, as `SET x = COALESCE(x, 0) + by`, so concurrent
    * writes all count, with no validation, callback or `updatedAt`; the record then holds the
-   * row's new value. An unsaved change to it is added too, as Rails' `increment!`. With
+   * row's new value. An unsaved change to it is added too. With
    * `{ touch }`, the same UPDATE sets `updatedAt` (and any datetime attributes named) to now, and
    * the record holds them (#50). Resolves to whether there was a row to write.
    */
@@ -124,7 +124,7 @@ export abstract class AttributeWrites extends ModelStatics {
 
   /**
    * Sets `updatedAt`, and the datetime attributes named, to now (or `{ time }`), straight to
-   * the row, with no validation or save callback, as Rails' `touch`. Resolves to whether there
+   * the row, with no validation or save callback. Resolves to whether there
    * was a row to write. Inside its Model's `noTouching` block, it writes nothing (#496).
    */
   async touch<R extends Model>(this: R, ...args: TouchArguments<R>): Promise<boolean> {
@@ -134,7 +134,7 @@ export abstract class AttributeWrites extends ModelStatics {
 
   /**
    * Writes a boolean attribute's flipped value straight to the row, as `updateColumn` does: no
-   * validation or callback, unlike Rails' `toggle!`, which runs the save callbacks.
+   * validation or callback. Flip the attribute and `save()` to run the save callbacks.
    */
   async toggleColumn<R extends Model>(this: R, name: BooleanAttributeKey<R>): Promise<boolean> {
     requireSaved(this, "toggleColumn");

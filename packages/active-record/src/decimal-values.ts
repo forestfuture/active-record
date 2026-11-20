@@ -18,7 +18,7 @@ const maxFractionDigits = 16383;
  */
 const maxTextLength = maxWholeDigits + maxFractionDigits + 64;
 
-/** A number's significant digits when it's cast, as Rails casts a float to a decimal. */
+/** A number's significant digits when it's cast, as a float's are. */
 const numberPrecision = 16;
 
 /**
@@ -35,7 +35,7 @@ export function castDecimal(value: unknown): unknown {
 /**
  * A stored cell as a decimal's text. Postgres returns `numeric` as text; D1 returns a `DECIMAL`
  * cell as a number, since SQLite keeps decimal text as a REAL or an INTEGER, so it reads at 16
- * significant digits, a whole number past a safe integer too, as Rails reads one on SQLite.
+ * significant digits, a whole number past a safe integer too.
  */
 export function readDecimal(cell: unknown): unknown {
   if (typeof cell === "number") return castNumber(cell);
@@ -180,7 +180,7 @@ export function digitsProblem({ precision, scale }: DecimalDigits): string | und
 
 /**
  * A decimal in its one form, rounded to its scale, half away from zero, as Postgres's `numeric`
- * and Rails round; `uncastable` when its digits before the point are more than the precision
+ * rounds; `uncastable` when its digits before the point are more than the precision
  * leaves them. A precision without a scale has a scale of 0, as SQL's `NUMERIC(10)` does.
  */
 export function limitDecimal(decimal: string, { precision, scale }: DecimalDigits): unknown {

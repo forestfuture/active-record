@@ -7,8 +7,8 @@ import { state } from "./record-state.ts";
 import { builtRecordValues, requireSavedOwner, type RelationState } from "./relation-state.ts";
 
 /**
- * What a new record is handed to, once its attributes are assigned and before it's saved (Rails'
- * block): `create({ email }, (user) => { user.role = "member" })`. Awaited where it's saved.
+ * What a new record is handed to, once its attributes are assigned and before it's saved:
+ * `create({ email }, (user) => { user.role = "member" })`. Awaited where it's saved.
  */
 export type Init<M> = (record: M) => void | Promise<void>;
 

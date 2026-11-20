@@ -135,7 +135,7 @@ function isLeftThrough({ owner, foreignKey }: Leaving, association: ResolvedAsso
   );
 }
 
-/** Why a restrict strategy refuses the destroy, if it does (Rails' wording). */
+/** Why a restrict strategy refuses the destroy, if it does. */
 async function checkRestriction(
   owner: Model,
   association: ResolvedAssociation,
@@ -147,7 +147,7 @@ async function checkRestriction(
   if (dependent === "restrictWithException") {
     throw new DeleteRestriction(`Cannot delete record because of dependent ${name}`);
   }
-  // The association by its human name, in lowercase, as Rails' %{record}.
+  // The association by its human name, in lowercase, for the message's %{record}.
   const record = humanAttributeName(modelOf(owner), name).toLowerCase();
   return owner.errors[addFailure]("base", {
     type: "restrictDependentDestroy",

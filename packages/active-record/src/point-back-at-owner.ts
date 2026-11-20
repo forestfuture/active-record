@@ -7,8 +7,7 @@ import type { ResolvedAssociation } from "./resolved-association.ts";
 /**
  * Makes `owner` the loaded record of the belongsTo on `record` that is `association`'s inverse
  * (`inverseOf`). So `await post.author()` on a post built or loaded through `user.posts()` is
- * the user, with no query, even before either is saved, and a required belongsTo passes, as
- * Rails' `inverse_of` does.
+ * the user, with no query, even before either is saved, and a required belongsTo passes.
  */
 export function pointBackAtOwner(
   owner: Model,
@@ -25,7 +24,7 @@ export function pointBackAtOwner(
  * Points what `owner` loaded through `association` back at it (#62): a hasMany's or hasOne's
  * records at the owner, through their inverse belongsTo, and a belongsTo's record at the owner,
  * through its inverse hasOne. A hasMany isn't filled from a belongsTo: one record isn't the whole
- * collection, as in Rails.
+ * collection.
  */
 export function pointLoadedBack(
   owner: Model,

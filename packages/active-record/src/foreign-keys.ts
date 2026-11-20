@@ -1,4 +1,4 @@
-// Foreign keys for associations, and a polymorphic association's type attribute (#60): the one declared, or inferred by Rails' naming convention.
+// Foreign keys for associations, and a polymorphic association's type attribute (#60): the one declared, or inferred from the association's and class's names.
 import type { AssociationDeclaration, AssociationDefinition } from "./associations.ts";
 import { camelize, underscore } from "./naming.ts";
 
@@ -9,8 +9,8 @@ export interface Inference {
 }
 
 /**
- * Gives each declaration its foreign key: the one passed, or else inferred by Rails'
- * convention, where the association's name and its declaring class are known.
+ * Gives each declaration its foreign key: the one passed, or else inferred from
+ * the names, where the association's name and its declaring class are known.
  */
 export function withForeignKeys(
   declarations: Record<string, AssociationDeclaration>,
