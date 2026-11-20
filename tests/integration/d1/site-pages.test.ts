@@ -25,6 +25,7 @@ import * as enums from "../../../site/snippets/pages/enums/examples.ts";
 import * as joins from "../../../site/snippets/pages/joins/examples.ts";
 import * as models from "../../../site/snippets/pages/models/examples.ts";
 import * as ordering from "../../../site/snippets/pages/ordering-and-pagination/examples.ts";
+import * as preloadingPage from "../../../site/snippets/pages/preloading/examples.ts";
 import * as querying from "../../../site/snippets/pages/querying/examples.ts";
 import * as rawStatements from "../../../site/snippets/pages/raw-statements/examples.ts";
 import * as serialization from "../../../site/snippets/pages/serialization/examples.ts";
@@ -301,6 +302,61 @@ describe("the Models page's examples", () => {
       ["draft", 1],
       ["published", 1],
     ]);
+  });
+});
+
+// The Preloading page's examples, on the tables it shows.
+describe("the Preloading page's examples", () => {
+  const binding = pageDatabase("preloading", [
+    "likes",
+    "photos",
+    "videos",
+    "comments",
+    "articles",
+    "profiles",
+    "authors",
+  ]);
+  const log = quietLog();
+  beforeEach(async () => {
+    const db = binding();
+    await db.batch(
+      [
+        "INSERT INTO authors (id, name) VALUES ('mary', 'Mary'), ('ada', 'Ada')",
+        "INSERT INTO profiles (id, author_id, bio) VALUES ('p', 'mary', 'Poet')",
+        "INSERT INTO articles (id, author_id, title) VALUES ('x1', 'mary', 'On Nothing'), ('x2', 'ada', 'Engines')",
+        "INSERT INTO comments (id, article_id, body) VALUES ('c1', 'x1', 'Hm.')",
+        "INSERT INTO photos (id, title) VALUES ('ph', 'Sunset')",
+        "INSERT INTO videos (id, title) VALUES ('vi', 'Launch')",
+        "INSERT INTO likes (id, likeable_type, likeable_id) VALUES ('l1', 'Photo', 'ph'), ('x9', 'Video', 'vi')",
+      ].map((sql) => db.prepare(sql)),
+    );
+  });
+
+  test("includes loads every author's profile, articles and comments in one round trip", async () => {
+    const recording = recordingBatches(binding());
+
+    const authors = await withDatabase(connect(recording.binding), () =>
+      preloadingPage.preloading(),
+    );
+
+    expect(recording.batches).toEqual([4]); // the authors, profiles, articles, and comments
+    expect(authors).toHaveLength(2);
+    expect(log.calls()).toContainEqual(["Mary", 1, "Poet"]);
+    expect(log.calls()).toContainEqual(["Ada", 1, undefined]);
+  });
+
+  test("a polymorphic association preloads each listed Model in the same round trip", async () => {
+    const recording = recordingBatches(binding());
+
+    await withDatabase(connect(recording.binding), () => preloadingPage.preloadingPolymorphic());
+
+    expect(recording.batches).toEqual([3]); // the likes, photos, and videos
+    expect(
+      log
+        .calls()
+        .map(([title]) => String(title))
+        .sort((a, b) => a.localeCompare(b)),
+    ).toEqual(["Launch", "Sunset"]);
   });
 });
 
