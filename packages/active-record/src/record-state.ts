@@ -1,4 +1,5 @@
 // A record's private state: its values, changes, errors, and lifecycle flags.
+import { attributeName } from "./attribute-aliases.ts";
 import { type Attribute, attributeFor } from "./attribute.ts";
 import { isSameCell } from "./binary-values.ts";
 import type { Assignment } from "./compiler.ts";
@@ -141,12 +142,14 @@ export class RecordState {
   // Attributes
 
   /** Whether `name` is one of the Model's attributes and loaded: not left out of `select(...)`. */
-  hasAttribute(name: string): boolean {
+  hasAttribute(given: string): boolean {
+    const name = attributeName(this.#model, given);
     return this.#model.attributeDefinitions.has(name) && Object.hasOwn(this.#values, name);
   }
 
   /** An attribute's value; `MissingAttribute` if it wasn't loaded (left out of `select`). */
-  read(name: string): unknown {
+  read(given: string): unknown {
+    const name = attributeName(this.#model, given);
     this.#requireAttribute(name);
     if (!Object.hasOwn(this.#values, name)) {
       throw new MissingAttribute(
@@ -160,8 +163,9 @@ export class RecordState {
    * Assigns one attribute. `undefined` throws `TypeError`, because it would silently store NULL
    * (use `null` for that); a destroyed record is read-only.
    */
-  write(name: string, value: unknown): void {
+  write(given: string, value: unknown): void {
     this.#requireNotDestroyed("be changed");
+    const name = attributeName(this.#model, given);
     this.#store(name, this.#attribute(name).assigned(value));
   }
 
@@ -302,7 +306,8 @@ export class RecordState {
    * An attribute's value as last loaded or saved (a copy). A new record's is its initial
    * value (a default or generated id), or null, which `attributeWas` returns.
    */
-  valueInDatabase(name: string): unknown {
+  valueInDatabase(given: string): unknown {
+    const name = attributeName(this.#model, given);
     this.read(name);
     return this.#valueBefore(name);
   }
@@ -311,23 +316,25 @@ export class RecordState {
    * Whether the attribute has an unsaved change, optionally `from` and `to` given values
    * (compared as stored, so dates by time and json by content).
    */
-  isAttributeChanged(name: string, options: ChangeOptions = {}): boolean {
+  isAttributeChanged(given: string, options: ChangeOptions = {}): boolean {
+    const name = attributeName(this.#model, given);
     this.read(name);
     if (!this.changedNames().includes(name)) return false;
     return this.#isMatching(name, this.valueInDatabase(name), this.#values[name], options);
   }
 
   /** Whether the last save changed the attribute, optionally `from` and `to` given values. */
-  hasSavedChangeTo(name: string, options: ChangeOptions = {}): boolean {
+  hasSavedChangeTo(given: string, options: ChangeOptions = {}): boolean {
+    const name = attributeName(this.#model, given);
     this.read(name);
     const change = this.#savedChanges[name];
     return change !== undefined && this.#isMatching(name, change[0], change[1], options);
   }
 
   /** Puts unsaved changes back: to the Snapshot, or to a new record's initial values (or null). */
-  restore(names: readonly string[] = this.changedNames()): void {
+  restore(given: readonly string[] = this.changedNames()): void {
     this.#requireNotDestroyed("be changed");
-    for (const name of names) {
+    for (const name of given.map((each) => attributeName(this.#model, each))) {
       const attribute = this.#attribute(name);
       if (this.#lifecycle !== "new") {
         if (this.#isInSnapshot(name)) this.#values[name] = this.#snapshotValue(name);

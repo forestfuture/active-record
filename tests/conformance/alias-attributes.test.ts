@@ -70,4 +70,43 @@ describe("an attribute alias", () => {
       expect(await harness.exec("SELECT email FROM users")).toEqual([{ email: "sam@example.com" }]);
     });
   });
+
+  describe("its changes", () => {
+    test("are listed under the attribute it names", async () => {
+      const user = await db().model(User).create({ email: "jane@example.com" });
+
+      user.login = "sam@example.com";
+
+      expect(user.changes()).toEqual({ email: ["jane@example.com", "sam@example.com"] });
+    });
+
+    test("are read through the alias by the methods that take a name", async () => {
+      const user = await db().model(User).create({ email: "jane@example.com" });
+      user.login = "sam@example.com";
+
+      expect(user.attributeWas("login")).toBe("jane@example.com");
+      expect(user.isAttributeChanged("login", { to: "sam@example.com" })).toBe(true);
+      expect(user.willSaveChangeTo("login")).toBe(true);
+      expect(user.hasAttribute("login")).toBe(true);
+    });
+
+    test("are read through the alias once saved", async () => {
+      const user = await db().model(User).create({ email: "jane@example.com" });
+
+      await user.update({ email: "sam@example.com" });
+
+      expect(user.savedChangeTo("login")).toEqual(["jane@example.com", "sam@example.com"]);
+      expect(user.hasSavedChangeTo("login")).toBe(true);
+      expect(user.attributeBeforeLastSave("login")).toBe("jane@example.com");
+    });
+
+    test("are undone through the alias", async () => {
+      const user = await db().model(User).create({ email: "jane@example.com" });
+      user.login = "sam@example.com";
+
+      user.restoreAttributes(["login"]);
+
+      expect(user.email).toBe("jane@example.com");
+    });
+  });
 });

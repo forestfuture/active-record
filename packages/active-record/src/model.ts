@@ -22,6 +22,7 @@ import type { Errors } from "./errors-collection.ts";
 import { humanAttributeName, type ErrorMessages } from "./error-messages.ts";
 import { declare, declared } from "./declarations.ts";
 import { checkNormalizedName, type NormalizeOptions } from "./normalization.ts";
+import { attributeName } from "./attribute-aliases.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
@@ -571,7 +572,7 @@ export class Model extends AttributeWrites {
     name: K,
   ): [before: AttributesOf<R>[K], after: AttributesOf<R>[K]] | undefined {
     this[state].read(name);
-    const change = this[state].savedChanges()[name];
+    const change = this[state].savedChanges()[attributeName(modelOf(this), name)];
     return change === undefined
       ? undefined
       : ([...change] as [AttributesOf<R>[K], AttributesOf<R>[K]]);
@@ -592,7 +593,7 @@ export class Model extends AttributeWrites {
     name: K,
   ): AttributesOf<R>[K] {
     this[state].read(name);
-    const change = this[state].savedChanges()[name];
+    const change = this[state].savedChanges()[attributeName(modelOf(this), name)];
     return (
       change === undefined ? this[state].valueInDatabase(name) : change[0]
     ) as AttributesOf<R>[K];
