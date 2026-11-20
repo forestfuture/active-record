@@ -106,7 +106,7 @@ To add to a number without loading the record, pass its primary key to `updateCo
 
 Each one sends a single statement and resolves to the number of rows it changed. Like `updateAll`, it skips validations and callbacks. To set `updatedAt` too, pass `{ touch: true }`. To set other datetime attributes as well, name them, as in `{ touch: "viewedAt" }`.
 
-To keep a count of an association’s records, see [counter caches](./associations#counting-records-with-a-counter-cache).
+To keep a count of an association’s records, see [counter caches](./counter-caches).
 
 :::warning[Counting by key skips the default scope]
 `Article.updateCounters`, `incrementCounter`, and `decrementCounter` find rows by primary key alone. If a default scope keeps tenants apart or hides deleted rows, a key from a request can reach a row it hides. Start from a Relation instead, which keeps the default scope:

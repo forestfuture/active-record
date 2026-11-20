@@ -272,71 +272,7 @@ Without a strategy, it’s up to the database. If the table declares the foreign
 
 ## Counting records with a counter cache
 
-To keep a count of an article’s comments on the article itself, declare `counterCache` on the comment’s `belongsTo`:
-
-<include>/_excerpts/guide/counter-caches/declare.ts</include>
-
-The article needs an attribute for the count, named for the counted Model: `commentsCount` for comments. To keep it in another attribute, name it: `counterCache: "replyCount"`.
-
-Creating a comment adds one to its article’s count, and destroying it takes one away:
-
-<include>/_excerpts/guide/counter-caches/counting.ts</include>
-
-Changing a comment’s `articleId` moves the count to the other article. An article you’ve loaded takes the new count too, without a save.
-
-:::tip
-Each change is written in the same atomic batch as the comment, so the count can’t drift from the rows.
-:::
-
-Removing comments through the article’s association counts them out: `delete`, `clear`, and `deleteAll()` on `article.comments()`. Removing records through an association through another counts out its join records the same way. Bulk writes leave the count alone: `insert`, `insertAll`, `upsert`, `updateAll`, and `deleteAll()` on any other Relation.
-
-:::note
-A polymorphic `belongsTo` counts a record on whichever listed Model its type names, so each of them declares the attribute. A counter cache on a Model on [another database](./several-databases) throws `InvalidModel`, since its count couldn’t be written in the same batch. So do two `belongsTo`s on one foreign key that keep the same attribute, since each comment would count twice.
-:::
-
-### Reading the count
-
-`size()`, `isEmpty()`, and `hasAny()` on the association read the count, without a query:
-
-<include>/_excerpts/guide/counter-caches/size.ts</include>
-
-An association reads the counter named for it: `comments` reads `commentsCount`. If its counter has another name, name it on the `hasMany` too:
-
-<include>/_excerpts/guide/counter-caches/named.ts</include>
-
-An association with any other name counts its rows, so one narrowed by a scope counts only its own records.
-
-:::note
-`count()` always counts the rows.
-:::
-
-### Resetting a count
-
-To set a count from the rows, after a bulk write for example, use `resetCounters`:
-
-<include>/_excerpts/guide/counter-caches/reset.ts</include>
-
-It takes one association’s name or a list of them. It sets every counter the association’s records keep on the article. `touch: true` also sets `updatedAt`. An association with a scope can’t reset a counter, since its records aren’t all the ones counted.
-
-### Adding a counter to existing records
-
-A new counter starts at zero, even for an article that already has comments. To fill it in before anything reads it, declare it with `active: false`:
-
-<include>/_excerpts/guide/counter-caches/backfill.ts</include>
-
-Writes keep the count up to date, while `size()` and the others count the rows. Run `resetCounters` for each article, then remove `active: false`.
-
-<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
-
-Rails takes one from the article the comment’s key pointed at when it was loaded. Here the count is taken from the article the comment’s row points at as it’s deleted, so a comment that’s already gone, or that another request moved, doesn’t throw the count off.
-
-`counterCache` names an attribute, where Rails’ `counter_cache` names a column. Rails also makes the counter read-only. Here it’s an ordinary attribute.
-
-In Rails, removing records through a scoped association leaves the count too high, and `reset_counters` on one writes the scope’s count into the counter. Here the removal counts its records out, and `resetCounters` refuses the scoped association.
-
-Rails counts a comment twice when two `belongs_to`s keep the same counter. Here that throws `InvalidModel`.
-
-</Callout>
+Keep a count of an article’s comments on the article with `counterCache`, and read it with `size()`, with no query. See [Counter caches](./counter-caches).
 
 ## Touching the record it belongs to
 
@@ -386,7 +322,7 @@ The article is found through the association, so the association’s scope and A
 
 ### Touching with a counter cache
 
-A comment that also keeps a [counter cache](#counting-records-with-a-counter-cache) on the article touches it the same way, in the same batch as the count. An article the default scope hides is counted, but isn’t touched.
+A comment that also keeps a [counter cache](./counter-caches) on the article touches it the same way, in the same batch as the count. An article the default scope hides is counted, but isn’t touched.
 
 ### Turning touches off
 

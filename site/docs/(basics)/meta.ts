@@ -22,6 +22,7 @@ export default defineMeta({
     "associations",
     "preloading",
     "autosaving",
+    "counter-caches",
     "through-associations",
     "batches",
     "connecting",
