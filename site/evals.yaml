@@ -362,3 +362,15 @@ questions:
       - "JSON can send null or a list"
       - "findBy({ token: null }) matches rows whose token is NULL, and a list matches any of its values"
     routes: /untrusted-input
+  - id: virtual-attribute
+    question: "How do I give a Model a terms-of-service checkbox from a signup form, without a column for it?"
+    expected:
+      - 'a virtual attribute in static attributes, such as termsOfService: { type: "boolean", virtual: true }'
+      - "it's cast and taken by permit, but never saved, and a query can't name it"
+    routes: /models
+  - id: confirm-email
+    question: "How do I make a user type their email twice, and check both match?"
+    expected:
+      - 'this.validates("email", { confirmation: true }), with a virtual emailConfirmation attribute'
+      - "a mismatch is an error on emailConfirmation, and toJSON() leaves the confirmation out"
+    routes: /validations

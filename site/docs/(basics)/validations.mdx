@@ -75,6 +75,7 @@ Declare validations in a Model’s `static {}` block with `this.validates`, as `
 | `numericality` | `{ onlyInteger, greaterThan, greaterThanOrEqualTo, lessThan, lessThanOrEqualTo }`, or `true` | `notANumber`, `notAnInteger`, `greaterThan`, … |
 | `comparison`   | `{ greaterThan, greaterThanOrEqualTo, lessThan, lessThanOrEqualTo, equalTo, otherThan }`     | `blank`, `greaterThan`, …                      |
 | `acceptance`   | `true`, or `{ accept: [...] }`                                                               | `accepted`                                     |
+| `confirmation` | `true`, or `{ caseSensitive }`                                                               | `confirmation`                                 |
 | `uniqueness`   | `{ scope: [...], caseSensitive }`, or `true`                                                 | `taken`                                        |
 
 Every validation runs, in the order declared, so one attribute can collect several errors. Within one `validates` call, the rules run in the table’s order. Every rule also accepts these options:
@@ -97,7 +98,8 @@ The default messages are in English: “can’t be blank”, “is too short (mi
 - **`exclusion`** passes `null` unless the list holds it.
 - **`numericality`** only accepts numbers, so a numeric string such as `"12"` is `notANumber`. A [`decimal`](./attribute-types#storing-exact-numbers-days-and-times) attribute’s text is the exception: it’s compared with each bound as a number, exactly.
 - **`comparison`** compares a number with a number, a string with a string, or a Date with a Date by its time. A `decimal` attribute compares as a number, with a number or a decimal’s text. A bound is a value, or a function of the record (see [Comparing with another attribute](#comparing-with-another-attribute)). A blank value fails once, as `blank`. Blank means `null` or a string that’s only whitespace. Comparing a number with a Date, or any two different kinds, throws `TypeError`. Against a bound of `NaN` or an invalid Date, only `otherThan` passes.
-- **`acceptance`** is for a box that must be ticked. It passes `true` and `"1"`, or the values you give in `{ accept: [...] }`. A checkbox left unticked sends nothing, so `null` fails too. To let `null` pass, add `allowNull: true`.
+- **`acceptance`** is for a box that must be ticked. It passes `true` and `"1"`, or the values you give in `{ accept: [...] }`. A checkbox left unticked sends nothing, so `null` fails too. To let `null` pass, add `allowNull: true`. The box is usually a [virtual attribute](./models#adding-virtual-attributes), since the table needn’t keep it.
+- **`confirmation`** compares the attribute with a [virtual attribute](./models#adding-virtual-attributes) named for it, such as `emailConfirmation`. See [Confirming a value](#confirming-a-value).
 - **`uniqueness`** leaves the record itself out when updating, and never treats `null` as taken, since a UNIQUE index lets several rows hold NULL. `caseSensitive: false` compares with the database’s `lower()`: on D1, SQLite’s lowercases only ASCII letters.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
@@ -108,13 +110,29 @@ Rails’ `acceptance` lets `nil` pass, since its form helpers send `"0"` for an 
 
 Rails’ `allow_blank` also skips `false`, `[]`, and `{}`. Here `allowBlank` skips what `presence` fails: `null` and a string that’s only whitespace.
 
-Rails’ `confirmation` isn’t here yet.
-
 </Callout>
 
 :::warning[Uniqueness isn’t a guarantee]
 Two requests can both check that an email is free, then both insert it. `uniqueness` gives a friendly error early, but only a UNIQUE index in the table prevents duplicates, so declare both. When the index catches a duplicate, the save throws [`RecordNotUnique`](./errors#constraint-errors). For attributes you create with [`createOrFindBy`](./persistence#creating-records-from-concurrent-requests), declare only the index.
 :::
+
+### Confirming a value
+
+Add `confirmation: true` for a value typed twice, as `Member` does with `email`. Its second copy is the virtual attribute `emailConfirmation`:
+
+<include>/_excerpts/pages/validations/examples/confirmation.mdx</include>
+
+- **A mismatch is an error on the confirmation,** “Email confirmation doesn’t match Email”, so a form shows it beside the second field.
+- **A `null` confirmation passes,** so code that sets the email alone needs no confirmation. Add `presence` to the confirmation to require it.
+- **`caseSensitive: false`** ignores case.
+- **Without the virtual attribute,** the rule throws `InvalidModel`, naming the attribute to declare.
+- **`toJSON()` leaves the confirmation out,** so `Response.json(member)` never sends it back.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails’ `confirmation` defines `email_confirmation` for you, as a plain accessor. Here you declare it as a virtual attribute, so it’s typed, cast, and taken by `permit`. Like Rails, `toJSON()` never sends it.
+
+</Callout>
 
 ### Comparing with another attribute
 
