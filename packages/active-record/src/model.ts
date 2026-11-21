@@ -19,7 +19,11 @@ import { declare, declared } from "./declarations.ts";
 import { checkNormalizedName, type NormalizeOptions } from "./normalization.ts";
 import { defineModel, type SpecsOrWidened } from "./defined-model.ts";
 import type { DefinedSpecs } from "./attribute-aliases.ts";
-import type { SecurePasswordMethods, WithSecurePasswords } from "./secure-passwords.ts";
+import {
+  passwordAttributeNames,
+  type SecurePasswordMethods,
+  type WithSecurePasswords,
+} from "./secure-passwords.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
@@ -727,14 +731,15 @@ export class Model extends AttributeWrites {
 
   /**
    * The loaded attributes as JSON-ready values (dates as ISO strings), without the Model's
-   * `hiddenAttributes` or the virtual attributes its `confirmation` rules read, for
-   * `Response.json(record)`.
+   * `hiddenAttributes`, the virtual attributes its `confirmation` rules read, or its secure
+   * passwords with their confirmations and challenges (#355), for `Response.json(record)`.
    */
   toJSON(): Record<string, unknown> {
     const model = modelOf(this);
     const hidden = [
       ...model.hiddenAttributes,
       ...confirmationNames(declared(model, "validations")),
+      ...passwordAttributeNames(model.attributeDefinitions),
     ];
     return Object.fromEntries(
       Object.entries(this[state].attributes())
