@@ -34,6 +34,7 @@ import {
   type SpecOverride,
 } from "./spec-keys.ts";
 import { bindTable, modelNameOf, ownValueSetter, tableize } from "./table-names.ts";
+import { defineSecureTokenMethods, type SecureTokenOptions } from "./secure-tokens.ts";
 import {
   defineSecurePasswordMethods,
   withSecurePasswords,
@@ -70,6 +71,8 @@ type AttributeOverride =
       virtual?: false;
       /** Or `true`: a generated enum's names, with its methods; `false`: none of it (#64). */
       enum?: TextEnum | boolean;
+      /** A random token, generated for a new record (#355). */
+      secureToken?: boolean | SecureTokenOptions;
     } & EnumOptions &
       ValueSource)
   | (Pick<SpecOverride, "null" | "default"> & {
@@ -166,7 +169,8 @@ type Overridden<S, O> = O extends AttributeType | AnyCustomType
         type: O extends { type: infer T extends AttributeType | AnyCustomType } ? T : TypeOf<S>;
         null: O extends { null: infer N extends boolean } ? N : NullOf<S>;
       } & KeptEnumKeys<S, O> &
-        GivenEnumKeys<O>
+        GivenEnumKeys<O> &
+        Pick<O, "secureToken" & keyof O>
     : S;
 
 /**
@@ -368,6 +372,7 @@ export function settleGenerated(model: object): void {
     defineEnumMethods(owner.prototype, found.definitions);
     defineEnumStatics(owner, found.definitions);
     defineSecurePasswordMethods(owner.prototype, found.definitions);
+    defineSecureTokenMethods(owner.prototype, found.definitions);
     settled.set(owner, found);
   }
   settled.set(model, found);
