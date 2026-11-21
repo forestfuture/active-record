@@ -63,7 +63,7 @@ import {
 } from "./unit-of-work.ts";
 import { runValidations, type UniquenessOptions } from "./validations.ts";
 import { hashPasswords, passwordConfirmations, passwordFailures } from "./secure-passwords.ts";
-import { generateTokensOnCreate } from "./secure-tokens.ts";
+import { generateTokens } from "./secure-tokens.ts";
 
 /**
  * What a lifecycle run ended with. Refusals are outcomes (the non-throwing methods return
@@ -317,7 +317,7 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
  */
 async function beforeWrite(record: Model, isInsert: boolean): Promise<Wrapped | undefined> {
   const { attributeDefinitions } = modelOf(record);
-  if (isInsert) generateTokensOnCreate(attributeDefinitions, record[state]);
+  if (isInsert) generateTokens(attributeDefinitions, record[state], "create");
   await hashPasswords(attributeDefinitions, record[state]);
   if (!(await runAbortableCallbacks(record, "beforeSave"))) return undefined;
   const wrapped = await startSave(record, isInsert);
