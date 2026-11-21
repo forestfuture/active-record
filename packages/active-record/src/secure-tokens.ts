@@ -13,7 +13,7 @@ export interface SecureTokenOptions {
 }
 
 /** The fewest characters a secure token has. */
-export const MINIMUM_TOKEN_LENGTH = 24;
+const MINIMUM_TOKEN_LENGTH = 24;
 
 /** Base58: digits and letters, without `0`, `O`, `I` and `l`, which read alike. */
 const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
