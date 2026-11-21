@@ -1,4 +1,4 @@
-// Telling a test's or a suite's call (`test("…")`, `test.skip("…")`, `test.each(table)("…")`) by the function its chain starts from, its name, and an assertion's call (`expect(…)`), for the repo's lint rules.
+// Telling a test's or a suite's call (`test("…")`, `test.skip("…")`, `test.each(table)("…")`) by the function its chain starts from, an assertion's (`expect(…)`), and reading a test's name, for the repo's lint rules.
 
 /** For each kind of link in a call's chain, the node it goes on from, toward the chain's start. */
 const chainLinks = {
