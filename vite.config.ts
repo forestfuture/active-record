@@ -115,6 +115,8 @@ export default defineConfig({
         files: ["packages/*/src/**/*.ts", "packages/*/cli/**/*.ts"],
         rules: {
           "active-record/module-header": "error",
+          // The library's own lookups by a record's key keep it as stored (#354).
+          "active-record/stored-key-lookup": "error",
           "regexp/no-super-linear-move": "error",
           "regexp/no-super-linear-backtracking": "error",
           "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }],
