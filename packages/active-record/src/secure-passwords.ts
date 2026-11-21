@@ -131,7 +131,7 @@ export function securePasswordsOf(
     return [
       {
         name,
-        digest: `${name}Digest`,
+        digest: digestOf(definitions, name)!,
         algorithm: options.algorithm ?? pbkdf2Sha256,
         isValidated: options.validations !== false,
       },
@@ -175,6 +175,14 @@ export function defineSecurePasswordMethods(
 
 function capitalized(name: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+/** The digest's attribute, when `name` is a secure password: `passwordDigest` for `password`. */
+export function digestOf(
+  definitions: ReadonlyMap<string, AttributeDefinition>,
+  name: string,
+): string | undefined {
+  return definitions.get(name)?.securePassword === undefined ? undefined : `${name}Digest`;
 }
 
 /** What a record gives a secure password's save: its values, and a write to its digest. */
