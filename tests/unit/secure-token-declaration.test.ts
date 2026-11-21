@@ -26,6 +26,18 @@ describe("a secure token's declaration", () => {
     expect(member.authToken).toHaveLength(24);
   });
 
+  test("gives regenerate…() only to a secure token", () => {
+    class Visitor extends Model.define({
+      id: { type: "integer", null: false },
+      authToken: "string",
+    }) {
+      static table = "visitors";
+    }
+
+    expectTypeOf<Visitor>().not.toHaveProperty("regenerateAuthToken");
+    expect("regenerateAuthToken" in Visitor.prototype).toBe(false);
+  });
+
   test("refuses a length under 24", () => {
     class Member extends Model.define({
       id: { type: "integer", null: false },
