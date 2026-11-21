@@ -3,10 +3,10 @@ import { definePlugin } from "vite-plus/lint/plugins";
 import disableReason from "./disable-reason.mjs";
 import moduleHeader from "./module-header.mjs";
 import noFixedDelay from "./no-fixed-delay.mjs";
-import noRailsMention from "./no-rails-mention.mjs";
 import noSqlText from "./no-sql-text.mjs";
 import oneModelPerTest from "./one-model-per-test.mjs";
 import predicateName from "./predicate-name.mjs";
+import sayWhatItDoes from "./say-what-it-does.mjs";
 import standaloneTestName from "./standalone-test-name.mjs";
 import storedKeyLookup from "./stored-key-lookup.mjs";
 
@@ -16,10 +16,10 @@ export default definePlugin({
     "disable-reason": disableReason,
     "module-header": moduleHeader,
     "no-fixed-delay": noFixedDelay,
-    "no-rails-mention": noRailsMention,
     "no-sql-text": noSqlText,
     "one-model-per-test": oneModelPerTest,
     "predicate-name": predicateName,
+    "say-what-it-does": sayWhatItDoes,
     "standalone-test-name": standaloneTestName,
     "stored-key-lookup": storedKeyLookup,
   },

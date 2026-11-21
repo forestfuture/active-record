@@ -1,9 +1,9 @@
-import noRailsMention from "../../scripts/lint/no-rails-mention.mjs";
+import sayWhatItDoes from "../../scripts/lint/say-what-it-does.mjs";
 import { ruleTester } from "../support/rule-tester.ts";
 
 // Comments and test names say what the code does, not where the idea came from
 // (CODING_STANDARDS.md, Names and comments; #515).
-ruleTester.run("no-rails-mention", noRailsMention, {
+ruleTester.run("say-what-it-does", sayWhatItDoes, {
   valid: [
     "// Start at their defaults on a load.\nconst a = 1;",
     // The word in lower case is ordinary English, and a longer word isn't it.
@@ -14,8 +14,8 @@ ruleTester.run("no-rails-mention", noRailsMention, {
     "const box = /(Compared with|Beyond) Rails/;",
     "const Rails = 1;",
     // An opt-out's reason can name what it opts out for.
-    "// oxlint-disable-next-line active-record/no-rails-mention -- names the Rails box\nconst a = 1;",
-    "// eslint-disable-next-line active-record/no-rails-mention -- names the Rails box\nconst a = 1;",
+    "// oxlint-disable-next-line active-record/say-what-it-does -- names the Rails box\nconst a = 1;",
+    "// eslint-disable-next-line active-record/say-what-it-does -- names the Rails box\nconst a = 1;",
     // An opt-out naming no rule turns every rule off, this one included.
     "// oxlint-disable-next-line -- reads the Rails box\nconst a = 1;",
   ],
@@ -23,62 +23,62 @@ ruleTester.run("no-rails-mention", noRailsMention, {
     {
       name: "a line comment",
       code: "// Start at their defaults on a load, as Rails does.\nconst a = 1;",
-      errors: [{ messageId: "mentionsRails" }],
+      errors: [{ messageId: "namesOrigin" }],
     },
     {
       name: "a block comment",
       code: "/** Rails' attributes API, typed. */\nconst a = 1;",
-      errors: [{ messageId: "mentionsRails" }],
+      errors: [{ messageId: "namesOrigin" }],
     },
     {
       name: "a test's name",
       code: 'test("starts at the defaults, as Rails does", () => {});',
-      errors: [{ messageId: "mentionsRails" }],
+      errors: [{ messageId: "namesOrigin" }],
     },
     {
       name: "an it() name",
       code: 'it("keeps Rails\' order", () => {});',
-      errors: [{ messageId: "mentionsRails" }],
+      errors: [{ messageId: "namesOrigin" }],
     },
     {
       name: "a describe() name",
       code: 'describe("Rails-style callbacks", () => {});',
-      errors: [{ messageId: "mentionsRails" }],
+      errors: [{ messageId: "namesOrigin" }],
     },
     {
       name: "a test.each() name",
       code: 'test.each(["a", "b"])("reads %s as Rails does", () => {});',
-      errors: [{ messageId: "mentionsRails" }],
+      errors: [{ messageId: "namesOrigin" }],
     },
     {
       name: "a skipped test's name",
       code: 'test.skip("reads it as Rails does", () => {});',
-      errors: [{ messageId: "mentionsRails" }],
+      errors: [{ messageId: "namesOrigin" }],
     },
     {
       name: "a focused test's name",
       code: 'test.only("reads it as Rails does", () => {});',
-      errors: [{ messageId: "mentionsRails" }],
+      errors: [{ messageId: "namesOrigin" }],
     },
     {
       name: "a comment that mentions an opt-out without being one",
       code: "// Unlike oxlint-disable, this follows Rails.\nconst a = 1;",
-      errors: [{ messageId: "mentionsRails" }],
+      errors: [{ messageId: "namesOrigin" }],
     },
     {
       name: "another rule's opt-out whose reason names Rails",
       code: "// oxlint-disable-next-line no-console -- logs as Rails does\nconsole.log(1);",
-      errors: [{ messageId: "mentionsRails" }],
+      errors: [{ messageId: "namesOrigin" }],
     },
     {
       name: "a comment turning the rule back on",
-      code: "// oxlint-enable active-record/no-rails-mention -- after the Rails part\nconst a = 1;",
-      errors: [{ messageId: "mentionsRails" }],
+      code: "// oxlint-enable active-record/say-what-it-does -- after the Rails part\nconst a = 1;",
+      errors: [{ messageId: "namesOrigin" }],
     },
     {
       name: "a name given as a template literal",
       code: "test(`reads ${column} as Rails does`, () => {});",
-      errors: [{ messageId: "mentionsRails" }],
+      errors: [{ messageId: "namesOrigin" }],
     },
   ],
 });
