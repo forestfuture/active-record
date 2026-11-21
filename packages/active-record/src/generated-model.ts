@@ -35,6 +35,7 @@ import {
 } from "./spec-keys.ts";
 import { bindTable, modelNameOf, ownValueSetter, tableize } from "./table-names.ts";
 import {
+  defineSecurePasswordMethods,
   withSecurePasswords,
   type SecurePasswordDeclaration,
   type SecurePasswordSpecs,
@@ -366,6 +367,7 @@ export function settleGenerated(model: object): void {
     ]);
     defineEnumMethods(owner.prototype, found.definitions);
     defineEnumStatics(owner, found.definitions);
+    defineSecurePasswordMethods(owner.prototype, found.definitions);
     settled.set(owner, found);
   }
   settled.set(model, found);

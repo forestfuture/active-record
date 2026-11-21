@@ -12,7 +12,11 @@ import {
 } from "./metadata.ts";
 import type { BaseClass, Model, ModelBaseFor } from "./model.ts";
 import { inferTableNames } from "./table-names.ts";
-import { withSecurePasswords, type WithSecurePasswords } from "./secure-passwords.ts";
+import {
+  defineSecurePasswordMethods,
+  withSecurePasswords,
+  type WithSecurePasswords,
+} from "./secure-passwords.ts";
 
 /**
  * `S` as attribute specs: itself, or when it isn't (a spec that's a compile error), widened, so
@@ -41,5 +45,6 @@ export function defineModel<A extends DeclaredAttributes, B extends BaseClass>(
   defineAttributeAccessors(DefinedModel.prototype, Object.keys(declared));
   defineEnumMethods(DefinedModel.prototype, DefinedModel.attributeDefinitions);
   defineEnumStatics(DefinedModel, DefinedModel.attributeDefinitions);
+  defineSecurePasswordMethods(DefinedModel.prototype, DefinedModel.attributeDefinitions);
   return DefinedModel as never;
 }

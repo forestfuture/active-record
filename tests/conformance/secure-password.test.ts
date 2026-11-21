@@ -2,7 +2,15 @@
    declarations active-record schema generates, which merge from another file: the accessors they
    type are defined when the Model's attributes resolve. */
 // Secure passwords (#355): a virtual password, kept in the table only as its digest.
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  expectTypeOf,
+  test,
+} from "vite-plus/test";
 import { Model, type TableAttributes } from "../../packages/active-record/src/index.ts";
 import { d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
@@ -65,6 +73,40 @@ describe("a secure password", () => {
       expect(JSON.stringify(await harness.exec("SELECT * FROM members"))).not.toContain(
         "correct horse",
       );
+    });
+  });
+
+  describe("authenticate", () => {
+    test("resolves to the record for its password, and false for any other", async () => {
+      await db().model(Member).create({ email: "jane@example.com", password: "correct horse" });
+      const member = await db().model(Member).findByOrThrow({ email: "jane@example.com" });
+
+      const authenticated = await member.authenticate("correct horse");
+
+      expectTypeOf(authenticated).toEqualTypeOf<Member | false>();
+      expect(authenticated).toBe(member);
+      expect(await member.authenticate("correct horse!")).toBe(false);
+      expect(await member.authenticatePassword("correct horse")).toBe(member);
+    });
+
+    test("is false without a digest", async () => {
+      const member = db().model(Member).build({ email: "jane@example.com" });
+
+      expect(member.passwordDigest).toBe(null);
+      expect(await member.authenticate("")).toBe(false);
+    });
+
+    test("reads the digest as it is, so a password assigned since isn't checked yet", async () => {
+      const member = await db()
+        .model(Member)
+        .create({ email: "jane@example.com", password: "correct horse" });
+
+      member.password = "battery staple";
+
+      expect(await member.authenticate("battery staple")).toBe(false);
+      expect(await member.authenticate("correct horse")).toBe(member);
+      await member.saveOrThrow();
+      expect(await member.authenticate("battery staple")).toBe(member);
     });
   });
 });

@@ -5,6 +5,7 @@ import { InvalidModel } from "./errors.ts";
 import type { AttributeDefinition } from "./metadata.ts";
 import { pbkdf2Sha256, type PasswordAlgorithm } from "./password-algorithm.ts";
 import { isSecurePasswordOption } from "./spec-keys.ts";
+import { state } from "./record-state.ts";
 
 /** `securePassword`'s options: the algorithm that hashes the password, and its validations. */
 export interface SecurePasswordOptions {
@@ -44,6 +45,23 @@ export type SecurePasswordSpecs<O> = {
 export type WithSecurePasswords<O> = [DeclaredNames<O>] extends [never]
   ? O
   : { [K in keyof O as K extends DeclaredNames<O> ? never : K]: O[K] } & SecurePasswordSpecs<O>;
+
+/** The names among the attribute specs `A` that are secure passwords. */
+type PasswordNames<A> = {
+  [K in keyof A]: A[K] extends { securePassword: true | object } ? K & string : never;
+}[keyof A];
+
+/** Checks a password against its digest: the record, or `false` when it isn't the one. */
+type Authenticate = <R>(this: R, password: string) => Promise<R | false>;
+
+/**
+ * What the secure passwords among the specs `A` add to a record: `authenticatePassword` for
+ * `password`, `authenticateRecoveryPassword` for `recoveryPassword`, and `authenticate`, for
+ * `password` alone.
+ */
+export type SecurePasswordMethods<A> = {
+  [K in PasswordNames<A> as `authenticate${Capitalize<K>}`]: Authenticate;
+} & ("password" extends PasswordNames<A> ? { authenticate: Authenticate } : {});
 
 /** Whether a declared attribute is a secure password: an object with `securePassword` and no type. */
 export function isSecurePasswordDeclaration(
@@ -119,6 +137,44 @@ export function securePasswordsOf(
       },
     ];
   });
+}
+
+/** A record as a secure password's methods read it. */
+interface Holder {
+  readonly [state]: { read(name: string): unknown };
+}
+
+/**
+ * Defines each secure password's methods on a Model's prototype: `authenticatePassword`, and
+ * `authenticate` for `password`, resolving to the record when the password is the one its
+ * digest was made from, and `false` when it isn't, or there's no digest.
+ */
+export function defineSecurePasswordMethods(
+  prototype: object,
+  definitions: ReadonlyMap<string, AttributeDefinition>,
+): void {
+  for (const { name, digest, algorithm } of securePasswordsOf(definitions)) {
+    async function authenticate(this: Holder, password: string): Promise<Holder | false> {
+      const stored = this[state].read(digest);
+      if (typeof stored !== "string" || stored === "") return false;
+      return (await algorithm.verify(password, stored)) ? this : false;
+    }
+    const names = [
+      `authenticate${capitalized(name)}`,
+      ...(name === "password" ? ["authenticate"] : []),
+    ];
+    for (const method of names) {
+      Object.defineProperty(prototype, method, {
+        value: authenticate,
+        configurable: true,
+        writable: true,
+      });
+    }
+  }
+}
+
+function capitalized(name: string): string {
+  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 /** What a record gives a secure password's save: its values, and a write to its digest. */
