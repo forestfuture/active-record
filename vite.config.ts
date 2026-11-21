@@ -203,6 +203,16 @@ export default defineConfig({
         rules: { "active-record/no-rails-mention": "error" },
       },
       {
+        // A file `active-record schema` writes is left as written: its comments carry table and
+        // migration names, and it's regenerated, not edited.
+        files: [
+          "tests/fixtures/DB.ts",
+          "tests/fixtures/LOGS.ts",
+          "tests/fixtures/schema-project/schema.ts",
+        ],
+        rules: { "active-record/no-rails-mention": "off" },
+      },
+      {
         // A describe() callback holds a whole suite, so it's long by design. The rules below are
         // CODING_STANDARDS.md's Tests: a test waits on an event, a gate, or a polled state, never
         // a fixed delay. It asserts results, not SQL text. It acts on one Model. Its name stands
