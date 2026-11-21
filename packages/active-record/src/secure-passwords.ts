@@ -176,14 +176,16 @@ interface StoredRecord {
 }
 
 /**
- * Whether `given` is the password a record's digest was made from. Without a digest, the password
- * is hashed anyway, so the time taken doesn't say whether the record has one.
+ * Whether `given` is the password a record's digest was made from: never for a value that isn't a
+ * string. Without a digest, the password is hashed anyway, so the time taken doesn't say whether the record has one.
  */
 async function isPasswordOf(
   { digest, algorithm }: SecurePassword,
   record: StoredRecord,
-  given: string,
+  given: unknown,
 ): Promise<boolean> {
+  // A list or an object isn't a password, though plain JavaScript or a JSON body can give one.
+  if (typeof given !== "string") return false;
   const stored = record[state].read(digest);
   if (isPresent(stored)) return algorithm.verify(given, stored);
   await algorithm.hash(given);
@@ -376,7 +378,7 @@ export async function authenticateBy<R>(
   // Every password is checked, even after one fails, so the time taken doesn't say which.
   let matches = 0;
   for (const [password, value] of passwords) {
-    if (await isPasswordOf(password, record as StoredRecord, value as string)) matches += 1;
+    if (await isPasswordOf(password, record as StoredRecord, value)) matches += 1;
   }
   return matches === passwords.length ? record : null;
 }
