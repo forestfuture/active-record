@@ -1,4 +1,5 @@
 // Filtered attributes: values hidden from `onQuery` listeners and error messages (#83).
+import { attributeName } from "./attribute-aliases.ts";
 import type { ModelClass } from "./model.ts";
 import { underscore } from "./naming.ts";
 
@@ -32,11 +33,21 @@ export const defaultFilterAttributes: readonly FilterAttribute[] = [
 ];
 
 /**
- * Whether `attribute`'s values are hidden from listeners: its snake_case name holds a string
- * entry lowercased, or read in snake_case (`"apiKey"` as `api_key`, #397), or a RegExp entry
- * matches the attribute or its snake_case name.
+ * Whether an attribute's values are hidden from listeners: its snake_case name, or an alias's,
+ * holds a string entry lowercased, or read in snake_case (`"apiKey"` as `api_key`, #397), or a
+ * RegExp entry matches the name or its snake_case form.
  */
-export function isFiltered(model: ModelClass, attribute: string): boolean {
+export function isFiltered(model: ModelClass, given: string): boolean {
+  const attribute = attributeName(model, given);
+  const names = [
+    attribute,
+    ...[...model.attributeAliases].filter(([, name]) => name === attribute).map(([alias]) => alias),
+  ];
+  return names.some((name) => isNameFiltered(model, name));
+}
+
+/** Whether one name matches an entry of `model`'s `filterAttributes`. */
+function isNameFiltered(model: ModelClass, attribute: string): boolean {
   const name = underscore(attribute); // already lowercase
   return model.filterAttributes.some((entry) =>
     typeof entry === "string"

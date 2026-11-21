@@ -36,7 +36,7 @@ const users = {
 const schema = {
   adapter: d1({ binding: "DB" }),
   tables: { users: { attributes: users, primaryKey: "id" } },
-  models: { User: "users", Member: "users" },
+  models: { User: "users", Member: "users", Guarded: "users" },
 } as const;
 
 abstract class ApplicationRecord extends Model {
@@ -53,6 +53,14 @@ class User extends ApplicationRecord {
   static override filterAttributes = ["email"];
 }
 interface User extends TableAttributes<typeof users, (typeof User)["attributes"]> {}
+
+// Filtering its attribute's values by naming its alias.
+class Guarded extends ApplicationRecord {
+  static override table = "users";
+  static override attributes = { login: { aliasOf: "email" } } as const;
+  static override filterAttributes = ["login"];
+}
+interface Guarded extends TableAttributes<typeof users, (typeof Guarded)["attributes"]> {}
 
 // A subclass, sharing its parent's table and attributes.
 class Admin extends User {}
@@ -309,6 +317,21 @@ describe("an attribute alias", () => {
       user.toggle("paused");
 
       expect(user.suspended).toBe(true);
+    });
+  });
+
+  describe("in filterAttributes", () => {
+    test("filters its attribute's bound values", async () => {
+      await db().model(Guarded).create({ email: "jane@example.com" });
+      await db().model(Guarded).where({ email: "jane@example.com" }).pluck("id");
+
+      expect(JSON.stringify(events.map((event) => event.params))).not.toContain("jane@example.com");
+    });
+
+    test("filters its attribute when the record is shown", async () => {
+      const guarded = db().model(Guarded).build({ email: "jane@example.com" });
+
+      expect(inspect(guarded)).not.toContain("jane@example.com");
     });
   });
 
