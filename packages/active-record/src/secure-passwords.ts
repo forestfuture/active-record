@@ -301,17 +301,16 @@ export async function passwordFailures(
 }
 
 /**
- * The password a save hashes, if any: one assigned since the record was loaded or saved, or one
- * whose digest has been cleared since.
+ * The password a save hashes, if any: one assigned since the record was loaded or saved, or
+ * since null cleared its digest.
  */
 function waitingPassword(
-  { name, digest }: SecurePassword,
+  { name }: SecurePassword,
   values: Pick<PasswordRecord, "isAttributeChanged" | "read">,
 ): string | undefined {
   const password = values.read(name);
   if (typeof password !== "string" || password === "") return undefined;
-  // One kept since the last save waits again once null has cleared its digest.
-  return values.isAttributeChanged(name) || !isPresent(values.read(digest)) ? password : undefined;
+  return values.isAttributeChanged(name) ? password : undefined;
 }
 
 /** Whether a digest is there to check a password against: a string that isn't blank. */
