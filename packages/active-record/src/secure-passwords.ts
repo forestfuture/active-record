@@ -307,3 +307,60 @@ export function rejectMissingDigests(model: {
     }
   }
 }
+
+/** A Model, as `authenticateBy` finds its records. */
+interface AuthenticatingModel<R> {
+  readonly name: string;
+  readonly attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
+  findBy(conditions: Record<string, unknown>): PromiseLike<R | null>;
+}
+
+/**
+ * The record the attributes that aren't secure passwords find, if each secure password given is
+ * its own; null otherwise, or for a blank password, which finds nothing. When none is found, each
+ * password is hashed anyway, so the time it takes doesn't say whether a record exists.
+ */
+export async function authenticateBy<R>(
+  model: AuthenticatingModel<R>,
+  attributes: Readonly<Record<string, unknown>>,
+): Promise<R | null> {
+  const { passwords, identifiers } = splitPasswords(model, attributes);
+  if (passwords.some(([, value]) => typeof value !== "string" || value === "")) return null;
+  const record = await model.findBy(identifiers);
+  if (record === null) {
+    for (const [{ algorithm }, value] of passwords) await algorithm.hash(value as string);
+    return null;
+  }
+  let matches = 0;
+  for (const [{ name }, value] of passwords) {
+    const method = `authenticate${capitalized(name)}`;
+    const check = (record as Record<string, (password: unknown) => Promise<unknown>>)[method]!;
+    if ((await check.call(record, value)) !== false) matches += 1;
+  }
+  return matches === passwords.length ? record : null;
+}
+
+/**
+ * `authenticateBy`'s attributes: its secure passwords, with their values, and the rest, which
+ * find the record. Either missing is a `TypeError`.
+ */
+function splitPasswords(
+  model: AuthenticatingModel<unknown>,
+  attributes: Readonly<Record<string, unknown>>,
+): { passwords: [SecurePassword, unknown][]; identifiers: Record<string, unknown> } {
+  const all = securePasswordsOf(model.attributeDefinitions);
+  const passwords = all.flatMap((password): [SecurePassword, unknown][] =>
+    Object.hasOwn(attributes, password.name) ? [[password, attributes[password.name]]] : [],
+  );
+  const identifiers = Object.fromEntries(
+    Object.entries(attributes).filter(([name]) => !all.some((each) => each.name === name)),
+  );
+  if (passwords.length === 0) {
+    const names = all.map(({ name }) => name).join(", ") || "none declared";
+    throw new TypeError(`${model.name}.authenticateBy needs a secure password: ${names}`);
+  }
+  if (Object.keys(identifiers).length === 0) {
+    throw new TypeError(`${model.name}.authenticateBy needs an attribute to find the record by`);
+  }
+  return { passwords, identifiers };
+}
