@@ -173,7 +173,11 @@ export class RecordState {
     // A secure password's `""` is ignored, and null clears its digest (#355).
     const digest = digestOf(this.#model.attributeDefinitions, name);
     if (digest !== undefined && assigned === "") return;
-    if (digest !== undefined && assigned === null) this.#store(digest, null);
+    if (digest !== undefined && assigned === null) {
+      this.#store(digest, null);
+      // Saved as cleared, so the password assigned next is a change, even the one it held.
+      if (this.#lifecycle === "persisted") this.#snapshot.set(name, null);
+    }
     this.#store(name, assigned);
   }
 

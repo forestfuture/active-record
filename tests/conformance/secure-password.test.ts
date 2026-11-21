@@ -200,6 +200,17 @@ describe("a secure password", () => {
       expect(await member.authenticate("correct horse")).toBe(member);
     });
 
+    test("a digest cleared directly isn't made again from the password kept in memory", async () => {
+      const member = await db()
+        .model(Member)
+        .create({ email: "jane@example.com", password: "correct horse" });
+      const digest = await storedDigest();
+
+      expect(await member.update({ passwordDigest: null })).toBe(false);
+      expect(member.errors.get("password")).toEqual(["can't be blank"]);
+      expect(await storedDigest()).toBe(digest);
+    });
+
     test("an empty string is ignored", async () => {
       const member = await db()
         .model(Member)
