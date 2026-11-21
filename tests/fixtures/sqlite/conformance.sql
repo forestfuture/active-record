@@ -54,3 +54,5 @@ CREATE TABLE forums (id INTEGER PRIMARY KEY, title TEXT, updated_at TEXT, last_a
 CREATE TABLE discussions (id INTEGER PRIMARY KEY, forum_id INTEGER, title TEXT, archived INTEGER DEFAULT 0, messages_count INTEGER DEFAULT 0, updated_at TEXT, last_message_at TEXT);
 CREATE TABLE messages (id INTEGER PRIMARY KEY, discussion_id INTEGER, body TEXT, updated_at TEXT);
 CREATE TABLE stickers (id INTEGER PRIMARY KEY, stickable_type TEXT, stickable_id INTEGER, updated_at TEXT);
+-- Secure passwords and tokens (#355): a digest for each password, and tokens to sign in and invite with.
+CREATE TABLE members (id INTEGER PRIMARY KEY, email TEXT, password_digest TEXT, recovery_password_digest TEXT, auth_token TEXT, invite_code TEXT, updated_at TEXT);

@@ -34,6 +34,14 @@ import {
   type SpecOverride,
 } from "./spec-keys.ts";
 import { bindTable, modelNameOf, ownValueSetter, tableize } from "./table-names.ts";
+import { defineSecureTokenMethods, type SecureTokenOptions } from "./secure-tokens.ts";
+import {
+  defineSecurePasswordMethods,
+  rejectMissingDigests,
+  withSecurePasswords,
+  type SecurePasswordDeclaration,
+  type SecurePasswordSpecs,
+} from "./secure-passwords.ts";
 
 /** One table in a generated schema: its attributes, and which is the primary key. */
 export interface TableSchema {
@@ -64,6 +72,8 @@ type AttributeOverride =
       virtual?: false;
       /** Or `true`: a generated enum's names, with its methods; `false`: none of it (#64). */
       enum?: TextEnum | boolean;
+      /** A random token, generated for a new record (#355). */
+      secureToken?: boolean | SecureTokenOptions;
     } & EnumOptions &
       ValueSource)
   | (Pick<SpecOverride, "null" | "default"> & {
@@ -94,7 +104,8 @@ type AttributeOverride =
       virtual?: false;
     })
   | VirtualAttribute
-  | AttributeAlias;
+  | AttributeAlias
+  | SecurePasswordDeclaration;
 
 /**
  * An attribute that isn't a column (#356): its type, and optionally nullability and a default,
@@ -159,12 +170,13 @@ type Overridden<S, O> = O extends AttributeType | AnyCustomType
         type: O extends { type: infer T extends AttributeType | AnyCustomType } ? T : TypeOf<S>;
         null: O extends { null: infer N extends boolean } ? N : NullOf<S>;
       } & KeptEnumKeys<S, O> &
-        GivenEnumKeys<O>
+        GivenEnumKeys<O> &
+        Pick<O, "secureToken" & keyof O>
     : S;
 
 /**
  * A table's attributes after its overrides: changed ones merged, ignored ones gone, and virtual
- * ones (#356) and aliases (#509) added.
+ * ones (#356), aliases (#509) and secure passwords' (#355) added.
  */
 export type OverriddenSpecs<A, O> = ColumnSpecs<A, WithoutAliases<O>> &
   AliasSpecs<ColumnSpecs<A, WithoutAliases<O>>, O>;
@@ -174,7 +186,8 @@ type ColumnSpecs<A, O> = {
   -readonly [
     K in keyof A as K extends keyof O ? (O[K] extends false ? never : K) : K
   ]: K extends keyof O ? Overridden<A[K], O[K]> : A[K];
-} & VirtualSpecs<A, O>;
+} & VirtualSpecs<A, O> &
+  SecurePasswordSpecs<O>;
 
 /** The virtual attributes an override declares (#356): those not in the table, as declared. */
 type VirtualSpecs<A, O> = {
@@ -316,12 +329,13 @@ function find(owner: GeneratedClass, schema: DatabaseSchema): Generated {
   if (tableSchema === undefined) {
     throw new InvalidModel(`${owner.name}'s table, ${table}, isn't in the generated schema`);
   }
-  const declared = owner.attributes ?? {};
+  const declared = withSecurePasswords(`${owner.name}.`, owner.attributes ?? {});
   const { specs, isIgnoringColumns } = specsFor(owner.name, tableSchema, declared);
   const definitions = new Map(
     Object.entries(specs).map(([name, spec]) => [name, define(name, spec)]),
   );
   const aliases = aliasesIn(`${owner.name}.`, declared, definitions);
+  rejectMissingDigests(`${owner.name}.`, definitions);
   const primaryKey = Object.hasOwn(owner, "primaryKey")
     ? owner.primaryKey!
     : tableSchema.primaryKey;
@@ -359,6 +373,8 @@ export function settleGenerated(model: object): void {
     ]);
     defineEnumMethods(owner.prototype, found.definitions);
     defineEnumStatics(owner, found.definitions);
+    defineSecurePasswordMethods(owner.prototype, found.definitions);
+    defineSecureTokenMethods(owner.prototype, found.definitions);
     settled.set(owner, found);
   }
   settled.set(model, found);

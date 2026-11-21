@@ -838,6 +838,37 @@ export class Visit extends ApplicationRecord.define({ id: "integer" }) {}
     ]);
   });
 
+  test("a secure password without a digest column is reported by its file (#355)", async () => {
+    const cwd = await withModels({
+      "user.ts": `${base}export class User extends ApplicationRecord {
+  static override attributes = { password: { securePassword: true } } as const;
+}
+`,
+    });
+
+    const { code, output } = await run(cwd);
+
+    expect([code, output]).toEqual([
+      1,
+      "src/models/user.ts: User.password is a secure password, so it needs a string attribute " +
+        "passwordDigest with a column to keep its digest in\nKept src/db/schema.ts as it was",
+    ]);
+  });
+
+  test("a secure token is accepted, and the schema types it through the Model (#355)", async () => {
+    const cwd = await withModels({
+      "user.ts": `${base}export class User extends ApplicationRecord {
+  static override attributes = { email: { secureToken: true } } as const;
+}
+`,
+    });
+
+    const { code, output } = await run(cwd);
+
+    expect([code, output]).toEqual([0, "Wrote src/db/schema.ts (2 tables) from migrations/"]);
+    expect(generatedSchema(cwd)).not.toContain("secureToken");
+  });
+
   test("an attribute alias is accepted, and left out of the schema (#509)", async () => {
     const cwd = await withModels({
       "user.ts": `${base}export class User extends ApplicationRecord {

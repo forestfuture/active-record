@@ -31,7 +31,7 @@ import {
   RecordNotFound,
   RecordNotSaved,
 } from "./errors.ts";
-import { clearErrors } from "./errors-collection.ts";
+import { addFailure, clearErrors } from "./errors-collection.ts";
 import {
   afterRollbackOf,
   runAfterCallbacks,
@@ -62,6 +62,8 @@ import {
   type Stage,
 } from "./unit-of-work.ts";
 import { runValidations, type UniquenessOptions } from "./validations.ts";
+import { hashPasswords, passwordConfirmations, passwordFailures } from "./secure-passwords.ts";
+import { generateTokens } from "./secure-tokens.ts";
 
 /**
  * What a lifecycle run ended with. Refusals are outcomes (the non-throwing methods return
@@ -150,6 +152,10 @@ export async function validation(
     recordState.errors[clearErrors]();
     recordState.abortReason = undefined;
     if (!(await runAbortableCallbacks(record, "beforeValidation"))) return "aborted";
+    const { attributeDefinitions } = modelOf(record);
+    for (const { attribute, type } of await passwordFailures(attributeDefinitions, recordState)) {
+      recordState.errors[addFailure](attribute, { type });
+    }
     await validateRequiredAssociations(record);
     await runValidations(validationsOf(record), {
       record,
@@ -166,10 +172,14 @@ export async function validation(
   });
 }
 
-/** A record's validations: its enums', then its Model's declared ones. */
+/** A record's validations: its enums', its secure passwords' (#355), then its Model's declared ones. */
 function validationsOf(record: Model) {
   const model = modelOf(record);
-  return [...enumValidations(model.attributeDefinitions), ...declared(model, "validations")];
+  return [
+    ...enumValidations(model.attributeDefinitions),
+    ...passwordConfirmations(model.attributeDefinitions),
+    ...declared(model, "validations"),
+  ];
 }
 
 /**
@@ -301,15 +311,24 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
 }
 
 /**
- * beforeSave, then the around callbacks (#48), which run beforeCreate or beforeUpdate inside
- * them, up to the write; `undefined` if one aborted, with `abortReason` set.
+ * A new record's tokens generated and its secure passwords hashed (#355), then beforeSave, then
+ * the around callbacks (#48), which run beforeCreate or beforeUpdate inside them, up to the
+ * write, then any password those callbacks assigned hashed; `undefined` if one aborted, with
+ * `abortReason` set.
  */
 async function beforeWrite(record: Model, isInsert: boolean): Promise<Wrapped | undefined> {
+  const { attributeDefinitions } = modelOf(record);
+  if (isInsert) generateTokens(attributeDefinitions, record[state], "create");
+  await hashPasswords(attributeDefinitions, record[state]);
   if (!(await runAbortableCallbacks(record, "beforeSave"))) return undefined;
   const wrapped = await startSave(record, isInsert);
-  if (!(wrapped instanceof CallbackAbort)) return wrapped;
-  record[state].abortReason = wrapped.reason;
-  return undefined;
+  if (wrapped instanceof CallbackAbort) {
+    record[state].abortReason = wrapped.reason;
+    return undefined;
+  }
+  // A password a before-callback assigned is hashed now, as the record's own was before them.
+  await hashPasswords(attributeDefinitions, record[state]);
+  return wrapped;
 }
 
 /**

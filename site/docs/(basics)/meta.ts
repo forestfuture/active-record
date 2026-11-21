@@ -8,6 +8,7 @@ export default defineMeta({
     "enums",
     "change-tracking",
     "serialization",
+    "passwords-and-tokens",
     "querying",
     "conditions",
     "ordering-and-pagination",

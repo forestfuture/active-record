@@ -6,6 +6,7 @@ import { digitsProblem } from "./decimal-values.ts";
 import { enumProblem, isEnumValues } from "./enum-values.ts";
 import { epochStorages } from "./epoch-storage.ts";
 import type { AttributeDefinition, AttributeType, SpecObject } from "./metadata.ts";
+import { isSecureTokenOption, secureTokenProblem } from "./secure-tokens.ts";
 
 /** Typed by `AttributeType`, so a new type is a compile error here until it's listed. */
 const typeNames = {
@@ -152,7 +153,49 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     isGiven: isGivenUnless(false),
     conflictsWith: ["column", "generateId", "storage", "enum"],
   },
+  // A virtual password, kept as the digest its algorithm makes (#355).
+  securePassword: {
+    isWellFormed: isSecurePasswordOption,
+    describedAs: "securePassword",
+    wellFormedAs: "use true, or { algorithm?, validations? }",
+    onlyFor: { types: ["string"], because: "a password is a string" },
+    requires: "virtual",
+    conflictsWith: ["default"],
+  },
+  secureToken: secureTokenRule(),
 };
+
+/** The rule for `secureToken`: a string's random token, generated for a new record (#355). */
+function secureTokenRule(): KeyRule {
+  return {
+    isWellFormed: isSecureTokenOption,
+    describedAs: "secureToken",
+    wellFormedAs: 'use true, or { length?, prefix?, on?: "initialize" | "create" }',
+    isGiven: isGivenUnless(false),
+    onlyFor: { types: ["string"], because: "a token is a string" },
+    problemFor: secureTokenProblem,
+    conflictsWith: ["default", "generateId", "virtual", "enum"],
+    onRetype: "drop",
+  };
+}
+
+/** `true`, or an object with only an algorithm (`hash` and `verify`) and a boolean `validations`. */
+export function isSecurePasswordOption(value: unknown): boolean {
+  if (value === true) return true;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  return Object.entries(value).every(([key, each]) => {
+    if (each === undefined) return true;
+    if (key === "validations") return typeof each === "boolean";
+    return key === "algorithm" && isAlgorithm(each);
+  });
+}
+
+/** Whether a value can hash and verify a password: an object with both functions. */
+function isAlgorithm(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const { hash, verify } = value as Record<string, unknown>;
+  return typeof hash === "function" && typeof verify === "function";
+}
 
 /** The rule for a decimal's precision or scale: a whole number of digits. */
 function decimalDigits(describedAs: string): KeyRule {
@@ -384,6 +427,8 @@ export function copiedKeys(
     | "scopes"
     | "instanceMethods"
     | "virtual"
+    | "securePassword"
+    | "secureToken"
   >
 > {
   const copied = entries

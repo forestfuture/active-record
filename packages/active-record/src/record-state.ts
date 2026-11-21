@@ -8,6 +8,8 @@ import { MissingAttribute, NoDatabase, RecordDestroyed } from "./errors.ts";
 import type { Executor } from "./executor.ts";
 import { LoadedAssociations, type KeyAttributes } from "./loaded-associations.ts";
 import { PendingAutosaves } from "./pending-autosaves.ts";
+import { digestOf } from "./secure-passwords.ts";
+import { generateTokens } from "./secure-tokens.ts";
 import { attributeOf, initialValues, type AttributeDefinition } from "./metadata.ts";
 import type { ChangeOptions, Model, ModelClass } from "./model.ts";
 
@@ -161,12 +163,22 @@ export class RecordState {
 
   /**
    * Assigns one attribute. `undefined` throws `TypeError`, because it would silently store NULL
-   * (use `null` for that); a destroyed record is read-only.
+   * (use `null` for that); a destroyed record is read-only. A secure password's assignment
+   * changes its digest only to clear it.
    */
   write(given: string, value: unknown): void {
     this.#requireNotDestroyed("be changed");
     const name = attributeName(this.#model, given);
-    this.#store(name, this.#attribute(name).assigned(value));
+    const assigned = this.#attribute(name).assigned(value);
+    // A secure password's `""` is ignored, and null clears its digest (#355).
+    const digest = digestOf(this.#model.attributeDefinitions, name);
+    if (digest !== undefined && assigned === "") return;
+    if (digest !== undefined && assigned === null) {
+      this.#store(digest, null);
+      // Saved as cleared, so the password assigned next is a change, even the one it held.
+      if (this.#lifecycle === "persisted") this.#snapshot.set(name, null);
+    }
+    this.#store(name, assigned);
   }
 
   /**
@@ -202,6 +214,8 @@ export class RecordState {
     // Cast already, and normalized or a key, so stored as they are (#354).
     for (const [name, value] of Object.entries(kept)) this.#store(name, value);
     this.assign(attributes);
+    // A secure token given as null or "" is made all the same (#355).
+    generateTokens(this.#model.attributeDefinitions, this, "initialize");
   }
 
   /**

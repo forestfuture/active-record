@@ -16,3 +16,8 @@ export function underscore(name: string): string {
 export function camelize(name: string): string {
   return name.replace(/_([a-z\d])/g, (_, letter: string) => letter.toUpperCase());
 }
+
+/** A name with its first letter capitalized, as a method's name holds it: `authToken` → `AuthToken`. */
+export function capitalized(name: string): string {
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}

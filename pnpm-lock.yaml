@@ -253,6 +253,9 @@ importers:
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0
+      bcryptjs:
+        specifier: ^3.0.3
+        version: 3.0.3
       blume:
         specifier: 2.2.7
         version: 2.2.7(@arethetypeswrong/core@0.18.5)(@emnapi/runtime@2.0.0-beta.2)(@shikijs/themes@4.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@vercel/functions@3.10.3(ws@8.21.3))(@voidzero-dev/vite-plus-core@1.5.1(@arethetypeswrong/core@0.18.5)(@types/node@22.20.5)(@volar/typescript@2.4.30(typescript@6.0.3))(esbuild@0.28.1)(jiti@2.7.0)(publint@0.3.25)(typescript@6.0.3)(yaml@2.9.1))(@volar/typescript@2.4.30(typescript@6.0.3))(csstype@3.2.3)(esbuild@0.28.1)(prettier@3.9.10)(publint@0.3.25)(supports-color@10.2.2)(vue@3.5.43(typescript@6.0.3))(ws@8.21.3)(yaml@2.9.1)
@@ -3472,6 +3475,10 @@ packages:
   balanced-match@4.0.4:
     resolution: {integrity: sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==}
     engines: {node: 18 || 20 || >=22}
+
+  bcryptjs@3.0.3:
+    resolution: {integrity: sha512-GlF5wPWnSa/X5LKM1o0wz0suXIINz1iHRLvTS+sLyi7XPbe5ycmYI3DlZqVGZZtDgl4DmasFg7gOB3JYbphV5g==}
+    hasBin: true
 
   bindings@1.5.0:
     resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
@@ -9043,6 +9050,8 @@ snapshots:
   balanced-match@1.0.2: {}
 
   balanced-match@4.0.4: {}
+
+  bcryptjs@3.0.3: {}
 
   bindings@1.5.0:
     dependencies:

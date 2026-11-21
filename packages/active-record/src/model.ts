@@ -19,6 +19,14 @@ import { declare, declared } from "./declarations.ts";
 import { checkNormalizedName, type NormalizeOptions } from "./normalization.ts";
 import { defineModel, type SpecsOrWidened } from "./defined-model.ts";
 import type { DefinedSpecs } from "./attribute-aliases.ts";
+import type { SecureTokenMethods } from "./secure-tokens.ts";
+import {
+  authenticateBy,
+  type AuthenticateByAttributes,
+  secretAttributeNames,
+  type SecurePasswordMethods,
+  type WithSecurePasswords,
+} from "./secure-passwords.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
@@ -230,7 +238,8 @@ export class Model extends AttributeWrites {
    * Attributes whose values listeners and errors show as "[FILTERED]": an attribute
    * whose snake_case name holds a string entry, lowercased or read in snake_case (`"apiKey"` as
    * `api_key`), or matches a RegExp. The defaults cover common secret and personal names
-   * (`password`, `token`, `email`, …); replace them on the app's base class (#83).
+   * (`password`, `token`, `email`, …); replace them on the app's base class (#83). A secure
+   * password's attributes and digest, and a secure token, are filtered whatever it says (#355).
    */
   static filterAttributes: readonly FilterAttribute[] = defaultFilterAttributes;
 
@@ -280,7 +289,7 @@ export class Model extends AttributeWrites {
   static define<B extends BaseClass, const A extends DeclaredAttributes>(
     this: B,
     specs: A & ExactSpecs<A>,
-  ): ModelBaseFor<SpecsOrWidened<DefinedSpecs<A>>, B> {
+  ): ModelBaseFor<SpecsOrWidened<DefinedSpecs<WithSecurePasswords<A>>>, B> {
     return defineModel<A, B>(specs, this);
   }
 
@@ -322,6 +331,19 @@ export class Model extends AttributeWrites {
     ...names: K[]
   ): Permitted<C, K> {
     return permitted(this, input, names) as Permitted<C, K>;
+  }
+
+  /**
+   * The record its other attributes find, if each secure password given is its own (#355):
+   * `User.authenticateBy({ email, password })`, or null. When none is found, the password is
+   * hashed anyway, so how long it takes doesn't say whether one exists. Without a secure
+   * password, or an attribute to find the record by, it throws `TypeError`.
+   */
+  static authenticateBy<C extends QueryableClass>(
+    this: C,
+    attributes: AuthenticateByAttributes<SpecsOf<InstanceType<C>>, AttributesOf<InstanceType<C>>>,
+  ): Promise<InstanceType<C> | null> {
+    return authenticateBy(this as never, attributes);
   }
 
   /**
@@ -726,7 +748,8 @@ export class Model extends AttributeWrites {
 
   /**
    * The loaded attributes as JSON-ready values (dates as ISO strings), without the Model's
-   * `hiddenAttributes` or the virtual attributes its `confirmation` rules read, for
+   * `hiddenAttributes`, the virtual attributes its `confirmation` rules read, or its secrets: each
+   * secure password, its confirmation, challenge and digest, and each secure token (#355), for
    * `Response.json(record)`.
    */
   toJSON(): Record<string, unknown> {
@@ -734,6 +757,7 @@ export class Model extends AttributeWrites {
     const hidden = [
       ...model.hiddenAttributes,
       ...confirmationNames(declared(model, "validations")),
+      ...secretAttributeNames(model.attributeDefinitions),
     ];
     return Object.fromEntries(
       Object.entries(this[state].attributes())
@@ -770,7 +794,9 @@ useModelBase(Model, readyModel);
 export type TableAttributes<A extends AttributeSpecs, O = {}> = AttributeProperties<
   AsSpecs<OverriddenSpecs<A, O>>
 > &
-  EnumMethods<OverriddenSpecs<A, O>> & {
+  EnumMethods<OverriddenSpecs<A, O>> &
+  SecurePasswordMethods<OverriddenSpecs<A, O>> &
+  SecureTokenMethods<OverriddenSpecs<A, O>> & {
     readonly [attributeSpecs]: OverriddenSpecs<A, O>;
     readonly [attributeTypes]: AttributeProperties<AsSpecs<OverriddenSpecs<A, O>>>;
   };
@@ -794,7 +820,9 @@ export type ModelBaseFor<
   B extends BaseClass = typeof Model,
 > = (new () => InstanceType<B> &
   AttributeProperties<A> &
-  EnumMethods<A> & {
+  EnumMethods<A> &
+  SecurePasswordMethods<A> &
+  SecureTokenMethods<A> & {
     readonly [attributeTypes]: AttributeProperties<A>;
     readonly [attributeSpecs]: A;
   }) &

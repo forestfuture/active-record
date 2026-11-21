@@ -62,6 +62,7 @@ export const builtInMessages: ErrorMessages = {
   lessThanOrEqualTo: "must be less than or equal to %{count}",
   equalTo: "must be equal to %{count}",
   otherThan: "must be other than %{count}",
+  passwordTooLong: "is too long",
   restrictDependentDestroy: {
     hasOne: "Cannot delete record because a dependent %{record} exists",
     hasMany: "Cannot delete record because dependent %{record} exist",

@@ -339,6 +339,27 @@ questions:
       - "hiddenAttributes keeps values out of toJSON, so Response.json and JSON.stringify"
       - "filterAttributes shows values as [FILTERED] in onQuery listeners, error messages and printed records"
     routes: /serialization
+  - id: store-a-password
+    question: "How do I store a user's password safely, and check it when they sign in?"
+    expected:
+      - "declare password: { securePassword: true } in static attributes, with a password_digest column"
+      - "it's hashed with PBKDF2-SHA256 when the record is saved, and toJSON() leaves the password out"
+      - "User.authenticateBy({ email, password }) resolves to the user, or null for a wrong email or password"
+    routes: /passwords-and-tokens
+  - id: stronger-hash
+    question: "Is the default password hash strong enough on Workers, and can I use bcrypt instead?"
+    expected:
+      - "the default runs 100,000 PBKDF2 iterations, the most Workers allow, about a sixth of OWASP's 600,000"
+      - "each hash takes about 10–40 ms of CPU time, past the Free plan's 10 ms, so it may need Workers Paid"
+      - "give securePassword an algorithm with hash, verify and maxBytes, such as one built on bcryptjs"
+    routes: /passwords-and-tokens
+  - id: api-token
+    question: "How do I give each new user a random API token, and replace it later?"
+    expected:
+      - "declare authToken: { secureToken: true } on a string column, with a UNIQUE index"
+      - "it's 24 characters of base58, made as the record is built"
+      - "await user.regenerateAuthToken() saves a new one"
+    routes: /passwords-and-tokens
   - id: share-with-some
     question: "How do I give only some of my Models an afterSave callback, without repeating it on each?"
     expected:
