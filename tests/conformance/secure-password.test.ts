@@ -148,6 +148,14 @@ describe("a secure password", () => {
       expect(await member.authenticatePassword("correct horse")).toBe(member);
     });
 
+    test("is false for a value that isn't a string", async () => {
+      const member = await db()
+        .model(Member)
+        .create({ email: "jane@example.com", password: "correct horse" });
+
+      expect(await member.authenticate(["correct horse"] as never)).toBe(false);
+    });
+
     test("is false without a digest", async () => {
       const member = db().model(Member).build({ email: "jane@example.com" });
 
