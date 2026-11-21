@@ -1,17 +1,19 @@
 // The repo's lint rule that comments and test names say what the code does, not where the idea came from (#515).
 import { defineRule } from "vite-plus/lint/plugins";
+import { parseOptOut } from "./opt-outs.mjs";
 import { testName } from "./test-calls.mjs";
 
 /** The word, whole and capitalized: "Rails'" and "Rails-style", not "guard rails" or "guardrails". */
 const rails = /\bRails\b/;
 
-/** A comment that turns rules off or on. */
-const directive = /^\s*(?:oxlint|eslint)-(?:disable|enable)/;
-
-/** Whether a comment opts out of this rule, whose reason can then name what it opts out for. */
+/**
+ * Whether a comment turns this rule off, naming it or naming no rule (which turns every rule off),
+ * so its reason can name what it opts out for.
+ */
 function isOwnOptOut(text) {
-  const [rules] = text.split("--");
-  return directive.test(text) && rules.includes("active-record/no-rails-mention");
+  const names = parseOptOut(text)?.names;
+  if (names === undefined) return false;
+  return names.length === 0 || names.includes("active-record/no-rails-mention");
 }
 
 export default defineRule({
