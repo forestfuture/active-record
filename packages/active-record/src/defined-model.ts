@@ -12,6 +12,7 @@ import {
 } from "./metadata.ts";
 import type { BaseClass, Model, ModelBaseFor } from "./model.ts";
 import { inferTableNames } from "./table-names.ts";
+import { defineSecureTokenMethods } from "./secure-tokens.ts";
 import {
   defineSecurePasswordMethods,
   withSecurePasswords,
@@ -46,5 +47,6 @@ export function defineModel<A extends DeclaredAttributes, B extends BaseClass>(
   defineEnumMethods(DefinedModel.prototype, DefinedModel.attributeDefinitions);
   defineEnumStatics(DefinedModel, DefinedModel.attributeDefinitions);
   defineSecurePasswordMethods(DefinedModel.prototype, DefinedModel.attributeDefinitions);
+  defineSecureTokenMethods(DefinedModel.prototype, DefinedModel.attributeDefinitions);
   return DefinedModel as never;
 }

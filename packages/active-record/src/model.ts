@@ -19,6 +19,7 @@ import { declare, declared } from "./declarations.ts";
 import { checkNormalizedName, type NormalizeOptions } from "./normalization.ts";
 import { defineModel, type SpecsOrWidened } from "./defined-model.ts";
 import type { DefinedSpecs } from "./attribute-aliases.ts";
+import type { SecureTokenMethods } from "./secure-tokens.ts";
 import {
   authenticateBy,
   passwordAttributeNames,
@@ -791,7 +792,8 @@ export type TableAttributes<A extends AttributeSpecs, O = {}> = AttributePropert
   AsSpecs<OverriddenSpecs<A, O>>
 > &
   EnumMethods<OverriddenSpecs<A, O>> &
-  SecurePasswordMethods<OverriddenSpecs<A, O>> & {
+  SecurePasswordMethods<OverriddenSpecs<A, O>> &
+  SecureTokenMethods<OverriddenSpecs<A, O>> & {
     readonly [attributeSpecs]: OverriddenSpecs<A, O>;
     readonly [attributeTypes]: AttributeProperties<AsSpecs<OverriddenSpecs<A, O>>>;
   };
@@ -816,7 +818,8 @@ export type ModelBaseFor<
 > = (new () => InstanceType<B> &
   AttributeProperties<A> &
   EnumMethods<A> &
-  SecurePasswordMethods<A> & {
+  SecurePasswordMethods<A> &
+  SecureTokenMethods<A> & {
     readonly [attributeTypes]: AttributeProperties<A>;
     readonly [attributeSpecs]: A;
   }) &
