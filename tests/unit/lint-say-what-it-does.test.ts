@@ -94,6 +94,11 @@ ruleTester.run("say-what-it-does, given its words", sayWhatItDoes, {
     "// Start at their defaults on a load, as Rails does.\nconst a = 1;",
     // A word's dot is a dot, not any character.
     { code: "// Reads Nodexjs.\nconst a = 1;", options: [{ words: ["Node.js"] }] },
+    // An empty word in the list is no word, not a match for every comment.
+    {
+      code: "// Start at their defaults on a load.\nconst a = 1;",
+      options: [{ words: ["Rails", ""] }],
+    },
   ],
   invalid: [
     {

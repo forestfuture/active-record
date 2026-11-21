@@ -8,9 +8,11 @@ const wordCharacter = String.raw`[\p{L}\p{N}_]`;
 
 /**
  * A pattern matching any of the words, each whole and as written: "Rails" finds "Rails'" and
- * "Rails-style", not "guard rails" or "guardrails". Null for no words, which reports nothing.
+ * "Rails-style", not "guard rails" or "guardrails". Null for no words (an empty one is none), which
+ * reports nothing.
  */
-function wordPattern(words) {
+function wordPattern(listed) {
+  const words = listed.filter((word) => word !== "");
   if (words.length === 0) return null;
   const escaped = words.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`));
   return new RegExp(`(?<!${wordCharacter})(?:${escaped.join("|")})(?!${wordCharacter})`, "u");
