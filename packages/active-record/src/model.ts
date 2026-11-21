@@ -22,6 +22,7 @@ import type { DefinedSpecs } from "./attribute-aliases.ts";
 import type { SecureTokenMethods } from "./secure-tokens.ts";
 import {
   authenticateBy,
+  type AuthenticateByAttributes,
   secretAttributeNames,
   type SecurePasswordMethods,
   type WithSecurePasswords,
@@ -340,7 +341,7 @@ export class Model extends AttributeWrites {
    */
   static authenticateBy<C extends QueryableClass>(
     this: C,
-    attributes: Partial<AttributesOf<InstanceType<C>>>,
+    attributes: AuthenticateByAttributes<SpecsOf<InstanceType<C>>, AttributesOf<InstanceType<C>>>,
   ): Promise<InstanceType<C> | null> {
     return authenticateBy(this as never, attributes);
   }

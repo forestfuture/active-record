@@ -382,7 +382,7 @@ describe("a secure password", () => {
       }
     }
 
-    const signIn = (attributes: Parameters<typeof Login.authenticateBy>[0]) =>
+    const signIn = (attributes: { email?: string; password?: string | null }) =>
       withDatabase(db(), () => Login.authenticateBy(attributes));
 
     beforeEach(async () => {
@@ -396,6 +396,27 @@ describe("a secure password", () => {
       expect(login).toBeInstanceOf(Login);
       expect(login?.email).toBe("jane@example.com");
       expect(await signIn({ email: "jane@example.com", password: "correct house" })).toBe(null);
+    });
+
+    test("finds only the records its default scope lets it", async () => {
+      class ActiveLogin extends Model.define({
+        id: { type: "integer", null: false },
+        email: "string",
+        passwordDigest: "string",
+        password: { securePassword: true },
+      }) {
+        static table = "members";
+
+        static {
+          this.defaultScope((q) => q.whereNot({ email: "jane@example.com" }));
+        }
+      }
+
+      const found = await withDatabase(db(), () =>
+        ActiveLogin.authenticateBy({ email: "jane@example.com", password: "correct horse" }),
+      );
+
+      expect(found).toBe(null);
     });
 
     test("is null when no record matches", async () => {

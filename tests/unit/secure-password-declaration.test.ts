@@ -39,6 +39,16 @@ describe("a secure password's declaration", () => {
     expect("authenticate" in Staff.prototype).toBe(false);
   });
 
+  test("gives a Model authenticateBy only with a secure password", () => {
+    class Visitor extends Model.define({ id: { type: "integer", null: false }, email: "string" }) {
+      static table = "visitors";
+    }
+
+    // @ts-expect-error -- a Model without a secure password has nothing to authenticate
+    void (() => Visitor.authenticateBy({ email: "jane@example.com" }));
+    expectTypeOf(Member.authenticateBy).parameter(0).toHaveProperty("password");
+  });
+
   test("needs a string attribute for its digest", () => {
     expect(() =>
       Model.define({

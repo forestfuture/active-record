@@ -52,6 +52,15 @@ type PasswordNames<A> = {
   [K in keyof A]: A[K] extends { securePassword: true | object } ? K & string : never;
 }[keyof A];
 
+/**
+ * What `authenticateBy` takes for a Model whose attribute specs are `S` and attributes `A`: any of
+ * its attributes, or `never` for a Model without a secure password, so calling it is a compile
+ * error.
+ */
+export type AuthenticateByAttributes<S, A> = [PasswordNames<S>] extends [never]
+  ? never
+  : Partial<A>;
+
 /** Checks a password against its digest: the record, or `false` when it isn't the one. */
 type Authenticate = <R>(this: R, password: string) => Promise<R | false>;
 
