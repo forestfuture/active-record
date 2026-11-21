@@ -26,6 +26,19 @@ describe("a secure password's declaration", () => {
     expect(member.passwordChallenge).toBe(null);
   });
 
+  test("gives authenticate to password alone, and authenticate…() to each", () => {
+    class Staff extends Model.define({
+      recoveryPasswordDigest: "string",
+      recoveryPassword: { securePassword: true },
+    }) {}
+
+    expectTypeOf<Staff>().toHaveProperty("authenticateRecoveryPassword");
+    expectTypeOf<Staff>().not.toHaveProperty("authenticate");
+    expectTypeOf<Member>().toHaveProperty("authenticate");
+    expect(typeof Staff.prototype.authenticateRecoveryPassword).toBe("function");
+    expect("authenticate" in Staff.prototype).toBe(false);
+  });
+
   test("needs a string attribute for its digest", () => {
     class Visitor extends Model.define({
       id: { type: "integer", null: false },

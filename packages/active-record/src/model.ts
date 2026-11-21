@@ -19,7 +19,7 @@ import { declare, declared } from "./declarations.ts";
 import { checkNormalizedName, type NormalizeOptions } from "./normalization.ts";
 import { defineModel, type SpecsOrWidened } from "./defined-model.ts";
 import type { DefinedSpecs } from "./attribute-aliases.ts";
-import type { WithSecurePasswords } from "./secure-passwords.ts";
+import type { SecurePasswordMethods, WithSecurePasswords } from "./secure-passwords.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
@@ -771,7 +771,8 @@ useModelBase(Model, readyModel);
 export type TableAttributes<A extends AttributeSpecs, O = {}> = AttributeProperties<
   AsSpecs<OverriddenSpecs<A, O>>
 > &
-  EnumMethods<OverriddenSpecs<A, O>> & {
+  EnumMethods<OverriddenSpecs<A, O>> &
+  SecurePasswordMethods<OverriddenSpecs<A, O>> & {
     readonly [attributeSpecs]: OverriddenSpecs<A, O>;
     readonly [attributeTypes]: AttributeProperties<AsSpecs<OverriddenSpecs<A, O>>>;
   };
@@ -795,7 +796,8 @@ export type ModelBaseFor<
   B extends BaseClass = typeof Model,
 > = (new () => InstanceType<B> &
   AttributeProperties<A> &
-  EnumMethods<A> & {
+  EnumMethods<A> &
+  SecurePasswordMethods<A> & {
     readonly [attributeTypes]: AttributeProperties<A>;
     readonly [attributeSpecs]: A;
   }) &
