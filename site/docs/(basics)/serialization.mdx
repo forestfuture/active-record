@@ -57,7 +57,7 @@ Name an attribute in `static hiddenAttributes` on your app’s base class to kee
 - A Model’s own list replaces the base class’s, so `Account` repeats it beside `apiKey`.
 - By default, nothing is hidden, and each name must match an attribute exactly.
 - `attributes()` still returns every attribute, so you can send a hidden one on purpose.
-- A [secure password](./passwords-and-tokens), its confirmation, and its challenge are left out without being listed. Its digest isn’t, so list `passwordDigest`.
+- A [secure password](./passwords-and-tokens), with its confirmation, challenge, and digest, and a secure token are left out without being listed.
 
 :::note
 A name a Model doesn’t have throws `InvalidModel` when the Model is first used, so a typo can’t leave an attribute in your responses. The base class’s names are the exception: a Model without that attribute ignores them.

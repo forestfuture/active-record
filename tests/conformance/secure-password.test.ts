@@ -348,6 +348,15 @@ describe("a secure password", () => {
       expect(JSON.stringify(member)).not.toContain("correct horse");
       expect(member.attributes()).toHaveProperty("password", "correct horse");
     });
+
+    test("leaves out the digest, which attributes() keeps", async () => {
+      const member = await db()
+        .model(Member)
+        .create({ email: "jane@example.com", password: "correct horse" });
+
+      expect(Object.keys(member.toJSON())).not.toContain("passwordDigest");
+      expect(member.attributes()).toHaveProperty("passwordDigest", member.passwordDigest);
+    });
   });
 
   describe("authenticateBy", () => {

@@ -89,7 +89,7 @@ An **Attribute** declared with `virtual: true` that isn't a **Column**: typed, c
 _Avoid_: Transient, non-persisted, attr_accessor
 
 **Secure password**:
-A **Virtual attribute** declared with `securePassword`, with its confirmation and challenge, kept in the table only as its **Password digest**. `authenticate` checks a password against it, and `toJSON()` leaves all three out.
+A **Virtual attribute** declared with `securePassword`, with its confirmation and challenge, kept in the table only as its **Password digest**. `authenticate` checks a password against it, and `toJSON()` leaves all three and the digest out.
 _Avoid_: Encrypted password, hashed password field
 
 **Password digest**:
@@ -97,7 +97,7 @@ What a **Secure password** is saved as, in the column named for it with `_digest
 _Avoid_: Encrypted password, password hash column, crypted password
 
 **Secure token**:
-A string **Attribute** declared with `secureToken`, which a new record gets as a random base58 token, and `regenerate…()` replaces. Nothing checks it's unique; a UNIQUE index does.
+A string **Attribute** declared with `secureToken`, which a new record gets as a random base58 token, and `regenerate…()` replaces. `toJSON()` leaves it out, and it's always filtered. Nothing checks it's unique; a UNIQUE index does.
 _Avoid_: API key, random id, nonce
 
 **Hidden attribute**:

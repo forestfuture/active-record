@@ -80,8 +80,9 @@ function companionsOf(name: string): string[] {
 }
 
 /**
- * The attributes that hold a secret, filtered whatever `filterAttributes` says: each secure
- * password, its confirmation, its challenge and its digest, and each secure token.
+ * The attributes that hold a secret, which `toJSON()` leaves out and every filter hides, whatever
+ * `hiddenAttributes` and `filterAttributes` say: each secure password, its confirmation, its
+ * challenge and its digest, and each secure token.
  */
 export function secretAttributeNames(
   definitions: ReadonlyMap<string, AttributeDefinition>,
@@ -108,13 +109,6 @@ function secretsIn(definitions: ReadonlyMap<string, AttributeDefinition>): Reado
   ]);
   const tokens = [...definitions].filter(([, { secureToken }]) => secureToken !== undefined);
   return new Set([...passwords, ...tokens.map(([name]) => name)]);
-}
-
-/** Each secure password's attributes, which `toJSON()` leaves out: itself, its confirmation and its challenge. */
-export function passwordAttributeNames(
-  definitions: ReadonlyMap<string, AttributeDefinition>,
-): string[] {
-  return securePasswordsOf(definitions).flatMap(({ name }) => [name, ...companionsOf(name)]);
 }
 
 /**
