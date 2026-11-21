@@ -7,6 +7,7 @@ import noSqlText from "./no-sql-text.mjs";
 import oneModelPerTest from "./one-model-per-test.mjs";
 import predicateName from "./predicate-name.mjs";
 import standaloneTestName from "./standalone-test-name.mjs";
+import storedKeyLookup from "./stored-key-lookup.mjs";
 
 export default definePlugin({
   meta: { name: "active-record" },
@@ -18,5 +19,6 @@ export default definePlugin({
     "one-model-per-test": oneModelPerTest,
     "predicate-name": predicateName,
     "standalone-test-name": standaloneTestName,
+    "stored-key-lookup": storedKeyLookup,
   },
 });

@@ -155,7 +155,9 @@ export function defineEnumStatics(
   for (const { attribute, name, scopes } of enumNames(definitions)) {
     const [only, without] = scopes;
     if (only === undefined) continue;
+    // oxlint-disable-next-line active-record/stored-key-lookup -- a value's name, as a caller writes it
     const onlyScope = declaring.scope((q) => q.where({ [attribute]: name }));
+    // oxlint-disable-next-line active-record/stored-key-lookup -- a value's name, as a caller writes it
     const withoutScope = declaring.scope((q) => q.whereNot({ [attribute]: name }));
     enumScopes.add(onlyScope);
     enumScopes.add(withoutScope);
