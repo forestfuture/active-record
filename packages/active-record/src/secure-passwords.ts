@@ -254,7 +254,9 @@ export interface PasswordRecord {
 
 /**
  * Hashes each secure password changed since the record was loaded or saved into its digest,
- * as the record is saved; `""` and null leave the digest to their assignment.
+ * as the record is saved; `""` and null leave the digest to their assignment. A save runs it
+ * before and after its before-callbacks, so a password one assigns is hashed too, and one it
+ * already hashed, into the digest the record holds, isn't hashed again.
  */
 export async function hashPasswords(
   definitions: ReadonlyMap<string, AttributeDefinition>,
@@ -262,9 +264,36 @@ export async function hashPasswords(
 ): Promise<void> {
   for (const password of securePasswordsOf(definitions)) {
     const waiting = waitingPassword(password, record);
-    if (waiting === undefined) continue;
-    record.write(password.digest, await password.algorithm.hash(waiting));
+    if (waiting === undefined || isHashedAlready(record, password, waiting)) continue;
+    const digest = await password.algorithm.hash(waiting);
+    record.write(password.digest, digest);
+    hashedOf(record).set(password.name, { password: waiting, digest });
   }
+}
+
+/**
+ * Each record's passwords as last hashed, with the digests they made, so a save doesn't hash one
+ * again. Module-level, but not request state (ADR-0003): keyed by the record itself.
+ */
+const hashed = new WeakMap<PasswordRecord, Map<string, { password: string; digest: string }>>();
+
+function hashedOf(record: PasswordRecord): Map<string, { password: string; digest: string }> {
+  let byName = hashed.get(record);
+  if (byName === undefined) {
+    byName = new Map();
+    hashed.set(record, byName);
+  }
+  return byName;
+}
+
+/** Whether `password` was hashed into the digest the record holds now. */
+function isHashedAlready(
+  record: PasswordRecord,
+  { name, digest }: SecurePassword,
+  password: string,
+): boolean {
+  const last = hashed.get(record)?.get(name);
+  return last !== undefined && last.password === password && last.digest === record.read(digest);
 }
 
 /** A secure password's failure: the attribute it's on, and its type. */
