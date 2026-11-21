@@ -16,5 +16,35 @@ ruleTester.run("no-rails-mention", noRailsMention, {
       code: "/** Rails' attributes API, typed. */\nconst a = 1;",
       errors: [{ messageId: "mentionsRails" }],
     },
+    {
+      name: "a test's name",
+      code: 'test("starts at the defaults, as Rails does", () => {});',
+      errors: [{ messageId: "mentionsRails" }],
+    },
+    {
+      name: "an it() name",
+      code: 'it("keeps Rails\' order", () => {});',
+      errors: [{ messageId: "mentionsRails" }],
+    },
+    {
+      name: "a describe() name",
+      code: 'describe("Rails-style callbacks", () => {});',
+      errors: [{ messageId: "mentionsRails" }],
+    },
+    {
+      name: "a test.each() name",
+      code: 'test.each(["a", "b"])("reads %s as Rails does", () => {});',
+      errors: [{ messageId: "mentionsRails" }],
+    },
+    {
+      name: "a skipped test's name",
+      code: 'test.skip("reads it as Rails does", () => {});',
+      errors: [{ messageId: "mentionsRails" }],
+    },
+    {
+      name: "a name given as a template literal",
+      code: "test(`reads ${column} as Rails does`, () => {});",
+      errors: [{ messageId: "mentionsRails" }],
+    },
   ],
 });
