@@ -5,8 +5,14 @@ import { testName } from "./test-calls.mjs";
 /** The word, whole and capitalized: "Rails'" and "Rails-style", not "guard rails" or "guardrails". */
 const rails = /\bRails\b/;
 
-/** A comment that turns rules off or on, whose reason can name what it opts out for. */
+/** A comment that turns rules off or on. */
 const directive = /^\s*(?:oxlint|eslint)-(?:disable|enable)/;
+
+/** Whether a comment opts out of this rule, whose reason can then name what it opts out for. */
+function isOwnOptOut(text) {
+  const [rules] = text.split("--");
+  return directive.test(text) && rules.includes("active-record/no-rails-mention");
+}
 
 export default defineRule({
   meta: {
@@ -20,7 +26,7 @@ export default defineRule({
     return {
       Program() {
         for (const comment of context.sourceCode.getAllComments()) {
-          if (directive.test(comment.value) || !rails.test(comment.value)) continue;
+          if (isOwnOptOut(comment.value) || !rails.test(comment.value)) continue;
           const data = { place: "comment" };
           context.report({ loc: comment.loc, messageId: "mentionsRails", data });
         }

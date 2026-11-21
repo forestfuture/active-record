@@ -64,6 +64,11 @@ ruleTester.run("no-rails-mention", noRailsMention, {
       errors: [{ messageId: "mentionsRails" }],
     },
     {
+      name: "another rule's opt-out whose reason names Rails",
+      code: "// oxlint-disable-next-line no-console -- logs as Rails does\nconsole.log(1);",
+      errors: [{ messageId: "mentionsRails" }],
+    },
+    {
       name: "a name given as a template literal",
       code: "test(`reads ${column} as Rails does`, () => {});",
       errors: [{ messageId: "mentionsRails" }],
