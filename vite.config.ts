@@ -200,7 +200,8 @@ export default defineConfig({
         // Comments and test names say what the code does, not where the idea came from
         // (CODING_STANDARDS.md, Names and comments; #515).
         files: ["packages/*/src/**", "packages/*/cli/**", "tests/**"],
-        rules: { "active-record/say-what-it-does": "error" },
+        // The words are the names of where an idea came from.
+        rules: { "active-record/say-what-it-does": ["error", { words: ["Rails"] }] },
       },
       {
         // A file `active-record schema` writes is left as written: its comments carry table and

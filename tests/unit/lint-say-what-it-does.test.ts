@@ -3,6 +3,10 @@ import { ruleTester } from "../support/rule-tester.ts";
 
 // Comments and test names say what the code does, not where the idea came from
 // (CODING_STANDARDS.md, Names and comments; #515).
+
+/** The words the repo's config gives the rule. */
+const options = [{ words: ["Rails"] }];
+
 ruleTester.run("say-what-it-does", sayWhatItDoes, {
   valid: [
     "// Start at their defaults on a load.\nconst a = 1;",
@@ -18,7 +22,7 @@ ruleTester.run("say-what-it-does", sayWhatItDoes, {
     "// eslint-disable-next-line active-record/say-what-it-does -- names the Rails box\nconst a = 1;",
     // An opt-out naming no rule turns every rule off, this one included.
     "// oxlint-disable-next-line -- reads the Rails box\nconst a = 1;",
-  ],
+  ].map((code) => ({ code, options })),
   invalid: [
     {
       name: "a line comment",
@@ -79,6 +83,40 @@ ruleTester.run("say-what-it-does", sayWhatItDoes, {
       name: "a name given as a template literal",
       code: "test(`reads ${column} as Rails does`, () => {});",
       errors: [{ messageId: "namesOrigin" }],
+    },
+  ].map((invalid) => ({ ...invalid, options })),
+});
+
+// The words are the config's: any word, matched whole, with the word in the message.
+ruleTester.run("say-what-it-does, given its words", sayWhatItDoes, {
+  valid: [
+    // With no words given, nothing is reported.
+    "// Start at their defaults on a load, as Rails does.\nconst a = 1;",
+    // A word's dot is a dot, not any character.
+    { code: "// Reads nodexjs.\nconst a = 1;", options: [{ words: ["Node.js"] }] },
+    { code: "// Cpp code.\nconst a = 1;", options: [{ words: ["C++"] }] },
+  ],
+  invalid: [
+    {
+      name: "each word given, named in the message",
+      code: "// As Rails does.\n// As Django does.\nconst a = 1;",
+      options: [{ words: ["Rails", "Django"] }],
+      errors: [
+        { messageId: "namesOrigin", data: { word: "Rails", place: "comment" } },
+        { messageId: "namesOrigin", data: { word: "Django", place: "comment" } },
+      ],
+    },
+    {
+      name: "a word with a dot in it",
+      code: 'test("reads it as Node.js does", () => {});',
+      options: [{ words: ["Node.js"] }],
+      errors: [{ messageId: "namesOrigin", data: { word: "Node.js", place: "test's name" } }],
+    },
+    {
+      name: "a word ending in a symbol",
+      code: "// As C++ does.\nconst a = 1;",
+      options: [{ words: ["C++"] }],
+      errors: [{ messageId: "namesOrigin", data: { word: "C++", place: "comment" } }],
     },
   ],
 });
