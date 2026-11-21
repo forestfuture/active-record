@@ -15,6 +15,7 @@ import { inferTableNames } from "./table-names.ts";
 import { defineSecureTokenMethods } from "./secure-tokens.ts";
 import {
   defineSecurePasswordMethods,
+  rejectMissingDigests,
   withSecurePasswords,
   type WithSecurePasswords,
 } from "./secure-passwords.ts";
@@ -38,6 +39,7 @@ export function defineModel<A extends DeclaredAttributes, B extends BaseClass>(
     ),
   );
   const aliases = aliasesIn("", declared, definitions);
+  rejectMissingDigests("", definitions);
   class DefinedModel extends Parent {
     static override attributeDefinitions: ReadonlyMap<string, AttributeDefinition> = definitions;
     static override attributeAliases: ReadonlyMap<string, string> = aliases;

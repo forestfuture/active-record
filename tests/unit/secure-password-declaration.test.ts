@@ -40,30 +40,26 @@ describe("a secure password's declaration", () => {
   });
 
   test("needs a string attribute for its digest", () => {
-    class Visitor extends Model.define({
-      id: { type: "integer", null: false },
-      password: { securePassword: true },
-    }) {
-      static table = "visitors";
-    }
-
-    expect(() => db.model(Visitor)).toThrow(
+    expect(() =>
+      Model.define({
+        id: { type: "integer", null: false },
+        password: { securePassword: true },
+      }),
+    ).toThrow(
       new InvalidModel(
-        "Visitor.password is a secure password, so it needs a string attribute passwordDigest with a column to keep its digest in",
+        "password is a secure password, so it needs a string attribute passwordDigest with a column to keep its digest in",
       ),
     );
   });
 
   test("refuses a digest that isn't a column", () => {
-    class Visitor extends Model.define({
-      id: { type: "integer", null: false },
-      passwordDigest: { type: "string", virtual: true },
-      password: { securePassword: true },
-    }) {
-      static table = "visitors";
-    }
-
-    expect(() => db.model(Visitor)).toThrow(InvalidModel);
+    expect(() =>
+      Model.define({
+        id: { type: "integer", null: false },
+        passwordDigest: { type: "string", virtual: true },
+        password: { securePassword: true },
+      }),
+    ).toThrow(InvalidModel);
   });
 
   test("refuses another key", () => {

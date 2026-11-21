@@ -37,6 +37,7 @@ import { bindTable, modelNameOf, ownValueSetter, tableize } from "./table-names.
 import { defineSecureTokenMethods, type SecureTokenOptions } from "./secure-tokens.ts";
 import {
   defineSecurePasswordMethods,
+  rejectMissingDigests,
   withSecurePasswords,
   type SecurePasswordDeclaration,
   type SecurePasswordSpecs,
@@ -334,6 +335,7 @@ function find(owner: GeneratedClass, schema: DatabaseSchema): Generated {
     Object.entries(specs).map(([name, spec]) => [name, define(name, spec)]),
   );
   const aliases = aliasesIn(`${owner.name}.`, declared, definitions);
+  rejectMissingDigests(`${owner.name}.`, definitions);
   const primaryKey = Object.hasOwn(owner, "primaryKey")
     ? owner.primaryKey!
     : tableSchema.primaryKey;
