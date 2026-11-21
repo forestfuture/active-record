@@ -13,6 +13,7 @@ import { specProblem } from "./spec-keys.ts";
 import { isGenerated, settleGenerated } from "./generated-model.ts";
 import { checkValidatedNames } from "./validations.ts";
 import { checkNormalizedName } from "./normalization.ts";
+import { rejectMissingDigests } from "./secure-passwords.ts";
 import { rejectUnlistedContexts } from "./listed-contexts.ts";
 import { rejectAbstract, requireModelName, requireTableName } from "./table-names.ts";
 
@@ -30,6 +31,7 @@ export function verifyModel(model: ModelClass): void {
   requirePrimaryKeyAttribute(model);
   rejectReservedAttributeNames(model);
   rejectBadSpecs(model);
+  rejectMissingDigests(model);
   rejectEnumNameClashes(model);
   for (const validation of declared(model, "validations")) checkValidatedNames(model, validation);
   for (const { attribute } of declared(model, "normalizations")) {

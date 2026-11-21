@@ -7,6 +7,7 @@ import type { EpochStorage } from "./epoch-storage.ts";
 import { InvalidModel, UnknownAttribute } from "./errors.ts";
 import type { ModelClass } from "./model.ts";
 import { underscore } from "./naming.ts";
+import type { SecurePasswordDeclaration, SecurePasswordOptions } from "./secure-passwords.ts";
 
 export type AttributeType =
   | "string"
@@ -59,6 +60,11 @@ export interface SpecObject {
    * written to one, and refused in queries.
    */
   virtual?: boolean;
+  /**
+   * A virtual password kept as its digest, in the column of the attribute named for it with
+   * `Digest` (#355): `true`, or its options.
+   */
+  securePassword?: true | SecurePasswordOptions;
 }
 
 /** How an enum's value is validated: `true`, or `{ allowNull: true }` to let it be null. */
@@ -136,8 +142,11 @@ type SpecObjectByType =
 
 export type AttributeSpecs = Record<string, AttributeSpec>;
 
-/** What `define` takes: attribute specs, and aliases of them (#509). */
-export type DeclaredAttributes = Record<string, AttributeSpec | AttributeAlias>;
+/** What `define` takes: attribute specs, aliases of them (#509), and secure passwords (#355). */
+export type DeclaredAttributes = Record<
+  string,
+  AttributeSpec | AttributeAlias | SecurePasswordDeclaration
+>;
 
 /**
  * `A`, with any key a spec doesn't have typed `never`, so a misspelled one (`nul: false`) is a
@@ -148,9 +157,20 @@ export type ExactSpecs<A> = {
     ? A[K]
     : A[K] extends { aliasOf: string }
       ? A[K] & Record<Exclude<keyof A[K], "aliasOf">, never>
-      : A[K] extends object
-        ? A[K] & Record<Exclude<keyof A[K], keyof SpecObject>, never>
-        : A[K];
+      : A[K] extends { securePassword: unknown; type?: never }
+        ? A[K] &
+            ExactSecurePassword<A[K]["securePassword"]> &
+            Record<Exclude<keyof A[K], "securePassword">, never>
+        : A[K] extends object
+          ? A[K] & Record<Exclude<keyof A[K], keyof SpecObject>, never>
+          : A[K];
+};
+
+/** A secure password's `securePassword`, with any option it doesn't have typed `never` (#355). */
+type ExactSecurePassword<P> = {
+  securePassword: P extends true
+    ? true
+    : P & Record<Exclude<keyof P, keyof SecurePasswordOptions>, never>;
 };
 
 /** An attribute's resolved metadata. */
@@ -173,6 +193,8 @@ export interface AttributeDefinition {
   validate?: EnumValidation;
   /** Not a column: never read or written, and refused in queries (#356). */
   virtual?: true;
+  /** A secure password, kept as its digest (#355). */
+  securePassword?: true | SecurePasswordOptions;
 }
 
 /** The JavaScript value an attribute of a built-in type holds: a `Date` for a `datetime`. */
