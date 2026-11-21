@@ -237,7 +237,8 @@ export class Model extends AttributeWrites {
    * Attributes whose values listeners and errors show as "[FILTERED]": an attribute
    * whose snake_case name holds a string entry, lowercased or read in snake_case (`"apiKey"` as
    * `api_key`), or matches a RegExp. The defaults cover common secret and personal names
-   * (`password`, `token`, `email`, …); replace them on the app's base class (#83).
+   * (`password`, `token`, `email`, …); replace them on the app's base class (#83). A secure
+   * password's attributes and digest, and a secure token, are filtered whatever it says (#355).
    */
   static filterAttributes: readonly FilterAttribute[] = defaultFilterAttributes;
 

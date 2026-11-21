@@ -2,6 +2,7 @@
    declarations active-record schema generates, which merge from another file: the accessors they
    type are defined when the Model's attributes resolve. */
 // Secure passwords (#355): a virtual password, kept in the table only as its digest.
+import { inspect } from "node:util";
 import {
   afterAll,
   beforeAll,
@@ -84,6 +85,41 @@ describe("a secure password", () => {
       expect(JSON.stringify(await harness.exec("SELECT * FROM members"))).not.toContain(
         "correct horse",
       );
+    });
+  });
+
+  describe("filtered", () => {
+    // Filtering nothing by name, so only being a secure password or token filters a value.
+    class Visible extends Model.define({
+      id: { type: "integer", null: false },
+      recoveryPasswordDigest: "string",
+      inviteCode: { type: "string", secureToken: true },
+      recoveryPassword: { securePassword: { validations: false } },
+    }) {
+      static table = "members";
+      static override filterAttributes = [];
+    }
+
+    test("its digest, and a secure token, are filtered in onQuery whatever filterAttributes says", async () => {
+      const visible = await db().model(Visible).create({ recoveryPassword: "correct horse" });
+
+      expect(bound()).not.toContain(visible.recoveryPasswordDigest);
+      expect(bound()).not.toContain(visible.inviteCode);
+      expect(bound().filter((value) => value === "[FILTERED]")).toHaveLength(2);
+    });
+
+    test("it, its confirmation and its challenge print as [FILTERED]", () => {
+      const visible = db().model(Visible).build({
+        recoveryPassword: "correct horse",
+        recoveryPasswordConfirmation: "correct horse",
+        recoveryPasswordChallenge: "battery staple",
+      });
+
+      const printed = inspect(visible);
+
+      expect(printed).not.toContain("correct horse");
+      expect(printed).not.toContain("battery staple");
+      expect(printed).not.toContain(visible.inviteCode);
     });
   });
 

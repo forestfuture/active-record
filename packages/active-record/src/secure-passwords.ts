@@ -79,6 +79,37 @@ function companionsOf(name: string): string[] {
   return [`${name}Confirmation`, `${name}Challenge`];
 }
 
+/**
+ * The attributes that hold a secret, filtered whatever `filterAttributes` says: each secure
+ * password, its confirmation, its challenge and its digest, and each secure token.
+ */
+export function secretAttributeNames(
+  definitions: ReadonlyMap<string, AttributeDefinition>,
+): ReadonlySet<string> {
+  let names = secretNames.get(definitions);
+  if (names === undefined) {
+    names = secretsIn(definitions);
+    secretNames.set(definitions, names);
+  }
+  return names;
+}
+
+/**
+ * Each Model's secret attributes, by its attributes' definitions, which don't change once made.
+ * Module-level, but not request state (ADR-0003): derived only from the classes.
+ */
+const secretNames = new WeakMap<ReadonlyMap<string, AttributeDefinition>, ReadonlySet<string>>();
+
+function secretsIn(definitions: ReadonlyMap<string, AttributeDefinition>): ReadonlySet<string> {
+  const passwords = securePasswordsOf(definitions).flatMap(({ name, digest }) => [
+    name,
+    ...companionsOf(name),
+    digest,
+  ]);
+  const tokens = [...definitions].filter(([, { secureToken }]) => secureToken !== undefined);
+  return new Set([...passwords, ...tokens.map(([name]) => name)]);
+}
+
 /** Each secure password's attributes, which `toJSON()` leaves out: itself, its confirmation and its challenge. */
 export function passwordAttributeNames(
   definitions: ReadonlyMap<string, AttributeDefinition>,
