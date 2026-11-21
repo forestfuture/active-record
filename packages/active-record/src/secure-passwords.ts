@@ -65,9 +65,7 @@ export type SecurePasswordMethods<A> = {
 } & ("password" extends PasswordNames<A> ? { authenticate: Authenticate } : {});
 
 /** Whether a declared attribute is a secure password: an object with `securePassword` and no type. */
-export function isSecurePasswordDeclaration(
-  declared: unknown,
-): declared is SecurePasswordDeclaration {
+function isSecurePasswordDeclaration(declared: unknown): declared is SecurePasswordDeclaration {
   return (
     typeof declared === "object" &&
     declared !== null &&
@@ -122,7 +120,7 @@ export function withSecurePasswords(
 }
 
 /** One secure password, resolved: its attribute, its digest's, its algorithm, and its validations. */
-export interface SecurePassword {
+interface SecurePassword {
   readonly name: string;
   readonly digest: string;
   readonly algorithm: PasswordAlgorithm;
@@ -130,7 +128,7 @@ export interface SecurePassword {
 }
 
 /** A Model's secure passwords, from its attributes' definitions. */
-export function securePasswordsOf(
+function securePasswordsOf(
   definitions: ReadonlyMap<string, AttributeDefinition>,
 ): SecurePassword[] {
   return [...definitions].flatMap(([name, { securePassword }]) => {
