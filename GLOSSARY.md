@@ -73,8 +73,32 @@ A value the database returned for one column of a row: a number, text, bytes, or
 _Avoid_: Raw value, database value, value from D1
 
 **Filtered attribute**:
-An attribute whose values listeners, errors, and a printed record show as `"[FILTERED]"` (passwords, tokens, keys, emails), named by the Model's `filterAttributes`. D1 still gets the real values.
+An attribute whose values listeners, errors, and a printed record show as `"[FILTERED]"` (passwords, tokens, keys, emails), named by the Model's `filterAttributes`, or a **Secure password**'s or **Secure token**'s, whatever it says. D1 still gets the real values.
 _Avoid_: Redacted, masked, sensitive field; and "filter" alone, which means a **Scope**'s conditions
+
+**Attribute alias**:
+A second name for an **Attribute**, declared as `title: { aliasOf: "name" }`, that reads, writes and queries the attribute it names. The record holds the value once, under the attribute's own name. Not the alias a joined table goes by in a query.
+_Avoid_: Alias attribute, synonym, renamed column
+
+**Normalization**:
+A function a Model declares with `normalizes` for one **Attribute**, run on each value assigned to it once cast, and on each value a query compares with it, so `" Jane@Example.com"` is kept and found as `"jane@example.com"`. It skips `null` unless declared `applyToNull`, and a value loaded from a row stays as it was stored.
+_Avoid_: Sanitizing, cleaning, formatting
+
+**Virtual attribute**:
+An **Attribute** declared with `virtual: true` that isn't a **Column**: typed, cast, and change-tracked, but never read from a row or written to one, and never named in a query. A `confirmation` rule reads one, which `toJSON()` leaves out.
+_Avoid_: Transient, non-persisted, attr_accessor
+
+**Secure password**:
+A **Virtual attribute** declared with `securePassword`, with its confirmation and challenge, kept in the table only as its **Password digest**. `authenticate` checks a password against it, and `toJSON()` leaves all three and the digest out.
+_Avoid_: Encrypted password, hashed password field
+
+**Password digest**:
+What a **Secure password** is saved as, in the column named for it with `_digest`: a salted hash its algorithm makes when the record is saved, which says how it was made (`$pbkdf2-sha256$i=100000$…`). It can verify a password, never give one back.
+_Avoid_: Encrypted password, password hash column, crypted password
+
+**Secure token**:
+A string **Attribute** declared with `secureToken`, which a new record gets as a random base58 token, and `regenerate…()` replaces. `toJSON()` leaves it out, and it's always filtered. Nothing checks it's unique; a UNIQUE index does.
+_Avoid_: API key, random id, nonce
 
 **Hidden attribute**:
 An attribute `toJSON()` leaves out, named by the Model's `hiddenAttributes`, by exact name. `attributes()` still has it. Independent of a **Filtered attribute**, which is about logs and errors.

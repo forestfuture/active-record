@@ -10,7 +10,7 @@ import {
 } from "./query.ts";
 import { SafeSql } from "./sql.ts";
 
-/** The same term sorting the other way; NULLs move to the other end too, as in Rails. */
+/** The same term sorting the other way; NULLs move to the other end too. */
 export function reversed(term: OrderTerm): OrderTerm {
   return term instanceof JoinedOrder
     ? new JoinedOrder(term.path, reversedTerm(term.term))
@@ -80,7 +80,7 @@ export async function oneInOrder<M extends Model>(
 
 /**
  * The only record `query` gives, asking for two rows (keeping its order and offset): a join's
- * repeated rows count as more than one, as Rails counts them.
+ * repeated rows count as more than one.
  */
 export async function soleIn<M extends Model>(
   runner: QueryRunner<M>,

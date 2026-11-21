@@ -227,16 +227,14 @@ export class Post extends ApplicationRecord {
 });
 
 describe("names", () => {
-  test("a plural Model name is made singular, with a note, as Rails does", async () => {
+  test("a plural Model name is made singular, with a note", async () => {
     const cwd = project();
 
     const { code, output } = await generate(cwd, ["model", "line_items"]);
 
     expect(code).toBe(0);
     expect(output).toContain("Wrote src/models/line-item.ts");
-    expect(output).toContain(
-      "Note: line_items looks plural, so the Model is LineItem, as Rails names it",
-    );
+    expect(output).toContain("Note: line_items looks plural, so the Model is LineItem");
     expect(read(cwd, "src/models/line-item.ts")).toContain(
       "export class LineItem extends ApplicationRecord {}",
     );

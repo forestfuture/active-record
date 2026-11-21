@@ -66,9 +66,7 @@ export const allowedDifferences: readonly AllowedDifference[] = [
       "and lowercase letters interleave. SQLite sorts by code point, so every capital comes " +
       "before every lowercase letter.",
     contract: ordering,
-    tests: [
-      "ordering extras > merging a reorder() replaces the order, even with nothing, as in Rails",
-    ],
+    tests: ["ordering extras > merging a reorder() replaces the order, even with nothing"],
   },
   {
     id: "distinct-order",

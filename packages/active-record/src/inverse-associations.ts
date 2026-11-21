@@ -52,7 +52,7 @@ function isInferable(candidate: AssociationDefinition, definition: AssociationDe
 /**
  * The hasOne on a belongsTo's record, `record`, that points back at the belongsTo's owner: the
  * one `inverseOf` names, or else the one whose own inverse is the belongsTo. A hasMany is never
- * one: the owner isn't the whole collection, as in Rails.
+ * one: the owner isn't the whole collection.
  */
 export function inverseHasOne(
   record: Model,

@@ -24,6 +24,7 @@ export const standalonePages = [
   "preloading",
   "models",
   "serialization",
+  "passwords-and-tokens",
   "change-tracking",
   "enums",
   "attribute-types",

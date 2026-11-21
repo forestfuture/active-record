@@ -8,14 +8,15 @@ import {
 import { isBlank } from "./blank.ts";
 import { orderDecimal } from "./decimal-values.ts";
 import { addFailure, fullMessageOf, type Errors, type Failure } from "./errors-collection.ts";
-import { StrictValidationFailed } from "./errors.ts";
-import { attributeOf } from "./metadata.ts";
+import { InvalidModel, StrictValidationFailed } from "./errors.ts";
+import { humanAttributeName } from "./error-messages.ts";
+import { attributeOf, columnOf } from "./metadata.ts";
 import {
   isInContext,
   type ValidationContext,
   type ValidationContexts,
 } from "./validation-context.ts";
-import type { AttributesOf } from "./model.ts";
+import type { AttributesOf, ModelClass } from "./model.ts";
 
 export interface LengthOptions {
   minimum?: number;
@@ -67,6 +68,12 @@ export interface ValidationOptions<R = never, X extends string = ValidationConte
    * Null fails, since an unticked checkbox sends nothing; `allowNull: true` lets it pass.
    */
   acceptance?: boolean | { accept: readonly unknown[] };
+  /**
+   * The value equals the virtual attribute named after it with `Confirmation`
+   * (`emailConfirmation` for `email`), which must be declared; the failure is on that attribute,
+   * "doesn't match Email". A null confirmation passes. `caseSensitive: false` ignores case.
+   */
+  confirmation?: boolean | { caseSensitive?: boolean };
   /**
    * No other row has this value (checked in D1 through the record's Database). `scope` adds
    * attributes that must match too; `caseSensitive: false` compares with `lower()` (ASCII only).
@@ -226,6 +233,34 @@ const acceptance: Check = (value, { acceptance: rule }) => {
   return isListed(accepted, value) ? [] : [{ type: "accepted" }];
 };
 
+/** Whether a `validates` call's options hold a `confirmation` rule (#356). */
+function hasConfirmation({ confirmation }: ValidationOptions<never>): boolean {
+  return confirmation !== undefined && confirmation !== false;
+}
+
+/** The attribute a `confirmation` rule compares with `attribute`'s value (#356). */
+function confirmationOf(attribute: string): string {
+  return `${attribute}Confirmation`;
+}
+
+/** Whether two values match for `confirmation`: strings ignoring case unless `caseSensitive`. */
+function isConfirmed(value: unknown, confirmed: unknown, caseSensitive: boolean): boolean {
+  if (!caseSensitive && typeof value === "string" && typeof confirmed === "string") {
+    return value.toLowerCase() === confirmed.toLowerCase();
+  }
+  return isSameValue(value, confirmed);
+}
+
+const confirmation: Check = (value, { confirmation: rule }, { record, attribute }) => {
+  if (rule === undefined || rule === false) return [];
+  const name = confirmationOf(attribute);
+  const confirmed = Reflect.get(record, name) as unknown;
+  const caseSensitive = rule === true || rule.caseSensitive !== false;
+  if (confirmed === null || isConfirmed(value, confirmed, caseSensitive)) return [];
+  const shown = humanAttributeName(record.constructor as ModelClass, attribute);
+  return [{ type: "confirmation", attribute: name, values: { attribute: shown } }];
+};
+
 /** Applied in this order within one `validates` call. */
 const CHECKS: readonly Check[] = [
   presence,
@@ -237,6 +272,7 @@ const CHECKS: readonly Check[] = [
   numericality,
   comparison,
   acceptance,
+  confirmation,
 ];
 
 /** What running validations needs from the record being validated. */
@@ -274,9 +310,9 @@ export async function runValidations(
     const { attribute, options } = validation;
     if (!isApplied(target, options)) continue;
     for (const failure of await failuresOf(validation, target)) {
-      const added = { ...failure, message: options.message };
-      if (options.strict) throw strictFailure(target, attribute, added, options.strict);
-      target.errors[addFailure](attribute, added);
+      const { attribute: on = attribute, ...added } = { ...failure, message: options.message };
+      if (options.strict) throw strictFailure(target, on, added, options.strict);
+      target.errors[addFailure](on, added);
     }
   }
 }
@@ -343,8 +379,33 @@ export function checkValidatedNames(
   // `validatesAssociated`'s names are checked once the Model's associations are known.
   if (associated) return;
   attributeOf(model, attribute);
+  if (hasConfirmation(options)) {
+    checkConfirmation(model, attribute);
+  }
   const { uniqueness } = options;
+  if (uniqueness !== undefined && uniqueness !== false) columnOf(model, attribute);
   if (typeof uniqueness === "object") {
-    for (const name of uniqueness.scope ?? []) attributeOf(model, name);
+    for (const name of uniqueness.scope ?? []) columnOf(model, name);
+  }
+}
+
+/**
+ * The virtual attributes the `confirmation` rules among `validations` read, which `toJSON()`
+ * leaves out, so a confirmation is never sent back (#356).
+ */
+export function confirmationNames(validations: readonly Validation[]): string[] {
+  return validations
+    .filter(({ options }) => hasConfirmation(options))
+    .map(({ attribute }) => confirmationOf(attribute));
+}
+
+/** A `confirmation` rule needs its virtual attribute declared (#356). */
+function checkConfirmation(model: Parameters<typeof attributeOf>[0], attribute: string): void {
+  const name = confirmationOf(attribute);
+  if (model.attributeDefinitions.get(name)?.virtual !== true) {
+    throw new InvalidModel(
+      `${model.name} validates("${attribute}", { confirmation }), so it needs a virtual attribute ` +
+        `${name}: { type: "string", virtual: true }`,
+    );
   }
 }

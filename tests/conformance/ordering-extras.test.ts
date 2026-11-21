@@ -39,7 +39,7 @@ describe("ordering extras", () => {
     expect(await users.order({ id: "desc" }).reorder().first()).toMatchObject({ id: 1 });
   });
 
-  test("merging a reorder() replaces the order, even with nothing, as in Rails", async () => {
+  test("merging a reorder() replaces the order, even with nothing", async () => {
     const users = harness.connect().model(User);
 
     expect(await users.order({ id: "desc" }).merge(users.reorder()).first()).toMatchObject({
@@ -86,7 +86,7 @@ describe("ordering extras", () => {
     expect(await nullsFirst.pluck("id")).toEqual([2, 4, 1, 3]);
   });
 
-  test("last() reverses the nulls placement along with the direction, as Rails' reverse_order does", async () => {
+  test("last() reverses the nulls placement along with the direction", async () => {
     const users = harness.connect().model(User);
 
     const nullsLast = users.order({ role: { direction: "asc", nulls: "last" }, id: "asc" });

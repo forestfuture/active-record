@@ -24,6 +24,49 @@ export async function createProduct(request: Request) {
 }
 // #endregion permit
 
+export async function signingUp() {
+  // #region virtual
+  const form = { email: "jane@example.com", termsOfService: "1" };
+  const permitted = Account.permit(form, "email", "termsOfService");
+  const account = Account.build(permitted);
+  console.log(account.termsOfService); // true, cast from the form's "1"
+  await account.save(); // inserts the email alone
+  // #endregion virtual
+  return account;
+}
+
+export async function normalizing() {
+  // #region normalize
+  const account = await Account.create({ email: " Jane@Example.COM " });
+  console.log(account.email); // "jane@example.com"
+
+  const found = await Account.findBy({ email: "JANE@example.com" }); // the same account
+  console.log(Account.normalizeValueFor("email", " Sam@Example.com")); // "sam@example.com"
+  // #endregion normalize
+  return { account, found };
+}
+
+export async function normalizingOldRows() {
+  // #region normalize-old-rows
+  for await (const account of Account.findEach()) {
+    account.normalizeAttribute("email");
+    await account.save(); // writes only the accounts whose email changed
+  }
+  // #endregion normalize-old-rows
+}
+
+export async function aliasing() {
+  // #region alias
+  const lamp = await Product.create({ title: "Lamp" }); // writes name
+  console.log(lamp.name); // "Lamp"
+  const titles = await Product.where({ title: "Lamp" }).pluck("title");
+  console.log(titles); // ["Lamp"]
+  lamp.title = "Desk lamp";
+  console.log(lamp.changes()); // { name: ["Lamp", "Desk lamp"] }
+  // #endregion alias
+  return { lamp, titles };
+}
+
 export async function naming() {
   // #region naming
   console.log(FeaturedProduct.modelName); // "FeaturedProduct"

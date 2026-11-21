@@ -1,6 +1,7 @@
 // PreparedWrites: a Relation's bulk writes as Statements, unsent, for a Batch to prepare, and building them.
-import { compileDeleteAll, compileUpdateAll, type Conflict } from "./compiler.ts";
-import type { AttributesOf, Model } from "./model.ts";
+import { attributeFor } from "./attribute.ts";
+import { type Assignment, compileDeleteAll, compileUpdateAll, type Conflict } from "./compiler.ts";
+import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import {
   bulkRowValues,
   ownersValues,
@@ -17,7 +18,8 @@ import {
   type Returning,
   type UpsertOptions,
 } from "./relation-checks.ts";
-import type { SafeSql } from "./sql.ts";
+import { SafeSql } from "./sql.ts";
+import { withAttributeNames } from "./attribute-aliases.ts";
 import { insertStatement, Statement, type ReturnedRow } from "./statement.ts";
 
 /** @internal The library's key for a Relation's bulk writes, as Statements. */
@@ -91,7 +93,9 @@ function insertRows<Row>(
   { method, returning }: { method: string; returning?: Returning<Model> | undefined },
 ): Statement<Row> {
   requireSavedOwner(relation, "insert");
-  const values = rows.map((row) => bulkRowValues(relation, row));
+  const values = rows.map((row) =>
+    bulkRowValues(relation, withAttributeNames(relation.model, row)),
+  );
   return insertStatement(relation.executor, relation.model, values, {
     conflict,
     method,
@@ -100,12 +104,21 @@ function insertRows<Row>(
   });
 }
 
+/** `updateAll`'s changes, each cast and normalized as assigning it would be (#354). */
+function assignedChanges(
+  model: ModelClass,
+  changes: Assignment[] | SafeSql,
+): Assignment[] | SafeSql {
+  if (changes instanceof SafeSql) return changes;
+  return changes.map(([name, value]) => [name, attributeFor(model, name).assigned(value)]);
+}
+
 function updateAllStatement<M extends Model>(
   relation: RelationState<M>,
   changes: Partial<AttributesOf<M>> | SafeSql,
 ): Statement {
   const { executor, model, query } = relation;
-  const checked = checkChanges(model, changes);
+  const checked = assignedChanges(model, checkChanges(model, changes));
   const compiled = compileUpdateAll(executor.dialect, writableQuery(query, "updateAll"), checked);
   return new Statement(executor, [compiled], clearCollectionUntilWritten(relation));
 }

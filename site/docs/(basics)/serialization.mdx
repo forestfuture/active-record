@@ -57,6 +57,7 @@ Name an attribute in `static hiddenAttributes` on your app’s base class to kee
 - A Model’s own list replaces the base class’s, so `Account` repeats it beside `apiKey`.
 - By default, nothing is hidden, and each name must match an attribute exactly.
 - `attributes()` still returns every attribute, so you can send a hidden one on purpose.
+- A [secure password](./passwords-and-tokens), with its confirmation, challenge, and digest, and a secure token are left out without being listed.
 
 :::note
 A name a Model doesn’t have throws `InvalidModel` when the Model is first used, so a typo can’t leave an attribute in your responses. The base class’s names are the exception: a Model without that attribute ignores them.
@@ -66,7 +67,7 @@ A name a Model doesn’t have throws `InvalidModel` when the Model is first used
 
 `onQuery` listeners, error messages, and printed records show a filtered attribute’s values as `"[FILTERED]"`, while the database still gets the real values. [Logging](./logging#keeping-secrets-out-of-the-logs) shows a listener:
 
-- **Which attributes:** `static filterAttributes`, a list of strings and RegExps, inherited from your app’s base class. By default, it’s `passw`, `email`, `secret`, `token`, `_key`, `crypt`, `salt`, `certificate`, `otp`, `ssn`, `cvv`, `cvc`. Setting it replaces the list; `[]` filters nothing.
+- **Which attributes:** `static filterAttributes`, a list of strings and RegExps, inherited from your app’s base class. By default, it’s `passw`, `email`, `secret`, `token`, `_key`, `crypt`, `salt`, `certificate`, `otp`, `ssn`, `cvv`, `cvc`. Setting it replaces the list; `[]` filters nothing by name. A [secure password](./passwords-and-tokens), with its confirmation, challenge, and digest, and a secure token are filtered whatever the list says.
 - **Matching:** a string matches when the attribute’s snake_case name contains it, in any case: `passwordDigest` (`password_digest`) contains `passw`, and `apiKey` (`api_key`) contains `_key`. A string can also be written as the attribute is, so `"secretAt"`, `"secret_at"`, and `"secret"` all match `secretAt`. A RegExp matches the attribute or its snake_case name.
 - **Hidden in `QueryEvent.params`:** the values bound for the attribute in inserts (in a multi-row insert’s JSON, its column in every row), updates, `updateAll`, conditions, lists and comparisons, and a filtered primary key in a record’s `UPDATE` and `DELETE`.
 - **Hidden in errors:** a cast error’s value, and a filtered primary key in `RecordNotFound`.

@@ -91,7 +91,7 @@ describe("the types of changing one attribute (#351)", () => {
       const rows: number = await Article.updateCounters([1, 2], { views: 1, rating: -1 });
       await Article.where({ id: 1 }).updateCounters({ views: 2 });
       await Article.incrementCounter("views", 1, { by: 2 });
-      // @ts-expect-error by goes in the options, as Rails' by: keyword.
+      // @ts-expect-error by goes in the options.
       await Article.incrementCounter("views", 1, 2);
       await Article.decrementCounter("rating", [1, 2]);
       // @ts-expect-error A string attribute isn't a counter.

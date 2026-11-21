@@ -208,7 +208,7 @@ describe("caching lazily loaded associations", () => {
     expect(queries).toHaveLength(0);
   });
 
-  test("create through a narrowed association appends the new record to a loaded hasMany, as Rails' association relation does", async () => {
+  test("create through a narrowed association appends the new record to a loaded hasMany", async () => {
     const user = await db().model(User).find(1);
     await user.posts().toArray();
 

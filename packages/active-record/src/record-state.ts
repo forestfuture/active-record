@@ -1,4 +1,5 @@
 // A record's private state: its values, changes, errors, and lifecycle flags.
+import { attributeName } from "./attribute-aliases.ts";
 import { type Attribute, attributeFor } from "./attribute.ts";
 import { isSameCell } from "./binary-values.ts";
 import type { Assignment } from "./compiler.ts";
@@ -7,6 +8,8 @@ import { MissingAttribute, NoDatabase, RecordDestroyed } from "./errors.ts";
 import type { Executor } from "./executor.ts";
 import { LoadedAssociations, type KeyAttributes } from "./loaded-associations.ts";
 import { PendingAutosaves } from "./pending-autosaves.ts";
+import { digestOf } from "./secure-passwords.ts";
+import { generateTokens } from "./secure-tokens.ts";
 import { attributeOf, initialValues, type AttributeDefinition } from "./metadata.ts";
 import type { ChangeOptions, Model, ModelClass } from "./model.ts";
 
@@ -58,7 +61,7 @@ export class RecordState {
   readonly autosaves = new PendingAutosaves();
   /** Destroyed when its owner is saved through an `autosave: true` association (#37). */
   isMarkedForDestruction = false;
-  /** Whether its last save created it, as Rails' `previously_new_record?` (#351). */
+  /** Whether its last save created it (#351). */
   isPreviouslyNew = false;
   /** The contexts it's being validated in, while it is (#51). */
   validationContexts: readonly string[] = [];
@@ -141,12 +144,14 @@ export class RecordState {
   // Attributes
 
   /** Whether `name` is one of the Model's attributes and loaded: not left out of `select(...)`. */
-  hasAttribute(name: string): boolean {
+  hasAttribute(given: string): boolean {
+    const name = attributeName(this.#model, given);
     return this.#model.attributeDefinitions.has(name) && Object.hasOwn(this.#values, name);
   }
 
   /** An attribute's value; `MissingAttribute` if it wasn't loaded (left out of `select`). */
-  read(name: string): unknown {
+  read(given: string): unknown {
+    const name = attributeName(this.#model, given);
     this.#requireAttribute(name);
     if (!Object.hasOwn(this.#values, name)) {
       throw new MissingAttribute(
@@ -158,11 +163,22 @@ export class RecordState {
 
   /**
    * Assigns one attribute. `undefined` throws `TypeError`, because it would silently store NULL
-   * (use `null` for that); a destroyed record is read-only.
+   * (use `null` for that); a destroyed record is read-only. A secure password's assignment
+   * changes its digest only to clear it.
    */
-  write(name: string, value: unknown): void {
+  write(given: string, value: unknown): void {
     this.#requireNotDestroyed("be changed");
-    this.#store(name, this.#attribute(name).cast(value));
+    const name = attributeName(this.#model, given);
+    const assigned = this.#attribute(name).assigned(value);
+    // A secure password's `""` is ignored, and null clears its digest (#355).
+    const digest = digestOf(this.#model.attributeDefinitions, name);
+    if (digest !== undefined && assigned === "") return;
+    if (digest !== undefined && assigned === null) {
+      this.#store(digest, null);
+      // Saved as cleared, so the password assigned next is a change, even the one it held.
+      if (this.#lifecycle === "persisted") this.#snapshot.set(name, null);
+    }
+    this.#store(name, assigned);
   }
 
   /**
@@ -189,13 +205,17 @@ export class RecordState {
   }
 
   /** A new record: every attribute reads as null until assigned, and initial values are made now. */
-  build(attributes: Record<string, unknown>): void {
+  build(attributes: Record<string, unknown>, kept: Record<string, unknown> = {}): void {
     for (const name of this.#model.attributeDefinitions.keys()) this.#values[name] = null;
     for (const [name, value] of initialValues(this.#model)) {
       this.write(name, value);
       this.#initialValues.set(name, this.#storedForm(name));
     }
+    // Cast already, and normalized or a key, so stored as they are (#354).
+    for (const [name, value] of Object.entries(kept)) this.#store(name, value);
     this.assign(attributes);
+    // A secure token given as null or "" is made all the same (#355).
+    generateTokens(this.#model.attributeDefinitions, this, "initialize");
   }
 
   /**
@@ -221,16 +241,31 @@ export class RecordState {
     this.autosaves.clearAll();
   }
 
-  /** Loads a D1 row; the record becomes persisted and clean. */
-  loadRow(row: Record<string, unknown>): void {
+  /**
+   * Loads a D1 row; the record becomes persisted and clean. Its virtual attributes, which no row
+   * holds, start at their defaults, on a load or `reload` (#356); an insert's re-read
+   * row keeps the values it was saved with (`keepVirtual`).
+   */
+  loadRow(row: Record<string, unknown>, { keepVirtual = false } = {}): void {
     let loadedCount = 0;
     for (const [name, definition] of this.#model.attributeDefinitions) {
+      if (definition.virtual === true) {
+        if (!keepVirtual) this.#values[name] = this.#virtualDefault(name, definition);
+        continue;
+      }
       const { column } = definition;
       if (!(column in row)) continue;
       this.#values[name] = this.#attribute(name).read(row[column]);
       loadedCount++;
     }
     this.#markSaved(row, loadedCount);
+  }
+
+  /** A virtual attribute's value on a loaded record: its default, cast and normalized, or null (#356). */
+  #virtualDefault(name: string, definition: AttributeDefinition): unknown {
+    return definition.default === undefined
+      ? null
+      : this.#attribute(name).assigned(definition.default());
   }
 
   /** The loaded attributes as a plain object (the record's own values, not copies). */
@@ -242,7 +277,7 @@ export class RecordState {
 
   /**
    * A new record's assigned attributes that differ from their initial values (a declared default
-   * or generated id, else null), as Rails' changes run from defaults (#41); or a persisted
+   * or generated id, else null), so its changes run from its defaults (#41); or a persisted
    * one's that differ from the Snapshot. Both compare stored forms.
    */
   changedNames(): string[] {
@@ -283,9 +318,10 @@ export class RecordState {
 
   /**
    * An attribute's value as last loaded or saved (a copy). A new record's is its initial
-   * value (a default or generated id), or null, as Rails' `attribute_was` is.
+   * value (a default or generated id), or null, which `attributeWas` returns.
    */
-  valueInDatabase(name: string): unknown {
+  valueInDatabase(given: string): unknown {
+    const name = attributeName(this.#model, given);
     this.read(name);
     return this.#valueBefore(name);
   }
@@ -294,23 +330,32 @@ export class RecordState {
    * Whether the attribute has an unsaved change, optionally `from` and `to` given values
    * (compared as stored, so dates by time and json by content).
    */
-  isAttributeChanged(name: string, options: ChangeOptions = {}): boolean {
+  isAttributeChanged(given: string, options: ChangeOptions = {}): boolean {
+    const name = attributeName(this.#model, given);
     this.read(name);
     if (!this.changedNames().includes(name)) return false;
     return this.#isMatching(name, this.valueInDatabase(name), this.#values[name], options);
   }
 
+  /** The last save's change to the attribute, or an alias's, `[before, after]`, if it changed it. */
+  savedChangeOf(given: string): readonly [unknown, unknown] | undefined {
+    const name = attributeName(this.#model, given);
+    this.read(name);
+    return this.#savedChanges[name];
+  }
+
   /** Whether the last save changed the attribute, optionally `from` and `to` given values. */
-  hasSavedChangeTo(name: string, options: ChangeOptions = {}): boolean {
+  hasSavedChangeTo(given: string, options: ChangeOptions = {}): boolean {
+    const name = attributeName(this.#model, given);
     this.read(name);
     const change = this.#savedChanges[name];
     return change !== undefined && this.#isMatching(name, change[0], change[1], options);
   }
 
   /** Puts unsaved changes back: to the Snapshot, or to a new record's initial values (or null). */
-  restore(names: readonly string[] = this.changedNames()): void {
+  restore(given: readonly string[] = this.changedNames()): void {
     this.#requireNotDestroyed("be changed");
-    for (const name of names) {
+    for (const name of given.map((each) => attributeName(this.#model, each))) {
       const attribute = this.#attribute(name);
       if (this.#lifecycle !== "new") {
         if (this.#isInSnapshot(name)) this.#values[name] = this.#snapshotValue(name);
@@ -371,7 +416,7 @@ export class RecordState {
       this.#settle();
       this.#markSaved();
     } else {
-      this.loadRow(row);
+      this.loadRow(row, { keepVirtual: true });
     }
     this.#savedChanges = Object.fromEntries(
       [...before]
@@ -402,8 +447,8 @@ export class RecordState {
    * stored, or what `row` returned for them, and have no unsaved change. The rest, and
    * `savedChanges`, are as they were.
    */
-  commitColumns(names: readonly string[], row: Record<string, unknown> = {}): void {
-    for (const name of names) {
+  commitColumns(given: readonly string[], row: Record<string, unknown> = {}): void {
+    for (const name of given.map((each) => attributeName(this.#model, each))) {
       const { column } = this.#definition(name);
       const attribute = this.#attribute(name);
       this.#values[name] = column in row ? attribute.read(row[column]) : this.#copyOf(name);
@@ -413,9 +458,10 @@ export class RecordState {
 
   /**
    * After a touch (#50): as `commitColumns`, and `savedChanges` holds only the touched
-   * attributes' changes, as Rails' `touch` applies them. The record's other changes stay unsaved.
+   * attributes' changes. The record's other changes stay unsaved.
    */
-  commitTouch(names: readonly string[]): void {
+  commitTouch(given: readonly string[]): void {
+    const names = given.map((each) => attributeName(this.#model, each));
     const changes = this.changes();
     this.commitColumns(names);
     this.#savedChanges = Object.fromEntries(
@@ -485,8 +531,11 @@ export class RecordState {
     for (const name of Object.keys(this.#values)) this.#values[name] = this.#copyOf(name);
   }
 
+  /** The columns among `names` and their values: a virtual attribute has no column (#356). */
   #assignmentsOf(names: readonly string[]): Assignment[] {
-    return names.map((name): Assignment => [name, this.#values[name]]);
+    return names
+      .filter((name) => this.#definition(name).virtual !== true)
+      .map((name): Assignment => [name, this.#values[name]]);
   }
 
   /**
@@ -532,6 +581,7 @@ export class RecordState {
 
   /** Whether the row the Snapshot was loaded from has a cell for `name`. */
   #isInRow(name: string): boolean {
-    return this.#snapshotRow !== undefined && this.#definition(name).column in this.#snapshotRow;
+    const { column, virtual } = this.#definition(name);
+    return this.#snapshotRow !== undefined && virtual !== true && column in this.#snapshotRow;
   }
 }

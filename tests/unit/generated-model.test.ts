@@ -91,7 +91,7 @@ const schema = {
   },
 } as const;
 
-/** An app's base class, as Rails' ApplicationRecord, with a method, a static and a scope. */
+/** An app's base class, with a method, a static and a scope. */
 abstract class AppRecord extends Model {
   static override schema = schema;
 
@@ -526,7 +526,7 @@ describe("a generated Model's static attributes", () => {
         static override attributes = { sku } as never;
       };
     const message = new InvalidModel(
-      "Strange.sku: an override is a type name, { type, null, default, generateId, storage, precision, scale, enum, prefix, suffix, scopes, instanceMethods, validate }, or false",
+      "Strange.sku: an override is a type name, { type, null, default, generateId, storage, precision, scale, enum, prefix, suffix, scopes, instanceMethods, validate, virtual, securePassword, secureToken }, or false",
     );
 
     for (const sku of [{ column: "code" }, "money", true, { default: "SKU" }, { null: "no" }]) {

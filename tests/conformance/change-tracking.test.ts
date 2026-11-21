@@ -290,7 +290,7 @@ describe("change tracking", () => {
       expect([key.scopes, key.isChanged()]).toEqual([["read"], false]);
     });
 
-    test("a new record's restoreAttributes() returns attributes to their defaults, as in Rails", () => {
+    test("a new record's restoreAttributes() returns attributes to their defaults", () => {
       const draft = harness.connect().model(Draft).build({ email: "a@example.com", role: "admin" });
 
       draft.restoreAttributes();
@@ -307,7 +307,7 @@ describe("change tracking", () => {
       expect(() => partial!.attributeBeforeLastSave("role")).toThrow(MissingAttribute);
     });
 
-    test("a new record's value before a change is its declared default, as in Rails", () => {
+    test("a new record's value before a change is its declared default", () => {
       const draft = harness.connect().model(Draft).build({ email: "a@example.com" });
       draft.role = "admin";
 

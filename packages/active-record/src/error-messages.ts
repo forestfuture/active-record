@@ -31,7 +31,7 @@ export interface ErrorMessages<N extends string = string> {
   readonly restrictDependentDestroy?: RestrictMessages;
 }
 
-/** @internal Rails' English messages, used where no class has its own (listed in the guide). */
+/** @internal The built-in English messages, where no class has its own (listed in the guide). */
 export const builtInMessages: ErrorMessages = {
   blank: "can't be blank",
   present: "must be blank",
@@ -40,6 +40,7 @@ export const builtInMessages: ErrorMessages = {
   inclusion: "is not included in the list",
   exclusion: "is reserved",
   accepted: "must be accepted",
+  confirmation: "doesn't match %{attribute}",
   taken: "has already been taken",
   tooShort: {
     one: "is too short (minimum is 1 character)",
@@ -61,6 +62,7 @@ export const builtInMessages: ErrorMessages = {
   lessThanOrEqualTo: "must be less than or equal to %{count}",
   equalTo: "must be equal to %{count}",
   otherThan: "must be other than %{count}",
+  passwordTooLong: "is too long",
   restrictDependentDestroy: {
     hasOne: "Cannot delete record because a dependent %{record} exists",
     hasMany: "Cannot delete record because dependent %{record} exist",
@@ -138,7 +140,7 @@ function catalogOf(model: ModelClass): Catalog {
   return catalog;
 }
 
-/** The message for a type: for the attribute, then the class's own, nearest class first (Rails' order). */
+/** The message for a type: for the attribute, then the class's own, nearest class first. */
 function templateFor(model: ModelClass, attribute: string, type: string): Template | undefined {
   if (type === "attributes") return undefined;
   for (const messages of catalogOf(model).messages) {
@@ -186,7 +188,10 @@ export function messageOf(source: MessageSource, entry: ErrorEntry): string {
   const text = messageText(templateFor(model, entry.attribute, entry.type), entry);
   if (text === undefined) throw missingMessage(model, entry);
   return text.replace(/%\{(\w+)\}/g, (placeholder, name: string) => {
-    if (name === "attribute") return humanAttributeName(model, entry.attribute);
+    // A confirmation's message names the attribute it confirms, given in its values (#356).
+    if (name === "attribute") {
+      return String(ownValue(entry.values, name) ?? humanAttributeName(model, entry.attribute));
+    }
     if (name === "model") return inWords(model.modelName);
     if (name === "value") return shownValue(source, entry.attribute);
     return String(ownValue(entry.values, name) ?? placeholder);

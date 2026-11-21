@@ -61,7 +61,7 @@ function splitTouchArguments(
 /**
  * Sets the record's `updatedAt`, and the datetime attributes named, to now or `time`, straight to
  * the row, and holds them, clean; then runs `afterTouch`, and the update commit callbacks when a
- * row was written, as Rails' `touch` does. Resolves to whether there was a row to write: none
+ * row was written. Resolves to whether there was a row to write: none
  * inside a `noTouching` block that covers its Model, which sends nothing and runs no callback.
  */
 export async function touchRecord(record: Model, args: readonly unknown[]): Promise<boolean> {
@@ -91,7 +91,7 @@ function keyCells(record: Model): unknown {
 export interface TouchWriteOptions {
   /**
    * Whether the record keeps its `savedChanges`, asked as the touch commits: a record the same
-   * write saves itself keeps its save's, for its own callbacks, as Rails' deferred touch does.
+   * write saves itself keeps its save's, for its own callbacks.
    */
   keepsSavedChanges?: () => boolean;
 }

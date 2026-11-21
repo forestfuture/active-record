@@ -115,6 +115,8 @@ export default defineConfig({
         files: ["packages/*/src/**/*.ts", "packages/*/cli/**/*.ts"],
         rules: {
           "active-record/module-header": "error",
+          // The library's own lookups by a record's key keep it as stored (#354).
+          "active-record/stored-key-lookup": "error",
           "regexp/no-super-linear-move": "error",
           "regexp/no-super-linear-backtracking": "error",
           "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }],
@@ -193,6 +195,23 @@ export default defineConfig({
             },
           ],
         },
+      },
+      {
+        // Comments and test names say what the code does, not where the idea came from
+        // (CODING_STANDARDS.md, Names and comments; #515).
+        files: ["packages/*/src/**", "packages/*/cli/**", "tests/**"],
+        // The words are the names of where an idea came from.
+        rules: { "active-record/say-what-it-does": ["error", { words: ["Rails"] }] },
+      },
+      {
+        // A file `active-record schema` writes is left as written: its comments carry table and
+        // migration names, and it's regenerated, not edited.
+        files: [
+          "tests/fixtures/DB.ts",
+          "tests/fixtures/LOGS.ts",
+          "tests/fixtures/schema-project/schema.ts",
+        ],
+        rules: { "active-record/say-what-it-does": "off" },
       },
       {
         // A describe() callback holds a whole suite, so it's long by design. The rules below are

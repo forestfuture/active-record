@@ -1,26 +1,32 @@
 // `Model.define({...})` and `Model`: the record class, its attribute accessors and its declarations (validations, error messages), and the types naming its associations (`includes`' specs); its shared statics are in model-statics.ts.
 import { enumValuesOf } from "./enum-values.ts";
 import type { EnumMapping, EnumValues } from "./enum-values.ts";
-import {
-  defineEnumMethods,
-  defineEnumStatics,
-  type EnumMethods,
-  type EnumStatics,
-} from "./enum-methods.ts";
+import type { EnumMethods, EnumStatics } from "./enum-methods.ts";
 import type { Executor, QueryListener } from "./executor.ts";
-import {
-  define,
-  type AttributeProperties,
-  type AttributeDefinition,
-  type AttributeSpecs,
-  type ExactSpecs,
+import type {
+  AttributeProperties,
+  AttributeDefinition,
+  AttributeSpecs,
+  DeclaredAttributes,
+  ExactSpecs,
 } from "./metadata.ts";
 import { type Permitted, permitted } from "./permit.ts";
 import { type AttributeConversions, conversionsFor } from "./attribute-conversions.ts";
 import { defaultFilterAttributes, type FilterAttribute } from "./filtering.ts";
 import type { Errors } from "./errors-collection.ts";
 import { humanAttributeName, type ErrorMessages } from "./error-messages.ts";
-import { declare } from "./declarations.ts";
+import { declare, declared } from "./declarations.ts";
+import { checkNormalizedName, type NormalizeOptions } from "./normalization.ts";
+import { defineModel, type SpecsOrWidened } from "./defined-model.ts";
+import type { DefinedSpecs } from "./attribute-aliases.ts";
+import type { SecureTokenMethods } from "./secure-tokens.ts";
+import {
+  authenticateBy,
+  type AuthenticateByAttributes,
+  secretAttributeNames,
+  type SecurePasswordMethods,
+  type WithSecurePasswords,
+} from "./secure-passwords.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
@@ -31,10 +37,9 @@ import {
   validateRecord,
 } from "./lifecycle.ts";
 import { associationOf, newRecord, readAssociation } from "./association-fields.ts";
-import { defineModelName, inferTableNames } from "./table-names.ts";
+import { defineModelName } from "./table-names.ts";
 import {
   hasSettledAttributes,
-  defineAttributeAccessors,
   defineGeneratedStatics,
   type AsSpecs,
   type AttributeOverrides,
@@ -61,6 +66,7 @@ import type { ContextOf, SaveOptions, ValidationContexts } from "./validation-co
 import { scopeBodies, scopeName, useModelBase } from "./scoped-relation.ts";
 import {
   checkValidatedNames,
+  confirmationNames,
   type AssociatedValidationOptions,
   type Validation,
   type ValidationOptions,
@@ -183,7 +189,7 @@ export type ErrorAttributeName<R> = [AttributesOf<R>] extends [never]
 export type AttributesOf<M> = M extends { readonly [attributeTypes]?: infer A } ? A : never;
 
 /**
- * The library's base class, as Rails' `ActiveRecord::Base`: an app's base class extends it, and
+ * The library's base class: an app's base class extends it, and
  * methods, statics, callbacks and scopes declared there are shared by every Model built on it.
  * It has no table, so it's never used as a Model itself.
  */
@@ -191,13 +197,19 @@ export class Model extends AttributeWrites {
   /** The table's name: inferred from `modelName` (`BlogPost` → `blog_posts`) unless set. */
   declare static table: string;
   /**
-   * The Model's name, as Rails' `model_name`: its class name unless set (`static modelName =
+   * The Model's name: its class name unless set (`static modelName =
    * "BlogPost"`), so names inferred from it survive a bundler that renames classes.
    */
   declare static modelName: string;
   /** The primary key attribute: the generated table's, or `"id"` unless set. */
   declare static primaryKey: string;
   declare static attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
+
+  /**
+   * Each attribute alias (`title: { aliasOf: "name" }`), by alias, to the attribute it names (#509).
+   * @internal
+   */
+  declare static attributeAliases: ReadonlyMap<string, string>;
   /**
    * The generated schema, on an app's base class (`static override schema = schema`): the
    * Models built on it have its tables' attributes, and query its binding.
@@ -223,10 +235,11 @@ export class Model extends AttributeWrites {
   static onQuery: QueryListener | undefined;
 
   /**
-   * Attributes whose values listeners and errors show as "[FILTERED]", as Rails'
-   * `filter_attributes`: an attribute whose snake_case name holds a string entry, lowercased
-   * or read in snake_case (`"apiKey"` as `api_key`), or matches a RegExp. Rails' defaults;
-   * replace them on the app's base class (#83).
+   * Attributes whose values listeners and errors show as "[FILTERED]": an attribute
+   * whose snake_case name holds a string entry, lowercased or read in snake_case (`"apiKey"` as
+   * `api_key`), or matches a RegExp. The defaults cover common secret and personal names
+   * (`password`, `token`, `email`, …); replace them on the app's base class (#83). A secure
+   * password's attributes and digest, and a secure token, are filtered whatever it says (#355).
    */
   static filterAttributes: readonly FilterAttribute[] = defaultFilterAttributes;
 
@@ -238,7 +251,7 @@ export class Model extends AttributeWrites {
 
   /**
    * Runs `fn` with this Model's records not touched, nor those of the Models extending it
-   * (`Model.noTouching` covers every Model), as Rails' `no_touching`: a belongsTo's `touch`
+   * (`Model.noTouching` covers every Model): a belongsTo's `touch`
    * leaves them alone, and their `touch()` writes nothing. Resolves to what `fn` returns.
    */
   static noTouching<R>(fn: () => R | Promise<R>): Promise<R> {
@@ -273,15 +286,15 @@ export class Model extends AttributeWrites {
    * `class Visit extends Model.define({ path: "string" }) {}`. It's built on the class it's
    * called on, so a Model made with `ApplicationRecord.define({...})` shares the app's base.
    */
-  static define<B extends BaseClass, const A extends AttributeSpecs>(
+  static define<B extends BaseClass, const A extends DeclaredAttributes>(
     this: B,
     specs: A & ExactSpecs<A>,
-  ): ModelBaseFor<A, B> {
-    return defineModel(specs, this);
+  ): ModelBaseFor<SpecsOrWidened<DefinedSpecs<WithSecurePasswords<A>>>, B> {
+    return defineModel<A, B>(specs, this);
   }
 
   /**
-   * Declares a scope, as Rails' `scope :active, -> { … }`: `static active = this.scope((q) =>
+   * Declares a scope: `static active = this.scope((q) =>
    * q.where({ isActive: true }))`. It's a static (`User.active()`) and a Relation method
    * (`User.where(…).active()`), inherited like any static. Inside it, `q` has every Relation
    * method, but not the Model's other scopes (their types would refer to themselves).
@@ -299,7 +312,7 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * All of this Model's records, as Rails' `Product.all`: a Relation on the current database
+   * All of this Model's records: a Relation on the current database
    * (the request's, set with `withDatabase`, or else the binding in its base class's schema).
    */
   static all<C extends QueryableClass>(this: C): Scoped<InstanceType<C>, ScopesOf<C>> {
@@ -308,7 +321,7 @@ export class Model extends AttributeWrites {
 
   /**
    * Only the named attributes of untrusted input (a JSON body, `FormData` or
-   * `URLSearchParams`), as Rails' `params.permit`:
+   * `URLSearchParams`):
    * `User.create(User.permit(await request.json(), "email", "name"))`. Every other key is
    * dropped, and each value is cast as assigning it would be.
    */
@@ -321,7 +334,20 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * An enum's names, each with the value it's stored as, frozen (#340), as Rails' `Post.statuses`:
+   * The record its other attributes find, if each secure password given is its own (#355):
+   * `User.authenticateBy({ email, password })`, or null. When none is found, the password is
+   * hashed anyway, so how long it takes doesn't say whether one exists. Without a secure
+   * password, or an attribute to find the record by, it throws `TypeError`.
+   */
+  static authenticateBy<C extends QueryableClass>(
+    this: C,
+    attributes: AuthenticateByAttributes<SpecsOf<InstanceType<C>>, AttributesOf<InstanceType<C>>>,
+  ): Promise<InstanceType<C> | null> {
+    return authenticateBy(this as never, attributes);
+  }
+
+  /**
+   * An enum's names, each with the value it's stored as, frozen (#340):
    * `Post.enumValues("status")` is `{ draft: "draft", published: "published" }`.
    */
   static enumValues<C extends QueryableClass, K extends EnumAttributeKey<InstanceType<C>>>(
@@ -332,9 +358,10 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * An attribute's conversions, for SQL d1-record doesn't write, as Rails' `type_for_attribute`:
+   * An attribute's conversions, for SQL the library doesn't write:
    * `Post.typeForAttribute("publishedAt").serialize(date)` is what `publishedAt` stores a `Date`
-   * as, whatever its `storage`; `cast` and `deserialize` go the other way.
+   * as, whatever its `storage`; `cast` and `deserialize` go the other way. `cast` and `serialize`
+   * normalize the value, as assigning it does (#354).
    */
   static typeForAttribute<C extends QueryableClass, K extends AttributeKey<InstanceType<C>>>(
     this: C,
@@ -344,7 +371,19 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * Declares a default scope (#25), as Rails' `default_scope { … }`, in `static {}`:
+   * `value` as assigning it to `name` keeps it: cast, then normalized (#354), so
+   * `Account.normalizeValueFor("email", " Jane@Example.com")` is `"jane@example.com"`.
+   */
+  static normalizeValueFor<C extends QueryableClass, K extends AttributeKey<InstanceType<C>>>(
+    this: C,
+    name: K,
+    value: unknown,
+  ): AttributesOf<InstanceType<C>>[K] {
+    return conversionsFor<AttributesOf<InstanceType<C>>[K]>(this, name).cast(value);
+  }
+
+  /**
+   * Declares a default scope (#25), in `static {}`:
    * `this.defaultScope((q) => q.where({ deletedAt: null }))`. Every query on the Model, its
    * associations' included, starts from it, and new records take its equality values. Several
    * are applied in order; a subclass adds to its parent's. `unscoped()` leaves them out.
@@ -357,7 +396,7 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * All of this Model's records without its default scopes (#25), as Rails' `Product.unscoped`,
+   * All of this Model's records without its default scopes (#25),
    * on the current database. Only a static: a Relation keeps what it has.
    */
   static unscoped<C extends QueryableClass>(this: C): Scoped<InstanceType<C>, ScopesOf<C>> {
@@ -374,6 +413,26 @@ export class Model extends AttributeWrites {
     // A generated Model's attributes are fixed when it's first used, and checked then.
     if (hasSettledAttributes(this)) checkValidatedNames(this, validation);
     declare(this, "validations", validation);
+  }
+
+  /**
+   * Declares a normalization (#354), e.g. `this.normalizes("email", { with: (email) =>
+   * email.trim().toLowerCase() })` in `static {}`: each value assigned to the attribute, once
+   * cast, becomes what `with` returns for it.
+   */
+  static normalizes<C extends AbstractModelClass, K extends AttributeKey<InstanceType<C>>>(
+    this: C,
+    attribute: K,
+    options: NormalizeOptions<AttributesOf<InstanceType<C>>[K]>,
+  ): void {
+    const { with: normalize, applyToNull = false } = options;
+    // A generated Model's attributes are fixed when it's first used, and checked then.
+    if (hasSettledAttributes(this)) checkNormalizedName(this, attribute);
+    declare(this, "normalizations", {
+      attribute,
+      with: normalize as (value: unknown) => unknown,
+      applyToNull,
+    });
   }
 
   /**
@@ -452,8 +511,7 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * Loads the association again, replacing what's cached, and returns it: Rails'
-   * `reload_author`, or `user.posts.reload` for a hasMany.
+   * Loads the association again, replacing what's cached, and returns its record or records.
    */
   async reloadAssociation<K extends AssociationName<this>>(name: K): Promise<LoadedValue<this[K]>> {
     associationOf(this.constructor as ModelClass, name);
@@ -502,14 +560,13 @@ export class Model extends AttributeWrites {
     return this[state].savedChanges();
   }
 
-  /** The attribute's value before its unsaved change, as stored (Rails' `attribute_was`). */
+  /** The attribute's value before its unsaved change, as stored. */
   attributeWas<R extends Model, K extends AttributeKey<R>>(this: R, name: K): AttributesOf<R>[K] {
     return this[state].valueInDatabase(name) as AttributesOf<R>[K];
   }
 
   /**
-   * Whether the attribute has an unsaved change, optionally `from` and/or `to` given values
-   * (Rails' `attribute_changed?(name, from:, to:)`).
+   * Whether the attribute has an unsaved change, optionally `from` and/or `to` given values.
    */
   isAttributeChanged<R extends Model, K extends AttributeKey<R>>(
     this: R,
@@ -520,7 +577,7 @@ export class Model extends AttributeWrites {
   }
 
   /** Whether saving now would write a change to the attribute (for before-callbacks). */
-  // oxlint-disable-next-line active-record/predicate-name -- public, named as Rails' will_save_change_to_attribute?
+  // oxlint-disable-next-line active-record/predicate-name -- public, reads as a phrase: willSaveChangeTo("email")
   willSaveChangeTo<R extends Model, K extends AttributeKey<R>>(
     this: R,
     name: K,
@@ -534,8 +591,7 @@ export class Model extends AttributeWrites {
     this: R,
     name: K,
   ): [before: AttributesOf<R>[K], after: AttributesOf<R>[K]] | undefined {
-    this[state].read(name);
-    const change = this[state].savedChanges()[name];
+    const change = this[state].savedChangeOf(name);
     return change === undefined
       ? undefined
       : ([...change] as [AttributesOf<R>[K], AttributesOf<R>[K]]);
@@ -555,16 +611,23 @@ export class Model extends AttributeWrites {
     this: R,
     name: K,
   ): AttributesOf<R>[K] {
-    this[state].read(name);
-    const change = this[state].savedChanges()[name];
+    const change = this[state].savedChangeOf(name);
     return (
       change === undefined ? this[state].valueInDatabase(name) : change[0]
     ) as AttributesOf<R>[K];
   }
 
-  /** Undoes unsaved changes to these attributes (all of them by default), as Rails' `restore_attributes`. */
+  /** Undoes unsaved changes to these attributes (all of them by default). */
   restoreAttributes<R extends Model>(this: R, names?: readonly AttributeKey<R>[]): void {
     this[state].restore(names);
+  }
+
+  /**
+   * Normalizes an attribute's value as assigning it again would (#354): for a value loaded from
+   * a row stored before its normalization was declared, which loading leaves as it was.
+   */
+  normalizeAttribute<R extends Model>(this: R, name: AttributeKey<R>): void {
+    this[state].write(name, this[state].read(name));
   }
 
   /**
@@ -629,7 +692,7 @@ export class Model extends AttributeWrites {
 
   /**
    * Marks the record to be destroyed when its owner is saved, through an association declared
-   * `autosave: true`, as Rails' `mark_for_destruction` does. Nothing is written until then, and
+   * `autosave: true`. Nothing is written until then, and
    * `reload()` clears the mark.
    */
   markForDestruction(): void {
@@ -647,7 +710,7 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * Whether its last save created it, as Rails' `previously_new_record?`: true in a create's
+   * Whether its last save created it: true in a create's
    * after-callbacks and after it, false once it's saved again or destroyed.
    */
   isPreviouslyNewRecord(): boolean {
@@ -665,7 +728,7 @@ export class Model extends AttributeWrites {
   }
 
   /**
-   * Whether the record has the attribute `name` loaded (Rails' `has_attribute?`): `false` for one
+   * Whether the record has the attribute `name` loaded: `false` for one
    * `select(...)` left out, whose read throws `MissingAttribute`, and for a name the Model doesn't
    * declare. A callback that runs for partial records, such as `afterFind`, checks it first.
    */
@@ -685,13 +748,20 @@ export class Model extends AttributeWrites {
 
   /**
    * The loaded attributes as JSON-ready values (dates as ISO strings), without the Model's
-   * `hiddenAttributes`, for `Response.json(record)`.
+   * `hiddenAttributes`, the virtual attributes its `confirmation` rules read, or its secrets: each
+   * secure password, its confirmation, challenge and digest, and each secure token (#355), for
+   * `Response.json(record)`.
    */
   toJSON(): Record<string, unknown> {
-    const { hiddenAttributes } = modelOf(this);
+    const model = modelOf(this);
+    const hidden = [
+      ...model.hiddenAttributes,
+      ...confirmationNames(declared(model, "validations")),
+      ...secretAttributeNames(model.attributeDefinitions),
+    ];
     return Object.fromEntries(
       Object.entries(this[state].attributes())
-        .filter(([name]) => !hiddenAttributes.includes(name))
+        .filter(([name]) => !hidden.includes(name))
         .map(([name, value]) => [name, value instanceof Date ? value.toISOString() : value]),
     );
   }
@@ -724,7 +794,9 @@ useModelBase(Model, readyModel);
 export type TableAttributes<A extends AttributeSpecs, O = {}> = AttributeProperties<
   AsSpecs<OverriddenSpecs<A, O>>
 > &
-  EnumMethods<OverriddenSpecs<A, O>> & {
+  EnumMethods<OverriddenSpecs<A, O>> &
+  SecurePasswordMethods<OverriddenSpecs<A, O>> &
+  SecureTokenMethods<OverriddenSpecs<A, O>> & {
     readonly [attributeSpecs]: OverriddenSpecs<A, O>;
     readonly [attributeTypes]: AttributeProperties<AsSpecs<OverriddenSpecs<A, O>>>;
   };
@@ -748,30 +820,14 @@ export type ModelBaseFor<
   B extends BaseClass = typeof Model,
 > = (new () => InstanceType<B> &
   AttributeProperties<A> &
-  EnumMethods<A> & {
+  EnumMethods<A> &
+  SecurePasswordMethods<A> &
+  SecureTokenMethods<A> & {
     readonly [attributeTypes]: AttributeProperties<A>;
     readonly [attributeSpecs]: A;
   }) &
   Omit<B, "prototype"> &
   EnumStatics<A>;
-
-/** `Model.define({...})` on `base`: a class with the attributes' accessors, extending `base`. */
-function defineModel<const A extends AttributeSpecs, B extends BaseClass>(
-  specs: A,
-  base: B,
-): ModelBaseFor<A, B> {
-  const Parent = base as unknown as typeof Model;
-  class DefinedModel extends Parent {
-    static override attributeDefinitions: ReadonlyMap<string, AttributeDefinition> = new Map(
-      Object.entries(specs).map(([name, spec]) => [name, define(name, spec)]),
-    );
-  }
-  inferTableNames(DefinedModel);
-  defineAttributeAccessors(DefinedModel.prototype, Object.keys(specs));
-  defineEnumMethods(DefinedModel.prototype, DefinedModel.attributeDefinitions);
-  defineEnumStatics(DefinedModel, DefinedModel.attributeDefinitions);
-  return DefinedModel as never;
-}
 
 /** Whether `value` is a Model class: an association's target must be one. */
 export function isModelClass(value: unknown): value is ModelClass {
@@ -809,9 +865,10 @@ export function buildRecord<M extends Model>(
   model: ModelClass<M>,
   attributes: Record<string, unknown>,
   executor: Executor,
+  kept: Record<string, unknown> = {},
 ): M {
   const record = newRecord(model);
   record[state].belongTo(executor);
-  record[state].build(attributes);
+  record[state].build(attributes, kept);
   return record;
 }

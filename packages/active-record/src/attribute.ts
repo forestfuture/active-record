@@ -4,6 +4,7 @@
 // D1 stores, read a cell back, and bind it hidden from listeners when the attribute is filtered.
 // Records, Relations, associations, preloads, and the compiler all go through here, so no caller
 // has to cast or bind a value its own way.
+import { attributeName } from "./attribute-aliases.ts";
 import { isSameCell } from "./binary-values.ts";
 import {
   castCondition,
@@ -20,9 +21,12 @@ import {
   type AttributeDefinition,
   type AttributeType,
   attributeOf,
+  columnOf,
   requireDefined,
 } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
+import { refuseThenable } from "./thenables.ts";
+import { normalizationsOf } from "./normalization.ts";
 
 /** What `condition()` and `conditionCell()` give for a value that can't match anything. */
 export const noMatch = uncastable;
@@ -35,7 +39,6 @@ export const noMatch = uncastable;
 export class Attribute {
   readonly #model: ModelClass;
   readonly name: string;
-  readonly column: string;
   readonly #definition: AttributeDefinition;
 
   /** @internal Use `attributeFor`. */
@@ -43,7 +46,11 @@ export class Attribute {
     this.#model = model;
     this.name = name;
     this.#definition = attributeOf(model, name);
-    this.column = this.#definition.column;
+  }
+
+  /** Its column; `UnknownAttribute` for a virtual attribute, which has none (#356). */
+  get column(): string {
+    return columnOf(this.#model, this.name).column;
   }
 
   /** Whether it's a `string` attribute, which D1 compares as text, not by number. */
@@ -73,6 +80,61 @@ export class Attribute {
     // A validated enum keeps an unknown value for its validation to refuse (#340).
     if (cast === uncastable && this.#isValidatedEnum()) return value;
     return this.#orRefuse(cast, value);
+  }
+
+  /** An assigned value cast, then normalized (#354): what a record keeps for it. */
+  assigned(value: unknown): unknown {
+    return this.normalize(this.cast(value));
+  }
+
+  /**
+   * An already cast value through each of the attribute's normalizations, in order (#354): null
+   * only through those declared `applyToNull`. Each result is cast again, so it's a value of the
+   * attribute's type, whatever plain JavaScript returns; a promise is refused.
+   */
+  normalize(value: unknown): unknown {
+    return this.#normalized(value, (result) => this.cast(result));
+  }
+
+  /**
+   * A condition's value cast as a condition's, then normalized as an assigned value is (#354), each
+   * result cast again as a condition's, so a decimal's precision limits neither. A value that
+   * can't be cast is kept as it was given, so it still matches nothing, and an error that names it
+   * names what was given; a result that can't be cast throws, as assigning it would.
+   */
+  normalizedCondition(value: unknown): unknown {
+    const cast = this.condition(value);
+    if (cast === noMatch) return value;
+    return this.#normalized(cast, (result) => this.#conditionResult(result));
+  }
+
+  /** A normalization's result as a condition's value; `TypeError` where assigning it would be. */
+  #conditionResult(result: unknown): unknown {
+    const cast = this.condition(result);
+    if (cast !== noMatch) return cast;
+    this.cast(result);
+    // A validated enum's unknown value, which assigning keeps: as given, it matches nothing.
+    return result;
+  }
+
+  /** `value` through each normalization, each result cast by `recast`. */
+  #normalized(value: unknown, recast: (result: unknown) => unknown): unknown {
+    let normalized = value;
+    for (const { with: normalize, applyToNull } of normalizationsOf(this.#model, this.name)) {
+      if (normalized === null && !applyToNull) continue;
+      const result = normalize(normalized);
+      refuseThenable(
+        result,
+        `${this.#model.name} normalizes "${this.name}" with a function that returned a promise; a normalization runs synchronously`,
+      );
+      normalized = recast(result);
+    }
+    return normalized;
+  }
+
+  /** Whether the attribute has a normalization, so its conditions need normalizing (#354). */
+  get hasNormalization(): boolean {
+    return normalizationsOf(this.#model, this.name).length > 0;
   }
 
   /** Whether it's an enum declared `validate: true`, which keeps an unknown value it's given. */
@@ -128,6 +190,11 @@ export class Attribute {
     return this.write(this.cast(value));
   }
 
+  /** An assigned value cast and normalized (#354), then in the form D1 stores. */
+  storeNormalized(value: unknown): unknown {
+    return this.write(this.assigned(value));
+  }
+
   /**
    * A cell D1 returned as the attribute's value. One that isn't (text in a Unix time column, or
    * past the range of a `Date`; a json cell that isn't JSON) throws `TypeError` naming the
@@ -147,7 +214,7 @@ export class Attribute {
   /**
    * Whether two values are the same as stored (dates by time, json and bytes by content). Each is
    * cast as a condition's value first, so `isAttributeChanged`'s `from` and `to` compare as
-   * Rails' do, and one that can't be cast is the same as nothing (#20).
+   * conditions do, and one that can't be cast is the same as nothing (#20).
    */
   isSame(a: unknown, b: unknown): boolean {
     const [x, y] = [this.#comparable(a), this.#comparable(b)];
@@ -235,7 +302,8 @@ const resolved = new WeakMap<ModelClass, Map<string, Attribute>>();
  * The resolved attribute of a Model, remembered per class (derived from the class, ADR-0003):
  * `UnknownAttribute` for a name it doesn't have.
  */
-export function attributeFor(model: ModelClass, name: string): Attribute {
+export function attributeFor(model: ModelClass, given: string): Attribute {
+  const name = attributeName(model, given);
   let attributes = resolved.get(model);
   if (attributes === undefined) {
     attributes = new Map();

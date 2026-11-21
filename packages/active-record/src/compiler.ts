@@ -265,7 +265,7 @@ export function compileInsertRows(
 
 /**
  * `ON CONFLICT DO NOTHING`, or `ON CONFLICT (…) DO UPDATE SET` the `update` attributes (every
- * inserted one by default) except the `uniqueBy` ones and `createdAt`, as Rails' upsert does,
+ * inserted one by default) except the `uniqueBy` ones and `createdAt`,
  * `WHERE` the clashing row already has the new row's `ownedBy` values (#451).
  */
 function compileConflict(
@@ -337,7 +337,7 @@ function compileSets(
 }
 
 /**
- * The WHERE clause for writing to the rows `query` describes, as Rails does it: its conditions;
+ * The WHERE clause for writing to the rows `query` describes: its conditions;
  * with a limit or offset, or joins (#24), `<primary key> IN (SELECT <primary key> … ORDER …
  * LIMIT … OFFSET)`; `1 = 0` for `none()`. Order without a limit, select and includes don't
  * matter to a write.
@@ -391,10 +391,17 @@ export function compileDelete(model: ModelClass<Model>, storedKey: unknown): Com
   };
 }
 
-/** A whole row: `*`, or the declared columns when the Model ignores some of its table's. */
+/**
+ * A whole row: `*`, or the declared columns when the Model ignores some of its table's (not its
+ * virtual attributes, which have none, #356).
+ */
 function allColumns(source: Source): string {
   if (isIgnoringColumns(source.model)) {
-    return columnsIn(source, [...source.model.attributeDefinitions.keys()]);
+    const columns = [...source.model.attributeDefinitions].filter(([, { virtual }]) => !virtual);
+    return columnsIn(
+      source,
+      columns.map(([name]) => name),
+    );
   }
   return source.qualified ? `${source.name}.*` : "*";
 }
@@ -420,7 +427,7 @@ export function compileCount(
   if (attribute === undefined) return countOver(compileSelect(dialect, toCount), "*");
   const column = columnIn(unqualifiedSource(query.model), attribute);
   if (query.distinct && hasLimitOrOffset(query)) {
-    // As Rails counts it: the limit and offset pick from the distinct values, the ones
+    // The limit and offset pick from the distinct values, the ones
     // `pluck(attr)` returns, and the non-null ones are counted (#250). A `DISTINCT` on the
     // outer `COUNT` would count what's left of every row.
     return countOver(compileSelect(dialect, toCount, { attributes: [attribute] }), column);
@@ -605,8 +612,8 @@ function compileOrderTerm(context: Context, term: OrderTerm): string {
 }
 
 /**
- * `column`'s place among `values` (#350), bound as one list: each converted as a condition's
- * value is, and those that can't be left out, as a list condition leaves them out.
+ * `column`'s place among `values` (#350), bound as one list: each converted and normalized as a
+ * condition's value is (#354), and those that can't be left out, as a list condition leaves them out.
  */
 function placeInList(
   { dialect, source, params }: Context,
@@ -617,7 +624,9 @@ function placeInList(
   const column = columnIn({ ...source, qualified: true }, name);
   const attribute = attributeFor(source.model, name);
   const cells = values
-    .map((value) => (value === null ? null : attribute.conditionCell(value)))
+    .map((value) =>
+      value === null ? null : attribute.conditionCell(attribute.normalizedCondition(value)),
+    )
     .filter((cell) => cell !== noMatch);
   const list = dialect.placeInList(column, cells, attribute);
   attribute.bindCells(params, list.value);
@@ -640,7 +649,9 @@ function compileFragment(fragment: SafeSql, source: Source, params: unknown[]): 
     if (value instanceof ColumnReference) {
       text += columnIn(source, value.attribute);
     } else if (value instanceof ColumnValue) {
-      attributeFor(source.model, value.attribute).bind(params, value.assigned);
+      // Normalized as an assigned value is (#354).
+      const attribute = attributeFor(source.model, value.attribute);
+      attribute.bindCells(params, attribute.storeNormalized(value.assigned));
       text += valueMark;
     } else {
       params.push(writeUntypedValue(value));

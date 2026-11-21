@@ -2,6 +2,7 @@
 // a Model's scopes (`published()`, `notPublished()`), and their names.
 import { enumEntries, type EnumModel, type EnumNames, type EnumValues } from "./enum-values.ts";
 import { isIdentifier, reservedWords } from "./identifiers.ts";
+import { capitalized } from "./naming.ts";
 import type { AttributeDefinition } from "./metadata.ts";
 import type { ScopeStatic } from "./model.ts";
 
@@ -39,7 +40,7 @@ type ScopeStems<A> = {
 
 /**
  * What the enums of the specs `A` add to a record: a predicate for each name, and a setter that
- * assigns it and saves, with its `OrThrow`, as Rails' `published!` updates the record.
+ * assigns it and saves, with its `OrThrow`.
  */
 export type EnumMethods<A> = { [P in `is${RecordStems<A>}`]: () => boolean } & {
   [P in `saveAs${RecordStems<A>}`]: () => Promise<boolean>;
@@ -99,7 +100,6 @@ function methodPart(word: string): string {
   return capitalized(head + rest.map(capitalized).join(""));
 }
 
-const capitalized = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
 const uncapitalized = (text: string): string => text.charAt(0).toLowerCase() + text.slice(1);
 
 /** What a record's setters call: its `update` and `updateOrThrow`. */
@@ -111,7 +111,7 @@ interface Updatable {
 /**
  * Defines each enum attribute's methods on `prototype`: `isPublished()` is `status === "published"`,
  * and `saveAsPublished()` is `update({ status: "published" })`, so it saves the record's other
- * changes too, as Rails' `published!` does.
+ * changes too.
  */
 export function defineEnumMethods(
   prototype: object,
@@ -145,7 +145,7 @@ interface Conditioned {
 
 /**
  * Defines each enum attribute's scopes on `model`, as `this.scope(…)` statics: `published()` is
- * `where({ status: "published" })`, and `notPublished()` is `whereNot(…)`, as Rails' are.
+ * `where({ status: "published" })`, and `notPublished()` is `whereNot(…)`.
  */
 export function defineEnumStatics(
   model: object,
@@ -155,7 +155,9 @@ export function defineEnumStatics(
   for (const { attribute, name, scopes } of enumNames(definitions)) {
     const [only, without] = scopes;
     if (only === undefined) continue;
+    // oxlint-disable-next-line active-record/stored-key-lookup -- a value's name, as a caller writes it
     const onlyScope = declaring.scope((q) => q.where({ [attribute]: name }));
+    // oxlint-disable-next-line active-record/stored-key-lookup -- a value's name, as a caller writes it
     const withoutScope = declaring.scope((q) => q.whereNot({ [attribute]: name }));
     enumScopes.add(onlyScope);
     enumScopes.add(withoutScope);
@@ -195,7 +197,7 @@ export interface TakenNames {
 /**
  * Why an enum's method names can't be as they are, or undefined: two enums give one name, or one
  * takes the name of a record method, an attribute, a Relation method, a Model static, or a static
- * the Model declares itself. Rails refuses the same when an enum is declared.
+ * the Model declares itself. It's refused when the enum is declared.
  */
 export function enumNameProblem(
   model: EnumModel,

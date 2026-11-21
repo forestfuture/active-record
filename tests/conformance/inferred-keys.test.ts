@@ -6,7 +6,7 @@ import { User } from "../fixtures/models/user.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 // The fixtures declare no foreignKey: User's hasMany and hasOne, and Post's belongsTo(User), all
-// infer `userId` by Rails' convention.
+// infer `userId` from the names.
 
 // Named so their inferred keys (writerId, authorId) don't exist: the explicit ones must be used.
 class Writer extends Model.define({
@@ -44,7 +44,7 @@ describe("inferred foreign keys", () => {
     await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (1, 1, 'Ay')");
   });
 
-  test("hasMany and hasOne infer the owner's class name + Id, as Rails does", async () => {
+  test("hasMany and hasOne infer the owner's class name + Id", async () => {
     const user = await harness.connect().model(User).find(1);
 
     expect(await user.posts().pluck("id")).toEqual([10]);

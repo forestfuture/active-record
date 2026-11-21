@@ -9,7 +9,7 @@ import {
 import type { StatementResult } from "./driver.ts";
 import type { Executor } from "./executor.ts";
 import { attributeFor } from "./attribute.ts";
-import { attributeOf, initialValues, requireDefined } from "./metadata.ts";
+import { initialValues, requireDefined, columnOf } from "./metadata.ts";
 import type { AttributesOf, ModelClass } from "./model.ts";
 import { timestampsFor } from "./timestamps.ts";
 
@@ -146,11 +146,12 @@ export async function runAlone<Row>(statement: Statement<Row>): Promise<WriteRes
 /** Reads the attributes `names` of each returned row, each as its type. */
 function rowReader(model: ModelClass, names: readonly string[]): RowReader {
   if (names.length === 0) return noRows;
-  const attributes = names.map((name) => attributeFor(model, name));
+  // Each row is keyed by the names `returning` gave, an alias's included (#509).
+  const attributes = names.map((name) => [name, attributeFor(model, name)] as const);
   return (rows) =>
     rows.map((row) =>
       Object.fromEntries(
-        attributes.map((attribute) => [attribute.name, attribute.read(row[attribute.column])]),
+        attributes.map(([name, attribute]) => [name, attribute.read(row[attribute.column])]),
       ),
     );
 }
@@ -160,15 +161,19 @@ function rowReader(model: ModelClass, names: readonly string[]): RowReader {
  * rest (where app-generated keys come from), then `createdAt`/`updatedAt` unless given.
  */
 function insertAssignments(model: ModelClass, attributes: Record<string, unknown>): Assignment[] {
-  for (const name of Object.keys(attributes)) attributeOf(model, name);
-  const values = [...Object.entries(attributes), ...initialValues(model, attributes)];
+  for (const name of Object.keys(attributes)) columnOf(model, name);
+  // A virtual attribute's default is the record's, never the row's (#356).
+  const initial = initialValues(model, attributes).filter(
+    ([name]) => model.attributeDefinitions.get(name)?.virtual !== true,
+  );
+  const values = [...Object.entries(attributes), ...initial];
   for (const [name, value] of values) requireDefined(model, name, value);
   return [...values, ...timestampsFor(model, "insert", values)];
 }
 
 /**
  * `INSERT` of `rows` into `model`'s table, as one Statement. Every row must have the same
- * attributes as given, as in Rails; `conflict` skips or updates rows that clash with a unique
+ * attributes as given; `conflict` skips or updates rows that clash with a unique
  * index. An update sets every attribute in `rows` (the given ones and any a Relation added,
  * #475) and `updatedAt`, never filled-in defaults.
  * It returns the attributes `returning` names of each row written.

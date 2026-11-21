@@ -212,8 +212,8 @@ function declarationsSource({ tables, models }: SchemaSource): string {
 
 /**
  * The generated `schema.ts`: each table's attributes, the binding with every table and Model,
- * and each Model's attributes added to its class. It's the schema as a document, like Rails'
- * `schema.rb`; the app's base class (`renderBase`) holds it.
+ * and each Model's attributes added to its class. It's the schema as a document; the app's
+ * base class (`renderBase`) holds it.
  */
 export function renderSchema(schema: SchemaSource, source: string): string {
   const hasModels = schema.models.length > 0;
@@ -237,8 +237,8 @@ ${schemaValueSource(schema)}${declarations}
 }
 
 /**
- * The app's base class for a database's Models, written once and then the app's own, as Rails'
- * `ApplicationRecord` is: `class Product extends ApplicationRecord {}`.
+ * The app's base class for a database's Models, written once and then the app's own:
+ * `class Product extends ApplicationRecord {}`.
  */
 export function renderBase(className: string, schemaImport: string): string {
   return `import { Model } from "@forestfuture/active-record";
@@ -246,7 +246,7 @@ import { schema } from ${stringLiteral(schemaImport)};
 
 /**
  * The base class for this app's Models: \`class Product extends ${className} {}\`. Methods,
- * callbacks and scopes written here are shared by every Model, as in Rails' ApplicationRecord.
+ * callbacks and scopes written here are shared by every Model.
  * It's abstract: it has no table of its own.
  */
 export abstract class ${className} extends Model {
@@ -268,7 +268,7 @@ export abstract class ${className} extends Model {
   //   console.log(\`\${model} \${durationMs.toFixed(1)}ms \${sql}\`);
 
   // Values of attributes named like these show as "[FILTERED]" to onQuery and in errors. These
-  // are Rails' defaults (passwords, tokens, keys, emails…); add yours, or leave one out:
+  // are the defaults (passwords, tokens, keys, emails…); add yours, or leave one out:
   // static override filterAttributes = [...Model.filterAttributes, "iban"];
 
   // Attributes toJSON() leaves out, so Response.json(record) never sends them (exact names;

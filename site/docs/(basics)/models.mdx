@@ -12,11 +12,31 @@ seo:
 | define a Model                       | `class Product extends ApplicationRecord {}`                    |
 | read a column as another type        | `static override attributes = { archived: "boolean" } as const` |
 | ignore a column                      | `static override attributes = { legacyNotes: false } as const`  |
+| add an attribute that isn’t a column | `termsOfService: { type: "boolean", virtual: true }`            |
+| normalize a value as it’s assigned   | `this.normalizes("email", { with: (email) => email.trim() })`   |
+| give an attribute another name       | `title: { aliasOf: "name" }`                                    |
 | type an attribute more narrowly      | `declare status: "draft" \| "published"`                        |
 | use another table name               | `static override table = "billing_accounts"`                    |
 | declare attributes for a view        | `class ProductCount extends ApplicationRecord.define({ … }) {}` |
 | build a record without saving it     | `Product.build({ name: "Lamp" })`, never `new Product()`        |
 | take only some fields from a request | `Product.permit(await request.json(), "name", "metadata")`      |
+
+<TypeTable
+  type={{
+    with: {
+      type: "(value) => value",
+      description:
+        "The function `normalizes` runs. It takes a value already cast to the attribute’s type, and returns the one to keep.",
+      required: true,
+    },
+    applyToNull: {
+      type: "boolean",
+      default: "false",
+      description:
+        "Hands `null` to `normalizes`’s `with` too. By default, `null` is kept as it is.",
+    },
+  }}
+/>
 
 Each part of a Model has a page of its own:
 
@@ -84,6 +104,62 @@ Override an attribute in `static attributes` when a column holds something its t
 - **A `default`** isn’t type-checked yet ([#74](https://github.com/forestfuture/active-record/issues/74)). One that returns a value the type can’t cast throws `TypeError` when a record is built.
 - **Ignoring a `NOT NULL` column** without a default makes inserts fail, so give it a default in a migration first.
 - **An override of an attribute the table doesn’t have** throws `InvalidModel`, and `active-record schema` reports it. So does an override that changes a column or ignores the primary key.
+
+## Adding virtual attributes
+
+Add `virtual: true` for a value a form sends but the table doesn’t keep, as `Account` does with `termsOfService`:
+
+<include>/_excerpts/pages/models/examples/virtual.mdx</include>
+
+- **It’s typed and cast** like a column’s attribute. `permit` takes it, and its changes are tracked.
+- **It’s never saved.** An insert or an update leaves it out. A save that changes only virtual attributes sets `updatedAt` alone, or writes nothing on a table without timestamps.
+- **A loaded record starts it at its default,** or `null`, and so does `reload`.
+- **A query can’t name it,** since there’s no column to match. `where`, `order`, `select`, `pluck`, `insert`, and `updateAll` throw `UnknownAttribute`.
+- **It’s in `toJSON()`,** unless a [`confirmation`](./validations#confirming-a-value) rule reads it. A record keeps it after a create, so list a secret one in [`hiddenAttributes`](./serialization), or `Response.json(user)` sends it back. For a password, declare a [secure password](./passwords-and-tokens) instead, which `toJSON()` leaves out.
+
+:::note
+A virtual attribute named for one of the table’s columns throws `InvalidModel`, and so does `virtual` with `column` or `enum`. With `null: false`, give it a `default`. A Model declared with `define` takes `virtual: true` in the same way.
+:::
+
+## Normalizing attributes
+
+Declare a normalization in `static {}` to change each value assigned to an attribute into one form, as `Account` does with `email`:
+
+<include>/_excerpts/pages/models/examples/normalize.mdx</include>
+
+- **It runs whenever a value is assigned.** That covers the setter, `build`, `create`, `update`, a default, and bulk writes such as `insert`, `upsert`, and `updateAll`. Several normalizations of one attribute run in order, a parent class’s first.
+- **Queries normalize their values too.** `where`, `findBy`, `find`, lists, comparisons, and `column()` values in an `sql` fragment match what was stored. Plain values in an `sql` fragment are left as they are, and `where({ email: null })` still matches `NULL`.
+- **`Account.normalizeValueFor("email", value)`** returns a value as assigning it would keep it.
+
+:::warning[Rows saved before stay as they were]
+A record loaded from the database keeps its stored value, and a query for that value no longer finds it, since the query is normalized. The same goes for a default scope’s conditions. Normalize each old row, and save it:
+
+<include>/_excerpts/pages/models/examples/normalize-old-rows.mdx</include>
+
+An `UPDATE` in a migration does the same for a large table.
+:::
+
+## Aliasing attributes
+
+Add `aliasOf` to give an attribute a second name, as `Product` does with `title` for `name`:
+
+<include>/_excerpts/pages/models/examples/alias.mdx</include>
+
+- **It reads and writes the attribute it names,** typed as that attribute.
+- **Queries and writes take either name:** `where`, `order`, `pluck`, `select`, `group`, the calculations, `build`, `create`, `permit`, `insert`, `upsert`, and `updateAll`.
+- **The record holds the value once,** under the attribute’s name. `attributes()`, `toJSON()`, and `changes()` list `name`, and so does a record `select("title")` loads. `attributeWas("title")` and the other methods that take a name read it through the alias.
+- **A row that gives both `title` and `name`** throws `TypeError`, since they’re one column.
+- **`validates("title", …)` reads through the alias,** and its errors go under `title`.
+
+:::note
+An alias of a name that isn’t an attribute throws `InvalidModel`, and so does one named for an attribute, an alias of another alias, or `aliasOf` with any other key. Settings that name an attribute, such as an association’s `foreignKey` or `hiddenAttributes`, take its own name. `filterAttributes` matches an alias too, so naming either one filters the attribute’s values. A Model declared with `define` takes `aliasOf` in the same way.
+:::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails declares an alias with `alias_attribute :title, :name`. Here it goes with the attributes, so it’s typed from the same place. Rails’ `select(:title)` loads the column as `title`; here it loads it as `name`, which `title` reads. Rails follows an alias of an alias; here, name the attribute.
+
+</Callout>
 
 ## Narrowing types
 
@@ -205,12 +281,15 @@ A Model’s declaration is checked the first time it’s used, by its first quer
 - A `primaryKey` that isn’t an attribute.
 - An attribute named like a record method, such as `save` or `attributes`.
 - A class field that hides an attribute, such as `email!: string` in the class body.
+- A normalization of a name that isn’t one of the Model’s attributes.
 
 After that, a Model’s declarations are fixed, so request code can’t change them.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
 `modelName` is a string, where Rails’ `model_name` is an object.
+
+`normalizes` takes one attribute, where Rails’ takes several. Its result is cast to the attribute’s type again, which Rails doesn’t do. Rails also normalizes an association’s link to its owner. Here the link is the owner’s key as it is, so normalizing a foreign key can’t bring another owner’s records into `author.posts()`.
 
 </Callout>
 

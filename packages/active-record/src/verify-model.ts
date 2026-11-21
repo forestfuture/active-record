@@ -1,5 +1,5 @@
 // Checks a Model's declaration the first time it's used, then seals its declarations.
-// It checks the table, the primary key, the attribute names, the spec keys, hidden attributes, message names, validated associations, validation contexts, and page sizes.
+// It checks the table, the primary key, the attribute names, the spec keys, hidden attributes, message names, validated associations, normalized attributes, validation contexts, and page sizes.
 import { methodsOffFixes } from "./enum-switch.ts";
 import { ancestors, staticBelow } from "./ancestors.ts";
 import { associationsOf, declarationIn, probeOf } from "./association-fields.ts";
@@ -12,6 +12,7 @@ import { isReservedScopeName } from "./scoped-relation.ts";
 import { specProblem } from "./spec-keys.ts";
 import { isGenerated, settleGenerated } from "./generated-model.ts";
 import { checkValidatedNames } from "./validations.ts";
+import { checkNormalizedName } from "./normalization.ts";
 import { rejectUnlistedContexts } from "./listed-contexts.ts";
 import { rejectAbstract, requireModelName, requireTableName } from "./table-names.ts";
 
@@ -31,6 +32,9 @@ export function verifyModel(model: ModelClass): void {
   rejectBadSpecs(model);
   rejectEnumNameClashes(model);
   for (const validation of declared(model, "validations")) checkValidatedNames(model, validation);
+  for (const { attribute } of declared(model, "normalizations")) {
+    checkNormalizedName(model, attribute);
+  }
   rejectUnknownAssociated(model);
   rejectUnlistedContexts(model);
   rejectUnknownHiddenAttributes(model);
@@ -84,7 +88,9 @@ function rejectReservedAttributeNames(model: ModelClass): void {
 function rejectBadSpecs(model: ModelClass): void {
   for (const [name, definition] of model.attributeDefinitions) {
     // Checked by the type it was declared with: a custom type's, not the one it's stored as.
-    const declared = { ...definition, type: definition.customType ?? definition.type };
+    // A virtual attribute's column is "" unless one was given (#356).
+    const column = definition.column === "" ? undefined : definition.column;
+    const declared = { ...definition, column, type: definition.customType ?? definition.type };
     const problem = specProblem(`${model.name}.${name}`, declared);
     if (problem !== undefined) throw new InvalidModel(problem);
   }
@@ -148,7 +154,8 @@ function namesListedByAttributelessAncestors(model: ModelClass): Set<string> {
  */
 function rejectUnknownMessageNames(model: ModelClass): void {
   const associations = associationsOf(model).keys();
-  const known = new Set(["base", ...model.attributeDefinitions.keys(), ...associations]);
+  const attributes = [...model.attributeDefinitions.keys(), ...model.attributeAliases.keys()];
+  const known = new Set(["base", ...attributes, ...associations]);
   for (const { from, declaration, names } of attributesNamedInMessages(model)) {
     const unknown = names.find((name) => !known.has(name));
     if (unknown === undefined || hasNoAttributes(from)) continue;

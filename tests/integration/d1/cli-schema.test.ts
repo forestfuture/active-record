@@ -804,6 +804,102 @@ export class Visit extends ApplicationRecord.define({ id: "integer" }) {}
     ]);
   });
 
+  test("a virtual attribute is accepted, and the schema types it through the Model (#356)", async () => {
+    const cwd = await withModels({
+      "user.ts": `${base}export class User extends ApplicationRecord {
+  static override attributes = { termsOfService: { type: "boolean", virtual: true } } as const;
+}
+`,
+    });
+
+    const { code } = await run(cwd);
+
+    expect(code).toBe(0);
+    expect(generatedSchema(cwd)).toContain(
+      'interface User extends TableAttributes<typeof users, (typeof User)["attributes"]> {}',
+    );
+    expect(generatedSchema(cwd)).not.toContain("termsOfService");
+  });
+
+  test("a virtual attribute named like a column is reported by its file (#356)", async () => {
+    const cwd = await withModels({
+      "user.ts": `${base}export class User extends ApplicationRecord {
+  static override attributes = { email: { type: "string", virtual: true } } as const;
+}
+`,
+    });
+
+    const { code, output } = await run(cwd);
+
+    expect([code, output]).toEqual([
+      1,
+      "src/models/user.ts: User.email is virtual, but User's table has a column for it; " +
+        "rename it, or drop virtual\nKept src/db/schema.ts as it was",
+    ]);
+  });
+
+  test("a secure password without a digest column is reported by its file (#355)", async () => {
+    const cwd = await withModels({
+      "user.ts": `${base}export class User extends ApplicationRecord {
+  static override attributes = { password: { securePassword: true } } as const;
+}
+`,
+    });
+
+    const { code, output } = await run(cwd);
+
+    expect([code, output]).toEqual([
+      1,
+      "src/models/user.ts: User.password is a secure password, so it needs a string attribute " +
+        "passwordDigest with a column to keep its digest in\nKept src/db/schema.ts as it was",
+    ]);
+  });
+
+  test("a secure token is accepted, and the schema types it through the Model (#355)", async () => {
+    const cwd = await withModels({
+      "user.ts": `${base}export class User extends ApplicationRecord {
+  static override attributes = { email: { secureToken: true } } as const;
+}
+`,
+    });
+
+    const { code, output } = await run(cwd);
+
+    expect([code, output]).toEqual([0, "Wrote src/db/schema.ts (2 tables) from migrations/"]);
+    expect(generatedSchema(cwd)).not.toContain("secureToken");
+  });
+
+  test("an attribute alias is accepted, and left out of the schema (#509)", async () => {
+    const cwd = await withModels({
+      "user.ts": `${base}export class User extends ApplicationRecord {
+  static override attributes = { login: { aliasOf: "email" } } as const;
+}
+`,
+    });
+
+    const { code } = await run(cwd);
+
+    expect(code).toBe(0);
+    expect(generatedSchema(cwd)).not.toContain("login");
+  });
+
+  test("an alias of a name that isn't an attribute is reported by its file (#509)", async () => {
+    const cwd = await withModels({
+      "user.ts": `${base}export class User extends ApplicationRecord {
+  static override attributes = { login: { aliasOf: "mail" } } as const;
+}
+`,
+    });
+
+    const { code, output } = await run(cwd);
+
+    expect([code, output]).toEqual([
+      1,
+      "src/models/user.ts: User.login is an alias of mail, which isn't an attribute\n" +
+        "Kept src/db/schema.ts as it was",
+    ]);
+  });
+
   test("a Model exported as the default is refused, asking for a named export", async () => {
     const cwd = await withModels({
       "user.ts": `${base}export default class User extends ApplicationRecord {}\n`,

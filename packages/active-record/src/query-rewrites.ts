@@ -1,4 +1,5 @@
 // Rewriting a query (#350): `rewhere`, `unscope` and `only`, dropping parts of a query (its conditions, or those on some attributes, its order, page, and the rest), and the keys `excluding` leaves out.
+import { normalizedConditions } from "./normalized-values.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import {
   Either,
@@ -11,7 +12,8 @@ import {
   type QueryDescription,
   type UnscopedPart,
 } from "./query.ts";
-import { attributeOf } from "./metadata.ts";
+import { attributeName } from "./attribute-aliases.ts";
+import { columnOf } from "./metadata.ts";
 import { isPlainObject } from "./permit.ts";
 import { checkConditions, requireAttributeConditions } from "./relation-checks.ts";
 import { Model, primaryKeyOf, type AttributesOf, type ModelClass } from "./model.ts";
@@ -54,7 +56,7 @@ function requirePart(part: unknown): asserts part is QueryPart {
   }
 }
 
-/** `query` with only the parts named, as Rails' `only`: every other part is dropped. */
+/** `query` with only the parts named: every other part is dropped. */
 export function withOnly(query: QueryDescription, parts: readonly QueryPart[]): QueryDescription {
   for (const part of parts) requirePart(part);
   const dropped = (Object.keys(WITHOUT) as QueryPart[]).filter((part) => !parts.includes(part));
@@ -92,7 +94,7 @@ function joinedPathsIn(condition: Condition): string[] {
 }
 
 /**
- * `query` without its conditions on `attributes`, as Rails' `unscope(where:)`: an object condition
+ * `query` without its conditions on `attributes` (`unscope({ where })`): an object condition
  * loses those keys, and a `whereNot` or `or` condition goes when it names only them. A fragment,
  * a condition merged onto a join, and one naming other attributes too are kept.
  */
@@ -100,10 +102,12 @@ function withoutConditionsOn(
   query: QueryDescription,
   attributes: readonly string[],
 ): QueryDescription {
-  const dropped = new Set(attributes);
+  // An alias and its attribute are one condition's attribute (#509).
+  const resolved = new Set(attributes.map((name) => attributeName(query.model, name)));
+  const isDropped = (name: string) => resolved.has(attributeName(query.model, name));
   const link = new Set(query.ownerLink);
   const conditions = query.conditions.flatMap((condition) =>
-    link.has(condition) ? [condition] : remainderOf(condition, dropped),
+    link.has(condition) ? [condition] : remainderOf(condition, isDropped),
   );
   return keepingOwnerLink({ ...query, conditions });
 }
@@ -140,14 +144,13 @@ function isAttributeValues(condition: Condition): condition is Record<string, un
 }
 
 /** What's left of `condition` once those on `dropped` attributes go: itself, part of it, or nothing. */
-function remainderOf(condition: Condition, dropped: ReadonlySet<string>): Condition[] {
+function remainderOf(condition: Condition, isDropped: (name: string) => boolean): Condition[] {
   if (isAttributeValues(condition)) {
-    const left = Object.entries(condition).filter(([name]) => !dropped.has(name));
+    const left = Object.entries(condition).filter(([name]) => !isDropped(name));
     return left.length === 0 ? [] : [Object.fromEntries(left)];
   }
   const named = attributesNamed(condition);
-  const isOnlyDropped =
-    named !== undefined && named.size > 0 && [...named].every((name) => dropped.has(name));
+  const isOnlyDropped = named !== undefined && named.size > 0 && [...named].every(isDropped);
   return isOnlyDropped ? [] : [condition];
 }
 
@@ -200,7 +203,7 @@ function unscopedPart(query: QueryDescription, given: UnscopeGiven): UnscopedPar
     );
   }
   const attributes = typeof given.where === "string" ? [given.where] : [...given.where];
-  for (const name of attributes) attributeOf(query.model, name);
+  for (const name of attributes) columnOf(query.model, name);
   return { where: attributes };
 }
 
@@ -212,8 +215,8 @@ function withoutUnscoped(query: QueryDescription, part: UnscopedPart): QueryDesc
 }
 
 /**
- * `into` with the parts `other` was unscoped of dropped, before `other` merges into it, as Rails'
- * merge does; only for a Relation of the same Model, whose parts they name.
+ * `into` with the parts `other` was unscoped of dropped, before `other` merges into it,
+ * so an unscope carries over; only for a Relation of the same Model, whose parts they name.
  */
 export function withUnscopesOf(into: QueryDescription, other: QueryDescription): QueryDescription {
   if (other.unscoped === undefined || other.model !== into.model) return into;
@@ -221,7 +224,7 @@ export function withUnscopesOf(into: QueryDescription, other: QueryDescription):
 }
 
 /**
- * `query` with `conditions` in place of those on their attributes (`rewhere`), as Rails' `rewhere`:
+ * `query` with `conditions` in place of those on their attributes (`rewhere`):
  * conditions on other attributes, and fragments, are kept.
  */
 export function withConditionsReplaced(
@@ -233,7 +236,8 @@ export function withConditionsReplaced(
   const names = Object.keys(conditions);
   if (names.length === 0) return query;
   const rest = withoutConditionsOn(query, names);
-  return { ...rest, conditions: [...rest.conditions, conditions as Record<string, unknown>] };
+  const normalized = normalizedConditions(query.model, conditions as Record<string, unknown>);
+  return { ...rest, conditions: [...rest.conditions, normalized] };
 }
 
 /** `query` without these records (`excluding`), by primary key: `NOT (id IN (…))`. */

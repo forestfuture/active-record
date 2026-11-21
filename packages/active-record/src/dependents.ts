@@ -1,4 +1,5 @@
 // What destroying a record does to its `dependent` associations, planned before the DELETE: on its database, or as separate writes on another's.
+import { asStored } from "./normalized-values.ts";
 import { associationsOf } from "./association-fields.ts";
 import { DeleteRestriction } from "./errors.ts";
 import { addFailure } from "./errors-collection.ts";
@@ -121,7 +122,9 @@ function recordsOf(owner: Model, association: ResolvedAssociation): Scoped<Model
   const left = leaving.get(owner);
   if (left !== undefined && isLeftThrough(left, association)) {
     const { primaryKey } = association.target;
-    records = records.whereNot({ [primaryKey]: left.owner[state].storedKeyValue } as never);
+    records = records.whereNot(
+      asStored({ [primaryKey]: left.owner[state].storedKeyValue }) as never,
+    );
   }
   return association.definition.kind === "hasOne" ? association.inOrder(records).limit(1) : records;
 }
@@ -135,7 +138,7 @@ function isLeftThrough({ owner, foreignKey }: Leaving, association: ResolvedAsso
   );
 }
 
-/** Why a restrict strategy refuses the destroy, if it does (Rails' wording). */
+/** Why a restrict strategy refuses the destroy, if it does. */
 async function checkRestriction(
   owner: Model,
   association: ResolvedAssociation,
@@ -147,7 +150,7 @@ async function checkRestriction(
   if (dependent === "restrictWithException") {
     throw new DeleteRestriction(`Cannot delete record because of dependent ${name}`);
   }
-  // The association by its human name, in lowercase, as Rails' %{record}.
+  // The association by its human name, in lowercase, for the message's %{record}.
   const record = humanAttributeName(modelOf(owner), name).toLowerCase();
   return owner.errors[addFailure]("base", {
     type: "restrictDependentDestroy",

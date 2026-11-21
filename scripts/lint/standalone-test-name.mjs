@@ -1,9 +1,6 @@
 // The repo's lint rule that a test's name stands alone, with no word leaning on a sibling (#302).
 import { defineRule } from "vite-plus/lint/plugins";
-import { chainRoot } from "./test-calls.mjs";
-
-/** The functions that take a test's or a suite's name. */
-const testFunctions = new Set(["test", "it", "describe"]);
+import { testName } from "./test-calls.mjs";
 
 /**
  * Words that make a name lean on the test before it: "redirects HEAD too", and a name that opens
@@ -18,12 +15,6 @@ const leaningWords = [
   /^[Aa]nd\s/,
 ];
 
-/** The text of a name given as a string or a template literal, with `${…}` for each value. */
-function nameText(node) {
-  if (node?.type === "TemplateLiteral") return node.quasis.map((q) => q.value.cooked).join("${…}");
-  return node?.type === "Literal" && typeof node.value === "string" ? node.value : undefined;
-}
-
 export default defineRule({
   meta: {
     messages: {
@@ -35,8 +26,7 @@ export default defineRule({
   create(context) {
     return {
       CallExpression(node) {
-        if (!testFunctions.has(chainRoot(node.callee))) return;
-        const name = nameText(node.arguments[0]);
+        const name = testName(node);
         const word = name === undefined ? undefined : leaningWords.find((w) => w.test(name));
         if (word === undefined) return;
         const data = { name, word: name.match(word)[0] };

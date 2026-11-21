@@ -1,6 +1,7 @@
 // `find` by primary key: one id or several, in order, keeping a Relation's conditions; `RecordNotFound` when any is missing.
-import { attributeFor, noMatch } from "./attribute.ts";
+import { attributeFor } from "./attribute.ts";
 import { RecordNotFound } from "./errors.ts";
+import { normalizedConditions } from "./normalized-values.ts";
 import { shownKey } from "./filtering.ts";
 import type { QueryRunner, RunnableQuery } from "./load.ts";
 import { primaryKeyOf, type Model, type ModelClass } from "./model.ts";
@@ -26,14 +27,15 @@ export async function findOne<M extends Model>(
   return record ?? null;
 }
 
-/** The record with primary key `id` that `query` matches, or `RecordNotFound`. */
+/** The record with primary key `id`, normalized (#354), that `query` matches, or `RecordNotFound`. */
 async function findById<M extends Model>(
   runner: QueryRunner<M>,
   query: QueryDescription,
   id: string | number,
 ): Promise<M> {
   const { model } = query;
-  const record = await findOne(runner, query, { [model.primaryKey]: id });
+  const key = normalizedConditions(model, { [model.primaryKey]: id });
+  const record = await findOne(runner, query, key);
   if (record === null) {
     throw new RecordNotFound(
       `${model.name} with ${model.primaryKey} ${shownKey(model, id)} not found`,
@@ -70,16 +72,13 @@ async function findSome<M extends Model>(
 }
 
 /**
- * The primary keys `find(...)` looks up: each cast to the key's type as a condition is, then
- * each once, as Rails does. One that can't be cast stays as given, matches nothing, and is
- * reported missing.
+ * The primary keys `find(...)` looks up: each cast to the key's type as a condition is and
+ * normalized (#354), then each once. One that can't be cast stays as given, matches nothing,
+ * and is reported missing.
  */
 function keysToFind(model: ModelClass, ids: readonly unknown[]): (string | number)[] {
   const key = attributeFor(model, model.primaryKey);
-  const keys = ids.map((id) => {
-    const cast = key.condition(id);
-    return (cast === noMatch ? id : cast) as string | number;
-  });
+  const keys = ids.map((id) => key.normalizedCondition(id) as string | number);
   return [...new Set(keys)];
 }
 

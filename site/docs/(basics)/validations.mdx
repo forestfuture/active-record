@@ -75,6 +75,7 @@ Declare validations in a Model’s `static {}` block with `this.validates`, as `
 | `numericality` | `{ onlyInteger, greaterThan, greaterThanOrEqualTo, lessThan, lessThanOrEqualTo }`, or `true` | `notANumber`, `notAnInteger`, `greaterThan`, … |
 | `comparison`   | `{ greaterThan, greaterThanOrEqualTo, lessThan, lessThanOrEqualTo, equalTo, otherThan }`     | `blank`, `greaterThan`, …                      |
 | `acceptance`   | `true`, or `{ accept: [...] }`                                                               | `accepted`                                     |
+| `confirmation` | `true`, or `{ caseSensitive }`                                                               | `confirmation`                                 |
 | `uniqueness`   | `{ scope: [...], caseSensitive }`, or `true`                                                 | `taken`                                        |
 
 Every validation runs, in the order declared, so one attribute can collect several errors. Within one `validates` call, the rules run in the table’s order. Every rule also accepts these options:
@@ -97,7 +98,8 @@ The default messages are in English: “can’t be blank”, “is too short (mi
 - **`exclusion`** passes `null` unless the list holds it.
 - **`numericality`** only accepts numbers, so a numeric string such as `"12"` is `notANumber`. A [`decimal`](./attribute-types#storing-exact-numbers-days-and-times) attribute’s text is the exception: it’s compared with each bound as a number, exactly.
 - **`comparison`** compares a number with a number, a string with a string, or a Date with a Date by its time. A `decimal` attribute compares as a number, with a number or a decimal’s text. A bound is a value, or a function of the record (see [Comparing with another attribute](#comparing-with-another-attribute)). A blank value fails once, as `blank`. Blank means `null` or a string that’s only whitespace. Comparing a number with a Date, or any two different kinds, throws `TypeError`. Against a bound of `NaN` or an invalid Date, only `otherThan` passes.
-- **`acceptance`** is for a box that must be ticked. It passes `true` and `"1"`, or the values you give in `{ accept: [...] }`. A checkbox left unticked sends nothing, so `null` fails too. To let `null` pass, add `allowNull: true`.
+- **`acceptance`** is for a box that must be ticked. It passes `true` and `"1"`, or the values you give in `{ accept: [...] }`. A checkbox left unticked sends nothing, so `null` fails too. To let `null` pass, add `allowNull: true`. The box is usually a [virtual attribute](./models#adding-virtual-attributes), since the table needn’t keep it.
+- **`confirmation`** compares the attribute with a [virtual attribute](./models#adding-virtual-attributes) named for it, such as `emailConfirmation`. See [Confirming a value](#confirming-a-value).
 - **`uniqueness`** leaves the record itself out when updating, and never treats `null` as taken, since a UNIQUE index lets several rows hold NULL. `caseSensitive: false` compares with the database’s `lower()`: on D1, SQLite’s lowercases only ASCII letters.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
@@ -108,13 +110,29 @@ Rails’ `acceptance` lets `nil` pass, since its form helpers send `"0"` for an 
 
 Rails’ `allow_blank` also skips `false`, `[]`, and `{}`. Here `allowBlank` skips what `presence` fails: `null` and a string that’s only whitespace.
 
-Rails’ `confirmation` isn’t here yet.
-
 </Callout>
 
 :::warning[Uniqueness isn’t a guarantee]
 Two requests can both check that an email is free, then both insert it. `uniqueness` gives a friendly error early, but only a UNIQUE index in the table prevents duplicates, so declare both. When the index catches a duplicate, the save throws [`RecordNotUnique`](./errors#constraint-errors). For attributes you create with [`createOrFindBy`](./persistence#creating-records-from-concurrent-requests), declare only the index.
 :::
+
+### Confirming a value
+
+Add `confirmation: true` for a value typed twice, with its second copy in a virtual attribute, as `Member` does with `email` and `emailConfirmation`:
+
+<include>/_excerpts/pages/validations/examples/confirmation.mdx</include>
+
+- **A mismatch is an error on the confirmation,** “Email confirmation doesn’t match Email”, so a form shows it beside the second field.
+- **A `null` confirmation passes,** so code that sets the email alone needs no confirmation. Add `presence` to the confirmation to require it.
+- **`caseSensitive: false`** ignores case.
+- **Without the virtual attribute,** the rule throws `InvalidModel`, naming the attribute to declare.
+- **`toJSON()` leaves the confirmation out,** so `Response.json(member)` never sends it back.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails’ `confirmation` defines `email_confirmation` for you, as a plain accessor. Here you declare it as a virtual attribute, so it’s typed, cast, and taken by `permit`. Like Rails, `toJSON()` never sends it.
+
+</Callout>
 
 ### Comparing with another attribute
 
@@ -288,29 +306,31 @@ A type with no message anywhere throws a `TypeError` when the error is added.
 
 Each error type has a built-in message. To replace one, use its type as the key in `errorMessages`:
 
-| Type                       | Added by                                                   | Message                                                     |
-| -------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------- |
-| `blank`                    | `presence`, and `comparison` for a blank value             | can’t be blank                                              |
-| `present`                  | `absence`                                                  | must be blank                                               |
-| `invalid`                  | `format` and an invalid autosaved association              | is invalid                                                  |
-| `inclusion`                | `inclusion`                                                | is not included in the list                                 |
-| `exclusion`                | `exclusion`                                                | is reserved                                                 |
-| `tooShort`                 | `length: { minimum }`                                      | is too short (minimum is `%{count}` characters)             |
-| `tooLong`                  | `length: { maximum }`                                      | is too long (maximum is `%{count}` characters)              |
-| `wrongLength`              | `length: { is }`                                           | is the wrong length (should be `%{count}` characters)       |
-| `notANumber`               | `numericality`                                             | is not a number                                             |
-| `notAnInteger`             | `numericality: { onlyInteger }`                            | must be an integer                                          |
-| `greaterThan`              | `numericality` or `comparison`: `{ greaterThan }`          | must be greater than `%{count}`                             |
-| `greaterThanOrEqualTo`     | `numericality` or `comparison`: `{ greaterThanOrEqualTo }` | must be greater than or equal to `%{count}`                 |
-| `lessThan`                 | `numericality` or `comparison`: `{ lessThan }`             | must be less than `%{count}`                                |
-| `lessThanOrEqualTo`        | `numericality` or `comparison`: `{ lessThanOrEqualTo }`    | must be less than or equal to `%{count}`                    |
-| `equalTo`                  | `comparison: { equalTo }`                                  | must be equal to `%{count}`                                 |
-| `otherThan`                | `comparison: { otherThan }`                                | must be other than `%{count}`                               |
-| `accepted`                 | `acceptance`                                               | must be accepted                                            |
-| `taken`                    | `uniqueness`                                               | has already been taken                                      |
-| `required`                 | a `belongsTo` whose record doesn’t exist                   | must exist                                                  |
-| `restrictDependentDestroy` | a has-one with `dependent: "restrictWithError"`            | Cannot delete record because a dependent `%{record}` exists |
-| `restrictDependentDestroy` | a has-many with `dependent: "restrictWithError"`           | Cannot delete record because dependent `%{record}` exist    |
+| Type                       | Added by                                                                     | Message                                                     |
+| -------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `blank`                    | `presence`, and `comparison` for a blank value                               | can’t be blank                                              |
+| `present`                  | `absence`                                                                    | must be blank                                               |
+| `invalid`                  | `format` and an invalid autosaved association                                | is invalid                                                  |
+| `inclusion`                | `inclusion`                                                                  | is not included in the list                                 |
+| `exclusion`                | `exclusion`                                                                  | is reserved                                                 |
+| `tooShort`                 | `length: { minimum }`                                                        | is too short (minimum is `%{count}` characters)             |
+| `tooLong`                  | `length: { maximum }`                                                        | is too long (maximum is `%{count}` characters)              |
+| `wrongLength`              | `length: { is }`                                                             | is the wrong length (should be `%{count}` characters)       |
+| `notANumber`               | `numericality`                                                               | is not a number                                             |
+| `notAnInteger`             | `numericality: { onlyInteger }`                                              | must be an integer                                          |
+| `greaterThan`              | `numericality` or `comparison`: `{ greaterThan }`                            | must be greater than `%{count}`                             |
+| `greaterThanOrEqualTo`     | `numericality` or `comparison`: `{ greaterThanOrEqualTo }`                   | must be greater than or equal to `%{count}`                 |
+| `lessThan`                 | `numericality` or `comparison`: `{ lessThan }`                               | must be less than `%{count}`                                |
+| `lessThanOrEqualTo`        | `numericality` or `comparison`: `{ lessThanOrEqualTo }`                      | must be less than or equal to `%{count}`                    |
+| `equalTo`                  | `comparison: { equalTo }`                                                    | must be equal to `%{count}`                                 |
+| `otherThan`                | `comparison: { otherThan }`                                                  | must be other than `%{count}`                               |
+| `passwordTooLong`          | a [secure password](./passwords-and-tokens) longer than its algorithm allows | is too long                                                 |
+| `accepted`                 | `acceptance`                                                                 | must be accepted                                            |
+| `confirmation`             | `confirmation`, on the confirming attribute                                  | doesn’t match `%{attribute}`                                |
+| `taken`                    | `uniqueness`                                                                 | has already been taken                                      |
+| `required`                 | a `belongsTo` whose record doesn’t exist                                     | must exist                                                  |
+| `restrictDependentDestroy` | a has-one with `dependent: "restrictWithError"`                              | Cannot delete record because a dependent `%{record}` exists |
+| `restrictDependentDestroy` | a has-many with `dependent: "restrictWithError"`                             | Cannot delete record because dependent `%{record}` exist    |
 
 With a count of 1, the three `length` messages say “1 character”. `restrictDependentDestroy` goes on `"base"`, and `%{record}` is the association’s name in lowercase. To replace it, give both forms: `restrictDependentDestroy: { hasOne: "…", hasMany: "…" }`.
 

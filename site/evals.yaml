@@ -339,6 +339,27 @@ questions:
       - "hiddenAttributes keeps values out of toJSON, so Response.json and JSON.stringify"
       - "filterAttributes shows values as [FILTERED] in onQuery listeners, error messages and printed records"
     routes: /serialization
+  - id: store-a-password
+    question: "How do I store a user's password safely, and check it when they sign in?"
+    expected:
+      - "declare password: { securePassword: true } in static attributes, with a password_digest column"
+      - "it's hashed with PBKDF2-SHA256 when the record is saved, and toJSON() leaves the password out"
+      - "User.authenticateBy({ email, password }) resolves to the user, or null for a wrong email or password"
+    routes: /passwords-and-tokens
+  - id: stronger-hash
+    question: "Is the default password hash strong enough on Workers, and can I use bcrypt instead?"
+    expected:
+      - "the default runs 100,000 PBKDF2 iterations, the most Workers allow, about a sixth of OWASP's 600,000"
+      - "each hash takes about 10–40 ms of CPU time, past the Free plan's 10 ms, so it may need Workers Paid"
+      - "give securePassword an algorithm with hash, verify and maxBytes, such as one built on bcryptjs"
+    routes: /passwords-and-tokens
+  - id: api-token
+    question: "How do I give each new user a random API token, and replace it later?"
+    expected:
+      - "declare authToken: { secureToken: true } on a string column, with a UNIQUE index"
+      - "it's 24 characters of base58, made as the record is built"
+      - "await user.regenerateAuthToken() saves a new one"
+    routes: /passwords-and-tokens
   - id: share-with-some
     question: "How do I give only some of my Models an afterSave callback, without repeating it on each?"
     expected:
@@ -362,3 +383,33 @@ questions:
       - "JSON can send null or a list"
       - "findBy({ token: null }) matches rows whose token is NULL, and a list matches any of its values"
     routes: /untrusted-input
+  - id: virtual-attribute
+    question: "How do I give a Model a terms-of-service checkbox from a signup form, without a column for it?"
+    expected:
+      - 'a virtual attribute in static attributes, such as termsOfService: { type: "boolean", virtual: true }'
+      - "it's cast and taken by permit, but never saved, and a query can't name it"
+    routes: /models
+  - id: normalize-email
+    question: 'Users sign up with emails like " Jane@Example.COM". How do I store them trimmed and lowercased, and still find them by what they type at login?'
+    expected:
+      - 'this.normalizes("email", { with: (email) => email.trim().toLowerCase() }) in the Model''s static {}'
+      - "every assigned value is normalized, and so are a query's values, so findBy with the typed email finds the stored row"
+    routes: /models
+  - id: normalize-old-rows
+    question: "I added a normalization to email, and now some older users can't be found by their email. Why, and how do I fix it?"
+    expected:
+      - "rows saved before the normalization keep their stored value, while the query's value is normalized"
+      - 'load each record, call normalizeAttribute("email"), and save it (or update them in a migration)'
+    routes: /models
+  - id: confirm-email
+    question: "How do I make a user type their email twice, and check both match?"
+    expected:
+      - 'this.validates("email", { confirmation: true }), with a virtual emailConfirmation attribute'
+      - "a mismatch is an error on emailConfirmation, and toJSON() leaves the confirmation out"
+    routes: /validations
+  - id: alias-attribute
+    question: "My products table's column is name, but the app calls it title. How do I use title in code and in queries?"
+    expected:
+      - 'an alias in static attributes: title: { aliasOf: "name" }'
+      - "where, order, pluck, create and the rest take title, and changes and toJSON list name"
+    routes: /models

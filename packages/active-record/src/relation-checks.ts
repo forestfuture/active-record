@@ -1,9 +1,10 @@
 // What a Relation's methods take, checked when a query is written, not when it runs.
 import type { Assignment, Conflict } from "./compiler.ts";
 import { Comparison } from "./comparisons.ts";
+import { withAttributeNames } from "./attribute-aliases.ts";
 import { attributeFor } from "./attribute.ts";
 import { refuseBareDates } from "./fragment-guard.ts";
-import { attributeOf, type AttributeType } from "./metadata.ts";
+import { type AttributeType, columnOf } from "./metadata.ts";
 import type { AttributesOf, ModelClass } from "./model.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import {
@@ -122,7 +123,7 @@ function attributeOrder(attribute: string, value: unknown, method: string): Orde
 export function checkFragment(model: ModelClass, fragment: SafeSql): void {
   for (const value of fragment.values) {
     if (!isAttributeReference(value)) continue;
-    attributeOf(model, value.attribute);
+    columnOf(model, value.attribute);
     if (value instanceof ColumnValue) {
       attributeFor(model, value.attribute).cast(value.assigned);
     }
@@ -146,7 +147,7 @@ export function checkConditions(model: ModelClass, conditions: object, method: s
     return;
   }
   for (const [name, value] of Object.entries(conditions)) {
-    const { type } = attributeOf(model, name);
+    const { type } = columnOf(model, name);
     rejectUndefined(value, name, method);
     if (value instanceof Comparison) requireOrdered(type, name, method);
   }
@@ -156,7 +157,8 @@ export function checkConditions(model: ModelClass, conditions: object, method: s
 export function checkChanges(model: ModelClass, changes: object): Assignment[] | SafeSql {
   checkConditions(model, changes, "updateAll");
   if (changes instanceof SafeSql) return changes;
-  const assignments = Object.entries(changes);
+  // An alias's value is its attribute's, so each column is set once (#509).
+  const assignments = Object.entries(withAttributeNames(model, changes as Record<string, unknown>));
   if (assignments.length === 0) {
     throw new TypeError("updateAll() needs at least one attribute to change");
   }
@@ -171,7 +173,7 @@ export function orderTerms(model: ModelClass, spec: object, method: string): Ord
     return [spec];
   }
   return Object.entries(spec).map(([attribute, value]) => {
-    attributeOf(model, attribute);
+    columnOf(model, attribute);
     return attributeOrder(attribute, value, method);
   });
 }
@@ -209,7 +211,7 @@ export function updateOn<M>(
   ownedBy: readonly string[],
 ): Conflict {
   const uniqueBy = [options.uniqueBy ?? model.primaryKey].flat() as string[];
-  for (const name of uniqueBy) attributeOf(model, name);
+  for (const name of uniqueBy) columnOf(model, name);
   return { kind: "update", uniqueBy, ownedBy };
 }
 

@@ -92,7 +92,10 @@ function createTable(table: string, change: MigrationChange, writing: Writing): 
   return `CREATE TABLE ${quotedName(dialect, table)} (\n  ${body}\n);\n${indexes(dialect, table, change.columns)}`;
 }
 
-/** `ADD COLUMN` for each column; a reference added later can be null, as Rails' `add_reference`. */
+/**
+ * `ADD COLUMN` for each column; a reference added later can be null, since the table may already
+ * have rows.
+ */
 function addColumns(table: string, columns: readonly ColumnArg[], writing: Writing): SqlResult {
   const { dialect } = writing;
   for (const column of columns) {

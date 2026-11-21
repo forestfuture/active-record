@@ -90,8 +90,8 @@ function joinOf(
 }
 
 /**
- * Throws `IncompatibleRelation` for a polymorphic belongsTo (#60), as Rails refuses to eager load
- * one: its records may be in several tables, and a join reads one.
+ * Throws `IncompatibleRelation` for a polymorphic belongsTo (#60): its records may be in several
+ * tables, and a join reads one.
  */
 function refusePolymorphic(association: ResolvedAssociation): void {
   if (association.isBranched) {
@@ -127,8 +127,8 @@ function refuseOtherDatabase(association: ResolvedAssociation, root: ModelClass<
 }
 
 /**
- * The conditions `association`'s scope and its Model's default scopes add to a join, as Rails
- * puts them in its `ON`. Their order can't change which rows join, so it's left out, as are
+ * The conditions `association`'s scope and its Model's default scopes add to a join, in
+ * its `ON`. Their order can't change which rows join, so it's left out, as are
  * their includes; a limit, offset, distinct or joins of their own can't be written there.
  */
 function scopeConditions(association: ResolvedAssociation, executor: Executor): Condition[] {

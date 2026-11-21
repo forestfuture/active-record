@@ -17,8 +17,8 @@ export function compileComparison(
 }
 
 /**
- * A condition that matches no row: an empty list, or a value that can't be cast (#81), as in
- * Rails 6.1+, so a value from a URL is never an error or a NULL match.
+ * A condition that matches no row: an empty list, or a value that can't be cast (#81), so a
+ * value from a URL is never an error or a NULL match.
  */
 const NOTHING = "1 = 0";
 

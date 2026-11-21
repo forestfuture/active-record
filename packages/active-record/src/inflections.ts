@@ -1,4 +1,4 @@
-// English pluralization and singularization, so tables are named as Rails names them.
+// English pluralization and singularization, for naming tables from class names.
 // Ported from Active Support's default inflections
 // (activesupport/lib/active_support/inflections.rb).
 
@@ -14,7 +14,7 @@ const IRREGULARS: readonly (readonly [string, string])[] = [
   ["zombie", "zombies"],
 ];
 
-/** Plural rules in Rails' order of definition. The last one that matches wins, as in Rails. */
+/** Plural rules in order of definition. The last one that matches wins. */
 const PLURALS: readonly Rule[] = [
   [/$/, "s"],
   [/s$/i, "s"],
@@ -40,7 +40,7 @@ const PLURALS: readonly Rule[] = [
   ...IRREGULARS.flatMap(([singular, plural]) => irregular(singular, plural, plural)),
 ];
 
-/** Singular rules, likewise in Rails' order. */
+/** Singular rules, likewise in order of definition. */
 const SINGULARS: readonly Rule[] = [
   [/s$/i, ""],
   [/(ss)$/i, "$1"],
@@ -72,12 +72,12 @@ const SINGULARS: readonly Rule[] = [
   ...IRREGULARS.flatMap(([singular, plural]) => irregular(singular, plural, singular)),
 ];
 
-/** Words with no plural, matched as the last word (Rails' `\b<word>\z`). */
+/** Words with no plural, matched as the last word. */
 const UNCOUNTABLE =
   /\b(?:equipment|information|rice|money|species|series|fish|sheep|jeans|police)$/i;
 
 /**
- * Rails' `irregular`: rules turning either form into `into` (the plural for plural rules, the
+ * Irregular words: rules turning either form into `into` (the plural for plural rules, the
  * singular for singular ones), keeping the first letter's case.
  */
 function irregular(singular: string, plural: string, into: string): Rule[] {
@@ -87,7 +87,7 @@ function irregular(singular: string, plural: string, into: string): Rule[] {
   ];
 }
 
-/** Applies the last rule that matches, as Rails does; uncountable words stay as they are. */
+/** Applies the last rule that matches; uncountable words stay as they are. */
 function inflect(word: string, rules: readonly Rule[]): string {
   if (word === "" || UNCOUNTABLE.test(word)) return word;
   for (let index = rules.length - 1; index >= 0; index--) {
@@ -97,12 +97,12 @@ function inflect(word: string, rules: readonly Rule[]): string {
   return word;
 }
 
-/** Rails' `pluralize`: `category` → `categories`, `person` → `people`, `sheep` → `sheep`. */
+/** A word's plural: `category` → `categories`, `person` → `people`, `sheep` → `sheep`. */
 export function pluralize(word: string): string {
   return inflect(word, PLURALS);
 }
 
-/** Rails' `singularize`: `categories` → `category`, `people` → `person`, `line_items` → `line_item`. */
+/** A word's singular: `categories` → `category`, `people` → `person`, `line_items` → `line_item`. */
 export function singularize(word: string): string {
   return inflect(word, SINGULARS);
 }

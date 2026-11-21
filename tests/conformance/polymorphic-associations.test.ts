@@ -703,7 +703,7 @@ describe("polymorphic associations", () => {
     });
   });
 
-  // As Rails raises EagerLoadPolymorphicError: one join can't reach several tables.
+  // One join can't reach several tables.
   test("joins() and leftJoins() refuse a polymorphic belongsTo when the query is written", () => {
     const db = harness.connect();
     const message =

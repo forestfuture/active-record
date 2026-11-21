@@ -99,7 +99,7 @@ export interface SchemaOptions {
 
 /** What `g model` and `g migration` ask an adapter for: a migration's SQL. */
 export interface MigrationChange {
-  /** The migration's name, as Rails reads it (`CreateProducts`, `AddSkuToProducts`, …). */
+  /** The migration's name, which says what it does (`CreateProducts`, `AddSkuToProducts`, …). */
   name: string;
   columns: readonly ColumnArg[];
   /**

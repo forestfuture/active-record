@@ -107,7 +107,7 @@ describe("active-record init", () => {
     });
   });
 
-  test("--adapter postgresql with nothing to read names DATABASE_URL, on a local database named as Rails names it", async () => {
+  test("--adapter postgresql with nothing to read names DATABASE_URL, on a local database named for the project", async () => {
     const cwd = project();
 
     expect(await init(cwd, { adapter: "postgresql" })).toEqual({

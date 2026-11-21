@@ -4,7 +4,7 @@ import { schema } from "../../schema";
 
 /**
  * The base class for this app's Models: `class Product extends ApplicationRecord {}`. Methods,
- * callbacks and scopes written here are shared by every Model, as in Rails' ApplicationRecord.
+ * callbacks and scopes written here are shared by every Model.
  * It's abstract: it has no table of its own.
  */
 export abstract class ApplicationRecord extends Model {

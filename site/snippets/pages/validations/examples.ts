@@ -45,6 +45,17 @@ export async function signingUp() {
   return member;
 }
 
+export async function confirming() {
+  // #region confirmation
+  const form = { email: "jane@example.com", emailConfirmation: "jane@exmaple.com" };
+  const permitted = Member.permit(form, "email", "emailConfirmation");
+  const member = Member.build({ ...permitted, password: "secret" });
+  await member.isValid(); // false: "Email confirmation doesn't match Email"
+  console.log(member.toJSON().emailConfirmation); // undefined: never sent back
+  // #endregion confirmation
+  return member;
+}
+
 export async function validatingTracks() {
   // #region associated
   const playlist = Playlist.build({ name: "Road trip" });

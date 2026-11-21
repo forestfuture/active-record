@@ -1,8 +1,15 @@
 // A generated Model (`class Post extends ApplicationRecord {}`): the generated schema's types, its
-// table, primary key and attributes from the schema its base class holds (overrides checked),
-// settled on first use, and its binding (#232).
+// table, primary key, attributes and aliases from the schema its base class holds (overrides
+// checked), settled on first use, and its binding (#232).
 import type { SchemaAdapter } from "./adapter.ts";
 import { ancestors } from "./ancestors.ts";
+import {
+  aliasesIn,
+  isAlias,
+  type AttributeAlias,
+  type AliasSpecs,
+  type WithoutAliases,
+} from "./attribute-aliases.ts";
 import { type AnyCustomType, isCustomType } from "./custom-types.ts";
 import type { IntegerEnum, TextEnum } from "./enum-values.ts";
 import { defineEnumMethods, defineEnumStatics } from "./enum-methods.ts";
@@ -15,6 +22,7 @@ import {
   type AttributeSpecs,
   type AttributeType,
   type ValueSource,
+  virtualNullProblem,
 } from "./metadata.ts";
 import { state } from "./record-state.ts";
 import {
@@ -26,6 +34,14 @@ import {
   type SpecOverride,
 } from "./spec-keys.ts";
 import { bindTable, modelNameOf, ownValueSetter, tableize } from "./table-names.ts";
+import { defineSecureTokenMethods, type SecureTokenOptions } from "./secure-tokens.ts";
+import {
+  defineSecurePasswordMethods,
+  rejectMissingDigests,
+  withSecurePasswords,
+  type SecurePasswordDeclaration,
+  type SecurePasswordSpecs,
+} from "./secure-passwords.ts";
 
 /** One table in a generated schema: its attributes, and which is the primary key. */
 export interface TableSchema {
@@ -53,14 +69,18 @@ type AttributeOverride =
   | (Pick<SpecOverride, "null"> & {
       type?: "string";
       storage?: never;
+      virtual?: false;
       /** Or `true`: a generated enum's names, with its methods; `false`: none of it (#64). */
       enum?: TextEnum | boolean;
+      /** A random token, generated for a new record (#355). */
+      secureToken?: boolean | SecureTokenOptions;
     } & EnumOptions &
       ValueSource)
   | (Pick<SpecOverride, "null" | "default"> & {
       type?: "integer";
       generateId?: false;
       storage?: never;
+      virtual?: false;
       enum: IntegerEnum;
     } & EnumOptions)
   | (Pick<SpecOverride, "null" | "default"> & {
@@ -68,18 +88,36 @@ type AttributeOverride =
       generateId?: false;
       storage?: never;
       enum?: never;
+      virtual?: false;
     })
   | (Pick<SpecOverride, "null" | "default" | "storage"> & {
       type: "datetime";
       generateId?: false;
       enum?: never;
+      virtual?: false;
     })
   | (Pick<SpecOverride, "null" | "default"> & {
       type: AnyCustomType;
       generateId?: false;
       storage?: never;
       enum?: never;
-    });
+      virtual?: false;
+    })
+  | VirtualAttribute
+  | AttributeAlias
+  | SecurePasswordDeclaration;
+
+/**
+ * An attribute that isn't a column (#356): its type, and optionally nullability and a default,
+ * the only keys an attribute with no column has.
+ */
+type VirtualAttribute = Pick<SpecOverride, "null" | "default"> & {
+  type: AttributeType | AnyCustomType;
+  virtual: true;
+  generateId?: never;
+  storage?: never;
+  enum?: never;
+};
 
 /** The type a spec declares, written either way. */
 type TypeOf<S> = S extends AttributeType | AnyCustomType
@@ -132,14 +170,30 @@ type Overridden<S, O> = O extends AttributeType | AnyCustomType
         type: O extends { type: infer T extends AttributeType | AnyCustomType } ? T : TypeOf<S>;
         null: O extends { null: infer N extends boolean } ? N : NullOf<S>;
       } & KeptEnumKeys<S, O> &
-        GivenEnumKeys<O>
+        GivenEnumKeys<O> &
+        Pick<O, "secureToken" & keyof O>
     : S;
 
-/** A table's attributes after its overrides: changed ones merged, ignored ones gone. */
-export type OverriddenSpecs<A, O> = {
+/**
+ * A table's attributes after its overrides: changed ones merged, ignored ones gone, and virtual
+ * ones (#356), aliases (#509) and secure passwords' (#355) added.
+ */
+export type OverriddenSpecs<A, O> = ColumnSpecs<A, WithoutAliases<O>> &
+  AliasSpecs<ColumnSpecs<A, WithoutAliases<O>>, O>;
+
+/** A table's attributes after the overrides that aren't aliases. */
+type ColumnSpecs<A, O> = {
   -readonly [
     K in keyof A as K extends keyof O ? (O[K] extends false ? never : K) : K
   ]: K extends keyof O ? Overridden<A[K], O[K]> : A[K];
+} & VirtualSpecs<A, O> &
+  SecurePasswordSpecs<O>;
+
+/** The virtual attributes an override declares (#356): those not in the table, as declared. */
+type VirtualSpecs<A, O> = {
+  -readonly [
+    K in keyof O as K extends keyof A ? never : O[K] extends { virtual: true } ? K : never
+  ]: O[K];
 };
 
 /** `S` as attribute specs, without widening it to an index signature (which would type any name). */
@@ -183,10 +237,12 @@ interface Generated {
   readonly table: string;
   readonly primaryKey: string;
   readonly definitions: ReadonlyMap<string, AttributeDefinition>;
+  readonly aliases: ReadonlyMap<string, string>;
   readonly isIgnoringColumns: boolean;
 }
 
 const noAttributes: ReadonlyMap<string, AttributeDefinition> = new Map();
+const noAliases: ReadonlyMap<string, string> = new Map();
 
 /**
  * What each generated Model settled on when it was first used, by class (a subclass shares its
@@ -223,7 +279,10 @@ function tableOwnerOf(
   return schema === undefined ? undefined : { owner: chain[index - 1] as GeneratedClass, schema };
 }
 
-/** The attribute accessors on a prototype, reading and writing a record's values. */
+/**
+ * The attribute accessors on a prototype, reading and writing a record's values; an alias's
+ * (#509) read and write the attribute it names, which the record resolves.
+ */
 export function defineAttributeAccessors(prototype: object, names: Iterable<string>): void {
   type Record = {
     [state]: { read(name: string): unknown; write(name: string, value: unknown): void };
@@ -270,14 +329,17 @@ function find(owner: GeneratedClass, schema: DatabaseSchema): Generated {
   if (tableSchema === undefined) {
     throw new InvalidModel(`${owner.name}'s table, ${table}, isn't in the generated schema`);
   }
-  const { specs, isIgnoringColumns } = specsFor(owner.name, tableSchema, owner.attributes ?? {});
+  const declared = withSecurePasswords(`${owner.name}.`, owner.attributes ?? {});
+  const { specs, isIgnoringColumns } = specsFor(owner.name, tableSchema, declared);
   const definitions = new Map(
     Object.entries(specs).map(([name, spec]) => [name, define(name, spec)]),
   );
+  const aliases = aliasesIn(`${owner.name}.`, declared, definitions);
+  rejectMissingDigests(`${owner.name}.`, definitions);
   const primaryKey = Object.hasOwn(owner, "primaryKey")
     ? owner.primaryKey!
     : tableSchema.primaryKey;
-  return { table, primaryKey, definitions, isIgnoringColumns };
+  return { table, primaryKey, definitions, aliases, isIgnoringColumns };
 }
 
 /**
@@ -305,9 +367,14 @@ export function settleGenerated(model: object): void {
   if (found === undefined) {
     found = find(owner, place.schema);
     bindTable(owner, found.table, { isIgnoringColumns: found.isIgnoringColumns });
-    defineAttributeAccessors(owner.prototype, found.definitions.keys());
+    defineAttributeAccessors(owner.prototype, [
+      ...found.definitions.keys(),
+      ...found.aliases.keys(),
+    ]);
     defineEnumMethods(owner.prototype, found.definitions);
     defineEnumStatics(owner, found.definitions);
+    defineSecurePasswordMethods(owner.prototype, found.definitions);
+    defineSecureTokenMethods(owner.prototype, found.definitions);
     settled.set(owner, found);
   }
   settled.set(model, found);
@@ -341,6 +408,7 @@ export function defineGeneratedStatics(root: object): void {
     table: (model) => generated(model)?.table ?? "",
     primaryKey: (model) => generated(model)?.primaryKey ?? "id",
     attributeDefinitions: (model) => generated(model)?.definitions ?? noAttributes,
+    attributeAliases: (model) => generated(model)?.aliases ?? noAliases,
   };
   for (const [name, read] of Object.entries(statics)) {
     Object.defineProperty(root, name, {
@@ -396,8 +464,15 @@ function specsFor(
   overrides: Readonly<Record<string, unknown>>,
 ): { specs: AttributeSpecs; isIgnoringColumns: boolean } {
   const changes = new Map<string, ReturnType<typeof checked>>();
-  for (const [attribute, override] of Object.entries(overrides)) {
+  const virtual: AttributeSpecs = {};
+  // An alias names an attribute rather than changing one (#509); `aliasesIn` checks it.
+  const given = Object.entries(overrides).filter(([, override]) => !isAlias(override));
+  for (const [attribute, override] of given) {
     if (override === undefined) continue;
+    if (isVirtual(override)) {
+      virtual[attribute] = virtualSpec(name, attribute, table, override);
+      continue;
+    }
     if (!Object.hasOwn(table.attributes, attribute)) {
       throw new InvalidModel(`${name} has no attribute ${attribute} to override`);
     }
@@ -413,5 +488,46 @@ function specsFor(
     specs[attribute] =
       change === undefined ? spec : checkedOverride(`${name}.${attribute}`, spec, change);
   }
-  return { specs, isIgnoringColumns: [...changes.values()].includes(false) };
+  return {
+    specs: { ...specs, ...virtual },
+    isIgnoringColumns: [...changes.values()].includes(false),
+  };
+}
+
+/** Whether an override declares a virtual attribute (#356): an object with `virtual: true`. */
+function isVirtual(override: unknown): override is Record<string, unknown> {
+  return (
+    typeof override === "object" &&
+    override !== null &&
+    "virtual" in override &&
+    override.virtual === true
+  );
+}
+
+/**
+ * A virtual attribute's spec (#356), checked: not a column's name, a whole spec with its type,
+ * and non-null only with a default, since nothing loads a value for it.
+ */
+function virtualSpec(
+  name: string,
+  attribute: string,
+  table: TableSchema,
+  spec: Record<string, unknown>,
+): AttributeSpecs[string] {
+  const where = `${name}.${attribute}`;
+  if (Object.hasOwn(table.attributes, attribute)) {
+    throw new InvalidModel(
+      `${where} is virtual, but ${name}'s table has a column for it; rename it, or drop virtual`,
+    );
+  }
+  if (!isSpecOverride(spec) || spec.type === undefined) {
+    throw new InvalidModel(
+      `${where}: a virtual attribute is { type, virtual: true, null?, default? }`,
+    );
+  }
+  const problem =
+    specProblem(where, spec as SpecOverride & { type: AttributeType }) ??
+    virtualNullProblem(where, spec);
+  if (problem !== undefined) throw new InvalidModel(problem);
+  return spec as AttributeSpecs[string];
 }

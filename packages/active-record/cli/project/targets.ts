@@ -29,8 +29,8 @@ export interface Target extends LoadedDatabase {
 }
 
 /**
- * A database's base class: `ApplicationRecord` when there's one database, as in Rails, and one
- * per binding when there are several (`LOGS` → `LogsRecord`), as Rails names them.
+ * A database's base class: `ApplicationRecord` when there's one database, and one
+ * per binding when there are several (`LOGS` → `LogsRecord`).
  */
 function baseFor(modelsDir: string, binding: string, several: boolean): Target["base"] {
   if (!several) {

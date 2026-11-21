@@ -38,7 +38,7 @@ async function found(cwd: string, configPath?: string): Promise<string> {
     .join(", ");
 }
 
-// The project's active-record.jsonc names each database's adapter, as Rails' database.yml does (#301).
+// The project's active-record.jsonc names each database's adapter (#301).
 describe("the adapter the command uses", () => {
   test("is the one active-record.jsonc names", async () => {
     const d1 = project({

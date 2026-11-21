@@ -159,7 +159,7 @@ function viaOf(
   if (kind === "hasOne" && via.kind === "hasMany") {
     throw new InvalidModel(`${label}: a hasOne can't go through a hasMany (${through})`);
   }
-  // Its Model isn't known until a record's type is read (#60), as Rails refuses too.
+  // Its Model isn't known until a record's type is read (#60), so it's refused.
   if (via.targets !== undefined) {
     throw new InvalidModel(
       `${label}: through "${through}" is a polymorphic belongsTo, which it can't go through`,
@@ -205,10 +205,10 @@ function checkNotCircular(label: string, model: ModelClass, name: string): void 
 
 /**
  * Throws `ReadonlyAssociation` when nothing is written through `association` (#434): only a
- * join Model's is written through, as in Rails, so it must go through a hasMany (a hasOne, for
- * a hasOne) to a source that's a belongsTo, and neither may go through another. Rails also
- * writes through the others, by building or updating the record of the association it goes
- * through, which replaces a shared or single record; this refuses that.
+ * join Model's is written through, so it must go through a hasMany (a hasOne, for
+ * a hasOne) to a source that's a belongsTo, and neither may go through another. Writing
+ * through the others would build or update the record of the association it goes through,
+ * replacing a shared or single record, so they're refused.
  */
 export function requireWritableThrough(association: ResolvedAssociation): void {
   const reason = writeRefusal(association);
@@ -251,7 +251,7 @@ function shapeRefusal(
   return undefined;
 }
 
-/** Why nothing is inserted through a through association, as in Rails: no join records would be. */
+/** Why nothing is inserted through a through association: no join records would be. */
 export function insertError({ label }: ResolvedAssociation): ReadonlyAssociation {
   return new ReadonlyAssociation(
     `Can't insert or upsert through ${label}: a bulk write makes no join records`,

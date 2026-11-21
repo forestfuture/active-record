@@ -63,7 +63,7 @@ describe("toSql", () => {
     expect(params).toEqual([]);
   });
 
-  // A guard, as Rails: its to_sql shows real values while its logs filter them (#83).
+  // A guard: toSql shows real values while onQuery filters them (#83).
   test("shows a filtered attribute's real value, which onQuery still hides", async () => {
     const users = db().model(User).where({ email: "a@example.com" });
 

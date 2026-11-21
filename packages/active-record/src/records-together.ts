@@ -14,8 +14,8 @@ import { linksOf } from "./record-state.ts";
 import { combine, inGroup, runStages, type Stage } from "./unit-of-work.ts";
 
 /**
- * Destroys `records` as one write, callbacks and dependents included, as Rails' collection does
- * in a transaction: if one refuses, it throws, with nothing written.
+ * Destroys `records` as one write, callbacks and dependents included: if one refuses, it throws,
+ * with nothing written.
  */
 export async function destroyTogether(records: readonly Model[], needs: string): Promise<void> {
   await pinBefore(linksOf(records), needs);

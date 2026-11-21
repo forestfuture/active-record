@@ -217,7 +217,7 @@ describe("rewriting queries (#350)", () => {
   });
 
   describe("merge", () => {
-    test("carries an unscope onto the Relation merged into, as Rails does", async () => {
+    test("carries an unscope onto the Relation merged into", async () => {
       const all = users();
       const members = all.where({ role: "member" }).order({ id: "desc" });
 

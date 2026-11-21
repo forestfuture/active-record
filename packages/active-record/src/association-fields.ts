@@ -110,7 +110,7 @@ interface BelongsToOptions<C extends ModelClass = ModelClass> {
    * write: `true` counts them in the attribute named for them (`Reply` → `repliesCount`), or name
    * another of the target's attributes (one every Model a polymorphic belongsTo lists has).
    * `{ attribute, active: false }` keeps it on writes, but `size` doesn't read it yet, so it
-   * can be filled in for the rows already there (Rails 7.2's `active: false`).
+   * can be filled in for the rows already there.
    */
   counterCache?: true | CounterName<C> | { attribute?: CounterName<C>; active?: false };
   /**
@@ -170,8 +170,8 @@ interface HasManyOptions {
   dependent?: HasManyDependent;
   /**
    * The owner's attribute holding a counter cache of these records (#61), which `size` reads:
-   * by default the one named for this association (`replies` → `repliesCount`), as Rails'
-   * has_many `counter_cache:`. The records' belongsTo keeps it.
+   * by default the one named for this association (`replies` → `repliesCount`).
+   * The records' belongsTo keeps it.
    */
   counterCache?: string;
 }

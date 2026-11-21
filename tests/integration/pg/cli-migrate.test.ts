@@ -108,7 +108,7 @@ describe("migrate, on Postgres", pgliteTimeout, () => {
     expect(rows).toEqual([{ posts: null }]);
   });
 
-  test("refuses while another migrate holds the database, as Rails does", async () => {
+  test("refuses while another migrate holds the database", async () => {
     const holder = await schema.pool.connect();
     const lock =
       "hashtext('active-record migrate ' || current_database() || '.' || current_schema())";
