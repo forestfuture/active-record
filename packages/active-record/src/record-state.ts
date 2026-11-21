@@ -9,6 +9,7 @@ import type { Executor } from "./executor.ts";
 import { LoadedAssociations, type KeyAttributes } from "./loaded-associations.ts";
 import { PendingAutosaves } from "./pending-autosaves.ts";
 import { digestOf } from "./secure-passwords.ts";
+import { generateTokens } from "./secure-tokens.ts";
 import { attributeOf, initialValues, type AttributeDefinition } from "./metadata.ts";
 import type { ChangeOptions, Model, ModelClass } from "./model.ts";
 
@@ -209,6 +210,8 @@ export class RecordState {
     // Cast already, and normalized or a key, so stored as they are (#354).
     for (const [name, value] of Object.entries(kept)) this.#store(name, value);
     this.assign(attributes);
+    // A secure token given as null or "" is made all the same (#355).
+    generateTokens(this.#model.attributeDefinitions, this, "initialize");
   }
 
   /**

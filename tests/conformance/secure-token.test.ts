@@ -83,6 +83,17 @@ describe("a secure token", () => {
       expect((await stored())?.auth_token).toBe(member.authToken);
     });
 
+    test("is generated when it's given as null or blank", () => {
+      const members = db().model(Member);
+
+      expect(members.build({ email: "jane@example.com", authToken: null }).authToken).toMatch(
+        base58(24),
+      );
+      expect(members.build({ email: "jane@example.com", authToken: "" }).authToken).toMatch(
+        base58(24),
+      );
+    });
+
     test("isn't generated when one is given", () => {
       const member = db().model(Member).build({ email: "jane@example.com", authToken: "given" });
 
@@ -96,6 +107,18 @@ describe("a secure token", () => {
 
       expect(Object.keys(member.toJSON())).not.toContain("authToken");
       expect(member.attributes()).toHaveProperty("authToken", member.authToken);
+    });
+  });
+
+  describe("in a bulk insert", () => {
+    test("is generated as it's built, but not one generated on create", async () => {
+      await db()
+        .model(Member)
+        .insertAll([{ email: "jane@example.com" }]);
+
+      const row = await stored();
+      expect(row?.auth_token).toMatch(base58(24));
+      expect(row?.invite_code).toBe(null);
     });
   });
 

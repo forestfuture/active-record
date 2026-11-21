@@ -86,13 +86,18 @@ export interface TokenHolder {
   write(name: string, value: unknown): void;
 }
 
-/** Generates each token declared `on: "create"` that a new record doesn't have, as it's created. */
-export function generateTokensOnCreate(
+/**
+ * Generates each token a new record doesn't have (null or `""`) as it's built (`"initialize"`,
+ * after its given values) or created (`"create"`), whichever its `on` says.
+ */
+export function generateTokens(
   definitions: ReadonlyMap<string, AttributeDefinition>,
   holder: TokenHolder,
+  moment: "initialize" | "create",
 ): void {
   for (const [name, definition] of definitions) {
-    if (tokenOptionsOf(definition)?.on !== "create") continue;
+    const options = tokenOptionsOf(definition);
+    if (options === undefined || (options.on ?? "initialize") !== moment) continue;
     const value = holder.read(name);
     if (value === null || value === "") holder.write(name, tokenFor(definition));
   }
