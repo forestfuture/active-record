@@ -292,17 +292,17 @@ export function passwordConfirmations(
 
 /**
  * A secure password's digest must be a string attribute with a column: `passwordDigest` for
- * `password`; `InvalidModel` names the column it needs.
+ * `password`; `InvalidModel` names the attribute it needs, after `where` (`User.`, or nothing).
  */
-export function rejectMissingDigests(model: {
-  readonly name: string;
-  readonly attributeDefinitions: ReadonlyMap<string, AttributeDefinition>;
-}): void {
-  for (const { name, digest } of securePasswordsOf(model.attributeDefinitions)) {
-    const definition = model.attributeDefinitions.get(digest);
+export function rejectMissingDigests(
+  where: string,
+  definitions: ReadonlyMap<string, AttributeDefinition>,
+): void {
+  for (const { name, digest } of securePasswordsOf(definitions)) {
+    const definition = definitions.get(digest);
     if (definition === undefined || definition.virtual === true || definition.type !== "string") {
       throw new InvalidModel(
-        `${model.name}.${name} is a secure password, so it needs a string attribute ${digest} with a column to keep its digest in`,
+        `${where}${name} is a secure password, so it needs a string attribute ${digest} with a column to keep its digest in`,
       );
     }
   }
