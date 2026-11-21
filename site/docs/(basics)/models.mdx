@@ -152,7 +152,7 @@ Add `aliasOf` to give an attribute a second name, as `Product` does with `title`
 - **`validates("title", …)` reads through the alias,** and its errors go under `title`.
 
 :::note
-An alias of a name that isn’t an attribute throws `InvalidModel`, and so does one named for an attribute, an alias of another alias, or `aliasOf` with any other key. Settings that name an attribute, such as an association’s `foreignKey` or `hiddenAttributes`, take its own name. A Model declared with `define` takes `aliasOf` in the same way.
+An alias of a name that isn’t an attribute throws `InvalidModel`, and so does one named for an attribute, an alias of another alias, or `aliasOf` with any other key. Settings that name an attribute, such as an association’s `foreignKey` or `hiddenAttributes`, take its own name. `filterAttributes` matches an alias too, so naming either one filters the attribute’s values. A Model declared with `define` takes `aliasOf` in the same way.
 :::
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
