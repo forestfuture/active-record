@@ -268,4 +268,22 @@ describe("a secure password", () => {
       expect(member.errors.get("passwordChallenge")).toEqual(["is invalid"]);
     });
   });
+
+  describe("as JSON", () => {
+    test("leaves out the password, its confirmation and its challenge", async () => {
+      const member = await db().model(Member).create({
+        email: "jane@example.com",
+        password: "correct horse",
+        passwordConfirmation: "correct horse",
+      });
+      member.passwordChallenge = "correct horse";
+
+      expect(member.isPersisted()).toBe(true);
+      expect(Object.keys(member.toJSON())).not.toContain("password");
+      expect(Object.keys(member.toJSON())).not.toContain("passwordConfirmation");
+      expect(Object.keys(member.toJSON())).not.toContain("passwordChallenge");
+      expect(JSON.stringify(member)).not.toContain("correct horse");
+      expect(member.attributes()).toHaveProperty("password", "correct horse");
+    });
+  });
 });

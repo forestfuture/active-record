@@ -81,6 +81,13 @@ function companionsOf(name: string): string[] {
   return [`${name}Confirmation`, `${name}Challenge`];
 }
 
+/** Each secure password's attributes, which `toJSON()` leaves out: itself, its confirmation and its challenge. */
+export function passwordAttributeNames(
+  definitions: ReadonlyMap<string, AttributeDefinition>,
+): string[] {
+  return securePasswordsOf(definitions).flatMap(({ name }) => [name, ...companionsOf(name)]);
+}
+
 /**
  * The declared attributes with each secure password replaced by the virtual attributes it adds;
  * `where` names the Model in an error. One declared with another key, or alongside an attribute
