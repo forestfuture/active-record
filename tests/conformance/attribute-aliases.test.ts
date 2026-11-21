@@ -36,7 +36,7 @@ const users = {
 const schema = {
   adapter: d1({ binding: "DB" }),
   tables: { users: { attributes: users, primaryKey: "id" } },
-  models: { User: "users", Member: "users", Guarded: "users" },
+  models: { User: "users", Member: "users", Guarded: "users", Normalized: "users" },
 } as const;
 
 abstract class ApplicationRecord extends Model {
@@ -61,6 +61,16 @@ class Guarded extends ApplicationRecord {
   static override filterAttributes = ["login"];
 }
 interface Guarded extends TableAttributes<typeof users, (typeof Guarded)["attributes"]> {}
+
+// Normalizing its attribute.
+class Normalized extends ApplicationRecord {
+  static override table = "users";
+  static override attributes = { login: { aliasOf: "email" } } as const;
+  static {
+    this.normalizes("email", { with: (email) => email.trim().toLowerCase() });
+  }
+}
+interface Normalized extends TableAttributes<typeof users, (typeof Normalized)["attributes"]> {}
 
 // A subclass, sharing its parent's table and attributes.
 class Admin extends User {}
@@ -317,6 +327,42 @@ describe("an attribute alias", () => {
       user.toggle("paused");
 
       expect(user.suspended).toBe(true);
+    });
+  });
+
+  describe("with its attribute normalized", () => {
+    test("normalizes a value assigned through it", () => {
+      const normalized = db().model(Normalized).build({ login: " Jane@Example.com " });
+
+      expect(normalized.email).toBe("jane@example.com");
+    });
+
+    test("normalizes a value it's queried for", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'jane@example.com')");
+
+      expect(
+        await db().model(Normalized).where({ login: " JANE@example.com" }).pluck("id"),
+      ).toEqual([1]);
+    });
+
+    test("is a name normalizeValueFor takes", () => {
+      expect(Normalized.normalizeValueFor("login", " Jane@Example.com")).toBe("jane@example.com");
+    });
+
+    test("is a name normalizeAttribute takes", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, ' Jane@Example.com')");
+      const normalized = await db().model(Normalized).find(1);
+
+      normalized.normalizeAttribute("login");
+
+      expect(normalized.email).toBe("jane@example.com");
+    });
+
+    test("normalizes a bulk write's value", async () => {
+      await db().model(Normalized).insert({ login: " Jane@Example.com " });
+      await db().model(Normalized).updateAll({ login: " Sam@Example.com " });
+
+      expect(await harness.exec("SELECT email FROM users")).toEqual([{ email: "sam@example.com" }]);
     });
   });
 
