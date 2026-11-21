@@ -16,10 +16,11 @@ export async function signUp(request: Request): Promise<Response> {
 export async function storing() {
   // #region digest
   const user = User.build({ email: "jane@example.com", password: "correct horse battery" });
-  console.log(user.passwordDigest); // null, until the user is saved
+  console.log(user.passwordDigest === null); // true, until the user is saved
 
   await user.saveOrThrow();
-  console.log(user.passwordDigest); // "$pbkdf2-sha256$i=100000$…"
+  const isHashed = user.passwordDigest?.startsWith("$pbkdf2-sha256$") === true;
+  console.log(isHashed); // true
   // #endregion digest
   return user;
 }
@@ -61,7 +62,8 @@ export async function changing() {
 export async function hashingWithBcrypt() {
   // #region bcrypt
   const admin = await Admin.create({ email: "sam@example.com", password: "correct horse battery" });
-  console.log(admin.passwordDigest); // "$2b$10$…"
+  const isBcrypt = admin.passwordDigest?.startsWith("$2b$10$") === true;
+  console.log(isBcrypt); // true
   // #endregion bcrypt
   return admin;
 }
@@ -69,7 +71,7 @@ export async function hashingWithBcrypt() {
 export async function tokens() {
   // #region token
   const user = User.build({ email: "sam@example.com", password: "correct horse battery" });
-  console.log(user.authToken); // "pX27zsMN2ViQKta1bGfLmVJE", 24 characters
+  console.log(user.authToken?.length); // 24, such as "pX27zsMN2ViQKta1bGfLmVJE"
   await user.saveOrThrow();
 
   const found = await User.findBy({ authToken: user.authToken });

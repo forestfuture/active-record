@@ -261,7 +261,7 @@ describe("the Passwords and tokens page's examples", () => {
   test("a saved user has a digest, which authenticate checks", async () => {
     const user = await run(passwords.storing);
 
-    expect(log.calls()[0]).toEqual([null]);
+    expect(log.calls()).toEqual([[true], [true]]);
     expect(user.passwordDigest).toMatch(/^\$pbkdf2-sha256\$i=100000\$/);
     expect(await run(passwords.checking)).toBe(true);
   });
