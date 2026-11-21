@@ -1,6 +1,7 @@
 // Secure tokens (#355): `authToken: { secureToken: true }`, a random base58 token generated for a
 // new record when it's built or created, and `regenerateAuthToken()`, which saves a new one.
 import type { AttributeDefinition } from "./metadata.ts";
+import { capitalized } from "./naming.ts";
 
 /** `secureToken`'s options: how long the token is, a prefix, and when it's generated. */
 export interface SecureTokenOptions {
@@ -104,14 +105,9 @@ export function generateTokens(
 }
 
 /** A record, as its tokens' methods save it. */
-interface Saving {
+interface UpdatableRecord {
   update(attributes: Record<string, unknown>): Promise<boolean>;
   updateOrThrow(attributes: Record<string, unknown>): Promise<true>;
-}
-
-/** Capitalizes a name as a method's name holds it: `authToken` → `AuthToken`. */
-function capitalized(name: string): string {
-  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 /**
@@ -125,10 +121,10 @@ export function defineSecureTokenMethods(
   for (const [name, definition] of definitions) {
     if (definition.secureToken === undefined) continue;
     const methods = {
-      [`regenerate${capitalized(name)}`]: function (this: Saving) {
+      [`regenerate${capitalized(name)}`]: function (this: UpdatableRecord) {
         return this.update({ [name]: tokenFor(definition) });
       },
-      [`regenerate${capitalized(name)}OrThrow`]: function (this: Saving) {
+      [`regenerate${capitalized(name)}OrThrow`]: function (this: UpdatableRecord) {
         return this.updateOrThrow({ [name]: tokenFor(definition) });
       },
     };

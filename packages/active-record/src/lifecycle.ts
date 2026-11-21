@@ -311,9 +311,10 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
 }
 
 /**
- * A new record's tokens generated, and its secure passwords hashed (#355), beforeSave, then the around callbacks (#48), which run
- * beforeCreate or beforeUpdate inside them, up to the write; `undefined` if one aborted, with
- * `abortReason` set.
+ * A new record's tokens generated and its secure passwords hashed (#355), then beforeSave, then
+ * the around callbacks (#48), which run beforeCreate or beforeUpdate inside them, up to the
+ * write; `undefined` if one aborted, with `abortReason` set. A password a before-save callback
+ * assigns is too late to be hashed.
  */
 async function beforeWrite(record: Model, isInsert: boolean): Promise<Wrapped | undefined> {
   const { attributeDefinitions } = modelOf(record);

@@ -3,6 +3,7 @@
 // the record is saved.
 import { InvalidModel } from "./errors.ts";
 import type { AttributeDefinition } from "./metadata.ts";
+import { capitalized } from "./naming.ts";
 import { pbkdf2Sha256, type PasswordAlgorithm } from "./password-algorithm.ts";
 import { isSecurePasswordOption } from "./spec-keys.ts";
 import { state } from "./record-state.ts";
@@ -84,7 +85,7 @@ function isSecurePasswordDeclaration(declared: unknown): declared is SecurePassw
 }
 
 /** The names of the attributes a secure password adds besides itself. */
-function companionsOf(name: string): string[] {
+function companionsOf(name: string): [confirmation: string, challenge: string] {
   return [`${name}Confirmation`, `${name}Challenge`];
 }
 
@@ -153,10 +154,12 @@ export function withSecurePasswords(
   return expanded;
 }
 
-/** One secure password, resolved: its attribute, its digest's, its algorithm, and its validations. */
+/** One secure password, resolved: its attribute, its digest's and challenge's, its algorithm, and its validations. */
 interface SecurePassword {
   readonly name: string;
+  /** Its digest's attribute, and its challenge's: `passwordDigest`, `passwordChallenge`. */
   readonly digest: string;
+  readonly challenge: string;
   readonly algorithm: PasswordAlgorithm;
   readonly isValidated: boolean;
 }
@@ -172,6 +175,7 @@ function securePasswordsOf(
       {
         name,
         digest: digestOf(definitions, name)!,
+        challenge: companionsOf(name)[1]!,
         algorithm: options.algorithm ?? pbkdf2Sha256,
         isValidated: options.validations !== false,
       },
@@ -229,10 +233,6 @@ export function defineSecurePasswordMethods(
   }
 }
 
-function capitalized(name: string): string {
-  return name.charAt(0).toUpperCase() + name.slice(1);
-}
-
 /** The digest's attribute, when `name` is a secure password: `passwordDigest` for `password`. */
 export function digestOf(
   definitions: ReadonlyMap<string, AttributeDefinition>,
@@ -241,10 +241,14 @@ export function digestOf(
   return definitions.get(name)?.securePassword === undefined ? undefined : `${name}Digest`;
 }
 
-/** What a record gives a secure password's save: its values, and a write to its digest. */
-export interface PasswordHolder {
+/**
+ * A record's state, as a secure password's save and validation use it: its values, whether one
+ * changed, its values as last saved, and a write to its digest.
+ */
+export interface PasswordRecord {
   isAttributeChanged(name: string): boolean;
   read(name: string): unknown;
+  valueInDatabase(name: string): unknown;
   write(name: string, value: unknown): void;
 }
 
@@ -254,12 +258,12 @@ export interface PasswordHolder {
  */
 export async function hashPasswords(
   definitions: ReadonlyMap<string, AttributeDefinition>,
-  holder: PasswordHolder,
+  record: PasswordRecord,
 ): Promise<void> {
   for (const password of securePasswordsOf(definitions)) {
-    const waiting = waitingPassword(password, holder);
+    const waiting = waitingPassword(password, record);
     if (waiting === undefined) continue;
-    holder.write(password.digest, await password.algorithm.hash(waiting));
+    record.write(password.digest, await password.algorithm.hash(waiting));
   }
 }
 
@@ -269,11 +273,6 @@ export interface PasswordFailure {
   readonly type: "blank" | "invalid" | "passwordTooLong";
 }
 
-/** What a secure password's validation reads of its record: its values, and as they were saved. */
-export interface PasswordValues extends Pick<PasswordHolder, "isAttributeChanged" | "read"> {
-  valueInDatabase(name: string): unknown;
-}
-
 /**
  * The failures of each validated secure password, in order: blank while it has no digest and no
  * password waiting to be hashed; its challenge, when given, invalid unless it's the password the
@@ -281,7 +280,7 @@ export interface PasswordValues extends Pick<PasswordHolder, "isAttributeChanged
  */
 export async function passwordFailures(
   definitions: ReadonlyMap<string, AttributeDefinition>,
-  values: PasswordValues,
+  values: Omit<PasswordRecord, "write">,
 ): Promise<PasswordFailure[]> {
   const failures: PasswordFailure[] = [];
   for (const password of securePasswordsOf(definitions)) {
@@ -291,7 +290,7 @@ export async function passwordFailures(
       failures.push({ attribute: password.name, type: "blank" });
     }
     if (!(await isChallengeMet(password, values))) {
-      failures.push({ attribute: `${password.name}Challenge`, type: "invalid" });
+      failures.push({ attribute: password.challenge, type: "invalid" });
     }
     const { maxBytes } = password.algorithm;
     if (maxBytes !== undefined && new TextEncoder().encode(waiting).length > maxBytes) {
@@ -307,7 +306,7 @@ export async function passwordFailures(
  */
 function waitingPassword(
   { name, digest }: SecurePassword,
-  values: Pick<PasswordHolder, "isAttributeChanged" | "read">,
+  values: Pick<PasswordRecord, "isAttributeChanged" | "read">,
 ): string | undefined {
   const password = values.read(name);
   if (typeof password !== "string" || password === "") return undefined;
@@ -322,10 +321,10 @@ function isPresent(digest: unknown): digest is string {
 
 /** Whether a challenge, if given, is the password the digest as last saved was made from. */
 async function isChallengeMet(
-  { name, digest, algorithm }: SecurePassword,
-  values: PasswordValues,
+  { challenge: attribute, digest, algorithm }: SecurePassword,
+  values: Omit<PasswordRecord, "write">,
 ): Promise<boolean> {
-  const challenge = values.read(`${name}Challenge`);
+  const challenge = values.read(attribute);
   if (typeof challenge !== "string") return true;
   const saved = values.valueInDatabase(digest);
   return isPresent(saved) && (await algorithm.verify(challenge, saved));

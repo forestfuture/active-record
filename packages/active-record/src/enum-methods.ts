@@ -2,6 +2,7 @@
 // a Model's scopes (`published()`, `notPublished()`), and their names.
 import { enumEntries, type EnumModel, type EnumNames, type EnumValues } from "./enum-values.ts";
 import { isIdentifier, reservedWords } from "./identifiers.ts";
+import { capitalized } from "./naming.ts";
 import type { AttributeDefinition } from "./metadata.ts";
 import type { ScopeStatic } from "./model.ts";
 
@@ -99,7 +100,6 @@ function methodPart(word: string): string {
   return capitalized(head + rest.map(capitalized).join(""));
 }
 
-const capitalized = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
 const uncapitalized = (text: string): string => text.charAt(0).toLowerCase() + text.slice(1);
 
 /** What a record's setters call: its `update` and `updateOrThrow`. */
