@@ -6,6 +6,7 @@ import type { AttributeDefinition } from "./metadata.ts";
 import { pbkdf2Sha256, type PasswordAlgorithm } from "./password-algorithm.ts";
 import { isSecurePasswordOption } from "./spec-keys.ts";
 import { state } from "./record-state.ts";
+import type { Validation } from "./validations.ts";
 
 /** `securePassword`'s options: the algorithm that hashes the password, and its validations. */
 export interface SecurePasswordOptions {
@@ -205,6 +206,50 @@ export async function hashPasswords(
     if (typeof password !== "string" || password === "" || !holder.isChanged(name)) continue;
     holder.write(digest, await algorithm.hash(password));
   }
+}
+
+/** A secure password's failure: the attribute it's on, and its type. */
+export interface PasswordFailure {
+  readonly attribute: string;
+  readonly type: "blank" | "passwordTooLong";
+}
+
+/**
+ * The failures of each validated secure password: blank while it has no digest and no password
+ * waiting to be hashed, and too long past its algorithm's `maxBytes`, in UTF-8.
+ */
+export function passwordFailures(
+  definitions: ReadonlyMap<string, AttributeDefinition>,
+  holder: Pick<PasswordHolder, "isChanged" | "read">,
+): PasswordFailure[] {
+  return securePasswordsOf(definitions).flatMap(
+    ({ name, digest, algorithm, isValidated }): PasswordFailure[] => {
+      if (!isValidated) return [];
+      const password = holder.read(name);
+      const isWaiting = typeof password === "string" && password !== "" && holder.isChanged(name);
+      const stored = holder.read(digest);
+      if (!isWaiting && (typeof stored !== "string" || stored.trim() === "")) {
+        return [{ attribute: name, type: "blank" }];
+      }
+      const { maxBytes } = algorithm;
+      const bytes = isWaiting ? new TextEncoder().encode(password).length : 0;
+      return maxBytes !== undefined && bytes > maxBytes
+        ? [{ attribute: name, type: "passwordTooLong" }]
+        : [];
+    },
+  );
+}
+
+/**
+ * The `confirmation` rule of each validated secure password: its confirmation, when given, must
+ * match it.
+ */
+export function passwordConfirmations(
+  definitions: ReadonlyMap<string, AttributeDefinition>,
+): Validation[] {
+  return securePasswordsOf(definitions)
+    .filter(({ isValidated }) => isValidated)
+    .map(({ name }) => ({ attribute: name, options: { confirmation: true, allowNull: true } }));
 }
 
 /**

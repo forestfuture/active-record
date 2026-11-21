@@ -30,7 +30,7 @@ const members = {
 const schema = {
   adapter: d1({ binding: "DB" }),
   tables: { members: { attributes: members, primaryKey: "id" } },
-  models: { Member: "members" },
+  models: { Member: "members", Guest: "members" },
 } as const;
 
 abstract class ApplicationRecord extends Model {
@@ -41,6 +41,13 @@ class Member extends ApplicationRecord {
   static override attributes = { password: { securePassword: true } } as const;
 }
 interface Member extends TableAttributes<typeof members, (typeof Member)["attributes"]> {}
+
+// Its password left unvalidated.
+class Guest extends ApplicationRecord {
+  static override table = "members";
+  static override attributes = { password: { securePassword: { validations: false } } } as const;
+}
+interface Guest extends TableAttributes<typeof members, (typeof Guest)["attributes"]> {}
 
 describe("a secure password", () => {
   let harness: Harness;
@@ -134,6 +141,77 @@ describe("a secure password", () => {
       expect(member.password).toBe("correct horse");
       expect(member.passwordDigest).toBe(digest);
       expect(member.isChanged()).toBe(false);
+    });
+  });
+
+  describe("its validations", () => {
+    test("make it required while there's no digest", async () => {
+      const member = await db().model(Member).create({ email: "jane@example.com" });
+
+      expect(member.isPersisted()).toBe(false);
+      expect(member.errors.toArray()).toEqual([
+        { attribute: "password", type: "blank", message: "can't be blank" },
+      ]);
+    });
+
+    test("pass with a digest, without the password", async () => {
+      await db().model(Member).create({ email: "jane@example.com", password: "correct horse" });
+      const member = await db().model(Member).findByOrThrow({ email: "jane@example.com" });
+
+      expect(await member.update({ email: "sam@example.com" })).toBe(true);
+    });
+
+    test("fail once null has cleared the digest", async () => {
+      const member = await db()
+        .model(Member)
+        .create({ email: "jane@example.com", password: "correct horse" });
+
+      member.password = null;
+
+      expect(await member.save()).toBe(false);
+      expect(member.errors.get("password")).toEqual(["can't be blank"]);
+    });
+
+    test("allow at most 72 bytes, counted in UTF-8", async () => {
+      const members = db().model(Member);
+
+      expect((await members.create({ password: "a".repeat(72) })).isPersisted()).toBe(true);
+      const tooLong = await members.create({ password: "é".repeat(37) });
+
+      expect(tooLong.isPersisted()).toBe(false);
+      expect(tooLong.errors.toArray()).toEqual([
+        { attribute: "password", type: "passwordTooLong", message: "is too long" },
+      ]);
+    });
+
+    test("need a confirmation given to match", async () => {
+      const members = db().model(Member);
+
+      const mismatched = await members.create({
+        password: "correct horse",
+        passwordConfirmation: "correct house",
+      });
+
+      expect(mismatched.errors.toArray()).toEqual([
+        {
+          attribute: "passwordConfirmation",
+          type: "confirmation",
+          message: "doesn't match Password",
+          values: { attribute: "Password" },
+        },
+      ]);
+      const matched = await members.create({
+        password: "correct horse",
+        passwordConfirmation: "correct horse",
+      });
+      expect(matched.isPersisted()).toBe(true);
+    });
+
+    test("are left out with validations: false", async () => {
+      const guest = await db().model(Guest).create({ email: "jane@example.com" });
+
+      expect(guest.isPersisted()).toBe(true);
+      expect(guest.passwordDigest).toBe(null);
     });
   });
 });

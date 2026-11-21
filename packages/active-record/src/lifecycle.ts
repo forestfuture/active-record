@@ -31,7 +31,7 @@ import {
   RecordNotFound,
   RecordNotSaved,
 } from "./errors.ts";
-import { clearErrors } from "./errors-collection.ts";
+import { addFailure, clearErrors } from "./errors-collection.ts";
 import {
   afterRollbackOf,
   runAfterCallbacks,
@@ -62,7 +62,7 @@ import {
   type Stage,
 } from "./unit-of-work.ts";
 import { runValidations, type UniquenessOptions } from "./validations.ts";
-import { hashPasswords } from "./secure-passwords.ts";
+import { hashPasswords, passwordConfirmations, passwordFailures } from "./secure-passwords.ts";
 
 /**
  * What a lifecycle run ended with. Refusals are outcomes (the non-throwing methods return
@@ -151,6 +151,12 @@ export async function validation(
     recordState.errors[clearErrors]();
     recordState.abortReason = undefined;
     if (!(await runAbortableCallbacks(record, "beforeValidation"))) return "aborted";
+    for (const { attribute, type } of passwordFailures(modelOf(record).attributeDefinitions, {
+      isChanged: (name) => recordState.isAttributeChanged(name),
+      read: (name) => recordState.read(name),
+    })) {
+      recordState.errors[addFailure](attribute, { type });
+    }
     await validateRequiredAssociations(record);
     await runValidations(validationsOf(record), {
       record,
@@ -167,10 +173,14 @@ export async function validation(
   });
 }
 
-/** A record's validations: its enums', then its Model's declared ones. */
+/** A record's validations: its enums', its secure passwords' (#355), then its Model's declared ones. */
 function validationsOf(record: Model) {
   const model = modelOf(record);
-  return [...enumValidations(model.attributeDefinitions), ...declared(model, "validations")];
+  return [
+    ...enumValidations(model.attributeDefinitions),
+    ...passwordConfirmations(model.attributeDefinitions),
+    ...declared(model, "validations"),
+  ];
 }
 
 /**
