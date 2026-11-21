@@ -11,6 +11,11 @@ ruleTester.run("stored-key-lookup", storedKeyLookup, {
     "relation.where({ email: 'jane@example.com' });",
     "relation.where(conditions);",
     "relation.where(sql`${column(name)} = ${value}`);",
+    "const conditions = asStored({ [attribute]: key }); relation.where(conditions);",
+    "const stored = asStored({ [attribute]: key }); const conditions = stored; relation.findBy(conditions);",
+    // A parameter's value can't be followed: review checks where it comes from.
+    "function find(conditions: object) { return relation.where(conditions); }",
+    "let conditions = { [attribute]: key }; relation.where(conditions);",
     // Not a Relation method that takes conditions.
     "relation.build({ [attribute]: value });",
     "map.set({ [attribute]: value });",
@@ -35,6 +40,16 @@ ruleTester.run("stored-key-lookup", storedKeyLookup, {
     {
       name: "a deleteBy with a named key beside a computed one",
       code: "relation.deleteBy({ kind: 'post', [attribute]: key });",
+      errors: [{ messageId: "storedKeyLookup", data: { method: "deleteBy" } }],
+    },
+    {
+      name: "conditions built in a const",
+      code: "const conditions = { [attribute]: key }; relation.where(conditions);",
+      errors: [{ messageId: "storedKeyLookup", data: { method: "where" } }],
+    },
+    {
+      name: "conditions through two consts, cast to another type",
+      code: "const built = { [attribute]: key } as never; const conditions = built; relation.deleteBy(conditions);",
       errors: [{ messageId: "storedKeyLookup", data: { method: "deleteBy" } }],
     },
     {

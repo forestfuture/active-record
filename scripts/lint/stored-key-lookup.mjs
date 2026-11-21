@@ -1,5 +1,6 @@
 // The repo's lint rule that the library's own lookups by a computed key say whether the key is stored, so it isn't normalized again (#354).
 import { defineRule } from "vite-plus/lint/plugins";
+import { constInit, followingOnce } from "./variables.mjs";
 
 /** The Relation methods that take conditions, and normalize them unless they're `asStored`. */
 const takesConditions = new Set([
@@ -22,6 +23,16 @@ function unwrapped(node) {
   let inner = node;
   while (typeOnly.has(inner?.type)) inner = inner.expression;
   return inner;
+}
+
+/**
+ * The conditions `node` gives, through each `const` it names (`resolve` reads one): an
+ * `asStored(…)` call, an object, or undefined for a value lint can't follow, such as a parameter.
+ */
+function conditionsOf(node, resolve) {
+  let at = unwrapped(node);
+  while (at?.type === "Identifier") at = unwrapped(resolve(at));
+  return at;
 }
 
 /** Whether `node` is conditions written with a computed key: `{ [attribute]: key }`. */
@@ -53,7 +64,8 @@ export default defineRule({
       CallExpression(call) {
         const method = methodName(call);
         if (method === undefined || !takesConditions.has(method)) return;
-        const conditions = unwrapped(call.arguments[0]);
+        const resolve = followingOnce(context, constInit);
+        const conditions = conditionsOf(call.arguments[0], resolve);
         if (!hasComputedKey(conditions)) return;
         context.report({ node: conditions, messageId: "storedKeyLookup", data: { method } });
       },
