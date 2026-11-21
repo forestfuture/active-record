@@ -2,6 +2,7 @@
 import { attributeName } from "./attribute-aliases.ts";
 import type { ModelClass } from "./model.ts";
 import { underscore } from "./naming.ts";
+import { secretAttributeNames } from "./secure-passwords.ts";
 
 /** What a listener sees in place of a filtered attribute's value (#83). */
 export const FILTERED = "[FILTERED]";
@@ -33,12 +34,14 @@ export const defaultFilterAttributes: readonly FilterAttribute[] = [
 ];
 
 /**
- * Whether an attribute's values are hidden from listeners: its snake_case name, or an alias's,
+ * Whether an attribute's values are hidden from listeners: a secure password's or a secure
+ * token's always (#355); any other when its snake_case name, or an alias's,
  * holds a string entry lowercased, or read in snake_case (`"apiKey"` as `api_key`, #397), or a
  * RegExp entry matches the name or its snake_case form.
  */
 export function isFiltered(model: ModelClass, given: string): boolean {
   const attribute = attributeName(model, given);
+  if (secretAttributeNames(model.attributeDefinitions).has(attribute)) return true;
   const names = [
     attribute,
     ...[...model.attributeAliases].filter(([, name]) => name === attribute).map(([alias]) => alias),
