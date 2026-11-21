@@ -197,6 +197,12 @@ export default defineConfig({
         },
       },
       {
+        // Comments and test names say what the code does, not where the idea came from
+        // (CODING_STANDARDS.md, Names and comments; #515).
+        files: ["packages/*/src/**", "packages/*/cli/**", "tests/**"],
+        rules: { "active-record/no-rails-mention": "error" },
+      },
+      {
         // A describe() callback holds a whole suite, so it's long by design. The rules below are
         // CODING_STANDARDS.md's Tests: a test waits on an event, a gate, or a polled state, never
         // a fixed delay. It asserts results, not SQL text. It acts on one Model. Its name stands
