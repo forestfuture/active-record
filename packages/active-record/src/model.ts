@@ -20,6 +20,7 @@ import { checkNormalizedName, type NormalizeOptions } from "./normalization.ts";
 import { defineModel, type SpecsOrWidened } from "./defined-model.ts";
 import type { DefinedSpecs } from "./attribute-aliases.ts";
 import {
+  authenticateBy,
   passwordAttributeNames,
   type SecurePasswordMethods,
   type WithSecurePasswords,
@@ -327,6 +328,19 @@ export class Model extends AttributeWrites {
     ...names: K[]
   ): Permitted<C, K> {
     return permitted(this, input, names) as Permitted<C, K>;
+  }
+
+  /**
+   * The record its other attributes find, if each secure password given is its own (#355):
+   * `User.authenticateBy({ email, password })`, or null. When none is found, the password is
+   * hashed anyway, so how long it takes doesn't say whether one exists. Without a secure
+   * password, or an attribute to find the record by, it throws `TypeError`.
+   */
+  static authenticateBy<C extends QueryableClass>(
+    this: C,
+    attributes: Partial<AttributesOf<InstanceType<C>>>,
+  ): Promise<InstanceType<C> | null> {
+    return authenticateBy(this as never, attributes);
   }
 
   /**

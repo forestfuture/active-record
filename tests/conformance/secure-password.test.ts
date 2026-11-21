@@ -11,7 +11,11 @@ import {
   expectTypeOf,
   test,
 } from "vite-plus/test";
-import { Model, type TableAttributes } from "../../packages/active-record/src/index.ts";
+import {
+  Model,
+  withDatabase,
+  type TableAttributes,
+} from "../../packages/active-record/src/index.ts";
 import { d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
@@ -284,6 +288,86 @@ describe("a secure password", () => {
       expect(Object.keys(member.toJSON())).not.toContain("passwordChallenge");
       expect(JSON.stringify(member)).not.toContain("correct horse");
       expect(member.attributes()).toHaveProperty("password", "correct horse");
+    });
+  });
+
+  describe("authenticateBy", () => {
+    // Declared with define, so its statics find whichever database withDatabase is given.
+    class Login extends Model.define({
+      id: { type: "integer", null: false },
+      email: "string",
+      passwordDigest: "string",
+      password: { securePassword: true },
+    }) {
+      static table = "members";
+
+      static {
+        this.normalizes("email", { with: (email) => email.trim().toLowerCase() });
+      }
+    }
+
+    const signIn = (attributes: Parameters<typeof Login.authenticateBy>[0]) =>
+      withDatabase(db(), () => Login.authenticateBy(attributes));
+
+    beforeEach(async () => {
+      await db().model(Login).create({ email: "jane@example.com", password: "correct horse" });
+      events.length = 0;
+    });
+
+    test("finds the record by the other attributes, and checks its password", async () => {
+      const login = await signIn({ email: " Jane@Example.com", password: "correct horse" });
+
+      expect(login).toBeInstanceOf(Login);
+      expect(login?.email).toBe("jane@example.com");
+      expect(await signIn({ email: "jane@example.com", password: "correct house" })).toBe(null);
+    });
+
+    test("is null when no record matches", async () => {
+      expect(await signIn({ email: "sam@example.com", password: "correct horse" })).toBe(null);
+    });
+
+    test("is null for a blank password, without a query", async () => {
+      expect(await signIn({ email: "jane@example.com", password: "" })).toBe(null);
+      expect(await signIn({ email: "jane@example.com", password: null })).toBe(null);
+      expect(events).toEqual([]);
+    });
+
+    test("throws without a password, or without an attribute to find by", async () => {
+      await expect(signIn({ email: "jane@example.com" })).rejects.toThrow(
+        new TypeError("Login.authenticateBy needs a secure password: password"),
+      );
+      await expect(signIn({ password: "correct horse" })).rejects.toThrow(
+        new TypeError("Login.authenticateBy needs an attribute to find the record by"),
+      );
+    });
+
+    test("hashes the password when no record matches, so it takes as long", async () => {
+      const hashed: string[] = [];
+      class Timed extends Model.define({
+        id: { type: "integer", null: false },
+        email: "string",
+        passwordDigest: "string",
+        password: {
+          securePassword: {
+            algorithm: {
+              hash: async (password: string) => {
+                hashed.push(password);
+                return `plain:${password}`;
+              },
+              verify: async (password: string, digest: string) => digest === `plain:${password}`,
+            },
+          },
+        },
+      }) {
+        static table = "members";
+      }
+
+      const found = await withDatabase(db(), () =>
+        Timed.authenticateBy({ email: "sam@example.com", password: "battery staple" }),
+      );
+
+      expect(found).toBe(null);
+      expect(hashed).toEqual(["battery staple"]);
     });
   });
 });
