@@ -400,8 +400,8 @@ describe("a secure password", () => {
       );
     });
 
-    test("hashes the password when no record matches, so it takes as long", async () => {
-      const hashed: string[] = [];
+    /** A Model whose algorithm records each password it hashes. */
+    const timedModel = (hashed: string[]) =>
       class Timed extends Model.define({
         id: { type: "integer", null: false },
         email: "string",
@@ -419,7 +419,24 @@ describe("a secure password", () => {
         },
       }) {
         static table = "members";
-      }
+      };
+
+    test("hashes the password when no record matches, so it takes as long", async () => {
+      const hashed: string[] = [];
+      const Timed = timedModel(hashed);
+
+      const found = await withDatabase(db(), () =>
+        Timed.authenticateBy({ email: "sam@example.com", password: "battery staple" }),
+      );
+
+      expect(found).toBe(null);
+      expect(hashed).toEqual(["battery staple"]);
+    });
+
+    test("hashes the password when the record has no digest, so it takes as long", async () => {
+      await harness.exec("INSERT INTO members (id, email) VALUES (2, 'sam@example.com')");
+      const hashed: string[] = [];
+      const Timed = timedModel(hashed);
 
       const found = await withDatabase(db(), () =>
         Timed.authenticateBy({ email: "sam@example.com", password: "battery staple" }),
