@@ -206,11 +206,10 @@ export async function hashPasswords(
   definitions: ReadonlyMap<string, AttributeDefinition>,
   holder: PasswordHolder,
 ): Promise<void> {
-  for (const { name, digest, algorithm } of securePasswordsOf(definitions)) {
-    const password = holder.read(name);
-    if (typeof password !== "string" || password === "" || !holder.isAttributeChanged(name))
-      continue;
-    holder.write(digest, await algorithm.hash(password));
+  for (const password of securePasswordsOf(definitions)) {
+    const waiting = waitingPassword(password, holder);
+    if (waiting === undefined) continue;
+    holder.write(password.digest, await password.algorithm.hash(waiting));
   }
 }
 
@@ -252,12 +251,18 @@ export async function passwordFailures(
   return failures;
 }
 
-/** The password assigned since the record was loaded or saved, which a save hashes, if any. */
-function waitingPassword({ name }: SecurePassword, values: PasswordValues): string | undefined {
+/**
+ * The password a save hashes, if any: one assigned since the record was loaded or saved, or one
+ * whose digest has been cleared since.
+ */
+function waitingPassword(
+  { name, digest }: SecurePassword,
+  values: Pick<PasswordHolder, "isAttributeChanged" | "read">,
+): string | undefined {
   const password = values.read(name);
-  return typeof password === "string" && password !== "" && values.isAttributeChanged(name)
-    ? password
-    : undefined;
+  if (typeof password !== "string" || password === "") return undefined;
+  // One kept since the last save waits again once null has cleared its digest.
+  return values.isAttributeChanged(name) || !isPresent(values.read(digest)) ? password : undefined;
 }
 
 /** Whether a digest is there to check a password against: a string that isn't blank. */

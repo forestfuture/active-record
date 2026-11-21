@@ -145,6 +145,17 @@ describe("a secure password", () => {
       expect(member.isAttributeChanged("passwordDigest")).toBe(true);
     });
 
+    test("assigned again after null clears the digest, is hashed again", async () => {
+      const member = await db()
+        .model(Member)
+        .create({ email: "jane@example.com", password: "correct horse" });
+      member.password = null;
+      member.password = "correct horse";
+
+      expect(await member.save()).toBe(true);
+      expect(await member.authenticate("correct horse")).toBe(member);
+    });
+
     test("an empty string is ignored", async () => {
       const member = await db()
         .model(Member)
