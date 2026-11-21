@@ -15,6 +15,7 @@ ruleTester.run("no-rails-mention", noRailsMention, {
     "const Rails = 1;",
     // An opt-out's reason can name what it opts out for.
     "// oxlint-disable-next-line active-record/no-rails-mention -- names the Rails box\nconst a = 1;",
+    "// eslint-disable-next-line active-record/no-rails-mention -- names the Rails box\nconst a = 1;",
   ],
   invalid: [
     {
@@ -50,6 +51,16 @@ ruleTester.run("no-rails-mention", noRailsMention, {
     {
       name: "a skipped test's name",
       code: 'test.skip("reads it as Rails does", () => {});',
+      errors: [{ messageId: "mentionsRails" }],
+    },
+    {
+      name: "a focused test's name",
+      code: 'test.only("reads it as Rails does", () => {});',
+      errors: [{ messageId: "mentionsRails" }],
+    },
+    {
+      name: "a comment that mentions an opt-out without being one",
+      code: "// Unlike oxlint-disable, this follows Rails.\nconst a = 1;",
       errors: [{ messageId: "mentionsRails" }],
     },
     {
