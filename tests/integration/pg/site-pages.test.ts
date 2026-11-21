@@ -51,6 +51,7 @@ import { Post as PersistedPost } from "../../../site/snippets/pages/persistence/
 import * as preloadingPage from "../../../site/snippets/pages/preloading/examples.ts";
 import * as querying from "../../../site/snippets/pages/querying/examples.ts";
 import * as serialization from "../../../site/snippets/pages/serialization/examples.ts";
+import * as passwords from "../../../site/snippets/pages/passwords-and-tokens/examples.ts";
 import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
 import * as untrustedInput from "../../../site/snippets/pages/untrusted-input/examples.ts";
 import { Account as UntrustedAccount } from "../../../site/snippets/pages/untrusted-input/src/models/account.ts";
@@ -59,7 +60,7 @@ import testedWorker from "../../../site/snippets/pages/testing/src/index.ts";
 import { User as TestedUser } from "../../../site/snippets/pages/testing/src/models/user.ts";
 import * as touching from "../../../site/snippets/pages/touching/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { Post as IteratedPost } from "../../../site/snippets/pages/batch-iteration/src/models/post.ts";
 import { Invoice } from "../../../site/snippets/pages/raw-statements/src/models/invoice.ts";
@@ -102,9 +103,22 @@ async function onPostgres(page: string, outsideTheRepo = false): Promise<string>
       ...sources,
     },
   );
+  linkSitePackages(cwd);
   const { code, said } = await schemaCommand(cwd);
   if (code !== 0) throw new Error(said);
   return cwd;
+}
+
+/** The packages a page's examples import that only the site depends on: bcryptjs (#355). */
+const sitePackages = ["bcryptjs"];
+
+/** Links the site's own packages into a page's project, so its Models load as on the site. */
+function linkSitePackages(cwd: string): void {
+  mkdirSync(join(cwd, "node_modules"), { recursive: true });
+  for (const name of sitePackages) {
+    const installed = new URL(`../../../site/node_modules/${name}`, import.meta.url).pathname;
+    symlinkSync(installed, join(cwd, "node_modules", name));
+  }
 }
 
 /**
@@ -240,6 +254,95 @@ describe("the Change tracking page's examples, on Postgres", () => {
       "owner",
       ["role"],
     ]);
+  });
+});
+
+// The Passwords and tokens page's examples, on the users and admins tables it shows, on Postgres.
+describe("the Passwords and tokens page's examples, on Postgres", () => {
+  const schema = pageSchema("passwords-and-tokens");
+  beforeEach(async () => {
+    await schema().pool.query({ text: "DELETE FROM users; DELETE FROM admins" });
+  });
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
+  const log = quietLog();
+  const form = (fields: Record<string, string>) => {
+    const data = new FormData();
+    for (const [name, value] of Object.entries(fields)) data.set(name, value);
+    return new Request("https://example.com/", { method: "POST", body: data });
+  };
+  const jane = {
+    email: "jane@example.com",
+    password: "correct horse battery",
+    passwordConfirmation: "correct horse battery",
+  };
+
+  test("signing up keeps a digest, and the response leaves out the password, digest, and token", async () => {
+    const response = await run(() => passwords.signUp(form(jane)));
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(201);
+    expect(Object.keys(body).sort((a, b) => a.localeCompare(b))).toEqual([
+      "createdAt",
+      "email",
+      "id",
+      "updatedAt",
+    ]);
+  });
+
+  test("signing up with a confirmation that doesn't match answers 422", async () => {
+    const response = await run(() =>
+      passwords.signUp(form({ ...jane, passwordConfirmation: "correct horse" })),
+    );
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      errors: ["Password confirmation doesn't match Password"],
+    });
+  });
+
+  test("a saved user has a digest, which authenticate checks", async () => {
+    const user = await run(passwords.storing);
+
+    expect(log.calls()[0]).toEqual([null]);
+    expect(user.passwordDigest).toMatch(/^\$pbkdf2-sha256\$i=100000\$/);
+    expect(await run(passwords.checking)).toBe(true);
+  });
+
+  test("signing in answers with the token, or 401", async () => {
+    const user = await run(passwords.storing);
+
+    const signedIn = await run(() => passwords.signIn(form(jane)));
+    const refused = await run(() => passwords.signIn(form({ ...jane, password: "wrong" })));
+    const missing = await run(() => passwords.signIn(form({ email: "jane@example.com" })));
+
+    expect(await signedIn.json()).toEqual({ token: user.authToken });
+    expect([refused.status, missing.status]).toEqual([401, 401]);
+  });
+
+  test("a password changes when its challenge is the current password", async () => {
+    await run(passwords.storing);
+
+    const { user, isChanged } = await run(passwords.changing);
+
+    expect(isChanged).toBe(true);
+    expect(await user.authenticate("staple battery horse")).toBe(user);
+  });
+
+  test("an admin's password is hashed with bcrypt", async () => {
+    const admin = await run(passwords.hashingWithBcrypt);
+
+    expect(admin.passwordDigest).toMatch(/^\$2b\$10\$/);
+    expect(await admin.authenticate("correct horse battery")).toBe(admin);
+  });
+
+  test("a new user's token finds them, and regenerating it saves a new one", async () => {
+    const { user, found } = await run(passwords.tokens);
+    expect(user.authToken).toMatch(/^[1-9A-HJ-NP-Za-km-z]{24}$/);
+    expect(found?.id).toBe(user.id);
+
+    const regenerated = await run(passwords.regenerating);
+
+    expect(regenerated.authToken).not.toBe(user.authToken);
   });
 });
 

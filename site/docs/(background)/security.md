@@ -12,12 +12,15 @@ seo:
 - **Prototype pollution and inherited names.** Attributes and associations are looked up only by the Model’s own names, so `__proto__`, `constructor`, and other names every object has are unknown names, and `Object.prototype` is never written to.
 - **Secrets in logs and errors.** Values of attributes named like passwords, tokens, keys, and emails are hidden from `onQuery` listeners and from error messages. See [Logging](./logging#keeping-secrets-out-of-the-logs).
 - **One request’s data reaching another.** Nothing about a request (a D1 Session, a listener) is ever stored on a Model class. See [Database resolution](./query-databases).
+- **Passwords kept in clear.** A [secure password](./passwords-and-tokens) is saved only as a salted digest. `toJSON()` leaves the password out, and `authenticateBy` takes as long whether or not a record matches, so its timing doesn’t tell anyone which accounts exist.
 - **Denial of service through parsing.** The patterns that read numbers and dates are linear, so a long value can’t use up a Worker’s CPU time.
 
 ## What’s left to your app
 
 - **Choosing which fields a request may set,** with `permit`, destructuring, or a schema. See [Untrusted input](./untrusted-input).
 - **An untrusted `null` in a condition.** `findBy({ token: null })` matches rows whose token is NULL. Check a value’s type before querying with it.
+- **How strong your password hash is.** The default, PBKDF2-SHA256, runs 100,000 iterations, the most Workers allow and about a sixth of OWASP’s 600,000. Each hash also takes about 10–40 ms of CPU time, more than the Workers Free plan’s 10 ms. For a stronger hash, give `securePassword` an algorithm of your own, as [Choosing the hash](./passwords-and-tokens#choosing-the-hash) shows, on a plan with the CPU time it needs.
+- **Hiding a password’s digest and a token.** `toJSON()` sends `passwordDigest` and a secure token unless you list them in [`hiddenAttributes`](./serialization#hiding-attributes).
 - **Authorization.** Whether this user may read or change this record is your app’s decision.
 - **Formats and ranges.** Casting checks types, not meaning: use [validations](./validations).
 - **Bare values inside `sql` fragments.** A value with no attribute isn’t hidden from listeners. Write it as `column("token").value(token)`, and it’s filtered like the attribute’s other values.
@@ -27,18 +30,19 @@ seo:
 
 The library’s guarantees are tested against a real D1 database (through Miniflare), and CI’s by a test that reads its workflows. CI runs every test on every change.
 
-| Guarantee                                                                                                         | Tests                                                                                                                             |
-| ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Values are bound, identifiers are quoted, and plain strings are refused as SQL                                    | [`sql-safety`](https://github.com/forestfuture/active-record/blob/main/tests/conformance/sql-safety.test.ts)                      |
-| Assigned and condition values are cast, or refused, in linear time                                                | [`attribute-casting`](https://github.com/forestfuture/active-record/blob/main/tests/conformance/attribute-casting.test.ts)        |
-| Naming an attribute, table or key takes linear time in the name’s length                                          | [`naming`](https://github.com/forestfuture/active-record/blob/main/tests/unit/naming.test.ts)                                     |
-| Only a Model’s own names are attributes or associations                                                           | [`name-lookups`](https://github.com/forestfuture/active-record/blob/main/tests/conformance/name-lookups.test.ts)                  |
-| `permit` keeps only the named attributes, reading own keys only                                                   | [`permit`](https://github.com/forestfuture/active-record/blob/main/tests/conformance/permit.test.ts)                              |
-| Filtered attributes’ values never reach listeners or errors                                                       | [`filter-attributes`](https://github.com/forestfuture/active-record/blob/main/tests/conformance/filter-attributes.test.ts)        |
-| A request’s database stays with that request                                                                      | [`current-database`](https://github.com/forestfuture/active-record/blob/main/tests/integration/d1/current-database.test.ts)       |
-| Names, assigned values, conditions, bound text, permitted keys, and JSON hold for any input, not only chosen ones | [`properties`](https://github.com/forestfuture/active-record/tree/main/tests) (`*-properties.test.ts`, generated with fast-check) |
-| The tests cover at least 90% of the library’s and command line’s branches, and CI fails below that                | [`coverage`](https://github.com/forestfuture/active-record/blob/main/vite.config.ts)                                              |
-| CI’s actions are pinned, and release jobs run no install scripts                                                  | [`ci-workflows`](https://github.com/forestfuture/active-record/blob/main/tests/unit/ci-workflows.test.ts)                         |
+| Guarantee                                                                                                                   | Tests                                                                                                                             |
+| --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Values are bound, identifiers are quoted, and plain strings are refused as SQL                                              | [`sql-safety`](https://github.com/forestfuture/active-record/blob/main/tests/conformance/sql-safety.test.ts)                      |
+| Assigned and condition values are cast, or refused, in linear time                                                          | [`attribute-casting`](https://github.com/forestfuture/active-record/blob/main/tests/conformance/attribute-casting.test.ts)        |
+| Naming an attribute, table or key takes linear time in the name’s length                                                    | [`naming`](https://github.com/forestfuture/active-record/blob/main/tests/unit/naming.test.ts)                                     |
+| Only a Model’s own names are attributes or associations                                                                     | [`name-lookups`](https://github.com/forestfuture/active-record/blob/main/tests/conformance/name-lookups.test.ts)                  |
+| `permit` keeps only the named attributes, reading own keys only                                                             | [`permit`](https://github.com/forestfuture/active-record/blob/main/tests/conformance/permit.test.ts)                              |
+| Passwords are saved only as digests, never sent by `toJSON()`, and checked in the same time whether a record matches or not | [`secure-password`](https://github.com/forestfuture/active-record/blob/main/tests/conformance/secure-password.test.ts)            |
+| Filtered attributes’ values never reach listeners or errors                                                                 | [`filter-attributes`](https://github.com/forestfuture/active-record/blob/main/tests/conformance/filter-attributes.test.ts)        |
+| A request’s database stays with that request                                                                                | [`current-database`](https://github.com/forestfuture/active-record/blob/main/tests/integration/d1/current-database.test.ts)       |
+| Names, assigned values, conditions, bound text, permitted keys, and JSON hold for any input, not only chosen ones           | [`properties`](https://github.com/forestfuture/active-record/tree/main/tests) (`*-properties.test.ts`, generated with fast-check) |
+| The tests cover at least 90% of the library’s and command line’s branches, and CI fails below that                          | [`coverage`](https://github.com/forestfuture/active-record/blob/main/vite.config.ts)                                              |
+| CI’s actions are pinned, and release jobs run no install scripts                                                            | [`ci-workflows`](https://github.com/forestfuture/active-record/blob/main/tests/unit/ci-workflows.test.ts)                         |
 
 ## Supply chain
 
