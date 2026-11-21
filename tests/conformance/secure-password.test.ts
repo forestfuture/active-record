@@ -87,6 +87,18 @@ describe("a secure password", () => {
     });
   });
 
+  describe("saved in a batch", () => {
+    test("is hashed as the record's own save hashes it", async () => {
+      const database = db();
+      const member = database.model(Member).build({ password: "correct horse" });
+
+      await database.batch((b) => [b.save(member)]);
+
+      expect(await storedDigest()).toMatch(/^\$pbkdf2-sha256\$/);
+      expect(await member.authenticate("correct horse")).toBe(member);
+    });
+  });
+
   describe("authenticate", () => {
     test("resolves to the record for its password, and false for any other", async () => {
       await db().model(Member).create({ email: "jane@example.com", password: "correct horse" });
