@@ -19,6 +19,7 @@ import { declare, declared } from "./declarations.ts";
 import { checkNormalizedName, type NormalizeOptions } from "./normalization.ts";
 import { defineModel, type SpecsOrWidened } from "./defined-model.ts";
 import type { DefinedSpecs } from "./attribute-aliases.ts";
+import type { WithSecurePasswords } from "./secure-passwords.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
@@ -280,7 +281,7 @@ export class Model extends AttributeWrites {
   static define<B extends BaseClass, const A extends DeclaredAttributes>(
     this: B,
     specs: A & ExactSpecs<A>,
-  ): ModelBaseFor<SpecsOrWidened<DefinedSpecs<A>>, B> {
+  ): ModelBaseFor<SpecsOrWidened<DefinedSpecs<WithSecurePasswords<A>>>, B> {
     return defineModel<A, B>(specs, this);
   }
 

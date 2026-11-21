@@ -152,7 +152,34 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     isGiven: isGivenUnless(false),
     conflictsWith: ["column", "generateId", "storage", "enum"],
   },
+  // A virtual password, kept as the digest its algorithm makes (#355).
+  securePassword: {
+    isWellFormed: isSecurePasswordOption,
+    describedAs: "securePassword",
+    wellFormedAs: "use true, or { algorithm?, validations? }",
+    onlyFor: { types: ["string"], because: "a password is a string" },
+    requires: "virtual",
+    conflictsWith: ["default"],
+  },
 };
+
+/** `true`, or an object with only an algorithm (`hash` and `verify`) and a boolean `validations`. */
+export function isSecurePasswordOption(value: unknown): boolean {
+  if (value === true) return true;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  return Object.entries(value).every(([key, each]) => {
+    if (each === undefined) return true;
+    if (key === "validations") return typeof each === "boolean";
+    return key === "algorithm" && isAlgorithm(each);
+  });
+}
+
+/** Whether a value can hash and verify a password: an object with both functions. */
+function isAlgorithm(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const { hash, verify } = value as Record<string, unknown>;
+  return typeof hash === "function" && typeof verify === "function";
+}
 
 /** The rule for a decimal's precision or scale: a whole number of digits. */
 function decimalDigits(describedAs: string): KeyRule {
@@ -384,6 +411,7 @@ export function copiedKeys(
     | "scopes"
     | "instanceMethods"
     | "virtual"
+    | "securePassword"
   >
 > {
   const copied = entries

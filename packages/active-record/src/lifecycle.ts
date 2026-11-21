@@ -62,6 +62,7 @@ import {
   type Stage,
 } from "./unit-of-work.ts";
 import { runValidations, type UniquenessOptions } from "./validations.ts";
+import { hashPasswords } from "./secure-passwords.ts";
 
 /**
  * What a lifecycle run ended with. Refusals are outcomes (the non-throwing methods return
@@ -301,10 +302,17 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
 }
 
 /**
- * beforeSave, then the around callbacks (#48), which run beforeCreate or beforeUpdate inside
- * them, up to the write; `undefined` if one aborted, with `abortReason` set.
+ * Its secure passwords hashed (#355), beforeSave, then the around callbacks (#48), which run
+ * beforeCreate or beforeUpdate inside them, up to the write; `undefined` if one aborted, with
+ * `abortReason` set.
  */
 async function beforeWrite(record: Model, isInsert: boolean): Promise<Wrapped | undefined> {
+  const recordState = record[state];
+  await hashPasswords(modelOf(record).attributeDefinitions, {
+    isChanged: (name) => recordState.isAttributeChanged(name),
+    read: (name) => recordState.read(name),
+    write: (name, value) => recordState.write(name, value),
+  });
   if (!(await runAbortableCallbacks(record, "beforeSave"))) return undefined;
   const wrapped = await startSave(record, isInsert);
   if (!(wrapped instanceof CallbackAbort)) return wrapped;

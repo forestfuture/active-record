@@ -6,11 +6,13 @@ import { defineAttributeAccessors } from "./generated-model.ts";
 import {
   define,
   type AttributeDefinition,
+  type AttributeSpec,
   type AttributeSpecs,
   type DeclaredAttributes,
 } from "./metadata.ts";
 import type { BaseClass, Model, ModelBaseFor } from "./model.ts";
 import { inferTableNames } from "./table-names.ts";
+import { withSecurePasswords, type WithSecurePasswords } from "./secure-passwords.ts";
 
 /**
  * `S` as attribute specs: itself, or when it isn't (a spec that's a compile error), widened, so
@@ -22,20 +24,21 @@ export type SpecsOrWidened<S> = S extends AttributeSpecs ? S : S & AttributeSpec
 export function defineModel<A extends DeclaredAttributes, B extends BaseClass>(
   specs: DeclaredAttributes,
   base: B,
-): ModelBaseFor<SpecsOrWidened<DefinedSpecs<A>>, B> {
+): ModelBaseFor<SpecsOrWidened<DefinedSpecs<WithSecurePasswords<A>>>, B> {
   const Parent = base as unknown as typeof Model;
+  const declared = withSecurePasswords("", specs);
   const definitions = new Map(
-    Object.entries(specs).flatMap(([name, spec]) =>
-      isAlias(spec) ? [] : [[name, define(name, spec)] as const],
+    Object.entries(declared).flatMap(([name, spec]) =>
+      isAlias(spec) ? [] : [[name, define(name, spec as AttributeSpec)] as const],
     ),
   );
-  const aliases = aliasesIn("", specs, definitions);
+  const aliases = aliasesIn("", declared, definitions);
   class DefinedModel extends Parent {
     static override attributeDefinitions: ReadonlyMap<string, AttributeDefinition> = definitions;
     static override attributeAliases: ReadonlyMap<string, string> = aliases;
   }
   inferTableNames(DefinedModel);
-  defineAttributeAccessors(DefinedModel.prototype, Object.keys(specs));
+  defineAttributeAccessors(DefinedModel.prototype, Object.keys(declared));
   defineEnumMethods(DefinedModel.prototype, DefinedModel.attributeDefinitions);
   defineEnumStatics(DefinedModel, DefinedModel.attributeDefinitions);
   return DefinedModel as never;

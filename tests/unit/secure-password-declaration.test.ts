@@ -1,0 +1,93 @@
+// Declaring a secure password (#355): `password: { securePassword: true }`, its attributes and
+// methods typed, and a declaration that can't work refused. These tests need no database.
+import { describe, expect, expectTypeOf, test } from "vite-plus/test";
+import { InvalidModel, Model } from "../../packages/active-record/src/index.ts";
+import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+
+const db = connect({} as never);
+
+class Member extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+  passwordDigest: "string",
+  password: { securePassword: true },
+}) {
+  static table = "members";
+}
+
+describe("a secure password's declaration", () => {
+  test("adds the password, its confirmation and its challenge, as strings", () => {
+    const member = db.model(Member).build({ password: "secret", passwordConfirmation: "secret" });
+
+    expectTypeOf(member.password).toEqualTypeOf<string | null>();
+    expectTypeOf(member.passwordConfirmation).toEqualTypeOf<string | null>();
+    expectTypeOf(member.passwordChallenge).toEqualTypeOf<string | null>();
+    expect(member.password).toBe("secret");
+    expect(member.passwordChallenge).toBe(null);
+  });
+
+  test("needs a string attribute for its digest", () => {
+    class Visitor extends Model.define({
+      id: { type: "integer", null: false },
+      password: { securePassword: true },
+    }) {
+      static table = "visitors";
+    }
+
+    expect(() => db.model(Visitor)).toThrow(
+      new InvalidModel(
+        "Visitor.password is a secure password, so it needs a string attribute passwordDigest with a column to keep its digest in",
+      ),
+    );
+  });
+
+  test("refuses a digest that isn't a column", () => {
+    class Visitor extends Model.define({
+      id: { type: "integer", null: false },
+      passwordDigest: { type: "string", virtual: true },
+      password: { securePassword: true },
+    }) {
+      static table = "visitors";
+    }
+
+    expect(() => db.model(Visitor)).toThrow(InvalidModel);
+  });
+
+  test("refuses another key", () => {
+    expect(() =>
+      Model.define({
+        passwordDigest: "string",
+        // @ts-expect-error -- a secure password takes no other key
+        password: { securePassword: true, null: false },
+      }),
+    ).toThrow(
+      new InvalidModel(
+        "password: a secure password is { securePassword: true }, or { securePassword: { algorithm?, validations? } }",
+      ),
+    );
+  });
+
+  test("refuses a confirmation declared alongside it", () => {
+    expect(() =>
+      Model.define({
+        passwordDigest: "string",
+        passwordConfirmation: { type: "string", virtual: true },
+        password: { securePassword: true },
+      }),
+    ).toThrow(
+      new InvalidModel(
+        "passwordConfirmation is declared by the secure password password, so leave it out",
+      ),
+    );
+  });
+
+  test("refuses options it doesn't know", () => {
+    expect(() =>
+      Model.define({
+        passwordDigest: "string",
+        // @ts-expect-error -- securePassword takes an algorithm and validations
+        password: { securePassword: { validate: false } },
+      }),
+    ).toThrow(InvalidModel);
+  });
+});
