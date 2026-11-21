@@ -4,7 +4,18 @@ import { ruleTester } from "../support/rule-tester.ts";
 // Comments and test names say what the code does, not where the idea came from
 // (CODING_STANDARDS.md, Coding; #515).
 ruleTester.run("no-rails-mention", noRailsMention, {
-  valid: ["// Start at their defaults on a load.\nconst a = 1;"],
+  valid: [
+    "// Start at their defaults on a load.\nconst a = 1;",
+    // The word in lower case is ordinary English, and a longer word isn't it.
+    "// A default scope keeps its guard rails.\nconst a = 1;",
+    "// The guardrails stay on.\nconst a = 1;",
+    // Code that isn't a comment or a test's name: a string, a regex, an identifier.
+    'expect(title).toBe("Compared with Rails");',
+    "const box = /(Compared with|Beyond) Rails/;",
+    "const Rails = 1;",
+    // An opt-out's reason can name what it opts out for.
+    "// oxlint-disable-next-line active-record/no-rails-mention -- names the Rails box\nconst a = 1;",
+  ],
   invalid: [
     {
       name: "a line comment",
