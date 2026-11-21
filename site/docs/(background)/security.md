@@ -12,7 +12,7 @@ seo:
 - **Prototype pollution and inherited names.** Attributes and associations are looked up only by the Model’s own names, so `__proto__`, `constructor`, and other names every object has are unknown names, and `Object.prototype` is never written to.
 - **Secrets in logs and errors.** Values of attributes named like passwords, tokens, keys, and emails are hidden from `onQuery` listeners and from error messages. See [Logging](./logging#keeping-secrets-out-of-the-logs).
 - **One request’s data reaching another.** Nothing about a request (a D1 Session, a listener) is ever stored on a Model class. See [Database resolution](./query-databases).
-- **Passwords kept in clear.** A [secure password](./passwords-and-tokens) is saved only as a salted digest. `toJSON()` leaves the password out, and `authenticateBy` takes as long whether or not a record matches, so its timing doesn’t tell anyone which accounts exist.
+- **Passwords kept in clear.** A [secure password](./passwords-and-tokens) is saved only as a salted digest. `toJSON()` leaves out the password, its digest, and a secure token, and `authenticateBy` takes as long whether or not a record matches, so its timing doesn’t tell anyone which accounts exist.
 - **Denial of service through parsing.** The patterns that read numbers and dates are linear, so a long value can’t use up a Worker’s CPU time.
 
 ## What’s left to your app
@@ -20,7 +20,6 @@ seo:
 - **Choosing which fields a request may set,** with `permit`, destructuring, or a schema. See [Untrusted input](./untrusted-input).
 - **An untrusted `null` in a condition.** `findBy({ token: null })` matches rows whose token is NULL. Check a value’s type before querying with it.
 - **How strong your password hash is.** The default, PBKDF2-SHA256, runs 100,000 iterations, the most Workers allow and about a sixth of OWASP’s 600,000. Each hash also takes about 10–40 ms of CPU time, more than the Workers Free plan’s 10 ms. For a stronger hash, give `securePassword` an algorithm of your own, as [Choosing the hash](./passwords-and-tokens#choosing-the-hash) shows, on a plan with the CPU time it needs.
-- **Hiding a password’s digest and a token.** `toJSON()` sends `passwordDigest` and a secure token unless you list them in [`hiddenAttributes`](./serialization#hiding-attributes).
 - **Authorization.** Whether this user may read or change this record is your app’s decision.
 - **Formats and ranges.** Casting checks types, not meaning: use [validations](./validations).
 - **Bare values inside `sql` fragments.** A value with no attribute isn’t hidden from listeners. Write it as `column("token").value(token)`, and it’s filtered like the attribute’s other values.

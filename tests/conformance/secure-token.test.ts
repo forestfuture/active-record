@@ -90,6 +90,15 @@ describe("a secure token", () => {
     });
   });
 
+  describe("as JSON", () => {
+    test("is left out, and attributes() keeps it", () => {
+      const member = db().model(Member).build({ email: "jane@example.com" });
+
+      expect(Object.keys(member.toJSON())).not.toContain("authToken");
+      expect(member.attributes()).toHaveProperty("authToken", member.authToken);
+    });
+  });
+
   describe("on create", () => {
     test("is generated as the record is created, with its prefix and length", async () => {
       const member = db().model(Member).build({ email: "jane@example.com" });

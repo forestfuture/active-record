@@ -22,7 +22,7 @@ import type { DefinedSpecs } from "./attribute-aliases.ts";
 import type { SecureTokenMethods } from "./secure-tokens.ts";
 import {
   authenticateBy,
-  passwordAttributeNames,
+  secretAttributeNames,
   type SecurePasswordMethods,
   type WithSecurePasswords,
 } from "./secure-passwords.ts";
@@ -747,15 +747,16 @@ export class Model extends AttributeWrites {
 
   /**
    * The loaded attributes as JSON-ready values (dates as ISO strings), without the Model's
-   * `hiddenAttributes`, the virtual attributes its `confirmation` rules read, or its secure
-   * passwords with their confirmations and challenges (#355), for `Response.json(record)`.
+   * `hiddenAttributes`, the virtual attributes its `confirmation` rules read, or its secrets: each
+   * secure password, its confirmation, challenge and digest, and each secure token (#355), for
+   * `Response.json(record)`.
    */
   toJSON(): Record<string, unknown> {
     const model = modelOf(this);
     const hidden = [
       ...model.hiddenAttributes,
       ...confirmationNames(declared(model, "validations")),
-      ...passwordAttributeNames(model.attributeDefinitions),
+      ...secretAttributeNames(model.attributeDefinitions),
     ];
     return Object.fromEntries(
       Object.entries(this[state].attributes())

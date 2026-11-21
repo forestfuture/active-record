@@ -6,8 +6,6 @@ export class User extends ApplicationRecord {
     authToken: { secureToken: true }, // a random token for each new user
   } as const;
 
-  static override hiddenAttributes = [...ApplicationRecord.hiddenAttributes, "authToken"];
-
   static {
     this.normalizes("email", { with: (email) => email.trim().toLowerCase() });
   }
