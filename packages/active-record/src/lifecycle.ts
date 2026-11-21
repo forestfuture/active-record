@@ -313,8 +313,8 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
 /**
  * A new record's tokens generated and its secure passwords hashed (#355), then beforeSave, then
  * the around callbacks (#48), which run beforeCreate or beforeUpdate inside them, up to the
- * write; `undefined` if one aborted, with `abortReason` set. A password a before-save callback
- * assigns is too late to be hashed.
+ * write, then any password those callbacks assigned hashed; `undefined` if one aborted, with
+ * `abortReason` set.
  */
 async function beforeWrite(record: Model, isInsert: boolean): Promise<Wrapped | undefined> {
   const { attributeDefinitions } = modelOf(record);
@@ -322,9 +322,13 @@ async function beforeWrite(record: Model, isInsert: boolean): Promise<Wrapped | 
   await hashPasswords(attributeDefinitions, record[state]);
   if (!(await runAbortableCallbacks(record, "beforeSave"))) return undefined;
   const wrapped = await startSave(record, isInsert);
-  if (!(wrapped instanceof CallbackAbort)) return wrapped;
-  record[state].abortReason = wrapped.reason;
-  return undefined;
+  if (wrapped instanceof CallbackAbort) {
+    record[state].abortReason = wrapped.reason;
+    return undefined;
+  }
+  // A password a before-callback assigned is hashed now, as the record's own was before them.
+  await hashPasswords(attributeDefinitions, record[state]);
+  return wrapped;
 }
 
 /**

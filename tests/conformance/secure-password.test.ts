@@ -123,6 +123,53 @@ describe("a secure password", () => {
     });
   });
 
+  describe("assigned in a callback", () => {
+    /** A Model whose algorithm records each password it hashes, and whose beforeSave may set one. */
+    const callbackModel = (hashed: string[], assigned?: string) =>
+      class Callback extends Model.define({
+        id: { type: "integer", null: false },
+        passwordDigest: "string",
+        password: {
+          securePassword: {
+            algorithm: {
+              hash: async (password: string) => {
+                hashed.push(password);
+                return `plain:${password}`;
+              },
+              verify: async (password: string, digest: string) => digest === `plain:${password}`,
+            },
+          },
+        },
+      }) {
+        static table = "members";
+
+        static {
+          this.beforeSave((record) => {
+            if (assigned !== undefined) record.password = assigned;
+          });
+        }
+      };
+
+    test("is hashed, when beforeSave assigns it", async () => {
+      const hashed: string[] = [];
+      const Callback = callbackModel(hashed, "from beforeSave");
+
+      const record = await db().model(Callback).create({ password: "correct horse" });
+
+      expect(hashed).toEqual(["correct horse", "from beforeSave"]);
+      expect(await record.authenticate("from beforeSave")).toBe(record);
+    });
+
+    test("isn't hashed twice when no callback changes it", async () => {
+      const hashed: string[] = [];
+      const Callback = callbackModel(hashed);
+
+      await db().model(Callback).create({ password: "correct horse" });
+
+      expect(hashed).toEqual(["correct horse"]);
+    });
+  });
+
   describe("saved in a batch", () => {
     test("is hashed as the record's own save hashes it", async () => {
       const database = db();
