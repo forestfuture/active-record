@@ -64,6 +64,24 @@ describe("the default password algorithm", () => {
     expect(pbkdf2Sha256.maxBytes).toBe(72);
   });
 
+  test("throws for a digest whose iterations are out of bounds, so a digest can't stall it", async () => {
+    const valid = await digestWith("battery staple", 1000);
+
+    for (const iterations of ["999", "10000001"]) {
+      const digest = valid.replace("i=1000$", `i=${iterations}$`);
+      await expect(pbkdf2Sha256.verify("battery staple", digest)).rejects.toThrow(TypeError);
+    }
+  });
+
+  test("throws a TypeError for a digest whose salt or key isn't the right size", async () => {
+    const [, name, iterations, salt, key] = (await digestWith("battery staple", 1000)).split("$");
+    const shortSalt = ["", name, iterations, salt!.slice(4), key].join("$");
+    const badKey = ["", name, iterations, salt, key!.slice(1)].join("$");
+
+    await expect(pbkdf2Sha256.verify("battery staple", shortSalt)).rejects.toThrow(TypeError);
+    await expect(pbkdf2Sha256.verify("battery staple", badKey)).rejects.toThrow(TypeError);
+  });
+
   test("throws for a digest it didn't make", async () => {
     const bcrypt = "$2a$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW";
 
