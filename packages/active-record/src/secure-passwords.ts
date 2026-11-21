@@ -176,9 +176,24 @@ function securePasswordsOf(
   });
 }
 
-/** A record as a secure password's methods read it. */
-interface Holder {
+/** A record, as a secure password's checks read its digest. */
+interface StoredRecord {
   readonly [state]: { read(name: string): unknown };
+}
+
+/**
+ * Whether `given` is the password a record's digest was made from. Without a digest, the password
+ * is hashed anyway, so the time taken doesn't say whether the record has one.
+ */
+async function isPasswordOf(
+  { digest, algorithm }: SecurePassword,
+  record: StoredRecord,
+  given: string,
+): Promise<boolean> {
+  const stored = record[state].read(digest);
+  if (isPresent(stored)) return algorithm.verify(given, stored);
+  await algorithm.hash(given);
+  return false;
 }
 
 /**
@@ -190,12 +205,11 @@ export function defineSecurePasswordMethods(
   prototype: object,
   definitions: ReadonlyMap<string, AttributeDefinition>,
 ): void {
-  for (const { name, digest, algorithm } of securePasswordsOf(definitions)) {
-    async function authenticate(this: Holder, password: string): Promise<Holder | false> {
-      const stored = this[state].read(digest);
-      if (typeof stored !== "string" || stored === "") return false;
-      return (await algorithm.verify(password, stored)) ? this : false;
+  for (const password of securePasswordsOf(definitions)) {
+    async function authenticate(this: StoredRecord, given: string): Promise<StoredRecord | false> {
+      return (await isPasswordOf(password, this, given)) ? this : false;
     }
+    const { name } = password;
     const names = [
       `authenticate${capitalized(name)}`,
       ...(name === "password" ? ["authenticate"] : []),
@@ -365,11 +379,10 @@ export async function authenticateBy<R>(
     for (const [{ algorithm }, value] of passwords) await algorithm.hash(value as string);
     return null;
   }
+  // Every password is checked, even after one fails, so the time taken doesn't say which.
   let matches = 0;
-  for (const [{ name }, value] of passwords) {
-    const method = `authenticate${capitalized(name)}`;
-    const check = (record as Record<string, (password: unknown) => Promise<unknown>>)[method]!;
-    if ((await check.call(record, value)) !== false) matches += 1;
+  for (const [password, value] of passwords) {
+    if (await isPasswordOf(password, record as StoredRecord, value as string)) matches += 1;
   }
   return matches === passwords.length ? record : null;
 }
