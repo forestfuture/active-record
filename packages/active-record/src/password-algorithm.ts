@@ -38,17 +38,36 @@ export const pbkdf2Sha256: PasswordAlgorithm = {
     return `${PREFIX}i=${ITERATIONS}$${toBase64(salt)}$${toBase64(key)}`;
   },
   async verify(password, digest) {
-    const [, iterations, salt, expected] = DIGEST.exec(digest) ?? [];
-    if (iterations === undefined || salt === undefined || expected === undefined) {
-      throw new TypeError(
-        `The password digest isn't one PBKDF2-SHA256 made (${PREFIX}…); ` +
-          "give the algorithm that made it as securePassword's algorithm",
-      );
-    }
-    const key = await derive(password, fromBase64(salt), Number(iterations));
-    return isSameBytes(key, fromBase64(expected));
+    const { iterations, salt, key } = parsed(digest);
+    return isSameBytes(await derive(password, salt, iterations), key);
   },
 };
+
+/**
+ * The fewest and most iterations a digest may name: a digest is data, so one naming a count no
+ * digest this algorithm made could have would weaken a check, or stall it.
+ */
+const FEWEST_ITERATIONS = 1_000;
+const MOST_ITERATIONS = 10_000_000;
+
+/** A digest's parts; `TypeError` for one this algorithm couldn't have made. */
+function parsed(digest: string): { iterations: number; salt: Uint8Array; key: Uint8Array } {
+  const [, count = "", salt = "", key = ""] = DIGEST.exec(digest) ?? [];
+  const iterations = Number(count);
+  const decoded = { iterations, salt: fromBase64(salt), key: fromBase64(key) };
+  const isMade =
+    iterations >= FEWEST_ITERATIONS &&
+    iterations <= MOST_ITERATIONS &&
+    decoded.salt.length === SALT_BYTES &&
+    decoded.key.length === KEY_BITS / 8;
+  if (!isMade) {
+    throw new TypeError(
+      `The password digest isn't one PBKDF2-SHA256 made (${PREFIX}…); ` +
+        "give the algorithm that made it as securePassword's algorithm",
+    );
+  }
+  return decoded;
+}
 
 /** PBKDF2-SHA256's key for `password`'s UTF-8 bytes. */
 async function derive(password: string, salt: Uint8Array, iterations: number): Promise<Uint8Array> {
@@ -81,6 +100,11 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes)).replaceAll("=", "");
 }
 
+/** Base64's bytes; none for text that isn't base64, which a digest's check then refuses. */
 function fromBase64(text: string): Uint8Array {
-  return Uint8Array.from(atob(text), (character) => character.charCodeAt(0));
+  try {
+    return Uint8Array.from(atob(text), (character) => character.charCodeAt(0));
+  } catch {
+    return new Uint8Array();
+  }
 }
