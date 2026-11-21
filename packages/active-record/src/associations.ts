@@ -286,6 +286,9 @@ function checkName(label: string, model: ModelClass, name: string): void {
   if (model.attributeDefinitions.has(name)) {
     throw new InvalidModel(`${label} has the same name as an attribute; rename one of them`);
   }
+  if (model.attributeAliases.has(name)) {
+    throw new InvalidModel(`${label} has the same name as an attribute alias; rename one of them`);
+  }
   if (name in Model.prototype) {
     throw new InvalidModel(`${label} is the name of a record method or property; rename it`);
   }
