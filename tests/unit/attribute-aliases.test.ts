@@ -7,6 +7,8 @@ import { describe, expect, expectTypeOf, test } from "vite-plus/test";
 import {
   InvalidModel,
   Model,
+  belongsTo,
+  hasMany,
   UnknownAttribute,
   type TableAttributes,
 } from "../../packages/active-record/src/index.ts";
@@ -23,10 +25,15 @@ const users = {
   age: "integer",
 } as const;
 
+const posts = { id: { type: "integer", null: false }, userId: "integer" } as const;
+
 const schema = {
   adapter: d1({ binding: "DB" }),
-  tables: { users: { attributes: users, primaryKey: "id" } },
-  models: { User: "users", Declared: "users" },
+  tables: {
+    users: { attributes: users, primaryKey: "id" },
+    posts: { attributes: posts, primaryKey: "id" },
+  },
+  models: { User: "users", Declared: "users", Keyed: "posts", Named: "users", Post: "posts" },
 } as const;
 
 abstract class AppRecord extends Model {
@@ -114,5 +121,58 @@ describe("declaring an alias with define", () => {
           login: { aliasOf: "mail" },
         }) {},
     ).toThrow(new InvalidModel("login is an alias of mail, which isn't an attribute"));
+  });
+});
+
+describe("a setting that names an attribute", () => {
+  // Guards: these take the attribute's own name, and refuse an alias of it.
+  test("refuses an alias in hiddenAttributes, which would leave the value in the JSON", () => {
+    const Declared = declaring({ login: { aliasOf: "email" } });
+    Declared.hiddenAttributes = ["login"];
+
+    expect(() => db.model(Declared)).toThrow(
+      new InvalidModel(
+        'Declared hides "login" from toJSON, but has no such attribute; ' +
+          "hiddenAttributes names attributes exactly",
+      ),
+    );
+  });
+
+  test("refuses an alias as the primary key", () => {
+    const Declared = declaring({ key: { aliasOf: "id" } });
+    Declared.primaryKey = "key";
+
+    expect(() => db.model(Declared)).toThrow(InvalidModel);
+  });
+
+  test("refuses an alias as a foreign key", () => {
+    class Keyed extends AppRecord {
+      static override table = "posts";
+      static override attributes = { owner: { aliasOf: "userId" } } as const;
+      user = belongsTo(User, { foreignKey: "owner" });
+    }
+
+    expect(() => db.model(Keyed)).toThrow(
+      new InvalidModel(
+        'Keyed association "user": Keyed has no attribute "owner" (check foreignKey)',
+      ),
+    );
+  });
+});
+
+describe("an association", () => {
+  test("named for an alias is an InvalidModel", () => {
+    class Post extends AppRecord {}
+    class Named extends AppRecord {
+      static override table = "users";
+      static override attributes = { posts: { aliasOf: "email" } } as const;
+      posts = hasMany(Post, { foreignKey: "userId" });
+    }
+
+    expect(() => db.model(Named)).toThrow(
+      new InvalidModel(
+        'Named association "posts" has the same name as an attribute alias; rename one of them',
+      ),
+    );
   });
 });
