@@ -115,7 +115,7 @@ Add `virtual: true` for a value a form sends but the table doesn’t keep, as `A
 - **It’s never saved.** An insert or an update leaves it out. A save that changes only virtual attributes sets `updatedAt` alone, or writes nothing on a table without timestamps.
 - **A loaded record starts it at its default,** or `null`, and so does `reload`.
 - **A query can’t name it,** since there’s no column to match. `where`, `order`, `select`, `pluck`, `insert`, and `updateAll` throw `UnknownAttribute`.
-- **It’s in `toJSON()`,** unless a [`confirmation`](./validations#confirming-a-value) rule reads it. A record keeps it after a create, so list a secret one, such as `password`, in [`hiddenAttributes`](./serialization), or `Response.json(user)` sends it back.
+- **It’s in `toJSON()`,** unless a [`confirmation`](./validations#confirming-a-value) rule reads it. A record keeps it after a create, so list a secret one in [`hiddenAttributes`](./serialization), or `Response.json(user)` sends it back. For a password, declare a [secure password](./passwords-and-tokens) instead, which `toJSON()` leaves out.
 
 :::note
 A virtual attribute named for one of the table’s columns throws `InvalidModel`, and so does `virtual` with `column` or `enum`. With `null: false`, give it a `default`. A Model declared with `define` takes `virtual: true` in the same way.

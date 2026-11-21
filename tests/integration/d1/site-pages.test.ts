@@ -57,6 +57,7 @@ import * as preloadingPage from "../../../site/snippets/pages/preloading/example
 import * as querying from "../../../site/snippets/pages/querying/examples.ts";
 import * as rawStatements from "../../../site/snippets/pages/raw-statements/examples.ts";
 import * as serialization from "../../../site/snippets/pages/serialization/examples.ts";
+import * as passwords from "../../../site/snippets/pages/passwords-and-tokens/examples.ts";
 import { Account as SerializedAccount } from "../../../site/snippets/pages/serialization/src/models/account.ts";
 import * as scopes from "../../../site/snippets/pages/scopes/examples.ts";
 import * as untrustedInput from "../../../site/snippets/pages/untrusted-input/examples.ts";
@@ -214,6 +215,92 @@ describe("the Change tracking page's examples", () => {
       "owner",
       ["role"],
     ]);
+  });
+});
+
+// The Passwords and tokens page's examples, on the users and admins tables it shows.
+describe("the Passwords and tokens page's examples", () => {
+  const binding = pageDatabase("passwords-and-tokens", ["users", "admins"]);
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+  const log = quietLog();
+  const form = (fields: Record<string, string>) => {
+    const data = new FormData();
+    for (const [name, value] of Object.entries(fields)) data.set(name, value);
+    return new Request("https://example.com/", { method: "POST", body: data });
+  };
+  const jane = {
+    email: "jane@example.com",
+    password: "correct horse battery",
+    passwordConfirmation: "correct horse battery",
+  };
+
+  test("signing up keeps a digest, and the response leaves out the password, digest, and token", async () => {
+    const response = await run(() => passwords.signUp(form(jane)));
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(201);
+    expect(Object.keys(body).sort((a, b) => a.localeCompare(b))).toEqual([
+      "createdAt",
+      "email",
+      "id",
+      "updatedAt",
+    ]);
+  });
+
+  test("signing up with a confirmation that doesn't match answers 422", async () => {
+    const response = await run(() =>
+      passwords.signUp(form({ ...jane, passwordConfirmation: "correct horse" })),
+    );
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      errors: ["Password confirmation doesn't match Password"],
+    });
+  });
+
+  test("a saved user has a digest, which authenticate checks", async () => {
+    const user = await run(passwords.storing);
+
+    expect(log.calls()[0]).toEqual([null]);
+    expect(user.passwordDigest).toMatch(/^\$pbkdf2-sha256\$i=100000\$/);
+    expect(await run(passwords.checking)).toBe(true);
+  });
+
+  test("signing in answers with the token, or 401", async () => {
+    const user = await run(passwords.storing);
+
+    const signedIn = await run(() => passwords.signIn(form(jane)));
+    const refused = await run(() => passwords.signIn(form({ ...jane, password: "wrong" })));
+    const missing = await run(() => passwords.signIn(form({ email: "jane@example.com" })));
+
+    expect(await signedIn.json()).toEqual({ token: user.authToken });
+    expect([refused.status, missing.status]).toEqual([401, 401]);
+  });
+
+  test("a password changes when its challenge is the current password", async () => {
+    await run(passwords.storing);
+
+    const { user, isChanged } = await run(passwords.changing);
+
+    expect(isChanged).toBe(true);
+    expect(await user.authenticate("staple battery horse")).toBe(user);
+  });
+
+  test("an admin's password is hashed with bcrypt", async () => {
+    const admin = await run(passwords.hashingWithBcrypt);
+
+    expect(admin.passwordDigest).toMatch(/^\$2b\$10\$/);
+    expect(await admin.authenticate("correct horse battery")).toBe(admin);
+  });
+
+  test("a new user's token finds them, and regenerating it saves a new one", async () => {
+    const { user, found } = await run(passwords.tokens);
+    expect(user.authToken).toMatch(/^[1-9A-HJ-NP-Za-km-z]{24}$/);
+    expect(found?.id).toBe(user.id);
+
+    const regenerated = await run(passwords.regenerating);
+
+    expect(regenerated.authToken).not.toBe(user.authToken);
   });
 });
 

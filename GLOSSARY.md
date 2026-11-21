@@ -88,6 +88,18 @@ _Avoid_: Sanitizing, cleaning, formatting
 An **Attribute** declared with `virtual: true` that isn't a **Column**: typed, cast, and change-tracked, but never read from a row or written to one, and never named in a query. A `confirmation` rule reads one, which `toJSON()` leaves out.
 _Avoid_: Transient, non-persisted, attr_accessor
 
+**Secure password**:
+A **Virtual attribute** declared with `securePassword`, with its confirmation and challenge, kept in the table only as its **Password digest**. `authenticate` checks a password against it, and `toJSON()` leaves all three out.
+_Avoid_: Encrypted password, hashed password field
+
+**Password digest**:
+What a **Secure password** is saved as, in the column named for it with `_digest`: a salted hash its algorithm makes when the record is saved, which says how it was made (`$pbkdf2-sha256$i=100000$…`). It can verify a password, never give one back.
+_Avoid_: Encrypted password, password hash column, crypted password
+
+**Secure token**:
+A string **Attribute** declared with `secureToken`, which a new record gets as a random base58 token, and `regenerate…()` replaces. Nothing checks it's unique; a UNIQUE index does.
+_Avoid_: API key, random id, nonce
+
 **Hidden attribute**:
 An attribute `toJSON()` leaves out, named by the Model's `hiddenAttributes`, by exact name. `attributes()` still has it. Independent of a **Filtered attribute**, which is about logs and errors.
 _Avoid_: Private, protected, excluded

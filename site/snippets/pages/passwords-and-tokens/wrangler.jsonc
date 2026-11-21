@@ -1,0 +1,8 @@
+{
+  "name": "passwords-and-tokens",
+  // bcryptjs, which admin.ts hashes with, imports Node's crypto.
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "passwords-and-tokens", "database_id": "…" },
+  ],
+}
