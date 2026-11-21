@@ -523,7 +523,7 @@ describe("a secure password", () => {
       expect(short.errors.get("password")).toEqual(["is too long"]);
     });
 
-    test("without a most, allows a password of any length", async () => {
+    test("without maxBytes, allows a password of any length", async () => {
       class Long extends Model.define({
         id: { type: "integer", null: false },
         passwordDigest: "string",
