@@ -1,20 +1,14 @@
 // `Model.define({...})` and `Model`: the record class, its attribute accessors and its declarations (validations, error messages), and the types naming its associations (`includes`' specs); its shared statics are in model-statics.ts.
 import { enumValuesOf } from "./enum-values.ts";
 import type { EnumMapping, EnumValues } from "./enum-values.ts";
-import {
-  defineEnumMethods,
-  defineEnumStatics,
-  type EnumMethods,
-  type EnumStatics,
-} from "./enum-methods.ts";
+import type { EnumMethods, EnumStatics } from "./enum-methods.ts";
 import type { Executor, QueryListener } from "./executor.ts";
-import {
-  define,
-  type AttributeProperties,
-  type AttributeDefinition,
-  type AttributeSpecs,
-  type DeclaredAttributes,
-  type ExactSpecs,
+import type {
+  AttributeProperties,
+  AttributeDefinition,
+  AttributeSpecs,
+  DeclaredAttributes,
+  ExactSpecs,
 } from "./metadata.ts";
 import { type Permitted, permitted } from "./permit.ts";
 import { type AttributeConversions, conversionsFor } from "./attribute-conversions.ts";
@@ -23,7 +17,8 @@ import type { Errors } from "./errors-collection.ts";
 import { humanAttributeName, type ErrorMessages } from "./error-messages.ts";
 import { declare, declared } from "./declarations.ts";
 import { checkNormalizedName, type NormalizeOptions } from "./normalization.ts";
-import { aliasesIn, isAlias, type DefinedSpecs } from "./attribute-aliases.ts";
+import { defineModel, type SpecsOrWidened } from "./defined-model.ts";
+import type { DefinedSpecs } from "./attribute-aliases.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
@@ -34,10 +29,9 @@ import {
   validateRecord,
 } from "./lifecycle.ts";
 import { associationOf, newRecord, readAssociation } from "./association-fields.ts";
-import { defineModelName, inferTableNames } from "./table-names.ts";
+import { defineModelName } from "./table-names.ts";
 import {
   hasSettledAttributes,
-  defineAttributeAccessors,
   defineGeneratedStatics,
   type AsSpecs,
   type AttributeOverrides,
@@ -806,35 +800,6 @@ export type ModelBaseFor<
   }) &
   Omit<B, "prototype"> &
   EnumStatics<A>;
-
-/**
- * `S` as attribute specs: itself, or when it isn't (a spec that's a compile error), widened, so
- * `define` still gives a class to extend and the error stays on the spec.
- */
-type SpecsOrWidened<S> = S extends AttributeSpecs ? S : S & AttributeSpecs;
-
-/** `Model.define({...})` on `base`: a class with the attributes' accessors, extending `base`. */
-function defineModel<A extends DeclaredAttributes, B extends BaseClass>(
-  specs: DeclaredAttributes,
-  base: B,
-): ModelBaseFor<SpecsOrWidened<DefinedSpecs<A>>, B> {
-  const Parent = base as unknown as typeof Model;
-  const definitions = new Map(
-    Object.entries(specs).flatMap(([name, spec]) =>
-      isAlias(spec) ? [] : [[name, define(name, spec)] as const],
-    ),
-  );
-  const aliases = aliasesIn("", specs, definitions);
-  class DefinedModel extends Parent {
-    static override attributeDefinitions: ReadonlyMap<string, AttributeDefinition> = definitions;
-    static override attributeAliases: ReadonlyMap<string, string> = aliases;
-  }
-  inferTableNames(DefinedModel);
-  defineAttributeAccessors(DefinedModel.prototype, Object.keys(specs));
-  defineEnumMethods(DefinedModel.prototype, DefinedModel.attributeDefinitions);
-  defineEnumStatics(DefinedModel, DefinedModel.attributeDefinitions);
-  return DefinedModel as never;
-}
 
 /** Whether `value` is a Model class: an association's target must be one. */
 export function isModelClass(value: unknown): value is ModelClass {
