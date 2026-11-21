@@ -200,7 +200,7 @@ export default defineConfig({
         // Comments and test names say what the code does, not where the idea came from
         // (CODING_STANDARDS.md, Names and comments; #515).
         files: ["packages/*/src/**", "packages/*/cli/**", "tests/**"],
-        rules: { "active-record/no-rails-mention": "error" },
+        rules: { "active-record/say-what-it-does": "error" },
       },
       {
         // A file `active-record schema` writes is left as written: its comments carry table and
@@ -210,7 +210,7 @@ export default defineConfig({
           "tests/fixtures/LOGS.ts",
           "tests/fixtures/schema-project/schema.ts",
         ],
-        rules: { "active-record/no-rails-mention": "off" },
+        rules: { "active-record/say-what-it-does": "off" },
       },
       {
         // A describe() callback holds a whole suite, so it's long by design. The rules below are

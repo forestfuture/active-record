@@ -13,13 +13,13 @@ const rails = /\bRails\b/;
 function isOwnOptOut(text) {
   const names = parseOptOut(text)?.names;
   if (names === undefined) return false;
-  return names.length === 0 || names.includes("active-record/no-rails-mention");
+  return names.length === 0 || names.includes("active-record/say-what-it-does");
 }
 
 export default defineRule({
   meta: {
     messages: {
-      mentionsRails:
+      namesOrigin:
         'Say what the code does, not where the idea came from: drop "Rails" from this ' +
         "{{place}}, or opt out with a reason after `--`.",
     },
@@ -30,14 +30,14 @@ export default defineRule({
         for (const comment of context.sourceCode.getAllComments()) {
           if (isOwnOptOut(comment.value) || !rails.test(comment.value)) continue;
           const data = { place: "comment" };
-          context.report({ loc: comment.loc, messageId: "mentionsRails", data });
+          context.report({ loc: comment.loc, messageId: "namesOrigin", data });
         }
       },
       CallExpression(node) {
         const name = testName(node);
         if (name === undefined || !rails.test(name)) return;
         const data = { place: "test's name" };
-        context.report({ node: node.arguments[0], messageId: "mentionsRails", data });
+        context.report({ node: node.arguments[0], messageId: "namesOrigin", data });
       },
     };
   },
