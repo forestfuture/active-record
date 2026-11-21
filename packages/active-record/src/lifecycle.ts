@@ -151,10 +151,8 @@ export async function validation(
     recordState.errors[clearErrors]();
     recordState.abortReason = undefined;
     if (!(await runAbortableCallbacks(record, "beforeValidation"))) return "aborted";
-    for (const { attribute, type } of passwordFailures(modelOf(record).attributeDefinitions, {
-      isChanged: (name) => recordState.isAttributeChanged(name),
-      read: (name) => recordState.read(name),
-    })) {
+    const { attributeDefinitions } = modelOf(record);
+    for (const { attribute, type } of await passwordFailures(attributeDefinitions, recordState)) {
       recordState.errors[addFailure](attribute, { type });
     }
     await validateRequiredAssociations(record);
@@ -317,12 +315,7 @@ export async function prepareWrites(record: Model, claimed: Claimed): Promise<Sa
  * `abortReason` set.
  */
 async function beforeWrite(record: Model, isInsert: boolean): Promise<Wrapped | undefined> {
-  const recordState = record[state];
-  await hashPasswords(modelOf(record).attributeDefinitions, {
-    isChanged: (name) => recordState.isAttributeChanged(name),
-    read: (name) => recordState.read(name),
-    write: (name, value) => recordState.write(name, value),
-  });
+  await hashPasswords(modelOf(record).attributeDefinitions, record[state]);
   if (!(await runAbortableCallbacks(record, "beforeSave"))) return undefined;
   const wrapped = await startSave(record, isInsert);
   if (!(wrapped instanceof CallbackAbort)) return wrapped;

@@ -188,7 +188,7 @@ export function digestOf(
 
 /** What a record gives a secure password's save: its values, and a write to its digest. */
 export interface PasswordHolder {
-  isChanged(name: string): boolean;
+  isAttributeChanged(name: string): boolean;
   read(name: string): unknown;
   write(name: string, value: unknown): void;
 }
@@ -203,7 +203,8 @@ export async function hashPasswords(
 ): Promise<void> {
   for (const { name, digest, algorithm } of securePasswordsOf(definitions)) {
     const password = holder.read(name);
-    if (typeof password !== "string" || password === "" || !holder.isChanged(name)) continue;
+    if (typeof password !== "string" || password === "" || !holder.isAttributeChanged(name))
+      continue;
     holder.write(digest, await algorithm.hash(password));
   }
 }
@@ -211,33 +212,63 @@ export async function hashPasswords(
 /** A secure password's failure: the attribute it's on, and its type. */
 export interface PasswordFailure {
   readonly attribute: string;
-  readonly type: "blank" | "passwordTooLong";
+  readonly type: "blank" | "invalid" | "passwordTooLong";
+}
+
+/** What a secure password's validation reads of its record: its values, and as they were saved. */
+export interface PasswordValues extends Pick<PasswordHolder, "isAttributeChanged" | "read"> {
+  valueInDatabase(name: string): unknown;
 }
 
 /**
- * The failures of each validated secure password: blank while it has no digest and no password
- * waiting to be hashed, and too long past its algorithm's `maxBytes`, in UTF-8.
+ * The failures of each validated secure password, in order: blank while it has no digest and no
+ * password waiting to be hashed; its challenge, when given, invalid unless it's the password the
+ * digest as last saved was made from; and too long past its algorithm's `maxBytes`, in UTF-8.
  */
-export function passwordFailures(
+export async function passwordFailures(
   definitions: ReadonlyMap<string, AttributeDefinition>,
-  holder: Pick<PasswordHolder, "isChanged" | "read">,
-): PasswordFailure[] {
-  return securePasswordsOf(definitions).flatMap(
-    ({ name, digest, algorithm, isValidated }): PasswordFailure[] => {
-      if (!isValidated) return [];
-      const password = holder.read(name);
-      const isWaiting = typeof password === "string" && password !== "" && holder.isChanged(name);
-      const stored = holder.read(digest);
-      if (!isWaiting && (typeof stored !== "string" || stored.trim() === "")) {
-        return [{ attribute: name, type: "blank" }];
-      }
-      const { maxBytes } = algorithm;
-      const bytes = isWaiting ? new TextEncoder().encode(password).length : 0;
-      return maxBytes !== undefined && bytes > maxBytes
-        ? [{ attribute: name, type: "passwordTooLong" }]
-        : [];
-    },
-  );
+  values: PasswordValues,
+): Promise<PasswordFailure[]> {
+  const failures: PasswordFailure[] = [];
+  for (const password of securePasswordsOf(definitions)) {
+    if (!password.isValidated) continue;
+    const waiting = waitingPassword(password, values);
+    if (waiting === undefined && !isPresent(values.read(password.digest))) {
+      failures.push({ attribute: password.name, type: "blank" });
+    }
+    if (!(await isChallengeMet(password, values))) {
+      failures.push({ attribute: `${password.name}Challenge`, type: "invalid" });
+    }
+    const { maxBytes } = password.algorithm;
+    if (maxBytes !== undefined && new TextEncoder().encode(waiting).length > maxBytes) {
+      failures.push({ attribute: password.name, type: "passwordTooLong" });
+    }
+  }
+  return failures;
+}
+
+/** The password assigned since the record was loaded or saved, which a save hashes, if any. */
+function waitingPassword({ name }: SecurePassword, values: PasswordValues): string | undefined {
+  const password = values.read(name);
+  return typeof password === "string" && password !== "" && values.isAttributeChanged(name)
+    ? password
+    : undefined;
+}
+
+/** Whether a digest is there to check a password against: a string that isn't blank. */
+function isPresent(digest: unknown): digest is string {
+  return typeof digest === "string" && digest.trim() !== "";
+}
+
+/** Whether a challenge, if given, is the password the digest as last saved was made from. */
+async function isChallengeMet(
+  { name, digest, algorithm }: SecurePassword,
+  values: PasswordValues,
+): Promise<boolean> {
+  const challenge = values.read(`${name}Challenge`);
+  if (typeof challenge !== "string") return true;
+  const saved = values.valueInDatabase(digest);
+  return isPresent(saved) && (await algorithm.verify(challenge, saved));
 }
 
 /**
