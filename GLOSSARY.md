@@ -73,7 +73,7 @@ A value the database returned for one column of a row: a number, text, bytes, or
 _Avoid_: Raw value, database value, value from D1
 
 **Filtered attribute**:
-An attribute whose values listeners, errors, and a printed record show as `"[FILTERED]"` (passwords, tokens, keys, emails), named by the Model's `filterAttributes`. D1 still gets the real values.
+An attribute whose values listeners, errors, and a printed record show as `"[FILTERED]"` (passwords, tokens, keys, emails), named by the Model's `filterAttributes`, or a **Secure password**'s or **Secure token**'s, whatever it says. D1 still gets the real values.
 _Avoid_: Redacted, masked, sensitive field; and "filter" alone, which means a **Scope**'s conditions
 
 **Attribute alias**:
