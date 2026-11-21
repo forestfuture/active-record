@@ -109,4 +109,31 @@ describe("a secure password", () => {
       expect(await member.authenticate("battery staple")).toBe(member);
     });
   });
+
+  describe("assigned", () => {
+    test("null clears the digest", async () => {
+      const member = await db()
+        .model(Member)
+        .create({ email: "jane@example.com", password: "correct horse" });
+
+      member.password = null;
+
+      expect(member.passwordDigest).toBe(null);
+      expect(member.isAttributeChanged("passwordDigest")).toBe(true);
+    });
+
+    test("an empty string is ignored", async () => {
+      const member = await db()
+        .model(Member)
+        .create({ email: "jane@example.com", password: "correct horse" });
+      const digest = member.passwordDigest;
+
+      member.password = "";
+      member.assign({ password: "" });
+
+      expect(member.password).toBe("correct horse");
+      expect(member.passwordDigest).toBe(digest);
+      expect(member.isChanged()).toBe(false);
+    });
+  });
 });
