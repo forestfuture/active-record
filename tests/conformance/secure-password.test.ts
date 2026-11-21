@@ -370,4 +370,59 @@ describe("a secure password", () => {
       expect(hashed).toEqual(["battery staple"]);
     });
   });
+
+  describe("its algorithm", () => {
+    /** An algorithm of an app's own, which keeps a marked password, so a test can read it. */
+    const marked = (maxBytes?: number) => ({
+      hash: async (password: string) => `marked:${password.length}`,
+      verify: async (password: string, digest: string) => digest === `marked:${password.length}`,
+      ...(maxBytes === undefined ? {} : { maxBytes }),
+    });
+
+    test("hashes and verifies the password", async () => {
+      class Custom extends Model.define({
+        id: { type: "integer", null: false },
+        passwordDigest: "string",
+        password: { securePassword: { algorithm: marked() } },
+      }) {
+        static table = "members";
+      }
+
+      const custom = await db().model(Custom).create({ password: "correct horse" });
+
+      expect(await storedDigest()).toBe("marked:13");
+      expect(await custom.authenticate("horse correct")).toBe(custom);
+      expect(await custom.authenticate("battery")).toBe(false);
+    });
+
+    test("sets the most bytes a password may be", async () => {
+      class Short extends Model.define({
+        id: { type: "integer", null: false },
+        passwordDigest: "string",
+        password: { securePassword: { algorithm: marked(8) } },
+      }) {
+        static table = "members";
+      }
+
+      const short = await db().model(Short).create({ password: "123456789" });
+
+      expect(short.errors.get("password")).toEqual(["is too long"]);
+    });
+
+    test("without a most, allows a password of any length", async () => {
+      class Long extends Model.define({
+        id: { type: "integer", null: false },
+        passwordDigest: "string",
+        password: { securePassword: { algorithm: marked() } },
+      }) {
+        static table = "members";
+      }
+
+      const long = await db()
+        .model(Long)
+        .create({ password: "a".repeat(500) });
+
+      expect(long.isPersisted()).toBe(true);
+    });
+  });
 });
