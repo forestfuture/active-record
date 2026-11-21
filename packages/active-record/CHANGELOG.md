@@ -1,5 +1,17 @@
 # @forestfuture/active-record
 
+## 0.8.3
+
+### Patch Changes
+
+- [#514](https://github.com/forestfuture/active-record/pull/514) [`1b61370`](https://github.com/forestfuture/active-record/commit/1b61370842e705b0801293e273db808cf9ae59d6) Thanks [@christopherstyles](https://github.com/christopherstyles)! - Give an attribute a second name with `aliasOf` ([#509](https://github.com/forestfuture/active-record/issues/509)): `static override attributes = { title: { aliasOf: "name" } } as const`, or the same in `define`. The alias reads and writes the attribute, typed as it, and queries, writes, validations, and change tracking take either name. `attributes()`, `toJSON()`, and `changes()` list the attribute's own name.
+
+- [#516](https://github.com/forestfuture/active-record/pull/516) [`edd95fe`](https://github.com/forestfuture/active-record/commit/edd95fe206f9cd39d024ba7dbb7dbc83aeec48eb) Thanks [@christopherstyles](https://github.com/christopherstyles)! - Normalize an attribute's values with `this.normalizes("email", { with: (email) => email.trim().toLowerCase() })` in a Model's `static {}` ([#354](https://github.com/forestfuture/active-record/issues/354)). Each value assigned to it is normalized once cast: through the setter, `build`, `create`, `update`, a default, and bulk writes such as `insert` and `updateAll`. A query's values are normalized as well, so `findBy({ email: " Jane@Example.com" })` finds `jane@example.com`. `null` is left alone unless `applyToNull: true`. `Model.normalizeValueFor(name, value)` returns a value normalized, and `record.normalizeAttribute(name)` normalizes a value loaded from a row stored before the normalization was declared.
+
+- [#513](https://github.com/forestfuture/active-record/pull/513) [`d4107bd`](https://github.com/forestfuture/active-record/commit/d4107bd9046efc6320f4218b830905c970813f1d) Thanks [@christopherstyles](https://github.com/christopherstyles)! - `active-record generate model` with a plural name now notes only the singular Model it makes: `line_items looks plural, so the Model is LineItem` ([#511](https://github.com/forestfuture/active-record/issues/511)). The app base class that `init` and `schema` write describes itself and its filter defaults without naming another framework.
+
+- [#510](https://github.com/forestfuture/active-record/pull/510) [`d7c746c`](https://github.com/forestfuture/active-record/commit/d7c746c23f0a68877948233959794044be7ee8d7) Thanks [@christopherstyles](https://github.com/christopherstyles)! - Declare an attribute that isn't a column with `virtual: true` ([#356](https://github.com/forestfuture/active-record/issues/356)), such as a form's `termsOfService` checkbox: `static override attributes = { termsOfService: { type: "boolean", virtual: true } } as const`, or the same in `define`. It's typed, cast, change-tracked, and taken by `permit`, but never saved, never loaded from a row, and refused in a query. The new `confirmation` validator compares an attribute with its virtual confirmation (`email` with `emailConfirmation`), and `toJSON()` leaves that confirmation out.
+
 ## 0.8.2
 
 ### Patch Changes
