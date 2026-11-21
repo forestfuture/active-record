@@ -214,4 +214,58 @@ describe("a secure password", () => {
       expect(guest.passwordDigest).toBe(null);
     });
   });
+
+  describe("its challenge", () => {
+    const signedUp = async () => {
+      await db().model(Member).create({ email: "jane@example.com", password: "correct horse" });
+      return db().model(Member).findByOrThrow({ email: "jane@example.com" });
+    };
+
+    test("lets a password change when it's the current password", async () => {
+      const member = await signedUp();
+
+      const isUpdated = await member.update({
+        password: "battery staple",
+        passwordChallenge: "correct horse",
+      });
+
+      expect(isUpdated).toBe(true);
+      expect(await member.authenticate("battery staple")).toBe(member);
+    });
+
+    test("refuses the change when it isn't", async () => {
+      const member = await signedUp();
+      const digest = await storedDigest();
+
+      const isUpdated = await member.update({
+        password: "battery staple",
+        passwordChallenge: "battery staple",
+      });
+
+      expect(isUpdated).toBe(false);
+      expect(member.errors.toArray()).toEqual([
+        { attribute: "passwordChallenge", type: "invalid", message: "is invalid" },
+      ]);
+      expect(await storedDigest()).toBe(digest);
+    });
+
+    test("is checked against the digest as it was saved, even once null cleared it", async () => {
+      const member = await signedUp();
+      member.password = null;
+      member.passwordChallenge = "correct horse";
+
+      expect(await member.isValid()).toBe(false);
+      expect(member.errors.get("passwordChallenge")).toEqual([]);
+      expect(member.errors.get("password")).toEqual(["can't be blank"]);
+    });
+
+    test("fails on a record with no digest saved", async () => {
+      const member = db()
+        .model(Member)
+        .build({ password: "correct horse", passwordChallenge: "correct horse" });
+
+      expect(await member.isValid()).toBe(false);
+      expect(member.errors.get("passwordChallenge")).toEqual(["is invalid"]);
+    });
+  });
 });
