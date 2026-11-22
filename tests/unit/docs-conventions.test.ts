@@ -1,3 +1,5 @@
+// The conventions in docs/agents/docs-voice.md that a tool can check, in the guide and the READMEs.
+
 import { describe, expect, test } from "vite-plus/test";
 import { guidePages, readmes } from "../support/guide-pages.ts";
 
@@ -55,7 +57,6 @@ function proseWithDescription(text: string): string[] {
   return [...(description === undefined ? [] : [description]), ...prose(text, "$&")];
 }
 
-// The guide's conventions that a tool can check (docs/agents/docs-voice.md).
 describe("the guide's pages", () => {
   test("show comparison boxes as info callouts with the Ruby icon", () => {
     const boxes = pages.flatMap(({ name, text }) =>
