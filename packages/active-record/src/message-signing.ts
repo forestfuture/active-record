@@ -9,7 +9,10 @@ export type SigningFeature = "signed id" | "token for";
 interface SignedMessage {
   readonly id: string | number;
   readonly expiresAt?: Date;
-  /** A value the token stays valid only while the record's is the same; only its fingerprint is kept. */
+  /**
+   * A value the token stays valid only while the record's is the same; only its fingerprint is
+   * kept. Given as a key, so `undefined` is a value too.
+   */
   readonly dependsOn?: unknown;
 }
 
@@ -38,9 +41,12 @@ const BASE64URL = /^[\w-]+$/;
 export function signerFor(secrets: readonly string[], feature: SigningFeature): Signer {
   const keys = secrets.map((secret) => keysFor(secret, feature));
   return {
-    async sign(purpose, { id, expiresAt, dependsOn }) {
+    async sign(purpose, message) {
+      const { id, expiresAt, dependsOn } = message;
       const key = await keys[0]!;
-      const fingerprint = dependsOn === undefined ? null : await fingerprintOf(key, dependsOn);
+      const fingerprint = Object.hasOwn(message, "dependsOn")
+        ? await fingerprintOf(key, dependsOn)
+        : null;
       const expiry = expiresAt === undefined ? null : Math.floor(expiresAt.getTime() / 1000);
       const payload = encode(
         new TextEncoder().encode(JSON.stringify(trimmed([id, expiry, fingerprint]))),

@@ -58,6 +58,8 @@ class Member extends ApplicationRecord {
       dependsOn: (member) => member.email,
     });
     this.generatesTokenFor("unsubscribe");
+    // A value that may be missing: undefined is a value too.
+    this.generatesTokenFor("invitation", { dependsOn: (member) => member.inviteCode ?? undefined });
   }
 }
 interface Member extends TableAttributes<typeof members> {}
@@ -156,6 +158,16 @@ describe("a token for a purpose", () => {
     expect(await members.findByTokenFor("emailConfirmation", token)).toBeNull();
     await jane.update({ email: "jane@example.com" });
     expect((await members.findByTokenFor("emailConfirmation", token))?.id).toBe(jane.id);
+  });
+
+  test("finds its record while a value it depends on stays undefined", async () => {
+    const jane = await create("jane@example.com");
+    const token = await jane.generateTokenFor("invitation");
+    const members = db().model(Member);
+
+    expect((await members.findByTokenFor("invitation", token))?.id).toBe(jane.id);
+    await jane.update({ inviteCode: "welcome" });
+    expect(await members.findByTokenFor("invitation", token)).toBeNull();
   });
 
   test("finds nothing once its purpose lasts another time", async () => {
