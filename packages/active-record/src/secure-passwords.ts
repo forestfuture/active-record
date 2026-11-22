@@ -1,6 +1,6 @@
 // Secure passwords (#355): `password: { securePassword: true }`, a virtual password with its
 // confirmation and challenge, kept in its digest's column as the digest its algorithm makes once
-// the record is saved.
+// the record is saved; and its reset token (#517), a token for a purpose that depends on the digest.
 import type { Duration } from "./durations.ts";
 import { InvalidModel } from "./errors.ts";
 import type { AttributeDefinition } from "./metadata.ts";
@@ -9,7 +9,7 @@ import { capitalized } from "./naming.ts";
 import { pbkdf2Sha256, type PasswordAlgorithm } from "./password-algorithm.ts";
 import { isSecurePasswordOption } from "./spec-keys.ts";
 import { state } from "./record-state.ts";
-import { tokenFor, type TokenDefinition } from "./tokens-for.ts";
+import type { TokenDefinition } from "./tokens-for.ts";
 import type { Validation } from "./validations.ts";
 
 /** `securePassword`'s options: the algorithm that hashes the password, and its validations. */
@@ -215,7 +215,7 @@ export function resetTokenDefinitions(
       ? []
       : [
           {
-            purpose: `${name}Reset`,
+            purpose: resetPurposeOf(name),
             expiresIn: resetTokenExpiresIn,
             dependsOn: (record: Model) => record[state].read(digest),
           },
@@ -294,10 +294,15 @@ export function defineSecurePasswordMethods(
   }
 }
 
+/** The purpose a secure password's reset tokens are for: `passwordReset` for `password`. */
+export function resetPurposeOf(name: string): string {
+  return `${name}Reset`;
+}
+
 /** `passwordResetToken()` on a Model's prototype: a token for `passwordReset`. */
 function defineResetToken(prototype: object, name: string): void {
   function resetToken(this: Model): Promise<string> {
-    return tokenFor(this, `${name}Reset`);
+    return this.generateTokenFor(resetPurposeOf(name));
   }
   Object.defineProperty(prototype, `${name}ResetToken`, {
     value: resetToken,
