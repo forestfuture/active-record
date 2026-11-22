@@ -45,6 +45,19 @@ describe("a signer", () => {
     expect(await signer.verify("users", "")).toBeUndefined();
   });
 
+  test("verifies one spelling of a token only", async () => {
+    const signer = signerFor([secret], "signed id");
+    const token = await signer.sign("users", { id: 7 });
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const last = alphabet.indexOf(token.at(-1)!);
+    // A signature's last character holds 2 bits that aren't the signature's: the same bytes.
+    const respelled = [1, 2, 3].map((spare) => `${token.slice(0, -1)}${alphabet[last ^ spare]}`);
+
+    const verified = await Promise.all(respelled.map((each) => signer.verify("users", each)));
+
+    expect(verified).toEqual([undefined, undefined, undefined]);
+  });
+
   test("refuses a payload that isn't an id, though signed", async () => {
     const signer = signerFor([secret], "signed id");
     const forged = await signer.sign("users", { id: { nested: true } as never });

@@ -63,12 +63,14 @@ export function signerFor(secrets: readonly string[], feature: SigningFeature): 
   };
 }
 
-/** A token's payload and signature's bytes, or undefined when it isn't shaped as one. */
+/** A token's payload and signature's bytes, or undefined when it isn't shaped as one, or spelled as `encode` doesn't. */
 function partsOf(token: string): { payload: string; signature: Uint8Array } | undefined {
   const [payload = "", signature = "", ...rest] = token.split(".");
   if (rest.length > 0 || !BASE64URL.test(payload) || !BASE64URL.test(signature)) return undefined;
   const bytes = decode(signature);
-  return bytes?.length === SIGNATURE_BYTES ? { payload, signature: bytes } : undefined;
+  // Only the spelling `encode` writes: its last character's spare bits are zero.
+  const isCanonical = bytes?.length === SIGNATURE_BYTES && encode(bytes) === signature;
+  return isCanonical ? { payload, signature: bytes } : undefined;
 }
 
 /**
