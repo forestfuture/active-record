@@ -185,6 +185,21 @@ describe("optimistic locking", () => {
     });
   });
   describe("touching", () => {
+    test("a page's touch increments its notebook's lockVersion without checking it, so other copies go stale", async () => {
+      const copy = await db().model(Notebook).find(1);
+      const page = await db().model(Page).find(1);
+      const notebook = await page.notebook();
+
+      page.body = "Stew";
+      await page.saveOrThrow();
+
+      expect(notebook?.lockVersion).toBe(1);
+      expect(notebook?.changed()).toEqual([]);
+      expect((await rows("notebooks"))[0]).toMatchObject({ lock_version: 1 });
+      copy.title = "Soups";
+      await expect(copy.save()).rejects.toThrow(StaleRecord);
+    });
+
     test("touch() increments lockVersion, and a stale copy's touch throws StaleRecord and writes nothing", async () => {
       const [first, second] = await twoCopies();
 
