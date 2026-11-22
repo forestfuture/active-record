@@ -109,6 +109,25 @@ describe("optimistic locking", () => {
       ]);
     });
   });
+  describe("a version from a form", () => {
+    // A guard: the version checked is the record's, so an assigned one is checked as it is.
+    test("an assigned lockVersion is the one checked: an old one throws StaleRecord, the current one saves", async () => {
+      const [first] = await twoCopies();
+      first.title = "Soups";
+      await first.saveOrThrow();
+      const edited = await db().model(Notebook).find(1);
+      const formVersion = 0;
+
+      edited.assign({ title: "Breads", lockVersion: formVersion });
+      await expect(edited.save()).rejects.toThrow(StaleRecord);
+
+      edited.assign({ title: "Breads", lockVersion: 1 });
+      await edited.saveOrThrow();
+      expect(edited.lockVersion).toBe(2);
+      expect((await rows("notebooks"))[0]).toMatchObject({ title: "Breads", lock_version: 2 });
+    });
+  });
+
   describe("destroying", () => {
     test("a stale copy's destroy throws StaleRecord, and keeps its row and its dependents", async () => {
       const [first, second] = await twoCopies();
