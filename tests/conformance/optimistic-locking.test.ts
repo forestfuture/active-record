@@ -15,6 +15,27 @@ class Notebook extends Model.define({
   pages = hasMany(Page, { dependent: "destroy" });
 }
 
+/** A page that counts itself on its notebook, without touching it. */
+class CountedPage extends Model.define({
+  id: { type: "integer", null: false },
+  notebookId: "integer",
+  body: "string",
+  lockVersion: { type: "integer", null: false, default: () => 0 },
+}) {
+  static table = "pages";
+  notebook = belongsTo(Notebook, { counterCache: "pagesCount" });
+}
+
+/** A notebook that saves its changed pages with it. */
+class AutosavingNotebook extends Model.define({
+  id: { type: "integer", null: false },
+  title: "string",
+  lockVersion: { type: "integer", null: false, default: () => 0 },
+}) {
+  static table = "notebooks";
+  pages = hasMany(CountedPage, { foreignKey: "notebookId", autosave: true });
+}
+
 /** A draft, whose `lock_version` has no default and may be NULL. */
 class Draft extends Model.define({
   id: { type: "integer", null: false },
@@ -126,7 +147,21 @@ describe("optimistic locking", () => {
       await expect(batch).rejects.toThrow(StaleRecord);
       expect((await rows("notebooks"))[1]).toMatchObject({ title: "Travel", lock_version: 0 });
     });
+
+    // A guard: an autosaved record's write is in its owner's batch, with its guard.
+    test("a stale autosaved page refuses its notebook's save, which keeps nothing", async () => {
+      const notebook = await db().model(AutosavingNotebook).find(1);
+      const [page] = await notebook.pages().toArray();
+      await db().model(CountedPage).where({ id: 1 }).updateAll({ lockVersion: 3 });
+      notebook.title = "Soups";
+      page!.body = "Bread";
+
+      await expect(notebook.save()).rejects.toMatchObject({ record: page, action: "update" });
+      expect((await rows("notebooks"))[0]).toMatchObject({ title: "Recipes", lock_version: 0 });
+      expect(await rows("pages")).toMatchObject([{ body: "Soup", lock_version: 3 }]);
+    });
   });
+
   describe("a version from a form", () => {
     // A guard: the version checked is the record's, so an assigned one is checked as it is.
     test("an assigned lockVersion is the one checked: an old one throws StaleRecord, the current one saves", async () => {
@@ -250,6 +285,13 @@ describe("optimistic locking", () => {
       await db().model(Notebook).where({ id: 1 }).updateAll({ title: "Cakes" });
 
       expect((await rows("notebooks"))[0]).toMatchObject({ title: "Cakes", lock_version: 1 });
+    });
+
+    // A guard: a counter cache's UPDATE adds to its counter only.
+    test("a counter cache counts a page on its notebook without changing the notebook's version", async () => {
+      await db().model(CountedPage).createOrThrow({ id: 2, notebookId: 2, body: "Map" });
+
+      expect((await rows("notebooks"))[1]).toMatchObject({ pages_count: 1, lock_version: 0 });
     });
 
     // A guard: deleteAll deletes by its conditions, never by a record's version.
