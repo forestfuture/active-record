@@ -141,4 +141,11 @@ describe("the Oxford comma check", () => {
     ]);
     expect(missingOxfordCommas("Use `rewhere`, `unscope`, and `only` instead.")).toEqual([]);
   });
+
+  test("counts words as items when the list starts a line or follows punctuation", () => {
+    expect(missingOxfordCommas("Red, green and blue.")).toEqual(["Red, green and blue"]);
+    expect(missingOxfordCommas("Choose: red, green and blue.")).toEqual(["red, green and blue"]);
+    expect(missingOxfordCommas("Red, green, and blue.")).toEqual([]);
+    expect(missingOxfordCommas("In a Model, red and blue mix.")).toEqual([]);
+  });
 });
