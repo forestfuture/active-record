@@ -18,7 +18,7 @@ import type {
   ScopesOf,
   SpecsOf,
 } from "./model.ts";
-import type { PasswordResetTokenArgument } from "./secure-passwords.ts";
+import { resetPurposeOf, type PasswordResetTokenArgument } from "./secure-passwords.ts";
 import type { PaginateStatic } from "./pagination.ts";
 import { destroyTogether } from "./records-together.ts";
 import { resetCounters } from "./owners-counter.ts";
@@ -443,11 +443,6 @@ const callbackKinds = Object.keys({
   true
 >) as CallbackKind[];
 
-/**
- * The class Model extends, for its statics' types only: at runtime it's empty, and
- * `defineStatics` puts the statics on Model itself, where scopes look for the names they
- * can't take.
- */
 /** A static that finds a record by `password`'s reset token, typed `never` for a Model without one. */
 type ResetTokenStatic<Found> = <C extends QueryableClass>(
   this: C,
@@ -460,6 +455,11 @@ interface ResetTokenStatics {
   findByPasswordResetTokenOrThrow: ResetTokenStatic<never>;
 }
 
+/**
+ * The class Model extends, for its statics' types only: at runtime it's empty, and
+ * `defineStatics` puts the statics on Model itself, where scopes look for the names they
+ * can't take.
+ */
 export const ModelStatics = class {} as unknown as (abstract new () => object) &
   ResetTokenStatics &
   RelationStatics &
@@ -581,13 +581,13 @@ function defineKeyedWrites(base: typeof Model): void {
 /** The finders by `password`'s reset token (#517): `findByTokenFor("passwordReset", token)`. */
 function defineResetTokenFinders(base: typeof Model): void {
   defineStatic(base, "findByPasswordResetToken", function (this: QueryableClass, token: unknown) {
-    return this.findByTokenFor("passwordReset", token);
+    return this.findByTokenFor(resetPurposeOf("password"), token);
   });
   defineStatic(
     base,
     "findByPasswordResetTokenOrThrow",
     function (this: QueryableClass, token: unknown) {
-      return this.findByTokenForOrThrow("passwordReset", token);
+      return this.findByTokenForOrThrow(resetPurposeOf("password"), token);
     },
   );
 }
