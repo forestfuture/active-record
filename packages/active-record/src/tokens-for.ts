@@ -13,7 +13,6 @@ import {
   type TokenFinder,
   type TokenLookup,
 } from "./token-records.ts";
-import type { Signer } from "./message-signing.ts";
 import { signerOf } from "./signing-secret.ts";
 
 /** What `generatesTokenFor` takes: how long its tokens last, and a value they depend on. */
@@ -98,7 +97,7 @@ function rejectResetPurposes(
 }
 
 /** What a purpose's tokens are signed for: the Model's table, the purpose, and how long they last. */
-function signedPurpose(model: ModelClass, { purpose, expiresIn }: TokenDefinition): string {
+function tokenForPurpose(model: ModelClass, { purpose, expiresIn }: TokenDefinition): string {
   const seconds = expiresIn === undefined ? null : secondsOf(expiresIn, "expiresIn");
   return signedPurposeOf(model, purpose, seconds);
 }
@@ -110,7 +109,7 @@ export async function tokenFor(record: Model, purpose: string): Promise<string> 
   const id = signableIdOf(record, "generateTokenFor");
   const { expiresIn, dependsOn } = definition;
   const signer = await signerOf(model, "token for");
-  return signer.sign(signedPurpose(model, definition), {
+  return signer.sign(tokenForPurpose(model, definition), {
     id,
     ...(expiresIn !== undefined && { expiresAt: expiryAfter(expiresIn, "expiresIn") }),
     ...(dependsOn !== undefined && { dependsOn: await dependsOn(record) }),
@@ -128,10 +127,10 @@ export async function findByTokenFor<M extends Model>(
 ): Promise<TokenLookup<M>> {
   const definition = definitionOf(finder.model, purpose);
   const signer = await signerOf(finder.model, "token for");
-  const signed: [Signer, string] = [signer, signedPurpose(finder.model, definition)];
+  const signing = { signer, purpose: tokenForPurpose(finder.model, definition) };
   const { dependsOn } = definition;
-  if (dependsOn === undefined) return lookUpToken(finder, signed, token);
-  return lookUpToken(finder, signed, token, async (record, verified) =>
+  if (dependsOn === undefined) return lookUpToken(finder, signing, token);
+  return lookUpToken(finder, signing, token, async (record, verified) =>
     verified.isUnchanged(await dependsOn(record)),
   );
 }

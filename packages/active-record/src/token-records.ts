@@ -20,8 +20,8 @@ export function signableIdOf(record: Model, method: string): string | number {
 }
 
 /** What a Model's token is signed for: its table, then what else the token is for. */
-export function signedPurposeOf(model: ModelClass, ...purpose: unknown[]): string {
-  return JSON.stringify([model.table, ...purpose]);
+export function signedPurposeOf(model: ModelClass, ...parts: unknown[]): string {
+  return JSON.stringify([model.table, ...parts]);
 }
 
 /** What finds a token's record: a Relation, its conditions and default scopes kept. */
@@ -36,6 +36,12 @@ export interface TokenLookup<M> {
   readonly record: M | null;
 }
 
+/** What checks a token: its Model's signer, and the purpose it's signed for. */
+export interface TokenSigning {
+  readonly signer: Signer;
+  readonly purpose: string;
+}
+
 /** Whether a verified token's record is still the one it was made for. */
 type StillFor<M> = (record: M, verified: VerifiedMessage) => Promise<boolean>;
 
@@ -46,7 +52,7 @@ type StillFor<M> = (record: M, verified: VerifiedMessage) => Promise<boolean>;
  */
 export async function lookUpToken<M extends Model>(
   finder: TokenFinder<M>,
-  [signer, purpose]: [Signer, string],
+  { signer, purpose }: TokenSigning,
   token: unknown,
   isStillFor?: StillFor<M>,
 ): Promise<TokenLookup<M>> {
