@@ -346,6 +346,7 @@ async function beforeWrite(record: Model, isInsert: boolean): Promise<Wrapped | 
  */
 function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): PreparedWrite {
   const recordState = record[state];
+  recordState.isSavingVersion = false;
   const model = modelOf(record);
   const after = async () => {
     await wrapped.finish();
@@ -385,6 +386,7 @@ function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): Prepared
   const counters = countersOnUpdate(record);
   // A locked record's update matches only its version, and sets the next (#357).
   const lock = lockOf(record, "update");
+  recordState.isSavingVersion = lock !== undefined;
   const { written, heldAfter } = lockedUpdate(lock, own, stamps);
   const update = compileUpdate(model, written, recordState.storedKey);
   return {

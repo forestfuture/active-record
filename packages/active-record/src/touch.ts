@@ -115,10 +115,14 @@ export interface TouchWriteOptions {
   /**
    * What the touch does to a locked record's version (#357): a record's own `touch()` checks it
    * with its `Lock` and sets the next; another record's touch of it adds 1 without checking
-   * (`"increment"`), so copies loaded before it go stale, unless the same write saves the row
-   * (`keepsSavedChanges`), whose own save sets its version.
+   * (`"increment"`), so copies loaded before it go stale, unless `isVersionSaved`.
    */
   version?: Lock | "increment" | undefined;
+  /**
+   * Whether the same write's save of the row sends a locked UPDATE, which sets its version, asked
+   * once as the touch is sent: an `"increment"` touch then leaves the version to it.
+   */
+  isVersionSaved?: () => boolean;
 }
 
 /**
@@ -129,25 +133,27 @@ export interface TouchWriteOptions {
 export function touchWrite(
   record: Model,
   valuesOf: () => Record<string, unknown>,
-  { keepsSavedChanges, version }: TouchWriteOptions = {},
+  { keepsSavedChanges, version, isVersionSaved }: TouchWriteOptions = {},
 ): PreparedWrite {
   const recordState = record[state];
   const model = modelOf(record);
   const lock = version === "increment" ? undefined : version;
-  const increments = () => version === "increment" && keepsSavedChanges?.() !== true;
+  let isIncrementing: boolean | undefined;
+  const isIncremented = () =>
+    (isIncrementing ??= version === "increment" && isVersionSaved?.() !== true);
   const assigned = () => ({ ...valuesOf(), ...(lock && Object.fromEntries([lock.next])) });
   let isWritten = false;
   return {
     // Compiled as it's sent: a record the same write inserts has its key by then.
     get statements() {
-      const sets = increments()
+      const sets = isIncremented()
         ? counterSets(model, { [lockVersion]: 1 }, "touch", { touched: Object.entries(valuesOf()) })
         : Object.entries(assigned());
       const update = compileUpdate(model, sets, keyCells(record));
       return lockedStatements(lock, update);
     },
     commit: ([result]) => {
-      const values = increments() ? incremented(record, valuesOf()) : assigned();
+      const values = isIncremented() ? incremented(record, valuesOf()) : assigned();
       recordState.assign(values);
       if (keepsSavedChanges?.()) recordState.commitColumns(Object.keys(values));
       else recordState.commitTouch(Object.keys(values));

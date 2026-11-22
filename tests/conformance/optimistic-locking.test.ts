@@ -257,6 +257,17 @@ describe("optimistic locking", () => {
       expect((await rows("notebooks"))[0]).toMatchObject({ title: "Soups", lock_version: 1 });
     });
 
+    test("a batch saving a page and its notebook unchanged still raises the notebook's version", async () => {
+      const database = db();
+      const page = await database.model(Page).find(1);
+      const notebook = await database.model(Notebook).find(1);
+      page.body = "Stew";
+
+      await database.batch((b) => [b.save(page), b.save(notebook)]);
+
+      expect((await rows("notebooks"))[0]).toMatchObject({ lock_version: 1 });
+    });
+
     test("touch() increments lockVersion, and a stale copy's touch throws StaleRecord and writes nothing", async () => {
       const [first, second] = await twoCopies();
 
