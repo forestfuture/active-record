@@ -49,19 +49,19 @@ export interface Dialect {
    */
   linkedKey(key: string, keyAttribute: Attribute, linked: Attribute): string;
   /**
-   * A bulk removal (a DELETE, or an UPDATE nullifying a key) and the counter caches it changes
-   * (#61), as one statement: `decrements` writes the counters' UPDATEs, given SQL counting the rows
-   * removed, and the statement returns one row, whose `removed` is how many. Without it, the
-   * counters are taken down by a COUNT sent just before the removal: exact where writes run one
-   * at a time.
-   */
-  /**
    * A record's write that must change its row (an update or delete by its key and `lockVersion`,
    * #357), followed by a check that fails the whole atomic batch when it changed none, with an
    * error whose message holds `marker`, bound as a value: one statement or several, the write's
    * result first.
    */
   staleGuard(write: CompiledSql, marker: string): CompiledSql[];
+  /**
+   * A bulk removal (a DELETE, or an UPDATE nullifying a key) and the counter caches it changes
+   * (#61), as one statement: `decrements` writes the counters' UPDATEs, given SQL counting the rows
+   * removed, and the statement returns one row, whose `removed` is how many. Without it, the
+   * counters are taken down by a COUNT sent just before the removal: exact where writes run one
+   * at a time.
+   */
   countedRemoval?(
     removal: CompiledSql,
     decrements: (removed: string) => readonly CompiledSql[],
