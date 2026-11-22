@@ -80,6 +80,8 @@ const relationMethods = [
   "findSoleBy",
   "findSigned",
   "findSignedOrThrow",
+  "findByTokenFor",
+  "findByTokenForOrThrow",
   "findOrCreateBy",
   "findOrCreateByOrThrow",
   "findOrInitializeBy",
