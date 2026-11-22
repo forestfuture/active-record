@@ -46,7 +46,13 @@ import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
-import { firstVersion, lockedAssignments, lockOf } from "./optimistic-locking.ts";
+import {
+  firstVersion,
+  lockedStatements,
+  lockedUpdate,
+  lockFailure,
+  lockOf,
+} from "./optimistic-locking.ts";
 import { leaveToAutosaves, touchesOf, touchesOfSave } from "./association-touch.ts";
 import {
   countersOnDestroy,
@@ -379,19 +385,18 @@ function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): Prepared
   const counters = countersOnUpdate(record);
   // A locked record's update matches only its version, and sets the next (#357).
   const lock = lockOf(record, "update");
-  const added = lock === undefined ? stamps : [...stamps, lock.next];
-  const assignments = [...lockedAssignments(own, lock), ...stamps];
-  const update = compileUpdate(model, assignments, recordState.storedKey);
+  const { written, heldAfter } = lockedUpdate(lock, own, stamps);
+  const update = compileUpdate(model, written, recordState.storedKey);
   return {
-    statements: counters.around(lock?.guarded(update) ?? [update]),
+    statements: counters.around(lockedStatements(lock, update)),
     commit: (results) => {
-      recordState.commitUpdate(added);
+      recordState.commitUpdate(heldAfter);
       counters.commit(results);
     },
     after,
     afterCommit,
     afterRollback,
-    ...(lock && { failed: lock.failed }),
+    ...lockFailure(lock),
   };
 }
 
@@ -453,7 +458,7 @@ function destroyWrite(record: Model, wrapped: Wrapped): PreparedWrite {
   const lock = hasRow ? lockOf(record, "destroy") : undefined;
   const deleted = () => compileDelete(modelOf(record), recordState.storedKey);
   return {
-    statements: hasRow ? counters.around(lock?.guarded(deleted()) ?? [deleted()]) : [],
+    statements: hasRow ? counters.around(lockedStatements(lock, deleted())) : [],
     commit: (results) => {
       recordState.markDestroyed();
       counters.commit(results);
@@ -467,7 +472,7 @@ function destroyWrite(record: Model, wrapped: Wrapped): PreparedWrite {
       await wrapped.fail(error);
     },
     ...(hasRow && { afterCommit: () => runCommitCallbacks(record, "destroy") }),
-    ...(lock && { failed: lock.failed }),
+    ...lockFailure(lock),
   };
 }
 

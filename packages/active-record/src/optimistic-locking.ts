@@ -6,7 +6,13 @@ import { StaleRecord, type StaleAction } from "./errors.ts";
 import { modelOf, type Model } from "./model.ts";
 import { quoteIdentifier } from "./query-tables.ts";
 import { state } from "./record-state.ts";
+import type { PreparedWrite } from "./unit-of-work.ts";
 import { isLocking, lockVersion } from "./lock-version.ts";
+
+/** The record's lock version: the one loaded, or one assigned, as from a form; a NULL reads as 0. */
+export function versionOf(record: Model): number {
+  return (record[state].read(lockVersion) as number | null) ?? 0;
+}
 
 /** A new locked record's version, when it has none: it's written with 0. */
 export function firstVersion(record: Model): Assignment[] {
@@ -29,11 +35,11 @@ export interface Lock {
 
 /**
  * The lock on `record`'s write, or undefined when its Model doesn't lock. The version it expects
- * is the record's: the one loaded, or one assigned, as from a form; a NULL reads as 0.
+ * is the record's (`versionOf`).
  */
 export function lockOf(record: Model, action: StaleAction): Lock | undefined {
   if (!isLocking(modelOf(record))) return undefined;
-  const expected = (record[state].read(lockVersion) as number | null) ?? 0;
+  const expected = versionOf(record);
   const marker = `active-record stale record ${crypto.randomUUID()}`;
   return {
     next: [lockVersion, expected + 1],
@@ -65,11 +71,27 @@ function isMentioned(error: unknown, marker: string): boolean {
   return false;
 }
 
-/** The assignments a save's update writes, with a locked record's version in place of its own. */
-export function lockedAssignments(
-  own: readonly Assignment[],
+/** A write's statements: behind the guard when it's locked, or the write alone. */
+export function lockedStatements(lock: Lock | undefined, write: CompiledSql): CompiledSql[] {
+  return lock === undefined ? [write] : lock.guarded(write);
+}
+
+/** What a locked write adds to its prepared write: the `StaleRecord` its refusal throws. */
+export function lockFailure(lock: Lock | undefined): Pick<PreparedWrite, "failed"> {
+  return lock === undefined ? {} : { failed: lock.failed };
+}
+
+/**
+ * A save's update of a record: what it writes (its changes and `stamps`, with a locked record's
+ * next version in place of its own), and what the record holds once it's written beyond its own
+ * changes (the stamps, and that version).
+ */
+export function lockedUpdate(
   lock: Lock | undefined,
-): Assignment[] {
-  if (lock === undefined) return [...own];
-  return [...own.filter(([name]) => name !== lockVersion), lock.next];
+  own: readonly Assignment[],
+  stamps: readonly Assignment[],
+): { written: Assignment[]; heldAfter: Assignment[] } {
+  if (lock === undefined) return { written: [...own, ...stamps], heldAfter: [...stamps] };
+  const changes = own.filter(([name]) => name !== lockVersion);
+  return { written: [...changes, lock.next, ...stamps], heldAfter: [...stamps, lock.next] };
 }
