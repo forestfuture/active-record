@@ -1,12 +1,15 @@
 // Secure passwords (#355): `password: { securePassword: true }`, a virtual password with its
 // confirmation and challenge, kept in its digest's column as the digest its algorithm makes once
 // the record is saved.
+import type { Duration } from "./durations.ts";
 import { InvalidModel } from "./errors.ts";
 import type { AttributeDefinition } from "./metadata.ts";
+import type { Model } from "./model.ts";
 import { capitalized } from "./naming.ts";
 import { pbkdf2Sha256, type PasswordAlgorithm } from "./password-algorithm.ts";
 import { isSecurePasswordOption } from "./spec-keys.ts";
 import { state } from "./record-state.ts";
+import { tokenFor, type TokenDefinition } from "./tokens-for.ts";
 import type { Validation } from "./validations.ts";
 
 /** `securePassword`'s options: the algorithm that hashes the password, and its validations. */
@@ -15,6 +18,11 @@ export interface SecurePasswordOptions {
   readonly algorithm?: PasswordAlgorithm;
   /** `false` leaves out the validations a secure password adds. */
   readonly validations?: boolean;
+  /**
+   * Its reset token (`passwordResetToken()`), which lasts 15 minutes unless `expiresIn` says
+   * otherwise, and stops finding its record once the password changes; `false` leaves it out.
+   */
+  readonly resetToken?: boolean | { readonly expiresIn?: Duration };
 }
 
 /** A secure password in `static attributes` or `define`: `password: { securePassword: true }`. */
@@ -22,8 +30,12 @@ export interface SecurePasswordDeclaration {
   readonly securePassword: true | SecurePasswordOptions;
 }
 
-/** The spec a secure password's own attribute gets: a virtual string that says it's one. */
-type PasswordSpec = { type: "string"; virtual: true; securePassword: true };
+/** The spec a secure password's own attribute gets: a virtual string that says it's one, with its options. */
+type PasswordSpec<D> = {
+  type: "string";
+  virtual: true;
+  securePassword: D extends { securePassword: infer P } ? P : true;
+};
 
 /** The spec of its confirmation and its challenge: virtual strings. */
 type CompanionSpec = { type: "string"; virtual: true };
@@ -38,7 +50,7 @@ type DeclaredNames<O> = {
  * confirmation and its challenge, virtual strings.
  */
 export type SecurePasswordSpecs<O> = {
-  -readonly [K in DeclaredNames<O>]: PasswordSpec;
+  -readonly [K in DeclaredNames<O>]: PasswordSpec<O[K]>;
 } & {
   -readonly [K in DeclaredNames<O> as `${K}Confirmation` | `${K}Challenge`]: CompanionSpec;
 };
@@ -65,14 +77,31 @@ export type AuthenticateByAttributes<S, A> = [PasswordNames<S>] extends [never]
 /** Checks a password against its digest: the record, or `false` when it isn't the one. */
 type Authenticate = <R>(this: R, password: string) => Promise<R | false>;
 
+/** The names among the attribute specs `A` that are secure passwords with a reset token. */
+type ResettableNames<A> = {
+  [K in keyof A]: A[K] extends { securePassword: { resetToken: false } }
+    ? never
+    : A[K] extends { securePassword: true | object }
+      ? K & string
+      : never;
+}[keyof A];
+
 /**
  * What the secure passwords among the specs `A` add to a record: `authenticatePassword` for
  * `password`, `authenticateRecoveryPassword` for `recoveryPassword`, and `authenticate`, for
- * `password` alone.
+ * `password` alone; and each reset token's, `passwordResetToken()` (#517).
  */
 export type SecurePasswordMethods<A> = {
   [K in PasswordNames<A> as `authenticate${Capitalize<K>}`]: Authenticate;
-} & ("password" extends PasswordNames<A> ? { authenticate: Authenticate } : {});
+} & ("password" extends PasswordNames<A> ? { authenticate: Authenticate } : {}) & {
+    [K in ResettableNames<A> as `${K}ResetToken`]: () => Promise<string>;
+  };
+
+/**
+ * What `findByPasswordResetToken` takes for a Model whose attribute specs are `S`: a token, or
+ * `never` for a Model whose `password` has no reset token, so calling it is a compile error.
+ */
+export type PasswordResetTokenArgument<S> = "password" extends ResettableNames<S> ? unknown : never;
 
 /** Whether a declared attribute is a secure password: an object with `securePassword` and no type. */
 function isSecurePasswordDeclaration(declared: unknown): declared is SecurePasswordDeclaration {
@@ -162,6 +191,36 @@ interface SecurePassword {
   readonly challenge: string;
   readonly algorithm: PasswordAlgorithm;
   readonly isValidated: boolean;
+  /** How long its reset token lasts, or undefined when it has none. */
+  readonly resetTokenExpiresIn: Duration | undefined;
+}
+
+/** How long a reset token lasts unless `expiresIn` says. */
+const RESET_TOKEN_EXPIRES_IN: Duration = { minutes: 15 };
+
+function resetTokenExpiryOf(option: SecurePasswordOptions["resetToken"]): Duration | undefined {
+  if (option === false) return undefined;
+  return (option === true ? undefined : option?.expiresIn) ?? RESET_TOKEN_EXPIRES_IN;
+}
+
+/**
+ * The tokens each secure password with a reset token has (#517): `passwordReset` for
+ * `password`, lasting its `expiresIn`, which stop finding their record once its digest changes.
+ */
+export function resetTokenDefinitions(
+  definitions: ReadonlyMap<string, AttributeDefinition>,
+): TokenDefinition[] {
+  return securePasswordsOf(definitions).flatMap(({ name, digest, resetTokenExpiresIn }) =>
+    resetTokenExpiresIn === undefined
+      ? []
+      : [
+          {
+            purpose: `${name}Reset`,
+            expiresIn: resetTokenExpiresIn,
+            dependsOn: (record: Model) => record[state].read(digest),
+          },
+        ],
+  );
 }
 
 /** A Model's secure passwords, from its attributes' definitions. */
@@ -178,6 +237,7 @@ function securePasswordsOf(
         challenge: companionsOf(name)[1]!,
         algorithm: options.algorithm ?? pbkdf2Sha256,
         isValidated: options.validations !== false,
+        resetTokenExpiresIn: resetTokenExpiryOf(options.resetToken),
       },
     ];
   });
@@ -230,7 +290,20 @@ export function defineSecurePasswordMethods(
         writable: true,
       });
     }
+    if (password.resetTokenExpiresIn !== undefined) defineResetToken(prototype, name);
   }
+}
+
+/** `passwordResetToken()` on a Model's prototype: a token for `passwordReset`. */
+function defineResetToken(prototype: object, name: string): void {
+  function resetToken(this: Model): Promise<string> {
+    return tokenFor(this, `${name}Reset`);
+  }
+  Object.defineProperty(prototype, `${name}ResetToken`, {
+    value: resetToken,
+    configurable: true,
+    writable: true,
+  });
 }
 
 /** The digest's attribute, when `name` is a secure password: `passwordDigest` for `password`. */

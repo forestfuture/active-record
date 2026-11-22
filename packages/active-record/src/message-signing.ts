@@ -6,7 +6,7 @@
 export type SigningFeature = "signed id" | "token for";
 
 /** What a token says: a record's primary key, until when, and a value it depends on. */
-export interface SignedMessage {
+interface SignedMessage {
   readonly id: string | number;
   readonly expiresAt?: Date;
   /** A value the token stays valid only while the record's is the same; only its fingerprint is kept. */

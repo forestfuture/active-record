@@ -49,6 +49,47 @@ describe("a secure password's declaration", () => {
     expectTypeOf(Member.authenticateBy).parameter(0).toHaveProperty("password");
   });
 
+  test("gives each a reset token, unless resetToken is false", () => {
+    class Staff extends Model.define({
+      passwordDigest: "string",
+      recoveryPasswordDigest: "string",
+      password: { securePassword: { resetToken: false } },
+      recoveryPassword: { securePassword: { resetToken: { expiresIn: { hours: 1 } } } },
+    }) {}
+
+    expectTypeOf<Member>().toHaveProperty("passwordResetToken");
+    expectTypeOf<Staff>().toHaveProperty("recoveryPasswordResetToken");
+    expectTypeOf<Staff>().not.toHaveProperty("passwordResetToken");
+    expect(typeof Staff.prototype.recoveryPasswordResetToken).toBe("function");
+    expect("passwordResetToken" in Staff.prototype).toBe(false);
+  });
+
+  test("gives a Model findByPasswordResetToken only with password's reset token", () => {
+    class Visitor extends Model.define({ id: { type: "integer", null: false }, email: "string" }) {
+      static table = "visitors";
+    }
+
+    // @ts-expect-error -- a Model without a password has no reset token to find it by
+    void (() => Visitor.findByPasswordResetToken("token"));
+    // @ts-expect-error -- nor its OrThrow
+    void (() => Visitor.findByPasswordResetTokenOrThrow("token"));
+    expectTypeOf(() =>
+      Member.findByPasswordResetToken("token"),
+    ).returns.resolves.toEqualTypeOf<Member | null>();
+  });
+
+  test("refuses a resetToken that isn't one", () => {
+    const declare = (resetToken: unknown) =>
+      Model.define({
+        passwordDigest: "string",
+        password: { securePassword: { resetToken: resetToken as never } },
+      });
+
+    expect(() => declare("yes")).toThrow(InvalidModel);
+    expect(() => declare({ expires: { minutes: 5 } })).toThrow(InvalidModel);
+    expect(() => declare({ expiresIn: { minutes: -5 } })).toThrow(InvalidModel);
+  });
+
   test("needs a string attribute for its digest", () => {
     expect(() =>
       Model.define({

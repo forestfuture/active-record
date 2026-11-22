@@ -5,15 +5,19 @@
 import { inspect } from "node:util";
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
   expect,
   expectTypeOf,
   test,
+  vi,
 } from "vite-plus/test";
 import {
+  InvalidToken,
   Model,
+  RecordNotFound,
   withDatabase,
   type TableAttributes,
 } from "../../packages/active-record/src/index.ts";
@@ -40,6 +44,9 @@ const schema = {
 
 abstract class ApplicationRecord extends Model {
   static override schema = schema;
+  static override signingSecret() {
+    return "a-signing-secret-of-at-least-32-bytes";
+  }
 }
 
 class Member extends ApplicationRecord {
@@ -595,6 +602,160 @@ describe("a secure password", () => {
         .create({ password: "a".repeat(500) });
 
       expect(long.isPersisted()).toBe(true);
+    });
+  });
+
+  describe("its reset token", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const createMember = () =>
+      db().model(Member).create({ email: "jane@example.com", password: "correct horse" });
+
+    test("finds its record", async () => {
+      const jane = await createMember();
+      await db().model(Member).create({ email: "sam@example.com", password: "battery staple" });
+
+      const found = await db()
+        .model(Member)
+        .findByTokenFor("passwordReset", await jane.passwordResetToken());
+
+      expect(found?.email).toBe("jane@example.com");
+    });
+
+    test("is found from the Model's statics", async () => {
+      // Declared with define, so its statics find whichever database withDatabase is given.
+      class Resetting extends Model.define({
+        id: { type: "integer", null: false },
+        email: "string",
+        passwordDigest: "string",
+        password: { securePassword: true },
+      }) {
+        static table = "members";
+        static override signingSecret() {
+          return "a-signing-secret-of-at-least-32-bytes";
+        }
+      }
+      const jane = await db()
+        .model(Resetting)
+        .create({ email: "jane@example.com", password: "correct horse" });
+      const token = await jane.passwordResetToken();
+
+      const found = await withDatabase(db(), () => Resetting.findByPasswordResetToken(token));
+
+      expect(found?.id).toBe(jane.id);
+      expect(await withDatabase(db(), () => Resetting.findByPasswordResetToken("made.up"))).toBe(
+        null,
+      );
+    });
+
+    test("expires after 15 minutes", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-21T12:00:00Z"));
+      const jane = await createMember();
+      const token = await jane.passwordResetToken();
+      const members = db().model(Member);
+
+      vi.setSystemTime(new Date("2026-11-21T12:14:00Z"));
+      expect((await members.findByTokenFor("passwordReset", token))?.id).toBe(jane.id);
+      vi.setSystemTime(new Date("2026-11-21T12:15:00Z"));
+      expect(await members.findByTokenFor("passwordReset", token)).toBeNull();
+    });
+
+    test("finds nothing once the password changes", async () => {
+      const jane = await createMember();
+      const token = await jane.passwordResetToken();
+
+      await jane.update({ password: "battery staple" });
+
+      expect(await db().model(Member).findByTokenFor("passwordReset", token)).toBeNull();
+    });
+
+    test("finds nothing once the password changes, even back to the same one", async () => {
+      const jane = await createMember();
+      const token = await jane.passwordResetToken();
+      const loaded = await db().model(Member).find(jane.id);
+
+      await loaded.update({ password: "correct horse" });
+
+      expect(await db().model(Member).findByTokenFor("passwordReset", token)).toBeNull();
+    });
+
+    test("keeps out of the token any of the digest", async () => {
+      const jane = await createMember();
+      const token = await jane.passwordResetToken();
+      const payload = atob(token.split(".")[0]!.replaceAll("-", "+").replaceAll("_", "/"));
+      const [, , , salt, hash] = String(await storedDigest()).split("$");
+
+      expect(payload).not.toContain(salt!.slice(-10));
+      expect(payload).not.toContain(hash!.slice(-10));
+    });
+
+    test("throws InvalidToken, or RecordNotFound once the password changes, from its OrThrow", async () => {
+      class Resetting extends Model.define({
+        id: { type: "integer", null: false },
+        email: "string",
+        passwordDigest: "string",
+        password: { securePassword: { resetToken: { expiresIn: { hours: 1 } } } },
+      }) {
+        static table = "members";
+        static override signingSecret() {
+          return "a-signing-secret-of-at-least-32-bytes";
+        }
+      }
+      const jane = await db()
+        .model(Resetting)
+        .create({ email: "jane@example.com", password: "correct horse" });
+      const token = await jane.passwordResetToken();
+      await jane.update({ password: "battery staple" });
+
+      await expect(
+        withDatabase(db(), () => Resetting.findByPasswordResetTokenOrThrow("made.up")),
+      ).rejects.toThrow(InvalidToken);
+      await expect(
+        withDatabase(db(), () => Resetting.findByPasswordResetTokenOrThrow(token)),
+      ).rejects.toThrow(RecordNotFound);
+    });
+
+    test("gives a recovery password a reset token of its own purpose", async () => {
+      class Staff extends Model.define({
+        id: { type: "integer", null: false },
+        email: "string",
+        passwordDigest: "string",
+        recoveryPasswordDigest: "string",
+        password: { securePassword: true },
+        recoveryPassword: { securePassword: true },
+      }) {
+        static table = "members";
+        static override signingSecret() {
+          return "a-signing-secret-of-at-least-32-bytes";
+        }
+      }
+      const jane = await db().model(Staff).create({
+        email: "jane@example.com",
+        password: "correct horse",
+        recoveryPassword: "battery staple",
+      });
+      const staff = db().model(Staff);
+      const token = await jane.recoveryPasswordResetToken();
+
+      expect((await staff.findByTokenFor("recoveryPasswordReset", token))?.id).toBe(jane.id);
+      expect(await staff.findByTokenFor("passwordReset", token)).toBeNull();
+    });
+
+    test("isn't there with resetToken: false", async () => {
+      class Unresettable extends Model.define({
+        id: { type: "integer", null: false },
+        passwordDigest: "string",
+        password: { securePassword: { resetToken: false } },
+      }) {
+        static table = "members";
+      }
+
+      await expect(
+        db().model(Unresettable).findByTokenFor("passwordReset", "made.up"),
+      ).rejects.toThrow(TypeError);
     });
   });
 });
