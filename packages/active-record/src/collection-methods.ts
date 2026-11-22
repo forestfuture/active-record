@@ -8,7 +8,7 @@ import type { AssociationCollection } from "./owned-collection.ts";
 import { countedOut } from "./owners-counter.ts";
 import { isOwnersKey } from "./point-back-at-owner.ts";
 import { preparedWrites } from "./prepared-writes.ts";
-import { queryOf } from "./relation.ts";
+import { queryOf } from "./query.ts";
 import { runAlone } from "./statement.ts";
 import { linksOf, state } from "./record-state.ts";
 import type { ResolvedAssociation } from "./resolved-association.ts";

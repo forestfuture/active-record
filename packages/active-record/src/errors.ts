@@ -26,6 +26,14 @@ export class RecordNotFound extends ActiveRecordError {
   override name = "RecordNotFound";
 }
 
+/**
+ * A token a finder that must find a record was given isn't valid (#517): it was changed, signed
+ * with another secret, made for another purpose, or has expired.
+ */
+export class InvalidToken extends ActiveRecordError {
+  override name = "InvalidToken";
+}
+
 /** `sole()` or `findSoleBy()` matched more than one record. */
 export class SoleRecordExceeded extends ActiveRecordError {
   override name = "SoleRecordExceeded";

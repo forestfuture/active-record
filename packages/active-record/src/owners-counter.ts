@@ -15,7 +15,7 @@ import { modelOf, type Model, type ModelClass, type QueryableClass } from "./mod
 import { quoteIdentifier } from "./query-tables.ts";
 import type { QueryDescription } from "./query.ts";
 import { state } from "./record-state.ts";
-import { queryOf } from "./relation.ts";
+import { queryOf } from "./query.ts";
 import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
 import type { StatementResult } from "./driver.ts";
 import { rowsAffectedOf, runAlone, Statement, statementParts } from "./statement.ts";

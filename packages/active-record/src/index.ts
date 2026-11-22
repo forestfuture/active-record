@@ -32,6 +32,7 @@ export {
   IrreversibleOrder,
   InvalidForeignKey,
   InvalidModel,
+  InvalidToken,
   MissingAttribute,
   NoDatabase,
   NotNullViolation,
@@ -81,6 +82,9 @@ export { type CustomType, defineType } from "./custom-types.ts";
 export type { PasswordAlgorithm } from "./password-algorithm.ts";
 export type { SecurePasswordOptions } from "./secure-passwords.ts";
 export { generateSecureToken, type SecureTokenOptions } from "./secure-tokens.ts";
+export type { Duration } from "./durations.ts";
+export type { FindSignedOptions, SignedIdOptions } from "./signed-ids.ts";
+export type { SigningEnv, SigningSecrets } from "./signing-secret.ts";
 export { Relation, type Scope, type ScopeMethods, type Scoped } from "./relation.ts";
 export type { GroupedRelation } from "./grouping.ts";
 export type { Init } from "./record-creation.ts";

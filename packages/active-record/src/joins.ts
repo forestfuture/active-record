@@ -16,7 +16,7 @@ import {
   type OrderTerm,
   type QueryDescription,
 } from "./query.ts";
-import { queryOf } from "./relation.ts";
+import { queryOf } from "./query.ts";
 import {
   isOnDifferentDatabases,
   resolveAssociation,
