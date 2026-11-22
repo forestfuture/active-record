@@ -432,36 +432,43 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
     return aborted(record);
   }
   waitWith(claimed, wrapped);
-  // A record that was never saved has no row, so no DELETE and no commit callbacks.
-  const hasRow = !recordState.isNew;
-  const counters = hasRow ? countersOnDestroy(record) : noCounterChanges;
-  const deletion = hasRow
-    ? counters.around([compileDelete(modelOf(record), recordState.storedKey)])
-    : [];
-  const touches = hasRow ? await touchesOf(record, "destroy", claimed) : [];
-  const own = stageOf(record, [record], () => [
-    {
-      statements: deletion,
-      commit: (results) => {
-        recordState.markDestroyed();
-        counters.commit(results);
-      },
-      after: async () => {
-        await wrapped.finish();
-        await runAfterCallbacks(record, "afterDestroy", "destroy");
-      },
-      afterRollback: async (error) => {
-        await afterRollbackOf(record)();
-        await wrapped.fail(error);
-      },
-      ...(hasRow && { afterCommit: () => runCommitCallbacks(record, "destroy") }),
-    },
-    ...touches,
-  ]);
+  const write = destroyWrite(record, wrapped);
+  const touches = recordState.isNew ? [] : await touchesOf(record, "destroy", claimed);
+  const own = stageOf(record, [record], () => [write, ...touches]);
   // Dependents first: their records go before the owner's row, which they may point at. Those
   // on another database (#228) are written there, before it.
   const stages = inGroup(combine([[dependents.here], [own]]), record);
   return { status: "ready", stages, before: dependents.elsewhere, after: [] };
+}
+
+/**
+ * A destroy's own write: the DELETE by the stored key (a locked record's matching its version
+ * too, #357), then the record marked destroyed and `afterDestroy`. A record that was never saved
+ * has no row, so no DELETE and no commit callbacks.
+ */
+function destroyWrite(record: Model, wrapped: Wrapped): PreparedWrite {
+  const recordState = record[state];
+  const hasRow = !recordState.isNew;
+  const counters = hasRow ? countersOnDestroy(record) : noCounterChanges;
+  const lock = hasRow ? lockOf(record, "destroy") : undefined;
+  const deleted = () => compileDelete(modelOf(record), recordState.storedKey);
+  return {
+    statements: hasRow ? counters.around(lock?.guarded(deleted()) ?? [deleted()]) : [],
+    commit: (results) => {
+      recordState.markDestroyed();
+      counters.commit(results);
+    },
+    after: async () => {
+      await wrapped.finish();
+      await runAfterCallbacks(record, "afterDestroy", "destroy");
+    },
+    afterRollback: async (error) => {
+      await afterRollbackOf(record)();
+      await wrapped.fail(error);
+    },
+    ...(hasRow && { afterCommit: () => runCommitCallbacks(record, "destroy") }),
+    ...(lock && { failed: lock.failed }),
+  };
 }
 
 /**
