@@ -150,6 +150,23 @@ describe("a signer", () => {
     expect(await verified?.isUnchanged({ email: "jane@example.com", version: 2 })).toBe(true);
   });
 
+  test("fingerprints a value apart for each record and purpose", async () => {
+    const signer = signerFor([secret], "token for");
+    const fingerprint = async (purpose: string, id: number) => {
+      const token = await signer.sign(purpose, { id, dependsOn: "member" });
+      const payload = atob(token.split(".")[0]!.replaceAll("-", "+").replaceAll("_", "/"));
+      return (JSON.parse(payload) as unknown[])[2];
+    };
+
+    const fingerprints = [
+      await fingerprint("users", 7),
+      await fingerprint("users", 8),
+      await fingerprint("users/login", 7),
+    ];
+
+    expect(new Set(fingerprints).size).toBe(3);
+  });
+
   test("never matches a value a token without one depends on", async () => {
     const signer = signerFor([secret], "token for");
     const verified = await signer.verify("users", await signer.sign("users", { id: 7 }));
