@@ -86,6 +86,17 @@ describe("a signer", () => {
     expect(await signer.verify("users", token)).toBeUndefined();
   });
 
+  test("refuses to sign an expiry that isn't a time", async () => {
+    const signer = signerFor([secret], "signed id");
+
+    await expect(signer.sign("users", { id: 7, expiresAt: new Date(Number.NaN) })).rejects.toThrow(
+      TypeError,
+    );
+    await expect(
+      signer.sign("users", { id: 7, expiresAt: { getTime: () => Infinity } as never }),
+    ).rejects.toThrow(TypeError);
+  });
+
   test("says whether a value it depends on is unchanged, without carrying it", async () => {
     const signer = signerFor([secret, older], "token for");
     const token = await signer.sign("users", { id: 7, dependsOn: "jane@example.com" });

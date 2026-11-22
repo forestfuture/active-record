@@ -207,6 +207,9 @@ describe("a signed id", () => {
     await expect(jane.signedId({ expiresIn: {} })).rejects.toThrow(TypeError);
     await expect(jane.signedId({ expiresIn: { minutes: -1 } })).rejects.toThrow(TypeError);
     await expect(jane.signedId({ expiresIn: { weeks: 1 } as never })).rejects.toThrow(TypeError);
+    await expect(jane.signedId({ expiresAt: new Date(Number.NaN) })).rejects.toThrow(TypeError);
+    await expect(jane.signedId({ expiresAt: "tomorrow" as never })).rejects.toThrow(TypeError);
+    await expect(jane.signedId({ expiresIn: { days: 1e9 } })).rejects.toThrow(TypeError);
   });
 
   test("can't be made for a new record", async () => {
