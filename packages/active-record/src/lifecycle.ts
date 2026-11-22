@@ -387,12 +387,12 @@ function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): Prepared
   // A locked record's update matches only its version, and sets the next (#357).
   const lock = lockOf(record, "update");
   recordState.isSavingVersion = lock !== undefined;
-  const { written, heldAfter } = lockedUpdate(lock, own, stamps);
+  const { written, heldOnceWritten } = lockedUpdate(lock, own, stamps);
   const update = compileUpdate(model, written, recordState.storedKey);
   return {
     statements: counters.around(lockedStatements(lock, update)),
     commit: (results) => {
-      recordState.commitUpdate(heldAfter);
+      recordState.commitUpdate(heldOnceWritten);
       counters.commit(results);
     },
     after,
