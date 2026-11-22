@@ -34,6 +34,12 @@ export interface Signer {
 const FINGERPRINT_BYTES = 12;
 const SIGNATURE_BYTES = 32;
 
+/**
+ * The longest token: room for any id a key holds, its expiry and a fingerprint. A longer one is
+ * refused before its signature is checked, so a huge one costs nothing.
+ */
+const MAX_TOKEN_LENGTH = 1024;
+
 /** base64url without padding. */
 const BASE64URL = /^[\w-]+$/;
 
@@ -52,7 +58,13 @@ export function signerFor(secrets: readonly string[], feature: SigningFeature): 
         new TextEncoder().encode(JSON.stringify(trimmed([id, expiry, fingerprint]))),
       );
       const signature = await crypto.subtle.sign("HMAC", key.signing, signed(purpose, payload));
-      return `${payload}.${encode(new Uint8Array(signature))}`;
+      const token = `${payload}.${encode(new Uint8Array(signature))}`;
+      if (token.length > MAX_TOKEN_LENGTH) {
+        throw new TypeError(
+          `A token's id is too long to sign: at most ${MAX_TOKEN_LENGTH} characters in all`,
+        );
+      }
+      return token;
     },
     async verify(purpose, token) {
       const parts = partsOf(token);
@@ -65,6 +77,7 @@ export function signerFor(secrets: readonly string[], feature: SigningFeature): 
 
 /** A token's payload and signature's bytes, or undefined when it isn't shaped as one, or spelled as `encode` doesn't. */
 function partsOf(token: string): { payload: string; signature: Uint8Array } | undefined {
+  if (token.length > MAX_TOKEN_LENGTH) return undefined;
   const [payload = "", signature = "", ...rest] = token.split(".");
   if (rest.length > 0 || !BASE64URL.test(payload) || !BASE64URL.test(signature)) return undefined;
   const bytes = decode(signature);

@@ -58,6 +58,24 @@ describe("a signer", () => {
     expect(verified).toEqual([undefined, undefined, undefined]);
   });
 
+  test("refuses a token longer than any it makes without checking its signature", async () => {
+    const signer = signerFor([secret], "signed id");
+    const token = await signer.sign("users", { id: 7 });
+    const verify = vi.spyOn(crypto.subtle, "verify");
+
+    const verified = await signer.verify("users", `${"A".repeat(1_000_000)}${token}`);
+
+    expect(verified).toBeUndefined();
+    expect(verify).not.toHaveBeenCalled();
+    verify.mockRestore();
+  });
+
+  test("refuses to sign an id that makes a token over 1,024 characters", async () => {
+    const signer = signerFor([secret], "signed id");
+
+    await expect(signer.sign("users", { id: "x".repeat(1000) })).rejects.toThrow(TypeError);
+  });
+
   test("refuses a payload that isn't an id, though signed", async () => {
     const signer = signerFor([secret], "signed id");
     const forged = await signer.sign("users", { id: { nested: true } as never });
