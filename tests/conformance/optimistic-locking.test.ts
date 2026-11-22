@@ -132,4 +132,20 @@ describe("optimistic locking", () => {
       expect(await rows("notebooks")).toHaveLength(1);
     });
   });
+  describe("touching", () => {
+    test("touch() increments lockVersion, and a stale copy's touch throws StaleRecord and writes nothing", async () => {
+      const [first, second] = await twoCopies();
+
+      await first.touch();
+      const touching = second.touch();
+
+      await expect(touching).rejects.toThrow(StaleRecord);
+      await expect(touching).rejects.toMatchObject({ record: second, action: "touch" });
+      expect(first.lockVersion).toBe(1);
+      expect(first.changed()).toEqual([]);
+      const [row] = await rows("notebooks");
+      expect(row?.lock_version).toBe(1);
+      expect(new Date(row?.updated_at as string).getTime()).toBe(first.updatedAt?.getTime());
+    });
+  });
 });
