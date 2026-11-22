@@ -5,6 +5,7 @@ import { runConsole } from "../../packages/active-record/cli/console/command.ts"
 import { terminalStreams } from "../support/console.ts";
 import { scratchDirs } from "../support/scratch.ts";
 import { configured, remoteDatabase } from "./support.ts";
+import { d1Config } from "../support/d1-config.ts";
 import { libraryPaths } from "../support/library-paths.ts";
 
 const scratch = scratchDirs();
@@ -14,6 +15,7 @@ function project(table: string, entry: Record<string, unknown>): string {
   const cwd = scratch("console-remote-smoke-");
   const files: Record<string, string> = {
     "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB", ...entry }] }),
+    "active-record.jsonc": d1Config("DB"),
     "tsconfig.json": JSON.stringify({
       compilerOptions: { paths: libraryPaths },
     }),
@@ -49,7 +51,9 @@ async function session(cwd: string, ...lines: string[]) {
   const done = runConsole({ cwd, remote: true, yes: true }, (line) => printed.push(line), terminal);
   let results: string[] = [];
   try {
-    await terminal.ready();
+    // A console that exits before its prompt never gets ready: its test fails on what it printed.
+    const isReady = await Promise.race([terminal.ready().then(() => true), done.then(() => false)]);
+    if (!isReady) return { printed, results, code: await done };
     for (const line of lines) results.push(await terminal.send(line));
   } catch {
     results = [];
