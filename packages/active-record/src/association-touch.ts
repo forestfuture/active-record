@@ -14,6 +14,7 @@ import {
   resolveAssociation,
 } from "./resolved-association.ts";
 import { touchWrite } from "./touch.ts";
+import { isLocking } from "./lock-version.ts";
 import type { PreparedWrite } from "./unit-of-work.ts";
 
 /**
@@ -298,6 +299,7 @@ async function touchOne(
     (values ??= Object.fromEntries(touchAssignments(model, touch, "touch", timeOf(session))));
   const write = touchWrite(target, valuesOf, {
     keepsSavedChanges: () => isClaimedRow(target, claimed),
+    increments: isLocking(model),
   });
   return [inWrite(write, target, claimed), ...(await touchesOf(target, "touch", claimed))];
 }
