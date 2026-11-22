@@ -200,4 +200,33 @@ describe("optimistic locking", () => {
       expect(new Date(row?.updated_at as string).getTime()).toBe(first.updatedAt?.getTime());
     });
   });
+  describe("what doesn't check", () => {
+    // A guard: these write straight to the row, and never read the lock.
+    test("updateColumns, incrementColumn, updateCounters, updateAll and deleteAll neither check nor bump it", async () => {
+      const [first, second] = await twoCopies();
+      first.title = "Soups";
+      await first.saveOrThrow();
+
+      expect(await second.updateColumns({ title: "Breads" })).toBe(true);
+      expect(await second.incrementColumn("pagesCount")).toBe(true);
+      await db().model(Notebook).where({ id: 1 }).updateCounters({ pagesCount: 1 });
+      await db().model(Notebook).where({ id: 1 }).updateAll({ title: "Cakes" });
+      expect((await rows("notebooks"))[0]).toMatchObject({ title: "Cakes", lock_version: 1 });
+
+      await harness.exec("DELETE FROM pages");
+      await db().model(Notebook).where({ id: 1 }).deleteAll();
+      expect(await rows("notebooks")).toHaveLength(1);
+    });
+
+    // A guard: a clean save sends nothing, so it has nothing to lock.
+    test("a save with no changes sends nothing, and keeps its version", async () => {
+      const [first] = await twoCopies();
+      events.length = 0;
+
+      await first.saveOrThrow();
+
+      expect(events).toEqual([]);
+      expect(first.lockVersion).toBe(0);
+    });
+  });
 });
