@@ -38,16 +38,17 @@ Every error Active Record throws extends `ActiveRecordError`, so one check separ
 
 ## Lifecycle errors
 
-| Error                   | When                                                                     |
-| ----------------------- | ------------------------------------------------------------------------ |
-| `RecordNotFound`        | `find`, `sole`, an `OrThrow` finder, or `reload` found nothing           |
-| `SoleRecordExceeded`    | `sole` or `findSoleBy` found more than one record                        |
-| `RecordInvalid`         | an `OrThrow` save found the record invalid; the record is on `.record`   |
-| `RecordNotSaved`        | a save was aborted by a callback, or needs an owner that isn’t saved     |
-| `RecordNotDestroyed`    | a destroy was aborted, or restricted by `restrictWithError`              |
-| `RecordDestroyed`       | writing to a record that’s already destroyed                             |
-| `CallbackAbort`         | what `abort()` makes; caught by the lifecycle                            |
-| `AbortAfterPersistence` | `abort()` in an after-callback, too late to stop the write (`.callback`) |
+| Error                   | When                                                                      |
+| ----------------------- | ------------------------------------------------------------------------- |
+| `RecordNotFound`        | `find`, `sole`, an `OrThrow` finder, or `reload` found nothing            |
+| `SoleRecordExceeded`    | `sole` or `findSoleBy` found more than one record                         |
+| `RecordInvalid`         | an `OrThrow` save found the record invalid; the record is on `.record`    |
+| `RecordNotSaved`        | a save was aborted by a callback, or needs an owner that isn’t saved      |
+| `RecordNotDestroyed`    | a destroy was aborted, or restricted by `restrictWithError`               |
+| `RecordDestroyed`       | writing to a record that’s already destroyed                              |
+| `StaleRecord`           | a [locked](./optimistic-locking) record’s row changed since it was loaded |
+| `CallbackAbort`         | what `abort()` makes; caught by the lifecycle                             |
+| `AbortAfterPersistence` | `abort()` in an after-callback, too late to stop the write (`.callback`)  |
 
 ## Usage errors
 
