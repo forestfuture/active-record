@@ -165,7 +165,7 @@ Setting a **Record**'s `updatedAt`, and any datetime attributes named, to now (o
 _Avoid_: Bump, stamp
 
 **Lock version**:
-A **Model**'s integer `lockVersion` attribute (column `lock_version`), which turns on optimistic locking: a save, destroy or **Touch** of its **Record** matches the version it has and sets the next, and one whose row another write changed first throws `StaleRecord`, writing nothing. A NULL reads as 0.
+A **Model**'s integer `lockVersion` attribute (column `lock_version`), which turns on optimistic locking: a save, destroy or **Touch** of its **Record** matches the version it has and sets the next, and one whose row another write changed first throws `StaleRecord`, writing nothing in its batch. A NULL reads as 0.
 _Avoid_: Revision, row version, optimistic lock column
 
 **Validation context**:
