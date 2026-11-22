@@ -43,7 +43,11 @@ export function secondsOf(duration: Duration, where: string): number {
   );
 }
 
-/** When a token made now, lasting `duration`, expires. */
+/** When a token made now, lasting `duration`, expires; `TypeError` past the last time a Date holds. */
 export function expiryAfter(duration: Duration, where: string): Date {
-  return new Date(Date.now() + secondsOf(duration, where) * 1000);
+  const expiry = new Date(Date.now() + secondsOf(duration, where) * 1000);
+  if (Number.isNaN(expiry.getTime())) {
+    throw new TypeError(`${where} is too long: it ends past the last time a Date can hold`);
+  }
+  return expiry;
 }

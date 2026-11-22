@@ -47,7 +47,7 @@ export function signerFor(secrets: readonly string[], feature: SigningFeature): 
       const fingerprint = Object.hasOwn(message, "dependsOn")
         ? await fingerprintOf(key, dependsOn)
         : null;
-      const expiry = expiresAt === undefined ? null : Math.floor(expiresAt.getTime() / 1000);
+      const expiry = expiresAt === undefined ? null : secondsSinceEpoch(expiresAt);
       const payload = encode(
         new TextEncoder().encode(JSON.stringify(trimmed([id, expiry, fingerprint]))),
       );
@@ -86,6 +86,15 @@ async function signerOf(
     if (await crypto.subtle.verify("HMAC", key.signing, signature, data)) signer ??= key;
   }
   return signer;
+}
+
+/** A token's expiry, in whole Unix seconds; `TypeError` for one that isn't a time. */
+function secondsSinceEpoch(expiresAt: Date): number {
+  const seconds = Math.floor(Number(expiresAt.getTime()) / 1000);
+  if (!Number.isSafeInteger(seconds)) {
+    throw new TypeError("A token's expiry must be a valid Date");
+  }
+  return seconds;
 }
 
 /** The keys one secret gives a feature: one signs tokens, the other makes fingerprints. */
@@ -159,7 +168,10 @@ function messageIn(keys: Keys, payload: string): VerifiedMessage | undefined {
   const [id, expiry = null, fingerprint = null] = parsedPayload(payload) ?? [];
   const isId = typeof id === "string" || (typeof id === "number" && Number.isSafeInteger(id));
   if (!isId) return undefined;
-  if (expiry !== null && (typeof expiry !== "number" || expiry * 1000 <= Date.now())) {
+  if (
+    expiry !== null &&
+    (!Number.isSafeInteger(expiry) || (expiry as number) * 1000 <= Date.now())
+  ) {
     return undefined;
   }
   return {

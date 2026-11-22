@@ -37,7 +37,14 @@ function expiryOf(
   if (expiresIn !== undefined && expiresAt !== undefined) {
     throw new TypeError(`${where} takes expiresIn or expiresAt, not both`);
   }
-  return expiresIn === undefined ? expiresAt : expiryAfter(expiresIn, `${where}'s expiresIn`);
+  if (expiresIn !== undefined) return expiryAfter(expiresIn, `${where}'s expiresIn`);
+  if (
+    expiresAt !== undefined &&
+    !(expiresAt instanceof Date && Number.isFinite(expiresAt.getTime()))
+  ) {
+    throw new TypeError(`${where}'s expiresAt must be a valid Date`);
+  }
+  return expiresAt;
 }
 
 /** A saved record's primary key, which a token holds; `RecordNotSaved` for a new record. */
