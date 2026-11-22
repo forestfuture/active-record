@@ -89,33 +89,42 @@ describe("optimistic locking", () => {
       expect((await rows("notebooks"))[0]).toMatchObject({ title: "Soups", lock_version: 1 });
     });
 
-    // A guard: the guard fails the whole batch, so this passes with the first slice.
-    test("a stale save keeps nothing else its write had: counter caches, touches, and the other records of a batch", async () => {
-      const notebooksBefore = await rows("notebooks");
-      const database = db();
+    /** A stale copy of page 1, moved to notebook 2, on `database`, after another copy saved. */
+    async function stalePage(database: ReturnType<typeof db>) {
       const first = await db().model(Page).find(1);
       const second = await database.model(Page).find(1);
       first.body = "Stew";
       await first.saveOrThrow();
-      const other = await database.model(Notebook).find(2);
-      other.title = "Trips";
       second.notebookId = 2;
       second.body = "Bread";
+      return second;
+    }
 
-      await expect(second.save()).rejects.toThrow(StaleRecord);
-      await expect(database.batch((b) => [b.save(other), b.save(second)])).rejects.toThrow(
-        StaleRecord,
-      );
+    // A guard: the guard fails the whole batch, so this passes with the first slice.
+    test("a stale save keeps none of its counter caches and touches, and runs afterRollback", async () => {
+      const page = await stalePage(db());
+      const before = await rows("notebooks");
 
-      expect(rolledBack).toEqual(["Bread", "Bread"]);
-      const notebooks = await rows("notebooks");
-      expect(notebooks.map(({ pages_count, title }) => ({ pages_count, title }))).toEqual(
-        notebooksBefore.map(({ pages_count, title }) => ({ pages_count, title })),
-      );
-      expect(notebooks[1]?.updated_at).toBe(notebooksBefore[1]?.updated_at);
+      await expect(page.save()).rejects.toThrow(StaleRecord);
+
+      expect(rolledBack).toEqual(["Bread"]);
+      expect(await rows("notebooks")).toEqual(before);
       expect(await rows("pages")).toMatchObject([
         { notebook_id: 1, body: "Stew", lock_version: 1 },
       ]);
+    });
+
+    // A guard: the guard fails the whole batch, so this passes with the first slice.
+    test("a stale save in a db.batch keeps none of the batch's other records", async () => {
+      const database = db();
+      const page = await stalePage(database);
+      const other = await database.model(Notebook).find(2);
+      other.title = "Trips";
+
+      const batch = database.batch((b) => [b.save(other), b.save(page)]);
+
+      await expect(batch).rejects.toThrow(StaleRecord);
+      expect((await rows("notebooks"))[1]).toMatchObject({ title: "Travel", lock_version: 0 });
     });
   });
   describe("a version from a form", () => {
@@ -230,7 +239,7 @@ describe("optimistic locking", () => {
   });
   describe("what doesn't check", () => {
     // A guard: these write straight to the row, and never read the lock.
-    test("updateColumns, incrementColumn, updateCounters, updateAll and deleteAll neither check nor bump it", async () => {
+    test("updateColumns, incrementColumn, updateCounters and updateAll neither check nor bump it", async () => {
       const [first, second] = await twoCopies();
       first.title = "Soups";
       await first.saveOrThrow();
@@ -239,10 +248,16 @@ describe("optimistic locking", () => {
       expect(await second.incrementColumn("pagesCount")).toBe(true);
       await db().model(Notebook).where({ id: 1 }).updateCounters({ pagesCount: 1 });
       await db().model(Notebook).where({ id: 1 }).updateAll({ title: "Cakes" });
-      expect((await rows("notebooks"))[0]).toMatchObject({ title: "Cakes", lock_version: 1 });
 
-      await harness.exec("DELETE FROM pages");
-      await db().model(Notebook).where({ id: 1 }).deleteAll();
+      expect((await rows("notebooks"))[0]).toMatchObject({ title: "Cakes", lock_version: 1 });
+    });
+
+    // A guard: deleteAll deletes by its conditions, never by a record's version.
+    test("deleteAll deletes a locked row whatever its version", async () => {
+      await harness.exec("UPDATE notebooks SET lock_version = 5 WHERE id = 2");
+
+      await db().model(Notebook).where({ id: 2 }).deleteAll();
+
       expect(await rows("notebooks")).toHaveLength(1);
     });
 
