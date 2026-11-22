@@ -8,5 +8,10 @@ export class User extends ApplicationRecord {
 
   static {
     this.normalizes("email", { with: (email) => email.trim().toLowerCase() });
+    // A token that confirms the email it was sent to, for a day.
+    this.generatesTokenFor("emailConfirmation", {
+      expiresIn: { days: 1 },
+      dependsOn: (user) => user.email,
+    });
   }
 }

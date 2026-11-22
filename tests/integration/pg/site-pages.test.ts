@@ -265,6 +265,13 @@ describe("the Passwords and tokens page's examples, on Postgres", () => {
   });
   const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
   const log = quietLog();
+  // The app's signing secret, as `wrangler secret put SECRET_KEY_BASE` sets it in a Worker.
+  beforeAll(() => {
+    vi.stubEnv("SECRET_KEY_BASE", "a-signing-secret-of-at-least-32-bytes");
+  });
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
   const form = (fields: Record<string, string>) => {
     const data = new FormData();
     for (const [name, value] of Object.entries(fields)) data.set(name, value);
@@ -343,6 +350,41 @@ describe("the Passwords and tokens page's examples, on Postgres", () => {
     const regenerated = await run(passwords.regenerating);
 
     expect(regenerated.authToken).not.toBe(user.authToken);
+  });
+  test("a reset link's token resets the password once, and a request answers the same either way", async () => {
+    const user = await run(passwords.storing);
+    const known = await run(() => passwords.requestReset(form({ email: "jane@example.com" })));
+    const unknown = await run(() => passwords.requestReset(form({ email: "sam@example.com" })));
+    const token = await user.passwordResetToken();
+    const reset = form({
+      token,
+      password: "staple battery horse",
+      passwordConfirmation: "staple battery horse",
+    });
+
+    const first = await run(() => passwords.resetPassword(reset.clone()));
+    const again = await run(() => passwords.resetPassword(reset));
+
+    expect([known.status, unknown.status]).toEqual([202, 202]);
+    expect([first.status, again.status]).toEqual([204, 400]);
+  });
+
+  test("an email confirmation token finds its user", async () => {
+    const user = await run(passwords.storing);
+
+    const { confirmed } = await run(passwords.confirmingEmail);
+
+    expect(confirmed?.id).toBe(user.id);
+    expect(log.calls().at(-1)).toEqual(["jane@example.com"]);
+  });
+
+  test("a signed id finds its user only for its purpose", async () => {
+    const user = await run(passwords.storing);
+
+    const { found } = await run(passwords.signingIds);
+
+    expect(found?.id).toBe(user.id);
+    expect(log.calls().slice(-2)).toEqual([["jane@example.com"], [null]]);
   });
 });
 
