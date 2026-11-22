@@ -1,3 +1,4 @@
+import { sendResetEmail } from "./src/email";
 import { Admin } from "./src/models/admin";
 import { User } from "./src/models/user";
 
@@ -86,4 +87,50 @@ export async function regenerating() {
   await user.regenerateAuthTokenOrThrow(); // saves a new token, so the old one stops working
   // #endregion regenerate
   return user;
+}
+
+// #region reset-request
+export async function requestReset(request: Request): Promise<Response> {
+  const { email = "" } = User.permit(await request.formData(), "email");
+  const user = await User.findBy({ email });
+  if (user !== null) {
+    const token = await user.passwordResetToken(); // lasts 15 minutes
+    await sendResetEmail(email, `https://example.com/reset?token=${token}`);
+  }
+  return new Response("Check your email", { status: 202 }); // the same whether the email is known
+}
+// #endregion reset-request
+
+// #region reset
+export async function resetPassword(request: Request): Promise<Response> {
+  const form = await request.formData();
+  const user = await User.findByPasswordResetToken(form.get("token"));
+  if (user === null) return new Response("That link has expired", { status: 400 });
+  const isReset = await user.update(User.permit(form, "password", "passwordConfirmation"));
+  if (!isReset) return Response.json({ errors: user.errors.fullMessages() }, { status: 422 });
+  return new Response(null, { status: 204 }); // the link stops working: the password changed
+}
+// #endregion reset
+
+export async function confirmingEmail() {
+  // #region email-confirmation
+  const user = await User.findByOrThrow({ email: "jane@example.com" });
+  const token = await user.generateTokenFor("emailConfirmation");
+
+  const confirmed = await User.findByTokenFor("emailConfirmation", token);
+  console.log(confirmed?.email); // "jane@example.com", until the email changes or a day passes
+  // #endregion email-confirmation
+  return { user, token, confirmed };
+}
+
+export async function signingIds() {
+  // #region signed-id
+  const user = await User.findByOrThrow({ email: "jane@example.com" });
+  const signedId = await user.signedId({ purpose: "unsubscribe", expiresIn: { days: 30 } });
+
+  const found = await User.findSigned(signedId, { purpose: "unsubscribe" });
+  console.log(found?.email); // "jane@example.com"
+  console.log(await User.findSigned(signedId)); // null: it was signed for unsubscribing
+  // #endregion signed-id
+  return { user, signedId, found };
 }

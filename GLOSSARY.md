@@ -100,6 +100,22 @@ _Avoid_: Encrypted password, password hash column, crypted password
 A string **Attribute** declared with `secureToken`, which a new record gets as a random base58 token, and `regenerate…()` replaces. `toJSON()` leaves it out, and it's always filtered. Nothing checks it's unique; a UNIQUE index does.
 _Avoid_: API key, random id, nonce
 
+**Signing secret**:
+What a Model's tokens are signed with: what its `signingSecret(env)` returns, `SECRET_KEY_BASE` from the Worker's env unless overridden, at least 32 bytes. A list rotates secrets: the first signs, and every one verifies.
+_Avoid_: Secret key, master key, API secret
+
+**Signed id**:
+A saved record's primary key, signed with its Model's **Signing secret** by `signedId()`, for an optional purpose and until an optional expiry; `findSigned` finds the record again by it. Readable, but not forgeable.
+_Avoid_: Encrypted id, obfuscated id, token (alone)
+
+**Token for a purpose**:
+A **Signed id** for one purpose a Model declares with `generatesTokenFor`, which lasts its `expiresIn` and finds its record only while what its `dependsOn` returns is unchanged; it carries a fingerprint of that value, never the value. `generateTokenFor(purpose)` makes one, `findByTokenFor(purpose, token)` finds its record.
+_Avoid_: Purpose token, one-time token (it isn't: it works until it expires or its value changes)
+
+**Reset token**:
+A **Secure password**'s **Token for a purpose**, `passwordReset` for `password`, from `passwordResetToken()`: it lasts 15 minutes unless told otherwise, and stops finding its record once the **Password digest** changes. `findByPasswordResetToken` finds its record.
+_Avoid_: Password reset link, reset code
+
 **Hidden attribute**:
 An attribute `toJSON()` leaves out, named by the Model's `hiddenAttributes`, by exact name. `attributes()` still has it. Independent of a **Filtered attribute**, which is about logs and errors.
 _Avoid_: Private, protected, excluded
