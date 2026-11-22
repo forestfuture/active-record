@@ -15,6 +15,7 @@ import {
   vi,
 } from "vite-plus/test";
 import {
+  InvalidModel,
   InvalidToken,
   Model,
   RecordNotFound,
@@ -742,6 +743,29 @@ describe("a secure password", () => {
 
       expect((await staff.findByTokenFor("recoveryPasswordReset", token))?.id).toBe(jane.id);
       expect(await staff.findByTokenFor("passwordReset", token)).toBeNull();
+    });
+
+    test("can't be replaced by a purpose declared with its name", async () => {
+      class Overriding extends Model.define({
+        id: { type: "integer", null: false },
+        email: "string",
+        passwordDigest: "string",
+        password: { securePassword: true },
+      }) {
+        static table = "members";
+        static override signingSecret() {
+          return "a-signing-secret-of-at-least-32-bytes";
+        }
+        static {
+          this.generatesTokenFor("passwordReset", { expiresIn: { days: 7 } });
+        }
+      }
+      const jane = await db()
+        .model(Overriding)
+        .create({ email: "jane@example.com", password: "correct horse" });
+
+      await expect(jane.passwordResetToken()).rejects.toThrow(InvalidModel);
+      await expect(jane.passwordResetToken()).rejects.toThrow(/resetToken: \{ expiresIn \}/);
     });
 
     test("isn't there with resetToken: false", async () => {

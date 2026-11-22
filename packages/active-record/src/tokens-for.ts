@@ -66,17 +66,35 @@ export function declareTokenFor(
  * passwords' reset tokens; `TypeError` when there's none.
  */
 function definitionOf(model: ModelClass, purpose: string): TokenDefinition {
-  const definitions = [
-    ...resetTokenDefinitions(model.attributeDefinitions),
-    ...declared(model, "tokenDefinitions"),
-  ];
-  const found = definitions.findLast((definition) => definition.purpose === purpose);
+  const resets = resetTokenDefinitions(model.attributeDefinitions);
+  const declarations = declared(model, "tokenDefinitions");
+  rejectResetPurposes(model, resets, declarations);
+  const found = [...resets, ...declarations].findLast(
+    (definition) => definition.purpose === purpose,
+  );
   if (found === undefined) {
     throw new TypeError(
       `${model.name} has no tokens for "${purpose}"; declare them with this.generatesTokenFor("${purpose}") in its static {} block`,
     );
   }
   return found;
+}
+
+/**
+ * A declared purpose a reset token already uses is an `InvalidModel`: it would replace the reset
+ * token, which stops working once the password changes, with one that doesn't.
+ */
+function rejectResetPurposes(
+  model: ModelClass,
+  resets: readonly TokenDefinition[],
+  declarations: readonly TokenDefinition[],
+): void {
+  const clash = resets.find(({ purpose }) => declarations.some((each) => each.purpose === purpose));
+  if (clash === undefined) return;
+  throw new InvalidModel(
+    `${model.name}.generatesTokenFor("${clash.purpose}") would replace a secure password's reset token; ` +
+      "change how long it lasts with securePassword: { resetToken: { expiresIn } }",
+  );
 }
 
 /** What a purpose's tokens are signed for: the Model's table, the purpose, and how long they last. */
