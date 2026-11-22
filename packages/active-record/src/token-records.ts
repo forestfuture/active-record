@@ -2,7 +2,6 @@
 // purpose it's signed for, and looking up a token's record through a Relation, its conditions
 // and default scopes kept, to resolve to null or throw.
 import { InvalidToken, RecordNotSaved } from "./errors.ts";
-import type { Executor } from "./executor.ts";
 import { foundOrThrow } from "./finder-order.ts";
 import type { Signer, VerifiedMessage } from "./message-signing.ts";
 import { asStored } from "./normalized-values.ts";
@@ -28,8 +27,6 @@ export function signedPurposeOf(model: ModelClass, ...purpose: unknown[]): strin
 /** What finds a token's record: a Relation, its conditions and default scopes kept. */
 export interface TokenFinder<M extends Model> {
   readonly model: ModelClass<M>;
-  /** Where it sends its query, whose database the token's secret is for. */
-  readonly executor: Executor;
   findBy(conditions: never): Promise<M | null>;
 }
 

@@ -1,7 +1,6 @@
 // The Relation methods that find a record by a token (#517): `findSigned`, `findByTokenFor` and
 // their `OrThrow`s, with this Relation's conditions and default scopes, between Relation and its
 // finders' modules so relation.ts stays the chainable query's own.
-import type { Executor } from "./executor.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { queryOf, type QueryDescription } from "./query.ts";
 import { findSigned, type FindSignedOptions } from "./signed-ids.ts";
@@ -10,13 +9,6 @@ import { findByTokenFor } from "./tokens-for.ts";
 
 /** The finders by token every Relation has. */
 export abstract class TokenFinders<M extends Model> {
-  readonly #executor: Executor;
-
-  /** @internal A Relation's parts: its executor, whose database its tokens' secret is for. */
-  constructor(parts: unknown) {
-    this.#executor = (parts as { executor: Executor }).executor;
-  }
-
   /** @internal */
   abstract get [queryOf](): QueryDescription;
   abstract findBy(conditions: never): Promise<M | null>;
@@ -57,7 +49,6 @@ export abstract class TokenFinders<M extends Model> {
   get #finder(): TokenFinder<M> {
     return {
       model: this[queryOf].model as ModelClass<M>,
-      executor: this.#executor,
       findBy: (conditions) => this.findBy(conditions),
     };
   }

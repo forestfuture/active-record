@@ -1,7 +1,6 @@
 // The record methods that make a signed token (#517), and the secret they're signed with:
 // `signedId()`, `generateTokenFor()` and the statics `signingSecret` and `generatesTokenFor`, between Model and its statics, so model.ts stays
 // the record class's own.
-import type { AnyDatabase } from "./database.ts";
 import { ModelStatics } from "./model-statics.ts";
 import type { AbstractModelClass, Model } from "./model.ts";
 import { signedIdOf, type SignedIdOptions } from "./signed-ids.ts";
@@ -13,11 +12,9 @@ export abstract class RecordTokens extends ModelStatics {
   /**
    * The secret this Model's tokens are signed with, from the Worker's env (or `process.env`
    * outside a Worker): `SECRET_KEY_BASE` unless overridden, on the app's base class. A list
-   * rotates secrets: the first signs, and every one verifies. Each is at least 32 bytes. It's
-   * given the database the token is made or checked on, so an app with a database per tenant
-   * can sign each tenant's tokens with a secret of its own.
+   * rotates secrets: the first signs, and every one verifies. Each is at least 32 bytes.
    */
-  static signingSecret(env: SigningEnv, _database: AnyDatabase): SigningSecrets {
+  static signingSecret(env: SigningEnv): SigningSecrets {
     return env.SECRET_KEY_BASE;
   }
 

@@ -142,7 +142,7 @@ export class Relation<M extends Model, S = {}> extends TokenFinders<M> {
    * what one is made from is the library's own business.
    */
   protected constructor(parts: unknown) {
-    super(parts);
+    super();
     const { executor, model, query, collection } = parts as RelationParts<M>;
     this.#executor = executor;
     this.#model = model;

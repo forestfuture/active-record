@@ -14,17 +14,6 @@ export type RelationsFor<T extends Record<string, ModelClass<Model>>> = {
 /** The key for a Database's Executor (the current database, #77), for adapters (`/adapter`). */
 export const databaseExecutor = Symbol("databaseExecutor");
 
-/**
- * Each Executor's Database, for what's given the Database a record or Relation is on (a Model's
- * `signingSecret`, #517). Module-level, but not request state (ADR-0003): keyed by the Executor.
- */
-const databases = new WeakMap<DatabaseExecutor, AnyDatabase>();
-
-/** @internal The Database `executor` belongs to. */
-export function databaseOf(executor: DatabaseExecutor): AnyDatabase {
-  return databases.get(executor)!;
-}
-
 /** A per-request handle on a database; every query goes through it. */
 export class AnyDatabase {
   readonly #executor: DatabaseExecutor;
@@ -32,7 +21,6 @@ export class AnyDatabase {
   /** @internal Built by an adapter, through its own `connect`. */
   constructor(executor: DatabaseExecutor) {
     this.#executor = executor;
-    databases.set(executor, this);
   }
 
   /** @internal Its Executor. */
