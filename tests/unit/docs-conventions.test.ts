@@ -1,15 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { guidePages } from "../support/guide-pages.ts";
+import { guidePages, readmes } from "../support/guide-pages.ts";
 
 const pages = guidePages();
-
-/** The READMEs, at the repository's root and the package's, checked like the guide's pages. */
-const readmes = ["README.md", "packages/active-record/README.md"].map((name) => ({
-  name,
-  text: readFileSync(join(import.meta.dirname, "../..", name), "utf8"),
-}));
 
 /** A list's item: a code span, or one word after an optional article or possessive. */
 const listItem = String.raw`(?:\`[^\`]*\`|(?:(?:a|an|the|its|their|your) )?[\w’'-]+)`;
@@ -123,7 +115,7 @@ const notLists = new Set([
 
 describe("the guide's pages and the READMEs", () => {
   test("use the Oxford comma in lists of three or more", () => {
-    const missing = [...pages, ...readmes].flatMap(({ name, text }) =>
+    const missing = [...pages, ...readmes()].flatMap(({ name, text }) =>
       proseWithDescription(text)
         .flatMap(missingOxfordCommas)
         .map((list) => `${name}: ${list}`)
