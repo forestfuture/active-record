@@ -55,6 +55,13 @@ export interface Dialect {
    * counters are taken down by a COUNT sent just before the removal: exact where writes run one
    * at a time.
    */
+  /**
+   * A record's write that must change its row (an update or delete by its key and `lockVersion`,
+   * #357), followed by a check that fails the whole atomic batch when it changed none, with an
+   * error whose message holds `marker`, bound as a value: one statement or several, the write's
+   * result first.
+   */
+  staleGuard(write: CompiledSql, marker: string): CompiledSql[];
   countedRemoval?(
     removal: CompiledSql,
     decrements: (removed: string) => readonly CompiledSql[],

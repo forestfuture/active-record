@@ -64,6 +64,13 @@ function withoutRefusedValue(error: PgError): void {
 
 const enumRefusal = "invalid input value for enum ";
 
+/**
+ * The refusal the dialect's stale guard makes (#357): its value is the library's marker, naming
+ * the stale record's write, not a value of the user's, so it's kept.
+ */
+const staleGuardRefusal =
+  /^invalid input syntax for type integer: "active-record stale record [0-9a-f-]{36}"$/;
+
 /** Where the quoted identifier opening at `at` ends, past its closing quote; its own quotes are doubled. -1 if it never closes. */
 function quotedEnd(message: string, at: number): number {
   let next = at + 1;
@@ -95,6 +102,7 @@ function enumNameEnd(message: string): number {
  * not matched with a pattern that could backtrack, since the value is the user's.
  */
 function refusedValueFiltered(message: string): string {
+  if (staleGuardRefusal.test(message)) return message;
   if (message.startsWith(enumRefusal)) {
     const end = enumNameEnd(message);
     if (end !== -1 && message.startsWith(': "', end) && message.endsWith('"')) {

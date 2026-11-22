@@ -157,6 +157,25 @@ export class RecordNotSaved extends ActiveRecordError {
   override name = "RecordNotSaved";
 }
 
+/** What a stale record was refused: its save's update, its destroy, or its `touch()` (#357). */
+export type StaleAction = "update" | "destroy" | "touch";
+
+/**
+ * A save, destroy or `touch()` of a record whose row another write changed since it was loaded
+ * (#357): its `lockVersion` is no longer the row's. Nothing in the write was kept.
+ */
+export class StaleRecord extends ActiveRecordError {
+  override name = "StaleRecord";
+  readonly record: Model;
+  readonly action: StaleAction;
+
+  constructor(record: Model, action: StaleAction, options?: ErrorOptions) {
+    super(`Attempted to ${action} a stale ${record.constructor.name} record`, options);
+    this.record = record;
+    this.action = action;
+  }
+}
+
 /**
  * `abort()` was thrown from an after-write callback (`afterSave`, `afterCreate`, `afterUpdate`,
  * `afterDestroy`, `afterTouch`), or from an around callback once its `next()` resolved. That's a

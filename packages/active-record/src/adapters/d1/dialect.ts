@@ -50,6 +50,16 @@ export const sqlite: Dialect = {
   }),
   // D1 caps a string or BLOB at 2,000,000 bytes, a bound one too (#392).
   maxValueBytes: 2_000_000,
+  // `changes()` is the write's, sent just before it in the batch. A JSON path that isn't one
+  // fails the batch, and D1's message repeats it (#357).
+  staleGuard: (write, marker) => [
+    write,
+    {
+      sql: `SELECT json_extract('{}', CASE WHEN changes() = 0 THEN ${valueMark} ELSE '$' END) AS stale`,
+      params: [marker],
+      model: write.model,
+    },
+  ],
   // A key that isn't text, selected for a text attribute, is cast to text: SQLite would compare
   // them by number, which can't search the attribute's index, and which '09' matches.
   linkedKey: (key, keyAttribute, linked) =>
