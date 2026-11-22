@@ -1,7 +1,15 @@
 import { describe, expect, test } from "vite-plus/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { guidePages } from "../support/guide-pages.ts";
 
 const pages = guidePages();
+
+/** The READMEs, at the repository's root and the package's, checked like the guide's pages. */
+const readmes = ["README.md", "packages/active-record/README.md"].map((name) => ({
+  name,
+  text: readFileSync(join(import.meta.dirname, "../..", name), "utf8"),
+}));
 
 /** What a code span becomes in prose, so a list can still count it as an item. */
 const code = "CODE";
@@ -50,6 +58,13 @@ function missingOxfordCommas(line: string): string[] {
   return [...plain.matchAll(listWithoutComma)].map(([list]) => list);
 }
 
+/** A page's prose, with its front matter's description, which is shown as prose too. */
+function proseWithDescription(text: string): string[] {
+  const frontMatter = /^---\n([\s\S]*?)\n---\n/.exec(text)?.[1] ?? "";
+  const description = /^description: (.*)$/m.exec(frontMatter)?.[1];
+  return [...(description === undefined ? [] : [description]), ...prose(text)];
+}
+
 // The guide's conventions that a tool can check (docs/agents/docs-voice.md).
 describe("the guide's pages", () => {
   test("show comparison boxes as info callouts with the Ruby icon", () => {
@@ -91,6 +106,33 @@ describe("the guide's pages", () => {
     );
 
     expect(straight).toEqual([]);
+  });
+});
+
+/**
+ * Lists the check reads wrongly, by page and match: a noun and a phrase describing it, or a
+ * clause before the comma, rather than a list.
+ */
+const notLists = new Set([
+  "(basics)/associations.mdx: CODE, alone or in", // the writes, alone or in `db.batch`
+  "(basics)/persistence.mdx: record, persisted or not", // a record, whether persisted or not
+  "(background)/query-databases.md: CODE, app-wide or per", // `onQuery`, either app-wide or per request
+  "(how-to)/console.mdx: CODE, cancels and opens", // “Anything else, including `y`,” is the subject
+  "(how-to)/generators.mdx: CODE, a record and the records", // “With `--id integer`,” opens the sentence
+  "README.md: CODE, CODE, CODE, CODE, CODE, CODE, CODE and the other", // “`count` and the other calculations” is one item
+  "README.md: CODE, CODE, CODE, CODE, named and default", // “named and default scopes” is one item
+]);
+
+describe("the guide's pages and the READMEs", () => {
+  test("use the Oxford comma in lists of three or more", () => {
+    const missing = [...pages, ...readmes].flatMap(({ name, text }) =>
+      proseWithDescription(text)
+        .flatMap(missingOxfordCommas)
+        .map((list) => `${name}: ${list}`)
+        .filter((found) => !notLists.has(found)),
+    );
+
+    expect(missing).toEqual([]);
   });
 });
 
