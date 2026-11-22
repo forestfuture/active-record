@@ -221,6 +221,11 @@ describe("a signed id", () => {
     await expect(jane.signedId({ expiresIn: {} })).rejects.toThrow(TypeError);
     await expect(jane.signedId({ expiresIn: { minutes: -1 } })).rejects.toThrow(TypeError);
     await expect(jane.signedId({ expiresIn: { weeks: 1 } as never })).rejects.toThrow(TypeError);
+  });
+
+  test("refuses an expiresAt that isn't a Date, and an expiresIn past 10,000 years", async () => {
+    const jane = await create("jane@example.com");
+
     await expect(jane.signedId({ expiresAt: new Date(Number.NaN) })).rejects.toThrow(TypeError);
     await expect(jane.signedId({ expiresAt: "tomorrow" as never })).rejects.toThrow(TypeError);
     await expect(jane.signedId({ expiresIn: { days: 1e9 } })).rejects.toThrow(TypeError);

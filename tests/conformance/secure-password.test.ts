@@ -758,6 +758,7 @@ describe("a secure password", () => {
         }
         static {
           this.generatesTokenFor("passwordReset", { expiresIn: { days: 7 } });
+          this.generatesTokenFor("unsubscribe");
         }
       }
       const jane = await db()
@@ -766,6 +767,8 @@ describe("a secure password", () => {
 
       await expect(jane.passwordResetToken()).rejects.toThrow(InvalidModel);
       await expect(jane.passwordResetToken()).rejects.toThrow(/resetToken: \{ expiresIn \}/);
+      // The Model is declared wrong, so its other tokens throw too.
+      await expect(jane.generateTokenFor("unsubscribe")).rejects.toThrow(InvalidModel);
     });
 
     test("isn't there with resetToken: false", async () => {

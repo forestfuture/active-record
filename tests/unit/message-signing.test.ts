@@ -8,6 +8,7 @@ const older = "o".repeat(32);
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 /** `token` with one character of its payload changed. */
@@ -67,7 +68,6 @@ describe("a signer", () => {
 
     expect(verified).toBeUndefined();
     expect(verify).not.toHaveBeenCalled();
-    verify.mockRestore();
   });
 
   test("refuses to sign an id that makes a token over 1,024 characters", async () => {
