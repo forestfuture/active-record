@@ -7,7 +7,13 @@ import { touchesOfTouch } from "./association-touch.ts";
 import { counterSets, touchAssignments } from "./counters.ts";
 import { modelOf, type Model, type ModelClass } from "./model.ts";
 import { isCoveredByNoTouching } from "./no-touching.ts";
-import { lockOf, type Lock } from "./optimistic-locking.ts";
+import {
+  lockedStatements,
+  lockFailure,
+  lockOf,
+  versionOf,
+  type Lock,
+} from "./optimistic-locking.ts";
 import { lockVersion } from "./lock-version.ts";
 import { state } from "./record-state.ts";
 import { runAfter, writeAll, type PreparedWrite } from "./unit-of-work.ts";
@@ -75,7 +81,7 @@ export async function touchRecord(record: Model, args: readonly unknown[]): Prom
   // A locked record's touch matches only its version, and sets the next (#357).
   const lock = lockOf(record, "touch");
   const writes = [
-    touchWrite(record, () => values, { lock }),
+    touchWrite(record, () => values, { version: lock }),
     ...(await touchesOfTouch(record, time)),
   ];
   const [result] = await writeAll(record[state].executor, writes);
@@ -96,8 +102,7 @@ function keyCells(record: Model): unknown {
 
 /** `values`, and the record's lock version one past its own (#357). */
 function incremented(record: Model, values: Record<string, unknown>): Record<string, unknown> {
-  const version = (record[state].read(lockVersion) as number | null) ?? 0;
-  return { ...values, [lockVersion]: version + 1 };
+  return { ...values, [lockVersion]: versionOf(record) + 1 };
 }
 
 /** How a touch write differs when another write makes it (#353). */
@@ -107,14 +112,13 @@ export interface TouchWriteOptions {
    * write saves itself keeps its save's, for its own callbacks.
    */
   keepsSavedChanges?: () => boolean;
-  /** The lock a record's own `touch()` checks, and whose next version it sets (#357). */
-  lock?: Lock | undefined;
   /**
-   * Whether the touch adds 1 to the row's lock version without checking it, asked as it's sent:
-   * as another record's touch of a locked one does (#357), so copies loaded before it go stale,
-   * unless the same write saves that row, whose own save sets its version.
+   * What the touch does to a locked record's version (#357): a record's own `touch()` checks it
+   * with its `Lock` and sets the next; another record's touch of it adds 1 without checking
+   * (`"increment"`), so copies loaded before it go stale, unless the same write saves the row
+   * (`keepsSavedChanges`), whose own save sets its version.
    */
-  increments?: () => boolean;
+  version?: Lock | "increment" | undefined;
 }
 
 /**
@@ -125,10 +129,12 @@ export interface TouchWriteOptions {
 export function touchWrite(
   record: Model,
   valuesOf: () => Record<string, unknown>,
-  { keepsSavedChanges, lock, increments = () => false }: TouchWriteOptions = {},
+  { keepsSavedChanges, version }: TouchWriteOptions = {},
 ): PreparedWrite {
   const recordState = record[state];
   const model = modelOf(record);
+  const lock = version === "increment" ? undefined : version;
+  const increments = () => version === "increment" && keepsSavedChanges?.() !== true;
   const assigned = () => ({ ...valuesOf(), ...(lock && Object.fromEntries([lock.next])) });
   let isWritten = false;
   return {
@@ -138,7 +144,7 @@ export function touchWrite(
         ? counterSets(model, { [lockVersion]: 1 }, "touch", { touched: Object.entries(valuesOf()) })
         : Object.entries(assigned());
       const update = compileUpdate(model, sets, keyCells(record));
-      return lock?.guarded(update) ?? [update];
+      return lockedStatements(lock, update);
     },
     commit: ([result]) => {
       const values = increments() ? incremented(record, valuesOf()) : assigned();
@@ -152,6 +158,6 @@ export function touchWrite(
       if (isWritten) await runCommitCallbacks(record, "update");
     },
     afterRollback: afterRollbackOf(record),
-    ...(lock && { failed: lock.failed }),
+    ...lockFailure(lock),
   };
 }
