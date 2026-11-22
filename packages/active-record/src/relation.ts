@@ -32,6 +32,7 @@ import {
   either,
   mergeTrees,
   Negated,
+  queryOf,
   type Condition,
   type QueryDescription,
 } from "./query.ts";
@@ -69,6 +70,7 @@ import {
   type FindOrCreateMethod,
 } from "./find-or-create.ts";
 import { destroyTogether } from "./records-together.ts";
+import { TokenFinders } from "./token-finders.ts";
 import { grouped, type GroupedRelation, type GroupTerms } from "./grouping.ts";
 import type { RelationState } from "./relation-state.ts";
 import { counterSets, type CounterOptions, type Counters } from "./counters.ts";
@@ -97,9 +99,6 @@ import {
 
 declare const scopeTypes: unique symbol;
 
-/** @internal The library's key for the query a Relation describes. */
-export const queryOf = Symbol("queryOf");
-
 /** @internal The library's key for narrowing a Relation by its link to an association's owner (#350). */
 export const linkedToOwner = Symbol("linkedToOwner");
 
@@ -126,7 +125,7 @@ export type Scoped<M extends Model, S = {}> = [keyof S] extends [never]
   : Relation<M, S> & ScopeMethods<M, S>;
 
 /** A lazy, immutable description of a query against one Model. */
-export class Relation<M extends Model, S = {}> {
+export class Relation<M extends Model, S = {}> extends TokenFinders<M> {
   /** Type-only: the Model's scopes, so chained calls keep their scope methods. */
   declare readonly [scopeTypes]?: S;
 
@@ -143,6 +142,7 @@ export class Relation<M extends Model, S = {}> {
    * what one is made from is the library's own business.
    */
   protected constructor(parts: unknown) {
+    super();
     const { executor, model, query, collection } = parts as RelationParts<M>;
     this.#executor = executor;
     this.#model = model;

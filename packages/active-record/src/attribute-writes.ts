@@ -10,7 +10,7 @@ import {
 import { withAttributeNames } from "./attribute-aliases.ts";
 import { RecordNotSaved } from "./errors.ts";
 import type { AttributesOf, Model, ModelClass, SpecsOf } from "./model.ts";
-import { ModelStatics } from "./model-statics.ts";
+import { RecordTokens } from "./record-tokens.ts";
 import { state } from "./record-state.ts";
 import { touchRecord, type TouchArguments } from "./touch.ts";
 
@@ -53,7 +53,7 @@ export type BooleanAttributeKey<R> = AttributeKeyOf<R, "boolean">;
  * The record methods that change one attribute, between Model and its statics: Model's records
  * have them, and model.ts stays the record class's own.
  */
-export abstract class AttributeWrites extends ModelStatics {
+export abstract class AttributeWrites extends RecordTokens {
   /** Adds `by` (one by default) to a number attribute, null counting as zero; doesn't save. */
   increment<R extends Model>(this: R, name: NumberAttributeKey<R>, by = 1): R {
     const current = numberValue(this, name, "increment");

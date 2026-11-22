@@ -4,6 +4,9 @@ import { IncompatibleRelation } from "./errors.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { ColumnReference, ColumnValue, SafeSql } from "./sql.ts";
 
+/** @internal The library's key for the query a Relation describes. */
+export const queryOf = Symbol("queryOf");
+
 export type OrderDirection = "asc" | "desc";
 
 export type NullsPlacement = "first" | "last";

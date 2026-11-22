@@ -15,7 +15,8 @@ import {
 } from "./query.ts";
 import { state } from "./record-state.ts";
 import { IncompatibleRelation } from "./errors.ts";
-import { queryOf, type Scoped } from "./relation.ts";
+import { queryOf } from "./query.ts";
+import { type Scoped } from "./relation.ts";
 import { resolveAssociation, type ResolvedAssociation } from "./resolved-association.ts";
 import { pointLoadedBack } from "./point-back-at-owner.ts";
 import { planHop, type Found, type Hop, type Owners, type HopRequest } from "./through-preload.ts";

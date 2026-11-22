@@ -20,7 +20,8 @@ import {
   type CollectionWrite,
 } from "./owned-collection.ts";
 import { state } from "./record-state.ts";
-import { queryOf, type Relation, type Scoped } from "./relation.ts";
+import { queryOf } from "./query.ts";
+import { type Relation, type Scoped } from "./relation.ts";
 import { preparedWrites } from "./prepared-writes.ts";
 import type { QueryDescription } from "./query.ts";
 import { countedOut } from "./owners-counter.ts";
