@@ -90,8 +90,8 @@ export function lockedUpdate(
   lock: Lock | undefined,
   own: readonly Assignment[],
   stamps: readonly Assignment[],
-): { written: Assignment[]; heldAfter: Assignment[] } {
-  if (lock === undefined) return { written: [...own, ...stamps], heldAfter: [...stamps] };
+): { written: Assignment[]; heldOnceWritten: Assignment[] } {
+  if (lock === undefined) return { written: [...own, ...stamps], heldOnceWritten: [...stamps] };
   const changes = own.filter(([name]) => name !== lockVersion);
-  return { written: [...changes, lock.next, ...stamps], heldAfter: [...stamps, lock.next] };
+  return { written: [...changes, lock.next, ...stamps], heldOnceWritten: [...stamps, lock.next] };
 }
