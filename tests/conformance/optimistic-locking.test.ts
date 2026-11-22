@@ -109,4 +109,27 @@ describe("optimistic locking", () => {
       ]);
     });
   });
+  describe("destroying", () => {
+    test("a stale copy's destroy throws StaleRecord, and keeps its row and its dependents", async () => {
+      const [first, second] = await twoCopies();
+      first.title = "Soups";
+      await first.saveOrThrow();
+
+      const destroying = second.destroy();
+
+      await expect(destroying).rejects.toThrow(StaleRecord);
+      await expect(destroying).rejects.toMatchObject({ record: second, action: "destroy" });
+      expect(second.isDestroyed()).toBe(false);
+      expect(await rows("notebooks")).toHaveLength(2);
+      expect(await rows("pages")).toHaveLength(1);
+    });
+
+    test("a fresh copy's destroy deletes its row", async () => {
+      const [, second] = await twoCopies();
+
+      await second.destroyOrThrow();
+
+      expect(await rows("notebooks")).toHaveLength(1);
+    });
+  });
 });
