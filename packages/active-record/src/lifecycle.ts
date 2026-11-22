@@ -46,6 +46,7 @@ import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
+import { lockedAssignments, lockOf } from "./optimistic-locking.ts";
 import { leaveToAutosaves, touchesOf, touchesOfSave } from "./association-touch.ts";
 import {
   countersOnDestroy,
@@ -354,7 +355,7 @@ function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): Prepared
     const insert = compileInsert(model, [...own, ...timestampsFor(model, "insert", own)]);
     const counters = countersOnInsert(record);
     return {
-      statements: counters.around(insert),
+      statements: counters.around([insert]),
       commit: (results) => {
         recordState.commitInsert(results[0]?.rows[0]);
         counters.commit(results);
@@ -376,16 +377,21 @@ function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): Prepared
     return { statements: [], commit, after, afterCommit, afterRollback };
   }
   const counters = countersOnUpdate(record);
-  const update = compileUpdate(model, [...own, ...stamps], recordState.storedKey);
+  // A locked record's update matches only its version, and sets the next (#357).
+  const lock = lockOf(record, "update");
+  const added = lock === undefined ? stamps : [...stamps, lock.next];
+  const assignments = [...lockedAssignments(own, lock), ...stamps];
+  const update = compileUpdate(model, assignments, recordState.storedKey);
   return {
-    statements: counters.around(update),
+    statements: counters.around(lock?.guarded(update) ?? [update]),
     commit: (results) => {
-      recordState.commitUpdate(stamps);
+      recordState.commitUpdate(added);
       counters.commit(results);
     },
     after,
     afterCommit,
     afterRollback,
+    ...(lock && { failed: lock.failed }),
   };
 }
 
@@ -430,7 +436,7 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
   const hasRow = !recordState.isNew;
   const counters = hasRow ? countersOnDestroy(record) : noCounterChanges;
   const deletion = hasRow
-    ? counters.around(compileDelete(modelOf(record), recordState.storedKey))
+    ? counters.around([compileDelete(modelOf(record), recordState.storedKey)])
     : [];
   const touches = hasRow ? await touchesOf(record, "destroy", claimed) : [];
   const own = stageOf(record, [record], () => [

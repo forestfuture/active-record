@@ -221,8 +221,11 @@ function isTypeOfTarget(counter: CounterCache, typeIn: (attribute: string) => un
  * loaded targets take on once the batch is written.
  */
 export interface CounterChanges {
-  /** The record's own statement, with the counters' statements before and after it. */
-  around(own: CompiledSql): CompiledSql[];
+  /**
+   * The record's own statements (its write, and any guard sent with it, #357), with the counters'
+   * statements before and after them.
+   */
+  around(own: readonly CompiledSql[]): CompiledSql[];
   /**
    * Once the batch is written, with the results of `around`'s statements: if the record's own
    * statement changed its row, each loaded target takes the change. A statement that affected no
@@ -239,7 +242,7 @@ function counterChanges(
   by: number,
 ): CounterChanges {
   return {
-    around: (own) => [...before, own, ...after],
+    around: (own) => [...before, ...own, ...after],
     commit(results) {
       if ((results[before.length]?.rowsAffected ?? 0) > 0) countLoaded(record, loaded, by);
     },
@@ -247,7 +250,7 @@ function counterChanges(
 }
 
 /** A write that changes no counter: a record that was never saved has no row to delete. */
-export const noCounterChanges: CounterChanges = { around: (own) => [own], commit: () => {} };
+export const noCounterChanges: CounterChanges = { around: (own) => [...own], commit: () => {} };
 
 /** Counting a new record in: each counter cache whose key is set, on its target by that key. */
 export function countersOnInsert(record: Model): CounterChanges {

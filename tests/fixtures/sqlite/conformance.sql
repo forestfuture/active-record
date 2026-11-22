@@ -56,3 +56,7 @@ CREATE TABLE messages (id INTEGER PRIMARY KEY, discussion_id INTEGER, body TEXT,
 CREATE TABLE stickers (id INTEGER PRIMARY KEY, stickable_type TEXT, stickable_id INTEGER, updated_at TEXT);
 -- Secure passwords and tokens (#355): a digest for each password, and tokens to sign in and invite with.
 CREATE TABLE members (id INTEGER PRIMARY KEY, email TEXT, password_digest TEXT, recovery_password_digest TEXT, auth_token TEXT, invite_code TEXT, updated_at TEXT);
+-- Optimistic locking (#357): notebooks and their pages lock, and a draft's lock_version may be NULL.
+CREATE TABLE notebooks (id INTEGER PRIMARY KEY, title TEXT, pages_count INTEGER DEFAULT 0, lock_version INTEGER NOT NULL DEFAULT 0, updated_at TEXT);
+CREATE TABLE pages (id INTEGER PRIMARY KEY, notebook_id INTEGER REFERENCES notebooks (id), body TEXT, lock_version INTEGER NOT NULL DEFAULT 0, updated_at TEXT);
+CREATE TABLE drafts (id INTEGER PRIMARY KEY, body TEXT, lock_version INTEGER);

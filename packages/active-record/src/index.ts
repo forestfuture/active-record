@@ -43,6 +43,8 @@ export {
   RecordNotSaved,
   RecordNotUnique,
   SoleRecordExceeded,
+  StaleRecord,
+  type StaleAction,
   StrictValidationFailed,
   UnknownAssociation,
   UnknownAttribute,
