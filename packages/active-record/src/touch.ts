@@ -110,10 +110,11 @@ export interface TouchWriteOptions {
   /** The lock a record's own `touch()` checks, and whose next version it sets (#357). */
   lock?: Lock | undefined;
   /**
-   * Whether the touch adds 1 to the row's lock version without checking it, as another record's
-   * touch of a locked one does (#357), so copies loaded before it go stale.
+   * Whether the touch adds 1 to the row's lock version without checking it, asked as it's sent:
+   * as another record's touch of a locked one does (#357), so copies loaded before it go stale,
+   * unless the same write saves that row, whose own save sets its version.
    */
-  increments?: boolean;
+  increments?: () => boolean;
 }
 
 /**
@@ -124,7 +125,7 @@ export interface TouchWriteOptions {
 export function touchWrite(
   record: Model,
   valuesOf: () => Record<string, unknown>,
-  { keepsSavedChanges, lock, increments = false }: TouchWriteOptions = {},
+  { keepsSavedChanges, lock, increments = () => false }: TouchWriteOptions = {},
 ): PreparedWrite {
   const recordState = record[state];
   const model = modelOf(record);
@@ -133,14 +134,14 @@ export function touchWrite(
   return {
     // Compiled as it's sent: a record the same write inserts has its key by then.
     get statements() {
-      const sets = increments
+      const sets = increments()
         ? counterSets(model, { [lockVersion]: 1 }, "touch", { touched: Object.entries(valuesOf()) })
         : Object.entries(assigned());
       const update = compileUpdate(model, sets, keyCells(record));
       return lock?.guarded(update) ?? [update];
     },
     commit: ([result]) => {
-      const values = increments ? incremented(record, valuesOf()) : assigned();
+      const values = increments() ? incremented(record, valuesOf()) : assigned();
       recordState.assign(values);
       if (keepsSavedChanges?.()) recordState.commitColumns(Object.keys(values));
       else recordState.commitTouch(Object.keys(values));

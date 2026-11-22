@@ -299,7 +299,7 @@ async function touchOne(
     (values ??= Object.fromEntries(touchAssignments(model, touch, "touch", timeOf(session))));
   const write = touchWrite(target, valuesOf, {
     keepsSavedChanges: () => isClaimedRow(target, claimed),
-    increments: isLocking(model),
+    increments: () => isLocking(model) && !isClaimedRow(target, claimed),
   });
   return [inWrite(write, target, claimed), ...(await touchesOf(target, "touch", claimed))];
 }
