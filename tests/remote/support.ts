@@ -44,6 +44,8 @@ function schema(p: string): string[] {
     )`,
     // Bytes (#20): bulk rows and list conditions carry them as hex, read with unhex.
     `CREATE TABLE ${p}attachments (id INTEGER PRIMARY KEY, name TEXT, digest BLOB)`,
+    // Optimistic locking (#357): a stale write's guard reads changes() and fails its batch.
+    `CREATE TABLE ${p}notes (id INTEGER PRIMARY KEY, body TEXT, lock_version INTEGER NOT NULL DEFAULT 0)`,
   ];
 }
 

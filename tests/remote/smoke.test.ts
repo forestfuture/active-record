@@ -7,6 +7,7 @@ import {
   Model,
   NotNullViolation,
   RecordNotUnique,
+  StaleRecord,
 } from "../../packages/active-record/src/index.ts";
 import {
   connect,
@@ -49,7 +50,15 @@ function modelsFor(prefix: string) {
     static table = `${prefix}attachments`;
   }
 
-  return { User, Post, Attachment };
+  class Note extends Model.define({
+    id: { type: "integer", null: false },
+    body: "string",
+    lockVersion: { type: "integer", null: false },
+  }) {
+    static table = `${prefix}notes`;
+  }
+
+  return { User, Post, Attachment, Note };
 }
 
 // Against a real remote D1: catches what Miniflare's local D1 can't show, such as error message
@@ -59,15 +68,21 @@ describe.skipIf(!configured)("remote D1 smoke", () => {
   let User: ReturnType<typeof modelsFor>["User"];
   let Post: ReturnType<typeof modelsFor>["Post"];
   let Attachment: ReturnType<typeof modelsFor>["Attachment"];
+  let Note: ReturnType<typeof modelsFor>["Note"];
 
   beforeAll(async () => {
     remote = await remoteDatabase();
-    ({ User, Post, Attachment } = modelsFor(remote.prefix));
+    ({ User, Post, Attachment, Note } = modelsFor(remote.prefix));
   });
   afterAll(() => remote?.dispose());
   beforeEach(async () => {
     const db = connect(remote.binding);
-    await db.batch((b) => [b.deleteAll(Post), b.deleteAll(User), b.deleteAll(Attachment)]);
+    await db.batch((b) => [
+      b.deleteAll(Post),
+      b.deleteAll(User),
+      b.deleteAll(Attachment),
+      b.deleteAll(Note),
+    ]);
   });
 
   // D1 allows only listed SQL functions; Miniflare's list may not be production's (#20).
@@ -333,5 +348,48 @@ describe.skipIf(!configured)("remote D1 smoke", () => {
 
     expect(users).toHaveLength(150);
     expect(users.every((user) => user.loaded("posts").length === 1)).toBe(true);
+  });
+
+  // The guard after a locked write reads changes(), the count of the rows the write just before it
+  // in the batch changed, and fails the batch with a message naming its marker (#357).
+  describe("optimistic locking: the stale guard", () => {
+    test("a locked record's save writes and raises its version", async () => {
+      const note = await connect(remote.binding).model(Note).createOrThrow({ body: "First" });
+
+      await note.updateOrThrow({ body: "Second" });
+
+      expect(note.lockVersion).toBe(1);
+      expect(await connect(remote.binding).model(Note).pluck("body", "lockVersion")).toEqual([
+        ["Second", 1],
+      ]);
+    });
+
+    test("a stale copy's save throws StaleRecord, and its batch writes nothing", async () => {
+      const db = connect(remote.binding);
+      const created = await db.model(Note).createOrThrow({ body: "First" });
+      const mine = await db.model(Note).find(created.id);
+      const theirs = await db.model(Note).find(created.id);
+      await theirs.updateOrThrow({ body: "Theirs" });
+
+      mine.body = "Mine";
+      const error: unknown = await db
+        .batch((b) => [b.insert(User, { id: 1, email: "a@example.com" }), b.save(mine)])
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(StaleRecord);
+      expect(await db.model(Note).pluck("body", "lockVersion")).toEqual([["Theirs", 1]]);
+      expect(await db.model(User).count()).toBe(0);
+    });
+
+    test("a stale copy's destroy throws StaleRecord, and the row stays", async () => {
+      const db = connect(remote.binding);
+      const created = await db.model(Note).createOrThrow({ body: "First" });
+      const mine = await db.model(Note).find(created.id);
+      await (await db.model(Note).find(created.id)).updateOrThrow({ body: "Theirs" });
+
+      await expect(mine.destroy()).rejects.toThrow(StaleRecord);
+
+      expect(await db.model(Note).count()).toBe(1);
+    });
   });
 });
