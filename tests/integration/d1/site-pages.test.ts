@@ -14,6 +14,7 @@ import {
   RecordNotUnique,
   StrictValidationFailed,
   UnknownAttribute,
+  StaleRecord,
   withDatabase,
 } from "../../../packages/active-record/src/index.ts";
 import { inspect } from "node:util";
@@ -66,6 +67,7 @@ import * as validations from "../../../site/snippets/pages/validations/examples.
 import testedWorker from "../../../site/snippets/pages/testing/src/index.ts";
 import { User as TestedUser } from "../../../site/snippets/pages/testing/src/models/user.ts";
 import * as touching from "../../../site/snippets/pages/touching/examples.ts";
+import * as locking from "../../../site/snippets/pages/optimistic-locking/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
 import { statementKinds } from "../../support/statement-kinds.ts";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
@@ -1870,5 +1872,53 @@ describe("the Raw statements page's examples", () => {
 describe("the standalone pages' generated schemas", () => {
   test.each(standalonePages)("%s's schema is current", async (page) => {
     expect(await schemaCommand(pageProject(page).pathname, true)).toMatchObject({ code: 0 });
+  });
+});
+
+// The Optimistic locking page's examples, on the articles table it shows.
+describe("the Optimistic locking page's examples", () => {
+  const binding = pageDatabase("optimistic-locking", ["articles"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare("INSERT INTO articles (id, title, body) VALUES ('a', 'Hello', 'First draft')")
+      .run();
+  });
+  const article = () => binding().prepare("SELECT * FROM articles").first();
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+  const log = quietLog();
+
+  test("a stale copy's save throws StaleRecord, and the first save is kept", async () => {
+    await expect(run(locking.saving)).rejects.toThrow(StaleRecord);
+
+    expect(log.calls()).toEqual([[1]]);
+    expect(await article()).toMatchObject({ body: "Their edit", lock_version: 1 });
+  });
+
+  test("a stale copy's destroy throws StaleRecord, and the article stays", async () => {
+    await expect(run(locking.destroying)).rejects.toThrow(StaleRecord);
+
+    expect(await article()).toMatchObject({ title: "Hello again", lock_version: 1 });
+  });
+
+  test("a form's old version gets a 409, and its current one saves", async () => {
+    const send = (lockVersion: number) => {
+      const body = new FormData();
+      body.set("body", "Edited");
+      body.set("lockVersion", String(lockVersion));
+      return run(() =>
+        locking.updateArticle(new Request("https://example.com/?id=a", { method: "POST", body })),
+      );
+    };
+
+    expect((await send(0)).status).toBe(200);
+    expect((await send(0)).status).toBe(409);
+    expect(await article()).toMatchObject({ body: "Edited", lock_version: 1 });
+  });
+
+  test("a stale save is retried after a reload", async () => {
+    const saved = await run(locking.retrying);
+
+    expect(saved.lockVersion).toBe(2);
+    expect(await article()).toMatchObject({ title: "Hello, world", body: "A new paragraph." });
   });
 });

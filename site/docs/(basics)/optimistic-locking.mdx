@@ -1,0 +1,90 @@
+---
+title: Optimistic locking
+description: "Stop two saves of one record from overwriting each other."
+seo:
+  description: "Optimistic locking in Active Record: a lock_version column checked by every save, destroy, and touch, StaleRecord for a stale copy, version fields in forms, and retrying with reload."
+---
+
+## At a glance
+
+| To                                     | Write                                                   |
+| -------------------------------------- | ------------------------------------------------------- |
+| turn locking on                        | a `lock_version INTEGER NOT NULL DEFAULT 0` column      |
+| catch a save from a stale copy         | `catch (error) { if (error instanceof StaleRecord) … }` |
+| catch an edit made since a form loaded | `article.assign({ lockVersion: Number(form.get(…)) })`  |
+| try again with the row’s values        | `await article.reload()`, then make the change again    |
+| write without checking the version     | `article.updateColumns({ … })`                          |
+
+## The Model
+
+The examples use this Model, whose attributes come from its table through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="article.ts">/_excerpts/pages/optimistic-locking/src/models/article.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/optimistic-locking/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/optimistic-locking/migrations/0001_create_articles.sql</include>
+
+<include meta="Postgres">
+  /_excerpts/pages/optimistic-locking/postgres/0001_create_articles.sql
+</include>
+
+</CodeGroup>
+
+## Turning it on
+
+Add a `lock_version` integer column to a table, and its Model’s records lock. Every save that writes the row checks that the row still has the record’s `lockVersion`, then adds 1 to it.
+
+- A record with no changes sends nothing, so its version stays the same.
+- A new record is saved with version 0 when it has none.
+- A row whose `lock_version` is NULL reads as version 0.
+
+## Saving a stale record
+
+When another save changes the row after you load a record, saving your copy throws `StaleRecord`:
+
+<include>/_excerpts/pages/optimistic-locking/examples/stale.mdx</include>
+
+- `save()` throws, as `saveOrThrow()` does. Nothing in its write is kept, so the record’s autosaved records, counter caches, and touches roll back with it, as do the other records of a [batch](./batches).
+- The error’s `record` is the stale record, and its `action` is `"update"`, `"destroy"`, or `"touch"`.
+- The record keeps its changes, and the version it had.
+
+## Destroying a stale record
+
+`destroy()` checks the version too, and so does `touch()`:
+
+<include>/_excerpts/pages/optimistic-locking/examples/destroy.mdx</include>
+
+The article stays, and so do the records its `dependent` associations would have destroyed.
+
+## Catching edits made in another request
+
+Put the record’s `lockVersion` in its form, and assign it back when the form is sent. The save then checks the version the form was shown with:
+
+<include>/_excerpts/pages/optimistic-locking/examples/form.mdx</include>
+
+## Recovering from a stale record
+
+Reload the record to read the row’s values and its version, then make your change again:
+
+<include>/_excerpts/pages/optimistic-locking/examples/retry.mdx</include>
+
+## What doesn’t check the version
+
+`updateColumns`, `updateColumn`, `incrementColumn`, `decrementColumn`, and `toggleColumn` write straight to the row. They don’t check `lockVersion` or change it, and neither do counters, [counter caches](./counter-caches), `updateAll`, `deleteAll`, and `touchAll`.
+
+:::warning[Touches change the version]
+When a comment [touches](./touching) its article, the article’s `lockVersion` goes up by 1 without being checked. Someone editing the article when a comment arrives then gets `StaleRecord`. If a locked record’s children touch it often, drop their `touch`, or write them inside `noTouching`.
+:::
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails names the error `ActiveRecord::StaleObjectError`, and its `attempted_action` is `action` here.
+
+Rails’ `locking_column` and `lock_optimistically = false` aren’t here: a table locks when it has `lock_version`.
+
+When a comment touches a locked article, Rails checks the article’s version and can refuse the comment’s save. Here the touch adds 1 to the article’s version without checking it.
+
+</Callout>

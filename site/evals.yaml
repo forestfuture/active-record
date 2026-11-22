@@ -413,3 +413,15 @@ questions:
       - 'an alias in static attributes: title: { aliasOf: "name" }'
       - "where, order, pluck, create and the rest take title, and changes and toJSON list name"
     routes: /models
+  - id: optimistic-locking
+    question: "Two people edit the same article at once, and the second save silently overwrites the first. How do I stop that?"
+    expected:
+      - "add a lock_version INTEGER NOT NULL DEFAULT 0 column, and the Model locks: each save checks and increments lockVersion"
+      - "the stale copy's save throws StaleRecord and writes nothing; reload() and make the change again"
+    routes: /optimistic-locking
+  - id: lock-version-form
+    question: "How do I tell a user their edit form is out of date because someone else saved the record after they opened it?"
+    expected:
+      - "send the record's lockVersion in the form as a hidden field, and assign or permit it with the other fields"
+      - "the save then throws StaleRecord, which the handler answers with a 409 or a message to reload"
+    routes: /optimistic-locking
