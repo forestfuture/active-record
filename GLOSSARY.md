@@ -164,6 +164,10 @@ _Avoid_: Transaction callback (there's no transaction around the callbacks)
 Setting a **Record**'s `updatedAt`, and any datetime attributes named, to now (or a given time) straight to its row, without a save: `record.touch()`, then `afterTouch` and the update **Commit callbacks**. A Relation's `touchAll` touches every row it matches as a **Bulk write**, with no callbacks; a counter's `{ touch }` option touches in the counter's own UPDATE. A belongsTo declared with `touch` touches the record it reaches whenever its own record is created, updated, destroyed or touched, in that write's batch, and that record touches its own in turn. A hasOne declared with `touch` does the same when its owner is updated, destroyed or touched, leaving alone a record its own save writes (built through it, or autosaved) or its `dependent` removes. Inside `Article.noTouching(fn)`, articles (and records of Models extending Article; every Model's, for `Model.noTouching`) aren't touched: not by a belongsTo, nor by their own `touch()`.
 _Avoid_: Bump, stamp
 
+**Lock version**:
+A **Model**'s integer `lockVersion` attribute (column `lock_version`), which turns on optimistic locking: a save, destroy or **Touch** of its **Record** matches the version it has and sets the next, and one whose row another write changed first throws `StaleRecord`, writing nothing. A NULL reads as 0.
+_Avoid_: Revision, row version, optimistic lock column
+
 **Validation context**:
 The occasion a record is validated for, which picks the rules declared `on` it (or `exceptOn` it) that run: `"create"` while the record is new, `"update"` once it's saved, or a name the app gives `isValid(context)` or `save({ context })` in their place. A Model lists the names it gives in `static validationContexts`.
 _Avoid_: Context (on its own, which a **Database** isn't either), scenario, validation group
