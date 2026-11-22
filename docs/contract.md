@@ -495,7 +495,7 @@ _Guide:_ [optimistic-locking](<../site/docs/(basics)/optimistic-locking.mdx>). _
 - How a stale write refuses its batch (ADR-0024): each adapter's dialect sends a guard with the write that fails when it changed no row. (D1) A `SELECT` after it, reading `changes()`, fails with a JSON path that isn't one. (Postgres) The write is a CTE `RETURNING 1`, and the statement casts a marker to an integer when it returned nothing. Either error names the write by a marker of the library's, which Postgres's error keeps, and is thrown as `StaleRecord`.
 - A NULL `lock_version` reads as 0, and a write expecting 0 matches NULL too, as Rails reads it. A new locked record without a version is written with 0.
 - Another record's touch of a locked record (a belongsTo's or hasOne's `touch`) adds 1 to its `lock_version` in SQL without checking it, and a touched record in memory holds the next version, so copies loaded before the touch go stale. Rails checks the version of the record it touches; here a touch is by key, often of a record that wasn't loaded, so a child's save never fails over its parent's version.
-- Not checked or bumped, as in Rails: `updateColumns`, `updateColumn`, `incrementColumn`, `decrementColumn`, `toggleColumn`, counters and counter caches, `updateAll`, `deleteAll` and `touchAll`.
+- Not checked or bumped, as in Rails: `updateColumns`, `updateColumn`, `incrementColumn`, `decrementColumn`, `toggleColumn`, counters and counter caches, `updateAll`, `deleteAll`, `touchAll` and `Model.delete(ids)`. (There's no record `delete()`.)
 - Not here: pessimistic locking (Rails' `lock` and `with_lock`); D1 has no `SELECT … FOR UPDATE`.
 
 ## Constraint errors

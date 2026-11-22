@@ -53,11 +53,15 @@ When another save changes the row after you load a record, saving your copy thro
 
 ## Destroying a stale record
 
-`destroy()` checks the version too, and so does `touch()`:
+`destroy()` checks the version too:
 
 <include>/_excerpts/pages/optimistic-locking/examples/destroy.mdx</include>
 
 The article stays, and so do the records its `dependent` associations would have destroyed.
+
+:::note
+`touch()` checks the version as well, and adds 1 to it.
+:::
 
 ## Catching edits made in another request
 
@@ -71,9 +75,9 @@ Reload the record to read the row’s values and its version, then make your cha
 
 <include>/_excerpts/pages/optimistic-locking/examples/retry.mdx</include>
 
-## What doesn’t check the version
+## Writing without the check
 
-`updateColumns`, `updateColumn`, `incrementColumn`, `decrementColumn`, and `toggleColumn` write straight to the row. They don’t check `lockVersion` or change it, and neither do counters, [counter caches](./counter-caches), `updateAll`, `deleteAll`, and `touchAll`.
+`updateColumns`, `updateColumn`, `incrementColumn`, `decrementColumn`, and `toggleColumn` write straight to the row. They don’t check `lockVersion` or change it, and neither do counters, [counter caches](./counter-caches), `updateAll`, `deleteAll`, `touchAll`, and `Article.delete(ids)`.
 
 :::warning[Touches change the version]
 When a comment [touches](./touching) its article, the article’s `lockVersion` goes up by 1 without being checked. Someone editing the article when a comment arrives then gets `StaleRecord`. If a locked record’s children touch it often, drop their `touch`, or write them inside `noTouching`.
