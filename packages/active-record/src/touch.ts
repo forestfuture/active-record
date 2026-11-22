@@ -7,6 +7,7 @@ import { touchesOfTouch } from "./association-touch.ts";
 import { touchAssignments } from "./counters.ts";
 import { modelOf, type Model, type ModelClass } from "./model.ts";
 import { isCoveredByNoTouching } from "./no-touching.ts";
+import { lockOf, type Lock } from "./optimistic-locking.ts";
 import { state } from "./record-state.ts";
 import { runAfter, writeAll, type PreparedWrite } from "./unit-of-work.ts";
 
@@ -70,7 +71,12 @@ export async function touchRecord(record: Model, args: readonly unknown[]): Prom
   if (isCoveredByNoTouching(model)) return false;
   // Every value is the one time the touch sets.
   const time = Object.values(values)[0] as Date;
-  const writes = [touchWrite(record, () => values), ...(await touchesOfTouch(record, time))];
+  // A locked record's touch matches only its version, and sets the next (#357).
+  const lock = lockOf(record, "touch");
+  const writes = [
+    touchWrite(record, () => values, { lock }),
+    ...(await touchesOfTouch(record, time)),
+  ];
   const [result] = await writeAll(record[state].executor, writes);
   await runAfter(writes);
   return result?.rowsAffected === 1;
@@ -94,6 +100,8 @@ export interface TouchWriteOptions {
    * write saves itself keeps its save's, for its own callbacks.
    */
   keepsSavedChanges?: () => boolean;
+  /** The lock a record's own `touch()` checks, and whose next version it sets (#357). */
+  lock?: Lock | undefined;
 }
 
 /**
@@ -104,18 +112,20 @@ export interface TouchWriteOptions {
 export function touchWrite(
   record: Model,
   valuesOf: () => Record<string, unknown>,
-  { keepsSavedChanges }: TouchWriteOptions = {},
+  { keepsSavedChanges, lock }: TouchWriteOptions = {},
 ): PreparedWrite {
   const recordState = record[state];
   const model = modelOf(record);
+  const assigned = () => ({ ...valuesOf(), ...(lock && Object.fromEntries([lock.next])) });
   let isWritten = false;
   return {
     // Compiled as it's sent: a record the same write inserts has its key by then.
     get statements() {
-      return [compileUpdate(model, Object.entries(valuesOf()), keyCells(record))];
+      const update = compileUpdate(model, Object.entries(assigned()), keyCells(record));
+      return lock?.guarded(update) ?? [update];
     },
     commit: ([result]) => {
-      const values = valuesOf();
+      const values = assigned();
       recordState.assign(values);
       if (keepsSavedChanges?.()) recordState.commitColumns(Object.keys(values));
       else recordState.commitTouch(Object.keys(values));
@@ -126,5 +136,6 @@ export function touchWrite(
       if (isWritten) await runCommitCallbacks(record, "update");
     },
     afterRollback: afterRollbackOf(record),
+    ...(lock && { failed: lock.failed }),
   };
 }
