@@ -300,6 +300,7 @@ async function touchOne(
   const write = touchWrite(target, valuesOf, {
     keepsSavedChanges: () => isClaimedRow(target, claimed),
     version: isLocking(model) ? "increment" : undefined,
+    isVersionSaved: () => sameRow(target, claimed).some((each) => each[state].isSavingVersion),
   });
   return [inWrite(write, target, claimed), ...(await touchesOf(target, "touch", claimed))];
 }

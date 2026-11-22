@@ -61,6 +61,8 @@ export class RecordState {
   readonly autosaves = new PendingAutosaves();
   /** Destroyed when its owner is saved through an `autosave: true` association (#37). */
   isMarkedForDestruction = false;
+  /** Whether the save being prepared sends a locked UPDATE, which sets the row's version (#357). */
+  isSavingVersion = false;
   /** Whether its last save created it (#351). */
   isPreviouslyNew = false;
   /** The contexts it's being validated in, while it is (#51). */
