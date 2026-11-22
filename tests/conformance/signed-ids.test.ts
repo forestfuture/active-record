@@ -21,6 +21,7 @@ import {
   RecordNotFound,
   RecordNotSaved,
   withDatabase,
+  type SigningEnv,
   type SigningSecrets,
   type TableAttributes,
 } from "../../packages/active-record/src/index.ts";
@@ -274,6 +275,29 @@ describe("a signed id", () => {
           .findSigned(await fromNewest.signedId())
       )?.id,
     ).toBe(jane.id);
+  });
+
+  test("is signed with the secret signingSecret gives the database it's on", async () => {
+    // Two handles on one database, standing in for two tenants' databases.
+    const [tenantA, tenantB] = [harness.connect(), harness.connect()];
+    const secrets = new Map([
+      [tenantA, "tenant-a-signing-secret-of-32-bytes-or-more"],
+      [tenantB, "tenant-b-signing-secret-of-32-bytes-or-more"],
+    ]);
+    class Tenanted extends Model.define({ id: { type: "integer", null: false }, email: "string" }) {
+      static override table = "members";
+      static override signingSecret(_env: SigningEnv, database: unknown) {
+        return secrets.get(database as never);
+      }
+    }
+    const jane = await tenantA.model(Tenanted).create({ email: "jane@example.com" });
+
+    const signedId = await jane.signedId();
+
+    expect((await tenantA.model(Tenanted).findSigned(signedId))?.id).toBe(jane.id);
+    expect(await tenantB.model(Tenanted).findSigned(signedId)).toBeNull();
+    const fromStatics = await withDatabase(tenantB, () => Tenanted.findSigned(signedId));
+    expect(fromStatics).toBeNull();
   });
 
   describe("findSignedOrThrow", () => {

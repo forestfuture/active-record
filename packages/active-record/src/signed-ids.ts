@@ -3,6 +3,7 @@
 // conditions and default scopes.
 import { expiryAfter, type Duration } from "./durations.ts";
 import type { Model, ModelClass } from "./model.ts";
+import { state } from "./record-state.ts";
 import { signerOf } from "./signing-secret.ts";
 import {
   lookUpToken,
@@ -55,7 +56,7 @@ export async function signedIdOf(record: Model, options: SignedIdOptions = {}): 
   const model = record.constructor as ModelClass;
   const id = signableIdOf(record, "signedId");
   const expiresAt = expiryOf(options, "signedId");
-  const signer = await signerOf(model, "signed id");
+  const signer = await signerOf(model, "signed id", record[state].executor);
   return signer.sign(purposeOf(model, options.purpose), { id, ...(expiresAt && { expiresAt }) });
 }
 
@@ -65,6 +66,6 @@ export async function findSigned<M extends Model>(
   signedId: unknown,
   { purpose }: FindSignedOptions = {},
 ): Promise<TokenLookup<M>> {
-  const signer = await signerOf(finder.model, "signed id");
+  const signer = await signerOf(finder.model, "signed id", finder.executor);
   return lookUpToken(finder, [signer, purposeOf(finder.model, purpose)], signedId);
 }
