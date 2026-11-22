@@ -15,6 +15,15 @@ class Notebook extends Model.define({
   pages = hasMany(Page, { dependent: "destroy" });
 }
 
+/** A draft, whose `lock_version` has no default and may be NULL. */
+class Draft extends Model.define({
+  id: { type: "integer", null: false },
+  body: "string",
+  lockVersion: "integer",
+}) {
+  static table = "drafts";
+}
+
 /** What a page's `afterRollback` saw. */
 const rolledBack: string[] = [];
 
@@ -125,6 +134,30 @@ describe("optimistic locking", () => {
       await edited.saveOrThrow();
       expect(edited.lockVersion).toBe(2);
       expect((await rows("notebooks"))[0]).toMatchObject({ title: "Breads", lock_version: 2 });
+    });
+  });
+
+  describe("a NULL version", () => {
+    test("reads as 0, and the first save of either copy sets 1 while the other's throws StaleRecord", async () => {
+      await harness.exec("INSERT INTO drafts (id, body) VALUES (1, 'Notes')");
+      const first = await db().model(Draft).find(1);
+      const second = await db().model(Draft).find(1);
+      expect(first.lockVersion).toBe(0);
+      expect(first.changed()).toEqual([]);
+
+      first.body = "More notes";
+      await first.saveOrThrow();
+      second.body = "Other notes";
+
+      await expect(second.save()).rejects.toThrow(StaleRecord);
+      expect(await rows("drafts")).toMatchObject([{ body: "More notes", lock_version: 1 }]);
+    });
+
+    test("a new record without one is written with 0", async () => {
+      const draft = await db().model(Draft).createOrThrow({ id: 2, body: "Ideas" });
+
+      expect(draft.lockVersion).toBe(0);
+      expect(await rows("drafts")).toMatchObject([{ id: 2, lock_version: 0 }]);
     });
   });
 
