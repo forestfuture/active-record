@@ -57,7 +57,11 @@ export function signerFor(secrets: readonly string[], feature: SigningFeature): 
       const payload = encode(
         new TextEncoder().encode(JSON.stringify(trimmed([id, expiry, fingerprint]))),
       );
-      const signature = await crypto.subtle.sign("HMAC", key.signing, signed(purpose, payload));
+      const signature = await crypto.subtle.sign(
+        "HMAC",
+        key.signing,
+        signedBytes(purpose, payload),
+      );
       const token = `${payload}.${encode(new Uint8Array(signature))}`;
       if (token.length > MAX_TOKEN_LENGTH) {
         throw new TypeError(
@@ -69,8 +73,9 @@ export function signerFor(secrets: readonly string[], feature: SigningFeature): 
     async verify(purpose, token) {
       const parts = partsOf(token);
       if (parts === undefined) return undefined;
-      const signer = await signerOf(keys, signed(purpose, parts.payload), parts.signature);
-      return signer === undefined ? undefined : messageIn(signer, purpose, parts.payload);
+      const data = signedBytes(purpose, parts.payload);
+      const signedWith = await keysThatSigned(keys, data, parts.signature);
+      return signedWith === undefined ? undefined : messageIn(signedWith, purpose, parts.payload);
     },
   };
 }
@@ -90,7 +95,7 @@ function partsOf(token: string): { payload: string; signature: Uint8Array } | un
  * The keys whose signature `data` has, if any's. Every key is tried, so the time taken doesn't
  * say which signed it.
  */
-async function signerOf(
+async function keysThatSigned(
   keys: readonly Promise<Keys>[],
   data: Uint8Array,
   signature: Uint8Array,
@@ -160,7 +165,7 @@ async function deriveKeys(secret: string, feature: SigningFeature): Promise<Keys
 }
 
 /** What a token's signature covers: its purpose, quoted so no purpose runs into its payload. */
-function signed(purpose: string, payload: string): Uint8Array {
+function signedBytes(purpose: string, payload: string): Uint8Array {
   return new TextEncoder().encode(`${JSON.stringify(purpose)}.${payload}`);
 }
 
