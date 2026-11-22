@@ -3,6 +3,22 @@ import { guidePages } from "../support/guide-pages.ts";
 
 const pages = guidePages();
 
+/** What a code span becomes in prose, so a list can still count it as an item. */
+const code = "CODE";
+
+/** A list's item: a code span, or one word after an optional article or possessive. */
+const item = String.raw`(?:(?:a|an|the|its|their|your) )?[\w’'-]+`;
+
+/**
+ * A list of three or more items whose last is joined by "and" or "or" without a comma before it.
+ * A list of words starts at a line's start or after punctuation, so a clause before a comma
+ * (“In a Model, `a` and `b`”) isn't one of its items. A code span can start one anywhere.
+ */
+const listWithoutComma = new RegExp(
+  String.raw`(?:\b${code}|(?<![\w’'-] )\b${item})(?:, ${item})+ (?:and|or) ${item}`,
+  "g",
+);
+
 /** How every comparison box opens: Blume's info callout, with the Ruby icon beside its title. */
 const railsBox = /^<Callout type="info" title="(Compared with|Beyond) Rails" icon="\/ruby\.svg">$/;
 
@@ -19,13 +35,19 @@ function prose(text: string): string[] {
     else if (!fenced) {
       lines.push(
         line
-          .replace(/`[^`]*`/g, "")
+          .replace(/`[^`]*`/g, code)
           .replace(/\]\([^)]*\)/g, "]")
           .replace(/<[^>]*>/g, ""),
       );
     }
   }
   return lines;
+}
+
+/** The lists in a line of prose that leave out the Oxford comma, with code spans as `CODE`. */
+function missingOxfordCommas(line: string): string[] {
+  const plain = line.replace(/`[^`]*`/g, code).replace(/[*[\]]/g, "");
+  return [...plain.matchAll(listWithoutComma)].map(([list]) => list);
 }
 
 // The guide's conventions that a tool can check (docs/agents/docs-voice.md).
@@ -69,5 +91,14 @@ describe("the guide's pages", () => {
     );
 
     expect(straight).toEqual([]);
+  });
+});
+
+describe("the Oxford comma check", () => {
+  test("flags a list of three or more without a comma before its last item", () => {
+    expect(missingOxfordCommas("Use `rewhere`, `unscope` and `only` instead.")).toEqual([
+      "CODE, CODE and CODE",
+    ]);
+    expect(missingOxfordCommas("Use `rewhere`, `unscope`, and `only` instead.")).toEqual([]);
   });
 });
