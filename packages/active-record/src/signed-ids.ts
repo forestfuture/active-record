@@ -30,7 +30,7 @@ function purposeOf(model: ModelClass, purpose: string | undefined): string {
 }
 
 /** When a token expires: `expiresAt`, or `expiresIn` from now; `TypeError` for both. */
-export function expiryOf(
+function expiryOf(
   { expiresIn, expiresAt }: { expiresIn?: Duration; expiresAt?: Date },
   where: string,
 ): Date | undefined {

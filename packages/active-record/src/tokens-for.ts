@@ -5,6 +5,7 @@ import { declare, declared } from "./declarations.ts";
 import { expiryAfter, secondsOf, type Duration } from "./durations.ts";
 import { InvalidModel } from "./errors.ts";
 import type { Model, ModelClass } from "./model.ts";
+import { resetTokenDefinitions } from "./secure-passwords.ts";
 import { signableIdOf, invalid, recordOf, type TokenFinder } from "./signed-ids.ts";
 import { signerOf } from "./signing-secret.ts";
 
@@ -54,13 +55,15 @@ export function declareTokenFor(
 }
 
 /**
- * The declaration of `purpose` on `model`, the last when it's declared again; `TypeError` when
- * there's none.
+ * The declaration of `purpose` on `model`, the last when it's declared again, after its secure
+ * passwords' reset tokens; `TypeError` when there's none.
  */
 function definitionOf(model: ModelClass, purpose: string): TokenDefinition {
-  const found = declared(model, "tokenDefinitions").findLast(
-    (definition) => definition.purpose === purpose,
-  );
+  const definitions = [
+    ...resetTokenDefinitions(model.attributeDefinitions),
+    ...declared(model, "tokenDefinitions"),
+  ];
+  const found = definitions.findLast((definition) => definition.purpose === purpose);
   if (found === undefined) {
     throw new TypeError(
       `${model.name} has no tokens for "${purpose}"; declare them with this.generatesTokenFor("${purpose}") in its static {} block`,

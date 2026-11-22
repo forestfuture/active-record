@@ -16,22 +16,29 @@ const SECONDS: Record<keyof Duration, number> = {
   days: 24 * 60 * 60,
 };
 
-/** The seconds a duration lasts; `TypeError`, after `where`, for one that isn't a duration. */
-export function secondsOf(duration: Duration, where: string): number {
-  const entries = Object.entries(duration).filter(([, value]) => value !== undefined);
-  const isDuration =
+/** Whether `value` is a duration: one or more units, each a number that isn't negative. */
+export function isDuration(value: unknown): value is Duration {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const entries = Object.entries(value).filter(([, each]) => each !== undefined);
+  return (
     entries.length > 0 &&
     entries.every(
-      ([unit, value]) =>
-        Object.hasOwn(SECONDS, unit) && typeof value === "number" && value >= 0 && isFinite(value),
-    );
-  if (!isDuration) {
+      ([unit, each]) =>
+        Object.hasOwn(SECONDS, unit) && typeof each === "number" && each >= 0 && isFinite(each),
+    )
+  );
+}
+
+/** The seconds a duration lasts; `TypeError`, after `where`, for one that isn't a duration. */
+export function secondsOf(duration: Duration, where: string): number {
+  if (!isDuration(duration)) {
     throw new TypeError(
       `${where} takes a duration such as { minutes: 15 }: seconds, minutes, hours or days, none negative`,
     );
   }
-  return entries.reduce(
-    (total, [unit, value]) => total + SECONDS[unit as keyof Duration] * value,
+  return Object.entries(duration).reduce(
+    (total, [unit, value]) =>
+      total + SECONDS[unit as keyof Duration] * ((value as number | undefined) ?? 0),
     0,
   );
 }
