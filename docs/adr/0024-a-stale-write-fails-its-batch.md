@@ -12,3 +12,4 @@ Rails raises `StaleObjectError` inside the transaction it wraps every save in, w
 - **The guard fails the batch on purpose**, with an error that looks like a mistake in SQL. It's recognized by its marker only, so it's never mistaken for another failure, and an app sees `StaleRecord`.
 - **Postgres keeps the marker in its error message.** Messages of SQLSTATE class 22 have the value they refused filtered, so no app value reaches a log (#269); the guard's refusal, whose value is the library's marker, is the one kept.
 - **Each adapter writes its own guard**, through the dialect's `staleGuard`, so a new adapter must have a way to fail a batch on a statement's outcome.
+- **Only the batch is kept clean.** A destroy's dependents on another database are written before it, as writes of their own, so a stale destroy leaves them destroyed, as any refused destroy does (#524).
