@@ -6,7 +6,14 @@ import { expiryAfter, secondsOf, type Duration } from "./durations.ts";
 import { InvalidModel } from "./errors.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { resetTokenDefinitions } from "./secure-passwords.ts";
-import { signableIdOf, invalid, recordOf, type TokenFinder } from "./signed-ids.ts";
+import {
+  lookUpToken,
+  signableIdOf,
+  signedPurposeOf,
+  type TokenFinder,
+  type TokenLookup,
+} from "./token-records.ts";
+import type { Signer } from "./message-signing.ts";
 import { signerOf } from "./signing-secret.ts";
 
 /** What `generatesTokenFor` takes: how long its tokens last, and a value they depend on. */
@@ -75,7 +82,7 @@ function definitionOf(model: ModelClass, purpose: string): TokenDefinition {
 /** What a purpose's tokens are signed for: the Model's table, the purpose, and how long they last. */
 function signedPurpose(model: ModelClass, { purpose, expiresIn }: TokenDefinition): string {
   const seconds = expiresIn === undefined ? null : secondsOf(expiresIn, "expiresIn");
-  return JSON.stringify([model.table, purpose, seconds]);
+  return signedPurposeOf(model, purpose, seconds);
 }
 
 /** A token for `purpose`, for a saved record; `RecordNotSaved` for a new one. */
@@ -93,21 +100,20 @@ export async function tokenFor(record: Model, purpose: string): Promise<string> 
 }
 
 /**
- * The record a token for `purpose` finds through `finder`, while it hasn't expired and what it
- * depends on is unchanged; null when there's none; `invalid` for a token that isn't one.
+ * Looks up the record a token for `purpose` finds through `finder`, while it hasn't expired and
+ * what it depends on is unchanged.
  */
 export async function findByTokenFor<M extends Model>(
   finder: TokenFinder<M>,
   purpose: string,
   token: unknown,
-): Promise<M | null | typeof invalid> {
+): Promise<TokenLookup<M>> {
   const definition = definitionOf(finder.model, purpose);
   const signer = await signerOf(finder.model, "token for");
-  if (typeof token !== "string") return invalid;
-  const verified = await signer.verify(signedPurpose(finder.model, definition), token);
-  if (verified === undefined) return invalid;
-  const record = await recordOf(finder, verified);
+  const signed: [Signer, string] = [signer, signedPurpose(finder.model, definition)];
   const { dependsOn } = definition;
-  if (record === null || dependsOn === undefined) return record;
-  return (await verified.isUnchanged(await dependsOn(record))) ? record : null;
+  if (dependsOn === undefined) return lookUpToken(finder, signed, token);
+  return lookUpToken(finder, signed, token, async (record, verified) =>
+    verified.isUnchanged(await dependsOn(record)),
+  );
 }
