@@ -14,6 +14,7 @@ import {
   vi,
 } from "vite-plus/test";
 import {
+  hasMany,
   InvalidModel,
   InvalidToken,
   Model,
@@ -91,6 +92,19 @@ class Visitor extends Model.define({ id: { type: "integer", null: false }, email
   }
 }
 interface Unset extends TableAttributes<typeof members> {}
+
+// A folder's docs: an association, whose owner key a signed id can't reach past.
+class Doc extends Model.define({ id: { type: "integer", null: false }, folderId: "integer" }) {
+  static override table = "json_docs";
+  static override signingSecret() {
+    return secret;
+  }
+}
+
+class Folder extends Model.define({ id: { type: "integer", null: false } }) {
+  static override table = "json_folders";
+  docs = hasMany(Doc, { foreignKey: "folderId" });
+}
 
 describe("a signed id", () => {
   let harness: Harness;
@@ -227,6 +241,17 @@ describe("a signed id", () => {
       jane.id,
     );
     expect(await members.where({ email: "sam@example.com" }).findSigned(signedId)).toBeNull();
+  });
+
+  test("finds through an association only its owner's record", async () => {
+    await harness.reset("json_docs", "json_folders");
+    const folders = db().model(Folder);
+    const [mine, theirs] = [await folders.create(), await folders.create()];
+    const doc = await theirs.docs().create();
+    const signedId = await doc.signedId();
+
+    expect(await mine.docs().findSigned(signedId)).toBeNull();
+    expect((await theirs.docs().findSigned(signedId))?.id).toBe(doc.id);
   });
 
   test("keeps a default scope", async () => {
