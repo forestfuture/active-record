@@ -242,6 +242,8 @@ describe("a token for a purpose", () => {
 
     expect(() => declare("")).toThrow(InvalidModel);
     expect(() => declare("reset", { expiresIn: { minutes: -1 } })).toThrow(TypeError);
+    expect(() => declare("reset", { expiresIn: { days: 1e306 } })).toThrow(TypeError);
+    expect(() => declare("reset", { expiresIn: { days: 1e9 } })).toThrow(TypeError);
     expect(() => declare("reset", { dependsOn: "email" })).toThrow(InvalidModel);
     expect(() => declare("reset", { expires: { days: 1 } })).toThrow(InvalidModel);
   });

@@ -88,6 +88,7 @@ describe("a secure password's declaration", () => {
     expect(() => declare("yes")).toThrow(InvalidModel);
     expect(() => declare({ expires: { minutes: 5 } })).toThrow(InvalidModel);
     expect(() => declare({ expiresIn: { minutes: -5 } })).toThrow(InvalidModel);
+    expect(() => declare({ expiresIn: { days: 1e9 } })).toThrow(InvalidModel);
   });
 
   test("needs a string attribute for its digest", () => {
