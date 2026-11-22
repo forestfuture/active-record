@@ -14,6 +14,7 @@ import {
   type TokenLookup,
 } from "./token-records.ts";
 import type { Signer } from "./message-signing.ts";
+import { state } from "./record-state.ts";
 import { signerOf } from "./signing-secret.ts";
 
 /** What `generatesTokenFor` takes: how long its tokens last, and a value they depend on. */
@@ -109,7 +110,7 @@ export async function tokenFor(record: Model, purpose: string): Promise<string> 
   const definition = definitionOf(model, purpose);
   const id = signableIdOf(record, "generateTokenFor");
   const { expiresIn, dependsOn } = definition;
-  const signer = await signerOf(model, "token for");
+  const signer = await signerOf(model, "token for", record[state].executor);
   return signer.sign(signedPurpose(model, definition), {
     id,
     ...(expiresIn !== undefined && { expiresAt: expiryAfter(expiresIn, "expiresIn") }),
@@ -127,7 +128,7 @@ export async function findByTokenFor<M extends Model>(
   token: unknown,
 ): Promise<TokenLookup<M>> {
   const definition = definitionOf(finder.model, purpose);
-  const signer = await signerOf(finder.model, "token for");
+  const signer = await signerOf(finder.model, "token for", finder.executor);
   const signed: [Signer, string] = [signer, signedPurpose(finder.model, definition)];
   const { dependsOn } = definition;
   if (dependsOn === undefined) return lookUpToken(finder, signed, token);
