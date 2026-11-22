@@ -57,7 +57,7 @@ When another save changes the row after you load a record, saving your copy thro
 
 <include>/_excerpts/pages/optimistic-locking/examples/destroy.mdx</include>
 
-The article stays, and so do the records its `dependent` associations would have destroyed.
+The article stays, and so do the records its `dependent` associations would have destroyed on its database. Those on [another database](./several-databases) are destroyed first, in a write of their own, so they’re gone.
 
 :::note
 `touch()` checks the version as well, and adds 1 to it.
