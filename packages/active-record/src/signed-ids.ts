@@ -28,7 +28,7 @@ export interface FindSignedOptions {
 }
 
 /** What a signed id is signed for: its Model's table, and its purpose. */
-function purposeOf(model: ModelClass, purpose: string | undefined): string {
+function signedIdPurpose(model: ModelClass, purpose: string | undefined): string {
   return signedPurposeOf(model, purpose ?? null);
 }
 
@@ -56,7 +56,10 @@ export async function signedIdOf(record: Model, options: SignedIdOptions = {}): 
   const id = signableIdOf(record, "signedId");
   const expiresAt = expiryOf(options, "signedId");
   const signer = await signerOf(model, "signed id");
-  return signer.sign(purposeOf(model, options.purpose), { id, ...(expiresAt && { expiresAt }) });
+  return signer.sign(signedIdPurpose(model, options.purpose), {
+    id,
+    ...(expiresAt && { expiresAt }),
+  });
 }
 
 /** Looks up the record a signed id finds through `finder`, if its Model's secret signed it for `purpose`. */
@@ -66,5 +69,6 @@ export async function findSigned<M extends Model>(
   { purpose }: FindSignedOptions = {},
 ): Promise<TokenLookup<M>> {
   const signer = await signerOf(finder.model, "signed id");
-  return lookUpToken(finder, [signer, purposeOf(finder.model, purpose)], signedId);
+  const signing = { signer, purpose: signedIdPurpose(finder.model, purpose) };
+  return lookUpToken(finder, signing, signedId);
 }

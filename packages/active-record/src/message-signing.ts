@@ -35,7 +35,8 @@ const FINGERPRINT_BYTES = 12;
 const SIGNATURE_BYTES = 32;
 
 /**
- * The longest token: room for any id a key holds, its expiry and a fingerprint. A longer one is
+ * The longest token: room for an id of about 700 characters, its expiry and a fingerprint, far
+ * more than a key's id needs; signing a longer one throws. A longer token is
  * refused before its signature is checked, so a huge one costs nothing.
  */
 const MAX_TOKEN_LENGTH = 1024;
@@ -51,7 +52,7 @@ export function signerFor(secrets: readonly string[], feature: SigningFeature): 
       const { id, expiresAt, dependsOn } = message;
       const key = await keys[0]!;
       const fingerprint = Object.hasOwn(message, "dependsOn")
-        ? await fingerprintOf(key, [purpose, id], dependsOn)
+        ? await fingerprintOf(key, purpose, id, dependsOn)
         : null;
       const expiry = expiresAt === undefined ? null : secondsSinceEpoch(expiresAt);
       const payload = encode(
@@ -176,7 +177,8 @@ function signedBytes(purpose: string, payload: string): Uint8Array {
  */
 async function fingerprintOf(
   keys: Keys,
-  [purpose, id]: [purpose: string, id: string | number],
+  purpose: string,
+  id: string | number,
   value: unknown,
 ): Promise<string> {
   const json = new TextEncoder().encode(JSON.stringify([purpose, id, value ?? null]));
@@ -191,22 +193,23 @@ function trimmed(values: unknown[]): unknown[] {
   return values.slice(0, end);
 }
 
+/** Whether a payload's expiry has passed, or isn't a whole number of Unix seconds; never without one. */
+function hasExpired(expiry: unknown): boolean {
+  if (expiry === null) return false;
+  if (typeof expiry !== "number" || !Number.isSafeInteger(expiry)) return true;
+  return expiry * 1000 <= Date.now();
+}
+
 /** The message in a signed payload, unless it's expired or isn't one this module made. */
 function messageIn(keys: Keys, purpose: string, payload: string): VerifiedMessage | undefined {
   const [id, expiry = null, fingerprint = null] = parsedPayload(payload) ?? [];
   const isId = typeof id === "string" || (typeof id === "number" && Number.isSafeInteger(id));
-  if (!isId) return undefined;
-  if (
-    expiry !== null &&
-    (!Number.isSafeInteger(expiry) || (expiry as number) * 1000 <= Date.now())
-  ) {
-    return undefined;
-  }
+  if (!isId || hasExpired(expiry)) return undefined;
   return {
     id,
     async isUnchanged(value) {
       if (typeof fingerprint !== "string") return false;
-      return fingerprint === (await fingerprintOf(keys, [purpose, id], value));
+      return fingerprint === (await fingerprintOf(keys, purpose, id, value));
     },
   };
 }
