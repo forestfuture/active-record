@@ -1,10 +1,11 @@
 // The record methods that make a signed token (#517), and the secret they're signed with:
-// `signedId()` and the static `signingSecret`, between Model and its statics, so model.ts stays
+// `signedId()`, `generateTokenFor()` and the statics `signingSecret` and `generatesTokenFor`, between Model and its statics, so model.ts stays
 // the record class's own.
 import { ModelStatics } from "./model-statics.ts";
-import type { Model } from "./model.ts";
+import type { AbstractModelClass, Model } from "./model.ts";
 import { signedIdOf, type SignedIdOptions } from "./signed-ids.ts";
 import type { SigningEnv, SigningSecrets } from "./signing-secret.ts";
+import { declareTokenFor, tokenFor, type TokenForOptions } from "./tokens-for.ts";
 
 /** The token methods Model's records have, and the secret their tokens are signed with. */
 export abstract class RecordTokens extends ModelStatics {
@@ -15,6 +16,28 @@ export abstract class RecordTokens extends ModelStatics {
    */
   static signingSecret(env: SigningEnv): SigningSecrets {
     return env.SECRET_KEY_BASE;
+  }
+
+  /**
+   * Declares tokens for a purpose, in `static {}`: `this.generatesTokenFor("emailConfirmation", {
+   * expiresIn: { days: 1 }, dependsOn: (user) => user.email })`. A record makes one with
+   * `generateTokenFor(purpose)`, and `findByTokenFor(purpose, token)` finds it again until it
+   * expires or the value it depends on changes. Declaring a purpose again replaces it.
+   */
+  static generatesTokenFor<C extends AbstractModelClass>(
+    this: C,
+    purpose: string,
+    options?: TokenForOptions<InstanceType<C>>,
+  ): void {
+    declareTokenFor(this, purpose, options as TokenForOptions<Model>);
+  }
+
+  /**
+   * A token for `purpose`, which its Model declares with `generatesTokenFor`, for
+   * `findByTokenFor` to find this saved record by. `RecordNotSaved` for a new record.
+   */
+  async generateTokenFor(purpose: string): Promise<string> {
+    return tokenFor(this as unknown as Model, purpose);
   }
 
   /**

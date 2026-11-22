@@ -1,10 +1,12 @@
-// The Relation methods that find a record by a token (#517): `findSigned` and its `OrThrow`, with
+// The Relation methods that find a record by a token (#517): `findSigned`, `findByTokenFor` and
+// their `OrThrow`s, with
 // this Relation's conditions and default scopes, between Relation and its finders' modules so
 // relation.ts stays the chainable query's own.
 import { foundOrThrow } from "./finder-order.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { queryOf, type QueryDescription } from "./query.ts";
 import { findSigned, invalidOr, type FindSignedOptions, type TokenFinder } from "./signed-ids.ts";
+import { findByTokenFor } from "./tokens-for.ts";
 
 /** The finders by token every Relation has. */
 export abstract class TokenFinders<M extends Model> {
@@ -23,6 +25,24 @@ export abstract class TokenFinders<M extends Model> {
   /** Like `findSigned`, but throws `InvalidToken` for a signed id that isn't valid, and `RecordNotFound` when its record is gone. */
   async findSignedOrThrow(signedId: unknown, options?: FindSignedOptions): Promise<M> {
     const found = invalidOr(await findSigned(this.#finder, signedId, options), true, "signed id");
+    return foundOrThrow(this.#finder.model, found);
+  }
+
+  /**
+   * The record a token for `purpose` finds (`await user.generateTokenFor(purpose)`), if this
+   * Model's secret signed it, it hasn't expired, the value it depends on is unchanged, and this
+   * Relation matches it; or null. `TypeError` for a purpose the Model doesn't declare.
+   */
+  async findByTokenFor(purpose: string, token: unknown): Promise<M | null> {
+    return invalidOr(await findByTokenFor(this.#finder, purpose, token), false, "token");
+  }
+
+  /**
+   * Like `findByTokenFor`, but throws `InvalidToken` for a token that isn't valid, and
+   * `RecordNotFound` when its record is gone or the value it depends on changed.
+   */
+  async findByTokenForOrThrow(purpose: string, token: unknown): Promise<M> {
+    const found = invalidOr(await findByTokenFor(this.#finder, purpose, token), true, "token");
     return foundOrThrow(this.#finder.model, found);
   }
 
