@@ -23,10 +23,10 @@ const railsBox = /^<Callout type="info" title="(Compared with|Beyond) Rails" ico
 
 /**
  * A page's prose: without front matter, fenced code, links' targets, HTML and JSX, a component's
- * props across lines included (`<TypeTable type={{ … }} />`). Inline code is dropped, or replaced
- * with `codeSpan` (`"$&"` keeps it).
+ * props across lines included (`<TypeTable type={{ … }} />`). Inline code is dropped, or kept
+ * whole with `keepCode`, the link and HTML strips never reaching inside it.
  */
-function prose(text: string, codeSpan = ""): string[] {
+function prose(text: string, keepCode = false): string[] {
   const lines: string[] = [];
   let fenced = false;
   const body = text.replace(/^---\n[\s\S]*?\n---\n/, "").replace(/^<[A-Z]\w*\n[\s\S]*?\/>$/gm, "");
@@ -34,10 +34,10 @@ function prose(text: string, codeSpan = ""): string[] {
     if (line.trimStart().startsWith("```")) fenced = !fenced;
     else if (!fenced) {
       lines.push(
-        line
-          .replace(/`[^`]*`/g, codeSpan)
-          .replace(/\]\([^)]*\)/g, "]")
-          .replace(/<[^>]*>/g, ""),
+        line.replace(/`[^`]*`|\]\([^)]*\)|<[^>]*>/g, (found) => {
+          if (found.startsWith("`")) return keepCode ? found : "";
+          return found.startsWith("]") ? "]" : "";
+        }),
       );
     }
   }
@@ -54,7 +54,7 @@ function missingOxfordCommas(line: string): string[] {
 function proseWithDescription(text: string): string[] {
   const frontMatter = /^---\n([\s\S]*?)\n---\n/.exec(text)?.[1] ?? "";
   const description = /^description: (.*)$/m.exec(frontMatter)?.[1];
-  return [...(description === undefined ? [] : [description]), ...prose(text, "$&")];
+  return [...(description === undefined ? [] : [description]), ...prose(text, true)];
 }
 
 describe("the guide's pages", () => {
@@ -140,5 +140,11 @@ describe("the Oxford comma check", () => {
     expect(missingOxfordCommas("Choose: red, green and blue.")).toEqual(["red, green and blue"]);
     expect(missingOxfordCommas("Red, green, and blue.")).toEqual([]);
     expect(missingOxfordCommas("In a Model, red and blue mix.")).toEqual([]);
+  });
+
+  test("reads a code span whole, even one holding what looks like HTML", () => {
+    const [line] = prose("Set `a<b`, `c` and `d`<br>", true);
+
+    expect(missingOxfordCommas(line ?? "")).toEqual(["`a<b`, `c` and `d`"]);
   });
 });
