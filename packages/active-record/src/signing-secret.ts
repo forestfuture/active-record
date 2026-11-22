@@ -1,9 +1,7 @@
 // The secrets a Model's tokens are signed with (#517): what its `signingSecret` returns from the
-// Worker's env (`SECRET_KEY_BASE` unless it says otherwise) and the database the token is on,
-// newest first, read when a token is made or checked.
-import { databaseOf, type AnyDatabase } from "./database.ts";
+// Worker's env (`SECRET_KEY_BASE` unless it says otherwise), newest first, read when a token is
+// made or checked.
 import { InvalidModel } from "./errors.ts";
-import { databaseNow, type Executor } from "./executor.ts";
 import { signerFor, type Signer, type SigningFeature } from "./message-signing.ts";
 import { workersEnv, type WorkersEnv } from "./workers-env.ts";
 
@@ -16,7 +14,7 @@ export type SigningSecrets = string | readonly (string | undefined)[] | undefine
 /** A Model, as its tokens find their secrets. */
 export interface SigningModel {
   readonly name: string;
-  signingSecret(env: SigningEnv, database: AnyDatabase): SigningSecrets;
+  signingSecret(env: SigningEnv): SigningSecrets;
 }
 
 /** The fewest bytes a secret has: HMAC-SHA256's own key length. */
@@ -40,21 +38,13 @@ function processEnv(): Record<string, unknown> | undefined {
   return (globalThis as { process?: { env?: Record<string, unknown> } }).process?.env;
 }
 
-/**
- * A signer for `model`'s `feature` tokens on the database `executor` sends to now;
- * `InvalidModel` when its secrets are unset or short.
- */
-export async function signerOf(
-  model: SigningModel,
-  feature: SigningFeature,
-  executor: Executor,
-): Promise<Signer> {
-  const database = databaseOf(await databaseNow(executor));
-  return signerFor(secretsOf(model, await envForSecrets(), database), feature);
+/** A signer for `model`'s `feature` tokens; `InvalidModel` when its secrets are unset or short. */
+export async function signerOf(model: SigningModel, feature: SigningFeature): Promise<Signer> {
+  return signerFor(secretsOf(model, await envForSecrets()), feature);
 }
 
-function secretsOf(model: SigningModel, env: SigningEnv, database: AnyDatabase): string[] {
-  const given = model.signingSecret(env, database);
+function secretsOf(model: SigningModel, env: SigningEnv): string[] {
+  const given = model.signingSecret(env);
   const listed: readonly unknown[] = Array.isArray(given) ? given : [given];
   const secrets = listed.filter((secret) => secret !== undefined && secret !== null);
   if (secrets.length === 0) {
