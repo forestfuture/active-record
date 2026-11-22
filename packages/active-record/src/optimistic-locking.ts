@@ -3,16 +3,15 @@ import { attributeFor } from "./attribute.ts";
 import type { Assignment, CompiledSql } from "./compiler.ts";
 import { valueMark } from "./dialect.ts";
 import { StaleRecord, type StaleAction } from "./errors.ts";
-import { modelOf, type Model, type ModelClass } from "./model.ts";
+import { modelOf, type Model } from "./model.ts";
 import { quoteIdentifier } from "./query-tables.ts";
 import { state } from "./record-state.ts";
+import { isLocking, lockVersion } from "./lock-version.ts";
 
-/** The attribute whose presence, as an integer, turns locking on. */
-export const lockVersion = "lockVersion";
-
-/** Whether the Model's records lock: it has an integer `lockVersion`. */
-export function isLocking(model: ModelClass): boolean {
-  return model.attributeDefinitions.get(lockVersion)?.type === "integer";
+/** A new locked record's version, when it has none: it's written with 0. */
+export function firstVersion(record: Model): Assignment[] {
+  const isUnset = isLocking(modelOf(record)) && record[state].read(lockVersion) === null;
+  return isUnset ? [[lockVersion, 0]] : [];
 }
 
 /**

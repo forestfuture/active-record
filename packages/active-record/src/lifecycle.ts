@@ -46,7 +46,7 @@ import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
-import { lockedAssignments, lockOf } from "./optimistic-locking.ts";
+import { firstVersion, lockedAssignments, lockOf } from "./optimistic-locking.ts";
 import { leaveToAutosaves, touchesOf, touchesOfSave } from "./association-touch.ts";
 import {
   countersOnDestroy,
@@ -351,7 +351,7 @@ function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): Prepared
   };
   const afterCommit = () => runCommitCallbacks(record, isInsert ? "create" : "update");
   if (isInsert) {
-    const own = recordState.insertAssignments();
+    const own = [...recordState.insertAssignments(), ...firstVersion(record)];
     const insert = compileInsert(model, [...own, ...timestampsFor(model, "insert", own)]);
     const counters = countersOnInsert(record);
     return {

@@ -27,6 +27,7 @@ import {
 import type { ModelClass } from "./model.ts";
 import { refuseThenable } from "./thenables.ts";
 import { normalizationsOf } from "./normalization.ts";
+import { isLockVersion } from "./lock-version.ts";
 
 /** What `condition()` and `conditionCell()` give for a value that can't match anything. */
 export const noMatch = uncastable;
@@ -201,6 +202,8 @@ export class Attribute {
    * attribute, with the cell hidden if it's filtered, not the parser's own error (#73, #146).
    */
   read(cell: unknown): unknown {
+    // A row's NULL lock version is version 0 (#357).
+    if (cell === null && isLockVersion(this.#model, this.name)) return 0;
     const value = this.#convertOrRefuse(cell, () => readValue(this.#definition, cell));
     if (value === uncastable) throw this.#refusal(cell);
     return value;
