@@ -28,6 +28,16 @@ ruleTester.run("predicate-name", predicateName, {
     // Only a member call to a method that answers yes or no counts: `test` alone is a function.
     "const check = (name: string) => test(name);",
     "const pick = (names: string[]) => names.find((name) => name !== '');",
+    // A block body answers yes or no only when every return does, outside nested functions.
+    "function pick(a: number, b: string) { if (a > 0) return b; return a === 1; }",
+    "function wait() { return () => true; }",
+    "function each(rows: number[]) { rows.forEach((row) => { return row > 0; }); }",
+    // A body that returns only true or false is a stub or a constant, not a question.
+    "const enabled = () => true;",
+    "function off() { if (Math.random()) return true; return false; }",
+    // An async function resolves to its answer, and a generator yields; neither is a predicate.
+    "async function ready(n: number) { return n > 0; }",
+    "function* flags(n: number) { return n > 0; }",
     // A name that starts with the letters but not the word.
     "function isolate(): void {}",
   ],
@@ -111,6 +121,16 @@ ruleTester.run("predicate-name", predicateName, {
       name: "an arrow that calls a method through optional chaining",
       code: "const tagged = (tags?: Set<string>) => tags?.has('new');",
       errors: [{ messageId: "predicateName", data: { name: "tagged" } }],
+    },
+    {
+      name: "a function whose every return is boolean-shaped",
+      code: "function allowed(n: number) { if (n < 0) return false; return n % 2 === 0; }",
+      errors: [{ messageId: "predicateName", data: { name: "allowed" } }],
+    },
+    {
+      name: "a method whose return is boolean-shaped",
+      code: "class Door { open() { return this.state === 'open'; } state = 'shut'; }",
+      errors: [{ messageId: "predicateName", data: { name: "open" } }],
     },
   ],
 });

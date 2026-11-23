@@ -54,13 +54,42 @@ function isBooleanShaped(expression) {
   return shape !== undefined && shape(expression);
 }
 
+/** The nodes directly under `node`, leaving out its parent. */
+function childrenOf(node) {
+  const values = Object.entries(node).flatMap(([key, value]) => (key === "parent" ? [] : value));
+  return values.filter((value) => typeof value?.type === "string");
+}
+
+/** What a block body's `return`s give back, leaving out those of the functions inside it. */
+function returnedBy(body) {
+  const returned = [];
+  const pending = [body];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (node.type === "ReturnStatement") returned.push(node.argument);
+    else if (!node.type.includes("Function")) pending.push(...childrenOf(node));
+  }
+  return returned;
+}
+
+/** What a function gives back: its expression body, or what its `return`s do. */
+function answersOf(fn) {
+  return fn.body.type === "BlockStatement" ? returnedBy(fn.body) : [fn.body];
+}
+
 /**
- * Whether a function with no written return type answers yes or no, read from its body. An
+ * Whether a function with no written return type answers yes or no, read from its body: each
+ * answer is boolean-shaped, and not every one is `true` or `false` (a stub, or a constant). An
  * object literal's property is left alone: its key is an option's name, such as `if` or `default`.
+ * An async function resolves to its answer, and a generator yields, so neither is read.
  */
 function isInferredPredicate(fn) {
-  if (fn.returnType || fn.parent?.type === "Property") return false;
-  return fn.body.type !== "BlockStatement" && isBooleanShaped(fn.body);
+  if (fn.returnType || fn.async || fn.generator || fn.parent?.type === "Property") return false;
+  const answers = answersOf(fn);
+  return (
+    answers.some((answer) => answer?.type !== "Literal") &&
+    answers.every((answer) => isBooleanShaped(answer))
+  );
 }
 
 /** The kinds of node whose key names the function they hold: a method or a property. */
