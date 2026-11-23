@@ -145,7 +145,7 @@ A value in an **SQL fragment** written as `column(attribute).value(v)`: cast as 
 _Avoid_: Bound attribute, cast value
 
 **Incoming value**:
-The value the row an upsert writes has for an **Attribute**, written `incoming(attribute)` in an **SQL fragment** of the upsert's `onDuplicate`, beside `column(attribute)`, the clashing row's value: `count: sql\`${column("count")} + ${incoming("count")}\``. Anywhere else it's a `TypeError`.
+The value the row an upsert writes has for an **Attribute**, written `incoming(attribute)` in an **SQL fragment** of the upsert's `onDuplicate`, beside `column(attribute)`, the clashing row's value: `` count: sql`${column("count")} + ${incoming("count")}` ``. Anywhere else it's a `TypeError`.
 _Avoid_: Excluded value, new value
 
 **Attribute conversions**:
