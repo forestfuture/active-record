@@ -1,9 +1,11 @@
 // Read-only records and attributes (#358): refusing a read-only record's writes, and a save that
 // changes a read-only attribute, before anything runs or is sent.
 import { attributeName } from "./attribute-aliases.ts";
+import { autosavedAfter } from "./autosave.ts";
 import { lockVersion } from "./lock-version.ts";
+import { resolveAssociation } from "./resolved-association.ts";
 import { ReadonlyAttribute, ReadonlyRecord, type ReadonlyAction } from "./errors.ts";
-import type { Model, ModelClass } from "./model.ts";
+import { modelOf, type Model, type ModelClass } from "./model.ts";
 import { state } from "./record-state.ts";
 
 /**
@@ -48,5 +50,28 @@ function requireReadonlyAttributesKept(record: Model): void {
 export function requireSavesWritable(records: readonly Model[]): void {
   for (const record of records) {
     requireWritable(record, record[state].isMarkedForDestruction ? "destroy" : "save");
+    requireLinksWritable(record);
+  }
+}
+
+/**
+ * The read-only foreign keys a save would fill once a new record is inserted, refused before:
+ * a persisted record's, pointed at a new one, and a persisted record's its new owner would fill.
+ */
+function requireLinksWritable(record: Model): void {
+  const model = record.constructor as ModelClass;
+  if (record[state].isPersisted) {
+    for (const [name, target] of record[state].autosaves.allBelongsTo()) {
+      if (!target[state].isNew) continue;
+      requireWritableColumns(model, [resolveAssociation(model, name).ownerAttribute]);
+    }
+  }
+  if (!record[state].isNew) return;
+  for (const { association, record: linked, keepsKey, destroys } of autosavedAfter(
+    record,
+    new Set(),
+  )) {
+    if (keepsKey || destroys || !linked[state].isPersisted) continue;
+    requireWritableColumns(modelOf(linked), [association.definition.foreignKey]);
   }
 }
