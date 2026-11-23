@@ -440,6 +440,30 @@ describe("the request cache", () => {
     });
   });
 
+  test("a nested call's is cleared by a write the outer call sends while it runs", async () => {
+    const outer = db();
+    const inner = db();
+    let hasRead!: () => void;
+    const read = new Promise<void>((resolve) => (hasRead = resolve));
+    let hasWritten!: () => void;
+    const written = new Promise<void>((resolve) => (hasWritten = resolve));
+
+    const email = await withDatabase(outer, async () => {
+      const nested = withDatabase(inner, async () => {
+        await inner.model(User).find(1);
+        hasRead();
+        await written;
+        return (await inner.model(User).find(1)).email;
+      });
+      await read;
+      await outer.model(User).where({ id: 1 }).updateAll({ email: "sam@example.com" });
+      hasWritten();
+      return nested;
+    });
+
+    expect(email).toBe("sam@example.com");
+  });
+
   describe("db.clearRequestCache()", () => {
     test("empties it, so a read after a write the library didn't send is sent", async () => {
       const database = db();
