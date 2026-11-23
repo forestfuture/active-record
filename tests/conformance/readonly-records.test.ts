@@ -213,12 +213,15 @@ describe("read-only records (#358)", () => {
     test("saving its owner, which would autosave its change, throws and sends nothing", async () => {
       const events: QueryEvent[] = [];
       const bookcase = await recorded(events).model(Bookcase).includes("volumes").find(1);
-      const [dune] = await bookcase.volumes().toArray();
-      dune!.markReadonly().title = "Dune Messiah";
+      const [volume] = await bookcase.volumes().toArray();
+      volume!.markReadonly().title = "Dune Messiah";
       bookcase.name = "Classics";
       events.length = 0;
 
-      await expect(bookcase.save()).rejects.toMatchObject({ name: "ReadonlyRecord", record: dune });
+      await expect(bookcase.save()).rejects.toMatchObject({
+        name: "ReadonlyRecord",
+        record: volume,
+      });
       expect(heard).toEqual([]); // the owner's callbacks don't run either
       expect(events).toEqual([]);
       expect(await storedShelf()).toEqual(seeded);
@@ -226,10 +229,10 @@ describe("read-only records (#358)", () => {
 
     test("saving its owner, which would destroy it as marked, throws and runs nothing", async () => {
       const bookcase = await harness.connect().model(Bookcase).includes("volumes").find(1);
-      const [dune] = await bookcase.volumes().toArray();
-      dune!.markReadonly().markForDestruction();
+      const [volume] = await bookcase.volumes().toArray();
+      volume!.markReadonly().markForDestruction();
 
-      await expect(bookcase.save()).rejects.toMatchObject({ action: "destroy", record: dune });
+      await expect(bookcase.save()).rejects.toMatchObject({ action: "destroy", record: volume });
       expect(heard).toEqual([]);
       expect(await storedVolumes()).toEqual(["Dune", "Emma"]);
     });
@@ -246,13 +249,13 @@ describe("read-only records (#358)", () => {
       const events: QueryEvent[] = [];
       const database = recorded(events);
       const bookcase = await database.model(Bookcase).find(1);
-      const [dune, emma] = await database.model(Volume).order({ id: "asc" }).toArray();
+      const [writable, readonly] = await database.model(Volume).order({ id: "asc" }).toArray();
       bookcase.name = "Classics";
-      dune!.title = "Dune Messiah";
-      emma!.markReadonly().title = "Persuasion";
+      writable!.title = "Dune Messiah";
+      readonly!.markReadonly().title = "Persuasion";
       events.length = 0;
 
-      const batch = database.batch((b) => [b.save(bookcase), b.save(dune!), b.save(emma!)]);
+      const batch = database.batch((b) => [b.save(bookcase), b.save(writable!), b.save(readonly!)]);
 
       await expect(batch).rejects.toThrow(ReadonlyRecord);
       expect(heard).toEqual([]); // the first entry's callbacks don't run
@@ -280,14 +283,14 @@ describe("read-only records (#358)", () => {
     test("pushing it onto an association throws and writes nothing", async () => {
       await harness.exec("INSERT INTO shelves (id, name) VALUES (2, 'Poetry')");
       const database = harness.connect();
-      const poetry = await database.model(Bookcase).find(2);
-      const dune = (await database.model(Volume).find(1)).markReadonly();
+      const otherShelf = await database.model(Bookcase).find(2);
+      const readonly = (await database.model(Volume).find(1)).markReadonly();
 
-      const emma = await database.model(Volume).find(2);
+      const writable = await database.model(Volume).find(2);
       heard.length = 0;
 
-      await expect(poetry.volumes().push(emma, dune)).rejects.toThrow(ReadonlyRecord);
-      expect(heard).toEqual([]); // emma's callbacks don't run
+      await expect(otherShelf.volumes().push(writable, readonly)).rejects.toThrow(ReadonlyRecord);
+      expect(heard).toEqual([]); // the writable volume's callbacks don't run
       expect(await database.model(Volume).where({ shelfId: 2 }).count()).toBe(0);
     });
 
@@ -316,12 +319,18 @@ describe("read-only records (#358)", () => {
       expect(await storedVolumes()).toEqual(["Dune", "Emma"]);
     });
 
-    test("updateAll and deleteAll write through a readonly() Relation", async () => {
+    test("updateAll writes through a readonly() Relation", async () => {
       const volumes = harness.connect().model(Volume).readonly();
 
       expect(await volumes.where({ id: 1 }).updateAll({ title: "Dune Messiah" })).toBe(1);
+      expect(await storedVolumes()).toEqual(["Dune Messiah", "Emma"]);
+    });
+
+    test("deleteAll writes through a readonly() Relation", async () => {
+      const volumes = harness.connect().model(Volume).readonly();
+
       expect(await volumes.where({ id: 2 }).deleteAll()).toBe(1);
-      expect(await storedVolumes()).toEqual(["Dune Messiah"]);
+      expect(await storedVolumes()).toEqual(["Dune"]);
     });
   });
 });
