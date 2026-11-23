@@ -63,6 +63,8 @@ export class RecordState {
   isMarkedForDestruction = false;
   /** Whether the save being prepared sends a locked UPDATE, which sets the row's version (#357). */
   isSavingVersion = false;
+  /** Marked read-only (#358): by `markReadonly()`, or loaded through a `readonly()` Relation. */
+  isReadonly = false;
   /** Whether its last save created it (#351). */
   isPreviouslyNew = false;
   /** The contexts it's being validated in, while it is (#51). */

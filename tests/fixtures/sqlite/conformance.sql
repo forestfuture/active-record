@@ -60,3 +60,6 @@ CREATE TABLE members (id INTEGER PRIMARY KEY, email TEXT, password_digest TEXT, 
 CREATE TABLE notebooks (id INTEGER PRIMARY KEY, title TEXT, pages_count INTEGER DEFAULT 0, lock_version INTEGER NOT NULL DEFAULT 0, updated_at TEXT);
 CREATE TABLE pages (id INTEGER PRIMARY KEY, notebook_id INTEGER REFERENCES notebooks (id), body TEXT, lock_version INTEGER NOT NULL DEFAULT 0, updated_at TEXT);
 CREATE TABLE drafts (id INTEGER PRIMARY KEY, body TEXT, lock_version INTEGER);
+-- Read-only records and attributes (#358): shelves hold volumes, whose slug is set only on create.
+CREATE TABLE shelves (id INTEGER PRIMARY KEY, name TEXT, volumes_count INTEGER DEFAULT 0, updated_at TEXT);
+CREATE TABLE volumes (id INTEGER PRIMARY KEY, shelf_id INTEGER REFERENCES shelves (id), title TEXT, slug TEXT, code TEXT UNIQUE, updated_at TEXT);

@@ -177,6 +177,48 @@ export class StaleRecord extends ActiveRecordError {
 }
 
 /**
+ * What a read-only record was refused (#358): a save, a destroy, a `touch()`, or a write straight
+ * to its row, named by its method.
+ */
+export type ReadonlyAction =
+  | "save"
+  | "destroy"
+  | "touch"
+  | "updateColumns"
+  | "updateColumn"
+  | "incrementColumn"
+  | "decrementColumn"
+  | "toggleColumn";
+
+/**
+ * A write of a read-only record (#358): one marked by `markReadonly()`, or loaded through a
+ * `readonly()` Relation. Nothing ran and nothing was sent.
+ */
+export class ReadonlyRecord extends ActiveRecordError {
+  override name = "ReadonlyRecord";
+  readonly record: Model;
+  readonly action: ReadonlyAction;
+
+  constructor(record: Model, action: ReadonlyAction) {
+    super(`${record.constructor.name} record is read-only; it can't ${verbs[action]}`);
+    this.record = record;
+    this.action = action;
+  }
+}
+
+/** How a refused action reads after "it can't". */
+const verbs: Record<ReadonlyAction, string> = {
+  save: "be saved",
+  destroy: "be destroyed",
+  touch: "be touched",
+  updateColumns: "be written by updateColumns",
+  updateColumn: "be written by updateColumn",
+  incrementColumn: "be written by incrementColumn",
+  decrementColumn: "be written by decrementColumn",
+  toggleColumn: "be written by toggleColumn",
+};
+
+/**
  * `abort()` was thrown from an after-write callback (`afterSave`, `afterCreate`, `afterUpdate`,
  * `afterDestroy`, `afterTouch`), or from an around callback once its `next()` resolved. That's a
  * mistake: the write already succeeded and nothing rolls back.
