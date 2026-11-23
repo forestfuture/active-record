@@ -39,7 +39,7 @@ Call `readonly()` on a query, and the records it loads can’t be saved:
 
 - Every way a query loads records marks them: `toArray()`, `find`, `findBy`, `first`, `sole`, `findEach`, and the rest.
 - Chaining keeps it, and so does `merge`. A scope, a default scope, or an association’s `scope` can call it too. `readonly(false)` undoes it.
-- The records `includes` preloads aren’t read-only, and neither are records the query builds or creates.
+- The records `includes` preloads aren’t read-only, unless an association’s `scope` calls `readonly()`. Records the query builds or creates aren’t read-only either.
 
 ## Marking one record
 
@@ -49,7 +49,7 @@ Call `readonly()` on a query, and the records it loads can’t be saved:
 
 A read-only record can still change in memory, and `reload()` still reads its row. It stays read-only.
 
-## What a read-only record refuses
+## Refusing writes
 
 Saving, updating, destroying, or touching a read-only record throws `ReadonlyRecord`, and so do `updateColumns`, `updateColumn`, `incrementColumn`, `decrementColumn`, and `toggleColumn`:
 
@@ -58,7 +58,8 @@ Saving, updating, destroying, or touching a read-only record throws `ReadonlyRec
 - It throws before validation or any callback runs, and sends nothing.
 - `save()` throws too, rather than returning `false`.
 - The error’s `record` is the refused record, and its `action` names what was refused: `"save"`, `"destroy"`, `"touch"`, or the column method.
-- A write that would reach a read-only record through another throws the same way, and writes nothing. That includes saving an owner that [autosaves](./autosaving) a changed read-only record, a [batch](./batches) holding one, `destroyAll`, a `dependent: "destroy"` association, and a has-many’s `push`.
+- A write that would reach a read-only record through another throws too, and writes nothing. Saving an owner that [autosaves](./autosaving) a changed read-only record, a [batch](./batches) holding one, and a has-many’s `push` throw before any callback runs. So does a write that would [touch](./touching) a loaded read-only record.
+- Some records are only loaded partway through a write: the record a has-one’s new record replaces, and a `dependent: "destroy"` association’s records. A read-only one throws once it’s loaded, after the owner’s before-callbacks, and nothing is written.
 
 ## Writing past it
 
@@ -66,16 +67,18 @@ Bulk writes don’t load records, so `readonly()` doesn’t stop them:
 
 <include>/_excerpts/pages/read-only/examples/bulk.mdx</include>
 
-`updateAll`, `deleteAll`, `insert`, and `upsert` all write as usual.
+`updateAll`, `deleteAll`, `insert`, and `upsert` all write as usual. So do the removals that work like them: `dependent: "delete"`, a has-one replacement whose `dependent` is `"delete"`, and a has-many’s `delete()` and `clear()`.
 
-## Read-only attributes
+## Declaring read-only attributes
 
 Give an attribute `readonly: true`, and it’s written when its record is created, then never changed by it:
 
 <include>/_excerpts/pages/read-only/examples/slug.mdx</include>
 
 - Assigning a saved record a new value throws `ReadonlyAttribute` straight away, whether you assign it, `update()` it, or write it with `updateColumns`. The error’s `attribute` names it.
+- Changing it another way, such as pointing a belongs-to at another record or changing a JSON value in place, makes the save throw `ReadonlyAttribute` before anything runs. `touch()` refuses a read-only datetime the same way.
 - A new record can change it until it’s saved.
+- A [counter cache](./counter-caches) still counts a read-only column, so a save can’t overwrite the count. `Model.updateCounters` and `touchAll` write rows without loading them, as `updateAll` does, so they write a read-only column too.
 - An `upsert` leaves the value of a row it updates alone. `updateAll` still writes it.
 - A virtual attribute, a secure password, and a secure token can’t be read-only.
 
@@ -91,7 +94,7 @@ The value is compared after it’s cast and normalized, so `" Hello "` matches `
 
 Rails names the error `ActiveRecord::ReadOnlyRecord`, and its record method is `readonly!`. Here it’s `markReadonly()`.
 
-Rails runs a read-only record’s save and destroy callbacks, `dependent: :destroy` included, before it raises. Here nothing runs.
+Rails runs a read-only record’s own save and destroy callbacks, `dependent: :destroy` included, before it raises. Here they don’t run.
 
 With Rails 7.1’s defaults, `attr_readonly` raises `ActiveRecord::ReadonlyAttributeError` on any assignment to a saved record. Here assigning the value it holds is allowed.
 
