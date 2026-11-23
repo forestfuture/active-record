@@ -197,3 +197,42 @@ describe("an upsert's onDuplicate (#531)", () => {
     });
   });
 });
+
+describe("an upsert's updatedAt with onDuplicate (#531)", () => {
+  let harness: Harness;
+  const users = () => harness.connect().model(User);
+  const updatedAt = async () => (await users().find(1)).updatedAt;
+  const past = new Date("2020-01-01T00:00:00.000Z");
+  const row = { id: 1, email: "a@example.com", age: 5 };
+
+  beforeAll(async () => {
+    harness = await openHarness();
+  });
+  afterAll(() => harness.dispose());
+  beforeEach(async () => {
+    await harness.reset("users");
+    await users().insert({ id: 1, email: "a@example.com", age: 30, updatedAt: past });
+  });
+
+  test("is set when an expression changes a value", async () => {
+    const before = Date.now();
+
+    await users().upsert(row, { onDuplicate: { age: sql`${column("age")} + ${incoming("age")}` } });
+
+    expect((await updatedAt())!.getTime()).toBeGreaterThanOrEqual(before - 1000);
+  });
+
+  test("is kept when an expression or a value leaves every value as it was", async () => {
+    await users().upsert(row, { onDuplicate: { age: sql`${column("age")} + 0`, role: null } });
+
+    expect(await updatedAt()).toEqual(past);
+  });
+
+  test("is set as onDuplicate says when it names updatedAt", async () => {
+    const later = new Date("2021-01-01T00:00:00.000Z");
+
+    await users().upsert(row, { onDuplicate: { age: 30, updatedAt: later } });
+
+    expect(await updatedAt()).toEqual(later);
+  });
+});
