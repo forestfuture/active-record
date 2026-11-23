@@ -56,11 +56,11 @@ function ownTables(all: Map<string, string>, migrationsTable: string): [string, 
   const virtual = [...all]
     .filter(([, sql]) => /^CREATE\s+VIRTUAL\s+TABLE/i.test(sql))
     .map(([name]) => name);
-  const isShadowed = (name: string) =>
+  const isVirtualOrShadow = (name: string) =>
     virtual.some((table) => name === table || name.startsWith(`${table}_`));
   const isInternal = (name: string) =>
     name.startsWith("sqlite_") || name.startsWith("_cf_") || name === migrationsTable;
-  return [...all].filter(([name]) => !isInternal(name) && !isShadowed(name));
+  return [...all].filter(([name]) => !isInternal(name) && !isVirtualOrShadow(name));
 }
 
 /** The columns `json_valid` checks in a table's definition: `CHECK (json_valid(settings))`. */
