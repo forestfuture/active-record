@@ -194,7 +194,7 @@ export function insertStatement<Row>(
   // A clashing row keeps its read-only attributes' values, which it was created with (#358).
   const updated = given.filter((name) => model.attributeDefinitions.get(name)?.readonly !== true);
   const resolved =
-    conflict?.kind === "update" ? touching(conflict, { updated, names, method }) : conflict;
+    conflict?.kind === "update" ? resolvedUpdate(conflict, { updated, names, method }) : conflict;
   const compiled = compileInsertRows(executor.dialect, model, {
     names,
     rows: values,
@@ -205,10 +205,11 @@ export function insertStatement<Row>(
 }
 
 /**
- * An update conflict's attributes: `updateOnly`'s, or every one `updated`, and `updatedAt`, when
- * the row writes it and doesn't update it, touched when one of them changes (#36).
+ * An update conflict resolved against the rows: the attributes it updates (`updateOnly`'s, each
+ * one the rows give, or every one `updated`), and `updatedAt` to touch when one of them changes,
+ * when the rows write it and it isn't updated itself (#36).
  */
-function touching(
+function resolvedUpdate(
   conflict: Extract<Conflict, { kind: "update" }>,
   {
     updated,
@@ -221,8 +222,8 @@ function touching(
   if (missing !== undefined) {
     throw new TypeError(`${method}() updateOnly names ${missing}, which the rows don't give`);
   }
-  const touched = names.includes("updatedAt") && !update.includes("updatedAt");
-  return { ...conflict, update, touch: touched ? "updatedAt" : undefined };
+  const touchesUpdatedAt = names.includes("updatedAt") && !update.includes("updatedAt");
+  return { ...conflict, update, touch: touchesUpdatedAt ? "updatedAt" : undefined };
 }
 
 /** How an insert statement writes: what a conflict does, its method's name, and what it returns. */
