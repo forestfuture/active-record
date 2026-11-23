@@ -64,6 +64,36 @@ beforeAll(async () => {
 });
 afterAll(() => dispose());
 
+describe("the request cache (#218)", () => {
+  test("is cleared by a write on a Model's binding (level 1) inside withDatabase", async () => {
+    // The same D1 as another object, so the request's database isn't the DB binding's.
+    const sameData = new Proxy(binding, {
+      get: (target, name) => {
+        const value: unknown = Reflect.get(target, name, target);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+    const events: QueryEvent[] = [];
+    const request = connect(sameData, { onQuery: (event) => events.push(event) });
+    const users = request.model(Unbound);
+
+    try {
+      await withDatabase(request, async () => {
+        await users.find(2);
+        await User.where({ id: 2 }).updateAll({ role: "author" });
+        // The UPDATE went to the binding's own Database, so the request's onQuery didn't hear it.
+        expect(statementKinds(events)).toEqual(["SELECT"]);
+        events.length = 0;
+        await users.find(2);
+      });
+    } finally {
+      await connect(binding).model(User).where({ id: 2 }).updateAll({ role: "editor" });
+    }
+
+    expect(events.map(({ cached }) => cached)).toEqual([undefined]);
+  });
+});
+
 describe("Product.find(id): a query started from a Model", () => {
   test("level 1: with no setup, a Model queries its binding", async () => {
     expect((await User.find(1)).email).toBe("ada@example.com");
