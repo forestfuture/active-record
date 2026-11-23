@@ -90,7 +90,7 @@ describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, (
    * that times out keeps running after its test ends (#454). Its own `queries` keep its statements
    * out of the next test's, and once the test's `signal` is aborted it stops before its next
    * statement, so at most the one statement already running reaches the table after the next test
-   * starts. Rows are seeded through the harness, so only the model's statements are connection.
+   * starts. Rows are seeded through the harness, so only the model's statements are recorded.
    */
   function testConnection(signal: AbortSignal) {
     const queries: QueryEvent[] = [];
