@@ -170,7 +170,8 @@ function insertAssignments(model: ModelClass, attributes: Record<string, unknown
  * `INSERT` of `rows` into `model`'s table, as one Statement. Every row must have the same
  * attributes as given; `conflict` skips or updates rows that clash with a unique
  * index. An update sets every attribute in `rows` (the given ones and any a Relation added,
- * #475) and `updatedAt`, never filled-in defaults.
+ * #475), or only those `updateOnly` names, and `updatedAt` when one of them changes (#36), never
+ * filled-in defaults.
  * It returns the attributes `returning` names of each row written.
  */
 export function insertStatement<Row>(

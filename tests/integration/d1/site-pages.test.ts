@@ -1093,14 +1093,18 @@ describe("the Bulk writes and batches page's examples", () => {
     expect(await titles()).toEqual(["EDITED", "Hello again"]);
   });
 
-  test("insertAll inserts every row, upsert updates by email, and a skipped duplicate writes nothing", async () => {
+  test("insertAll inserts every row, upsert updates by email, updateOnly keeps the id, and a skipped duplicate writes nothing", async () => {
+    const jane = () => db().model(BatchedAuthor).findByOrThrow({ email: "jane@example.com" });
+    const { id } = await jane();
+
     await run(batches.insertingMany);
 
     expect(await db().model(BatchedComment).count()).toBe(4);
     expect(await db().model(BatchedAuthor).order({ name: "asc" }).pluck("name")).toEqual([
-      "Jane Doe",
+      "Jane Smith",
       "Sam",
     ]);
+    expect((await jane()).id).toBe(id);
   });
 
   test("returning names the attributes each written row comes back with", async () => {
