@@ -76,6 +76,8 @@ export interface Executor {
   read(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
   /** Runs statements atomically: one on its own, several as one batch. */
   write(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
+  /** Empties its database's request cache in the running `withDatabase` call (#218). */
+  clearRequestCache(): Promise<void>;
   /** @internal The DatabaseExecutor that sends now: itself, or the current database's. */
   [resolve](): Promise<DatabaseExecutor>;
 }
@@ -161,6 +163,11 @@ export class DatabaseExecutor implements Executor {
     if (!this.#cachesRequests) return undefined;
     const scope = requestStore()?.scopes.get(this);
     return scope === undefined || scope.hasEnded ? undefined : scope.cache;
+  }
+
+  /** Empties the request cache of the running `withDatabase` call, if there is one. */
+  async clearRequestCache(): Promise<void> {
+    this.#cache()?.clear();
   }
 
   /** Runs one statement and resolves to its rows. */
@@ -300,6 +307,10 @@ abstract class ForwardingExecutor implements Executor {
 
   async write(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     return (await this[resolve]()).write(statements);
+  }
+
+  async clearRequestCache(): Promise<void> {
+    await (await this[resolve]()).clearRequestCache();
   }
 }
 
