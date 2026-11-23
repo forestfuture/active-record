@@ -7,7 +7,7 @@ The guide reads like Laravel's documentation: friendly, direct, and quick to sca
 - **Open with what the reader does, or what the feature does,** in one sentence. No preamble about why, and no "This page covers…".
 - **Assume a competent developer.** Show what to do. Leave out what not to do, and warnings about obvious misuse.
 - **Page titles are nouns** ("Validations", "Logging", "Untrusted input"), as Laravel's are; the sidebar uses the same words.
-- **Section headings name the task, with a gerund:** "Permitting fields", "Defining scopes". `tests/unit/docs-headings.test.ts` fails on a `##` heading that isn't one, in an MDX page.
+- **Section headings name the task, with a gerund:** "Permitting fields", "Defining scopes". `tests/unit/docs-headings.test.ts` fails on any `##` heading in an MDX page that isn't one.
 - **Introduce each example with one sentence ending in a colon,** then show it.
 - **Keep examples short.** One idea per line: name an intermediate value rather than nesting calls.
 - **Write to "you", in plain words.** Short sentences, one idea each.
