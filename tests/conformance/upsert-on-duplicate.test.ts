@@ -101,7 +101,7 @@ describe("an upsert's onDuplicate (#531)", () => {
     ]);
   });
 
-  test("binds a fragment's values, compared again for updatedAt", async () => {
+  test("binds a fragment's values", async () => {
     await users().upsert(
       { id: 1, email: "a@example.com" },
       { onDuplicate: { age: sql`${column("age")} + ${10}`, role: sql`${"lead"}` } },
