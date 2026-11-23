@@ -271,7 +271,8 @@ describe("withSession(request, env.DB, fn)", () => {
     const binding = recordingStarts(rejectingBookmarks(database), starts);
     const request = getRequest({ cookie: `d1-bookmark=${rejectedLater}` });
 
-    const answered = withSession(request, binding, async () => {
+    // The second count must reach D1, so the request cache is off: withSession passes it on (#218).
+    const answered = withSession(request, binding, { cache: { request: false } }, async () => {
       await User.count();
       return Response.json(await User.count());
     });

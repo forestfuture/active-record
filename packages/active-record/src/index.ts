@@ -53,7 +53,7 @@ export {
   UnknownAttribute,
   UnknownModelName,
 } from "./errors.ts";
-export type { QueryEvent, QueryListener } from "./executor.ts";
+export type { CacheOptions, QueryEvent, QueryListener } from "./executor.ts";
 export type { FilterAttribute } from "./filtering.ts";
 export { Errors, type ValidationError } from "./errors-collection.ts";
 export type {

@@ -74,7 +74,8 @@ describe("the PostgreSQL adapter's clients, from a connection string (#269)", ()
   });
 
   beforeAll(() => {
-    db = connect(schema.url);
+    // These send one read again to see which client answers it, so the request cache is off (#218).
+    db = connect(schema.url, { cache: { request: false } });
   });
 
   test("outside a scope, each operation gets a client of its own, closed when it's done", async () => {

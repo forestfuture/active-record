@@ -1,6 +1,7 @@
 // The `Database` that `connect` returns: Postgres through a Hyperdrive binding, a connection string, or the app's Pool.
 import {
   AnyDatabase,
+  type CacheOptions,
   DatabaseExecutor,
   type QueryEvent as AnyQueryEvent,
   type QueryListener as AnyQueryListener,
@@ -19,6 +20,11 @@ export type QueryListener = AnyQueryListener<PostgreSQLMeta>;
 export interface ConnectOptions {
   /** Called once for every statement sent to Postgres, with Postgres's `meta`. */
   onQuery?: QueryListener;
+  /**
+   * What it caches. Inside a `withDatabase` call, a read identical to one already sent there is
+   * answered from memory, until a write; `cache: { request: false }` turns that off.
+   */
+  cache?: CacheOptions;
 }
 
 /** Where a Database's Postgres is: a Hyperdrive binding (`env.HYPERDRIVE`), a connection string, or a `pg` Pool. */
@@ -39,7 +45,8 @@ export class Database extends AnyDatabase {
   readonly #connectionString: string | undefined;
 
   constructor(source: PostgreSQLSource, options: ConnectOptions = {}) {
-    super(new DatabaseExecutor(pgAdapter, new PgDriver(clientsFor(source)), options.onQuery));
+    const { onQuery, cache } = options;
+    super(new DatabaseExecutor(pgAdapter, new PgDriver(clientsFor(source)), onQuery, cache));
     this.#connectionString =
       connectionStringOf(source) ?? (source as Pool).options?.connectionString;
   }

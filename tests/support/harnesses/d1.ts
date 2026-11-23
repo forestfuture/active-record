@@ -25,9 +25,11 @@ export async function openD1Harness(schema: SchemaName): Promise<Harness> {
   const { db, dispose } = await createTestDatabase(schemas[schema]);
   return {
     adapter: "d1",
-    connect({ onQuery, driver } = {}) {
-      if (driver === undefined) return connect(db, { onQuery });
-      return new AnyDatabase(new DatabaseExecutor(d1Adapter, driver(new D1Driver(db)), onQuery));
+    connect({ onQuery, cache, driver } = {}) {
+      if (driver === undefined) return connect(db, { onQuery, cache });
+      return new AnyDatabase(
+        new DatabaseExecutor(d1Adapter, driver(new D1Driver(db)), onQuery, cache),
+      );
     },
     asSent: (sql) => sql,
     async exec(sql, params = []) {
