@@ -87,7 +87,7 @@ describe("readonly() Relations (#358)", () => {
       await expect(shelf.save()).rejects.toThrow(ReadonlyRecord);
     });
 
-    test("a Relation without it loads records that aren't", async () => {
+    test("but not those of a Relation without readonly()", async () => {
       expect((await db().model(Shelf).find(1)).isReadonly()).toBe(false);
     });
   });

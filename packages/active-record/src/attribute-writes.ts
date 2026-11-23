@@ -130,7 +130,7 @@ export abstract class AttributeWrites extends RecordTokens {
    * its Model's `noTouching` block, it writes nothing (#496).
    */
   async touch<R extends Model>(this: R, ...args: TouchArguments<R>): Promise<boolean> {
-    requireSaved(this, "touch");
+    requireWritableRow(this, "touch");
     return touchRecord(this, args);
   }
 
@@ -139,7 +139,7 @@ export abstract class AttributeWrites extends RecordTokens {
    * validation or callback. Flip the attribute and `save()` to run the save callbacks.
    */
   async toggleColumn<R extends Model>(this: R, name: BooleanAttributeKey<R>): Promise<boolean> {
-    requireSaved(this, "toggleColumn");
+    requireWritableRow(this, "toggleColumn");
     return writeColumns(
       this,
       { [name]: isTrueOnceToggled(this, name, "toggleColumn") },
@@ -165,7 +165,7 @@ async function addToColumn(
   { method, touch }: { method: ReadonlyAction; touch: unknown },
 ): Promise<boolean> {
   const recordState = record[state];
-  requireSaved(record, method);
+  requireWritableRow(record, method);
   const model = modelOf(record);
   const touched = touchAssignments(model, touch, method);
   const touchedNames = touched.map(([each]) => each);
@@ -191,7 +191,7 @@ async function writeColumns(
   method: ReadonlyAction,
 ): Promise<boolean> {
   const recordState = record[state];
-  requireSaved(record, method);
+  requireWritableRow(record, method);
   const attributes = withAttributeNames(modelOf(record), given);
   const names = Object.keys(attributes);
   if (names.length === 0) throw new TypeError(`${method} needs at least one attribute to write`);
@@ -207,7 +207,7 @@ async function writeColumns(
  * A write straight to the row needs one: a new record has none, a destroyed one is a snapshot, and
  * a read-only one refuses it (#358).
  */
-function requireSaved(record: Model, method: ReadonlyAction): void {
+function requireWritableRow(record: Model, method: ReadonlyAction): void {
   const recordState = record[state];
   recordState.requireLive("be written");
   requireWritable(record, method);
