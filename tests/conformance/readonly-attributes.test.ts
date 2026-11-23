@@ -43,6 +43,7 @@ class Shelf extends Model.define({
   openedAt: { type: "datetime", readonly: true },
 }) {
   static table = "shelves";
+  volumes = hasMany(FixedVolume, { foreignKey: "shelfId" });
 }
 
 /** A volume that stamps its shelf's opening time, which can't change, whenever it's written. */
@@ -215,6 +216,31 @@ describe("read-only attributes (#358)", () => {
 
       expect(() => volume.shelf.set(poetry)).toThrow(ReadonlyAttribute);
       expect(await fixed()).toEqual(seeded);
+    });
+
+    test("a null key pointed at a new record throws on save, before the record is inserted", async () => {
+      await harness.exec("UPDATE volumes SET shelf_id = NULL WHERE id = 1");
+      const events: QueryEvent[] = [];
+      const database = recorded(events);
+      const volume = await database.model(FixedVolume).find(1);
+      volume.shelf.set(database.model(Shelf).build({ name: "Drama" }));
+      events.length = 0;
+
+      await expect(volume.save()).rejects.toMatchObject({ attribute: "shelfId" });
+      expect(events).toEqual([]);
+    });
+
+    test("a null key a new owner would fill throws on its save, before it's inserted", async () => {
+      await harness.exec("UPDATE volumes SET shelf_id = NULL WHERE id = 1");
+      const events: QueryEvent[] = [];
+      const database = recorded(events);
+      const volume = await database.model(FixedVolume).find(1);
+      const shelf = database.model(Shelf).build({ name: "Drama" });
+      await shelf.volumes().push(volume);
+      events.length = 0;
+
+      await expect(shelf.save()).rejects.toMatchObject({ attribute: "shelfId" });
+      expect(events).toEqual([]);
     });
 
     test("a json value changed in place isn't saved: the save throws, sending nothing", async () => {
