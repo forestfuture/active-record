@@ -363,7 +363,7 @@ describe("types", () => {
     expectTypeOf(typeOnly).toBeFunction();
   });
 
-  test("upsert's uniqueBy names the Model's attributes", () => {
+  test("upsert's uniqueBy and updateOnly name the Model's attributes", () => {
     const users = db.model(User);
 
     // Checked by the type checker only; never called.
@@ -372,6 +372,10 @@ describe("types", () => {
       void db.batch((b) => [b.upsert(users, { id: 1 }, { uniqueBy: ["id", "email"] })]);
       // @ts-expect-error unknown attribute
       void db.batch((b) => [b.upsert(User, { id: 1 }, { uniqueBy: "nope" })]);
+      void users.upsert({ id: 1, email: "a@example.com" }, { updateOnly: "email" });
+      void db.batch((b) => [b.upsertAll(User, [{ id: 1 }], { updateOnly: ["id", "email"] })]);
+      // @ts-expect-error unknown attribute
+      void users.upsert({ id: 1 }, { updateOnly: ["nope"] });
       // @ts-expect-error onDuplicate only skips; updating is upsert
       void db.batch((b) => [b.insert(User, { id: 1 }, { onDuplicate: "update" })]);
     };
