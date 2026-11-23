@@ -196,6 +196,15 @@ describe("an upsert's onDuplicate (#531)", () => {
       );
     });
 
+    test("a column or incoming value given without sql", async () => {
+      const unwrapped = new TypeError(
+        "upsert() onDuplicate gives age a column() or incoming() reference; write it in an sql`…` fragment",
+      );
+
+      await refused({ age: incoming("age") }).rejects.toThrow(unwrapped);
+      await refused({ age: column("age") }).rejects.toThrow(unwrapped);
+    });
+
     test("an object that isn't one of attributes", async () => {
       await refused(sql`age = 1`).rejects.toThrow(
         new TypeError(

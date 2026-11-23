@@ -292,8 +292,13 @@ function onDuplicateSets(
     entries.map(([name]) => name),
     { uniqueBy, method, option: "onDuplicate", kept: ownedBy },
   );
-  return entries.map(([, value], index) => {
+  return entries.map(([given, value], index) => {
     const name = names[index]!;
+    if (isAttributeReference(value)) {
+      throw new TypeError(
+        `${method}() onDuplicate gives ${given} a column() or incoming() reference; write it in an sql\`…\` fragment`,
+      );
+    }
     if (!(value instanceof SafeSql))
       return { name, value: attributeFor(model, name).assigned(value) };
     checkFragment(model, value, { allowsIncoming: true });
