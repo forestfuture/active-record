@@ -411,6 +411,35 @@ describe("the request cache", () => {
     });
   });
 
+  describe("is cleared by a write through another Database inside the call", () => {
+    test("one on the same database that withDatabase wasn't given", async () => {
+      const database = db();
+      const other = harness.connect();
+      const users = database.model(User);
+      const email = await withDatabase(database, async () => {
+        await users.find(1);
+        await other.model(User).where({ id: 1 }).updateAll({ email: "sam@example.com" });
+        return (await users.find(1)).email;
+      });
+
+      expect(email).toBe("sam@example.com");
+    });
+
+    test("a record saved on it", async () => {
+      const database = db();
+      const other = harness.connect();
+      const users = database.model(User);
+      const email = await withDatabase(database, async () => {
+        await users.find(1);
+        const user = await other.model(User).find(1);
+        await user.update({ email: "sam@example.com" });
+        return (await users.find(1)).email;
+      });
+
+      expect(email).toBe("sam@example.com");
+    });
+  });
+
   describe("db.clearRequestCache()", () => {
     test("empties it, so a read after a write the library didn't send is sent", async () => {
       const database = db();

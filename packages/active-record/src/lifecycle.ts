@@ -72,6 +72,7 @@ import {
 import { runValidations, type UniquenessOptions } from "./validations.ts";
 import { hashPasswords, passwordConfirmations, passwordFailures } from "./secure-passwords.ts";
 import { generateTokens } from "./secure-tokens.ts";
+import { clearRequestCaches } from "./request-store.ts";
 
 /**
  * What a lifecycle run ended with. Refusals are outcomes (the non-throwing methods return
@@ -488,7 +489,7 @@ function destroyWrite(record: Model, wrapped: Wrapped): PreparedWrite {
 
 /**
  * Loads the record's row again by its stored primary key, discarding unsaved changes, then runs its
- * `afterFind` and `afterInitialize` (#49). It clears the request cache first, so it reads the database.
+ * `afterFind` and `afterInitialize` (#49). It clears the request caches first, so it reads the database.
  */
 export async function reloadRecord(record: Model): Promise<void> {
   const recordState = record[state];
@@ -503,7 +504,7 @@ export async function reloadRecord(record: Model): Promise<void> {
   const key = recordState.storedKeyValue;
   const query = { model, conditions: [{ [model.primaryKey]: key }], order: [], limit: 1 };
   // A reload reads the database: every answer the request cached may be as old as this record (#218).
-  await executor.clearRequestCache();
+  clearRequestCaches();
   const [row] = await executor.all(compileSelect(executor.dialect, query));
   if (row === undefined) {
     throw new RecordNotFound(
