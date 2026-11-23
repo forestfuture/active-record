@@ -42,14 +42,14 @@ export class RequestCache {
     this.#answers.clear();
   }
 
-  /** Keeps `answer` as `read`'s, unless it fails. */
+  /** Keeps `answer` as `read`'s, unless it fails, or `read` has no key. Its failure is the caller's. */
   set(read: CompiledSql, answer: Promise<StatementResult>): void {
     const key = keyOf(read);
+    answer.catch(() => {
+      if (key !== undefined && this.#answers.get(key) === answer) this.#answers.delete(key);
+    });
     if (key === undefined) return;
     this.#answers.set(key, answer);
     if (this.#answers.size > CAPACITY) this.#answers.delete(this.#answers.keys().next().value!);
-    answer.catch(() => {
-      if (this.#answers.get(key) === answer) this.#answers.delete(key);
-    });
   }
 }
