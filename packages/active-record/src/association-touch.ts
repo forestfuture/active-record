@@ -1,5 +1,6 @@
 // A belongsTo's `touch` (#353) and a hasOne's (#497): checking its declaration, and the touches a record's create, update, destroy or touch makes of the records it belongs to or has, in its batch.
 import { asStored } from "./normalized-values.ts";
+import { requireWritable } from "./readonly-records.ts";
 import { associationsOf, readAssociation } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { isDestroyedThrough } from "./counter-caches.ts";
@@ -282,7 +283,7 @@ function isTouchable(record: unknown, claimed: ReadonlySet<Model>): record is Mo
 /**
  * `target`'s touch write, setting what the association's `touch` names, then those it makes in
  * turn; nothing if this write has touched it already, or `noTouching` turned its Model's touches
- * off (#496).
+ * off (#496). A read-only target throws `ReadonlyRecord` (#358).
  */
 async function touchOne(
   target: Model,
@@ -293,6 +294,8 @@ async function touchOne(
   const model = modelOf(target);
   const key = touchKey(target);
   if (session.touched.has(key) || isCoveredByNoTouching(model)) return [];
+  // A loaded read-only record isn't touched through another (#358).
+  requireWritable(target, "touch");
   session.touched.add(key);
   let values: Record<string, unknown> | undefined;
   const valuesOf = () =>
