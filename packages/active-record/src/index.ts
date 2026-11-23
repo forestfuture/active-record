@@ -100,6 +100,7 @@ export type {
   OrderSpec,
   Returning,
   UpsertOptions,
+  OnDuplicate,
 } from "./relation-checks.ts";
 export type { CountlessPage, Page, PageOptions } from "./pagination.ts";
 export type { IterationOptions } from "./batch-iteration.ts";
