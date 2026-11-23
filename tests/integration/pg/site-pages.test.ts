@@ -9,6 +9,8 @@ import {
   vi,
 } from "vite-plus/test";
 import {
+  ReadonlyAttribute,
+  ReadonlyRecord,
   RecordNotUnique,
   StaleRecord,
   StrictValidationFailed,
@@ -16,6 +18,7 @@ import {
 } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/postgresql/index.ts";
 import * as locking from "../../../site/snippets/pages/optimistic-locking/examples.ts";
+import * as readOnly from "../../../site/snippets/pages/read-only/examples.ts";
 import * as associations from "../../../site/snippets/pages/associations/examples.ts";
 import { Article as AssociatedArticle } from "../../../site/snippets/pages/associations/src/models/article.ts";
 import { Author as AssociatedAuthor } from "../../../site/snippets/pages/associations/src/models/author.ts";
@@ -1567,6 +1570,67 @@ describe("the Raw statements page's conversions, on Postgres", () => {
 
 // Each page shows its Models beside its Postgres tables, which generate the same attributes as its
 // D1 ones. PGlite starts for each schema read, which takes seconds.
+// The Read-only records page's examples, on the articles table it shows, on Postgres.
+describe("the Read-only records page's examples, on Postgres", () => {
+  const schema = pageSchema("read-only");
+  beforeEach(async () => {
+    await schema().pool.query({
+      text: `DELETE FROM articles; INSERT INTO articles (id, title, slug, body) VALUES ('${firstId}', 'Hello', 'hello', 'Hi')`,
+    });
+  });
+  const article = async () =>
+    (await schema().pool.query({ text: `SELECT * FROM articles WHERE id = '${firstId}'` })).rows[0];
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
+  const log = quietLog();
+
+  test("a readonly() query's records are read-only, and saving one throws", async () => {
+    await expect(run(readOnly.loading)).rejects.toThrow(ReadonlyRecord);
+
+    expect(log.calls()).toEqual([[true]]);
+    expect(await article()).toMatchObject({ title: "Hello" });
+  });
+
+  test("a marked record's destroy throws, and the article stays", async () => {
+    await expect(run(readOnly.marking)).rejects.toThrow(ReadonlyRecord);
+
+    expect(log.calls()).toEqual([[true]]);
+    expect(await article()).toMatchObject({ slug: "hello" });
+  });
+
+  test("a refused touch says what was refused", async () => {
+    await run(readOnly.catching);
+
+    expect(log.calls()).toEqual([["touch"]]);
+  });
+
+  test("updateAll writes through readonly()", async () => {
+    await run(readOnly.bulkWrites);
+
+    expect(log.calls()).toEqual([[1]]);
+    expect(await article()).toMatchObject({ body: "" });
+  });
+
+  test("a created article's slug can't be changed", async () => {
+    await expect(run(readOnly.creating)).rejects.toThrow(ReadonlyAttribute);
+
+    expect(log.calls()).toEqual([["getting-started"]]);
+  });
+
+  test("a form posting the slug back saves, and one changing it gets a 422", async () => {
+    const send = (slug: string) => {
+      const body = new FormData();
+      body.set("title", "Hello again");
+      body.set("slug", slug);
+      const request = new Request(`https://example.com/?id=${firstId}`, { method: "POST", body });
+      return run(() => readOnly.updateArticle(request));
+    };
+
+    expect((await send("hello")).status).toBe(200);
+    expect((await send("hello-again")).status).toBe(422);
+    expect(await article()).toMatchObject({ title: "Hello again", slug: "hello" });
+  });
+});
+
 describe("the standalone pages' Postgres tables", { timeout: 60_000 }, () => {
   test.each(standalonePages)("%s's generate the attributes its D1 tables do", async (page) => {
     const cwd = await onPostgres(page, true);

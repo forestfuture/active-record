@@ -1,0 +1,4 @@
+{
+  "name": "read-only",
+  "d1_databases": [{ "binding": "DB", "database_name": "read-only", "database_id": "…" }],
+}

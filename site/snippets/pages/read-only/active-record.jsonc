@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/@forestfuture/active-record/config-schema.json",
+  "databases": {
+    "DB": {
+      "adapter": "d1",
+    },
+  },
+}
