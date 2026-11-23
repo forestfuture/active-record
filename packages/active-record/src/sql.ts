@@ -1,4 +1,4 @@
-// The `sql` tagged template, `column()` and its typed values, and an upsert's `incoming()`: the only way raw SQL enters a query (ADR-0006).
+// The `sql` tagged template, `column()` and its typed values, and an upsert's `incoming()`: the only way raw SQL enters a query (ADR-0006), and their refusal outside a fragment (#539).
 /**
  * A SQL fragment built with the `sql` tagged template (ADR-0006). The template
  * text is written by the developer; every interpolated value is bound as a
@@ -78,20 +78,24 @@ export function isAttributeReference(
   );
 }
 
+/** What a fragment's reference given as a plain value is, for its refusal, or undefined. */
+function referenceKind(value: unknown): string | undefined {
+  if (value instanceof ColumnValue) return "a typed value";
+  if (isAttributeReference(value)) return "a column() or incoming() reference";
+  return undefined;
+}
+
 /**
  * Throws `TypeError` for a fragment's reference given as a value where a fragment could be
  * (an upsert's `onDuplicate`, #531; conditions and `updateAll`, #539): a typed value, which is
  * given as the value itself, or a column or incoming value, which only a fragment reads.
  */
 export function refuseReferenceValue(value: unknown, gives: string): void {
-  if (value instanceof ColumnValue) {
-    throw new TypeError(`${gives} a typed value; give the value itself`);
-  }
-  if (isAttributeReference(value)) {
-    throw new TypeError(
-      `${gives} a column() or incoming() reference; write it in an sql\`…\` fragment`,
-    );
-  }
+  const kind = referenceKind(value);
+  if (kind === undefined) return;
+  const remedy =
+    value instanceof ColumnValue ? "give the value itself" : "write it in an sql`…` fragment";
+  throw new TypeError(`${gives} ${kind}; ${remedy}`);
 }
 
 /**
@@ -99,10 +103,9 @@ export function refuseReferenceValue(value: unknown, gives: string): void {
  * attribute, where no fragment can be (#539): only the value itself can be written there.
  */
 export function refuseAssignedReference(owner: string, attribute: string, value: unknown): void {
-  if (!isAttributeReference(value)) return;
-  const given =
-    value instanceof ColumnValue ? "a typed value" : "a column() or incoming() reference";
-  throw new TypeError(`${owner} "${attribute}" was given ${given}; give the value itself`);
+  const kind = referenceKind(value);
+  if (kind === undefined) return;
+  throw new TypeError(`${owner} "${attribute}" was given ${kind}; give the value itself`);
 }
 
 /** Names the column of `attribute` inside an `sql` fragment, quoted and mapped (ADR-0004). */
