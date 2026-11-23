@@ -21,8 +21,8 @@ export interface ConnectOptions {
   /** Called once for every statement sent to D1, with D1's `meta`. */
   onQuery?: QueryListener;
   /**
-   * What it caches. Inside a `withDatabase` call, a read identical to one already sent there is
-   * answered from memory, until a write; `cache: { request: false }` turns that off.
+   * Inside a `withDatabase` call, a read identical to one already sent there is answered from
+   * memory, until a write; `cache: { request: false }` turns that off.
    */
   cache?: CacheOptions;
   /**
