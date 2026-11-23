@@ -26,16 +26,8 @@ const booleanOperators = new Set([
   "in",
 ]);
 
-/** The methods of the built-in types that always answer yes or no. */
-const booleanMethods = new Set([
-  "some",
-  "every",
-  "includes",
-  "has",
-  "startsWith",
-  "endsWith",
-  "test",
-]);
+/** The methods of the built-in types that always answer yes or no (`has` already reads as a predicate). */
+const booleanMethods = new Set(["some", "every", "includes", "startsWith", "endsWith", "test"]);
 
 /** Whether a call answers yes or no: one to a predicate, or to a method in `booleanMethods`. */
 function isPredicateCall({ callee }) {
