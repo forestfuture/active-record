@@ -183,6 +183,45 @@ describe("the request cache", () => {
     expect(counted).toEqual([undefined]);
   });
 
+  describe("batch iteration", () => {
+    beforeEach(async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (2, 'sam@example.com')");
+    });
+
+    test("doesn't keep its batches, so walking a table again sends each batch", async () => {
+      const database = db();
+      const users = database.model(User);
+      const walk = async () => {
+        for await (const batch of users.findInBatches({ batchSize: 1 })) void batch;
+      };
+
+      const cached = await withDatabase(database, async () => {
+        await walk();
+        events.length = 0;
+        await walk();
+        return events.map((event) => event.cached);
+      });
+
+      expect(cached).toEqual([undefined, undefined, undefined]);
+    });
+
+    test("still caches the reads its callback sends", async () => {
+      const database = db();
+      const users = database.model(User);
+
+      const cached = await withDatabase(database, async () => {
+        for await (const user of users.findEach({ batchSize: 2 })) void user;
+        await users.find(1);
+        events.length = 0;
+        for await (const user of users.findEach({ batchSize: 2 })) await users.find(user.id);
+        return events.map((event) => event.cached);
+      });
+
+      // The first batch, the callback's two finds (the first one cached), then the short last batch.
+      expect(cached).toEqual([undefined, true, undefined, undefined]);
+    });
+  });
+
   // A guard: only a running withDatabase scope has a cache.
   describe("isn't kept", () => {
     const twoFinds = async (database: AnyDatabase) => {

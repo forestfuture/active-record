@@ -3,6 +3,7 @@ import { gt, gte, lt, lte, type Comparison } from "./comparisons.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import { eachOnce } from "./find.ts";
 import type { RunnableQuery } from "./load.ts";
+import { withoutRequestCache } from "./request-store.ts";
 import { primaryKeyOf, type Model } from "./model.ts";
 import type { Condition, QueryDescription } from "./query.ts";
 
@@ -51,12 +52,15 @@ async function* batchesOf<M extends Model>(
   let pastLast: Condition[] = [];
   while (left > 0) {
     const limit = Math.min(batchSize, left);
-    const rows = await runner.load({
-      ...query,
-      conditions: [...query.conditions, ...bounds, ...pastLast],
-      order: [{ attribute: key, direction }],
-      limit,
-    });
+    // Each batch is a query of its own, so keeping it in the request cache would only fill it.
+    const rows = await withoutRequestCache(() =>
+      runner.load({
+        ...query,
+        conditions: [...query.conditions, ...bounds, ...pastLast],
+        order: [{ attribute: key, direction }],
+        limit,
+      }),
+    );
     // A hasMany join gives a record once per linked row, next to each other in key order.
     const records = eachOnce(rows);
     if (records.length > 0) yield records;

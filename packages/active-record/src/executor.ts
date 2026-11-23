@@ -159,7 +159,9 @@ export class DatabaseExecutor implements Executor {
   /** The request cache of the running `withDatabase` scope a statement is sent in, if any. */
   #cache(): RequestCache | undefined {
     if (!this.#cachesRequests) return undefined;
-    const scope = requestStore()?.scopes.get(this);
+    const store = requestStore();
+    if (store?.uncached === true) return undefined;
+    const scope = store?.scopes.get(this);
     return scope === undefined || scope.hasEnded ? undefined : scope.cache;
   }
 
