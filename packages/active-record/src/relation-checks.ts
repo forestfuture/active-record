@@ -61,6 +61,9 @@ export interface UpsertOptions<M> {
   returning?: Returning<M>;
 }
 
+/** The bulk writes that update a row that clashes. */
+export type UpsertMethod = "upsert" | "upsertAll";
+
 /** `{ attribute: "asc" | "desc" }`; key order sets precedence. */
 export type OrderSpec<M> = {
   [K in keyof AttributesOf<M>]?:
@@ -214,7 +217,7 @@ export function returnedNames(
 export function updateOn<M>(
   model: ModelClass,
   options: UpsertOptions<M>,
-  { ownedBy, method }: { ownedBy: readonly string[]; method: string },
+  { ownedBy, method }: { ownedBy: readonly string[]; method: UpsertMethod },
 ): Conflict {
   const uniqueBy = [options.uniqueBy ?? model.primaryKey].flat() as string[];
   for (const name of uniqueBy) columnOf(model, name);
@@ -230,7 +233,7 @@ export function updateOn<M>(
 function updateOnly(
   model: ModelClass,
   given: readonly string[],
-  { uniqueBy, method }: { uniqueBy: readonly string[]; method: string },
+  { uniqueBy, method }: { uniqueBy: readonly string[]; method: UpsertMethod },
 ): string[] {
   if (given.length === 0) {
     const skip = method === "upsert" ? "insert(row" : "insertAll(rows";

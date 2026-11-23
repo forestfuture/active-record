@@ -17,6 +17,7 @@ import {
   writableQuery,
   type InsertOptions,
   type Returning,
+  type UpsertMethod,
   type UpsertOptions,
 } from "./relation-checks.ts";
 import { SafeSql } from "./sql.ts";
@@ -86,7 +87,7 @@ export function preparedWritesOf<M extends Model>(relation: RelationState<M>): P
 function ownedUpdate(
   relation: RelationState<Model>,
   options: UpsertOptions<Model>,
-  method: string,
+  method: UpsertMethod,
 ): Conflict {
   return updateOn(relation.model, options, {
     ownedBy: Object.keys(ownersValues(relation)),
