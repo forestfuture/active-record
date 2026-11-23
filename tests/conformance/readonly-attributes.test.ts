@@ -310,6 +310,22 @@ describe("read-only attributes (#358)", () => {
   });
 
   test.each([
+    ["updatedAt", { type: "datetime", readonly: true }],
+    ["lockVersion", { type: "integer", readonly: true }],
+  ])("a read-only %s, which every save writes, is an InvalidModel", (name, spec) => {
+    class Broken extends Model.define({
+      id: { type: "integer", null: false },
+      [name]: spec as never,
+    }) {
+      static table = "volumes";
+    }
+
+    expect(() => db().model(Broken)).toThrow(
+      new InvalidModel(`Broken.${name} is written by every save, so it can't be readonly`),
+    );
+  });
+
+  test.each([
     ["virtual", { type: "string", virtual: true, readonly: true }],
     ["secureToken", { type: "string", secureToken: true, readonly: true }],
     ["securePassword", { type: "string", virtual: true, securePassword: true, readonly: true }],
