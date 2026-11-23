@@ -88,13 +88,16 @@ function referenceKind(value: unknown): string | undefined {
 /**
  * Throws `TypeError` for a fragment's reference given as a value where a fragment could be
  * (an upsert's `onDuplicate`, #531; conditions and `updateAll`, #539): a typed value, which is
- * given as the value itself, or a column or incoming value, which only a fragment reads.
+ * given as the value itself, or a column or incoming value, which only a fragment reads. Where
+ * no fragment can be (`find`'s ids, #546), `takesFragment` is false, and only the value can be given.
  */
-export function refuseReferenceValue(value: unknown, gives: string): void {
+export function refuseReferenceValue(value: unknown, gives: string, takesFragment = true): void {
   const kind = referenceKind(value);
   if (kind === undefined) return;
   const remedy =
-    value instanceof ColumnValue ? "give the value itself" : "write it in an sql`…` fragment";
+    value instanceof ColumnValue || !takesFragment
+      ? "give the value itself"
+      : "write it in an sql`…` fragment";
   throw new TypeError(`${gives} ${kind}; ${remedy}`);
 }
 

@@ -5,6 +5,7 @@ import { normalizedConditions } from "./normalized-values.ts";
 import { shownKey } from "./filtering.ts";
 import type { QueryRunner, RunnableQuery } from "./load.ts";
 import { primaryKeyOf, type Model, type ModelClass } from "./model.ts";
+import { refuseReferenceValue } from "./sql.ts";
 import type { Condition, QueryDescription } from "./query.ts";
 
 /**
@@ -106,11 +107,15 @@ function inKeyOrder<M extends Model>(records: readonly M[], keys: readonly unkno
   return keys.map((key) => byKey.get(key) as M);
 }
 
-/** What `find(...args)` finds: one record for one id, else an array, in the ids' or the query's order. */
+/**
+ * What `find(...args)` finds: one record for one id, else an array, in the ids' or the query's
+ * order. A `column()`, typed value or `incoming()` given as an id throws `TypeError` (#546).
+ */
 export async function findByIds<M extends Model>(
   { model, query, runner }: RunnableQuery<M>,
   args: readonly (string | number | readonly (string | number)[])[],
 ): Promise<M | M[]> {
+  for (const id of args.flat()) refuseReferenceValue(id, `find() gives ${model.primaryKey}`, false);
   const [only] = args;
   if (args.length === 1 && (typeof only === "string" || typeof only === "number")) {
     return findById(runner, query, only);
