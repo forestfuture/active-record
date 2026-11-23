@@ -437,3 +437,16 @@ questions:
       - "declare slug: { readonly: true } in the Model's static attributes; it's written on create"
       - "assigning a saved article a different slug throws ReadonlyAttribute, while posting back the same value saves"
     routes: /read-only
+  - id: request-cache
+    question: "My handler finds the same user twice in one request. Does that query D1 twice?"
+    expected:
+      - "inside withDatabase, the second identical read is answered from memory, with no round trip"
+      - "outside withDatabase, on the binding alone, nothing is cached and both are sent"
+      - "any write Active Record sends clears the cache, so the request reads its own writes"
+    routes: /connecting
+  - id: request-cache-raw-write
+    question: "I update a row with env.DB.prepare inside withDatabase, then find the record again and get the old value. Why?"
+    expected:
+      - "the request cache answered the read: Active Record can't see SQL sent on the binding directly"
+      - "call db.clearRequestCache() after the raw write, or turn the cache off with cache: { request: false }"
+    routes: /connecting

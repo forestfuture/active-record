@@ -84,6 +84,7 @@ The generators follow `rails generate model` and `rails generate migration`. A c
 - `dependent:` strategies run after the owner’s `beforeDestroy` callbacks, wherever they’re declared, so an `abort()` always protects the records.
 - Records in a batch run all their before-callbacks before any write, and their after-callbacks after all of them.
 - Scopes preloaded with `limit` throw, where Rails silently gives wrong results.
+- The query cache is on only inside `withDatabase`, and a model’s queries on the binding alone are never cached. `db.clearRequestCache()` is `clear_query_cache`, and `connect(env.DB, { cache: { request: false } })` turns it off. See [Caching identical reads](./connecting#caching-identical-reads).
 
 ## Not built yet
 
