@@ -1,11 +1,6 @@
 // Statement: a bulk write (`insert`, `updateAll`, …) built to run on its own or in a batch, with any statements sent before it whose results aren't its own (a counter cache's, #61), and what runs once it's written.
-import {
-  compileInsert,
-  compileInsertRows,
-  type Assignment,
-  type CompiledSql,
-  type Conflict,
-} from "./compiler.ts";
+import { compileInsertRows, type Conflict } from "./bulk-insert-sql.ts";
+import { compileInsert, type Assignment, type CompiledSql } from "./compiler.ts";
 import type { StatementResult } from "./driver.ts";
 import type { Executor } from "./executor.ts";
 import { attributeFor } from "./attribute.ts";
@@ -197,16 +192,7 @@ export function insertStatement<Row>(
   const values = assigned.map((row) => names.map((name) => row.get(name)));
   // A clashing row keeps its read-only attributes' values, which it was created with (#358).
   const updated = given.filter((name) => model.attributeDefinitions.get(name)?.readonly !== true);
-  const resolved =
-    conflict?.kind === "update"
-      ? {
-          ...conflict,
-          update: [
-            ...(conflict.update ?? updated),
-            ...(names.includes("updatedAt") ? ["updatedAt"] : []),
-          ],
-        }
-      : conflict;
+  const resolved = conflict?.kind === "update" ? touching(conflict, updated, names) : conflict;
   const compiled = compileInsertRows(executor.dialect, model, {
     names,
     rows: values,
@@ -214,6 +200,20 @@ export function insertStatement<Row>(
     returning,
   });
   return new Statement(executor, compiled, landed, read);
+}
+
+/**
+ * An update conflict's attributes: `updateOnly`'s, or every one `updated`, and `updatedAt`, when
+ * the row writes it and doesn't update it, touched when one of them changes (#36).
+ */
+function touching(
+  conflict: Extract<Conflict, { kind: "update" }>,
+  updated: readonly string[],
+  names: readonly string[],
+): Conflict {
+  const update = conflict.update ?? updated;
+  const touched = names.includes("updatedAt") && !update.includes("updatedAt");
+  return { ...conflict, update, touch: touched ? "updatedAt" : undefined };
 }
 
 /** How an insert statement writes: what a conflict does, its method's name, and what it returns. */

@@ -62,6 +62,12 @@ export interface Dialect {
    * counters are taken down by a COUNT sent just before the removal: exact where writes run one
    * at a time.
    */
+  /**
+   * Whether `left` and `right` (SQL, of `attribute`) hold the same value, NULL the same as NULL:
+   * `IS NOT DISTINCT FROM` without it. An upsert keeps a clashing row's `updatedAt` when it
+   * is (#36).
+   */
+  sameValue?(left: string, right: string, attribute: Attribute): string;
   countedRemoval?(
     removal: CompiledSql,
     decrements: (removed: string) => readonly CompiledSql[],

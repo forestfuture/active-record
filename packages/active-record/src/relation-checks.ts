@@ -1,5 +1,6 @@
 // What a Relation's methods take, checked when a query is written, not when it runs.
-import type { Assignment, Conflict } from "./compiler.ts";
+import type { Conflict } from "./bulk-insert-sql.ts";
+import type { Assignment } from "./compiler.ts";
 import { Comparison } from "./comparisons.ts";
 import { withAttributeNames } from "./attribute-aliases.ts";
 import { attributeFor } from "./attribute.ts";

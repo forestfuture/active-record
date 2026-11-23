@@ -1,6 +1,7 @@
 // PreparedWrites: a Relation's bulk writes as Statements, unsent, for a Batch to prepare, and building them.
 import { attributeFor } from "./attribute.ts";
-import { type Assignment, compileDeleteAll, compileUpdateAll, type Conflict } from "./compiler.ts";
+import type { Conflict } from "./bulk-insert-sql.ts";
+import { type Assignment, compileDeleteAll, compileUpdateAll } from "./compiler.ts";
 import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import {
   bulkRowValues,

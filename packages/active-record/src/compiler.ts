@@ -1,6 +1,5 @@
 // Turns a QueryDescription or a write into SQL text and bound values, with what differs per database from a dialect.
 import { type Attribute, attributeFor, noMatch } from "./attribute.ts";
-import { rowGroups } from "./bulk-rows.ts";
 import { isIgnoringColumns } from "./table-names.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { Comparison } from "./comparisons.ts";
@@ -194,7 +193,7 @@ export function compileInsert(
 }
 
 /** `("col", …) VALUES (?, …)`: one row of `attributes`' values, each bound as itself. */
-function compileValues(
+export function compileValues(
   attributes: readonly Attribute[],
   values: readonly unknown[],
   params: unknown[],
@@ -205,96 +204,12 @@ function compileValues(
 }
 
 /** ` RETURNING` the whole row, or the columns of `attributes`, or nothing when there are none. */
-function compileReturning(
+export function compileReturning(
   model: ModelClass<Model>,
   attributes: readonly string[] | undefined,
 ): string {
   if (attributes?.length === 0) return "";
   return ` RETURNING ${columnsIn(unqualifiedSource(model), attributes)}`;
-}
-
-/**
- * What an insert does when a row conflicts with a unique index: skip it, or update it; through
- * an owner's hasMany, only a row that already has the `ownedBy` values the new row has (#451).
- */
-export type Conflict =
-  | { kind: "skip" }
-  | {
-      kind: "update";
-      uniqueBy: readonly string[];
-      update?: readonly string[];
-      ownedBy: readonly string[];
-    };
-
-/** A bulk insert: its attributes, each row's values, what a conflict does, and what it returns. */
-export interface BulkInsert {
-  names: readonly string[];
-  rows: readonly (readonly unknown[])[];
-  conflict?: Conflict | undefined;
-  returning: readonly string[];
-}
-
-/**
- * `INSERT` of several rows, all with the attributes `names`, bound as one JSON parameter, which
- * the dialect reads them from: one statement and one bound value, whatever the number of rows,
- * within D1's limit of 100 bound parameters per statement. Rows whose JSON would pass the
- * dialect's `maxValueBytes` take several statements, and a row whose JSON alone would pass it
- * binds each of its values apart, as `compileInsert` does (#392).
- */
-export function compileInsertRows(
-  dialect: Dialect,
-  model: ModelClass<Model>,
-  { names, rows, conflict, returning }: BulkInsert,
-): CompiledSql[] {
-  const attributes = names.map((name) => attributeFor(model, name));
-  const columns = attributes.map(({ column }) => quoteIdentifier(column)).join(", ");
-  const table = quoteIdentifier(model.table);
-  const { select, from } = dialect.bulkRows(table, attributes);
-  const end = compileConflict(model, names, conflict) + compileReturning(model, returning);
-  return rowGroups(model, names, rows, dialect.maxValueBytes).map((group) => {
-    if (group.kind === "json") {
-      // `WHERE true` keeps SQLite from reading ON CONFLICT as part of the SELECT.
-      const sql = `INSERT INTO ${table} (${columns}) SELECT ${select} FROM ${from} WHERE true${end}`;
-      return { sql, params: [group.value], model };
-    }
-    const params: unknown[] = [];
-    const values = compileValues(attributes, group.row, params);
-    return { sql: `INSERT INTO ${table} ${values}${end}`, params, model };
-  });
-}
-
-/**
- * `ON CONFLICT DO NOTHING`, or `ON CONFLICT (…) DO UPDATE SET` the `update` attributes (every
- * inserted one by default) except the `uniqueBy` ones and `createdAt`,
- * `WHERE` the clashing row already has the new row's `ownedBy` values (#451).
- */
-function compileConflict(
-  model: ModelClass<Model>,
-  names: readonly string[],
-  conflict: Conflict | undefined,
-): string {
-  if (conflict === undefined) return "";
-  if (conflict.kind === "skip") return " ON CONFLICT DO NOTHING";
-  const column = (name: string) => quoteIdentifier(attributeFor(model, name).column);
-  const target = conflict.uniqueBy.map(column).join(", ");
-  const updated = (conflict.update ?? names).filter(
-    (name) => !conflict.uniqueBy.includes(name) && name !== "createdAt",
-  );
-  if (updated.length === 0) return ` ON CONFLICT (${target}) DO NOTHING`;
-  const sets = updated.map((name) => `${column(name)} = excluded.${column(name)}`).join(", ");
-  return ` ON CONFLICT (${target}) DO UPDATE SET ${sets}${compileOwnedBy(model, conflict.ownedBy, column)}`;
-}
-
-/** ` WHERE "t"."a" = excluded."a" AND …`: the clashing row already has the new row's values. */
-function compileOwnedBy(
-  model: ModelClass<Model>,
-  ownedBy: readonly string[],
-  column: (name: string) => string,
-): string {
-  if (ownedBy.length === 0) return "";
-  const table = quoteIdentifier(model.table);
-  const same = ownedBy.map((name) => `${table}.${column(name)} = excluded.${column(name)}`);
-  return ` WHERE ${same.join(" AND ")}`;
 }
 
 /**
