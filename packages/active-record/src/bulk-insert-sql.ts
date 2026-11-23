@@ -17,11 +17,17 @@ export type Conflict =
       kind: "update";
       uniqueBy: readonly string[];
       update?: readonly string[];
-      /** What `onDuplicate` sets each attribute it names to (#531): a fragment, or a value. */
-      set?: readonly (readonly [string, unknown])[];
+      /** What `onDuplicate` sets each attribute it names to (#531). */
+      set?: readonly AttributeSet[];
       touch?: string | undefined;
       ownedBy: readonly string[];
     };
+
+/** An attribute an update sets, and to what: a fragment, a value, or its incoming value. */
+export interface AttributeSet {
+  readonly name: string;
+  readonly value: unknown;
+}
 
 /** A bulk insert: its attributes, each row's values, what a conflict does, and what it returns. */
 export interface BulkInsert {
@@ -88,7 +94,7 @@ function compileConflict(
   const target = conflict.uniqueBy.map(column).join(", ");
   const sets = conflict.set ?? copiedSets(model, names, conflict);
   if (sets.length === 0) return ` ON CONFLICT (${target}) DO NOTHING`;
-  const written = sets.map((set) => `${column(set[0])} = ${setValue(model, set, params)}`);
+  const written = sets.map((set) => `${column(set.name)} = ${setValue(model, set, params)}`);
   if (conflict.touch !== undefined)
     written.push(touchSet(dialect, model, sets, { touch: conflict.touch, params }));
   return ` ON CONFLICT (${target}) DO UPDATE SET ${written.join(", ")}${compileOwnedBy(model, conflict.ownedBy)}`;
@@ -99,10 +105,10 @@ function copiedSets(
   model: ModelClass<Model>,
   names: readonly string[],
   conflict: Extract<Conflict, { kind: "update" }>,
-): [string, IncomingReference][] {
+): AttributeSet[] {
   return (conflict.update ?? names)
     .filter((name) => !conflict.uniqueBy.includes(name) && name !== "createdAt")
-    .map((name) => [name, incoming(name)]);
+    .map((name) => ({ name, value: incoming(name) }));
 }
 
 /**
@@ -111,7 +117,7 @@ function copiedSets(
  */
 function setValue(
   model: ModelClass<Model>,
-  [name, value]: readonly [string, unknown],
+  { name, value }: AttributeSet,
   params: unknown[],
 ): string {
   if (value instanceof IncomingReference) return clashingAndNew(model, value.attribute)[1];
@@ -133,13 +139,13 @@ function clashSource(model: ModelClass<Model>): Source {
 function touchSet(
   dialect: Dialect,
   model: ModelClass<Model>,
-  sets: readonly (readonly [string, unknown])[],
+  sets: readonly AttributeSet[],
   { touch, params }: { touch: string; params: unknown[] },
 ): string {
-  const same = (set: readonly [string, unknown]) => {
-    const [left] = clashingAndNew(model, set[0]);
+  const same = (set: AttributeSet) => {
+    const [left] = clashingAndNew(model, set.name);
     const right = setValue(model, set, params);
-    const attribute = attributeFor(model, set[0]);
+    const attribute = attributeFor(model, set.name);
     return dialect.sameValue?.(left, right, attribute) ?? `${left} IS NOT DISTINCT FROM ${right}`;
   };
   const unchanged = sets.map(same).join(" AND ");

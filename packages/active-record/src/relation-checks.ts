@@ -1,5 +1,5 @@
 // What a Relation's methods take, checked when a query is written, not when it runs.
-import type { Conflict } from "./bulk-insert-sql.ts";
+import type { AttributeSet, Conflict } from "./bulk-insert-sql.ts";
 import type { Assignment } from "./compiler.ts";
 import { Comparison } from "./comparisons.ts";
 import { attributeName, withAttributeNames } from "./attribute-aliases.ts";
@@ -261,7 +261,7 @@ function onDuplicateSets(
     ownedBy,
     method,
   }: { uniqueBy: readonly string[]; ownedBy: readonly string[]; method: UpsertMethod },
-): [string, unknown][] {
+): AttributeSet[] {
   if (
     typeof given !== "object" ||
     given === null ||
@@ -280,9 +280,10 @@ function onDuplicateSets(
   );
   return entries.map(([, value], index) => {
     const name = names[index]!;
-    if (!(value instanceof SafeSql)) return [name, attributeFor(model, name).assigned(value)];
+    if (!(value instanceof SafeSql))
+      return { name, value: attributeFor(model, name).assigned(value) };
     checkFragment(model, value);
-    return [name, value];
+    return { name, value };
   });
 }
 
