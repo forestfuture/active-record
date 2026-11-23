@@ -86,6 +86,7 @@ Inside `withDatabase`, a read you’ve already sent is answered from memory, wit
 - Any write Active Record sends inside the call clears the cache: a save, a destroy, a bulk write, or a batch, through any database handle. So a request always reads its own writes.
 - `reload()` always reads the database, and clears the cache too.
 - The cache ends with the `withDatabase` call. Requests never share it.
+- It keeps the 100 answers used last. [Batch iteration](./batch-iteration) doesn’t keep its batches, so walking a big table doesn’t fill it.
 - [`onQuery`](./logging#seeing-a-cached-answer) hears each cached answer, with `cached: true`.
 
 :::note[Caching needs `withDatabase`]

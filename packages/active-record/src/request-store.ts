@@ -26,6 +26,8 @@ export interface RequestStore {
    * makes and nested calls add theirs to, so a write anywhere in it clears a nested call's too.
    */
   caches: Set<RequestCache>;
+  /** Whether reads sent now skip the request caches: a batch's (#218), which is never sent twice. */
+  uncached?: boolean;
 }
 
 /** The storage, once `withDatabase` has been called. */
@@ -58,4 +60,14 @@ export function runWithStore<R>(store: RequestStore, fn: () => R): R {
  */
 export function clearRequestCaches(): void {
   for (const cache of requestStore()?.caches ?? []) cache.clear();
+}
+
+/**
+ * Runs `fn` with its reads, and the reads it awaits, neither answered from the request caches nor
+ * kept in them: batch iteration's, each a different query that would only fill them (#218). Its
+ * writes still clear them.
+ */
+export function withoutRequestCache<R>(fn: () => R): R {
+  const store = requestStore();
+  return store === undefined ? fn() : runWithStore({ ...store, uncached: true }, fn);
 }
