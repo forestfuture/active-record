@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { column, incoming, Model, sql } from "../../packages/active-record/src/index.ts";
+import {
+  column,
+  incoming,
+  Model,
+  sql,
+  UnknownAttribute,
+} from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class User extends Model.define({
@@ -24,6 +30,25 @@ class Member extends Model.define({
   static {
     this.normalizes("role", { with: (role) => role.trim().toLowerCase() });
   }
+}
+
+class Aliased extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+  age: "integer",
+  years: { aliasOf: "age" },
+}) {
+  static table = "users";
+}
+
+class Account extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+  role: { type: "string", readonly: true },
+  age: "integer",
+  createdAt: "datetime",
+}) {
+  static table = "users";
 }
 
 describe("an upsert's onDuplicate (#531)", () => {
@@ -74,5 +99,101 @@ describe("an upsert's onDuplicate (#531)", () => {
       { id: 1, email: "a@example.com", role: "owner", age: 31 },
       { id: 2, email: "b@example.com", role: "admin", age: 40 },
     ]);
+  });
+
+  test("resolves an alias to the attribute it names", async () => {
+    await harness
+      .connect()
+      .model(Aliased)
+      .upsert(
+        { id: 1, email: "a@example.com", years: 5 },
+        { onDuplicate: { years: sql`${column("years")} + ${incoming("years")}` } },
+      );
+
+    expect(await stored()).toEqual([{ id: 1, email: "a@example.com", role: "member", age: 35 }]);
+  });
+
+  describe("refuses", () => {
+    const row = { id: 1, email: "a@example.com", age: 5, createdAt: new Date() };
+    const accounts = () => harness.connect().model(Account);
+    const refused = (onDuplicate: unknown, uniqueBy?: "email") =>
+      expect(accounts().upsert(row, { onDuplicate: onDuplicate as never, uniqueBy }));
+
+    test("an attribute the Model doesn't have, as a key or in a fragment", async () => {
+      await refused({ nope: 1 }).rejects.toThrow(UnknownAttribute);
+      await refused({ age: sql`${column("nope")} + 1` }).rejects.toThrow(UnknownAttribute);
+      await refused({ age: sql`${incoming("nope")} + 1` }).rejects.toThrow(UnknownAttribute);
+    });
+
+    test("an attribute the upsert matches on", async () => {
+      await refused({ email: "b@example.com" }, "email").rejects.toThrow(
+        new TypeError("upsert() onDuplicate can't name email, which uniqueBy matches on"),
+      );
+      await refused({ id: 2 }).rejects.toThrow(
+        new TypeError("upsert() onDuplicate can't name id, which uniqueBy matches on"),
+      );
+    });
+
+    test("createdAt", async () => {
+      await refused({ createdAt: new Date() }).rejects.toThrow(
+        new TypeError("upsert() onDuplicate can't name createdAt, which an update keeps"),
+      );
+    });
+
+    test("a read-only attribute", async () => {
+      await refused({ role: "admin" }).rejects.toThrow(
+        new TypeError("upsert() onDuplicate can't name role, which is read-only"),
+      );
+    });
+
+    test("no attributes, pointing to skipping instead", async () => {
+      await refused({}).rejects.toThrow(
+        new TypeError(
+          'upsert() onDuplicate names no attributes; to leave a clashing row as it is, use insert(row, { onDuplicate: "skip" })',
+        ),
+      );
+    });
+
+    test("an object that isn't one of attributes", async () => {
+      await refused(sql`age = 1`).rejects.toThrow(
+        new TypeError(
+          "upsert() onDuplicate takes an object of attributes, each an sql`…` fragment or a value",
+        ),
+      );
+    });
+
+    test("together with updateOnly", async () => {
+      await expect(
+        accounts().upsert(row, { onDuplicate: { age: 1 }, updateOnly: ["age"] }),
+      ).rejects.toThrow(new TypeError("upsert() takes updateOnly or onDuplicate, not both"));
+    });
+
+    test("in a batch, before anything is sent", async () => {
+      const db = harness.connect();
+
+      await expect(
+        db.batch((b) => [
+          b.upsertAll(User, [{ id: 1, email: "a@example.com" }], { onDuplicate: {} }),
+        ]),
+      ).rejects.toThrow(TypeError);
+    });
+  });
+
+  describe("refuses incoming() outside onDuplicate", () => {
+    test("in a condition", async () => {
+      await expect(
+        users()
+          .where(sql`${incoming("age")} > 1`)
+          .toArray(),
+      ).rejects.toThrow(
+        new TypeError(
+          'incoming("age") names the value of a row an upsert writes, so only an upsert\'s onDuplicate can use it',
+        ),
+      );
+    });
+
+    test("in updateAll", async () => {
+      await expect(users().updateAll(sql`age = ${incoming("age")}`)).rejects.toThrow(TypeError);
+    });
   });
 });
