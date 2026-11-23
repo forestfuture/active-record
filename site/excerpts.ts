@@ -89,11 +89,11 @@ export function exampleBlock(file: string, region: string): string | undefined {
   const body = regionOf(code, region);
   if (body === undefined) return undefined;
   const uses = codeOnly(body);
-  const used = (name: string) => new RegExp(`\\b${bindingOf(name)}\\b`).test(uses);
+  const isUsed = (name: string) => new RegExp(`\\b${bindingOf(name)}\\b`).test(uses);
   const bySource = new Map<string, string[]>();
   const add = (source: string, names: string[]) =>
     bySource.set(source, [...(bySource.get(source) ?? []), ...names]);
-  for (const { source, names } of importsOf(code)) add(shownSource(source), names.filter(used));
+  for (const { source, names } of importsOf(code)) add(shownSource(source), names.filter(isUsed));
   const imports = [...bySource]
     .filter(([, names]) => names.length > 0)
     .map(([source, names]) => `import { ${names.join(", ")} } from ${source};`);

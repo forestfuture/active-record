@@ -371,10 +371,10 @@ export class RecordState {
   }
 
   #isMatching(name: string, before: unknown, after: unknown, options: ChangeOptions): boolean {
-    const same = (a: unknown, b: unknown) => this.#attribute(name).isSame(a, b);
+    const isSame = (a: unknown, b: unknown) => this.#attribute(name).isSame(a, b);
     return (
-      (!("from" in options) || same(options.from, before)) &&
-      (!("to" in options) || same(options.to, after))
+      (!("from" in options) || isSame(options.from, before)) &&
+      (!("to" in options) || isSame(options.to, after))
     );
   }
 

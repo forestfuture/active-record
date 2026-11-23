@@ -15,6 +15,25 @@ function isPredicateType(returnType) {
 /** The operators whose result is always a boolean. */
 const comparisons = new Set(["===", "!==", "==", "!=", "<", ">", "<=", ">=", "instanceof", "in"]);
 
+/** The methods of the built-in types that always answer yes or no. */
+const booleanMethods = new Set([
+  "some",
+  "every",
+  "includes",
+  "has",
+  "startsWith",
+  "endsWith",
+  "test",
+]);
+
+/** Whether a call answers yes or no: one to a predicate, or to a method in `booleanMethods`. */
+function isPredicateCall({ callee }) {
+  if (callee.type === "Identifier") return predicateName.test(callee.name);
+  if (callee.type !== "MemberExpression" || callee.computed) return false;
+  const { name } = callee.property;
+  return predicateName.test(name) || booleanMethods.has(name);
+}
+
 /** For each kind of expression, whether one of that kind always answers yes or no. */
 const booleanShapes = {
   Literal: (node) => typeof node.value === "boolean",
@@ -25,6 +44,8 @@ const booleanShapes = {
     node.operator !== "??" && isBooleanShaped(node.left) && isBooleanShaped(node.right),
   ConditionalExpression: (node) =>
     isBooleanShaped(node.consequent) && isBooleanShaped(node.alternate),
+  CallExpression: isPredicateCall,
+  ChainExpression: (node) => isBooleanShaped(node.expression),
 };
 
 /** Whether an expression always answers yes or no, by its shape: a comparison, `!`, and so on. */
