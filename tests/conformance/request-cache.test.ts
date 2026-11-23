@@ -166,4 +166,51 @@ describe("the request cache", () => {
 
     expect(events.map(({ cached }) => cached)).toEqual([undefined, undefined]);
   });
+
+  // A guard: only a running withDatabase scope has a cache.
+  describe("isn't kept", () => {
+    const twoFinds = async (database: AnyDatabase) => {
+      await database.model(User).find(1);
+      await database.model(User).find(1);
+    };
+
+    test("outside withDatabase", async () => {
+      await twoFinds(db());
+
+      expect(events.map(({ cached }) => cached)).toEqual([undefined, undefined]);
+    });
+
+    test("for a Database the withDatabase call wasn't given", async () => {
+      const other = db();
+      await withDatabase(db(), () => twoFinds(other));
+
+      expect(events.map(({ cached }) => cached)).toEqual([undefined, undefined]);
+    });
+
+    test("once the withDatabase call has returned, for work it started (a waitUntil's)", async () => {
+      const database = db();
+      let returned!: () => void;
+      const hasReturned = new Promise<void>((resolve) => (returned = resolve));
+      let later: Promise<void> | undefined;
+      await withDatabase(database, async () => {
+        await database.model(User).find(1);
+        later = hasReturned.then(() => twoFinds(database));
+      });
+      returned();
+      await later;
+
+      expect(events.map(({ cached }) => cached)).toEqual([undefined, undefined, undefined]);
+    });
+
+    test("across two withDatabase calls with one Database, even at once", async () => {
+      const database = db();
+      await Promise.all([
+        withDatabase(database, () => database.model(User).find(1)),
+        withDatabase(database, () => database.model(User).find(1)),
+      ]);
+      await withDatabase(database, () => database.model(User).find(1));
+
+      expect(events.map(({ cached }) => cached)).toEqual([undefined, undefined, undefined]);
+    });
+  });
 });
