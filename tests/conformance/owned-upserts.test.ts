@@ -313,6 +313,20 @@ describe("upserting through a polymorphic hasMany (#451)", () => {
     ]);
   });
 
+  test("onDuplicate can't name the owner's type (#531)", async () => {
+    const post = await db().model(Article).find(10);
+
+    await expect(
+      post
+        .remarks()
+        .upsert({ id: 1, body: "Moved" }, { onDuplicate: { commentableType: "Photo" } }),
+    ).rejects.toThrow(
+      new TypeError(
+        "upsert() onDuplicate can't name commentableType, which its owner's records keep",
+      ),
+    );
+  });
+
   test("upsert given another type still leaves that type's row as it is", async () => {
     const post = await db().model(Article).find(10);
 
