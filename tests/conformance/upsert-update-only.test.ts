@@ -13,6 +13,16 @@ class User extends Model.define({
   static table = "users";
 }
 
+class Member extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+  role: "string",
+  age: "integer",
+  years: { aliasOf: "age" },
+}) {
+  static table = "users";
+}
+
 describe("an upsert's updateOnly (#36)", () => {
   let harness: Harness;
   const users = () => harness.connect().model(User);
@@ -62,6 +72,18 @@ describe("an upsert's updateOnly (#36)", () => {
         updateOnly: ["age"],
       }),
     ]);
+
+    expect(await stored()).toEqual([{ id: 1, email: "a@example.com", role: "member", age: 31 }]);
+  });
+
+  test("resolves an alias to the attribute it names", async () => {
+    await harness
+      .connect()
+      .model(Member)
+      .upsert(
+        { id: 1, email: "a@example.com", role: "admin", years: 31 },
+        { updateOnly: ["years"] },
+      );
 
     expect(await stored()).toEqual([{ id: 1, email: "a@example.com", role: "member", age: 31 }]);
   });
