@@ -45,3 +45,12 @@ export function runWithStore<R>(store: RequestStore, fn: () => R): R {
   storage ??= newStorage();
   return storage.run(store, fn);
 }
+
+/**
+ * Empties every request cache the running `withDatabase` call can see (#218): a write on any
+ * Database inside it may change rows another of its databases cached, the same database through
+ * another handle included.
+ */
+export function clearRequestCaches(): void {
+  for (const scope of requestStore()?.scopes.values() ?? []) scope.cache.clear();
+}

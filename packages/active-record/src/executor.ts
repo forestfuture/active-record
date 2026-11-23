@@ -8,7 +8,7 @@ import type { Driver, StatementResult } from "./driver.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import type { ModelClass } from "./model.ts";
 import type { RequestCache } from "./request-cache.ts";
-import { requestStore } from "./request-store.ts";
+import { clearRequestCaches, requestStore } from "./request-store.ts";
 import { explainMissingTable } from "./table-names.ts";
 
 /**
@@ -76,8 +76,6 @@ export interface Executor {
   read(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
   /** Runs statements atomically: one on its own, several as one batch. */
   write(statements: readonly CompiledSql[]): Promise<StatementResult[]>;
-  /** Empties its database's request cache in the running `withDatabase` call (#218). */
-  clearRequestCache(): Promise<void>;
   /** @internal The DatabaseExecutor that sends now: itself, or the current database's. */
   [resolve](): Promise<DatabaseExecutor>;
 }
@@ -163,16 +161,6 @@ export class DatabaseExecutor implements Executor {
     if (!this.#cachesRequests) return undefined;
     const scope = requestStore()?.scopes.get(this);
     return scope === undefined || scope.hasEnded ? undefined : scope.cache;
-  }
-
-  /** Empties the request cache of the running `withDatabase` call, if there is one. */
-  async clearRequestCache(): Promise<void> {
-    this.clearRequestCacheSync();
-  }
-
-  /** @internal `clearRequestCache`, synchronously: what `db.clearRequestCache()` calls. */
-  clearRequestCacheSync(): void {
-    this.#cache()?.clear();
   }
 
   /** Runs one statement and resolves to its rows. */
@@ -271,15 +259,15 @@ export class DatabaseExecutor implements Executor {
   }
 
   /**
-   * Sends a write, clearing the request cache before it's sent and again once it settles, failed
+   * Sends a write, clearing the request caches before it's sent and again once it settles, failed
    * or not: a read sent meanwhile may have read the rows before it, so its answer isn't kept.
    */
   async #writing<T>(send: () => Promise<T>): Promise<T> {
-    this.#cache()?.clear();
+    clearRequestCaches();
     try {
       return await send();
     } finally {
-      this.#cache()?.clear();
+      clearRequestCaches();
     }
   }
 
@@ -352,10 +340,6 @@ abstract class ForwardingExecutor implements Executor {
 
   async write(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     return (await this[resolve]()).write(statements);
-  }
-
-  async clearRequestCache(): Promise<void> {
-    await (await this[resolve]()).clearRequestCache();
   }
 }
 
