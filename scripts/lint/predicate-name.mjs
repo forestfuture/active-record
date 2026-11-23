@@ -13,7 +13,18 @@ function isPredicateType(returnType) {
 }
 
 /** The operators whose result is always a boolean. */
-const comparisons = new Set(["===", "!==", "==", "!=", "<", ">", "<=", ">=", "instanceof", "in"]);
+const booleanOperators = new Set([
+  "===",
+  "!==",
+  "==",
+  "!=",
+  "<",
+  ">",
+  "<=",
+  ">=",
+  "instanceof",
+  "in",
+]);
 
 /** The methods of the built-in types that always answer yes or no. */
 const booleanMethods = new Set([
@@ -37,7 +48,7 @@ function isPredicateCall({ callee }) {
 /** For each kind of expression, whether one of that kind always answers yes or no. */
 const booleanShapes = {
   Literal: (node) => typeof node.value === "boolean",
-  BinaryExpression: (node) => comparisons.has(node.operator),
+  BinaryExpression: (node) => booleanOperators.has(node.operator),
   UnaryExpression: (node) => node.operator === "!",
   // `??`, or a side that isn't boolean-shaped, may give back a value instead.
   LogicalExpression: (node) =>
