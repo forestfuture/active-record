@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { column, Model, sql } from "../../packages/active-record/src/index.ts";
+import { column, incoming, Model, sql } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { fragment } from "../support/fragments.ts";
 
@@ -47,6 +47,14 @@ describe("a bare date beside an integer-stored column in a fragment (#149)", () 
       expect(() => stamps().where(fragment(["", ` ${operator} `, ""], seconds, day))).toThrow(
         refusal("seconds", "unixSeconds"),
       );
+    });
+
+    test("a bare Date beside an incoming value, in an upsert's onDuplicate (#531)", async () => {
+      const later = sql`CASE WHEN ${incoming("seconds")} > ${day} THEN ${incoming("seconds")} ELSE ${seconds} END`;
+
+      await expect(
+        stamps().upsert({ id: 1, seconds: day }, { onDuplicate: { seconds: later } }),
+      ).rejects.toThrow(refusal("seconds", "unixSeconds"));
     });
 
     test("a bare Date before the column", () => {
