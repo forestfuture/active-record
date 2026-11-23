@@ -150,4 +150,20 @@ describe("the request cache", () => {
     expect(events.length).toBeGreaterThan(0);
     expect(events.every(({ cached }) => cached)).toBe(true);
   });
+
+  test("reload() reads the database and clears the cache, so the read after it is sent", async () => {
+    const database = db();
+    const users = database.model(User);
+    await withDatabase(database, async () => {
+      const user = await users.find(1);
+      await users.count();
+      await harness.exec("UPDATE users SET email = 'sam@example.com' WHERE id = 1");
+      events.length = 0;
+      await user.reload();
+      expect(user.email).toBe("sam@example.com");
+      await users.count();
+    });
+
+    expect(events.map(({ cached }) => cached)).toEqual([undefined, undefined]);
+  });
 });
