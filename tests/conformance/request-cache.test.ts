@@ -3,7 +3,7 @@ import type { AnyDatabase } from "../../packages/active-record/src/database.ts";
 import type { Driver } from "../../packages/active-record/src/driver.ts";
 import { withDatabase } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { Model, sql } from "../../packages/active-record/src/index.ts";
 import { User } from "../fixtures/models/user.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -306,5 +306,31 @@ describe("the request cache", () => {
     });
 
     expect(cached).toEqual([true, undefined]);
+  });
+
+  describe("a read whose values JSON can't write", () => {
+    const circular: Record<string, unknown> = {};
+    circular["self"] = circular;
+
+    test.each([
+      ["a BigInt", 1n],
+      ["a cycle", circular],
+    ])("with %s, has the outcome it has outside withDatabase", async (_, value) => {
+      const database = db();
+      const read = () =>
+        database
+          .model(User)
+          .where(sql`id = ${value}`)
+          .pluck("email")
+          .then(
+            (emails) => ({ emails }),
+            (error: Error) => ({ error: error.message }),
+          );
+      const outside = await read();
+
+      const inside = await withDatabase(database, async () => [await read(), await read()]);
+
+      expect(inside).toEqual([outside, outside]);
+    });
   });
 });

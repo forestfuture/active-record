@@ -2,9 +2,16 @@
 import type { CompiledSql } from "./compiler.ts";
 import type { StatementResult } from "./driver.ts";
 
-/** A read's key: its SQL and bound values, which only match a read that's the same. */
-function keyOf({ sql, params }: CompiledSql): string {
-  return JSON.stringify([sql, params]);
+/**
+ * A read's key: its SQL and bound values, which only match a read that's the same. A value JSON
+ * can't write (a BigInt, a cycle) gives none, so the read is sent, and the database answers it.
+ */
+function keyOf({ sql, params }: CompiledSql): string | undefined {
+  try {
+    return JSON.stringify([sql, params]);
+  } catch {
+    return undefined;
+  }
 }
 
 /** How many answers a request cache keeps: enough for a request, bounded for a long one. */
@@ -21,6 +28,7 @@ export class RequestCache {
   /** The answer `read` has, or will have, if it was sent before. */
   get(read: CompiledSql): Promise<StatementResult> | undefined {
     const key = keyOf(read);
+    if (key === undefined) return undefined;
     const answer = this.#answers.get(key);
     if (answer !== undefined) {
       this.#answers.delete(key);
@@ -37,6 +45,7 @@ export class RequestCache {
   /** Keeps `answer` as `read`'s, unless it fails. */
   set(read: CompiledSql, answer: Promise<StatementResult>): void {
     const key = keyOf(read);
+    if (key === undefined) return;
     this.#answers.set(key, answer);
     if (this.#answers.size > CAPACITY) this.#answers.delete(this.#answers.keys().next().value!);
     answer.catch(() => {
