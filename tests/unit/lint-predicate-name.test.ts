@@ -20,6 +20,7 @@ ruleTester.run("predicate-name", predicateName, {
     "declare function ready(): boolean;",
     // A callback has no name to read.
     "values.filter((value): value is number => typeof value === 'number');",
+    "values.filter((value: number) => value > 0);",
     // An option's key is the API's name, so an inferred one isn't read; a written one still is.
     "validates('age', { if: (record: { age: number }) => record.age > 17 });",
     // `??` and `&&` with a side that isn't boolean-shaped may give back a value.
