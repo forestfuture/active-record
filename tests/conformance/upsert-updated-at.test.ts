@@ -13,6 +13,15 @@ class User extends Model.define({
   static table = "users";
 }
 
+class Account extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+  role: { type: "string", readonly: true },
+  updatedAt: "datetime",
+}) {
+  static table = "users";
+}
+
 const past = new Date("2020-01-01T00:00:00.000Z");
 const later = new Date("2021-01-01T00:00:00.000Z");
 
@@ -92,6 +101,19 @@ describe("an upsert's updatedAt on a clash (#36)", () => {
     const result = await users().upsert({ email: "a@example.com" }, { uniqueBy: "email" });
 
     expect(result).toEqual({ rowsAffected: 0, rows: [] });
+    expect(await updatedAt()).toEqual(past);
+  });
+
+  test("with only read-only attributes left to update, leaves a clashing row alone", async () => {
+    const accounts = harness.connect().model(Account);
+
+    const result = await accounts.upsert(
+      { email: "a@example.com", role: "admin" },
+      { uniqueBy: "email" },
+    );
+
+    expect(result).toEqual({ rowsAffected: 0, rows: [] });
+    expect((await accounts.find(1)).role).toBe("member");
     expect(await updatedAt()).toEqual(past);
   });
 });
