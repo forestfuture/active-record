@@ -283,10 +283,10 @@ async function saveWithJoin(
 ): Promise<boolean> {
   const join = joinFor(through, record);
   const viaCollection = joinsHeldBy(through.owner, through.association);
-  const saved = ({ status }: Outcome) => status === "saved";
+  const isSaved = ({ status }: Outcome) => status === "saved";
   const outcome = await undoneUnless(
     () => saveLifecycle(join),
-    saved,
+    isSaved,
     () => viaCollection.removed([join]),
   );
   if (outcome.status === "saved") {

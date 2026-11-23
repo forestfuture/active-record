@@ -1,7 +1,8 @@
 import predicateName from "../../scripts/lint/predicate-name.mjs";
 import { ruleTester } from "../support/rule-tester.ts";
 
-// A predicate starts with `is` or `has` (CONTRIBUTING.md), checked where its return type is written (#380).
+// A predicate starts with `is` or `has` (CONTRIBUTING.md), checked where its return type is written (#380)
+// or its body answers yes or no (#525).
 ruleTester.run("predicate-name", predicateName, {
   valid: [
     "function isOpen(): boolean { return true; }",
@@ -14,13 +15,13 @@ ruleTester.run("predicate-name", predicateName, {
     "async function save(): Promise<boolean> { return true; }",
     "function assertDate(value: unknown): asserts value is Date {}",
     "function open(): void {}",
-    // Inferred returns are out of reach: a lint rule has no types.
-    "const same = (a: unknown, b: unknown) => a === b;",
     // A signature without a body names what implementations do; they're checked themselves.
     "interface Driver { recover(error: unknown): boolean; }",
     "declare function ready(): boolean;",
     // A callback has no name to read.
     "values.filter((value): value is number => typeof value === 'number');",
+    // An option's key is the API's name, so an inferred one isn't read; a written one still is.
+    "validates('age', { if: (record: { age: number }) => record.age > 17 });",
     // A name that starts with the letters but not the word.
     "function isolate(): void {}",
   ],
@@ -69,6 +70,11 @@ ruleTester.run("predicate-name", predicateName, {
       name: "a word that starts with is",
       code: "function isolated(): boolean { return true; }",
       errors: [{ messageId: "predicateName", data: { name: "isolated" } }],
+    },
+    {
+      name: "an arrow whose body is a comparison",
+      code: "const same = (a: unknown, b: unknown) => a === b;",
+      errors: [{ messageId: "predicateName", data: { name: "same" } }],
     },
   ],
 });
