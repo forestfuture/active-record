@@ -76,7 +76,7 @@ function isNamedResolve(callee) {
  * given no value. A resolve the timer gives a value (`setTimeout(resolve, 50, "hung")`) bounds a
  * race; a function callback takes none of the timer's values.
  */
-function isResolvedLater(node) {
+function isDelayedResolve(node) {
   const [callback, , ...values] = node.arguments;
   if (!isFunction(callback) && !hasNoValue(values)) return false;
   if (isNamedResolve(callback) || isNamedResolve(calledWithNoValue(callback))) return true;
@@ -120,7 +120,7 @@ export default defineRule({
           context.report({ node, messageId: "fixedDelay" });
           return;
         }
-        if (isGlobalSetTimeout(callee) && isResolvedLater(node)) {
+        if (isGlobalSetTimeout(callee) && isDelayedResolve(node)) {
           context.report({ node, messageId: "fixedDelay" });
         }
       },
