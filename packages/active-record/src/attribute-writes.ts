@@ -9,7 +9,7 @@ import {
 } from "./counters.ts";
 import { withAttributeNames } from "./attribute-aliases.ts";
 import { RecordNotSaved, type ReadonlyAction } from "./errors.ts";
-import { requireWritable } from "./readonly-records.ts";
+import { requireWritable, requireWritableColumns } from "./readonly-records.ts";
 import type { AttributesOf, Model, ModelClass, SpecsOf } from "./model.ts";
 import { RecordTokens } from "./record-tokens.ts";
 import { state } from "./record-state.ts";
@@ -169,6 +169,7 @@ async function addToColumn(
   const model = modelOf(record);
   const touched = touchAssignments(model, touch, method);
   const touchedNames = touched.map(([each]) => each);
+  requireWritableColumns(model, touchedNames); // #358
   const after = (numberValue(record, name, method) ?? 0) + by;
   const delta = after - ((recordState.valueInDatabase(name) as number | null) ?? 0);
   recordState.write(name, after);

@@ -1,5 +1,6 @@
 // Touching a record (#50): `touch()`, its timestamps set to now, or a given time, in one UPDATE by its stored key, with no validation or save callback, then `afterTouch` and the update commit callbacks, with the records its belongsTos (#353) and hasOnes (#497) touch; the touch write other writes make; and what a Relation's `touchAll` sets.
 import type { DatetimeAttributeKey } from "./attribute-writes.ts";
+import { requireWritableColumns } from "./readonly-records.ts";
 import { afterRollbackOf, runAfterCallbacks, runCommitCallbacks } from "./callbacks.ts";
 import { attributeFor } from "./attribute.ts";
 import { compileUpdate } from "./compiler.ts";
@@ -76,6 +77,7 @@ export async function touchRecord(record: Model, args: readonly unknown[]): Prom
   const model = modelOf(record);
   const values = touchValues(model, args, "touch");
   if (isCoveredByNoTouching(model)) return false;
+  requireWritableColumns(model, Object.keys(values)); // #358
   // Every value is the one time the touch sets.
   const time = Object.values(values)[0] as Date;
   // A locked record's touch matches only its version, and sets the next (#357).

@@ -62,4 +62,4 @@ CREATE TABLE pages (id INTEGER PRIMARY KEY, notebook_id INTEGER REFERENCES noteb
 CREATE TABLE drafts (id INTEGER PRIMARY KEY, body TEXT, lock_version INTEGER);
 -- Read-only records and attributes (#358): shelves hold volumes, whose slug is set only on create.
 CREATE TABLE shelves (id INTEGER PRIMARY KEY, name TEXT, volumes_count INTEGER DEFAULT 0, is_featured INTEGER DEFAULT 0, updated_at TEXT);
-CREATE TABLE volumes (id INTEGER PRIMARY KEY, shelf_id INTEGER REFERENCES shelves (id), title TEXT, slug TEXT, code TEXT UNIQUE, updated_at TEXT);
+CREATE TABLE volumes (id INTEGER PRIMARY KEY, shelf_id INTEGER REFERENCES shelves (id), title TEXT, slug TEXT, code TEXT UNIQUE, details TEXT, updated_at TEXT);

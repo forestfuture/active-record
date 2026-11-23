@@ -192,7 +192,19 @@ export class RecordState {
    */
   writeKey(name: string, value: unknown, association: string): void {
     this.#requireNotDestroyed("be changed");
-    this.#store(name, this.#attribute(name).key(value, association));
+    const key = this.#attribute(name).key(value, association);
+    this.#requireSameIfReadonly(name, key);
+    this.#store(name, key);
+  }
+
+  /**
+   * Takes a value the database already holds, as stored, such as a count a counter cache changed
+   * (#61): no read-only check (#358), and nothing to save.
+   */
+  takeStored(given: string, value: unknown): void {
+    const name = attributeName(this.#model, given);
+    this.#store(name, this.#attribute(name).assigned(value));
+    this.commitColumns([name]);
   }
 
   /** Stores an attribute's already-cast value, as assigned. */
