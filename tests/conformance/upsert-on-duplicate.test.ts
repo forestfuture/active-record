@@ -248,7 +248,7 @@ describe("an upsert's onDuplicate (#531)", () => {
     });
 
     test("in updateAll", async () => {
-      await expect(users().updateAll(sql`age = ${incoming("age")}`)).rejects.toThrow(TypeError);
+      await expect(users().updateAll(sql`age = ${incoming("age")}`)).rejects.toThrow(refusal);
     });
   });
 });
