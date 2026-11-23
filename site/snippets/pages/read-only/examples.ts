@@ -24,7 +24,8 @@ export async function marking() {
 
 export async function catching() {
   // #region catch
-  const article = (await Article.findByOrThrow({ slug: "hello" })).markReadonly();
+  const article = await Article.findByOrThrow({ slug: "hello" });
+  article.markReadonly();
   try {
     await article.touch();
   } catch (error) {
@@ -52,10 +53,13 @@ export async function creating() {
 
 // #region form
 export async function updateArticle(request: Request): Promise<Response> {
-  const article = await Article.find(new URL(request.url).searchParams.get("id") ?? "");
+  const id = new URL(request.url).searchParams.get("id") ?? "";
+  const article = await Article.find(id);
+  const form = await request.formData();
+  const changes = Article.permit(form, "title", "slug");
   try {
     // A form that posts the slug back unchanged saves; one that changes it doesn't
-    await article.updateOrThrow(Article.permit(await request.formData(), "title", "slug"));
+    await article.updateOrThrow(changes);
   } catch (error) {
     if (!(error instanceof ReadonlyAttribute)) throw error;
     return new Response(`An article's ${error.attribute} can't be changed.`, { status: 422 });
