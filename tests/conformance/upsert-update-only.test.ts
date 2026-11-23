@@ -83,6 +83,28 @@ describe("an upsert's updateOnly (#36)", () => {
     );
   });
 
+  test("leaves a value the Relation adds unless it names it", async () => {
+    const admins = users().where({ role: "admin" });
+
+    await admins.upsert({ id: 1, email: "a@example.com", age: 31 }, { updateOnly: ["age"] });
+    const left = await stored();
+    await admins.upsert(
+      { id: 1, email: "a@example.com", age: 32 },
+      { updateOnly: ["role", "age"] },
+    );
+
+    expect(left).toEqual([{ id: 1, email: "a@example.com", role: "member", age: 31 }]);
+    expect(await stored()).toEqual([{ id: 1, email: "a@example.com", role: "admin", age: 32 }]);
+  });
+
+  test("leaves createWith's value unless it names it", async () => {
+    const admins = users().createWith({ role: "admin" });
+
+    await admins.upsert({ id: 1, email: "a@example.com", age: 31 }, { updateOnly: "age" });
+
+    expect(await stored()).toEqual([{ id: 1, email: "a@example.com", role: "member", age: 31 }]);
+  });
+
   test("takes one attribute as a string, on upsert", async () => {
     await users().upsert(
       { email: "a@example.com", role: "admin", age: 31 },
