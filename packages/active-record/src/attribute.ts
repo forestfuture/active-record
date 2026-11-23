@@ -25,6 +25,7 @@ import {
   requireDefined,
 } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
+import { refuseAssignedReference } from "./sql.ts";
 import { refuseThenable } from "./thenables.ts";
 import { normalizationsOf } from "./normalization.ts";
 import { isLockVersion } from "./lock-version.ts";
@@ -77,6 +78,7 @@ export class Attribute {
    */
   cast(value: unknown): unknown {
     requireDefined(this.#model, this.name, value);
+    refuseAssignedReference(this.#model.name, this.name, value);
     const cast = this.#convertOrRefuse(value, () => castValue(this.#definition, value));
     // A validated enum keeps an unknown value for its validation to refuse (#340).
     if (cast === uncastable && this.#isValidatedEnum()) return value;
