@@ -7,12 +7,15 @@ function keyOf({ sql, params }: CompiledSql): string {
   return JSON.stringify([sql, params]);
 }
 
-/** The answers one scope's database gave to its reads. */
+/**
+ * The answers one scope's database gave to its reads, each kept from when it's sent, so an
+ * identical read sent meanwhile waits for it. Clearing forgets those in flight too.
+ */
 export class RequestCache {
-  readonly #answers = new Map<string, StatementResult>();
+  readonly #answers = new Map<string, Promise<StatementResult>>();
 
-  /** The answer `read` had, if it was sent before. */
-  get(read: CompiledSql): StatementResult | undefined {
+  /** The answer `read` has, or will have, if it was sent before. */
+  get(read: CompiledSql): Promise<StatementResult> | undefined {
     return this.#answers.get(keyOf(read));
   }
 
@@ -21,8 +24,12 @@ export class RequestCache {
     this.#answers.clear();
   }
 
-  /** Keeps `result` as `read`'s answer. */
-  set(read: CompiledSql, result: StatementResult): void {
-    this.#answers.set(keyOf(read), result);
+  /** Keeps `answer` as `read`'s, unless it fails. */
+  set(read: CompiledSql, answer: Promise<StatementResult>): void {
+    const key = keyOf(read);
+    this.#answers.set(key, answer);
+    answer.catch(() => {
+      if (this.#answers.get(key) === answer) this.#answers.delete(key);
+    });
   }
 }

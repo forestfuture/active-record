@@ -175,16 +175,17 @@ export class DatabaseExecutor implements Executor {
     return (await this.#readOne(this.#sendable(query))).rows;
   }
 
-  /** Sends one read, unless the request cache has its answer. */
+  /** Sends one read, unless the request cache has its answer, or an identical read is in flight. */
   async #readOne(query: CompiledSql): Promise<StatementResult> {
     const cache = this.#cache();
     const cached = cache?.get(query);
-    if (cached !== undefined) {
-      this.#report(query, { durationMs: 0, cached: true });
-      return cached;
+    if (cached === undefined) {
+      const answer = this.#one(query);
+      cache?.set(query, answer);
+      return answer;
     }
-    const result = await this.#one(query);
-    cache?.set(query, result);
+    const result = await cached;
+    this.#report(query, { durationMs: 0, cached: true });
     return result;
   }
 
