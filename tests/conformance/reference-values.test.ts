@@ -64,7 +64,7 @@ describe("column(), its typed values and incoming() given as a value (#539)", ()
     });
   });
 
-  describe("a condition refuses it, where it matched nothing or the reference's JSON", () => {
+  describe("a condition refuses it", () => {
     test("as the value, a list's item, or a comparison's value", () => {
       expect(() => docs().where({ folderId: column("id") as never })).toThrow(
         unwrapped("where", "folderId"),
