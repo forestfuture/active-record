@@ -261,4 +261,34 @@ describe("the request cache", () => {
       expect(email).toBe("sam@example.com");
     });
   });
+
+  describe("in a read group (a preload's queries, sent at once)", () => {
+    test("answers each statement it has, and sends the rest together", async () => {
+      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (1, 1, 'Hello')");
+      const database = db();
+      const users = database.model(User);
+      const loaded = await withDatabase(database, async () => {
+        await users.toArray();
+        events.length = 0;
+        return users.includes("posts").toArray();
+      });
+
+      expect(loaded.map((user) => user.loaded("posts").map(({ title }) => title))).toEqual([
+        ["Hello"],
+      ]);
+      expect(events.map(({ cached }) => cached)).toEqual([true, undefined]);
+    });
+
+    test("is answered from memory when it's sent again", async () => {
+      const database = db();
+      const users = database.model(User).includes("posts");
+      await withDatabase(database, async () => {
+        await users.toArray();
+        events.length = 0;
+        await users.toArray();
+      });
+
+      expect(events.map(({ cached }) => cached)).toEqual([true, true]);
+    });
+  });
 });
