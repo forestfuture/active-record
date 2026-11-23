@@ -15,9 +15,22 @@ function isPredicateType(returnType) {
 /** The operators whose result is always a boolean. */
 const comparisons = new Set(["===", "!==", "==", "!=", "<", ">", "<=", ">=", "instanceof", "in"]);
 
-/** Whether an expression always answers yes or no, by its shape: a comparison. */
+/** For each kind of expression, whether one of that kind always answers yes or no. */
+const booleanShapes = {
+  Literal: (node) => typeof node.value === "boolean",
+  BinaryExpression: (node) => comparisons.has(node.operator),
+  UnaryExpression: (node) => node.operator === "!",
+  // `??`, or a side that isn't boolean-shaped, may give back a value instead.
+  LogicalExpression: (node) =>
+    node.operator !== "??" && isBooleanShaped(node.left) && isBooleanShaped(node.right),
+  ConditionalExpression: (node) =>
+    isBooleanShaped(node.consequent) && isBooleanShaped(node.alternate),
+};
+
+/** Whether an expression always answers yes or no, by its shape: a comparison, `!`, and so on. */
 function isBooleanShaped(expression) {
-  return expression?.type === "BinaryExpression" && comparisons.has(expression.operator);
+  const shape = booleanShapes[expression?.type];
+  return shape !== undefined && shape(expression);
 }
 
 /**
