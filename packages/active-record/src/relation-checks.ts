@@ -20,6 +20,7 @@ import {
   IncomingReference,
   incomingRefusal,
   isAttributeReference,
+  refuseReferenceValue,
   SafeSql,
 } from "./sql.ts";
 
@@ -185,6 +186,7 @@ export function checkConditions(model: ModelClass, conditions: object, method: s
   for (const [name, value] of Object.entries(conditions)) {
     const { type } = columnOf(model, name);
     rejectUndefined(value, name, method);
+    refuseReferenceValue(value, `${method}() gives ${name}`);
     if (value instanceof Comparison) requireOrdered(type, name, method);
   }
 }
@@ -300,22 +302,6 @@ function onDuplicateSets(
     checkFragment(model, value, { allowsIncoming: true });
     return { name, value };
   });
-}
-
-/**
- * Throws `TypeError` for a fragment's reference given as an `onDuplicate` value, outside a
- * fragment: a typed value, which is given as the value itself, or a column or incoming value,
- * which only a fragment reads (#531).
- */
-function refuseReferenceValue(value: unknown, gives: string): void {
-  if (value instanceof ColumnValue) {
-    throw new TypeError(`${gives} a typed value; give the value itself`);
-  }
-  if (isAttributeReference(value)) {
-    throw new TypeError(
-      `${gives} a column() or incoming() reference; write it in an sql\`…\` fragment`,
-    );
-  }
 }
 
 /**
