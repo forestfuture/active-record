@@ -2,8 +2,17 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-pl
 import type { AnyDatabase } from "../../packages/active-record/src/database.ts";
 import { withDatabase } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
+import { Model } from "../../packages/active-record/src/index.ts";
 import { User } from "../fixtures/models/user.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+
+class Attachment extends Model.define({
+  id: { type: "integer", null: false },
+  name: "string",
+  data: "binary",
+}) {
+  static table = "attachments";
+}
 
 // The request cache (#218): inside one withDatabase call, a read identical to one already sent
 // on that Database is answered from memory.
@@ -19,7 +28,7 @@ describe("the request cache", () => {
   const db = () => harness.connect({ onQuery: (event) => events.push(event) });
   beforeEach(async () => {
     events.length = 0;
-    await harness.reset("posts", "users");
+    await harness.reset("posts", "users", "attachments");
     await harness.exec("INSERT INTO users (id, email) VALUES (1, 'jane@example.com')");
   });
 
@@ -96,5 +105,24 @@ describe("the request cache", () => {
     });
 
     expect(events.map(({ cached }) => cached)).toEqual([undefined, undefined]);
+  });
+
+  // A guard: a cell is converted into a new value for each record, so the answers share none.
+  test("each answer is new records: changing one, or its bytes, changes no other", async () => {
+    const database = db();
+    const { id } = await database
+      .model(Attachment)
+      .create({ name: "a.bin", data: new Uint8Array([1, 2]) });
+    const attachments = database.model(Attachment);
+
+    const second = await withDatabase(database, async () => {
+      const first = await attachments.find(id);
+      first.name = "b.bin";
+      first.data![0] = 9;
+      return attachments.find(id);
+    });
+
+    expect(events.at(-1)?.cached).toBe(true);
+    expect([second.name, [...second.data!]]).toEqual(["a.bin", [1, 2]]);
   });
 });
