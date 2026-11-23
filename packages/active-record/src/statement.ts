@@ -219,8 +219,8 @@ function resolvedUpdate(
   }: { updated: readonly string[]; names: readonly string[]; method: string },
 ): Conflict {
   if (conflict.set !== undefined) {
-    const set = conflict.set.map(([name]) => name);
-    const touches = names.includes("updatedAt") && !set.includes("updatedAt");
+    const setsUpdatedAt = conflict.set.some(({ name }) => name === "updatedAt");
+    const touches = names.includes("updatedAt") && !setsUpdatedAt;
     return { ...conflict, touch: touches ? "updatedAt" : undefined };
   }
   const update = conflict.update ?? updated;
