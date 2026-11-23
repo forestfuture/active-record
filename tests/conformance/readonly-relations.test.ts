@@ -144,6 +144,12 @@ describe("readonly() Relations (#358)", () => {
       expect(allReadonly(await shelf.volumes().toArray())).toEqual([false]);
     });
 
+    test("an association's scope makes the records includes preloads read-only", async () => {
+      const [shelf] = await db().model(Shelf).where({ id: 1 }).includes("lockedVolumes").toArray();
+
+      expect(allReadonly(await shelf!.lockedVolumes().toArray())).toEqual([true]);
+    });
+
     test("an association's records, already loaded, are read again read-only", async () => {
       const shelf = await db().model(Shelf).find(1);
       const loaded = await shelf.volumes().toArray();

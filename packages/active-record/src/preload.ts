@@ -65,6 +65,8 @@ interface Step {
   select: CompiledSql | undefined;
   /** A hop of a through association (#59): its records aren't its owners' loaded association. */
   isHop?: true;
+  /** Whether its scope makes its records read-only (#358), as a lazy read of it does. */
+  readonly?: boolean;
 }
 
 /** A through association's preload (#59): its owners get the records each reaches. */
@@ -227,7 +229,7 @@ function planBranch(
     leaveForAfterwards(planning, deferred);
     return;
   }
-  const step = { association, ownersAt, select: targets?.select };
+  const step = stepFor(association, ownersAt, targets);
   const position = planning.offset + planning.steps.push(step) - 1;
   if (query === undefined || targets === undefined) return;
   const { target } = association;
@@ -433,9 +435,10 @@ function recordsAtEachPosition(
 ): Found {
   const owners = [...records];
   const results = rows.values();
-  for (const { association, ownersAt, select, isHop } of steps) {
+  for (const { association, ownersAt, select, isHop, readonly } of steps) {
     const found = select === undefined ? [] : (results.next().value ?? []);
     const targets = found.map((row) => hydrate(association.target, row, executor));
+    if (readonly === true) for (const target of targets) target[state].isReadonly = true;
     if (isHop === undefined) attach(owners[ownersAt] ?? [], association, targets);
     owners.push(targets);
   }
@@ -454,20 +457,33 @@ async function preloadStarts(starts: readonly Start[], executor: Executor): Prom
   await plan.attach(records, rows, database);
 }
 
-/** The SELECT for an association's targets, `query`, and what to preload for them. */
+/** A step loading an association's targets, if they can match. */
+function stepFor(
+  association: ResolvedAssociation,
+  ownersAt: number,
+  targets: { select: CompiledSql; readonly?: boolean | undefined } | undefined,
+): Step {
+  if (targets === undefined) return { association, ownersAt, select: undefined };
+  return { association, ownersAt, select: targets.select, readonly: targets.readonly };
+}
+
+/**
+ * The SELECT for an association's targets, `query`, what to preload for them, and whether its
+ * scope makes them read-only (#358).
+ */
 function targetsOf(
   dialect: Dialect,
   association: ResolvedAssociation,
   query: QueryDescription,
   { nested, needed = [] }: { nested: IncludeTree; needed?: readonly string[] },
-): { select: CompiledSql; includes: IncludeTree } {
+): { select: CompiledSql; includes: IncludeTree; readonly: boolean | undefined } {
   const includes = mergeTrees(query.includes ?? {}, nested);
   // A scope's select keeps the key its records are matched to their owners by (#201), and
   // a through association's hop the key the next hop's are matched to it by (#59).
   const columns = query.select && [...query.select, association.targetAttribute, ...needed];
   // Given to the SELECT, so the keys the nested includes need are loaded too.
   const select = selectFor(dialect, association.target, { ...query, select: columns, includes });
-  return { select, includes };
+  return { select, includes, readonly: query.readonly };
 }
 
 /**
