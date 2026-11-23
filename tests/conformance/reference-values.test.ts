@@ -80,6 +80,12 @@ describe("column(), its typed values and incoming() given as a value (#539)", ()
       );
     });
 
+    test("in inOrderOf's list", () => {
+      expect(() => docs().inOrderOf("folderId", [7, column("id") as never])).toThrow(
+        writeInFragment("inOrderOf", "folderId"),
+      );
+    });
+
     test("in whereNot, rewhere, and findBy and findOrCreateBy, which say where()", async () => {
       expect(() => docs().whereNot({ settings: column("id") as never })).toThrow(
         writeInFragment("whereNot", "settings"),
