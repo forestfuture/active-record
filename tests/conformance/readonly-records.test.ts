@@ -41,6 +41,16 @@ class Bookcase extends Model.define({
   }
 }
 
+/** A volume that touches its shelf whenever it's written. */
+class TouchingVolume extends Model.define({
+  id: { type: "integer", null: false },
+  shelfId: "integer",
+  title: "string",
+}) {
+  static table = "volumes";
+  shelf = belongsTo(Shelf, { foreignKey: "shelfId", touch: true });
+}
+
 /** A shelf showing one volume, which a new one replaces, leaving the old one off the shelf. */
 class DisplayShelf extends Model.define({
   id: { type: "integer", null: false },
@@ -279,6 +289,21 @@ describe("read-only records (#358)", () => {
       await expect(poetry.volumes().push(emma, dune)).rejects.toThrow(ReadonlyRecord);
       expect(heard).toEqual([]); // emma's callbacks don't run
       expect(await database.model(Volume).where({ shelfId: 2 }).count()).toBe(0);
+    });
+
+    test("a write that would touch a loaded read-only record throws, and writes nothing", async () => {
+      const events: QueryEvent[] = [];
+      const volume = await recorded(events).model(TouchingVolume).find(1);
+      (await volume.shelf())!.markReadonly();
+      volume.title = "Dune Messiah";
+      events.length = 0;
+
+      await expect(volume.save()).rejects.toMatchObject({
+        name: "ReadonlyRecord",
+        action: "touch",
+      });
+      expect(events).toEqual([]);
+      expect(await storedVolumes()).toEqual(["Dune", "Emma"]);
     });
 
     test("replacing a has-one's read-only record throws, and the old record keeps its key", async () => {
