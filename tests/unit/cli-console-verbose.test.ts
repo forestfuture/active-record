@@ -28,6 +28,12 @@ describe("a --verbose statement line", () => {
     expect(statementLine(failed, false)).toBe("  User  failed  SELECT *  no such table");
   });
 
+  test("says cached in place of the time for an answer from the request cache", () => {
+    const cached = { ...event, params: [1], durationMs: 0, cached: true as const };
+
+    expect(statementLine(cached, false)).toBe("  User  cached  SELECT *  [ 1 ]");
+  });
+
   test("is dim only when asked", () => {
     expect(statementLine(event, true)).toBe("\u001b[2m  User  1.2ms  SELECT *\u001b[22m");
   });

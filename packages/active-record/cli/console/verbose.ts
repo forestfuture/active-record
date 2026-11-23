@@ -8,6 +8,7 @@ export interface StatementEvent {
   params: unknown[];
   durationMs: number;
   error?: unknown;
+  cached?: true;
 }
 
 /**
@@ -30,7 +31,8 @@ function oneLine(sql: string): string {
 /**
  * One line for a statement, as `onQuery` saw it (filtered values are already `[FILTERED]`):
  * `  User  1.2ms  SELECT … WHERE "id" = ?  [ 1 ]`, or `failed` and the reason in place of the time
- * and values. Dim on a terminal, so it reads as background to the results.
+ * and values, or `cached` in place of the time for an answer from the request cache. Dim on a
+ * terminal, so it reads as background to the results.
  */
 export function statementLine(event: StatementEvent, dim: boolean): string {
   const { model, params, durationMs, error } = event;
@@ -40,7 +42,7 @@ export function statementLine(event: StatementEvent, dim: boolean): string {
   if (error !== undefined) {
     line += `failed  ${sql}  ${error instanceof Error ? error.message : inspect(error)}`;
   } else {
-    line += `${durationMs.toFixed(1)}ms  ${sql}`;
+    line += `${event.cached ? "cached" : `${durationMs.toFixed(1)}ms`}  ${sql}`;
     if (params.length > 0) {
       line += `  ${inspect(params, { breakLength: Number.POSITIVE_INFINITY })}`;
     }
