@@ -257,10 +257,12 @@ describe("read-only attributes (#358)", () => {
   test.each([
     ["virtual", { type: "string", virtual: true, readonly: true }],
     ["secureToken", { type: "string", secureToken: true, readonly: true }],
+    ["securePassword", { type: "string", virtual: true, securePassword: true, readonly: true }],
   ])("a read-only attribute declared with %s is an InvalidModel", (_, spec) => {
     class Broken extends Model.define({
       id: { type: "integer", null: false },
       slug: spec as never,
+      slugDigest: "string",
     }) {
       static table = "volumes";
     }
