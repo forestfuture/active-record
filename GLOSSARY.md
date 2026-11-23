@@ -301,7 +301,7 @@ One `withDatabase` call's time with a **Database**, during which its **Adapter**
 _Avoid_: Scope (on its own: that's a Model's), request scope, transaction
 
 **Request cache**:
-A **Database scope**'s answers to the reads it sent (#218): a read with the same SQL and bound values is answered from memory, reported to the **Query listener** with `cached: true`. Any write the library sends on that **Database** clears it, as do `reload()` and `db.clearRequestCache()`; it ends with the scope, and a Model's **Binding** has none. `connect(…, { cache: { request: false } })` turns it off.
+A **Database scope**'s answers to the reads it sent (#218): a read with the same SQL and bound values is answered from memory, reported to the **Query listener** with `cached: true`. Any write the library sends inside the `withDatabase` call, through any **Database**, clears every request cache the call can see, as do `reload()` and `db.clearRequestCache()`; it ends with the scope, and a Model's **Binding** has none. `connect(…, { cache: { request: false } })` turns it off.
 _Avoid_: Query cache, identity map (records aren't shared, only rows)
 
 **Adapter**:

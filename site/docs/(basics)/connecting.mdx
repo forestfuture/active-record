@@ -83,7 +83,7 @@ Inside `withDatabase`, a read you’ve already sent is answered from memory, wit
 <include>/_excerpts/pages/connecting/examples/request-cache.mdx</include>
 
 - Each answer is new records, so changing one changes no other.
-- Any write on the database clears the cache: a save, a destroy, a bulk write, or a batch. So a request always reads its own writes.
+- Any write Active Record sends inside the call clears the cache: a save, a destroy, a bulk write, or a batch, through any database handle. So a request always reads its own writes.
 - `reload()` always reads the database, and clears the cache too.
 - The cache ends with the `withDatabase` call. Requests never share it.
 - [`onQuery`](./logging#seeing-a-cached-answer) hears each cached answer, with `cached: true`.
