@@ -371,7 +371,7 @@ describe("the request cache", () => {
     expect(cached).toEqual([true, undefined]);
   });
 
-  describe("a read whose values JSON can't write", () => {
+  describe("a read binding a value the cache can't key", () => {
     const circular: Record<string, unknown> = {};
     circular["self"] = circular;
 
@@ -395,6 +395,20 @@ describe("the request cache", () => {
 
       expect(inside).toEqual([outside, outside]);
     });
+
+    test("two reads binding different bytes, as an ArrayBuffer, answer as they do uncached", async () => {
+      const database = db();
+      const attachments = database.model(Attachment);
+      await attachments.create({ name: "a.bin", data: new Uint8Array([1]) });
+      const named = (bytes: number[]) =>
+        attachments.where(sql`data = ${new Uint8Array(bytes).buffer}`).pluck("name");
+
+      const outside = [await named([1]), await named([2])];
+
+      const inside = await withDatabase(database, async () => [await named([1]), await named([2])]);
+
+      expect(inside).toEqual(outside);
+    });
   });
 
   describe("db.clearRequestCache()", () => {
@@ -415,20 +429,6 @@ describe("the request cache", () => {
     test("does nothing outside withDatabase", () => {
       expect(() => db().clearRequestCache()).not.toThrow();
     });
-  });
-
-  test("two reads binding different bytes, as an ArrayBuffer, answer as they do uncached", async () => {
-    const database = db();
-    const attachments = database.model(Attachment);
-    await attachments.create({ name: "a.bin", data: new Uint8Array([1]) });
-    const named = (bytes: number[]) =>
-      attachments.where(sql`data = ${new Uint8Array(bytes).buffer}`).pluck("name");
-
-    const outside = [await named([1]), await named([2])];
-
-    const inside = await withDatabase(database, async () => [await named([1]), await named([2])]);
-
-    expect(inside).toEqual(outside);
   });
 
   test("caches a read by a filtered attribute, keyed by its real value", async () => {
