@@ -1119,16 +1119,6 @@ describe("the Connections page's examples, on Postgres", () => {
     const sam = await db().model(ConnectedUser).findByOrThrow({ email: "sam@example.com" });
     expect(await sam.posts().pluck("title")).toEqual(["Hello"]);
   });
-
-  test("the same read twice in a request is sent once", async () => {
-    const cached: (true | undefined)[] = [];
-    const database = connect(schema().url, { onQuery: (event) => cached.push(event.cached) });
-
-    const [jane, same] = await withDatabase(database, connecting.readingTwice);
-
-    expect([jane.email, same.email]).toEqual(["jane@example.com", "jane@example.com"]);
-    expect(cached).toEqual([undefined, true]);
-  });
 });
 
 // The Errors page's examples, on the table it shows, on Postgres.

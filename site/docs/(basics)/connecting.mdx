@@ -89,7 +89,7 @@ Inside `withDatabase`, a read you’ve already sent is answered from memory, wit
 - [`onQuery`](./logging#seeing-a-cached-answer) hears each cached answer, with `cached: true`.
 
 :::note[Caching needs `withDatabase`]
-A Model’s queries outside `withDatabase` use the binding, which every request running at once shares, so they’re never cached. To cache a request’s reads, run it inside `withDatabase`, as the Worker above does.
+A Model’s queries outside `withDatabase` use the binding, which every request running at once shares, so they’re never cached. To cache a request’s reads, run it inside `withDatabase`, as the example does.
 :::
 
 To send every read, turn the cache off:
