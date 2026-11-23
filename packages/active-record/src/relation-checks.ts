@@ -234,24 +234,28 @@ export function updateOn<M>(
     if (options.updateOnly !== undefined) {
       throw new TypeError(`${method}() takes updateOnly or onDuplicate, not both`);
     }
-    const set = onDuplicateSets(model, options.onDuplicate, { uniqueBy, method });
+    const set = onDuplicateSets(model, options.onDuplicate, { uniqueBy, ownedBy, method });
     return { kind: "update", uniqueBy, ownedBy, set };
   }
   if (options.updateOnly === undefined) return { kind: "update", uniqueBy, ownedBy };
   const given = [options.updateOnly].flat();
-  const update = updatedNames(model, given, { uniqueBy, method, option: "updateOnly" });
+  const update = updatedNames(model, given, { uniqueBy, method, option: "updateOnly", kept: [] });
   return { kind: "update", uniqueBy, ownedBy, update };
 }
 
 /**
  * `onDuplicate`'s attributes, by their own names, checked as `updateOnly`'s are, and what each
  * is set to: its fragment, checked, or its value cast and normalized as an assigned value is
- * (#531).
+ * (#531). It can't name an owner's key, `ownedBy`, so it can't give a row to another owner.
  */
 function onDuplicateSets(
   model: ModelClass,
   given: unknown,
-  { uniqueBy, method }: { uniqueBy: readonly string[]; method: UpsertMethod },
+  {
+    uniqueBy,
+    ownedBy,
+    method,
+  }: { uniqueBy: readonly string[]; ownedBy: readonly string[]; method: UpsertMethod },
 ): [string, unknown][] {
   if (
     typeof given !== "object" ||
@@ -267,7 +271,7 @@ function onDuplicateSets(
   const names = updatedNames(
     model,
     entries.map(([name]) => name),
-    { uniqueBy, method, option: "onDuplicate" },
+    { uniqueBy, method, option: "onDuplicate", kept: ownedBy },
   );
   return entries.map(([, value], index) => {
     const name = names[index]!;
@@ -279,7 +283,7 @@ function onDuplicateSets(
 
 /**
  * The attributes `updateOnly` or `onDuplicate` names, by their own names, checked: each one an
- * attribute an update can write, and at least one (#36, #531).
+ * attribute an update can write, not one of the owner's `kept` keys, and at least one (#36, #531).
  */
 function updatedNames(
   model: ModelClass,
@@ -288,7 +292,13 @@ function updatedNames(
     uniqueBy,
     method,
     option,
-  }: { uniqueBy: readonly string[]; method: UpsertMethod; option: string },
+    kept,
+  }: {
+    uniqueBy: readonly string[];
+    method: UpsertMethod;
+    option: string;
+    kept: readonly string[];
+  },
 ): string[] {
   if (given.length === 0) {
     const skip = method === "upsert" ? "insert(row" : "insertAll(rows";
@@ -299,7 +309,9 @@ function updatedNames(
   const matched = new Set(uniqueBy.map((name) => attributeName(model, name)));
   return given.map((name) => {
     const own = attributeName(model, name);
-    const refusal = updateRefusal(model, own, matched);
+    const refusal = kept.includes(own)
+      ? "which its owner's records keep"
+      : updateRefusal(model, own, matched);
     if (refusal !== undefined)
       throw new TypeError(`${method}() ${option} can't name ${name}, ${refusal}`);
     return own;
