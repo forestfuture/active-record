@@ -82,13 +82,13 @@ function rejectingBookmarks(database: TestDatabase): TestDatabase {
       getBookmark: () => null,
     };
   };
-  const rejects = (constraint?: string) =>
+  const isRejected = (constraint?: string) =>
     constraint?.startsWith(rejected) === true || constraint?.startsWith(rejectedLater) === true;
   return new Proxy(database, {
     get(object, key) {
       if (key === "withSession") {
         return (constraint?: string) =>
-          rejects(constraint) ? sessionFrom(constraint!) : object.withSession(constraint);
+          isRejected(constraint) ? sessionFrom(constraint!) : object.withSession(constraint);
       }
       const value: unknown = Reflect.get(object, key);
       return typeof value === "function" ? value.bind(object) : value;

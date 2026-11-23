@@ -22,6 +22,9 @@ ruleTester.run("predicate-name", predicateName, {
     "values.filter((value): value is number => typeof value === 'number');",
     // An option's key is the API's name, so an inferred one isn't read; a written one still is.
     "validates('age', { if: (record: { age: number }) => record.age > 17 });",
+    // `??` and `&&` with a side that isn't boolean-shaped may give back a value.
+    "const fallback = (a?: boolean, b?: boolean) => a ?? b;",
+    "const first = (a: unknown[], b: number) => a.length > 0 && a[b];",
     // A name that starts with the letters but not the word.
     "function isolate(): void {}",
   ],
@@ -75,6 +78,21 @@ ruleTester.run("predicate-name", predicateName, {
       name: "an arrow whose body is a comparison",
       code: "const same = (a: unknown, b: unknown) => a === b;",
       errors: [{ messageId: "predicateName", data: { name: "same" } }],
+    },
+    {
+      name: "an arrow whose body negates",
+      code: "const blank = (text: string) => !text;",
+      errors: [{ messageId: "predicateName", data: { name: "blank" } }],
+    },
+    {
+      name: "an arrow whose body joins comparisons",
+      code: "const between = (n: number) => (n > 0 && n < 9) || n === -1;",
+      errors: [{ messageId: "predicateName", data: { name: "between" } }],
+    },
+    {
+      name: "an arrow whose body chooses between boolean answers",
+      code: "const allowed = (open: boolean, n: number) => (open ? n > 0 : false);",
+      errors: [{ messageId: "predicateName", data: { name: "allowed" } }],
     },
   ],
 });
