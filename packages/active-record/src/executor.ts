@@ -264,8 +264,9 @@ export class DatabaseExecutor implements Executor {
   async write(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     const sent = statements.map((statement) => this.#sendable(statement));
     const [only] = sent;
-    if (sent.length === 1 && only !== undefined)
+    if (sent.length === 1 && only !== undefined) {
       return [await this.#writing(() => this.#one(only))];
+    }
     return this.#writing(() => this.#together(sent, () => this.#driver.write(sent, this.#scope())));
   }
 
