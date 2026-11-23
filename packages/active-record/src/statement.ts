@@ -199,7 +199,13 @@ export function insertStatement<Row>(
   const updated = given.filter((name) => model.attributeDefinitions.get(name)?.readonly !== true);
   const resolved =
     conflict?.kind === "update"
-      ? { ...conflict, update: [...updated, ...(names.includes("updatedAt") ? ["updatedAt"] : [])] }
+      ? {
+          ...conflict,
+          update: [
+            ...(conflict.update ?? updated),
+            ...(names.includes("updatedAt") ? ["updatedAt"] : []),
+          ],
+        }
       : conflict;
   const compiled = compileInsertRows(executor.dialect, model, {
     names,

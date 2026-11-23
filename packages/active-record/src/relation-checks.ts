@@ -50,9 +50,13 @@ export interface InsertOptions<M = unknown> {
   returning?: Returning<M>;
 }
 
-/** `upsert`/`upsertAll` options: the attributes of the unique index to match on. */
+/**
+ * `upsert`/`upsertAll` options: the attributes of the unique index to match on, and the
+ * attributes a clashing row has updated (every one written, by default).
+ */
 export interface UpsertOptions<M> {
   uniqueBy?: (keyof AttributesOf<M> & string) | readonly (keyof AttributesOf<M> & string)[];
+  updateOnly?: (keyof AttributesOf<M> & string) | readonly (keyof AttributesOf<M> & string)[];
   returning?: Returning<M>;
 }
 
@@ -212,7 +216,8 @@ export function updateOn<M>(
 ): Conflict {
   const uniqueBy = [options.uniqueBy ?? model.primaryKey].flat() as string[];
   for (const name of uniqueBy) columnOf(model, name);
-  return { kind: "update", uniqueBy, ownedBy };
+  const update = options.updateOnly === undefined ? undefined : [options.updateOnly].flat();
+  return { kind: "update", uniqueBy, ownedBy, ...(update && { update }) };
 }
 
 /** The query a write statement targets; rows from `distinct()` have no identity to write to. */
