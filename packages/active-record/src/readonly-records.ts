@@ -7,3 +7,13 @@ import { state } from "./record-state.ts";
 export function requireWritable(record: Model, action: ReadonlyAction): void {
   if (record[state].isReadonly) throw new ReadonlyRecord(record, action);
 }
+
+/**
+ * Refuses a save that would write a read-only record through its owner's associations: saving or
+ * destroying one marked for destruction. Checked before the owner's validation and callbacks.
+ */
+export function requireSavesWritable(records: readonly Model[]): void {
+  for (const record of records) {
+    requireWritable(record, record[state].isMarkedForDestruction ? "destroy" : "save");
+  }
+}

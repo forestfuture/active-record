@@ -1,6 +1,7 @@
 // A hasMany's collection methods on `user.posts()`: `push`, `delete`, `destroy`, `clear` and `destroyAll`, kept in step with what the owner holds.
 import { asStored } from "./normalized-values.ts";
 import { savingGroups } from "./autosave.ts";
+import { requireSavesWritable } from "./readonly-records.ts";
 import { RecordNotSaved } from "./errors.ts";
 import { pinBefore } from "./executor.ts";
 import { Model, modelOf } from "./model.ts";
@@ -212,6 +213,8 @@ function whoseIs(
  */
 async function pinForSaving(records: readonly Model[], needs: string): Promise<void> {
   const groups = records.map((record) => savingGroups(record));
+  // Every record they'd write, before any of their callbacks run (#358).
+  requireSavesWritable(groups.flat().flatMap((group) => group.records));
   await pinBefore(linksOf(groups.flatMap(([own]) => own?.records ?? [])), needs);
   for (const [, ...elsewhere] of groups) {
     for (const group of elsewhere) await pinBefore(linksOf(group.records), needs);

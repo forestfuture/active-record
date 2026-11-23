@@ -34,6 +34,10 @@ class Bookcase extends Model.define({
 }) {
   static table = "shelves";
   volumes = hasMany(Volume, { foreignKey: "shelfId", autosave: true, dependent: "destroy" });
+  static {
+    this.beforeValidation(() => void heard.push("beforeValidation"));
+    this.beforeSave(() => void heard.push("beforeSave"));
+  }
 }
 
 /** A shelf whose volumes are read-only, destroyed with it. */
@@ -56,6 +60,9 @@ class Volume extends Model.define({
 }) {
   static table = "volumes";
   shelf = belongsTo(Bookcase, { foreignKey: "shelfId", optional: true });
+  static {
+    this.beforeSave(() => void heard.push("volume beforeSave"));
+  }
 }
 
 describe("read-only records (#358)", () => {
@@ -192,8 +199,19 @@ describe("read-only records (#358)", () => {
       events.length = 0;
 
       await expect(bookcase.save()).rejects.toMatchObject({ name: "ReadonlyRecord", record: dune });
+      expect(heard).toEqual([]); // the owner's callbacks don't run either
       expect(events).toEqual([]);
       expect(await storedShelf()).toEqual(seeded);
+    });
+
+    test("saving its owner, which would destroy it as marked, throws and runs nothing", async () => {
+      const bookcase = await harness.connect().model(Bookcase).includes("volumes").find(1);
+      const [dune] = await bookcase.volumes().toArray();
+      dune!.markReadonly().markForDestruction();
+
+      await expect(bookcase.save()).rejects.toMatchObject({ action: "destroy", record: dune });
+      expect(heard).toEqual([]);
+      expect(await storedVolumes()).toEqual(["Dune", "Emma"]);
     });
 
     test("an unchanged read-only record doesn't stop its owner's save", async () => {
@@ -207,14 +225,17 @@ describe("read-only records (#358)", () => {
     test("a batch holding it throws and writes nothing", async () => {
       const events: QueryEvent[] = [];
       const database = recorded(events);
+      const bookcase = await database.model(Bookcase).find(1);
       const [dune, emma] = await database.model(Volume).order({ id: "asc" }).toArray();
+      bookcase.name = "Classics";
       dune!.title = "Dune Messiah";
       emma!.markReadonly().title = "Persuasion";
       events.length = 0;
 
-      await expect(database.batch((b) => [b.save(dune!), b.save(emma!)])).rejects.toThrow(
-        ReadonlyRecord,
-      );
+      const batch = database.batch((b) => [b.save(bookcase), b.save(dune!), b.save(emma!)]);
+
+      await expect(batch).rejects.toThrow(ReadonlyRecord);
+      expect(heard).toEqual([]); // the first entry's callbacks don't run
       expect(events).toEqual([]);
       expect(await storedVolumes()).toEqual(["Dune", "Emma"]);
     });
@@ -242,7 +263,11 @@ describe("read-only records (#358)", () => {
       const poetry = await database.model(Bookcase).find(2);
       const dune = (await database.model(Volume).find(1)).markReadonly();
 
-      await expect(poetry.volumes().push(dune)).rejects.toThrow(ReadonlyRecord);
+      const emma = await database.model(Volume).find(2);
+      heard.length = 0;
+
+      await expect(poetry.volumes().push(emma, dune)).rejects.toThrow(ReadonlyRecord);
+      expect(heard).toEqual([]); // emma's callbacks don't run
       expect(await database.model(Volume).where({ shelfId: 2 }).count()).toBe(0);
     });
 

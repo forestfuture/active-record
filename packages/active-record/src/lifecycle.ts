@@ -44,7 +44,7 @@ import { modelOf, type Model } from "./model.ts";
 import { validateRequiredAssociations } from "./required-associations.ts";
 import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
-import { requireWritable } from "./readonly-records.ts";
+import { requireSavesWritable, requireWritable } from "./readonly-records.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
 import {
@@ -260,7 +260,10 @@ export async function saveLifecycle(record: Model, context?: ValidationContexts)
   const needs = "save() needs its records";
   // Each database's records pinned to it before anything runs (#93), and each one's again
   // before anything is written, with any a callback added.
-  for (const { records } of savingGroups(record)) await pinBefore(linksOf(records), needs);
+  const groups = savingGroups(record);
+  // Every record it would write, before anything runs (#358).
+  requireSavesWritable(groups.flatMap(({ records }) => records));
+  for (const { records } of groups) await pinBefore(linksOf(records), needs);
   return withClaimedRecords(
     async (claimed): Promise<Outcome> => {
       const plan = await prepareSave(record, claimed, context);
