@@ -1,11 +1,32 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { column, gte, incoming, Model } from "../../packages/active-record/src/index.ts";
+import {
+  column,
+  defineType,
+  gte,
+  incoming,
+  Model,
+} from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Doc extends Model.define({
   id: { type: "integer", null: false },
   folderId: "integer",
   settings: "json",
+}) {
+  static table = "json_docs";
+}
+
+/** A custom type stored as json that keeps whatever it's given. */
+const anyJson = defineType({
+  storedAs: "json",
+  cast: (input) => input,
+  serialize: (value) => value,
+  deserialize: (value) => value,
+});
+
+class TypedDoc extends Model.define({
+  id: { type: "integer", null: false },
+  settings: anyJson,
 }) {
   static table = "json_docs";
 }
@@ -175,13 +196,19 @@ describe("column(), its typed values and incoming() given as a value (#539)", ()
   });
 
   describe("a json value refuses one nested in it (#547)", () => {
-    test("in a condition, naming the path", () => {
+    test("in where, naming the path", () => {
       expect(() => docs().where({ settings: { a: column("id") } as never })).toThrow(
         writeInFragment("where", "settings.a"),
       );
+    });
+
+    test("in a list's item, its path starting inside the item", () => {
       expect(() =>
         docs().where({ settings: [{ a: 1 }, { b: [incoming("id")] }] as never }),
       ).toThrow(writeInFragment("where", "settings.b.0"));
+    });
+
+    test("a typed value in whereNot, saying to give the value itself", () => {
       expect(() => docs().whereNot({ settings: { a: column("id").value(1) } as never })).toThrow(
         new TypeError("whereNot() gives settings.a a typed value; give the value itself"),
       );
@@ -196,17 +223,19 @@ describe("column(), its typed values and incoming() given as a value (#539)", ()
       expect(await stored()).toEqual(before);
     });
 
-    test("in a written row, writing nothing", async () => {
+    test("in a written row, leaving the rows as they were", async () => {
+      const before = await stored();
+
       await expect(
         docs().insert({ id: 2, settings: { a: column("id") } as never }),
       ).rejects.toThrow(giveValueItself("settings.a"));
       await expect(
-        docs().upsertAll([{ id: 2, settings: [incoming("id")] as never }], { uniqueBy: "id" }),
+        docs().upsertAll([{ id: 1, settings: [incoming("id")] as never }], { uniqueBy: "id" }),
       ).rejects.toThrow(giveValueItself("settings.0"));
-      expect(await stored()).toHaveLength(1);
+      expect(await stored()).toEqual(before);
     });
 
-    test("in a record, assigned or changed in place", async () => {
+    test("in build and update, keeping the record's value", async () => {
       expect(() => docs().build({ settings: { a: column("id") } as never })).toThrow(
         giveValueItself("settings.a"),
       );
@@ -216,9 +245,31 @@ describe("column(), its typed values and incoming() given as a value (#539)", ()
         giveValueItself("settings.a"),
       );
       expect(doc.settings).toEqual({ a: 1 });
+    });
+
+    test("changed in place, when it's saved or its changes are read", async () => {
+      const before = await stored();
+      const doc = await docs().find(1);
+
       (doc.settings as Record<string, unknown>).a = column("id");
+
+      expect(() => doc.isAttributeChanged("settings")).toThrow(giveValueItself("settings.a"));
+      expect(() => doc.changed()).toThrow(giveValueItself("settings.a"));
       await expect(doc.save()).rejects.toThrow(giveValueItself("settings.a"));
-      expect((await docs().find(1)).settings).toEqual({ a: 1 });
+      expect(await stored()).toEqual(before);
+    });
+
+    test("of a custom type stored as json, when it's assigned", () => {
+      expect(() =>
+        harness
+          .connect()
+          .model(TypedDoc)
+          .build({ settings: { a: column("id") } }),
+      ).toThrow(
+        new TypeError(
+          `TypedDoc "settings.a" was given a column() or incoming() reference; give the value itself`,
+        ),
+      );
     });
   });
 });

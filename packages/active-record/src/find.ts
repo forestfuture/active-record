@@ -115,7 +115,10 @@ export async function findByIds<M extends Model>(
   { model, query, runner }: RunnableQuery<M>,
   args: readonly (string | number | readonly (string | number)[])[],
 ): Promise<M | M[]> {
-  for (const id of args.flat()) refuseReferenceValue(id, `find() gives ${model.primaryKey}`, false);
+  for (const id of args.flat())
+    refuseReferenceValue(id, `find() gives ${model.primaryKey}`, {
+      takesFragment: false,
+    });
   const [only] = args;
   if (args.length === 1 && (typeof only === "string" || typeof only === "number")) {
     return findById(runner, query, only);
