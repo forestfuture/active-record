@@ -405,4 +405,36 @@ describe("the request cache", () => {
       expect(() => db().clearRequestCache()).not.toThrow();
     });
   });
+
+  test("two reads binding different bytes, as an ArrayBuffer, answer as they do uncached", async () => {
+    const database = db();
+    const attachments = database.model(Attachment);
+    await attachments.create({ name: "a.bin", data: new Uint8Array([1]) });
+    const named = (bytes: number[]) =>
+      attachments.where(sql`data = ${new Uint8Array(bytes).buffer}`).pluck("name");
+
+    const outside = [await named([1]), await named([2])];
+
+    const inside = await withDatabase(database, async () => [await named([1]), await named([2])]);
+
+    expect(inside).toEqual(outside);
+  });
+
+  test("caches a read by a filtered attribute, keyed by its real value", async () => {
+    const database = db();
+    const byEmail = (email: string) => database.model(User).findBy({ email });
+
+    const found = await withDatabase(database, async () => [
+      await byEmail("jane@example.com"),
+      await byEmail("sam@example.com"),
+      await byEmail("jane@example.com"),
+    ]);
+
+    expect(found.map((user) => user?.email ?? null)).toEqual([
+      "jane@example.com",
+      null,
+      "jane@example.com",
+    ]);
+    expect(events.map(({ cached }) => cached)).toEqual([undefined, undefined, true]);
+  });
 });

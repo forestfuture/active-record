@@ -1,17 +1,32 @@
 // The request cache (#218): one `withDatabase` scope's answers to the reads its database was sent, by their SQL and bound values.
 import type { CompiledSql } from "./compiler.ts";
 import type { StatementResult } from "./driver.ts";
+import { boundValue } from "./filtering.ts";
 
 /**
- * A read's key: its SQL and bound values, which only match a read that's the same. A value JSON
- * can't write (a BigInt, a cycle) gives none, so the read is sent, and the database answers it.
+ * Whether a bound value keys a read exactly as written as JSON: text, a finite number, a boolean,
+ * null, bytes, or a list of those. Anything else (an ArrayBuffer, NaN, a BigInt, an object) would
+ * share its JSON with another value, or have none.
+ */
+function isKeyable(value: unknown): boolean {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (value instanceof Uint8Array) return true;
+  return Array.isArray(value) && value.every(isKeyable);
+}
+
+/** Bytes as an object no other bound value can be, so they never share a key with a list. */
+function tagBytes(_: string, value: unknown): unknown {
+  return value instanceof Uint8Array ? { bytes: [...value] } : value;
+}
+
+/**
+ * A read's key: its SQL and the values it binds (a filtered one's real value), which only match a read that's the same. A read binding
+ * a value that can't key it has none, so it's sent, and the database answers it.
  */
 function keyOf({ sql, params }: CompiledSql): string | undefined {
-  try {
-    return JSON.stringify([sql, params]);
-  } catch {
-    return undefined;
-  }
+  const bound = params.map(boundValue);
+  return bound.every(isKeyable) ? JSON.stringify([sql, bound], tagBytes) : undefined;
 }
 
 /** How many answers a request cache keeps: enough for a request, bounded for a long one. */
