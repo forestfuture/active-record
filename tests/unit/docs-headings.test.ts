@@ -62,8 +62,10 @@ describe("guide section headings", () => {
       "Head the section with a gerund, or add it to optOuts in tests/unit/docs-headings.test.ts",
     ).toEqual([]);
   });
+});
 
-  test("opt out only headings that are on their page", () => {
+describe("the gerund check's opt-outs", () => {
+  test("name headings their page has", () => {
     const stale = optOuts
       .filter(({ page, heading }) => {
         const found = checkedPages.find((checked) => checked.name === page);
