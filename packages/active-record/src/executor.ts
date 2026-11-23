@@ -196,8 +196,7 @@ export class DatabaseExecutor implements Executor {
 
   /** Runs one statement for its effect and resolves to its result. */
   async run(query: CompiledSql): Promise<StatementResult> {
-    this.#cache()?.clear();
-    return this.#one(this.#sendable(query));
+    return this.#writing(() => this.#one(this.#sendable(query)));
   }
 
   /** Runs reads together and resolves to each one's result. */
@@ -263,12 +262,24 @@ export class DatabaseExecutor implements Executor {
 
   /** Runs statements atomically: one on its own, several all or none. Resolves to each result. */
   async write(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
-    // Cleared before it's sent, so a read that waits on it is sent too, even if it fails.
-    this.#cache()?.clear();
     const sent = statements.map((statement) => this.#sendable(statement));
     const [only] = sent;
-    if (sent.length === 1 && only !== undefined) return [await this.#one(only)];
-    return this.#together(sent, () => this.#driver.write(sent, this.#scope()));
+    if (sent.length === 1 && only !== undefined)
+      return [await this.#writing(() => this.#one(only))];
+    return this.#writing(() => this.#together(sent, () => this.#driver.write(sent, this.#scope())));
+  }
+
+  /**
+   * Sends a write, clearing the request cache before it's sent and again once it settles, failed
+   * or not: a read sent meanwhile may have read the rows before it, so its answer isn't kept.
+   */
+  async #writing<T>(send: () => Promise<T>): Promise<T> {
+    this.#cache()?.clear();
+    try {
+      return await send();
+    } finally {
+      this.#cache()?.clear();
+    }
   }
 
   async #one(query: CompiledSql, mayRetry = true): Promise<StatementResult> {
