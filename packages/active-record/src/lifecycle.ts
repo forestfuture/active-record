@@ -44,6 +44,7 @@ import { modelOf, type Model } from "./model.ts";
 import { validateRequiredAssociations } from "./required-associations.ts";
 import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
+import { requireWritable } from "./readonly-records.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
 import {
@@ -283,6 +284,7 @@ export async function prepareSave(
   if (claimed.has(record)) return nothing;
   const recordState = record[state];
   recordState.requireLive("be saved");
+  requireWritable(record, "save");
   const validity = await validation(record, claimed, newPass(context), context);
   if (validity === "invalid") return { status: "invalid" };
   if (validity === "aborted") return aborted(record);
