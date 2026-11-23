@@ -79,39 +79,71 @@ function matching(labels: string[], needle: string): number[] {
 
 describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, () => {
   let harness: Harness;
-  const queries: QueryEvent[] = [];
-  const samples = () => harness.connect({ onQuery: (event) => queries.push(event) }).model(Sample);
-  type Relation = ReturnType<typeof samples>;
 
   beforeAll(async () => {
     harness = await openHarness();
   });
   afterAll(() => harness.dispose());
 
-  /** Replaces the table's rows with `labels`, runs `run`, and gives the ids and statements. */
-  async function runAgainst(labels: string[], run: (relation: Relation) => Promise<Sample[]>) {
-    await harness.exec("DELETE FROM samples");
-    for (const [index, label] of labels.entries()) {
-      await harness.exec("INSERT INTO samples (id, label) VALUES (?, ?)", [index + 1, label]);
-    }
-    queries.length = 0;
-    const rows = await run(samples());
+  /**
+   * One test's own connection to the samples table, and the statements its model ran. A property
+   * that times out keeps running after its test ends (#454). Its own `queries` keep its statements
+   * out of the next test's, and once the test's `signal` is aborted it stops before its next
+   * statement, so at most the one statement already running reaches the table after the next test
+   * starts. Rows are seeded through the harness, so only the model's statements are recorded.
+   */
+  function testConnection(signal: AbortSignal) {
+    const queries: QueryEvent[] = [];
+    const samples = harness.connect({ onQuery: (event) => queries.push(event) }).model(Sample);
+    const stopIfEnded = () => signal.throwIfAborted();
+    const current = () => {
+      stopIfEnded();
+      return samples;
+    };
+    const clear = () => {
+      queries.length = 0;
+    };
+    const exec = (text: string, params?: unknown[]) => {
+      stopIfEnded();
+      return harness.exec(text, params);
+    };
+
     return {
-      ids: rows.map((row) => row.id).sort((a, b) => a - b),
-      statements: queries.map((query) => query.sql),
+      /** The model on this test's connection, while the test is still running. */
+      samples: current,
+      /** Forgets the statements run so far. */
+      clear,
+      /** The model's INSERT statements since the last `clear` or `runAgainst`, or since it opened. */
+      inserts: () => queries.map((query) => query.sql).filter((text) => text.startsWith("INSERT")),
+      /** Replaces the table's rows with `labels`, runs `run`, and gives the ids and statements. */
+      async runAgainst(labels: string[], run: (relation: typeof samples) => Promise<Sample[]>) {
+        await exec("DELETE FROM samples");
+        for (const [index, label] of labels.entries()) {
+          await exec("INSERT INTO samples (id, label) VALUES (?, ?)", [index + 1, label]);
+        }
+        clear();
+        const rows = await run(current());
+        return {
+          ids: rows.map((row) => row.id).sort((a, b) => a - b),
+          statements: queries.map((query) => query.sql),
+        };
+      },
     };
   }
 
-  /** The INSERT statements run since `queries` was last cleared. */
-  const inserts = () =>
-    queries.map((query) => query.sql).filter((text) => text.startsWith("INSERT"));
-
-  test("is bound: the statement is the same, and the rows are those an exact match gives", async () => {
-    const { statements: plain } = await runAgainst(["x"], (s) => s.where({ label: "x" }).toArray());
+  test("is bound: the statement is the same, and the rows are those an exact match gives", async ({
+    signal,
+  }) => {
+    const connection = testConnection(signal);
+    const { statements: plain } = await connection.runAgainst(["x"], (s) =>
+      s.where({ label: "x" }).toArray(),
+    );
 
     await fc.assert(
       fc.asyncProperty(scenarios, async ({ labels, needle }) => {
-        const found = await runAgainst(labels, (s) => s.where({ label: needle }).toArray());
+        const found = await connection.runAgainst(labels, (s) =>
+          s.where({ label: needle }).toArray(),
+        );
 
         expect(found.statements).toEqual(plain);
         expect(found.ids).toEqual(matching(labels, needle));
@@ -120,14 +152,17 @@ describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, (
     );
   });
 
-  test("is bound when interpolated into an sql fragment", async () => {
-    const { statements: plain } = await runAgainst(["x"], (s) =>
+  test("is bound when interpolated into an sql fragment", async ({ signal }) => {
+    const connection = testConnection(signal);
+    const { statements: plain } = await connection.runAgainst(["x"], (s) =>
       s.where(sql`label = ${"x"}`).toArray(),
     );
 
     await fc.assert(
       fc.asyncProperty(scenarios, async ({ labels, needle }) => {
-        const found = await runAgainst(labels, (s) => s.where(sql`label = ${needle}`).toArray());
+        const found = await connection.runAgainst(labels, (s) =>
+          s.where(sql`label = ${needle}`).toArray(),
+        );
 
         expect(found.statements).toEqual(plain);
         expect(found.ids).toEqual(matching(labels, needle));
@@ -136,14 +171,17 @@ describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, (
     );
   });
 
-  test("is bound in a list of values: the statement is the same, and each exact match is found", async () => {
-    const { statements: plain } = await runAgainst(["x", "y"], (s) =>
+  test("is bound in a list of values: the statement is the same, and each exact match is found", async ({
+    signal,
+  }) => {
+    const connection = testConnection(signal);
+    const { statements: plain } = await connection.runAgainst(["x", "y"], (s) =>
       s.where({ label: ["x", "y"] }).toArray(),
     );
 
     await fc.assert(
       fc.asyncProperty(scenarios, texts, async ({ labels, needle }, other) => {
-        const found = await runAgainst(labels, (s) =>
+        const found = await connection.runAgainst(labels, (s) =>
           s.where({ label: [needle, other] }).toArray(),
         );
         const expected = [...new Set([...matching(labels, needle), ...matching(labels, other)])];
@@ -155,29 +193,30 @@ describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, (
     );
   });
 
-  test("is stored and read back as it was", async () => {
+  test("is stored and read back as it was", async ({ signal }) => {
+    const connection = testConnection(signal);
     await fc.assert(
       fc.asyncProperty(texts, async (label) => {
-        const created = await samples().create({ label });
+        const created = await connection.samples().create({ label });
 
-        expect((await samples().find(created.id)).label).toBe(label);
+        expect((await connection.samples().find(created.id)).label).toBe(label);
       }),
       runs,
     );
   });
 
-  test("is inserted with the statement a harmless value gives", async () => {
-    queries.length = 0;
-    await samples().create({ label: "x" });
-    const plain = inserts();
+  test("is inserted with the statement a harmless value gives", async ({ signal }) => {
+    const connection = testConnection(signal);
+    await connection.samples().create({ label: "x" });
+    const plain = connection.inserts();
 
     await fc.assert(
       fc.asyncProperty(texts, async (label) => {
-        queries.length = 0;
-        await samples().create({ label });
+        connection.clear();
+        await connection.samples().create({ label });
 
         // oxlint-disable-next-line active-record/no-sql-text -- a value is bound, so it never changes the statement
-        expect(inserts()).toEqual(plain);
+        expect(connection.inserts()).toEqual(plain);
       }),
       runs,
     );
