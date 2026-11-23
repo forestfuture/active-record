@@ -221,17 +221,21 @@ describe("an upsert's onDuplicate (#531)", () => {
     });
   });
 
-  describe("refuses incoming() outside onDuplicate", () => {
-    test("in a condition", async () => {
-      await expect(
-        users()
-          .where(sql`${incoming("age")} > 1`)
-          .toArray(),
-      ).rejects.toThrow(
-        new TypeError(
-          'incoming("age") names the value of a row an upsert writes, so only an upsert\'s onDuplicate can use it',
-        ),
-      );
+  describe("refuses incoming() outside onDuplicate, when it's written", () => {
+    const refusal = new TypeError(
+      'incoming("age") names the value of a row an upsert writes, so only an upsert\'s onDuplicate can use it',
+    );
+
+    test("in a condition", () => {
+      expect(() => users().where(sql`${incoming("age")} > 1`)).toThrow(refusal);
+    });
+
+    test("in an order", () => {
+      expect(() => users().order(sql`${incoming("age")}`)).toThrow(refusal);
+    });
+
+    test("in a calculation", async () => {
+      await expect(users().sum(sql`${incoming("age")}`)).rejects.toThrow(refusal);
     });
 
     test("in updateAll", async () => {

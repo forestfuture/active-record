@@ -15,7 +15,13 @@ import {
   type OrderTerm,
   type QueryDescription,
 } from "./query.ts";
-import { ColumnValue, isAttributeReference, SafeSql } from "./sql.ts";
+import {
+  ColumnValue,
+  IncomingReference,
+  incomingRefusal,
+  isAttributeReference,
+  SafeSql,
+} from "./sql.ts";
 
 /**
  * Attribute conditions for `where`/`findBy`: a value, an array meaning "any of these", or a
@@ -140,11 +146,19 @@ function attributeOrder(attribute: string, value: unknown, method: string): Orde
  * A fragment's `column()` references must name declared attributes, and so must its typed
  * values, which must also be values those attributes can hold, so a mistake surfaces where the
  * fragment is written, not when the query runs (#142). A bare date beside an integer-stored
- * column is refused too (#149).
+ * column is refused too (#149). So is `incoming()`, unless it's an upsert's `onDuplicate`
+ * (#531).
  */
-export function checkFragment(model: ModelClass, fragment: SafeSql): void {
+export function checkFragment(
+  model: ModelClass,
+  fragment: SafeSql,
+  { allowsIncoming = false }: { allowsIncoming?: boolean } = {},
+): void {
   for (const value of fragment.values) {
     if (!isAttributeReference(value)) continue;
+    if (value instanceof IncomingReference && !allowsIncoming) {
+      throw incomingRefusal(value.attribute);
+    }
     columnOf(model, value.attribute);
     if (value instanceof ColumnValue) {
       attributeFor(model, value.attribute).cast(value.assigned);
@@ -282,7 +296,7 @@ function onDuplicateSets(
     const name = names[index]!;
     if (!(value instanceof SafeSql))
       return { name, value: attributeFor(model, name).assigned(value) };
-    checkFragment(model, value);
+    checkFragment(model, value, { allowsIncoming: true });
     return { name, value };
   });
 }
