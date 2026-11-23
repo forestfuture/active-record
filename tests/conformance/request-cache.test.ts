@@ -125,4 +125,29 @@ describe("the request cache", () => {
     expect(events.at(-1)?.cached).toBe(true);
     expect([second.name, [...second.data!]]).toEqual(["a.bin", [1, 2]]);
   });
+
+  // A guard: every read of one statement goes through the same path.
+  test.each([
+    ["where", (database: AnyDatabase) => database.model(User).where({ id: 1 }).toArray()],
+    ["count", (database: AnyDatabase) => database.model(User).count()],
+    ["pluck", (database: AnyDatabase) => database.model(User).pluck("email")],
+    ["exists", (database: AnyDatabase) => database.model(User).exists({ id: 1 })],
+    [
+      "an association read",
+      async (database: AnyDatabase) => {
+        const user = await database.model(User).find(1);
+        return user.posts().toArray();
+      },
+    ],
+  ])("caches %s", async (_, read) => {
+    const database = db();
+    await withDatabase(database, async () => {
+      await read(database);
+      events.length = 0;
+      await read(database);
+    });
+
+    expect(events.length).toBeGreaterThan(0);
+    expect(events.every(({ cached }) => cached)).toBe(true);
+  });
 });
