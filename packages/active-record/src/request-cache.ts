@@ -21,8 +21,9 @@ function tagBytes(_: string, value: unknown): unknown {
 }
 
 /**
- * A read's key: its SQL and the values it binds (a filtered one's real value), which only match a read that's the same. A read binding
- * a value that can't key it has none, so it's sent, and the database answers it.
+ * A read's key: its SQL and the values it binds (a filtered one's real value), which only match
+ * a read that's the same. A read binding a value that can't key it has none, so it's sent, and
+ * the database answers it.
  */
 function keyOf({ sql, params }: CompiledSql): string | undefined {
   const bound = params.map(boundValue);
