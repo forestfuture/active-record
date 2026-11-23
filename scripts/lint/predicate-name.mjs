@@ -1,4 +1,5 @@
-// The repo's lint rule that a predicate starts with `is` or `has` (CONTRIBUTING.md), where its return type is written (#380).
+// The repo's lint rule that a predicate starts with `is` or `has` (CONTRIBUTING.md), where its return type is written (#380)
+// or its body answers yes or no (#525).
 import { defineRule } from "vite-plus/lint/plugins";
 
 /** A name that starts with the word `is` or `has`: `isOpen`, `hasRows`, `is`; not `isolate`. */
@@ -9,6 +10,23 @@ function isPredicateType(returnType) {
   const type = returnType?.typeAnnotation;
   if (type?.type === "TSBooleanKeyword") return true;
   return type?.type === "TSTypePredicate" && !type.asserts;
+}
+
+/** The operators whose result is always a boolean. */
+const comparisons = new Set(["===", "!==", "==", "!=", "<", ">", "<=", ">=", "instanceof", "in"]);
+
+/** Whether an expression always answers yes or no, by its shape: a comparison. */
+function isBooleanShaped(expression) {
+  return expression?.type === "BinaryExpression" && comparisons.has(expression.operator);
+}
+
+/**
+ * Whether a function with no written return type answers yes or no, read from its body. An
+ * object literal's property is left alone: its key is an option's name, such as `if` or `default`.
+ */
+function isInferredPredicate(fn) {
+  if (fn.returnType || fn.parent?.type === "Property") return false;
+  return fn.body.type !== "BlockStatement" && isBooleanShaped(fn.body);
 }
 
 /** The kinds of node whose key names the function they hold: a method or a property. */
@@ -40,9 +58,10 @@ export default defineRule({
     },
   },
   create(context) {
-    /** Reports a function with a body whose written return type is a predicate's, by its name. */
+    /** Reports a function with a body that answers yes or no, by its name. */
     const check = (fn) => {
-      if (fn.body === null || fn.body === undefined || !isPredicateType(fn.returnType)) return;
+      if (fn.body === null || fn.body === undefined) return;
+      if (!isPredicateType(fn.returnType) && !isInferredPredicate(fn)) return;
       const name = nameOf(fn);
       if (name === undefined || predicateName.test(name)) return;
       context.report({ node: fn, messageId: "predicateName", data: { name } });
