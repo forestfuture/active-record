@@ -1185,39 +1185,38 @@ describe("the Connections page's examples", () => {
     expect(await sam.posts().pluck("title")).toEqual(["Hello"]);
   });
 
-  /** The page's binding, counting the statements prepared on it. */
-  const counted = () => {
-    const DB = binding();
-    const prepared: string[] = [];
-    const prepare = (sql: string) => {
-      prepared.push(sql);
-      return DB.prepare(sql);
-    };
-    const counting = new Proxy(DB, {
-      get: (target, name) => (name === "prepare" ? prepare : Reflect.get(target, name, target)),
-    });
-    return { env: { DB: counting } as unknown as ReturnType<typeof env>, prepared };
-  };
+  /** Runs `fn`, collecting each User statement's `cached` through the Model's `onQuery`. */
+  async function cachedOf(fn: () => Promise<unknown>): Promise<(true | undefined)[]> {
+    const cached: (true | undefined)[] = [];
+    ConnectedUser.onQuery = (event) => cached.push(event.cached);
+    try {
+      await fn();
+    } finally {
+      delete (ConnectedUser as { onQuery?: unknown }).onQuery;
+    }
+    return cached;
+  }
 
   test("the same read twice in a request is sent once", async () => {
-    const { env: countingEnv, prepared } = counted();
+    const cached = await cachedOf(async () => {
+      const [user, again] = await connecting.findTwice(env());
+      expect([user.email, again.email]).toEqual(["jane@example.com", "jane@example.com"]);
+    });
 
-    const [user, again] = await connecting.findTwice(countingEnv);
-
-    expect([user.email, again.email]).toEqual(["jane@example.com", "jane@example.com"]);
-    expect(prepared).toHaveLength(1);
+    expect(cached).toEqual([undefined, true]);
   });
 
   test("a Database with the request cache off sends each read", async () => {
-    const { env: countingEnv, prepared } = counted();
-    const db = connecting.uncachedDatabase(countingEnv);
+    const db = connecting.uncachedDatabase(env());
 
-    await withDatabase(db, async () => {
-      await ConnectedUser.findByOrThrow({ email: "jane@example.com" });
-      await ConnectedUser.findByOrThrow({ email: "jane@example.com" });
-    });
+    const cached = await cachedOf(() =>
+      withDatabase(db, async () => {
+        await ConnectedUser.findByOrThrow({ email: "jane@example.com" });
+        await ConnectedUser.findByOrThrow({ email: "jane@example.com" });
+      }),
+    );
 
-    expect(prepared).toHaveLength(2);
+    expect(cached).toEqual([undefined, undefined]);
   });
 
   test("clearRequestCache sends the read after an UPDATE sent on the binding", async () => {
