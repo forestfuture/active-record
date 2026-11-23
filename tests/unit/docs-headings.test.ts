@@ -32,10 +32,14 @@ const checkedPages = guidePages().filter(
   (page) => page.name.endsWith(".mdx") && !exemptPages.some((exempt) => exempt.page === page.name),
 );
 
-/** A page's `##` headings, leaving out lines inside code fences. */
+/** A page's `##` headings, leaving out lines inside code fences, indented ones included. */
 function headings(text: string): string[] {
-  const outsideFences = text.replace(/^(```|~~~)[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "");
-  return [...outsideFences.matchAll(/^## (.+)$/gm)].map((match) => match[1]!.trim());
+  let fenced = false;
+  return text.split("\n").flatMap((line) => {
+    if (line.trimStart().startsWith("```")) fenced = !fenced;
+    const heading = /^## (.+)$/.exec(line)?.[1];
+    return fenced || heading === undefined ? [] : [heading.trim()];
+  });
 }
 
 /** How a failure names a heading: its page, then the heading as written. */
