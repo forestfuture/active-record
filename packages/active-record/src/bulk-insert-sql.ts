@@ -128,7 +128,7 @@ function setValue(
 
 /** The clashing row, which an upsert's `onDuplicate` reads, with the row it writes (#531). */
 function clashSource(model: ModelClass<Model>): Source {
-  return { model, name: quoteIdentifier(model.table), qualified: true, incoming: true };
+  return { model, name: quoteIdentifier(model.table), qualified: true, allowsIncoming: true };
 }
 
 /**
