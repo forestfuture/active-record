@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { column, Model } from "../../packages/active-record/src/index.ts";
+import { column, incoming, Model } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Doc extends Model.define({
@@ -39,6 +39,20 @@ describe("column(), its typed values and incoming() given as a value (#539)", ()
       );
       await expect(docs().updateAll({ folderId: column("id") as never })).rejects.toThrow(
         unwrapped("updateAll", "folderId"),
+      );
+      expect(await stored()).toEqual(before);
+    });
+
+    test("a typed value or an incoming() reference", async () => {
+      const before = await stored();
+
+      await expect(
+        docs().updateAll({ folderId: column("folderId").value(8) as never }),
+      ).rejects.toThrow(
+        new TypeError("updateAll() gives folderId a typed value; give the value itself"),
+      );
+      await expect(docs().updateAll({ settings: incoming("settings") as never })).rejects.toThrow(
+        unwrapped("updateAll", "settings"),
       );
       expect(await stored()).toEqual(before);
     });
