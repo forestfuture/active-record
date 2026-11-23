@@ -168,6 +168,21 @@ describe("the request cache", () => {
     expect(events.map(({ cached }) => cached)).toEqual([undefined, undefined]);
   });
 
+  test("reload() of a record from a Database the call wasn't given clears it", async () => {
+    const database = db();
+    const users = database.model(User);
+    const counted = await withDatabase(database, async () => {
+      await users.count();
+      const user = await harness.connect().model(User).find(1);
+      await user.reload();
+      events.length = 0;
+      await users.count();
+      return events.map(({ cached }) => cached);
+    });
+
+    expect(counted).toEqual([undefined]);
+  });
+
   // A guard: only a running withDatabase scope has a cache.
   describe("isn't kept", () => {
     const twoFinds = async (database: AnyDatabase) => {
@@ -477,6 +492,19 @@ describe("the request cache", () => {
 
       expect(email).toBe("sam@example.com");
       expect(events.map(({ cached }) => cached)).toEqual([undefined, undefined]);
+    });
+
+    test("on a Database the call wasn't given empties the call's", async () => {
+      const database = db();
+      const users = database.model(User);
+      const email = await withDatabase(database, async () => {
+        await users.find(1);
+        await harness.exec("UPDATE users SET email = 'sam@example.com' WHERE id = 1");
+        harness.connect().clearRequestCache();
+        return (await users.find(1)).email;
+      });
+
+      expect(email).toBe("sam@example.com");
     });
 
     test("does nothing outside withDatabase", () => {
