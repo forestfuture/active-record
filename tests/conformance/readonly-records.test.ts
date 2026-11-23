@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-pl
 import {
   belongsTo,
   hasMany,
+  hasOne,
   Model,
   ReadonlyRecord,
 } from "../../packages/active-record/src/index.ts";
@@ -38,6 +39,15 @@ class Bookcase extends Model.define({
     this.beforeValidation(() => void heard.push("beforeValidation"));
     this.beforeSave(() => void heard.push("beforeSave"));
   }
+}
+
+/** A shelf showing one volume, which a new one replaces, leaving the old one off the shelf. */
+class DisplayShelf extends Model.define({
+  id: { type: "integer", null: false },
+  name: "string",
+}) {
+  static table = "shelves";
+  featured = hasOne(Volume, { foreignKey: "shelfId", dependent: "nullify" });
 }
 
 /** A shelf whose volumes are read-only, destroyed with it. */
@@ -269,6 +279,16 @@ describe("read-only records (#358)", () => {
       await expect(poetry.volumes().push(emma, dune)).rejects.toThrow(ReadonlyRecord);
       expect(heard).toEqual([]); // emma's callbacks don't run
       expect(await database.model(Volume).where({ shelfId: 2 }).count()).toBe(0);
+    });
+
+    test("replacing a has-one's read-only record throws, and the old record keeps its key", async () => {
+      const shelf = await harness.connect().model(DisplayShelf).find(1);
+      const old = (await shelf.featured())!.markReadonly();
+
+      await expect(shelf.featured.create({ title: "Persuasion" })).rejects.toThrow(ReadonlyRecord);
+
+      expect(old.shelfId).toBe(1);
+      expect(await storedVolumes()).toEqual(["Dune", "Emma"]);
     });
 
     test("updateAll and deleteAll write through a readonly() Relation", async () => {
