@@ -144,6 +144,10 @@ _Avoid_: Raw SQL, string condition
 A value in an **SQL fragment** written as `column(attribute).value(v)`: cast as an assigned value of that **Attribute**, and written as the attribute stores it (an integer for **Epoch storage**), still a bound parameter. A bare interpolated value has no attribute, so it's written by its JavaScript type.
 _Avoid_: Bound attribute, cast value
 
+**Incoming value**:
+The value the row an upsert writes has for an **Attribute**, written `incoming(attribute)` in an **SQL fragment** of the upsert's `onDuplicate`, beside `column(attribute)`, the clashing row's value: `count: sql\`${column("count")} + ${incoming("count")}\``. Anywhere else it's a `TypeError`.
+_Avoid_: Excluded value, new value
+
 **Attribute conversions**:
 The `cast`, `serialize` and `deserialize` of one **Attribute**, from `Model.typeForAttribute(name)`: the same steps a record uses, for SQL the library doesn't write. `serialize` is what a **Typed value** binds.
 _Avoid_: Attribute type (that is the declared type, `"datetime"`), codec, serializer
