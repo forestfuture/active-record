@@ -312,6 +312,25 @@ describe("the request cache", () => {
       expect(events.map(({ cached }) => cached)).toEqual([true, undefined]);
     });
 
+    test("that fails reaches its caller alone, with values the cache can't key", async () => {
+      const failing = (driver: Driver): Driver => ({
+        ...driver,
+        send: (statement) => driver.send(statement),
+        write: (statements) => driver.write(statements),
+        recover: () => false,
+        read: () => Promise.reject(new Error("the database went away")),
+      });
+      const database = harness.connect({ driver: failing });
+      const users = database
+        .model(User)
+        .where(sql`id <> ${1n}`)
+        .includes("posts");
+
+      const loading = withDatabase(database, () => users.toArray());
+
+      await expect(loading).rejects.toThrow("the database went away");
+    });
+
     test("is answered from memory when it's sent again", async () => {
       const database = db();
       const users = database.model(User).includes("posts");
