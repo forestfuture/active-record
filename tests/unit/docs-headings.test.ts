@@ -8,36 +8,39 @@ import { guidePages } from "../support/guide-pages.ts";
 const fixedHeadings = new Set(["At a glance", "The Model", "The Models", "Not built yet"]);
 
 /** Pages that aren't built of task sections, so their headings name other things. */
-const exemptPages: Record<string, string> = {
-  "index.mdx": "the landing page, introducing the library",
-  "(adapters)/d1.mdx": "a list of how D1 differs, each heading a fact",
-  "(adapters)/postgresql.mdx": "a list of how Postgres differs, each heading a fact",
-  "(basics)/command-line.mdx": "a command reference, headed by each command's name",
-  "(introduction)/getting-started.mdx": "a tutorial, with its prerequisites and next steps",
-  "(introduction)/coming-from-rails.mdx": "a comparison, headed by each difference",
-};
+const exemptPages: { page: string; reason: string }[] = [
+  { page: "index.mdx", reason: "the landing page, introducing the library" },
+  { page: "(adapters)/d1.mdx", reason: "a list of how D1 differs, each heading a fact" },
+  { page: "(adapters)/postgresql.mdx", reason: "a list of how Postgres differs" },
+  { page: "(basics)/command-line.mdx", reason: "a command reference, headed by each command" },
+  { page: "(introduction)/getting-started.mdx", reason: "a tutorial, with its next steps" },
+  { page: "(introduction)/coming-from-rails.mdx", reason: "a comparison of each difference" },
+];
+
+const referenceTable = "a reference table, not a task";
 
 /** Headings that must differ on a task page, such as a reference table's, and why. */
 const optOuts: { page: string; heading: string; reason: string }[] = [
-  { page: "(basics)/callbacks.mdx", heading: "Callback order", reason: "a reference table" },
-  {
-    page: "(basics)/validations.mdx",
-    heading: "Available validators",
-    reason: "a reference table",
-  },
-  { page: "(basics)/errors.mdx", heading: "Lifecycle errors", reason: "a reference table" },
-  { page: "(basics)/errors.mdx", heading: "Usage errors", reason: "a reference table" },
-  { page: "(basics)/errors.mdx", heading: "Constraint errors", reason: "a reference table" },
+  { page: "(basics)/callbacks.mdx", heading: "Callback order", reason: referenceTable },
+  { page: "(basics)/validations.mdx", heading: "Available validators", reason: referenceTable },
+  { page: "(basics)/errors.mdx", heading: "Lifecycle errors", reason: referenceTable },
+  { page: "(basics)/errors.mdx", heading: "Usage errors", reason: referenceTable },
+  { page: "(basics)/errors.mdx", heading: "Constraint errors", reason: referenceTable },
 ];
 
 const checkedPages = guidePages().filter(
-  (page) => page.name.endsWith(".mdx") && !(page.name in exemptPages),
+  (page) => page.name.endsWith(".mdx") && !exemptPages.some((exempt) => exempt.page === page.name),
 );
 
 /** A page's `##` headings, leaving out lines inside code fences. */
 function headings(text: string): string[] {
   const outsideFences = text.replace(/^(```|~~~)[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "");
   return [...outsideFences.matchAll(/^## (.+)$/gm)].map((match) => match[1]!.trim());
+}
+
+/** How a failure names a heading: its page, then the heading as written. */
+function label(page: string, heading: string): string {
+  return `${page}: "## ${heading}"`;
 }
 
 function isOptedOut(page: string, heading: string): boolean {
@@ -54,7 +57,7 @@ describe("guide section headings", () => {
       headings(page.text)
         .filter((heading) => !fixedHeadings.has(heading) && !isGerund(heading))
         .filter((heading) => !isOptedOut(page.name, heading))
-        .map((heading) => `${page.name}: "## ${heading}"`),
+        .map((heading) => label(page.name, heading)),
     );
 
     expect(
@@ -71,7 +74,7 @@ describe("the gerund check's opt-outs", () => {
         const found = checkedPages.find((checked) => checked.name === page);
         return found === undefined || !headings(found.text).includes(heading);
       })
-      .map(({ page, heading }) => `${page}: "## ${heading}"`);
+      .map(({ page, heading }) => label(page, heading));
 
     expect(stale).toEqual([]);
   });
