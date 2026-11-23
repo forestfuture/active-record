@@ -159,4 +159,18 @@ describe("column(), its typed values and incoming() given as a value (#539)", ()
       expect((await docs().find(1)).folderId).toBe(7);
     });
   });
+
+  describe("find refuses it as an id (#546)", () => {
+    test("as the only id, or one of several", async () => {
+      await expect(docs().find(column("id") as never)).rejects.toThrow(
+        new TypeError("find() gives id a column() or incoming() reference; give the value itself"),
+      );
+      await expect(docs().find(1, incoming("id") as never)).rejects.toThrow(
+        new TypeError("find() gives id a column() or incoming() reference; give the value itself"),
+      );
+      await expect(docs().find([1, column("id").value(1) as never])).rejects.toThrow(
+        new TypeError("find() gives id a typed value; give the value itself"),
+      );
+    });
+  });
 });
