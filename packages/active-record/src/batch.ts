@@ -1,6 +1,7 @@
 // A batch's steps, and the free `batch()`: its one database pinned, before-callbacks, one atomic write, then after-callbacks.
 import { withClaimedRecords } from "./around-callbacks.ts";
 import { savingGroups } from "./autosave.ts";
+import { requireSavesWritable, requireWritable } from "./readonly-records.ts";
 import { batchEntries, type Batch } from "./batch-builder.ts";
 import { currentRelation } from "./current-database.ts";
 import { IncompatibleRelation, RecordNotSaved } from "./errors.ts";
@@ -25,6 +26,14 @@ function recordsOf(entry: BatchEntry): Model[] {
   if (!(entry instanceof RecordStatement)) return [];
   const { record, kind } = entry[recordStatementParts];
   return kind === "save" ? savingGroups(record)[0]!.records : [record];
+}
+
+/** Refuses an entry that would write a read-only record (#358), before any entry's callbacks run. */
+function refuseReadonly(entry: BatchEntry): void {
+  if (!(entry instanceof RecordStatement)) return;
+  const { record, kind } = entry[recordStatementParts];
+  if (kind === "destroy") requireWritable(record, "destroy");
+  else requireSavesWritable(savingGroups(record).flatMap(({ records }) => records));
 }
 
 /**
@@ -77,6 +86,7 @@ export async function runBatch<const T extends readonly BatchEntry[]>(
   const statements = entries.filter((entry) => !(entry instanceof RecordStatement));
   const all = [...handles, ...statements.map(executorOf)];
   for (const entry of entries) refuseElsewhere(entry, needs);
+  for (const entry of entries) refuseReadonly(entry);
   const records = entries.flatMap(recordsOf);
   if (all.length === 0 && records.length === 0) return [] as BatchResults<T>;
   const database = await pinBefore(linksOf(records), needs, all);
