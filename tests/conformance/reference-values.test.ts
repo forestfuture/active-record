@@ -134,4 +134,23 @@ describe("column(), its typed values and incoming() given as a value (#539)", ()
       expect(await stored()).toHaveLength(1);
     });
   });
+
+  describe("a record refuses it, keeping its value", () => {
+    test("in build, a setter, and update", async () => {
+      expect(() => docs().build({ settings: column("id") as never })).toThrow(
+        unwritable("settings"),
+      );
+
+      const doc = await docs().find(1);
+      expect(() => {
+        doc.settings = incoming("settings") as never;
+      }).toThrow(unwritable("settings"));
+      await expect(doc.update({ folderId: column("folderId") as never })).rejects.toThrow(
+        unwritable("folderId"),
+      );
+      expect(doc.settings).toEqual({ a: 1 });
+      expect(doc.folderId).toBe(7);
+      expect((await docs().find(1)).folderId).toBe(7);
+    });
+  });
 });
