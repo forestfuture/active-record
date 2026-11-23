@@ -291,4 +291,20 @@ describe("the request cache", () => {
       expect(events.map(({ cached }) => cached)).toEqual([true, true]);
     });
   });
+
+  test("keeps 100 answers, forgetting the least recently used first", async () => {
+    const database = db();
+    const byId = (id: number) => database.model(User).where({ id }).toArray();
+    const cached = await withDatabase(database, async () => {
+      for (let id = 1; id <= 100; id++) await byId(id);
+      await byId(1);
+      await byId(101);
+      events.length = 0;
+      await byId(1);
+      await byId(2);
+      return events.map((event) => event.cached);
+    });
+
+    expect(cached).toEqual([true, undefined]);
+  });
 });
