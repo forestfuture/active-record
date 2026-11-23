@@ -205,9 +205,9 @@ export function insertStatement<Row>(
 }
 
 /**
- * An update conflict resolved against the rows: the attributes it updates (`updateOnly`'s, each
- * one the rows give, or every one `updated`), and `updatedAt` to touch when one of them changes,
- * when the rows write it and it isn't updated itself (#36).
+ * An update conflict resolved against the rows: the attributes it updates, which are
+ * `updateOnly`'s (each of them one the rows give) or else every one `updated`, and `updatedAt`
+ * to touch when one of them changes, when the rows write it and it isn't updated itself (#36).
  */
 function resolvedUpdate(
   conflict: Extract<Conflict, { kind: "update" }>,
