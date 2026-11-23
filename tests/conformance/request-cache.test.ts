@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import type { AnyDatabase } from "../../packages/active-record/src/database.ts";
+import type { Driver } from "../../packages/active-record/src/driver.ts";
 import { withDatabase } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { Model } from "../../packages/active-record/src/index.ts";
@@ -211,6 +212,53 @@ describe("the request cache", () => {
       await withDatabase(database, () => database.model(User).find(1));
 
       expect(events.map(({ cached }) => cached)).toEqual([undefined, undefined, undefined]);
+    });
+  });
+
+  describe("a read in flight", () => {
+    test("is shared by an identical read sent meanwhile", async () => {
+      const database = db();
+      const users = database.model(User);
+      const found = await withDatabase(database, () => Promise.all([users.find(1), users.find(1)]));
+
+      expect(found.map(({ email }) => email)).toEqual(["jane@example.com", "jane@example.com"]);
+      expect(events.map(({ cached }) => cached)).toEqual([undefined, true]);
+    });
+
+    test("isn't kept when a write clears the cache before it's answered", async () => {
+      // Holds the first users read, once it has run, until the write is done.
+      let release!: () => void;
+      const released = new Promise<void>((resolve) => (release = resolve));
+      let isHeld!: () => void;
+      const held = new Promise<void>((resolve) => (isHeld = resolve));
+      let holds = true;
+      const holding = (driver: Driver): Driver => ({
+        read: (statements) => driver.read(statements),
+        write: (statements) => driver.write(statements),
+        recover: (error) => driver.recover(error),
+        async send(statement) {
+          const result = await driver.send(statement);
+          if (holds && statement.sql.startsWith("SELECT")) {
+            holds = false;
+            isHeld();
+            await released;
+          }
+          return result;
+        },
+      });
+      const database = harness.connect({ onQuery: (event) => events.push(event), driver: holding });
+      const users = database.model(User);
+
+      const email = await withDatabase(database, async () => {
+        const stale = users.find(1);
+        await held;
+        await users.where({ id: 1 }).updateAll({ email: "sam@example.com" });
+        release();
+        await stale;
+        return (await users.find(1)).email;
+      });
+
+      expect(email).toBe("sam@example.com");
     });
   });
 });
