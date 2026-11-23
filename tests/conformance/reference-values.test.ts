@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { column, incoming, Model } from "../../packages/active-record/src/index.ts";
+import { column, gte, incoming, Model } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Doc extends Model.define({
@@ -55,6 +55,39 @@ describe("column(), its typed values and incoming() given as a value (#539)", ()
         unwrapped("updateAll", "settings"),
       );
       expect(await stored()).toEqual(before);
+    });
+  });
+
+  describe("a condition refuses it, where it matched nothing or the reference's JSON", () => {
+    test("as the value, a list's item, or a comparison's value", () => {
+      expect(() => docs().where({ folderId: column("id") as never })).toThrow(
+        unwrapped("where", "folderId"),
+      );
+      expect(() => docs().where({ folderId: [1, column("id") as never] })).toThrow(
+        unwrapped("where", "folderId"),
+      );
+      expect(() => docs().where({ folderId: gte(column("id") as never) })).toThrow(
+        unwrapped("where", "folderId"),
+      );
+      expect(() => docs().where({ folderId: column("id").value(1) as never })).toThrow(
+        new TypeError("where() gives folderId a typed value; give the value itself"),
+      );
+    });
+
+    test("in whereNot, rewhere, and findBy and findOrCreateBy, which say where()", async () => {
+      expect(() => docs().whereNot({ settings: column("id") as never })).toThrow(
+        unwrapped("whereNot", "settings"),
+      );
+      expect(() => docs().rewhere({ settings: incoming("id") as never })).toThrow(
+        unwrapped("rewhere", "settings"),
+      );
+      await expect(docs().findBy({ settings: column("id") as never })).rejects.toThrow(
+        unwrapped("where", "settings"),
+      );
+      await expect(docs().findOrCreateBy({ settings: column("id") as never })).rejects.toThrow(
+        unwrapped("where", "settings"),
+      );
+      expect(await stored()).toHaveLength(1);
     });
   });
 });
