@@ -297,6 +297,8 @@ export async function prepareSave(
  * it, they follow in the next one, once the owner is written.
  */
 export async function prepareWrites(record: Model, claimed: Claimed): Promise<SavePlan> {
+  // An autosaved record comes here without prepareSave's check (#358).
+  requireWritable(record, "save");
   claimed.add(record);
   // New belongsTo records first: the record needs their keys.
   const before = await prepareBefore(record, claimed);
