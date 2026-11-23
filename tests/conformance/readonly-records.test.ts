@@ -9,6 +9,8 @@ const heard: string[] = [];
 class Shelf extends Model.define({
   id: { type: "integer", null: false },
   name: "string",
+  volumesCount: "integer",
+  isFeatured: "boolean",
   updatedAt: "datetime",
 }) {
   static table = "shelves";
@@ -35,8 +37,16 @@ describe("read-only records (#358)", () => {
   /** A Database whose statements are recorded in `events`. */
   const recorded = (events: QueryEvent[]) =>
     harness.connect({ onQuery: (event) => void events.push(event) });
-  /** Shelf 1's row as stored. */
-  const storedShelf = async () => (await harness.exec("SELECT name FROM shelves WHERE id = 1"))[0];
+  /** Shelf 1's row as stored, as a fresh read finds it. */
+  const storedShelf = async () => {
+    const { name, volumesCount, isFeatured, updatedAt } = await harness
+      .connect()
+      .model(Shelf)
+      .find(1);
+    return { name, volumesCount, isFeatured, updatedAt };
+  };
+  /** Shelf 1's row as seeded. */
+  const seeded = { name: "Fiction", volumesCount: 0, isFeatured: false, updatedAt: null };
   /** Shelf 1, loaded and marked read-only, with `events` recording what's sent after. */
   const readonlyShelf = async (events: QueryEvent[]) => {
     const shelf = await recorded(events).model(Shelf).find(1);
@@ -67,7 +77,61 @@ describe("read-only records (#358)", () => {
       expect(heard).toEqual([]);
       expect(shelf.errors.size).toBe(0); // not validated
       expect(events).toEqual([]);
-      expect(await storedShelf()).toEqual({ name: "Fiction" });
+      expect(await storedShelf()).toEqual(seeded);
+    });
+
+    test("saveOrThrow and update are refused the same way", async () => {
+      const events: QueryEvent[] = [];
+      const shelf = await readonlyShelf(events);
+
+      await expect(shelf.saveOrThrow()).rejects.toThrow(ReadonlyRecord);
+      await expect(shelf.update({ name: "Poetry" })).rejects.toThrow(ReadonlyRecord);
+      await expect(shelf.updateOrThrow({ name: "Poetry" })).rejects.toThrow(ReadonlyRecord);
+      expect(shelf.name).toBe("Fiction"); // refused before it's assigned
+      expect(events).toEqual([]);
+      expect(await storedShelf()).toEqual(seeded);
+    });
+
+    test("can't be destroyed: it throws, runs nothing and sends nothing", async () => {
+      const events: QueryEvent[] = [];
+      const shelf = await readonlyShelf(events);
+
+      const destroying = shelf.destroy();
+
+      await expect(destroying).rejects.toThrow(ReadonlyRecord);
+      await expect(destroying).rejects.toMatchObject({ action: "destroy" });
+      await expect(shelf.destroyOrThrow()).rejects.toThrow(ReadonlyRecord);
+      expect(heard).toEqual([]);
+      expect(events).toEqual([]);
+      expect(shelf.isDestroyed()).toBe(false);
+      expect(await storedShelf()).toEqual(seeded);
+    });
+
+    test.each([
+      ["touch", (shelf: Shelf) => shelf.touch()],
+      ["updateColumns", (shelf: Shelf) => shelf.updateColumns({ name: "Poetry" })],
+      ["updateColumn", (shelf: Shelf) => shelf.updateColumn("name", "Poetry")],
+      ["incrementColumn", (shelf: Shelf) => shelf.incrementColumn("volumesCount")],
+      ["decrementColumn", (shelf: Shelf) => shelf.decrementColumn("volumesCount")],
+      ["toggleColumn", (shelf: Shelf) => shelf.toggleColumn("isFeatured")],
+    ])("%s is refused and sends nothing", async (action, write) => {
+      const events: QueryEvent[] = [];
+      const shelf = await readonlyShelf(events);
+
+      await expect(write(shelf)).rejects.toMatchObject({ name: "ReadonlyRecord", action });
+      expect(events).toEqual([]);
+      expect(await storedShelf()).toEqual(seeded);
+    });
+
+    test("can still be changed in memory and reloaded, and stays read-only", async () => {
+      const events: QueryEvent[] = [];
+      const shelf = await readonlyShelf(events);
+      shelf.name = "Poetry";
+
+      await shelf.reload();
+
+      expect(shelf.name).toBe("Fiction");
+      expect(shelf.isReadonly()).toBe(true);
     });
   });
 });

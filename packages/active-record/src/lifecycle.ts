@@ -428,6 +428,7 @@ export async function destroyLifecycle(record: Model): Promise<DestroyOutcome> {
 /** Everything a destroy does before writing: beforeDestroy, then its dependents' plans. */
 export async function prepareDestroy(record: Model, claimed: Claimed): Promise<DestroyPlan> {
   if (claimed.has(record)) return nothing;
+  requireWritable(record, "destroy");
   claimed.add(record);
   const recordState = record[state];
   recordState.requireLive("be destroyed");

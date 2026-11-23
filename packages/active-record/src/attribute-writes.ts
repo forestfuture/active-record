@@ -8,7 +8,8 @@ import {
   type CounterOptions,
 } from "./counters.ts";
 import { withAttributeNames } from "./attribute-aliases.ts";
-import { RecordNotSaved } from "./errors.ts";
+import { RecordNotSaved, type ReadonlyAction } from "./errors.ts";
+import { requireWritable } from "./readonly-records.ts";
 import type { AttributesOf, Model, ModelClass, SpecsOf } from "./model.ts";
 import { RecordTokens } from "./record-tokens.ts";
 import { state } from "./record-state.ts";
@@ -161,7 +162,7 @@ async function addToColumn(
   record: Model,
   name: string,
   by: number,
-  { method, touch }: { method: string; touch: unknown },
+  { method, touch }: { method: ReadonlyAction; touch: unknown },
 ): Promise<boolean> {
   const recordState = record[state];
   requireSaved(record, method);
@@ -186,7 +187,7 @@ async function addToColumn(
 async function writeColumns(
   record: Model,
   given: Record<string, unknown>,
-  method: string,
+  method: ReadonlyAction,
 ): Promise<boolean> {
   const recordState = record[state];
   requireSaved(record, method);
@@ -201,10 +202,14 @@ async function writeColumns(
   return result?.rowsAffected === 1;
 }
 
-/** A write straight to the row needs one: a new record has none, and a destroyed one is read-only. */
-function requireSaved(record: Model, method: string): void {
+/**
+ * A write straight to the row needs one: a new record has none, a destroyed one is a snapshot, and
+ * a read-only one refuses it (#358).
+ */
+function requireSaved(record: Model, method: ReadonlyAction): void {
   const recordState = record[state];
   recordState.requireLive("be written");
+  requireWritable(record, method);
   if (recordState.isNew) {
     throw new RecordNotSaved(
       `${modelOf(record).name} record hasn't been saved, so ${method} has no row to write`,
