@@ -76,11 +76,12 @@ Give an attribute `readonly: true`, and it’s written when its record is create
 <include>/_excerpts/pages/read-only/examples/slug.mdx</include>
 
 - Assigning a saved record a new value throws `ReadonlyAttribute` straight away, whether you assign it, `update()` it, or write it with `updateColumns`. The error’s `attribute` names it.
-- Changing it another way, such as pointing a belongs-to at another record or changing a JSON value in place, makes the save throw `ReadonlyAttribute` before anything runs. `touch()` refuses a read-only datetime the same way.
+- Pointing a belongs-to at another record throws `ReadonlyAttribute` when its read-only foreign key would change. So does saving a record whose read-only foreign key a new record would fill once it’s inserted.
+- Changing a JSON value or a `Date` in place makes the save throw before anything runs. `touch()` refuses a read-only datetime the same way.
 - A new record can change it until it’s saved.
 - A [counter cache](./counter-caches) still counts a read-only column, so a save can’t overwrite the count. `Model.updateCounters` and `touchAll` write rows without loading them, as `updateAll` does, so they write a read-only column too.
 - An `upsert` leaves the value of a row it updates alone. `updateAll` still writes it.
-- A virtual attribute, a secure password, and a secure token can’t be read-only.
+- A virtual attribute, a secure password, and a secure token can’t be read-only. Neither can `updatedAt` or `lockVersion`, which every save writes.
 
 ## Posting it back from a form
 
