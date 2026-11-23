@@ -94,6 +94,17 @@ export function refuseReferenceValue(value: unknown, gives: string): void {
   }
 }
 
+/**
+ * Throws `TypeError` for a fragment's reference assigned to a record or a written row's
+ * attribute, where no fragment can be (#539): only the value itself can be written there.
+ */
+export function refuseAssignedReference(owner: string, attribute: string, value: unknown): void {
+  if (!isAttributeReference(value)) return;
+  const given =
+    value instanceof ColumnValue ? "a typed value" : "a column() or incoming() reference";
+  throw new TypeError(`${owner} "${attribute}" was given ${given}; give the value itself`);
+}
+
 /** Names the column of `attribute` inside an `sql` fragment, quoted and mapped (ADR-0004). */
 export function column(attribute: string): ColumnReference {
   return new ColumnReference(attribute);

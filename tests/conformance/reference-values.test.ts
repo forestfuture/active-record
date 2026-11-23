@@ -16,6 +16,12 @@ const unwrapped = (method: string, given: string) =>
     `${method}() gives ${given} a column() or incoming() reference; write it in an sql\`…\` fragment`,
   );
 
+/** What a `column()` or `incoming()` given where no fragment could be throws (#539). */
+const unwritable = (given: string) =>
+  new TypeError(
+    `Doc "${given}" was given a column() or incoming() reference; give the value itself`,
+  );
+
 describe("column(), its typed values and incoming() given as a value (#539)", () => {
   let harness: Harness;
   const docs = () => harness.connect().model(Doc);
@@ -87,6 +93,44 @@ describe("column(), its typed values and incoming() given as a value (#539)", ()
       await expect(docs().findOrCreateBy({ settings: column("id") as never })).rejects.toThrow(
         unwrapped("where", "settings"),
       );
+      expect(await stored()).toHaveLength(1);
+    });
+  });
+
+  describe("a written row refuses it, writing nothing", () => {
+    test("insert and insertAll", async () => {
+      await expect(docs().insert({ id: 2, settings: column("id") as never })).rejects.toThrow(
+        unwritable("settings"),
+      );
+      await expect(
+        docs().insertAll([{ id: 2, folderId: incoming("folderId") as never }]),
+      ).rejects.toThrow(unwritable("folderId"));
+      await expect(
+        docs().insertAll([{ id: 2, folderId: column("folderId").value(1) as never }]),
+      ).rejects.toThrow(
+        new TypeError(`Doc "folderId" was given a typed value; give the value itself`),
+      );
+      expect(await stored()).toHaveLength(1);
+    });
+
+    test("upsert and upsertAll", async () => {
+      const before = await stored();
+
+      await expect(docs().upsert({ id: 1, settings: column("id") as never })).rejects.toThrow(
+        unwritable("settings"),
+      );
+      await expect(
+        docs().upsertAll([{ id: 2, settings: incoming("settings") as never }], { uniqueBy: "id" }),
+      ).rejects.toThrow(unwritable("settings"));
+      expect(await stored()).toEqual(before);
+    });
+
+    test("createWith", async () => {
+      await expect(
+        docs()
+          .createWith({ settings: column("id") as never })
+          .findOrCreateBy({ id: 2 }),
+      ).rejects.toThrow(unwritable("settings"));
       expect(await stored()).toHaveLength(1);
     });
   });
