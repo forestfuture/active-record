@@ -83,6 +83,8 @@ Values are always bound, as they are, so a `Date` is ISO text. To write a value 
 
 <include>/_excerpts/pages/conditions/examples/value.mdx</include>
 
+`column()` and `value` work only inside a fragment. Given as a condition’s value, such as `where({ views: column("likes") })`, they throw `TypeError`.
+
 `value` works for any attribute, and writes a boolean as 0 or 1 and a JSON value as text. It casts as assigning would, so a value the attribute can’t hold throws `TypeError` naming the attribute, when `where` is given the fragment. A filtered attribute’s value is hidden from `onQuery`, as it is anywhere else.
 
 :::warning[Datetimes stored as Unix time]
