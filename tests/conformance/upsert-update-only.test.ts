@@ -65,6 +65,24 @@ describe("an upsert's updateOnly (#36)", () => {
     ]);
   });
 
+  test("returns each row as stored: a clashing row with only the named attributes updated", async () => {
+    const { rows } = await users().upsertAll(
+      [
+        { id: 1, email: "a@example.com", role: "admin", age: 31 },
+        { id: 2, email: "b@example.com", role: "admin", age: 40 },
+      ],
+      { updateOnly: ["role"], returning: ["id", "role", "age"] },
+    );
+
+    expect(rows).toHaveLength(2);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { id: 1, role: "admin", age: 30 },
+        { id: 2, role: "admin", age: 40 },
+      ]),
+    );
+  });
+
   test("takes one attribute as a string, on upsert", async () => {
     await users().upsert(
       { email: "a@example.com", role: "admin", age: 31 },
