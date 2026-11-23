@@ -195,9 +195,11 @@ export function insertStatement<Row>(
     throw new TypeError(`${method}(): nothing to insert; give each row at least one attribute`);
   }
   const values = assigned.map((row) => names.map((name) => row.get(name)));
+  // A clashing row keeps its read-only attributes' values, which it was created with (#358).
+  const updated = given.filter((name) => model.attributeDefinitions.get(name)?.readonly !== true);
   const resolved =
     conflict?.kind === "update"
-      ? { ...conflict, update: [...given, ...(names.includes("updatedAt") ? ["updatedAt"] : [])] }
+      ? { ...conflict, update: [...updated, ...(names.includes("updatedAt") ? ["updatedAt"] : [])] }
       : conflict;
   const compiled = compileInsertRows(executor.dialect, model, {
     names,

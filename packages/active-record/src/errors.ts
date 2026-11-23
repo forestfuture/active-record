@@ -177,6 +177,20 @@ export class StaleRecord extends ActiveRecordError {
 }
 
 /**
+ * Assigning a persisted record's read-only attribute a value other than the one it holds (#358):
+ * it's written when the record is created, and never changed by it after.
+ */
+export class ReadonlyAttribute extends ActiveRecordError {
+  override name = "ReadonlyAttribute";
+  readonly attribute: string;
+
+  constructor(model: string, attribute: string) {
+    super(`${model}'s "${attribute}" is read-only once it's created; it can't be changed`);
+    this.attribute = attribute;
+  }
+}
+
+/**
  * What a read-only record was refused (#358): a save, a destroy, a `touch()`, or a write straight
  * to its row, named by its method.
  */

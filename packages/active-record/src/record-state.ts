@@ -4,7 +4,7 @@ import { type Attribute, attributeFor } from "./attribute.ts";
 import { isSameCell } from "./binary-values.ts";
 import type { Assignment } from "./compiler.ts";
 import { Errors } from "./errors-collection.ts";
-import { MissingAttribute, NoDatabase, RecordDestroyed } from "./errors.ts";
+import { MissingAttribute, NoDatabase, ReadonlyAttribute, RecordDestroyed } from "./errors.ts";
 import type { Executor } from "./executor.ts";
 import { LoadedAssociations, type KeyAttributes } from "./loaded-associations.ts";
 import { PendingAutosaves } from "./pending-autosaves.ts";
@@ -174,6 +174,7 @@ export class RecordState {
     this.#requireNotDestroyed("be changed");
     const name = attributeName(this.#model, given);
     const assigned = this.#attribute(name).assigned(value);
+    this.#requireSameIfReadonly(name, assigned);
     // A secure password's `""` is ignored, and null clears its digest (#355).
     const digest = digestOf(this.#model.attributeDefinitions, name);
     if (digest !== undefined && assigned === "") return;
@@ -491,6 +492,17 @@ export class RecordState {
     if (this.#lifecycle === "destroyed") {
       throw new RecordDestroyed(`${this.#model.name} record was destroyed; it can't ${action}`);
     }
+  }
+
+  /**
+   * A persisted record's read-only attribute takes only the value it holds, cast and normalized
+   * (#358), so a form can post it back unchanged.
+   */
+  #requireSameIfReadonly(name: string, assigned: unknown): void {
+    if (this.#definition(name).readonly !== true || this.#lifecycle !== "persisted") return;
+    const before = this.#isInSnapshot(name) ? this.#snapshotValue(name) : undefined;
+    if (before !== undefined && this.#attribute(name).isSame(before, assigned)) return;
+    throw new ReadonlyAttribute(this.#model.name, name);
   }
 
   /** An unknown name is UnknownAttribute, even one every object inherits (`constructor`, #84). */
