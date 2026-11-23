@@ -294,16 +294,28 @@ function onDuplicateSets(
   );
   return entries.map(([given, value], index) => {
     const name = names[index]!;
-    if (isAttributeReference(value)) {
-      throw new TypeError(
-        `${method}() onDuplicate gives ${given} a column() or incoming() reference; write it in an sql\`…\` fragment`,
-      );
-    }
+    refuseReferenceValue(value, `${method}() onDuplicate gives ${given}`);
     if (!(value instanceof SafeSql))
       return { name, value: attributeFor(model, name).assigned(value) };
     checkFragment(model, value, { allowsIncoming: true });
     return { name, value };
   });
+}
+
+/**
+ * Throws `TypeError` for a fragment's reference given as an `onDuplicate` value, outside a
+ * fragment: a typed value, which is given as the value itself, or a column or incoming value,
+ * which only a fragment reads (#531).
+ */
+function refuseReferenceValue(value: unknown, gives: string): void {
+  if (value instanceof ColumnValue) {
+    throw new TypeError(`${gives} a typed value; give the value itself`);
+  }
+  if (isAttributeReference(value)) {
+    throw new TypeError(
+      `${gives} a column() or incoming() reference; write it in an sql\`…\` fragment`,
+    );
+  }
 }
 
 /**

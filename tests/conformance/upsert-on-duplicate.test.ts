@@ -205,6 +205,12 @@ describe("an upsert's onDuplicate (#531)", () => {
       await refused({ age: column("age") }).rejects.toThrow(unwrapped);
     });
 
+    test("a typed value, pointing to giving the value itself", async () => {
+      await refused({ age: column("age").value(5) }).rejects.toThrow(
+        new TypeError("upsert() onDuplicate gives age a typed value; give the value itself"),
+      );
+    });
+
     test("an object that isn't one of attributes", async () => {
       await refused(sql`age = 1`).rejects.toThrow(
         new TypeError(
