@@ -60,6 +60,7 @@ const relationMethods = [
   "offset",
   "select",
   "distinct",
+  "readonly",
   "includes",
   "joins",
   "leftJoins",

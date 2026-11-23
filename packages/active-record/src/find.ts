@@ -8,13 +8,20 @@ import { primaryKeyOf, type Model, type ModelClass } from "./model.ts";
 import type { Condition, QueryDescription } from "./query.ts";
 
 /**
- * The finder rules: `query`'s conditions (plus `extra`), joins and includes, full rows, no
- * order.
+ * The finder rules: `query`'s conditions (plus `extra`), joins, includes and read-only mark (#358),
+ * full rows, no order.
  */
 function finderQuery(query: QueryDescription, extra?: Condition): QueryDescription {
   const conditions = extra === undefined ? query.conditions : [...query.conditions, extra];
-  const { model, joins, includes } = query;
-  return { model, conditions, order: [], includes, ...(joins !== undefined && { joins }) };
+  const { model, joins, includes, readonly } = query;
+  return {
+    model,
+    conditions,
+    order: [],
+    includes,
+    ...(joins !== undefined && { joins }),
+    ...(readonly !== undefined && { readonly }),
+  };
 }
 
 /** One row `query` matches by the finder rules (plus `extra`), or null. */

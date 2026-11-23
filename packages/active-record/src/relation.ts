@@ -16,7 +16,8 @@ import {
 import { eachOnce, findByIds, findOne } from "./find.ts";
 import { firstOf, lastOf, soleOf, takeOf, type OneRecordSource } from "./one-record.ts";
 import { listOrdered, type InOrderOfOptions } from "./list-order.ts";
-import { countSourceOf, exists, isEmpty, size, upToTwo } from "./record-counts.ts";
+import { countSourceOf, exists, type CountSource } from "./record-counts.ts";
+import { CountQuestions, countSource } from "./count-questions.ts";
 import {
   unscoped,
   withOnly,
@@ -70,7 +71,6 @@ import {
   type FindOrCreateMethod,
 } from "./find-or-create.ts";
 import { destroyTogether } from "./records-together.ts";
-import { TokenFinders } from "./token-finders.ts";
 import { grouped, type GroupedRelation, type GroupTerms } from "./grouping.ts";
 import type { RelationState } from "./relation-state.ts";
 import { counterSets, type CounterOptions, type Counters } from "./counters.ts";
@@ -125,7 +125,7 @@ export type Scoped<M extends Model, S = {}> = [keyof S] extends [never]
   : Relation<M, S> & ScopeMethods<M, S>;
 
 /** A lazy, immutable description of a query against one Model. */
-export class Relation<M extends Model, S = {}> extends TokenFinders<M> {
+export class Relation<M extends Model, S = {}> extends CountQuestions<M> {
   /** Type-only: the Model's scopes, so chained calls keep their scope methods. */
   declare readonly [scopeTypes]?: S;
 
@@ -262,6 +262,15 @@ export class Relation<M extends Model, S = {}> extends TokenFinders<M> {
   /** Removes duplicate rows (of the selected attributes). */
   distinct(): Scoped<M, S> {
     return this.#with({ distinct: true });
+  }
+
+  /**
+   * Makes the records this Relation loads read-only (#358): saving or destroying one throws
+   * `ReadonlyRecord`. Records it preloads, builds or creates aren't, and its bulk writes ignore it.
+   * `readonly(false)` undoes it.
+   */
+  readonly(flag = true): Scoped<M, S> {
+    return this.#with({ readonly: flag });
   }
 
   /**
@@ -649,36 +658,8 @@ export class Relation<M extends Model, S = {}> extends TokenFinders<M> {
     };
   }
 
-  /**
-   * The number of records: a loaded association's (built records included) without a query;
-   * otherwise a `COUNT(*)`, plus an association's unsaved built records.
-   */
-  async size(): Promise<number> {
-    return size(this.#countSource());
-  }
-
-  /** Whether there are no records: a loaded association answers itself, else `!exists()`. */
-  async isEmpty(): Promise<boolean> {
-    return isEmpty(this.#countSource());
-  }
-
-  /** Whether there are any records: the opposite of `isEmpty()`. */
-  async hasAny(): Promise<boolean> {
-    return !(await this.isEmpty());
-  }
-
-  /** Whether more than one record matches: one `COUNT` of at most two rows. */
-  async hasMoreThanOne(): Promise<boolean> {
-    return (await upToTwo(this.#countSource())) > 1;
-  }
-
-  /** Whether exactly one record matches: one `COUNT` of at most two rows. */
-  async hasExactlyOne(): Promise<boolean> {
-    return (await upToTwo(this.#countSource())) === 1;
-  }
-
-  /** What `size` and the questions about how many records there are read. */
-  #countSource() {
+  /** @internal What `size` and the questions about how many records there are read. */
+  [countSource](): CountSource {
     return countSourceOf(this.#valueSource(), this.#collection);
   }
 
