@@ -1,5 +1,6 @@
 // Replacing a hasOne's record (#40): what a new record does to the old one, by `dependent:`, written in one batch with the new one.
 import { withClaimedRecords } from "./around-callbacks.ts";
+import { requireWritable } from "./readonly-records.ts";
 import { compileDelete } from "./compiler.ts";
 import { NotNullViolation, RecordNotSaved } from "./errors.ts";
 import {
@@ -182,6 +183,8 @@ async function nullify(
   association: ResolvedAssociation,
   claimed: Claimed,
 ): Promise<Ready> {
+  // Refused before it's unlinked, so a read-only record keeps its key (#358).
+  requireWritable(old, "save");
   const restore = unlinkInMemory(old, association);
   const plan = await prepareSave(old, claimed);
   if (plan.status === "ready") return undoneOnFailure(plan, old, association, restore);
