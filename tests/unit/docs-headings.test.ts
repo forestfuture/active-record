@@ -68,6 +68,13 @@ describe("guide section headings", () => {
 });
 
 describe("the gerund check's opt-outs", () => {
+  test("exempt only pages the guide has", () => {
+    const names = new Set(guidePages().map((page) => page.name));
+    const missing = exemptPages.filter(({ page }) => !names.has(page)).map(({ page }) => page);
+
+    expect(missing).toEqual([]);
+  });
+
   test("name headings their page has", () => {
     const stale = optOuts
       .filter(({ page, heading }) => {
