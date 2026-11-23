@@ -25,7 +25,7 @@ import {
   requireDefined,
 } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
-import { refuseAssignedReference } from "./sql.ts";
+import { NestedReference, refuseAssignedReference } from "./sql.ts";
 import { refuseThenable } from "./thenables.ts";
 import { normalizationsOf } from "./normalization.ts";
 import { isLockVersion } from "./lock-version.ts";
@@ -179,6 +179,7 @@ export class Attribute {
     try {
       stored = writeValue(this.#definition, value);
     } catch (error) {
+      this.#refuseNested(error);
       if (this.#definition.customType !== undefined) throw this.#refusal(value, undefined, error);
       if (this.#definition.type !== "json") throw error;
       throw this.#refusal(value);
@@ -266,9 +267,19 @@ export class Attribute {
     try {
       return convert();
     } catch (error) {
+      this.#refuseNested(error);
       if (this.#definition.customType === undefined) throw error;
       throw this.#refusal(value, undefined, error);
     }
+  }
+
+  /**
+   * Throws the refusal naming the Model and the path for a fragment's reference found inside a
+   * json value (#547), assigned or changed in place.
+   */
+  #refuseNested(error: unknown): void {
+    if (!(error instanceof NestedReference)) return;
+    refuseAssignedReference(this.#model.name, error.under(this.name), error.reference);
   }
 
   /** Whether the attribute's values are hidden from listeners and errors (#83). */
