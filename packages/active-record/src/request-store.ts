@@ -1,4 +1,4 @@
-// The request's AsyncLocalStorage: the databases `withDatabase` set, and what each one's driver holds for its scope. Loaded when it's first needed (ADR-0012).
+// The request's AsyncLocalStorage: the databases `withDatabase` set, what each one's driver holds for its scope, and the scopes' request caches, which a write clears (#218). Loaded when it's first needed (ADR-0012).
 import type { AnyDatabase } from "./database.ts";
 import { NoDatabase } from "./errors.ts";
 import type { DatabaseExecutor } from "./executor.ts";
@@ -21,6 +21,11 @@ export interface RequestStore {
   databases: readonly AnyDatabase[];
   /** Each database's scope. A call nested in a running one with the same database shares it. */
   scopes: ReadonlyMap<DatabaseExecutor, DatabaseScope>;
+  /**
+   * The request caches of every running scope in the request (#218), one set the outermost call
+   * makes and nested calls add theirs to, so a write anywhere in it clears a nested call's too.
+   */
+  caches: Set<RequestCache>;
 }
 
 /** The storage, once `withDatabase` has been called. */
@@ -47,10 +52,10 @@ export function runWithStore<R>(store: RequestStore, fn: () => R): R {
 }
 
 /**
- * Empties every request cache the running `withDatabase` call can see (#218): a write on any
- * Database inside it may change rows another of its databases cached, the same database through
- * another handle included.
+ * Empties every request cache in the running `withDatabase` call's request (#218), a nested call's
+ * included: a write on any Database inside it may change rows another of its databases cached,
+ * the same database through another handle included.
  */
 export function clearRequestCaches(): void {
-  for (const scope of requestStore()?.scopes.values() ?? []) scope.cache.clear();
+  for (const cache of requestStore()?.caches ?? []) cache.clear();
 }

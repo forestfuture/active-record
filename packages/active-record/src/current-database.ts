@@ -31,17 +31,21 @@ export async function withDatabase<R>(
   const outer = requestStore();
   const inner = Array.isArray(databases) ? databases : [databases as AnyDatabase];
   const scopes = new Map(outer?.scopes);
+  // One set for the whole request: a nested call's caches are cleared by a write outside it.
+  const caches = outer?.caches ?? new Set<RequestCache>();
   const opened: OpenedScope[] = [];
   try {
     openScopes(inner, scopes, opened);
+    for (const { scope } of opened) caches.add(scope.cache);
     // A Database given twice, or again in a nested call, is one of the request's databases.
     const all = [...new Set([...inner, ...(outer?.databases ?? [])])];
-    return await runWithStore({ databases: all, scopes }, fn);
+    return await runWithStore({ databases: all, scopes, caches }, fn);
   } finally {
     // The scopes end; an adapter lets their connections go once their queries finish.
     await Promise.all(
       opened.map(({ executor, scope }) => {
         scope.hasEnded = true;
+        caches.delete(scope.cache);
         return executor.closeScope(scope.held);
       }),
     );
