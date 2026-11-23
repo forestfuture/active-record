@@ -25,6 +25,10 @@ export async function insertingMany() {
     { articleId: article.id, body: "Two" },
   ]);
   await Author.upsert({ name: "Jane Doe", email: "jane@example.com" }, { uniqueBy: "email" }); // renames Jane
+  await Author.upsert(
+    { id: crypto.randomUUID(), name: "Jane Smith", email: "jane@example.com" },
+    { uniqueBy: "email", updateOnly: "name" },
+  ); // renames Jane, keeping her id
   await Author.insert({ name: "Jane", email: "jane@example.com" }, { onDuplicate: "skip" }); // writes nothing
   // #endregion insert-all
 }
