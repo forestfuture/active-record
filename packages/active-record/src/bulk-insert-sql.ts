@@ -1,5 +1,5 @@
 // A bulk insert's SQL: its rows bound as JSON, and what it does when a row clashes with a unique index (skip it, or update it, #36, #451).
-import { attributeFor, type Attribute } from "./attribute.ts";
+import { attributeFor } from "./attribute.ts";
 import { rowGroups } from "./bulk-rows.ts";
 import { compileReturning, compileValues, type CompiledSql } from "./compiler.ts";
 import type { Dialect } from "./dialect.ts";
@@ -78,7 +78,7 @@ function compileConflict(
   if (updated.length === 0) return ` ON CONFLICT (${target}) DO NOTHING`;
   const sets = updated.map((name) => `${column(name)} = excluded.${column(name)}`);
   if (conflict.touch !== undefined) sets.push(touchSet(dialect, model, updated, conflict.touch));
-  return ` ON CONFLICT (${target}) DO UPDATE SET ${sets.join(", ")}${compileOwnedBy(model, conflict.ownedBy, column)}`;
+  return ` ON CONFLICT (${target}) DO UPDATE SET ${sets.join(", ")}${compileOwnedBy(model, conflict.ownedBy)}`;
 }
 
 /**
@@ -91,27 +91,26 @@ function touchSet(
   updated: readonly string[],
   touch: string,
 ): string {
-  const table = quoteIdentifier(model.table);
-  const same = (attribute: Attribute) => {
-    const [left, right] = [
-      `${table}.${quoteIdentifier(attribute.column)}`,
-      `excluded.${quoteIdentifier(attribute.column)}`,
-    ];
+  const same = (name: string) => {
+    const [left, right] = clashingAndNew(model, name);
+    const attribute = attributeFor(model, name);
     return dialect.sameValue?.(left, right, attribute) ?? `${left} IS NOT DISTINCT FROM ${right}`;
   };
-  const unchanged = updated.map((name) => same(attributeFor(model, name))).join(" AND ");
+  const unchanged = updated.map(same).join(" AND ");
+  const [kept, given] = clashingAndNew(model, touch);
   const column = quoteIdentifier(attributeFor(model, touch).column);
-  return `${column} = CASE WHEN ${unchanged} THEN ${table}.${column} ELSE excluded.${column} END`;
+  return `${column} = CASE WHEN ${unchanged} THEN ${kept} ELSE ${given} END`;
 }
 
 /** ` WHERE "t"."a" = excluded."a" AND …`: the clashing row already has the new row's values. */
-function compileOwnedBy(
-  model: ModelClass<Model>,
-  ownedBy: readonly string[],
-  column: (name: string) => string,
-): string {
+function compileOwnedBy(model: ModelClass<Model>, ownedBy: readonly string[]): string {
   if (ownedBy.length === 0) return "";
-  const table = quoteIdentifier(model.table);
-  const same = ownedBy.map((name) => `${table}.${column(name)} = excluded.${column(name)}`);
+  const same = ownedBy.map((name) => clashingAndNew(model, name).join(" = "));
   return ` WHERE ${same.join(" AND ")}`;
+}
+
+/** `name`'s column in the clashing row and in the new one: `"t"."a"` and `excluded."a"`. */
+function clashingAndNew(model: ModelClass<Model>, name: string): [string, string] {
+  const column = quoteIdentifier(attributeFor(model, name).column);
+  return [`${quoteIdentifier(model.table)}.${column}`, `excluded.${column}`];
 }
