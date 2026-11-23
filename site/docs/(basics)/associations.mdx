@@ -83,7 +83,7 @@ Use `belongsTo` on the Model whose table holds the foreign key, as an article be
 | `scope`      | Narrows the target, `(q) => q.where(…)`. See [Scoping associations](#scoping-associations)                            |
 | `optional`   | Lets the record point at nothing. See [Requiring the record](#requiring-the-record)                                   |
 | `autosave`   | `true` saves the record’s changes with this record. See [Saving changed records](./autosaving#saving-changed-records) |
-| `inverseOf`  | The target’s `hasOne` that points back, or `false`. See [Loading the owner back](#loading-the-owner-back)             |
+| `inverseOf`  | The target’s `hasOne` that points back, or `false`. See [Inverse associations](#using-inverse-associations)           |
 
 ## Requiring the record
 
@@ -115,7 +115,7 @@ Use `hasMany` on the Model the other table’s foreign key points at, as an auth
 | `scope`      | Narrows or orders the records, `(q) => q.order(…)`. See [Scoping associations](#scoping-associations)               |
 | `dependent`  | What destroying the owner does to the records. See [Destroying dependent records](#destroying-dependent-records)    |
 | `autosave`   | `true` saves the records’ changes with the owner. See [Saving changed records](./autosaving#saving-changed-records) |
-| `inverseOf`  | The target’s `belongsTo` that points back, or `false`. See [Loading the owner back](#loading-the-owner-back)        |
+| `inverseOf`  | The target’s `belongsTo` that points back, or `false`. See [Inverse associations](#using-inverse-associations)      |
 
 ## Using `hasOne`
 
@@ -197,7 +197,7 @@ A loaded association is cached on the record, so reading it again sends no query
 - A write made another way, such as `Article.where({ authorId: author.id }).deleteAll()`, doesn’t touch a loaded collection: reload the association to see it.
 - A `belongsTo` whose foreign key is `null`, or an association on an unsaved owner, reads without a query.
 
-## Loading the owner back
+## Using inverse associations
 
 A record loaded through its owner’s `hasMany` or `hasOne` has the owner loaded already, so reading it back sends no query:
 
