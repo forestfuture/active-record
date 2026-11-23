@@ -1,7 +1,7 @@
 // What a Relation's methods take, checked when a query is written, not when it runs.
 import type { AttributeSet, Conflict } from "./bulk-insert-sql.ts";
 import type { Assignment } from "./compiler.ts";
-import { Comparison } from "./comparisons.ts";
+import { Comparison, comparisonParts } from "./comparisons.ts";
 import { attributeName, withAttributeNames } from "./attribute-aliases.ts";
 import { attributeFor } from "./attribute.ts";
 import { refuseBareDates } from "./fragment-guard.ts";
@@ -186,9 +186,17 @@ export function checkConditions(model: ModelClass, conditions: object, method: s
   for (const [name, value] of Object.entries(conditions)) {
     const { type } = columnOf(model, name);
     rejectUndefined(value, name, method);
-    refuseReferenceValue(value, `${method}() gives ${name}`);
+    for (const each of conditionValues(value))
+      refuseReferenceValue(each, `${method}() gives ${name}`);
     if (value instanceof Comparison) requireOrdered(type, name, method);
   }
+}
+
+/** A condition's values: a list's items, a comparison's values, or the value itself. */
+function conditionValues(value: unknown): readonly unknown[] {
+  if (Array.isArray(value)) return value;
+  if (value instanceof Comparison) return value[comparisonParts].values;
+  return [value];
 }
 
 /** Attribute changes for `updateAll`, checked like conditions: declared, and not undefined. */
