@@ -44,6 +44,10 @@ Bind what `serialize` gives when you send SQL yourself:
 
 For a cache key, or the value a test expects of a raw row, `serialize` gives the stored form too.
 
+:::warning[Your writes don’t clear the request cache]
+Inside `withDatabase`, Active Record answers a read it has already sent from memory. It can’t see SQL you send yourself, so after a raw write, call `db.clearRequestCache()` before reading again. See [Clearing the cache](./connecting#clearing-the-cache).
+:::
+
 ## Reading cells
 
 Turn a cell from a raw query into the attribute’s value with `deserialize`:

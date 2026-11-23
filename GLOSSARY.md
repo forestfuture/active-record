@@ -300,6 +300,10 @@ _Avoid_: Default connection, global database
 One `withDatabase` call's time with a **Database**, during which its **Adapter** may hold a connection for it (the PostgreSQL adapter does, from a connection string). Each call has its own, even with a Database other requests share; a call nested in a running one shares it. In the `/adapter` interface, a driver's `openScope` and `closeScope` begin and end it.
 _Avoid_: Scope (on its own: that's a Model's), request scope, transaction
 
+**Request cache**:
+A **Database scope**'s answers to the reads it sent (#218): a read with the same SQL and bound values is answered from memory, reported to the **Query listener** with `cached: true`. Any write the library sends on that **Database** clears it, as do `reload()` and `db.clearRequestCache()`; it ends with the scope, and a Model's **Binding** has none. `connect(…, { cache: { request: false } })` turns it off.
+_Avoid_: Query cache, identity map (records aren't shared, only rows)
+
 **Adapter**:
 What the Active Record core needs for one database (#260, ADR-0016): its driver, SQL dialect, type mapping, constraint errors and schema reader, with its plugin for the command. Each ships inside `@forestfuture/active-record` as an entry named for its database, `/d1` and `/postgresql` (ADR-0019), and its driver is the app's to install. The **Project config** names a database's adapter, and the **Generated schema** imports it.
 _Avoid_: Dialect (one part of an adapter), driver, connector

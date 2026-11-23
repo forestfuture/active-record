@@ -13,6 +13,7 @@ seo:
 | log one request’s queries, with its ID | `withDatabase(connect(env.DB, { onQuery }), …)`                          |
 | send the database time to the browser  | add up `durationMs` into a `Server-Timing` header                        |
 | keep more attributes out of the logs   | `static override filterAttributes = [...Model.filterAttributes, "iban"]` |
+| tell a cached read from a sent one     | `event.cached`                                                           |
 
 ## The Models
 
@@ -47,6 +48,7 @@ An `onQuery` listener is called once for every statement, writes and batches inc
 | `durationMs`    | How long it took; in a D1 batch, D1’s own timing for each statement |
 | `meta`          | The database’s result metadata, such as D1’s rows read and written  |
 | `error`         | The database’s error, when it failed                                |
+| `cached`        | `true` when the read was answered from memory                       |
 
 Send these wherever you like. A listener never changes a query’s outcome: one that throws is logged with `console.error`, and the query’s result stands.
 
@@ -58,6 +60,10 @@ Set a listener in one of two places:
 | **One request’s queries** | `connect(env.DB, { onQuery })`, run in `withDatabase` | Yes                |
 
 If both are set, the request’s listener runs first, then the base class’s.
+
+### Seeing a cached answer
+
+Inside `withDatabase`, a read you’ve already sent is answered from the [request cache](./connecting#caching-identical-reads), and your listener still hears it. Its event has `cached: true`, a `durationMs` of 0, and no `meta`, since nothing reached the database.
 
 ## Logging every query
 

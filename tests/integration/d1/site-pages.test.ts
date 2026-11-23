@@ -1184,6 +1184,30 @@ describe("the Connections page's examples", () => {
       .findByOrThrow({ email: "sam@example.com" });
     expect(await sam.posts().pluck("title")).toEqual(["Hello"]);
   });
+
+  test("the same read twice in a request is sent once", async () => {
+    const cached: (true | undefined)[] = [];
+    const db = connect(binding(), { onQuery: (event) => cached.push(event.cached) });
+
+    const [jane, same] = await withDatabase(db, connecting.readingTwice);
+
+    expect([jane.email, same.email]).toEqual(["jane@example.com", "jane@example.com"]);
+    expect(cached).toEqual([undefined, true]);
+  });
+
+  test("a Database with the request cache off sends every read", async () => {
+    const db = connecting.uncachedDatabase(env());
+
+    const [jane] = await withDatabase(db, connecting.readingTwice);
+
+    expect(jane.email).toBe("jane@example.com");
+  });
+
+  test("clearRequestCache sends the read after an UPDATE sent on the binding", async () => {
+    const post = await connecting.renamePost(env(), "2");
+
+    expect(post.title).toBe("Hello again");
+  });
 });
 
 // The Errors page's examples, on the table it shows.
