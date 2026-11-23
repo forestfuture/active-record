@@ -10,6 +10,7 @@ import {
 import { d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { statementKinds } from "../support/statement-kinds.ts";
 
 class Volume extends Model.define({
   id: { type: "integer", null: false },
@@ -28,14 +29,30 @@ class FixedVolume extends Model.define({
   id: { type: "integer", null: false },
   shelfId: { type: "integer", readonly: true },
   details: { type: "json", readonly: true },
-  updatedAt: { type: "datetime", readonly: true },
+  shelvedAt: { type: "datetime", readonly: true },
+  stampedOn: { aliasOf: "shelvedAt" },
 }) {
   static table = "volumes";
   shelf = belongsTo(Shelf, { foreignKey: "shelfId", optional: true });
 }
 
-class Shelf extends Model.define({ id: { type: "integer", null: false }, name: "string" }) {
+class Shelf extends Model.define({
+  id: { type: "integer", null: false },
+  name: "string",
+  volumesCount: "integer",
+  openedAt: { type: "datetime", readonly: true },
+}) {
   static table = "shelves";
+}
+
+/** A volume that stamps its shelf's opening time, which can't change, whenever it's written. */
+class StampingVolume extends Model.define({
+  id: { type: "integer", null: false },
+  shelfId: "integer",
+  title: "string",
+}) {
+  static table = "volumes";
+  shelf = belongsTo(Shelf, { foreignKey: "shelfId", touch: "openedAt" });
 }
 
 /** A shelf counting its volumes in a column a save can't change. */
@@ -217,15 +234,53 @@ describe("read-only attributes (#358)", () => {
       expect(await fixed()).toEqual(seeded);
     });
 
-    test("touch() of a read-only datetime throws, sending nothing", async () => {
+    /** A Database whose statements are recorded in `events`. */
+    const recorded = (events: QueryEvent[]) =>
+      harness.connect({ onQuery: (event) => void events.push(event) });
+
+    test.each([
+      ["by its name", "shelvedAt"],
+      ["by an alias", "stampedOn"],
+    ])("touch() of a read-only datetime %s throws, sending nothing", async (_, name) => {
       const events: QueryEvent[] = [];
-      const volume = await harness
-        .connect({ onQuery: (event) => void events.push(event) })
-        .model(FixedVolume)
-        .find(1);
+      const volume = await recorded(events).model(FixedVolume).find(1);
       events.length = 0;
 
-      await expect(volume.touch()).rejects.toThrow(ReadonlyAttribute);
+      await expect(volume.touch(name as never)).rejects.toThrow(ReadonlyAttribute);
+      expect(events).toEqual([]);
+    });
+
+    test("a Date changed in place isn't saved: the save throws, sending nothing", async () => {
+      await harness.exec("UPDATE volumes SET shelved_at = ? WHERE id = 1", [
+        "2026-01-15T00:00:00.000Z",
+      ]);
+      const events: QueryEvent[] = [];
+      const volume = await recorded(events).model(FixedVolume).find(1);
+      volume.shelvedAt!.setUTCFullYear(2020);
+      events.length = 0;
+
+      await expect(volume.save()).rejects.toMatchObject({ attribute: "shelvedAt" });
+      expect(events).toEqual([]);
+    });
+
+    test("an association's touch of a read-only datetime throws, sending nothing", async () => {
+      const events: QueryEvent[] = [];
+      const volume = await recorded(events).model(StampingVolume).find(1);
+      volume.title = "Dune Messiah";
+      events.length = 0;
+
+      await expect(volume.save()).rejects.toMatchObject({ attribute: "openedAt" });
+      expect(statementKinds(events)).toEqual(["SELECT"]); // the shelf is read, and nothing written
+    });
+
+    test("a counter's touch of a read-only datetime throws, sending nothing", async () => {
+      const events: QueryEvent[] = [];
+      const shelf = await recorded(events).model(Shelf).find(1);
+      events.length = 0;
+
+      await expect(shelf.incrementColumn("volumesCount", 1, { touch: "openedAt" })).rejects.toThrow(
+        ReadonlyAttribute,
+      );
       expect(events).toEqual([]);
     });
   });
