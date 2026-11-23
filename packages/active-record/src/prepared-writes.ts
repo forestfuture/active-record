@@ -1,6 +1,7 @@
 // PreparedWrites: a Relation's bulk writes as Statements, unsent, for a Batch to prepare, and building them.
 import { attributeFor } from "./attribute.ts";
-import { type Assignment, compileDeleteAll, compileUpdateAll, type Conflict } from "./compiler.ts";
+import type { Conflict } from "./bulk-insert-sql.ts";
+import { type Assignment, compileDeleteAll, compileUpdateAll } from "./compiler.ts";
 import type { AttributesOf, Model, ModelClass } from "./model.ts";
 import {
   bulkRowValues,
@@ -16,6 +17,7 @@ import {
   writableQuery,
   type InsertOptions,
   type Returning,
+  type UpsertMethod,
   type UpsertOptions,
 } from "./relation-checks.ts";
 import { SafeSql } from "./sql.ts";
@@ -64,12 +66,12 @@ export function preparedWritesOf<M extends Model>(relation: RelationState<M>): P
         returning: options.returning,
       }),
     upsert: (attributes, options = {}) =>
-      insertRows(relation, [attributes], ownedUpdate(relation, options), {
+      insertRows(relation, [attributes], ownedUpdate(relation, options, "upsert"), {
         method: "upsert",
         returning: options.returning,
       }),
     upsertAll: (rows, options = {}) =>
-      insertRows(relation, rows, ownedUpdate(relation, options), {
+      insertRows(relation, rows, ownedUpdate(relation, options, "upsertAll"), {
         method: "upsertAll",
         returning: options.returning,
       }),
@@ -82,8 +84,15 @@ export function preparedWritesOf<M extends Model>(relation: RelationState<M>): P
  * An upsert's conflict through `relation`: through an owner's hasMany, it updates a clashing
  * row only when that row is already the owner's, so it never takes another owner's (#451).
  */
-function ownedUpdate(relation: RelationState<Model>, options: UpsertOptions<Model>): Conflict {
-  return updateOn(relation.model, options, Object.keys(ownersValues(relation)));
+function ownedUpdate(
+  relation: RelationState<Model>,
+  options: UpsertOptions<Model>,
+  method: UpsertMethod,
+): Conflict {
+  return updateOn(relation.model, options, {
+    ownedBy: Object.keys(ownersValues(relation)),
+    method,
+  });
 }
 
 function insertRows<Row>(

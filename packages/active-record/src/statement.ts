@@ -1,11 +1,6 @@
 // Statement: a bulk write (`insert`, `updateAll`, …) built to run on its own or in a batch, with any statements sent before it whose results aren't its own (a counter cache's, #61), and what runs once it's written.
-import {
-  compileInsert,
-  compileInsertRows,
-  type Assignment,
-  type CompiledSql,
-  type Conflict,
-} from "./compiler.ts";
+import { compileInsertRows, type Conflict } from "./bulk-insert-sql.ts";
+import { compileInsert, type Assignment, type CompiledSql } from "./compiler.ts";
 import type { StatementResult } from "./driver.ts";
 import type { Executor } from "./executor.ts";
 import { attributeFor } from "./attribute.ts";
@@ -175,7 +170,8 @@ function insertAssignments(model: ModelClass, attributes: Record<string, unknown
  * `INSERT` of `rows` into `model`'s table, as one Statement. Every row must have the same
  * attributes as given; `conflict` skips or updates rows that clash with a unique
  * index. An update sets every attribute in `rows` (the given ones and any a Relation added,
- * #475) and `updatedAt`, never filled-in defaults.
+ * #475), or only those `updateOnly` names, and `updatedAt` when one of them changes (#36), never
+ * filled-in defaults.
  * It returns the attributes `returning` names of each row written.
  */
 export function insertStatement<Row>(
@@ -198,9 +194,7 @@ export function insertStatement<Row>(
   // A clashing row keeps its read-only attributes' values, which it was created with (#358).
   const updated = given.filter((name) => model.attributeDefinitions.get(name)?.readonly !== true);
   const resolved =
-    conflict?.kind === "update"
-      ? { ...conflict, update: [...updated, ...(names.includes("updatedAt") ? ["updatedAt"] : [])] }
-      : conflict;
+    conflict?.kind === "update" ? resolvedUpdate(conflict, { updated, names, method }) : conflict;
   const compiled = compileInsertRows(executor.dialect, model, {
     names,
     rows: values,
@@ -208,6 +202,28 @@ export function insertStatement<Row>(
     returning,
   });
   return new Statement(executor, compiled, landed, read);
+}
+
+/**
+ * An update conflict resolved against the rows: the attributes it updates, which are
+ * `updateOnly`'s (each of them one the rows give) or else every one `updated`, and `updatedAt`
+ * to touch when one of them changes, when the rows write it and it isn't updated itself (#36).
+ */
+function resolvedUpdate(
+  conflict: Extract<Conflict, { kind: "update" }>,
+  {
+    updated,
+    names,
+    method,
+  }: { updated: readonly string[]; names: readonly string[]; method: string },
+): Conflict {
+  const update = conflict.update ?? updated;
+  const missing = update.find((name) => !updated.includes(name));
+  if (missing !== undefined) {
+    throw new TypeError(`${method}() updateOnly names ${missing}, which the rows don't give`);
+  }
+  const touchesUpdatedAt = names.includes("updatedAt") && !update.includes("updatedAt");
+  return { ...conflict, update, touch: touchesUpdatedAt ? "updatedAt" : undefined };
 }
 
 /** How an insert statement writes: what a conflict does, its method's name, and what it returns. */

@@ -83,6 +83,26 @@ describe("upserting through an owner's hasMany (#451)", () => {
     ]);
   });
 
+  test("with updateOnly, still leaves another owner's clashing row as it is (#36)", async () => {
+    const user = await db().model(User).find(1);
+
+    const result = await user.posts().upsertAll(
+      [
+        { id: 1, title: "Own, renamed" },
+        { id: 2, title: "Mine now" },
+      ],
+      {
+        updateOnly: ["title"],
+      },
+    );
+
+    expect(result.rowsAffected).toBe(1);
+    expect(await posts()).toEqual([
+      { id: 1, user_id: 1, title: "Own, renamed" },
+      { id: 2, user_id: 2, title: "Theirs" },
+    ]);
+  });
+
   test("a batch's upsert through a hasMany leaves another owner's row as it is", async () => {
     const user = await db().model(User).find(1);
 

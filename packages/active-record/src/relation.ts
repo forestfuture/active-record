@@ -365,7 +365,8 @@ export class Relation<M extends Model, S = {}> extends CountQuestions<M> {
   /**
    * Inserts a row now, or updates it when it clashes with the unique index on `uniqueBy` (the
    * primary key by default): every given attribute and every value this Relation writes into the
-   * row (#475), except the `uniqueBy` ones and `createdAt`, with `updatedAt` set.
+   * row (#475), except the `uniqueBy` ones and `createdAt`, or only those `updateOnly` names
+   * (#36), with `updatedAt` set when one of them changes.
    * Resolves as `insert` does, returning inserted and updated rows.
    */
   async upsert<const R extends Returning<M> | undefined = undefined>(

@@ -85,6 +85,11 @@ export const postgres: Dialect = {
       },
     ];
   },
+  /** `json` has no equality operator, so a json attribute's values are compared as text. */
+  sameValue(left, right, { isJson }) {
+    if (isJson) return `CAST(${left} AS TEXT) IS NOT DISTINCT FROM CAST(${right} AS TEXT)`;
+    return `${left} IS NOT DISTINCT FROM ${right}`;
+  },
   /**
    * The removal returns a row for each row it removed, which the counters' UPDATEs count, and the
    * statement selects how many as `removed`: a COUNT sent before it could miss a row another

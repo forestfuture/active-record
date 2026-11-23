@@ -1,7 +1,8 @@
 // What a Relation's methods take, checked when a query is written, not when it runs.
-import type { Assignment, Conflict } from "./compiler.ts";
+import type { Conflict } from "./bulk-insert-sql.ts";
+import type { Assignment } from "./compiler.ts";
 import { Comparison } from "./comparisons.ts";
-import { withAttributeNames } from "./attribute-aliases.ts";
+import { attributeName, withAttributeNames } from "./attribute-aliases.ts";
 import { attributeFor } from "./attribute.ts";
 import { refuseBareDates } from "./fragment-guard.ts";
 import { type AttributeType, columnOf } from "./metadata.ts";
@@ -50,11 +51,18 @@ export interface InsertOptions<M = unknown> {
   returning?: Returning<M>;
 }
 
-/** `upsert`/`upsertAll` options: the attributes of the unique index to match on. */
+/**
+ * `upsert`/`upsertAll` options: the attributes of the unique index to match on, and the
+ * attributes a clashing row has updated (every one written, by default).
+ */
 export interface UpsertOptions<M> {
   uniqueBy?: (keyof AttributesOf<M> & string) | readonly (keyof AttributesOf<M> & string)[];
+  updateOnly?: (keyof AttributesOf<M> & string) | readonly (keyof AttributesOf<M> & string)[];
   returning?: Returning<M>;
 }
+
+/** The bulk writes that update a row that clashes. */
+export type UpsertMethod = "upsert" | "upsertAll";
 
 /** `{ attribute: "asc" | "desc" }`; key order sets precedence. */
 export type OrderSpec<M> = {
@@ -203,16 +211,56 @@ export function returnedNames(
 
 /**
  * An upsert's conflict: update, matching on `uniqueBy` (the primary key by default), a row
- * that already has the new row's `ownedBy` values (#451).
+ * that already has the new row's `ownedBy` values (#451), only `updateOnly`'s attributes when
+ * it's given (#36).
  */
 export function updateOn<M>(
   model: ModelClass,
   options: UpsertOptions<M>,
-  ownedBy: readonly string[],
+  { ownedBy, method }: { ownedBy: readonly string[]; method: UpsertMethod },
 ): Conflict {
   const uniqueBy = [options.uniqueBy ?? model.primaryKey].flat() as string[];
   for (const name of uniqueBy) columnOf(model, name);
-  return { kind: "update", uniqueBy, ownedBy };
+  if (options.updateOnly === undefined) return { kind: "update", uniqueBy, ownedBy };
+  const update = updateOnly(model, [options.updateOnly].flat(), { uniqueBy, method });
+  return { kind: "update", uniqueBy, ownedBy, update };
+}
+
+/**
+ * `updateOnly`'s attributes, by their own names, checked: each one an attribute an update can
+ * write, and at least one (#36).
+ */
+function updateOnly(
+  model: ModelClass,
+  given: readonly string[],
+  { uniqueBy, method }: { uniqueBy: readonly string[]; method: UpsertMethod },
+): string[] {
+  if (given.length === 0) {
+    const skip = method === "upsert" ? "insert(row" : "insertAll(rows";
+    throw new TypeError(
+      `${method}() updateOnly names no attributes; to leave a clashing row as it is, use ${skip}, { onDuplicate: "skip" })`,
+    );
+  }
+  const matched = new Set(uniqueBy.map((name) => attributeName(model, name)));
+  return given.map((name) => {
+    const own = attributeName(model, name);
+    const refusal = updateRefusal(model, own, matched);
+    if (refusal !== undefined)
+      throw new TypeError(`${method}() updateOnly can't name ${name}, ${refusal}`);
+    return own;
+  });
+}
+
+/** Why an upsert can't update `name` on a clash, if it can't. */
+function updateRefusal(
+  model: ModelClass,
+  name: string,
+  matched: ReadonlySet<string>,
+): string | undefined {
+  if (columnOf(model, name).readonly === true) return "which is read-only";
+  if (matched.has(name)) return "which uniqueBy matches on";
+  if (name === "createdAt") return "which an update keeps";
+  return undefined;
 }
 
 /** The query a write statement targets; rows from `distinct()` have no identity to write to. */
