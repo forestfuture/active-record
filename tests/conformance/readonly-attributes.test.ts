@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
+  belongsTo,
+  hasMany,
   InvalidModel,
   Model,
   ReadonlyAttribute,
@@ -19,6 +21,40 @@ class Volume extends Model.define({
   static {
     this.normalizes("slug", { with: (slug) => slug.trim().toLowerCase() });
   }
+}
+
+/** A volume whose shelf and details are set when it's created. */
+class FixedVolume extends Model.define({
+  id: { type: "integer", null: false },
+  shelfId: { type: "integer", readonly: true },
+  details: { type: "json", readonly: true },
+  updatedAt: { type: "datetime", readonly: true },
+}) {
+  static table = "volumes";
+  shelf = belongsTo(Shelf, { foreignKey: "shelfId", optional: true });
+}
+
+class Shelf extends Model.define({ id: { type: "integer", null: false }, name: "string" }) {
+  static table = "shelves";
+}
+
+/** A shelf counting its volumes in a column a save can't change. */
+class CountedShelf extends Model.define({
+  id: { type: "integer", null: false },
+  name: "string",
+  volumesCount: { type: "integer", readonly: true },
+}) {
+  static table = "shelves";
+  volumes = hasMany(CountedVolume, { foreignKey: "shelfId" });
+}
+
+class CountedVolume extends Model.define({
+  id: { type: "integer", null: false },
+  shelfId: "integer",
+  title: "string",
+}) {
+  static table = "volumes";
+  shelf = belongsTo(CountedShelf, { foreignKey: "shelfId", counterCache: "volumesCount" });
 }
 
 // A generated schema's volumes table, whose Model makes its slug read-only by an override.
@@ -137,6 +173,73 @@ describe("read-only attributes (#358)", () => {
 
     expect(await stored()).toEqual({ slug: "dune", title: "Dune Messiah" });
     expect((await volumes.find(2)).slug).toBe("emma");
+  });
+
+  describe("changed another way than by assigning it", () => {
+    beforeEach(async () => {
+      await harness.reset("volumes", "shelves");
+      await harness.exec("INSERT INTO shelves (id, name) VALUES (1, 'Fiction'), (2, 'Poetry')");
+      await harness.exec(
+        "INSERT INTO volumes (id, shelf_id, title, details) VALUES (1, 1, 'Dune', '{\"pages\":412}')",
+      );
+    });
+
+    /** Volume 1's shelf and details as stored. */
+    const fixed = async () => {
+      const { shelfId, details } = await db().model(FixedVolume).find(1);
+      return { shelfId, details };
+    };
+    const seeded = { shelfId: 1, details: { pages: 412 } };
+
+    test("pointing its belongsTo at another record throws", async () => {
+      const database = db();
+      const volume = await database.model(FixedVolume).find(1);
+      const poetry = await database.model(Shelf).find(2);
+
+      expect(() => volume.shelf.set(poetry)).toThrow(ReadonlyAttribute);
+      expect(await fixed()).toEqual(seeded);
+    });
+
+    test("a json value changed in place isn't saved: the save throws, sending nothing", async () => {
+      const events: QueryEvent[] = [];
+      const volume = await harness
+        .connect({ onQuery: (event) => void events.push(event) })
+        .model(FixedVolume)
+        .find(1);
+      (volume.details as { pages: number }).pages = 500;
+      events.length = 0;
+
+      await expect(volume.save()).rejects.toMatchObject({
+        name: "ReadonlyAttribute",
+        attribute: "details",
+      });
+      expect(events).toEqual([]);
+      expect(await fixed()).toEqual(seeded);
+    });
+
+    test("touch() of a read-only datetime throws, sending nothing", async () => {
+      const events: QueryEvent[] = [];
+      const volume = await harness
+        .connect({ onQuery: (event) => void events.push(event) })
+        .model(FixedVolume)
+        .find(1);
+      events.length = 0;
+
+      await expect(volume.touch()).rejects.toThrow(ReadonlyAttribute);
+      expect(events).toEqual([]);
+    });
+  });
+
+  test("a counter cache keeps counting it, and its loaded record takes the count", async () => {
+    await harness.reset("volumes", "shelves");
+    await harness.exec("INSERT INTO shelves (id, name, volumes_count) VALUES (1, 'Fiction', 0)");
+    const shelf = await db().model(CountedShelf).find(1);
+
+    await shelf.volumes().create({ title: "Emma" });
+
+    expect(shelf.volumesCount).toBe(1);
+    expect(shelf.isChanged()).toBe(false);
+    expect((await db().model(CountedShelf).find(1)).volumesCount).toBe(1);
   });
 
   test("updateAll writes it", async () => {

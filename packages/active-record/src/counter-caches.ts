@@ -322,8 +322,8 @@ export function addToCount(record: Model, attribute: string, by: number): void {
   const recordState = record[state];
   if (recordState.isDestroyed || !(attribute in recordState.attributes())) return;
   const count = recordState.read(attribute);
-  recordState.write(attribute, (typeof count === "number" ? count : 0) + by);
-  recordState.commitColumns([attribute]);
+  // As stored, so a read-only count still takes it (#358).
+  recordState.takeStored(attribute, (typeof count === "number" ? count : 0) + by);
 }
 
 /**
