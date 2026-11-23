@@ -46,6 +46,11 @@ export default defineConfig({
           include: ["tests/conformance/**/*.test.ts"],
           setupFiles: ["tests/support/conformance-setup.ts"],
           provide: { adapter: "d1" },
+          // Each file starts its own workerd, so a loaded machine (a CI shard running several with
+          // coverage, or several local runs at once) slows every D1 statement and can push a test
+          // past Vitest's 5 s default and its harness setup past the 10 s hook default (#538).
+          testTimeout: 15_000,
+          hookTimeout: 30_000,
         },
       },
       // The same suite on Postgres (#269), and pg-record's own tests: the server DATABASE_URL names,
