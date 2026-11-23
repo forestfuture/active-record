@@ -72,6 +72,8 @@ export interface QueryDescription {
   unscoped?: readonly UnscopedPart[];
   /** From `createWith()`: attributes a record built or inserted through it gets, not conditions. */
   createWith?: Readonly<Record<string, unknown>>;
+  /** From `readonly()` (#358): whether the records it loads are read-only; `false` undoes it in a merge. */
+  readonly?: boolean;
 }
 
 /** A part of a query `unscope()` drops: one by name, or the conditions on some attributes. */
@@ -186,7 +188,7 @@ export function allOf(model: ModelClass<Model>): QueryDescription {
 }
 
 /** Everything but the conditions: what `or` requires to match and `merge` may replace. */
-const SHAPE_CLAUSES = ["select", "order", "limit", "offset", "distinct"] as const;
+const SHAPE_CLAUSES = ["select", "order", "limit", "offset", "distinct", "readonly"] as const;
 
 type ShapeClause = (typeof SHAPE_CLAUSES)[number];
 
@@ -197,6 +199,8 @@ function isSameClause(clause: ShapeClause, a: QueryDescription, b: QueryDescript
       return isSameList(a.select, b.select, (x, y) => x === y);
     case "order":
       return isSameList(a.order, b.order, isSameOrderTerm);
+    case "readonly":
+      return (a.readonly ?? false) === (b.readonly ?? false);
     default:
       return Object.is(a[clause], b[clause]);
   }
@@ -320,6 +324,7 @@ export function merged(a: QueryDescription, b: QueryDescription): QueryDescripti
     if (isSet(b, clause)) Object.assign(result, { [clause]: b[clause] });
   }
   if (b.reordered) result.reordered = true;
+  if (b.readonly !== undefined) result.readonly = b.readonly;
   return result;
 }
 

@@ -5,6 +5,7 @@ import { databaseNow, type Executor } from "./executor.ts";
 import { stableOrder, thenPrimaryKey } from "./finder-order.ts";
 import type { OwnedCollection } from "./owned-collection.ts";
 import { hydrate, type Model, type ModelClass } from "./model.ts";
+import { state } from "./record-state.ts";
 import { keysForIncludes, planPreload } from "./preload.ts";
 import type { QueryDescription } from "./query.ts";
 import { sql } from "./sql.ts";
@@ -158,6 +159,8 @@ async function loadWith<M extends Model>(
   // Bound to the database the query used, which they keep, even past a request's withDatabase.
   const database = await databaseNow(executor);
   const records = (load.rowsOf(results) ?? []).map((row) => hydrate(model, row, database));
+  // Its own records, not the ones it preloads (#358).
+  if (query.readonly === true) for (const record of records) record[state].isReadonly = true;
   await plan?.attach([records], results.slice(own.length), database);
   return { records, results: results.slice(0, own.length) };
 }
