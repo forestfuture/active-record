@@ -71,6 +71,11 @@ export interface SpecObject {
    * `regenerate…()` (#355): `true`, or its options. Only a string has one.
    */
   secureToken?: boolean | SecureTokenOptions;
+  /**
+   * Written when a record is created, and refused once it's persisted (#358): assigning it a value
+   * other than the one it holds throws `ReadonlyAttribute`.
+   */
+  readonly?: boolean;
 }
 
 /** How an enum's value is validated: `true`, or `{ allowNull: true }` to let it be null. */
@@ -97,6 +102,11 @@ type NoDigits = { precision?: never; scale?: never };
 /** An attribute that isn't a string: only a string has a secure token (#355). */
 type NoToken = { secureToken?: never };
 
+/** A string's secure token, which `regenerate…()` changes, so it's never read-only (#358). */
+type TokenOrReadonly =
+  | { secureToken?: boolean | SecureTokenOptions; readonly?: false }
+  | { secureToken?: false; readonly: true };
+
 /** The spec's keys that only some types have, each written by the type's own branch below. */
 type PerTypeKeys =
   | "type"
@@ -110,7 +120,7 @@ type PerTypeKeys =
 export type AttributeSpec = AttributeType | AnyCustomType | (SpecObjectByType & Placement);
 
 /** A column, or a virtual attribute, which has none (#356). */
-type Placement = { virtual?: false } | { virtual: true; column?: never };
+type Placement = { virtual?: false } | { virtual: true; column?: never; readonly?: never };
 
 /** A spec written out, by its type: the keys each type may have. */
 type SpecObjectByType =
@@ -118,8 +128,8 @@ type SpecObjectByType =
       type: "string";
       storage?: never;
       enum?: TextEnum;
-      secureToken?: boolean | SecureTokenOptions;
-    } & ValueSource &
+    } & TokenOrReadonly &
+      ValueSource &
       NoDigits)
   | (Omit<SpecObject, PerTypeKeys> &
       NoDigits &
@@ -219,6 +229,8 @@ export interface AttributeDefinition {
   securePassword?: true | SecurePasswordOptions;
   /** A secure token, generated for a new record (#355). */
   secureToken?: true | SecureTokenOptions;
+  /** Written on create, and not changed once persisted (#358). */
+  readonly?: true;
 }
 
 /** The JavaScript value an attribute of a built-in type holds: a `Date` for a `datetime`. */

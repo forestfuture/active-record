@@ -164,6 +164,13 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     conflictsWith: ["default"],
   },
   secureToken: secureTokenRule(),
+  // Written on create only (#358): a virtual attribute is never written, and a token is regenerated.
+  readonly: {
+    isWellFormed: (value) => typeof value === "boolean",
+    describedAs: "readonly",
+    isGiven: isGivenUnless(false),
+    conflictsWith: ["virtual", "securePassword", "secureToken"],
+  },
 };
 
 /** The rule for `secureToken`: a string's random token, generated for a new record (#355). */
@@ -440,6 +447,7 @@ export function copiedKeys(
     | "virtual"
     | "securePassword"
     | "secureToken"
+    | "readonly"
   >
 > {
   const copied = entries

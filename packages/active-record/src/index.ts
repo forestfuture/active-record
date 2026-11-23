@@ -22,6 +22,7 @@ export {
   abort,
   AssociationNotLoaded,
   ReadonlyAssociation,
+  ReadonlyAttribute,
   ReadonlyRecord,
   AbortAfterPersistence,
   CallbackAbort,
