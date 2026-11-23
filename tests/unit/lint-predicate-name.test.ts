@@ -25,6 +25,9 @@ ruleTester.run("predicate-name", predicateName, {
     // `??` and `&&` with a side that isn't boolean-shaped may give back a value.
     "const fallback = (a?: boolean, b?: boolean) => a ?? b;",
     "const first = (a: unknown[], b: number) => a.length > 0 && a[b];",
+    // Only a member call to a method that answers yes or no counts: `test` alone is a function.
+    "const check = (name: string) => test(name);",
+    "const pick = (names: string[]) => names.find((name) => name !== '');",
     // A name that starts with the letters but not the word.
     "function isolate(): void {}",
   ],
@@ -93,6 +96,21 @@ ruleTester.run("predicate-name", predicateName, {
       name: "an arrow whose body chooses between boolean answers",
       code: "const allowed = (open: boolean, n: number) => (open ? n > 0 : false);",
       errors: [{ messageId: "predicateName", data: { name: "allowed" } }],
+    },
+    {
+      name: "an arrow that calls a predicate",
+      code: "const ready = (door: { isOpen(): boolean }) => isLocked() || door.isOpen();",
+      errors: [{ messageId: "predicateName", data: { name: "ready" } }],
+    },
+    {
+      name: "an arrow that calls a method answering yes or no",
+      code: "const internal = (name: string) => name.startsWith('_') || /^x/.test(name);",
+      errors: [{ messageId: "predicateName", data: { name: "internal" } }],
+    },
+    {
+      name: "an arrow that calls a method through optional chaining",
+      code: "const tagged = (tags?: Set<string>) => tags?.has('new');",
+      errors: [{ messageId: "predicateName", data: { name: "tagged" } }],
     },
   ],
 });

@@ -34,7 +34,7 @@ function dollarEnd(sql: string, index: number): number {
 }
 
 /** Whether a string starting at `index` is an escape string (`E'…'`). */
-const escapeString = (sql: string, index: number) =>
+const isEscapeString = (sql: string, index: number) =>
   /[eE]/.test(sql[index - 1] ?? "") && !/\w/.test(sql[index - 2] ?? "");
 
 /** Where the quoted or commented text starting at `index` ends, or `index` when none starts there. */
@@ -42,7 +42,7 @@ function skipped(sql: string, index: number): number {
   if (sql.startsWith("--", index)) return lineEnd(sql, index);
   if (sql.startsWith("/*", index)) return blockEnd(sql, index);
   const char = sql[index];
-  if (char === "'") return quoteEnd(sql, index, escapeString(sql, index));
+  if (char === "'") return quoteEnd(sql, index, isEscapeString(sql, index));
   if (char === '"') return quoteEnd(sql, index, false);
   return char === "$" ? dollarEnd(sql, index) : index;
 }
