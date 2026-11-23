@@ -15,7 +15,13 @@ import {
   type OrderTerm,
   type QueryDescription,
 } from "./query.ts";
-import { ColumnReference, ColumnValue, IncomingReference, SafeSql } from "./sql.ts";
+import {
+  ColumnReference,
+  ColumnValue,
+  IncomingReference,
+  incomingRefusal,
+  SafeSql,
+} from "./sql.ts";
 import { writeUntypedValue } from "./conversion.ts";
 import { type Dialect, valueMark } from "./dialect.ts";
 import { boundValue } from "./filtering.ts";
@@ -583,10 +589,6 @@ function compileFragmentValue(value: unknown, source: Source, params: unknown[])
 
 /** `excluded."column"`: the row an upsert writes, which only its `onDuplicate` reads (#531). */
 function incomingColumn(source: Source, attribute: string): string {
-  if (source.allowsIncoming !== true) {
-    throw new TypeError(
-      `incoming("${attribute}") names the value of a row an upsert writes, so only an upsert's onDuplicate can use it`,
-    );
-  }
+  if (source.allowsIncoming !== true) throw incomingRefusal(attribute);
   return `excluded.${quoteIdentifier(attributeFor(source.model, attribute).column)}`;
 }

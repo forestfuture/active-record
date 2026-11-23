@@ -83,6 +83,13 @@ export function column(attribute: string): ColumnReference {
   return new ColumnReference(attribute);
 }
 
+/** What `incoming(attribute)` anywhere but an upsert's `onDuplicate` throws (#531). */
+export function incomingRefusal(attribute: string): TypeError {
+  return new TypeError(
+    `incoming("${attribute}") names the value of a row an upsert writes, so only an upsert's onDuplicate can use it`,
+  );
+}
+
 /**
  * Names, inside an upsert's `onDuplicate` fragment, the value the row being written has for
  * `attribute`, where `column(attribute)` names the clashing row's (#531).
