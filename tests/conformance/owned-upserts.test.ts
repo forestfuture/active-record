@@ -1,5 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { batch, belongsTo, hasMany, Model } from "../../packages/active-record/src/index.ts";
+import {
+  batch,
+  belongsTo,
+  column,
+  hasMany,
+  incoming,
+  Model,
+  sql,
+} from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 type Database = ReturnType<Harness["connect"]>;
@@ -146,6 +154,35 @@ describe("upserting through an owner's hasMany (#451)", () => {
     expect(await harness.exec("SELECT user_id, title FROM posts WHERE id = 2")).toEqual([
       { user_id: 2, title: "Theirs" },
     ]);
+  });
+
+  test("onDuplicate leaves another owner's clashing row as it is, and updates the owner's (#531)", async () => {
+    const user = await db().model(User).find(1);
+    const onDuplicate = { title: sql`${column("title")} || ${incoming("title")}` };
+
+    const result = await user.posts().upsertAll(
+      [
+        { id: 1, title: " again" },
+        { id: 2, title: " mine now" },
+      ],
+      { onDuplicate },
+    );
+
+    expect(result.rowsAffected).toBe(1);
+    expect(await posts()).toEqual([
+      { id: 1, user_id: 1, title: "Own again" },
+      { id: 2, user_id: 2, title: "Theirs" },
+    ]);
+  });
+
+  test("onDuplicate can't name the owner's key, so it can't give a row to another owner (#531)", async () => {
+    const user = await db().model(User).find(1);
+
+    await expect(
+      user.posts().upsert({ id: 1, title: "Own" }, { onDuplicate: { userId: 2 } }),
+    ).rejects.toThrow(
+      new TypeError("upsert() onDuplicate can't name userId, which its owner's records keep"),
+    );
   });
 
   describe("matching on another unique index", () => {
