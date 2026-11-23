@@ -198,7 +198,29 @@ export class DatabaseExecutor implements Executor {
   /** Runs reads together and resolves to each one's result. */
   async read(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     const sent = statements.map((statement) => this.#sendable(statement));
-    return this.#together(sent, () => this.#driver.read(sent, this.#scope()));
+    const cache = this.#cache();
+    if (cache === undefined) return this.#readTogether(sent);
+    const hits = sent.map((statement) => cache.get(statement));
+    const missing = sent.filter((_, index) => hits[index] === undefined);
+    const fetched = this.#readTogether(missing);
+    missing.forEach((statement, index) =>
+      cache.set(
+        statement,
+        fetched.then((results) => results[index]!),
+      ),
+    );
+    const answers = await Promise.all(hits.map((hit) => hit ?? Promise.resolve(null)));
+    sent.forEach((statement, index) => {
+      if (hits[index] !== undefined) this.#report(statement, { durationMs: 0, cached: true });
+    });
+    const results = await fetched;
+    let next = 0;
+    return answers.map((answer) => answer ?? results[next++]!);
+  }
+
+  /** Sends reads together, unless there are none. */
+  #readTogether(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
+    return this.#together(statements, () => this.#driver.read(statements, this.#scope()));
   }
 
   /** `query` as it's sent and reported: with its database's placeholders. */
