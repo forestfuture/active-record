@@ -1,9 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import type { AnyDatabase } from "../../packages/active-record/src/database.ts";
 import type { Driver } from "../../packages/active-record/src/driver.ts";
-import { withDatabase } from "../../packages/active-record/src/index.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
-import { Model, sql } from "../../packages/active-record/src/index.ts";
+import { Model, sql, withDatabase } from "../../packages/active-record/src/index.ts";
 import { User } from "../fixtures/models/user.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 

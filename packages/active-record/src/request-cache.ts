@@ -40,7 +40,7 @@ const CAPACITY = 100;
 export class RequestCache {
   readonly #answers = new Map<string, Promise<StatementResult>>();
 
-  /** The answer `read` has, or will have, if it was sent before. */
+  /** The answer `read` has, or will have, if it was sent before, which it marks used last. */
   get(read: CompiledSql): Promise<StatementResult> | undefined {
     const key = keyOf(read);
     if (key === undefined) return undefined;

@@ -47,7 +47,7 @@ export class AnyDatabase {
    * client yourself, which it can't see. Outside `withDatabase` there's no cache, and it does nothing.
    */
   clearRequestCache(): void {
-    this.#executor.clearRequestCacheNow();
+    this.#executor.clearRequestCacheSync();
   }
 
   /**

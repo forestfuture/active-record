@@ -2,7 +2,7 @@
 import type { AnyDatabase } from "./database.ts";
 import { NoDatabase } from "./errors.ts";
 import type { DatabaseExecutor } from "./executor.ts";
-import { RequestCache } from "./request-cache.ts";
+import type { RequestCache } from "./request-cache.ts";
 import { newAsyncStorage, NODE_COMPATIBILITY, type Storage } from "./async-storage.ts";
 
 /** A database's scope in one `withDatabase` call (a Database scope). */
