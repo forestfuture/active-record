@@ -76,4 +76,22 @@ describe("an upsert's updatedAt on a clash (#36)", () => {
 
     expect(await updatedAt()).toEqual(later);
   });
+
+  test("given but left out of updateOnly, is written only when a named attribute changes", async () => {
+    const row = { id: 1, email: "a@example.com", role: "member", updatedAt: later };
+
+    await users().upsert(row, { updateOnly: ["role"] });
+    const kept = await updatedAt();
+    await users().upsert({ ...row, role: "admin" }, { updateOnly: ["role"] });
+
+    expect(kept).toEqual(past);
+    expect(await updatedAt()).toEqual(later);
+  });
+
+  test("with nothing to update, leaves a clashing row alone, uncounted and unreturned", async () => {
+    const result = await users().upsert({ email: "a@example.com" }, { uniqueBy: "email" });
+
+    expect(result).toEqual({ rowsAffected: 0, rows: [] });
+    expect(await updatedAt()).toEqual(past);
+  });
 });
