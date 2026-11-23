@@ -20,6 +20,7 @@ import {
   IncomingReference,
   incomingRefusal,
   isAttributeReference,
+  refuseNestedReference,
   refuseReferenceValue,
   SafeSql,
 } from "./sql.ts";
@@ -186,8 +187,10 @@ export function checkConditions(model: ModelClass, conditions: object, method: s
   for (const [name, value] of Object.entries(conditions)) {
     const { type } = columnOf(model, name);
     rejectUndefined(value, name, method);
-    for (const each of conditionValues(value))
+    for (const each of conditionValues(value)) {
       refuseReferenceValue(each, `${method}() gives ${name}`);
+      if (type === "json") refuseNestedReference(each, `${method}() gives ${name}`);
+    }
     if (value instanceof Comparison) requireOrdered(type, name, method);
   }
 }
