@@ -78,6 +78,22 @@ export function isAttributeReference(
   );
 }
 
+/**
+ * Throws `TypeError` for a fragment's reference given as a value where a fragment could be
+ * (an upsert's `onDuplicate`, #531; conditions and `updateAll`, #539): a typed value, which is
+ * given as the value itself, or a column or incoming value, which only a fragment reads.
+ */
+export function refuseReferenceValue(value: unknown, gives: string): void {
+  if (value instanceof ColumnValue) {
+    throw new TypeError(`${gives} a typed value; give the value itself`);
+  }
+  if (isAttributeReference(value)) {
+    throw new TypeError(
+      `${gives} a column() or incoming() reference; write it in an sql\`…\` fragment`,
+    );
+  }
+}
+
 /** Names the column of `attribute` inside an `sql` fragment, quoted and mapped (ADR-0004). */
 export function column(attribute: string): ColumnReference {
   return new ColumnReference(attribute);
