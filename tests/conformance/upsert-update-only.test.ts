@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { Model, UnknownAttribute } from "../../packages/active-record/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class User extends Model.define({
@@ -19,6 +19,16 @@ class Member extends Model.define({
   role: "string",
   age: "integer",
   years: { aliasOf: "age" },
+}) {
+  static table = "users";
+}
+
+class Account extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+  role: { type: "string", readonly: true },
+  age: { type: "integer", default: () => 18 },
+  createdAt: "datetime",
 }) {
   static table = "users";
 }
@@ -86,5 +96,61 @@ describe("an upsert's updateOnly (#36)", () => {
       );
 
     expect(await stored()).toEqual([{ id: 1, email: "a@example.com", role: "member", age: 31 }]);
+  });
+
+  describe("refuses", () => {
+    const row = { id: 1, email: "a@example.com", role: "admin", createdAt: new Date() };
+    const accounts = () => harness.connect().model(Account);
+    const refused = (updateOnly: unknown, uniqueBy?: "email") =>
+      expect(accounts().upsert(row, { updateOnly: updateOnly as never, uniqueBy }));
+
+    test("an attribute the Model doesn't have", async () => {
+      await refused(["nope"]).rejects.toThrow(UnknownAttribute);
+    });
+
+    test("an attribute the rows don't give, even one a default fills in", async () => {
+      await refused(["age"]).rejects.toThrow(
+        new TypeError("upsert() updateOnly names age, which the rows don't give"),
+      );
+    });
+
+    test("an attribute the upsert matches on", async () => {
+      await refused(["email"], "email").rejects.toThrow(
+        new TypeError("upsert() updateOnly can't name email, which uniqueBy matches on"),
+      );
+      await refused(["id"]).rejects.toThrow(
+        new TypeError("upsert() updateOnly can't name id, which uniqueBy matches on"),
+      );
+    });
+
+    test("createdAt", async () => {
+      await refused(["createdAt"]).rejects.toThrow(
+        new TypeError("upsert() updateOnly can't name createdAt, which an update keeps"),
+      );
+    });
+
+    test("a read-only attribute", async () => {
+      await refused(["role"]).rejects.toThrow(
+        new TypeError("upsert() updateOnly can't name role, which is read-only"),
+      );
+    });
+
+    test("no attributes, pointing to skipping instead", async () => {
+      await refused([]).rejects.toThrow(
+        new TypeError(
+          'upsert() updateOnly names no attributes; to leave a clashing row as it is, use insert(row, { onDuplicate: "skip" })',
+        ),
+      );
+    });
+
+    test("in a batch, before anything is sent", async () => {
+      const db = harness.connect();
+
+      await expect(
+        db.batch((b) => [
+          b.upsertAll(User, [{ id: 1, email: "a@example.com" }], { updateOnly: ["age"] }),
+        ]),
+      ).rejects.toThrow(TypeError);
+    });
   });
 });
