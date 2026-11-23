@@ -173,7 +173,7 @@ A **Record** marked so it can't write its row: by `markReadonly()`, or loaded th
 _Avoid_: Frozen record, locked record
 
 **Read-only attribute**:
-An attribute declared `readonly: true`, written when its **Record** is created and never changed by it after: assigning a persisted record another value, cast and normalized, throws `ReadonlyAttribute`. Changed another way (a belongsTo pointed elsewhere, a JSON value changed in place, a touch), it's refused before anything is sent. A counter cache still counts it. An upsert leaves a clashing row's value alone; a **Bulk write** (`updateAll`, `updateCounters`, `touchAll`) still writes it.
+An attribute declared `readonly: true`, written when its **Record** is created and never changed by it after: assigning a persisted record another value, cast and normalized, throws `ReadonlyAttribute`. Changed another way (a belongsTo pointed elsewhere, a null key a new record would fill, a JSON value changed in place, a touch), it's refused before anything is sent. `updatedAt` and `lockVersion` can't be read-only. A counter cache still counts it. An upsert leaves a clashing row's value alone; a **Bulk write** (`updateAll`, `updateCounters`, `touchAll`) still writes it.
 _Avoid_: Immutable attribute, write-once attribute
 
 **Validation context**:
