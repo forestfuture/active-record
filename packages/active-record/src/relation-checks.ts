@@ -58,8 +58,17 @@ export interface InsertOptions<M = unknown> {
 export interface UpsertOptions<M> {
   uniqueBy?: (keyof AttributesOf<M> & string) | readonly (keyof AttributesOf<M> & string)[];
   updateOnly?: (keyof AttributesOf<M> & string) | readonly (keyof AttributesOf<M> & string)[];
+  onDuplicate?: OnDuplicate<M>;
   returning?: Returning<M>;
 }
+
+/**
+ * What a clashing row's attributes become (#531): each an `sql` fragment, where `column()`
+ * names the clashing row's value and `incoming()` the new row's, or a value.
+ */
+export type OnDuplicate<M> = {
+  [K in keyof AttributesOf<M>]?: SafeSql | AttributesOf<M>[K];
+};
 
 /** The bulk writes that update a row that clashes. */
 export type UpsertMethod = "upsert" | "upsertAll";
@@ -221,6 +230,9 @@ export function updateOn<M>(
 ): Conflict {
   const uniqueBy = [options.uniqueBy ?? model.primaryKey].flat() as string[];
   for (const name of uniqueBy) columnOf(model, name);
+  if (options.onDuplicate !== undefined) {
+    return { kind: "update", uniqueBy, ownedBy, set: Object.entries(options.onDuplicate) };
+  }
   if (options.updateOnly === undefined) return { kind: "update", uniqueBy, ownedBy };
   const update = updateOnly(model, [options.updateOnly].flat(), { uniqueBy, method });
   return { kind: "update", uniqueBy, ownedBy, update };

@@ -1,10 +1,11 @@
 // A bulk insert's SQL: its rows bound as JSON, and what it does when a row clashes with a unique index (skip it, or update it, #36, #451).
 import { attributeFor } from "./attribute.ts";
 import { rowGroups } from "./bulk-rows.ts";
-import { compileReturning, compileValues, type CompiledSql } from "./compiler.ts";
-import type { Dialect } from "./dialect.ts";
+import { compileFragment, compileReturning, compileValues, type CompiledSql } from "./compiler.ts";
+import { type Dialect, valueMark } from "./dialect.ts";
 import type { Model, ModelClass } from "./model.ts";
-import { quoteIdentifier } from "./query-tables.ts";
+import { quoteIdentifier, type Source } from "./query-tables.ts";
+import { SafeSql } from "./sql.ts";
 
 /**
  * What an insert does when a row conflicts with a unique index: skip it, or update it; through
@@ -16,6 +17,8 @@ export type Conflict =
       kind: "update";
       uniqueBy: readonly string[];
       update?: readonly string[];
+      /** What `onDuplicate` sets each attribute it names to (#531): a fragment, or a value. */
+      set?: readonly (readonly [string, unknown])[];
       touch?: string | undefined;
       ownedBy: readonly string[];
     };
@@ -44,59 +47,111 @@ export function compileInsertRows(
   const columns = attributes.map(({ column }) => quoteIdentifier(column)).join(", ");
   const table = quoteIdentifier(model.table);
   const { select, from } = dialect.bulkRows(table, attributes);
-  const end = compileConflict(dialect, model, names, conflict) + compileReturning(model, returning);
+  const endParams: unknown[] = [];
+  const end =
+    compileConflict(dialect, model, { names, conflict, params: endParams }) +
+    compileReturning(model, returning);
   return rowGroups(model, names, rows, dialect.maxValueBytes).map((group) => {
     if (group.kind === "json") {
       // `WHERE true` keeps SQLite from reading ON CONFLICT as part of the SELECT.
       const sql = `INSERT INTO ${table} (${columns}) SELECT ${select} FROM ${from} WHERE true${end}`;
-      return { sql, params: [group.value], model };
+      return { sql, params: [group.value, ...endParams], model };
     }
     const params: unknown[] = [];
     const values = compileValues(attributes, group.row, params);
-    return { sql: `INSERT INTO ${table} ${values}${end}`, params, model };
+    return {
+      sql: `INSERT INTO ${table} ${values}${end}`,
+      params: [...params, ...endParams],
+      model,
+    };
   });
 }
 
 /**
  * `ON CONFLICT DO NOTHING`, or `ON CONFLICT (…) DO UPDATE SET` the `update` attributes (every
- * inserted one by default) except the `uniqueBy` ones and `createdAt`, and `touch` when one of
- * them changes (#36), `WHERE` the clashing row already has the new row's `ownedBy` values (#451).
+ * inserted one by default) except the `uniqueBy` ones and `createdAt`, or what `set` gives
+ * (#531), and `touch` when one of them changes (#36), `WHERE` the clashing row already has the
+ * new row's `ownedBy` values (#451). The values it binds are appended to `params`.
  */
 function compileConflict(
   dialect: Dialect,
   model: ModelClass<Model>,
-  names: readonly string[],
-  conflict: Conflict | undefined,
+  {
+    names,
+    conflict,
+    params,
+  }: { names: readonly string[]; conflict: Conflict | undefined; params: unknown[] },
 ): string {
   if (conflict === undefined) return "";
   if (conflict.kind === "skip") return " ON CONFLICT DO NOTHING";
   const column = (name: string) => quoteIdentifier(attributeFor(model, name).column);
   const target = conflict.uniqueBy.map(column).join(", ");
-  const updated = (conflict.update ?? names).filter(
-    (name) => !conflict.uniqueBy.includes(name) && name !== "createdAt",
-  );
-  if (updated.length === 0) return ` ON CONFLICT (${target}) DO NOTHING`;
-  const sets = updated.map((name) => `${column(name)} = excluded.${column(name)}`);
-  if (conflict.touch !== undefined) sets.push(touchSet(dialect, model, updated, conflict.touch));
-  return ` ON CONFLICT (${target}) DO UPDATE SET ${sets.join(", ")}${compileOwnedBy(model, conflict.ownedBy)}`;
+  const sets = conflict.set ?? copiedSets(model, names, conflict);
+  if (sets.length === 0) return ` ON CONFLICT (${target}) DO NOTHING`;
+  const written = sets.map((set) => `${column(set[0])} = ${setValue(model, set, params)}`);
+  if (conflict.touch !== undefined)
+    written.push(touchSet(dialect, model, sets, { touch: conflict.touch, params }));
+  return ` ON CONFLICT (${target}) DO UPDATE SET ${written.join(", ")}${compileOwnedBy(model, conflict.ownedBy)}`;
+}
+
+/** What an update sets by default: each `update` attribute to the new row's value. */
+function copiedSets(
+  model: ModelClass<Model>,
+  names: readonly string[],
+  conflict: Extract<Conflict, { kind: "update" }>,
+): [string, IncomingValue][] {
+  return (conflict.update ?? names)
+    .filter((name) => !conflict.uniqueBy.includes(name) && name !== "createdAt")
+    .map((name) => [name, new IncomingValue(clashingAndNew(model, name)[1])]);
+}
+
+/** The new row's value of an attribute, as SQL: `excluded."a"`. */
+class IncomingValue {
+  readonly sql: string;
+
+  constructor(sql: string) {
+    this.sql = sql;
+  }
 }
 
 /**
- * `touch` set to the new row's value only when an `updated` attribute's value changes: a clashing
- * row written again as it was keeps its own (#36).
+ * One value an update sets, as SQL: the new row's, a fragment (`column()` qualified as the
+ * clashing row's, which Postgres needs, and `incoming()` allowed, #531), or a value bound.
+ */
+function setValue(
+  model: ModelClass<Model>,
+  [name, value]: readonly [string, unknown],
+  params: unknown[],
+): string {
+  if (value instanceof IncomingValue) return value.sql;
+  if (value instanceof SafeSql) return `(${compileFragment(value, clashSource(model), params)})`;
+  attributeFor(model, name).bind(params, value);
+  return valueMark;
+}
+
+/** The clashing row, which an upsert's `onDuplicate` reads, with the row it writes (#531). */
+function clashSource(model: ModelClass<Model>): Source {
+  return { model, name: quoteIdentifier(model.table), qualified: true, incoming: true };
+}
+
+/**
+ * `touch` set to the new row's value only when a `sets` attribute's value changes: a clashing
+ * row written again as it was keeps its own (#36). Each set value is compared as it's written, so
+ * a fragment's values are bound again (#531).
  */
 function touchSet(
   dialect: Dialect,
   model: ModelClass<Model>,
-  updated: readonly string[],
-  touch: string,
+  sets: readonly (readonly [string, unknown])[],
+  { touch, params }: { touch: string; params: unknown[] },
 ): string {
-  const same = (name: string) => {
-    const [left, right] = clashingAndNew(model, name);
-    const attribute = attributeFor(model, name);
+  const same = (set: readonly [string, unknown]) => {
+    const [left] = clashingAndNew(model, set[0]);
+    const right = setValue(model, set, params);
+    const attribute = attributeFor(model, set[0]);
     return dialect.sameValue?.(left, right, attribute) ?? `${left} IS NOT DISTINCT FROM ${right}`;
   };
-  const unchanged = updated.map(same).join(" AND ");
+  const unchanged = sets.map(same).join(" AND ");
   const [kept, given] = clashingAndNew(model, touch);
   const column = quoteIdentifier(attributeFor(model, touch).column);
   return `${column} = CASE WHEN ${unchanged} THEN ${kept} ELSE ${given} END`;

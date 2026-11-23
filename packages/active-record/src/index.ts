@@ -110,4 +110,12 @@ export type { ReturnedRow, Statement, WriteResult } from "./statement.ts";
 export type { TouchOptions } from "./touch.ts";
 export type { RecordStatement } from "./record-statement.ts";
 export { between, gt, gte, lt, lte, type Comparison } from "./comparisons.ts";
-export { column, sql, type ColumnReference, type ColumnValue, type SafeSql } from "./sql.ts";
+export {
+  column,
+  incoming,
+  sql,
+  type ColumnReference,
+  type ColumnValue,
+  type IncomingReference,
+  type SafeSql,
+} from "./sql.ts";

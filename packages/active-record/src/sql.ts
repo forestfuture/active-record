@@ -1,4 +1,4 @@
-// The `sql` tagged template, `column()` and its typed values: the only way raw SQL enters a query (ADR-0006).
+// The `sql` tagged template, `column()` and its typed values, and an upsert's `incoming()`: the only way raw SQL enters a query (ADR-0006).
 /**
  * A SQL fragment built with the `sql` tagged template (ADR-0006). The template
  * text is written by the developer; every interpolated value is bound as a
@@ -51,12 +51,42 @@ export class ColumnValue {
   }
 }
 
-/** Whether a fragment's interpolated value names an attribute: a column, or a typed value. */
-export function isAttributeReference(value: unknown): value is ColumnReference | ColumnValue {
-  return value instanceof ColumnReference || value instanceof ColumnValue;
+/**
+ * The value a row an upsert writes has for an attribute, in its `onDuplicate` (#531): what the
+ * row that clashed would have been given.
+ */
+export class IncomingReference {
+  readonly attribute: string;
+
+  /** @internal Use `incoming()` instead. */
+  constructor(attribute: string) {
+    this.attribute = attribute;
+  }
+}
+
+/**
+ * Whether a fragment's interpolated value names an attribute: a column, a typed value, or an
+ * incoming value.
+ */
+export function isAttributeReference(
+  value: unknown,
+): value is ColumnReference | ColumnValue | IncomingReference {
+  return (
+    value instanceof ColumnReference ||
+    value instanceof ColumnValue ||
+    value instanceof IncomingReference
+  );
 }
 
 /** Names the column of `attribute` inside an `sql` fragment, quoted and mapped (ADR-0004). */
 export function column(attribute: string): ColumnReference {
   return new ColumnReference(attribute);
+}
+
+/**
+ * Names, inside an upsert's `onDuplicate` fragment, the value the row being written has for
+ * `attribute`, where `column(attribute)` names the clashing row's (#531).
+ */
+export function incoming(attribute: string): IncomingReference {
+  return new IncomingReference(attribute);
 }

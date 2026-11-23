@@ -15,7 +15,7 @@ import {
   type OrderTerm,
   type QueryDescription,
 } from "./query.ts";
-import { ColumnReference, ColumnValue, SafeSql } from "./sql.ts";
+import { ColumnReference, ColumnValue, IncomingReference, SafeSql } from "./sql.ts";
 import { writeUntypedValue } from "./conversion.ts";
 import { type Dialect, valueMark } from "./dialect.ts";
 import { boundValue } from "./filtering.ts";
@@ -558,21 +558,35 @@ function compilePagination(
 }
 
 /** Appends the fragment's values to `params` and returns its SQL text. */
-function compileFragment(fragment: SafeSql, source: Source, params: unknown[]): string {
+export function compileFragment(fragment: SafeSql, source: Source, params: unknown[]): string {
   let text = fragment.strings[0] ?? "";
   fragment.values.forEach((value, index) => {
-    if (value instanceof ColumnReference) {
-      text += columnIn(source, value.attribute);
-    } else if (value instanceof ColumnValue) {
-      // Normalized as an assigned value is (#354).
-      const attribute = attributeFor(source.model, value.attribute);
-      attribute.bindCells(params, attribute.storeNormalized(value.assigned));
-      text += valueMark;
-    } else {
-      params.push(writeUntypedValue(value));
-      text += valueMark;
-    }
+    text += compileFragmentValue(value, source, params);
     text += fragment.strings[index + 1] ?? "";
   });
   return text;
+}
+
+/** One of a fragment's values: a column, or an incoming value, as SQL, or a value bound. */
+function compileFragmentValue(value: unknown, source: Source, params: unknown[]): string {
+  if (value instanceof ColumnReference) return columnIn(source, value.attribute);
+  if (value instanceof IncomingReference) return incomingColumn(source, value.attribute);
+  if (value instanceof ColumnValue) {
+    // Normalized as an assigned value is (#354).
+    const attribute = attributeFor(source.model, value.attribute);
+    attribute.bindCells(params, attribute.storeNormalized(value.assigned));
+  } else {
+    params.push(writeUntypedValue(value));
+  }
+  return valueMark;
+}
+
+/** `excluded."column"`: the row an upsert writes, which only its `onDuplicate` reads (#531). */
+function incomingColumn(source: Source, attribute: string): string {
+  if (source.incoming !== true) {
+    throw new TypeError(
+      `incoming("${attribute}") names the value of a row an upsert writes, so only an upsert's onDuplicate can use it`,
+    );
+  }
+  return `excluded.${quoteIdentifier(attributeFor(source.model, attribute).column)}`;
 }
