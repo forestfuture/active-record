@@ -583,7 +583,7 @@ function compileFragmentValue(value: unknown, source: Source, params: unknown[])
 
 /** `excluded."column"`: the row an upsert writes, which only its `onDuplicate` reads (#531). */
 function incomingColumn(source: Source, attribute: string): string {
-  if (source.incoming !== true) {
+  if (source.allowsIncoming !== true) {
     throw new TypeError(
       `incoming("${attribute}") names the value of a row an upsert writes, so only an upsert's onDuplicate can use it`,
     );
