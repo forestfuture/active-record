@@ -44,4 +44,25 @@ describe("an upsert's updateOnly (#36)", () => {
       { id: 2, email: "b@example.com", role: "admin", age: 40 },
     ]);
   });
+
+  test("takes one attribute as a string, on upsert", async () => {
+    await users().upsert(
+      { email: "a@example.com", role: "admin", age: 31 },
+      { uniqueBy: "email", updateOnly: "age" },
+    );
+
+    expect(await stored()).toEqual([{ id: 1, email: "a@example.com", role: "member", age: 31 }]);
+  });
+
+  test("applies in a batch", async () => {
+    const db = harness.connect();
+
+    await db.batch((b) => [
+      b.upsertAll(User, [{ id: 1, email: "a@example.com", role: "admin", age: 31 }], {
+        updateOnly: ["age"],
+      }),
+    ]);
+
+    expect(await stored()).toEqual([{ id: 1, email: "a@example.com", role: "member", age: 31 }]);
+  });
 });
