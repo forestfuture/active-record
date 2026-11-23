@@ -231,37 +231,69 @@ export function updateOn<M>(
   const uniqueBy = [options.uniqueBy ?? model.primaryKey].flat() as string[];
   for (const name of uniqueBy) columnOf(model, name);
   if (options.onDuplicate !== undefined) {
-    return { kind: "update", uniqueBy, ownedBy, set: onDuplicateSets(model, options.onDuplicate) };
+    if (options.updateOnly !== undefined) {
+      throw new TypeError(`${method}() takes updateOnly or onDuplicate, not both`);
+    }
+    const set = onDuplicateSets(model, options.onDuplicate, { uniqueBy, method });
+    return { kind: "update", uniqueBy, ownedBy, set };
   }
   if (options.updateOnly === undefined) return { kind: "update", uniqueBy, ownedBy };
-  const update = updateOnly(model, [options.updateOnly].flat(), { uniqueBy, method });
+  const given = [options.updateOnly].flat();
+  const update = updatedNames(model, given, { uniqueBy, method, option: "updateOnly" });
   return { kind: "update", uniqueBy, ownedBy, update };
 }
 
 /**
- * `onDuplicate`'s attributes, by their own names, and what each is set to: its fragment, or its
- * value cast and normalized as an assigned value is (#531).
+ * `onDuplicate`'s attributes, by their own names, checked as `updateOnly`'s are, and what each
+ * is set to: its fragment, checked, or its value cast and normalized as an assigned value is
+ * (#531).
  */
-function onDuplicateSets(model: ModelClass, given: object): [string, unknown][] {
-  return Object.entries(given).map(([name, value]) => {
-    if (value instanceof SafeSql) return [name, value];
-    return [name, attributeFor(model, name).assigned(value)];
+function onDuplicateSets(
+  model: ModelClass,
+  given: unknown,
+  { uniqueBy, method }: { uniqueBy: readonly string[]; method: UpsertMethod },
+): [string, unknown][] {
+  if (
+    typeof given !== "object" ||
+    given === null ||
+    Array.isArray(given) ||
+    given instanceof SafeSql
+  ) {
+    throw new TypeError(
+      `${method}() onDuplicate takes an object of attributes, each an sql\`…\` fragment or a value`,
+    );
+  }
+  const entries = Object.entries(given);
+  const names = updatedNames(
+    model,
+    entries.map(([name]) => name),
+    { uniqueBy, method, option: "onDuplicate" },
+  );
+  return entries.map(([, value], index) => {
+    const name = names[index]!;
+    if (!(value instanceof SafeSql)) return [name, attributeFor(model, name).assigned(value)];
+    checkFragment(model, value);
+    return [name, value];
   });
 }
 
 /**
- * `updateOnly`'s attributes, by their own names, checked: each one an attribute an update can
- * write, and at least one (#36).
+ * The attributes `updateOnly` or `onDuplicate` names, by their own names, checked: each one an
+ * attribute an update can write, and at least one (#36, #531).
  */
-function updateOnly(
+function updatedNames(
   model: ModelClass,
   given: readonly string[],
-  { uniqueBy, method }: { uniqueBy: readonly string[]; method: UpsertMethod },
+  {
+    uniqueBy,
+    method,
+    option,
+  }: { uniqueBy: readonly string[]; method: UpsertMethod; option: string },
 ): string[] {
   if (given.length === 0) {
     const skip = method === "upsert" ? "insert(row" : "insertAll(rows";
     throw new TypeError(
-      `${method}() updateOnly names no attributes; to leave a clashing row as it is, use ${skip}, { onDuplicate: "skip" })`,
+      `${method}() ${option} names no attributes; to leave a clashing row as it is, use ${skip}, { onDuplicate: "skip" })`,
     );
   }
   const matched = new Set(uniqueBy.map((name) => attributeName(model, name)));
@@ -269,7 +301,7 @@ function updateOnly(
     const own = attributeName(model, name);
     const refusal = updateRefusal(model, own, matched);
     if (refusal !== undefined)
-      throw new TypeError(`${method}() updateOnly can't name ${name}, ${refusal}`);
+      throw new TypeError(`${method}() ${option} can't name ${name}, ${refusal}`);
     return own;
   });
 }
