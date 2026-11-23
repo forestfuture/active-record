@@ -14,6 +14,8 @@ import {
   RecordNotUnique,
   StrictValidationFailed,
   UnknownAttribute,
+  ReadonlyAttribute,
+  ReadonlyRecord,
   StaleRecord,
   withDatabase,
 } from "../../../packages/active-record/src/index.ts";
@@ -68,6 +70,7 @@ import testedWorker from "../../../site/snippets/pages/testing/src/index.ts";
 import { User as TestedUser } from "../../../site/snippets/pages/testing/src/models/user.ts";
 import * as touching from "../../../site/snippets/pages/touching/examples.ts";
 import * as locking from "../../../site/snippets/pages/optimistic-locking/examples.ts";
+import * as readOnly from "../../../site/snippets/pages/read-only/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
 import { statementKinds } from "../../support/statement-kinds.ts";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
@@ -1920,5 +1923,65 @@ describe("the Optimistic locking page's examples", () => {
 
     expect(saved.lockVersion).toBe(2);
     expect(await article()).toMatchObject({ title: "Hello, world", body: "A new paragraph." });
+  });
+});
+
+// The Read-only records page's examples, on the articles table it shows.
+describe("the Read-only records page's examples", () => {
+  const binding = pageDatabase("read-only", ["articles"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare("INSERT INTO articles (id, title, slug, body) VALUES ('a', 'Hello', 'hello', 'Hi')")
+      .run();
+  });
+  const article = () => binding().prepare("SELECT * FROM articles WHERE id = 'a'").first();
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+  const log = quietLog();
+
+  test("a readonly() query's records are read-only, and saving one throws", async () => {
+    await expect(run(readOnly.loading)).rejects.toThrow(ReadonlyRecord);
+
+    expect(log.calls()).toEqual([[true]]);
+    expect(await article()).toMatchObject({ title: "Hello" });
+  });
+
+  test("a marked record's destroy throws, and the article stays", async () => {
+    await expect(run(readOnly.marking)).rejects.toThrow(ReadonlyRecord);
+
+    expect(log.calls()).toEqual([[true]]);
+    expect(await article()).toMatchObject({ slug: "hello" });
+  });
+
+  test("a refused touch says what was refused", async () => {
+    await run(readOnly.catching);
+
+    expect(log.calls()).toEqual([["touch"]]);
+  });
+
+  test("updateAll writes through readonly()", async () => {
+    await run(readOnly.bulkWrites);
+
+    expect(log.calls()).toEqual([[1]]);
+    expect(await article()).toMatchObject({ body: "" });
+  });
+
+  test("a created article's slug can't be changed", async () => {
+    await expect(run(readOnly.creating)).rejects.toThrow(ReadonlyAttribute);
+
+    expect(log.calls()).toEqual([["getting-started"]]);
+  });
+
+  test("a form posting the slug back saves, and one changing it gets a 422", async () => {
+    const send = (slug: string) => {
+      const body = new FormData();
+      body.set("title", "Hello again");
+      body.set("slug", slug);
+      const request = new Request(`https://example.com/?id=a`, { method: "POST", body });
+      return run(() => readOnly.updateArticle(request));
+    };
+
+    expect((await send("hello")).status).toBe(200);
+    expect((await send("hello-again")).status).toBe(422);
+    expect(await article()).toMatchObject({ title: "Hello again", slug: "hello" });
   });
 });

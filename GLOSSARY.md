@@ -168,6 +168,14 @@ _Avoid_: Bump, stamp
 A **Model**'s integer `lockVersion` attribute (column `lock_version`), which turns on optimistic locking: a save, destroy or **Touch** of its **Record** matches the version it has and sets the next, and one whose row another write changed first throws `StaleRecord`, writing nothing in its batch. A NULL reads as 0.
 _Avoid_: Revision, row version, optimistic lock column
 
+**Read-only record**:
+A **Record** marked so it can't write its row: by `markReadonly()`, or loaded through a `readonly()` **Relation**. Saving, destroying or touching it, or writing its columns, throws `ReadonlyRecord` before anything runs, and so does a write that would reach it through another, such as its owner's autosave. It can still change in memory and be reloaded. A **Bulk write** doesn't load records, so it ignores the mark. Not a destroyed record, which is a snapshot of its deleted row.
+_Avoid_: Frozen record, locked record
+
+**Read-only attribute**:
+An attribute declared `readonly: true`, written when its **Record** is created and never changed by it after: assigning a persisted record another value, cast and normalized, throws `ReadonlyAttribute`. An upsert leaves a clashing row's value alone; a **Bulk write**'s `updateAll` still writes it.
+_Avoid_: Immutable attribute, write-once attribute
+
 **Validation context**:
 The occasion a record is validated for, which picks the rules declared `on` it (or `exceptOn` it) that run: `"create"` while the record is new, `"update"` once it's saved, or a name the app gives `isValid(context)` or `save({ context })` in their place. A Model lists the names it gives in `static validationContexts`.
 _Avoid_: Context (on its own, which a **Database** isn't either), scenario, validation group

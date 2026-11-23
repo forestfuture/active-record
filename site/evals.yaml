@@ -425,3 +425,15 @@ questions:
       - "send the record's lockVersion in the form as a hidden field, and assign or permit it with the other fields"
       - "the save then throws StaleRecord, which the handler answers with a 409 or a message to reload"
     routes: /optimistic-locking
+  - id: readonly-records
+    question: "A report page loads articles and must never save or delete them by mistake. How do I make sure it can't?"
+    expected:
+      - "load them with readonly() (or call markReadonly() on a record), and isReadonly() says so"
+      - "saving, destroying or touching one throws ReadonlyRecord before any callback runs; updateAll and deleteAll still write"
+    routes: /read-only
+  - id: readonly-attribute
+    question: "An article's slug is set when it's created and must never change after. How do I declare that, and does an edit form that posts the slug back still work?"
+    expected:
+      - "declare slug: { readonly: true } in the Model's static attributes; it's written on create"
+      - "assigning a saved article a different slug throws ReadonlyAttribute, while posting back the same value saves"
+    routes: /read-only
