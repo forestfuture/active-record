@@ -2,6 +2,7 @@
 import type { AnyDatabase } from "./database.ts";
 import { NoDatabase } from "./errors.ts";
 import type { DatabaseExecutor } from "./executor.ts";
+import { RequestCache } from "./request-cache.ts";
 import { newAsyncStorage, NODE_COMPATIBILITY, type Storage } from "./async-storage.ts";
 
 /** A database's scope in one `withDatabase` call (a Database scope). */
@@ -10,6 +11,8 @@ export interface DatabaseScope {
   readonly held: unknown;
   /** Whether its call has returned: a call nested in it after that opens its own. */
   hasEnded: boolean;
+  /** Its answers to reads already sent (#218). */
+  readonly cache: RequestCache;
 }
 
 /** What `withDatabase` keeps for the code it runs. */

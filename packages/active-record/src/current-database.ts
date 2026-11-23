@@ -8,6 +8,7 @@ import { databaseExecutor, type AnyDatabase } from "./database.ts";
 import { NoDatabase } from "./errors.ts";
 import { CurrentExecutor, type DatabaseExecutor, type Executor } from "./executor.ts";
 import type { ModelClass, ScopesOf } from "./model.ts";
+import { RequestCache } from "./request-cache.ts";
 import { type DatabaseScope, requestStore, runWithStore } from "./request-store.ts";
 import type { Scoped } from "./relation.ts";
 import { relationFor } from "./scoped-relation.ts";
@@ -68,7 +69,11 @@ function openScopes(
     // A call nested in one still running shares its scope; in one that has returned (a
     // `waitUntil`'s, started inside the request), it opens its own.
     if (scopes.get(executor)?.hasEnded === false) continue;
-    const scope: DatabaseScope = { held: executor.openScope(), hasEnded: false };
+    const scope: DatabaseScope = {
+      held: executor.openScope(),
+      hasEnded: false,
+      cache: new RequestCache(),
+    };
     scopes.set(executor, scope);
     opened.push({ executor, scope });
   }

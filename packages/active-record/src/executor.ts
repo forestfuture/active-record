@@ -7,6 +7,7 @@ import { type Dialect, withPlaceholders } from "./dialect.ts";
 import type { Driver, StatementResult } from "./driver.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import type { ModelClass } from "./model.ts";
+import type { RequestCache } from "./request-cache.ts";
 import { requestStore } from "./request-store.ts";
 import { explainMissingTable } from "./table-names.ts";
 
@@ -26,6 +27,11 @@ export interface QueryEvent<Meta = unknown> {
   durationMs: number;
   meta?: Meta;
   error?: unknown;
+  /**
+   * Answered from the request cache (#218): a read identical to one already sent in the same
+   * `withDatabase` call, with no round trip. Its `durationMs` is 0, and it has no `meta`.
+   */
+  cached?: true;
 }
 
 /**
@@ -74,6 +80,15 @@ export interface Executor {
   [resolve](): Promise<DatabaseExecutor>;
 }
 
+/** What a Database caches: `request: false` turns off the request cache, on by default (#218). */
+export interface CacheOptions {
+  /**
+   * Answer a read identical to one already sent, inside the same `withDatabase` call, from
+   * memory. On unless `false`.
+   */
+  request?: boolean;
+}
+
 /** Where a database came from, for errors to name it: `connect()`'s, the request's, or a binding's. */
 type Origin = "connect" | "request" | { binding: string };
 
@@ -92,12 +107,14 @@ export class DatabaseExecutor implements Executor {
   readonly adapter: Adapter;
   readonly #driver: Driver;
   readonly #onQuery: QueryListener | undefined;
+  readonly #cachesRequests: boolean;
   #origin: Origin = "connect";
 
-  constructor(adapter: Adapter, driver: Driver, onQuery?: QueryListener) {
+  constructor(adapter: Adapter, driver: Driver, onQuery?: QueryListener, cache: CacheOptions = {}) {
     this.adapter = adapter;
     this.#driver = driver;
     this.#onQuery = onQuery;
+    this.#cachesRequests = cache.request !== false;
   }
 
   get dialect(): Dialect {
@@ -139,13 +156,34 @@ export class DatabaseExecutor implements Executor {
     return requestStore()?.scopes.get(this)?.held;
   }
 
+  /** The request cache of the running `withDatabase` scope a statement is sent in, if any. */
+  #cache(): RequestCache | undefined {
+    if (!this.#cachesRequests) return undefined;
+    const scope = requestStore()?.scopes.get(this);
+    return scope === undefined || scope.hasEnded ? undefined : scope.cache;
+  }
+
   /** Runs one statement and resolves to its rows. */
   async all(query: CompiledSql): Promise<Record<string, unknown>[]> {
-    return (await this.#one(this.#sendable(query))).rows;
+    return (await this.#readOne(this.#sendable(query))).rows;
+  }
+
+  /** Sends one read, unless the request cache has its answer. */
+  async #readOne(query: CompiledSql): Promise<StatementResult> {
+    const cache = this.#cache();
+    const cached = cache?.get(query);
+    if (cached !== undefined) {
+      this.#report(query, { durationMs: 0, cached: true });
+      return cached;
+    }
+    const result = await this.#one(query);
+    cache?.set(query, result);
+    return result;
   }
 
   /** Runs one statement for its effect and resolves to its result. */
   async run(query: CompiledSql): Promise<StatementResult> {
+    this.#cache()?.clear();
     return this.#one(this.#sendable(query));
   }
 
@@ -190,6 +228,8 @@ export class DatabaseExecutor implements Executor {
 
   /** Runs statements atomically: one on its own, several all or none. Resolves to each result. */
   async write(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
+    // Cleared before it's sent, so a read that waits on it is sent too, even if it fails.
+    this.#cache()?.clear();
     const sent = statements.map((statement) => this.#sendable(statement));
     const [only] = sent;
     if (sent.length === 1 && only !== undefined) return [await this.#one(only)];
@@ -222,7 +262,7 @@ export class DatabaseExecutor implements Executor {
   /** Reports a statement to the database's listener, then to its Model's (`static onQuery`). */
   #report(
     { sql, params, model }: CompiledSql,
-    outcome: Pick<QueryEvent, "durationMs" | "meta" | "error">,
+    outcome: Pick<QueryEvent, "durationMs" | "meta" | "error" | "cached">,
   ): void {
     // A filtered attribute's values are "[FILTERED]" here; D1 got the real ones (#83).
     const event: QueryEvent = {

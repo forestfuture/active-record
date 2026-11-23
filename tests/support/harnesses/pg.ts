@@ -56,10 +56,10 @@ export async function openPgHarness(schema: SchemaName): Promise<Harness> {
   const { pool } = opened;
   return {
     adapter: "pg",
-    connect({ onQuery, driver } = {}) {
-      if (driver === undefined) return connect(pool, { onQuery });
+    connect({ onQuery, cache, driver } = {}) {
+      if (driver === undefined) return connect(pool, { onQuery, cache });
       const own = driver(new PgDriver(new PoolClients(pool)));
-      return new AnyDatabase(new DatabaseExecutor(pgAdapter, own, onQuery));
+      return new AnyDatabase(new DatabaseExecutor(pgAdapter, own, onQuery, cache));
     },
     asSent: numbered,
     async exec(sql, params = []) {
