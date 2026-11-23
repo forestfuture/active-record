@@ -42,6 +42,15 @@ export class AnyDatabase {
   }
 
   /**
+   * Empties this Database's request cache in the running `withDatabase` call, so each read after
+   * it is sent. Call it after a write the library didn't send, such as SQL sent on the binding or
+   * client yourself, which it can't see. Outside `withDatabase` there's no cache, and it does nothing.
+   */
+  clearRequestCache(): void {
+    this.#executor.clearRequestCacheNow();
+  }
+
+  /**
    * Runs the writes `build` prepares atomically, on this Database: all of them are written, or
    * none. `db.batch((b) => [b.insert(Post, { title }), b.save(user)])`. The callback can't await,
    * since the batch is sent as one. Saves and destroys (`b.save(user)`, `b.destroy(post)`) run

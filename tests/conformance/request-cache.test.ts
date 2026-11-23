@@ -333,4 +333,24 @@ describe("the request cache", () => {
       expect(inside).toEqual([outside, outside]);
     });
   });
+
+  describe("db.clearRequestCache()", () => {
+    test("empties it, so a read after a write the library didn't send is sent", async () => {
+      const database = db();
+      const users = database.model(User);
+      const email = await withDatabase(database, async () => {
+        await users.find(1);
+        await harness.exec("UPDATE users SET email = 'sam@example.com' WHERE id = 1");
+        database.clearRequestCache();
+        return (await users.find(1)).email;
+      });
+
+      expect(email).toBe("sam@example.com");
+      expect(events.map(({ cached }) => cached)).toEqual([undefined, undefined]);
+    });
+
+    test("does nothing outside withDatabase", () => {
+      expect(() => db().clearRequestCache()).not.toThrow();
+    });
+  });
 });

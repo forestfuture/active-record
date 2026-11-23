@@ -167,6 +167,11 @@ export class DatabaseExecutor implements Executor {
 
   /** Empties the request cache of the running `withDatabase` call, if there is one. */
   async clearRequestCache(): Promise<void> {
+    this.clearRequestCacheNow();
+  }
+
+  /** @internal `clearRequestCache`, done before it returns: what `db.clearRequestCache()` calls. */
+  clearRequestCacheNow(): void {
     this.#cache()?.clear();
   }
 
