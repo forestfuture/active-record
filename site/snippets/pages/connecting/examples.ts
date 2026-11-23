@@ -14,13 +14,15 @@ export const worker = {
 } satisfies ExportedHandler<Env>;
 // #endregion request
 
-export async function readingTwice() {
-  // #region request-cache
-  const jane = await User.findByOrThrow({ email: "jane@example.com" }); // sent
-  const same = await User.findByOrThrow({ email: "jane@example.com" }); // answered from memory
-  // #endregion request-cache
-  return [jane, same] as const;
+// #region request-cache
+export async function findTwice(env: Env) {
+  return withDatabase(connect(env.DB), async () => {
+    const user = await User.findByOrThrow({ email: "jane@example.com" }); // sent
+    const again = await User.findByOrThrow({ email: "jane@example.com" }); // answered from memory
+    return [user, again] as const;
+  });
 }
+// #endregion request-cache
 
 // #region uncached
 export function uncachedDatabase(env: Env) {
