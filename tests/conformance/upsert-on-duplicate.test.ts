@@ -101,6 +101,48 @@ describe("an upsert's onDuplicate (#531)", () => {
     ]);
   });
 
+  test("binds a fragment's values, compared again for updatedAt", async () => {
+    await users().upsert(
+      { id: 1, email: "a@example.com" },
+      { onDuplicate: { age: sql`${column("age")} + ${10}`, role: sql`${"lead"}` } },
+    );
+
+    expect(await stored()).toEqual([{ id: 1, email: "a@example.com", role: "lead", age: 40 }]);
+  });
+
+  test("returns each row as stored", async () => {
+    const { rows } = await users().upsertAll(
+      [
+        { id: 1, email: "a@example.com", age: 5 },
+        { id: 2, email: "b@example.com", age: 40 },
+      ],
+      {
+        onDuplicate: { age: sql`${column("age")} + ${incoming("age")}` },
+        returning: ["id", "age"],
+      },
+    );
+
+    expect(rows).toHaveLength(2);
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { id: 1, age: 35 },
+        { id: 2, age: 40 },
+      ]),
+    );
+  });
+
+  test("applies in a batch", async () => {
+    const db = harness.connect();
+
+    await db.batch((b) => [
+      b.upsertAll(User, [{ id: 1, email: "a@example.com", age: 5 }], {
+        onDuplicate: { age: sql`${column("age")} + ${incoming("age")}` },
+      }),
+    ]);
+
+    expect(await stored()).toEqual([{ id: 1, email: "a@example.com", role: "member", age: 35 }]);
+  });
+
   test("resolves an alias to the attribute it names", async () => {
     await harness
       .connect()
