@@ -167,11 +167,11 @@ export class DatabaseExecutor implements Executor {
 
   /** Empties the request cache of the running `withDatabase` call, if there is one. */
   async clearRequestCache(): Promise<void> {
-    this.clearRequestCacheNow();
+    this.clearRequestCacheSync();
   }
 
-  /** @internal `clearRequestCache`, done before it returns: what `db.clearRequestCache()` calls. */
-  clearRequestCacheNow(): void {
+  /** @internal `clearRequestCache`, synchronously: what `db.clearRequestCache()` calls. */
+  clearRequestCacheSync(): void {
     this.#cache()?.clear();
   }
 
@@ -190,7 +190,7 @@ export class DatabaseExecutor implements Executor {
       return answer;
     }
     const result = await cached;
-    this.#report(query, { durationMs: 0, cached: true });
+    this.#reportCached(query);
     return result;
   }
 
@@ -215,7 +215,7 @@ export class DatabaseExecutor implements Executor {
     );
     const answers = await Promise.all(hits.map((hit) => hit ?? Promise.resolve(null)));
     sent.forEach((statement, index) => {
-      if (hits[index] !== undefined) this.#report(statement, { durationMs: 0, cached: true });
+      if (hits[index] !== undefined) this.#reportCached(statement);
     });
     const results = await fetched;
     let next = 0;
@@ -303,6 +303,11 @@ export class DatabaseExecutor implements Executor {
       adapter.refusal(error) ??
       explainMissingTable(adapter, translateConstraintError(adapter, error, models), models)
     );
+  }
+
+  /** Reports a read answered from the request cache: no time, and no `meta`. */
+  #reportCached(statement: CompiledSql): void {
+    this.#report(statement, { durationMs: 0, cached: true });
   }
 
   /** Reports a statement to the database's listener, then to its Model's (`static onQuery`). */
