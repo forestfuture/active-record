@@ -4,6 +4,7 @@ import type { Driver } from "../../packages/active-record/src/driver.ts";
 import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
 import { Model, sql, withDatabase } from "../../packages/active-record/src/index.ts";
 import { User } from "../fixtures/models/user.ts";
+import { holdStatements, reads } from "../support/hold-statements.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Attachment extends Model.define({
@@ -225,26 +226,17 @@ describe("the request cache", () => {
     });
 
     test("sent while a write is in flight isn't kept, so the read after the write is sent", async () => {
-      // Holds the UPDATE before it runs, so a read lands first, with the rows before it.
-      let release!: () => void;
-      const released = new Promise<void>((resolve) => (release = resolve));
-      let isHeld!: () => void;
-      const held = new Promise<void>((resolve) => (isHeld = resolve));
-      const holding = (driver: Driver): Driver => ({
-        read: (statements) => driver.read(statements),
-        write: (statements) => driver.write(statements),
-        recover: (error) => driver.recover(error),
-        async send(statement) {
-          if (statement.sql.startsWith("UPDATE")) {
-            isHeld();
-            await released;
-          }
-          return driver.send(statement);
-        },
-      });
-      const database = harness.connect({ onQuery: (event) => events.push(event), driver: holding });
+      // The UPDATE is held before it runs, so a read lands first, with the rows before it.
+      const isUpdate = (sql: string) => sql.startsWith("UPDATE");
+      const {
+        db: database,
+        arm,
+        held,
+        release,
+      } = holdStatements(harness, isUpdate, "beforeRunning");
       const users = database.model(User);
 
+      arm();
       const email = await withDatabase(database, async () => {
         const write = users.where({ id: 1 }).updateAll({ email: "sam@example.com" });
         await held;
@@ -257,30 +249,51 @@ describe("the request cache", () => {
       expect(email).toBe("sam@example.com");
     });
 
-    test("isn't kept when a write clears the cache before it's answered", async () => {
-      // Holds the first users read, once it has run, until the write is done.
+    test("sent while a batch of writes is in flight isn't kept", async () => {
+      // The batch is held before it's sent, so a read lands first, with the rows before it.
       let release!: () => void;
       const released = new Promise<void>((resolve) => (release = resolve));
       let isHeld!: () => void;
       const held = new Promise<void>((resolve) => (isHeld = resolve));
-      let holds = true;
-      const holding = (driver: Driver): Driver => ({
+      const holdingBatches = (driver: Driver): Driver => ({
         read: (statements) => driver.read(statements),
-        write: (statements) => driver.write(statements),
+        send: (statement) => driver.send(statement),
         recover: (error) => driver.recover(error),
-        async send(statement) {
-          const result = await driver.send(statement);
-          if (holds && statement.sql.startsWith("SELECT")) {
-            holds = false;
-            isHeld();
-            await released;
-          }
-          return result;
+        async write(statements) {
+          isHeld();
+          await released;
+          return driver.write(statements);
         },
       });
-      const database = harness.connect({ onQuery: (event) => events.push(event), driver: holding });
+      const database = harness.connect({ driver: holdingBatches });
       const users = database.model(User);
 
+      const email = await withDatabase(database, async () => {
+        const write = database.batch((b) => [
+          b.insert(User, { id: 2, email: "alex@example.com" }),
+          b.updateAll(users.where({ id: 1 }), { email: "sam@example.com" }),
+        ]);
+        await held;
+        await users.find(1);
+        release();
+        await write;
+        return (await users.find(1)).email;
+      });
+
+      expect(email).toBe("sam@example.com");
+    });
+
+    test("isn't kept when a write clears the cache before it's answered", async () => {
+      // The first users read is held once it has run, until the write is done.
+      const {
+        db: database,
+        arm,
+        held,
+        release,
+      } = holdStatements(harness, reads("users"), "afterRunning");
+      const users = database.model(User);
+
+      arm();
       const email = await withDatabase(database, async () => {
         const stale = users.find(1);
         await held;
@@ -311,9 +324,8 @@ describe("the request cache", () => {
       expect(events.map(({ cached }) => cached)).toEqual([true, undefined]);
     });
 
-    test("that fails reaches its caller alone, with values the cache can't key", async () => {
+    test("that fails, binding a value the cache can't key, leaves no rejection unhandled", async () => {
       const failing = (driver: Driver): Driver => ({
-        ...driver,
         send: (statement) => driver.send(statement),
         write: (statements) => driver.write(statements),
         recover: () => false,
