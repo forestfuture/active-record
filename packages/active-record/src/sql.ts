@@ -89,9 +89,13 @@ function referenceKind(value: unknown): string | undefined {
  * Throws `TypeError` for a fragment's reference given as a value where a fragment could be
  * (an upsert's `onDuplicate`, #531; conditions and `updateAll`, #539): a typed value, which is
  * given as the value itself, or a column or incoming value, which only a fragment reads. Where
- * no fragment can be (`find`'s ids, #546), `takesFragment` is false, and only the value can be given.
+ * no fragment can be (`find`'s ids, #546), `takesFragment: false` says to give the value itself.
  */
-export function refuseReferenceValue(value: unknown, gives: string, takesFragment = true): void {
+export function refuseReferenceValue(
+  value: unknown,
+  gives: string,
+  { takesFragment = true }: { takesFragment?: boolean } = {},
+): void {
   const kind = referenceKind(value);
   if (kind === undefined) return;
   const remedy =
@@ -129,49 +133,4 @@ export function incomingRefusal(attribute: string): TypeError {
  */
 export function incoming(attribute: string): IncomingReference {
   return new IncomingReference(attribute);
-}
-
-/** A fragment's reference found inside a json value, at `path` from its top (#547). */
-export class NestedReference extends Error {
-  readonly path: string;
-  readonly reference: unknown;
-
-  constructor(path: string, reference: unknown) {
-    super(`a reference at ${path}`);
-    this.path = path;
-    this.reference = reference;
-  }
-
-  /** `name` followed by the reference's path: `settings.a.0`. */
-  under(name: string): string {
-    return this.path === "" ? name : `${name}.${this.path}`;
-  }
-}
-
-/**
- * A json value's JSON text, or undefined where JSON gives none. A `column()`, typed value or
- * `incoming()` anywhere in it throws `NestedReference`, as JSON would write its fields (#547). The
- * check is part of the `stringify` that writes the value, so it costs no walk of its own.
- */
-export function jsonText(value: unknown): string | undefined {
-  const paths = new WeakMap<object, string>();
-  return JSON.stringify(value, function (this: object, key: string, inner: unknown) {
-    const parent = paths.get(this);
-    const path = parent === undefined ? "" : parent === "" ? key : `${parent}.${key}`;
-    if (referenceKind(inner) !== undefined) throw new NestedReference(path, inner);
-    if (typeof inner === "object" && inner !== null) paths.set(inner, path);
-    return inner;
-  });
-}
-
-/**
- * Throws `TypeError` for a fragment's reference nested in a condition's json value, as
- * `refuseReferenceValue` does for one given as the value (#547).
- */
-export function refuseNestedReference(value: unknown, gives: string): void {
-  try {
-    jsonText(value);
-  } catch (error) {
-    if (error instanceof NestedReference) refuseReferenceValue(error.reference, error.under(gives));
-  }
 }

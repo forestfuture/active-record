@@ -6,7 +6,7 @@ import { enumEntries, type EnumValues } from "./enum-values.ts";
 import type { EpochStorage } from "./epoch-storage.ts";
 import type { AnyCustomType } from "./custom-types.ts";
 import type { AttributeDefinition, AttributeType } from "./metadata.ts";
-import { jsonText, NestedReference } from "./sql.ts";
+import { jsonText, NestedReferenceFound } from "./json-values.ts";
 
 /** A value that can't be read as the attribute's type. */
 export const uncastable = Symbol("uncastable");
@@ -281,7 +281,7 @@ function castBoolean(value: unknown): unknown {
 /**
  * Any value JSON can write, as it is. What `stringify` writes lossily (a `Map` as `{}`, `NaN` as
  * `null`) is kept; what it throws on (a BigInt, a cycle) or gives nothing for (a function, a
- * symbol) is refused (#146), and a fragment's reference inside it throws `NestedReference` (#547). It's checked here, and written again at save, so a value is
+ * symbol) is refused (#146), and a fragment's reference inside it throws `NestedReferenceFound` (#547). It's checked here, and written again at save, so a value is
  * refused where it's assigned rather than where it's stored, and the cost is one more
  * `stringify` per assignment.
  */
@@ -289,7 +289,7 @@ function castJson(value: unknown): unknown {
   try {
     return jsonText(value) === undefined ? uncastable : value;
   } catch (error) {
-    if (error instanceof NestedReference) throw error;
+    if (error instanceof NestedReferenceFound) throw error;
     return uncastable;
   }
 }

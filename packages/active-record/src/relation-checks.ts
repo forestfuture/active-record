@@ -20,10 +20,10 @@ import {
   IncomingReference,
   incomingRefusal,
   isAttributeReference,
-  refuseNestedReference,
   refuseReferenceValue,
   SafeSql,
 } from "./sql.ts";
+import { refuseNestedReference } from "./json-values.ts";
 
 /**
  * Attribute conditions for `where`/`findBy`: a value, an array meaning "any of these", or a

@@ -25,7 +25,8 @@ import {
   requireDefined,
 } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
-import { NestedReference, refuseAssignedReference } from "./sql.ts";
+import { jsonText, NestedReferenceFound } from "./json-values.ts";
+import { refuseAssignedReference } from "./sql.ts";
 import { refuseThenable } from "./thenables.ts";
 import { normalizationsOf } from "./normalization.ts";
 import { isLockVersion } from "./lock-version.ts";
@@ -80,6 +81,7 @@ export class Attribute {
     requireDefined(this.#model, this.name, value);
     refuseAssignedReference(this.#model.name, this.name, value);
     const cast = this.#convertOrRefuse(value, () => castValue(this.#definition, value));
+    this.#refuseNestedInCustomJson(cast);
     // A validated enum keeps an unknown value for its validation to refuse (#340).
     if (cast === uncastable && this.#isValidatedEnum()) return value;
     return this.#orRefuse(cast, value);
@@ -278,8 +280,21 @@ export class Attribute {
    * json value (#547), assigned or changed in place.
    */
   #refuseNested(error: unknown): void {
-    if (!(error instanceof NestedReference)) return;
-    refuseAssignedReference(this.#model.name, error.under(this.name), error.reference);
+    if (!(error instanceof NestedReferenceFound)) return;
+    refuseAssignedReference(this.#model.name, error.pathUnder(this.name), error.reference);
+  }
+
+  /**
+   * A custom type stored as json casts its values itself, not through the json type's cast,
+   * so its cast value is checked here for a nested reference (#547).
+   */
+  #refuseNestedInCustomJson(cast: unknown): void {
+    if (this.#definition.customType === undefined || !this.isJson) return;
+    try {
+      jsonText(cast);
+    } catch (error) {
+      this.#refuseNested(error);
+    }
   }
 
   /** Whether the attribute's values are hidden from listeners and errors (#83). */
