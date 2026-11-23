@@ -93,22 +93,24 @@ describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, (
   function recorder(signal: AbortSignal) {
     const queries: QueryEvent[] = [];
     const samples = harness.connect({ onQuery: (event) => queries.push(event) }).model(Sample);
-    const running = () => {
-      signal.throwIfAborted();
+    const stopIfEnded = () => signal.throwIfAborted();
+    const current = () => {
+      stopIfEnded();
       return samples;
     };
+    const clear = () => {
+      queries.length = 0;
+    };
     const exec = (text: string, params?: unknown[]) => {
-      running();
+      stopIfEnded();
       return harness.exec(text, params);
     };
 
     return {
       /** The model on this test's connection, while the test is still running. */
-      samples: running,
+      samples: current,
       /** Forgets the statements run so far. */
-      clear() {
-        queries.length = 0;
-      },
+      clear,
       /** The INSERT statements run since the last `clear`. */
       inserts: () => queries.map((query) => query.sql).filter((text) => text.startsWith("INSERT")),
       /** Replaces the table's rows with `labels`, runs `run`, and gives the ids and statements. */
@@ -117,8 +119,8 @@ describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, (
         for (const [index, label] of labels.entries()) {
           await exec("INSERT INTO samples (id, label) VALUES (?, ?)", [index + 1, label]);
         }
-        queries.length = 0;
-        const rows = await run(running());
+        clear();
+        const rows = await run(current());
         return {
           ids: rows.map((row) => row.id).sort((a, b) => a - b),
           statements: queries.map((query) => query.sql),
