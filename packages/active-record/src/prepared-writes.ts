@@ -65,12 +65,12 @@ export function preparedWritesOf<M extends Model>(relation: RelationState<M>): P
         returning: options.returning,
       }),
     upsert: (attributes, options = {}) =>
-      insertRows(relation, [attributes], ownedUpdate(relation, options), {
+      insertRows(relation, [attributes], ownedUpdate(relation, options, "upsert"), {
         method: "upsert",
         returning: options.returning,
       }),
     upsertAll: (rows, options = {}) =>
-      insertRows(relation, rows, ownedUpdate(relation, options), {
+      insertRows(relation, rows, ownedUpdate(relation, options, "upsertAll"), {
         method: "upsertAll",
         returning: options.returning,
       }),
@@ -83,8 +83,15 @@ export function preparedWritesOf<M extends Model>(relation: RelationState<M>): P
  * An upsert's conflict through `relation`: through an owner's hasMany, it updates a clashing
  * row only when that row is already the owner's, so it never takes another owner's (#451).
  */
-function ownedUpdate(relation: RelationState<Model>, options: UpsertOptions<Model>): Conflict {
-  return updateOn(relation.model, options, Object.keys(ownersValues(relation)));
+function ownedUpdate(
+  relation: RelationState<Model>,
+  options: UpsertOptions<Model>,
+  method: string,
+): Conflict {
+  return updateOn(relation.model, options, {
+    ownedBy: Object.keys(ownersValues(relation)),
+    method,
+  });
 }
 
 function insertRows<Row>(

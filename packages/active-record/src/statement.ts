@@ -192,7 +192,8 @@ export function insertStatement<Row>(
   const values = assigned.map((row) => names.map((name) => row.get(name)));
   // A clashing row keeps its read-only attributes' values, which it was created with (#358).
   const updated = given.filter((name) => model.attributeDefinitions.get(name)?.readonly !== true);
-  const resolved = conflict?.kind === "update" ? touching(conflict, updated, names) : conflict;
+  const resolved =
+    conflict?.kind === "update" ? touching(conflict, { updated, names, method }) : conflict;
   const compiled = compileInsertRows(executor.dialect, model, {
     names,
     rows: values,
@@ -208,10 +209,17 @@ export function insertStatement<Row>(
  */
 function touching(
   conflict: Extract<Conflict, { kind: "update" }>,
-  updated: readonly string[],
-  names: readonly string[],
+  {
+    updated,
+    names,
+    method,
+  }: { updated: readonly string[]; names: readonly string[]; method: string },
 ): Conflict {
   const update = conflict.update ?? updated;
+  const missing = update.find((name) => !updated.includes(name));
+  if (missing !== undefined) {
+    throw new TypeError(`${method}() updateOnly names ${missing}, which the rows don't give`);
+  }
   const touched = names.includes("updatedAt") && !update.includes("updatedAt");
   return { ...conflict, update, touch: touched ? "updatedAt" : undefined };
 }
