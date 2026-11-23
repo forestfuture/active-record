@@ -86,11 +86,13 @@ describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, (
   afterAll(() => harness.dispose());
 
   /**
-   * One test's own connection, and the statements it ran. A property that times out keeps running
-   * after its test ends (#454): stopping each run once the test's `signal` is aborted keeps it out
-   * of the table, and its own `queries` keep its statements out of the next test's.
+   * One test's own connection to the samples table, and the statements its model ran. A property
+   * that times out keeps running after its test ends (#454). Its own `queries` keep its statements
+   * out of the next test's, and once the test's `signal` is aborted it stops before its next
+   * statement, so at most the one statement already running reaches the table after the next test
+   * starts. Rows are seeded through the harness, so only the model's statements are connection.
    */
-  function recorder(signal: AbortSignal) {
+  function testConnection(signal: AbortSignal) {
     const queries: QueryEvent[] = [];
     const samples = harness.connect({ onQuery: (event) => queries.push(event) }).model(Sample);
     const stopIfEnded = () => signal.throwIfAborted();
@@ -111,7 +113,7 @@ describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, (
       samples: current,
       /** Forgets the statements run so far. */
       clear,
-      /** The INSERT statements run since the last `clear`. */
+      /** The model's INSERT statements since the last `clear` or `runAgainst`, or since it opened. */
       inserts: () => queries.map((query) => query.sql).filter((text) => text.startsWith("INSERT")),
       /** Replaces the table's rows with `labels`, runs `run`, and gives the ids and statements. */
       async runAgainst(labels: string[], run: (relation: typeof samples) => Promise<Sample[]>) {
@@ -132,14 +134,14 @@ describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, (
   test("is bound: the statement is the same, and the rows are those an exact match gives", async ({
     signal,
   }) => {
-    const recorded = recorder(signal);
-    const { statements: plain } = await recorded.runAgainst(["x"], (s) =>
+    const connection = testConnection(signal);
+    const { statements: plain } = await connection.runAgainst(["x"], (s) =>
       s.where({ label: "x" }).toArray(),
     );
 
     await fc.assert(
       fc.asyncProperty(scenarios, async ({ labels, needle }) => {
-        const found = await recorded.runAgainst(labels, (s) =>
+        const found = await connection.runAgainst(labels, (s) =>
           s.where({ label: needle }).toArray(),
         );
 
@@ -151,14 +153,14 @@ describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, (
   });
 
   test("is bound when interpolated into an sql fragment", async ({ signal }) => {
-    const recorded = recorder(signal);
-    const { statements: plain } = await recorded.runAgainst(["x"], (s) =>
+    const connection = testConnection(signal);
+    const { statements: plain } = await connection.runAgainst(["x"], (s) =>
       s.where(sql`label = ${"x"}`).toArray(),
     );
 
     await fc.assert(
       fc.asyncProperty(scenarios, async ({ labels, needle }) => {
-        const found = await recorded.runAgainst(labels, (s) =>
+        const found = await connection.runAgainst(labels, (s) =>
           s.where(sql`label = ${needle}`).toArray(),
         );
 
@@ -172,14 +174,14 @@ describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, (
   test("is bound in a list of values: the statement is the same, and each exact match is found", async ({
     signal,
   }) => {
-    const recorded = recorder(signal);
-    const { statements: plain } = await recorded.runAgainst(["x", "y"], (s) =>
+    const connection = testConnection(signal);
+    const { statements: plain } = await connection.runAgainst(["x", "y"], (s) =>
       s.where({ label: ["x", "y"] }).toArray(),
     );
 
     await fc.assert(
       fc.asyncProperty(scenarios, texts, async ({ labels, needle }, other) => {
-        const found = await recorded.runAgainst(labels, (s) =>
+        const found = await connection.runAgainst(labels, (s) =>
           s.where({ label: [needle, other] }).toArray(),
         );
         const expected = [...new Set([...matching(labels, needle), ...matching(labels, other)])];
@@ -192,29 +194,29 @@ describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, (
   });
 
   test("is stored and read back as it was", async ({ signal }) => {
-    const recorded = recorder(signal);
+    const connection = testConnection(signal);
     await fc.assert(
       fc.asyncProperty(texts, async (label) => {
-        const created = await recorded.samples().create({ label });
+        const created = await connection.samples().create({ label });
 
-        expect((await recorded.samples().find(created.id)).label).toBe(label);
+        expect((await connection.samples().find(created.id)).label).toBe(label);
       }),
       runs,
     );
   });
 
   test("is inserted with the statement a harmless value gives", async ({ signal }) => {
-    const recorded = recorder(signal);
-    await recorded.samples().create({ label: "x" });
-    const plain = recorded.inserts();
+    const connection = testConnection(signal);
+    await connection.samples().create({ label: "x" });
+    const plain = connection.inserts();
 
     await fc.assert(
       fc.asyncProperty(texts, async (label) => {
-        recorded.clear();
-        await recorded.samples().create({ label });
+        connection.clear();
+        await connection.samples().create({ label });
 
         // oxlint-disable-next-line active-record/no-sql-text -- a value is bound, so it never changes the statement
-        expect(recorded.inserts()).toEqual(plain);
+        expect(connection.inserts()).toEqual(plain);
       }),
       runs,
     );
