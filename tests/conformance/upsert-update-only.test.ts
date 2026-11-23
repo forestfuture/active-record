@@ -101,8 +101,14 @@ describe("an upsert's updateOnly (#36)", () => {
     const admins = users().createWith({ role: "admin" });
 
     await admins.upsert({ id: 1, email: "a@example.com", age: 31 }, { updateOnly: "age" });
+    const left = await stored();
+    await admins.upsert(
+      { id: 1, email: "a@example.com", age: 32 },
+      { updateOnly: ["role", "age"] },
+    );
 
-    expect(await stored()).toEqual([{ id: 1, email: "a@example.com", role: "member", age: 31 }]);
+    expect(left).toEqual([{ id: 1, email: "a@example.com", role: "member", age: 31 }]);
+    expect(await stored()).toEqual([{ id: 1, email: "a@example.com", role: "admin", age: 32 }]);
   });
 
   test("takes one attribute as a string, on upsert", async () => {
