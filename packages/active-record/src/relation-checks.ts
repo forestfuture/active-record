@@ -231,11 +231,22 @@ export function updateOn<M>(
   const uniqueBy = [options.uniqueBy ?? model.primaryKey].flat() as string[];
   for (const name of uniqueBy) columnOf(model, name);
   if (options.onDuplicate !== undefined) {
-    return { kind: "update", uniqueBy, ownedBy, set: Object.entries(options.onDuplicate) };
+    return { kind: "update", uniqueBy, ownedBy, set: onDuplicateSets(model, options.onDuplicate) };
   }
   if (options.updateOnly === undefined) return { kind: "update", uniqueBy, ownedBy };
   const update = updateOnly(model, [options.updateOnly].flat(), { uniqueBy, method });
   return { kind: "update", uniqueBy, ownedBy, update };
+}
+
+/**
+ * `onDuplicate`'s attributes, by their own names, and what each is set to: its fragment, or its
+ * value cast and normalized as an assigned value is (#531).
+ */
+function onDuplicateSets(model: ModelClass, given: object): [string, unknown][] {
+  return Object.entries(given).map(([name, value]) => {
+    if (value instanceof SafeSql) return [name, value];
+    return [name, attributeFor(model, name).assigned(value)];
+  });
 }
 
 /**

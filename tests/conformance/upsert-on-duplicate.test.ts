@@ -13,6 +13,19 @@ class User extends Model.define({
   static table = "users";
 }
 
+class Member extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+  role: "string",
+  age: "integer",
+}) {
+  static table = "users";
+
+  static {
+    this.normalizes("role", { with: (role) => role.trim().toLowerCase() });
+  }
+}
+
 describe("an upsert's onDuplicate (#531)", () => {
   let harness: Harness;
   const users = () => harness.connect().model(User);
@@ -41,6 +54,24 @@ describe("an upsert's onDuplicate (#531)", () => {
     expect(result.rowsAffected).toBe(2);
     expect(await stored()).toEqual([
       { id: 1, email: "a@example.com", role: "member", age: 35 },
+      { id: 2, email: "b@example.com", role: "admin", age: 40 },
+    ]);
+  });
+
+  test("sets a clashing row's attribute to a value, cast and normalized as an assigned value is", async () => {
+    await harness
+      .connect()
+      .model(Member)
+      .upsertAll(
+        [
+          { id: 1, email: "a@example.com", role: "admin", age: 5 },
+          { id: 2, email: "b@example.com", role: "admin", age: 40 },
+        ],
+        { onDuplicate: { role: " Owner ", age: "31" as unknown as number } },
+      );
+
+    expect(await stored()).toEqual([
+      { id: 1, email: "a@example.com", role: "owner", age: 31 },
       { id: 2, email: "b@example.com", role: "admin", age: 40 },
     ]);
   });
