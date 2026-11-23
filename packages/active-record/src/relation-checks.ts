@@ -302,7 +302,7 @@ function updatedNames(
   }: {
     uniqueBy: readonly string[];
     method: UpsertMethod;
-    option: string;
+    option: "updateOnly" | "onDuplicate";
     kept: readonly string[];
   },
 ): string[] {
