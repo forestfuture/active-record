@@ -207,7 +207,8 @@ export function insertStatement<Row>(
 /**
  * An update conflict resolved against the rows: the attributes it updates, which are
  * `updateOnly`'s (each of them one the rows give) or else every one `updated`, and `updatedAt`
- * to touch when one of them changes, when the rows write it and it isn't updated itself (#36).
+ * to touch when one of them changes, when the rows write it and it isn't updated itself (#36);
+ * or what `onDuplicate` sets, and `updatedAt` likewise (#531).
  */
 function resolvedUpdate(
   conflict: Extract<Conflict, { kind: "update" }>,
@@ -217,6 +218,11 @@ function resolvedUpdate(
     method,
   }: { updated: readonly string[]; names: readonly string[]; method: string },
 ): Conflict {
+  if (conflict.set !== undefined) {
+    const set = conflict.set.map(([name]) => name);
+    const touches = names.includes("updatedAt") && !set.includes("updatedAt");
+    return { ...conflict, touch: touches ? "updatedAt" : undefined };
+  }
   const update = conflict.update ?? updated;
   const missing = update.find((name) => !updated.includes(name));
   if (missing !== undefined) {
