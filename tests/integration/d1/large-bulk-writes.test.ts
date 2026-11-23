@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { hasMany, Model } from "../../../packages/active-record/src/index.ts";
+import {
+  column,
+  hasMany,
+  incoming,
+  Model,
+  sql,
+} from "../../../packages/active-record/src/index.ts";
 import { connect, type QueryEvent } from "../../../packages/active-record/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
 
@@ -133,6 +139,27 @@ describe("bulk writes past D1's cap on one value", { timeout: 20_000 }, () => {
     expect(inserts().map(({ params }) => params.length)).toEqual([1, 2, 2]);
     const names = await db().model(Attachment).order({ id: "asc" }).pluck("name");
     expect(names.map((name) => name?.length)).toEqual([2_000_000, 2_000_000]);
+  });
+
+  test("onDuplicate's values are bound in each statement, after its rows (#531)", async () => {
+    await db().model(Attachment).insert({ id: 1, name: "old" });
+    const large = "x".repeat(2_000_000);
+    events = [];
+
+    await db()
+      .model(Attachment)
+      .upsertAll(largeRows(), { onDuplicate: { name: sql`${column("name")} || ${" again"}` } });
+    await db()
+      .model(Attachment)
+      .upsert(
+        { id: 2, name: large },
+        { onDuplicate: { name: sql`substr(${incoming("name")}, 1, ${3})` } },
+      );
+
+    // Two statements of JSON rows, then the large row's id and name bound apart, each with its fragment's value.
+    expect(inserts().map(({ params }) => params.length)).toEqual([2, 2, 3]);
+    const names = await db().model(Attachment).order({ id: "asc" }).pluck("name");
+    expect(names.slice(0, 3)).toEqual(["old again", "xxx", "file 3"]);
   });
 
   test("a row bound apart through an owner's hasMany leaves another owner's row as it is", async () => {
