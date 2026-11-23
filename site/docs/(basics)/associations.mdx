@@ -65,7 +65,7 @@ Declare each association as a field, passing the target Model’s class, as the 
 - Models can refer to each other in any order.
 - A subclass inherits its parent’s associations, and can redeclare one to change it.
 
-## belongsTo
+## Using `belongsTo`
 
 Use `belongsTo` on the Model whose table holds the foreign key, as an article belongs to its author:
 
@@ -83,7 +83,7 @@ Use `belongsTo` on the Model whose table holds the foreign key, as an article be
 | `scope`      | Narrows the target, `(q) => q.where(…)`. See [Scoping associations](#scoping-associations)                            |
 | `optional`   | Lets the record point at nothing. See [Requiring the record](#requiring-the-record)                                   |
 | `autosave`   | `true` saves the record’s changes with this record. See [Saving changed records](./autosaving#saving-changed-records) |
-| `inverseOf`  | The target’s `hasOne` that points back, or `false`. See [Inverse associations](#inverse-associations)                 |
+| `inverseOf`  | The target’s `hasOne` that points back, or `false`. See [Loading the owner back](#loading-the-owner-back)             |
 
 ## Requiring the record
 
@@ -93,7 +93,7 @@ Saving a record checks that each `belongsTo` points at a record that exists, unl
 - A saved record whose foreign key hasn’t changed isn’t checked again.
 - A record built through a `hasMany` or `hasOne` already points at its owner, so it passes the check before either is saved. See [Autosaving](./autosaving#saving-a-graph).
 
-## hasMany
+## Using `hasMany`
 
 Use `hasMany` on the Model the other table’s foreign key points at, as an author has many articles:
 
@@ -115,9 +115,9 @@ Use `hasMany` on the Model the other table’s foreign key points at, as an auth
 | `scope`      | Narrows or orders the records, `(q) => q.order(…)`. See [Scoping associations](#scoping-associations)               |
 | `dependent`  | What destroying the owner does to the records. See [Destroying dependent records](#destroying-dependent-records)    |
 | `autosave`   | `true` saves the records’ changes with the owner. See [Saving changed records](./autosaving#saving-changed-records) |
-| `inverseOf`  | The target’s `belongsTo` that points back, or `false`. See [Inverse associations](#inverse-associations)            |
+| `inverseOf`  | The target’s `belongsTo` that points back, or `false`. See [Loading the owner back](#loading-the-owner-back)        |
 
-## hasOne
+## Using `hasOne`
 
 Use `hasOne` like `hasMany`, when there’s at most one record, as an author has one profile:
 
@@ -146,7 +146,7 @@ Giving a saved owner a new record removes its old one, by the association’s `d
 - If the old record can’t be saved with a `NULL` foreign key, the write throws `RecordNotSaved`, and nothing is written.
 - If the new record doesn’t save, the old one stays. `set` throws `RecordNotSaved` and leaves the association as it was. `create` returns the unsaved record, and saving the owner tries again.
 
-## Polymorphic associations
+## Using a polymorphic `belongsTo`
 
 A polymorphic `belongsTo` points at a record of any of several Models, listed in an array, as a like belongs to a photo or a video:
 
@@ -197,7 +197,7 @@ A loaded association is cached on the record, so reading it again sends no query
 - A write made another way, such as `Article.where({ authorId: author.id }).deleteAll()`, doesn’t touch a loaded collection: reload the association to see it.
 - A `belongsTo` whose foreign key is `null`, or an association on an unsaved owner, reads without a query.
 
-## Inverse associations
+## Loading the owner back
 
 A record loaded through its owner’s `hasMany` or `hasOne` has the owner loaded already, so reading it back sends no query:
 
