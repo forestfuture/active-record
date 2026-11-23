@@ -53,14 +53,19 @@ export interface InsertOptions<M = unknown> {
 
 /**
  * `upsert`/`upsertAll` options: the attributes of the unique index to match on, and the
- * attributes a clashing row has updated (every one written, by default).
+ * attributes a clashing row has updated (every one written, by default), or what `onDuplicate`
+ * sets them to (#531).
  */
-export interface UpsertOptions<M> {
+export type UpsertOptions<M> = {
   uniqueBy?: (keyof AttributesOf<M> & string) | readonly (keyof AttributesOf<M> & string)[];
-  updateOnly?: (keyof AttributesOf<M> & string) | readonly (keyof AttributesOf<M> & string)[];
-  onDuplicate?: OnDuplicate<M>;
   returning?: Returning<M>;
-}
+} & (
+  | {
+      updateOnly?: (keyof AttributesOf<M> & string) | readonly (keyof AttributesOf<M> & string)[];
+      onDuplicate?: never;
+    }
+  | { onDuplicate?: OnDuplicate<M>; updateOnly?: never }
+);
 
 /**
  * What a clashing row's attributes become (#531): each an `sql` fragment, where `column()`

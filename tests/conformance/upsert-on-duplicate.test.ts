@@ -206,7 +206,7 @@ describe("an upsert's onDuplicate (#531)", () => {
 
     test("together with updateOnly", async () => {
       await expect(
-        accounts().upsert(row, { onDuplicate: { age: 1 }, updateOnly: ["age"] }),
+        accounts().upsert(row, { onDuplicate: { age: 1 }, updateOnly: ["age"] } as never),
       ).rejects.toThrow(new TypeError("upsert() takes updateOnly or onDuplicate, not both"));
     });
 

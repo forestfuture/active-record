@@ -4,9 +4,11 @@ import {
   type AttributeConversions,
   belongsTo,
   between,
+  column,
   gte,
   hasMany,
   hasOne,
+  incoming,
   lt,
   Model,
   type HasMany,
@@ -378,6 +380,24 @@ describe("types", () => {
       void users.upsert({ id: 1 }, { updateOnly: ["nope"] });
       // @ts-expect-error onDuplicate only skips; updating is upsert
       void db.batch((b) => [b.insert(User, { id: 1 }, { onDuplicate: "update" })]);
+    };
+    expectTypeOf(typeOnly).toBeFunction();
+  });
+
+  test("upsert's onDuplicate names the Model's attributes, each a fragment or a value (#531)", () => {
+    const users = db.model(User);
+    const ratio = sql`${column("ratio")} + ${incoming("ratio")}`;
+
+    // Checked by the type checker only; never called.
+    const typeOnly = () => {
+      void users.upsert({ id: 1 }, { onDuplicate: { ratio, email: "a@example.com" } });
+      void db.batch((b) => [b.upsertAll(User, [{ id: 1 }], { onDuplicate: { ratio } })]);
+      // @ts-expect-error unknown attribute
+      void users.upsert({ id: 1 }, { onDuplicate: { nope: ratio } });
+      // @ts-expect-error a value of the attribute's type
+      void users.upsert({ id: 1 }, { onDuplicate: { ratio: "high" } });
+      // @ts-expect-error updateOnly or onDuplicate, not both
+      void users.upsert({ id: 1 }, { onDuplicate: { ratio }, updateOnly: "ratio" });
     };
     expectTypeOf(typeOnly).toBeFunction();
   });
