@@ -5,7 +5,7 @@ import { compileFragment, compileReturning, compileValues, type CompiledSql } fr
 import { type Dialect, valueMark } from "./dialect.ts";
 import type { Model, ModelClass } from "./model.ts";
 import { quoteIdentifier, type Source } from "./query-tables.ts";
-import { SafeSql } from "./sql.ts";
+import { incoming, IncomingReference, SafeSql } from "./sql.ts";
 
 /**
  * What an insert does when a row conflicts with a unique index: skip it, or update it; through
@@ -94,28 +94,19 @@ function compileConflict(
   return ` ON CONFLICT (${target}) DO UPDATE SET ${written.join(", ")}${compileOwnedBy(model, conflict.ownedBy)}`;
 }
 
-/** What an update sets by default: each `update` attribute to the new row's value. */
+/** What an update sets by default: each `update` attribute to its incoming value. */
 function copiedSets(
   model: ModelClass<Model>,
   names: readonly string[],
   conflict: Extract<Conflict, { kind: "update" }>,
-): [string, IncomingValue][] {
+): [string, IncomingReference][] {
   return (conflict.update ?? names)
     .filter((name) => !conflict.uniqueBy.includes(name) && name !== "createdAt")
-    .map((name) => [name, new IncomingValue(clashingAndNew(model, name)[1])]);
-}
-
-/** The new row's value of an attribute, as SQL: `excluded."a"`. */
-class IncomingValue {
-  readonly sql: string;
-
-  constructor(sql: string) {
-    this.sql = sql;
-  }
+    .map((name) => [name, incoming(name)]);
 }
 
 /**
- * One value an update sets, as SQL: the new row's, a fragment (`column()` qualified as the
+ * One value an update sets, as SQL: its incoming value, a fragment (`column()` qualified as the
  * clashing row's, which Postgres needs, and `incoming()` allowed, #531), or a value bound.
  */
 function setValue(
@@ -123,7 +114,7 @@ function setValue(
   [name, value]: readonly [string, unknown],
   params: unknown[],
 ): string {
-  if (value instanceof IncomingValue) return value.sql;
+  if (value instanceof IncomingReference) return clashingAndNew(model, value.attribute)[1];
   if (value instanceof SafeSql) return `(${compileFragment(value, clashSource(model), params)})`;
   attributeFor(model, name).bind(params, value);
   return valueMark;
