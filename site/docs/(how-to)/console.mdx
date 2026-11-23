@@ -33,7 +33,7 @@ local> const admins = await User.where({ role: "admin" }).toArray()
 
 Leave with `quit`, `exit`, or Ctrl-D. Ctrl-C stops a line that’s still running. `.help` lists the console’s own commands, and `npx active-record c` is the short form.
 
-## What you can use
+## Using your Models and `db`
 
 - **Your Models,** by class name, from every file in `src/models`. They query your database, local unless you pass `--remote`, with no `db` to pass.
 - **`db`,** your connected database, for `db.batch(...)` and `db.model(...)`.
@@ -92,7 +92,7 @@ The SQL comes from the database’s own `onQuery`, so a listener you set on your
 | `--yes`             | With `--remote`, don’t ask first. It’s also how to open it without a terminal.                          |
 | `--history`         | Keep what you type in a remote session, which isn’t kept unless you ask.                                |
 
-## Where your data lives
+## Finding your local data
 
 The console opens the local database in `.wrangler/state`, beside your Wrangler config. It’s the same one `wrangler dev` and `wrangler d1 migrations apply --local` use, so apply your migrations first, and what you change in the console is what your dev server sees. With [`wranglerConfig`](./command-line#declaring-your-databases), it’s beside the config that setting names.
 
