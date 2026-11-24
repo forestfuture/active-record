@@ -72,8 +72,8 @@ The guide is in `site/docs/` (a [Blume](https://useblume.dev) site at [arbor.for
 - **ForestFuture** in prose, logos and titles.
 - **forestfuture** in domains, handles, package scopes and repos (`forestfuture.dev`, `@forestfuture/arbor`, `github.com/forestfuture`).
 - Never "Forest Future", "Forestfuture" or "Forest-Future".
-- **Arbor** is the library's name: the package `@forestfuture/arbor`, the `arbor` command, the guide and the skill. In a list of libraries it's "Arbor" ("Drizzle, Kysely, Prisma, Arbor").
-- **Arbor ORM** where the name introduces the library: the README's title, the package's description, and listings such as Context7's. The site introduces it as "Arbor" with the tagline beside it, on its home page and in its meta description. The tagline is "Arbor: an Active Record ORM for TypeScript on Cloudflare D1 and PostgreSQL". Elsewhere, a page's description included, it's "Arbor", in a sentence that's plainly about databases ("Use Arbor on Postgres").
+- **Arbor** is the library's name: the package `@forestfuture/arbor`, the `arbor` command, the guide and the skill. In a sentence that lists libraries, it's "Arbor" ("Drizzle, Kysely, Prisma, Arbor").
+- **Arbor ORM** where the name introduces the library: the README's title, the package's description, and directory entries that describe it on their own: Context7, bestpractices.dev and the docs.forestfuture.dev library list. The site introduces it as "Arbor" with the tagline beside it, on its home page and in its meta description. The tagline is "Arbor: an Active Record ORM for TypeScript on Cloudflare D1 and PostgreSQL". Elsewhere, a page's description included, it's "Arbor", in a sentence that's plainly about databases ("Use Arbor on Postgres").
 - **Active Record** names the pattern ("Arbor is an Active Record ORM") and Rails' library, in Rails boxes. It never names this library.
 - No ™ or ® beside Arbor. Keep what's written beside the name about databases and TypeScript.
 
