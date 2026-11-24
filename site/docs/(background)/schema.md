@@ -1,13 +1,13 @@
 ---
 title: Schema and ApplicationRecord
-description: "Active Record reads a table’s columns from your migrations when you generate the schema, not when your Worker runs."
+description: "Arbor reads a table’s columns from your migrations when you generate the schema, not when your Worker runs."
 seo:
-  description: "Why Active Record generates a Model’s attributes from your migrations when you run arbor schema, and how the generated schema compares to Rails’."
+  description: "Why Arbor generates a Model’s attributes from your migrations when you run arbor schema, and how the generated schema compares to Rails’."
 ---
 
 ## Migrations are the source of truth
 
-Tables are created and changed by **migrations**: numbered SQL files that Wrangler applies in order, recording each one in the database (in a `d1_migrations` table), so each runs once. Cloudflare’s [D1 migrations](https://developers.cloudflare.com/d1/reference/migrations/) guide covers Wrangler’s side. Active Record’s generators write migrations for you, but any migration Wrangler can apply works, however it was written.
+Tables are created and changed by **migrations**: numbered SQL files that Wrangler applies in order, recording each one in the database (in a `d1_migrations` table), so each runs once. Cloudflare’s [D1 migrations](https://developers.cloudflare.com/d1/reference/migrations/) guide covers Wrangler’s side. Arbor’s generators write migrations for you, but any migration Wrangler can apply works, however it was written.
 
 A Model never redeclares its columns. If it did, the migration and the Model would say the same thing twice (`price_cents INTEGER NOT NULL`, then `priceCents: { type: "integer", null: false }`), and could drift apart.
 
@@ -15,7 +15,7 @@ A Model never redeclares its columns. If it did, the migration and the Model wou
 
 TypeScript needs to know a Model’s attributes before your code runs, to type `product.priceCents` and check `Product.where({ … })`. And a Worker shouldn’t ask D1 for its tables on every request. So instead of reading the database at runtime, `arbor schema` applies your migrations to an in-memory SQLite database, reads each table’s columns, and writes them to `src/db/schema.ts`.
 
-That file is to Active Record what `db/schema.rb` is to Rails: a document of every table, regenerated after each migration, never edited by hand, and committed, so each schema change shows up as a readable diff next to its migration. Each table names the migration that last changed it. In CI, `arbor schema --check` catches a schema someone forgot to regenerate.
+That file is to Arbor what `db/schema.rb` is to Rails: a document of every table, regenerated after each migration, never edited by hand, and committed, so each schema change shows up as a readable diff next to its migration. Each table names the migration that last changed it. In CI, `arbor schema --check` catches a schema someone forgot to regenerate.
 
 After the tables, the file holds `schema`: the D1 binding, every table, and the list of your Models. Last come type declarations that add each table’s attributes to its Model’s class. They’re types only, so the file still imports nothing when your Worker runs.
 

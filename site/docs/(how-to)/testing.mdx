@@ -2,7 +2,7 @@
 title: Testing
 description: "Test Models and your Worker against a real D1 database with Vitest and Miniflare."
 seo:
-  description: "Test Active Record Models and your Cloudflare Worker against a real D1 database with Vitest and Miniflare, with your migrations applied to each test database."
+  description: "Test Arbor Models and your Cloudflare Worker against a real D1 database with Vitest and Miniflare, with your migrations applied to each test database."
 ---
 
 ## At a glance
@@ -91,7 +91,7 @@ test("emails are saved in lowercase", async () => {
 Outside a Worker, the database given to `withDatabase` serves every Model on its adapter, whatever binding its base class names. For code that takes a database explicitly, pass it one: `connect(database.binding).model(User)`.
 
 :::note[Reads are cached for the whole call]
-Inside `withDatabase`, a read you’ve already sent is [answered from memory](./connecting#caching-identical-reads) until Active Record writes. A test that changes rows with raw SQL, or a long script that checks a row again and again, would read the first answer. Give each test its own `withDatabase` call, call `db.clearRequestCache()` after a raw write, or open the database with `connect(binding, { cache: { request: false } })`.
+Inside `withDatabase`, a read you’ve already sent is [answered from memory](./connecting#caching-identical-reads) until Arbor writes. A test that changes rows with raw SQL, or a long script that checks a row again and again, would read the first answer. Give each test its own `withDatabase` call, call `db.clearRequestCache()` after a raw write, or open the database with `connect(binding, { cache: { request: false } })`.
 :::
 
 ## Testing your Worker

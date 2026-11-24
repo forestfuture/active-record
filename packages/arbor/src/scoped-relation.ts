@@ -39,7 +39,7 @@ function setUp(): {
   ready: (model: ModelClass) => void;
 } {
   if (base === undefined || ready === undefined) {
-    throw new Error("d1-record: model.ts must load before a Model is used");
+    throw new Error("arbor: model.ts must load before a Model is used");
   }
   return { ...base, ready };
 }

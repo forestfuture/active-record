@@ -182,12 +182,12 @@ Next: npx arbor migrate`);
     const cwd = project({ "src/db/schema/index.ts": "export {};" });
 
     const { code, output } = await generate(cwd, ["model", "Product"], {
-      out: "src/db/d1-record.ts",
+      out: "src/db/arbor.ts",
     });
 
     expect(code).toBe(0);
-    expect(output).toContain("Wrote src/db/d1-record.ts (1 table) from migrations/");
-    expect(read(cwd, "src/models/application-record.ts")).toContain('from "../db/d1-record";');
+    expect(output).toContain("Wrote src/db/arbor.ts (1 table) from migrations/");
+    expect(read(cwd, "src/models/application-record.ts")).toContain('from "../db/arbor";');
   });
 
   test("--models appends to one file", async () => {

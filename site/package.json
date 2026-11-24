@@ -1,7 +1,7 @@
 {
   "name": "arbor-site",
   "private": true,
-  "description": "The Active Record documentation site, deployed to arbor.forestfuture.dev.",
+  "description": "The Arbor ORM documentation site, deployed to arbor.forestfuture.dev.",
   "type": "module",
   "scripts": {
     "dev": "node excerpts.ts && blume dev",

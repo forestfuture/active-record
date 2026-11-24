@@ -551,7 +551,7 @@ describe("schemaOf: from migrations to table schemas", () => {
       ok: false,
       errors: [
         "line-items and line_items would both be exported as lineItems; rename one of the tables",
-        "logs: no primary key; Active Record needs one (id INTEGER PRIMARY KEY, or id TEXT PRIMARY KEY)",
+        "logs: no primary key; Arbor needs one (id INTEGER PRIMARY KEY, or id TEXT PRIMARY KEY)",
         "things: columns user_id and userId would both be the attribute userId; rename one",
       ],
     });

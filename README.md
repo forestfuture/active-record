@@ -1,11 +1,11 @@
-# arbor
+# Arbor ORM
 
 [![CI](https://github.com/forestfuture/arbor/actions/workflows/ci.yml/badge.svg)](https://github.com/forestfuture/arbor/actions/workflows/ci.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/forestfuture/arbor/badge)](https://scorecard.dev/viewer/?uri=github.com/forestfuture/arbor)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15356/badge)](https://www.bestpractices.dev/projects/15356)
 [![OpenSSF Baseline](https://www.bestpractices.dev/projects/15356/baseline)](https://www.bestpractices.dev/projects/15356)
 
-A Rails-inspired Active Record for [Cloudflare Workers](https://developers.cloudflare.com/workers/), with an adapter for each database: [D1](https://developers.cloudflare.com/d1/) and Postgres.
+Arbor is an Active Record ORM for TypeScript on [Cloudflare D1](https://developers.cloudflare.com/d1/) and PostgreSQL, built for [Cloudflare Workers](https://developers.cloudflare.com/workers/), with an adapter for each database.
 
 Models with validations, callbacks, associations, and change tracking; lazy, composable queries; and a predictable save lifecycle, built for the Worker runtime and honest about what each database can and can’t do.
 
@@ -28,7 +28,7 @@ Coming from an earlier release? See [Upgrading](https://arbor.forestfuture.dev/u
 
 ## A quick look
 
-A [Worker](https://developers.cloudflare.com/workers/) is a function that runs at Cloudflare’s edge, and [D1](https://developers.cloudflare.com/d1/) is its SQLite database. Active Record sits between the two: you describe each table once as a **Model**, and your Worker reads and writes **records** instead of rows.
+A [Worker](https://developers.cloudflare.com/workers/) is a function that runs at Cloudflare’s edge, and [D1](https://developers.cloudflare.com/d1/) is its SQLite database. Arbor sits between the two: you describe each table once as a **Model**, and your Worker reads and writes **records** instead of rows.
 
 ### 1. Bind a D1 database
 
@@ -174,7 +174,7 @@ Most of it will feel familiar. The main difference is naming: attributes are cam
 
 ## How it compares
 
-Query builders such as [Drizzle](https://orm.drizzle.team) and [Kysely](https://kysely.dev) are SQL-first: you write queries against a typed schema, and rows come back as plain objects. This library is an Active Record: rows come back as records that know how to validate, save, destroy, and load their associations, with the conventions of Ruby on Rails. Its value is a coherent, rigorously tested lifecycle rather than advanced type inference. If you know Rails, you already know most of it.
+Query builders such as [Drizzle](https://orm.drizzle.team) and [Kysely](https://kysely.dev) are SQL-first: you write queries against a typed schema, and rows come back as plain objects. Arbor is an Active Record ORM: rows come back as records that know how to validate, save, destroy, and load their associations, with the conventions of Ruby on Rails. Its value is a coherent, rigorously tested lifecycle rather than advanced type inference. If you know Rails, you already know most of it.
 
 ## Versioning
 

@@ -2,7 +2,7 @@
 title: Serialization
 description: "Turn records into JSON, keep secrets out of responses and logs, and print records in the console."
 seo:
-  description: "Serialize Active Record records with toJSON and Response.json, hide attributes from responses, filter secrets from logs, and print records and Relations."
+  description: "Serialize Arbor records with toJSON and Response.json, hide attributes from responses, filter secrets from logs, and print records and Relations."
 ---
 
 ## At a glance
@@ -120,6 +120,6 @@ The default filter list is Rails’ own `filter_parameters` list, and the filter
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-Rails’ `serializable_hash(except:)` is per call, and `filter_attributes` only covers logs and inspection. Active Record keeps a class-level list, so `Response.json(user)` is safe without each call site remembering to strip the attribute. Rails also doesn’t mark unsaved changes when it prints a record. Active Record does, so a pending edit is visible in the console before you save it.
+Rails’ `serializable_hash(except:)` is per call, and `filter_attributes` only covers logs and inspection. Arbor keeps a class-level list, so `Response.json(user)` is safe without each call site remembering to strip the attribute. Rails also doesn’t mark unsaved changes when it prints a record. Arbor does, so a pending edit is visible in the console before you save it.
 
 </Callout>

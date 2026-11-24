@@ -1,4 +1,4 @@
-// The d1-record logo: small beside the site's name in the header, and on the home page in place
+// The Arbor logo: small beside the site's name in the header, and on the home page in place
 // of the animated orb (orb.ts) for readers who ask for reduced motion or where it can't draw. The
 // mark is public/icon.svg, which Blume also uses as the favicon (by its name) and
 // blume.config.ts's `logo` shows in the 404 page's header; replace that file to change it

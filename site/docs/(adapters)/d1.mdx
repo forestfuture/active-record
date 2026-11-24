@@ -2,7 +2,7 @@
 title: D1
 description: "Run your Models on Cloudflare D1."
 seo:
-  description: "Use Active Record on Cloudflare D1: install the adapter, bind a database, read replicas with Sessions, one round trip per page, and what differs on D1."
+  description: "Use Arbor on Cloudflare D1: install the adapter, bind a database, read replicas with Sessions, one round trip per page, and what differs on D1."
 ---
 
 ## Installing
@@ -43,7 +43,7 @@ D1 also differs in these ways.
 
 D1 can’t hold a transaction open while your Worker awaits, so there’s no `transaction(async (tx) => …)`. You can’t read, decide, then write atomically.
 
-What you can make atomic is a set of writes prepared in advance: [`batch`](./batches#batching-writes) sends bulk writes and records together, and D1 writes all of them or none. Active Record uses the same batches itself:
+What you can make atomic is a set of writes prepared in advance: [`batch`](./batches#batching-writes) sends bulk writes and records together, and D1 writes all of them or none. Arbor uses the same batches itself:
 
 - A destroy’s [`dependent` strategies](./associations#destroying-dependent-records) on the owner’s database are written in one batch with its DELETE.
 - A record [autosaved](./autosaving#saving-a-graph) with its owner joins the owner’s batch when it’s on the owner’s database and the owner’s key is known in advance.

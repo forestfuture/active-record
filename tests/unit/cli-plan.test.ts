@@ -76,7 +76,7 @@ describe("planSchema: what arbor schema writes and prints, from a snapshot", () 
     expect(plan.code).toBe(0);
   });
 
-  test("a schema file d1-record didn't write is left alone, and nothing is written", async () => {
+  test("a schema file Arbor didn't write is left alone, and nothing is written", async () => {
     const plan = await planSchema(project({ schema: "export const users = {};\n" }), false);
 
     expect(filesOf(plan)).toEqual([]);
@@ -188,7 +188,7 @@ describe("planGenerate: what g model and g migration write and print, from a sna
     });
   });
 
-  test("a schema file d1-record didn't write is refused before anything else", async () => {
+  test("a schema file Arbor didn't write is refused before anything else", async () => {
     const plan = await planGenerate(project({ schema: "export {};\n" }), {
       ...product,
       columns: ["x:nope"],

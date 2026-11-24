@@ -198,10 +198,10 @@ migrations_table = "seen"
         "src/db/schema.ts would take over imports of the folder src/db/schema/ (an import of schema finds the file first), so it isn't written; choose another file with --out, such as --out src/db/arbor.ts\nWrote nothing to src/db/schema.ts",
     });
     expect(existsSync(join(cwd, "src/db/schema.ts"))).toBe(false);
-    expect((await run(cwd, { out: "src/db/d1-record.ts" })).code).toBe(0);
+    expect((await run(cwd, { out: "src/db/arbor.ts" })).code).toBe(0);
   });
 
-  test("a file d1-record didn't write is never replaced", async () => {
+  test("a file Arbor didn't write is never replaced", async () => {
     const drizzle = "export const users = sqliteTable('users', {});\n";
     const cwd = project({
       "wrangler.jsonc": wranglerJsonc,

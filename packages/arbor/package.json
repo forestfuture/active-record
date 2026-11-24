@@ -1,11 +1,16 @@
 {
   "name": "@forestfuture/arbor",
   "version": "0.10.0",
-  "description": "A Rails-inspired Active Record for Cloudflare Workers, with an adapter per database.",
+  "description": "Arbor ORM: an Active Record ORM for TypeScript on Cloudflare D1 and PostgreSQL, built for Cloudflare Workers.",
   "keywords": [
+    "active-record",
     "arbor",
     "cloudflare",
+    "d1",
+    "database",
     "orm",
+    "postgresql",
+    "typescript",
     "workers"
   ],
   "homepage": "https://arbor.forestfuture.dev",

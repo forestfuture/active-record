@@ -2,11 +2,11 @@
 title: Raw statements
 description: "Bind and read values in SQL you send yourself, as each attribute stores them."
 seo:
-  description: "Send your own SQL beside Active Record: typeForAttribute’s serialize, deserialize, and cast convert values the way an attribute stores them, on D1 or Postgres."
+  description: "Send your own SQL beside Arbor: typeForAttribute’s serialize, deserialize, and cast convert values the way an attribute stores them, on D1 or Postgres."
 ---
 
 :::warning[Postgres reads BIGINT cells as text]
-`pg` reads a `BIGINT` cell as text, unless you set its type parsers. Active Record’s own clients convert it, but a query you send through your own `pg` client doesn’t. Pass `Number(cell)` to `deserialize`.
+`pg` reads a `BIGINT` cell as text, unless you set its type parsers. Arbor’s own clients convert it, but a query you send through your own `pg` client doesn’t. Pass `Number(cell)` to `deserialize`.
 :::
 
 ## At a glance
@@ -45,7 +45,7 @@ Bind what `serialize` gives when you send SQL yourself:
 For a cache key, or the value a test expects of a raw row, `serialize` gives the stored form too.
 
 :::warning[Your writes don’t clear the request cache]
-Inside `withDatabase`, Active Record answers a read it has already sent from memory. It can’t see SQL you send yourself, so after a raw write, call `db.clearRequestCache()` before reading again. See [Clearing the cache](./connecting#clearing-the-cache).
+Inside `withDatabase`, Arbor answers a read it has already sent from memory. It can’t see SQL you send yourself, so after a raw write, call `db.clearRequestCache()` before reading again. See [Clearing the cache](./connecting#clearing-the-cache).
 :::
 
 ## Reading cells
@@ -68,6 +68,6 @@ Turn a cell from a raw query into the attribute’s value with `deserialize`:
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-`typeForAttribute` is `type_for_attribute`, with the same `cast`, `serialize`, and `deserialize`. Active Record’s are strict: a value the attribute can’t hold throws, where Rails casts it leniently.
+`typeForAttribute` is `type_for_attribute`, with the same `cast`, `serialize`, and `deserialize`. Arbor’s are strict: a value the attribute can’t hold throws, where Rails casts it leniently.
 
 </Callout>

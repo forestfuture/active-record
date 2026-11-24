@@ -2,7 +2,7 @@
 title: Joins
 description: "Find records by their associated records, and filter or sort by a joined Model’s attributes."
 seo:
-  description: "Join Active Record associations with joins and leftJoins, get each record once with distinct, and filter or sort by a joined Model’s attributes with merge."
+  description: "Join Arbor associations with joins and leftJoins, get each record once with distinct, and filter or sort by a joined Model’s attributes with merge."
 ---
 
 ## At a glance
@@ -75,11 +75,11 @@ Some associations can’t be joined, and joining one throws `IncompatibleRelatio
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-- Rails builds the SQL for a merged Model the query doesn’t join, and the database rejects it when the query runs. Active Record throws `IncompatibleRelation` when you write it.
-- Rails applies a merged Relation’s `limit` to the whole query. Active Record refuses it.
-- Rails leaves `distinct` with an order on a joined table to the database, which Postgres refuses and SQLite runs. Active Record throws `IncompatibleRelation` on both.
-- With a `hasMany` join, Rails’ `find(1, 2)` counts the duplicate rows and raises `RecordNotFound`. Active Record returns each record once.
-- With a `hasMany` join, Rails’ `destroy_all` destroys a record once for each of its rows, running its callbacks each time. Active Record destroys each record once.
+- Rails builds the SQL for a merged Model the query doesn’t join, and the database rejects it when the query runs. Arbor throws `IncompatibleRelation` when you write it.
+- Rails applies a merged Relation’s `limit` to the whole query. Arbor refuses it.
+- Rails leaves `distinct` with an order on a joined table to the database, which Postgres refuses and SQLite runs. Arbor throws `IncompatibleRelation` on both.
+- With a `hasMany` join, Rails’ `find(1, 2)` counts the duplicate rows and raises `RecordNotFound`. Arbor returns each record once.
+- With a `hasMany` join, Rails’ `destroy_all` destroys a record once for each of its rows, running its callbacks each time. Arbor destroys each record once.
 - Rails’ `where(author: { name: "Jane" })`, `where.missing`, `eager_load`, and joins through another association aren’t here yet.
 
 </Callout>

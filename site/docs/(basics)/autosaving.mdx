@@ -2,7 +2,7 @@
 title: Autosaving
 description: "Save a record with the records built, changed, or marked for destruction through its associations."
 seo:
-  description: "Autosave Active Record associations: create records through a hasMany, save a graph with its owner in one batch, save changed records, and markForDestruction."
+  description: "Autosave Arbor associations: create records through a hasMany, save a graph with its owner in one batch, save changed records, and markForDestruction."
 ---
 
 ## At a glance
@@ -86,7 +86,7 @@ A mark only counts through an association declared `autosave: true`.
 
 ## Not built yet
 
-These features aren’t in Active Record yet. The code shows the shape they’re likely to take.
+These features aren’t in Arbor yet. The code shows the shape they’re likely to take.
 
 - **Autosaving through an association through another** ([#450](https://github.com/forestfuture/arbor/issues/450)): `articles = hasMany(Article, { through: "taggings", autosave: true })`, which saves the tag’s changed articles with it.
 - **Never autosaving** ([#378](https://github.com/forestfuture/arbor/issues/378)): `articles = hasMany(Article, { autosave: false })`, which never saves the association’s records with the owner, not even new ones.

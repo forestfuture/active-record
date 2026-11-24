@@ -1,6 +1,6 @@
 # The database gives an enum its type, the Model its methods
 
-A column the database restricts to a set of strings (a Postgres enum type, or `CHECK (… IN …)`) gets a generated enum (#64): `active-record schema` writes its names with `scopes: false` and `instanceMethods: false`, so the attribute's type is the union and an unknown value is refused, but nothing is added to the Model's API until its override turns the methods on, with `enum: true` or the two keys.
+A column the database restricts to a set of strings (a Postgres enum type, or `CHECK (… IN …)`) gets a generated enum (#64): `arbor schema` writes its names with `scopes: false` and `instanceMethods: false`, so the attribute's type is the union and an unknown value is refused, but nothing is added to the Model's API until its override turns the methods on, with `enum: true` or the two keys.
 
 Rails infers nothing from the database and declares every enum in the Model. We infer the type because a generated Model already takes its attributes from the database, and a list written again in the Model drifts from the one the database enforces. We leave the methods declared because a developer reading `Post.published()` should find where it comes from in the Model, and a migration shouldn't change a Model's API.
 

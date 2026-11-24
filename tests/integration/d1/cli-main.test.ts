@@ -8,7 +8,7 @@ import { scratchDirs } from "../../support/scratch.ts";
 // In the repo, so the Models the generators write find this repo's library, as an app's do.
 const scratch = scratchDirs();
 
-describe("the d1-record command line", () => {
+describe("the arbor command line", () => {
   test("schema runs with its options, and --help explains them", async () => {
     const cwd = scratch("main-");
     mkdirSync(join(cwd, "migrations"));

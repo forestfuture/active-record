@@ -2,7 +2,7 @@
 title: Coming from Rails
 description: "Bring what you know from Rails’ Active Record, and learn what works differently."
 seo:
-  description: "Active Record for Cloudflare Workers compared with Rails’ Active Record: what carries over, and what differs, from camelCase attributes to OrThrow methods."
+  description: "Arbor compared with Rails’ Active Record: what carries over, and what differs, from camelCase attributes to OrThrow methods."
 ---
 
 :::tip
@@ -24,7 +24,7 @@ A Worker serves many requests at once from one isolate, so nothing about a reque
 
 Most names are Rails’ own, in camelCase:
 
-| Rails                                    | Active Record for Workers                         |
+| Rails                                    | Arbor                                             |
 | ---------------------------------------- | ------------------------------------------------- |
 | `created_at` (attribute)                 | `createdAt`, mapped to `created_at`               |
 | `foreign_key: :user_id`                  | `foreignKey: "userId"`                            |

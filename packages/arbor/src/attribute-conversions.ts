@@ -1,11 +1,11 @@
-// An attribute's conversions as a value (#148): the cast, write and read d1-record does for it,
-// for SQL d1-record doesn't write (a raw D1 statement, a cache key, a row checked in a test).
+// An attribute's conversions as a value (#148): the cast, write and read Arbor does for it,
+// for SQL Arbor doesn't write (a raw D1 statement, a cache key, a row checked in a test).
 // Not the declared type (`"datetime"`): that's an AttributeType, in metadata.ts.
 import { attributeFor } from "./attribute.ts";
 import type { ModelClass } from "./model.ts";
 
 /**
- * What d1-record does with an attribute's values, by the attribute's type (and `storage`).
+ * What Arbor does with an attribute's values, by the attribute's type (and `storage`).
  * `T` is the attribute's JavaScript type. Each is a function of its own, so one can be passed
  * on or destructured.
  */

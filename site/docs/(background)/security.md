@@ -1,11 +1,11 @@
 ---
 title: Security
-description: "Active Record prevents SQL injection and casts what a request sends, but authorization and which fields a request may set are up to your app."
+description: "Arbor prevents SQL injection and casts what a request sends, but authorization and which fields a request may set are up to your app."
 seo:
-  description: "What Active Record protects against, from SQL injection to prototype pollution, what it leaves to your app, the tests behind each guarantee, and its reviews."
+  description: "What Arbor protects against, from SQL injection to prototype pollution, what it leaves to your app, the tests behind each guarantee, and its reviews."
 ---
 
-## What Active Record protects against
+## What Arbor protects against
 
 - **SQL injection.** Every value is bound as a parameter, never written into SQL text. Identifiers come only from a Model’s declared attributes, and are quoted. Raw SQL is only possible through the `sql` tagged template, which binds every value it’s given.
 - **Values that aren’t what TypeScript says.** A value from JSON, a form, or a query string is cast to its attribute’s type when it’s assigned or used in a condition, and anything ambiguous is refused: `"false"` can’t save `true`. See [Attribute types](./attribute-types#casting-assigned-values).

@@ -8,7 +8,7 @@ export async function showUser(id: string): Promise<Response> {
   } catch (error) {
     if (error instanceof RecordNotFound) return new Response("No such user", { status: 404 });
     if (error instanceof ArborError) return new Response(error.message, { status: 400 });
-    throw error; // not one of Active Record's own
+    throw error; // not one of Arbor's own
   }
 }
 // #endregion check

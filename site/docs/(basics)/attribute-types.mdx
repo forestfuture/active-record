@@ -2,7 +2,7 @@
 title: Attribute types
 description: "Each attribute holds one type of value, and every value you assign is cast to it."
 seo:
-  description: "Active Record attribute types, from string, decimal, and datetime to json and binary, how each is stored on D1 and Postgres, and how values are cast."
+  description: "Arbor attribute types, from string, decimal, and datetime to json and binary, how each is stored on D1 and Postgres, and how values are cast."
 ---
 
 ## At a glance
@@ -162,6 +162,6 @@ Rails holds a `decimal` as a `BigDecimal`, a `date` as a `Date`, and a `time` as
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-Rails casts leniently: `"12abc"` becomes `12`, `1.7` becomes `1`, any other text is `true`, and `""` is `nil`. Active Record refuses each, so `inStock=no` from a form can’t save `true`, and an empty field can’t silently become `null`.
+Rails casts leniently: `"12abc"` becomes `12`, `1.7` becomes `1`, any other text is `true`, and `""` is `nil`. Arbor refuses each, so `inStock=no` from a form can’t save `true`, and an empty field can’t silently become `null`.
 
 </Callout>

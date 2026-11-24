@@ -28,9 +28,9 @@ function d1OnlyConfig(
   entry: Record<string, unknown>,
   accountId: string | undefined,
 ): { file: string; remove: () => void } {
-  const dir = mkdtempSync(join(tmpdir(), "d1-record-console-"));
+  const dir = mkdtempSync(join(tmpdir(), "arbor-console-"));
   const file = join(dir, "wrangler.jsonc");
-  const config = { name: "d1-record-console", account_id: accountId, d1_databases: [entry] };
+  const config = { name: "arbor-console", account_id: accountId, d1_databases: [entry] };
   writeFileSync(file, JSON.stringify(config));
   return { file, remove: () => rmSync(dir, { recursive: true, force: true }) };
 }
