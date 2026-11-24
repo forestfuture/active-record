@@ -1,0 +1,11 @@
+// active-record.forestfuture.dev, where the guide was until #558: the same redirect as
+// wrangler.jsonc, to arbor.forestfuture.dev. It keeps the guide's second Worker name, so deploying
+// it replaces that Worker and its route.
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "active-record-docs",
+  "main": "worker.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "routes": [{ "pattern": "active-record.forestfuture.dev/*", "zone_name": "forestfuture.dev" }],
+}

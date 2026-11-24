@@ -8,7 +8,7 @@
     "orm",
     "workers"
   ],
-  "homepage": "https://active-record.forestfuture.dev",
+  "homepage": "https://arbor.forestfuture.dev",
   "bugs": {
     "url": "https://github.com/forestfuture/arbor/issues"
   },

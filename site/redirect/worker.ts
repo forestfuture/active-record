@@ -1,5 +1,5 @@
-// d1-record.forestfuture.dev, the guide's old host: every request redirects permanently to its path and query on active-record.forestfuture.dev (#270).
-const guide = "https://active-record.forestfuture.dev";
+// The guide's old hosts, d1-record.forestfuture.dev (#270) and active-record.forestfuture.dev (#558): every request redirects permanently to its path and query on arbor.forestfuture.dev.
+const guide = "https://arbor.forestfuture.dev";
 
 export default {
   fetch(request: Request): Response {

@@ -163,9 +163,10 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Deploys the guide to active-record.forestfuture.dev (site/wrangler.jsonc), the docs.forestfuture.dev
-  # library list (site/host/wrangler.jsonc, whose page is committed, not built), and the redirect from
-  # the guide's old host, d1-record.forestfuture.dev (site/redirect/wrangler.jsonc). It never installs the
+  # Deploys the guide to arbor.forestfuture.dev (site/wrangler.jsonc), the docs.forestfuture.dev
+  # library list (site/host/wrangler.jsonc, whose page is committed, not built), and the redirects
+  # from the guide's old hosts, d1-record.forestfuture.dev and active-record.forestfuture.dev
+  # (site/redirect/). It never installs the
   # workspace: Wrangler comes from tools/docs-deploy, which has a lockfile of its own, installed
   # frozen with install scripts off.
   docs-deploy:
@@ -220,8 +221,13 @@ jobs:
       # permanent redirect is cached, so it waits until the new host's DNS record exists, which is
       # added by hand (docs/agents/cloudflare-tokens.md). It looks the name up rather than fetching
       # the page, since Cloudflare answers a runner's request with a 403.
-      - run: getent ahosts active-record.forestfuture.dev
+      - run: getent ahosts arbor.forestfuture.dev
       - run: wrangler deploy --config redirect/wrangler.jsonc
+        working-directory: site
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DOCS_API_TOKEN }}
+      - run: wrangler deploy --config redirect/active-record.wrangler.jsonc
         working-directory: site
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

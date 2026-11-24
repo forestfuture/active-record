@@ -23,16 +23,16 @@ Both workflows also need these secrets, which aren't tokens:
 - **D1 → Edit**: the smoke suite creates, writes and reads its tables in `d1-record-smoke`.
 - **Workers Scripts → Edit**:
   - Smoke token: Wrangler's remote bindings run through a temporary preview Worker, so the account also needs a `workers.dev` subdomain. The Hyperdrive smoke deploys its own `pg-record-smoke-…` Worker on it, lists the account's Workers to delete stale ones, and deletes its own.
-  - Docs token: it creates and updates three Workers and uploads their files: `active-record-docs`, the guide (`site/wrangler.jsonc`), `forestfuture-docs`, the library list at `docs.forestfuture.dev` (`site/host/wrangler.jsonc`), and `d1-record-docs`, which redirects the guide's old host (`site/redirect/wrangler.jsonc`). That Worker served the guide until #270, so keeping its name let the redirect replace it, route and all.
+  - Docs token: it creates and updates four Workers and uploads their files: `arbor-docs`, the guide (`site/wrangler.jsonc`), `forestfuture-docs`, the library list at `docs.forestfuture.dev` (`site/host/wrangler.jsonc`), and two that redirect the guide's old hosts with the same `site/redirect/worker.ts`: `d1-record-docs` (`site/redirect/wrangler.jsonc`) and `active-record-docs` (`site/redirect/active-record.wrangler.jsonc`). Each served the guide once, until #270 and #558, so keeping its name let the redirect replace it, route and all.
 - **Hyperdrive → Read**: the Hyperdrive smoke binds its Worker to the existing `pg-record-smoke` config, and changes no config. If Wrangler refuses the deploy for want of a permission, raise it to Edit and say so here.
-- **Workers Routes → Edit**: attaches `active-record.forestfuture.dev/*` to the guide's Worker, `docs.forestfuture.dev/*` to the library list's, and `d1-record.forestfuture.dev/*` to the redirect's.
+- **Workers Routes → Edit**: attaches `arbor.forestfuture.dev/*` to the guide's Worker, `docs.forestfuture.dev/*` to the library list's, and `d1-record.forestfuture.dev/*` and `active-record.forestfuture.dev/*` to the redirects'.
 - **Zone → Read**: the route names its zone by name (`forestfuture.dev`), and Wrangler looks up the zone's ID.
 
 **User → User Details → Read** isn't needed. Wrangler only prints a warning without it, and leaving it out gives Wrangler less to print when something fails. Actions logs are readable by anyone who can see the repository.
 
 ## The docs hostnames
 
-A Worker route only runs on a hostname with a proxied DNS record, and the docs token can't edit DNS. `docs.forestfuture.dev` and `d1-record.forestfuture.dev` have one. For `active-record.forestfuture.dev`, add it once in the dashboard, before the first deploy that routes it: **forestfuture.dev → DNS → Records → Add record**, type `AAAA`, name `active-record`, IPv6 address `100::`, **Proxied**. Keep `d1-record`'s record, so its redirect keeps answering. `100::` is a placeholder: the route answers every request, so the address is never reached. Cloudflare's Universal SSL certificate covers `*.forestfuture.dev`, so the hostname needs no certificate of its own.
+A Worker route only runs on a hostname with a proxied DNS record, and the docs token can't edit DNS. `docs.forestfuture.dev`, `d1-record.forestfuture.dev` and `active-record.forestfuture.dev` have one. For `arbor.forestfuture.dev`, add it once in the dashboard, before the first deploy that routes it: **forestfuture.dev → DNS → Records → Add record**, type `AAAA`, name `arbor`, IPv6 address `100::`, **Proxied**. Keep the `d1-record` and `active-record` records, so their redirects keep answering. `100::` is a placeholder: the route answers every request, so the address is never reached. Cloudflare's Universal SSL certificate covers `*.forestfuture.dev`, so the hostname needs no certificate of its own.
 
 ## Replacing a token
 
