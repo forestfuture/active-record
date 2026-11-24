@@ -5,11 +5,9 @@ seo:
   description: "Use Arbor with an existing D1 database managed by Drizzle or Prisma, or with no migrations at all, and fix columns of the wrong type with overrides."
 ---
 
-Install Arbor in your project first, so `npx arbor` runs its command:
-
-```sh
-npm install @forestfuture/arbor
-```
+:::warning[Install Arbor first]
+Run `npm install @forestfuture/arbor` in your project before any `npx arbor` command below. Without it, `npx arbor` runs a different npm package named `arbor`.
+:::
 
 ## Using Drizzle’s migrations
 
