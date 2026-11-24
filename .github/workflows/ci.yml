@@ -42,6 +42,8 @@ jobs:
         working-directory: site
       - run: wrangler deploy --dry-run --config redirect/wrangler.jsonc
         working-directory: site
+      - run: wrangler deploy --dry-run --config redirect/active-record.wrangler.jsonc
+        working-directory: site
 
   # The tests, in 4 shards that run at once (#365). Each saves its results and coverage as a blob
   # report for check to merge; the coverage floor applies to the merged coverage, not a shard's.
