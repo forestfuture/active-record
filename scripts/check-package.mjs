@@ -7,7 +7,7 @@ import { readdirSync, readFileSync } from "node:fs";
 
 /** Each package's files, a shared chunk's name standing for every chunk Rolldown names by hash. */
 const expected = {
-  "active-record": [
+  arbor: [
     "LICENSE",
     "README.md",
     "config-schema.json",
@@ -108,7 +108,7 @@ if (relative) fail(`llms-full.txt has ${relative.length} relative links, such as
 const pages = readdirSync(new URL("../site/docs", import.meta.url), { recursive: true }).filter(
   (name) => /\.mdx?$/.test(name) && !name.startsWith("_"),
 ).length;
-const sources = guide.match(/^Source: https:\/\/active-record\.forestfuture\.dev\//gm)?.length ?? 0;
+const sources = guide.match(/^Source: https:\/\/arbor\.forestfuture\.dev\//gm)?.length ?? 0;
 if (sources !== pages)
   fail(`llms-full.txt names the source URL of ${sources} pages, of the guide's ${pages}`);
 console.log(

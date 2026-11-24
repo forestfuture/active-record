@@ -59,7 +59,7 @@ A change users will notice (new behavior, a fix, a breaking change, a deprecatio
 
 ## Documentation
 
-The guide is in `site/docs/` (a [Blume](https://useblume.dev) site at [active-record.forestfuture.dev](https://active-record.forestfuture.dev), `vp run docs:dev`), and a change in behavior updates its page too. Each page sits in its sidebar group's folder (`(basics)/models.mdx` is `/models`), ordered by the group's `meta.ts`.
+The guide is in `site/docs/` (a [Blume](https://useblume.dev) site at [arbor.forestfuture.dev](https://arbor.forestfuture.dev), `vp run docs:dev`), and a change in behavior updates its page too. Each page sits in its sidebar group's folder (`(basics)/models.mdx` is `/models`), ordered by the group's `meta.ts`.
 
 - **Every page stands on its own** ([docs-pages.md](docs/agents/docs-pages.md)): a one-sentence deck, an At a glance table, the Models its examples use, and examples that carry their imports. A new page, or a page's new structure, agrees its outline in the issue.
 - **Write in the guide's voice** ([docs-voice.md](docs/agents/docs-voice.md)): open with what the reader does, assume a competent developer, keep examples short, and put side facts in notes.

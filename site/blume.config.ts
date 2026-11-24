@@ -3,7 +3,7 @@ import { defineConfig } from "blume";
 export default defineConfig({
   title: "Active Record",
   description: "A Rails-inspired Active Record for Cloudflare Workers, on D1 or Postgres.",
-  github: { owner: "forestfuture", repo: "active-record", dir: "site" },
+  github: { owner: "forestfuture", repo: "arbor", dir: "site" },
   lastModified: "git",
   // Blume's own header shows it on the 404 page; components/HeaderLogo.astro replaces that header
   // logo everywhere else.
@@ -26,5 +26,5 @@ export default defineConfig({
     skills: "../packages/arbor/skills",
     contentSignals: { aiTrain: false },
   },
-  deployment: { site: "https://active-record.forestfuture.dev" },
+  deployment: { site: "https://arbor.forestfuture.dev" },
 });

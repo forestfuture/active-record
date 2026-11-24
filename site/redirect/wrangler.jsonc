@@ -1,6 +1,7 @@
 // d1-record.forestfuture.dev, where the guide was until #270: a Worker that redirects every request
-// to active-record.forestfuture.dev. It keeps the guide's old Worker name, so deploying it replaces
-// that Worker and its route.
+// to arbor.forestfuture.dev. It keeps the guide's first Worker name, so deploying it replaces that
+// Worker and its route. active-record.wrangler.jsonc deploys the same redirect for the guide's
+// second host.
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "d1-record-docs",

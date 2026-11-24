@@ -22,9 +22,9 @@ npm install @forestfuture/arbor
 | `@forestfuture/arbor/d1`         | The D1 adapter: `connect` and `withSession`                               |
 | `@forestfuture/arbor/postgresql` | The PostgreSQL adapter, through Hyperdrive or on Node, with your own `pg` |
 
-An app moves from D1 to Postgres with its Models and code unchanged. See [Moving to Postgres](https://active-record.forestfuture.dev/move-to-postgres).
+An app moves from D1 to Postgres with its Models and code unchanged. See [Moving to Postgres](https://arbor.forestfuture.dev/move-to-postgres).
 
-Coming from an earlier release? See [Upgrading](https://active-record.forestfuture.dev/upgrading).
+Coming from an earlier release? See [Upgrading](https://arbor.forestfuture.dev/upgrading).
 
 ## A quick look
 
@@ -103,7 +103,7 @@ export class Post extends ApplicationRecord {
 
 ### 4. Use them in your Worker
 
-Queries start from the Model, and use its binding during the request: there’s nothing to connect. (For a D1 Session or per-request logging, see [Connections](https://active-record.forestfuture.dev/connecting).)
+Queries start from the Model, and use its binding during the request: there’s nothing to connect. (For a D1 Session or per-request logging, see [Connections](https://arbor.forestfuture.dev/connecting).)
 
 ```ts
 // src/index.ts
@@ -182,11 +182,11 @@ The packages follow [semantic versioning](https://semver.org), and always share 
 
 ## For AI agents
 
-The guide is also published for coding agents: [`llms.txt`](https://active-record.forestfuture.dev/llms.txt), [`llms-full.txt`](https://active-record.forestfuture.dev/llms-full.txt), and every page as Markdown. The package ships the guide for its own version (`node_modules/@forestfuture/arbor/llms-full.txt`) and an [agent skill](packages/arbor/skills/arbor/SKILL.md) (`npx skills add forestfuture/arbor`). See [AI agents](https://active-record.forestfuture.dev/ai-agents).
+The guide is also published for coding agents: [`llms.txt`](https://arbor.forestfuture.dev/llms.txt), [`llms-full.txt`](https://arbor.forestfuture.dev/llms-full.txt), and every page as Markdown. The package ships the guide for its own version (`node_modules/@forestfuture/arbor/llms-full.txt`) and an [agent skill](packages/arbor/skills/arbor/SKILL.md) (`npx skills add forestfuture/arbor`). See [AI agents](https://arbor.forestfuture.dev/ai-agents).
 
 ## Documentation
 
-The guide is at [active-record.forestfuture.dev](https://active-record.forestfuture.dev), built from [`site/`](site/). In the repository:
+The guide is at [arbor.forestfuture.dev](https://arbor.forestfuture.dev), built from [`site/`](site/). In the repository:
 
 - [`site/docs/`](site/docs/): the guide pages, from getting started to each adapter’s differences.
 - [`docs/contract.md`](docs/contract.md): the full public behavior, which the tests prove.
