@@ -17,13 +17,13 @@ export interface DatabaseConfig {
   entry: Record<string, unknown>;
   /**
    * The file that declares it, when it isn't the config's own: the adapter's config file that its
-   * entry in `active-record.jsonc` names (#306).
+   * entry in `arbor.jsonc` names (#306).
    */
   configFile?: string;
 }
 
 /**
- * The databases a project's `active-record.jsonc` names, each with its entry as the file has it
+ * The databases a project's `arbor.jsonc` names, each with its entry as the file has it
  * (its `adapter` included), and the file and its folder.
  */
 export interface ProjectDatabases {
@@ -145,7 +145,7 @@ export interface OpenBinding {
 }
 
 /**
- * The databases `init` writes for an adapter, as `active-record.jsonc` entries (its `adapter` is
+ * The databases `init` writes for an adapter, as `arbor.jsonc` entries (its `adapter` is
  * added), and notes for a person; or why it can't write them; or undefined when nothing in the
  * project points to this adapter and `--adapter` didn't name it.
  */
@@ -175,14 +175,14 @@ export interface CliAdapter {
   /** Why this Node can't run the plugin, if it can't; the command refuses before it starts. */
   unsupported?(): string | undefined;
   /**
-   * The entries `init` writes, from what's in `dir` (the folder `active-record.jsonc` goes in),
+   * The entries `init` writes, from what's in `dir` (the folder `arbor.jsonc` goes in),
    * such as another tool's config. Undefined when nothing there points to this adapter, unless
    * `--adapter` `named` it as an adapter the file doesn't use yet, when it writes what it can (a
    * guess included).
    */
   init(dir: string, named: boolean): InitResult;
   /**
-   * The project's databases, from the entries its `active-record.jsonc` has for this adapter (and
+   * The project's databases, from the entries its `arbor.jsonc` has for this adapter (and
    * the adapter's own config, if it reads one), or why they can't be read.
    */
   databases(project: ProjectDatabases): ConfigResult;

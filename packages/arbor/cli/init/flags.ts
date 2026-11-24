@@ -2,10 +2,10 @@
 import { defineSubcommand } from "../subcommand.ts";
 import { runInit } from "./command.ts";
 
-/** `active-record init`: writes the project's active-record.jsonc. */
+/** `active-record init`: writes the project's arbor.jsonc. */
 export const initSubcommand = defineSubcommand({
   options: { adapter: { type: "string" } },
-  usage: `  active-record init                          Write active-record.jsonc, which names your databases`,
+  usage: `  active-record init                          Write arbor.jsonc, which names your databases`,
   flagHelp: `Options for init:
   --adapter <name>    The adapter, when the project could use several, or nothing says which;
                       with the file there, adds that adapter's databases`,

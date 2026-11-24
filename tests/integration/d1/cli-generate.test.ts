@@ -251,7 +251,7 @@ describe("names", () => {
       code: 1,
       output: "foo-bar isn't a Model name; use letters and digits, like LineItem\nWrote nothing",
     });
-    expect(readdirSync(cwd)).toEqual(["active-record.jsonc", "wrangler.jsonc"]);
+    expect(readdirSync(cwd)).toEqual(["arbor.jsonc", "wrangler.jsonc"]);
   });
 });
 
@@ -278,10 +278,10 @@ describe("active-record g migration", () => {
     expect(read(cwd, "src/db/schema.ts")).not.toContain("sku:");
   });
 
-  test("first notes a D1 database active-record.jsonc doesn't name", async () => {
+  test("first notes a D1 database arbor.jsonc doesn't name", async () => {
     const cwd = project({
       "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB" }, { binding: "LOGS" }] }),
-      "active-record.jsonc": d1Config("DB"),
+      "arbor.jsonc": d1Config("DB"),
       "migrations/.keep": "",
     });
 
@@ -289,7 +289,7 @@ describe("active-record g migration", () => {
 
     expect(code).toBe(0);
     expect(output.split("\n")[0]).toBe(
-      "Note: wrangler.jsonc has the D1 database LOGS, which active-record.jsonc doesn't name; run `npx active-record init` to add it",
+      "Note: wrangler.jsonc has the D1 database LOGS, which arbor.jsonc doesn't name; run `npx active-record init` to add it",
     );
   });
 

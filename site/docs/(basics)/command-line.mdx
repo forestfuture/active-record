@@ -13,13 +13,13 @@ The `active-record` command comes with `@forestfuture/arbor`, and `ffar` is its 
 npx active-record --help
 ```
 
-Every command reads your databases, and the adapter each one uses, from `active-record.jsonc`. `active-record init` writes it.
+Every command reads your databases, and the adapter each one uses, from `arbor.jsonc`. `active-record init` writes it.
 
 It needs Node.js 22.5 or later. On D1, it needs 22.13 or later, for Node’s built-in SQLite. [Generators](./generators) shows it step by step.
 
 ## `active-record init`
 
-Write `active-record.jsonc` for your project:
+Write `arbor.jsonc` for your project:
 
 ```sh
 npx active-record init
@@ -30,7 +30,7 @@ It reads your Wrangler config. Each database in its `d1_databases` gets a D1 ent
 Run it again after you add a database to your Wrangler config. It adds each database the file doesn’t name yet, and leaves the rest of the file as you wrote it, comments included:
 
 ```text
-Added LOGS to active-record.jsonc (on d1)
+Added LOGS to arbor.jsonc (on d1)
 ```
 
 It adds only databases on the adapters the file already uses. To add another adapter’s databases, name it with `--adapter`.
@@ -38,13 +38,13 @@ It adds only databases on the adapters the file already uses. To add another ada
 | Option             |                                                                                                                                           |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `--adapter <name>` | The adapter, `d1` or `postgresql`, when your Wrangler config has both, or neither. With the file there, it adds that adapter’s databases. |
-| `--config <file>`  | Write this file, in place of `active-record.jsonc`.                                                                                       |
+| `--config <file>`  | Write this file, in place of `arbor.jsonc`.                                                                                               |
 
 With `--adapter postgresql` and no Hyperdrive binding, it writes a `DATABASE_URL` entry, with a guess at your local database’s `url` for you to correct.
 
 ## Declaring your databases
 
-`active-record.jsonc` sits beside your `package.json`. It names each of your databases by its binding, and the adapter it uses:
+`arbor.jsonc` sits beside your `package.json`. It names each of your databases by its binding, and the adapter it uses:
 
 ```jsonc
 {
@@ -59,7 +59,7 @@ Your generated schema names each database by its binding. The `$schema` line let
 
 On D1, the rest of a database’s settings stay in your Wrangler config’s `d1_databases`, which must have its binding. A D1 database there that the file doesn’t name is left out, and every command notes it.
 
-By default, that’s the Wrangler config beside the file. If your Worker’s config is in another folder, name it with `wranglerConfig`. The path is relative to `active-record.jsonc`:
+By default, that’s the Wrangler config beside the file. If your Worker’s config is in another folder, name it with `wranglerConfig`. The path is relative to `arbor.jsonc`:
 
 ```jsonc
 {
@@ -115,9 +115,9 @@ It applies your migrations, in order, to an in-memory database, and writes each 
 | `--out <file>`       | Write the schema here instead. With several databases, a folder for one file each. |
 | `--migrations <dir>` | Read migrations from here instead of the config’s folder (one database only).      |
 | `--models <dir>`     | Where your Models and `application-record.ts` are (`src/models/` by default).      |
-| `--config <file>`    | Use this config file, in place of `active-record.jsonc`.                           |
+| `--config <file>`    | Use this config file, in place of `arbor.jsonc`.                                   |
 
-**What it reads:** each database in `active-record.jsonc`. On Postgres, from its `migrationsDir`. On D1, from its entry in the Wrangler config’s `d1_databases`, with its `binding`, `migrations_dir` (default `migrations/`), `migrations_pattern` (for migrations in folders), and `migrations_table` (left out of the schema). Migrations apply in the order of the numbers their names start with (`9_…` before `10_…`), as Wrangler applies them. It also loads the Model files in `--models`, using your project’s own `@forestfuture/arbor`, to find each Model and its table, so code at a Model file’s top level runs.
+**What it reads:** each database in `arbor.jsonc`. On Postgres, from its `migrationsDir`. On D1, from its entry in the Wrangler config’s `d1_databases`, with its `binding`, `migrations_dir` (default `migrations/`), `migrations_pattern` (for migrations in folders), and `migrations_table` (left out of the schema). Migrations apply in the order of the numbers their names start with (`9_…` before `10_…`), as Wrangler applies them. It also loads the Model files in `--models`, using your project’s own `@forestfuture/arbor`, to find each Model and its table, so code at a Model file’s top level runs.
 
 **What it writes:**
 
@@ -155,7 +155,7 @@ npx active-record console
 | ------------------- | ------------------------------------------------------------------------------------- |
 | `--database <name>` | The database to open, by its binding, when the config has several.                    |
 | `--models <path>`   | Where the Models are: a folder (`src/models`) or one file (`src/models.ts`).          |
-| `--config <file>`   | Use this config file, in place of `active-record.jsonc`.                              |
+| `--config <file>`   | Use this config file, in place of `arbor.jsonc`.                                      |
 | `--no-history`      | Don’t keep what you type (in `.wrangler/` on D1, `node_modules/.cache/` on Postgres). |
 | `--verbose`         | Print each statement a line runs. `.verbose` turns it on and off in the console.      |
 | `-e, --eval <code>` | Run this code, print its result (alone, on stdout), and exit; a failure exits 1.      |

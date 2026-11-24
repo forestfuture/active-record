@@ -36,7 +36,7 @@ function unknownKeys(databases: Record<string, Record<string, unknown>>): string
 }
 
 // init links the file to a schema the package ships, for an editor to complete it from (#301).
-describe("active-record.jsonc's JSON Schema", () => {
+describe("arbor.jsonc's JSON Schema", () => {
   test("ships in the package, where init's $schema links to it", () => {
     const manifest = JSON.parse(read("packages/arbor/package.json")) as { files: string[] };
 
@@ -51,9 +51,9 @@ describe("active-record.jsonc's JSON Schema", () => {
   });
 
   test.each([
-    "tests/fixtures/active-record.jsonc",
-    "site/snippets/getting-started/active-record.jsonc",
-    "site/snippets/move-to-postgres/active-record.jsonc",
+    "tests/fixtures/arbor.jsonc",
+    "site/snippets/getting-started/arbor.jsonc",
+    "site/snippets/move-to-postgres/arbor.jsonc",
   ])("takes %s", (path) => {
     const config = parseJsonc(read(path)) as { databases: Record<string, Record<string, unknown>> };
 

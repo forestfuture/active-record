@@ -9,14 +9,14 @@ seo:
 
 The examples move the app from [Getting started](./getting-started).
 
-| What changes          | How                                                      |
-| --------------------- | -------------------------------------------------------- |
-| Packages              | Add `pg`, and PGlite for reading your schema.            |
-| `active-record.jsonc` | It names your Postgres database in place of the D1 one.  |
-| `migrations/`         | Rewritten in Postgres’s types, with the same file names. |
-| `src/db/schema.ts`    | Regenerated, so it names the PostgreSQL adapter.         |
-| Your Wrangler config  | A Hyperdrive binding in place of the D1 one.             |
-| Your data             | Copied from D1 to Postgres.                              |
+| What changes         | How                                                      |
+| -------------------- | -------------------------------------------------------- |
+| Packages             | Add `pg`, and PGlite for reading your schema.            |
+| `arbor.jsonc`        | It names your Postgres database in place of the D1 one.  |
+| `migrations/`        | Rewritten in Postgres’s types, with the same file names. |
+| `src/db/schema.ts`   | Regenerated, so it names the PostgreSQL adapter.         |
+| Your Wrangler config | A Hyperdrive binding in place of the D1 one.             |
+| Your data            | Copied from D1 to Postgres.                              |
 
 You’ll need `sqlite3` and `psql` on your machine to copy the data.
 
@@ -31,9 +31,9 @@ npm install --save-dev @electric-sql/pglite
 
 ## Declaring the database
 
-Replace the D1 database in your `active-record.jsonc` with your Postgres one:
+Replace the D1 database in your `arbor.jsonc` with your Postgres one:
 
-<include meta="active-record.jsonc">/_excerpts/move-to-postgres/active-record.jsonc</include>
+<include meta="arbor.jsonc">/_excerpts/move-to-postgres/arbor.jsonc</include>
 
 `HYPERDRIVE` is the binding your Worker will reach Postgres through. `url` is your local database, and `remoteUrl` your real one, read here from the environment. Every `active-record` command now works on Postgres. See [Declaring your databases](./command-line#declaring-your-databases).
 

@@ -8,7 +8,7 @@ import { scratchDirs } from "../../support/scratch.ts";
 const scratch = scratchDirs();
 
 const noConfig =
-  "No active-record.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one";
+  "No arbor.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one";
 
 /** A throwaway project, where its Models find this repo's library: its files, by path. */
 function project(files: Record<string, string>): string {
@@ -294,9 +294,9 @@ migrations_table = "seen"
     expect(readFileSync(join(cwd, "src/db/schema.ts"), "utf8")).toBe(before);
   });
 
-  test("first notes a D1 database active-record.jsonc doesn't name", async () => {
+  test("first notes a D1 database arbor.jsonc doesn't name", async () => {
     const cwd = project({
-      "active-record.jsonc": d1Config("DB"),
+      "arbor.jsonc": d1Config("DB"),
       "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB" }, { binding: "LOGS" }] }),
       "migrations/0001_create_users.sql": "CREATE TABLE users (id TEXT PRIMARY KEY);",
     });
@@ -305,26 +305,26 @@ migrations_table = "seen"
 
     expect(code).toBe(0);
     expect(output.split("\n")[0]).toBe(
-      "Note: wrangler.jsonc has the D1 database LOGS, which active-record.jsonc doesn't name; run `npx active-record init` to add it",
+      "Note: wrangler.jsonc has the D1 database LOGS, which arbor.jsonc doesn't name; run `npx active-record init` to add it",
     );
   });
 
   test("no Wrangler config, or no D1 database in it, says so", async () => {
-    const config = { "active-record.jsonc": d1Config("DB") };
+    const config = { "arbor.jsonc": d1Config("DB") };
 
     expect(await run(project({ "readme.md": "" }))).toEqual({ code: 1, output: noConfig });
     expect(await run(project(config))).toEqual({
       code: 1,
-      output: "No wrangler.jsonc, wrangler.json or wrangler.toml beside active-record.jsonc",
+      output: "No wrangler.jsonc, wrangler.json or wrangler.toml beside arbor.jsonc",
     });
     expect(await run(project({ ...config, "wrangler.jsonc": "{}" }))).toEqual({
       code: 1,
-      output: "active-record.jsonc names DB, which isn't in wrangler.jsonc's d1_databases",
+      output: "arbor.jsonc names DB, which isn't in wrangler.jsonc's d1_databases",
     });
   });
 
   test("a Wrangler config it can't use says why", async () => {
-    const config = { "active-record.jsonc": d1Config("DB") };
+    const config = { "arbor.jsonc": d1Config("DB") };
 
     expect(
       await run(project({ ...config, "wrangler.jsonc": '{ /* never closed "d1_databases": [] }' })),

@@ -28,13 +28,13 @@ async function init(cwd: string, options: { adapter?: string; config?: string } 
   return { code, output: lines.join("\n") };
 }
 
-/** The `active-record.jsonc` it wrote, read. */
-const written = (cwd: string, file = "active-record.jsonc") =>
+/** The `arbor.jsonc` it wrote, read. */
+const written = (cwd: string, file = "arbor.jsonc") =>
   parseJsonc(readFileSync(join(cwd, file), "utf8"));
 
 const schemaLink = "./node_modules/@forestfuture/arbor/config-schema.json";
 
-// A project's active-record.jsonc names its databases and their adapter; init writes it (#301).
+// A project's arbor.jsonc names its databases and their adapter; init writes it (#301).
 describe("active-record init", () => {
   test("on D1, names each of Wrangler's D1 databases, which the command then uses", async () => {
     const cwd = project({
@@ -45,7 +45,7 @@ describe("active-record init", () => {
 
     expect(await init(cwd)).toEqual({
       code: 0,
-      output: "Wrote active-record.jsonc (DB and LOGS, on d1)\nNext: npx active-record schema",
+      output: "Wrote arbor.jsonc (DB and LOGS, on d1)\nNext: npx active-record schema",
     });
     expect(written(cwd)).toEqual({
       $schema: schemaLink,
@@ -64,8 +64,7 @@ describe("active-record init", () => {
 
     expect(await init(cwd)).toEqual({
       code: 0,
-      output:
-        "Wrote active-record.jsonc (HYPERDRIVE, on postgresql)\nNext: npx active-record schema",
+      output: "Wrote arbor.jsonc (HYPERDRIVE, on postgresql)\nNext: npx active-record schema",
     });
     expect(written(cwd)).toEqual({
       $schema: schemaLink,
@@ -100,7 +99,7 @@ describe("active-record init", () => {
     expect(await init(cwd)).toEqual({
       code: 0,
       output:
-        "Wrote active-record.jsonc (HYPERDRIVE, on postgresql)\n" +
+        "Wrote arbor.jsonc (HYPERDRIVE, on postgresql)\n" +
         "Note: HYPERDRIVE has no localConnectionString in wrangler.jsonc, so its url is a guess " +
         "(postgres://localhost:5432/shop_development); set it to your local database\n" +
         "Next: npx active-record schema",
@@ -113,7 +112,7 @@ describe("active-record init", () => {
     expect(await init(cwd, { adapter: "postgresql" })).toEqual({
       code: 0,
       output:
-        "Wrote active-record.jsonc (DATABASE_URL, on postgresql)\n" +
+        "Wrote arbor.jsonc (DATABASE_URL, on postgresql)\n" +
         "Note: DATABASE_URL's url is a guess (postgres://localhost:5432/shop_development); set it to your local database\n" +
         "Next: npx active-record schema",
     });
@@ -138,7 +137,7 @@ describe("active-record init", () => {
       output:
         "This project could use d1 or postgresql; choose one with --adapter, then run init again with the other to add its databases too",
     });
-    expect(existsSync(join(cwd, "active-record.jsonc"))).toBe(false);
+    expect(existsSync(join(cwd, "arbor.jsonc"))).toBe(false);
     expect((await init(cwd, { adapter: "d1" })).code).toBe(0);
     expect(written(cwd)).toMatchObject({ databases: { DB: { adapter: "d1" } } });
   });
@@ -174,7 +173,7 @@ describe("active-record init", () => {
 
     test("adds each database it's missing, keeping the file's comments and layout", async () => {
       const cwd = project({
-        "active-record.jsonc": [
+        "arbor.jsonc": [
           "// The app's databases.",
           "{",
           '  "databases": {',
@@ -189,9 +188,9 @@ describe("active-record init", () => {
 
       expect(await init(cwd)).toEqual({
         code: 0,
-        output: "Added LOGS and AUDIT to active-record.jsonc (on d1)",
+        output: "Added LOGS and AUDIT to arbor.jsonc (on d1)",
       });
-      expect(readFileSync(join(cwd, "active-record.jsonc"), "utf8")).toBe(
+      expect(readFileSync(join(cwd, "arbor.jsonc"), "utf8")).toBe(
         [
           "// The app's databases.",
           "{",
@@ -209,25 +208,25 @@ describe("active-record init", () => {
 
     test("keeps its trailing commas", async () => {
       const cwd = project({
-        "active-record.jsonc": '{\n  "databases": {\n    "DB": { "adapter": "d1" },\n  },\n}\n',
+        "arbor.jsonc": '{\n  "databases": {\n    "DB": { "adapter": "d1" },\n  },\n}\n',
         "wrangler.jsonc": wrangler("DB", "LOGS"),
       });
 
       expect((await init(cwd)).code).toBe(0);
-      expect(readFileSync(join(cwd, "active-record.jsonc"), "utf8")).toBe(
+      expect(readFileSync(join(cwd, "arbor.jsonc"), "utf8")).toBe(
         '{\n  "databases": {\n    "DB": { "adapter": "d1" },\n    "LOGS": { "adapter": "d1" },\n  },\n}\n',
       );
     });
 
     test("with nothing missing, writes nothing", async () => {
       const text = '{ "databases": { "DB": { "adapter": "d1" } } }';
-      const cwd = project({ "active-record.jsonc": text, "wrangler.jsonc": wrangler("DB") });
+      const cwd = project({ "arbor.jsonc": text, "wrangler.jsonc": wrangler("DB") });
 
       expect(await init(cwd)).toEqual({
         code: 0,
-        output: "active-record.jsonc names every database init finds; it wrote nothing",
+        output: "arbor.jsonc names every database init finds; it wrote nothing",
       });
-      expect(readFileSync(join(cwd, "active-record.jsonc"), "utf8")).toBe(text);
+      expect(readFileSync(join(cwd, "arbor.jsonc"), "utf8")).toBe(text);
     });
 
     test("on Postgres, adds a Hyperdrive binding with its local connection string", async () => {
@@ -236,14 +235,14 @@ describe("active-record init", () => {
         { binding: "LOGS", localConnectionString: "postgres://localhost/logs" },
       ];
       const cwd = project({
-        "active-record.jsonc":
+        "arbor.jsonc":
           '{ "databases": { "HYPERDRIVE": { "adapter": "postgresql", "url": "postgres://x/y" } } }',
         "wrangler.jsonc": JSON.stringify({ hyperdrive }),
       });
 
       expect(await init(cwd)).toEqual({
         code: 0,
-        output: "Added LOGS to active-record.jsonc (on postgresql)",
+        output: "Added LOGS to arbor.jsonc (on postgresql)",
       });
       expect(written(cwd)).toEqual({
         databases: {
@@ -256,7 +255,7 @@ describe("active-record init", () => {
     // A project can use databases on different adapters (#305).
     test("--adapter naming another adapter than the file's adds that adapter's databases", async () => {
       const cwd = project({
-        "active-record.jsonc": '{ "databases": { "DB": { "adapter": "d1" } } }',
+        "arbor.jsonc": '{ "databases": { "DB": { "adapter": "d1" } } }',
         "wrangler.jsonc": JSON.stringify({
           d1_databases: [{ binding: "DB" }],
           hyperdrive: [{ binding: "HYPERDRIVE", localConnectionString: "postgres://localhost/s" }],
@@ -265,7 +264,7 @@ describe("active-record init", () => {
 
       expect(await init(cwd, { adapter: "postgresql" })).toEqual({
         code: 0,
-        output: "Added HYPERDRIVE to active-record.jsonc (on postgresql)",
+        output: "Added HYPERDRIVE to arbor.jsonc (on postgresql)",
       });
       expect(written(cwd)).toEqual({
         databases: {
@@ -278,7 +277,7 @@ describe("active-record init", () => {
     // During a move to Postgres, Wrangler's config keeps the D1 database the file no longer names.
     test("without --adapter, adds only the databases of the adapters the file names", async () => {
       const cwd = project({
-        "active-record.jsonc":
+        "arbor.jsonc":
           '{ "databases": { "HYPERDRIVE": { "adapter": "postgresql", "url": "postgres://x/y" } } }',
         "wrangler.jsonc": JSON.stringify({
           d1_databases: [{ binding: "DB" }],
@@ -288,13 +287,13 @@ describe("active-record init", () => {
 
       expect(await init(cwd)).toEqual({
         code: 0,
-        output: "active-record.jsonc names every database init finds; it wrote nothing",
+        output: "arbor.jsonc names every database init finds; it wrote nothing",
       });
     });
 
     test("on a file naming two adapters, adds each one's missing databases", async () => {
       const cwd = project({
-        "active-record.jsonc": JSON.stringify({
+        "arbor.jsonc": JSON.stringify({
           databases: {
             DB: { adapter: "d1" },
             HYPERDRIVE: { adapter: "postgresql", url: "postgres://x/y" },
@@ -311,7 +310,7 @@ describe("active-record init", () => {
 
       expect(await init(cwd)).toEqual({
         code: 0,
-        output: "Added LOGS and CACHE to active-record.jsonc (LOGS on d1, CACHE on postgresql)",
+        output: "Added LOGS and CACHE to arbor.jsonc (LOGS on d1, CACHE on postgresql)",
       });
       expect(written(cwd)).toMatchObject({
         databases: {
@@ -325,13 +324,13 @@ describe("active-record init", () => {
     test("--adapter naming one of the file's adapters adds what it finds, and no guess", async () => {
       const text =
         '{ "databases": { "HYPERDRIVE": { "adapter": "postgresql", "url": "postgres://x/y" } } }';
-      const cwd = project({ "active-record.jsonc": text, "wrangler.jsonc": "{}" });
+      const cwd = project({ "arbor.jsonc": text, "wrangler.jsonc": "{}" });
 
       expect(await init(cwd, { adapter: "postgresql" })).toEqual({
         code: 0,
-        output: "active-record.jsonc names every database init finds; it wrote nothing",
+        output: "arbor.jsonc names every database init finds; it wrote nothing",
       });
-      expect(readFileSync(join(cwd, "active-record.jsonc"), "utf8")).toBe(text);
+      expect(readFileSync(join(cwd, "arbor.jsonc"), "utf8")).toBe(text);
     });
 
     // Once the file names it, every command would load it, and refuse.
@@ -344,7 +343,7 @@ describe("active-record init", () => {
       const text =
         '{ "databases": { "HYPERDRIVE": { "adapter": "postgresql", "url": "postgres://x/y" } } }';
       const cwd = project({
-        "active-record.jsonc": text,
+        "arbor.jsonc": text,
         "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB" }] }),
       });
 
@@ -358,12 +357,12 @@ describe("active-record init", () => {
       } finally {
         spy.mockRestore();
       }
-      expect(readFileSync(join(cwd, "active-record.jsonc"), "utf8")).toBe(text);
+      expect(readFileSync(join(cwd, "arbor.jsonc"), "utf8")).toBe(text);
     });
 
     test("an --adapter that isn't one says which there are", async () => {
       const cwd = project({
-        "active-record.jsonc": '{ "databases": { "DB": { "adapter": "d1" } } }',
+        "arbor.jsonc": '{ "databases": { "DB": { "adapter": "d1" } } }',
         "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB" }] }),
       });
 
@@ -375,12 +374,12 @@ describe("active-record init", () => {
 
     test("a file it can't read is left as it was, saying why", async () => {
       const cwd = project({
-        "active-record.jsonc": "// mine\n{}",
+        "arbor.jsonc": "// mine\n{}",
         "wrangler.jsonc": wrangler("DB"),
       });
 
-      expect(await init(cwd)).toEqual({ code: 1, output: "active-record.jsonc has no databases" });
-      expect(readFileSync(join(cwd, "active-record.jsonc"), "utf8")).toBe("// mine\n{}");
+      expect(await init(cwd)).toEqual({ code: 1, output: "arbor.jsonc has no databases" });
+      expect(readFileSync(join(cwd, "arbor.jsonc"), "utf8")).toBe("// mine\n{}");
     });
   });
 
@@ -390,11 +389,11 @@ describe("active-record init", () => {
       "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB" }] }),
     });
     const target = join(cwd, "..", "elsewhere.jsonc");
-    symlinkSync(target, join(cwd, "active-record.jsonc"));
+    symlinkSync(target, join(cwd, "arbor.jsonc"));
 
     expect(await init(cwd)).toEqual({
       code: 1,
-      output: "active-record.jsonc is a link; init writes nothing through it",
+      output: "arbor.jsonc is a link; init writes nothing through it",
     });
     expect(existsSync(target)).toBe(false);
   });
@@ -404,8 +403,8 @@ describe("active-record init", () => {
       "app/wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB" }] }),
     });
 
-    expect(await init(cwd, { config: "app/active-record.jsonc" })).toMatchObject({ code: 0 });
-    expect(written(cwd, "app/active-record.jsonc")).toEqual({
+    expect(await init(cwd, { config: "app/arbor.jsonc" })).toMatchObject({ code: 0 });
+    expect(written(cwd, "app/arbor.jsonc")).toEqual({
       $schema: `.${schemaLink}`,
       databases: { DB: { adapter: "d1" } },
     });

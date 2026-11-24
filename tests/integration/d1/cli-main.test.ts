@@ -13,7 +13,7 @@ describe("the d1-record command line", () => {
     const cwd = scratch("main-");
     mkdirSync(join(cwd, "migrations"));
     writeFileSync(join(cwd, "wrangler.jsonc"), '{ "d1_databases": [{ "binding": "DB" }] }');
-    writeFileSync(join(cwd, "active-record.jsonc"), d1Config("DB"));
+    writeFileSync(join(cwd, "arbor.jsonc"), d1Config("DB"));
     writeFileSync(join(cwd, "migrations/0001.sql"), "CREATE TABLE users (id INTEGER PRIMARY KEY);");
     const output: string[] = [];
     // Paths are relative to where the command runs, so run it in the project, not the repo.
@@ -26,12 +26,12 @@ describe("the d1-record command line", () => {
 
     const help = main(["--help"], (line) => output.push(line));
     const generated = await main(
-      ["schema", "--config", join(cwd, "active-record.jsonc"), "--out", join(cwd, "out.ts")],
+      ["schema", "--config", join(cwd, "arbor.jsonc"), "--out", join(cwd, "out.ts")],
       (line) => output.push(line),
     );
 
     expect(help).toBe(0);
-    expect(output[0]).toMatch(/^Usage:\n  active-record init +Write active-record.jsonc/);
+    expect(output[0]).toMatch(/^Usage:\n  active-record init +Write arbor.jsonc/);
     expect(generated).toBe(0);
     expect(output[1]).toMatch(/^Wrote .*out\.ts \(1 table\)/);
   });
@@ -40,7 +40,7 @@ describe("the d1-record command line", () => {
   test("schema --watch on a Node its adapter can't run says why and fails, without watching", async () => {
     const cwd = scratch("main-");
     writeFileSync(join(cwd, "wrangler.jsonc"), '{ "d1_databases": [{ "binding": "DB" }] }');
-    writeFileSync(join(cwd, "active-record.jsonc"), d1Config("DB"));
+    writeFileSync(join(cwd, "arbor.jsonc"), d1Config("DB"));
     const output: string[] = [];
     const inProject = vi.spyOn(process, "cwd").mockReturnValue(cwd);
     const builtin = process.getBuiltinModule.bind(process);
@@ -111,10 +111,10 @@ describe("the d1-record command line", () => {
   test("g model and g migration run the generators, with their own options", async () => {
     const cwd = scratch("main-");
     writeFileSync(join(cwd, "wrangler.jsonc"), '{ "d1_databases": [{ "binding": "DB" }] }');
-    writeFileSync(join(cwd, "active-record.jsonc"), d1Config("DB"));
+    writeFileSync(join(cwd, "arbor.jsonc"), d1Config("DB"));
     const output: string[] = [];
     const print = (line: string) => output.push(line);
-    const config = ["--config", join(cwd, "active-record.jsonc")];
+    const config = ["--config", join(cwd, "arbor.jsonc")];
     // Paths are relative to where the command runs, so run it in the project.
     const inProject = vi.spyOn(process, "cwd").mockReturnValue(cwd);
     onTestFinished(() => inProject.mockRestore());

@@ -1,4 +1,4 @@
-// The D1 databases a project's `active-record.jsonc` names, each read from its Wrangler config: the one beside the file, or the one its entry's `wranglerConfig` names (#306).
+// The D1 databases a project's `arbor.jsonc` names, each read from its Wrangler config: the one beside the file, or the one its entry's `wranglerConfig` names (#306).
 import { statSync } from "node:fs";
 import { basename, relative, resolve, sep } from "node:path";
 import {
@@ -13,7 +13,7 @@ import { candidates, d1Entries, databaseOf, wranglerConfigIn } from "./wrangler.
 type Found = { file: string } | { error: string };
 
 /**
- * A path as a message names it: relative to `active-record.jsonc`'s folder, with forward slashes,
+ * A path as a message names it: relative to `arbor.jsonc`'s folder, with forward slashes,
  * and that folder itself as `.`.
  */
 function shown(project: ProjectDatabases, path: string): string {
@@ -50,7 +50,7 @@ function configOf(
 }
 
 /**
- * A note for the D1 databases a Wrangler config has that `active-record.jsonc` doesn't name, which
+ * A note for the D1 databases a Wrangler config has that `arbor.jsonc` doesn't name, which
  * the command leaves out, so one added to Wrangler's config alone isn't missed in silence (#301).
  * `init` adds those in the config beside the file; one elsewhere is added by hand (#306).
  */
@@ -75,7 +75,7 @@ function unnamed(
 }
 
 /**
- * The D1 databases a project's `active-record.jsonc` names, each as its Wrangler config declares
+ * The D1 databases a project's `arbor.jsonc` names, each as its Wrangler config declares
  * it: the config its entry's `wranglerConfig` names, relative to the file, or else `wrangler.jsonc`,
  * `wrangler.json` or `wrangler.toml` beside the file. Wrangler's other D1 databases are left out.
  */

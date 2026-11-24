@@ -57,7 +57,7 @@ describe("active-record console -e", () => {
     expect(run.stderr).toBe("Local database DB (.wrangler/state)\nModels: User\n");
   }, 90_000);
 
-  test("first notes a D1 database active-record.jsonc doesn't name, on stderr", async () => {
+  test("first notes a D1 database arbor.jsonc doesn't name, on stderr", async () => {
     const cwd = await shop(scratch);
     const databases = [{ binding: "DB", database_name: "shop", database_id: "local-shop" }];
     const wrangler = { d1_databases: [...databases, { binding: "LOGS" }] };
@@ -66,7 +66,7 @@ describe("active-record console -e", () => {
     const run = await evaluating("1 + 1", { cwd });
 
     expect(run.stderr).toBe(
-      "Note: wrangler.jsonc has the D1 database LOGS, which active-record.jsonc doesn't name; run `npx active-record init` to add it\nLocal database DB (.wrangler/state)\nModels: User\n",
+      "Note: wrangler.jsonc has the D1 database LOGS, which arbor.jsonc doesn't name; run `npx active-record init` to add it\nLocal database DB (.wrangler/state)\nModels: User\n",
     );
   }, 90_000);
 
@@ -101,7 +101,7 @@ describe("active-record console -e", () => {
     expect(run.exitCode).toBe(1);
     expect(run.stdout).toBe("");
     expect(run.stderr).toBe(
-      "No active-record.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one\n",
+      "No arbor.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one\n",
     );
   });
 

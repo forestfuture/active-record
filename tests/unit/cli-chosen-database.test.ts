@@ -13,7 +13,7 @@ async function databaseFor(cwd: string, options: { config?: string; database?: s
   return typeof found === "string" ? found : found.chosen;
 }
 
-/** An `active-record.jsonc` naming these D1 databases. */
+/** An `arbor.jsonc` naming these D1 databases. */
 const config = (...bindings: string[]) =>
   JSON.stringify({
     databases: Object.fromEntries(bindings.map((each) => [each, { adapter: "d1" }])),
@@ -30,7 +30,7 @@ function project(...bindings: string[]): string {
   made.push(dir);
   const d1_databases = bindings.map((binding) => ({ binding, database_name: `${binding}-name` }));
   writeFileSync(join(dir, "wrangler.jsonc"), JSON.stringify({ d1_databases }));
-  writeFileSync(join(dir, "active-record.jsonc"), config(...bindings));
+  writeFileSync(join(dir, "arbor.jsonc"), config(...bindings));
   return dir;
 }
 
@@ -64,9 +64,9 @@ describe("the database the console opens", () => {
     mkdirSync(join(cwd, "app"));
     const d1_databases = [{ binding: "DB", migrations_dir: "db/migrations" }];
     writeFileSync(join(cwd, "app/wrangler.jsonc"), JSON.stringify({ d1_databases }));
-    writeFileSync(join(cwd, "app/active-record.jsonc"), config("DB"));
+    writeFileSync(join(cwd, "app/arbor.jsonc"), config("DB"));
 
-    expect(await databaseFor(cwd, { config: "app/active-record.jsonc" })).toMatchObject({
+    expect(await databaseFor(cwd, { config: "app/arbor.jsonc" })).toMatchObject({
       migrationsDir: join(cwd, "app/db/migrations"),
     });
   });
@@ -75,7 +75,7 @@ describe("the database the console opens", () => {
     const cwd = mkdtempSync(join(tmpdir(), "console-db-"));
     made.push(cwd);
 
-    expect(await databaseFor(cwd, {})).toMatch(/^No active-record\.jsonc here/);
+    expect(await databaseFor(cwd, {})).toMatch(/^No arbor\.jsonc here/);
   });
 });
 

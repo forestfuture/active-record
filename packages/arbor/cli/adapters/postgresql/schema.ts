@@ -138,7 +138,7 @@ async function readOnServer(
   const url = connectionString(options.entry, "schemaUrl");
   if (url === undefined) {
     const instruction =
-      "set the database's schemaUrl in active-record.jsonc to a Postgres server that has it";
+      "set the database's schemaUrl in arbor.jsonc to a Postgres server that has it";
     return {
       ok: false,
       errors: [

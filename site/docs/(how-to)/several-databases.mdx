@@ -173,9 +173,9 @@ npx active-record console --database LOGS
 
 One project can keep some of its tables on D1 and others on Postgres. First install `pg` and PGlite, as [PostgreSQL](./postgresql) describes.
 
-Name each database’s adapter in `active-record.jsonc`, and give the Postgres one its own migrations folder:
+Name each database’s adapter in `arbor.jsonc`, and give the Postgres one its own migrations folder:
 
-```jsonc active-record.jsonc
+```jsonc arbor.jsonc
 {
   "databases": {
     "DB": { "adapter": "d1" },

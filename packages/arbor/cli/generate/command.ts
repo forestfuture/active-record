@@ -31,7 +31,7 @@ import { migrationNameError, modelName, tableize } from "./names.ts";
 export interface GenerateOptions {
   /** The project's folder; the current one by default. */
   cwd?: string;
-  /** The project's config file, in place of its `active-record.jsonc`. */
+  /** The project's config file, in place of its `arbor.jsonc`. */
   config?: string;
   /** The database to generate for, by its binding, when the config has several. */
   database?: string;

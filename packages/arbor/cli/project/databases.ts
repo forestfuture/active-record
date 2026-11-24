@@ -83,7 +83,7 @@ function sharing(cwd: string, first: LoadedDatabase, second: LoadedDatabase): st
 }
 
 /**
- * The project's databases, each with its own adapter, as its `active-record.jsonc` (or the file
+ * The project's databases, each with its own adapter, as its `arbor.jsonc` (or the file
  * `configPath` names) names it (#305); or a message saying what to do.
  */
 export async function loadDatabases(

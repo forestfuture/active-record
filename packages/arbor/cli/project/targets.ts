@@ -7,7 +7,7 @@ import type { LoadedDatabase, LoadedProject } from "./databases.ts";
 
 /** Where a project's config, migrations and generated schema are, when not the defaults. */
 export interface ProjectOptions {
-  /** The project's config file, in place of its `active-record.jsonc`. */
+  /** The project's config file, in place of its `arbor.jsonc`. */
   config?: string;
   /** The migrations folder, in place of the config's. */
   migrations?: string;

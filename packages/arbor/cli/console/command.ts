@@ -14,7 +14,7 @@ import { startSession, type SessionOptions } from "./session.ts";
 export interface ConsoleOptions {
   /** The project's folder; the current one by default. */
   cwd?: string;
-  /** The project's config file, in place of its `active-record.jsonc`. */
+  /** The project's config file, in place of its `arbor.jsonc`. */
   config?: string;
   /** The database to open, by its binding, when the config has several. */
   database?: string;

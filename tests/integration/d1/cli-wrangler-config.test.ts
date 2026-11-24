@@ -22,7 +22,7 @@ function project(files: Record<string, string>): string {
   return cwd;
 }
 
-/** An `active-record.jsonc` declaring these databases. */
+/** An `arbor.jsonc` declaring these databases. */
 const config = (databases: Record<string, unknown>) => JSON.stringify({ databases });
 
 /** A Wrangler config declaring these D1 entries. */
@@ -39,9 +39,9 @@ async function chosen(cwd: string, database?: string) {
 
 // A project whose Worker is in another folder (a monorepo, say) names its Wrangler config (#306).
 describe("a D1 database's wranglerConfig", () => {
-  test("names the Wrangler config its database is read from, relative to active-record.jsonc", async () => {
+  test("names the Wrangler config its database is read from, relative to arbor.jsonc", async () => {
     const root = project({
-      "app/active-record.jsonc": config({
+      "app/arbor.jsonc": config({
         DB: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
       }),
       "worker/wrangler.jsonc": wrangler({
@@ -64,10 +64,7 @@ describe("a D1 database's wranglerConfig", () => {
       "worker/wrangler.jsonc": wrangler({ binding: "DB", database_id: "x" }),
     });
     const wranglerConfig = join(root, "worker/wrangler.jsonc");
-    writeFileSync(
-      join(root, "active-record.jsonc"),
-      config({ DB: { adapter: "d1", wranglerConfig } }),
-    );
+    writeFileSync(join(root, "arbor.jsonc"), config({ DB: { adapter: "d1", wranglerConfig } }));
 
     expect(await chosen(root)).toMatchObject({ configFile: wranglerConfig });
   });
@@ -75,43 +72,41 @@ describe("a D1 database's wranglerConfig", () => {
   test("is refused when it isn't a string, isn't there, or is a folder", async () => {
     const refusal = async (wranglerConfig: unknown) => {
       const root = project({
-        "app/active-record.jsonc": config({ DB: { adapter: "d1", wranglerConfig } }),
+        "app/arbor.jsonc": config({ DB: { adapter: "d1", wranglerConfig } }),
         "worker/wrangler.jsonc": wrangler({ binding: "LOGS", database_id: "x" }),
       });
       return chosen(join(root, "app"));
     };
 
-    expect(await refusal(42)).toBe(
-      "active-record.jsonc: databases.DB.wranglerConfig isn't a string",
-    );
+    expect(await refusal(42)).toBe("arbor.jsonc: databases.DB.wranglerConfig isn't a string");
     expect(await refusal("../worker/wrangler.toml")).toBe(
-      "active-record.jsonc: databases.DB.wranglerConfig names ../worker/wrangler.toml, which isn't there",
+      "arbor.jsonc: databases.DB.wranglerConfig names ../worker/wrangler.toml, which isn't there",
     );
     expect(await refusal("../worker")).toBe(
-      "active-record.jsonc: databases.DB.wranglerConfig names ../worker, which is a folder; name its wrangler.jsonc, wrangler.json or wrangler.toml",
+      "arbor.jsonc: databases.DB.wranglerConfig names ../worker, which is a folder; name its wrangler.jsonc, wrangler.json or wrangler.toml",
     );
     // An empty path is the file's own folder, which a message names as `.`.
     expect(await refusal("")).toBe(
-      "active-record.jsonc: databases.DB.wranglerConfig names ., which is a folder; name its wrangler.jsonc, wrangler.json or wrangler.toml",
+      "arbor.jsonc: databases.DB.wranglerConfig names ., which is a folder; name its wrangler.jsonc, wrangler.json or wrangler.toml",
     );
   });
 
   test("is refused when that config doesn't have the database's binding, naming its path", async () => {
     const root = project({
-      "app/active-record.jsonc": config({
+      "app/arbor.jsonc": config({
         DB: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
       }),
       "worker/wrangler.jsonc": wrangler({ binding: "LOGS", database_id: "x" }),
     });
 
     expect(await chosen(join(root, "app"))).toBe(
-      "active-record.jsonc names DB, which isn't in ../worker/wrangler.jsonc's d1_databases",
+      "arbor.jsonc names DB, which isn't in ../worker/wrangler.jsonc's d1_databases",
     );
   });
 
   test("lets databases read different Wrangler configs, each its own migrations from its own folder", async () => {
     const root = project({
-      "app/active-record.jsonc": config({
+      "app/arbor.jsonc": config({
         DB: { adapter: "d1" },
         LOGS: { adapter: "d1", wranglerConfig: "../logger/wrangler.toml" },
       }),
@@ -133,7 +128,7 @@ describe("a D1 database's wranglerConfig", () => {
 
   test("needs no Wrangler config beside the file when every database names its own", async () => {
     const root = project({
-      "app/active-record.jsonc": config({
+      "app/arbor.jsonc": config({
         DB: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
       }),
       "worker/wrangler.jsonc": wrangler({ binding: "DB", database_id: "x" }),
@@ -144,7 +139,7 @@ describe("a D1 database's wranglerConfig", () => {
 
   test("needs the Wrangler config beside the file when any database names none", async () => {
     const root = project({
-      "app/active-record.jsonc": config({
+      "app/arbor.jsonc": config({
         DB: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
         LOGS: { adapter: "d1" },
       }),
@@ -152,14 +147,14 @@ describe("a D1 database's wranglerConfig", () => {
     });
 
     expect(await chosen(join(root, "app"), "DB")).toBe(
-      "No wrangler.jsonc, wrangler.json or wrangler.toml beside active-record.jsonc",
+      "No wrangler.jsonc, wrangler.json or wrangler.toml beside arbor.jsonc",
     );
   });
 
   // init reads only the config beside the file, so it can't add these; the note says how.
   test("notes the databases the config it names has that the file doesn't, with the line that adds them", async () => {
     const root = project({
-      "app/active-record.jsonc": config({
+      "app/arbor.jsonc": config({
         DB: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
       }),
       "app/wrangler.jsonc": wrangler({ binding: "UNUSED", database_id: "z" }),
@@ -172,7 +167,7 @@ describe("a D1 database's wranglerConfig", () => {
     const loaded = await loadDatabases(join(root, "app"));
 
     expect(typeof loaded === "string" ? loaded : loaded.notes).toEqual([
-      '../worker/wrangler.jsonc has the D1 database LOGS, which active-record.jsonc doesn\'t name; add it with "wranglerConfig": "../worker/wrangler.jsonc"',
+      '../worker/wrangler.jsonc has the D1 database LOGS, which arbor.jsonc doesn\'t name; add it with "wranglerConfig": "../worker/wrangler.jsonc"',
     ]);
   });
 });
@@ -187,7 +182,7 @@ async function schema(cwd: string) {
 describe("active-record schema, with a database's wranglerConfig", () => {
   test("reads the migrations beside that config, as its migrations_pattern finds them", async () => {
     const root = project({
-      "app/active-record.jsonc": config({
+      "app/arbor.jsonc": config({
         DB: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
       }),
       "worker/wrangler.jsonc": wrangler({
@@ -213,7 +208,7 @@ describe("active-record schema, with a database's wranglerConfig", () => {
   // Drizzle is found from each database's own folder, not only from the first one's.
   test("notes Drizzle's migrations for the database whose config's folder has drizzle.config.ts", async () => {
     const root = project({
-      "app/active-record.jsonc": config({
+      "app/arbor.jsonc": config({
         DB: { adapter: "d1" },
         LOGS: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
       }),
@@ -237,7 +232,7 @@ describe("active-record schema, with a database's wranglerConfig", () => {
 describe("migrate and the console, with a database's wranglerConfig", () => {
   test("keep its local database beside that config, where wrangler dev keeps the Worker's", async () => {
     const root = project({
-      "app/active-record.jsonc": config({
+      "app/arbor.jsonc": config({
         DB: { adapter: "d1", wranglerConfig: "../worker/wrangler.jsonc" },
       }),
       "worker/wrangler.jsonc": wrangler({

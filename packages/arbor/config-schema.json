@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "active-record.jsonc",
+  "title": "arbor.jsonc",
   "description": "The project's databases and their adapter, which the active-record command reads. `npx active-record init` writes it.",
   "type": "object",
   "properties": {

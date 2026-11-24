@@ -7,9 +7,9 @@ import { scratchDirs } from "../support/scratch.ts";
 
 const scratch = scratchDirs();
 
-/** The PostgreSQL adapter's databases in a project whose active-record.jsonc is `text`. */
+/** The PostgreSQL adapter's databases in a project whose arbor.jsonc is `text`. */
 function databasesIn(text: string) {
-  const cwd = project({ "active-record.jsonc": text });
+  const cwd = project({ "arbor.jsonc": text });
   const config = projectDatabases(cwd);
   if (typeof config === "string") throw new Error(config);
   return { cwd, result: cli.databases(config) };
@@ -26,7 +26,7 @@ function project(files: Record<string, string>): string {
 }
 
 // Postgres's databases are declared in the project's own config file (#285).
-describe("the PostgreSQL adapter's databases, from active-record.jsonc", () => {
+describe("the PostgreSQL adapter's databases, from arbor.jsonc", () => {
   test("are its databases, by binding, with comments and trailing commas", () => {
     const { cwd, result } = databasesIn(`{
       // The app's databases.
@@ -38,7 +38,7 @@ describe("the PostgreSQL adapter's databases, from active-record.jsonc", () => {
 
     expect(result).toEqual({
       ok: true,
-      file: join(cwd, "active-record.jsonc"),
+      file: join(cwd, "arbor.jsonc"),
       dir: cwd,
       databases: [
         {
@@ -64,13 +64,11 @@ describe("the PostgreSQL adapter's databases, from active-record.jsonc", () => {
     };
 
     expect(errorOf('{ "migrationsDir": 1 }')).toBe(
-      "active-record.jsonc: databases.DB.migrationsDir isn't a string",
+      "arbor.jsonc: databases.DB.migrationsDir isn't a string",
     );
-    expect(errorOf('{ "url": false }')).toBe(
-      "active-record.jsonc: databases.DB.url isn't a string",
-    );
+    expect(errorOf('{ "url": false }')).toBe("arbor.jsonc: databases.DB.url isn't a string");
     expect(errorOf('{ "schemaUrl": 1 }')).toBe(
-      "active-record.jsonc: databases.DB.schemaUrl isn't a string",
+      "arbor.jsonc: databases.DB.schemaUrl isn't a string",
     );
   });
 });

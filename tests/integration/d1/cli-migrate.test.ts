@@ -14,7 +14,7 @@ function project(entry: Record<string, unknown> = {}): string {
   const cwd = scratch("migrate-");
   const database = { binding: "DB", database_name: "shop", database_id: "local-shop", ...entry };
   writeFileSync(join(cwd, "wrangler.jsonc"), JSON.stringify({ d1_databases: [database] }));
-  writeFileSync(join(cwd, "active-record.jsonc"), d1Config("DB"));
+  writeFileSync(join(cwd, "arbor.jsonc"), d1Config("DB"));
   mkdirSync(join(cwd, "migrations"));
   writeFileSync(
     join(cwd, "migrations/0001_create_users.sql"),
@@ -79,7 +79,7 @@ describe("migrate", () => {
     expect(printed).not.toContain("0001_create_users.sql │");
   }, 120_000);
 
-  test("first notes a D1 database active-record.jsonc doesn't name", async () => {
+  test("first notes a D1 database arbor.jsonc doesn't name", async () => {
     const cwd = project();
     const db = { binding: "DB", database_name: "shop", database_id: "local-shop" };
     const databases = [db, { binding: "LOGS" }];
@@ -91,7 +91,7 @@ describe("migrate", () => {
     expect([code, lines]).toEqual([
       1,
       [
-        "Note: wrangler.jsonc has the D1 database LOGS, which active-record.jsonc doesn't name; run `npx active-record init` to add it",
+        "Note: wrangler.jsonc has the D1 database LOGS, which arbor.jsonc doesn't name; run `npx active-record init` to add it",
         "Migrating a remote database asks you to confirm it: run this on a terminal, or add --yes",
       ],
     ]);

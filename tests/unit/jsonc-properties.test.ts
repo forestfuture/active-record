@@ -63,7 +63,7 @@ function asJsoncFile(value: unknown, g: fc.GeneratorValue): string {
   return `${gap(g)}${asJsonc(value, g)}${gap(g)}${g(() => lastLine)}`;
 }
 
-// Whatever a person writes in active-record.jsonc reads as JSON.parse reads it without comments (#308).
+// Whatever a person writes in arbor.jsonc reads as JSON.parse reads it without comments (#308).
 describe("JSON with comments and trailing commas, for any value", () => {
   test("any JSON, with comments and trailing commas added, reads as JSON.parse reads it", () => {
     fc.assert(
