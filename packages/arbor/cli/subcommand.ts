@@ -10,7 +10,7 @@ const sharedOptions = {
 
 /** The help for the shared flags, after every subcommand's own. */
 const sharedFlagHelp = `Options for every command:
-  --config <file>     Use this config file, in place of active-record.jsonc
+  --config <file>     Use this config file, in place of arbor.jsonc
   -h, --help          Show this help`;
 
 /** A subcommand's options and the shared ones, as one `parseArgs` table. */

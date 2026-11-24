@@ -49,7 +49,7 @@ npx wrangler d1 create my-app-db
 
 ### 2. Generate your models
 
-Name your database in `active-record.jsonc`, which every `active-record` command reads:
+Name your database in `arbor.jsonc`, which every `active-record` command reads:
 
 ```sh
 npx active-record init

@@ -7,7 +7,7 @@ import { chosenDatabase, loadForCommand } from "../project/databases.ts";
 export interface MigrateOptions {
   /** The project's folder; the current one by default. */
   cwd?: string;
-  /** The project's config file, in place of its `active-record.jsonc`. */
+  /** The project's config file, in place of its `arbor.jsonc`. */
   config?: string;
   /** The database to migrate, when the config has several. */
   database?: string;

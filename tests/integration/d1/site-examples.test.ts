@@ -97,9 +97,7 @@ describe("Getting started", () => {
       ...(parseJsonc(readFileSync(path, "utf8")) as object),
       $schema: "…",
     });
-    expect(read(join(fresh, "active-record.jsonc"))).toEqual(
-      read(new URL("active-record.jsonc", gettingStarted)),
-    );
+    expect(read(join(fresh, "arbor.jsonc"))).toEqual(read(new URL("arbor.jsonc", gettingStarted)));
   });
 
   test("its schema.ts is what its migrations generate", async () => {

@@ -13,7 +13,7 @@ Run the console from your project’s folder. It opens your local database, or y
 npx active-record console
 ```
 
-On Postgres, it opens the `url` your [`active-record.jsonc`](./command-line#declaring-your-databases) declares, or with `--remote` its `remoteUrl`. The rest of this page shows D1.
+On Postgres, it opens the `url` your [`arbor.jsonc`](./command-line#declaring-your-databases) declares, or with `--remote` its `remoteUrl`. The rest of this page shows D1.
 
 It prints which database and Models it opened, then waits for a line:
 
@@ -82,9 +82,9 @@ The SQL comes from the database’s own `onQuery`, so a listener you set on your
 
 | Option              |                                                                                                         |
 | ------------------- | ------------------------------------------------------------------------------------------------------- |
-| `--database <name>` | The database to open, when `active-record.jsonc` names several.                                         |
+| `--database <name>` | The database to open, when `arbor.jsonc` names several.                                                 |
 | `--models <path>`   | Where your Models are: a folder (`src/models` by default) or one file (`src/models.ts`).                |
-| `--config <file>`   | Use this config file, in place of `active-record.jsonc`.                                                |
+| `--config <file>`   | Use this config file, in place of `arbor.jsonc`.                                                        |
 | `--no-history`      | Don’t keep what you type in the history file.                                                           |
 | `--verbose`         | Print each statement a line runs, to begin with. `.verbose` turns it on and off.                        |
 | `-e, --eval <code>` | Run this code, print its result, and exit. See [Running one piece of code](#running-one-piece-of-code). |

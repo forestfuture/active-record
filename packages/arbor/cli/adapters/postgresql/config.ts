@@ -1,4 +1,4 @@
-// Reads a project's Postgres databases from its `active-record.jsonc`: each one's binding, migrations folder and connection strings.
+// Reads a project's Postgres databases from its `arbor.jsonc`: each one's binding, migrations folder and connection strings.
 import { basename } from "node:path";
 import type { ConfigResult, DatabaseConfig, ProjectDatabases } from "@forestfuture/arbor/cli";
 
@@ -22,7 +22,7 @@ function databaseOf(binding: string, entry: Record<string, unknown>): DatabaseCo
 }
 
 /**
- * The Postgres databases a project's `active-record.jsonc` declares, by binding:
+ * The Postgres databases a project's `arbor.jsonc` declares, by binding:
  * `{ "databases": { "HYPERDRIVE": { "adapter": "postgresql", "url": "postgres://localhost/shop" } } }`.
  */
 export function readDatabases(project: ProjectDatabases): ConfigResult {

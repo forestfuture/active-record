@@ -1,6 +1,6 @@
 # An Active Record core with one adapter per database
 
-**Superseded in part by ADR-0019**: the adapters ship inside `@forestfuture/arbor`, as its `/d1` and `/postgresql` entries, and the command finds a project's adapter in its `active-record.jsonc`.
+**Superseded in part by ADR-0019**: the adapters ship inside `@forestfuture/arbor`, as its `/d1` and `/postgresql` entries, and the command finds a project's adapter in its `arbor.jsonc`.
 
 The library splits into `@forestfuture/arbor`, which holds Models, Relations, validations, callbacks and associations, and one adapter per database: `@forestfuture/d1-record` and `@forestfuture/pg-record` (#260). An adapter holds its driver, its SQL dialect, its type mapping, its constraint errors and its schema reader. The generated schema names the adapter, so regenerating it moves an app to another database with its Models and application code unchanged.
 

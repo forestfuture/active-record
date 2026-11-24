@@ -14,7 +14,7 @@ npm install @forestfuture/arbor pg
 npm install --save-dev @electric-sql/pglite
 ```
 
-Then name your database in [`active-record.jsonc`](./command-line#declaring-your-databases), with `npx active-record init --adapter postgresql`.
+Then name your database in [`arbor.jsonc`](./command-line#declaring-your-databases), with `npx active-record init --adapter postgresql`.
 
 A Worker on Postgres needs `"compatibility_flags": ["nodejs_compat"]` in its Wrangler config, for `pg`. To move an app from D1, see [Moving to Postgres](./move-to-postgres).
 
@@ -38,7 +38,7 @@ export default {
 
 The first query inside `withDatabase` opens a client, and the rest of the request shares it. It closes when `withDatabase` finishes. Each `withDatabase` call gets its own client, so a Database your Worker opens once can serve every request. Without `withDatabase`, each query opens a client of its own and closes it when it’s done. So does work that outlives the request, such as a save in `ctx.waitUntil`.
 
-Your schema names the binding with `adapter: postgresql({ binding: "HYPERDRIVE" })`, so `User.find(id)` works in a Worker with nothing to set up. Declare it in your [`active-record.jsonc`](./command-line#declaring-your-databases), where the command finds your databases.
+Your schema names the binding with `adapter: postgresql({ binding: "HYPERDRIVE" })`, so `User.find(id)` works in a Worker with nothing to set up. Declare it in your [`arbor.jsonc`](./command-line#declaring-your-databases), where the command finds your databases.
 
 `connect(env.DATABASE_URL)` takes a connection string the same way.
 

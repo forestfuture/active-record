@@ -72,7 +72,7 @@ describe("console, on Postgres", pgliteTimeout, () => {
     const chosen = {
       binding: "DB",
       entry: {},
-      configFile: join(cwd, "active-record.jsonc"),
+      configFile: join(cwd, "arbor.jsonc"),
       migrationsDir: join(cwd, "migrations"),
     };
 

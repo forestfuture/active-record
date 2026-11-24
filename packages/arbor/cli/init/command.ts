@@ -1,4 +1,4 @@
-// `active-record init`: writes the project's `active-record.jsonc`, naming its databases and their adapters, from what each adapter's plugin finds (#301, #305).
+// `active-record init`: writes the project's `arbor.jsonc`, naming its databases and their adapters, from what each adapter's plugin finds (#301, #305).
 import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import type { CliAdapter, InitResult } from "../adapter.ts";

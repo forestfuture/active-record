@@ -60,7 +60,7 @@ describe("active-record console", () => {
 
     expect(code).toBe(1);
     expect(lines).toEqual([
-      "No active-record.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one",
+      "No arbor.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one",
     ]);
   });
 
@@ -82,7 +82,7 @@ describe("active-record console", () => {
 
     expect(await main(["c"], (line) => lines.push(line))).toBe(1);
     expect(lines).toEqual([
-      "No active-record.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one",
+      "No arbor.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one",
     ]);
   });
 

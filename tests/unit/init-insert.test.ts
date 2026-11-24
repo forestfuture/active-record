@@ -7,7 +7,7 @@ import { PURE_RUNS } from "../support/properties.ts";
 const logs = [["LOGS", { adapter: "d1" }]] as const;
 
 // init adds a database to a file a person wrote, so the rest of it reads as they wrote it (#301).
-describe("adding entries to active-record.jsonc's text", () => {
+describe("adding entries to arbor.jsonc's text", () => {
   test("a CRLF file keeps its line endings, and a comment on the last entry's line stays there", () => {
     const text = '{\r\n  "databases": {\r\n    "DB": { "adapter": "d1" } // main\r\n  }\r\n}\r\n';
 

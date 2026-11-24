@@ -1,4 +1,4 @@
-// The adapters a project's `active-record.jsonc` names, each database's own (#305), and their command line plugins (#278, #301).
+// The adapters a project's `arbor.jsonc` names, each database's own (#305), and their command line plugins (#278, #301).
 import { basename } from "node:path";
 import type { CliAdapter, ProjectDatabases } from "../adapter.ts";
 import { projectDatabases } from "./config-file.ts";
@@ -57,7 +57,7 @@ export function pluginOf(name: string): Promise<CliAdapter> {
   return adapters[name]!.plugin();
 }
 
-/** The project's entries, as its `active-record.jsonc` has them, and the plugin of each adapter they name. */
+/** The project's entries, as its `arbor.jsonc` has them, and the plugin of each adapter they name. */
 export interface NamedAdapters {
   project: ProjectDatabases;
   /** In the order the file first names each. */
@@ -65,7 +65,7 @@ export interface NamedAdapters {
 }
 
 /**
- * The adapters the project's `active-record.jsonc` (or the file `configPath` names) names, each
+ * The adapters the project's `arbor.jsonc` (or the file `configPath` names) names, each
  * one's plugin loaded and able to run on this Node; or a message saying what to do.
  */
 export async function loadAdapters(

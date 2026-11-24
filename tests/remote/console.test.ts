@@ -15,7 +15,7 @@ function project(table: string, entry: Record<string, unknown>): string {
   const cwd = scratch("console-remote-smoke-");
   const files: Record<string, string> = {
     "wrangler.jsonc": JSON.stringify({ d1_databases: [{ binding: "DB", ...entry }] }),
-    "active-record.jsonc": d1Config("DB"),
+    "arbor.jsonc": d1Config("DB"),
     "tsconfig.json": JSON.stringify({
       compilerOptions: { paths: libraryPaths },
     }),

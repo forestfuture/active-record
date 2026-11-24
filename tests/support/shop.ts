@@ -23,7 +23,7 @@ export async function shop(scratch: (prefix: string) => string): Promise<string>
     "wrangler.jsonc": JSON.stringify({
       d1_databases: [{ binding: "DB", database_name: "shop", database_id: "local-shop" }],
     }),
-    "active-record.jsonc": d1Config("DB"),
+    "arbor.jsonc": d1Config("DB"),
     "tsconfig.json": JSON.stringify({
       compilerOptions: { paths: libraryPaths },
     }),
@@ -70,7 +70,7 @@ export async function remoteProject(
   const cwd = await shop(scratch);
   if (entry !== undefined) {
     writeFileSync(join(cwd, "wrangler.jsonc"), JSON.stringify({ d1_databases: [entry] }));
-    writeFileSync(join(cwd, "active-record.jsonc"), d1Config(String(entry.binding)));
+    writeFileSync(join(cwd, "arbor.jsonc"), d1Config(String(entry.binding)));
   }
   const real = import.meta.resolve("wrangler");
   const log = join(cwd, "wrangler-calls.jsonl");

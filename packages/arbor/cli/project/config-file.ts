@@ -1,10 +1,10 @@
-// The project's own config file (`active-record.jsonc`), and reading JSON with comments and trailing commas, as it allows.
+// The project's own config file (`arbor.jsonc`), and reading JSON with comments and trailing commas, as it allows.
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import type { ProjectDatabases } from "../adapter.ts";
 
 /** The project's config file's name, which `--config` replaces. */
-export const configFileName = "active-record.jsonc";
+export const configFileName = "arbor.jsonc";
 
 /** JSON with `//` and `/* *\/` comments and trailing commas. */
 export function parseJsonc(text: string): unknown {
@@ -70,7 +70,7 @@ interface ProjectConfig {
 }
 
 /**
- * The project's `active-record.jsonc` in `cwd`, or the file `configPath` names; undefined when
+ * The project's `arbor.jsonc` in `cwd`, or the file `configPath` names; undefined when
  * there's none, or why it can't be read.
  */
 function readProjectConfig(cwd: string, configPath?: string): ProjectConfig | string | undefined {
@@ -92,7 +92,7 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
- * The databases the project's `active-record.jsonc` (or the file `configPath` names) declares, each
+ * The databases the project's `arbor.jsonc` (or the file `configPath` names) declares, each
  * entry an object; or why there are none, saying to run `init` when there's no file.
  */
 export function projectDatabases(cwd: string, configPath?: string): ProjectDatabases | string {

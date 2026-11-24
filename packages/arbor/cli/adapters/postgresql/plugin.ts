@@ -9,7 +9,7 @@ import { migration } from "./migration.ts";
 import { openDatabase } from "./open.ts";
 import { schemaOf } from "./schema.ts";
 
-/** Postgres, as the command line sees it: `active-record.jsonc`'s databases, PGlite's schema, and `pg`. */
+/** Postgres, as the command line sees it: `arbor.jsonc`'s databases, PGlite's schema, and `pg`. */
 export const cli: CliAdapter = {
   name: "postgresql",
   init,

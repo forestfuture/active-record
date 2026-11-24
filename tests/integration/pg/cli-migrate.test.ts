@@ -223,7 +223,7 @@ describe("migrate, on Postgres", pgliteTimeout, () => {
 
     expect([code, printed]).toEqual([
       1,
-      "DB has no url in active-record.jsonc, which migrate needs for the local database\n",
+      "DB has no url in arbor.jsonc, which migrate needs for the local database\n",
     ]);
   });
 
@@ -264,7 +264,7 @@ describe("migrate, on Postgres", pgliteTimeout, () => {
 
       expect([code, lines]).toEqual([
         1,
-        ["DB has no remoteUrl in active-record.jsonc, which --remote needs"],
+        ["DB has no remoteUrl in arbor.jsonc, which --remote needs"],
       ]);
     });
   });

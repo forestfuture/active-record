@@ -462,7 +462,7 @@ describe("Postgres's schema, when PGlite can't load an extension", pgliteTimeout
     expect(await cli.readSchema(migrations(needsDblink), { entry: { url } })).toEqual({
       ok: false,
       errors: [
-        "1_extensions.sql: PGlite can't load the extension dblink; set the database's schemaUrl in active-record.jsonc to a Postgres server that has it, where the schema is read in a database of its own",
+        "1_extensions.sql: PGlite can't load the extension dblink; set the database's schemaUrl in arbor.jsonc to a Postgres server that has it, where the schema is read in a database of its own",
       ],
     });
     expect(await leftOver()).toEqual(before);

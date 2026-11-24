@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
 import { parseJsonc } from "../../packages/arbor/cli/project/config-file.ts";
 
-// active-record.jsonc is JSON with comments and trailing commas, read as a person wrote it (#308).
+// arbor.jsonc is JSON with comments and trailing commas, read as a person wrote it (#308).
 describe("reading JSON with comments and trailing commas", () => {
   test("a string holding a comma before } or ] reads as written", () => {
     expect(parseJsonc('{ "a": "x,]", "b": "y, }", "c": ["z,\\"]"] }')).toEqual({

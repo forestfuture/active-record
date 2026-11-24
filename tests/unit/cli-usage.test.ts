@@ -4,7 +4,7 @@ import { defineSubcommand, helpFor } from "../../packages/arbor/cli/subcommand.t
 
 /** `active-record --help`, as it reads today: the commands, the columns, and each one's flags. */
 const help = `Usage:
-  active-record init                          Write active-record.jsonc, which names your databases
+  active-record init                          Write arbor.jsonc, which names your databases
   active-record schema [options]              Generate src/db/schema.ts from your migrations
   active-record g model <Name> [columns]      Write a CREATE TABLE migration and a Model
   active-record g migration <Name> [columns]  Write a migration: Create…, Add…To…, Remove…From…, or empty
@@ -50,7 +50,7 @@ Options for migrate:
   --yes               Don't ask first (with --remote); also how to migrate it without a terminal
 
 Options for every command:
-  --config <file>     Use this config file, in place of active-record.jsonc
+  --config <file>     Use this config file, in place of arbor.jsonc
   -h, --help          Show this help`;
 
 describe("active-record's help", () => {
