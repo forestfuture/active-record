@@ -68,7 +68,7 @@
   },
   "peerDependencies": {
     "@cloudflare/workers-types": ">=4",
-    "@electric-sql/pglite": "^0.5.16",
+    "@electric-sql/pglite": "^0.5.14",
     "pg": "^8.23.1"
   },
   "peerDependenciesMeta": {
