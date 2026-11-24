@@ -6,7 +6,7 @@ import { apply, printed, written } from "../../packages/arbor/cli/plan.ts";
 
 /** A throwaway project folder. */
 function folder(): string {
-  return mkdtempSync(join(tmpdir(), "d1-record-apply-"));
+  return mkdtempSync(join(tmpdir(), "arbor-apply-"));
 }
 
 describe("apply: writing a command's plan", () => {

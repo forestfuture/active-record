@@ -1,6 +1,6 @@
-# @forestfuture/arbor
+# Arbor ORM
 
-A Rails-inspired Active Record for [Cloudflare Workers](https://developers.cloudflare.com/workers/): Models with validations, callbacks, associations, and change tracking; lazy, composable queries; and a predictable save lifecycle. It talks to a database through an adapter it ships with: `@forestfuture/arbor/d1` for [D1](https://developers.cloudflare.com/d1/), and `@forestfuture/arbor/postgresql` for Postgres, with your own `pg`.
+`@forestfuture/arbor` is Arbor, an Active Record ORM for TypeScript on [Cloudflare D1](https://developers.cloudflare.com/d1/) and PostgreSQL, built for [Cloudflare Workers](https://developers.cloudflare.com/workers/): Models with validations, callbacks, associations, and change tracking; lazy, composable queries; and a predictable save lifecycle. It talks to a database through an adapter it ships with: `@forestfuture/arbor/d1` for [D1](https://developers.cloudflare.com/d1/), and `@forestfuture/arbor/postgresql` for Postgres, with your own `pg`.
 
 ```sh
 npm install @forestfuture/arbor

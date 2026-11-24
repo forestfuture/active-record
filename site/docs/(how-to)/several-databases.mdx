@@ -2,7 +2,7 @@
 title: Multiple databases
 description: "Use two or more databases from one Worker, on D1, Postgres, or both."
 seo:
-  description: "Use several databases from one Cloudflare Worker with Active Record, on D1, Postgres, or both: a schema and base class for each, Sessions, and tests."
+  description: "Use several databases from one Cloudflare Worker with Arbor, on D1, Postgres, or both: a schema and base class for each, Sessions, and tests."
 ---
 
 ## Binding the databases
@@ -121,7 +121,7 @@ To pass per-request options without Sessions, such as `onQuery`, open the databa
 
 ## Testing with several databases
 
-Outside a Worker, a Model can’t look up its binding. Give your tests the bindings by mocking `cloudflare:workers`. First, let Vitest’s mocks reach Active Record:
+Outside a Worker, a Model can’t look up its binding. Give your tests the bindings by mocking `cloudflare:workers`. First, let Vitest’s mocks reach Arbor:
 
 ```ts vitest.config.ts
 import { defineConfig } from "vitest/config";
@@ -158,7 +158,7 @@ test("signing in logs an entry", async () => {
 Each Model now finds its own database, as it does in a Worker. Call your Worker’s `fetch` without `withDatabase`.
 
 :::note
-Assign the bindings onto the mocked `env` object, as above. Active Record reads `env` the first time a Model needs its binding, so it never sees an object assigned later.
+Assign the bindings onto the mocked `env` object, as above. Arbor reads `env` the first time a Model needs its binding, so it never sees an object assigned later.
 :::
 
 ## Opening one in the console

@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Active Record does something other than what the guide or the contract says
+about: Arbor does something other than what the guide or the contract says
 labels: bug, needs-triage
 ---
 

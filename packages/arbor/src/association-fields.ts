@@ -45,7 +45,7 @@ function throwingField(): () => never {
 const placeholderField = Object.freeze(throwingField());
 
 /** Marks a record field's value as an association declaration, and holds it. */
-const declarationKey = Symbol("d1-record association");
+const declarationKey = Symbol("arbor association");
 
 /**
  * An association declaration, as a record field's value: `posts = hasMany(Post)`. Its

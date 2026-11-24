@@ -2,7 +2,7 @@
 title: Connections
 description: "Give a query its database: the Model’s binding, the request’s database, or one you pass."
 seo:
-  description: "How Active Record queries find their database: the Model’s binding, withDatabase for one request, its cache of identical reads, connect(env.DB), and NoDatabase."
+  description: "How Arbor queries find their database: the Model’s binding, withDatabase for one request, its cache of identical reads, connect(env.DB), and NoDatabase."
 ---
 
 ## At a glance
@@ -83,7 +83,7 @@ Inside `withDatabase`, a read you’ve already sent is answered from memory, wit
 <include>/_excerpts/pages/connecting/examples/request-cache.mdx</include>
 
 - Each answer is new records, so changing one changes no other.
-- Any write Active Record sends inside the call clears the cache: a save, a destroy, a bulk write, or a batch, through any database handle. So a request always reads its own writes.
+- Any write Arbor sends inside the call clears the cache: a save, a destroy, a bulk write, or a batch, through any database handle. So a request always reads its own writes.
 - `reload()` always reads the database, and clears the cache too.
 - The cache ends with the `withDatabase` call. Requests never share it.
 - It keeps the 100 answers used last. [Batch iteration](./batch-iteration) doesn’t keep its batches, so walking a big table doesn’t fill it.
@@ -99,7 +99,7 @@ To send every read, turn the cache off:
 
 ### Clearing the cache
 
-Active Record only sees the writes it sends. After SQL you send on the binding yourself, clear the cache with `clearRequestCache()`:
+Arbor only sees the writes it sends. After SQL you send on the binding yourself, clear the cache with `clearRequestCache()`:
 
 <include>/_excerpts/pages/connecting/examples/clear-request-cache.mdx</include>
 

@@ -13,7 +13,7 @@ import { schemaOf } from "../../packages/arbor/cli/adapters/d1/schema.ts";
 
 /** A throwaway project folder with these files. */
 function projectWith(...files: string[]): string {
-  const dir = mkdtempSync(join(tmpdir(), "d1-record-origin-"));
+  const dir = mkdtempSync(join(tmpdir(), "arbor-origin-"));
   for (const file of files) {
     mkdirSync(join(dir, file, ".."), { recursive: true });
     writeFileSync(join(dir, file), "");

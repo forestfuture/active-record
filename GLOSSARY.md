@@ -1,8 +1,16 @@
-# arbor
+# Arbor ORM
 
-A Rails-inspired Active Record library for Cloudflare Workers: one package, `@forestfuture/arbor`: a core, and an **Adapter** for each database inside it, D1's (`/d1`) and PostgreSQL's (`/postgresql`). It maps a database's rows to domain objects with a lazy, composable query vocabulary and a predictable persistence lifecycle.
+Arbor is an Active Record ORM for TypeScript on Cloudflare D1 and PostgreSQL, built for Cloudflare Workers: one package, `@forestfuture/arbor`: a core, and an **Adapter** for each database inside it, D1's (`/d1`) and PostgreSQL's (`/postgresql`). It maps a database's rows to domain objects with a lazy, composable query vocabulary and a predictable persistence lifecycle.
 
 ## Language
+
+**Arbor**:
+This library: the package `@forestfuture/arbor`, its `arbor` command, its guide and its agent skill (ADR-0025). Where the name stands alone, as in a title, it's **Arbor ORM**.
+_Avoid_: Active Record (for the library), arbor-orm, Arbor™
+
+**Active Record**:
+The pattern Arbor follows, where a record saves itself (ADR-0016), and the name of Rails' library, which Arbor takes as its precedent. Not this library's name.
+_Avoid_: AR, Active Record (for Arbor)
 
 **Model**:
 A class extending the app's **Base class** that describes one table: its attributes, validations, callbacks, associations and scopes. Its table is named after its **Model name** (`Post` → `posts`), or by `static table`; a subclass of a Model shares its table.
@@ -305,7 +313,7 @@ A **Database scope**'s answers to the reads it sent (#218): a read with the same
 _Avoid_: Query cache, identity map (records aren't shared, only rows)
 
 **Adapter**:
-What the Active Record core needs for one database (#260, ADR-0016): its driver, SQL dialect, type mapping, constraint errors and schema reader, with its plugin for the command. Each ships inside `@forestfuture/arbor` as an entry named for its database, `/d1` and `/postgresql` (ADR-0019), and its driver is the app's to install. The **Project config** names a database's adapter, and the **Generated schema** imports it.
+What the Arbor core needs for one database (#260, ADR-0016): its driver, SQL dialect, type mapping, constraint errors and schema reader, with its plugin for the command. Each ships inside `@forestfuture/arbor` as an entry named for its database, `/d1` and `/postgresql` (ADR-0019), and its driver is the app's to install. The **Project config** names a database's adapter, and the **Generated schema** imports it.
 _Avoid_: Dialect (one part of an adapter), driver, connector
 
 **Allowed difference**:

@@ -2,7 +2,7 @@
 title: Associations
 description: "Connect Models with belongsTo, hasMany, and hasOne."
 seo:
-  description: "Connect Active Record Models with belongsTo, hasMany, and hasOne: reading and setting records, polymorphic associations, foreign keys, scopes, and dependents."
+  description: "Connect Arbor Models with belongsTo, hasMany, and hasOne: reading and setting records, polymorphic associations, foreign keys, scopes, and dependents."
 ---
 
 ## At a glance
@@ -258,7 +258,7 @@ Set what destroying the owner does to its records with `dependent`:
 
 ## Not built yet
 
-These features aren’t in Active Record yet. The code shows the shape they’re likely to take.
+These features aren’t in Arbor yet. The code shows the shape they’re likely to take.
 
 - **Associations through another across databases** ([#435](https://github.com/forestfuture/arbor/issues/435)): an association whose hops are on different databases, read with a query per database.
 
@@ -274,9 +274,9 @@ Rails declares `belongs_to :likeable, polymorphic: true` without a list, and fin
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-After `author.articles().where({ title: "Untitled" }).deleteAll()`, `author.articles()` no longer holds the untitled articles. In Rails it still does, until you reload: only a write on the association itself resets what it has loaded. In Active Record any write built from `author.articles()` clears it, at the cost of one query on the next read.
+After `author.articles().where({ title: "Untitled" }).deleteAll()`, `author.articles()` no longer holds the untitled articles. In Rails it still does, until you reload: only a write on the association itself resets what it has loaded. In Arbor any write built from `author.articles()` clears it, at the cost of one query on the next read.
 
-Rails finds an inverse by its name, and finds none when you pass `foreign_key:` or name the `belongs_to` otherwise. Active Record finds the inverse by its foreign key, so it finds `writer = belongsTo(Author, { foreignKey: "authorId" })` too, and a polymorphic `belongsTo`’s `hasOne` without `inverseOf`.
+Rails finds an inverse by its name, and finds none when you pass `foreign_key:` or name the `belongs_to` otherwise. Arbor finds the inverse by its foreign key, so it finds `writer = belongsTo(Author, { foreignKey: "authorId" })` too, and a polymorphic `belongsTo`’s `hasOne` without `inverseOf`.
 
 In Rails, `upsert_all` through an association writes the owner’s key into a clashing row. So `current_user.posts.upsert_all(rows)`, given an id from a request, moves another user’s post to the current user. Here that row is skipped, as `onDuplicate: "skip"` skips a duplicate.
 

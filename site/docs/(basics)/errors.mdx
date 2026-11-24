@@ -1,18 +1,18 @@
 ---
 title: Errors
-description: "Catch Active Record’s errors, and see when each one is thrown."
+description: "Catch Arbor’s errors, and see when each one is thrown."
 seo:
-  description: "Every error Active Record throws, from RecordNotFound and RecordInvalid to constraint errors, how to catch them with ArborError, and when each is thrown."
+  description: "Every error Arbor throws, from RecordNotFound and RecordInvalid to constraint errors, how to catch them with ArborError, and when each is thrown."
 ---
 
 ## At a glance
 
-| To                                         | Check                                                       |
-| ------------------------------------------ | ----------------------------------------------------------- |
-| tell Active Record’s errors from any other | `error instanceof ArborError`                               |
-| return a 404 for a missing record          | `error instanceof RecordNotFound`                           |
-| read why an `OrThrow` save failed          | `error instanceof RecordInvalid`, then `error.record`       |
-| catch a duplicate the table refused        | `error instanceof RecordNotUnique`, then `error.attributes` |
+| To                                  | Check                                                       |
+| ----------------------------------- | ----------------------------------------------------------- |
+| tell Arbor’s errors from any other  | `error instanceof ArborError`                               |
+| return a 404 for a missing record   | `error instanceof RecordNotFound`                           |
+| read why an `OrThrow` save failed   | `error instanceof RecordInvalid`, then `error.record`       |
+| catch a duplicate the table refused | `error instanceof RecordNotUnique`, then `error.attributes` |
 
 ## The Models
 
@@ -30,9 +30,9 @@ The examples use this Model, whose attributes come from its table through the sc
 
 </CodeGroup>
 
-## Checking for Active Record’s errors
+## Checking for Arbor’s errors
 
-Every error Active Record throws extends `ArborError`, so one check separates them from anything else:
+Every error Arbor throws extends `ArborError`, so one check separates them from anything else:
 
 <include>/_excerpts/pages/errors/examples/check.mdx</include>
 
@@ -86,7 +86,7 @@ A name from a request, such as `?include=` or a JSON key, only ever matches the 
 
 ## Constraint errors
 
-When the database refuses a write because of a constraint, Active Record throws a subclass of `ConstraintViolation`:
+When the database refuses a write because of a constraint, Arbor throws a subclass of `ConstraintViolation`:
 
 | Error               | Constraint              |
 | ------------------- | ----------------------- |

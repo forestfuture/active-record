@@ -124,7 +124,7 @@ questions:
       - "a NUMERIC(10, 2) column's scale rounds it to two places"
     routes: /attribute-types
   - id: cast-form-boolean
-    question: 'A form sends inStock="true" as text. Does Active Record store it as a boolean, and what happens with "no"?'
+    question: 'A form sends inStock="true" as text. Does Arbor store it as a boolean, and what happens with "no"?'
     expected:
       - '"true" is cast to true when it''s assigned'
       - '"no" throws a TypeError naming the Model and attribute'
@@ -442,11 +442,11 @@ questions:
     expected:
       - "inside withDatabase, the second identical read is answered from memory, with no round trip"
       - "outside withDatabase, on the binding alone, nothing is cached and both are sent"
-      - "any write Active Record sends clears the cache, so the request reads its own writes"
+      - "any write Arbor sends clears the cache, so the request reads its own writes"
     routes: /connecting
   - id: request-cache-raw-write
     question: "I update a row with env.DB.prepare inside withDatabase, then find the record again and get the old value. Why?"
     expected:
-      - "the request cache answered the read: Active Record can't see SQL sent on the binding directly"
+      - "the request cache answered the read: Arbor can't see SQL sent on the binding directly"
       - "call db.clearRequestCache() after the raw write, or turn the cache off with cache: { request: false }"
     routes: /connecting

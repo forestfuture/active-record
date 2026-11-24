@@ -36,7 +36,7 @@ export async function renamePost(env: Env, id: string) {
   return withDatabase(db, async () => {
     const post = await Post.find(id);
     await env.DB.prepare("UPDATE posts SET title = ? WHERE id = ?").bind("Hello again", id).run();
-    db.clearRequestCache(); // the UPDATE didn't go through Active Record
+    db.clearRequestCache(); // the UPDATE didn't go through Arbor
     return Post.find(post.id); // sent, so it reads "Hello again"
   });
 }

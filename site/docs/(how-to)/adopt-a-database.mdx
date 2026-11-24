@@ -1,8 +1,8 @@
 ---
 title: Existing databases
-description: "Use Active Record with a D1 database whose tables you already have."
+description: "Use Arbor with a D1 database whose tables you already have."
 seo:
-  description: "Use Active Record with an existing D1 database managed by Drizzle or Prisma, or with no migrations at all, and fix columns of the wrong type with overrides."
+  description: "Use Arbor with an existing D1 database managed by Drizzle or Prisma, or with no migrations at all, and fix columns of the wrong type with overrides."
 ---
 
 ## Using Drizzle’s migrations
@@ -20,45 +20,45 @@ Drizzle writes its migrations to `drizzle/`, its `out` setting. Tell Wrangler wh
 }
 ```
 
-Drizzle’s own schema often lives at `src/db/schema.ts` or in `src/db/schema/`, where Active Record writes its schema by default. Generate Active Record’s elsewhere:
+Drizzle’s own schema often lives at `src/db/schema.ts` or in `src/db/schema/`, where Arbor writes its schema by default. Generate Arbor’s elsewhere:
 
 ```sh
-npx arbor schema --out src/db/d1-record.ts
+npx arbor schema --out src/db/arbor.ts
 ```
 
-If `src/models/application-record.ts` already exists, point it at the new file with `import { tables } from "../db/d1-record";`. A new one imports it already.
+If `src/models/application-record.ts` already exists, point it at the new file with `import { tables } from "../db/arbor";`. A new one imports it already.
 
 Pass `--out` to every later `schema` and `g` command, or keep it in a `package.json` script.
 
 :::note
-Without `--out`, Active Record refuses to write over a file it didn’t write, or beside a folder of the same name, so Drizzle’s schema is safe.
+Without `--out`, Arbor refuses to write over a file it didn’t write, or beside a folder of the same name, so Drizzle’s schema is safe.
 :::
 
 ## Using Prisma’s migrations
 
 With D1, Prisma’s migrations are usually Wrangler’s own: files in `migrations/`, written by `prisma migrate diff`. `npx arbor schema` reads them as they are.
 
-Prisma names tables after its models, such as `User`, and columns in camelCase, such as `createdAt`. Active Record keeps both names, so the Model sets its table, `static override table = "User"`, and has attributes such as `createdAt`.
+Prisma names tables after its models, such as `User`, and columns in camelCase, such as `createdAt`. Arbor keeps both names, so the Model sets its table, `static override table = "User"`, and has attributes such as `createdAt`.
 
 :::warning[Two date formats in one column]
-Prisma writes a `DateTime` as `2026-10-12T06:38:30.325+00:00`, and a `DEFAULT CURRENT_TIMESTAMP` fills `2026-10-12 06:38:30`. Active Record reads both as UTC, but SQLite compares dates as text, so a column with both needs the steps in [Comparing dates in two forms](#comparing-dates-in-two-forms).
+Prisma writes a `DateTime` as `2026-10-12T06:38:30.325+00:00`, and a `DEFAULT CURRENT_TIMESTAMP` fills `2026-10-12 06:38:30`. Arbor reads both as UTC, but SQLite compares dates as text, so a column with both needs the steps in [Comparing dates in two forms](#comparing-dates-in-two-forms).
 :::
 
 ## Comparing dates in two forms
 
-A column can hold SQLite’s own date text (`2026-10-12 06:38:30`, from a `DEFAULT CURRENT_TIMESTAMP`) beside ISO text (`2026-10-12T06:38:30.000Z`). Active Record reads both as UTC, but SQLite compares them as text. On a column with both, `order` and `between` can misplace values within a day, and a condition on one instant misses the row written in the other form.
+A column can hold SQLite’s own date text (`2026-10-12 06:38:30`, from a `DEFAULT CURRENT_TIMESTAMP`) beside ISO text (`2026-10-12T06:38:30.000Z`). Arbor reads both as UTC, but SQLite compares them as text. On a column with both, `order` and `between` can misplace values within a day, and a condition on one instant misses the row written in the other form.
 
 To make the rows match, rewrite them once in a migration, with your own table and column:
 
 <include>/_excerpts/guide/mixed-dates-normalize.sql</include>
 
-It writes Active Record’s form for every row SQLite can read as a date, and leaves NULLs and anything else as they were. Running it again changes nothing. The rewrite is permanent, so export the table first. Conditions on the column then use its index.
+It writes Arbor’s form for every row SQLite can read as a date, and leaves NULLs and anything else as they were. Running it again changes nothing. The rewrite is permanent, so export the table first. Conditions on the column then use its index.
 
 If another tool still writes the other form, compare through `strftime` in a fragment instead:
 
 <include>/_excerpts/guide/mixed-dates/recipe.ts</include>
 
-`strftime` reads every form SQLite knows and writes Active Record’s ISO text, so rows in either form compare and sort as the times they are.
+`strftime` reads every form SQLite knows and writes Arbor’s ISO text, so rows in either form compare and sort as the times they are.
 
 :::note
 A wrapped column can’t use its index for that condition, so SQLite reads the whole table.
@@ -119,7 +119,7 @@ In a raw `env.DB.prepare(...)` statement, bind `Article.typeForAttribute("publis
 :::
 
 :::note
-Prisma’s dates need no override. On D1, Prisma writes a `DateTime` as ISO text, which Active Record reads as it is.
+Prisma’s dates need no override. On D1, Prisma writes a `DateTime` as ISO text, which Arbor reads as it is.
 :::
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">

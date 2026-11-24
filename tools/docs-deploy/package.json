@@ -1,5 +1,5 @@
 {
-  "name": "d1-record-docs-deploy",
+  "name": "arbor-docs-deploy",
   "private": true,
   "description": "The pinned Wrangler that CI's docs-deploy job runs, apart from the workspace's dependencies.",
   "devDependencies": {

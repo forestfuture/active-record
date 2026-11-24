@@ -2,8 +2,8 @@
   "$schema": "https://context7.com/schema/context7.json",
   "url": "https://context7.com/forestfuture/arbor",
   "public_key": "pk_bJAmxfR5pjyhpbAlvUg8v",
-  "projectTitle": "arbor",
-  "description": "A Rails-inspired Active Record for Cloudflare Workers, with an adapter for each database, D1 and Postgres: models with validations, callbacks, associations, and change tracking; lazy, composable queries; and a predictable save lifecycle.",
+  "projectTitle": "Arbor ORM",
+  "description": "Arbor ORM: an Active Record ORM for TypeScript on Cloudflare D1 and PostgreSQL, built for Cloudflare Workers: models with validations, callbacks, associations, and change tracking; lazy, composable queries; and a predictable save lifecycle.",
   "folders": ["site/docs", "docs"],
   "excludeFolders": ["docs/agents", "docs/adr"],
   "excludeFiles": [
