@@ -158,7 +158,7 @@ Writes need a join Model: the association has to go through a `hasMany` (a `hasO
 `insert`, `insertAll`, `upsert`, and `upsertAll` throw `ReadonlyAssociation` on any association through another, since they write no join records.
 
 :::note
-Every association it goes through must be on one database. One that reaches [another database](./several-databases#associating-models-on-different-databases) is an `InvalidModel` for now ([#435](https://github.com/forestfuture/active-record/issues/435)).
+Every association it goes through must be on one database. One that reaches [another database](./several-databases#associating-models-on-different-databases) is an `InvalidModel` for now ([#435](https://github.com/forestfuture/arbor/issues/435)).
 :::
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">

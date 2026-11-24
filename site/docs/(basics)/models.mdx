@@ -101,7 +101,7 @@ Override an attribute in `static attributes` when a column holds something its t
 
 - **Changing a `type`** drops the generated default or `generateId`, so the column’s own default applies unless you give one. `archived` gives one, so a new product reads `false` before it’s saved.
 - **A `default` and `generateId`** replace each other, so an attribute has one or the other. `generateId` is only for strings.
-- **A `default`** isn’t type-checked yet ([#74](https://github.com/forestfuture/active-record/issues/74)). One that returns a value the type can’t cast throws `TypeError` when a record is built.
+- **A `default`** isn’t type-checked yet ([#74](https://github.com/forestfuture/arbor/issues/74)). One that returns a value the type can’t cast throws `TypeError` when a record is built.
 - **Ignoring a `NOT NULL` column** without a default makes inserts fail, so give it a default in a migration first.
 - **An override of an attribute the table doesn’t have** throws `InvalidModel`, and `active-record schema` reports it. So does an override that changes a column or ignores the primary key.
 

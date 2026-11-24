@@ -28,7 +28,7 @@ describe("links to the repository's own files", () => {
     const missing = docs.flatMap((file) =>
       [
         ...readFileSync(`${root}${file}`, "utf8").matchAll(
-          /github\.com\/forestfuture\/(?:d1-record|active-record)\/(?:blob|tree)\/main\/([^)\s"#>]+)/g,
+          /github\.com\/forestfuture\/(?:d1-record|active-record|arbor)\/(?:blob|tree)\/main\/([^)\s"#>]+)/g,
         ),
       ]
         .map(([, path]) => decodeURIComponent(path!))

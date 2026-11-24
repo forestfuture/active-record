@@ -4,7 +4,7 @@ about: Active Record does something other than what the guide or the contract sa
 labels: bug, needs-triage
 ---
 
-<!-- A security problem doesn't go here: report it privately at https://github.com/forestfuture/active-record/security/advisories/new -->
+<!-- A security problem doesn't go here: report it privately at https://github.com/forestfuture/arbor/security/advisories/new -->
 
 **Versions:** <!-- `npm ls @forestfuture/arbor pg` -->
 

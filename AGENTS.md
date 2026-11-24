@@ -6,7 +6,7 @@ When reporting to me in chat, be extremely concise and sacrifice grammar for the
 
 ### Issue tracker
 
-Issues live in GitHub Issues on `forestfuture/active-record`. Before any `gh issue` command, read `docs/agents/issue-tracker.md`: plain `gh issue view` prints nothing here.
+Issues live in GitHub Issues on `forestfuture/arbor`. Before any `gh issue` command, read `docs/agents/issue-tracker.md`: plain `gh issue view` prints nothing here.
 
 ### Triage labels
 
