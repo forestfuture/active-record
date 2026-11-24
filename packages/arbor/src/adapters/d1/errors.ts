@@ -1,6 +1,6 @@
 // Reading D1's errors (constraint failures, a missing table, a query outside a request), and `NoSession`.
 import type { ConstraintFailure } from "@forestfuture/arbor/adapter";
-import { ActiveRecordError, NoDatabase } from "@forestfuture/arbor";
+import { ArborError, NoDatabase } from "@forestfuture/arbor";
 
 /** D1's error for a Session's bookmark it can't use, and the bookmark it repeats (#237). */
 export const rejectedBookmark = /invalid commitToken bookmark provided: (.*)$/s;
@@ -61,6 +61,6 @@ export function outsideRequest(error: unknown): NoDatabase | undefined {
 }
 
 /** `bookmark()` was called on a Database opened without a `session`. */
-export class NoSession extends ActiveRecordError {
+export class NoSession extends ArborError {
   override name = "NoSession";
 }

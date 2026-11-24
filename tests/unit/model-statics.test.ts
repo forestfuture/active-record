@@ -191,12 +191,12 @@ describe("noTouching (#496)", () => {
     vi.resetModules();
     const builtin = vi.spyOn(process, "getBuiltinModule").mockReturnValue(undefined as never);
     try {
-      const { ActiveRecordError, Model } = await import("../../packages/arbor/src/index.ts");
+      const { ArborError, Model } = await import("../../packages/arbor/src/index.ts");
       const run = vi.fn();
 
       const error = await Model.noTouching(run).catch((caught: unknown) => caught);
 
-      expect(error).toBeInstanceOf(ActiveRecordError);
+      expect(error).toBeInstanceOf(ArborError);
       expect(error).toHaveProperty(
         "message",
         "noTouching needs Node.js compatibility: a compatibility_date of 2026-08-04 or later, or the nodejs_compat flag, in your Wrangler config",

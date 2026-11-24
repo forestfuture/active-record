@@ -2,14 +2,14 @@
 title: Errors
 description: "Catch Active Record’s errors, and see when each one is thrown."
 seo:
-  description: "Every error Active Record throws, from RecordNotFound and RecordInvalid to constraint errors, how to catch them with ActiveRecordError, and when each is thrown."
+  description: "Every error Active Record throws, from RecordNotFound and RecordInvalid to constraint errors, how to catch them with ArborError, and when each is thrown."
 ---
 
 ## At a glance
 
 | To                                         | Check                                                       |
 | ------------------------------------------ | ----------------------------------------------------------- |
-| tell Active Record’s errors from any other | `error instanceof ActiveRecordError`                        |
+| tell Active Record’s errors from any other | `error instanceof ArborError`                               |
 | return a 404 for a missing record          | `error instanceof RecordNotFound`                           |
 | read why an `OrThrow` save failed          | `error instanceof RecordInvalid`, then `error.record`       |
 | catch a duplicate the table refused        | `error instanceof RecordNotUnique`, then `error.attributes` |
@@ -32,7 +32,7 @@ The examples use this Model, whose attributes come from its table through the sc
 
 ## Checking for Active Record’s errors
 
-Every error Active Record throws extends `ActiveRecordError`, so one check separates them from anything else:
+Every error Active Record throws extends `ArborError`, so one check separates them from anything else:
 
 <include>/_excerpts/pages/errors/examples/check.mdx</include>
 

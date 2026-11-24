@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { ActiveRecordError, RecordNotFound } from "../../packages/arbor/src/index.ts";
+import { ArborError, RecordNotFound } from "../../packages/arbor/src/index.ts";
 import { User } from "../fixtures/models/user.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -29,7 +29,7 @@ describe("finding records", () => {
     const lookup = harness.connect().model(User).find(99);
 
     await expect(lookup).rejects.toThrow(RecordNotFound);
-    await expect(lookup).rejects.toThrow(ActiveRecordError);
+    await expect(lookup).rejects.toThrow(ArborError);
     await expect(lookup).rejects.toThrow(/User.*99/);
   });
 

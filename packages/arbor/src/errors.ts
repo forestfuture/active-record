@@ -1,28 +1,28 @@
-// Every error class the library throws on purpose, all extending `ActiveRecordError`.
+// Every error class the library throws on purpose, all extending `ArborError`.
 import type { Model } from "./model.ts";
 
 /** Base class for every error the library throws on purpose. */
-export class ActiveRecordError extends Error {
-  override name = "ActiveRecordError";
+export class ArborError extends Error {
+  override name = "ArborError";
 }
 
 /** A Model's declaration is invalid, e.g. an association's foreign key isn't an attribute. */
-export class InvalidModel extends ActiveRecordError {
+export class InvalidModel extends ArborError {
   override name = "InvalidModel";
 }
 
 /** A key that isn't a declared attribute of the Model. */
-export class UnknownAttribute extends ActiveRecordError {
+export class UnknownAttribute extends ArborError {
   override name = "UnknownAttribute";
 }
 
 /** A record constructed directly (`new User()`) was used for something that needs D1. */
-export class NoDatabase extends ActiveRecordError {
+export class NoDatabase extends ArborError {
   override name = "NoDatabase";
 }
 
 /** No record matched a lookup that requires one (`find`, `findByOrThrow`, `sole`). */
-export class RecordNotFound extends ActiveRecordError {
+export class RecordNotFound extends ArborError {
   override name = "RecordNotFound";
 }
 
@@ -30,27 +30,27 @@ export class RecordNotFound extends ActiveRecordError {
  * A token a finder that must find a record was given isn't valid (#517): it was changed, signed
  * with another secret, made for another purpose, or has expired.
  */
-export class InvalidToken extends ActiveRecordError {
+export class InvalidToken extends ArborError {
   override name = "InvalidToken";
 }
 
 /** `sole()` or `findSoleBy()` matched more than one record. */
-export class SoleRecordExceeded extends ActiveRecordError {
+export class SoleRecordExceeded extends ArborError {
   override name = "SoleRecordExceeded";
 }
 
 /** Reading an attribute that wasn't loaded, e.g. one left out of `select(...)`. */
-export class MissingAttribute extends ActiveRecordError {
+export class MissingAttribute extends ArborError {
   override name = "MissingAttribute";
 }
 
 /** Destroying a record whose `dependent: "restrictWithException"` association still has records. */
-export class DeleteRestriction extends ActiveRecordError {
+export class DeleteRestriction extends ArborError {
   override name = "DeleteRestriction";
 }
 
 /** `last()` can't reverse an order given as an `sql` fragment. */
-export class IrreversibleOrder extends ActiveRecordError {
+export class IrreversibleOrder extends ArborError {
   override name = "IrreversibleOrder";
 }
 
@@ -58,12 +58,12 @@ export class IrreversibleOrder extends ActiveRecordError {
  * Things that can't be combined: relations in `or`/`merge` (e.g. of different Models),
  * `includes` or a write statement with `distinct()`, or statements of two Databases in a batch.
  */
-export class IncompatibleRelation extends ActiveRecordError {
+export class IncompatibleRelation extends ArborError {
   override name = "IncompatibleRelation";
 }
 
 /** Using a destroyed record as a live one: `save`, `update`, `destroy` or `reload` after `destroy()`. */
-export class RecordDestroyed extends ActiveRecordError {
+export class RecordDestroyed extends ArborError {
   override name = "RecordDestroyed";
 }
 
@@ -72,7 +72,7 @@ export class RecordDestroyed extends ActiveRecordError {
  * are filled in when D1's message names them. `table` is null only for a batch writing to
  * several tables, when D1 doesn't say which one failed. The original D1 error is the `cause`.
  */
-export class ConstraintViolation extends ActiveRecordError {
+export class ConstraintViolation extends ArborError {
   override name = "ConstraintViolation";
   readonly table: string | null;
   readonly columns: readonly string[];
@@ -115,7 +115,7 @@ export class CheckViolation extends ConstraintViolation {
 }
 
 /** A `…OrThrow` save was refused because the record is invalid; `record.errors` says why. */
-export class RecordInvalid extends ActiveRecordError {
+export class RecordInvalid extends ArborError {
   override name = "RecordInvalid";
   readonly record: Model;
 
@@ -129,7 +129,7 @@ export class RecordInvalid extends ActiveRecordError {
  * A rule declared with `strict: true` failed: thrown at once, with the failure's full message
  * ("Email can't be blank"), instead of adding it to `record.errors`.
  */
-export class StrictValidationFailed extends ActiveRecordError {
+export class StrictValidationFailed extends ArborError {
   override name = "StrictValidationFailed";
 }
 
@@ -137,7 +137,7 @@ export class StrictValidationFailed extends ActiveRecordError {
  * Thrown by a callback to refuse a save or destroy: `throw abort("Account is suspended")`.
  * Only this exact class halts a lifecycle; returning `false` never does.
  */
-export class CallbackAbort extends ActiveRecordError {
+export class CallbackAbort extends ArborError {
   override name = "CallbackAbort";
   readonly reason: string;
 
@@ -153,7 +153,7 @@ export function abort(reason = "Aborted by a callback"): CallbackAbort {
 }
 
 /** A `…OrThrow` save was refused by a callback's `abort(reason)`. */
-export class RecordNotSaved extends ActiveRecordError {
+export class RecordNotSaved extends ArborError {
   override name = "RecordNotSaved";
 }
 
@@ -164,7 +164,7 @@ export type StaleAction = "update" | "destroy" | "touch";
  * A save, destroy or `touch()` of a record whose row another write changed since it was loaded
  * (#357): its `lockVersion` is no longer the row's. Nothing in the write was kept.
  */
-export class StaleRecord extends ActiveRecordError {
+export class StaleRecord extends ArborError {
   override name = "StaleRecord";
   readonly record: Model;
   readonly action: StaleAction;
@@ -180,7 +180,7 @@ export class StaleRecord extends ActiveRecordError {
  * Assigning a persisted record's read-only attribute a value other than the one it holds (#358):
  * it's written when the record is created, and never changed by it after.
  */
-export class ReadonlyAttribute extends ActiveRecordError {
+export class ReadonlyAttribute extends ArborError {
   override name = "ReadonlyAttribute";
   readonly attribute: string;
 
@@ -208,7 +208,7 @@ export type ReadonlyAction =
  * A write of a read-only record (#358): one marked by `markReadonly()`, or loaded through a
  * `readonly()` Relation. Nothing ran and nothing was sent.
  */
-export class ReadonlyRecord extends ActiveRecordError {
+export class ReadonlyRecord extends ArborError {
   override name = "ReadonlyRecord";
   readonly record: Model;
   readonly action: ReadonlyAction;
@@ -237,7 +237,7 @@ const verbs: Record<ReadonlyAction, string> = {
  * `afterDestroy`, `afterTouch`), or from an around callback once its `next()` resolved. That's a
  * mistake: the write already succeeded and nothing rolls back.
  */
-export class AbortAfterPersistence extends ActiveRecordError {
+export class AbortAfterPersistence extends ArborError {
   override name = "AbortAfterPersistence";
   readonly callback: string;
   readonly reason: string;
@@ -253,12 +253,12 @@ export class AbortAfterPersistence extends ActiveRecordError {
  * A `destroyOrThrow()` was refused by a `beforeDestroy` callback's `abort(reason)` or a
  * `restrictWithError` association; or a `saveOrThrow()`, by a record it destroys (#37).
  */
-export class RecordNotDestroyed extends ActiveRecordError {
+export class RecordNotDestroyed extends ArborError {
   override name = "RecordNotDestroyed";
 }
 
 /** A name passed to `includes()` or `loaded()` that isn't one of the Model's associations. */
-export class UnknownAssociation extends ActiveRecordError {
+export class UnknownAssociation extends ArborError {
   override name = "UnknownAssociation";
 }
 
@@ -267,7 +267,7 @@ export class UnknownAssociation extends ActiveRecordError {
  * inserting or upserting through it, or any write through one that doesn't go through a join
  * Model (a source that isn't a belongsTo, a hop through a belongsTo, or a nested hop).
  */
-export class ReadonlyAssociation extends ActiveRecordError {
+export class ReadonlyAssociation extends ArborError {
   override name = "ReadonlyAssociation";
 }
 
@@ -275,11 +275,11 @@ export class ReadonlyAssociation extends ActiveRecordError {
  * A polymorphic belongsTo's type that names none of the Models it lists (#60), read from the
  * database.
  */
-export class UnknownModelName extends ActiveRecordError {
+export class UnknownModelName extends ArborError {
   override name = "UnknownModelName";
 }
 
 /** `record.loaded(name)` for an association that wasn't preloaded or read yet. */
-export class AssociationNotLoaded extends ActiveRecordError {
+export class AssociationNotLoaded extends ArborError {
   override name = "AssociationNotLoaded";
 }

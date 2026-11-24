@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
 import {
-  ActiveRecordError,
+  ArborError,
   Model,
   StaleRecord,
   type StaleAction,
@@ -10,11 +10,11 @@ class Notebook extends Model.define({ id: "integer", lockVersion: "integer" }) {
 
 describe("StaleRecord", () => {
   // A guard: the error's shape, which the conformance suite throws.
-  test("is an ActiveRecordError naming the record's Model and what was attempted", () => {
+  test("is an ArborError naming the record's Model and what was attempted", () => {
     const record = new Notebook();
     const error = new StaleRecord(record, "destroy");
 
-    expect(error).toBeInstanceOf(ActiveRecordError);
+    expect(error).toBeInstanceOf(ArborError);
     expect(error.name).toBe("StaleRecord");
     expect(error.message).toBe("Attempted to destroy a stale Notebook record");
     expect(error.record).toBe(record);
