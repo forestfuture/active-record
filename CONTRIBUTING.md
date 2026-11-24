@@ -48,7 +48,7 @@ A change to public behavior or the public API updates, in the same pull request,
 - **`GLOSSARY.md`**: a new term, or a term whose meaning changed.
 - **`site/docs/`**: the guide page for the behavior, and its examples in `site/snippets/` (see [Documentation](#documentation)).
 - **An entry's index**: a new public name is exported from the index of its entry (the core's `src/index.ts`, or an adapter's `src/adapters/<name>/index.ts`); an internal one is marked `/** @internal */`, and `vp run check:public-types` keeps it out of the published types. What only adapters need goes in the core's `src/for-adapters.ts`.
-- **`packages/arbor/skills/active-record/SKILL.md`**: the agent skill's rules, when the change alters how an app should write code with the library.
+- **`packages/arbor/skills/arbor/SKILL.md`**: the agent skill's rules, when the change alters how an app should write code with the library.
 - **`README.md`**: its quick look and feature list, when they show the behavior.
 - **`.changeset/`**: a changeset (see [Changesets](#changesets)).
 - **`docs/adr/`**: an ADR, for a decision that's hard to reverse, surprising, and a real trade-off.

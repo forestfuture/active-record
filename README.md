@@ -182,7 +182,7 @@ The packages follow [semantic versioning](https://semver.org), and always share 
 
 ## For AI agents
 
-The guide is also published for coding agents: [`llms.txt`](https://active-record.forestfuture.dev/llms.txt), [`llms-full.txt`](https://active-record.forestfuture.dev/llms-full.txt), and every page as Markdown. The package ships the guide for its own version (`node_modules/@forestfuture/arbor/llms-full.txt`) and an [agent skill](packages/arbor/skills/active-record/SKILL.md) (`npx skills add forestfuture/active-record`). See [AI agents](https://active-record.forestfuture.dev/ai-agents).
+The guide is also published for coding agents: [`llms.txt`](https://active-record.forestfuture.dev/llms.txt), [`llms-full.txt`](https://active-record.forestfuture.dev/llms-full.txt), and every page as Markdown. The package ships the guide for its own version (`node_modules/@forestfuture/arbor/llms-full.txt`) and an [agent skill](packages/arbor/skills/arbor/SKILL.md) (`npx skills add forestfuture/active-record`). See [AI agents](https://active-record.forestfuture.dev/ai-agents).
 
 ## Documentation
 

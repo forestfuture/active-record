@@ -35,7 +35,7 @@ describe("the excerpts the site's build writes", () => {
   test("hold each region of a snippet file, with the imports it uses, at <file>/<region>.ts", () => {
     const site = repository({
       "site/snippets/guide/posts.ts": snippet,
-      "packages/arbor/skills/active-record/SKILL.md": skill,
+      "packages/arbor/skills/arbor/SKILL.md": skill,
     });
     writeExcerpts(site);
 
@@ -51,7 +51,7 @@ export class Post extends Model.define({ id: "integer" }) {}
     "site/snippets/pages/posts/src/db/schema.ts": 'export const posts = { views: "integer" };\n',
     "site/snippets/pages/posts/src/models/post.ts": "export class Post {}\n",
     "site/snippets/pages/posts/examples.ts": examples,
-    "packages/arbor/skills/active-record/SKILL.md": skill,
+    "packages/arbor/skills/arbor/SKILL.md": skill,
   });
 
   test("show a page project's example with Twoslash on the site, its src/ hidden, and plain to agents", () => {
@@ -127,7 +127,7 @@ export function typo(): void {
   test("write no partial outside a page's project", () => {
     const site = repository({
       "site/snippets/guide/posts.ts": snippet,
-      "packages/arbor/skills/active-record/SKILL.md": skill,
+      "packages/arbor/skills/arbor/SKILL.md": skill,
     });
     writeExcerpts(site);
 
@@ -138,7 +138,7 @@ export function typo(): void {
     const site = repository({
       "site/snippets/guide/posts.ts": snippet,
       "site/snippets/guide/schema.sql": "CREATE TABLE posts (id INTEGER);\n",
-      "packages/arbor/skills/active-record/SKILL.md": skill,
+      "packages/arbor/skills/arbor/SKILL.md": skill,
     });
     writeExcerpts(site);
 
@@ -151,7 +151,7 @@ export function typo(): void {
   test("hold the agent skill's rules in skill-rules.md", () => {
     const site = repository({
       "site/snippets/guide/posts.ts": snippet,
-      "packages/arbor/skills/active-record/SKILL.md": skill,
+      "packages/arbor/skills/arbor/SKILL.md": skill,
     });
     writeExcerpts(site);
 
@@ -164,7 +164,7 @@ export function typo(): void {
     const site = repository({
       "site/docs/_excerpts/guide/removed.ts": "export {};\n",
       "site/snippets/guide/posts.ts": snippet,
-      "packages/arbor/skills/active-record/SKILL.md": skill,
+      "packages/arbor/skills/arbor/SKILL.md": skill,
     });
     writeExcerpts(site);
 
@@ -174,11 +174,11 @@ export function typo(): void {
   test("can't be written when the agent skill has no rules region", () => {
     const site = repository({
       "site/snippets/guide/posts.ts": snippet,
-      "packages/arbor/skills/active-record/SKILL.md": "---\nname: d1-record\n---\n",
+      "packages/arbor/skills/arbor/SKILL.md": "---\nname: d1-record\n---\n",
     });
 
     expect(() => writeExcerpts(site)).toThrow(
-      "packages/arbor/skills/active-record/SKILL.md has no rules region",
+      "packages/arbor/skills/arbor/SKILL.md has no rules region",
     );
   });
 });
