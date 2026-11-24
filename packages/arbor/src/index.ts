@@ -28,7 +28,7 @@ export {
   CallbackAbort,
   CheckViolation,
   ConstraintViolation,
-  ActiveRecordError,
+  ArborError,
   DeleteRestriction,
   IncompatibleRelation,
   IrreversibleOrder,

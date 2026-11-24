@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import {
-  ActiveRecordError,
+  ArborError,
   belongsTo,
   hasMany,
   hasOne,
@@ -146,7 +146,7 @@ describe("strict", () => {
     const error = await user.isValid().catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(StrictValidationFailed);
-    expect(error).toBeInstanceOf(ActiveRecordError);
+    expect(error).toBeInstanceOf(ArborError);
     expect((error as Error).message).toBe("Email can't be blank");
     expect(user.errors.isEmpty()).toBe(true);
     expect(StrictUser.log).toEqual([]);

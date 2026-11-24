@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { ActiveRecordError, Model, RecordInvalid } from "../../packages/arbor/src/index.ts";
+import { ArborError, Model, RecordInvalid } from "../../packages/arbor/src/index.ts";
 import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -61,7 +61,7 @@ describe("validation when saving", () => {
     const error = await user.saveOrThrow().catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(RecordInvalid);
-    expect(error).toBeInstanceOf(ActiveRecordError);
+    expect(error).toBeInstanceOf(ArborError);
     expect((error as RecordInvalid).record).toBe(user);
     expect((error as Error).message).toMatch(/Email can't be blank/);
     await expect(users.createOrThrow({})).rejects.toThrow(RecordInvalid);

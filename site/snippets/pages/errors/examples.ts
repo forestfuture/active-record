@@ -1,4 +1,4 @@
-import { ActiveRecordError, RecordNotFound, RecordNotUnique } from "@forestfuture/arbor";
+import { ArborError, RecordNotFound, RecordNotUnique } from "@forestfuture/arbor";
 import { User } from "./src/models/user";
 
 // #region check
@@ -7,7 +7,7 @@ export async function showUser(id: string): Promise<Response> {
     return Response.json(await User.find(id));
   } catch (error) {
     if (error instanceof RecordNotFound) return new Response("No such user", { status: 404 });
-    if (error instanceof ActiveRecordError) return new Response(error.message, { status: 400 });
+    if (error instanceof ArborError) return new Response(error.message, { status: 400 });
     throw error; // not one of Active Record's own
   }
 }

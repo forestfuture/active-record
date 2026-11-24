@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import {
   column,
-  ActiveRecordError,
+  ArborError,
   InvalidModel,
   Model,
   sql,
@@ -49,7 +49,7 @@ describe("model declaration", () => {
 
     expect(use).toThrow(InvalidModel);
     expect(use).toThrow(/Nameless.*table/);
-    expect(use).toThrow(ActiveRecordError);
+    expect(use).toThrow(ArborError);
   });
 
   test("a modelName that isn't a string is rejected when first used", () => {

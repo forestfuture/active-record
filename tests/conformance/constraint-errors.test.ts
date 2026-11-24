@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-pl
 import {
   belongsTo,
   CheckViolation,
-  ActiveRecordError,
+  ArborError,
   InvalidForeignKey,
   Model,
   NotNullViolation,
@@ -55,7 +55,7 @@ describe("constraint errors", () => {
     const error = await user.save().catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(RecordNotUnique);
-    expect(error).toBeInstanceOf(ActiveRecordError);
+    expect(error).toBeInstanceOf(ArborError);
     expect(error).toMatchObject({ table: "users", columns: ["email"], attributes: ["email"] });
     expect((error as Error).cause).toBeInstanceOf(Error);
   });
