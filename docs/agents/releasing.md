@@ -94,7 +94,7 @@ In 0.11 the library is Arbor (#558, ADR-0025): the package is `@forestfuture/arb
    - Add the DNS record for `arbor.forestfuture.dev`, as [cloudflare-tokens.md](cloudflare-tokens.md#the-docs-hostnames) says. Without it, CI's docs deploy stops before the redirects.
 2. **Merge #558.** CI deploys the guide to arbor.forestfuture.dev, then the redirects from both old hosts, and opens the Version Packages pull request for 0.11.0.
 3. **Outside GitHub** (the maintainer):
-   - On bestpractices.dev, edit project 15356: the name "Arbor ORM", the repository URL `https://github.com/forestfuture/arbor`, the homepage `https://arbor.forestfuture.dev`, and the description "An Active Record ORM for TypeScript on Cloudflare D1 and PostgreSQL". Its Best Practices and Baseline badges are by ID, so their URLs stay.
+   - On bestpractices.dev, edit project 15356: the name "Arbor ORM", the repository URL `https://github.com/forestfuture/arbor`, the homepage `https://arbor.forestfuture.dev`, and the description "Arbor: an Active Record ORM for TypeScript on Cloudflare D1 and PostgreSQL". Its Best Practices and Baseline badges are by ID, so their URLs stay.
    - OpenSSF Scorecard follows the repository by itself, from `scorecard.yml`; the README's badge already names `forestfuture/arbor`.
 4. **Publish a placeholder of the new package**, so its trusted publisher can be set (the maintainer), from a folder outside the repo holding only a `package.json` and a README:
    - `package.json`: `{ "name": "@forestfuture/arbor", "version": "0.0.0", "description": "Placeholder: install 0.11.0 or later.", "license": "MIT", "repository": { "type": "git", "url": "git+https://github.com/forestfuture/arbor.git" } }`
