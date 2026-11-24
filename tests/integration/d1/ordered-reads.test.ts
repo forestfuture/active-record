@@ -98,7 +98,7 @@ describe("exists() with distinct() and an offset reads the rows toArray() would 
     await titles().offset(1).exists();
     await titles().distinct().exists();
 
-    // oxlint-disable-next-line active-record/no-sql-text -- the rows D1 reads can't tell the two queries apart
+    // oxlint-disable-next-line arbor/no-sql-text -- the rows D1 reads can't tell the two queries apart
     expect(events.map((event) => event.sql)).toEqual([
       'SELECT 1 FROM "posts" LIMIT ? OFFSET ?',
       'SELECT DISTINCT 1 FROM "posts" LIMIT ?',
@@ -122,7 +122,7 @@ describe("count(attribute) after distinct() with a limit or offset (#250)", () =
     await posts().offset(1).count("title");
     await posts().distinct().count("title");
 
-    // oxlint-disable-next-line active-record/no-sql-text -- an empty table can't tell the queries apart
+    // oxlint-disable-next-line arbor/no-sql-text -- an empty table can't tell the queries apart
     expect(events.map((event) => event.sql)).toEqual([
       'SELECT COUNT("title") AS count FROM (SELECT * FROM "posts" LIMIT ? OFFSET ?) AS counted',
       'SELECT COUNT(DISTINCT "title") AS count FROM (SELECT * FROM "posts") AS counted',

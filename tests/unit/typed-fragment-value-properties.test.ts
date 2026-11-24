@@ -63,7 +63,7 @@ describe("a typed value of any shape in a fragment", () => {
         const fixed = compiled(attribute, null);
 
         if ("error" in outcome || "error" in fixed) return;
-        // oxlint-disable-next-line active-record/no-sql-text -- a value is bound, so it never changes the SQL
+        // oxlint-disable-next-line arbor/no-sql-text -- a value is bound, so it never changes the SQL
         expect(outcome.result.sql).toBe(fixed.result.sql);
       }),
       PURE_RUNS,

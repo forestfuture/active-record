@@ -578,7 +578,7 @@ export class Model extends ReadonlyMarks {
   }
 
   /** Whether saving now would write a change to the attribute (for before-callbacks). */
-  // oxlint-disable-next-line active-record/predicate-name -- public, reads as a phrase: willSaveChangeTo("email")
+  // oxlint-disable-next-line arbor/predicate-name -- public, reads as a phrase: willSaveChangeTo("email")
   willSaveChangeTo<R extends Model, K extends AttributeKey<R>>(
     this: R,
     name: K,

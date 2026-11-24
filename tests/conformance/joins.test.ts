@@ -124,7 +124,7 @@ describe("joins", () => {
     test("takes an alias of the association's plural and the table it's joined to", () => {
       const { sql } = db().model(User).joins({ posts: "user" }).toSql();
 
-      // oxlint-disable-next-line active-record/no-sql-text -- only the SQL shows a table's alias
+      // oxlint-disable-next-line arbor/no-sql-text -- only the SQL shows a table's alias
       expect(sql).toContain(
         'INNER JOIN "users" "users_posts" ON "posts"."user_id" = "users_posts"."id"',
       );
