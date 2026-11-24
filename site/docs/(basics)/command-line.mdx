@@ -14,7 +14,9 @@ npm install @forestfuture/arbor
 npx arbor --help
 ```
 
-Without the package installed, `npx arbor` runs a different npm package named `arbor`.
+:::warning[Install the package first]
+Without `@forestfuture/arbor` installed, `npx arbor` runs a different npm package named `arbor`.
+:::
 
 Every command reads your databases, and the adapter each one uses, from `arbor.jsonc`. `arbor init` writes it.
 
