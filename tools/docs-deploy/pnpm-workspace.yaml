@@ -1,7 +1,7 @@
 # The Wrangler that CI's docs-deploy job runs (#243). This file makes the folder a workspace of its
 # own, so the root's `vp install` never sees it and its install never reads the site's lockfile.
-# Wrangler is pinned exactly. Dependabot's updates for this folder fail (#554), so bump it by hand
-# (docs/agents/dependencies.md).
+# Wrangler is pinned exactly; Dependabot (.github/dependabot.yml) keeps it current. The folder sits
+# outside .github/, where Dependabot couldn't open pull requests for it (#554).
 packages:
   - .
 # New releases wait a week (in minutes), as in the root's pnpm-workspace.yaml (#424).
