@@ -7,7 +7,7 @@ seo:
 
 ## Upgrading from 0.10 to 0.11
 
-In 0.11, the library is Arbor, published as `@forestfuture/arbor`, with an `arbor` command that reads `arbor.jsonc`. Its behavior is the same. Upgrade in five steps.
+In 0.11, the library is Arbor. Its package is `@forestfuture/arbor`, and its `arbor` command reads `arbor.jsonc`. Its behavior is the same. Upgrade in six steps.
 
 ### Replacing the package
 
@@ -20,7 +20,7 @@ npm install @forestfuture/arbor@^0.11.0
 
 ### Changing imports
 
-Import from `@forestfuture/arbor` and its entries, `/d1`, `/postgresql`, `/adapter`, and `/cli`, where you imported from `@forestfuture/active-record`:
+Import from `@forestfuture/arbor` where you imported from `@forestfuture/active-record`. Its entries keep their names: `/d1`, `/postgresql`, `/adapter`, and `/cli`.
 
 ```ts
 import { ArborError, Model } from "@forestfuture/arbor";
@@ -50,7 +50,15 @@ The command is `arbor`. `active-record` and `ffar` are gone, so change your scri
 npx arbor migrate
 ```
 
-The console keeps its history in `.wrangler/arbor-history`, and on Postgres the command keeps its files in `node_modules/.cache/arbor`. The old files aren’t read, so you can delete them. Install the agent skill again with `npx skills add forestfuture/arbor`.
+The console keeps its history in `.wrangler/arbor-history`, and on Postgres the command keeps its files in `node_modules/.cache/arbor`. The old files aren’t read, so you can delete them.
+
+### Reinstalling the agent skill
+
+The agent skill is now `arbor`. Install it again:
+
+```sh
+npx skills add forestfuture/arbor
+```
 
 ### Regenerating the schema
 
