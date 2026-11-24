@@ -168,9 +168,8 @@ jobs:
   # Deploys the guide to arbor.forestfuture.dev (site/wrangler.jsonc), the docs.forestfuture.dev
   # library list (site/host/wrangler.jsonc, whose page is committed, not built), and the redirects
   # from the guide's old hosts, d1-record.forestfuture.dev and active-record.forestfuture.dev
-  # (site/redirect/). It never installs the
-  # workspace: Wrangler comes from tools/docs-deploy, which has a lockfile of its own, installed
-  # frozen with install scripts off.
+  # (site/redirect/). It never installs the workspace: Wrangler comes from tools/docs-deploy,
+  # which has a lockfile of its own, installed frozen with install scripts off.
   docs-deploy:
     needs: docs-build
     # Repeated, so the token job never follows a wider docs-build condition.
