@@ -7,11 +7,14 @@ seo:
 
 ## Running the command
 
-The `arbor` command comes with `@forestfuture/arbor`. Run it from your project’s folder:
+The `arbor` command comes with `@forestfuture/arbor`, so install the package first. Then run it from your project’s folder:
 
 ```sh
+npm install @forestfuture/arbor
 npx arbor --help
 ```
+
+Without the package installed, `npx arbor` runs a different npm package named `arbor`.
 
 Every command reads your databases, and the adapter each one uses, from `arbor.jsonc`. `arbor init` writes it.
 
