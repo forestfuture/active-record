@@ -43,7 +43,7 @@ updates:
   # The Wrangler that CI's docs-deploy job runs (#243), with a lockfile of its own and outside the
   # workspace, so the job holding the docs token never installs the site's dependencies.
   - package-ecosystem: npm
-    directory: /.github/docs-deploy
+    directory: /tools/docs-deploy
     schedule:
       interval: weekly
     cooldown:

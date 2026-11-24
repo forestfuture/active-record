@@ -31,11 +31,11 @@ jobs:
       - run: vp run check:package
       # docs-deploy's own Wrangler, installed frozen with install scripts off, checks the site built
       # above as a deploy would, without uploading it or needing a token. So a bump of
-      # .github/docs-deploy that breaks it fails here, not on main (#253).
+      # tools/docs-deploy that breaks it fails here, not on main (#253).
       - run: pnpm install --frozen-lockfile --ignore-scripts
-        working-directory: .github/docs-deploy
+        working-directory: tools/docs-deploy
       # Wrangler runs from site/, outside that folder's workspace, so pnpm exec can't reach it there.
-      - run: echo "$GITHUB_WORKSPACE/.github/docs-deploy/node_modules/.bin" >> "$GITHUB_PATH"
+      - run: echo "$GITHUB_WORKSPACE/tools/docs-deploy/node_modules/.bin" >> "$GITHUB_PATH"
       - run: wrangler deploy --dry-run
         working-directory: site
       - run: wrangler deploy --dry-run --config host/wrangler.jsonc
@@ -166,7 +166,7 @@ jobs:
   # Deploys the guide to active-record.forestfuture.dev (site/wrangler.jsonc), the docs.forestfuture.dev
   # library list (site/host/wrangler.jsonc, whose page is committed, not built), and the redirect from
   # the guide's old host, d1-record.forestfuture.dev (site/redirect/wrangler.jsonc). It never installs the
-  # workspace: Wrangler comes from .github/docs-deploy, which has a lockfile of its own, installed
+  # workspace: Wrangler comes from tools/docs-deploy, which has a lockfile of its own, installed
   # frozen with install scripts off.
   docs-deploy:
     needs: docs-build
@@ -185,7 +185,7 @@ jobs:
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /.node-version
-            /.github/docs-deploy/
+            /tools/docs-deploy/
             /site/wrangler.jsonc
             /site/host/
             /site/redirect/
@@ -200,11 +200,11 @@ jobs:
       # The pnpm version in the manifest's devEngines.
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
-          package_json_file: .github/docs-deploy/package.json
+          package_json_file: tools/docs-deploy/package.json
       - run: pnpm install --frozen-lockfile --ignore-scripts
-        working-directory: .github/docs-deploy
+        working-directory: tools/docs-deploy
       # Wrangler runs from site/, outside that folder's workspace, so pnpm exec can't reach it there.
-      - run: echo "$GITHUB_WORKSPACE/.github/docs-deploy/node_modules/.bin" >> "$GITHUB_PATH"
+      - run: echo "$GITHUB_WORKSPACE/tools/docs-deploy/node_modules/.bin" >> "$GITHUB_PATH"
       - run: wrangler deploy
         working-directory: site
         env:

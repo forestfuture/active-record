@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const wrangler = fileURLToPath(
-  new URL("../.github/docs-deploy/node_modules/.bin/wrangler", import.meta.url),
+  new URL("../tools/docs-deploy/node_modules/.bin/wrangler", import.meta.url),
 );
 
 const steps = [
@@ -20,7 +20,7 @@ const steps = [
     name: "docs deploy install",
     command: "pnpm",
     args: ["install", "--frozen-lockfile", "--ignore-scripts"],
-    cwd: ".github/docs-deploy",
+    cwd: "tools/docs-deploy",
   },
   { name: "guide deploy dry run", command: wrangler, args: ["deploy", "--dry-run"], cwd: "site" },
   {
