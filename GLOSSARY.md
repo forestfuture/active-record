@@ -5,7 +5,7 @@ Arbor is an Active Record ORM for TypeScript on Cloudflare D1 and PostgreSQL, bu
 ## Language
 
 **Arbor**:
-This library: the package `@forestfuture/arbor`, its `arbor` command, its guide and its agent skill (ADR-0025). Where the name stands alone, as in a title, it's **Arbor ORM**.
+This library: the package `@forestfuture/arbor`, its `arbor` command, its guide and its agent skill (ADR-0025). Where the name introduces the library, as in the README's title, it's **Arbor ORM**.
 _Avoid_: Active Record (for the library), arbor-orm, Arbor™
 
 **Active Record**:
