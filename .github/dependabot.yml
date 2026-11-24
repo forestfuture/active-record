@@ -17,6 +17,10 @@ updates:
 
   - package-ecosystem: npm
     directory: /
+    # A package.json range moves only when the new release falls outside it; otherwise only the
+    # lockfile changes. PGlite and pg are dev dependencies and optional peers, and raising their
+    # peer range is a public change that needs a changeset (#426).
+    versioning-strategy: increase-if-necessary
     schedule:
       interval: weekly
     cooldown:
