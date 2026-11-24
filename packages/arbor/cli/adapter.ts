@@ -1,4 +1,4 @@
-// What an adapter's plugin gives the `active-record` command (#278): its project config, schema reader, migrations and console database.
+// What an adapter's plugin gives the `arbor` command (#278): its project config, schema reader, migrations and console database.
 import type { AttributeType } from "../src/metadata.ts";
 import type { ColumnArg } from "./generate/columns.ts";
 import type { Migration } from "./project/migrations.ts";
@@ -163,7 +163,7 @@ export interface MigrateOutput {
   output: (text: string) => void;
 }
 
-/** An adapter's plugin for the `active-record` command, which ships with the command (ADR-0019). */
+/** An adapter's plugin for the `arbor` command, which ships with the command (ADR-0019). */
 export interface CliAdapter {
   /** The name a database's `adapter` takes, which a generated schema imports its factory by. */
   readonly name: string;

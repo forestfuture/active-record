@@ -8,7 +8,7 @@ labels: bug, needs-triage
 
 **Versions:** <!-- `npm ls @forestfuture/arbor pg` -->
 
-**Where it runs:** <!-- A Worker, Miniflare or `vp test`, or the command line (`active-record schema`, `console` or `migrate`, with your Node.js version) -->
+**Where it runs:** <!-- A Worker, Miniflare or `vp test`, or the command line (`arbor schema`, `console` or `migrate`, with your Node.js version) -->
 
 ## What happened
 

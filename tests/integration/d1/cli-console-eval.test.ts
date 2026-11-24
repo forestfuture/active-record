@@ -41,8 +41,8 @@ async function mainInShop(...args: string[]) {
   }
 }
 
-// `active-record console -e` (#105): one piece of code, its result on stdout, everything else on stderr.
-describe("active-record console -e", () => {
+// `arbor console -e` (#105): one piece of code, its result on stdout, everything else on stderr.
+describe("arbor console -e", () => {
   test("prints the result on stdout, and nothing else there", async () => {
     const run = await evaluating("(await User.find(1)).name");
 
@@ -66,7 +66,7 @@ describe("active-record console -e", () => {
     const run = await evaluating("1 + 1", { cwd });
 
     expect(run.stderr).toBe(
-      "Note: wrangler.jsonc has the D1 database LOGS, which arbor.jsonc doesn't name; run `npx active-record init` to add it\nLocal database DB (.wrangler/state)\nModels: User\n",
+      "Note: wrangler.jsonc has the D1 database LOGS, which arbor.jsonc doesn't name; run `npx arbor init` to add it\nLocal database DB (.wrangler/state)\nModels: User\n",
     );
   }, 90_000);
 
@@ -101,19 +101,19 @@ describe("active-record console -e", () => {
     expect(run.exitCode).toBe(1);
     expect(run.stdout).toBe("");
     expect(run.stderr).toBe(
-      "No arbor.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one\n",
+      "No arbor.jsonc here, which names the project's databases and their adapter: run `npx arbor init` to write one\n",
     );
   });
 
   test("keeps no history", async () => {
     const run = await evaluating("1 + 1");
 
-    expect(existsSync(join(run.cwd, ".wrangler/active-record-history"))).toBe(false);
+    expect(existsSync(join(run.cwd, ".wrangler/arbor-history"))).toBe(false);
   }, 90_000);
 });
 
 describe("-e on the command line", () => {
-  test("is a active-record console option, in the help", async () => {
+  test("is a arbor console option, in the help", async () => {
     const lines: string[] = [];
 
     await main(["console", "--help"], (line) => lines.push(line));

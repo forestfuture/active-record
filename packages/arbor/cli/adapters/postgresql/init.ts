@@ -1,4 +1,4 @@
-// What `active-record init` writes on Postgres: each Hyperdrive binding the Wrangler config beside the file declares, with its local database, or else `DATABASE_URL` (#301).
+// What `arbor init` writes on Postgres: each Hyperdrive binding the Wrangler config beside the file declares, with its local database, or else `DATABASE_URL` (#301).
 import { basename } from "node:path";
 import type { InitResult } from "@forestfuture/arbor/cli";
 import { hyperdriveIn, type Hyperdrive } from "./wrangler.ts";

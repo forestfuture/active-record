@@ -1,5 +1,5 @@
 /* oxlint-disable typescript/no-unsafe-declaration-merging -- each interface stands in for the
-   declarations active-record schema generates, which merge from another file: the accessors they
+   declarations arbor schema generates, which merge from another file: the accessors they
    type are defined when the Model's attributes resolve. */
 // Attribute aliases (#509): declared in `static attributes` with `aliasOf`, typed as the attribute
 // they name. These tests need no database.

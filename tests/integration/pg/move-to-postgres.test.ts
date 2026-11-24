@@ -229,7 +229,7 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     expect(await command(cwd, ["schema", "--check"])).toMatchObject({ code: 0 });
   });
 
-  test("the move changed only the migrations, the schema, and the Wrangler and active-record config", () => {
+  test("the move changed only the migrations, the schema, and the Wrangler and arbor config", () => {
     const moved = ["arbor.jsonc", "src/db/schema.ts", "wrangler.jsonc"];
     const unchanged = filesIn(app).filter(
       (file) => !file.startsWith("migrations/") && !moved.includes(file),

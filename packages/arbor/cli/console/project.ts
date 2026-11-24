@@ -78,7 +78,7 @@ async function modelsIn(
   const found = await loadModels(cwd, jiti, files, library);
   if (typeof found === "string") return found;
   if (Object.keys(found).length === 0) {
-    return `No Models in ${shown(cwd, resolve(cwd, models))} (run active-record g model, or pass --models)`;
+    return `No Models in ${shown(cwd, resolve(cwd, models))} (run arbor g model, or pass --models)`;
   }
   return found;
 }

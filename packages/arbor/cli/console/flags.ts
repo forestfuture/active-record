@@ -1,4 +1,4 @@
-// `active-record console`'s flags and help, and how they become ConsoleOptions.
+// `arbor console`'s flags and help, and how they become ConsoleOptions.
 import type { ParseArgsOptionsConfig } from "node:util";
 import { defineSubcommand, type Parsed } from "../subcommand.ts";
 import { runConsole, type ConsoleOptions } from "./command.ts";
@@ -34,10 +34,10 @@ function consoleChoices(values: ConsoleValues): ConsoleOptions {
   return { ...flags, history: noHistory ? false : history || undefined, eval: code?.[0] };
 }
 
-/** `active-record console`: opens the project's database (local, or remote) and its Models in a REPL. */
+/** `arbor console`: opens the project's database (local, or remote) and its Models in a REPL. */
 export const consoleSubcommand = defineSubcommand({
   options,
-  usage: `  active-record console (or c)                Open a console on your database, with your Models`,
+  usage: `  arbor console (or c)                Open a console on your database, with your Models`,
   flagHelp: `Options for console:
   --database <name>   The database to open, when the config has several
   --models <path>     Where the Models are: a folder (src/models) or one file (src/models.ts)

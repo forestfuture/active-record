@@ -1,6 +1,6 @@
 import { defineConfig } from "vite-plus";
 
-// These tests run the `active-record` command, which loads the library through jiti from src/,
+// These tests run the `arbor` command, which loads the library through jiti from src/,
 // compiling it in each test file's first test that loads it: about 0.6 s locally, 2–5 s on CI
 // with coverage, past Vitest's 5 s default now and then (#416). An app loads it built.
 const commandTestTimeout = 15_000;
@@ -204,7 +204,7 @@ export default defineConfig({
         rules: { "arbor/say-what-it-does": ["error", { words: ["Rails"] }] },
       },
       {
-        // A file `active-record schema` writes is left as written: its comments carry table and
+        // A file `arbor schema` writes is left as written: its comments carry table and
         // migration names, and it's regenerated, not edited.
         files: [
           "tests/fixtures/DB.ts",
@@ -275,7 +275,7 @@ export default defineConfig({
   },
   fmt: {
     // Kept verbatim: the original design brief, skills vendored from upstream, and the guide's
-    // page projects' schemas, as active-record schema writes them.
+    // page projects' schemas, as arbor schema writes them.
     ignorePatterns: [
       "docs/brief.md",
       ".claude/skills/**",

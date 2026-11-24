@@ -1,7 +1,7 @@
 import { column, gte, Model, sql } from "@forestfuture/arbor";
 import { schema } from "../db/schema";
 
-// The app's base class, holding the schema `active-record schema` generated from a Drizzle app's
+// The app's base class, holding the schema `arbor schema` generated from a Drizzle app's
 // migrations (site/snippets/db/schema.ts).
 abstract class ApplicationRecord extends Model {
   static override schema = schema;

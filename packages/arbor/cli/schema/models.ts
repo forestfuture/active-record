@@ -175,7 +175,7 @@ function addModel(cwd: string, file: string, exported: Exported, found: Found): 
   if (name === "default") {
     found.errors.push(
       `${shown(cwd, file)} exports ${model.name} as its default; export it by name ` +
-        `(export class ${model.name} …), so active-record schema can add its attributes`,
+        `(export class ${model.name} …), so arbor schema can add its attributes`,
     );
     return;
   }
@@ -183,7 +183,7 @@ function addModel(cwd: string, file: string, exported: Exported, found: Found): 
   if (!isIdentifier(model.name)) {
     found.errors.push(
       `${shown(cwd, file)} exports a Model named ${JSON.stringify(model.name)}, which isn't a name ` +
-        "active-record schema can write as code; name the class with letters, digits, _ and $",
+        "arbor schema can write as code; name the class with letters, digits, _ and $",
     );
     return;
   }

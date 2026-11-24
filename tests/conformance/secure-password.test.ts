@@ -1,5 +1,5 @@
 /* oxlint-disable typescript/no-unsafe-declaration-merging -- each interface stands in for the
-   declarations active-record schema generates, which merge from another file: the accessors they
+   declarations arbor schema generates, which merge from another file: the accessors they
    type are defined when the Model's attributes resolve. */
 // Secure passwords (#355): a virtual password, kept in the table only as its digest.
 import { inspect } from "node:util";
@@ -26,7 +26,7 @@ import { d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
 import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
-// A generated schema, as `active-record schema` writes it, for Models built on it.
+// A generated schema, as `arbor schema` writes it, for Models built on it.
 const members = {
   id: { type: "integer", null: false },
   email: "string",

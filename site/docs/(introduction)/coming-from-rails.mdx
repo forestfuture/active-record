@@ -35,8 +35,8 @@ Most names are Rails’ own, in camelCase:
 | `many?`, `one?`                          | `hasMoreThanOne()`, `hasExactlyOne()`             |
 | `unscope(:order, where: :role)`          | `unscope("order", { where: "role" })`             |
 | `changed?`, `saved_change_to_email?`     | `isChanged()`, `hasSavedChangeTo("email")`        |
-| `rails generate model Post title:string` | `npx active-record g model Post title:string`     |
-| `db/schema.rb`, `rails db:schema:dump`   | `src/db/schema.ts`, `npx active-record schema`    |
+| `rails generate model Post title:string` | `npx arbor g model Post title:string`             |
+| `db/schema.rb`, `rails db:schema:dump`   | `src/db/schema.ts`, `npx arbor schema`            |
 | `class Post < ApplicationRecord`         | `class Post extends ApplicationRecord`            |
 | `scope :active, -> { … }`                | `static active = this.scope((q) => …)`            |
 | `has_many :posts, dependent: :destroy`   | `posts = hasMany(Post, { dependent: "destroy" })` |
@@ -51,7 +51,7 @@ Attributes, conditions, and association keys all name attributes, in camelCase. 
 
 ## Declaring Models
 
-Migrations define the columns, and a Model declares only behavior. Where Rails reads the columns when the app runs, this library reads them into `src/db/schema.ts` when you run `active-record schema` or a generator, so TypeScript knows every attribute’s type.
+Migrations define the columns, and a Model declares only behavior. Where Rails reads the columns when the app runs, this library reads them into `src/db/schema.ts` when you run `arbor schema` or a generator, so TypeScript knows every attribute’s type.
 
 A Model names its table, since TypeScript can’t derive a class’s types from its name. Scopes are statics, and validations and callbacks go in a `static {}` block:
 

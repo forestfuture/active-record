@@ -39,10 +39,10 @@ npm install @forestfuture/arbor
 Tell Active Record about your database:
 
 ```sh
-npx active-record init
+npx arbor init
 ```
 
-It writes `arbor.jsonc`, which names `DB` as a D1 database. Every `active-record` command reads it:
+It writes `arbor.jsonc`, which names `DB` as a D1 database. Every `arbor` command reads it:
 
 <include meta="arbor.jsonc">/_excerpts/getting-started/arbor.jsonc</include>
 
@@ -51,8 +51,8 @@ It writes `arbor.jsonc`, which names `DB` as a D1 database. Every `active-record
 The generator writes a table’s migration and its Model in one step, like `rails generate model`. Generate users first, since each post belongs to a user:
 
 ```sh
-npx active-record g model User 'email:string!:unique' 'isActive:boolean!=true'
-npx active-record g model Post user:references 'title:string!' publishedAt:datetime
+npx arbor g model User 'email:string!:unique' 'isActive:boolean!=true'
+npx arbor g model Post user:references 'title:string!' publishedAt:datetime
 ```
 
 Each column is `name:type`. A `!` makes it required, `=true` sets a default, `:unique` adds a unique index, and `user:references` links each post to a user. The quotes stop your shell from reading the `!`.
@@ -83,10 +83,10 @@ Each `id` is a UUID generated in code, not an auto-incrementing integer, so a us
 Apply the migrations to your local database:
 
 ```sh
-npx active-record migrate
+npx arbor migrate
 ```
 
-Use `npx active-record migrate --remote` when you deploy.
+Use `npx arbor migrate --remote` when you deploy.
 
 ## Adding behavior
 

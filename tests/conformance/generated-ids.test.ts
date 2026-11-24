@@ -31,7 +31,7 @@ class NumberedNote extends Model.define({
 let issued = 0;
 const sequential = () => `id-${++issued}`;
 
-// A generated schema, as `active-record schema` writes it, for Models built on it.
+// A generated schema, as `arbor schema` writes it, for Models built on it.
 const schema = {
   adapter: d1({ binding: "DB" }),
   tables: {

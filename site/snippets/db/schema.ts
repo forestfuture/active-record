@@ -1,4 +1,4 @@
-// As `active-record schema` generates it, for the guide's examples (their Models are declared in
+// As `arbor schema` generates it, for the guide's examples (their Models are declared in
 // several files, so it's kept by hand rather than generated).
 import { defineSchema, type TableAttributes } from "@forestfuture/arbor";
 import { d1 } from "@forestfuture/arbor/d1";

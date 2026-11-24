@@ -1,5 +1,5 @@
 /* oxlint-disable typescript/no-unsafe-declaration-merging -- each interface stands in for the
-   declarations active-record schema generates, which merge from another file: the accessors they
+   declarations arbor schema generates, which merge from another file: the accessors they
    type are defined when the Model's attributes resolve. */
 // Virtual attributes (#356): attributes that aren't columns, never read from a row or written to one.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
@@ -9,7 +9,7 @@ import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
 
-// A generated schema, as `active-record schema` writes it, for Models built on it.
+// A generated schema, as `arbor schema` writes it, for Models built on it.
 const users = {
   id: { type: "integer", null: false },
   email: { type: "string", null: false },

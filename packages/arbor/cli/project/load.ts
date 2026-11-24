@@ -25,7 +25,7 @@ export function projectJiti(cwd: string): Jiti {
 export function modelFiles(cwd: string, models: string): string[] | string {
   const path = resolve(cwd, models);
   if (!existsSync(path)) {
-    return `No Models at ${shown(cwd, path)} (run active-record g model, or pass --models)`;
+    return `No Models at ${shown(cwd, path)} (run arbor g model, or pass --models)`;
   }
   if (isOneModelsFile(models) || statSync(path).isFile()) return [path];
   return readdirSync(path)
@@ -59,7 +59,7 @@ export async function loadLibrary<L>(
   jiti: Jiti,
   { command, packages }: { command: string; packages: readonly string[] },
 ): Promise<L | string> {
-  const filename = join(cwd, `active-record-${command}.ts`);
+  const filename = join(cwd, `arbor-${command}.ts`);
   let library = {};
   for (const name of packages) {
     try {
@@ -68,7 +68,7 @@ export async function loadLibrary<L>(
       library = { ...library, ...loaded };
     } catch (error) {
       if (isMissing(error, name)) {
-        return `${name} isn't installed here (install it, then run active-record ${command} again)`;
+        return `${name} isn't installed here (install it, then run arbor ${command} again)`;
       }
       return `Couldn't load ${name}: ${(error as Error).message}`;
     }

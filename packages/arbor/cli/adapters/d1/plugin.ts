@@ -1,4 +1,4 @@
-// The D1 adapter's plugin for the `active-record` command (#278), which the command imports itself (#301).
+// The D1 adapter's plugin for the `arbor` command (#278), which the command imports itself (#301).
 import { dirname, join } from "node:path";
 import type { CliAdapter } from "@forestfuture/arbor/cli";
 import { openLocalBinding, openRemoteBinding } from "./binding.ts";

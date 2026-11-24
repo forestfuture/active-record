@@ -2,27 +2,27 @@
 title: Command line
 description: "Generate your schema, write migrations and Models, and apply migrations from the command line."
 seo:
-  description: "The active-record command: initialize a project, generate the schema from your migrations, write migrations and Models, open a console, and apply migrations."
+  description: "The arbor command: initialize a project, generate the schema from your migrations, write migrations and Models, open a console, and apply migrations."
 ---
 
 ## Running the command
 
-The `active-record` command comes with `@forestfuture/arbor`, and `ffar` is its short name. Run it from your project’s folder:
+The `arbor` command comes with `@forestfuture/arbor`. Run it from your project’s folder:
 
 ```sh
-npx active-record --help
+npx arbor --help
 ```
 
-Every command reads your databases, and the adapter each one uses, from `arbor.jsonc`. `active-record init` writes it.
+Every command reads your databases, and the adapter each one uses, from `arbor.jsonc`. `arbor init` writes it.
 
 It needs Node.js 22.5 or later. On D1, it needs 22.13 or later, for Node’s built-in SQLite. [Generators](./generators) shows it step by step.
 
-## `active-record init`
+## `arbor init`
 
 Write `arbor.jsonc` for your project:
 
 ```sh
-npx active-record init
+npx arbor init
 ```
 
 It reads your Wrangler config. Each database in its `d1_databases` gets a D1 entry. Each Hyperdrive binding gets a PostgreSQL entry, whose `url` is the binding’s `localConnectionString`.
@@ -98,12 +98,12 @@ On Postgres, the file holds a database’s settings:
 
 On Postgres, the command needs `pg` installed, and PGlite to read your schema. It says what to install when either is missing.
 
-## `active-record schema`
+## `arbor schema`
 
 Generate the schema file from your migrations:
 
 ```sh
-npx active-record schema
+npx arbor schema
 ```
 
 It applies your migrations, in order, to an in-memory database, and writes each table’s columns to `src/db/schema.ts`. On D1 that’s SQLite. On Postgres it’s [PGlite](https://pglite.dev), so it needs no server.
@@ -143,12 +143,12 @@ The schema file plays the part of Rails’ `schema.rb`, and each base class is n
 Their schemas often live at `src/db/schema.ts` or `src/db/schema/`. Write Active Record’s somewhere else, with `--out src/db/d1-record.ts`, and, if `application-record.ts` already exists, point its `import { schema }` at it (a new one is written importing the right file).
 :::
 
-## `active-record console`
+## `arbor console`
 
-Open your database with your Models in a console, or `active-record c` for short ([Console](./console) shows a session). It opens the local one unless you pass `--remote`:
+Open your database with your Models in a console, or `arbor c` for short ([Console](./console) shows a session). It opens the local one unless you pass `--remote`:
 
 ```sh
-npx active-record console
+npx arbor console
 ```
 
 | Option              |                                                                                       |
@@ -165,12 +165,12 @@ npx active-record console
 
 It reads TypeScript Models and uses your project’s own `@forestfuture/arbor` and its adapter. On D1, it opens the database through your project’s `wrangler`. On Postgres, it opens a connection to the database’s `url`, or with `--remote` its `remoteUrl`, and closes it when you leave. It refuses, printing why, when there’s no config, with several databases and no `--database`, with no Models, or with the library not installed. On D1, it also refuses without `wrangler` installed, or with `--remote` when the binding has no `database_id`. On Postgres, it refuses when the database has no `url` (or, with `--remote`, no `remoteUrl`), or names a variable that isn’t set. With `--remote`, it refuses when you don’t confirm it, or aren’t on a terminal and didn’t pass `--yes`. `--yes` only goes with `--remote`, `--history` can’t be combined with `--no-history`, and `-e` takes one piece of code, once.
 
-## `active-record migrate`
+## `arbor migrate`
 
 Apply your pending migrations to the local database:
 
 ```sh
-npx active-record migrate
+npx arbor migrate
 ```
 
 | Option              |                                                                               |
@@ -273,11 +273,11 @@ The migrations run in one transaction that’s rolled back, and the database is 
 
 Stopping the command with Ctrl-C drops the database too. A command killed outright can leave one behind, named `active_record_schema_…`, which you can drop yourself.
 
-## `active-record g model` and `g migration`
+## `arbor g model` and `g migration`
 
 ```sh
-npx active-record g model <Name> [columns] [options]
-npx active-record g migration <Name> [columns] [options]
+npx arbor g model <Name> [columns] [options]
+npx arbor g migration <Name> [columns] [options]
 ```
 
 `generate` is the same as `g`.
@@ -288,7 +288,7 @@ npx active-record g migration <Name> [columns] [options]
 | `--no-timestamps`      | Leave out `created_at` and `updated_at`.                                                                               |
 | `--models <path>`      | Write Models in this folder (importing `application-record.ts` from it), or append them to one file (`src/models.ts`). |
 | `--database <binding>` | The database to use, when the config has several.                                                                      |
-| `--out <file>`         | The schema file to regenerate, as for `active-record schema` (for a Drizzle project’s `src/db/d1-record.ts`, say).     |
+| `--out <file>`         | The schema file to regenerate, as for `arbor schema` (for a Drizzle project’s `src/db/d1-record.ts`, say).             |
 | `--config <file>`      | Use this config file.                                                                                                  |
 
 ### Column syntax
@@ -348,13 +348,13 @@ A name can be written `AddSkuToProducts` or `add_sku_to_products`, and the table
 
 Nothing is written unless all of these hold:
 
-- the new migration applies after the existing ones (in memory, as `active-record schema` applies them);
+- the new migration applies after the existing ones (in memory, as `arbor schema` applies them);
 - the Model’s file doesn’t exist yet (or, with one models file, doesn’t have the class yet);
 - the config’s `migrations_pattern`, if it has one, would match the new file, so Wrangler would apply it;
-- the schema file can be written (see [What it refuses](#active-record-schema));
+- the schema file can be written (see [What it refuses](#arbor-schema));
 - on D1, it isn’t a required column added without a default, which SQLite can’t add.
 
-Then the generator writes the files, regenerates the schema, and prints the next step: `npx active-record migrate`.
+Then the generator writes the files, regenerates the schema, and prints the next step: `npx arbor migrate`.
 
 ## Exit codes
 

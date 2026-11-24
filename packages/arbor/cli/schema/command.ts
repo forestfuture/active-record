@@ -1,4 +1,4 @@
-// `active-record schema`: plans the generated schema for each database, and `--watch`.
+// `arbor schema`: plans the generated schema for each database, and `--watch`.
 import { watch } from "node:fs";
 import { resolve } from "node:path";
 import { apply, combined, printing, type Plan, type Print } from "../plan.ts";
@@ -34,9 +34,7 @@ function checkPlan(
   const out = shown(project.cwd, db.target.out);
   const schema = schemaSourceOf(db, tables);
   const current = db.schema !== undefined && fingerprintIn(db.schema) === fingerprintOf(schema);
-  const line = current
-    ? `${out} is up to date`
-    : `${out} is out of date: run \`active-record schema\``;
+  const line = current ? `${out} is up to date` : `${out} is out of date: run \`arbor schema\``;
   return printing([line], current ? 0 : 1);
 }
 
@@ -59,7 +57,7 @@ async function planDatabase(
   return check ? checkPlan(project, db, result.tables) : schemaWrites(project, db, result);
 }
 
-/** What `active-record schema` writes and prints for a project (or, with `check`, only prints). */
+/** What `arbor schema` writes and prints for a project (or, with `check`, only prints). */
 export async function planSchema(project: ProjectSnapshot, check: boolean): Promise<Plan> {
   return combined(
     await Promise.all(project.databases.map((db) => planDatabase(project, db, check))),
@@ -67,7 +65,7 @@ export async function planSchema(project: ProjectSnapshot, check: boolean): Prom
 }
 
 /**
- * `active-record schema`: generates each database's `schema.ts` from its migrations and the Models
+ * `arbor schema`: generates each database's `schema.ts` from its migrations and the Models
  * built on it (#66, #68, #232). Resolves to the exit code: 0, or 1 when anything failed or, with
  * `check`, is out of date.
  */
@@ -85,7 +83,7 @@ export async function runSchema(options: SchemaOptions, print: Print): Promise<n
 }
 
 /**
- * `active-record schema --watch` from the command line: watching, once its adapter loads; or, when
+ * `arbor schema --watch` from the command line: watching, once its adapter loads; or, when
  * it can't (none installed, or a Node it can't run on), 1, having said why, as a run without
  * `--watch` would.
  */
@@ -103,7 +101,7 @@ export async function watchFromCommandLine(
 }
 
 /**
- * `active-record schema --watch`: generates, then again whenever a migration or a Model file changes,
+ * `arbor schema --watch`: generates, then again whenever a migration or a Model file changes,
  * keeping the last good file when one fails. Returns a function that stops watching.
  */
 export async function watchSchema(options: SchemaOptions, print: Print): Promise<() => void> {

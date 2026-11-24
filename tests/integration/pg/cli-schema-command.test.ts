@@ -10,15 +10,15 @@ const pgliteTimeout = { timeout: 60_000 };
 
 const scratch = scratchDirs();
 
-/** Runs `active-record schema` in the project, collecting what it prints. */
+/** Runs `arbor schema` in the project, collecting what it prints. */
 async function run(cwd: string, options: Parameters<typeof runSchema>[0] = {}) {
   const output: string[] = [];
   const code = await runSchema({ cwd, ...options }, (line) => output.push(line));
   return { code, output: output.join("\n") };
 }
 
-// `active-record schema` on a Postgres project (#285).
-describe("active-record schema, on Postgres", pgliteTimeout, () => {
+// `arbor schema` on a Postgres project (#285).
+describe("arbor schema, on Postgres", pgliteTimeout, () => {
   test("writes the schema from the migrations, naming the PostgreSQL adapter and the binding", async () => {
     const cwd = writePgProject(
       scratch("pg-schema-", true),

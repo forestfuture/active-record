@@ -1,4 +1,4 @@
-// A standalone guide page's project (site/snippets/pages/<page>/): its migrations, and the schema `active-record schema` generates from them.
+// A standalone guide page's project (site/snippets/pages/<page>/): its migrations, and the schema `arbor schema` generates from them.
 import { readdirSync, readFileSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, vi, type MockInstance } from "vite-plus/test";
 import { join } from "node:path";
@@ -54,7 +54,7 @@ export function pageMigrations(page: string, folder: "migrations" | "postgres"):
     .map((name) => new URL(name, dir));
 }
 
-/** What `active-record schema` exits with, and what it prints, in `cwd`. */
+/** What `arbor schema` exits with, and what it prints, in `cwd`. */
 export async function schemaCommand(cwd: string, check = false) {
   const said: string[] = [];
   const code = await runSchema({ cwd, check }, (line) => said.push(line));

@@ -1,8 +1,8 @@
-// `active-record g`'s flags and help, and how they become GenerateOptions.
+// `arbor g`'s flags and help, and how they become GenerateOptions.
 import { defineSubcommand } from "../subcommand.ts";
 import { runGenerate } from "./command.ts";
 
-/** `active-record g model …` and `active-record g migration …`. */
+/** `arbor g model …` and `arbor g migration …`. */
 export const generateSubcommand = defineSubcommand({
   options: {
     id: { type: "string" },
@@ -11,8 +11,8 @@ export const generateSubcommand = defineSubcommand({
     database: { type: "string" },
     out: { type: "string" },
   },
-  usage: `  active-record g model <Name> [columns]      Write a CREATE TABLE migration and a Model
-  active-record g migration <Name> [columns]  Write a migration: Create…, Add…To…, Remove…From…, or empty`,
+  usage: `  arbor g model <Name> [columns]      Write a CREATE TABLE migration and a Model
+  arbor g migration <Name> [columns]  Write a migration: Create…, Add…To…, Remove…From…, or empty`,
   notes: `Columns are name:type, where the type is string (the default), integer, real, boolean,
 datetime, json or references; then ! for NOT NULL, =value for a default, and :unique or
 :index for an index. For example: email:string!:unique active:boolean!=false user:references`,

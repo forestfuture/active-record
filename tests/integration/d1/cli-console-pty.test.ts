@@ -9,7 +9,7 @@ const yellow = (text: string) => `\u001b[33m${text}\u001b[39m`;
 
 // What a terminal does that a piped stream can't show: line editing, completion while typing, a
 // paste arriving a line at a time, Ctrl-D, colors. See docs/agents/workflow.md, step 3.
-describe.skipIf(!ptyAvailable)("active-record console on a terminal", () => {
+describe.skipIf(!ptyAvailable)("arbor console on a terminal", () => {
   test("shows a local> prompt", async () => {
     const cwd = await shop(scratch);
 

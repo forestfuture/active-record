@@ -1,8 +1,8 @@
-// `active-record schema`'s flags and help, and how they become SchemaOptions.
+// `arbor schema`'s flags and help, and how they become SchemaOptions.
 import { defineSubcommand } from "../subcommand.ts";
 import { runSchema, watchFromCommandLine } from "./command.ts";
 
-/** `active-record schema`, once or watching. */
+/** `arbor schema`, once or watching. */
 export const schemaSubcommand = defineSubcommand({
   options: {
     check: { type: "boolean" },
@@ -11,7 +11,7 @@ export const schemaSubcommand = defineSubcommand({
     migrations: { type: "string" },
     models: { type: "string" },
   },
-  usage: `  active-record schema [options]              Generate src/db/schema.ts from your migrations`,
+  usage: `  arbor schema [options]              Generate src/db/schema.ts from your migrations`,
   flagHelp: `Options for schema:
   --check             Fail if the generated schema is out of date (for CI)
   --watch             Regenerate whenever a migration changes

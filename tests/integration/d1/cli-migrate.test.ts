@@ -37,7 +37,7 @@ async function migrated(cwd: string, options: object = {}, typed?: string) {
   return { code, printed, lines };
 }
 
-// `active-record migrate` applies pending migrations through the adapter (#278).
+// `arbor migrate` applies pending migrations through the adapter (#278).
 describe("migrate", () => {
   test("applies the pending migrations to the local database, through the project's Wrangler", async () => {
     const cwd = project();
@@ -91,7 +91,7 @@ describe("migrate", () => {
     expect([code, lines]).toEqual([
       1,
       [
-        "Note: wrangler.jsonc has the D1 database LOGS, which arbor.jsonc doesn't name; run `npx active-record init` to add it",
+        "Note: wrangler.jsonc has the D1 database LOGS, which arbor.jsonc doesn't name; run `npx arbor init` to add it",
         "Migrating a remote database asks you to confirm it: run this on a terminal, or add --yes",
       ],
     ]);

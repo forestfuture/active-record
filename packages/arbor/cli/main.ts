@@ -1,4 +1,4 @@
-// The `active-record` command line. Node only: no Worker imports it (cli/bin.ts runs it).
+// The `arbor` command line. Node only: no Worker imports it (cli/bin.ts runs it).
 import { consoleSubcommand } from "./console/flags.ts";
 import { generateSubcommand } from "./generate/flags.ts";
 import { initSubcommand } from "./init/flags.ts";
@@ -54,9 +54,7 @@ export function main(
     return asked ? 0 : 1;
   }
   if (!isSupportedNode()) {
-    print(
-      `active-record ${command} needs Node 22.5 or later (this is Node ${process.versions.node})`,
-    );
+    print(`arbor ${command} needs Node 22.5 or later (this is Node ${process.versions.node})`);
     return 1;
   }
   return subcommand.run(rest, print, (problem) => usage(print, problem));

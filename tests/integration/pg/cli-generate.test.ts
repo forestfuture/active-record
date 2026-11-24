@@ -45,7 +45,7 @@ describe("the generators, on Postgres", pgliteTimeout, () => {
         "Wrote src/models/product.ts",
         "Wrote src/db/schema.ts (1 table) from migrations/",
         "Wrote src/models/application-record.ts",
-        "Next: npx active-record migrate",
+        "Next: npx arbor migrate",
       ].join("\n"),
     ]);
     expect(read(cwd, "migrations/20261108090503_create_products.sql")).toMatch(

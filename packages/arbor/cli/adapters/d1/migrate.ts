@@ -1,4 +1,4 @@
-// `active-record migrate` on D1: the project's own Wrangler applies the database's migrations, locally or remotely.
+// `arbor migrate` on D1: the project's own Wrangler applies the database's migrations, locally or remotely.
 import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,7 +9,7 @@ import type { ChosenDatabase, MigrateOutput } from "@forestfuture/arbor/cli";
 function wranglerBin(cwd: string, configFile: string): string | string[] {
   const manifest = resolveWrangler(cwd, configFile, "wrangler/package.json");
   if (manifest === undefined) {
-    return ["wrangler isn't installed here (install it, then run active-record migrate again)"];
+    return ["wrangler isn't installed here (install it, then run arbor migrate again)"];
   }
   return join(dirname(fileURLToPath(manifest)), "bin", "wrangler.js");
 }

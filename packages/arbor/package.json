@@ -3,7 +3,7 @@
   "version": "0.10.0",
   "description": "A Rails-inspired Active Record for Cloudflare Workers, with an adapter per database.",
   "keywords": [
-    "active-record",
+    "arbor",
     "cloudflare",
     "orm",
     "workers"
@@ -20,8 +20,7 @@
     "directory": "packages/arbor"
   },
   "bin": {
-    "active-record": "./cli/bin.ts",
-    "ffar": "./cli/bin.ts"
+    "arbor": "./cli/bin.ts"
   },
   "files": [
     "config-schema.json",
@@ -41,8 +40,7 @@
   },
   "publishConfig": {
     "bin": {
-      "active-record": "./dist/command.mjs",
-      "ffar": "./dist/command.mjs"
+      "arbor": "./dist/command.mjs"
     },
     "exports": {
       ".": "./dist/index.mjs",

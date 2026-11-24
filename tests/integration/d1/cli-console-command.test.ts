@@ -27,7 +27,7 @@ async function running(options: { verbose?: boolean } = {}) {
   return { cwd, send, end };
 }
 
-describe("active-record console", () => {
+describe("arbor console", () => {
   test("opens the project's local database with its Models, and persists what you do", async () => {
     const cwd = await shop();
     const terminal = terminalStreams();
@@ -60,15 +60,15 @@ describe("active-record console", () => {
 
     expect(code).toBe(1);
     expect(lines).toEqual([
-      "No arbor.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one",
+      "No arbor.jsonc here, which names the project's databases and their adapter: run `npx arbor init` to write one",
     ]);
   });
 
-  test("is an active-record command with its own options in the help", async () => {
+  test("is an arbor command with its own options in the help", async () => {
     const lines: string[] = [];
 
     expect(await main(["console", "--help"], (line) => lines.push(line))).toBe(0);
-    expect(lines[0]).toMatch(/active-record console \(or c\) +Open a console/);
+    expect(lines[0]).toMatch(/arbor console \(or c\) +Open a console/);
     expect(lines[0]).toMatch(/Options for console:\n  --database <name>/);
     expect(lines[0]).toMatch(/--no-history +Don't keep what you type/);
     expect(lines[0]).toMatch(/Options for every command:\n  --config <file>/);
@@ -82,7 +82,7 @@ describe("active-record console", () => {
 
     expect(await main(["c"], (line) => lines.push(line))).toBe(1);
     expect(lines).toEqual([
-      "No arbor.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one",
+      "No arbor.jsonc here, which names the project's databases and their adapter: run `npx arbor init` to write one",
     ]);
   });
 
@@ -90,7 +90,7 @@ describe("active-record console", () => {
     const cwd = await shop();
     const terminal = terminalStreams();
     const done = runConsole({ cwd }, () => {}, { ...terminal, terminal: true });
-    const history = join(cwd, ".wrangler/active-record-history");
+    const history = join(cwd, ".wrangler/arbor-history");
 
     terminal.input.write("1 + 1\n");
     await waitFor(() => existsSync(history));
@@ -112,7 +112,7 @@ describe("active-record console", () => {
     terminal.input.end();
     await done;
 
-    expect(existsSync(join(cwd, ".wrangler/active-record-history"))).toBe(false);
+    expect(existsSync(join(cwd, ".wrangler/arbor-history"))).toBe(false);
   }, 90_000);
 
   // pgrep: not on Windows. SIGKILL can't be caught, and does leave workerd running.

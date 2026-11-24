@@ -13,7 +13,7 @@ class Sample extends Model.define({
   static table = "samples";
 }
 
-// `active-record console`: a REPL with the project's Models in scope (#104).
+// `arbor console`: a REPL with the project's Models in scope (#104).
 describe("the console session", () => {
   let binding: TestDatabase;
   let dispose: () => Promise<void>;

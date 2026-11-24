@@ -1,4 +1,4 @@
-// The PostgreSQL adapter's plugin for the `active-record` command (#285), which the command imports itself (#301).
+// The PostgreSQL adapter's plugin for the `arbor` command (#285), which the command imports itself (#301).
 import { dirname, join } from "node:path";
 import type { CliAdapter } from "@forestfuture/arbor/cli";
 import { readDatabases } from "./config.ts";
@@ -18,7 +18,7 @@ export const cli: CliAdapter = {
   migration,
   remote: (chosen) => remoteTarget(chosen),
   // Ignored wherever node_modules is, with no line of its own in .gitignore.
-  stateFolder: ({ configFile }) => join(dirname(configFile), "node_modules/.cache/active-record"),
+  stateFolder: ({ configFile }) => join(dirname(configFile), "node_modules/.cache/arbor"),
   open: (_cwd, chosen, options) => openDatabase(chosen, options),
   migrate,
 };

@@ -10,7 +10,7 @@ seo:
 Run the console from your project’s folder. It opens your local database, or your remote one with [`--remote`](#opening-your-remote-database):
 
 ```sh
-npx active-record console
+npx arbor console
 ```
 
 On Postgres, it opens the `url` your [`arbor.jsonc`](./command-line#declaring-your-databases) declares, or with `--remote` its `remoteUrl`. The rest of this page shows D1.
@@ -31,7 +31,7 @@ local> const admins = await User.where({ role: "admin" }).toArray()
 #=> undefined
 ```
 
-Leave with `quit`, `exit`, or Ctrl-D. Ctrl-C stops a line that’s still running. `.help` lists the console’s own commands, and `npx active-record c` is the short form.
+Leave with `quit`, `exit`, or Ctrl-D. Ctrl-C stops a line that’s still running. `.help` lists the console’s own commands, and `npx arbor c` is the short form.
 
 ## Using your Models and `db`
 
@@ -100,14 +100,14 @@ It opens your remote database only when you ask with `--remote`, and never for a
 
 It starts only that D1 binding. The rest of your Wrangler config (Durable Objects, services, `vars`, and the secrets in `.dev.vars`) isn’t started, so it can’t warn or fail on them, and your Models can’t reach them either.
 
-On a terminal, what you type is kept in `.wrangler/active-record-history`, which Wrangler projects already ignore. A line can hold a token or an email, so add `--no-history` when you’d rather it wasn’t kept.
+On a terminal, what you type is kept in `.wrangler/arbor-history`, which Wrangler projects already ignore. A line can hold a token or an email, so add `--no-history` when you’d rather it wasn’t kept.
 
 ## Opening your remote database
 
 `--remote` opens the real database your binding points at, to look at production data or fix one record by hand:
 
 ```sh
-npx active-record console --remote
+npx arbor console --remote
 ```
 
 It names the database and waits for you to type its name. Anything else, including `y`, cancels and opens nothing. Anything you type or paste after the name is dropped, so a pasted block can’t run on the real database before you’ve seen the prompt:
@@ -137,10 +137,10 @@ The console signs in with your Wrangler login, or with `CLOUDFLARE_API_TOKEN` an
 There’s no one to type the name unless both your input and output are a terminal, so a piped session refuses unless you add `--yes`, which is how a script opens it:
 
 ```sh
-echo 'await User.count()' | npx active-record console --remote --yes
+echo 'await User.count()' | npx arbor console --remote --yes
 ```
 
-What you type isn’t kept unless you add `--history`, and then it goes in `.wrangler/active-record-history-remote`, a file of its own, so the up arrow never offers a local session a line you typed against the real database.
+What you type isn’t kept unless you add `--history`, and then it goes in `.wrangler/arbor-history-remote`, a file of its own, so the up arrow never offers a local session a line you typed against the real database.
 
 :::note
 The binding needs a `database_id`. If it also has a `preview_database_id`, Wrangler opens that one in place of `database_id`, and the console says so: `Remote preview database DB (…)`.
@@ -155,7 +155,7 @@ A token needs **D1: Edit** and **Workers Scripts: Edit**, and the account needs 
 `-e` runs one piece of code with your Models and `db` in scope, prints its result, and exits, which is how to use the console from a script:
 
 ```sh
-npx active-record console -e 'await User.count()'
+npx arbor console -e 'await User.count()'
 ```
 
 ```text
@@ -173,7 +173,7 @@ Await every call. `User.find(1)` without `await` prints `Promise { <pending> }`,
 :::
 
 :::note
-Put the code in single quotes, so your shell leaves `$`, `!`, and backticks alone. With `--remote`, `$(…)` makes stdout a pipe, so there is no terminal to ask: add `--yes`, as in `npx active-record console --remote --yes -e 'await User.count()'`.
+Put the code in single quotes, so your shell leaves `$`, `!`, and backticks alone. With `--remote`, `$(…)` makes stdout a pipe, so there is no terminal to ask: add `--yes`, as in `npx arbor console --remote --yes -e 'await User.count()'`.
 :::
 
 ## Running a few lines at once
@@ -181,7 +181,7 @@ Put the code in single quotes, so your shell leaves `$`, `!`, and backticks alon
 Lines you paste or pipe run in order, each after the one before, and the console finishes them before it exits:
 
 ```sh
-echo 'await User.count()' | npx active-record console
+echo 'await User.count()' | npx arbor console
 ```
 
 That prints the same transcript a session does (the database, a prompt before each line, `#=> ` before each result) and exits 0 even when a line fails. For a script that checks the result or the exit code, use `-e`.

@@ -135,7 +135,7 @@ describe("an enum attribute's types (#340)", () => {
   });
 });
 
-// A generated schema's posts table with a generated enum (#64), as active-record schema writes it.
+// A generated schema's posts table with a generated enum (#64), as arbor schema writes it.
 const posts = {
   id: { type: "integer", null: false },
   status: { type: "string", enum: ["draft", "published"], scopes: false, instanceMethods: false },

@@ -69,7 +69,7 @@ afterEach(() => {
 
 const read = (cwd: string, path: string) => readFileSync(join(cwd, path), "utf8");
 
-describe("active-record g model", () => {
+describe("arbor g model", () => {
   test("refuses to write one file twice, such as a schema --out naming the new Model", async () => {
     const cwd = project({ "migrations/.keep": "" });
 
@@ -100,7 +100,7 @@ describe("active-record g model", () => {
 Wrote src/models/product.ts
 Wrote src/db/schema.ts (1 table) from migrations/
 Wrote src/models/application-record.ts
-Next: npx active-record migrate`);
+Next: npx arbor migrate`);
     expect(read(cwd, "src/models/product.ts"))
       .toBe(`import { ApplicationRecord } from "./application-record";
 
@@ -155,7 +155,7 @@ export class LineItem extends ApplicationRecord {
 Wrote src/app/models/product.ts
 Wrote src/db/schema.ts (1 table) from migrations/
 Wrote src/app/models/application-record.ts
-Next: npx active-record migrate`);
+Next: npx arbor migrate`);
     expect(read(cwd, "src/app/models/product.ts")).toContain(
       'import { ApplicationRecord } from "./application-record";',
     );
@@ -255,7 +255,7 @@ describe("names", () => {
   });
 });
 
-describe("active-record g migration", () => {
+describe("arbor g migration", () => {
   test("adds and removes columns, named after the existing migrations", async () => {
     const cwd = project({
       "migrations/0007_create_products.sql": "CREATE TABLE products (id TEXT PRIMARY KEY);",
@@ -289,7 +289,7 @@ describe("active-record g migration", () => {
 
     expect(code).toBe(0);
     expect(output.split("\n")[0]).toBe(
-      "Note: wrangler.jsonc has the D1 database LOGS, which arbor.jsonc doesn't name; run `npx active-record init` to add it",
+      "Note: wrangler.jsonc has the D1 database LOGS, which arbor.jsonc doesn't name; run `npx arbor init` to add it",
     );
   });
 

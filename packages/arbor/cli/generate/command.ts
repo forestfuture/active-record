@@ -1,4 +1,4 @@
-// `active-record g model` and `g migration`: plans and writes a migration, a Model, and the schema.
+// `arbor g model` and `g migration`: plans and writes a migration, a Model, and the schema.
 import { dirname, join, relative, resolve } from "node:path";
 import {
   apply,
@@ -277,14 +277,14 @@ export async function planGenerate(
       ...own.map((file) => written(file, `Wrote ${shown(cwd, file.path)}`)),
       ...schema.steps,
       ...notes.map((note) => printed(`Note: ${note}`)),
-      printed(`Next: npx active-record migrate${named}`),
+      printed(`Next: npx arbor migrate${named}`),
     ],
     code: 0,
   };
 }
 
 /**
- * `active-record g model` and `g migration` (#66, #70): write a migration (and a Model), checked
+ * `arbor g model` and `g migration` (#66, #70): write a migration (and a Model), checked
  * against the existing migrations first, then regenerate the schema with the project's Models.
  * Resolves to the exit code.
  */

@@ -1,5 +1,5 @@
 /* oxlint-disable typescript/no-unsafe-declaration-merging -- each interface stands in for the
-   declarations active-record schema generates, which merge from another file: the accessors they
+   declarations arbor schema generates, which merge from another file: the accessors they
    type are defined when the Model's attributes resolve. */
 // Attribute aliases (#509): another name for an attribute, which reads, writes and queries it.
 import { inspect } from "node:util";
@@ -17,7 +17,7 @@ import { d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
 import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
-// A generated schema, as `active-record schema` writes it, for Models built on it.
+// A generated schema, as `arbor schema` writes it, for Models built on it.
 const users = {
   id: { type: "integer", null: false },
   email: { type: "string", null: false },

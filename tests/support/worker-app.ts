@@ -1,4 +1,4 @@
-// A Worker app in a folder of its own, driven as its developer does: the active-record command run in it, its Worker bundled by Wrangler and served by Miniflare.
+// A Worker app in a folder of its own, driven as its developer does: the arbor command run in it, its Worker bundled by Wrangler and served by Miniflare.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -9,7 +9,7 @@ import { parseJsonc } from "../../packages/arbor/cli/project/config-file.ts";
 
 const wrangler = new URL("../../node_modules/.bin/wrangler", import.meta.url).pathname;
 
-/** Runs `active-record` with `argv` in `cwd`, as from a terminal there: its exit code and output. */
+/** Runs `arbor` with `argv` in `cwd`, as from a terminal there: its exit code and output. */
 export async function command(
   cwd: string,
   argv: string[],

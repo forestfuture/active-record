@@ -1,4 +1,4 @@
-// As `active-record schema` generates it for a second binding, LOGS, for the guide's examples.
+// As `arbor schema` generates it for a second binding, LOGS, for the guide's examples.
 import type { TableAttributes } from "@forestfuture/arbor";
 import { d1 } from "@forestfuture/arbor/d1";
 

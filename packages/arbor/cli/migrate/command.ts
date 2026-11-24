@@ -1,4 +1,4 @@
-// `active-record migrate`: applies a database's pending migrations through its adapter, locally or remotely (#278).
+// `arbor migrate`: applies a database's pending migrations through its adapter, locally or remotely (#278).
 import type { Readable, Writable } from "node:stream";
 import { WriteStream } from "node:tty";
 import { confirmRemote } from "../console/confirm.ts";
@@ -51,7 +51,7 @@ async function allowed(
   return confirmed ? undefined : "Not migrated.";
 }
 
-/** `active-record migrate`: resolves to the exit code, the adapter's own when it ran. */
+/** `arbor migrate`: resolves to the exit code, the adapter's own when it ran. */
 export async function runMigrate(
   options: MigrateOptions,
   print: (line: string) => void,

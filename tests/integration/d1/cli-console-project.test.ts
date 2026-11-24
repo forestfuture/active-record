@@ -89,7 +89,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
   describe("says why a project can't be loaded", () => {
     test("no models folder", async () => {
       expect(await loadProject(d1Package, project({}))).toBe(
-        "No Models at src/models (run active-record g model, or pass --models)",
+        "No Models at src/models (run arbor g model, or pass --models)",
       );
     });
 
@@ -97,7 +97,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
       const cwd = project({ "src/models/notes.ts": "export const notes = 1;" });
 
       expect(await loadProject(d1Package, cwd)).toBe(
-        "No Models in src/models (run active-record g model, or pass --models)",
+        "No Models in src/models (run arbor g model, or pass --models)",
       );
     });
 

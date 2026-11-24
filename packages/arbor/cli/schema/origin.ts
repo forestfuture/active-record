@@ -1,5 +1,5 @@
 // Notes for a schema from another tool's migrations, and for migrations in folders the config doesn't find.
-// Those tools can store values differently from active-record's conventions, so some columns
+// Those tools can store values differently from Arbor's conventions, so some columns
 // convert to the wrong type and fail when they are read (#73, #159).
 import { underscore } from "../../src/naming.ts";
 import { storageOverride } from "./storage-override.ts";
@@ -54,7 +54,7 @@ function columnNotes(tool: Tool, tables: readonly GeneratedTable[]): string[] {
 function textDateNote(where: string): string {
   return (
     `${where}: its default writes the database's own date text (2026-10-12 06:38:30), where ` +
-    `active-record writes ISO text (2026-10-12T06:38:30.000Z), and the two sort apart as text, ` +
+    `Arbor writes ISO text (2026-10-12T06:38:30.000Z), and the two sort apart as text, ` +
     `so range conditions can misplace values within a day (see Existing databases in the guide)`
   );
 }
