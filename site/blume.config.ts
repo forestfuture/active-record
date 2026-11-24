@@ -1,7 +1,9 @@
 import { defineConfig } from "blume";
 
 export default defineConfig({
-  title: "Arbor ORM",
+  // The site's name, which also names Blume's generated skill: "Arbor" makes it `arbor`, so the
+  // package's own skill (agents.skills) replaces it, at /skill.md too.
+  title: "Arbor",
   description:
     "Arbor: an Active Record ORM for TypeScript on Cloudflare D1 and PostgreSQL, built for Cloudflare Workers.",
   github: { owner: "forestfuture", repo: "arbor", dir: "site" },
