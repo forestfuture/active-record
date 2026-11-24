@@ -10,13 +10,13 @@
   ],
   "homepage": "https://active-record.forestfuture.dev",
   "bugs": {
-    "url": "https://github.com/forestfuture/active-record/issues"
+    "url": "https://github.com/forestfuture/arbor/issues"
   },
   "license": "MIT",
   "author": "ForestFuture (https://forestfuture.dev)",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/forestfuture/active-record.git",
+    "url": "git+https://github.com/forestfuture/arbor.git",
     "directory": "packages/arbor"
   },
   "bin": {

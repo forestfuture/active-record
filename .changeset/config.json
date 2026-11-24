@@ -5,7 +5,7 @@
   "changelog": [
     "@changesets/changelog-github",
     {
-      "repo": "forestfuture/active-record"
+      "repo": "forestfuture/arbor"
     }
   ],
   "commit": false,
