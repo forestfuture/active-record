@@ -30,9 +30,15 @@ const steps = [
     cwd: "site",
   },
   {
-    name: "redirect deploy dry run",
+    name: "d1-record redirect deploy dry run",
     command: wrangler,
     args: ["deploy", "--dry-run", "--config", "redirect/wrangler.jsonc"],
+    cwd: "site",
+  },
+  {
+    name: "active-record redirect deploy dry run",
+    command: wrangler,
+    args: ["deploy", "--dry-run", "--config", "redirect/active-record.wrangler.jsonc"],
     cwd: "site",
   },
 ];
