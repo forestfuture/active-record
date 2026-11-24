@@ -32,7 +32,7 @@ The release jobs in `.github/workflows/ci.yml` run on `main`, after `check` pass
    - `version` while changesets are waiting;
    - `publish` once a package's `package.json` has a version npm doesn't have yet;
    - `none` otherwise, which is what most pushes hit.
-2. **`release-version`** opens or updates the **Version Packages** pull request. That pull request bumps the package's `package.json`, writes its `CHANGELOG.md` (formatted with `vp fmt`) and deletes the used changesets. `packages/arbor/CHANGELOG.md` ends with the history of `@forestfuture/d1-record` from 0.1 to 0.5, when the library was that package. CI rewrites its branch on every push to `main`, so don't edit it by hand. Pull requests opened by Actions don't run CI, but merging one runs CI on `main` before anything is published.
+2. **`release-version`** opens or updates the **Version Packages** pull request. That pull request bumps the package's `package.json`, writes its `CHANGELOG.md` (formatted with `vp fmt`) and deletes the used changesets. `packages/arbor/CHANGELOG.md` holds the history of `@forestfuture/active-record` up to 0.10, and ends with that of `@forestfuture/d1-record` from 0.1 to 0.5, when the library was that package. CI rewrites its branch on every push to `main`, so don't edit it by hand. Pull requests opened by Actions don't run CI, but merging one runs CI on `main` before anything is published.
 3. **`release-pack`** packs the package's tarball (#277). Packing runs its `prepack` script, which builds its `dist/` with `vp pack` (attw and publint included), then the docs site, and copies its `llms-full.txt` into the package, so a docs build that fails, a dead link included, blocks the release. The adapters are entries of the package (ADR-0019), so there's nothing else to pack.
 4. **`release-publish`** publishes the tarballs to npm with provenance, tags the commit with the version, and creates a GitHub Release with its changelog. It's the only job that can get an OIDC token (`id-token: write`). Changesets publishes with pnpm, so provenance is turned on with `PNPM_CONFIG_PROVENANCE`: pnpm ignores `NPM_CONFIG_*`.
 
@@ -56,38 +56,59 @@ These are done once, in this order.
    4. In the `forestfuture` organization's settings, require 2FA for members.
 6. **Check each release for provenance.** The package page on npmjs.com shows a provenance badge linking to the commit, and the version has `dist.attestations`. `0.1.0` has none (#109), because a token published it. `0.1.1` was the first published through the trusted publisher, and has one (2026-10-10). The registry can take a few minutes to list a version just published: a 404 straight after a green `release-publish` is that lag, and `npm view @forestfuture/d1-record@<version> --prefer-online` settles it.
 
-From then on, only CI in `forestfuture/active-record`, from `ci.yml`, can publish.
+From then on, only CI in the repository (`forestfuture/arbor` since 0.11), from `ci.yml`, can publish.
 
 ## The split's first release (0.6.0, #279)
 
 The 0.6.0 release is the first of two packages, from a renamed repository. npm's provenance check needs each `package.json`'s `repository.url` to name the repository the release ran in, and trusted publishing can't be set on a package that doesn't exist yet. So, in this order:
 
 1. **Rename the repository** (the maintainer): Settings → General → Repository name → `active-record`. GitHub redirects the old URLs, remotes and links. Locally, `git remote set-url origin https://github.com/forestfuture/active-record.git`.
-2. **Update what names the repository**, in a pull request to `main`: each `package.json`'s `repository.url`, `.changeset/config.json`'s changelog `repo`, the README's badges, `context7.json`, `.github/ISSUE_TEMPLATE/`, `site/blume.config.ts`, `npx skills add forestfuture/active-record`, the issue link `active-record schema` writes into generated schemas (`packages/arbor/cli/schema/origin.ts`, and `tests/unit/cli-origin.test.ts`), and every `github.com/forestfuture/active-record` link in the guide, the README, `CONTRIBUTING.md`, and `docs/`. `git grep forestfuture/d1-record` finds them, beside the package's own name.
+2. **Update what names the repository**, in a pull request to `main`: each `package.json`'s `repository.url`, `.changeset/config.json`'s changelog `repo`, the README's badges, `context7.json`, `.github/ISSUE_TEMPLATE/`, `site/blume.config.ts`, `npx skills add forestfuture/active-record`, the issue link `active-record schema` writes into generated schemas (`packages/active-record/cli/schema/origin.ts`, and `tests/unit/cli-origin.test.ts`), and every `github.com/forestfuture/active-record` link in the guide, the README, `CONTRIBUTING.md`, and `docs/`. `git grep forestfuture/d1-record` finds them, beside the package's own name.
 3. **Outside GitHub** (the maintainer):
    - On bestpractices.dev, change the project's repository URL to `https://github.com/forestfuture/active-record`.
    - OpenSSF Scorecard follows the repository by itself, from `scorecard.yml`; its badge URL changes with step 2.
    - On Context7, add `https://github.com/forestfuture/active-record` and claim it, as in "help agents find it" below; the old `/forestfuture/d1-record` entry goes stale. `context7.json` already names the new entry in `url`; replace its `public_key` with the one the claim modal shows.
 4. **Point `d1-record`'s trusted publisher at the new name** (the maintainer). A package has one trusted publisher, so change the existing one rather than adding another: on npmjs.com, the package's Settings → Trusted Publisher → edit the repository to `active-record` (workflow `ci.yml`, publish allowed). From a terminal outside the repo, `npm trust list @forestfuture/d1-record` shows it before and after.
 5. **Publish a placeholder of the core**, so its trusted publisher can be set (the maintainer), from a folder outside the repo holding only a `package.json` and a README:
-   - `package.json`: `{ "name": "@forestfuture/arbor", "version": "0.0.0", "description": "Placeholder: install 0.6.0 or later.", "license": "MIT", "repository": { "type": "git", "url": "git+https://github.com/forestfuture/active-record.git" } }`
+   - `package.json`: `{ "name": "@forestfuture/active-record", "version": "0.0.0", "description": "Placeholder: install 0.6.0 or later.", "license": "MIT", "repository": { "type": "git", "url": "git+https://github.com/forestfuture/active-record.git" } }`
    - `npm login`, then `npm publish --access public`. This placeholder is plain files, not the workspace package, so `npm publish` is fine for it.
-   - `npm deprecate @forestfuture/arbor@0.0.0 "Placeholder: install 0.6.0 or later"`.
-6. **Set the core's trusted publisher** (the maintainer): `npm trust github @forestfuture/arbor --file ci.yml --repo forestfuture/active-record --allow-publish`, then its Settings → Publishing access → **Require two-factor authentication and disallow tokens**.
+   - `npm deprecate @forestfuture/active-record@0.0.0 "Placeholder: install 0.6.0 or later"`.
+6. **Set the core's trusted publisher** (the maintainer): `npm trust github @forestfuture/active-record --file ci.yml --repo forestfuture/active-record --allow-publish`, then its Settings → Publishing access → **Require two-factor authentication and disallow tokens**.
 7. **Merge the Version Packages pull request.** CI publishes 0.6.0 of both packages, with provenance.
-8. **Check the release:** `npm view @forestfuture/arbor@0.6.0 --prefer-online` and the same for `@forestfuture/d1-record`, each with `dist.attestations`; then install both into a fresh app, follow the guide's [Upgrading to 0.6](<../../site/docs/(how-to)/upgrading.mdx>), and run it.
+8. **Check the release:** `npm view @forestfuture/active-record@0.6.0 --prefer-online` and the same for `@forestfuture/d1-record`, each with `dist.attestations`; then install both into a fresh app, follow the guide's [Upgrading to 0.6](<../../site/docs/(how-to)/upgrading.mdx>), and run it.
 
 ## Releasing 0.7: one package
 
-In 0.7 the adapters ship inside `@forestfuture/arbor` (#301, ADR-0019), and `@forestfuture/d1-record` gets no new version.
+In 0.7 the adapters ship inside `@forestfuture/active-record` (#301, ADR-0019), and `@forestfuture/d1-record` gets no new version.
 
-1. **Merge the Version Packages pull request.** CI publishes `@forestfuture/arbor` 0.7.0, with provenance.
-2. **Check the release:** `npm view @forestfuture/arbor@0.7.0 --prefer-online` with `dist.attestations`; then install it into a fresh app, follow the guide's [Upgrading](<../../site/docs/(how-to)/upgrading.mdx>), and run it.
-3. **Deprecate the D1 package** (the maintainer), with no alias: `npm deprecate @forestfuture/d1-record "The D1 adapter is now part of @forestfuture/arbor, as @forestfuture/arbor/d1. See https://active-record.forestfuture.dev/upgrading"`.
+1. **Merge the Version Packages pull request.** CI publishes `@forestfuture/active-record` 0.7.0, with provenance.
+2. **Check the release:** `npm view @forestfuture/active-record@0.7.0 --prefer-online` with `dist.attestations`; then install it into a fresh app, follow the guide's [Upgrading](<../../site/docs/(how-to)/upgrading.mdx>), and run it.
+3. **Deprecate the D1 package** (the maintainer), with no alias: `npm deprecate @forestfuture/d1-record "The D1 adapter is now part of @forestfuture/active-record, as @forestfuture/active-record/d1. See https://active-record.forestfuture.dev/upgrading"`.
+
+## Releasing 0.11: Arbor
+
+In 0.11 the library is Arbor (#558, ADR-0025): the package is `@forestfuture/arbor`, from the repository `forestfuture/arbor`, and the guide is at arbor.forestfuture.dev. npm's provenance check needs `repository.url` to name the repository the release runs in, and a trusted publisher can only be set on a package that exists. So, in this order:
+
+1. **Before merging #558** (the maintainer):
+   - Rename the repository: Settings → General → Repository name → `arbor`. GitHub redirects the old URLs, remotes and links. Locally, `git remote set-url origin https://github.com/forestfuture/arbor.git`.
+   - Add the DNS record for `arbor.forestfuture.dev`, as [cloudflare-tokens.md](cloudflare-tokens.md#the-docs-hostnames) says. Without it, CI's docs deploy stops before the redirects.
+2. **Merge #558.** CI deploys the guide to arbor.forestfuture.dev, then the redirects from both old hosts, and opens the Version Packages pull request for 0.11.0.
+3. **Outside GitHub** (the maintainer):
+   - On bestpractices.dev, edit project 15356: the name "Arbor ORM", the repository URL `https://github.com/forestfuture/arbor`, the homepage `https://arbor.forestfuture.dev`, and the description "An Active Record ORM for TypeScript on Cloudflare D1 and PostgreSQL". Its Best Practices and Baseline badges are by ID, so their URLs stay.
+   - OpenSSF Scorecard follows the repository by itself, from `scorecard.yml`; the README's badge already names `forestfuture/arbor`.
+4. **Publish a placeholder of the new package**, so its trusted publisher can be set (the maintainer), from a folder outside the repo holding only a `package.json` and a README:
+   - `package.json`: `{ "name": "@forestfuture/arbor", "version": "0.0.0", "description": "Placeholder: install 0.11.0 or later.", "license": "MIT", "repository": { "type": "git", "url": "git+https://github.com/forestfuture/arbor.git" } }`
+   - `npm login`, then `npm publish --access public`. This placeholder is plain files, not the workspace package, so `npm publish` is fine for it.
+   - `npm deprecate @forestfuture/arbor@0.0.0 "Placeholder: install 0.11.0 or later"`.
+5. **Set its trusted publisher** (the maintainer): `npm trust github @forestfuture/arbor --file ci.yml --repo forestfuture/arbor --allow-publish`, then its Settings → Publishing access → **Require two-factor authentication and disallow tokens**.
+6. **Merge the Version Packages pull request.** CI publishes `@forestfuture/arbor` 0.11.0, with provenance.
+7. **Check the release:** `npm view @forestfuture/arbor@0.11.0 --prefer-online` with `dist.attestations`; then install it into a fresh app, follow the guide's [Upgrading](<../../site/docs/(how-to)/upgrading.mdx>), and run it.
+8. **Deprecate the old package** (the maintainer), with no alias: `npm deprecate @forestfuture/active-record "Renamed to @forestfuture/arbor (Arbor ORM). See https://arbor.forestfuture.dev/upgrading"`.
+9. **Help agents find it again**, as below: install the skill once with `npx skills add forestfuture/arbor`, and add and claim `forestfuture/arbor` on Context7, then put the claim modal's `public_key` in `context7.json` in a pull request.
 
 ## After the first release: help agents find it
 
-1. **Install the skill once** to check it works for others: `npx skills add forestfuture/active-record`. skills.sh has no submission and no crawler: a skill is listed from the install counts that the skills CLI reports for public GitHub repositories. Look for `active-record` at https://www.skills.sh a day or two later.
-2. **Topics (https://www.skills.sh/topic/databases) have no documented request process.** The Databases topic lists vendors' skills. If `active-record` isn't under a topic it fits, open a Feature request on `vercel-labs/skills` asking how topics are assigned. Don't send a "listing" request: the install already created the listing.
-3. **Add the docs to Context7** (https://context7.com) at https://context7.com/add-library, on the GitHub tab, with `https://github.com/forestfuture/active-record`. Anyone can add a public library. Its Context7 ID is `/forestfuture/active-record` from the rename; the old `/forestfuture/d1-record` entry goes stale. Claim the new one: `context7.json` in the repository root holds the claim (`url` and `public_key`, from the claim modal on Context7, which must match exactly) and Context7's settings (title, description, the folders and files indexed, and rules for agents). Context7 refreshes by itself, and the claim's admin panel can refresh it.
+1. **Install the skill once** to check it works for others: `npx skills add forestfuture/arbor`. skills.sh has no submission and no crawler: a skill is listed from the install counts that the skills CLI reports for public GitHub repositories. Look for `arbor` at https://www.skills.sh a day or two later.
+2. **Topics (https://www.skills.sh/topic/databases) have no documented request process.** The Databases topic lists vendors' skills. If `arbor` isn't under a topic it fits, open a Feature request on `vercel-labs/skills` asking how topics are assigned. Don't send a "listing" request: the install already created the listing.
+3. **Add the docs to Context7** (https://context7.com) at https://context7.com/add-library, on the GitHub tab, with `https://github.com/forestfuture/arbor`. Anyone can add a public library. Its Context7 ID is `/forestfuture/arbor` since 0.11; the old `/forestfuture/active-record` and `/forestfuture/d1-record` entries go stale. Claim the new one: `context7.json` in the repository root holds the claim (`url` and `public_key`, from the claim modal on Context7, which must match exactly) and Context7's settings (title, description, the folders and files indexed, and rules for agents). Context7 refreshes by itself, and the claim's admin panel can refresh it.
    - **A known limit:** the guide pages include their larger examples from excerpts the site's build writes (`site/docs/_excerpts/`, not committed), so Context7's GitHub index shows those pages without the example code. The `llms-full.txt` the site builds has them expanded.
