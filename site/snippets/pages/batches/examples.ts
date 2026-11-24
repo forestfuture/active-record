@@ -1,4 +1,4 @@
-import { batch, column, incoming, sql } from "@forestfuture/active-record";
+import { batch, column, incoming, sql } from "@forestfuture/arbor";
 import { Article } from "./src/models/article";
 import { Author } from "./src/models/author";
 import { Comment } from "./src/models/comment";

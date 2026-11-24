@@ -1,5 +1,5 @@
 {
-  "$schema": "./node_modules/@forestfuture/active-record/config-schema.json",
+  "$schema": "./node_modules/@forestfuture/arbor/config-schema.json",
   "databases": {
     "HYPERDRIVE": {
       "adapter": "postgresql",

@@ -3,13 +3,9 @@
    type are defined when the Model's attributes resolve. */
 // Virtual attributes (#356): attributes that aren't columns, never read from a row or written to one.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import {
-  Model,
-  UnknownAttribute,
-  type TableAttributes,
-} from "../../packages/active-record/src/index.ts";
-import { d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
-import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
+import { Model, UnknownAttribute, type TableAttributes } from "../../packages/arbor/src/index.ts";
+import { d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
+import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
 

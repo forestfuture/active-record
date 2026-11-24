@@ -1,9 +1,9 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vite-plus/test";
-import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
 import { attempt, Sample, sampleAttributes } from "../support/attribute-samples.ts";
-import { preparedWrites } from "../../packages/active-record/src/prepared-writes.ts";
-import { statementParts } from "../../packages/active-record/src/statement.ts";
+import { preparedWrites } from "../../packages/arbor/src/prepared-writes.ts";
+import { statementParts } from "../../packages/arbor/src/statement.ts";
 import { PURE_RUNS } from "../support/properties.ts";
 import { values } from "../support/values.ts";
 

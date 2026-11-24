@@ -226,7 +226,7 @@ importers:
         specifier: ^4.161.0
         version: 4.161.0(@cloudflare/workers-types@5.20261112.1)(@types/node@24.19.2)
 
-  packages/active-record:
+  packages/arbor:
     dependencies:
       '@cloudflare/workers-types':
         specifier: '>=4'
@@ -247,9 +247,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^5.20261112.1
         version: 5.20261112.1
-      '@forestfuture/active-record':
+      '@forestfuture/arbor':
         specifier: workspace:*
-        version: link:../packages/active-record
+        version: link:../packages/arbor
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0

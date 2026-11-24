@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
+import { runSchema } from "../../../packages/arbor/cli/schema/command.ts";
 import { writePgProject } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
@@ -36,9 +36,7 @@ describe("active-record schema, on Postgres", pgliteTimeout, () => {
       "Wrote src/db/schema.ts (1 table) from migrations/\nWrote src/models/application-record.ts",
     ]);
     const schema = readFileSync(join(cwd, "src/db/schema.ts"), "utf8");
-    expect(schema).toContain(
-      'import { postgresql } from "@forestfuture/active-record/postgresql";',
-    );
+    expect(schema).toContain('import { postgresql } from "@forestfuture/arbor/postgresql";');
     expect(schema).toContain('adapter: postgresql({ binding: "HYPERDRIVE" }),');
     expect(schema).toContain("/** users — last changed by 20261108090503_create_users.sql */");
     expect(schema).toContain('admin: { type: "boolean", null: false, default: () => false },');

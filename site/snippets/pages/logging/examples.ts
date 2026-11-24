@@ -1,5 +1,5 @@
-import { type QueryListener, withDatabase } from "@forestfuture/active-record";
-import { connect } from "@forestfuture/active-record/d1";
+import { type QueryListener, withDatabase } from "@forestfuture/arbor";
+import { connect } from "@forestfuture/arbor/d1";
 import { app } from "./src/app";
 
 // #region per-request

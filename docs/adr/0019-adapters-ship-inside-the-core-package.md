@@ -1,8 +1,8 @@
 # Adapters ship inside the core package, and active-record.jsonc names each database's adapter
 
-The adapters are entries of `@forestfuture/active-record`, not packages of their own (#301): `@forestfuture/active-record/d1` and `@forestfuture/active-record/postgresql`. Each keeps its runtime in `src/adapters/<name>/` and its plugin for the command in `cli/adapters/<name>/`, and reaches the core only through the core's public entries, as ADR-0016's boundary required of a separate package. Lint keeps each adapter's imports in its own folder.
+The adapters are entries of `@forestfuture/arbor`, not packages of their own (#301): `@forestfuture/arbor/d1` and `@forestfuture/arbor/postgresql`. Each keeps its runtime in `src/adapters/<name>/` and its plugin for the command in `cli/adapters/<name>/`, and reaches the core only through the core's public entries, as ADR-0016's boundary required of a separate package. Lint keeps each adapter's imports in its own folder.
 
-One package per adapter was for lock-in and for keeping drivers out of apps that don't use them. The import path still names the database, so a search for `@forestfuture/active-record/d1` finds lock-in as a search for `@forestfuture/d1-record` did. Drivers stay out as optional peer dependencies: `pg` and PGlite. A D1 app installs neither, and a Worker bundles only the entry it imports. Rails ships its adapters inside Active Record, with drivers left to the app, and Drizzle (`drizzle-orm/d1`) and Kysely do the same.
+One package per adapter was for lock-in and for keeping drivers out of apps that don't use them. The import path still names the database, so a search for `@forestfuture/arbor/d1` finds lock-in as a search for `@forestfuture/d1-record` did. Drivers stay out as optional peer dependencies: `pg` and PGlite. A D1 app installs neither, and a Worker bundles only the entry it imports. Rails ships its adapters inside Active Record, with drivers left to the app, and Drizzle (`drizzle-orm/d1`) and Kysely do the same.
 
 What separate packages cost goes away. There's one copy of the core by construction, so no peer dependency pinned to its version, no Changesets `fixed` group, and no placeholder publish to set up trusted publishing for each new adapter.
 
@@ -11,7 +11,7 @@ With the adapters inside the package, the command can't tell which one a project
 ## Consequences
 
 - **Supersedes ADR-0016's packaging:** its "one package per adapter", "Adapters are pure adapters, with the core as a peer dependency", "One version" across packages, and "finds its adapter from `package.json`". The split of core and adapters, and the boundary between them, stand.
-- **A breaking release.** `@forestfuture/d1-record` is deprecated on npm with no alias (pre-1.0); apps import `@forestfuture/active-record/d1`, run `active-record init`, and regenerate their schema.
+- **A breaking release.** `@forestfuture/d1-record` is deprecated on npm with no alias (pre-1.0); apps import `@forestfuture/arbor/d1`, run `active-record init`, and regenerate their schema.
 - **The PostgreSQL adapter's names follow Rails:** the entry `/postgresql`, the factory `postgresql({ binding })`, and the adapter name `postgresql`.
 - **`--adapter` is gone** from every command but `init`, and `--config` names `active-record.jsonc`.
 - **Each database uses its own adapter** (amended by #305). Each entry names its adapter, so one project can hold a D1 database and a PostgreSQL one: the command hands each plugin only its own entries, and `init` adds another adapter's databases only when `--adapter` names it.

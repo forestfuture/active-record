@@ -5,8 +5,8 @@ import {
   Model,
   sql,
   UnknownAttribute,
-} from "../../packages/active-record/src/index.ts";
-import type { AnyDatabase } from "../../packages/active-record/src/database.ts";
+} from "../../packages/arbor/src/index.ts";
+import type { AnyDatabase } from "../../packages/arbor/src/database.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 // Attributes of every type, to show the value is written as each stores it.

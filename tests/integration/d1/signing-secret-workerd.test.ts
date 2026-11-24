@@ -9,7 +9,7 @@ import { runWrangler } from "../../support/worker-app.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
 const scratch = scratchDirs();
-const source = new URL("../../../packages/active-record/src/", import.meta.url).pathname;
+const source = new URL("../../../packages/arbor/src/", import.meta.url).pathname;
 const secret = "the-worker-secret-of-at-least-32-bytes";
 
 /** A Worker that signs a note's id with SECRET_KEY_BASE, and finds it with secrets given outright. */

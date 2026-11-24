@@ -1,6 +1,6 @@
 // Holding a statement open until released, to land a read or write in a chosen order, on any adapter.
-import type { AnyDatabase } from "../../packages/active-record/src/database.ts";
-import type { Driver } from "../../packages/active-record/src/driver.ts";
+import type { AnyDatabase } from "../../packages/arbor/src/database.ts";
+import type { Driver } from "../../packages/arbor/src/driver.ts";
 import type { Harness } from "./harness.ts";
 
 /** Whether a statement reads `table`: what to hold to land a read after something else. */

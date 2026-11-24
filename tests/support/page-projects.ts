@@ -2,7 +2,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, vi, type MockInstance } from "vite-plus/test";
 import { join } from "node:path";
-import { runSchema } from "../../packages/active-record/cli/schema/command.ts";
+import { runSchema } from "../../packages/arbor/cli/schema/command.ts";
 
 /** The guide pages laid out as docs/agents/docs-pages.md says, by their project's folder name. */
 export const standalonePages = [

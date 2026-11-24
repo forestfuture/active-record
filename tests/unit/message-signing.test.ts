@@ -1,7 +1,7 @@
 // Signing a token's message (#517): HMAC-SHA256 over its purpose and payload, with keys derived
 // from the signing secrets, newest first. These tests need no database.
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
-import { signerFor } from "../../packages/active-record/src/message-signing.ts";
+import { signerFor } from "../../packages/arbor/src/message-signing.ts";
 
 const secret = "s".repeat(32);
 const older = "o".repeat(32);

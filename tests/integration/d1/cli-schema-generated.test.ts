@@ -1,8 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { Miniflare } from "miniflare";
 import { afterAll, beforeAll, describe, expect, expectTypeOf, test, vi } from "vite-plus/test";
-import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
-import { connect, type QueryEvent } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import { runSchema } from "../../../packages/arbor/cli/schema/command.ts";
+import { connect, type QueryEvent } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import { Listing } from "../../fixtures/schema-project/src/models/listing.ts";
 import { Product } from "../../fixtures/schema-project/src/models/product.ts";
 import { Task } from "../../fixtures/schema-project/src/models/task.ts";

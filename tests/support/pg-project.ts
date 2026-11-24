@@ -8,9 +8,7 @@ const source = (path: string) => [new URL(`../../packages/${path}`, import.meta.
 /** The packages a Postgres project imports, at their source in this repo. */
 const pgPaths = {
   ...libraryPaths,
-  "@forestfuture/active-record/postgresql": source(
-    "active-record/src/adapters/postgresql/index.ts",
-  ),
+  "@forestfuture/arbor/postgresql": source("arbor/src/adapters/postgresql/index.ts"),
 };
 
 /** The project's databases, as active-record.jsonc declares them, by binding. */
@@ -36,7 +34,7 @@ export function writePgProject(
 ): string {
   const all = {
     "package.json": JSON.stringify({
-      dependencies: { "@forestfuture/active-record": "*", pg: "*" },
+      dependencies: { "@forestfuture/arbor": "*", pg: "*" },
     }),
     "tsconfig.json": JSON.stringify({ compilerOptions: { baseUrl: ".", paths: pgPaths } }),
     "active-record.jsonc": JSON.stringify({ databases: onPg(databases) }, null, 2),

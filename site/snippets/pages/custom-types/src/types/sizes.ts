@@ -1,4 +1,4 @@
-import { defineType } from "@forestfuture/active-record";
+import { defineType } from "@forestfuture/arbor";
 
 export const sizes = defineType({
   storedAs: "string",

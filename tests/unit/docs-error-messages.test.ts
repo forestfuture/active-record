@@ -1,10 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import {
-  builtInMessages,
-  type RestrictMessages,
-} from "../../packages/active-record/src/error-messages.ts";
+import { builtInMessages, type RestrictMessages } from "../../packages/arbor/src/error-messages.ts";
 
 const page = "site/docs/(basics)/validations.mdx";
 const validationsPage = readFileSync(join(import.meta.dirname, "../..", page), "utf8");

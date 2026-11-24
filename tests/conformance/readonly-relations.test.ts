@@ -6,7 +6,7 @@ import {
   Model,
   ReadonlyRecord,
   withDatabase,
-} from "../../packages/active-record/src/index.ts";
+} from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Shelf extends Model.define({

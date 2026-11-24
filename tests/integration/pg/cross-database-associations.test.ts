@@ -1,15 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import {
-  belongsTo,
-  hasMany,
-  Model,
-  withDatabase,
-} from "../../../packages/active-record/src/index.ts";
-import { connect, d1 } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import { belongsTo, hasMany, Model, withDatabase } from "../../../packages/arbor/src/index.ts";
+import { connect, d1 } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import {
   connect as connectPostgres,
   postgresql,
-} from "../../../packages/active-record/src/adapters/postgresql/index.ts";
+} from "../../../packages/arbor/src/adapters/postgresql/index.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 

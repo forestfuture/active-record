@@ -1,13 +1,8 @@
 // Normalizations (#354): `this.normalizes(name, { with })`, applied to a value as it's assigned.
 // These tests need no database.
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import {
-  InvalidModel,
-  lt,
-  Model,
-  UnknownAttribute,
-} from "../../packages/active-record/src/index.ts";
-import { connect, d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { InvalidModel, lt, Model, UnknownAttribute } from "../../packages/arbor/src/index.ts";
+import { connect, d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
 
 const db = connect({} as never);
 

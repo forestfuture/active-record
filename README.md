@@ -12,15 +12,15 @@ Models with validations, callbacks, associations, and change tracking; lazy, com
 > **Status: pre-release (0.x).** The API is tested against real D1 and Postgres, but it may still change before 1.0.
 
 ```sh
-npm install @forestfuture/active-record
+npm install @forestfuture/arbor
 ```
 
-[`@forestfuture/active-record`](packages/active-record/) holds the core (Models, Relations, validations, callbacks, and associations), the `active-record` command, and an adapter for each database:
+[`@forestfuture/arbor`](packages/arbor/) holds the core (Models, Relations, validations, callbacks, and associations), the `active-record` command, and an adapter for each database:
 
-| Entry                                    |                                                                           |
-| ---------------------------------------- | ------------------------------------------------------------------------- |
-| `@forestfuture/active-record/d1`         | The D1 adapter: `connect` and `withSession`                               |
-| `@forestfuture/active-record/postgresql` | The PostgreSQL adapter, through Hyperdrive or on Node, with your own `pg` |
+| Entry                            |                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| `@forestfuture/arbor/d1`         | The D1 adapter: `connect` and `withSession`                               |
+| `@forestfuture/arbor/postgresql` | The PostgreSQL adapter, through Hyperdrive or on Node, with your own `pg` |
 
 An app moves from D1 to Postgres with its Models and code unchanged. See [Moving to Postgres](https://active-record.forestfuture.dev/move-to-postgres).
 
@@ -72,7 +72,7 @@ A Model’s table comes from its class name, and its attributes from the schema,
 
 ```ts
 // src/models/user.ts
-import { hasMany } from "@forestfuture/active-record";
+import { hasMany } from "@forestfuture/arbor";
 import { ApplicationRecord } from "./application-record";
 import { Post } from "./post";
 
@@ -92,7 +92,7 @@ export class User extends ApplicationRecord {
 
 ```ts
 // src/models/post.ts
-import { belongsTo } from "@forestfuture/active-record";
+import { belongsTo } from "@forestfuture/arbor";
 import { ApplicationRecord } from "./application-record";
 import { User } from "./user";
 
@@ -182,7 +182,7 @@ The packages follow [semantic versioning](https://semver.org), and always share 
 
 ## For AI agents
 
-The guide is also published for coding agents: [`llms.txt`](https://active-record.forestfuture.dev/llms.txt), [`llms-full.txt`](https://active-record.forestfuture.dev/llms-full.txt), and every page as Markdown. The package ships the guide for its own version (`node_modules/@forestfuture/active-record/llms-full.txt`) and an [agent skill](packages/active-record/skills/active-record/SKILL.md) (`npx skills add forestfuture/active-record`). See [AI agents](https://active-record.forestfuture.dev/ai-agents).
+The guide is also published for coding agents: [`llms.txt`](https://active-record.forestfuture.dev/llms.txt), [`llms-full.txt`](https://active-record.forestfuture.dev/llms-full.txt), and every page as Markdown. The package ships the guide for its own version (`node_modules/@forestfuture/arbor/llms-full.txt`) and an [agent skill](packages/arbor/skills/active-record/SKILL.md) (`npx skills add forestfuture/active-record`). See [AI agents](https://active-record.forestfuture.dev/ai-agents).
 
 ## Documentation
 

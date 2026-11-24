@@ -4,7 +4,7 @@ import {
   sql,
   type InOrderOfOptions,
   type QueryPart,
-} from "../../packages/active-record/src/index.ts";
+} from "../../packages/arbor/src/index.ts";
 
 class User extends Model.define({
   id: { type: "integer", null: false },

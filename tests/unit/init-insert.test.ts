@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vite-plus/test";
-import { withEntries } from "../../packages/active-record/cli/init/insert.ts";
-import { parseJsonc } from "../../packages/active-record/cli/project/config-file.ts";
+import { withEntries } from "../../packages/arbor/cli/init/insert.ts";
+import { parseJsonc } from "../../packages/arbor/cli/project/config-file.ts";
 import { PURE_RUNS } from "../support/properties.ts";
 
 const logs = [["LOGS", { adapter: "d1" }]] as const;

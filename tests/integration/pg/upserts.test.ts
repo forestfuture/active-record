@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { Model } from "../../../packages/active-record/src/index.ts";
-import { connect } from "../../../packages/active-record/src/adapters/postgresql/index.ts";
+import { Model } from "../../../packages/arbor/src/index.ts";
+import { connect } from "../../../packages/arbor/src/adapters/postgresql/index.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 
 class Setting extends Model.define({

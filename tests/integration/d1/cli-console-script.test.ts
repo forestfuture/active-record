@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model, withDatabase } from "../../../packages/active-record/src/index.ts";
-import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
-import { runScript } from "../../../packages/active-record/cli/console/script.ts";
+import { Model, withDatabase } from "../../../packages/arbor/src/index.ts";
+import { connect } from "../../../packages/arbor/src/adapters/d1/index.ts";
+import { runScript } from "../../../packages/arbor/cli/console/script.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
 
 class Sample extends Model.define({

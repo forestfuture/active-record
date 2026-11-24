@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import { projectDatabases } from "../../packages/active-record/cli/project/config-file.ts";
-import { cli } from "../../packages/active-record/cli/adapters/postgresql/plugin.ts";
+import { projectDatabases } from "../../packages/arbor/cli/project/config-file.ts";
+import { cli } from "../../packages/arbor/cli/adapters/postgresql/plugin.ts";
 import { scratchDirs } from "../support/scratch.ts";
 
 const scratch = scratchDirs();

@@ -21,9 +21,9 @@ import {
   UnknownAttribute,
   withDatabase,
   type Batch,
-} from "../../packages/active-record/src/index.ts";
-import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
-import type { AnyDatabase } from "../../packages/active-record/src/database.ts";
+} from "../../packages/arbor/src/index.ts";
+import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
+import type { AnyDatabase } from "../../packages/arbor/src/database.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { holdStatements, reads } from "../support/hold-statements.ts";
 import { statementKinds } from "../support/statement-kinds.ts";

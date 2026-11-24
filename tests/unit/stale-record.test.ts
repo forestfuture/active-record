@@ -4,7 +4,7 @@ import {
   Model,
   StaleRecord,
   type StaleAction,
-} from "../../packages/active-record/src/index.ts";
+} from "../../packages/arbor/src/index.ts";
 
 class Notebook extends Model.define({ id: "integer", lockVersion: "integer" }) {}
 

@@ -1,11 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import {
-  batch,
-  Model,
-  NotNullViolation,
-  withDatabase,
-} from "../../packages/active-record/src/index.ts";
-import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
+import { batch, Model, NotNullViolation, withDatabase } from "../../packages/arbor/src/index.ts";
+import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 // An app's base class with an app-wide listener (#78), as application-record.ts would declare it.

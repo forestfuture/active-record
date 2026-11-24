@@ -1,4 +1,4 @@
-import { Model } from "@forestfuture/active-record";
+import { Model } from "@forestfuture/arbor";
 import { schema } from "./schema";
 
 /**

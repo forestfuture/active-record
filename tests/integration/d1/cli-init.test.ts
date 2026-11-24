@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
-import { runInit } from "../../../packages/active-record/cli/init/command.ts";
-import { loadDatabases } from "../../../packages/active-record/cli/project/databases.ts";
-import { parseJsonc } from "../../../packages/active-record/cli/project/config-file.ts";
+import { runInit } from "../../../packages/arbor/cli/init/command.ts";
+import { loadDatabases } from "../../../packages/arbor/cli/project/databases.ts";
+import { parseJsonc } from "../../../packages/arbor/cli/project/config-file.ts";
 import { libraryPaths } from "../../support/library-paths.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
@@ -32,7 +32,7 @@ async function init(cwd: string, options: { adapter?: string; config?: string } 
 const written = (cwd: string, file = "active-record.jsonc") =>
   parseJsonc(readFileSync(join(cwd, file), "utf8"));
 
-const schemaLink = "./node_modules/@forestfuture/active-record/config-schema.json";
+const schemaLink = "./node_modules/@forestfuture/arbor/config-schema.json";
 
 // A project's active-record.jsonc names its databases and their adapter; init writes it (#301).
 describe("active-record init", () => {

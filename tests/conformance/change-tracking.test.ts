@@ -1,9 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import {
-  MissingAttribute,
-  Model,
-  RecordDestroyed,
-} from "../../packages/active-record/src/index.ts";
+import { MissingAttribute, Model, RecordDestroyed } from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class User extends Model.define({

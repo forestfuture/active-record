@@ -10,12 +10,8 @@ import {
   Model,
   RecordNotUnique,
   withDatabase,
-} from "../../../packages/active-record/src/index.ts";
-import {
-  connect,
-  d1,
-  type QueryEvent,
-} from "../../../packages/active-record/src/adapters/d1/index.ts";
+} from "../../../packages/arbor/src/index.ts";
+import { connect, d1, type QueryEvent } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
 
 // Level 1 reads the Worker's bindings from cloudflare:workers; here they're this test's two D1s.

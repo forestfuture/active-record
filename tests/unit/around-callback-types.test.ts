@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { Model } from "../../packages/arbor/src/index.ts";
 
 class Order extends Model.define({
   id: { type: "integer", null: false },

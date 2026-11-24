@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { batch, Model, type Relation } from "../../packages/active-record/src/index.ts";
+import { batch, Model, type Relation } from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Post extends Model.define({

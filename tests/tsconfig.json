@@ -8,5 +8,5 @@
     "moduleResolution": "bundler"
   },
   // The PostgreSQL adapter types the part of `pg` it calls itself, which its tests call too.
-  "include": [".", "../packages/active-record/src/adapters/postgresql/pg-module.d.ts"]
+  "include": [".", "../packages/arbor/src/adapters/postgresql/pg-module.d.ts"]
 }

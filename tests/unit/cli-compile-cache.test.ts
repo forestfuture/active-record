@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, onTestFinished, test, vi } from "vite-plus/test";
-import { forgetProjectFiles, projectJiti } from "../../packages/active-record/cli/project/load.ts";
+import { forgetProjectFiles, projectJiti } from "../../packages/arbor/cli/project/load.ts";
 import { scratchDirs } from "../support/scratch.ts";
 
 const scratch = scratchDirs();

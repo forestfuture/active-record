@@ -1,4 +1,4 @@
-import { hasMany, hasOne } from "@forestfuture/active-record";
+import { hasMany, hasOne } from "@forestfuture/arbor";
 import { ApplicationRecord } from "./application-record";
 import { Article } from "./article";
 import { Profile } from "./profile";

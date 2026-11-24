@@ -2,10 +2,10 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
 import { PassThrough } from "node:stream";
-import { runConsole } from "../../../packages/active-record/cli/console/command.ts";
-import { runGenerate } from "../../../packages/active-record/cli/generate/command.ts";
-import { runMigrate } from "../../../packages/active-record/cli/migrate/command.ts";
-import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
+import { runConsole } from "../../../packages/arbor/cli/console/command.ts";
+import { runGenerate } from "../../../packages/arbor/cli/generate/command.ts";
+import { runMigrate } from "../../../packages/arbor/cli/migrate/command.ts";
+import { runSchema } from "../../../packages/arbor/cli/schema/command.ts";
 import { capturedStreams } from "../../support/console.ts";
 import { writePgProject, type PgDatabases } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
@@ -109,11 +109,11 @@ describe("a project whose databases use different adapters", pgliteTimeout, () =
       ].join("\n"),
     ]);
     const d1 = read(cwd, "src/db/DB.ts");
-    expect(d1).toContain('import { d1 } from "@forestfuture/active-record/d1";');
+    expect(d1).toContain('import { d1 } from "@forestfuture/arbor/d1";');
     expect(d1).toContain('adapter: d1({ binding: "DB" }),');
     expect(d1).toContain("posts");
     const pg = read(cwd, "src/db/HYPERDRIVE.ts");
-    expect(pg).toContain('import { postgresql } from "@forestfuture/active-record/postgresql";');
+    expect(pg).toContain('import { postgresql } from "@forestfuture/arbor/postgresql";');
     expect(pg).toContain('adapter: postgresql({ binding: "HYPERDRIVE" }),');
     expect(pg).toContain("users");
   });

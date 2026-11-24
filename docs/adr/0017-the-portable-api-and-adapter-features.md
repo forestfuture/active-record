@@ -1,6 +1,6 @@
 # The portable API is what every adapter can do, and the rest comes from the adapter
 
-Anything imported from `@forestfuture/active-record` works on every adapter (#260). A feature only one database has is exported by that adapter's package: `withSession` from `d1-record`, and later `transaction` from `pg-record`. Adapters may report internal capabilities to the core, but apps never branch on them.
+Anything imported from `@forestfuture/arbor` works on every adapter (#260). A feature only one database has is exported by that adapter's package: `withSession` from `d1-record`, and later `transaction` from `pg-record`. Adapters may report internal capabilities to the core, but apps never branch on them.
 
 We chose this over a `Database` type generic over its capabilities, and over methods that exist everywhere and throw where they aren't supported. A generic would spread through `Model` and `Relation` for little gain, and a throwing method moves a compile-time fact to production. An adapter's import also makes lock-in easy to find: search for it.
 

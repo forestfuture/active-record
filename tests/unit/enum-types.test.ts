@@ -1,9 +1,5 @@
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import {
-  Model,
-  UnknownAttribute,
-  type TableAttributes,
-} from "../../packages/active-record/src/index.ts";
+import { Model, UnknownAttribute, type TableAttributes } from "../../packages/arbor/src/index.ts";
 
 class Article extends Model.define({
   id: { type: "integer", null: false },

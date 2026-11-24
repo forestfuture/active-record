@@ -1,4 +1,4 @@
-import { StaleRecord } from "@forestfuture/active-record";
+import { StaleRecord } from "@forestfuture/arbor";
 import { Article } from "./src/models/article";
 
 export async function saving() {

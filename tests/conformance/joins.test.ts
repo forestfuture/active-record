@@ -7,11 +7,11 @@ import {
   RecordNotFound,
   sql,
   UnknownAssociation,
-} from "../../packages/active-record/src/index.ts";
+} from "../../packages/arbor/src/index.ts";
 import { Comment } from "../fixtures/models/comment.ts";
 import { Post } from "../fixtures/models/post.ts";
 import { User } from "../fixtures/models/user.ts";
-import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
+import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 describe("joins", () => {

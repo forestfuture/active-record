@@ -1,12 +1,12 @@
 // The PostgreSQL adapter in workerd, for tests/integration/pg/workerd.test.ts: each route reports the backend
 // (connection) each query ran on, so the test sees which client served it.
-import { Model, sql, withDatabase } from "../../../../packages/active-record/src/index.ts";
+import { Model, sql, withDatabase } from "../../../../packages/arbor/src/index.ts";
 import pgModule from "pg";
 import {
   connect,
   postgresql,
   type Database,
-} from "../../../../packages/active-record/src/adapters/postgresql/index.ts";
+} from "../../../../packages/arbor/src/adapters/postgresql/index.ts";
 
 interface Env {
   DATABASE_URL: string;

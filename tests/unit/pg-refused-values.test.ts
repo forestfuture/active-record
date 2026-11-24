@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { withoutRowValues } from "../../packages/active-record/src/adapters/postgresql/errors.ts";
+import { withoutRowValues } from "../../packages/arbor/src/adapters/postgresql/errors.ts";
 
 /** A Postgres data error (SQLSTATE class 22) with `message`, as `pg` builds one. */
 const dataError = (message: string) =>

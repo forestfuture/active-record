@@ -1,5 +1,5 @@
-import { belongsTo, hasMany, Model } from "@forestfuture/active-record";
-import { withSession } from "@forestfuture/active-record/d1";
+import { belongsTo, hasMany, Model } from "@forestfuture/arbor";
+import { withSession } from "@forestfuture/arbor/d1";
 import { schema as logsSchema } from "../db/logs";
 import { schema as dbSchema } from "../db/schema";
 

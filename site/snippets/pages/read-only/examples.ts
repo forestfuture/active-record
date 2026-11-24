@@ -1,4 +1,4 @@
-import { ReadonlyAttribute, ReadonlyRecord } from "@forestfuture/active-record";
+import { ReadonlyAttribute, ReadonlyRecord } from "@forestfuture/arbor";
 import { Article } from "./src/models/article";
 
 export async function loading() {

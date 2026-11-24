@@ -7,10 +7,10 @@ seo:
 
 ## Installing
 
-The D1 adapter comes with `@forestfuture/active-record`, as its `/d1` entry:
+The D1 adapter comes with `@forestfuture/arbor`, as its `/d1` entry:
 
 ```sh
-npm install @forestfuture/active-record
+npm install @forestfuture/arbor
 ```
 
 ## Binding a database
@@ -29,7 +29,7 @@ If your Wrangler config is in another folder, name it in the database’s entry 
 
 ## Reading your own writes
 
-With read replication, wrap each request in [`withSession`](./read-your-own-writes), from `@forestfuture/active-record/d1`. It opens a D1 Session, so the request reads its own writes, and carries its bookmark to the user’s next request.
+With read replication, wrap each request in [`withSession`](./read-your-own-writes), from `@forestfuture/arbor/d1`. It opens a D1 Session, so the request reads its own writes, and carries its bookmark to the user’s next request.
 
 ## Sending queries in one round trip
 

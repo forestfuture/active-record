@@ -2,7 +2,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from "vite-plus/test";
-import { runMigrate } from "../../../packages/active-record/cli/migrate/command.ts";
+import { runMigrate } from "../../../packages/arbor/cli/migrate/command.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 import { writePgProject, type PgDatabases } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";

@@ -1,4 +1,4 @@
-import { gte } from "@forestfuture/active-record";
+import { gte } from "@forestfuture/arbor";
 import { Product } from "./src/models/product";
 import { Shirt } from "./src/models/shirt";
 import { Money } from "./src/types/money";

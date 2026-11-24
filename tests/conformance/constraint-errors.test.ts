@@ -7,7 +7,7 @@ import {
   Model,
   NotNullViolation,
   RecordNotUnique,
-} from "../../packages/active-record/src/index.ts";
+} from "../../packages/arbor/src/index.ts";
 import { Post } from "../fixtures/models/post.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 

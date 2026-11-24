@@ -1,12 +1,8 @@
 // Declaring a secure token (#355): `authToken: { secureToken: true }` on a string, its methods
 // typed, a declaration that can't work refused, and `generateSecureToken`. No database.
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import {
-  generateSecureToken,
-  InvalidModel,
-  Model,
-} from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { generateSecureToken, InvalidModel, Model } from "../../packages/arbor/src/index.ts";
+import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
 
 const db = connect({} as never);
 

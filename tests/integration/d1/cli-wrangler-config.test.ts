@@ -2,15 +2,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { PassThrough } from "node:stream";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import {
-  chosenDatabase,
-  loadDatabases,
-} from "../../../packages/active-record/cli/project/databases.ts";
-import { openLocalBinding } from "../../../packages/active-record/cli/adapters/d1/binding.ts";
-import { migrate } from "../../../packages/active-record/cli/adapters/d1/migrate.ts";
-import { cli } from "../../../packages/active-record/cli/adapters/d1/plugin.ts";
-import { runMigrate } from "../../../packages/active-record/cli/migrate/command.ts";
-import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
+import { chosenDatabase, loadDatabases } from "../../../packages/arbor/cli/project/databases.ts";
+import { openLocalBinding } from "../../../packages/arbor/cli/adapters/d1/binding.ts";
+import { migrate } from "../../../packages/arbor/cli/adapters/d1/migrate.ts";
+import { cli } from "../../../packages/arbor/cli/adapters/d1/plugin.ts";
+import { runMigrate } from "../../../packages/arbor/cli/migrate/command.ts";
+import { runSchema } from "../../../packages/arbor/cli/schema/command.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
 const scratch = scratchDirs();

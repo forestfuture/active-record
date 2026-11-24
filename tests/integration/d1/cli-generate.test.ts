@@ -10,8 +10,8 @@ import {
 import { join } from "node:path";
 import { Miniflare } from "miniflare";
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import { runGenerate } from "../../../packages/active-record/cli/generate/command.ts";
-import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import { runGenerate } from "../../../packages/arbor/cli/generate/command.ts";
+import { connect } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import { d1Config, withD1Config } from "../../support/d1-config.ts";
 
 // Inside tests/ (gitignored), so a generated project's imports of the library resolve as they
@@ -136,7 +136,7 @@ export class Product extends ApplicationRecord {}
       "order_id INTEGER NOT NULL REFERENCES orders (id)",
     );
     expect(read(cwd, "src/models/line-item.ts"))
-      .toBe(`import { belongsTo } from "@forestfuture/active-record";
+      .toBe(`import { belongsTo } from "@forestfuture/arbor";
 import { ApplicationRecord } from "./application-record";
 import { Order } from "./order";
 
@@ -196,8 +196,7 @@ Next: npx active-record migrate`);
 
     await generate(cwd, ["model", "Post", "user:references"], { models: "src/models.ts" });
 
-    expect(read(cwd, "src/models.ts"))
-      .toBe(`import { belongsTo } from "@forestfuture/active-record";
+    expect(read(cwd, "src/models.ts")).toBe(`import { belongsTo } from "@forestfuture/arbor";
 import { ApplicationRecord } from "./application-record";
 
 export class User extends ApplicationRecord {}

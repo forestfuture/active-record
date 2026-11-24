@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, InvalidModel, Model } from "../../packages/active-record/src/index.ts";
+import { belongsTo, hasMany, InvalidModel, Model } from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Topic extends Model.define({

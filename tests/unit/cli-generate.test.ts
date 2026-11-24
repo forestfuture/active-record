@@ -1,14 +1,14 @@
 import { describe, expect, test } from "vite-plus/test";
-import { parseColumns } from "../../packages/active-record/cli/generate/columns.ts";
-import { migrationFor } from "../../packages/active-record/cli/adapters/d1/migration.ts";
-import { migrationFileName } from "../../packages/active-record/cli/generate/migration-file.ts";
-import { migrationNameError, modelName } from "../../packages/active-record/cli/generate/names.ts";
+import { parseColumns } from "../../packages/arbor/cli/generate/columns.ts";
+import { migrationFor } from "../../packages/arbor/cli/adapters/d1/migration.ts";
+import { migrationFileName } from "../../packages/arbor/cli/generate/migration-file.ts";
+import { migrationNameError, modelName } from "../../packages/arbor/cli/generate/names.ts";
 import {
   appendModel,
   modelFileName,
   modelSource,
-} from "../../packages/active-record/cli/generate/model-file.ts";
-import { schemaOf } from "../../packages/active-record/cli/adapters/d1/schema.ts";
+} from "../../packages/arbor/cli/generate/model-file.ts";
+import { schemaOf } from "../../packages/arbor/cli/adapters/d1/schema.ts";
 
 /** Columns as parsed, or the errors joined, for short assertions. */
 function columns(...args: string[]) {
@@ -274,7 +274,7 @@ ALTER TABLE products DROP COLUMN code;
 // The plugin notes a key type it guessed (#285); a removed column's type isn't written.
 describe("D1's notes on a migration's references", () => {
   test("a reference to a table not in the migrations yet is noted, but not when it's removed", async () => {
-    const { cli } = await import("../../packages/active-record/cli/adapters/d1/plugin.ts");
+    const { cli } = await import("../../packages/arbor/cli/adapters/d1/plugin.ts");
     const change = (name: string) => ({
       name,
       columns: columns("user:references"),
@@ -321,7 +321,7 @@ describe("Model files", () => {
   test("one per Model, named in kebab-case, extending ApplicationRecord and importing its belongsTo targets", () => {
     expect(modelFileName("LineItem")).toBe("line-item.ts");
     expect(modelSource(model, { separateFiles: true }))
-      .toBe(`import { belongsTo } from "@forestfuture/active-record";
+      .toBe(`import { belongsTo } from "@forestfuture/arbor";
 import { ApplicationRecord } from "./application-record";
 import { Order } from "./order";
 
@@ -353,7 +353,7 @@ export class LineItem extends ApplicationRecord {}
   });
 
   test("appended to one models file, adding belongsTo to its import from the library", () => {
-    const existing = `import { hasMany } from "@forestfuture/active-record";
+    const existing = `import { hasMany } from "@forestfuture/arbor";
 import { ApplicationRecord } from "./models/application-record";
 
 export class Order extends ApplicationRecord {
@@ -367,7 +367,7 @@ export class Order extends ApplicationRecord {
 
     expect(appendModel(existing, inOneFile)).toEqual({
       ok: true,
-      source: `import { belongsTo, hasMany } from "@forestfuture/active-record";
+      source: `import { belongsTo, hasMany } from "@forestfuture/arbor";
 import { ApplicationRecord } from "./models/application-record";
 
 export class Order extends ApplicationRecord {
@@ -397,7 +397,7 @@ export class Order extends DbRecord {}
 
     expect(appendModel(existing, logs)).toEqual({
       ok: true,
-      source: `import { belongsTo } from "@forestfuture/active-record";
+      source: `import { belongsTo } from "@forestfuture/arbor";
 import { LogsRecord } from "./models/logs-record";
 import { DbRecord } from "./models/db-record";
 

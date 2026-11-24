@@ -3,8 +3,8 @@
 // Miniflare is local, so the time leaves out network latency; the round trips are what real
 // D1 multiplies.
 import { Miniflare } from "miniflare";
-import { hasMany, Model, sql } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { hasMany, Model, sql } from "../../packages/arbor/src/index.ts";
+import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
 
 const AUTHORS = 200,
   POSTS = 10,

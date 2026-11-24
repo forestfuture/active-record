@@ -1,9 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, Model } from "../../../packages/active-record/src/index.ts";
-import {
-  connect,
-  type QueryEvent,
-} from "../../../packages/active-record/src/adapters/postgresql/index.ts";
+import { belongsTo, hasMany, Model } from "../../../packages/arbor/src/index.ts";
+import { connect, type QueryEvent } from "../../../packages/arbor/src/adapters/postgresql/index.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 
 class Topic extends Model.define({

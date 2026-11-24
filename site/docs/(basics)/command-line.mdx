@@ -7,7 +7,7 @@ seo:
 
 ## Running the command
 
-The `active-record` command comes with `@forestfuture/active-record`, and `ffar` is its short name. Run it from your project’s folder:
+The `active-record` command comes with `@forestfuture/arbor`, and `ffar` is its short name. Run it from your project’s folder:
 
 ```sh
 npx active-record --help
@@ -48,7 +48,7 @@ With `--adapter postgresql` and no Hyperdrive binding, it writes a `DATABASE_URL
 
 ```jsonc
 {
-  "$schema": "./node_modules/@forestfuture/active-record/config-schema.json",
+  "$schema": "./node_modules/@forestfuture/arbor/config-schema.json",
   "databases": {
     "DB": { "adapter": "d1" },
   },
@@ -117,7 +117,7 @@ It applies your migrations, in order, to an in-memory database, and writes each 
 | `--models <dir>`     | Where your Models and `application-record.ts` are (`src/models/` by default).      |
 | `--config <file>`    | Use this config file, in place of `active-record.jsonc`.                           |
 
-**What it reads:** each database in `active-record.jsonc`. On Postgres, from its `migrationsDir`. On D1, from its entry in the Wrangler config’s `d1_databases`, with its `binding`, `migrations_dir` (default `migrations/`), `migrations_pattern` (for migrations in folders), and `migrations_table` (left out of the schema). Migrations apply in the order of the numbers their names start with (`9_…` before `10_…`), as Wrangler applies them. It also loads the Model files in `--models`, using your project’s own `@forestfuture/active-record`, to find each Model and its table, so code at a Model file’s top level runs.
+**What it reads:** each database in `active-record.jsonc`. On Postgres, from its `migrationsDir`. On D1, from its entry in the Wrangler config’s `d1_databases`, with its `binding`, `migrations_dir` (default `migrations/`), `migrations_pattern` (for migrations in folders), and `migrations_table` (left out of the schema). Migrations apply in the order of the numbers their names start with (`9_…` before `10_…`), as Wrangler applies them. It also loads the Model files in `--models`, using your project’s own `@forestfuture/arbor`, to find each Model and its table, so code at a Model file’s top level runs.
 
 **What it writes:**
 
@@ -163,7 +163,7 @@ npx active-record console
 | `--yes`             | With `--remote`, don’t ask first (also how to open it without a terminal).            |
 | `--history`         | Keep what you type in a remote session, which isn’t kept unless you ask.              |
 
-It reads TypeScript Models and uses your project’s own `@forestfuture/active-record` and its adapter. On D1, it opens the database through your project’s `wrangler`. On Postgres, it opens a connection to the database’s `url`, or with `--remote` its `remoteUrl`, and closes it when you leave. It refuses, printing why, when there’s no config, with several databases and no `--database`, with no Models, or with the library not installed. On D1, it also refuses without `wrangler` installed, or with `--remote` when the binding has no `database_id`. On Postgres, it refuses when the database has no `url` (or, with `--remote`, no `remoteUrl`), or names a variable that isn’t set. With `--remote`, it refuses when you don’t confirm it, or aren’t on a terminal and didn’t pass `--yes`. `--yes` only goes with `--remote`, `--history` can’t be combined with `--no-history`, and `-e` takes one piece of code, once.
+It reads TypeScript Models and uses your project’s own `@forestfuture/arbor` and its adapter. On D1, it opens the database through your project’s `wrangler`. On Postgres, it opens a connection to the database’s `url`, or with `--remote` its `remoteUrl`, and closes it when you leave. It refuses, printing why, when there’s no config, with several databases and no `--database`, with no Models, or with the library not installed. On D1, it also refuses without `wrangler` installed, or with `--remote` when the binding has no `database_id`. On Postgres, it refuses when the database has no `url` (or, with `--remote`, no `remoteUrl`), or names a variable that isn’t set. With `--remote`, it refuses when you don’t confirm it, or aren’t on a terminal and didn’t pass `--yes`. `--yes` only goes with `--remote`, `--history` can’t be combined with `--no-history`, and `-e` takes one piece of code, once.
 
 ## `active-record migrate`
 

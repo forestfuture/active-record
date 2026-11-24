@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { defineType, gt, Model } from "../../packages/active-record/src/index.ts";
+import { defineType, gt, Model } from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 /** An amount of money, in cents. */

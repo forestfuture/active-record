@@ -1,11 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import {
-  column,
-  defineType,
-  gte,
-  incoming,
-  Model,
-} from "../../packages/active-record/src/index.ts";
+import { column, defineType, gte, incoming, Model } from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Doc extends Model.define({

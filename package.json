@@ -1,11 +1,11 @@
 {
-  "name": "active-record-workspace",
+  "name": "arbor-workspace",
   "private": true,
   "license": "MIT",
   "author": "ForestFuture (https://forestfuture.dev)",
   "type": "module",
   "scripts": {
-    "build": "vp run @forestfuture/active-record#build",
+    "build": "vp run @forestfuture/arbor#build",
     "test": "vp test",
     "coverage": "vp test --coverage",
     "test:remote": "D1_REMOTE_SMOKE=1 vp test --project remote",
@@ -20,8 +20,8 @@
     "release:version": "changeset version && vp fmt",
     "prepare": "vp config",
     "knip": "knip",
-    "docs:dev": "vp run active-record-site#dev",
-    "docs:build": "vp run active-record-site#build"
+    "docs:dev": "vp run arbor-site#dev",
+    "docs:build": "vp run arbor-site#build"
   },
   "devDependencies": {
     "@arethetypeswrong/core": "^0.18.5",

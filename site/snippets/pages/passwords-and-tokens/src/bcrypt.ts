@@ -1,4 +1,4 @@
-import type { PasswordAlgorithm } from "@forestfuture/active-record";
+import type { PasswordAlgorithm } from "@forestfuture/arbor";
 import bcrypt from "bcryptjs";
 
 /** bcrypt, at a cost of 10. It verifies digests another app made with bcrypt too. */

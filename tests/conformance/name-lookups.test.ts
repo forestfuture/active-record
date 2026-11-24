@@ -1,9 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import {
-  batch,
-  UnknownAssociation,
-  UnknownAttribute,
-} from "../../packages/active-record/src/index.ts";
+import { batch, UnknownAssociation, UnknownAttribute } from "../../packages/arbor/src/index.ts";
 import { User } from "../fixtures/models/user.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 

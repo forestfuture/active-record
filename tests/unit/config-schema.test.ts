@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vite-plus/test";
-import { stringSettings } from "../../packages/active-record/cli/adapters/postgresql/config.ts";
-import { adapterNames } from "../../packages/active-record/cli/project/adapters.ts";
-import { parseJsonc } from "../../packages/active-record/cli/project/config-file.ts";
+import { stringSettings } from "../../packages/arbor/cli/adapters/postgresql/config.ts";
+import { adapterNames } from "../../packages/arbor/cli/project/adapters.ts";
+import { parseJsonc } from "../../packages/arbor/cli/project/config-file.ts";
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
 
@@ -11,7 +11,7 @@ interface Definition {
   required: string[];
 }
 
-const schema = JSON.parse(read("packages/active-record/config-schema.json")) as {
+const schema = JSON.parse(read("packages/arbor/config-schema.json")) as {
   definitions: Record<string, Definition>;
   properties: { databases: { additionalProperties: { oneOf: { $ref: string }[] } } };
 };
@@ -38,7 +38,7 @@ function unknownKeys(databases: Record<string, Record<string, unknown>>): string
 // init links the file to a schema the package ships, for an editor to complete it from (#301).
 describe("active-record.jsonc's JSON Schema", () => {
   test("ships in the package, where init's $schema links to it", () => {
-    const manifest = JSON.parse(read("packages/active-record/package.json")) as { files: string[] };
+    const manifest = JSON.parse(read("packages/arbor/package.json")) as { files: string[] };
 
     expect(manifest.files).toContain("config-schema.json");
   });

@@ -1,4 +1,4 @@
-import { Model, sql } from "@forestfuture/active-record";
+import { Model, sql } from "@forestfuture/arbor";
 import { schema } from "../db/schema";
 
 // What's written on ApplicationRecord, every Model has.

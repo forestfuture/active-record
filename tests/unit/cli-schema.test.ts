@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import { fingerprintOf } from "../../packages/active-record/cli/schema/render.ts";
-import { schemaOf } from "../../packages/active-record/cli/adapters/d1/schema.ts";
+import { fingerprintOf } from "../../packages/arbor/cli/schema/render.ts";
+import { schemaOf } from "../../packages/arbor/cli/adapters/d1/schema.ts";
 
 /** The tables a set of migrations makes, as the schema command reads them. */
 function tables(...sql: string[]) {

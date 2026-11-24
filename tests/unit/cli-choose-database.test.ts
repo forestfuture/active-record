@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { chooseDatabase } from "../../packages/active-record/cli/project/databases.ts";
+import { chooseDatabase } from "../../packages/arbor/cli/project/databases.ts";
 
 /** Databases as the commands hold them: anything with a binding. */
 const bound = (...bindings: string[]) => bindings.map((binding) => ({ binding }));

@@ -1,11 +1,11 @@
 import { mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import { loadProject } from "../../../packages/active-record/cli/console/project.ts";
+import { loadProject } from "../../../packages/arbor/cli/console/project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 import { libraryPaths } from "../../support/library-paths.ts";
 
-const d1Package = "@forestfuture/active-record/d1";
+const d1Package = "@forestfuture/arbor/d1";
 
 // The library resolves, as an app's does, from a tsconfig `paths` entry (here to this repo's source).
 const scratch = scratchDirs();
@@ -30,8 +30,8 @@ function project(files: Record<string, string>, outsideTheRepo = false): string 
 }
 
 const applicationRecord = `
-import { Model } from "@forestfuture/active-record";
-import { d1 } from "@forestfuture/active-record/d1";
+import { Model } from "@forestfuture/arbor";
+import { d1 } from "@forestfuture/arbor/d1";
 export abstract class ApplicationRecord extends Model {
   static override schema = {
     adapter: d1({ binding: "DB" }),
@@ -50,7 +50,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
     const cwd = project({
       "src/models/application-record.ts": applicationRecord,
       "src/models/user.ts": `
-        import type { Model } from "@forestfuture/active-record";
+        import type { Model } from "@forestfuture/arbor";
         import { ApplicationRecord } from "./application-record";
         import { greeting } from "@/lib/greeting";
         export class User extends ApplicationRecord { static greeting = greeting; }
@@ -112,21 +112,19 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
         {
           "package.json": '{ "name": "shop", "type": "module" }',
           "tsconfig.json": "{}",
-          "node_modules/@forestfuture/active-record/package.json": JSON.stringify({
-            name: "@forestfuture/active-record",
+          "node_modules/@forestfuture/arbor/package.json": JSON.stringify({
+            name: "@forestfuture/arbor",
             type: "module",
             exports: { ".": "./index.js", "./d1": "./d1.js" },
           }),
-          "node_modules/@forestfuture/active-record/index.js": "export class Model {}",
-          "node_modules/@forestfuture/active-record/d1.js": 'throw new Error("boom");',
+          "node_modules/@forestfuture/arbor/index.js": "export class Model {}",
+          "node_modules/@forestfuture/arbor/d1.js": 'throw new Error("boom");',
           "src/models/user.ts": "export class User {}",
         },
         true,
       );
 
-      expect(await loadProject(d1Package, cwd)).toBe(
-        "Couldn't load @forestfuture/active-record/d1: boom",
-      );
+      expect(await loadProject(d1Package, cwd)).toBe("Couldn't load @forestfuture/arbor/d1: boom");
     });
 
     test("a project without the library", async () => {
@@ -141,7 +139,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
       );
 
       expect(await loadProject(d1Package, cwd)).toMatch(
-        /^@forestfuture\/active-record isn't installed here/,
+        /^@forestfuture\/arbor isn't installed here/,
       );
     });
   });
@@ -254,8 +252,8 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
             compilerOptions: {
               baseUrl: ".",
               paths: {
-                "@forestfuture/active-record": ["./vendor/library.ts"],
-                "@forestfuture/active-record/d1": ["./vendor/library.ts"],
+                "@forestfuture/arbor": ["./vendor/library.ts"],
+                "@forestfuture/arbor/d1": ["./vendor/library.ts"],
               },
             },
           }),
@@ -267,7 +265,7 @@ describe("loading a project's Models for the console", { timeout: 30_000 }, () =
             export const withDatabase = async (_db: unknown, run: () => unknown) => run();
           `,
           "src/models/user.ts": `
-            import { Model } from "@forestfuture/active-record";
+            import { Model } from "@forestfuture/arbor";
             export class User extends Model {}
           `,
         },

@@ -1,4 +1,4 @@
-import { Model } from "@forestfuture/active-record";
+import { Model } from "@forestfuture/arbor";
 import { schema } from "../db/schema";
 
 // The app's base class, as `active-record schema` writes it, for the guide's Models.

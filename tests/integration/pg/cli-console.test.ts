@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vite-plus/test";
-import { runConsole } from "../../../packages/active-record/cli/console/command.ts";
-import { runGenerate } from "../../../packages/active-record/cli/generate/command.ts";
-import { runMigrate } from "../../../packages/active-record/cli/migrate/command.ts";
+import { runConsole } from "../../../packages/arbor/cli/console/command.ts";
+import { runGenerate } from "../../../packages/arbor/cli/generate/command.ts";
+import { runMigrate } from "../../../packages/arbor/cli/migrate/command.ts";
 import { capturedStreams } from "../../support/console.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 import { writePgProject } from "../../support/pg-project.ts";
@@ -68,8 +68,7 @@ describe("console, on Postgres", pgliteTimeout, () => {
   });
 
   test("keeps local files, such as its history, where node_modules is ignored", async () => {
-    const { cli } =
-      await import("../../../packages/active-record/cli/adapters/postgresql/plugin.ts");
+    const { cli } = await import("../../../packages/arbor/cli/adapters/postgresql/plugin.ts");
     const chosen = {
       binding: "DB",
       entry: {},

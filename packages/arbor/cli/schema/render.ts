@@ -1,0 +1,298 @@
+// The generated `schema.ts` and `ApplicationRecord` files, and the schema's fingerprint.
+import { stringLiteral } from "../source.ts";
+import { createHash } from "node:crypto";
+import type { Default, GeneratedTable, Spec } from "../adapter.ts";
+import { isIdentifier } from "../project/names.ts";
+
+/**
+ * The generated file's format. Bump it when the output changes, so `--check` reports files an
+ * older version of the command wrote (its fingerprint covers the format as well as the schema).
+ */
+const format = 7;
+
+/**
+ * An object key: bare when it's an identifier, quoted otherwise (`"first name"`). `__proto__` is
+ * computed, since in an object literal a bare or quoted one sets the prototype and the key is
+ * lost (#119).
+ */
+function keySource(name: string): string {
+  if (name === "__proto__") return '["__proto__"]';
+  return isIdentifier(name) ? name : JSON.stringify(name);
+}
+
+/** A JSON value as TypeScript source: `{ a: 1, tags: ["x"] }`. */
+function valueSource(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(valueSource).join(", ")}]`;
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value).map(
+      ([key, each]) => `${keySource(key)}: ${valueSource(each)}`,
+    );
+    return entries.length === 0 ? "{}" : `{ ${entries.join(", ")} }`;
+  }
+  return JSON.stringify(value);
+}
+
+function defaultSource(value: Default): string {
+  if ("date" in value) return `() => new Date(${JSON.stringify(value.date)})`;
+  const source = valueSource(value.literal);
+  return `() => ${source.startsWith("{") ? `(${source})` : source}`;
+}
+
+/** A generated enum's names, and the switches that keep its methods off until an override (#64). */
+function generatedEnumSource(spec: Spec): string[] {
+  const parts = [`enum: ${valueSource(spec.enum)}`];
+  if (spec.scopes === false) parts.push("scopes: false");
+  if (spec.instanceMethods === false) parts.push("instanceMethods: false");
+  return parts;
+}
+
+/** A decimal's precision and scale, as its spec writes them (#398). */
+function digitsSource({ precision, scale }: Spec): string[] {
+  const parts: string[] = [];
+  if (precision !== undefined) parts.push(`precision: ${precision}`);
+  if (scale !== undefined) parts.push(`scale: ${scale}`);
+  return parts;
+}
+
+/** An attribute's spec: just its type when that's all it has, as Models are written by hand. */
+function specSource(spec: Spec): string {
+  const parts = [`type: ${JSON.stringify(spec.type)}`];
+  if (spec.null === false) parts.push("null: false");
+  if (spec.column !== undefined) parts.push(`column: ${JSON.stringify(spec.column)}`);
+  if (spec.default !== undefined) parts.push(`default: ${defaultSource(spec.default)}`);
+  if (spec.generateId) parts.push("generateId: true");
+  parts.push(...digitsSource(spec));
+  if (spec.enum !== undefined) parts.push(...generatedEnumSource(spec));
+  return parts.length === 1 ? JSON.stringify(spec.type) : `{ ${parts.join(", ")} }`;
+}
+
+/** Text safe inside a `/** … *\/` comment. */
+function commentText(text: string): string {
+  return text.replaceAll("*/", "*\\/");
+}
+
+function tableSource(table: GeneratedTable): string {
+  const attributes = Object.entries(table.attributes)
+    .map(([name, spec]) => `  ${keySource(name)}: ${specSource(spec)},`)
+    .join("\n");
+  return `/** ${commentText(table.name)} — last changed by ${commentText(table.lastChangedBy)} */
+export const ${table.exportName} = {
+${attributes}
+} as const;`;
+}
+
+/**
+ * A Model the schema lists: its class, the `modelName` it's listed by, its table, and its
+ * module as the schema imports it.
+ */
+export interface ListedModel {
+  className: string;
+  /** Its `modelName`; left out, its class name. */
+  modelName?: string;
+  table: string;
+  module: string;
+  /** Its enum scopes (#340), which the schema lists so they're statics from the start. */
+  enumScopes?: readonly string[];
+}
+
+/** An adapter as a generated schema imports it: its factory, named for it, and its package. */
+interface SchemaAdapter {
+  factory: string;
+  from: string;
+}
+
+/** What a database's generated schema is made of: its adapter, tables, binding and Models. */
+export interface SchemaSource {
+  adapter: SchemaAdapter;
+  tables: readonly GeneratedTable[];
+  binding: string;
+  models: readonly ListedModel[];
+}
+
+/** A short hash of the schema itself, so `--check` ignores how the file is formatted. */
+export function fingerprintOf({ adapter, tables, binding, models }: SchemaSource): string {
+  // In the order the file lists them, whichever order they were found in.
+  // A modelName that's the class name is left out, so a schema from before it keeps its hash.
+  const listed = byName(models, (model) => model.className).map((model) => {
+    const { className, table, module, enumScopes = [] } = model;
+    const modelName = listedName(model);
+    const scopes = enumScopes.length === 0 ? {} : { enumScopes };
+    return modelName === className
+      ? { className, table, module, ...scopes }
+      : { className, modelName, table, module, ...scopes };
+  });
+  const hash = createHash("sha256").update(
+    JSON.stringify({ format, adapter, tables, binding, models: listed }),
+  );
+  return hash.digest("hex").slice(0, 12);
+}
+
+/** The name the schema lists a Model by: its `modelName`, or else its class name. */
+function listedName(model: ListedModel): string {
+  return model.modelName ?? model.className;
+}
+
+/** Items sorted by a name, as `localeCompare` doesn't: the same on every machine. */
+function byName<T>(items: readonly T[], name: (item: T) => string): T[] {
+  return [...items].sort((a, b) => (name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0));
+}
+
+/** The entries of the schema's `key` as an object: on one line, or one a line when that would be too long. */
+function objectSource(entries: readonly string[], key: string): string {
+  const line = entries.length === 0 ? "{}" : `{ ${entries.join(", ")} }`;
+  if (`  ${key}: ${line},`.length <= 100) return line;
+  return `{\n${entries.map((entry) => `    ${entry},`).join("\n")}\n  }`;
+}
+
+/** Each Model's enum scopes, by the name it's listed by, if any has some (#340). */
+function enumScopesSource(models: readonly ListedModel[]): string {
+  const entries = byName(models, listedName)
+    .filter((model) => (model.enumScopes ?? []).length > 0)
+    .map((model) => `${keySource(listedName(model))}: ${valueSource(model.enumScopes)}`);
+  return entries.length === 0 ? "" : `\n  enumScopes: ${objectSource(entries, "enumScopes")},`;
+}
+
+/**
+ * The `schema` value: its adapter and binding, every table by name, every Model's table by
+ * modelName, and their enum scopes, through `defineSchema`, which makes those statics (#340).
+ */
+function schemaValueSource({ adapter, tables, binding, models }: SchemaSource): string {
+  const entries = tables
+    .map((table) => {
+      const primaryKey = JSON.stringify(table.primaryKey);
+      return `    ${keySource(table.name)}: { attributes: ${table.exportName}, primaryKey: ${primaryKey} },`;
+    })
+    .join("\n");
+  const listed = byName(models, listedName).map(
+    (model) => `${keySource(listedName(model))}: ${JSON.stringify(model.table)}`,
+  );
+  return `/** The database's adapter and binding, its tables (with their primary keys), and the Models built on them. */
+export const schema = defineSchema({
+  adapter: ${adapter.factory}({ binding: ${stringLiteral(binding)} }),
+  tables: {
+${entries}
+  },
+  models: ${objectSource(listed, "models")},${enumScopesSource(models)}
+});`;
+}
+
+/** A Model's declaration: its class, with its table's attributes after its own overrides. */
+function interfaceSource(model: ListedModel, exportName: string): string {
+  const name = model.className;
+  const heritage = `extends TableAttributes<typeof ${exportName}, (typeof ${name})["attributes"]> {}`;
+  const line = `  interface ${name} ${heritage}`;
+  return line.length <= 100 ? line : `  interface ${name}\n    ${heritage}`;
+}
+
+/** A Model's enum scopes as statics, typed (#340): a namespace merged with its class. */
+function namespaceLines(model: ListedModel): string[] {
+  const scopes = model.enumScopes ?? [];
+  if (scopes.length === 0) return [];
+  const statics = scopes.map((scope) => `    export const ${scope}: ScopeStatic<[]>;`);
+  return [`  namespace ${model.className} {`, ...statics, "  }"];
+}
+
+/** One `declare module` block per Model file, adding each class's attributes to it. */
+function declarationsSource({ tables, models }: SchemaSource): string {
+  const exportNames = new Map(tables.map((table) => [table.name, table.exportName]));
+  const modules = new Map<string, ListedModel[]>();
+  for (const model of byName(models, (each) => each.className)) {
+    modules.set(model.module, [...(modules.get(model.module) ?? []), model]);
+  }
+  return byName([...modules], ([module]) => module)
+    .map(([module, inModule]) => {
+      const lines = inModule.flatMap((model) => [
+        interfaceSource(model, exportNames.get(model.table)!),
+        ...namespaceLines(model),
+      ]);
+      return `declare module ${stringLiteral(module)} {\n${lines.join("\n")}\n}`;
+    })
+    .join("\n\n");
+}
+
+/**
+ * The generated `schema.ts`: each table's attributes, the binding with every table and Model,
+ * and each Model's attributes added to its class. It's the schema as a document; the app's
+ * base class (`renderBase`) holds it.
+ */
+export function renderSchema(schema: SchemaSource, source: string): string {
+  const hasModels = schema.models.length > 0;
+  const hasScopes = schema.models.some((model) => (model.enumScopes ?? []).length > 0);
+  const names = [
+    "defineSchema",
+    ...(hasScopes ? ["type ScopeStatic"] : []),
+    ...(hasModels ? ["type TableAttributes"] : []),
+  ];
+  const imports =
+    `import { ${names.join(", ")} } from "@forestfuture/arbor";\n` +
+    `import { ${schema.adapter.factory} } from ${stringLiteral(schema.adapter.from)};\n\n`;
+  const declarations = hasModels ? `\n\n${declarationsSource(schema)}` : "";
+  return `// Generated by \`active-record schema\` from ${source} — don't edit.
+// schema: ${fingerprintOf(schema)}
+
+${imports}${schema.tables.map(tableSource).join("\n\n")}
+
+${schemaValueSource(schema)}${declarations}
+`;
+}
+
+/**
+ * The app's base class for a database's Models, written once and then the app's own:
+ * `class Product extends ApplicationRecord {}`.
+ */
+export function renderBase(className: string, schemaImport: string): string {
+  return `import { Model } from "@forestfuture/arbor";
+import { schema } from ${stringLiteral(schemaImport)};
+
+/**
+ * The base class for this app's Models: \`class Product extends ${className} {}\`. Methods,
+ * callbacks and scopes written here are shared by every Model.
+ * It's abstract: it has no table of its own.
+ */
+export abstract class ${className} extends Model {
+  // The generated schema: each Model's attributes, from its table, and the binding Models
+  // query (Product.find(id)), from your project's config.
+  static override schema = schema;
+
+  // A method every record has:
+  // label() {
+  //   return \`\${this.constructor.name} \${JSON.stringify(this.attributes())}\`;
+  // }
+
+  // A scope every Model has, in SQL since it runs on each Model's own table (import sql too):
+  // static newest = this.scope((q) => q.order(sql\`created_at DESC\`));
+
+  // Log every query, from every Model, in production too (import type QueryListener too; the
+  // guide's Connecting page shows development-only logging, and one request's queries):
+  // static override onQuery: QueryListener = ({ model, sql, durationMs }) =>
+  //   console.log(\`\${model} \${durationMs.toFixed(1)}ms \${sql}\`);
+
+  // Values of attributes named like these show as "[FILTERED]" to onQuery and in errors. These
+  // are the defaults (passwords, tokens, keys, emails…); add yours, or leave one out:
+  // static override filterAttributes = [...Model.filterAttributes, "iban"];
+
+  // Attributes toJSON() leaves out, so Response.json(record) never sends them (exact names;
+  // attributes() still has them):
+  // static override hiddenAttributes = ["passwordDigest"];
+
+  // How new TEXT keys are made (a UUID by default), e.g. time-ordered ones from a
+  // library you choose:
+  // static override generateId = () => uuidv7();
+
+  static {
+    // A callback that runs for every Model, before each Model's own:
+    // this.beforeSave((record) => {
+    //   console.log(\`Saving \${record.constructor.name}\`);
+    // });
+    // Error messages in place of the built-in English, for every Model (a Model can declare
+    // its own, and attributes: { email: { … } } is for one attribute):
+    // this.errorMessages({ blank: "is required" });
+  }
+}
+`;
+}
+
+/** The fingerprint a generated file was made from, read from its header. */
+export function fingerprintIn(source: string): string | undefined {
+  return /^\/\/ schema: ([0-9a-f]{12})$/m.exec(source)?.[1];
+}

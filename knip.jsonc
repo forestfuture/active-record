@@ -14,8 +14,8 @@
       "typescript": {
         "config": [
           "tsconfig.json",
-          "packages/active-record/src/tsconfig.json",
-          "packages/active-record/cli/tsconfig.json",
+          "packages/arbor/src/tsconfig.json",
+          "packages/arbor/cli/tsconfig.json",
           "tests/tsconfig.json",
         ],
       },
@@ -23,7 +23,7 @@
       // tests/integration/d1/cli-console-command.test.ts lists a process's children with it.
       "ignoreBinaries": ["pgrep"],
     },
-    "packages/active-record": {
+    "packages/arbor": {
       // Provided by the Workers runtime (#77) to the adapters, and its types, an optional peer the
       // root installs, which the adapters' declarations use (D1Database, Hyperdrive).
       "ignoreDependencies": ["cloudflare", "@cloudflare/workers-types"],

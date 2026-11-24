@@ -1,4 +1,4 @@
-import { column, Model, sql } from "@forestfuture/active-record";
+import { column, Model, sql } from "@forestfuture/arbor";
 
 export class Reminder extends Model.define({
   id: { type: "integer", null: false },

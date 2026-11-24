@@ -2,15 +2,15 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { runConsole } from "../../../packages/active-record/cli/console/command.ts";
-import { runMigrate } from "../../../packages/active-record/cli/migrate/command.ts";
-import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
-import { Model, withDatabase } from "../../../packages/active-record/src/index.ts";
-import { connect, d1 } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import { runConsole } from "../../../packages/arbor/cli/console/command.ts";
+import { runMigrate } from "../../../packages/arbor/cli/migrate/command.ts";
+import { runSchema } from "../../../packages/arbor/cli/schema/command.ts";
+import { Model, withDatabase } from "../../../packages/arbor/src/index.ts";
+import { connect, d1 } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import {
   connect as connectPostgres,
   postgresql,
-} from "../../../packages/active-record/src/adapters/postgresql/index.ts";
+} from "../../../packages/arbor/src/adapters/postgresql/index.ts";
 import { capturedStreams } from "../../support/console.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";

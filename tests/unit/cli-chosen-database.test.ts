@@ -2,11 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, test } from "vite-plus/test";
-import {
-  chosenDatabase,
-  loadDatabases,
-} from "../../packages/active-record/cli/project/databases.ts";
-import { remoteTarget } from "../../packages/active-record/cli/adapters/d1/remote.ts";
+import { chosenDatabase, loadDatabases } from "../../packages/arbor/cli/project/databases.ts";
+import { remoteTarget } from "../../packages/arbor/cli/adapters/d1/remote.ts";
 
 /** The database chosen in a D1 project, or why there isn't one. */
 async function databaseFor(cwd: string, options: { config?: string; database?: string }) {

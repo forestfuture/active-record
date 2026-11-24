@@ -1,8 +1,5 @@
 import { PassThrough } from "node:stream";
-import {
-  startSession,
-  type SessionOptions,
-} from "../../packages/active-record/cli/console/session.ts";
+import { startSession, type SessionOptions } from "../../packages/arbor/cli/console/session.ts";
 
 /** Polls until `done` is true; throws, naming what it waited for, after about `seconds`. */
 export async function waitFor(done: () => boolean, seconds = 10): Promise<void> {

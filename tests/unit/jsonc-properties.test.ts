@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vite-plus/test";
-import { parseJsonc } from "../../packages/active-record/cli/project/config-file.ts";
+import { parseJsonc } from "../../packages/arbor/cli/project/config-file.ts";
 import { PURE_RUNS } from "../support/properties.ts";
 
 /** Any Unicode character, often one of JSON's own punctuation or whitespace. */

@@ -1,8 +1,8 @@
 // A Model's signing secret inside a Worker (#517): read from the env cloudflare:workers gives,
 // before any process.env.
 import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from "vite-plus/test";
-import { Model } from "../../../packages/active-record/src/index.ts";
-import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import { Model } from "../../../packages/arbor/src/index.ts";
+import { connect } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
 
 // The Worker's env, as cloudflare:workers gives it; here it holds this test's secret.

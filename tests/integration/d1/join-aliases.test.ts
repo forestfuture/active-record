@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, expect, test } from "vite-plus/test";
-import { belongsTo, Model } from "../../../packages/active-record/src/index.ts";
-import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import { belongsTo, Model } from "../../../packages/arbor/src/index.ts";
+import { connect } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
 
 // SQLite reads a table's name in any case, so "USERS" is the users table joined a second time.

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { between, gt, Model } from "../../packages/active-record/src/index.ts";
+import { between, gt, Model } from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 /** A value the property's type doesn't name, as one from a request would arrive. */

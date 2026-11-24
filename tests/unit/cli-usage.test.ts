@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import { everySubcommand, main } from "../../packages/active-record/cli/main.ts";
-import { defineSubcommand, helpFor } from "../../packages/active-record/cli/subcommand.ts";
+import { everySubcommand, main } from "../../packages/arbor/cli/main.ts";
+import { defineSubcommand, helpFor } from "../../packages/arbor/cli/subcommand.ts";
 
 /** `active-record --help`, as it reads today: the commands, the columns, and each one's flags. */
 const help = `Usage:

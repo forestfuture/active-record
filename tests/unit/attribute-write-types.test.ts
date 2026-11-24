@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, test } from "vite-plus/test";
-import { defineType, Model } from "../../packages/active-record/src/index.ts";
+import { defineType, Model } from "../../packages/arbor/src/index.ts";
 import { Post } from "../fixtures/models/post.ts";
 import { User } from "../fixtures/models/user.ts";
 

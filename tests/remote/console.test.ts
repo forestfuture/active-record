@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import { runConsole } from "../../packages/active-record/cli/console/command.ts";
+import { runConsole } from "../../packages/arbor/cli/console/command.ts";
 import { terminalStreams } from "../support/console.ts";
 import { scratchDirs } from "../support/scratch.ts";
 import { configured, remoteDatabase } from "./support.ts";
@@ -20,8 +20,8 @@ function project(table: string, entry: Record<string, unknown>): string {
       compilerOptions: { paths: libraryPaths },
     }),
     "src/models/application-record.ts": `
-      import { Model } from "@forestfuture/active-record";
-import { d1 } from "@forestfuture/active-record/d1";
+      import { Model } from "@forestfuture/arbor";
+import { d1 } from "@forestfuture/arbor/d1";
       export abstract class ApplicationRecord extends Model {
         static override schema = {
           adapter: d1({ binding: "DB" }),

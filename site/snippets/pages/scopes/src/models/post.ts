@@ -1,4 +1,4 @@
-import { gte } from "@forestfuture/active-record";
+import { gte } from "@forestfuture/arbor";
 import { ApplicationRecord } from "./application-record";
 
 export class Post extends ApplicationRecord {

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { Model, NoDatabase, withDatabase } from "../../../packages/active-record/src/index.ts";
-import { d1, connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import { Model, NoDatabase, withDatabase } from "../../../packages/arbor/src/index.ts";
+import { d1, connect } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
 
 // Outside a Worker, as tests and scripts run: cloudflare:workers doesn't exist here.

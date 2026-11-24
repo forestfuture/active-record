@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vite-plus/test";
-import { column, Model, sql } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
-import { attributeFor } from "../../packages/active-record/src/attribute.ts";
+import { column, Model, sql } from "../../packages/arbor/src/index.ts";
+import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
+import { attributeFor } from "../../packages/arbor/src/attribute.ts";
 
 class Sample extends Model.define({
   id: { type: "integer", null: false },

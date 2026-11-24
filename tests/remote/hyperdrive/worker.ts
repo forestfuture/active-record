@@ -1,11 +1,8 @@
 // The PostgreSQL adapter through a real Hyperdrive, deployed for a moment by tests/remote/hyperdrive.test.ts: each
 // route reports what it saw, on this run's prefixed tables (TABLE_PREFIX). It answers only requests
 // carrying the run's own random SMOKE_TOKEN, so one left behind by a killed run writes nothing.
-import { Model, withDatabase } from "../../../packages/active-record/src/index.ts";
-import {
-  connect,
-  postgresql,
-} from "../../../packages/active-record/src/adapters/postgresql/index.ts";
+import { Model, withDatabase } from "../../../packages/arbor/src/index.ts";
+import { connect, postgresql } from "../../../packages/arbor/src/adapters/postgresql/index.ts";
 
 interface Env {
   HYPERDRIVE: Parameters<typeof connect>[0];

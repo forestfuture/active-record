@@ -6,8 +6,8 @@ import {
   UnknownAttribute,
   type ScopeStatic,
   type TableAttributes,
-} from "../../packages/active-record/src/index.ts";
-import { d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
+} from "../../packages/arbor/src/index.ts";
+import { d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class Article extends Model.define({

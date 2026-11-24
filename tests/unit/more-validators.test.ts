@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import { Model, type Errors } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { Model, type Errors } from "../../packages/arbor/src/index.ts";
+import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
 
 /** Validates `record`, returning its errors as `attribute type: message`. */
 async function errorsOf(record: { isValid(): Promise<boolean>; errors: Errors }) {
