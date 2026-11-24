@@ -16,7 +16,8 @@ import {
 import { eachOnce, findByIds, findOne } from "./find.ts";
 import { firstOf, lastOf, soleOf, takeOf, type OneRecordSource } from "./one-record.ts";
 import { listOrdered, type InOrderOfOptions } from "./list-order.ts";
-import { countSourceOf, exists, isEmpty, size, upToTwo } from "./record-counts.ts";
+import { countSourceOf, exists, type CountSource } from "./record-counts.ts";
+import { CountQuestions, countSource } from "./count-questions.ts";
 import {
   unscoped,
   withOnly,
@@ -32,6 +33,7 @@ import {
   either,
   mergeTrees,
   Negated,
+  queryOf,
   type Condition,
   type QueryDescription,
 } from "./query.ts";
@@ -97,9 +99,6 @@ import {
 
 declare const scopeTypes: unique symbol;
 
-/** @internal The library's key for the query a Relation describes. */
-export const queryOf = Symbol("queryOf");
-
 /** @internal The library's key for narrowing a Relation by its link to an association's owner (#350). */
 export const linkedToOwner = Symbol("linkedToOwner");
 
@@ -126,7 +125,7 @@ export type Scoped<M extends Model, S = {}> = [keyof S] extends [never]
   : Relation<M, S> & ScopeMethods<M, S>;
 
 /** A lazy, immutable description of a query against one Model. */
-export class Relation<M extends Model, S = {}> {
+export class Relation<M extends Model, S = {}> extends CountQuestions<M> {
   /** Type-only: the Model's scopes, so chained calls keep their scope methods. */
   declare readonly [scopeTypes]?: S;
 
@@ -143,6 +142,7 @@ export class Relation<M extends Model, S = {}> {
    * what one is made from is the library's own business.
    */
   protected constructor(parts: unknown) {
+    super();
     const { executor, model, query, collection } = parts as RelationParts<M>;
     this.#executor = executor;
     this.#model = model;
@@ -265,6 +265,15 @@ export class Relation<M extends Model, S = {}> {
   }
 
   /**
+   * Makes the records this Relation loads read-only (#358): saving or destroying one throws
+   * `ReadonlyRecord`. Records it preloads, builds or creates aren't, and its bulk writes ignore it.
+   * `readonly(false)` undoes it.
+   */
+  readonly(flag = true): Scoped<M, S> {
+    return this.#with({ readonly: flag });
+  }
+
+  /**
    * Preloads associations for every record this Relation loads, so reading them afterwards
    * sends no query: `includes("posts", "profile")`, nested `includes({ posts: "comments" })`.
    */
@@ -356,7 +365,8 @@ export class Relation<M extends Model, S = {}> {
   /**
    * Inserts a row now, or updates it when it clashes with the unique index on `uniqueBy` (the
    * primary key by default): every given attribute and every value this Relation writes into the
-   * row (#475), except the `uniqueBy` ones and `createdAt`, with `updatedAt` set.
+   * row (#475), except the `uniqueBy` ones and `createdAt`, or only those `updateOnly` names
+   * (#36), with `updatedAt` set when one of them changes.
    * Resolves as `insert` does, returning inserted and updated rows.
    */
   async upsert<const R extends Returning<M> | undefined = undefined>(
@@ -649,36 +659,8 @@ export class Relation<M extends Model, S = {}> {
     };
   }
 
-  /**
-   * The number of records: a loaded association's (built records included) without a query;
-   * otherwise a `COUNT(*)`, plus an association's unsaved built records.
-   */
-  async size(): Promise<number> {
-    return size(this.#countSource());
-  }
-
-  /** Whether there are no records: a loaded association answers itself, else `!exists()`. */
-  async isEmpty(): Promise<boolean> {
-    return isEmpty(this.#countSource());
-  }
-
-  /** Whether there are any records: the opposite of `isEmpty()`. */
-  async hasAny(): Promise<boolean> {
-    return !(await this.isEmpty());
-  }
-
-  /** Whether more than one record matches: one `COUNT` of at most two rows. */
-  async hasMoreThanOne(): Promise<boolean> {
-    return (await upToTwo(this.#countSource())) > 1;
-  }
-
-  /** Whether exactly one record matches: one `COUNT` of at most two rows. */
-  async hasExactlyOne(): Promise<boolean> {
-    return (await upToTwo(this.#countSource())) === 1;
-  }
-
-  /** What `size` and the questions about how many records there are read. */
-  #countSource() {
+  /** @internal What `size` and the questions about how many records there are read. */
+  [countSource](): CountSource {
     return countSourceOf(this.#valueSource(), this.#collection);
   }
 

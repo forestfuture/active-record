@@ -1,4 +1,4 @@
-// The statics every Model gets from Model: its Relation methods (`Product.where(…)`), `destroy`, `delete` and the counters (`updateCounters`, `incrementCounter`, `decrementCounter`, `resetCounters`) by primary key, and callbacks (`this.beforeSave(…)`), typed and defined from their lists.
+// The statics every Model gets from Model: its Relation methods (`Product.where(…)`), `destroy`, `delete` and the counters (`updateCounters`, `incrementCounter`, `decrementCounter`, `resetCounters`) by primary key, the finders by a reset token (`findByPasswordResetToken`), and callbacks (`this.beforeSave(…)`), typed and defined from their lists.
 import {
   declare,
   type AroundCallback,
@@ -16,7 +16,9 @@ import type {
   ModelClass,
   QueryableClass,
   ScopesOf,
+  SpecsOf,
 } from "./model.ts";
+import { resetPurposeOf, type PasswordResetTokenArgument } from "./secure-passwords.ts";
 import type { PaginateStatic } from "./pagination.ts";
 import { destroyTogether } from "./records-together.ts";
 import { resetCounters } from "./owners-counter.ts";
@@ -58,6 +60,7 @@ const relationMethods = [
   "offset",
   "select",
   "distinct",
+  "readonly",
   "includes",
   "joins",
   "leftJoins",
@@ -78,6 +81,10 @@ const relationMethods = [
   "findBy",
   "findByOrThrow",
   "findSoleBy",
+  "findSigned",
+  "findSignedOrThrow",
+  "findByTokenFor",
+  "findByTokenForOrThrow",
   "findOrCreateBy",
   "findOrCreateByOrThrow",
   "findOrInitializeBy",
@@ -437,12 +444,25 @@ const callbackKinds = Object.keys({
   true
 >) as CallbackKind[];
 
+/** A static that finds a record by `password`'s reset token, typed `never` for a Model without one. */
+type ResetTokenStatic<Found> = <C extends QueryableClass>(
+  this: C,
+  token: PasswordResetTokenArgument<SpecsOf<InstanceType<C>>>,
+) => Promise<InstanceType<C> | Found>;
+
+/** The finders by a secure password's reset token (#517), for `password`. */
+interface ResetTokenStatics {
+  findByPasswordResetToken: ResetTokenStatic<null>;
+  findByPasswordResetTokenOrThrow: ResetTokenStatic<never>;
+}
+
 /**
  * The class Model extends, for its statics' types only: at runtime it's empty, and
  * `defineStatics` puts the statics on Model itself, where scopes look for the names they
  * can't take.
  */
 export const ModelStatics = class {} as unknown as (abstract new () => object) &
+  ResetTokenStatics &
   RelationStatics &
   OverloadedStatics &
   KeyedWriteStatics &
@@ -495,6 +515,7 @@ export function defineStatics(base: typeof Model): void {
     });
   }
   defineKeyedWrites(base);
+  defineResetTokenFinders(base);
 }
 
 /** `Model.destroy(ids)`, `Model.delete(ids)`, and the counter statics, on the current database. */
@@ -556,6 +577,20 @@ function defineKeyedWrites(base: typeof Model): void {
       },
     );
   }
+}
+
+/** The finders by `password`'s reset token (#517): `findByTokenFor("passwordReset", token)`. */
+function defineResetTokenFinders(base: typeof Model): void {
+  defineStatic(base, "findByPasswordResetToken", function (this: QueryableClass, token: unknown) {
+    return this.findByTokenFor(resetPurposeOf("password"), token);
+  });
+  defineStatic(
+    base,
+    "findByPasswordResetTokenOrThrow",
+    function (this: QueryableClass, token: unknown) {
+      return this.findByTokenForOrThrow(resetPurposeOf("password"), token);
+    },
+  );
 }
 
 /** Whether a callback kind takes `on`, to run only in some validation contexts (#51). */

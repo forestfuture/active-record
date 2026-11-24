@@ -79,6 +79,8 @@ Write anything else as an `sql` tagged template, with `column()` for an attribut
 
 <include>/_excerpts/pages/conditions/examples/sql.mdx</include>
 
+To compare two columns, write both in a fragment: ``where(sql`${column("updatedAt")} > ${column("createdAt")}`)``.
+
 Values are always bound, as they are, so a `Date` is ISO text. To write a value the way its attribute stores it, use `column(name).value(v)`:
 
 <include>/_excerpts/pages/conditions/examples/value.mdx</include>

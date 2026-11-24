@@ -5,16 +5,24 @@ import { normalizedConditions } from "./normalized-values.ts";
 import { shownKey } from "./filtering.ts";
 import type { QueryRunner, RunnableQuery } from "./load.ts";
 import { primaryKeyOf, type Model, type ModelClass } from "./model.ts";
+import { refuseReferenceValue } from "./sql.ts";
 import type { Condition, QueryDescription } from "./query.ts";
 
 /**
- * The finder rules: `query`'s conditions (plus `extra`), joins and includes, full rows, no
- * order.
+ * The finder rules: `query`'s conditions (plus `extra`), joins, includes and read-only mark (#358),
+ * full rows, no order.
  */
 function finderQuery(query: QueryDescription, extra?: Condition): QueryDescription {
   const conditions = extra === undefined ? query.conditions : [...query.conditions, extra];
-  const { model, joins, includes } = query;
-  return { model, conditions, order: [], includes, ...(joins !== undefined && { joins }) };
+  const { model, joins, includes, readonly } = query;
+  return {
+    model,
+    conditions,
+    order: [],
+    includes,
+    ...(joins !== undefined && { joins }),
+    ...(readonly !== undefined && { readonly }),
+  };
 }
 
 /** One row `query` matches by the finder rules (plus `extra`), or null. */
@@ -99,11 +107,18 @@ function inKeyOrder<M extends Model>(records: readonly M[], keys: readonly unkno
   return keys.map((key) => byKey.get(key) as M);
 }
 
-/** What `find(...args)` finds: one record for one id, else an array, in the ids' or the query's order. */
+/**
+ * What `find(...args)` finds: one record for one id, else an array, in the ids' or the query's
+ * order. A `column()`, typed value or `incoming()` given as an id throws `TypeError` (#546).
+ */
 export async function findByIds<M extends Model>(
   { model, query, runner }: RunnableQuery<M>,
   args: readonly (string | number | readonly (string | number)[])[],
 ): Promise<M | M[]> {
+  for (const id of args.flat())
+    refuseReferenceValue(id, `find() gives ${model.primaryKey}`, {
+      takesFragment: false,
+    });
   const [only] = args;
   if (args.length === 1 && (typeof only === "string" || typeof only === "number")) {
     return findById(runner, query, only);

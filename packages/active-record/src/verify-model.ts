@@ -1,6 +1,7 @@
 // Checks a Model's declaration the first time it's used, then seals its declarations.
 // It checks the table, the primary key, the attribute names, the spec keys, hidden attributes, message names, validated associations, normalized attributes, validation contexts, and page sizes.
 import { methodsOffFixes } from "./enum-switch.ts";
+import { readonlyProblem } from "./readonly-records.ts";
 import { ancestors, staticBelow } from "./ancestors.ts";
 import { associationsOf, declarationIn, probeOf } from "./association-fields.ts";
 import { attributesNamedInMessages } from "./error-messages.ts";
@@ -91,7 +92,9 @@ function rejectBadSpecs(model: ModelClass): void {
     // A virtual attribute's column is "" unless one was given (#356).
     const column = definition.column === "" ? undefined : definition.column;
     const declared = { ...definition, column, type: definition.customType ?? definition.type };
-    const problem = specProblem(`${model.name}.${name}`, declared);
+    const where = `${model.name}.${name}`;
+    const problem =
+      specProblem(where, declared) ?? readonlyProblem(where, name, definition.readonly);
     if (problem !== undefined) throw new InvalidModel(problem);
   }
 }

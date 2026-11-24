@@ -1,7 +1,8 @@
-// The request's AsyncLocalStorage: the databases `withDatabase` set, and what each one's driver holds for its scope. Loaded when it's first needed (ADR-0012).
+// The request's AsyncLocalStorage: the databases `withDatabase` set, what each one's driver holds for its scope, and the scopes' request caches, which a write clears (#218). Loaded when it's first needed (ADR-0012).
 import type { AnyDatabase } from "./database.ts";
 import { NoDatabase } from "./errors.ts";
 import type { DatabaseExecutor } from "./executor.ts";
+import type { RequestCache } from "./request-cache.ts";
 import { newAsyncStorage, NODE_COMPATIBILITY, type Storage } from "./async-storage.ts";
 
 /** A database's scope in one `withDatabase` call (a Database scope). */
@@ -10,6 +11,8 @@ export interface DatabaseScope {
   readonly held: unknown;
   /** Whether its call has returned: a call nested in it after that opens its own. */
   hasEnded: boolean;
+  /** Its answers to reads already sent (#218). */
+  readonly cache: RequestCache;
 }
 
 /** What `withDatabase` keeps for the code it runs. */
@@ -18,6 +21,13 @@ export interface RequestStore {
   databases: readonly AnyDatabase[];
   /** Each database's scope. A call nested in a running one with the same database shares it. */
   scopes: ReadonlyMap<DatabaseExecutor, DatabaseScope>;
+  /**
+   * The request caches of every running scope in the request (#218), one set the outermost call
+   * makes and nested calls add theirs to, so a write anywhere in it clears a nested call's too.
+   */
+  caches: Set<RequestCache>;
+  /** Whether reads sent now skip the request caches: a batch's (#218), which is never sent twice. */
+  uncached?: boolean;
 }
 
 /** The storage, once `withDatabase` has been called. */
@@ -41,4 +51,23 @@ export function requestStore(): RequestStore | undefined {
 export function runWithStore<R>(store: RequestStore, fn: () => R): R {
   storage ??= newStorage();
   return storage.run(store, fn);
+}
+
+/**
+ * Empties every request cache in the running `withDatabase` call's request (#218), a nested call's
+ * included: a write on any Database inside it may change rows another of its databases cached,
+ * the same database through another handle included.
+ */
+export function clearRequestCaches(): void {
+  for (const cache of requestStore()?.caches ?? []) cache.clear();
+}
+
+/**
+ * Runs `fn` with its reads, and the reads it awaits, neither answered from the request caches nor
+ * kept in them: batch iteration's, each a different query that would only fill them (#218). Its
+ * writes still clear them.
+ */
+export function withoutRequestCache<R>(fn: () => R): R {
+  const store = requestStore();
+  return store === undefined ? fn() : runWithStore({ ...store, uncached: true }, fn);
 }

@@ -2,6 +2,7 @@
 import { runBatch, type BatchEntry, type BatchResults } from "./batch.ts";
 import { batchEntries, type Batch } from "./batch-builder.ts";
 import type { DatabaseExecutor } from "./executor.ts";
+import { clearRequestCaches } from "./request-store.ts";
 import type { Model, ModelClass, ScopesOf } from "./model.ts";
 import type { Scoped } from "./relation.ts";
 import { relationFor } from "./scoped-relation.ts";
@@ -39,6 +40,15 @@ export class AnyDatabase {
     return Object.fromEntries(
       Object.entries(models).map(([name, model]) => [name, this.model(model)]),
     ) as unknown as RelationsFor<T>;
+  }
+
+  /**
+   * Empties the request cache of the running `withDatabase` call, every database's in it, so each
+   * read after it is sent. Call it after a write the library didn't send, such as SQL sent on the
+   * binding or client yourself, which it can't see. Outside `withDatabase` it does nothing.
+   */
+  clearRequestCache(): void {
+    clearRequestCaches();
   }
 
   /**

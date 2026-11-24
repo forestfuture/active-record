@@ -26,6 +26,14 @@ export class RecordNotFound extends ActiveRecordError {
   override name = "RecordNotFound";
 }
 
+/**
+ * A token a finder that must find a record was given isn't valid (#517): it was changed, signed
+ * with another secret, made for another purpose, or has expired.
+ */
+export class InvalidToken extends ActiveRecordError {
+  override name = "InvalidToken";
+}
+
 /** `sole()` or `findSoleBy()` matched more than one record. */
 export class SoleRecordExceeded extends ActiveRecordError {
   override name = "SoleRecordExceeded";
@@ -148,6 +156,81 @@ export function abort(reason = "Aborted by a callback"): CallbackAbort {
 export class RecordNotSaved extends ActiveRecordError {
   override name = "RecordNotSaved";
 }
+
+/** What a stale record was refused: its save's update, its destroy, or its `touch()` (#357). */
+export type StaleAction = "update" | "destroy" | "touch";
+
+/**
+ * A save, destroy or `touch()` of a record whose row another write changed since it was loaded
+ * (#357): its `lockVersion` is no longer the row's. Nothing in the write was kept.
+ */
+export class StaleRecord extends ActiveRecordError {
+  override name = "StaleRecord";
+  readonly record: Model;
+  readonly action: StaleAction;
+
+  constructor(record: Model, action: StaleAction, options?: ErrorOptions) {
+    super(`Attempted to ${action} a stale ${record.constructor.name} record`, options);
+    this.record = record;
+    this.action = action;
+  }
+}
+
+/**
+ * Assigning a persisted record's read-only attribute a value other than the one it holds (#358):
+ * it's written when the record is created, and never changed by it after.
+ */
+export class ReadonlyAttribute extends ActiveRecordError {
+  override name = "ReadonlyAttribute";
+  readonly attribute: string;
+
+  constructor(model: string, attribute: string) {
+    super(`${model}'s "${attribute}" is read-only once it's created; it can't be changed`);
+    this.attribute = attribute;
+  }
+}
+
+/**
+ * What a read-only record was refused (#358): a save, a destroy, a `touch()`, or a write straight
+ * to its row, named by its method.
+ */
+export type ReadonlyAction =
+  | "save"
+  | "destroy"
+  | "touch"
+  | "updateColumns"
+  | "updateColumn"
+  | "incrementColumn"
+  | "decrementColumn"
+  | "toggleColumn";
+
+/**
+ * A write of a read-only record (#358): one marked by `markReadonly()`, or loaded through a
+ * `readonly()` Relation. Nothing ran and nothing was sent.
+ */
+export class ReadonlyRecord extends ActiveRecordError {
+  override name = "ReadonlyRecord";
+  readonly record: Model;
+  readonly action: ReadonlyAction;
+
+  constructor(record: Model, action: ReadonlyAction) {
+    super(`${record.constructor.name} record is read-only; it can't ${verbs[action]}`);
+    this.record = record;
+    this.action = action;
+  }
+}
+
+/** How a refused action reads after "it can't". */
+const verbs: Record<ReadonlyAction, string> = {
+  save: "be saved",
+  destroy: "be destroyed",
+  touch: "be touched",
+  updateColumns: "be written by updateColumns",
+  updateColumn: "be written by updateColumn",
+  incrementColumn: "be written by incrementColumn",
+  decrementColumn: "be written by decrementColumn",
+  toggleColumn: "be written by toggleColumn",
+};
 
 /**
  * `abort()` was thrown from an after-write callback (`afterSave`, `afterCreate`, `afterUpdate`,

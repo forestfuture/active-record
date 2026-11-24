@@ -1,4 +1,4 @@
-import { batch, column, sql } from "@forestfuture/active-record";
+import { batch, column, incoming, sql } from "@forestfuture/active-record";
 import { Article } from "./src/models/article";
 import { Author } from "./src/models/author";
 import { Comment } from "./src/models/comment";
@@ -25,6 +25,17 @@ export async function insertingMany() {
     { articleId: article.id, body: "Two" },
   ]);
   await Author.upsert({ name: "Jane Doe", email: "jane@example.com" }, { uniqueBy: "email" }); // renames Jane
+  await Author.upsert(
+    { id: crypto.randomUUID(), name: "Jane Smith", email: "jane@example.com" },
+    { uniqueBy: "email", updateOnly: "name" },
+  ); // renames Jane, keeping her id
+  await Author.upsert(
+    { name: "J. Smith", email: "jane@example.com" },
+    {
+      uniqueBy: "email",
+      onDuplicate: { name: sql`${column("name")} || ' / ' || ${incoming("name")}` },
+    },
+  ); // Jane Smith / J. Smith
   await Author.insert({ name: "Jane", email: "jane@example.com" }, { onDuplicate: "skip" }); // writes nothing
   // #endregion insert-all
 }

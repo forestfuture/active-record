@@ -64,6 +64,19 @@ function withoutRefusedValue(error: PgError): void {
 
 const enumRefusal = "invalid input value for enum ";
 
+/**
+ * The value the dialect's stale guard refuses (#357): the library's marker, naming the stale
+ * record's write, not a value of the user's, so it's kept, in any language Postgres writes in.
+ */
+const staleGuardMarker = /^active-record stale record [0-9a-f-]{36}$/;
+
+/** Whether the refused value, from the message's first quote to its last, is the guard's marker. */
+function isStaleGuardRefusal(message: string): boolean {
+  const start = message.indexOf('"');
+  const end = message.lastIndexOf('"');
+  return start !== -1 && end > start && staleGuardMarker.test(message.slice(start + 1, end));
+}
+
 /** Where the quoted identifier opening at `at` ends, past its closing quote; its own quotes are doubled. -1 if it never closes. */
 function quotedEnd(message: string, at: number): number {
   let next = at + 1;
@@ -95,6 +108,7 @@ function enumNameEnd(message: string): number {
  * not matched with a pattern that could backtrack, since the value is the user's.
  */
 function refusedValueFiltered(message: string): string {
+  if (isStaleGuardRefusal(message)) return message;
   if (message.startsWith(enumRefusal)) {
     const end = enumNameEnd(message);
     if (end !== -1 && message.startsWith(': "', end) && message.endsWith('"')) {

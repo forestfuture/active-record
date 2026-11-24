@@ -22,6 +22,8 @@ export {
   abort,
   AssociationNotLoaded,
   ReadonlyAssociation,
+  ReadonlyAttribute,
+  ReadonlyRecord,
   AbortAfterPersistence,
   CallbackAbort,
   CheckViolation,
@@ -32,6 +34,7 @@ export {
   IrreversibleOrder,
   InvalidForeignKey,
   InvalidModel,
+  InvalidToken,
   MissingAttribute,
   NoDatabase,
   NotNullViolation,
@@ -42,12 +45,15 @@ export {
   RecordNotSaved,
   RecordNotUnique,
   SoleRecordExceeded,
+  StaleRecord,
+  type StaleAction,
+  type ReadonlyAction,
   StrictValidationFailed,
   UnknownAssociation,
   UnknownAttribute,
   UnknownModelName,
 } from "./errors.ts";
-export type { QueryEvent, QueryListener } from "./executor.ts";
+export type { CacheOptions, QueryEvent, QueryListener } from "./executor.ts";
 export type { FilterAttribute } from "./filtering.ts";
 export { Errors, type ValidationError } from "./errors-collection.ts";
 export type {
@@ -81,6 +87,10 @@ export { type CustomType, defineType } from "./custom-types.ts";
 export type { PasswordAlgorithm } from "./password-algorithm.ts";
 export type { SecurePasswordOptions } from "./secure-passwords.ts";
 export { generateSecureToken, type SecureTokenOptions } from "./secure-tokens.ts";
+export type { Duration } from "./durations.ts";
+export type { FindSignedOptions, SignedIdOptions } from "./signed-ids.ts";
+export type { SigningEnv, SigningSecrets } from "./signing-secret.ts";
+export type { TokenForOptions } from "./tokens-for.ts";
 export { Relation, type Scope, type ScopeMethods, type Scoped } from "./relation.ts";
 export type { GroupedRelation } from "./grouping.ts";
 export type { Init } from "./record-creation.ts";
@@ -90,6 +100,7 @@ export type {
   OrderSpec,
   Returning,
   UpsertOptions,
+  OnDuplicate,
 } from "./relation-checks.ts";
 export type { CountlessPage, Page, PageOptions } from "./pagination.ts";
 export type { IterationOptions } from "./batch-iteration.ts";
@@ -100,4 +111,12 @@ export type { ReturnedRow, Statement, WriteResult } from "./statement.ts";
 export type { TouchOptions } from "./touch.ts";
 export type { RecordStatement } from "./record-statement.ts";
 export { between, gt, gte, lt, lte, type Comparison } from "./comparisons.ts";
-export { column, sql, type ColumnReference, type ColumnValue, type SafeSql } from "./sql.ts";
+export {
+  column,
+  incoming,
+  sql,
+  type ColumnReference,
+  type ColumnValue,
+  type IncomingReference,
+  type SafeSql,
+} from "./sql.ts";

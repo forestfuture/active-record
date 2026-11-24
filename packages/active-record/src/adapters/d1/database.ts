@@ -1,6 +1,7 @@
 // The `Database` that `connect` returns: a D1 binding, with its sessions and bookmarks.
 import {
   AnyDatabase,
+  type CacheOptions,
   DatabaseExecutor,
   type QueryEvent as AnyQueryEvent,
   type QueryListener as AnyQueryListener,
@@ -20,6 +21,11 @@ export interface ConnectOptions {
   /** Called once for every statement sent to D1, with D1's `meta`. */
   onQuery?: QueryListener;
   /**
+   * Inside a `withDatabase` call, a read identical to one already sent there is answered from
+   * memory, until a write; `cache: { request: false }` turns that off.
+   */
+  cache?: CacheOptions;
+  /**
    * Sends every query through one D1 Session, so the request reads its own writes even when
    * reads are served by replicas: `"first-primary"`, `"first-unconstrained"`, or a bookmark
    * from an earlier request's `db.bookmark()`.
@@ -37,9 +43,9 @@ export class Database extends AnyDatabase {
   readonly #driver: D1Driver;
 
   constructor(binding: D1Database, options: ConnectOptions = {}) {
-    const { session, onQuery } = options;
+    const { session, onQuery, cache } = options;
     const driver = new D1Driver(session === undefined ? binding : binding.withSession(session));
-    super(new DatabaseExecutor(d1Adapter, driver, onQuery));
+    super(new DatabaseExecutor(d1Adapter, driver, onQuery, cache));
     this.#binding = binding;
     this.#driver = driver;
   }

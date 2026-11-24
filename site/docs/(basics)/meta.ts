@@ -25,6 +25,8 @@ export default defineMeta({
     "autosaving",
     "counter-caches",
     "touching",
+    "optimistic-locking",
+    "read-only",
     "through-associations",
     "batches",
     "connecting",

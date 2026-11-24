@@ -14,6 +14,9 @@ import {
   RecordNotUnique,
   StrictValidationFailed,
   UnknownAttribute,
+  ReadonlyAttribute,
+  ReadonlyRecord,
+  StaleRecord,
   withDatabase,
 } from "../../../packages/active-record/src/index.ts";
 import { inspect } from "node:util";
@@ -66,6 +69,8 @@ import * as validations from "../../../site/snippets/pages/validations/examples.
 import testedWorker from "../../../site/snippets/pages/testing/src/index.ts";
 import { User as TestedUser } from "../../../site/snippets/pages/testing/src/models/user.ts";
 import * as touching from "../../../site/snippets/pages/touching/examples.ts";
+import * as locking from "../../../site/snippets/pages/optimistic-locking/examples.ts";
+import * as readOnly from "../../../site/snippets/pages/read-only/examples.ts";
 import * as through from "../../../site/snippets/pages/through-associations/examples.ts";
 import { statementKinds } from "../../support/statement-kinds.ts";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
@@ -223,6 +228,13 @@ describe("the Passwords and tokens page's examples", () => {
   const binding = pageDatabase("passwords-and-tokens", ["users", "admins"]);
   const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
   const log = quietLog();
+  // The app's signing secret, as `wrangler secret put SECRET_KEY_BASE` sets it in a Worker.
+  beforeAll(() => {
+    vi.stubEnv("SECRET_KEY_BASE", "a-signing-secret-of-at-least-32-bytes");
+  });
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
   const form = (fields: Record<string, string>) => {
     const data = new FormData();
     for (const [name, value] of Object.entries(fields)) data.set(name, value);
@@ -301,6 +313,41 @@ describe("the Passwords and tokens page's examples", () => {
     const regenerated = await run(passwords.regenerating);
 
     expect(regenerated.authToken).not.toBe(user.authToken);
+  });
+  test("a reset link's token resets the password once, and a request answers the same either way", async () => {
+    const user = await run(passwords.storing);
+    const known = await run(() => passwords.requestReset(form({ email: "jane@example.com" })));
+    const unknown = await run(() => passwords.requestReset(form({ email: "sam@example.com" })));
+    const token = await user.passwordResetToken();
+    const reset = form({
+      token,
+      password: "staple battery horse",
+      passwordConfirmation: "staple battery horse",
+    });
+
+    const first = await run(() => passwords.resetPassword(reset.clone()));
+    const again = await run(() => passwords.resetPassword(reset));
+
+    expect([known.status, unknown.status]).toEqual([202, 202]);
+    expect([first.status, again.status]).toEqual([204, 400]);
+  });
+
+  test("an email confirmation token finds its user", async () => {
+    const user = await run(passwords.storing);
+
+    const { confirmed } = await run(passwords.confirmingEmail);
+
+    expect(confirmed?.id).toBe(user.id);
+    expect(log.calls().at(-1)).toEqual(["jane@example.com"]);
+  });
+
+  test("a signed id finds its user only for its purpose", async () => {
+    const user = await run(passwords.storing);
+
+    const { found } = await run(passwords.signingIds);
+
+    expect(found?.id).toBe(user.id);
+    expect(log.calls().slice(-2)).toEqual([["jane@example.com"], [null]]);
   });
 });
 
@@ -1046,14 +1093,18 @@ describe("the Bulk writes and batches page's examples", () => {
     expect(await titles()).toEqual(["EDITED", "Hello again"]);
   });
 
-  test("insertAll inserts every row, upsert updates by email, and a skipped duplicate writes nothing", async () => {
+  test("insertAll inserts every row, upsert updates by email, updateOnly keeps the id, onDuplicate joins the names, and a skipped duplicate writes nothing", async () => {
+    const jane = () => db().model(BatchedAuthor).findByOrThrow({ email: "jane@example.com" });
+    const { id } = await jane();
+
     await run(batches.insertingMany);
 
     expect(await db().model(BatchedComment).count()).toBe(4);
     expect(await db().model(BatchedAuthor).order({ name: "asc" }).pluck("name")).toEqual([
-      "Jane Doe",
+      "Jane Smith / J. Smith",
       "Sam",
     ]);
+    expect((await jane()).id).toBe(id);
   });
 
   test("returning names the attributes each written row comes back with", async () => {
@@ -1132,6 +1183,46 @@ describe("the Connections page's examples", () => {
       .model(ConnectedUser)
       .findByOrThrow({ email: "sam@example.com" });
     expect(await sam.posts().pluck("title")).toEqual(["Hello"]);
+  });
+
+  /** Runs `fn`, collecting each User statement's `cached` through the Model's `onQuery`. */
+  async function cachedOf(fn: () => Promise<unknown>): Promise<(true | undefined)[]> {
+    const cached: (true | undefined)[] = [];
+    ConnectedUser.onQuery = (event) => cached.push(event.cached);
+    try {
+      await fn();
+    } finally {
+      delete (ConnectedUser as { onQuery?: unknown }).onQuery;
+    }
+    return cached;
+  }
+
+  test("the same read twice in a request is sent once", async () => {
+    const cached = await cachedOf(async () => {
+      const [user, again] = await connecting.findTwice(env());
+      expect([user.email, again.email]).toEqual(["jane@example.com", "jane@example.com"]);
+    });
+
+    expect(cached).toEqual([undefined, true]);
+  });
+
+  test("a Database with the request cache off sends each read", async () => {
+    const db = connecting.uncachedDatabase(env());
+
+    const cached = await cachedOf(() =>
+      withDatabase(db, async () => {
+        await ConnectedUser.findByOrThrow({ email: "jane@example.com" });
+        await ConnectedUser.findByOrThrow({ email: "jane@example.com" });
+      }),
+    );
+
+    expect(cached).toEqual([undefined, undefined]);
+  });
+
+  test("clearRequestCache sends the read after an UPDATE sent on the binding", async () => {
+    const post = await connecting.renamePost(env(), "2");
+
+    expect(post.title).toBe("Hello again");
   });
 });
 
@@ -1828,5 +1919,113 @@ describe("the Raw statements page's examples", () => {
 describe("the standalone pages' generated schemas", () => {
   test.each(standalonePages)("%s's schema is current", async (page) => {
     expect(await schemaCommand(pageProject(page).pathname, true)).toMatchObject({ code: 0 });
+  });
+});
+
+// The Optimistic locking page's examples, on the articles table it shows.
+describe("the Optimistic locking page's examples", () => {
+  const binding = pageDatabase("optimistic-locking", ["articles"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare("INSERT INTO articles (id, title, body) VALUES ('a', 'Hello', 'First draft')")
+      .run();
+  });
+  const article = () => binding().prepare("SELECT * FROM articles").first();
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+  const log = quietLog();
+
+  test("a stale copy's save throws StaleRecord, and the first save is kept", async () => {
+    await expect(run(locking.saving)).rejects.toThrow(StaleRecord);
+
+    expect(log.calls()).toEqual([[1]]);
+    expect(await article()).toMatchObject({ body: "Their edit", lock_version: 1 });
+  });
+
+  test("a stale copy's destroy throws StaleRecord, and the article stays", async () => {
+    await expect(run(locking.destroying)).rejects.toThrow(StaleRecord);
+
+    expect(await article()).toMatchObject({ title: "Hello again", lock_version: 1 });
+  });
+
+  test("a form's old version gets a 409, and its current one saves", async () => {
+    const send = (lockVersion: number) => {
+      const body = new FormData();
+      body.set("body", "Edited");
+      body.set("lockVersion", String(lockVersion));
+      return run(() =>
+        locking.updateArticle(new Request("https://example.com/?id=a", { method: "POST", body })),
+      );
+    };
+
+    expect((await send(0)).status).toBe(200);
+    expect((await send(0)).status).toBe(409);
+    expect(await article()).toMatchObject({ body: "Edited", lock_version: 1 });
+  });
+
+  test("a stale save is retried after a reload", async () => {
+    const saved = await run(locking.retrying);
+
+    expect(saved.lockVersion).toBe(2);
+    expect(await article()).toMatchObject({ title: "Hello, world", body: "A new paragraph." });
+  });
+});
+
+// The Read-only records page's examples, on the articles table it shows.
+describe("the Read-only records page's examples", () => {
+  const binding = pageDatabase("read-only", ["articles"]);
+  beforeEach(async () => {
+    await binding()
+      .prepare("INSERT INTO articles (id, title, slug, body) VALUES ('a', 'Hello', 'hello', 'Hi')")
+      .run();
+  });
+  const article = () => binding().prepare("SELECT * FROM articles WHERE id = 'a'").first();
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(binding()), fn);
+  const log = quietLog();
+
+  test("a readonly() query's records are read-only, and saving one throws", async () => {
+    await expect(run(readOnly.loading)).rejects.toThrow(ReadonlyRecord);
+
+    expect(log.calls()).toEqual([[true]]);
+    expect(await article()).toMatchObject({ title: "Hello" });
+  });
+
+  test("a marked record's destroy throws, and the article stays", async () => {
+    await expect(run(readOnly.marking)).rejects.toThrow(ReadonlyRecord);
+
+    expect(log.calls()).toEqual([[true]]);
+    expect(await article()).toMatchObject({ slug: "hello" });
+  });
+
+  test("a refused touch says what was refused", async () => {
+    await run(readOnly.catching);
+
+    expect(log.calls()).toEqual([["touch"]]);
+  });
+
+  test("updateAll writes through readonly()", async () => {
+    await run(readOnly.bulkWrites);
+
+    expect(log.calls()).toEqual([[1]]);
+    expect(await article()).toMatchObject({ body: "" });
+  });
+
+  test("a created article's slug can't be changed", async () => {
+    await expect(run(readOnly.creating)).rejects.toThrow(ReadonlyAttribute);
+
+    expect(log.calls()).toEqual([["getting-started"]]);
+  });
+
+  test("a form posting the slug back saves, and one changing it gets a 422", async () => {
+    const send = (slug: string) => {
+      const body = new FormData();
+      body.set("title", "Hello again");
+      body.set("slug", slug);
+      const request = new Request(`https://example.com/?id=a`, { method: "POST", body });
+      return run(() => readOnly.updateArticle(request));
+    };
+
+    expect((await send("hello")).status).toBe(200);
+    expect((await send("hello-again")).status).toBe(422);
+    expect(await article()).toMatchObject({ title: "Hello again", slug: "hello" });
   });
 });

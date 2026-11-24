@@ -12,6 +12,8 @@ seo:
 | update or delete every row a Relation finds | `updateAll({ … })`, `deleteAll()`, `deleteBy({ … })`     |
 | insert rows without loading records         | `insert({ … })`, `insertAll([…])`                        |
 | insert, or update a row that clashes        | `upsert({ … }, { uniqueBy: "email" })`, `upsertAll([…])` |
+| update only some attributes on a clash      | `upsertAll([…], { updateOnly: ["name"] })`               |
+| update a clashing row with your own SQL     | ``upsertAll([…], { onDuplicate: { name: sql`…` } })``    |
 | get attributes back from an insert          | `{ returning: ["id", "body"] }`                          |
 | write several statements atomically         | `batch((b) => [b.insert(…), b.updateAll(…)])`            |
 | save or destroy records in that batch       | `b.save(record)`, `b.destroy(record)`                    |
@@ -59,7 +61,9 @@ Insert many rows at once with `insertAll`:
 
 - **`insertAll(rows)`** inserts every row, however many. Every row must have the same attributes. A duplicate throws and writes nothing.
 - **`{ onDuplicate: "skip" }`** skips rows that clash with a unique index.
-- **`upsert(attrs)`** and **`upsertAll(rows)`** update a row that clashes with the primary key, or with the unique index named by `uniqueBy`. The attributes you give are updated. So are the values a Relation adds to each row, from its equality conditions, its default scope, and `createWith`. Defaults filled in for you aren’t updated. `updatedAt` is set.
+- **`upsert(attrs)`** and **`upsertAll(rows)`** update a row that clashes with the primary key, or with the unique index named by `uniqueBy`. The attributes you give are updated. So are the values a Relation adds to each row, from its equality conditions, its default scope, and `createWith`. Defaults filled in for you aren’t updated. `updatedAt` is set when a value changes. A row with nothing to update is left alone, and isn’t counted or returned.
+- **`{ updateOnly: ["name"] }`** updates only the attributes it names when a row clashes. The others keep their values. Each row must give every attribute it names. A row’s own `updatedAt` is written only when it’s named, or when a named attribute changes.
+- **``{ onDuplicate: { name: sql`…` } }``** sets each attribute it names to an `sql` fragment or a value when a row clashes. In a fragment, `column("name")` is the clashing row’s value and `incoming("name")` is the new row’s. The others keep their values. `updatedAt` is set when a value changes. To see whether a value changes, each fragment runs twice. Name `updatedAt` yourself to run a fragment with side effects once. You can’t give `updateOnly` with it.
 - **Through a Relation**, `insertAll`, `upsert`, and `upsertAll` write its equality conditions over each row’s values, as `insert` does.
 - **Through a `hasMany`**, an upsert only updates the owner’s records. A row that clashes with another owner’s record isn’t written, counted, or returned. See [Writing many rows](./associations#writing-many-rows).
 
@@ -75,7 +79,7 @@ Inserts and upserts return the primary key of each row they write. Name other at
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-These are Rails’ `insert_all`, `upsert_all`, `update_all`, and `delete_all`, with two differences. Declared defaults fill what an insert isn’t given, since on D1 defaults are where keys are generated. And skipping duplicates is something you opt in to, so an insert’s duplicate is never silently lost. The `returning` option works as Rails’ does.
+These are Rails’ `insert_all`, `upsert_all`, `update_all`, and `delete_all`, with two differences. Declared defaults fill what an insert isn’t given, since on D1 defaults are where keys are generated. And skipping duplicates is something you opt in to, so an insert’s duplicate is never silently lost. The `returning` option works as Rails’ does, `updateOnly` is Rails’ `update_only`, and `onDuplicate` is Rails’ `on_duplicate`, given for each attribute rather than as one SQL string.
 
 </Callout>
 

@@ -2,7 +2,7 @@
 import { inject } from "vite-plus/test";
 import type { AnyDatabase } from "../../packages/active-record/src/database.ts";
 import type { Driver } from "../../packages/active-record/src/driver.ts";
-import type { QueryListener } from "../../packages/active-record/src/executor.ts";
+import type { CacheOptions, QueryListener } from "../../packages/active-record/src/executor.ts";
 
 /** Each adapter the conformance suite runs against, and how its harness opens. */
 const harnesses = {
@@ -19,6 +19,7 @@ export type SchemaName = "fixture" | "generated-ids" | "paginated";
 /** How a test opens a Database on a harness. */
 interface ConnectOptions {
   onQuery?: QueryListener;
+  cache?: CacheOptions;
   driver?: (driver: Driver) => Driver;
 }
 

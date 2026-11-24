@@ -1,8 +1,18 @@
-// Refuses a bare date compared directly with an integer-stored attribute's column in a fragment (#149).
+// Refuses a bare date beside an integer-stored attribute's column or incoming value (#531) in a fragment (#149).
 import { castValue, uncastable, zonelessDateTime } from "./conversion.ts";
 import { columnOf } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
-import { ColumnReference, type SafeSql } from "./sql.ts";
+import { ColumnReference, IncomingReference, type SafeSql } from "./sql.ts";
+
+/**
+ * A fragment's value that reads an attribute's value in a row, as the attribute stores it: its
+ * column (the row read or clashing), or its incoming value (the row an upsert writes, #531).
+ */
+type RowValueReference = ColumnReference | IncomingReference;
+
+function isRowValueReference(value: unknown): value is RowValueReference {
+  return value instanceof ColumnReference || value instanceof IncomingReference;
+}
 
 /** A comparison operator, alone between two interpolations. */
 const comparison = /^\s*(?:=|==|<>|!=|<=|>=|<|>)\s*$/;
@@ -21,38 +31,32 @@ function bareDatetimeKind(value: unknown): "Date" | "string" | undefined {
   return dateText ? "string" : undefined;
 }
 
-/** The column a value at `index` follows, with only a comparison or `BETWEEN` between them. */
-function columnBefore(fragment: SafeSql, index: number): ColumnReference | undefined {
+/** The column or incoming value a value at `index` follows, with only a comparison or `BETWEEN` between them. */
+function referenceBefore(fragment: SafeSql, index: number): RowValueReference | undefined {
   const { strings, values } = fragment;
   const between = strings[index] ?? "";
   const before = values[index - 1];
-  if (
-    before instanceof ColumnReference &&
-    (comparison.test(between) || betweenLower.test(between))
-  ) {
+  if (isRowValueReference(before) && (comparison.test(between) || betweenLower.test(between))) {
     return before;
   }
   // The upper bound: `column BETWEEN lower AND value`.
   const column = values[index - 2];
   const isUpper = betweenUpper.test(between) && betweenLower.test(strings[index - 1] ?? "");
-  return isUpper && column instanceof ColumnReference ? column : undefined;
+  return isUpper && isRowValueReference(column) ? column : undefined;
 }
 
-/** The column a value at `index` precedes: after a comparison, or the bounds of `BETWEEN`. */
-function columnAfter(fragment: SafeSql, index: number): ColumnReference | undefined {
+/** The column or incoming value a value at `index` precedes: after a comparison, or the bounds of `BETWEEN`. */
+function referenceAfter(fragment: SafeSql, index: number): RowValueReference | undefined {
   const { strings, values } = fragment;
   const between = strings[index + 1] ?? "";
   const after = values[index + 1];
-  if (
-    after instanceof ColumnReference &&
-    (comparison.test(between) || betweenLower.test(between))
-  ) {
+  if (isRowValueReference(after) && (comparison.test(between) || betweenLower.test(between))) {
     return after;
   }
   // The upper bound: `value BETWEEN lower AND column`.
   const upper = values[index + 2];
   const isUpper = betweenLower.test(between) && betweenUpper.test(strings[index + 2] ?? "");
-  return isUpper && upper instanceof ColumnReference ? upper : undefined;
+  return isUpper && isRowValueReference(upper) ? upper : undefined;
 }
 
 /**
@@ -64,7 +68,7 @@ export function refuseBareDates(model: ModelClass, fragment: SafeSql): void {
   fragment.values.forEach((value, index) => {
     const kind = bareDatetimeKind(value);
     if (kind === undefined) return;
-    const reference = columnBefore(fragment, index) ?? columnAfter(fragment, index);
+    const reference = referenceBefore(fragment, index) ?? referenceAfter(fragment, index);
     if (reference === undefined) return;
     const { storage } = columnOf(model, reference.attribute);
     if (storage === undefined) return;

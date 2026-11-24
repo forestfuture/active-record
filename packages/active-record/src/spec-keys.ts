@@ -3,6 +3,7 @@
 // and the attribute's definition all read them.
 import { isCustomType } from "./custom-types.ts";
 import { digitsProblem } from "./decimal-values.ts";
+import { isDuration } from "./durations.ts";
 import { enumProblem, isEnumValues } from "./enum-values.ts";
 import { epochStorages } from "./epoch-storage.ts";
 import type { AttributeDefinition, AttributeType, SpecObject } from "./metadata.ts";
@@ -163,6 +164,13 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
     conflictsWith: ["default"],
   },
   secureToken: secureTokenRule(),
+  // Written on create only (#358): a virtual attribute is never written, and a token is regenerated.
+  readonly: {
+    isWellFormed: (value) => typeof value === "boolean",
+    describedAs: "readonly",
+    isGiven: isGivenUnless(false),
+    conflictsWith: ["virtual", "securePassword", "secureToken"],
+  },
 };
 
 /** The rule for `secureToken`: a string's random token, generated for a new record (#355). */
@@ -186,8 +194,18 @@ export function isSecurePasswordOption(value: unknown): boolean {
   return Object.entries(value).every(([key, each]) => {
     if (each === undefined) return true;
     if (key === "validations") return typeof each === "boolean";
+    if (key === "resetToken") return isResetTokenOption(each);
     return key === "algorithm" && isAlgorithm(each);
   });
+}
+
+/** Whether a secure password's `resetToken` is well formed: a boolean, or `{ expiresIn }`. */
+function isResetTokenOption(value: unknown): boolean {
+  if (typeof value === "boolean") return true;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  return Object.entries(value).every(
+    ([key, each]) => each === undefined || (key === "expiresIn" && isDuration(each)),
+  );
 }
 
 /** Whether a value can hash and verify a password: an object with both functions. */
@@ -429,6 +447,7 @@ export function copiedKeys(
     | "virtual"
     | "securePassword"
     | "secureToken"
+    | "readonly"
   >
 > {
   const copied = entries

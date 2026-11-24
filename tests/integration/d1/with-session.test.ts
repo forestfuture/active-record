@@ -82,13 +82,13 @@ function rejectingBookmarks(database: TestDatabase): TestDatabase {
       getBookmark: () => null,
     };
   };
-  const rejects = (constraint?: string) =>
+  const isRejected = (constraint?: string) =>
     constraint?.startsWith(rejected) === true || constraint?.startsWith(rejectedLater) === true;
   return new Proxy(database, {
     get(object, key) {
       if (key === "withSession") {
         return (constraint?: string) =>
-          rejects(constraint) ? sessionFrom(constraint!) : object.withSession(constraint);
+          isRejected(constraint) ? sessionFrom(constraint!) : object.withSession(constraint);
       }
       const value: unknown = Reflect.get(object, key);
       return typeof value === "function" ? value.bind(object) : value;
@@ -271,7 +271,8 @@ describe("withSession(request, env.DB, fn)", () => {
     const binding = recordingStarts(rejectingBookmarks(database), starts);
     const request = getRequest({ cookie: `d1-bookmark=${rejectedLater}` });
 
-    const answered = withSession(request, binding, async () => {
+    // The second count must reach D1, so the request cache is off: withSession passes it on (#218).
+    const answered = withSession(request, binding, { cache: { request: false } }, async () => {
       await User.count();
       return Response.json(await User.count());
     });

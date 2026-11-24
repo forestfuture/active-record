@@ -61,12 +61,13 @@ type EnumOptions = Pick<
 /**
  * A change to a generated attribute: its type alone, or its type, nullability, default and
  * `generateId`, typed so `generateId` goes only with a string, and never with a default (#99); and
- * an enum on a string or an integer, whose stored values are of its type (#340).
+ * an enum on a string or an integer, whose stored values are of its type (#340); and `readonly`
+ * on a column (#358).
  */
 type AttributeOverride =
   | AttributeType
   | AnyCustomType
-  | (Pick<SpecOverride, "null"> & {
+  | (Pick<SpecOverride, "null" | "readonly"> & {
       type?: "string";
       storage?: never;
       virtual?: false;
@@ -76,27 +77,27 @@ type AttributeOverride =
       secureToken?: boolean | SecureTokenOptions;
     } & EnumOptions &
       ValueSource)
-  | (Pick<SpecOverride, "null" | "default"> & {
+  | (Pick<SpecOverride, "null" | "default" | "readonly"> & {
       type?: "integer";
       generateId?: false;
       storage?: never;
       virtual?: false;
       enum: IntegerEnum;
     } & EnumOptions)
-  | (Pick<SpecOverride, "null" | "default"> & {
+  | (Pick<SpecOverride, "null" | "default" | "readonly"> & {
       type: Exclude<AttributeType, "string" | "datetime">;
       generateId?: false;
       storage?: never;
       enum?: never;
       virtual?: false;
     })
-  | (Pick<SpecOverride, "null" | "default" | "storage"> & {
+  | (Pick<SpecOverride, "null" | "default" | "storage" | "readonly"> & {
       type: "datetime";
       generateId?: false;
       enum?: never;
       virtual?: false;
     })
-  | (Pick<SpecOverride, "null" | "default"> & {
+  | (Pick<SpecOverride, "null" | "default" | "readonly"> & {
       type: AnyCustomType;
       generateId?: false;
       storage?: never;

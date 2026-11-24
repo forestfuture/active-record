@@ -25,8 +25,11 @@ import {
   requireDefined,
 } from "./metadata.ts";
 import type { ModelClass } from "./model.ts";
+import { jsonText, NestedReferenceFound } from "./json-values.ts";
+import { refuseAssignedReference } from "./sql.ts";
 import { refuseThenable } from "./thenables.ts";
 import { normalizationsOf } from "./normalization.ts";
+import { isLockVersion } from "./lock-version.ts";
 
 /** What `condition()` and `conditionCell()` give for a value that can't match anything. */
 export const noMatch = uncastable;
@@ -76,7 +79,9 @@ export class Attribute {
    */
   cast(value: unknown): unknown {
     requireDefined(this.#model, this.name, value);
+    refuseAssignedReference(this.#model.name, this.name, value);
     const cast = this.#convertOrRefuse(value, () => castValue(this.#definition, value));
+    this.#refuseNestedInCustomJson(cast);
     // A validated enum keeps an unknown value for its validation to refuse (#340).
     if (cast === uncastable && this.#isValidatedEnum()) return value;
     return this.#orRefuse(cast, value);
@@ -176,6 +181,7 @@ export class Attribute {
     try {
       stored = writeValue(this.#definition, value);
     } catch (error) {
+      this.#refuseNested(error);
       if (this.#definition.customType !== undefined) throw this.#refusal(value, undefined, error);
       if (this.#definition.type !== "json") throw error;
       throw this.#refusal(value);
@@ -201,6 +207,8 @@ export class Attribute {
    * attribute, with the cell hidden if it's filtered, not the parser's own error (#73, #146).
    */
   read(cell: unknown): unknown {
+    // A row's NULL lock version is version 0 (#357).
+    if (cell === null && isLockVersion(this.#model, this.name)) return 0;
     const value = this.#convertOrRefuse(cell, () => readValue(this.#definition, cell));
     if (value === uncastable) throw this.#refusal(cell);
     return value;
@@ -261,8 +269,31 @@ export class Attribute {
     try {
       return convert();
     } catch (error) {
+      this.#refuseNested(error);
       if (this.#definition.customType === undefined) throw error;
       throw this.#refusal(value, undefined, error);
+    }
+  }
+
+  /**
+   * Throws the refusal naming the Model and the path for a fragment's reference found inside a
+   * json value (#547), assigned or changed in place.
+   */
+  #refuseNested(error: unknown): void {
+    if (!(error instanceof NestedReferenceFound)) return;
+    refuseAssignedReference(this.#model.name, error.pathUnder(this.name), error.reference);
+  }
+
+  /**
+   * A custom type stored as json casts its values itself, not through the json type's cast,
+   * so its cast value is checked here for a nested reference (#547).
+   */
+  #refuseNestedInCustomJson(cast: unknown): void {
+    if (this.#definition.customType === undefined || !this.isJson) return;
+    try {
+      jsonText(cast);
+    } catch (error) {
+      this.#refuseNested(error);
     }
   }
 

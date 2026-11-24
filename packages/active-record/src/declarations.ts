@@ -5,6 +5,7 @@ import type { Callback, Model } from "./model.ts";
 import type { ErrorMessages } from "./error-messages.ts";
 import type { Normalization } from "./normalization.ts";
 import type { Scope } from "./relation.ts";
+import type { TokenDefinition } from "./tokens-for.ts";
 import type { Validation } from "./validations.ts";
 
 /**
@@ -107,6 +108,8 @@ export type Declarations = {
   commitCallbacks: CommitCallback;
   /** Normalizations (#354): applied, in order, to an attribute's assigned values. */
   normalizations: Normalization;
+  /** Tokens for a purpose (#517), by `generatesTokenFor`: the last for a purpose counts. */
+  tokenDefinitions: TokenDefinition;
 } & {
   [K in CallbackKind]: Callback<Model>;
 } & {

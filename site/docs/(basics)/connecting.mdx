@@ -2,18 +2,18 @@
 title: Connections
 description: "Give a query its database: the Model’s binding, the request’s database, or one you pass."
 seo:
-  description: "How Active Record queries find their database: the Model’s binding, withDatabase for one request, connect(env.DB), and why new User() throws NoDatabase."
+  description: "How Active Record queries find their database: the Model’s binding, withDatabase for one request, its cache of identical reads, connect(env.DB), and NoDatabase."
 ---
 
 ## At a glance
 
 Most apps only use the binding.
 
-|                            | How                                                      | Use it for                                                                      |
-| -------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| **The binding**            | `User.find(id)`, with nothing to set up                  | Everyday queries                                                                |
-| **The request’s database** | `withDatabase(connect(env.DB, …), fn)`, once per request | Read replicas with a Session, per-request `onQuery` logging, tests, and scripts |
-| **An explicit database**   | `connect(env.DB).model(User).find(id)`                   | Code that passes its database around, or uses two at once                       |
+|                            | How                                                      | Use it for                                                                                               |
+| -------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **The binding**            | `User.find(id)`, with nothing to set up                  | Everyday queries                                                                                         |
+| **The request’s database** | `withDatabase(connect(env.DB, …), fn)`, once per request | Caching identical reads, read replicas with a Session, per-request `onQuery` logging, tests, and scripts |
+| **An explicit database**   | `connect(env.DB).model(User).find(id)`                   | Code that passes its database around, or uses two at once                                                |
 
 [Database resolution](./query-databases) explains why there are three, and [which one you need](./query-databases#which-do-i-need).
 
@@ -76,6 +76,39 @@ These pages use a request’s database:
 - **[Testing](./testing):** a database for Models outside a Worker.
 - **[Multiple databases](./several-databases):** `withDatabase([...])`, matched to each Model’s binding.
 
+## Caching identical reads
+
+Inside `withDatabase`, a read you’ve already sent is answered from memory, with no round trip:
+
+<include>/_excerpts/pages/connecting/examples/request-cache.mdx</include>
+
+- Each answer is new records, so changing one changes no other.
+- Any write Active Record sends inside the call clears the cache: a save, a destroy, a bulk write, or a batch, through any database handle. So a request always reads its own writes.
+- `reload()` always reads the database, and clears the cache too.
+- The cache ends with the `withDatabase` call. Requests never share it.
+- It keeps the 100 answers used last. [Batch iteration](./batch-iteration) doesn’t keep its batches, so walking a big table doesn’t fill it.
+- [`onQuery`](./logging#seeing-a-cached-answer) hears each cached answer, with `cached: true`.
+
+:::note[Caching needs `withDatabase`]
+A Model’s queries outside `withDatabase` use the binding, which every request running at once shares, so they’re never cached. To cache a request’s reads, run it inside `withDatabase`, as the example does.
+:::
+
+To send every read, turn the cache off:
+
+<include>/_excerpts/pages/connecting/examples/uncached.mdx</include>
+
+### Clearing the cache
+
+Active Record only sees the writes it sends. After SQL you send on the binding yourself, clear the cache with `clearRequestCache()`:
+
+<include>/_excerpts/pages/connecting/examples/clear-request-cache.mdx</include>
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+This is Rails’ query cache. Rails turns it on for each request with its executor; here `withDatabase` does. `clearRequestCache()` is `clear_query_cache`, and `cache: { request: false }` stands in for `uncached`. Like Rails, it keeps 100 answers, dropping the least recently used.
+
+</Callout>
+
 ## Using an explicit database
 
 Start a query from a database you hold with `db.model`. It ignores `withDatabase`:
@@ -86,7 +119,7 @@ To name your Models once, use `db.models`:
 
 <include>/_excerpts/pages/connecting/examples/models.mdx</include>
 
-`connect(env.DB, { session, onQuery })` takes the same options as a request’s database.
+`connect(env.DB, { session, onQuery, cache })` takes the same options as a request’s database.
 
 ## Batching writes
 

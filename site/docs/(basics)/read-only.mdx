@@ -1,0 +1,102 @@
+---
+title: Read-only records
+description: "Load records that can’t be saved, and attributes that are set only on create."
+seo:
+  description: "Read-only records and attributes in Active Record: readonly() Relations, markReadonly(), ReadonlyRecord for a refused save or destroy, and readonly attributes set only on create."
+---
+
+## At a glance
+
+| To                                      | Write                                                      |
+| --------------------------------------- | ---------------------------------------------------------- |
+| load records that can’t be saved        | `Article.readonly().toArray()`                             |
+| make one record read-only               | `article.markReadonly()`                                   |
+| ask whether a record is read-only       | `article.isReadonly()`                                     |
+| catch a refused write                   | `catch (error) { if (error instanceof ReadonlyRecord) … }` |
+| set an attribute only when it’s created | `slug: { readonly: true }` in the Model’s `attributes`     |
+
+## The Model
+
+The examples use this Model, whose attributes come from its table through the schema `active-record schema` generates:
+
+<CodeGroup>
+
+<include meta="article.ts">/_excerpts/pages/read-only/src/models/article.ts</include>
+
+<include meta="schema.ts">/_excerpts/pages/read-only/src/db/schema.ts</include>
+
+<include meta="D1">/_excerpts/pages/read-only/migrations/0001_create_articles.sql</include>
+
+<include meta="Postgres">/_excerpts/pages/read-only/postgres/0001_create_articles.sql</include>
+
+</CodeGroup>
+
+## Loading read-only records
+
+Call `readonly()` on a query, and the records it loads can’t be saved:
+
+<include>/_excerpts/pages/read-only/examples/relation.mdx</include>
+
+- Every way a query loads records marks them: `toArray()`, `find`, `findBy`, `first`, `sole`, `findEach`, and the rest.
+- Chaining keeps it, and so does `merge`. A scope, a default scope, or an association’s `scope` can call it too. `readonly(false)` undoes it.
+- The records `includes` preloads aren’t read-only, unless an association’s `scope` calls `readonly()`. Records the query builds or creates aren’t read-only either.
+
+## Marking one record
+
+`markReadonly()` makes a record you already have read-only:
+
+<include>/_excerpts/pages/read-only/examples/mark.mdx</include>
+
+A read-only record can still change in memory, and `reload()` still reads its row. It stays read-only.
+
+## Refusing writes
+
+Saving, updating, destroying, or touching a read-only record throws `ReadonlyRecord`, and so do `updateColumns`, `updateColumn`, `incrementColumn`, `decrementColumn`, and `toggleColumn`:
+
+<include>/_excerpts/pages/read-only/examples/catch.mdx</include>
+
+- It throws before validation or any callback runs, and sends nothing.
+- `save()` throws too, rather than returning `false`.
+- The error’s `record` is the refused record, and its `action` names what was refused: `"save"`, `"destroy"`, `"touch"`, or the column method.
+- A write that would reach a read-only record through another throws too, and writes nothing. Saving an owner that [autosaves](./autosaving) a changed read-only record, a [batch](./batches) holding one, and a has-many’s `push` throw before any callback runs. So does a write that would [touch](./touching) a loaded read-only record.
+- Some records are only loaded partway through a write: the record a has-one’s new record replaces, and a `dependent: "destroy"` association’s records. A read-only one throws once it’s loaded, after the owner’s before-callbacks, and nothing is written.
+
+## Writing past it
+
+Bulk writes don’t load records, so `readonly()` doesn’t stop them:
+
+<include>/_excerpts/pages/read-only/examples/bulk.mdx</include>
+
+`updateAll`, `deleteAll`, `insert`, and `upsert` all write as usual. So do the removals that work like them: `dependent: "delete"`, a has-one replacement whose `dependent` is `"delete"`, and a has-many’s `delete()` and `clear()`.
+
+## Declaring read-only attributes
+
+Give an attribute `readonly: true`, and it’s written when its record is created, then never changed by it:
+
+<include>/_excerpts/pages/read-only/examples/slug.mdx</include>
+
+- Assigning a saved record a new value throws `ReadonlyAttribute` straight away, whether you assign it, `update()` it, or write it with `updateColumns`. The error’s `attribute` names it.
+- Pointing a belongs-to at another record throws `ReadonlyAttribute` when its read-only foreign key would change. So does saving a record whose read-only foreign key a new record would fill once it’s inserted.
+- Changing a JSON value or a `Date` in place makes the save throw before anything runs. `touch()` refuses a read-only datetime the same way.
+- A new record can change it until it’s saved.
+- A [counter cache](./counter-caches) still counts a read-only column, so a save can’t overwrite the count. `Model.updateCounters` and `touchAll` write rows without loading them, as `updateAll` does, so they write a read-only column too.
+- An `upsert` leaves the value of a row it updates alone. `updateAll` still writes it.
+- A virtual attribute, a secure password, and a secure token can’t be read-only. Neither can `updatedAt` or `lockVersion`, which every save writes.
+
+## Posting it back from a form
+
+Assigning the value an attribute already holds isn’t a change, so a form that sends every field back still saves:
+
+<include>/_excerpts/pages/read-only/examples/form.mdx</include>
+
+The value is compared after it’s cast and normalized, so `" Hello "` matches `"hello"` when a [normalization](./models#normalizing-attributes) trims and lowercases it.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails names the error `ActiveRecord::ReadOnlyRecord`, and its record method is `readonly!`. Here it’s `markReadonly()`.
+
+Rails runs a read-only record’s own save and destroy callbacks, `dependent: :destroy` included, before it raises. Here they don’t run.
+
+With Rails 7.1’s defaults, `attr_readonly` raises `ActiveRecord::ReadonlyAttributeError` on any assignment to a saved record. Here assigning the value it holds is allowed.
+
+</Callout>

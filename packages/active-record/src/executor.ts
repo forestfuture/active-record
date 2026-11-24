@@ -7,7 +7,8 @@ import { type Dialect, withPlaceholders } from "./dialect.ts";
 import type { Driver, StatementResult } from "./driver.ts";
 import { IncompatibleRelation } from "./errors.ts";
 import type { ModelClass } from "./model.ts";
-import { requestStore } from "./request-store.ts";
+import type { RequestCache } from "./request-cache.ts";
+import { clearRequestCaches, requestStore } from "./request-store.ts";
 import { explainMissingTable } from "./table-names.ts";
 
 /**
@@ -26,6 +27,11 @@ export interface QueryEvent<Meta = unknown> {
   durationMs: number;
   meta?: Meta;
   error?: unknown;
+  /**
+   * Answered from the request cache (#218): a read identical to one already sent in the same
+   * `withDatabase` call, with no round trip. Its `durationMs` is 0, and it has no `meta`.
+   */
+  cached?: true;
 }
 
 /**
@@ -74,6 +80,15 @@ export interface Executor {
   [resolve](): Promise<DatabaseExecutor>;
 }
 
+/** What a Database caches: `request: false` turns off the request cache, on by default (#218). */
+export interface CacheOptions {
+  /**
+   * Answer a read identical to one already sent, inside the same `withDatabase` call, from
+   * memory. On unless `false`.
+   */
+  request?: boolean;
+}
+
 /** Where a database came from, for errors to name it: `connect()`'s, the request's, or a binding's. */
 type Origin = "connect" | "request" | { binding: string };
 
@@ -92,12 +107,14 @@ export class DatabaseExecutor implements Executor {
   readonly adapter: Adapter;
   readonly #driver: Driver;
   readonly #onQuery: QueryListener | undefined;
+  readonly #cachesRequests: boolean;
   #origin: Origin = "connect";
 
-  constructor(adapter: Adapter, driver: Driver, onQuery?: QueryListener) {
+  constructor(adapter: Adapter, driver: Driver, onQuery?: QueryListener, cache: CacheOptions = {}) {
     this.adapter = adapter;
     this.#driver = driver;
     this.#onQuery = onQuery;
+    this.#cachesRequests = cache.request !== false;
   }
 
   get dialect(): Dialect {
@@ -139,20 +156,65 @@ export class DatabaseExecutor implements Executor {
     return requestStore()?.scopes.get(this)?.held;
   }
 
+  /** The request cache of the running `withDatabase` scope a statement is sent in, if any. */
+  #cache(): RequestCache | undefined {
+    if (!this.#cachesRequests) return undefined;
+    const store = requestStore();
+    if (store?.uncached === true) return undefined;
+    const scope = store?.scopes.get(this);
+    return scope === undefined || scope.hasEnded ? undefined : scope.cache;
+  }
+
   /** Runs one statement and resolves to its rows. */
   async all(query: CompiledSql): Promise<Record<string, unknown>[]> {
-    return (await this.#one(this.#sendable(query))).rows;
+    return (await this.#readOne(this.#sendable(query))).rows;
+  }
+
+  /** Sends one read, unless the request cache has its answer, or an identical read is in flight. */
+  async #readOne(query: CompiledSql): Promise<StatementResult> {
+    const cache = this.#cache();
+    const cached = cache?.get(query);
+    if (cached === undefined) {
+      const answer = this.#one(query);
+      cache?.set(query, answer);
+      return answer;
+    }
+    const result = await cached;
+    this.#reportCached(query);
+    return result;
   }
 
   /** Runs one statement for its effect and resolves to its result. */
   async run(query: CompiledSql): Promise<StatementResult> {
-    return this.#one(this.#sendable(query));
+    return this.#writing(() => this.#one(this.#sendable(query)));
   }
 
   /** Runs reads together and resolves to each one's result. */
   async read(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     const sent = statements.map((statement) => this.#sendable(statement));
-    return this.#together(sent, () => this.#driver.read(sent, this.#scope()));
+    const cache = this.#cache();
+    if (cache === undefined) return this.#readTogether(sent);
+    const hits = sent.map((statement) => cache.get(statement));
+    const missing = sent.filter((_, index) => hits[index] === undefined);
+    const fetched = this.#readTogether(missing);
+    missing.forEach((statement, index) =>
+      cache.set(
+        statement,
+        fetched.then((results) => results[index]!),
+      ),
+    );
+    const answers = await Promise.all(hits.map((hit) => hit ?? Promise.resolve(null)));
+    sent.forEach((statement, index) => {
+      if (hits[index] !== undefined) this.#reportCached(statement);
+    });
+    const results = await fetched;
+    let next = 0;
+    return answers.map((answer) => answer ?? results[next++]!);
+  }
+
+  /** Sends reads together, unless there are none. */
+  #readTogether(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
+    return this.#together(statements, () => this.#driver.read(statements, this.#scope()));
   }
 
   /** `query` as it's sent and reported: with its database's placeholders. */
@@ -192,8 +254,23 @@ export class DatabaseExecutor implements Executor {
   async write(statements: readonly CompiledSql[]): Promise<StatementResult[]> {
     const sent = statements.map((statement) => this.#sendable(statement));
     const [only] = sent;
-    if (sent.length === 1 && only !== undefined) return [await this.#one(only)];
-    return this.#together(sent, () => this.#driver.write(sent, this.#scope()));
+    if (sent.length === 1 && only !== undefined) {
+      return [await this.#writing(() => this.#one(only))];
+    }
+    return this.#writing(() => this.#together(sent, () => this.#driver.write(sent, this.#scope())));
+  }
+
+  /**
+   * Sends a write, clearing the request caches before it's sent and again once it settles, failed
+   * or not: a read sent meanwhile may have read the rows before it, so its answer isn't kept.
+   */
+  async #writing<T>(send: () => Promise<T>): Promise<T> {
+    clearRequestCaches();
+    try {
+      return await send();
+    } finally {
+      clearRequestCaches();
+    }
   }
 
   async #one(query: CompiledSql, mayRetry = true): Promise<StatementResult> {
@@ -219,10 +296,15 @@ export class DatabaseExecutor implements Executor {
     );
   }
 
+  /** Reports a read answered from the request cache: no time, and no `meta`. */
+  #reportCached(statement: CompiledSql): void {
+    this.#report(statement, { durationMs: 0, cached: true });
+  }
+
   /** Reports a statement to the database's listener, then to its Model's (`static onQuery`). */
   #report(
     { sql, params, model }: CompiledSql,
-    outcome: Pick<QueryEvent, "durationMs" | "meta" | "error">,
+    outcome: Pick<QueryEvent, "durationMs" | "meta" | "error" | "cached">,
   ): void {
     // A filtered attribute's values are "[FILTERED]" here; D1 got the real ones (#83).
     const event: QueryEvent = {

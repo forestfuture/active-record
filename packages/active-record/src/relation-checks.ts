@@ -1,7 +1,8 @@
 // What a Relation's methods take, checked when a query is written, not when it runs.
-import type { Assignment, Conflict } from "./compiler.ts";
-import { Comparison } from "./comparisons.ts";
-import { withAttributeNames } from "./attribute-aliases.ts";
+import type { AttributeSet, Conflict } from "./bulk-insert-sql.ts";
+import type { Assignment } from "./compiler.ts";
+import { Comparison, comparisonParts } from "./comparisons.ts";
+import { attributeName, withAttributeNames } from "./attribute-aliases.ts";
 import { attributeFor } from "./attribute.ts";
 import { refuseBareDates } from "./fragment-guard.ts";
 import { type AttributeType, columnOf } from "./metadata.ts";
@@ -14,7 +15,15 @@ import {
   type OrderTerm,
   type QueryDescription,
 } from "./query.ts";
-import { ColumnValue, isAttributeReference, SafeSql } from "./sql.ts";
+import {
+  ColumnValue,
+  IncomingReference,
+  incomingRefusal,
+  isAttributeReference,
+  refuseReferenceValue,
+  SafeSql,
+} from "./sql.ts";
+import { refuseNestedReference } from "./json-values.ts";
 
 /**
  * Attribute conditions for `where`/`findBy`: a value, an array meaning "any of these", or a
@@ -50,11 +59,32 @@ export interface InsertOptions<M = unknown> {
   returning?: Returning<M>;
 }
 
-/** `upsert`/`upsertAll` options: the attributes of the unique index to match on. */
-export interface UpsertOptions<M> {
+/**
+ * `upsert`/`upsertAll` options: the attributes of the unique index to match on, and the
+ * attributes a clashing row has updated (every one written, by default), or what `onDuplicate`
+ * sets them to (#531).
+ */
+export type UpsertOptions<M> = {
   uniqueBy?: (keyof AttributesOf<M> & string) | readonly (keyof AttributesOf<M> & string)[];
   returning?: Returning<M>;
-}
+} & (
+  | {
+      updateOnly?: (keyof AttributesOf<M> & string) | readonly (keyof AttributesOf<M> & string)[];
+      onDuplicate?: never;
+    }
+  | { onDuplicate?: OnDuplicate<M>; updateOnly?: never }
+);
+
+/**
+ * What a clashing row's attributes become (#531): each an `sql` fragment, where `column()`
+ * names the clashing row's value and `incoming()` the new row's, or a value.
+ */
+export type OnDuplicate<M> = {
+  [K in keyof AttributesOf<M>]?: SafeSql | AttributesOf<M>[K];
+};
+
+/** The bulk writes that update a row that clashes. */
+export type UpsertMethod = "upsert" | "upsertAll";
 
 /** `{ attribute: "asc" | "desc" }`; key order sets precedence. */
 export type OrderSpec<M> = {
@@ -118,11 +148,19 @@ function attributeOrder(attribute: string, value: unknown, method: string): Orde
  * A fragment's `column()` references must name declared attributes, and so must its typed
  * values, which must also be values those attributes can hold, so a mistake surfaces where the
  * fragment is written, not when the query runs (#142). A bare date beside an integer-stored
- * column is refused too (#149).
+ * column is refused too (#149). So is `incoming()`, unless it's an upsert's `onDuplicate`
+ * (#531).
  */
-export function checkFragment(model: ModelClass, fragment: SafeSql): void {
+export function checkFragment(
+  model: ModelClass,
+  fragment: SafeSql,
+  { allowsIncoming = false }: { allowsIncoming?: boolean } = {},
+): void {
   for (const value of fragment.values) {
     if (!isAttributeReference(value)) continue;
+    if (value instanceof IncomingReference && !allowsIncoming) {
+      throw incomingRefusal(value.attribute);
+    }
     columnOf(model, value.attribute);
     if (value instanceof ColumnValue) {
       attributeFor(model, value.attribute).cast(value.assigned);
@@ -149,8 +187,19 @@ export function checkConditions(model: ModelClass, conditions: object, method: s
   for (const [name, value] of Object.entries(conditions)) {
     const { type } = columnOf(model, name);
     rejectUndefined(value, name, method);
+    for (const each of conditionValues(value)) {
+      refuseReferenceValue(each, `${method}() gives ${name}`);
+      if (type === "json") refuseNestedReference(each, `${method}() gives ${name}`);
+    }
     if (value instanceof Comparison) requireOrdered(type, name, method);
   }
+}
+
+/** A condition's values: a list's items, a comparison's values, or the value itself. */
+function conditionValues(value: unknown): readonly unknown[] {
+  if (Array.isArray(value)) return value;
+  if (value instanceof Comparison) return value[comparisonParts].values;
+  return [value];
 }
 
 /** Attribute changes for `updateAll`, checked like conditions: declared, and not undefined. */
@@ -203,16 +252,116 @@ export function returnedNames(
 
 /**
  * An upsert's conflict: update, matching on `uniqueBy` (the primary key by default), a row
- * that already has the new row's `ownedBy` values (#451).
+ * that already has the new row's `ownedBy` values (#451), only `updateOnly`'s attributes when
+ * it's given (#36).
  */
 export function updateOn<M>(
   model: ModelClass,
   options: UpsertOptions<M>,
-  ownedBy: readonly string[],
+  { ownedBy, method }: { ownedBy: readonly string[]; method: UpsertMethod },
 ): Conflict {
   const uniqueBy = [options.uniqueBy ?? model.primaryKey].flat() as string[];
   for (const name of uniqueBy) columnOf(model, name);
-  return { kind: "update", uniqueBy, ownedBy };
+  if (options.onDuplicate !== undefined) {
+    if (options.updateOnly !== undefined) {
+      throw new TypeError(`${method}() takes updateOnly or onDuplicate, not both`);
+    }
+    const set = onDuplicateSets(model, options.onDuplicate, { uniqueBy, ownedBy, method });
+    return { kind: "update", uniqueBy, ownedBy, set };
+  }
+  if (options.updateOnly === undefined) return { kind: "update", uniqueBy, ownedBy };
+  const given = [options.updateOnly].flat();
+  const update = updatedNames(model, given, { uniqueBy, method, option: "updateOnly", kept: [] });
+  return { kind: "update", uniqueBy, ownedBy, update };
+}
+
+/**
+ * `onDuplicate`'s attributes, by their own names, checked as `updateOnly`'s are, and what each
+ * is set to: its fragment, checked, or its value cast and normalized as an assigned value is
+ * (#531). It can't name an owner's key, `ownedBy`, so it can't give a row to another owner.
+ */
+function onDuplicateSets(
+  model: ModelClass,
+  given: unknown,
+  {
+    uniqueBy,
+    ownedBy,
+    method,
+  }: { uniqueBy: readonly string[]; ownedBy: readonly string[]; method: UpsertMethod },
+): AttributeSet[] {
+  if (
+    typeof given !== "object" ||
+    given === null ||
+    Array.isArray(given) ||
+    given instanceof SafeSql
+  ) {
+    throw new TypeError(
+      `${method}() onDuplicate takes an object of attributes, each an sql\`…\` fragment or a value`,
+    );
+  }
+  const entries = Object.entries(given);
+  const names = updatedNames(
+    model,
+    entries.map(([name]) => name),
+    { uniqueBy, method, option: "onDuplicate", kept: ownedBy },
+  );
+  return entries.map(([given, value], index) => {
+    const name = names[index]!;
+    refuseReferenceValue(value, `${method}() onDuplicate gives ${given}`);
+    if (!(value instanceof SafeSql))
+      return { name, value: attributeFor(model, name).assigned(value) };
+    checkFragment(model, value, { allowsIncoming: true });
+    return { name, value };
+  });
+}
+
+/**
+ * The attributes `updateOnly` or `onDuplicate` names, by their own names, checked: each one an
+ * attribute an update can write, not one of the owner's `kept` keys, and at least one (#36, #531).
+ */
+function updatedNames(
+  model: ModelClass,
+  given: readonly string[],
+  {
+    uniqueBy,
+    method,
+    option,
+    kept,
+  }: {
+    uniqueBy: readonly string[];
+    method: UpsertMethod;
+    option: "updateOnly" | "onDuplicate";
+    kept: readonly string[];
+  },
+): string[] {
+  if (given.length === 0) {
+    const skip = method === "upsert" ? "insert(row" : "insertAll(rows";
+    throw new TypeError(
+      `${method}() ${option} names no attributes; to leave a clashing row as it is, use ${skip}, { onDuplicate: "skip" })`,
+    );
+  }
+  const matched = new Set(uniqueBy.map((name) => attributeName(model, name)));
+  return given.map((name) => {
+    const own = attributeName(model, name);
+    const refusal = kept.includes(own)
+      ? "which its owner's records keep"
+      : updateRefusal(model, own, matched);
+    if (refusal !== undefined)
+      throw new TypeError(`${method}() ${option} can't name ${name}, ${refusal}`);
+    return own;
+  });
+}
+
+/** Why an upsert can't update `name` on a clash, if it can't. */
+function updateRefusal(
+  model: ModelClass,
+  name: string,
+  matched: ReadonlySet<string>,
+): string | undefined {
+  if (columnOf(model, name).readonly === true) return "which is read-only";
+  if (matched.has(name)) return "which uniqueBy matches on";
+  if (name === "createdAt") return "which an update keeps";
+  return undefined;
 }
 
 /** The query a write statement targets; rows from `distinct()` have no identity to write to. */

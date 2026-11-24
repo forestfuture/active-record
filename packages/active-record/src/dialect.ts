@@ -49,6 +49,19 @@ export interface Dialect {
    */
   linkedKey(key: string, keyAttribute: Attribute, linked: Attribute): string;
   /**
+   * A record's write that must change its row (an update or delete by its key and `lockVersion`,
+   * #357), followed by a check that fails the whole atomic batch when it changed none, with an
+   * error whose message holds `marker`, bound as a value: one statement or several, the write's
+   * result first.
+   */
+  staleGuard(write: CompiledSql, marker: string): CompiledSql[];
+  /**
+   * Whether `left` and `right` (SQL, of `attribute`) hold the same value, NULL the same as NULL:
+   * `IS NOT DISTINCT FROM` without it. An upsert keeps a clashing row's `updatedAt` when it
+   * is (#36).
+   */
+  sameValue?(left: string, right: string, attribute: Attribute): string;
+  /**
    * A bulk removal (a DELETE, or an UPDATE nullifying a key) and the counter caches it changes
    * (#61), as one statement: `decrements` writes the counters' UPDATEs, given SQL counting the rows
    * removed, and the statement returns one row, whose `removed` is how many. Without it, the

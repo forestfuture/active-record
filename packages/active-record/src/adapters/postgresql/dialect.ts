@@ -71,6 +71,26 @@ export const postgres: Dialect = {
     return `CASE WHEN ${key} ~ ${literal("^\\s*[+-]?[0-9]+\\s*$")} THEN CAST(${key} AS NUMERIC) END`;
   },
   /**
+   * The write returns a row if it changed one, and the statement casts the marker to an integer
+   * when it returned none, which fails the transaction with the marker in its message (#357).
+   * The cast is of the CASE, which reads the write's rows, so it can't be made before it runs.
+   */
+  staleGuard(write, marker) {
+    const check = `CASE WHEN NOT EXISTS (SELECT FROM locked) THEN CAST(${valueMark} AS TEXT) END`;
+    return [
+      {
+        sql: `WITH locked AS (${write.sql} RETURNING 1) SELECT CAST(${check} AS INTEGER) AS stale`,
+        params: [...write.params, marker],
+        model: write.model,
+      },
+    ];
+  },
+  /** `json` has no equality operator, so a json attribute's values are compared as text. */
+  sameValue(left, right, { isJson }) {
+    if (isJson) return `CAST(${left} AS TEXT) IS NOT DISTINCT FROM CAST(${right} AS TEXT)`;
+    return `${left} IS NOT DISTINCT FROM ${right}`;
+  },
+  /**
    * The removal returns a row for each row it removed, which the counters' UPDATEs count, and the
    * statement selects how many as `removed`: a COUNT sent before it could miss a row another
    * request commits in between, on a snapshot of its own (#61).

@@ -8,9 +8,10 @@ import {
   type CounterOptions,
 } from "./counters.ts";
 import { withAttributeNames } from "./attribute-aliases.ts";
-import { RecordNotSaved } from "./errors.ts";
+import { RecordNotSaved, type ReadonlyAction } from "./errors.ts";
+import { requireWritable, requireWritableColumns } from "./readonly-records.ts";
 import type { AttributesOf, Model, ModelClass, SpecsOf } from "./model.ts";
-import { ModelStatics } from "./model-statics.ts";
+import { RecordTokens } from "./record-tokens.ts";
 import { state } from "./record-state.ts";
 import { touchRecord, type TouchArguments } from "./touch.ts";
 
@@ -53,7 +54,7 @@ export type BooleanAttributeKey<R> = AttributeKeyOf<R, "boolean">;
  * The record methods that change one attribute, between Model and its statics: Model's records
  * have them, and model.ts stays the record class's own.
  */
-export abstract class AttributeWrites extends ModelStatics {
+export abstract class AttributeWrites extends RecordTokens {
   /** Adds `by` (one by default) to a number attribute, null counting as zero; doesn't save. */
   increment<R extends Model>(this: R, name: NumberAttributeKey<R>, by = 1): R {
     const current = numberValue(this, name, "increment");
@@ -129,7 +130,7 @@ export abstract class AttributeWrites extends ModelStatics {
    * its Model's `noTouching` block, it writes nothing (#496).
    */
   async touch<R extends Model>(this: R, ...args: TouchArguments<R>): Promise<boolean> {
-    requireSaved(this, "touch");
+    requireWritableRow(this, "touch");
     return touchRecord(this, args);
   }
 
@@ -138,7 +139,7 @@ export abstract class AttributeWrites extends ModelStatics {
    * validation or callback. Flip the attribute and `save()` to run the save callbacks.
    */
   async toggleColumn<R extends Model>(this: R, name: BooleanAttributeKey<R>): Promise<boolean> {
-    requireSaved(this, "toggleColumn");
+    requireWritableRow(this, "toggleColumn");
     return writeColumns(
       this,
       { [name]: isTrueOnceToggled(this, name, "toggleColumn") },
@@ -161,13 +162,14 @@ async function addToColumn(
   record: Model,
   name: string,
   by: number,
-  { method, touch }: { method: string; touch: unknown },
+  { method, touch }: { method: ReadonlyAction; touch: unknown },
 ): Promise<boolean> {
   const recordState = record[state];
-  requireSaved(record, method);
+  requireWritableRow(record, method);
   const model = modelOf(record);
   const touched = touchAssignments(model, touch, method);
   const touchedNames = touched.map(([each]) => each);
+  requireWritableColumns(model, touchedNames); // #358
   const after = (numberValue(record, name, method) ?? 0) + by;
   const delta = after - ((recordState.valueInDatabase(name) as number | null) ?? 0);
   recordState.write(name, after);
@@ -186,10 +188,10 @@ async function addToColumn(
 async function writeColumns(
   record: Model,
   given: Record<string, unknown>,
-  method: string,
+  method: ReadonlyAction,
 ): Promise<boolean> {
   const recordState = record[state];
-  requireSaved(record, method);
+  requireWritableRow(record, method);
   const attributes = withAttributeNames(modelOf(record), given);
   const names = Object.keys(attributes);
   if (names.length === 0) throw new TypeError(`${method} needs at least one attribute to write`);
@@ -201,10 +203,14 @@ async function writeColumns(
   return result?.rowsAffected === 1;
 }
 
-/** A write straight to the row needs one: a new record has none, and a destroyed one is read-only. */
-function requireSaved(record: Model, method: string): void {
+/**
+ * A write straight to the row needs one: a new record has none, a destroyed one is a snapshot, and
+ * a read-only one refuses it (#358).
+ */
+function requireWritableRow(record: Model, method: ReadonlyAction): void {
   const recordState = record[state];
   recordState.requireLive("be written");
+  requireWritable(record, method);
   if (recordState.isNew) {
     throw new RecordNotSaved(
       `${modelOf(record).name} record hasn't been saved, so ${method} has no row to write`,

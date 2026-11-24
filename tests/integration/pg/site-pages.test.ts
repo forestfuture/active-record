@@ -9,11 +9,16 @@ import {
   vi,
 } from "vite-plus/test";
 import {
+  ReadonlyAttribute,
+  ReadonlyRecord,
   RecordNotUnique,
+  StaleRecord,
   StrictValidationFailed,
   withDatabase,
 } from "../../../packages/active-record/src/index.ts";
 import { connect } from "../../../packages/active-record/src/adapters/postgresql/index.ts";
+import * as locking from "../../../site/snippets/pages/optimistic-locking/examples.ts";
+import * as readOnly from "../../../site/snippets/pages/read-only/examples.ts";
 import * as associations from "../../../site/snippets/pages/associations/examples.ts";
 import { Article as AssociatedArticle } from "../../../site/snippets/pages/associations/src/models/article.ts";
 import { Author as AssociatedAuthor } from "../../../site/snippets/pages/associations/src/models/author.ts";
@@ -265,6 +270,13 @@ describe("the Passwords and tokens page's examples, on Postgres", () => {
   });
   const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
   const log = quietLog();
+  // The app's signing secret, as `wrangler secret put SECRET_KEY_BASE` sets it in a Worker.
+  beforeAll(() => {
+    vi.stubEnv("SECRET_KEY_BASE", "a-signing-secret-of-at-least-32-bytes");
+  });
+  afterAll(() => {
+    vi.unstubAllEnvs();
+  });
   const form = (fields: Record<string, string>) => {
     const data = new FormData();
     for (const [name, value] of Object.entries(fields)) data.set(name, value);
@@ -343,6 +355,41 @@ describe("the Passwords and tokens page's examples, on Postgres", () => {
     const regenerated = await run(passwords.regenerating);
 
     expect(regenerated.authToken).not.toBe(user.authToken);
+  });
+  test("a reset link's token resets the password once, and a request answers the same either way", async () => {
+    const user = await run(passwords.storing);
+    const known = await run(() => passwords.requestReset(form({ email: "jane@example.com" })));
+    const unknown = await run(() => passwords.requestReset(form({ email: "sam@example.com" })));
+    const token = await user.passwordResetToken();
+    const reset = form({
+      token,
+      password: "staple battery horse",
+      passwordConfirmation: "staple battery horse",
+    });
+
+    const first = await run(() => passwords.resetPassword(reset.clone()));
+    const again = await run(() => passwords.resetPassword(reset));
+
+    expect([known.status, unknown.status]).toEqual([202, 202]);
+    expect([first.status, again.status]).toEqual([204, 400]);
+  });
+
+  test("an email confirmation token finds its user", async () => {
+    const user = await run(passwords.storing);
+
+    const { confirmed } = await run(passwords.confirmingEmail);
+
+    expect(confirmed?.id).toBe(user.id);
+    expect(log.calls().at(-1)).toEqual(["jane@example.com"]);
+  });
+
+  test("a signed id finds its user only for its purpose", async () => {
+    const user = await run(passwords.storing);
+
+    const { found } = await run(passwords.signingIds);
+
+    expect(found?.id).toBe(user.id);
+    expect(log.calls().slice(-2)).toEqual([["jane@example.com"], [null]]);
   });
 });
 
@@ -1004,14 +1051,18 @@ describe("the Bulk writes and batches page's examples, on Postgres", () => {
     expect(await titles()).toEqual(["EDITED", "Hello again"]);
   });
 
-  test("insertAll inserts every row, upsert updates by email, and a skipped duplicate writes nothing", async () => {
+  test("insertAll inserts every row, upsert updates by email, updateOnly keeps the id, onDuplicate joins the names, and a skipped duplicate writes nothing", async () => {
+    const jane = () => db().model(BatchedAuthor).findByOrThrow({ email: "jane@example.com" });
+    const { id } = await jane();
+
     await run(batches.insertingMany);
 
     expect(await db().model(BatchedComment).count()).toBe(4);
     expect(await db().model(BatchedAuthor).order({ name: "asc" }).pluck("name")).toEqual([
-      "Jane Doe",
+      "Jane Smith / J. Smith",
       "Sam",
     ]);
+    expect((await jane()).id).toBe(id);
   });
 
   test("returning names the attributes each written row comes back with", async () => {
@@ -1523,10 +1574,118 @@ describe("the Raw statements page's conversions, on Postgres", () => {
 
 // Each page shows its Models beside its Postgres tables, which generate the same attributes as its
 // D1 ones. PGlite starts for each schema read, which takes seconds.
+// The Read-only records page's examples, on the articles table it shows, on Postgres.
+describe("the Read-only records page's examples, on Postgres", () => {
+  const schema = pageSchema("read-only");
+  beforeEach(async () => {
+    await schema().pool.query({
+      text: `DELETE FROM articles; INSERT INTO articles (id, title, slug, body) VALUES ('${firstId}', 'Hello', 'hello', 'Hi')`,
+    });
+  });
+  const article = async () =>
+    (await schema().pool.query({ text: `SELECT * FROM articles WHERE id = '${firstId}'` })).rows[0];
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
+  const log = quietLog();
+
+  test("a readonly() query's records are read-only, and saving one throws", async () => {
+    await expect(run(readOnly.loading)).rejects.toThrow(ReadonlyRecord);
+
+    expect(log.calls()).toEqual([[true]]);
+    expect(await article()).toMatchObject({ title: "Hello" });
+  });
+
+  test("a marked record's destroy throws, and the article stays", async () => {
+    await expect(run(readOnly.marking)).rejects.toThrow(ReadonlyRecord);
+
+    expect(log.calls()).toEqual([[true]]);
+    expect(await article()).toMatchObject({ slug: "hello" });
+  });
+
+  test("a refused touch says what was refused", async () => {
+    await run(readOnly.catching);
+
+    expect(log.calls()).toEqual([["touch"]]);
+  });
+
+  test("updateAll writes through readonly()", async () => {
+    await run(readOnly.bulkWrites);
+
+    expect(log.calls()).toEqual([[1]]);
+    expect(await article()).toMatchObject({ body: "" });
+  });
+
+  test("a created article's slug can't be changed", async () => {
+    await expect(run(readOnly.creating)).rejects.toThrow(ReadonlyAttribute);
+
+    expect(log.calls()).toEqual([["getting-started"]]);
+  });
+
+  test("a form posting the slug back saves, and one changing it gets a 422", async () => {
+    const send = (slug: string) => {
+      const body = new FormData();
+      body.set("title", "Hello again");
+      body.set("slug", slug);
+      const request = new Request(`https://example.com/?id=${firstId}`, { method: "POST", body });
+      return run(() => readOnly.updateArticle(request));
+    };
+
+    expect((await send("hello")).status).toBe(200);
+    expect((await send("hello-again")).status).toBe(422);
+    expect(await article()).toMatchObject({ title: "Hello again", slug: "hello" });
+  });
+});
+
 describe("the standalone pages' Postgres tables", { timeout: 60_000 }, () => {
   test.each(standalonePages)("%s's generate the attributes its D1 tables do", async (page) => {
     const cwd = await onPostgres(page, true);
 
     expect(generatedAttributes(cwd)).toEqual(generatedAttributes(pageProject(page).pathname));
+  });
+});
+
+// The Optimistic locking page's examples, on the articles table it shows, on Postgres.
+describe("the Optimistic locking page's examples, on Postgres", () => {
+  const schema = pageSchema("optimistic-locking");
+  beforeEach(async () => {
+    await schema().pool.query({
+      text: `DELETE FROM articles; INSERT INTO articles (id, title, body) VALUES ('${firstId}', 'Hello', 'First draft')`,
+    });
+  });
+  const article = async () =>
+    (await schema().pool.query({ text: "SELECT * FROM articles" })).rows[0];
+  const run = <T>(fn: () => Promise<T>) => withDatabase(connect(schema().url), fn);
+
+  test("a stale copy's save throws StaleRecord, and the first save is kept", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    await expect(run(locking.saving)).rejects.toThrow(StaleRecord);
+
+    expect(await article()).toMatchObject({ body: "Their edit", lock_version: 1 });
+  });
+
+  test("a stale copy's destroy throws StaleRecord, and the article stays", async () => {
+    await expect(run(locking.destroying)).rejects.toThrow(StaleRecord);
+
+    expect(await article()).toMatchObject({ title: "Hello again", lock_version: 1 });
+  });
+
+  test("a form's old version gets a 409, and its current one saves", async () => {
+    const send = (lockVersion: number) => {
+      const body = new FormData();
+      body.set("body", "Edited");
+      body.set("lockVersion", String(lockVersion));
+      const request = new Request(`https://example.com/?id=${firstId}`, { method: "POST", body });
+      return run(() => locking.updateArticle(request));
+    };
+
+    expect((await send(0)).status).toBe(200);
+    expect((await send(0)).status).toBe(409);
+    expect(await article()).toMatchObject({ body: "Edited", lock_version: 1 });
+  });
+
+  test("a stale save is retried after a reload", async () => {
+    const saved = await run(locking.retrying);
+
+    expect(saved.lockVersion).toBe(2);
+    expect(await article()).toMatchObject({ title: "Hello, world", body: "A new paragraph." });
   });
 });

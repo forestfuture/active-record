@@ -7,7 +7,7 @@ The guide reads like Laravel's documentation: friendly, direct, and quick to sca
 - **Open with what the reader does, or what the feature does,** in one sentence. No preamble about why, and no "This page covers…".
 - **Assume a competent developer.** Show what to do. Leave out what not to do, and warnings about obvious misuse.
 - **Page titles are nouns** ("Validations", "Logging", "Untrusted input"), as Laravel's are; the sidebar uses the same words.
-- **Section headings name the task, with a gerund:** "Permitting fields", "Defining scopes".
+- **Section headings name the task, with a gerund:** "Permitting fields", "Defining scopes". `tests/unit/docs-headings.test.ts` fails on any `##` heading in an MDX page that isn't one.
 - **Introduce each example with one sentence ending in a colon,** then show it.
 - **Keep examples short.** One idea per line: name an intermediate value rather than nesting calls.
 - **Write to "you", in plain words.** Short sentences, one idea each.
@@ -15,7 +15,7 @@ The guide reads like Laravel's documentation: friendly, direct, and quick to sca
 - **Put side facts in a note** (`:::note`) rather than in the main flow. Put a fact that conveys good news in a tip box (`:::tip`). A real warning gets a `:::warning` box with its own title (`:::warning[Uniqueness isn't a guarantee]`). Anything about Rails goes in Blume's info callout with the Ruby icon, `<Callout type="info" title="Compared with Rails" icon="/ruby.svg">` (or `title="Beyond Rails"` for what d1-record adds). `tests/unit/docs-conventions.test.ts` fails on a Rails box in any other form and on straight quotes in prose.
 - **Keep Rails out of instructional copy.** Many readers don’t know Rails, so “as in Rails” and “like Rails’ `save!`” go in a Compared with Rails box, or nowhere. The Coming from Rails page and the Background pages can compare freely.
 - **Explain why only when a default would surprise.** The library's internals stay out of the guide.
-- **Use the Oxford comma** in every list of three or more: “narrows, orders, or pages”, “`save`, `update`, and `destroy`”.
+- **Use the Oxford comma** in every list of three or more: “narrows, orders, or pages”, “`save`, `update`, and `destroy`”. `tests/unit/docs-conventions.test.ts` fails on a list of code spans or single words without it, in the guide and the READMEs.
 - **Use smart quotes and apostrophes in prose** (“ ” ‘ ’), never straight ones (" '), in the guide, the README, and the sidebar. Code, inline code, URLs, and front matter keep straight quotes, since there they're syntax.
 - **Cut** hedges, restatements, "Note that", sentences chained with colons, and summaries of what was just shown.
 

@@ -14,6 +14,34 @@ export const worker = {
 } satisfies ExportedHandler<Env>;
 // #endregion request
 
+// #region request-cache
+export async function findTwice(env: Env) {
+  return withDatabase(connect(env.DB), async () => {
+    const user = await User.findByOrThrow({ email: "jane@example.com" }); // sent
+    const again = await User.findByOrThrow({ email: "jane@example.com" }); // answered from memory
+    return [user, again] as const;
+  });
+}
+// #endregion request-cache
+
+// #region uncached
+export function uncachedDatabase(env: Env) {
+  return connect(env.DB, { cache: { request: false } }); // every read is sent
+}
+// #endregion uncached
+
+// #region clear-request-cache
+export async function renamePost(env: Env, id: string) {
+  const db = connect(env.DB);
+  return withDatabase(db, async () => {
+    const post = await Post.find(id);
+    await env.DB.prepare("UPDATE posts SET title = ? WHERE id = ?").bind("Hello again", id).run();
+    db.clearRequestCache(); // the UPDATE didn't go through Active Record
+    return Post.find(post.id); // sent, so it reads "Hello again"
+  });
+}
+// #endregion clear-request-cache
+
 // #region explicit
 export async function findJane(env: Env) {
   const db = connect(env.DB);

@@ -49,18 +49,18 @@ function onlyExpression(callback) {
 }
 
 /** Whether `args` pass no value: none, or `undefined`. */
-function noValue(args) {
+function hasNoValue(args) {
   return args.length === 0 || (args.length === 1 && isNamed(args[0], "undefined"));
 }
 
 /** What `callback` calls, when it's a function that only calls one thing, with no value. */
 function calledWithNoValue(callback) {
   const call = onlyExpression(callback);
-  return call?.type === "CallExpression" && noValue(call.arguments) ? call.callee : undefined;
+  return call?.type === "CallExpression" && hasNoValue(call.arguments) ? call.callee : undefined;
 }
 
 /** Whether `callback` is `resolve`, or a function that only calls it with no value. */
-function onlyResolves(callback, resolve) {
+function isOnlyResolve(callback, resolve) {
   if (callback?.type === "Identifier") return callback.name === resolve;
   return isNamed(calledWithNoValue(callback), resolve);
 }
@@ -76,12 +76,12 @@ function isNamedResolve(callee) {
  * given no value. A resolve the timer gives a value (`setTimeout(resolve, 50, "hung")`) bounds a
  * race; a function callback takes none of the timer's values.
  */
-function resolvesLater(node) {
+function isDelayedResolve(node) {
   const [callback, , ...values] = node.arguments;
-  if (!isFunction(callback) && !noValue(values)) return false;
+  if (!isFunction(callback) && !hasNoValue(values)) return false;
   if (isNamedResolve(callback) || isNamedResolve(calledWithNoValue(callback))) return true;
   const resolve = executorResolve(node);
-  return resolve !== undefined && onlyResolves(callback, resolve);
+  return resolve !== undefined && isOnlyResolve(callback, resolve);
 }
 
 export default defineRule({
@@ -116,11 +116,11 @@ export default defineRule({
       CallExpression(node) {
         const { callee } = node;
         // The promised setTimeout resolves with its second argument: given one, it bounds a race.
-        if (isPromisedSetTimeout(callee) && noValue(node.arguments.slice(1, 2))) {
+        if (isPromisedSetTimeout(callee) && hasNoValue(node.arguments.slice(1, 2))) {
           context.report({ node, messageId: "fixedDelay" });
           return;
         }
-        if (isGlobalSetTimeout(callee) && resolvesLater(node)) {
+        if (isGlobalSetTimeout(callee) && isDelayedResolve(node)) {
           context.report({ node, messageId: "fixedDelay" });
         }
       },

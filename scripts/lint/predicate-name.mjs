@@ -1,4 +1,5 @@
-// The repo's lint rule that a predicate starts with `is` or `has` (CONTRIBUTING.md), where its return type is written (#380).
+// The repo's lint rule that a predicate starts with `is` or `has` (CONTRIBUTING.md), where its return type is written (#380)
+// or its body answers yes or no (#525).
 import { defineRule } from "vite-plus/lint/plugins";
 
 /** A name that starts with the word `is` or `has`: `isOpen`, `hasRows`, `is`; not `isolate`. */
@@ -9,6 +10,89 @@ function isPredicateType(returnType) {
   const type = returnType?.typeAnnotation;
   if (type?.type === "TSBooleanKeyword") return true;
   return type?.type === "TSTypePredicate" && !type.asserts;
+}
+
+/** The operators whose result is always a boolean. */
+const booleanOperators = new Set([
+  "===",
+  "!==",
+  "==",
+  "!=",
+  "<",
+  ">",
+  "<=",
+  ">=",
+  "instanceof",
+  "in",
+]);
+
+/** The methods of the built-in types that always answer yes or no (`has` already reads as a predicate). */
+const booleanMethods = new Set(["some", "every", "includes", "startsWith", "endsWith", "test"]);
+
+/** Whether a call answers yes or no: one to a predicate, or to a method in `booleanMethods`. */
+function isPredicateCall({ callee }) {
+  if (callee.type === "Identifier") return predicateName.test(callee.name);
+  if (callee.type !== "MemberExpression" || callee.computed) return false;
+  const { name } = callee.property;
+  return predicateName.test(name) || booleanMethods.has(name);
+}
+
+/** For each kind of expression, whether one of that kind always answers yes or no. */
+const booleanShapes = {
+  Literal: (node) => typeof node.value === "boolean",
+  BinaryExpression: (node) => booleanOperators.has(node.operator),
+  UnaryExpression: (node) => node.operator === "!",
+  // `??`, or a side that isn't boolean-shaped, may give back a value instead.
+  LogicalExpression: (node) =>
+    node.operator !== "??" && isBooleanShaped(node.left) && isBooleanShaped(node.right),
+  ConditionalExpression: (node) =>
+    isBooleanShaped(node.consequent) && isBooleanShaped(node.alternate),
+  CallExpression: isPredicateCall,
+  ChainExpression: (node) => isBooleanShaped(node.expression),
+};
+
+/** Whether an expression always answers yes or no, by its shape: a comparison, `!`, and so on. */
+function isBooleanShaped(expression) {
+  const shape = booleanShapes[expression?.type];
+  return shape !== undefined && shape(expression);
+}
+
+/** The nodes directly under `node`, leaving out its parent. */
+function childrenOf(node) {
+  const values = Object.entries(node).flatMap(([key, value]) => (key === "parent" ? [] : value));
+  return values.filter((value) => typeof value?.type === "string");
+}
+
+/** What a block body's `return`s give back, leaving out those of the functions inside it. */
+function returnedBy(body) {
+  const returned = [];
+  const pending = [body];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (node.type === "ReturnStatement") returned.push(node.argument);
+    else if (!node.type.includes("Function")) pending.push(...childrenOf(node));
+  }
+  return returned;
+}
+
+/** What a function gives back: its expression body, or what its `return`s do. */
+function answersOf(fn) {
+  return fn.body.type === "BlockStatement" ? returnedBy(fn.body) : [fn.body];
+}
+
+/**
+ * Whether a function with no written return type answers yes or no, read from its body: each
+ * answer is boolean-shaped, and not every one is `true` or `false` (a stub, or a constant). An
+ * object literal's property is left alone: its key is an option's name, such as `if` or `default`.
+ * An async function resolves to its answer, and a generator yields, so neither is read.
+ */
+function isInferredPredicate(fn) {
+  if (fn.returnType || fn.async || fn.generator || fn.parent?.type === "Property") return false;
+  const answers = answersOf(fn);
+  return (
+    answers.some((answer) => answer?.type !== "Literal") &&
+    answers.every((answer) => isBooleanShaped(answer))
+  );
 }
 
 /** The kinds of node whose key names the function they hold: a method or a property. */
@@ -40,9 +124,10 @@ export default defineRule({
     },
   },
   create(context) {
-    /** Reports a function with a body whose written return type is a predicate's, by its name. */
+    /** Reports a function with a body that answers yes or no, by its name. */
     const check = (fn) => {
-      if (fn.body === null || fn.body === undefined || !isPredicateType(fn.returnType)) return;
+      if (fn.body === null || fn.body === undefined) return;
+      if (!isPredicateType(fn.returnType) && !isInferredPredicate(fn)) return;
       const name = nameOf(fn);
       if (name === undefined || predicateName.test(name)) return;
       context.report({ node: fn, messageId: "predicateName", data: { name } });

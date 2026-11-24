@@ -33,3 +33,31 @@ describe("filtering the value Postgres refused", () => {
     expect(filtered(message)).not.toContain('""""');
   });
 });
+
+// Optimistic locking's guard (#357) refuses its own marker, which names the stale write.
+describe("the stale guard's marker", () => {
+  const marker = "active-record stale record 0b9c4b52-8f0e-4c55-9a43-2d5c6f1e7a10";
+
+  test("stays in Postgres's refusal", () => {
+    const message = `invalid input syntax for type integer: "${marker}"`;
+
+    expect(filtered(message)).toBe(message);
+  });
+
+  test("stays in a translated refusal", () => {
+    const message = `整数型の入力構文が不正です: "${marker}"`;
+
+    expect(filtered(message)).toBe(message);
+  });
+
+  test.each([
+    ["a shorter id", `"${marker.slice(0, -1)}"`],
+    ["more after it", `"${marker} and more"`],
+    ["more before it", `"secret ${marker}"`],
+    ["another quoted value too", `"${marker}" or "secret"`],
+  ])("doesn't keep a value with %s", (_, quoted) => {
+    expect(filtered(`invalid input syntax for type integer: ${quoted}`)).toBe(
+      'invalid input syntax for type integer: "[FILTERED]"',
+    );
+  });
+});

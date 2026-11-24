@@ -44,8 +44,16 @@ import { modelOf, type Model } from "./model.ts";
 import { validateRequiredAssociations } from "./required-associations.ts";
 import { Negated, type Condition } from "./query.ts";
 import { linksOf, state } from "./record-state.ts";
+import { requireSavesWritable, requireWritable } from "./readonly-records.ts";
 import { column, sql } from "./sql.ts";
 import { timestampsFor } from "./timestamps.ts";
+import {
+  firstVersion,
+  lockedStatements,
+  lockedUpdate,
+  lockFailure,
+  lockOf,
+} from "./optimistic-locking.ts";
 import { leaveToAutosaves, touchesOf, touchesOfSave } from "./association-touch.ts";
 import {
   countersOnDestroy,
@@ -64,6 +72,7 @@ import {
 import { runValidations, type UniquenessOptions } from "./validations.ts";
 import { hashPasswords, passwordConfirmations, passwordFailures } from "./secure-passwords.ts";
 import { generateTokens } from "./secure-tokens.ts";
+import { clearRequestCaches } from "./request-store.ts";
 
 /**
  * What a lifecycle run ended with. Refusals are outcomes (the non-throwing methods return
@@ -252,7 +261,10 @@ export async function saveLifecycle(record: Model, context?: ValidationContexts)
   const needs = "save() needs its records";
   // Each database's records pinned to it before anything runs (#93), and each one's again
   // before anything is written, with any a callback added.
-  for (const { records } of savingGroups(record)) await pinBefore(linksOf(records), needs);
+  const groups = savingGroups(record);
+  // Every record it would write, before anything runs (#358).
+  requireSavesWritable(groups.flatMap(({ records }) => records));
+  for (const { records } of groups) await pinBefore(linksOf(records), needs);
   return withClaimedRecords(
     async (claimed): Promise<Outcome> => {
       const plan = await prepareSave(record, claimed, context);
@@ -276,6 +288,7 @@ export async function prepareSave(
   if (claimed.has(record)) return nothing;
   const recordState = record[state];
   recordState.requireLive("be saved");
+  requireWritable(record, "save");
   const validity = await validation(record, claimed, newPass(context), context);
   if (validity === "invalid") return { status: "invalid" };
   if (validity === "aborted") return aborted(record);
@@ -288,6 +301,8 @@ export async function prepareSave(
  * it, they follow in the next one, once the owner is written.
  */
 export async function prepareWrites(record: Model, claimed: Claimed): Promise<SavePlan> {
+  // An autosaved record comes here without prepareSave's check (#358).
+  requireWritable(record, "save");
   claimed.add(record);
   // New belongsTo records first: the record needs their keys.
   const before = await prepareBefore(record, claimed);
@@ -339,6 +354,7 @@ async function beforeWrite(record: Model, isInsert: boolean): Promise<Wrapped | 
  */
 function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): PreparedWrite {
   const recordState = record[state];
+  recordState.isSavingVersion = false;
   const model = modelOf(record);
   const after = async () => {
     await wrapped.finish();
@@ -350,11 +366,11 @@ function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): Prepared
   };
   const afterCommit = () => runCommitCallbacks(record, isInsert ? "create" : "update");
   if (isInsert) {
-    const own = recordState.insertAssignments();
+    const own = [...recordState.insertAssignments(), ...firstVersion(record)];
     const insert = compileInsert(model, [...own, ...timestampsFor(model, "insert", own)]);
     const counters = countersOnInsert(record);
     return {
-      statements: counters.around(insert),
+      statements: counters.around([insert]),
       commit: (results) => {
         recordState.commitInsert(results[0]?.rows[0]);
         counters.commit(results);
@@ -376,16 +392,21 @@ function saveWrite(record: Model, isInsert: boolean, wrapped: Wrapped): Prepared
     return { statements: [], commit, after, afterCommit, afterRollback };
   }
   const counters = countersOnUpdate(record);
-  const update = compileUpdate(model, [...own, ...stamps], recordState.storedKey);
+  // A locked record's update matches only its version, and sets the next (#357).
+  const lock = lockOf(record, "update");
+  recordState.isSavingVersion = lock !== undefined;
+  const { written, heldOnceWritten } = lockedUpdate(lock, own, stamps);
+  const update = compileUpdate(model, written, recordState.storedKey);
   return {
-    statements: counters.around(update),
+    statements: counters.around(lockedStatements(lock, update)),
     commit: (results) => {
-      recordState.commitUpdate(stamps);
+      recordState.commitUpdate(heldOnceWritten);
       counters.commit(results);
     },
     after,
     afterCommit,
     afterRollback,
+    ...lockFailure(lock),
   };
 }
 
@@ -413,6 +434,7 @@ export async function destroyLifecycle(record: Model): Promise<DestroyOutcome> {
 /** Everything a destroy does before writing: beforeDestroy, then its dependents' plans. */
 export async function prepareDestroy(record: Model, claimed: Claimed): Promise<DestroyPlan> {
   if (claimed.has(record)) return nothing;
+  requireWritable(record, "destroy");
   claimed.add(record);
   const recordState = record[state];
   recordState.requireLive("be destroyed");
@@ -426,32 +448,9 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
     return aborted(record);
   }
   waitWith(claimed, wrapped);
-  // A record that was never saved has no row, so no DELETE and no commit callbacks.
-  const hasRow = !recordState.isNew;
-  const counters = hasRow ? countersOnDestroy(record) : noCounterChanges;
-  const deletion = hasRow
-    ? counters.around(compileDelete(modelOf(record), recordState.storedKey))
-    : [];
-  const touches = hasRow ? await touchesOf(record, "destroy", claimed) : [];
-  const own = stageOf(record, [record], () => [
-    {
-      statements: deletion,
-      commit: (results) => {
-        recordState.markDestroyed();
-        counters.commit(results);
-      },
-      after: async () => {
-        await wrapped.finish();
-        await runAfterCallbacks(record, "afterDestroy", "destroy");
-      },
-      afterRollback: async (error) => {
-        await afterRollbackOf(record)();
-        await wrapped.fail(error);
-      },
-      ...(hasRow && { afterCommit: () => runCommitCallbacks(record, "destroy") }),
-    },
-    ...touches,
-  ]);
+  const write = destroyWrite(record, wrapped);
+  const touches = recordState.isNew ? [] : await touchesOf(record, "destroy", claimed);
+  const own = stageOf(record, [record], () => [write, ...touches]);
   // Dependents first: their records go before the owner's row, which they may point at. Those
   // on another database (#228) are written there, before it.
   const stages = inGroup(combine([[dependents.here], [own]]), record);
@@ -459,8 +458,38 @@ export async function prepareDestroy(record: Model, claimed: Claimed): Promise<D
 }
 
 /**
+ * A destroy's own write: the DELETE by the stored key (a locked record's matching its version
+ * too, #357), then the record marked destroyed and `afterDestroy`. A record that was never saved
+ * has no row, so no DELETE and no commit callbacks.
+ */
+function destroyWrite(record: Model, wrapped: Wrapped): PreparedWrite {
+  const recordState = record[state];
+  const hasRow = !recordState.isNew;
+  const counters = hasRow ? countersOnDestroy(record) : noCounterChanges;
+  const lock = hasRow ? lockOf(record, "destroy") : undefined;
+  const deleted = () => compileDelete(modelOf(record), recordState.storedKey);
+  return {
+    statements: hasRow ? counters.around(lockedStatements(lock, deleted())) : [],
+    commit: (results) => {
+      recordState.markDestroyed();
+      counters.commit(results);
+    },
+    after: async () => {
+      await wrapped.finish();
+      await runAfterCallbacks(record, "afterDestroy", "destroy");
+    },
+    afterRollback: async (error) => {
+      await afterRollbackOf(record)();
+      await wrapped.fail(error);
+    },
+    ...(hasRow && { afterCommit: () => runCommitCallbacks(record, "destroy") }),
+    ...lockFailure(lock),
+  };
+}
+
+/**
  * Loads the record's row again by its stored primary key, discarding unsaved changes, then runs its
- * `afterFind` and `afterInitialize` (#49).
+ * `afterFind` and `afterInitialize` (#49). It clears the request caches first, so it reads the database.
  */
 export async function reloadRecord(record: Model): Promise<void> {
   const recordState = record[state];
@@ -474,6 +503,8 @@ export async function reloadRecord(record: Model): Promise<void> {
   }
   const key = recordState.storedKeyValue;
   const query = { model, conditions: [{ [model.primaryKey]: key }], order: [], limit: 1 };
+  // A reload reads the database: every answer the request cached may be as old as this record (#218).
+  clearRequestCaches();
   const [row] = await executor.all(compileSelect(executor.dialect, query));
   if (row === undefined) {
     throw new RecordNotFound(

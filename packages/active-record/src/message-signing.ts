@@ -1,0 +1,245 @@
+// Signing a token's message (#517): `<payload>.<signature>`, base64url, its payload `[id, expiresAt?,
+// fingerprint?]`, signed with HMAC-SHA256 over its purpose and payload, under keys HKDF-SHA256
+// derives from the signing secrets for one feature, through WebCrypto.
+
+/** What a token is for, so a key made for one never verifies another's. */
+export type SigningFeature = "signed id" | "token for";
+
+/** What a token says: a record's primary key, until when, and a value it depends on. */
+interface SignedMessage {
+  readonly id: string | number;
+  readonly expiresAt?: Date;
+  /**
+   * A value the token stays valid only while the record's is the same; only its fingerprint is
+   * kept. Given as a key, so `undefined` is a value too.
+   */
+  readonly dependsOn?: unknown;
+}
+
+/** A token, verified: the id it holds, and a check of the value it depends on. */
+export interface VerifiedMessage {
+  readonly id: string | number;
+  /** Whether `value` is the one the token was made with, by its fingerprint. */
+  isUnchanged(value: unknown): Promise<boolean>;
+}
+
+/** Signs and verifies one feature's tokens with the secrets, newest first. */
+export interface Signer {
+  sign(purpose: string, message: SignedMessage): Promise<string>;
+  /** What `token` holds, if one of the secrets signed it for `purpose` and it hasn't expired. */
+  verify(purpose: string, token: string): Promise<VerifiedMessage | undefined>;
+}
+
+/** The bytes of a fingerprint kept in a token: enough that guessing one is hopeless. */
+const FINGERPRINT_BYTES = 12;
+const SIGNATURE_BYTES = 32;
+
+/**
+ * The longest token: room for an id of about 700 characters, its expiry and a fingerprint, far
+ * more than a key's id needs; signing a longer one throws. A longer token is
+ * refused before its signature is checked, so a huge one costs nothing.
+ */
+const MAX_TOKEN_LENGTH = 1024;
+
+/** base64url without padding. */
+const BASE64URL = /^[\w-]+$/;
+
+/** A signer for `feature`'s tokens: the first secret signs, and each one verifies. */
+export function signerFor(secrets: readonly string[], feature: SigningFeature): Signer {
+  const keys = secrets.map((secret) => keysFor(secret, feature));
+  return {
+    async sign(purpose, message) {
+      const { id, expiresAt, dependsOn } = message;
+      const key = await keys[0]!;
+      const fingerprint = Object.hasOwn(message, "dependsOn")
+        ? await fingerprintOf(key, purpose, id, dependsOn)
+        : null;
+      const expiry = expiresAt === undefined ? null : secondsSinceEpoch(expiresAt);
+      const payload = encode(
+        new TextEncoder().encode(JSON.stringify(trimmed([id, expiry, fingerprint]))),
+      );
+      const signature = await crypto.subtle.sign(
+        "HMAC",
+        key.signing,
+        signedBytes(purpose, payload),
+      );
+      const token = `${payload}.${encode(new Uint8Array(signature))}`;
+      if (token.length > MAX_TOKEN_LENGTH) {
+        throw new TypeError(
+          `A token's id is too long to sign: at most ${MAX_TOKEN_LENGTH} characters in all`,
+        );
+      }
+      return token;
+    },
+    async verify(purpose, token) {
+      const parts = partsOf(token);
+      if (parts === undefined) return undefined;
+      const data = signedBytes(purpose, parts.payload);
+      const signedWith = await keysThatSigned(keys, data, parts.signature);
+      return signedWith === undefined ? undefined : messageIn(signedWith, purpose, parts.payload);
+    },
+  };
+}
+
+/** A token's payload and signature's bytes, or undefined when it isn't shaped as one, or spelled as `encode` doesn't. */
+function partsOf(token: string): { payload: string; signature: Uint8Array } | undefined {
+  if (token.length > MAX_TOKEN_LENGTH) return undefined;
+  const [payload = "", signature = "", ...rest] = token.split(".");
+  if (rest.length > 0 || !BASE64URL.test(payload) || !BASE64URL.test(signature)) return undefined;
+  const bytes = decode(signature);
+  // Only the spelling `encode` writes: its last character's spare bits are zero.
+  const isCanonical = bytes?.length === SIGNATURE_BYTES && encode(bytes) === signature;
+  return isCanonical ? { payload, signature: bytes } : undefined;
+}
+
+/**
+ * The keys whose signature `data` has, if any's. Every key is tried, so the time taken doesn't
+ * say which signed it.
+ */
+async function keysThatSigned(
+  keys: readonly Promise<Keys>[],
+  data: Uint8Array,
+  signature: Uint8Array,
+): Promise<Keys | undefined> {
+  let signer: Keys | undefined;
+  for (const each of keys) {
+    const key = await each;
+    if (await crypto.subtle.verify("HMAC", key.signing, signature, data)) signer ??= key;
+  }
+  return signer;
+}
+
+/** A token's expiry, in whole Unix seconds; `TypeError` for one that isn't a time. */
+function secondsSinceEpoch(expiresAt: Date): number {
+  const seconds = Math.floor(Number(expiresAt.getTime()) / 1000);
+  if (!Number.isSafeInteger(seconds)) {
+    throw new TypeError("A token's expiry must be a valid Date");
+  }
+  return seconds;
+}
+
+/** The keys one secret gives a feature: one signs tokens, the other makes fingerprints. */
+interface Keys {
+  readonly signing: CryptoKey;
+  readonly fingerprinting: CryptoKey;
+}
+
+/**
+ * Each secret's keys, by feature. Module-level, but not request state (ADR-0003): derived only
+ * from the secret, which every request shares.
+ */
+const derived = new Map<string, Promise<Keys>>();
+
+function keysFor(secret: string, feature: SigningFeature): Promise<Keys> {
+  const cacheKey = `${feature}\n${secret}`;
+  let keys = derived.get(cacheKey);
+  if (keys === undefined) {
+    keys = deriveKeys(secret, feature);
+    derived.set(cacheKey, keys);
+  }
+  return keys;
+}
+
+async function deriveKeys(secret: string, feature: SigningFeature): Promise<Keys> {
+  const material = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
+  const derive = (use: string) =>
+    crypto.subtle.deriveKey(
+      {
+        name: "HKDF",
+        hash: "SHA-256",
+        salt: new TextEncoder().encode("@forestfuture/active-record"),
+        info: new TextEncoder().encode(`${feature} ${use}`),
+      },
+      material,
+      { name: "HMAC", hash: "SHA-256", length: 256 },
+      false,
+      ["sign", "verify"],
+    );
+  const [signing, fingerprinting] = await Promise.all([derive("signing"), derive("fingerprint")]);
+  return { signing, fingerprinting };
+}
+
+/** What a token's signature covers: its purpose, quoted so no purpose runs into its payload. */
+function signedBytes(purpose: string, payload: string): Uint8Array {
+  return new TextEncoder().encode(`${JSON.stringify(purpose)}.${payload}`);
+}
+
+/**
+ * A value's fingerprint for one record's token for one purpose: their JSON, signed with the
+ * fingerprint key, cut short. Each record and purpose fingerprints a value apart, so equal
+ * fingerprints never say two records share it.
+ */
+async function fingerprintOf(
+  keys: Keys,
+  purpose: string,
+  id: string | number,
+  value: unknown,
+): Promise<string> {
+  const json = new TextEncoder().encode(JSON.stringify([purpose, id, value ?? null]));
+  const signature = await crypto.subtle.sign("HMAC", keys.fingerprinting, json);
+  return encode(new Uint8Array(signature).slice(0, FINGERPRINT_BYTES));
+}
+
+/** A payload without the nulls at its end. */
+function trimmed(values: unknown[]): unknown[] {
+  let end = values.length;
+  while (end > 1 && values[end - 1] === null) end -= 1;
+  return values.slice(0, end);
+}
+
+/** Whether a payload's expiry has passed, or isn't a whole number of Unix seconds; never without one. */
+function hasExpired(expiry: unknown): boolean {
+  if (expiry === null) return false;
+  if (typeof expiry !== "number" || !Number.isSafeInteger(expiry)) return true;
+  return expiry * 1000 <= Date.now();
+}
+
+/** The message in a signed payload, unless it's expired or isn't one this module made. */
+function messageIn(keys: Keys, purpose: string, payload: string): VerifiedMessage | undefined {
+  const [id, expiry = null, fingerprint = null] = parsedPayload(payload) ?? [];
+  const isId = typeof id === "string" || (typeof id === "number" && Number.isSafeInteger(id));
+  if (!isId || hasExpired(expiry)) return undefined;
+  return {
+    id,
+    async isUnchanged(value) {
+      if (typeof fingerprint !== "string") return false;
+      return fingerprint === (await fingerprintOf(keys, purpose, id, value));
+    },
+  };
+}
+
+/** A payload's values, or undefined when it isn't a JSON array. */
+function parsedPayload(payload: string): unknown[] | undefined {
+  const bytes = decode(payload);
+  if (bytes === undefined) return undefined;
+  try {
+    const values: unknown = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(bytes),
+    );
+    return Array.isArray(values) ? values : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function encode(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+}
+
+/** base64url's bytes, or undefined for text that isn't base64url. */
+function decode(text: string): Uint8Array | undefined {
+  try {
+    const binary = atob(text.replaceAll("-", "+").replaceAll("_", "/"));
+    return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  } catch {
+    return undefined;
+  }
+}

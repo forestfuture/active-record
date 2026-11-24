@@ -100,6 +100,22 @@ _Avoid_: Encrypted password, password hash column, crypted password
 A string **Attribute** declared with `secureToken`, which a new record gets as a random base58 token, and `regenerate…()` replaces. `toJSON()` leaves it out, and it's always filtered. Nothing checks it's unique; a UNIQUE index does.
 _Avoid_: API key, random id, nonce
 
+**Signing secret**:
+What a Model's tokens are signed with: what its `signingSecret(env)` returns, `SECRET_KEY_BASE` from the Worker's env unless overridden, at least 32 bytes. A list rotates secrets: the first signs, and every one verifies.
+_Avoid_: Secret key, master key, API secret
+
+**Signed id**:
+A saved record's primary key, signed with its Model's **Signing secret** by `signedId()`, for an optional purpose and until an optional expiry; `findSigned` finds the record again by it. Readable, but not forgeable.
+_Avoid_: Encrypted id, obfuscated id, token (alone)
+
+**Token for a purpose**:
+A **Signed id** for one purpose a Model declares with `generatesTokenFor`, which lasts its `expiresIn` and finds its record only while what its `dependsOn` returns is unchanged; it carries a fingerprint of that value, never the value. `generateTokenFor(purpose)` makes one, `findByTokenFor(purpose, token)` finds its record.
+_Avoid_: Purpose token, one-time token (it isn't: it works until it expires or its value changes)
+
+**Reset token**:
+A **Secure password**'s **Token for a purpose**, `passwordReset` for `password`, from `passwordResetToken()`: it lasts 15 minutes unless told otherwise, and stops finding its record once the **Password digest** changes. `findByPasswordResetToken` finds its record.
+_Avoid_: Password reset link, reset code
+
 **Hidden attribute**:
 An attribute `toJSON()` leaves out, named by the Model's `hiddenAttributes`, by exact name. `attributes()` still has it. Independent of a **Filtered attribute**, which is about logs and errors.
 _Avoid_: Private, protected, excluded
@@ -128,6 +144,10 @@ _Avoid_: Raw SQL, string condition
 A value in an **SQL fragment** written as `column(attribute).value(v)`: cast as an assigned value of that **Attribute**, and written as the attribute stores it (an integer for **Epoch storage**), still a bound parameter. A bare interpolated value has no attribute, so it's written by its JavaScript type.
 _Avoid_: Bound attribute, cast value
 
+**Incoming value**:
+The value the row an upsert writes has for an **Attribute**, written `incoming(attribute)` in an **SQL fragment** of the upsert's `onDuplicate`, beside `column(attribute)`, the clashing row's value: `` count: sql`${column("count")} + ${incoming("count")}` ``. Anywhere else it's a `TypeError`.
+_Avoid_: Excluded value, new value
+
 **Attribute conversions**:
 The `cast`, `serialize` and `deserialize` of one **Attribute**, from `Model.typeForAttribute(name)`: the same steps a record uses, for SQL the library doesn't write. `serialize` is what a **Typed value** binds.
 _Avoid_: Attribute type (that is the declared type, `"datetime"`), codec, serializer
@@ -147,6 +167,18 @@ _Avoid_: Transaction callback (there's no transaction around the callbacks)
 **Touch**:
 Setting a **Record**'s `updatedAt`, and any datetime attributes named, to now (or a given time) straight to its row, without a save: `record.touch()`, then `afterTouch` and the update **Commit callbacks**. A Relation's `touchAll` touches every row it matches as a **Bulk write**, with no callbacks; a counter's `{ touch }` option touches in the counter's own UPDATE. A belongsTo declared with `touch` touches the record it reaches whenever its own record is created, updated, destroyed or touched, in that write's batch, and that record touches its own in turn. A hasOne declared with `touch` does the same when its owner is updated, destroyed or touched, leaving alone a record its own save writes (built through it, or autosaved) or its `dependent` removes. Inside `Article.noTouching(fn)`, articles (and records of Models extending Article; every Model's, for `Model.noTouching`) aren't touched: not by a belongsTo, nor by their own `touch()`.
 _Avoid_: Bump, stamp
+
+**Lock version**:
+A **Model**'s integer `lockVersion` attribute (column `lock_version`), which turns on optimistic locking: a save, destroy or **Touch** of its **Record** matches the version it has and sets the next, and one whose row another write changed first throws `StaleRecord`, writing nothing in its batch. A NULL reads as 0.
+_Avoid_: Revision, row version, optimistic lock column
+
+**Read-only record**:
+A **Record** marked so it can't write its row: by `markReadonly()`, or loaded through a `readonly()` **Relation**. Saving, destroying or touching it, or writing its columns, throws `ReadonlyRecord` before anything runs, and so does a write that would reach it through another, such as its owner's autosave. It can still change in memory and be reloaded. A **Bulk write** doesn't load records, so it ignores the mark. Not a destroyed record, which is a snapshot of its deleted row.
+_Avoid_: Frozen record, locked record
+
+**Read-only attribute**:
+An attribute declared `readonly: true`, written when its **Record** is created and never changed by it after: assigning a persisted record another value, cast and normalized, throws `ReadonlyAttribute`. Changed another way (a belongsTo pointed elsewhere, a null key a new record would fill, a JSON value changed in place, a touch), it's refused before anything is sent. `updatedAt` and `lockVersion` can't be read-only. A counter cache still counts it. An upsert leaves a clashing row's value alone; a **Bulk write** (`updateAll`, `updateCounters`, `touchAll`) still writes it.
+_Avoid_: Immutable attribute, write-once attribute
 
 **Validation context**:
 The occasion a record is validated for, which picks the rules declared `on` it (or `exceptOn` it) that run: `"create"` while the record is new, `"update"` once it's saved, or a name the app gives `isValid(context)` or `save({ context })` in their place. A Model lists the names it gives in `static validationContexts`.
@@ -267,6 +299,10 @@ _Avoid_: Default connection, global database
 **Database scope**:
 One `withDatabase` call's time with a **Database**, during which its **Adapter** may hold a connection for it (the PostgreSQL adapter does, from a connection string). Each call has its own, even with a Database other requests share; a call nested in a running one shares it. In the `/adapter` interface, a driver's `openScope` and `closeScope` begin and end it.
 _Avoid_: Scope (on its own: that's a Model's), request scope, transaction
+
+**Request cache**:
+A **Database scope**'s answers to the reads it sent (#218): a read with the same SQL and bound values is answered from memory, reported to the **Query listener** with `cached: true`. Any write the library sends inside the `withDatabase` call, through any **Database**, clears every request cache the call can see, as do `reload()` and `db.clearRequestCache()`; it ends with the scope, and a Model's **Binding** has none. `connect(…, { cache: { request: false } })` turns it off.
+_Avoid_: Query cache, identity map (records aren't shared, only rows)
 
 **Adapter**:
 What the Active Record core needs for one database (#260, ADR-0016): its driver, SQL dialect, type mapping, constraint errors and schema reader, with its plugin for the command. Each ships inside `@forestfuture/active-record` as an entry named for its database, `/d1` and `/postgresql` (ADR-0019), and its driver is the app's to install. The **Project config** names a database's adapter, and the **Generated schema** imports it.

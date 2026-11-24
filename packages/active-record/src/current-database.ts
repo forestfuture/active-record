@@ -8,6 +8,7 @@ import { databaseExecutor, type AnyDatabase } from "./database.ts";
 import { NoDatabase } from "./errors.ts";
 import { CurrentExecutor, type DatabaseExecutor, type Executor } from "./executor.ts";
 import type { ModelClass, ScopesOf } from "./model.ts";
+import { RequestCache } from "./request-cache.ts";
 import { type DatabaseScope, requestStore, runWithStore } from "./request-store.ts";
 import type { Scoped } from "./relation.ts";
 import { relationFor } from "./scoped-relation.ts";
@@ -30,17 +31,21 @@ export async function withDatabase<R>(
   const outer = requestStore();
   const inner = Array.isArray(databases) ? databases : [databases as AnyDatabase];
   const scopes = new Map(outer?.scopes);
+  // One set for the whole request: a nested call's caches are cleared by a write outside it.
+  const caches = outer?.caches ?? new Set<RequestCache>();
   const opened: OpenedScope[] = [];
   try {
     openScopes(inner, scopes, opened);
+    for (const { scope } of opened) caches.add(scope.cache);
     // A Database given twice, or again in a nested call, is one of the request's databases.
     const all = [...new Set([...inner, ...(outer?.databases ?? [])])];
-    return await runWithStore({ databases: all, scopes }, fn);
+    return await runWithStore({ databases: all, scopes, caches }, fn);
   } finally {
     // The scopes end; an adapter lets their connections go once their queries finish.
     await Promise.all(
       opened.map(({ executor, scope }) => {
         scope.hasEnded = true;
+        caches.delete(scope.cache);
         return executor.closeScope(scope.held);
       }),
     );
@@ -68,7 +73,11 @@ function openScopes(
     // A call nested in one still running shares its scope; in one that has returned (a
     // `waitUntil`'s, started inside the request), it opens its own.
     if (scopes.get(executor)?.hasEnded === false) continue;
-    const scope: DatabaseScope = { held: executor.openScope(), hasEnded: false };
+    const scope: DatabaseScope = {
+      held: executor.openScope(),
+      hasEnded: false,
+      cache: new RequestCache(),
+    };
     scopes.set(executor, scope);
     opened.push({ executor, scope });
   }

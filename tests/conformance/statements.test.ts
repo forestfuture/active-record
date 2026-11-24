@@ -608,9 +608,13 @@ describe("statements", () => {
       });
 
       test("a record created through a collection loaded while it saves is loaded once", async () => {
-        const writesComments = (sql: string) =>
+        const isCommentsInsert = (sql: string) =>
           sql.startsWith("INSERT") && sql.includes('"comments"');
-        const { db, arm, held, release } = holdStatements(harness, writesComments, "afterRunning");
+        const { db, arm, held, release } = holdStatements(
+          harness,
+          isCommentsInsert,
+          "afterRunning",
+        );
         await seedComments(db);
         const post = await db.model(Post).find(1);
         arm();

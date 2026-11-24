@@ -59,7 +59,8 @@ import {
 } from "./associations.ts";
 import type { Relation, Scope, Scoped } from "./relation.ts";
 import { defineStatics } from "./model-statics.ts";
-import { AttributeWrites } from "./attribute-writes.ts";
+import { ReadonlyMarks } from "./readonly-marks.ts";
+import { requireWritable } from "./readonly-records.ts";
 import { noTouching } from "./no-touching.ts";
 import { currentRelation } from "./current-database.ts";
 import type { ContextOf, SaveOptions, ValidationContexts } from "./validation-context.ts";
@@ -193,7 +194,7 @@ export type AttributesOf<M> = M extends { readonly [attributeTypes]?: infer A } 
  * methods, statics, callbacks and scopes declared there are shared by every Model built on it.
  * It has no table, so it's never used as a Model itself.
  */
-export class Model extends AttributeWrites {
+export class Model extends ReadonlyMarks {
   /** The table's name: inferred from `modelName` (`BlogPost` → `blog_posts`) unless set. */
   declare static table: string;
   /**
@@ -658,12 +659,14 @@ export class Model extends AttributeWrites {
   /** `assign` then `save`. */
   async update(attributes: Partial<AttributesOf<this>>): Promise<boolean> {
     this[state].requireLive("be updated");
+    requireWritable(this, "save");
     return this.assign(attributes).save();
   }
 
   /** `assign` then `saveOrThrow`. */
   async updateOrThrow(attributes: Partial<AttributesOf<this>>): Promise<true> {
     this[state].requireLive("be updated");
+    requireWritable(this, "save");
     return this.assign(attributes).saveOrThrow();
   }
 

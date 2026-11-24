@@ -19,6 +19,8 @@ export const standalonePages = [
   "persistence",
   "associations",
   "touching",
+  "optimistic-locking",
+  "read-only",
   "counter-caches",
   "autosaving",
   "preloading",

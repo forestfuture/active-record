@@ -1,5 +1,6 @@
 // A belongsTo's `touch` (#353) and a hasOne's (#497): checking its declaration, and the touches a record's create, update, destroy or touch makes of the records it belongs to or has, in its batch.
 import { asStored } from "./normalized-values.ts";
+import { requireWritable, requireWritableColumns } from "./readonly-records.ts";
 import { associationsOf, readAssociation } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { isDestroyedThrough } from "./counter-caches.ts";
@@ -14,6 +15,7 @@ import {
   resolveAssociation,
 } from "./resolved-association.ts";
 import { touchWrite } from "./touch.ts";
+import { isLocking } from "./lock-version.ts";
 import type { PreparedWrite } from "./unit-of-work.ts";
 
 /**
@@ -281,7 +283,7 @@ function isTouchable(record: unknown, claimed: ReadonlySet<Model>): record is Mo
 /**
  * `target`'s touch write, setting what the association's `touch` names, then those it makes in
  * turn; nothing if this write has touched it already, or `noTouching` turned its Model's touches
- * off (#496).
+ * off (#496). A read-only target throws `ReadonlyRecord` (#358).
  */
 async function touchOne(
   target: Model,
@@ -292,12 +294,20 @@ async function touchOne(
   const model = modelOf(target);
   const key = touchKey(target);
   if (session.touched.has(key) || isCoveredByNoTouching(model)) return [];
+  // A loaded read-only record isn't touched through another, nor a read-only attribute (#358).
+  requireWritable(target, "touch");
+  requireWritableColumns(
+    model,
+    touchAssignments(model, touch, "touch").map(([name]) => name),
+  );
   session.touched.add(key);
   let values: Record<string, unknown> | undefined;
   const valuesOf = () =>
     (values ??= Object.fromEntries(touchAssignments(model, touch, "touch", timeOf(session))));
   const write = touchWrite(target, valuesOf, {
     keepsSavedChanges: () => isClaimedRow(target, claimed),
+    version: isLocking(model) ? "increment" : undefined,
+    isVersionSaved: () => sameRow(target, claimed).some((each) => each[state].isSavingVersion),
   });
   return [inWrite(write, target, claimed), ...(await touchesOf(target, "touch", claimed))];
 }

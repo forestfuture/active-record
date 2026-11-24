@@ -220,6 +220,7 @@ describe("a spec's keys", () => {
       virtual: true,
       securePassword: true,
       secureToken: true,
+      readonly: true,
     } satisfies Record<keyof SpecObject, true>;
 
     expect(overridableKeyNames.split(", ")).toEqual(

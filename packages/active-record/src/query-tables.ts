@@ -18,6 +18,8 @@ export interface Source {
   readonly model: ModelClass<Model>;
   readonly name: string;
   readonly qualified: boolean;
+  /** Whether `incoming()` may name the row an upsert writes: only in its `onDuplicate` (#531). */
+  readonly allowsIncoming?: boolean;
 }
 
 /** The column of `source`'s attribute, quoted, and qualified when its query joins. */
