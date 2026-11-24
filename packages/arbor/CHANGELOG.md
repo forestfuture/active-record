@@ -1,4 +1,4 @@
-# @forestfuture/active-record
+# @forestfuture/arbor
 
 ## 0.10.0
 
