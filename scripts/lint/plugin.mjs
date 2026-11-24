@@ -11,7 +11,7 @@ import standaloneTestName from "./standalone-test-name.mjs";
 import storedKeyLookup from "./stored-key-lookup.mjs";
 
 export default definePlugin({
-  meta: { name: "active-record" },
+  meta: { name: "arbor" },
   rules: {
     "disable-reason": disableReason,
     "module-header": moduleHeader,

@@ -1337,7 +1337,7 @@ describe("the Querying page's examples, on Postgres", () => {
     ]);
     expect(emails).toEqual(["jane@example.com", "sam@example.com"]);
     expect(counts).toEqual({ admins: 1, hasAdmins: true, severalAdmins: false, oneOwner: true });
-    // oxlint-disable-next-line active-record/no-sql-text -- the page says Postgres numbers its placeholders
+    // oxlint-disable-next-line arbor/no-sql-text -- the page says Postgres numbers its placeholders
     expect(sql).toMatch(/\$1.*\$2/);
   });
 });

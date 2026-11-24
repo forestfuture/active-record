@@ -215,7 +215,7 @@ describe("a text value of any content, in a query", { timeout: SLOW_TIMEOUT }, (
         connection.clear();
         await connection.samples().create({ label });
 
-        // oxlint-disable-next-line active-record/no-sql-text -- a value is bound, so it never changes the statement
+        // oxlint-disable-next-line arbor/no-sql-text -- a value is bound, so it never changes the statement
         expect(connection.inserts()).toEqual(plain);
       }),
       runs,

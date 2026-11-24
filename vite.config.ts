@@ -107,10 +107,10 @@ export default defineConfig({
       "max-params": ["error", { max: 4 }],
       "max-lines-per-function": ["error", { max: 60, skipBlankLines: true, skipComments: true }],
       // Turning off one of the repo's own rules says why, after `--` (scripts/lint/).
-      "active-record/disable-reason": "error",
+      "arbor/disable-reason": "error",
       // A predicate starts with 'is' or 'has', where its return type is written (#380) or its body
       // answers yes or no (#525).
-      "active-record/predicate-name": "error",
+      "arbor/predicate-name": "error",
     },
     jsPlugins: ["./scripts/lint/plugin.mjs", "eslint-plugin-regexp"],
     overrides: [
@@ -120,9 +120,9 @@ export default defineConfig({
         // regexes take linear time, since an app's or a database's text reaches them (#404).
         files: ["packages/*/src/**/*.ts", "packages/*/cli/**/*.ts"],
         rules: {
-          "active-record/module-header": "error",
+          "arbor/module-header": "error",
           // The library's own lookups by a record's key keep it as stored (#354).
-          "active-record/stored-key-lookup": "error",
+          "arbor/stored-key-lookup": "error",
           "regexp/no-super-linear-move": "error",
           "regexp/no-super-linear-backtracking": "error",
           "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }],
@@ -201,7 +201,7 @@ export default defineConfig({
         // (CODING_STANDARDS.md, Names and comments; #515).
         files: ["packages/*/src/**", "packages/*/cli/**", "tests/**"],
         // The words are the names of where an idea came from.
-        rules: { "active-record/say-what-it-does": ["error", { words: ["Rails"] }] },
+        rules: { "arbor/say-what-it-does": ["error", { words: ["Rails"] }] },
       },
       {
         // A file `active-record schema` writes is left as written: its comments carry table and
@@ -211,7 +211,7 @@ export default defineConfig({
           "tests/fixtures/LOGS.ts",
           "tests/fixtures/schema-project/schema.ts",
         ],
-        rules: { "active-record/say-what-it-does": "off" },
+        rules: { "arbor/say-what-it-does": "off" },
       },
       {
         // A describe() callback holds a whole suite, so it's long by design. The rules below are
@@ -221,10 +221,10 @@ export default defineConfig({
         files: ["tests/**"],
         rules: {
           "max-lines-per-function": "off",
-          "active-record/no-fixed-delay": "error",
-          "active-record/no-sql-text": "error",
-          "active-record/one-model-per-test": "error",
-          "active-record/standalone-test-name": "error",
+          "arbor/no-fixed-delay": "error",
+          "arbor/no-sql-text": "error",
+          "arbor/one-model-per-test": "error",
+          "arbor/standalone-test-name": "error",
         },
       },
       {
@@ -269,7 +269,7 @@ export default defineConfig({
       {
         // toSql's SQL text is the result its own tests check.
         files: ["tests/conformance/to-sql.test.ts"],
-        rules: { "active-record/no-sql-text": "off" },
+        rules: { "arbor/no-sql-text": "off" },
       },
     ],
   },

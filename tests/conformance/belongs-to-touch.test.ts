@@ -719,7 +719,7 @@ describe("a belongsTo's touch (#353)", () => {
       }) {
         static table = "messages";
         static {
-          // oxlint-disable-next-line active-record/no-fixed-delay -- the time passing is what's tested: the save's stamp comes after the touch is planned
+          // oxlint-disable-next-line arbor/no-fixed-delay -- the time passing is what's tested: the save's stamp comes after the touch is planned
           this.beforeSave(() => new Promise<void>((resolve) => setTimeout(resolve, 20)));
         }
       }

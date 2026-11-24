@@ -25,7 +25,7 @@ function wordPattern(listed) {
 function isOwnOptOut(text) {
   const names = parseOptOut(text)?.names;
   if (names === undefined) return false;
-  return names.length === 0 || names.includes("active-record/say-what-it-does");
+  return names.length === 0 || names.includes("arbor/say-what-it-does");
 }
 
 export default defineRule({

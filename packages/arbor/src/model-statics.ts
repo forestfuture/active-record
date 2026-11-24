@@ -526,7 +526,7 @@ function defineKeyedWrites(base: typeof Model): void {
     return found;
   });
   defineStatic(base, "delete", async function (this: QueryableClass, ids: Keys) {
-    // oxlint-disable-next-line active-record/stored-key-lookup -- the caller's ids, normalized as find's are
+    // oxlint-disable-next-line arbor/stored-key-lookup -- the caller's ids, normalized as find's are
     return this.all().deleteBy({ [this.primaryKey]: ids } as never);
   });
   defineStatic(
@@ -540,7 +540,7 @@ function defineKeyedWrites(base: typeof Model): void {
     ) {
       return (
         this.unscoped()
-          // oxlint-disable-next-line active-record/stored-key-lookup -- the caller's ids, normalized as find's are
+          // oxlint-disable-next-line arbor/stored-key-lookup -- the caller's ids, normalized as find's are
           .where({ [this.primaryKey]: ids } as never)
           .updateCounters(counters, options)
       );

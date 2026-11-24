@@ -18,8 +18,8 @@ ruleTester.run("say-what-it-does", sayWhatItDoes, {
     "const box = /(Compared with|Beyond) Rails/;",
     "const Rails = 1;",
     // An opt-out's reason can name what it opts out for.
-    "// oxlint-disable-next-line active-record/say-what-it-does -- names the Rails box\nconst a = 1;",
-    "// eslint-disable-next-line active-record/say-what-it-does -- names the Rails box\nconst a = 1;",
+    "// oxlint-disable-next-line arbor/say-what-it-does -- names the Rails box\nconst a = 1;",
+    "// eslint-disable-next-line arbor/say-what-it-does -- names the Rails box\nconst a = 1;",
     // An opt-out naming no rule turns every rule off, this one included.
     "// oxlint-disable-next-line -- reads the Rails box\nconst a = 1;",
   ].map((code) => ({ code, options })),
@@ -76,7 +76,7 @@ ruleTester.run("say-what-it-does", sayWhatItDoes, {
     },
     {
       name: "a comment turning the rule back on",
-      code: "// oxlint-enable active-record/say-what-it-does -- after the Rails part\nconst a = 1;",
+      code: "// oxlint-enable arbor/say-what-it-does -- after the Rails part\nconst a = 1;",
       errors: [{ messageId: "namesOrigin" }],
     },
     {

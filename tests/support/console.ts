@@ -5,7 +5,7 @@ import { startSession, type SessionOptions } from "../../packages/arbor/cli/cons
 export async function waitFor(done: () => boolean, seconds = 10): Promise<void> {
   for (let waited = 0; !done(); waited++) {
     if (waited >= seconds * 20) throw new Error(`Waited ${seconds} s for ${done.toString()}`);
-    // oxlint-disable-next-line active-record/no-fixed-delay -- the interval between polls, not a wait
+    // oxlint-disable-next-line arbor/no-fixed-delay -- the interval between polls, not a wait
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }
