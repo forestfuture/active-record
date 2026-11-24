@@ -104,6 +104,7 @@ In 0.11 the library is Arbor (#558, ADR-0025): the package is `@forestfuture/arb
 6. **Merge the Version Packages pull request.** CI publishes `@forestfuture/arbor` 0.11.0, with provenance.
 7. **Check the release:** `npm view @forestfuture/arbor@0.11.0 --prefer-online` with `dist.attestations`; then install it into a fresh app, follow the guide's [Upgrading](<../../site/docs/(how-to)/upgrading.mdx>), and run it.
 8. **Deprecate the old package** (the maintainer), with no alias: `npm deprecate @forestfuture/active-record "Renamed to @forestfuture/arbor (Arbor ORM). See https://arbor.forestfuture.dev/upgrading"`.
+   Then remove the old packages' trusted publishers: on npmjs.com, Settings → **Trusted Publisher** for `@forestfuture/active-record` and for `@forestfuture/d1-record`. Both name the repository `forestfuture/active-record`, and once it's renamed, a repository created under that name could publish to them. From a terminal outside the repo, `npm trust list <package>` shows none afterwards.
 9. **Help agents find it again**, as below: install the skill once with `npx skills add forestfuture/arbor`, and add and claim `forestfuture/arbor` on Context7, then put the claim modal's `public_key` in `context7.json` in a pull request.
 
 ## After the first release: help agents find it
