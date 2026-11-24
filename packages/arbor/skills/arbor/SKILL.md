@@ -1,5 +1,5 @@
 ---
-name: active-record
+name: arbor
 description: Active Record (`@forestfuture/arbor`, with its D1 and PostgreSQL adapters as its `/d1` and `/postgresql` entries), a Rails-style Active Record for Cloudflare Workers. Use when writing code with the package, or deciding how to model D1 or Postgres data in a Worker.
 ---
 

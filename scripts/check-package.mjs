@@ -27,7 +27,7 @@ const expected = {
     "dist/postgresql.mjs",
     "llms-full.txt",
     "package.json",
-    "skills/active-record/SKILL.md",
+    "skills/arbor/SKILL.md",
   ],
 };
 

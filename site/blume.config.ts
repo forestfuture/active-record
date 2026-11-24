@@ -22,7 +22,7 @@ export default defineConfig({
       details:
         "Active Record is `@forestfuture/arbor` on npm, a Rails-inspired Active Record for Cloudflare Workers, with an adapter for each database inside it: `@forestfuture/arbor/d1` for D1, and `@forestfuture/arbor/postgresql` for Postgres. Install its agent skill, with the rules for writing Active Record code, using `npx skills add forestfuture/active-record`. Every behavior the tests prove is in the [behavior contract](https://github.com/forestfuture/active-record/blob/main/docs/contract.md). The installed package ships this guide for its own version at `node_modules/@forestfuture/arbor/llms-full.txt`.",
     },
-    // Published at /.well-known/agent-skills/active-record/SKILL.md, in place of Blume's generated skill.
+    // Published at /.well-known/agent-skills/arbor/SKILL.md, in place of Blume's generated skill.
     skills: "../packages/arbor/skills",
     contentSignals: { aiTrain: false },
   },

@@ -4,9 +4,9 @@ import { describe, expect, test } from "vite-plus/test";
 // SKILL.md ships in the package as plain Markdown, so its examples can't be included from files.
 // They're kept as type-checked files instead (site/snippets/skill/), and must match them exactly.
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
-const skillPath = "packages/arbor/skills/active-record/SKILL.md";
+const skillPath = "packages/arbor/skills/arbor/SKILL.md";
 
-describe("the agent skill (packages/arbor/skills/active-record/SKILL.md)", () => {
+describe("the agent skill (packages/arbor/skills/arbor/SKILL.md)", () => {
   const blocks = [...read(skillPath).matchAll(/```ts\n([\s\S]*?)```/g)].map((match) => match[1]);
 
   test("its examples are the type-checked files in site/snippets/skill", () => {
@@ -23,9 +23,9 @@ describe("the agent skill (packages/arbor/skills/active-record/SKILL.md)", () =>
   // `npx skills add` copies the skill's directory: a SKILL.md at the repository's root would copy
   // the whole repository into the app (#136).
   test("sits alone in its own directory, and not at the repository's root", () => {
-    expect(
-      readdirSync(new URL("../../packages/arbor/skills/active-record", import.meta.url)),
-    ).toEqual(["SKILL.md"]);
+    expect(readdirSync(new URL("../../packages/arbor/skills/arbor", import.meta.url))).toEqual([
+      "SKILL.md",
+    ]);
     expect(existsSync(new URL("../../SKILL.md", import.meta.url))).toBe(false);
   });
 
@@ -36,6 +36,6 @@ describe("the agent skill (packages/arbor/skills/active-record/SKILL.md)", () =>
   });
 
   test("is named for its directory", () => {
-    expect(read(skillPath)).toMatch(/^---\nname: active-record\n/);
+    expect(read(skillPath)).toMatch(/^---\nname: arbor\n/);
   });
 });
