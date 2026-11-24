@@ -1,5 +1,23 @@
 # @forestfuture/active-record
 
+## 0.10.0
+
+### Minor Changes
+
+- [#551](https://github.com/forestfuture/active-record/pull/551) [`1fc6fce`](https://github.com/forestfuture/active-record/commit/1fc6fce89a619523d4eb3bce427d74ccf49b997b) Thanks [@christopherstyles](https://github.com/christopherstyles)! - Inside `withDatabase`, a read whose SQL and bound values match one already sent on that database is answered from memory, with no round trip, until a write clears it. Each answer is new records. `onQuery` hears a cached answer with `cached: true`. Any write Active Record sends inside the call clears the cache, through any database handle, and so does `reload()`. A write you send yourself on the binding or a `pg` client doesn't, so call the new `db.clearRequestCache()` after one. Turn the cache off with `connect(env.DB, { cache: { request: false } })`.
+
+- [#535](https://github.com/forestfuture/active-record/pull/535) [`bef8761`](https://github.com/forestfuture/active-record/commit/bef8761d2dcd3144826acaeb8435208bc827d7f4) Thanks [@christopherstyles](https://github.com/christopherstyles)! - `upsert` and `upsertAll` take `updateOnly`, naming the only attributes a clashing row has updated: `upsertAll(rows, { uniqueBy: "email", updateOnly: ["name"] })`. An upsert now sets a clashing row's `updatedAt` only when a value it updates changes, so writing a row again as it was keeps its `updatedAt`. An upsert with nothing to update but `updatedAt` (every attribute it would update is a `uniqueBy` one or read-only) now leaves a clashing row alone, and doesn't count it in `rowsAffected` or return it in `rows`.
+
+### Patch Changes
+
+- [#549](https://github.com/forestfuture/active-record/pull/549) [`cf395ce`](https://github.com/forestfuture/active-record/commit/cf395ce6dc70888967743e06874cf894b792db87) Thanks [@christopherstyles](https://github.com/christopherstyles)! - A `column()`, a typed value or `incoming()` given as `find`'s id, or one of its ids, now throws `TypeError` saying to give the value itself, instead of `RecordNotFound`.
+
+  One nested in a json value (`where({ settings: { theme: column("x") } })`, `build`, `update`, `updateAll`, `insert`, or a value changed in place and saved) now throws the same `TypeError`, naming its path (`settings.theme`), for a custom type stored as json too. It used to match or store the reference's JSON.
+
+- [#548](https://github.com/forestfuture/active-record/pull/548) [`9f6bc66`](https://github.com/forestfuture/active-record/commit/9f6bc664653057567e6297bc3983b31fb5996066) Thanks [@christopherstyles](https://github.com/christopherstyles)! - A `column()`, a typed value (`column(name).value(v)`) or `incoming()` given as an attribute's value now throws `TypeError` saying where it belongs. In a condition or `updateAll`, a `column()` or `incoming()` says to write it in an `sql` fragment, and a typed value says to give the value itself. It used to match nothing, store the reference as a json attribute's JSON, or throw a cast error that didn't say why. In a written row (`insert`, `upsert`, `createWith`) or a record (`build`, a setter, `update`), it says to give the value itself.
+
+- [#541](https://github.com/forestfuture/active-record/pull/541) [`ef696fe`](https://github.com/forestfuture/active-record/commit/ef696fe8c1f4f79961e8ec80cd770e2196d95d74) Thanks [@christopherstyles](https://github.com/christopherstyles)! - `upsert` and `upsertAll` take `onDuplicate`, saying what a clashing row's attributes become, each an `sql` fragment or a value: ``upsertAll(rows, { uniqueBy: "name", onDuplicate: { count: sql`${column("count")} + ${incoming("count")}` } })``. In its fragments, `column()` is the clashing row's value, and the new `incoming()` is the new row's.
+
 ## 0.9.1
 
 ### Patch Changes
