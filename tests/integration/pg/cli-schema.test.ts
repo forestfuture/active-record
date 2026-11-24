@@ -3,8 +3,8 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
 import { afterAll, describe, expect, test, vi } from "vite-plus/test";
-import type { Migration, SchemaResult } from "../../../packages/active-record/cli/for-adapters.ts";
-import { cli } from "../../../packages/active-record/cli/adapters/postgresql/plugin.ts";
+import type { Migration, SchemaResult } from "../../../packages/arbor/cli/for-adapters.ts";
+import { cli } from "../../../packages/arbor/cli/adapters/postgresql/plugin.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
 const scratch = scratchDirs();
@@ -400,7 +400,7 @@ describe("Postgres's schema, when PGlite can't load an extension", pgliteTimeout
     const before = await leftOver();
     const script = join(scratch("pg-signal-"), "read.mjs");
     const plugin = new URL(
-      "../../../packages/active-record/cli/adapters/postgresql/plugin.ts",
+      "../../../packages/arbor/cli/adapters/postgresql/plugin.ts",
       import.meta.url,
     ).pathname;
     writeFileSync(

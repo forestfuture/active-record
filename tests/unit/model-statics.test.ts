@@ -6,8 +6,8 @@ import {
   NoDatabase,
   Relation,
   sql,
-} from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+} from "../../packages/arbor/src/index.ts";
+import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
 
 class User extends Model.define({
   id: { type: "integer", null: false },
@@ -174,8 +174,8 @@ describe("withDatabase", () => {
     vi.resetModules();
     const builtin = vi.spyOn(process, "getBuiltinModule").mockReturnValue(undefined as never);
     try {
-      const { withDatabase } = await import("../../packages/active-record/src/index.ts");
-      const { connect } = await import("../../packages/active-record/src/adapters/d1/index.ts");
+      const { withDatabase } = await import("../../packages/arbor/src/index.ts");
+      const { connect } = await import("../../packages/arbor/src/adapters/d1/index.ts");
 
       await expect(withDatabase(connect({} as never), () => 1)).rejects.toThrow(
         "withDatabase needs Node.js compatibility: a compatibility_date of 2026-08-04 or later, or the nodejs_compat flag, in your Wrangler config",
@@ -191,8 +191,7 @@ describe("noTouching (#496)", () => {
     vi.resetModules();
     const builtin = vi.spyOn(process, "getBuiltinModule").mockReturnValue(undefined as never);
     try {
-      const { ActiveRecordError, Model } =
-        await import("../../packages/active-record/src/index.ts");
+      const { ActiveRecordError, Model } = await import("../../packages/arbor/src/index.ts");
       const run = vi.fn();
 
       const error = await Model.noTouching(run).catch((caught: unknown) => caught);

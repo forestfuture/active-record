@@ -172,13 +172,10 @@ function regionsOf(code: string): string[] {
 
 /** The agent skill's rules (SKILL.md's "rules" region), which the AI agents page shows. */
 function skillRules(site: string): string {
-  const skill = readFileSync(
-    join(site, "../packages/active-record/skills/active-record/SKILL.md"),
-    "utf8",
-  );
+  const skill = readFileSync(join(site, "../packages/arbor/skills/active-record/SKILL.md"), "utf8");
   const rules = /<!-- #region rules -->\r?\n([\s\S]*?)<!-- #endregion rules -->/.exec(skill)?.[1];
   if (rules === undefined)
-    throw new Error("packages/active-record/skills/active-record/SKILL.md has no rules region");
+    throw new Error("packages/arbor/skills/active-record/SKILL.md has no rules region");
   return rules;
 }
 

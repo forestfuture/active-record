@@ -1,10 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import {
-  Model,
-  UnknownAttribute,
-  type TableAttributes,
-} from "../../packages/active-record/src/index.ts";
-import { d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { Model, UnknownAttribute, type TableAttributes } from "../../packages/arbor/src/index.ts";
+import { d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
 
 // One attribute per stored form. `secret` is filtered by default.
 class Post extends Model.define({

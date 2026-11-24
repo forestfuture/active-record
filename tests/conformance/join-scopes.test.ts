@@ -5,7 +5,7 @@ import {
   IncompatibleRelation,
   Model,
   type Relation,
-} from "../../packages/active-record/src/index.ts";
+} from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 // The scopes a join takes into its ON clause: the association's, and the

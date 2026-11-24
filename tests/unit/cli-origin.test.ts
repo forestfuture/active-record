@@ -6,10 +6,10 @@ import {
   migrationTool,
   toolsWithFiles,
   type Tool,
-} from "../../packages/active-record/cli/project/tools.ts";
-import { originNotes } from "../../packages/active-record/cli/schema/origin.ts";
-import type { Migration } from "../../packages/active-record/cli/project/migrations.ts";
-import { schemaOf } from "../../packages/active-record/cli/adapters/d1/schema.ts";
+} from "../../packages/arbor/cli/project/tools.ts";
+import { originNotes } from "../../packages/arbor/cli/schema/origin.ts";
+import type { Migration } from "../../packages/arbor/cli/project/migrations.ts";
+import { schemaOf } from "../../packages/arbor/cli/adapters/d1/schema.ts";
 
 /** A throwaway project folder with these files. */
 function projectWith(...files: string[]): string {

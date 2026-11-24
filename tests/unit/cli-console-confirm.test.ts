@@ -1,8 +1,8 @@
 import { PassThrough } from "node:stream";
 import { describe, expect, test } from "vite-plus/test";
-import { confirmRemote } from "../../packages/active-record/cli/console/confirm.ts";
+import { confirmRemote } from "../../packages/arbor/cli/console/confirm.ts";
 
-import type { RemoteTarget } from "../../packages/active-record/cli/adapter.ts";
+import type { RemoteTarget } from "../../packages/arbor/cli/adapter.ts";
 
 type Target = RemoteTarget;
 const shop: Target = { name: "shop", description: "Remote database DB (shop, id 1a2b3c)" };

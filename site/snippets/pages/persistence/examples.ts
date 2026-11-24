@@ -1,4 +1,4 @@
-import { RecordInvalid } from "@forestfuture/active-record";
+import { RecordInvalid } from "@forestfuture/arbor";
 import { Article } from "./src/models/article";
 import { Label } from "./src/models/label";
 import { Post } from "./src/models/post";

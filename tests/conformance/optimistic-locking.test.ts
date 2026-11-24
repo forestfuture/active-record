@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, Model, StaleRecord } from "../../packages/active-record/src/index.ts";
-import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
+import { belongsTo, hasMany, Model, StaleRecord } from "../../packages/arbor/src/index.ts";
+import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 /** A notebook whose `lockVersion` turns on optimistic locking. */

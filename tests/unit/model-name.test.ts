@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { Model } from "../../packages/arbor/src/index.ts";
 
 class User extends Model.define({ id: "integer" }) {}
 

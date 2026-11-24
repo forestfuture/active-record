@@ -1,12 +1,12 @@
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
 import {
   InvalidModel,
   Model,
   type Batch,
   type SaveOptions,
   type ValidationContexts,
-} from "../../packages/active-record/src/index.ts";
+} from "../../packages/arbor/src/index.ts";
 
 const db = connect({} as never);
 

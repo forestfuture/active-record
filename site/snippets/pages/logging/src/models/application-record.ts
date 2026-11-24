@@ -1,4 +1,4 @@
-import { Model, type QueryListener } from "@forestfuture/active-record";
+import { Model, type QueryListener } from "@forestfuture/arbor";
 import { schema } from "../db/schema";
 
 export abstract class ApplicationRecord extends Model {

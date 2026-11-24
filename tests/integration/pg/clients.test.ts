@@ -5,11 +5,8 @@ import {
   hasMany,
   sql,
   withDatabase,
-} from "../../../packages/active-record/src/index.ts";
-import {
-  connect,
-  type Database,
-} from "../../../packages/active-record/src/adapters/postgresql/index.ts";
+} from "../../../packages/arbor/src/index.ts";
+import { connect, type Database } from "../../../packages/arbor/src/adapters/postgresql/index.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 
 // Each row is the backend (connection) its query ran on.

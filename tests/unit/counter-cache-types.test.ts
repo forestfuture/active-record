@@ -1,11 +1,5 @@
 import { describe, expectTypeOf, test } from "vite-plus/test";
-import {
-  batch,
-  belongsTo,
-  hasMany,
-  hasOne,
-  Model,
-} from "../../packages/active-record/src/index.ts";
+import { batch, belongsTo, hasMany, hasOne, Model } from "../../packages/arbor/src/index.ts";
 
 class Topic extends Model.define({
   id: { type: "integer", null: false },

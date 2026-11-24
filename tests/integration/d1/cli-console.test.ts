@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model, withDatabase } from "../../../packages/active-record/src/index.ts";
-import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import { Model, withDatabase } from "../../../packages/arbor/src/index.ts";
+import { connect } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
-import { startSession } from "../../../packages/active-record/cli/console/session.ts";
+import { startSession } from "../../../packages/arbor/cli/console/session.ts";
 import { drive, terminalStreams, waitFor } from "../../support/console.ts";
 
 class Sample extends Model.define({

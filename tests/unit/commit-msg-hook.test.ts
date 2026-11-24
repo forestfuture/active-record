@@ -155,7 +155,7 @@ describe("the commit-msg hook on a commit that only adds tests", () => {
 });
 
 describe("the commit-msg hook on a commit that adds tests and other files", () => {
-  test.each(["packages/active-record/src/finders.ts", "scripts/lint/rule.mjs"])(
+  test.each(["packages/arbor/src/finders.ts", "scripts/lint/rule.mjs"])(
     "says nothing when it stages %s beside them",
     (path) => {
       const { status, output } = runHook(
@@ -194,8 +194,8 @@ describe("the commit-msg hook on a commit that renames or moves tests", () => {
 
   test("says nothing when it moves one into tests/ from another folder", () => {
     const { output } = runHook(
-      { "packages/active-record/src/finders.test.ts": oneTest },
-      { "packages/active-record/src/finders.test.ts": null, "tests/unit/finders.test.ts": oneTest },
+      { "packages/arbor/src/finders.test.ts": oneTest },
+      { "packages/arbor/src/finders.test.ts": null, "tests/unit/finders.test.ts": oneTest },
       "Move the finder test (#1)\n",
     );
 

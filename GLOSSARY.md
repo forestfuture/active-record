@@ -1,6 +1,6 @@
 # active-record
 
-A Rails-inspired Active Record library for Cloudflare Workers: one package, `@forestfuture/active-record`: a core, and an **Adapter** for each database inside it, D1's (`/d1`) and PostgreSQL's (`/postgresql`). It maps a database's rows to domain objects with a lazy, composable query vocabulary and a predictable persistence lifecycle.
+A Rails-inspired Active Record library for Cloudflare Workers: one package, `@forestfuture/arbor`: a core, and an **Adapter** for each database inside it, D1's (`/d1`) and PostgreSQL's (`/postgresql`). It maps a database's rows to domain objects with a lazy, composable query vocabulary and a predictable persistence lifecycle.
 
 ## Language
 
@@ -305,7 +305,7 @@ A **Database scope**'s answers to the reads it sent (#218): a read with the same
 _Avoid_: Query cache, identity map (records aren't shared, only rows)
 
 **Adapter**:
-What the Active Record core needs for one database (#260, ADR-0016): its driver, SQL dialect, type mapping, constraint errors and schema reader, with its plugin for the command. Each ships inside `@forestfuture/active-record` as an entry named for its database, `/d1` and `/postgresql` (ADR-0019), and its driver is the app's to install. The **Project config** names a database's adapter, and the **Generated schema** imports it.
+What the Active Record core needs for one database (#260, ADR-0016): its driver, SQL dialect, type mapping, constraint errors and schema reader, with its plugin for the command. Each ships inside `@forestfuture/arbor` as an entry named for its database, `/d1` and `/postgresql` (ADR-0019), and its driver is the app's to install. The **Project config** names a database's adapter, and the **Generated schema** imports it.
 _Avoid_: Dialect (one part of an adapter), driver, connector
 
 **Allowed difference**:

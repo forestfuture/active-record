@@ -1,4 +1,4 @@
-import { abort } from "@forestfuture/active-record";
+import { abort } from "@forestfuture/arbor";
 import { sendShippedEmail } from "../mail";
 import { ApplicationRecord } from "./application-record";
 

@@ -1,4 +1,4 @@
-import { batch } from "@forestfuture/active-record";
+import { batch } from "@forestfuture/arbor";
 import { Post } from "./models/post";
 import type { User } from "./models/user";
 

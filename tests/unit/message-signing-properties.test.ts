@@ -3,7 +3,7 @@
 // changed anywhere finds nothing. No database: these test the signing alone.
 import fc from "fast-check";
 import { describe, expect, test } from "vite-plus/test";
-import { signerFor } from "../../packages/active-record/src/message-signing.ts";
+import { signerFor } from "../../packages/arbor/src/message-signing.ts";
 import { SLOW_RUNS } from "../support/properties.ts";
 
 const signer = signerFor(["a-signing-secret-of-at-least-32-bytes"], "token for");

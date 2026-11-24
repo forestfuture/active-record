@@ -1,4 +1,4 @@
-import { Model, type QueryListener } from "@forestfuture/active-record";
+import { Model, type QueryListener } from "@forestfuture/arbor";
 import { env } from "cloudflare:workers";
 import { schema } from "./src/db/schema";
 

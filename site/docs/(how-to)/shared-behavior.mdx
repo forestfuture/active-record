@@ -83,7 +83,7 @@ To share behavior between only some Models, put it on a class between them and `
 Each database has its own base class, such as `DbRecord` and `LogsRecord`, holding its own schema. To share behavior across all of them, write it on one abstract class extending `Model`, and extend that class in each base class’s file:
 
 ```ts
-import { Model } from "@forestfuture/active-record";
+import { Model } from "@forestfuture/arbor";
 import { schema } from "../db/LOGS";
 
 export abstract class AppRecord extends Model {

@@ -1,0 +1,21 @@
+// What an adapter's command line plugin imports from the core (`@forestfuture/arbor/cli`): the plugin's interface and the helpers its readers share. Unstable, as `/adapter` is.
+export type * from "./adapter.ts";
+export type { ColumnArg } from "./generate/columns.ts";
+export { indexName, migrationPlan, type MigrationPlan } from "./generate/migration-plan.ts";
+export { migrationSql, quotedName, type MigrationDialect } from "./generate/migration-sql.ts";
+export { byName, byVersion, type Migration } from "./project/migrations.ts";
+export { configFileName, parseJsonc } from "./project/config-file.ts";
+export { attributeName, exportName, listed } from "./project/names.ts";
+export { castDefault, isCastDefaultType, type CastDefaultType } from "./schema/cast-default.ts";
+export { withDigits } from "./schema/decimal-digits.ts";
+export { namesInList, withGeneratedEnum } from "./schema/generated-enum.ts";
+export { storageOverride } from "./schema/storage-override.ts";
+export {
+  generatedSchema,
+  type Converted,
+  type Reading,
+  type ReadColumn,
+  type ReadTable,
+} from "./schema/tables.ts";
+export { pluralize } from "../src/inflections.ts";
+export { underscore } from "../src/naming.ts";

@@ -1,4 +1,4 @@
-import { belongsTo, hasMany, type HasMany } from "@forestfuture/active-record";
+import { belongsTo, hasMany, type HasMany } from "@forestfuture/arbor";
 import { ApplicationRecord } from "./application-record";
 
 export class Category extends ApplicationRecord {

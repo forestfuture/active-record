@@ -1,12 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import {
-  column,
-  hasMany,
-  incoming,
-  Model,
-  sql,
-} from "../../../packages/active-record/src/index.ts";
-import { connect, type QueryEvent } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import { column, hasMany, incoming, Model, sql } from "../../../packages/arbor/src/index.ts";
+import { connect, type QueryEvent } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
 
 // Bulk writes whose rows, bound as one JSON value, would pass D1's 2,000,000-byte cap on a value

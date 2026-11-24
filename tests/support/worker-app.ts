@@ -4,8 +4,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Miniflare, supportedCompatibilityDate } from "miniflare";
 import { onTestFinished, vi } from "vite-plus/test";
-import { main } from "../../packages/active-record/cli/main.ts";
-import { parseJsonc } from "../../packages/active-record/cli/project/config-file.ts";
+import { main } from "../../packages/arbor/cli/main.ts";
+import { parseJsonc } from "../../packages/arbor/cli/project/config-file.ts";
 
 const wrangler = new URL("../../node_modules/.bin/wrangler", import.meta.url).pathname;
 

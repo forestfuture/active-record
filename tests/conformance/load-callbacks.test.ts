@@ -6,7 +6,7 @@ import {
   hasMany,
   hasOne,
   Model,
-} from "../../packages/active-record/src/index.ts";
+} from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const log: string[] = [];

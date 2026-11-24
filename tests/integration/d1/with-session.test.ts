@@ -3,7 +3,7 @@ import {
   connect,
   withSession,
   type QueryEvent,
-} from "../../../packages/active-record/src/adapters/d1/index.ts";
+} from "../../../packages/arbor/src/adapters/d1/index.ts";
 import { User } from "../../fixtures/models/user.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
 import { statementKinds } from "../../support/statement-kinds.ts";

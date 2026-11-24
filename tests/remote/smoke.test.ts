@@ -8,12 +8,12 @@ import {
   NotNullViolation,
   RecordNotUnique,
   StaleRecord,
-} from "../../packages/active-record/src/index.ts";
+} from "../../packages/arbor/src/index.ts";
 import {
   connect,
   type QueryEvent,
   withSession,
-} from "../../packages/active-record/src/adapters/d1/index.ts";
+} from "../../packages/arbor/src/adapters/d1/index.ts";
 import { configured, remoteDatabase, type RemoteDatabase } from "./support.ts";
 
 /** The fixture Models, on this run's prefixed tables. */

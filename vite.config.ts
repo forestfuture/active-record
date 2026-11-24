@@ -130,7 +130,7 @@ export default defineConfig({
       },
       {
         // The project reader sits below the schema reader: schema/ imports project/, never back.
-        files: ["packages/active-record/cli/project/**"],
+        files: ["packages/arbor/cli/project/**"],
         rules: {
           "no-restricted-imports": [
             "error",
@@ -149,7 +149,7 @@ export default defineConfig({
       {
         // The core knows a database only through an Adapter, so it never imports one (ADR-0016):
         // the command loads its adapters' plugins by name, with import() (cli/project/adapters.ts).
-        files: ["packages/active-record/**/*.ts"],
+        files: ["packages/arbor/**/*.ts"],
         rules: {
           "no-restricted-imports": [
             "error",
@@ -158,8 +158,8 @@ export default defineConfig({
                 {
                   group: [
                     "**/adapters/**",
-                    "@forestfuture/active-record/d1",
-                    "@forestfuture/active-record/postgresql",
+                    "@forestfuture/arbor/d1",
+                    "@forestfuture/arbor/postgresql",
                   ],
                   message: "The core reaches a database through its Adapter: see src/adapter.ts.",
                 },
@@ -170,31 +170,25 @@ export default defineConfig({
       },
       {
         // The registry of adapters, the one module that loads their plugins, with import().
-        files: ["packages/active-record/cli/project/adapters.ts"],
+        files: ["packages/arbor/cli/project/adapters.ts"],
         rules: { "no-restricted-imports": "off" },
       },
       {
         // An adapter reaches the core only as an app's install would, through its entries, and
         // never another adapter: its imports stay in its own folder (#301).
-        files: [
-          "packages/active-record/src/adapters/**/*.ts",
-          "packages/active-record/cli/adapters/**/*.ts",
-        ],
+        files: ["packages/arbor/src/adapters/**/*.ts", "packages/arbor/cli/adapters/**/*.ts"],
         rules: {
           "no-restricted-imports": [
             "error",
             {
               patterns: [
                 {
-                  group: ["../*", "../**", "**/active-record/src/**", "**/active-record/cli/**"],
+                  group: ["../*", "../**", "**/arbor/src/**", "**/arbor/cli/**"],
                   message:
-                    "Import the core from @forestfuture/active-record, or its /adapter or /cli entry.",
+                    "Import the core from @forestfuture/arbor, or its /adapter or /cli entry.",
                 },
                 {
-                  group: [
-                    "@forestfuture/active-record/d1",
-                    "@forestfuture/active-record/postgresql",
-                  ],
+                  group: ["@forestfuture/arbor/d1", "@forestfuture/arbor/postgresql"],
                   message: "An adapter never imports another adapter.",
                 },
               ],

@@ -1,7 +1,7 @@
 // The default password algorithm (#355): PBKDF2-SHA256 through WebCrypto, its digest saying how
 // it was made. These tests need no database.
 import { describe, expect, test } from "vite-plus/test";
-import { pbkdf2Sha256 } from "../../packages/active-record/src/password-algorithm.ts";
+import { pbkdf2Sha256 } from "../../packages/arbor/src/password-algorithm.ts";
 
 /** A digest made as the default algorithm makes one, with `iterations` of its own. */
 async function digestWith(password: string, iterations: number): Promise<string> {

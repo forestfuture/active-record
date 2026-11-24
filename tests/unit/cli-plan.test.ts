@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import { planGenerate } from "../../packages/active-record/cli/generate/command.ts";
-import { filesOf, linesOf, type Plan } from "../../packages/active-record/cli/plan.ts";
-import { planSchema } from "../../packages/active-record/cli/schema/command.ts";
+import { planGenerate } from "../../packages/arbor/cli/generate/command.ts";
+import { filesOf, linesOf, type Plan } from "../../packages/arbor/cli/plan.ts";
+import { planSchema } from "../../packages/arbor/cli/schema/command.ts";
 import type {
   DatabaseSnapshot,
   ProjectSnapshot,
-} from "../../packages/active-record/cli/project/snapshot.ts";
-import type { CliAdapter } from "../../packages/active-record/cli/adapter.ts";
-import { cli } from "../../packages/active-record/cli/adapters/d1/plugin.ts";
+} from "../../packages/arbor/cli/project/snapshot.ts";
+import type { CliAdapter } from "../../packages/arbor/cli/adapter.ts";
+import { cli } from "../../packages/arbor/cli/adapters/d1/plugin.ts";
 
 // Migrations are named for the UTC second they're written in, so the clock is set.
 beforeEach(() => {
@@ -310,9 +310,7 @@ describe("planning with another adapter's plugin", () => {
     const plan = await planSchema(project({}, { ...stub, name: "postgresql" }), false);
     const source = filesOf(plan)[0]!.source;
 
-    expect(source).toContain(
-      'import { postgresql } from "@forestfuture/active-record/postgresql";',
-    );
+    expect(source).toContain('import { postgresql } from "@forestfuture/arbor/postgresql";');
     expect(source).toContain('adapter: postgresql({ binding: "DB" }),');
     // As a word: a fingerprint is hex, and can hold "d1".
     expect(source).not.toMatch(/\bd1\b/);

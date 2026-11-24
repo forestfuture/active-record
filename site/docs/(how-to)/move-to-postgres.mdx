@@ -22,7 +22,7 @@ You’ll need `sqlite3` and `psql` on your machine to copy the data.
 
 ## Installing pg
 
-The PostgreSQL adapter comes with `@forestfuture/active-record`. Install `pg`, which it connects with, and PGlite, which `active-record schema` reads your schema with:
+The PostgreSQL adapter comes with `@forestfuture/arbor`. Install `pg`, which it connects with, and PGlite, which `active-record schema` reads your schema with:
 
 ```sh
 npm install pg
@@ -94,8 +94,8 @@ npx active-record schema
 Its attributes come out the same as on D1. Only its adapter changes:
 
 ```ts src/db/schema.ts
-import { defineSchema } from "@forestfuture/active-record";
-import { postgresql } from "@forestfuture/active-record/postgresql";
+import { defineSchema } from "@forestfuture/arbor";
+import { postgresql } from "@forestfuture/arbor/postgresql";
 
 export const schema = defineSchema({
   adapter: postgresql({ binding: "HYPERDRIVE" }),

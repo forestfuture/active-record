@@ -5,11 +5,8 @@ import {
   Model,
   RecordNotUnique,
   CheckViolation,
-} from "../../../packages/active-record/src/index.ts";
-import {
-  connect,
-  type Database,
-} from "../../../packages/active-record/src/adapters/postgresql/index.ts";
+} from "../../../packages/arbor/src/index.ts";
+import { connect, type Database } from "../../../packages/arbor/src/adapters/postgresql/index.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 
 class User extends Model.define({

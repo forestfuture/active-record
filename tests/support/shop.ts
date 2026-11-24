@@ -3,8 +3,8 @@
 // source, as an app's finds its own copies.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { openLocalBinding } from "../../packages/active-record/cli/adapters/d1/binding.ts";
-import type { ChosenDatabase } from "../../packages/active-record/cli/adapter.ts";
+import { openLocalBinding } from "../../packages/arbor/cli/adapters/d1/binding.ts";
+import type { ChosenDatabase } from "../../packages/arbor/cli/adapter.ts";
 import { d1Config } from "./d1-config.ts";
 import type { TestDatabase } from "./d1.ts";
 import { libraryPaths } from "./library-paths.ts";
@@ -28,8 +28,8 @@ export async function shop(scratch: (prefix: string) => string): Promise<string>
       compilerOptions: { paths: libraryPaths },
     }),
     "src/models/application-record.ts": `
-      import { Model } from "@forestfuture/active-record";
-import { d1 } from "@forestfuture/active-record/d1";
+      import { Model } from "@forestfuture/arbor";
+import { d1 } from "@forestfuture/arbor/d1";
       export abstract class ApplicationRecord extends Model {
         static override schema = {
           adapter: d1({ binding: "DB" }),

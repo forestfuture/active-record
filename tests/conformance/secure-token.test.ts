@@ -3,12 +3,8 @@
    type are defined when the Model's attributes resolve. */
 // Secure tokens (#355): a random token, generated for a new record, and regenerated on request.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import {
-  Model,
-  RecordInvalid,
-  type TableAttributes,
-} from "../../packages/active-record/src/index.ts";
-import { d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { Model, RecordInvalid, type TableAttributes } from "../../packages/arbor/src/index.ts";
+import { d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 // A generated schema, as `active-record schema` writes it, for Models built on it.

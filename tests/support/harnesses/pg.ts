@@ -1,12 +1,12 @@
 // The conformance suite's Postgres harness: a schema of its own per file, on the server DATABASE_URL names.
 import pg from "pg";
-import { AnyDatabase } from "../../../packages/active-record/src/database.ts";
-import { DatabaseExecutor } from "../../../packages/active-record/src/executor.ts";
-import { pgAdapter } from "../../../packages/active-record/src/adapters/postgresql/adapter.ts";
-import { PoolClients } from "../../../packages/active-record/src/adapters/postgresql/clients.ts";
-import { PgDriver } from "../../../packages/active-record/src/adapters/postgresql/driver.ts";
-import { connect } from "../../../packages/active-record/src/adapters/postgresql/index.ts";
-import { typeParsers } from "../../../packages/active-record/src/adapters/postgresql/type-parsers.ts";
+import { AnyDatabase } from "../../../packages/arbor/src/database.ts";
+import { DatabaseExecutor } from "../../../packages/arbor/src/executor.ts";
+import { pgAdapter } from "../../../packages/arbor/src/adapters/postgresql/adapter.ts";
+import { PoolClients } from "../../../packages/arbor/src/adapters/postgresql/clients.ts";
+import { PgDriver } from "../../../packages/arbor/src/adapters/postgresql/driver.ts";
+import { connect } from "../../../packages/arbor/src/adapters/postgresql/index.ts";
+import { typeParsers } from "../../../packages/arbor/src/adapters/postgresql/type-parsers.ts";
 import type { Harness, SchemaName } from "../harness.ts";
 import { openPgSchema } from "../pg.ts";
 

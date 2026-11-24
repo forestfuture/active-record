@@ -2,9 +2,9 @@ import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, onTestFinished, test, vi } from "vite-plus/test";
-import { openLocalBinding } from "../../../packages/active-record/cli/adapters/d1/binding.ts";
-import { runConsole } from "../../../packages/active-record/cli/console/command.ts";
-import { main } from "../../../packages/active-record/cli/main.ts";
+import { openLocalBinding } from "../../../packages/arbor/cli/adapters/d1/binding.ts";
+import { runConsole } from "../../../packages/arbor/cli/console/command.ts";
+import { main } from "../../../packages/arbor/cli/main.ts";
 import { terminalStreams, waitFor } from "../../support/console.ts";
 import type { TestDatabase } from "../../support/d1.ts";
 import { scratchDirs } from "../../support/scratch.ts";
@@ -141,7 +141,7 @@ describe("active-record console", () => {
 
       test("it stops the workerd it started, which would otherwise outlive it", async () => {
         const cwd = await shop();
-        const bin = new URL("../../../packages/active-record/cli/bin.ts", import.meta.url).pathname;
+        const bin = new URL("../../../packages/arbor/cli/bin.ts", import.meta.url).pathname;
         const child = spawn(process.execPath, [bin, "console", "--no-history"], {
           cwd,
           stdio: ["pipe", "pipe", "inherit"],

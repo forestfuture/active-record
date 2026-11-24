@@ -27,7 +27,7 @@ const scratch = scratchDirs();
 /** The app's package.json: the library, and these drivers, as its dependencies (#301). */
 function packageJson(cwd: string, drivers: string[]): void {
   const dependencies = Object.fromEntries(
-    ["@forestfuture/active-record", ...drivers].map((name) => [name, "*"]),
+    ["@forestfuture/arbor", ...drivers].map((name) => [name, "*"]),
   );
   writeFileSync(join(cwd, "package.json"), JSON.stringify({ dependencies }, null, 2));
 }
@@ -42,9 +42,7 @@ function copyOfTheApp(): string {
   packageJson(cwd, []);
   const paths = {
     ...libraryPaths,
-    "@forestfuture/active-record/postgresql": sourcePaths(
-      "active-record/src/adapters/postgresql/index.ts",
-    ),
+    "@forestfuture/arbor/postgresql": sourcePaths("arbor/src/adapters/postgresql/index.ts"),
   };
   writeFileSync(join(cwd, "tsconfig.json"), JSON.stringify({ compilerOptions: { paths } }));
   return cwd;
@@ -153,8 +151,8 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     expect(withoutHash(onPostgres)).toBe(
       withoutHash(onD1Schema)
         .replace(
-          'import { d1 } from "@forestfuture/active-record/d1";',
-          'import { postgresql } from "@forestfuture/active-record/postgresql";',
+          'import { d1 } from "@forestfuture/arbor/d1";',
+          'import { postgresql } from "@forestfuture/arbor/postgresql";',
         )
         .replace(
           'adapter: d1({ binding: "DB" })',

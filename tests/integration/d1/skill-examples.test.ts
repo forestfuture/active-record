@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
+import { runSchema } from "../../../packages/arbor/cli/schema/command.ts";
 
 // Checks the agent skill's examples (site/snippets/skill/) against their migrations and Models.
 // It runs the schema command, which compiles the library, so it runs here (#485).

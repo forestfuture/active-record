@@ -8,14 +8,14 @@ import {
   test,
   vi,
 } from "vite-plus/test";
-import { gte, withDatabase } from "../../../packages/active-record/src/index.ts";
-import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import { gte, withDatabase } from "../../../packages/arbor/src/index.ts";
+import { connect } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runGenerate } from "../../../packages/active-record/cli/generate/command.ts";
-import { runInit } from "../../../packages/active-record/cli/init/command.ts";
-import { parseJsonc } from "../../../packages/active-record/cli/project/config-file.ts";
-import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
+import { runGenerate } from "../../../packages/arbor/cli/generate/command.ts";
+import { runInit } from "../../../packages/arbor/cli/init/command.ts";
+import { parseJsonc } from "../../../packages/arbor/cli/project/config-file.ts";
+import { runSchema } from "../../../packages/arbor/cli/schema/command.ts";
 import { Post, User } from "../../../site/snippets/getting-started/models.ts";
 import { createdSince, oldestFirst, Reminder } from "../../../site/snippets/guide/mixed-dates.ts";
 import worker from "../../../site/snippets/getting-started/src/index.ts";

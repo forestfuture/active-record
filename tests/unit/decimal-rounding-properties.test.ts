@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vite-plus/test";
-import { Model } from "../../packages/active-record/src/index.ts";
+import { Model } from "../../packages/arbor/src/index.ts";
 import { PURE_RUNS } from "../support/properties.ts";
 
 /** A Model whose one decimal has `scale`, for each scale tried. */

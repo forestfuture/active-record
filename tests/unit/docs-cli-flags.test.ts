@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ParseArgsOptionsConfig } from "node:util";
 import { describe, expect, test } from "vite-plus/test";
-import { everySubcommand } from "../../packages/active-record/cli/main.ts";
+import { everySubcommand } from "../../packages/arbor/cli/main.ts";
 
 const page = "site/docs/(basics)/command-line.mdx";
 const commandLinePage = readFileSync(join(import.meta.dirname, "../..", page), "utf8");

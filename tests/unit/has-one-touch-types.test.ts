@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, test } from "vite-plus/test";
-import { hasOne, Model } from "../../packages/active-record/src/index.ts";
+import { hasOne, Model } from "../../packages/arbor/src/index.ts";
 
 class Discussion extends Model.define({
   id: { type: "integer", null: false },

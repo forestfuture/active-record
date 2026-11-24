@@ -1,4 +1,4 @@
-import { between, column, gte, lt, sql } from "@forestfuture/active-record";
+import { between, column, gte, lt, sql } from "@forestfuture/arbor";
 import { User } from "./src/models/user";
 
 export async function matching() {

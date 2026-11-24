@@ -9,8 +9,8 @@ import {
   MissingAttribute,
   Model,
   sql,
-} from "../../../packages/active-record/src/index.ts";
-import { connect, type QueryEvent } from "../../../packages/active-record/src/adapters/d1/index.ts";
+} from "../../../packages/arbor/src/index.ts";
+import { connect, type QueryEvent } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import { createTestDatabase, recordingBatches, type TestDatabase } from "../../support/d1.ts";
 
 class User extends Model.define({

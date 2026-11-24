@@ -1,8 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import {
-  databaseNameOf,
-  hostOf,
-} from "../../packages/active-record/cli/adapters/postgresql/urls.ts";
+import { databaseNameOf, hostOf } from "../../packages/arbor/cli/adapters/postgresql/urls.ts";
 
 // What `--remote` names for a person to confirm is where pg connects (#285).
 describe("a connection string, as a person confirms it", () => {

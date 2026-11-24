@@ -18,7 +18,7 @@ A release that can't wait, such as a security fix, goes in `minimumReleaseAgeExc
 
 ## Peer ranges
 
-Dependabot changes a range in a `package.json` only when the new release falls outside it (`versioning-strategy: increase-if-necessary`), so most of its bumps change only `pnpm-lock.yaml`. This keeps it from raising the peer ranges in `packages/active-record/package.json`. `pg` and PGlite are dev dependencies and optional peers, and raising a peer range is a public change that needs a changeset. Raise a peer range by hand, and only when the library needs the newer release.
+Dependabot changes a range in a `package.json` only when the new release falls outside it (`versioning-strategy: increase-if-necessary`), so most of its bumps change only `pnpm-lock.yaml`. This keeps it from raising the peer ranges in `packages/arbor/package.json`. `pg` and PGlite are dev dependencies and optional peers, and raising a peer range is a public change that needs a changeset. Raise a peer range by hand, and only when the library needs the newer release.
 
 When a Dependabot pull request does change `peerDependencies`, put the range back in a commit on its branch. Don't comment `@dependabot rebase` after that, because Dependabot rebuilds its branch from scratch and drops commits it didn't make. Update the branch from `main` instead.
 

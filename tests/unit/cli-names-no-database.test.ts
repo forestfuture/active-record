@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
 
 const root = join(import.meta.dirname, "../..");
-const command = join(root, "packages/active-record/cli");
+const command = join(root, "packages/arbor/cli");
 
 /** A database, its tools, or an adapter's package, named anywhere in the code or its comments. */
 const databaseName = /\b(d1|wrangler|sqlite|postgres(ql)?|pg|pglite|hyperdrive|miniflare)\b/i;

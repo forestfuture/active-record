@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import { belongsTo, hasMany, InvalidModel, Model } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { belongsTo, hasMany, InvalidModel, Model } from "../../packages/arbor/src/index.ts";
+import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
 
 // No D1 needed: these checks happen when a Model is first used.
 const db = connect({} as never);

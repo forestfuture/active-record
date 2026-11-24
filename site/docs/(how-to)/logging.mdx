@@ -116,7 +116,7 @@ A string matches any attribute whose snake_case name contains it, so `"iban"` al
 To see one while debugging, leave it out of the list in development:
 
 ```ts
-import { Model } from "@forestfuture/active-record";
+import { Model } from "@forestfuture/arbor";
 import { schema } from "../db/schema";
 
 export abstract class ApplicationRecord extends Model {

@@ -5,8 +5,8 @@ import {
   InvalidModel,
   Model,
   RecordNotSaved,
-} from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+} from "../../packages/arbor/src/index.ts";
+import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
 
 const log: string[] = [];
 

@@ -1,4 +1,4 @@
-import { belongsTo } from "@forestfuture/active-record";
+import { belongsTo } from "@forestfuture/arbor";
 import { ApplicationRecord } from "./application-record";
 import { Article } from "./article";
 

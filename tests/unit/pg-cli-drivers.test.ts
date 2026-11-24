@@ -1,9 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, test } from "vite-plus/test";
-import {
-  pgDriver,
-  pgliteModule,
-} from "../../packages/active-record/cli/adapters/postgresql/drivers.ts";
+import { pgDriver, pgliteModule } from "../../packages/arbor/cli/adapters/postgresql/drivers.ts";
 
 /** Node's error for a package that isn't installed: `require`'s, or `import`'s. */
 const missing = (name: string, code = "MODULE_NOT_FOUND") =>
@@ -49,10 +46,7 @@ describe("the PostgreSQL adapter's drivers", () => {
 
   // The command loads the plugin for every PostgreSQL project, so the plugin loads without them.
   test("only drivers.ts loads them: the plugin's other modules import their types alone", () => {
-    const folder = new URL(
-      "../../packages/active-record/cli/adapters/postgresql/",
-      import.meta.url,
-    );
+    const folder = new URL("../../packages/arbor/cli/adapters/postgresql/", import.meta.url);
     const loading = readdirSync(folder)
       .filter((file) => file.endsWith(".ts") && file !== "drivers.ts")
       .filter((file) =>

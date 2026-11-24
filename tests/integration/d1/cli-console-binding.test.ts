@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import {
   openLocalBinding,
   openRemoteBinding,
-} from "../../../packages/active-record/cli/adapters/d1/binding.ts";
-import type { ChosenDatabase } from "../../../packages/active-record/cli/adapter.ts";
+} from "../../../packages/arbor/cli/adapters/d1/binding.ts";
+import type { ChosenDatabase } from "../../../packages/arbor/cli/adapter.ts";
 import type { TestDatabase } from "../../support/d1.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 

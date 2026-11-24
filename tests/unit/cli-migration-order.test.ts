@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { byVersion } from "../../packages/active-record/cli/project/migrations.ts";
+import { byVersion } from "../../packages/arbor/cli/project/migrations.ts";
 
 const ordered = (...paths: string[]) => [...paths].sort(byVersion);
 

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vite-plus/test";
-import { d1Adapter } from "../../packages/active-record/src/adapters/d1/adapter.ts";
-import type { Driver, StatementResult } from "../../packages/active-record/src/driver.ts";
-import { DatabaseExecutor, type QueryEvent } from "../../packages/active-record/src/executor.ts";
-import type { CompiledSql } from "../../packages/active-record/src/compiler.ts";
-import type { ModelClass } from "../../packages/active-record/src/model.ts";
+import { d1Adapter } from "../../packages/arbor/src/adapters/d1/adapter.ts";
+import type { Driver, StatementResult } from "../../packages/arbor/src/driver.ts";
+import { DatabaseExecutor, type QueryEvent } from "../../packages/arbor/src/executor.ts";
+import type { CompiledSql } from "../../packages/arbor/src/compiler.ts";
+import type { ModelClass } from "../../packages/arbor/src/model.ts";
 
 const model = { name: "Thing", onQuery: undefined } as unknown as ModelClass;
 const statement = (sql: string): CompiledSql => ({ sql, params: [], model });

@@ -18,9 +18,9 @@ import {
   ReadonlyRecord,
   StaleRecord,
   withDatabase,
-} from "../../../packages/active-record/src/index.ts";
+} from "../../../packages/arbor/src/index.ts";
 import { inspect } from "node:util";
-import { connect } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import { connect } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import * as associations from "../../../site/snippets/pages/associations/examples.ts";
 import { Article as AssociatedArticle } from "../../../site/snippets/pages/associations/src/models/article.ts";
 import { Author as AssociatedAuthor } from "../../../site/snippets/pages/associations/src/models/author.ts";

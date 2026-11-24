@@ -7,7 +7,7 @@ import {
   incoming,
   Model,
   sql,
-} from "../../packages/active-record/src/index.ts";
+} from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 type Database = ReturnType<Harness["connect"]>;

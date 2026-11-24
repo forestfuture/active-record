@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
-import { runSchema, watchSchema } from "../../../packages/active-record/cli/schema/command.ts";
+import { runSchema, watchSchema } from "../../../packages/arbor/cli/schema/command.ts";
 import { d1Config, withD1Config } from "../../support/d1-config.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
@@ -611,7 +611,7 @@ export class FeaturedPost extends Post {}
 
   test("a Model whose override is a custom type is found, and the schema is written (#20)", async () => {
     const cwd = await withModels({
-      "user.ts": `import { defineType } from "@forestfuture/active-record";
+      "user.ts": `import { defineType } from "@forestfuture/arbor";
 ${base}const address = defineType({
   storedAs: "string",
   cast: (input: unknown) => ({ address: String(input) }),

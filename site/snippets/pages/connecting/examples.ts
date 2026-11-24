@@ -1,5 +1,5 @@
-import { batch, withDatabase } from "@forestfuture/active-record";
-import { connect } from "@forestfuture/active-record/d1";
+import { batch, withDatabase } from "@forestfuture/arbor";
+import { connect } from "@forestfuture/arbor/d1";
 import { app } from "./src/app";
 import { Post } from "./src/models/post";
 import { User } from "./src/models/user";

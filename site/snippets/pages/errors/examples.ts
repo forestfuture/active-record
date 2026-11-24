@@ -1,4 +1,4 @@
-import { ActiveRecordError, RecordNotFound, RecordNotUnique } from "@forestfuture/active-record";
+import { ActiveRecordError, RecordNotFound, RecordNotUnique } from "@forestfuture/arbor";
 import { User } from "./src/models/user";
 
 // #region check

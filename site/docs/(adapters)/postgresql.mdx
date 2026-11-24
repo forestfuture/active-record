@@ -7,10 +7,10 @@ seo:
 
 ## Installing
 
-The PostgreSQL adapter comes with `@forestfuture/active-record`, as its `/postgresql` entry. Install the library with `pg`, and PGlite for reading your schema:
+The PostgreSQL adapter comes with `@forestfuture/arbor`, as its `/postgresql` entry. Install the library with `pg`, and PGlite for reading your schema:
 
 ```sh
-npm install @forestfuture/active-record pg
+npm install @forestfuture/arbor pg
 npm install --save-dev @electric-sql/pglite
 ```
 
@@ -25,8 +25,8 @@ Your Models, queries, and callbacks work the same on Postgres. The sections afte
 `connect` takes a Hyperdrive binding, a connection string, or a `pg` Pool. Open the request’s database from your Hyperdrive binding:
 
 ```ts
-import { withDatabase } from "@forestfuture/active-record";
-import { connect } from "@forestfuture/active-record/postgresql";
+import { withDatabase } from "@forestfuture/arbor";
+import { connect } from "@forestfuture/arbor/postgresql";
 
 export default {
   fetch(request, env) {
@@ -50,7 +50,7 @@ On Node, pass your own Pool, which your app ends when it shuts down:
 
 ```ts
 import pg from "pg";
-import { connect } from "@forestfuture/active-record/postgresql";
+import { connect } from "@forestfuture/arbor/postgresql";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const db = connect(pool);
@@ -61,7 +61,7 @@ Outside a Worker there’s no binding, so wrap each request in `withDatabase(db,
 Opening a client from a binding or a connection string waits up to 10 seconds for Postgres to answer. After that, the query fails with `Error: timeout expired`. Each query waiting for that client tries again, and can wait as long. To change the limit, set `connect_timeout` to a number of seconds:
 
 ```ts
-import { connect } from "@forestfuture/active-record/postgresql";
+import { connect } from "@forestfuture/arbor/postgresql";
 
 const db = connect("postgres://app@db.example.com/app?connect_timeout=5");
 ```

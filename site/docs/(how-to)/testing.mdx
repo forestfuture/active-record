@@ -70,8 +70,8 @@ export async function testDatabase(folder = "migrations") {
 Outside a Worker there’s no binding, so run the test’s code inside `withDatabase`. This checks that `User` saves emails in lowercase:
 
 ```ts test/users.test.ts
-import { withDatabase } from "@forestfuture/active-record";
-import { connect } from "@forestfuture/active-record/d1";
+import { withDatabase } from "@forestfuture/arbor";
+import { connect } from "@forestfuture/arbor/d1";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { User } from "../src/models/user";
 import { testDatabase } from "./d1";
@@ -99,8 +99,8 @@ Inside `withDatabase`, a read you’ve already sent is [answered from memory](./
 Call your Worker’s `fetch` handler inside `withDatabase` too, and its queries use the test’s database. This calls the Worker in `src/index.ts`:
 
 ```ts test/worker.test.ts
-import { withDatabase } from "@forestfuture/active-record";
-import { connect } from "@forestfuture/active-record/d1";
+import { withDatabase } from "@forestfuture/arbor";
+import { connect } from "@forestfuture/arbor/d1";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import worker from "../src/index";
 import { testDatabase } from "./d1";

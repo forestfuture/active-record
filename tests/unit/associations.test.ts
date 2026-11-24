@@ -10,9 +10,9 @@ import {
   type HasManyThrough,
   type HasOneThrough,
   type Relation,
-} from "../../packages/active-record/src/index.ts";
-import type { LoadedValue } from "../../packages/active-record/src/model.ts";
-import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+} from "../../packages/arbor/src/index.ts";
+import type { LoadedValue } from "../../packages/arbor/src/model.ts";
+import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
 import { Post } from "../fixtures/models/post.ts";
 
 // No D1 needed: these checks happen when a Model is first used.

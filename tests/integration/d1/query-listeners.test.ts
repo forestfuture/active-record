@@ -1,10 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import { Model, withDatabase } from "../../../packages/active-record/src/index.ts";
-import {
-  d1,
-  connect,
-  type QueryEvent,
-} from "../../../packages/active-record/src/adapters/d1/index.ts";
+import { Model, withDatabase } from "../../../packages/arbor/src/index.ts";
+import { d1, connect, type QueryEvent } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import { createTestDatabase, type TestDatabase } from "../../support/d1.ts";
 import { statementKinds } from "../../support/statement-kinds.ts";
 

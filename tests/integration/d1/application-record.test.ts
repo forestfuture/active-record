@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, expectTypeOf, test, vi } from "vite-plus/test";
-import { runSchema } from "../../../packages/active-record/cli/schema/command.ts";
-import { connect, type QueryEvent } from "../../../packages/active-record/src/adapters/d1/index.ts";
+import { runSchema } from "../../../packages/arbor/cli/schema/command.ts";
+import { connect, type QueryEvent } from "../../../packages/arbor/src/adapters/d1/index.ts";
 import { audited } from "../../fixtures/models/auditable.ts";
 import { Comment } from "../../fixtures/models/comment.ts";
 import { Event } from "../../fixtures/models/event.ts";

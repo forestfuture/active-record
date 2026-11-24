@@ -6,9 +6,9 @@ import {
   Model,
   ReadonlyAttribute,
   type TableAttributes,
-} from "../../packages/active-record/src/index.ts";
-import { d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
-import type { QueryEvent } from "../../packages/active-record/src/executor.ts";
+} from "../../packages/arbor/src/index.ts";
+import { d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
+import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
 

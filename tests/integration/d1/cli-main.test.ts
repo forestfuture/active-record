@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, onTestFinished, test, vi } from "vite-plus/test";
-import { main } from "../../../packages/active-record/cli/main.ts";
+import { main } from "../../../packages/arbor/cli/main.ts";
 import { d1Config } from "../../support/d1-config.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 

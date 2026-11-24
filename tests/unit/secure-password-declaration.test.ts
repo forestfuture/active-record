@@ -1,8 +1,8 @@
 // Declaring a secure password (#355): `password: { securePassword: true }`, its attributes and
 // methods typed, and a declaration that can't work refused. These tests need no database.
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import { InvalidModel, Model } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { InvalidModel, Model } from "../../packages/arbor/src/index.ts";
+import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
 
 const db = connect({} as never);
 

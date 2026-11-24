@@ -1,4 +1,4 @@
-import { column, sql } from "@forestfuture/active-record";
+import { column, sql } from "@forestfuture/arbor";
 import { Product } from "./src/models/product";
 
 export async function calculations() {

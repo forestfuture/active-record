@@ -60,7 +60,7 @@ for (const [name, files] of Object.entries(expected)) {
 
 // The adapters' drivers are the app's: optional peer dependencies, imported by name, never bundled
 // (#301). A Worker on D1 bundles none of them, since only the PostgreSQL entry imports pg.
-const dist = new URL("../packages/active-record/dist/", import.meta.url);
+const dist = new URL("../packages/arbor/dist/", import.meta.url);
 const built = Object.fromEntries(
   readdirSync(dist)
     .filter((file) => file.endsWith(".mjs"))
@@ -86,7 +86,7 @@ if (outside("postgresql.mjs").join() !== "pg") {
   fail(`dist/postgresql.mjs reaches ${outside("postgresql.mjs").join(", ")}, not pg alone`);
 }
 const manifest = JSON.parse(
-  readFileSync(new URL("../packages/active-record/package.json", import.meta.url), "utf8"),
+  readFileSync(new URL("../packages/arbor/package.json", import.meta.url), "utf8"),
 );
 for (const driver of ["pg", "@electric-sql/pglite"]) {
   if (
@@ -102,10 +102,7 @@ console.log(
 // An agent reads llms-full.txt as one file, away from the site, so a link to another page can't be
 // relative to its page (#133). Blume writes those links from the site's root (`/models`), and each
 // page opens with its `Source:` URL, which gives the host to resolve them against.
-const guide = readFileSync(
-  new URL("../packages/active-record/llms-full.txt", import.meta.url),
-  "utf8",
-);
+const guide = readFileSync(new URL("../packages/arbor/llms-full.txt", import.meta.url), "utf8");
 const relative = guide.match(/\]\(\.{1,2}\/[^)]*\)/g);
 if (relative) fail(`llms-full.txt has ${relative.length} relative links, such as ${relative[0]}`);
 const pages = readdirSync(new URL("../site/docs", import.meta.url), { recursive: true }).filter(

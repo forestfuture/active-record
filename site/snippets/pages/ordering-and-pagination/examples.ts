@@ -1,4 +1,4 @@
-import { column, sql } from "@forestfuture/active-record";
+import { column, sql } from "@forestfuture/arbor";
 import { Post } from "./src/models/post";
 
 export async function ordering() {

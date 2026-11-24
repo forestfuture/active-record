@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import { InvalidModel, Model } from "../../packages/active-record/src/index.ts";
-import { connect, d1 } from "../../packages/active-record/src/adapters/d1/index.ts";
+import { InvalidModel, Model } from "../../packages/arbor/src/index.ts";
+import { connect, d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
 
 // connect() never touches the binding until a query runs, and these tests run none.
 const db = connect({} as never);

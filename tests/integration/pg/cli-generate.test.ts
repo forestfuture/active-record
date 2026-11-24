@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
-import { runGenerate } from "../../../packages/active-record/cli/generate/command.ts";
+import { runGenerate } from "../../../packages/arbor/cli/generate/command.ts";
 import { writePgProject } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 

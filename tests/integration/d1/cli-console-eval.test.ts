@@ -1,8 +1,8 @@
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
-import { runConsole } from "../../../packages/active-record/cli/console/command.ts";
-import { main } from "../../../packages/active-record/cli/main.ts";
+import { runConsole } from "../../../packages/arbor/cli/console/command.ts";
+import { main } from "../../../packages/arbor/cli/main.ts";
 import { capturedStreams } from "../../support/console.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 import { shop } from "../../support/shop.ts";

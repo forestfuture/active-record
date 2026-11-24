@@ -4,7 +4,7 @@ import {
   ReadonlyAttribute,
   ReadonlyRecord,
   type ReadonlyAction,
-} from "../../packages/active-record/src/index.ts";
+} from "../../packages/arbor/src/index.ts";
 
 describe("read-only declarations (#358)", () => {
   test("a read-only attribute is declared on a column, and is a compile error otherwise", () => {

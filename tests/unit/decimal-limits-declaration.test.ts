@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import { InvalidModel, Model } from "../../packages/active-record/src/index.ts";
-import { connect } from "../../packages/active-record/src/adapters/d1/index.ts";
-import { attributeFor } from "../../packages/active-record/src/attribute.ts";
+import { InvalidModel, Model } from "../../packages/arbor/src/index.ts";
+import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
+import { attributeFor } from "../../packages/arbor/src/attribute.ts";
 
 const db = connect({} as never);
 

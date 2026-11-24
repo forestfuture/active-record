@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
-import { parseColumns } from "../../packages/active-record/cli/generate/columns.ts";
-import { cli } from "../../packages/active-record/cli/adapters/postgresql/plugin.ts";
+import { parseColumns } from "../../packages/arbor/cli/generate/columns.ts";
+import { cli } from "../../packages/arbor/cli/adapters/postgresql/plugin.ts";
 
 /** The SQL the PostgreSQL adapter's plugin writes for a migration, or its error. */
 function sqlFor(

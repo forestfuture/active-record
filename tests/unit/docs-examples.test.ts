@@ -12,8 +12,8 @@ describe("the guide's example blocks", () => {
   const file = join(mkdtempSync(join(tmpdir(), "examples-")), "example.ts");
   writeFileSync(
     file,
-    `import { belongsTo, hasMany, Model } from "@forestfuture/active-record";
-import { connect, type Database } from "@forestfuture/active-record/d1";
+    `import { belongsTo, hasMany, Model } from "@forestfuture/arbor";
+import { connect, type Database } from "@forestfuture/arbor/d1";
 import { User } from "../shared/users";
 import { Tag } from "./tags";
 import { schema } from "../db/schema";
@@ -57,7 +57,7 @@ export const shown = schema;`);
 
   test("start with the imports their code uses, and only those; the app's models come from ./models", () => {
     expect(exampleBlock(file, "declare"))
-      .toBe(`import { belongsTo, hasMany, Model } from "@forestfuture/active-record";
+      .toBe(`import { belongsTo, hasMany, Model } from "@forestfuture/arbor";
 import { User, Tag } from "./models";
 
 export class Post extends Model.define({ id: "integer" }) {
@@ -102,7 +102,7 @@ export class Comment extends ApplicationRecord {}`);
   test("an example written inline in a page imports whatever it uses from the package", () => {
     const index = ["index.ts", "adapters/d1/index.ts"]
       .map((entry) =>
-        readFileSync(new URL(`../../packages/active-record/src/${entry}`, import.meta.url), "utf8"),
+        readFileSync(new URL(`../../packages/arbor/src/${entry}`, import.meta.url), "utf8"),
       )
       .join("\n");
     const exported = [...index.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}/g)].flatMap(([, list]) =>

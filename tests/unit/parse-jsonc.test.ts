@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { parseJsonc } from "../../packages/active-record/cli/project/config-file.ts";
+import { parseJsonc } from "../../packages/arbor/cli/project/config-file.ts";
 
 // active-record.jsonc is JSON with comments and trailing commas, read as a person wrote it (#308).
 describe("reading JSON with comments and trailing commas", () => {

@@ -3,7 +3,7 @@ import {
   hasMany,
   Model,
   type AssociatedValidationOptions,
-} from "../../packages/active-record/src/index.ts";
+} from "../../packages/arbor/src/index.ts";
 
 describe("validation options' types", () => {
   test("unless receives the Model's record", () => {

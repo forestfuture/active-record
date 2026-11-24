@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, test } from "vite-plus/test";
-import { defineType, Model, sql } from "../../packages/active-record/src/index.ts";
+import { defineType, Model, sql } from "../../packages/arbor/src/index.ts";
 
 /** Cents, kept as an integer. */
 const cents = defineType({
