@@ -52,7 +52,7 @@ Each part of a Model has a page of its own:
 
 ## The Models
 
-The examples use these Models, whose attributes come from their tables through the schema `active-record schema` generates:
+The examples use these Models, whose attributes come from their tables through the schema `arbor schema` generates:
 
 <CodeGroup>
 
@@ -81,7 +81,7 @@ The examples use these Models, whose attributes come from their tables through t
 Define each Model by extending `ApplicationRecord`, as `Account` does:
 
 - **The class name names the table,** so `Product` reads and writes `products`. The table’s attributes, primary key, and types come from `src/db/schema.ts`.
-- **[`active-record schema`](./command-line#active-record-schema) writes that file** from your migrations and your Models. Run it after you add a Model or a migration. [`active-record g model`](./generators) runs it for you.
+- **[`arbor schema`](./command-line#arbor-schema) writes that file** from your migrations and your Models. Run it after you add a Model or a migration. [`arbor g model`](./generators) runs it for you.
 - **The first time it runs, it writes `src/models/application-record.ts`.** It’s an ordinary class, and yours to edit. The schema it holds gives each Model its attributes and the binding its queries use. Methods, callbacks, and scopes you write on it are every Model’s; see [Shared behavior](./shared-behavior). It has no table of its own, so you can’t query it.
 - **A subclass shares its parent’s table,** as `FeaturedProduct` does, and inherits a copy of its parent’s attributes, validations, callbacks, scopes, and associations. Declaring more on the child never changes the parent. Single-table inheritance isn’t supported.
 - **You can still set `static primaryKey`,** as long as it names an attribute.
@@ -103,7 +103,7 @@ Override an attribute in `static attributes` when a column holds something its t
 - **A `default` and `generateId`** replace each other, so an attribute has one or the other. `generateId` is only for strings.
 - **A `default`** isn’t type-checked yet ([#74](https://github.com/forestfuture/arbor/issues/74)). One that returns a value the type can’t cast throws `TypeError` when a record is built.
 - **Ignoring a `NOT NULL` column** without a default makes inserts fail, so give it a default in a migration first.
-- **An override of an attribute the table doesn’t have** throws `InvalidModel`, and `active-record schema` reports it. So does an override that changes a column or ignores the primary key.
+- **An override of an attribute the table doesn’t have** throws `InvalidModel`, and `arbor schema` reports it. So does an override that changes a column or ignores the primary key.
 
 ## Adding virtual attributes
 
@@ -274,7 +274,7 @@ Declare `createdAt` and `updatedAt` as `datetime` attributes, and they’re mana
 
 A Model’s declaration is checked the first time it’s used, by its first query or `db.model(X)`, and it throws `InvalidModel` for:
 
-- A Model `active-record schema` hasn’t seen, or whose table has changed since. Run it again.
+- A Model `arbor schema` hasn’t seen, or whose table has changed since. Run it again.
 - No table name: an empty `table`, or a class with no name to infer one from.
 - A `modelName` that isn’t a string.
 - An override of an attribute the table doesn’t have.

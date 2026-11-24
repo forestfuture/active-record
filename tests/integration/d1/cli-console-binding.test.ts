@@ -11,7 +11,7 @@ import { scratchDirs } from "../../support/scratch.ts";
 
 const scratch = scratchDirs();
 
-/** The first D1 binding of the project's wrangler.jsonc, as `active-record console` would choose it. */
+/** The first D1 binding of the project's wrangler.jsonc, as `arbor console` would choose it. */
 function chosen(cwd: string): ChosenDatabase {
   const configFile = join(cwd, "wrangler.jsonc");
   const config = JSON.parse(readFileSync(configFile, "utf8")) as {
@@ -74,7 +74,7 @@ describe("the console's local database binding", () => {
     writeFileSync(join(cwd, "wrangler.jsonc"), "{}");
 
     expect(await openLocalBinding(cwd, chosen(cwd))).toBe(
-      "wrangler isn't installed here (install it, then run active-record console again)",
+      "wrangler isn't installed here (install it, then run arbor console again)",
     );
   });
 
@@ -373,7 +373,7 @@ describe("the console's remote database binding", () => {
     writeFileSync(join(cwd, "wrangler.jsonc"), "{}");
 
     expect(await openRemoteBinding(cwd, remote(cwd))).toBe(
-      "wrangler isn't installed here (install it, then run active-record console again)",
+      "wrangler isn't installed here (install it, then run arbor console again)",
     );
   });
 });

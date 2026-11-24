@@ -35,7 +35,7 @@ const written = (cwd: string, file = "arbor.jsonc") =>
 const schemaLink = "./node_modules/@forestfuture/arbor/config-schema.json";
 
 // A project's arbor.jsonc names its databases and their adapter; init writes it (#301).
-describe("active-record init", () => {
+describe("arbor init", () => {
   test("on D1, names each of Wrangler's D1 databases, which the command then uses", async () => {
     const cwd = project({
       "wrangler.jsonc": JSON.stringify({
@@ -45,7 +45,7 @@ describe("active-record init", () => {
 
     expect(await init(cwd)).toEqual({
       code: 0,
-      output: "Wrote arbor.jsonc (DB and LOGS, on d1)\nNext: npx active-record schema",
+      output: "Wrote arbor.jsonc (DB and LOGS, on d1)\nNext: npx arbor schema",
     });
     expect(written(cwd)).toEqual({
       $schema: schemaLink,
@@ -64,7 +64,7 @@ describe("active-record init", () => {
 
     expect(await init(cwd)).toEqual({
       code: 0,
-      output: "Wrote arbor.jsonc (HYPERDRIVE, on postgresql)\nNext: npx active-record schema",
+      output: "Wrote arbor.jsonc (HYPERDRIVE, on postgresql)\nNext: npx arbor schema",
     });
     expect(written(cwd)).toEqual({
       $schema: schemaLink,
@@ -102,7 +102,7 @@ describe("active-record init", () => {
         "Wrote arbor.jsonc (HYPERDRIVE, on postgresql)\n" +
         "Note: HYPERDRIVE has no localConnectionString in wrangler.jsonc, so its url is a guess " +
         "(postgres://localhost:5432/shop_development); set it to your local database\n" +
-        "Next: npx active-record schema",
+        "Next: npx arbor schema",
     });
   });
 
@@ -114,7 +114,7 @@ describe("active-record init", () => {
       output:
         "Wrote arbor.jsonc (DATABASE_URL, on postgresql)\n" +
         "Note: DATABASE_URL's url is a guess (postgres://localhost:5432/shop_development); set it to your local database\n" +
-        "Next: npx active-record schema",
+        "Next: npx arbor schema",
     });
     expect(written(cwd)).toEqual({
       $schema: schemaLink,

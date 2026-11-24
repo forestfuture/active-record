@@ -69,7 +69,7 @@ function unnamed(
   const path = shown(project, file);
   const add =
     file === beside
-      ? `run \`npx active-record init\` to add ${one ? "it" : "them"}`
+      ? `run \`npx arbor init\` to add ${one ? "it" : "them"}`
       : `add ${one ? "it" : "each"} with "wranglerConfig": ${JSON.stringify(path)}`;
   return [`${path} has ${which}, which ${basename(project.file)} doesn't name; ${add}`];
 }

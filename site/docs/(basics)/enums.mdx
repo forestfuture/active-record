@@ -21,7 +21,7 @@ seo:
 
 ## The Models
 
-The examples use these Models. Their attributes come from their tables through the schema `active-record schema` generates, and each declares its enum in an override:
+The examples use these Models. Their attributes come from their tables through the schema `arbor schema` generates, and each declares its enum in an override:
 
 <CodeGroup>
 
@@ -66,7 +66,7 @@ Each name gets a predicate and a setter on records, and two scopes on the Model:
 - `where`, `whereNot`, `pluck`, and every write take and give names, one or a list.
 
 :::note
-Record methods follow your override as soon as you save it. The scopes are typed in the generated schema, so run `active-record schema` (or keep `--watch` running) after you add an enum.
+Record methods follow your override as soon as you save it. The scopes are typed in the generated schema, so run `arbor schema` (or keep `--watch` running) after you add an enum.
 :::
 
 ## Reading stored values
@@ -81,7 +81,7 @@ Add a `prefix` or a `suffix` when two enums share a name, `true` for the attribu
 
 <include>/_excerpts/pages/enums/examples/affixes.mdx</include>
 
-- A method name that’s taken, by another enum, an attribute, a record method, or a static, throws `InvalidModel` when the Model is first used, and `active-record schema` reports it.
+- A method name that’s taken, by another enum, an attribute, a record method, or a static, throws `InvalidModel` when the Model is first used, and `arbor schema` reports it.
 - So does a name TypeScript can’t declare, such as `in-progress` or `new`. Map a readable name to the stored value instead: `enum: { inProgress: "in-progress" }`.
 - To leave an enum’s methods out, declare it with `scopes: false` or `instanceMethods: false`.
 
@@ -102,17 +102,17 @@ A survey with no answer is invalid too, unless you declare `validate: { allowNul
 
 ## Reading enums from the database
 
-`active-record schema` writes the names a database restricts a column to into the generated schema, with the enum’s methods off. A Postgres enum type does it, and so does a `CHECK` such as the `tasks` table’s. Turn the methods on with `enum: true`, as `Task` does:
+`arbor schema` writes the names a database restricts a column to into the generated schema, with the enum’s methods off. A Postgres enum type does it, and so does a `CHECK` such as the `tasks` table’s. Turn the methods on with `enum: true`, as `Task` does:
 
 <include>/_excerpts/pages/enums/examples/generated-on.mdx</include>
 
 - The attribute’s type is `"open" | "done"`, assigning any other value throws `TypeError`, and `enumValues` works as for any enum.
-- `enum: true` keeps the database’s names, so a name a later migration adds gets its methods the next time you run `active-record schema`.
+- `enum: true` keeps the database’s names, so a name a later migration adds gets its methods the next time you run `arbor schema`.
 - A `scopes: false` or `instanceMethods: false` beside it still leaves those out, and `scopes: true` or `instanceMethods: true` alone turns on one kind. Names that clash only matter once their methods are on, and you fix them as in [Keeping names apart](#keeping-names-apart).
 - To keep the column a plain string, override it with `enum: false`. A list of your own, such as `enum: ["open", "done", "archived"]`, replaces the database’s, with its methods on.
 
 :::note
-`active-record schema` reads a `CHECK` whose only condition is `column IN (…)` with text values, or `column IS NULL OR column IN (…)`. Any other `CHECK` leaves the column as it was, and a list of numbers stays an `integer`. Postgres stores a one-name `IN ('open')` as `= 'open'`, so it isn’t read there.
+`arbor schema` reads a `CHECK` whose only condition is `column IN (…)` with text values, or `column IS NULL OR column IN (…)`. Any other `CHECK` leaves the column as it was, and a list of numbers stays an `integer`. Postgres stores a one-name `IN ('open')` as `= 'open'`, so it isn’t read there.
 :::
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">

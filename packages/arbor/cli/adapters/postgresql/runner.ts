@@ -33,7 +33,7 @@ export function migrationFiles(dir: string): MigrationFile[] | string {
 }
 
 /** One lock per database and schema: a run while another holds it is refused. */
-const lock = `hashtext('active-record migrate ' || current_database() || '.' || current_schema())`;
+const lock = `hashtext('arbor migrate ' || current_database() || '.' || current_schema())`;
 
 /** The versions already applied, once the table that records them is there. */
 async function appliedVersions(client: Client): Promise<Set<string>> {

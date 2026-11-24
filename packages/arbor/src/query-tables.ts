@@ -114,6 +114,6 @@ function fitted(name: string, suffix: string): string {
 /** The table of the join `path` names in `tables`. */
 export function sourceAt(tables: Tables, path: string): Source {
   const joined = tables.joined.find((table) => table.path === path);
-  if (joined === undefined) throw new Error(`active-record: no join at "${path}"`);
+  if (joined === undefined) throw new Error(`arbor: no join at "${path}"`);
   return joined.source;
 }

@@ -12,19 +12,17 @@ const unlisted = new Set(["help"]);
 
 /** A command's name, from its usage line: `schema`, `g` or `console`. */
 function commandName(usage: string): string {
-  const name = /active-record (\w+)/.exec(usage)?.[1];
+  const name = /arbor (\w+)/.exec(usage)?.[1];
   if (name === undefined) throw new Error(`No command name in: ${usage}`);
   return name;
 }
 
-/** The page's one section for a command, from its `## \`active-record <name>` heading to the next `## `. */
+/** The page's one section for a command, from its `## \`arbor <name>` heading to the next `## `. */
 function sectionFor(name: string): string {
-  const heading = new RegExp(`^## \`active-record ${name}[\` ]`);
+  const heading = new RegExp(`^## \`arbor ${name}[\` ]`);
   const sections = commandLinePage.split(/^(?=## )/m).filter((part) => heading.test(part));
   if (sections.length !== 1) {
-    throw new Error(
-      `${page} has ${sections.length} "## \`active-record ${name}" sections, not one`,
-    );
+    throw new Error(`${page} has ${sections.length} "## \`arbor ${name}" sections, not one`);
   }
   return sections[0] ?? "";
 }
@@ -47,7 +45,7 @@ function flagsTaken(options: ParseArgsOptionsConfig): string[] {
 
 describe.each(
   everySubcommand.map((subcommand) => [commandName(subcommand.usage), subcommand] as const),
-)(`active-record %s: the flags in ${page}`, (name, subcommand) => {
+)(`arbor %s: the flags in ${page}`, (name, subcommand) => {
   const taken = flagsTaken(subcommand.options);
   const listed = guideFlags(name);
 

@@ -37,7 +37,7 @@ abstract class ApplicationRecord extends Model {
   static override schema = schema;
 }
 
-// The interface stands in for the declarations active-record schema generates in another file.
+// The interface stands in for the declarations arbor schema generates in another file.
 /* oxlint-disable typescript/no-unsafe-declaration-merging */
 class Story extends ApplicationRecord {
   static override table = "articles";
@@ -147,7 +147,7 @@ interface Draft extends TableAttributes<
 > {}
 /* oxlint-enable typescript/no-unsafe-declaration-merging, typescript/no-namespace, no-unused-vars */
 
-// As active-record schema writes it: the schema lists each Model's enum scopes, so they're
+// As arbor schema writes it: the schema lists each Model's enum scopes, so they're
 // statics from the start, and a namespace types them.
 const listingSchema = defineSchema({
   ...schema,

@@ -2,14 +2,14 @@ import { describe, expect, test } from "vite-plus/test";
 import { everySubcommand, main } from "../../packages/arbor/cli/main.ts";
 import { defineSubcommand, helpFor } from "../../packages/arbor/cli/subcommand.ts";
 
-/** `active-record --help`, as it reads today: the commands, the columns, and each one's flags. */
+/** `arbor --help`, as it reads today: the commands, the columns, and each one's flags. */
 const help = `Usage:
-  active-record init                          Write arbor.jsonc, which names your databases
-  active-record schema [options]              Generate src/db/schema.ts from your migrations
-  active-record g model <Name> [columns]      Write a CREATE TABLE migration and a Model
-  active-record g migration <Name> [columns]  Write a migration: Create…, Add…To…, Remove…From…, or empty
-  active-record console (or c)                Open a console on your database, with your Models
-  active-record migrate                       Apply your pending migrations to the local database
+  arbor init                          Write arbor.jsonc, which names your databases
+  arbor schema [options]              Generate src/db/schema.ts from your migrations
+  arbor g model <Name> [columns]      Write a CREATE TABLE migration and a Model
+  arbor g migration <Name> [columns]  Write a migration: Create…, Add…To…, Remove…From…, or empty
+  arbor console (or c)                Open a console on your database, with your Models
+  arbor migrate                       Apply your pending migrations to the local database
 
 Columns are name:type, where the type is string (the default), integer, real, boolean,
 datetime, json or references; then ! for NOT NULL, =value for a default, and :unique or
@@ -53,7 +53,7 @@ Options for every command:
   --config <file>     Use this config file, in place of arbor.jsonc
   -h, --help          Show this help`;
 
-describe("active-record's help", () => {
+describe("arbor's help", () => {
   test("--help prints the usage, word for word", () => {
     const output: string[] = [];
 

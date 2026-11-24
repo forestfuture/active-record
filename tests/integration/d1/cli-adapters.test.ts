@@ -69,7 +69,7 @@ describe("the adapter the command uses", () => {
     const cwd = project({ "wrangler.jsonc": wrangler("DB") });
 
     expect(await found(cwd)).toBe(
-      "No arbor.jsonc here, which names the project's databases and their adapter: run `npx active-record init` to write one",
+      "No arbor.jsonc here, which names the project's databases and their adapter: run `npx arbor init` to write one",
     );
   });
 
@@ -143,10 +143,10 @@ describe("the adapter the command uses", () => {
     };
 
     expect(await notes(one)).toEqual([
-      "wrangler.jsonc has the D1 database DB, which arbor.jsonc doesn't name; run `npx active-record init` to add it",
+      "wrangler.jsonc has the D1 database DB, which arbor.jsonc doesn't name; run `npx arbor init` to add it",
     ]);
     expect(await notes(two)).toEqual([
-      "wrangler.jsonc has the D1 databases DB and AUDIT, which arbor.jsonc doesn't name; run `npx active-record init` to add them",
+      "wrangler.jsonc has the D1 databases DB and AUDIT, which arbor.jsonc doesn't name; run `npx arbor init` to add them",
     ]);
   });
 
@@ -202,7 +202,7 @@ describe("the adapter the command uses", () => {
     const loaded = await loadDatabases(cwd);
 
     expect(typeof loaded === "string" ? loaded : loaded.notes).toEqual([
-      "wrangler.jsonc has the D1 database DB, which arbor.jsonc doesn't name; run `npx active-record init` to add it",
+      "wrangler.jsonc has the D1 database DB, which arbor.jsonc doesn't name; run `npx arbor init` to add it",
     ]);
   });
 

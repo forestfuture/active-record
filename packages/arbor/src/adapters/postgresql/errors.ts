@@ -68,7 +68,7 @@ const enumRefusal = "invalid input value for enum ";
  * The value the dialect's stale guard refuses (#357): the library's marker, naming the stale
  * record's write, not a value of the user's, so it's kept, in any language Postgres writes in.
  */
-const staleGuardMarker = /^active-record stale record [0-9a-f-]{36}$/;
+const staleGuardMarker = /^arbor stale record [0-9a-f-]{36}$/;
 
 /** Whether the refused value, from the message's first quote to its last, is the guard's marker. */
 function isStaleGuardRefusal(message: string): boolean {

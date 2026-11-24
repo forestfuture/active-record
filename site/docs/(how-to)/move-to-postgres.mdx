@@ -22,7 +22,7 @@ You’ll need `sqlite3` and `psql` on your machine to copy the data.
 
 ## Installing pg
 
-The PostgreSQL adapter comes with `@forestfuture/arbor`. Install `pg`, which it connects with, and PGlite, which `active-record schema` reads your schema with:
+The PostgreSQL adapter comes with `@forestfuture/arbor`. Install `pg`, which it connects with, and PGlite, which `arbor schema` reads your schema with:
 
 ```sh
 npm install pg
@@ -35,7 +35,7 @@ Replace the D1 database in your `arbor.jsonc` with your Postgres one:
 
 <include meta="arbor.jsonc">/_excerpts/move-to-postgres/arbor.jsonc</include>
 
-`HYPERDRIVE` is the binding your Worker will reach Postgres through. `url` is your local database, and `remoteUrl` your real one, read here from the environment. Every `active-record` command now works on Postgres. See [Declaring your databases](./command-line#declaring-your-databases).
+`HYPERDRIVE` is the binding your Worker will reach Postgres through. `url` is your local database, and `remoteUrl` your real one, read here from the environment. Every `arbor` command now works on Postgres. See [Declaring your databases](./command-line#declaring-your-databases).
 
 :::note
 Hyperdrive needs a password in a local connection string, even for a server that asks for none.
@@ -80,7 +80,7 @@ For milliseconds, convert `to_timestamp(paid_at / 1000.0)`.
 Then create the tables in your local database:
 
 ```sh
-npx active-record migrate
+npx arbor migrate
 ```
 
 ## Regenerating the schema
@@ -88,7 +88,7 @@ npx active-record migrate
 Regenerate your schema from the new migrations:
 
 ```sh
-npx active-record schema
+npx arbor schema
 ```
 
 Its attributes come out the same as on D1. Only its adapter changes:
@@ -153,7 +153,7 @@ While it copies, `psql` shows its connection string to anyone on your machine wh
 Then create your tables on the real database, copy the data, and deploy:
 
 ```sh
-npx active-record migrate --remote
+npx arbor migrate --remote
 DATABASE_URL="$PRODUCTION_DATABASE_URL" sh copy-data.sh --remote users posts
 npx wrangler deploy
 ```

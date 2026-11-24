@@ -1,4 +1,4 @@
-// Builds @forestfuture/arbor: the core, its entries for adapters, the D1 and PostgreSQL adapters, and the `active-record` command.
+// Builds @forestfuture/arbor: the core, its entries for adapters, the D1 and PostgreSQL adapters, and the `arbor` command.
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
@@ -22,11 +22,11 @@ export default defineConfig({
     dts: { generator: "tsgo" },
     // In the repo, the package resolves to its source, so the command runs untranspiled with no
     // build; publishConfig points the published package at dist/.
-    // `ffar` is its short name (#260). In the repo both run the source, published they run dist/.
+    // In the repo the `arbor` command runs the source; published, it runs dist/.
     exports: {
       devExports: true,
       exclude: ["command"],
-      bin: { "active-record": "cli/bin.ts", ffar: "cli/bin.ts" },
+      bin: { arbor: "cli/bin.ts" },
     },
     // ESM-only package for Workers: skip node10/CommonJS resolution checks.
     attw: { profile: "esm-only" },

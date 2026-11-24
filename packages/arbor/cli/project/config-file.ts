@@ -98,7 +98,7 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 export function projectDatabases(cwd: string, configPath?: string): ProjectDatabases | string {
   const config = readProjectConfig(cwd, configPath);
   if (config === undefined) {
-    return `No ${configFileName} here, which names the project's databases and their adapter: run \`npx active-record init\` to write one`;
+    return `No ${configFileName} here, which names the project's databases and their adapter: run \`npx arbor init\` to write one`;
   }
   if (typeof config === "string") return config;
   const name = basename(config.file);

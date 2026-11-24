@@ -172,14 +172,14 @@ describe("a D1 database's wranglerConfig", () => {
   });
 });
 
-/** Runs `active-record schema` in `cwd`: its code, and what it printed. */
+/** Runs `arbor schema` in `cwd`: its code, and what it printed. */
 async function schema(cwd: string) {
   const output: string[] = [];
   const code = await runSchema({ cwd }, (line) => output.push(line));
   return { code, output };
 }
 
-describe("active-record schema, with a database's wranglerConfig", () => {
+describe("arbor schema, with a database's wranglerConfig", () => {
   test("reads the migrations beside that config, as its migrations_pattern finds them", async () => {
     const root = project({
       "app/arbor.jsonc": config({

@@ -1,4 +1,4 @@
-// Each published tarball holds exactly its files: the core with its entries, the `active-record`
+// Each published tarball holds exactly its files: the core with its entries, the `arbor`
 // command, the D1 and PostgreSQL adapters, its docs for agents, its config's JSON Schema and its
 // manifest. Run with `vp run check:package`, after
 // `vp run build` and `vp run docs:build` (as CI does): it packs what's built, skipping `prepack`.

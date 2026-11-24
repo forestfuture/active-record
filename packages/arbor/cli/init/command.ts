@@ -1,4 +1,4 @@
-// `active-record init`: writes the project's `arbor.jsonc`, naming its databases and their adapters, from what each adapter's plugin finds (#301, #305).
+// `arbor init`: writes the project's `arbor.jsonc`, naming its databases and their adapters, from what each adapter's plugin finds (#301, #305).
 import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import type { CliAdapter, InitResult } from "../adapter.ts";
@@ -181,13 +181,13 @@ async function planInit(options: InitOptions): Promise<Plan> {
     steps: [
       written(file, `Wrote ${name} (${bindings}, on ${found.name})`),
       ...notes,
-      printed("Next: npx active-record schema"),
+      printed("Next: npx arbor schema"),
     ],
     code: 0,
   };
 }
 
-/** `active-record init`: resolves to the exit code. */
+/** `arbor init`: resolves to the exit code. */
 export async function runInit(options: InitOptions, print: Print): Promise<number> {
   return apply(await planInit(options), resolve(options.cwd ?? process.cwd()), print);
 }

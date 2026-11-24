@@ -90,7 +90,7 @@ abstract class ApplicationRecord extends Model {
   static override schema = schema;
 }
 
-// The interface stands in for the declarations active-record schema generates in another file.
+// The interface stands in for the declarations arbor schema generates in another file.
 /* oxlint-disable typescript/no-unsafe-declaration-merging */
 class Edition extends ApplicationRecord {
   static override table = "volumes";

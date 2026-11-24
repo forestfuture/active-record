@@ -1,4 +1,4 @@
-// `active-record migrate` on Postgres: the runner applies the database's migrations to its local url, or with `--remote` its remoteUrl.
+// `arbor migrate` on Postgres: the runner applies the database's migrations to its local url, or with `--remote` its remoteUrl.
 import type { ChosenDatabase, MigrateOutput } from "@forestfuture/arbor/cli";
 import { target } from "./targets.ts";
 import { migrationFiles, runMigrations } from "./runner.ts";

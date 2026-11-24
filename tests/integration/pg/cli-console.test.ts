@@ -76,7 +76,7 @@ describe("console, on Postgres", pgliteTimeout, () => {
       migrationsDir: join(cwd, "migrations"),
     };
 
-    expect(cli.stateFolder(chosen)).toBe(join(cwd, "node_modules/.cache/active-record"));
+    expect(cli.stateFolder(chosen)).toBe(join(cwd, "node_modules/.cache/arbor"));
     expect(existsSync(join(cwd, ".wrangler"))).toBe(false);
   });
 });

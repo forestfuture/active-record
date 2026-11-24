@@ -110,7 +110,7 @@ const missingKey = (name: string) =>
   `${name}: no primary key; Active Record needs one (id INTEGER PRIMARY KEY, or id TEXT PRIMARY KEY)`;
 
 /**
- * The tables a project's migrations make, by active-record's conventions (#66): applied in order to
+ * The tables a project's migrations make, by Arbor's conventions (#66): applied in order to
  * an in-memory SQLite database (`node:sqlite`), then read column by column. Tables are in
  * alphabetical order and columns in the table's order, so the result only changes with the
  * schema. SQLite's, Cloudflare's and Wrangler's own tables, and views, are left out.

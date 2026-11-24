@@ -1,4 +1,4 @@
-# active-record
+# arbor
 
 [![CI](https://github.com/forestfuture/arbor/actions/workflows/ci.yml/badge.svg)](https://github.com/forestfuture/arbor/actions/workflows/ci.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/forestfuture/arbor/badge)](https://scorecard.dev/viewer/?uri=github.com/forestfuture/arbor)
@@ -15,7 +15,7 @@ Models with validations, callbacks, associations, and change tracking; lazy, com
 npm install @forestfuture/arbor
 ```
 
-[`@forestfuture/arbor`](packages/arbor/) holds the core (Models, Relations, validations, callbacks, and associations), the `active-record` command, and an adapter for each database:
+[`@forestfuture/arbor`](packages/arbor/) holds the core (Models, Relations, validations, callbacks, and associations), the `arbor` command, and an adapter for each database:
 
 | Entry                            |                                                                           |
 | -------------------------------- | ------------------------------------------------------------------------- |
@@ -49,19 +49,19 @@ npx wrangler d1 create my-app-db
 
 ### 2. Generate your models
 
-Name your database in `arbor.jsonc`, which every `active-record` command reads:
+Name your database in `arbor.jsonc`, which every `arbor` command reads:
 
 ```sh
-npx active-record init
+npx arbor init
 ```
 
 The generator writes each table’s migration and its Model, as `rails generate model` does (it needs Node.js 22.13 or later):
 
 ```sh
-npx active-record g model User 'email:string!:unique' 'isActive:boolean!=true'
-npx active-record g model Post user:references 'title:string!' publishedAt:datetime
-npx active-record migrate
-npx active-record console # try your Models against the local database
+npx arbor g model User 'email:string!:unique' 'isActive:boolean!=true'
+npx arbor g model Post user:references 'title:string!' publishedAt:datetime
+npx arbor migrate
+npx arbor console # try your Models against the local database
 ```
 
 Along with the migrations, it writes `src/db/schema.ts` (every table’s columns, generated from the migrations, like Rails’ `schema.rb`) and your app’s `ApplicationRecord`.

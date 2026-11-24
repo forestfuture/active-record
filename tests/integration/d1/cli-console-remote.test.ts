@@ -18,8 +18,8 @@ function onATerminal() {
   return { terminal, lines, io: { ...terminal, terminal: true } };
 }
 
-// `active-record console --remote` (#104): the same console on the real database, after asking.
-describe("active-record console --remote", () => {
+// `arbor console --remote` (#104): the same console on the real database, after asking.
+describe("arbor console --remote", () => {
   test("--yes opens it through wrangler's remote proxy", async () => {
     const { cwd, asked } = await remoteShop();
     const terminal = terminalStreams();
@@ -153,7 +153,7 @@ describe("active-record console --remote", () => {
     terminal.input.end();
     await done;
 
-    expect(existsSync(join(cwd, ".wrangler/active-record-history"))).toBe(false);
+    expect(existsSync(join(cwd, ".wrangler/arbor-history"))).toBe(false);
   }, 90_000);
 
   test("keeps what you type, in a file of its own, when asked to", async () => {
@@ -164,7 +164,7 @@ describe("active-record console --remote", () => {
       (line) => lines.push(line),
       io,
     );
-    const history = join(cwd, ".wrangler/active-record-history-remote");
+    const history = join(cwd, ".wrangler/arbor-history-remote");
 
     await waitFor(() => lines.includes("Models: User"));
     terminal.input.write("1 + 1\n");
@@ -173,7 +173,7 @@ describe("active-record console --remote", () => {
     await done;
 
     expect(readFileSync(history, "utf8")).toContain("1 + 1");
-    expect(existsSync(join(cwd, ".wrangler/active-record-history"))).toBe(false);
+    expect(existsSync(join(cwd, ".wrangler/arbor-history"))).toBe(false);
   }, 90_000);
 });
 
@@ -192,7 +192,7 @@ describe("the local console's prompt", () => {
 });
 
 // `-e` with `--remote` (#105): the same consent as a session, with the result alone on stdout.
-describe("active-record console -e --remote", () => {
+describe("arbor console -e --remote", () => {
   /** A script's streams, with a terminal flag for the confirmation. */
   function streams(terminal: boolean) {
     const { input, output, error, seen } = capturedStreams();

@@ -1,4 +1,4 @@
-// `active-record console`: opens the project's database, local or remote, with its Models, and runs a REPL or one piece of code (#104, #105).
+// `arbor console`: opens the project's database, local or remote, with its Models, and runs a REPL or one piece of code (#104, #105).
 import { join } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { WriteStream } from "node:tty";
@@ -57,7 +57,7 @@ export function standardIo(): ConsoleIo {
  * never offered, with the up arrow, to a local session (or the other way round).
  */
 function historyFileFor(stateFolder: string, remote: boolean): string {
-  return join(stateFolder, `active-record-history${remote ? "-remote" : ""}`);
+  return join(stateFolder, `arbor-history${remote ? "-remote" : ""}`);
 }
 
 /** Says why the console can't open; 1. */

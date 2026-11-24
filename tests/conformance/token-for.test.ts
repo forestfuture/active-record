@@ -1,5 +1,5 @@
 /* oxlint-disable typescript/no-unsafe-declaration-merging -- each interface stands in for the
-   declarations active-record schema generates, which merge from another file: the accessors they
+   declarations arbor schema generates, which merge from another file: the accessors they
    type are defined when the Model's attributes resolve. */
 // Tokens for a purpose (#517): `generatesTokenFor` declares one, signed with the app's secret,
 // that finds its record until it expires or a value it depends on changes.
@@ -25,7 +25,7 @@ import {
 import { d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
-// A generated schema, as `active-record schema` writes it, for Models built on it.
+// A generated schema, as `arbor schema` writes it, for Models built on it.
 const members = {
   id: { type: "integer", null: false },
   email: "string",

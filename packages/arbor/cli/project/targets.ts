@@ -1,5 +1,5 @@
 // Where each database's migrations, schema and base class are, from the config and the options.
-// Shared by `active-record schema`, the generators and the console.
+// Shared by `arbor schema`, the generators and the console.
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { classify, moduleName } from "./names.ts";

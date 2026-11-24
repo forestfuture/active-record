@@ -39,7 +39,7 @@ function d1OnlyConfig(
 async function projectWrangler(cwd: string, configFile: string): Promise<Wrangler | string> {
   const file = resolveWrangler(cwd, configFile, "wrangler");
   if (file === undefined) {
-    return "wrangler isn't installed here (install it, then run active-record console again)";
+    return "wrangler isn't installed here (install it, then run arbor console again)";
   }
   try {
     // Wrangler's entry is CommonJS: required natively, since jiti can't load its bundle.

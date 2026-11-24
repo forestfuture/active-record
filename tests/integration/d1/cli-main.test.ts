@@ -31,7 +31,7 @@ describe("the d1-record command line", () => {
     );
 
     expect(help).toBe(0);
-    expect(output[0]).toMatch(/^Usage:\n  active-record init +Write arbor.jsonc/);
+    expect(output[0]).toMatch(/^Usage:\n  arbor init +Write arbor.jsonc/);
     expect(generated).toBe(0);
     expect(output[1]).toMatch(/^Wrote .*out\.ts \(1 table\)/);
   });
@@ -85,7 +85,7 @@ describe("the d1-record command line", () => {
       Object.defineProperty(process, "getBuiltinModule", builtin);
     }
     expect(output).toEqual([
-      `active-record schema needs Node 22.5 or later (this is Node ${process.versions.node})`,
+      `arbor schema needs Node 22.5 or later (this is Node ${process.versions.node})`,
     ]);
   });
 
@@ -104,7 +104,7 @@ describe("the d1-record command line", () => {
       spy.mockRestore();
     }
     expect(output).toEqual([
-      `active-record schema needs Node 22.5 or later (this is Node ${process.versions.node})`,
+      `arbor schema needs Node 22.5 or later (this is Node ${process.versions.node})`,
     ]);
   });
 

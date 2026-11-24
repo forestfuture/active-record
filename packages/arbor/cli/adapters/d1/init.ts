@@ -1,4 +1,4 @@
-// What `active-record init` writes on D1: each D1 database the Wrangler config beside the file declares (#301).
+// What `arbor init` writes on D1: each D1 database the Wrangler config beside the file declares (#301).
 import { basename } from "node:path";
 import type { InitResult } from "@forestfuture/arbor/cli";
 import { d1Entries, wranglerConfigIn } from "./wrangler.ts";

@@ -206,13 +206,13 @@ export type AsSpecs<S> = S extends AttributeSpecs ? S : never;
  */
 export type AttributeOverrides = Readonly<Record<string, AttributeOverride | false>>;
 
-/** What `active-record schema` generates for one database: its adapter, its tables, and its Models. */
+/** What `arbor schema` generates for one database: its adapter, its tables, and its Models. */
 export interface DatabaseSchema {
   readonly adapter: SchemaAdapter;
   readonly tables: TableSchemas;
   /**
    * The Models the schema was generated for: each one's `modelName`, and its table. Absent only
-   * while `active-record schema` loads the Models, before it has found them; then nothing is checked.
+   * while `arbor schema` loads the Models, before it has found them; then nothing is checked.
    */
   readonly models?: Readonly<Record<string, string>>;
   /**
@@ -303,17 +303,17 @@ export function defineAttributeAccessors(prototype: object, names: Iterable<stri
 /**
  * A Model the schema wasn't generated for, or whose table has changed since, as an
  * `InvalidModel`: what stops a dev server, which doesn't type-check. A schema with no list of
- * Models, as `active-record schema` loads the Models with before it has found them, checks none.
+ * Models, as `arbor schema` loads the Models with before it has found them, checks none.
  */
 function rejectUngenerated(name: string, table: string, schema: DatabaseSchema): void {
   if (schema.models === undefined) return;
   const generatedTable = Object.hasOwn(schema.models, name) ? schema.models[name] : undefined;
   if (generatedTable === undefined) {
-    throw new InvalidModel(`${name} isn't in the generated schema; run active-record schema`);
+    throw new InvalidModel(`${name} isn't in the generated schema; run arbor schema`);
   }
   if (generatedTable !== table) {
     throw new InvalidModel(
-      `${name}'s table is ${table}, but the generated schema has ${generatedTable}; run active-record schema`,
+      `${name}'s table is ${table}, but the generated schema has ${generatedTable}; run arbor schema`,
     );
   }
 }

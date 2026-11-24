@@ -40,7 +40,7 @@ export interface Lock {
 export function lockOf(record: Model, action: StaleAction): Lock | undefined {
   if (!isLocking(modelOf(record))) return undefined;
   const expected = versionOf(record);
-  const marker = `active-record stale record ${crypto.randomUUID()}`;
+  const marker = `arbor stale record ${crypto.randomUUID()}`;
   return {
     next: [lockVersion, expected + 1],
     guarded: (write) =>

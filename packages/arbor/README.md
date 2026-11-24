@@ -9,9 +9,9 @@ npm install @forestfuture/arbor
 Name your database, generate a Model and its table, then use it in your Worker:
 
 ```sh
-npx active-record init
-npx active-record g model Post 'title:string!' publishedAt:datetime
-npx active-record migrate
+npx arbor init
+npx arbor g model Post 'title:string!' publishedAt:datetime
+npx arbor migrate
 ```
 
 ```ts
@@ -23,6 +23,6 @@ const drafts = await Post.where({ publishedAt: null })
   .toArray();
 ```
 
-The package also installs the `active-record` command (`ffar` for short), which generates the schema, Models and migrations, applies migrations, and opens a console. It ships the guide for its own version as `llms-full.txt`, and an agent skill in `skills/arbor/`.
+The package also installs the `arbor` command, which generates the schema, Models and migrations, applies migrations, and opens a console. It ships the guide for its own version as `llms-full.txt`, and an agent skill in `skills/arbor/`.
 
 The guide is at [arbor.forestfuture.dev](https://arbor.forestfuture.dev). Coming from an earlier release? See [Upgrading](https://arbor.forestfuture.dev/upgrading). The source is on [GitHub](https://github.com/forestfuture/arbor).

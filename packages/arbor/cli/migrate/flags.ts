@@ -1,15 +1,15 @@
-// `active-record migrate`'s flags and help, and how they become MigrateOptions.
+// `arbor migrate`'s flags and help, and how they become MigrateOptions.
 import { defineSubcommand } from "../subcommand.ts";
 import { runMigrate } from "./command.ts";
 
-/** `active-record migrate`: applies the pending migrations, to the local database or the real one. */
+/** `arbor migrate`: applies the pending migrations, to the local database or the real one. */
 export const migrateSubcommand = defineSubcommand({
   options: {
     database: { type: "string" },
     remote: { type: "boolean" },
     yes: { type: "boolean" },
   },
-  usage: `  active-record migrate                       Apply your pending migrations to the local database`,
+  usage: `  arbor migrate                       Apply your pending migrations to the local database`,
   flagHelp: `Options for migrate:
   --database <name>   The database to migrate, when the config has several
   --remote            Migrate your remote database instead, after asking you to type its name

@@ -1,4 +1,4 @@
-# active-record
+# arbor
 
 A Rails-inspired Active Record library for Cloudflare Workers: one package, `@forestfuture/arbor`: a core, and an **Adapter** for each database inside it, D1's (`/d1`) and PostgreSQL's (`/postgresql`). It maps a database's rows to domain objects with a lazy, composable query vocabulary and a predictable persistence lifecycle.
 
@@ -13,7 +13,7 @@ A **Model**'s `modelName`: its class name, unless it sets `static modelName = "P
 _Avoid_: Class name (for this), model label
 
 **Generated Model**:
-A **Model** whose attributes are its table's in the **Generated schema**, after its **Override**s. `active-record schema` must have seen its class: one it hasn't is an `InvalidModel` when used.
+A **Model** whose attributes are its table's in the **Generated schema**, after its **Override**s. `arbor schema` must have seen its class: one it hasn't is an `InvalidModel` when used.
 _Avoid_: Plain model, schema model
 
 **Hand-declared Model**:
@@ -21,7 +21,7 @@ A **Model** whose attributes are declared in its class, with `Model.define({...}
 _Avoid_: Manual model, defined model
 
 **Generated schema**:
-The file `active-record schema` writes from a project's migrations and Model files, with its **Adapter** reading the migrations: each table's attributes, its **Adapter** and **Binding** (`adapter: d1({ binding: "DB" })`), the **Generated Model**s, and type declarations adding each one's attributes to its class. It's a document like Rails' `schema.rb`, committed and never edited by hand; the app's **Base class** holds it.
+The file `arbor schema` writes from a project's migrations and Model files, with its **Adapter** reading the migrations: each table's attributes, its **Adapter** and **Binding** (`adapter: d1({ binding: "DB" })`), the **Generated Model**s, and type declarations adding each one's attributes to its class. It's a document like Rails' `schema.rb`, committed and never edited by hand; the app's **Base class** holds it.
 _Avoid_: Schema dump, types file
 
 **Base class**:
@@ -29,19 +29,19 @@ The app's abstract class extending `Model`, `ApplicationRecord` (in `application
 _Avoid_: Mixin, concern, parent model
 
 **Migration**:
-A SQL file in a database's migrations folder, applied once, in the order of the numbers their names start with. Its version is the number its name starts with: a UTC timestamp as the **Generator**s write it (`20261108090503_create_products.sql`), or any leading number (`0001_…`). Wrangler records D1's applied migrations; on Postgres, `active-record migrate` records each one's version in `schema_migrations`.
+A SQL file in a database's migrations folder, applied once, in the order of the numbers their names start with. Its version is the number its name starts with: a UTC timestamp as the **Generator**s write it (`20261108090503_create_products.sql`), or any leading number (`0001_…`). Wrangler records D1's applied migrations; on Postgres, `arbor migrate` records each one's version in `schema_migrations`.
 _Avoid_: Schema change, patch, revision
 
 **Project config**:
-The project's `arbor.jsonc`, beside its `package.json`, which `active-record init` writes: each database by its **Binding**, with the **Adapter** it uses (`"DB": { "adapter": "d1" }`), and the settings the `active-record` command reads. Every command reads it (#301). On Postgres an entry holds the database's settings (`databases.HYPERDRIVE.url`); a D1 database's stay in its Wrangler config: the one beside the file, or the one its entry's `wranglerConfig` names.
+The project's `arbor.jsonc`, beside its `package.json`, which `arbor init` writes: each database by its **Binding**, with the **Adapter** it uses (`"DB": { "adapter": "d1" }`), and the settings the `arbor` command reads. Every command reads it (#301). On Postgres an entry holds the database's settings (`databases.HYPERDRIVE.url`); a D1 database's stay in its Wrangler config: the one beside the file, or the one its entry's `wranglerConfig` names.
 _Avoid_: Database config, settings file, arbor.json
 
 **Generator**:
-The `active-record g model` and `g migration` commands: they write a migration (and a Model) from a name and columns, checked against the existing migrations first.
+The `arbor g model` and `g migration` commands: they write a migration (and a Model) from a name and columns, checked against the existing migrations first.
 _Avoid_: Scaffold, codegen
 
 **Console**:
-The interactive session `active-record console` opens: a REPL on the project's local database, with its Models and `db` in scope and each line run against that database. Local unless `--remote`, which opens the real database after its name is typed. With `-e` it isn't a session: it runs one piece of code, prints its result alone, and exits. A **Generator** writes files; the console works with data.
+The interactive session `arbor console` opens: a REPL on the project's local database, with its Models and `db` in scope and each line run against that database. Local unless `--remote`, which opens the real database after its name is typed. With `-e` it isn't a session: it runs one piece of code, prints its result alone, and exits. A **Generator** writes files; the console works with data.
 _Avoid_: Shell, REPL (in the guide), playground
 
 **Override**:

@@ -14,20 +14,20 @@ Each migration is written in your database’s own SQL. [Command line](./command
 Name the Model, and list its columns, with `g model`:
 
 ```sh
-npx active-record g model Product 'name:string!' 'priceCents:integer!=0' user:references
+npx arbor g model Product 'name:string!' 'priceCents:integer!=0' user:references
 ```
 
 ```
 Wrote migrations/20261108093000_create_products.sql
 Wrote src/models/product.ts
 Wrote src/db/schema.ts (3 tables) from migrations/
-Next: npx active-record migrate
+Next: npx arbor migrate
 ```
 
 Then apply the migration to your local database:
 
 ```sh
-npx active-record migrate
+npx arbor migrate
 ```
 
 The table is `products`, with an `id` generated in code, `created_at`, and `updated_at`.
@@ -72,9 +72,9 @@ Rails’ generators have no syntax for a column’s default. Active Record adds 
 Write a migration with `g migration`. It reads what to do from the migration’s name:
 
 ```sh
-npx active-record g migration AddSlugToPosts slug:string:unique   # ADD COLUMN, with a unique index
-npx active-record g migration RemoveSlugFromPosts slug             # DROP COLUMN
-npx active-record g migration BackfillSlugs                         # an empty migration to write yourself
+npx arbor g migration AddSlugToPosts slug:string:unique   # ADD COLUMN, with a unique index
+npx arbor g migration RemoveSlugFromPosts slug             # DROP COLUMN
+npx arbor g migration BackfillSlugs                         # an empty migration to write yourself
 ```
 
 The name can be written `AddSlugToPosts` or `add_slug_to_posts`. Apply each migration afterwards, as above.
@@ -110,12 +110,12 @@ Rails writes `belongs_to :parent, class_name: "Category", optional: true`. Here 
 By default, Models and `application-record.ts` go in `src/models/`. To keep them elsewhere, pass `--models` to every command:
 
 ```sh
-npx active-record schema --models src/app/models
-npx active-record g model Product 'name:string!' --models src/app/models
+npx arbor schema --models src/app/models
+npx arbor g model Product 'name:string!' --models src/app/models
 ```
 
 :::note
-`active-record schema` writes `application-record.ts` there and reads your Models from there, and the generators write Models that import it, so both need `--models`. A `package.json` script saves retyping it: `"db:schema": "active-record schema --models src/app/models"`.
+`arbor schema` writes `application-record.ts` there and reads your Models from there, and the generators write Models that import it, so both need `--models`. A `package.json` script saves retyping it: `"db:schema": "arbor schema --models src/app/models"`.
 :::
 
 ## Keeping the schema current
@@ -123,7 +123,7 @@ npx active-record g model Product 'name:string!' --models src/app/models
 The generators regenerate `src/db/schema.ts` themselves. After writing or editing a migration by hand, or adding or renaming a Model, regenerate it:
 
 ```sh
-npx active-record schema
+npx arbor schema
 ```
 
 - **`--watch`** regenerates it whenever a migration or a Model file changes.

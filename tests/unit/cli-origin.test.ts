@@ -21,7 +21,7 @@ function projectWith(...files: string[]): string {
   return dir;
 }
 
-/** The tool recognised for a project folder and its migrations, as `active-record schema` reads them. */
+/** The tool recognised for a project folder and its migrations, as `arbor schema` reads them. */
 function recognised(dir: string, migrations: readonly Migration[]): Tool | undefined {
   return migrationTool(toolsWithFiles(dir), migrations);
 }
@@ -133,7 +133,7 @@ describe("notes for another tool's migrations", () => {
 
   test("a datetime defaulting to SQLite's date text is noted, naming the two forms and the guide (#143)", () => {
     expect(originNotes("Prisma", tables, ["posts.created_at"])).toContain(
-      "posts.created_at: its default writes the database's own date text (2026-10-12 06:38:30), where active-record writes ISO text (2026-10-12T06:38:30.000Z), and the two sort apart as text, so range conditions can misplace values within a day (see Existing databases in the guide)",
+      "posts.created_at: its default writes the database's own date text (2026-10-12 06:38:30), where Arbor writes ISO text (2026-10-12T06:38:30.000Z), and the two sort apart as text, so range conditions can misplace values within a day (see Existing databases in the guide)",
     );
   });
 

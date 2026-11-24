@@ -32,7 +32,7 @@ async function migrated(cwd: string, options: object = {}, typed?: string) {
   return { code, printed, lines };
 }
 
-// `active-record migrate` applies a Postgres database's pending migrations itself (#285).
+// `arbor migrate` applies a Postgres database's pending migrations itself (#285).
 describe("migrate, on Postgres", pgliteTimeout, () => {
   let schema: PgSchema;
   beforeAll(async () => {
@@ -110,8 +110,7 @@ describe("migrate, on Postgres", pgliteTimeout, () => {
 
   test("refuses while another migrate holds the database", async () => {
     const holder = await schema.pool.connect();
-    const lock =
-      "hashtext('active-record migrate ' || current_database() || '.' || current_schema())";
+    const lock = "hashtext('arbor migrate ' || current_database() || '.' || current_schema())";
     await holder.query({ text: `SELECT pg_advisory_lock(${lock})` });
     try {
       const { code, printed } = await migrated(project(createUsers));

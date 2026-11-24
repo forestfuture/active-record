@@ -12,7 +12,7 @@ class Sample extends Model.define({
   static table = "samples";
 }
 
-// `active-record console -e` (#105): one piece of code, its result on stdout, its failure on stderr.
+// `arbor console -e` (#105): one piece of code, its result on stdout, its failure on stderr.
 describe("running one piece of code in the console's scope", () => {
   let binding: TestDatabase;
   let dispose: () => Promise<void>;

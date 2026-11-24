@@ -36,7 +36,7 @@ describe("filtering the value Postgres refused", () => {
 
 // Optimistic locking's guard (#357) refuses its own marker, which names the stale write.
 describe("the stale guard's marker", () => {
-  const marker = "active-record stale record 0b9c4b52-8f0e-4c55-9a43-2d5c6f1e7a10";
+  const marker = "arbor stale record 0b9c4b52-8f0e-4c55-9a43-2d5c6f1e7a10";
 
   test("stays in Postgres's refusal", () => {
     const message = `invalid input syntax for type integer: "${marker}"`;
