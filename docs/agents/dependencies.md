@@ -12,7 +12,7 @@ Read a dependency's types and docs from these paths, rather than searching `node
 
 ## Waiting a week for new releases
 
-`minimumReleaseAge` in `pnpm-workspace.yaml` (and in `.github/docs-deploy/pnpm-workspace.yaml`) holds every release back for a week, as Dependabot's `cooldown` does, so a compromised release is usually caught before it gets here. It applies to every install, not only Dependabot's: a hand bump or `pnpm update` takes the newest release that's at least a week old. A frozen install checks the lockfile too, and fails with `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` on any entry younger than a week that isn't excluded.
+`minimumReleaseAge` in `pnpm-workspace.yaml` (and in `tools/docs-deploy/pnpm-workspace.yaml`) holds every release back for a week, as Dependabot's `cooldown` does, so a compromised release is usually caught before it gets here. It applies to every install, not only Dependabot's: a hand bump or `pnpm update` takes the newest release that's at least a week old. A frozen install checks the lockfile too, and fails with `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` on any entry younger than a week that isn't excluded.
 
 A release that can't wait, such as a security fix, goes in `minimumReleaseAgeExclude` as one exact version (`"name@1.2.3"`). Never exclude a bare name: that lets every later release through as well. Add a comment naming the advisory, and remove the entry once that version is a week old. The Vite+ entries stay, since each Vite+ bump replaces them.
 
@@ -33,6 +33,6 @@ Dependabot is told to leave `vite-plus` and `@vitest/coverage-v8` alone, because
 
 ## Bumping the docs deploy's Wrangler
 
-CI's `docs-deploy` job runs its own Wrangler, pinned exactly in `.github/docs-deploy/package.json`, so the job holding the docs token never installs the workspace ([cloudflare-tokens.md](cloudflare-tokens.md)). Dependabot's updates for that folder fail (#554), so bump it by hand when you bump the workspace's `wrangler`. To bump it, change the version there and run `pnpm install --ignore-scripts` in that folder. A release under a week old fails there too ([Waiting a week for new releases](#waiting-a-week-for-new-releases)). The `check` job dry-runs both docs deploys with it, so a pull request that breaks that Wrangler fails `check` before it reaches `main`.
+CI's `docs-deploy` job runs its own Wrangler, pinned exactly in `tools/docs-deploy/package.json`, so the job holding the docs token never installs the workspace ([cloudflare-tokens.md](cloudflare-tokens.md)). Dependabot bumps it apart from the workspace's `wrangler`. The folder sits outside `.github/` because Dependabot couldn't open pull requests for it there (#554). To bump it by hand, change the version there and run `pnpm install --ignore-scripts` in that folder. A release under a week old fails there too ([Waiting a week for new releases](#waiting-a-week-for-new-releases)). The `check` job dry-runs both docs deploys with it, so a pull request that breaks that Wrangler fails `check` before it reaches `main`.
 
 That folder also names pnpm's version in its `devEngines`, so a pnpm bump changes it there as well as in the root `package.json`.
