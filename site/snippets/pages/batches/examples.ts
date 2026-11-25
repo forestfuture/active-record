@@ -25,10 +25,11 @@ export async function insertingMany() {
     { articleId: article.id, body: "Two" },
   ]);
   await Author.upsert({ name: "Jane Doe", email: "jane@example.com" }, { uniqueBy: "email" }); // renames Jane
+  const jane = await Author.findByOrThrow({ email: "jane@example.com" });
   await Author.upsert(
-    { id: crypto.randomUUID(), name: "Jane Smith", email: "jane@example.com" },
-    { uniqueBy: "email", updateOnly: "name" },
-  ); // renames Jane, keeping her id
+    { id: jane.id, name: "Jane Smith", email: "jane@example.org" },
+    { updateOnly: "name" },
+  ); // renames Jane, keeping her email
   await Author.upsert(
     { name: "J. Smith", email: "jane@example.com" },
     {

@@ -1062,7 +1062,7 @@ describe("the Bulk writes and batches page's examples, on Postgres", () => {
     expect(await titles()).toEqual(["EDITED", "Hello again"]);
   });
 
-  test("insertAll inserts every row, upsert updates by email, updateOnly keeps the id, onDuplicate joins the names, and a skipped duplicate writes nothing", async () => {
+  test("insertAll inserts every row, upsert updates by email, updateOnly keeps the email, onDuplicate joins the names, and a skipped duplicate writes nothing", async () => {
     const jane = () => db().model(BatchedAuthor).findByOrThrow({ email: "jane@example.com" });
     const { id } = await jane();
 
