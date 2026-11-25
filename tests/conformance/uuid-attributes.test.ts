@@ -7,7 +7,7 @@ import {
   expectTypeOf,
   test,
 } from "vite-plus/test";
-import { Model, RecordNotFound, type TableAttributes } from "../../packages/arbor/src/index.ts";
+import { gt, Model, RecordNotFound, type TableAttributes } from "../../packages/arbor/src/index.ts";
 import { d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -109,6 +109,27 @@ describe("uuid attributes", () => {
       device.id = phoneId.toUpperCase();
 
       expect(device.changed()).toEqual([]);
+    });
+  });
+
+  describe("comparing and ordering", () => {
+    const tabletId = "f0e1d2c3-b4a5-4697-8879-6a5b4c3d2e1f";
+    beforeEach(async () => {
+      await harness.exec("INSERT INTO devices (id, name) VALUES (?, ?)", [tabletId, "tablet"]);
+    });
+
+    test("order sorts UUIDs as their text sorts", async () => {
+      const names = await devices().order({ id: "desc" }).pluck("name");
+
+      expect(names).toEqual(["tablet", "phone"]);
+    });
+
+    test("a comparison compares them as text, in any form given", async () => {
+      const names = await devices()
+        .where({ id: gt(phoneId.toUpperCase()) })
+        .pluck("name");
+
+      expect(names).toEqual(["tablet"]);
     });
   });
 
