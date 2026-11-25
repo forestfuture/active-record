@@ -26,5 +26,10 @@ ruleTester.run("no-orphan-doc-comment", noOrphanDocComment, {
       code: "/** Adds one. */\n// A note.\n/** Adds two. */\nfunction next(n: number) { return n + 2; }",
       errors: [{ messageId: "orphan", line: 1 }],
     },
+    {
+      name: "two doc comments separated only by a plain block comment",
+      code: "/** Adds one. */\n/* A note. */\n/** Adds two. */\nfunction next(n: number) { return n + 2; }",
+      errors: [{ messageId: "orphan", line: 1 }],
+    },
   ],
 });
