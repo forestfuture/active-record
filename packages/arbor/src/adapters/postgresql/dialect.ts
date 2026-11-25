@@ -4,6 +4,13 @@ import { type Attribute, type Dialect, valueMark } from "@forestfuture/arbor/ada
 /** A text literal, as an escape string, so it reads the same whatever `standard_conforming_strings` is. */
 const literal = (text: string) => `E'${text.replaceAll("\\", "\\\\").replaceAll("'", "''")}'`;
 
+/**
+ * Text that's a UUID as Postgres reads one: 32 hex digits in any case, a hyphen allowed after any
+ * group of four but the last, the whole optionally in braces, as `castUuid` takes it.
+ */
+const uuidText = "(?:[0-9a-fA-F]{4}-?){7}[0-9a-fA-F]{4}";
+const uuidPattern = literal(`^(?:\\{${uuidText}\\}|${uuidText})$`);
+
 /** A quoted identifier; embedded double quotes are doubled. */
 const quoted = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
@@ -66,6 +73,10 @@ export const postgres: Dialect = {
    * that isn't one matches nothing.
    */
   linkedKey(key, keyAttribute, linked) {
+    if (linked.isUuid && !keyAttribute.isUuid) {
+      const text = `CAST(${key} AS TEXT)`;
+      return `CASE WHEN ${text} ~ ${uuidPattern} THEN CAST(${text} AS UUID) END`;
+    }
     if (linked.isText === keyAttribute.isText) return key;
     if (linked.isText) return `CAST(${key} AS TEXT)`;
     return `CASE WHEN ${key} ~ ${literal("^\\s*[+-]?[0-9]+\\s*$")} THEN CAST(${key} AS NUMERIC) END`;
