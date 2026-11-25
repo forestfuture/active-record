@@ -1,10 +1,8 @@
 // The conventions in docs/agents/docs-voice.md and docs-pages.md that a tool can check, in the guide, the READMEs and the evals.
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
 import { historicalName } from "../../scripts/lint/no-historical-names.mjs";
-import { guidePages, readmes } from "../support/guide-pages.ts";
+import { evals, guidePages, readmes } from "../support/guide-pages.ts";
 
 const pages = guidePages();
 
@@ -103,16 +101,10 @@ describe("the guide's pages", () => {
   });
 });
 
-/** The questions the guide is evaluated on, with each one's expected answer. */
-const evals = {
-  name: "site/evals.yaml",
-  text: readFileSync(join(import.meta.dirname, "../../site/evals.yaml"), "utf8"),
-};
-
 describe("the guide's pages and the evals", () => {
   // Lint checks the examples' code (arbor/no-historical-names); this reads the text around it.
   test("name example data for everyday people, never a historical person", () => {
-    const historical = [...pages, evals].flatMap(({ name, text }) =>
+    const historical = [...pages, evals()].flatMap(({ name, text }) =>
       text.split("\n").flatMap((line, index) => {
         const found = historicalName(line);
         return found === undefined ? [] : [`${name}:${index + 1}: ${found}`];
