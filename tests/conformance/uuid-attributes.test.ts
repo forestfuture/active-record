@@ -127,13 +127,22 @@ describe("uuid attributes", () => {
     });
   });
 
-  test("a generated text key overridden as a uuid is one, its id still made in code", async () => {
-    expectTypeOf<Gadget["id"]>().toEqualTypeOf<string>();
-    const gadgets = harness.connect().model(Gadget);
+  describe("a generated text key overridden as a uuid", () => {
+    const gadgets = () => harness.connect().model(Gadget);
 
-    expect(gadgets.build().id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-/);
-    await expect(gadgets.find("lamp")).rejects.toThrow(RecordNotFound);
-    expect((await gadgets.find(phoneId.toUpperCase())).name).toBe("phone");
+    test("is typed as a string, its id still made in code", () => {
+      expectTypeOf<Gadget["id"]>().toEqualTypeOf<string>();
+
+      expect(gadgets().build().id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-/);
+    });
+
+    test("finds nothing for a value that isn't a UUID", async () => {
+      await expect(gadgets().find("lamp")).rejects.toThrow(RecordNotFound);
+    });
+
+    test("finds its record by a UUID in another form", async () => {
+      expect((await gadgets().find(phoneId.toUpperCase())).name).toBe("phone");
+    });
   });
 
   test("a UUID finds its record", async () => {
