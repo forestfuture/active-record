@@ -436,6 +436,19 @@ describe("a generated Model's static attributes", () => {
     );
   });
 
+  test("a secure password on a non-string is a compile error and an InvalidModel", () => {
+    class Locked extends AppRecord {
+      static override table = "products";
+      static override attributes = {
+        pin: { type: "integer", virtual: true, securePassword: true },
+      } as const;
+    }
+    // @ts-expect-error -- only a string attribute has a secure password
+    interface Locked extends TableAttributes<typeof products, (typeof Locked)["attributes"]> {}
+
+    expect(() => db.model(Locked).build()).toThrow(InvalidModel);
+  });
+
   test("overriding a column is a compile error", () => {
     // @ts-expect-error a column comes from the table
     class Strange extends AppRecord {
