@@ -132,7 +132,7 @@ describe("inspect", () => {
   });
 
   describe("a filtered attribute", () => {
-    const row = { id: 1, email: "ada@example.com", role: null };
+    const row = { id: 1, email: "jane@example.com", role: null };
 
     test("prints as [FILTERED], unquoted so it isn't mistaken for a string", async () => {
       const user = await harness.connect().model(User).create(row);
@@ -164,9 +164,9 @@ describe("inspect", () => {
     const hider = await harness
       .connect()
       .model(Hider)
-      .create({ id: 1, email: "ada@example.com", role: "admin" });
+      .create({ id: 1, email: "jane@example.com", role: "admin" });
 
-    expect(inspect(hider)).toBe("Hider { id: 1, email: 'ada@example.com', role: 'admin' }");
+    expect(inspect(hider)).toBe("Hider { id: 1, email: 'jane@example.com', role: 'admin' }");
   });
 
   test("a record in an array or object prints in place, and depth is respected", async () => {
@@ -223,8 +223,8 @@ describe("inspect", () => {
       const user = await harness
         .connect()
         .model(User)
-        .create({ id: 1, email: "ada@example.com", role: "admin" });
-      user.email = "grace@example.com";
+        .create({ id: 1, email: "jane@example.com", role: "admin" });
+      user.email = "sam@example.com";
 
       expect(inspect(user)).toBe("User { id: 1, email: [FILTERED] (changed), role: 'admin' }");
     });
@@ -247,7 +247,7 @@ describe("inspect", () => {
     });
 
     test("shows a filtered value as [FILTERED]", () => {
-      const relation = harness.connect().model(User).where({ email: "ada@example.com" });
+      const relation = harness.connect().model(User).where({ email: "jane@example.com" });
 
       expect(inspect(relation, flat)).toContain("params: [ [FILTERED] ]");
     });
@@ -256,7 +256,7 @@ describe("inspect", () => {
       const user = await harness
         .connect()
         .model(User)
-        .create({ id: 7, email: "ada@example.com", role: null });
+        .create({ id: 7, email: "jane@example.com", role: null });
 
       expect(inspect(user.posts(), flat)).toContain("params: [ 7 ]");
     });

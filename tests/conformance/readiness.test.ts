@@ -43,7 +43,7 @@ describe("a Model is ready however it's first reached", () => {
 
   beforeAll(async () => {
     harness = await openHarness();
-    await harness.exec("INSERT INTO users (id, email) VALUES (1, 'ada@example.com')");
+    await harness.exec("INSERT INTO users (id, email) VALUES (1, 'jane@example.com')");
     await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (10, 1, 'Hello')");
     await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (100, 10, 'Hm.')");
   });

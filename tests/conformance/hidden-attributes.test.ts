@@ -41,31 +41,31 @@ describe("hiddenAttributes", () => {
     const user = await harness
       .connect()
       .model(User)
-      .create({ id: 1, email: "ada@example.com", role: "admin" });
+      .create({ id: 1, email: "jane@example.com", role: "admin" });
 
     expect(user.toJSON()).toEqual({ id: 1, role: "admin" });
     expect(JSON.parse(JSON.stringify(user))).toEqual({ id: 1, role: "admin" });
-    expect(user.attributes()).toEqual({ id: 1, email: "ada@example.com", role: "admin" });
+    expect(user.attributes()).toEqual({ id: 1, email: "jane@example.com", role: "admin" });
   });
 
   test("none are hidden by default", async () => {
     const member = await harness
       .connect()
       .model(Member)
-      .create({ id: 1, email: "ada@example.com", role: "admin" });
+      .create({ id: 1, email: "jane@example.com", role: "admin" });
 
-    expect(member.toJSON()).toEqual({ id: 1, email: "ada@example.com", role: "admin" });
+    expect(member.toJSON()).toEqual({ id: 1, email: "jane@example.com", role: "admin" });
   });
 
   test("a hidden attribute a partial record didn't load is no problem", async () => {
-    await harness.connect().model(User).create({ id: 1, email: "ada@example.com", role: "admin" });
+    await harness.connect().model(User).create({ id: 1, email: "jane@example.com", role: "admin" });
     const [user] = await harness.connect().model(User).select("id", "role").toArray();
 
     expect(user?.toJSON()).toEqual({ id: 1, role: "admin" });
   });
 
   describe("on an app's base class", () => {
-    const row = { id: 1, email: "ada@example.com", role: "admin" };
+    const row = { id: 1, email: "jane@example.com", role: "admin" };
 
     test("every Model built on it inherits them", async () => {
       class Account extends UserRecord {
@@ -168,9 +168,9 @@ describe("hiddenAttributes", () => {
     const live = await harness
       .connect()
       .model(Live)
-      .create({ id: 1, email: "ada@example.com", role: "admin" });
+      .create({ id: 1, email: "jane@example.com", role: "admin" });
     Live.hiddenAttributes = ["role"];
 
-    expect(live.toJSON()).toEqual({ id: 1, email: "ada@example.com" });
+    expect(live.toJSON()).toEqual({ id: 1, email: "jane@example.com" });
   });
 });

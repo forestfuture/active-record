@@ -45,22 +45,22 @@ describe("filterAttributes", () => {
   });
 
   test("an insert's and an update's values for a filtered attribute are hidden from listeners", async () => {
-    const user = await db().model(User).create({ id: 1, email: "ada@example.com", role: "admin" });
-    await user.update({ email: "ada@lovelace.dev", role: "owner" });
+    const user = await db().model(User).create({ id: 1, email: "jane@example.com", role: "admin" });
+    await user.update({ email: "jane@example.org", role: "owner" });
 
     expect(params()).toEqual([
       [1, "[FILTERED]", "admin"],
       ["[FILTERED]", "owner", 1],
     ]);
-    expect(await harness.exec("SELECT email FROM users")).toEqual([{ email: "ada@lovelace.dev" }]);
+    expect(await harness.exec("SELECT email FROM users")).toEqual([{ email: "jane@example.org" }]);
   });
 
   test("a multi-row insert hides a filtered attribute's values in its JSON", async () => {
     await db()
       .model(User)
       .insertAll([
-        { id: 1, email: "ada@example.com", role: "admin" },
-        { id: 2, email: "grace@example.com", role: null },
+        { id: 1, email: "jane@example.com", role: "admin" },
+        { id: 2, email: "sam@example.com", role: null },
       ]);
 
     expect(params()).toEqual([
@@ -71,11 +71,11 @@ describe("filterAttributes", () => {
         ]),
       ],
     ]);
-    expect(await db().model(User).pluck("email")).toEqual(["ada@example.com", "grace@example.com"]);
+    expect(await db().model(User).pluck("email")).toEqual(["jane@example.com", "sam@example.com"]);
   });
 
   test("updateAll hides a filtered attribute's new value", async () => {
-    await db().model(User).insert({ id: 1, email: "ada@example.com" });
+    await db().model(User).insert({ id: 1, email: "jane@example.com" });
     events = [];
 
     await db().model(User).updateAll({ email: "x@example.com", role: "admin" });
@@ -86,7 +86,7 @@ describe("filterAttributes", () => {
   test("conditions, lists and comparisons on a filtered attribute hide its values", async () => {
     const users = db().model(User);
 
-    await users.findBy({ email: "ada@example.com", role: "admin" });
+    await users.findBy({ email: "jane@example.com", role: "admin" });
     await users.where({ email: ["a@example.com", "b@example.com"] }).toArray();
     await users.where({ email: gte("m") }).count();
 
@@ -97,10 +97,10 @@ describe("filterAttributes", () => {
   test("a value in an sql fragment has no attribute, so it's shown as given", async () => {
     await db()
       .model(User)
-      .where(sql`email = ${"ada@example.com"}`)
+      .where(sql`email = ${"jane@example.com"}`)
       .toArray();
 
-    expect(params()).toEqual([["ada@example.com"]]);
+    expect(params()).toEqual([["jane@example.com"]]);
   });
 
   test("a filtered primary key is hidden when a record is updated or destroyed", async () => {
@@ -131,10 +131,10 @@ describe("filterAttributes", () => {
   });
 
   test("upsert and a limited updateAll hide a filtered attribute's values", async () => {
-    await db().model(User).upsert({ id: 1, email: "ada@example.com" }, { uniqueBy: "id" });
+    await db().model(User).upsert({ id: 1, email: "jane@example.com" }, { uniqueBy: "id" });
     await db()
       .model(User)
-      .where({ email: "ada@example.com" })
+      .where({ email: "jane@example.com" })
       .limit(1)
       .updateAll({ email: "x@example.com" });
 

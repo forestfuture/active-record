@@ -14,8 +14,8 @@ describe("a name that every object inherits isn't an attribute or association", 
 
   beforeAll(async () => {
     harness = await openHarness();
-    user = await users().create({ id: 1, email: "ada@example.com" });
-    await user.update({ email: "ada@lovelace.dev" });
+    user = await users().create({ id: 1, email: "jane@example.com" });
+    await user.update({ email: "jane@example.org" });
   });
   afterAll(() => harness.dispose());
 
@@ -45,7 +45,7 @@ describe("a name that every object inherits isn't an attribute or association", 
   });
 
   test("the real names work", async () => {
-    expect(user.savedChangeTo("email")).toEqual(["ada@example.com", "ada@lovelace.dev"]);
+    expect(user.savedChangeTo("email")).toEqual(["jane@example.com", "jane@example.org"]);
     expect(await user.reloadAssociation("posts")).toEqual([]);
   });
 
