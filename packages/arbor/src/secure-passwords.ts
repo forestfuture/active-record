@@ -28,6 +28,8 @@ export interface SecurePasswordOptions {
 /** A secure password in `static attributes` or `define`: `password: { securePassword: true }`. */
 export interface SecurePasswordDeclaration {
   readonly securePassword: true | SecurePasswordOptions;
+  /** It has none: a spec with a type is an attribute's, where only a string has one (#564). */
+  readonly type?: never;
 }
 
 /** The spec a secure password's own attribute gets: a virtual string that says it's one, with its options. */

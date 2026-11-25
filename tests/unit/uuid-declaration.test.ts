@@ -64,6 +64,7 @@ describe("a uuid attribute's declaration", () => {
   test("refuses a secure password", () => {
     class Device extends Model.define({
       id: { type: "integer", null: false },
+      // @ts-expect-error -- only a string has a secure password
       pin: { type: "uuid", virtual: true, securePassword: true },
       pinDigest: "string",
     }) {}

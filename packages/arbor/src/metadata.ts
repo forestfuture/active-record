@@ -100,8 +100,8 @@ type NoEnum = {
 /** An attribute that isn't a decimal: only a decimal has a precision and a scale (#398). */
 type NoDigits = { precision?: never; scale?: never };
 
-/** An attribute that isn't a string: only a string has a secure token (#355). */
-type NoToken = { secureToken?: never };
+/** An attribute that isn't a string: only a string has a secure token or a secure password (#355). */
+type NoSecret = { secureToken?: never; securePassword?: never };
 
 /** A string's secure token, which `regenerate…()` changes, so it's never read-only (#358). */
 type TokenOrReadonly =
@@ -116,7 +116,8 @@ type PerTypeKeys =
   | "enum"
   | "precision"
   | "scale"
-  | "secureToken";
+  | "secureToken"
+  | "securePassword";
 
 export type AttributeSpec = AttributeType | AnyCustomType | (SpecObjectByType & Placement);
 
@@ -129,19 +130,20 @@ type SpecObjectByType =
       type: "string";
       storage?: never;
       enum?: TextEnum;
+      securePassword?: true | SecurePasswordOptions;
     } & TokenOrReadonly &
       ValueSource &
       NoDigits)
   | (Omit<SpecObject, "default" | PerTypeKeys> &
       NoEnum &
       NoDigits &
-      NoToken & {
+      NoSecret & {
         type: "uuid";
         storage?: never;
       } & ValueSource)
   | (Omit<SpecObject, PerTypeKeys> &
       NoDigits &
-      NoToken & {
+      NoSecret & {
         type: "integer";
         generateId?: false;
         storage?: never;
@@ -150,14 +152,14 @@ type SpecObjectByType =
   | (Omit<SpecObject, PerTypeKeys> &
       NoEnum &
       NoDigits &
-      NoToken & {
+      NoSecret & {
         type: Exclude<AttributeType, "string" | "uuid" | "integer" | "datetime" | "decimal">;
         generateId?: false;
         storage?: never;
       })
   | (Omit<SpecObject, PerTypeKeys> &
       NoEnum &
-      NoToken & {
+      NoSecret & {
         type: "decimal";
         generateId?: false;
         storage?: never;
@@ -167,14 +169,14 @@ type SpecObjectByType =
   | (Omit<SpecObject, Exclude<PerTypeKeys, "storage">> &
       NoEnum &
       NoDigits &
-      NoToken & {
+      NoSecret & {
         type: "datetime";
         generateId?: false;
       })
   | (Omit<SpecObject, PerTypeKeys> &
       NoEnum &
       NoDigits &
-      NoToken & {
+      NoSecret & {
         type: AnyCustomType;
         generateId?: false;
         storage?: never;

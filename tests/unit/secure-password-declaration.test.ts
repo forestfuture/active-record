@@ -1,7 +1,7 @@
 // Declaring a secure password (#355): `password: { securePassword: true }`, its attributes and
 // methods typed, and a declaration that can't work refused. These tests need no database.
 import { describe, expect, expectTypeOf, test } from "vite-plus/test";
-import { InvalidModel, Model } from "../../packages/arbor/src/index.ts";
+import { defineType, InvalidModel, Model } from "../../packages/arbor/src/index.ts";
 import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
 
 const db = connect({} as never);
@@ -150,5 +150,61 @@ describe("a secure password's declaration", () => {
         password: { securePassword: { validate: false } },
       }),
     ).toThrow(InvalidModel);
+  });
+});
+
+describe("a secure password spec's type", () => {
+  const code = defineType({
+    storedAs: "string",
+    cast: (value) => String(value),
+    serialize: (value: string) => value,
+    deserialize: (value) => value,
+  });
+
+  test("is a string's", () => {
+    class Lock extends Model.define({
+      id: { type: "integer", null: false },
+      pin: { type: "string", virtual: true, securePassword: true },
+      pinDigest: "string",
+    }) {}
+
+    expectTypeOf(db.model(Lock).build({ pin: "1234" }).pin).toEqualTypeOf<string | null>();
+  });
+
+  test("isn't an integer's", () => {
+    class Lock extends Model.define({
+      id: { type: "integer", null: false },
+      // @ts-expect-error -- only a string has a secure password
+      pin: { type: "integer", virtual: true, securePassword: true },
+      pinDigest: "string",
+    }) {}
+
+    expect(() => db.model(Lock)).toThrow(
+      new InvalidModel(
+        'Lock.pin is "integer", so it can\'t have securePassword: a password is a string',
+      ),
+    );
+  });
+
+  test("isn't a boolean's", () => {
+    class Lock extends Model.define({
+      id: { type: "integer", null: false },
+      // @ts-expect-error -- only a string has a secure password
+      pin: { type: "boolean", virtual: true, securePassword: true },
+      pinDigest: "string",
+    }) {}
+
+    expect(() => db.model(Lock)).toThrow(InvalidModel);
+  });
+
+  test("isn't a custom type's, even one stored as a string", () => {
+    class Lock extends Model.define({
+      id: { type: "integer", null: false },
+      // @ts-expect-error -- only a string has a secure password
+      pin: { type: code, virtual: true, securePassword: true },
+      pinDigest: "string",
+    }) {}
+
+    expect(() => db.model(Lock)).toThrow(InvalidModel);
   });
 });
