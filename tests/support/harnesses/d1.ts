@@ -19,6 +19,7 @@ const schemas: Record<SchemaName, readonly URL[]> = {
   fixture,
   "generated-ids": [sqlite("generated-ids")],
   paginated: [...fixture, sqlite("paginated")],
+  uuids: [sqlite("uuids")],
 };
 
 export async function openD1Harness(schema: SchemaName): Promise<Harness> {

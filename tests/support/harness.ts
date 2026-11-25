@@ -14,7 +14,7 @@ const harnesses = {
 export type AdapterName = keyof typeof harnesses;
 
 /** A schema the suite's tests ask for by name; each harness has its own SQL for it. */
-export type SchemaName = "fixture" | "generated-ids" | "paginated";
+export type SchemaName = "fixture" | "generated-ids" | "paginated" | "uuids";
 
 /** How a test opens a Database on a harness. */
 interface ConnectOptions {

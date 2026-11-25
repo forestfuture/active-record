@@ -12,6 +12,7 @@ import { isTokenOnInitialize, tokenFor, type SecureTokenOptions } from "./secure
 
 export type AttributeType =
   | "string"
+  | "uuid"
   | "integer"
   | "real"
   | "decimal"
@@ -38,7 +39,7 @@ export interface SpecObject {
   default?: () => unknown;
   /**
    * Made by the Model's `generateId` when not given, where a default would run: an
-   * app-generated key (#99). Generated ids are strings, so only a string attribute has one.
+   * app-generated key (#99). Generated ids are strings, so only a string or a uuid attribute has one.
    */
   generateId?: boolean;
   /** Its only values, by name, and what each is stored as (#340). */
@@ -81,7 +82,7 @@ export interface SpecObject {
 /** How an enum's value is validated: `true`, or `{ allowNull: true }` to let it be null. */
 type EnumValidation = boolean | { readonly allowNull?: boolean };
 
-/** Where a string attribute's value comes from when it isn't given: a default or `generateId`, never both. */
+/** Where a string or uuid attribute's value comes from when it isn't given: a default or `generateId`, never both. */
 export type ValueSource =
   | { default?: () => unknown; generateId?: false }
   | { default?: never; generateId: true };
@@ -131,6 +132,13 @@ type SpecObjectByType =
     } & TokenOrReadonly &
       ValueSource &
       NoDigits)
+  | (Omit<SpecObject, "default" | PerTypeKeys> &
+      NoEnum &
+      NoDigits &
+      NoToken & {
+        type: "uuid";
+        storage?: never;
+      } & ValueSource)
   | (Omit<SpecObject, PerTypeKeys> &
       NoDigits &
       NoToken & {
@@ -143,7 +151,7 @@ type SpecObjectByType =
       NoEnum &
       NoDigits &
       NoToken & {
-        type: Exclude<AttributeType, "string" | "integer" | "datetime" | "decimal">;
+        type: Exclude<AttributeType, "string" | "uuid" | "integer" | "datetime" | "decimal">;
         generateId?: false;
         storage?: never;
       })
@@ -234,7 +242,7 @@ export interface AttributeDefinition {
 }
 
 /** The JavaScript value an attribute of a built-in type holds: a `Date` for a `datetime`. */
-export type BuiltInValue<T extends AttributeType> = T extends "string"
+export type BuiltInValue<T extends AttributeType> = T extends "string" | "uuid"
   ? string
   : T extends "integer" | "real"
     ? number

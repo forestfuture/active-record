@@ -12,6 +12,7 @@ import { isSecureTokenOption, secureTokenProblem } from "./secure-tokens.ts";
 /** Typed by `AttributeType`, so a new type is a compile error here until it's listed. */
 const typeNames = {
   string: true,
+  uuid: true,
   integer: true,
   real: true,
   decimal: true,
@@ -108,7 +109,7 @@ const rules: { readonly [K in SpecKey]: KeyRule } = {
   generateId: {
     isWellFormed: (value) => typeof value === "boolean",
     isGiven: (value) => value === true,
-    onlyFor: { types: ["string"], because: "generated ids are strings" },
+    onlyFor: { types: ["string", "uuid"], because: "generated ids are strings" },
     conflictsWith: ["default"],
     onRetype: "drop",
   },
