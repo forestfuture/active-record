@@ -114,39 +114,39 @@ describe("Getting started", () => {
   }
 
   test("POST signs up a user with a first post; a taken email is a 422 with its errors", async () => {
-    const created = await request("POST", { email: "Ada@Example.com" });
-    const again = await request("POST", { email: "ada@example.com" });
+    const created = await request("POST", { email: "Jane@Example.com" });
+    const again = await request("POST", { email: "jane@example.com" });
 
     expect(created.status).toBe(201);
-    expect(await created.json()).toMatchObject({ email: "ada@example.com", isActive: true });
+    expect(await created.json()).toMatchObject({ email: "jane@example.com", isActive: true });
     expect(again.status).toBe(422);
     expect(await again.json()).toEqual({ errors: ["Email has already been taken"] });
   });
 
   test("GET lists active users, newest first, each with their posts", async () => {
-    await request("POST", { email: "grace@example.com" });
+    await request("POST", { email: "sam@example.com" });
 
     const users = (await (await request("GET")).json()) as { email: string }[];
 
-    expect(users.map((user) => user.email)).toEqual(["grace@example.com", "ada@example.com"]);
+    expect(users.map((user) => user.email)).toEqual(["sam@example.com", "jane@example.com"]);
     // Associations aren't part of toJSON(), so the posts were preloaded but not serialized.
     const db = connect(binding);
-    const [grace] = await db
+    const [author] = await db
       .model(User)
-      .where({ email: "grace@example.com" })
+      .where({ email: "sam@example.com" })
       .includes("posts")
       .toArray();
-    expect(grace!.loaded("posts").map((post) => post.title)).toEqual(["Hello, world"]);
+    expect(author!.loaded("posts").map((post) => post.title)).toEqual(["Hello, world"]);
   });
 
   test("a batch publishes the drafts and destroys a user with their posts, atomically", async () => {
     const db = connect(binding);
     // Loaded as the example's statements are, on the current database, so they share a batch.
-    const ada = await User.findByOrThrow({ email: "ada@example.com" });
+    const user = await User.findByOrThrow({ email: "jane@example.com" });
 
-    await publishDraftsAndRemove(ada);
+    await publishDraftsAndRemove(user);
 
-    expect(await db.model(User).pluck("email")).toEqual(["grace@example.com"]);
+    expect(await db.model(User).pluck("email")).toEqual(["sam@example.com"]);
     expect(await db.model(Post).where({ publishedAt: null }).count()).toBe(0);
     expect(await db.model(Post).count()).toBe(1);
   });
@@ -286,23 +286,23 @@ describe("Multiple databases: each Model on its own binding", () => {
   const env = () => workers.env as Parameters<typeof several.replicas.fetch>[1];
 
   test("a request reads a user from DB and logs an entry on LOGS", async () => {
-    await db.prepare("INSERT INTO users VALUES (1, 'ada@example.com')").run();
-    const request = new Request("https://example.com/?email=ada@example.com");
+    await db.prepare("INSERT INTO users VALUES (1, 'jane@example.com')").run();
+    const request = new Request("https://example.com/?email=jane@example.com");
     const response = await several.default.fetch(request, env());
 
-    expect(await response.json()).toMatchObject({ email: "ada@example.com" });
-    expect(await messages()).toEqual([{ message: "ada@example.com signed in" }]);
+    expect(await response.json()).toMatchObject({ email: "jane@example.com" });
+    expect(await messages()).toEqual([{ message: "jane@example.com signed in" }]);
   });
 
   test("signUp writes the user first, so a refused user logs nothing", async () => {
-    await several.signUp("ada@example.com");
-    await expect(several.signUp("ada@example.com")).rejects.toThrow();
+    await several.signUp("jane@example.com");
+    await expect(several.signUp("jane@example.com")).rejects.toThrow();
 
-    expect(await messages()).toEqual([{ message: "ada@example.com signed up" }]);
+    expect(await messages()).toEqual([{ message: "jane@example.com signed up" }]);
   });
 
   test("a user's entries are read from LOGS", async () => {
-    await db.prepare("INSERT INTO users VALUES (1, 'ada@example.com')").run();
+    await db.prepare("INSERT INTO users VALUES (1, 'jane@example.com')").run();
     await logs
       .prepare("INSERT INTO entries (user_id, level, message) VALUES (1, 'error', 'failed')")
       .run();
@@ -313,18 +313,18 @@ describe("Multiple databases: each Model on its own binding", () => {
   });
 
   test("entries preload their users from DB", async () => {
-    await db.prepare("INSERT INTO users VALUES (1, 'ada@example.com')").run();
+    await db.prepare("INSERT INTO users VALUES (1, 'jane@example.com')").run();
     await logs
       .prepare("INSERT INTO entries (user_id, level, message) VALUES (1, 'info', 'hello')")
       .run();
 
     const [entry] = await several.entriesWithUsers();
 
-    expect(entry!.loaded("user")?.email).toBe("ada@example.com");
+    expect(entry!.loaded("user")?.email).toBe("jane@example.com");
   });
 
   test("an entry created through a user is written to LOGS with the user's key", async () => {
-    await db.prepare("INSERT INTO users VALUES (7, 'ada@example.com')").run();
+    await db.prepare("INSERT INTO users VALUES (7, 'jane@example.com')").run();
 
     await several.logFor(await several.User.find(7), "hello");
 
@@ -334,7 +334,7 @@ describe("Multiple databases: each Model on its own binding", () => {
   });
 
   test("a user saved with a built entry writes the entry to LOGS with its new key", async () => {
-    const user = await several.signUpWithEntry("ada@example.com");
+    const user = await several.signUpWithEntry("jane@example.com");
 
     expect((await logs.prepare("SELECT user_id FROM entries").all()).results).toEqual([
       { user_id: user.id },
@@ -342,7 +342,7 @@ describe("Multiple databases: each Model on its own binding", () => {
   });
 
   test("nested withSession calls carry each database's bookmark in its own cookie", async () => {
-    const request = new Request("https://example.com/?email=ada@example.com");
+    const request = new Request("https://example.com/?email=jane@example.com");
     const response = await several.replicas.fetch(request, env());
 
     expect(response.headers.getSetCookie()).toEqual([
@@ -350,8 +350,8 @@ describe("Multiple databases: each Model on its own binding", () => {
       expect.stringMatching(/^d1-bookmark=/),
     ]);
     expect((await db.prepare("SELECT email FROM users").all()).results).toEqual([
-      { email: "ada@example.com" },
+      { email: "jane@example.com" },
     ]);
-    expect(await messages()).toEqual([{ message: "ada@example.com signed up" }]);
+    expect(await messages()).toEqual([{ message: "jane@example.com signed up" }]);
   });
 });

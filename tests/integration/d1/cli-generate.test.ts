@@ -355,7 +355,7 @@ describe("generated files against D1", { timeout: 30_000 }, () => {
     const { Post } = await modelsIn(cwd, "src/models/post.ts");
     const db = connect(binding);
 
-    const user = await db.model(User).createOrThrow({ email: "ada@example.com" });
+    const user = await db.model(User).createOrThrow({ email: "jane@example.com" });
     const post = await db
       .model(Post)
       .createOrThrow({ userId: user.id, title: "Hello", meta: { tags: ["a"] } });
@@ -365,7 +365,7 @@ describe("generated files against D1", { timeout: 30_000 }, () => {
       false,
       0,
       { tags: ["a"] },
-      "ada@example.com",
+      "jane@example.com",
     ]);
   });
 

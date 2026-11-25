@@ -54,8 +54,8 @@ beforeAll(async () => {
   await connect(binding)
     .model(User)
     .insertAll([
-      { id: 1, email: "ada@example.com", role: "admin" },
-      { id: 2, email: "grace@example.com", role: "editor" },
+      { id: 1, email: "jane@example.com", role: "admin" },
+      { id: 2, email: "sam@example.com", role: "editor" },
     ]);
 });
 afterAll(() => dispose());
@@ -92,7 +92,7 @@ describe("the request cache (#218)", () => {
 
 describe("Product.find(id): a query started from a Model", () => {
   test("level 1: with no setup, a Model queries its binding", async () => {
-    expect((await User.find(1)).email).toBe("ada@example.com");
+    expect((await User.find(1)).email).toBe("jane@example.com");
     expect((await User.withRole("editor").first())?.id).toBe(2);
   });
 
@@ -113,7 +113,7 @@ describe("Product.find(id): a query started from a Model", () => {
       ),
     );
     expect((await withDatabase(connect(binding), () => Unbound.find(2))).email).toBe(
-      "grace@example.com",
+      "sam@example.com",
     );
   });
 
@@ -149,7 +149,7 @@ describe("Product.find(id): a query started from a Model", () => {
 describe("batch((b) => [...]): atomic writes on the current database", () => {
   test("statements and records from a Model's statics are written together, on its database", async () => {
     const events: QueryEvent[] = [];
-    const user = User.build({ id: 3, email: "linus@example.com", role: "guest" });
+    const user = User.build({ id: 3, email: "kim@example.com", role: "guest" });
 
     const [, saved] = await withDatabase(
       connect(binding, { onQuery: (event) => events.push(event) }),
