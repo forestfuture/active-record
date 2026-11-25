@@ -20,7 +20,9 @@ function orphans(comments, text) {
     if (isDocComment(comment)) {
       if (followsUnattached) found.push(unattached);
       unattached = comment;
-    } else if (!followsUnattached) unattached = null;
+    } else if (!followsUnattached) {
+      unattached = null;
+    }
     previousEnd = comment.range[1];
   }
   return found;
