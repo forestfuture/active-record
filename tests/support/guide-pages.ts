@@ -2,8 +2,9 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // The guide's pages as written: every Markdown or MDX file under site/docs but the generated
-// excerpts, named by their path there, such as `(basics)/models.mdx`. And the READMEs, at the
-// repository's root and each package's, named by their path from the root.
+// excerpts, named by their path there, such as `(basics)/models.mdx`. The READMEs, at the
+// repository's root and each package's, and the questions the guide is evaluated on, named by
+// their path from the root.
 
 const root = join(import.meta.dirname, "../..");
 const docs = join(root, "site/docs");
@@ -24,4 +25,9 @@ export function readmes(): GuidePage[] {
   return ["README.md", ...packages]
     .filter((name) => existsSync(join(root, name)))
     .map((name) => ({ name, text: readFileSync(join(root, name), "utf8") }));
+}
+
+export function evals(): GuidePage {
+  const name = "site/evals.yaml";
+  return { name, text: readFileSync(join(root, name), "utf8") };
 }
