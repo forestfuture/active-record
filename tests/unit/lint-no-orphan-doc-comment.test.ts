@@ -2,7 +2,7 @@ import noOrphanDocComment from "../../scripts/lint/no-orphan-doc-comment.mjs";
 import { ruleTester } from "../support/rule-tester.ts";
 
 // A doc comment sits directly above what it documents, so one followed by another documents
-// nothing (CODING_STANDARDS.md, Code; #534).
+// nothing (CODING_STANDARDS.md, Names and comments; #534).
 ruleTester.run("no-orphan-doc-comment", noOrphanDocComment, {
   valid: [
     "interface Row {\n  /** The id. */\n  id: number;\n  /** The name. */\n  name: string;\n}",

@@ -111,6 +111,8 @@ export default defineConfig({
       // A predicate starts with 'is' or 'has', where its return type is written (#380) or its body
       // answers yes or no (#525).
       "arbor/predicate-name": "error",
+      // A doc comment sits directly above what it documents, not above another doc comment (#534).
+      "arbor/no-orphan-doc-comment": "error",
     },
     jsPlugins: ["./scripts/lint/plugin.mjs", "eslint-plugin-regexp"],
     overrides: [
