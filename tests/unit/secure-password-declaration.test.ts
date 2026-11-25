@@ -171,7 +171,7 @@ describe("a secure password spec's type", () => {
     expectTypeOf(db.model(Lock).build({ pin: "1234" }).pin).toEqualTypeOf<string | null>();
   });
 
-  test("gives a typed spec no confirmation or challenge, as only a declaration has them", () => {
+  test("has no confirmation or challenge, which only a declaration gives", () => {
     class Lock extends Model.define({
       id: { type: "integer", null: false },
       pin: { type: "string", virtual: true, securePassword: true },
