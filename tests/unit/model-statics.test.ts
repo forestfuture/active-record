@@ -24,7 +24,7 @@ class Admin extends User {
 
 describe("Relation methods as a Model's statics", () => {
   test("they build Relations without a database, as Relations always do: nothing runs until awaited", () => {
-    const relation = User.where({ email: "ada@example.com" }).order({ id: "desc" }).limit(2);
+    const relation = User.where({ email: "jane@example.com" }).order({ id: "desc" }).limit(2);
 
     expect(relation).toBeInstanceOf(Relation);
     expect(User.build({ email: "x@example.com" }).email).toBe("x@example.com");
@@ -132,7 +132,7 @@ describe("none() with no database", () => {
     expect(await none.first()).toBeNull();
     expect(await none.last()).toBeNull();
     expect(await none.take()).toBeNull();
-    expect(await none.findBy({ email: "ada@example.com" })).toBeNull();
+    expect(await none.findBy({ email: "jane@example.com" })).toBeNull();
     expect(await none.count()).toBe(0);
     expect(await none.exists()).toBe(false);
     await expect(none.find(1)).rejects.toThrow("User with id 1 not found");
@@ -161,10 +161,10 @@ describe("none() with no database", () => {
     const none = User.where({ age: 30 }).none().order({ id: "desc" });
 
     expect(await none.pluck("email")).toEqual([]);
-    expect(await none.exists({ email: "ada@example.com" })).toBe(false);
+    expect(await none.exists({ email: "jane@example.com" })).toBe(false);
     expect([await none.size(), await none.isEmpty()]).toEqual([0, true]);
     await expect(none.find(1, 2)).rejects.toThrow("Couldn't find all User records");
-    expect(await none.where({ email: "ada@example.com" }).findBy({ age: 30 })).toBeNull();
+    expect(await none.where({ email: "jane@example.com" }).findBy({ age: 30 })).toBeNull();
     expect([await none.updateAll({ age: 31 }), await none.deleteAll()]).toEqual([0, 0]);
   });
 });

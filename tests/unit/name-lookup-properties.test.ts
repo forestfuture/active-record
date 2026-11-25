@@ -8,7 +8,7 @@ import { PURE_RUNS } from "../support/properties.ts";
 
 // No D1 needed: these calls check their names before they query.
 const users = connect({} as never).model(User);
-const user = users.build({ id: 1, email: "ada@example.com" });
+const user = users.build({ id: 1, email: "jane@example.com" });
 
 // The fixture User's attributes and associations.
 const own = new Set([...Object.keys(userAttributes), "posts", "profile"]);
