@@ -134,7 +134,7 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     ]);
   });
 
-  test("with arbor.jsonc on PostgreSQL, the schema regenerates from Postgres migrations, its adapter and its UUID keys' type all that changes", async () => {
+  test("with arbor.jsonc on PostgreSQL, the schema regenerates from Postgres migrations, with only its adapter and its UUID columns' type changed", async () => {
     const onD1Schema = readFileSync(join(cwd, "src/db/schema.ts"), "utf8");
     packageJson(cwd, ["pg"]);
     writeFileSync(
