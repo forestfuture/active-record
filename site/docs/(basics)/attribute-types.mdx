@@ -88,15 +88,15 @@ To do arithmetic with decimals, wrap a decimal library in a [custom type](./cust
 
 ## Storing UUIDs
 
-A `uuid` attribute finds nothing for an id that isn’t a UUID, so a mistyped or tampered id from a URL is a not-found:
+Looking a record up by an id that isn’t a UUID finds nothing, so a mistyped or tampered id from a URL is a not-found:
 
 <include>/_excerpts/pages/attribute-types/examples/uuids.mdx</include>
 
 - A UUID is held lowercase with hyphens, whichever form it’s given in, so `"{0B6F8A1E-3C2D-4E5F-9A7B-1C2D3E4F5A6B}"` is held as `"0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b"`.
-- `arbor schema` gives a Postgres `UUID` column a `uuid` attribute, and a `UUID` key the UUIDs `generateId` makes.
+- `arbor schema` gives a Postgres `UUID` column a `uuid` attribute. A `UUID` key gets its value from `generateId`, which makes UUIDs.
 
 :::note
-D1 has no UUID type, so a D1 key is a `string`, and an id that isn’t one of its keys finds nothing there too. To hold a D1 key in one form, [override](./models#overriding-attributes) it: `id: { type: "uuid", null: false, generateId: true }`. Its stored keys must then be lowercase with hyphens, as `generateId` makes them.
+D1 has no UUID type, so a D1 key is a `string`, and an id that isn’t one of its keys finds nothing there too. To treat a D1 key as a UUID, [override](./models#overriding-attributes) it: `id: { type: "uuid", null: false, generateId: true }`. Its stored keys must be lowercase with hyphens, as `generateId` makes them, or reading them fails.
 :::
 
 ## Casting assigned values
