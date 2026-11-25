@@ -45,6 +45,13 @@ describe("an upsert matching on another index keeps a clashing row's primary key
     expect(rows).toEqual([{ id: 1 }]);
     expect(await stored()).toEqual([{ id: 1, email: "a@example.com", role: "admin", age: 31 }]);
   });
+
+  test("leaves the row alone, uncounted and unreturned, when the primary key is all it would update", async () => {
+    const result = await users().upsert({ id: 99, email: "a@example.com" }, { uniqueBy: "email" });
+
+    expect(result).toEqual({ rowsAffected: 0, rows: [] });
+    expect(await stored()).toEqual([{ id: 1, email: "a@example.com", role: "member", age: 30 }]);
+  });
 });
 
 describe("an upsert matching on another index refuses to update the primary key (#533)", () => {
