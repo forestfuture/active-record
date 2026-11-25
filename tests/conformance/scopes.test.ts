@@ -65,7 +65,7 @@ describe("scopes", () => {
   test("a scope computes its values when it's called, not when the class was defined", async () => {
     const queries: QueryEvent[] = [];
     const users = harness.connect({ onQuery: (event) => queries.push(event) }).model(User);
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ["Date"] });
 
     vi.setSystemTime(new Date(Date.UTC(2026, 3, 2)));
     const aprilWeek = await users.createdWithinDays(7).toArray();
