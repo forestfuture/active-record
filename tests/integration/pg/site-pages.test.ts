@@ -1636,10 +1636,17 @@ describe("the Read-only records page's examples, on Postgres", () => {
 });
 
 describe("the standalone pages' Postgres tables", { timeout: 60_000 }, () => {
+  // But for a UUID column, a uuid attribute (#507), where D1's TEXT column is a string.
   test.each(standalonePages)("%s's generate the attributes its D1 tables do", async (page) => {
     const cwd = await onPostgres(page, true);
+    const asOnD1 = Object.fromEntries(
+      Object.entries(generatedAttributes(cwd)).map(([table, lines]) => [
+        table,
+        lines.map((line) => line.replace(': "uuid"', ': "string"')),
+      ]),
+    );
 
-    expect(generatedAttributes(cwd)).toEqual(generatedAttributes(pageProject(page).pathname));
+    expect(asOnD1).toEqual(generatedAttributes(pageProject(page).pathname));
   });
 });
 

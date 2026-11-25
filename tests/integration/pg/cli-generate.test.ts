@@ -52,7 +52,7 @@ describe("the generators, on Postgres", pgliteTimeout, () => {
       /^CREATE TABLE products \(\n {2}id UUID PRIMARY KEY,\n {2}name TEXT NOT NULL,/,
     );
     expect(read(cwd, "src/db/schema.ts")).toContain(
-      'id: { type: "string", null: false, generateId: true },',
+      'id: { type: "uuid", null: false, generateId: true },',
     );
   });
 

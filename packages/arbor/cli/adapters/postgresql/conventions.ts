@@ -30,11 +30,12 @@ const attributeTypes: Readonly<Record<string, AttributeType>> = {
   json: "json",
   jsonb: "json",
   bytea: "binary",
+  // Text that isn't a UUID then matches nothing, where Postgres would refuse it (#507).
+  uuid: "uuid",
   text: "string",
   varchar: "string",
   bpchar: "string",
   citext: "string",
-  uuid: "string",
   name: "string",
 };
 
@@ -111,10 +112,10 @@ function specOf(column: Column, type: AttributeType, attribute: string): Spec {
   const spec: Spec = withDigits({ type }, column.precision, column.scale);
   if (column.notNull || column.primaryKey) spec.null = false;
   if (underscore(attribute) !== column.name) spec.column = column.name;
-  // A key's own literal default wins; any other string key is made in code (ADR-0013).
+  // A key's own literal default wins; any other string or uuid key is made in code (ADR-0013).
   const defaultValue = literalDefault(column.defaultValue, spec);
   if (defaultValue !== undefined) spec.default = defaultValue;
-  else if (column.primaryKey && type === "string") spec.generateId = true;
+  else if (column.primaryKey && (type === "string" || type === "uuid")) spec.generateId = true;
   return withGeneratedEnum(spec, column.restrictedTo);
 }
 

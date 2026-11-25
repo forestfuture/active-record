@@ -218,7 +218,7 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
     expect(tables[0]!.attributes["s"]).toMatchObject({ enum: ["a  b", "c (d)"] });
   });
 
-  test("a string key is made in code, unless it has a literal default; tables are alphabetical", async () => {
+  test("a string or uuid key is made in code, unless it has a literal default; tables are alphabetical", async () => {
     const { tables } = await tablesOf({
       "1_create.sql": `
         CREATE TABLE posts (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), title TEXT);
@@ -227,10 +227,7 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
 
     expect(tables.map((table) => [table.name, table.attributes])).toEqual([
       ["codes", { code: { type: "string", null: false, default: { literal: "none" } } }],
-      [
-        "posts",
-        { id: { type: "string", null: false, generateId: true }, title: { type: "string" } },
-      ],
+      ["posts", { id: { type: "uuid", null: false, generateId: true }, title: { type: "string" } }],
     ]);
   });
 
@@ -307,8 +304,30 @@ describe("Postgres's schema, from its migrations on PGlite", pgliteTimeout, () =
     });
 
     expect(tables[0]!.attributes).toEqual({
-      id: { type: "string", null: false, generateId: true },
+      id: { type: "uuid", null: false, generateId: true },
       email: { type: "string", null: false },
+    });
+  });
+
+  // A uuid column holds only UUIDs, so text that isn't one matches nothing, where a string
+  // attribute would send it to Postgres, which refuses it (#507).
+  test("a uuid column is a uuid attribute, its literal default in its one form", async () => {
+    const { tables } = await tablesOf({
+      "1_create.sql": `
+        CREATE DOMAIN device_key AS UUID;
+        CREATE TABLE devices (
+          id BIGINT PRIMARY KEY,
+          owner_id UUID NOT NULL,
+          spare_key device_key,
+          fallback_id UUID DEFAULT '{0B6F8A1E-3C2D-4E5F-9A7B-1C2D3E4F5A6B}'
+        );`,
+    });
+
+    expect(tables[0]!.attributes).toEqual({
+      id: { type: "integer", null: false },
+      ownerId: { type: "uuid", null: false },
+      spareKey: { type: "uuid" },
+      fallbackId: { type: "uuid", default: { literal: "0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b" } },
     });
   });
 

@@ -134,7 +134,7 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     ]);
   });
 
-  test("with arbor.jsonc on PostgreSQL, the schema regenerates from Postgres migrations, its adapter all that changes", async () => {
+  test("with arbor.jsonc on PostgreSQL, the schema regenerates from Postgres migrations, its adapter and its UUID keys' type all that changes", async () => {
     const onD1Schema = readFileSync(join(cwd, "src/db/schema.ts"), "utf8");
     packageJson(cwd, ["pg"]);
     writeFileSync(
@@ -154,9 +154,15 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
           'import { d1 } from "@forestfuture/arbor/d1";',
           'import { postgresql } from "@forestfuture/arbor/postgresql";',
         )
+        .replace('adapter: d1({ binding: "DB" })', 'adapter: postgresql({ binding: "HYPERDRIVE" })')
+        // A UUID column is a uuid attribute (#507), where D1's TEXT key is a string.
+        .replaceAll(
+          'id: { type: "string", null: false, generateId: true }',
+          'id: { type: "uuid", null: false, generateId: true }',
+        )
         .replace(
-          'adapter: d1({ binding: "DB" })',
-          'adapter: postgresql({ binding: "HYPERDRIVE" })',
+          'userId: { type: "string", null: false }',
+          'userId: { type: "uuid", null: false }',
         ),
     );
   });
