@@ -77,6 +77,14 @@ describe("links between a uuid and a text key", () => {
     expect(await db().model(Reading).joins("device").pluck("id")).toEqual([1]);
   });
 
+  test("a belongsTo preload finds no uuid key for a text foreign key holding it in capitals", async () => {
+    await db().model(Reading).insert({ id: 1, deviceId: phoneId.toUpperCase() });
+
+    const [reading] = await db().model(Reading).includes("device").toArray();
+
+    expect(reading!.loaded("device")).toBeNull();
+  });
+
   test("a text foreign key that isn't a UUID finds nothing, without an error", async () => {
     await db().model(Reading).insert({ id: 1, deviceId: "lamp" });
 
