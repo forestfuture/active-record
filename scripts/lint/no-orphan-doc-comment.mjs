@@ -8,7 +8,7 @@ function isDocComment(comment) {
 
 /**
  * The doc comments followed by another doc comment, with nothing between them but whitespace and
- * `//` comments: each documents nothing, since the next one sits above the member it was meant for.
+ * other comments: each documents nothing, since the next one sits above the member it was meant for.
  */
 function orphans(comments, text) {
   const found = [];
@@ -17,9 +17,10 @@ function orphans(comments, text) {
   for (const comment of comments) {
     const isAdjacent = text.slice(previousEnd, comment.range[0]).trim() === "";
     const followsUnattached = unattached !== null && isAdjacent;
-    if (followsUnattached && isDocComment(comment)) found.push(unattached);
-    const staysUnattached = followsUnattached && comment.type === "Line";
-    if (!staysUnattached) unattached = isDocComment(comment) ? comment : null;
+    if (isDocComment(comment)) {
+      if (followsUnattached) found.push(unattached);
+      unattached = comment;
+    } else if (!followsUnattached) unattached = null;
     previousEnd = comment.range[1];
   }
   return found;
