@@ -16,8 +16,9 @@ function orphans(comments, text) {
   let previousEnd = 0;
   for (const comment of comments) {
     const isAdjacent = text.slice(previousEnd, comment.range[0]).trim() === "";
-    if (pending !== null && isAdjacent && isDocComment(comment)) found.push(pending);
-    const keepsPending = pending !== null && isAdjacent && comment.type === "Line";
+    const followsPending = pending !== null && isAdjacent;
+    if (followsPending && isDocComment(comment)) found.push(pending);
+    const keepsPending = followsPending && comment.type === "Line";
     if (!keepsPending) pending = isDocComment(comment) ? comment : null;
     previousEnd = comment.range[1];
   }
