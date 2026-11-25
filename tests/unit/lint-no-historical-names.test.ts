@@ -55,6 +55,11 @@ ruleTester.run("no-historical-names", noHistoricalNames, {
       errors: [{ messageId: "historical", data: { name: "hedy" } }],
     },
     {
+      name: "a variable once, however often it's used",
+      code: "const hedy = 1;\nconsole.log(hedy, hedy);",
+      errors: [{ messageId: "historical", data: { name: "hedy" }, line: 1 }],
+    },
+    {
       name: "a name starting a camel-case variable",
       code: "const adaPosts = [];",
       errors: [{ messageId: "historical", data: { name: "ada" } }],
