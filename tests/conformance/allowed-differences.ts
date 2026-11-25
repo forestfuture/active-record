@@ -136,6 +136,18 @@ export const allowedDifferences: readonly AllowedDifference[] = [
       "typeForAttribute against the database: a raw statement and a save agree (#148) > serialize gives what a save writes, for every type",
     ],
   },
+  {
+    id: "uuid-text-links",
+    adapters: ["pg"],
+    reason:
+      "Postgres compares no uuid with text, so text linked to a UUID key is cast to the UUID " +
+      "it holds, in any form Postgres reads (capitals, braces, no hyphens), as a condition on " +
+      "the uuid finds it. D1 compares the text exactly, so only the UUID's own form links.",
+    contract: "links to a `string` key as text does on D1",
+    tests: [
+      "links between a uuid and a text key > a belongsTo preload finds no uuid key for a text foreign key holding it in capitals",
+    ],
+  },
 ];
 
 /** Whether `adapter` keeps its database's own semantics for the difference named `id`. */
