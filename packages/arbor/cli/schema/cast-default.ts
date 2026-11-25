@@ -1,8 +1,8 @@
-// A column's literal default as a decimal, a date or a time holds it (#391): cast as an assigned value is, a decimal's with its precision and scale (#398), so it's in the type's one form.
+// A column's literal default as a decimal, a date, a time (#391) or a uuid (#507) holds it: cast as an assigned value is, a decimal's with its precision and scale (#398), so it's in the type's one form.
 import { castValue, uncastable } from "../../src/conversion.ts";
 import type { DecimalDigits } from "../../src/decimal-values.ts";
 
-const castDefaultTypes = ["decimal", "date", "time"] as const;
+const castDefaultTypes = ["decimal", "date", "time", "uuid"] as const;
 
 /** The attribute types whose literal default is cast as an assigned value is. */
 export type CastDefaultType = (typeof castDefaultTypes)[number];

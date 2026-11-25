@@ -56,9 +56,9 @@ export class Attribute {
     return columnOf(this.#model, this.name).column;
   }
 
-  /** Whether it's a `string` attribute, which D1 compares as text, not by number. */
+  /** Whether it's a `string` or `uuid` attribute (#507), which D1 compares as text, not by number. */
   get isText(): boolean {
-    return this.#definition.type === "string";
+    return this.#definition.type === "string" || this.#definition.type === "uuid";
   }
 
   /** Whether it's a `binary` attribute, whose cells are bytes, which JSON can't hold (#20). */

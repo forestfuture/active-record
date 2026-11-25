@@ -18,6 +18,7 @@ const schemas: Record<SchemaName, readonly URL[]> = {
   fixture,
   "generated-ids": [postgres("generated-ids")],
   paginated: [...fixture, postgres("paginated")],
+  uuids: [postgres("uuids")],
 };
 
 /** `?` placeholders as Postgres's `$1`, `$2`, …, leaving quoted text and identifiers alone. */
