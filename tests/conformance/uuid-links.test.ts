@@ -1,0 +1,46 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
+import { belongsTo, hasMany, Model } from "../../packages/arbor/src/index.ts";
+import { openHarness, type Harness } from "../support/harness.ts";
+
+const phoneId = "0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b";
+
+// A UUID key (a UUID column on Postgres) and a text foreign key pointing at it.
+class Device extends Model.define({ id: { type: "uuid", null: false }, name: "string" }) {
+  static table = "devices";
+
+  readings = hasMany(Reading);
+}
+
+class Reading extends Model.define({
+  id: { type: "integer", null: false },
+  deviceId: "string",
+  level: "integer",
+}) {
+  static table = "readings";
+
+  device = belongsTo(Device);
+}
+
+// Links between a UUID and a text key compare them as a condition on the linked attribute would
+// (#563): Postgres compares no uuid with text.
+describe("links between a uuid and a text key", () => {
+  let harness: Harness;
+  const db = () => harness.connect();
+
+  beforeAll(async () => {
+    harness = await openHarness({ schema: "uuids" });
+  });
+  afterAll(() => harness.dispose());
+  beforeEach(async () => {
+    await harness.reset("devices", "readings");
+    await harness.exec("INSERT INTO devices (id, name) VALUES (?, ?)", [phoneId, "phone"]);
+  });
+
+  test("a belongsTo preload finds the uuid key a text foreign key holds", async () => {
+    await db().model(Reading).insert({ id: 1, deviceId: phoneId });
+
+    const [reading] = await db().model(Reading).includes("device").toArray();
+
+    expect(reading!.loaded("device")?.name).toBe("phone");
+  });
+});

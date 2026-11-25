@@ -61,6 +61,11 @@ export class Attribute {
     return this.#definition.type === "string" || this.#definition.type === "uuid";
   }
 
+  /** Whether it's a `uuid` attribute (#507), a `UUID` column on Postgres, which compares no uuid with text. */
+  get isUuid(): boolean {
+    return this.#definition.type === "uuid";
+  }
+
   /** Whether it's a `binary` attribute, whose cells are bytes, which JSON can't hold (#20). */
   get isBinary(): boolean {
     return this.#definition.type === "binary";
