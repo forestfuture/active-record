@@ -1,5 +1,14 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { Model, RecordNotFound } from "../../packages/arbor/src/index.ts";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  expectTypeOf,
+  test,
+} from "vite-plus/test";
+import { Model, RecordNotFound, type TableAttributes } from "../../packages/arbor/src/index.ts";
+import { d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 /** A value the property's type doesn't name, as one from a request would arrive. */
@@ -11,6 +20,36 @@ class Device extends Model.define({
   id: { type: "uuid", null: false, generateId: true },
   name: "string",
 }) {}
+
+// A generated schema, as `arbor schema` writes it from D1's TEXT key.
+const schema = {
+  adapter: d1({ binding: "DB" }),
+  tables: {
+    devices: {
+      attributes: { id: { type: "string", null: false, generateId: true }, name: "string" },
+      primaryKey: "id",
+    },
+  },
+  models: { Gadget: "devices" },
+} as const;
+
+abstract class ApplicationRecord extends Model {
+  static override schema = schema;
+}
+
+// What `arbor schema` declares for the Model, which merges with its class.
+// oxlint-disable-next-line typescript/no-unsafe-declaration-merging -- the generated declaration
+interface Gadget extends TableAttributes<
+  typeof schema.tables.devices.attributes,
+  (typeof Gadget)["attributes"]
+> {}
+
+// A D1 TEXT key overridden as a uuid, keeping its id made in code.
+// oxlint-disable-next-line typescript/no-unsafe-declaration-merging -- the generated declaration
+class Gadget extends ApplicationRecord {
+  static override table = "devices";
+  static override attributes = { id: { type: "uuid", null: false, generateId: true } } as const;
+}
 
 describe("uuid attributes", () => {
   let harness: Harness;
@@ -86,6 +125,15 @@ describe("uuid attributes", () => {
         new TypeError(`Device: ${shown} isn't a UUID for "id"`),
       );
     });
+  });
+
+  test("a generated text key overridden as a uuid is one, its id still made in code", async () => {
+    expectTypeOf<Gadget["id"]>().toEqualTypeOf<string>();
+    const gadgets = harness.connect().model(Gadget);
+
+    expect(gadgets.build().id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-/);
+    await expect(gadgets.find("ada")).rejects.toThrow(RecordNotFound);
+    expect((await gadgets.find(known.toUpperCase())).name).toBe("phone");
   });
 
   test("a UUID finds its record", async () => {
