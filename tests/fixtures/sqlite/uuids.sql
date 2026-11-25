@@ -4,9 +4,12 @@ CREATE TABLE devices (
   name TEXT
 );
 
--- A text foreign key (device_id) and an integer one (level), each pointing at a UUID key (#563).
+-- A text foreign key (device_id), an integer one (level) and a polymorphic one (subject_type,
+-- subject_id), each pointing at a UUID key (#563).
 CREATE TABLE readings (
   id INTEGER PRIMARY KEY,
   device_id TEXT,
-  level INTEGER
+  level INTEGER,
+  subject_type TEXT,
+  subject_id TEXT
 );
