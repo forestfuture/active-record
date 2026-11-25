@@ -124,7 +124,7 @@ describe("uuid attributes", () => {
       expect(names).toEqual(["tablet", "phone"]);
     });
 
-    test("a comparison compares them as text, in any form given", async () => {
+    test("gt takes a UUID in another form, and compares in its one form", async () => {
       const names = await devices()
         .where({ id: gt(phoneId.toUpperCase()) })
         .pluck("name");
