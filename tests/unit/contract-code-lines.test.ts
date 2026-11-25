@@ -35,4 +35,18 @@ describe("the contract's Code lines", () => {
 
     expect(unnamed).toEqual([]);
   });
+
+  test("name only modules that exist", () => {
+    const stale = named.filter((path) => !modules.some((module) => isNamedBy(module, path)));
+
+    expect(stale).toEqual([]);
+  });
+
+  test("leave out only modules that exist and no Code line names", () => {
+    const stale = Object.keys(noBehaviorSection).filter(
+      (module) => !modules.includes(module) || named.some((path) => isNamedBy(module, path)),
+    );
+
+    expect(stale).toEqual([]);
+  });
 });
