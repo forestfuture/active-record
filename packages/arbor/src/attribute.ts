@@ -375,6 +375,7 @@ const SHOWN_LENGTH = 60;
 
 /** What a value of an attribute type is called in a refusal, where `a`/`an` and its name isn't it. */
 const valueNames: Partial<Record<AttributeType, string>> = {
+  uuid: "a UUID",
   json: "a JSON value",
   binary: "binary data",
 };

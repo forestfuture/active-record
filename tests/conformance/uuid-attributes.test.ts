@@ -2,6 +2,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-pl
 import { Model, RecordNotFound } from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
+/** A value the property's type doesn't name, as one from a request would arrive. */
+const untyped = (value: unknown) => value as never;
+
 const known = "0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b";
 
 class Device extends Model.define({
@@ -27,6 +30,61 @@ describe("uuid attributes", () => {
     test("find throws RecordNotFound", async () => {
       await expect(devices().find("ada")).rejects.toThrow(RecordNotFound);
       await expect(devices().find(["ada", known])).rejects.toThrow(RecordNotFound);
+    });
+
+    test("findBy resolves to null", async () => {
+      expect(await devices().findBy({ id: "ada" })).toBeNull();
+      expect(await devices().findBy({ id: untyped(7) })).toBeNull();
+    });
+
+    test("a list leaves it out, and the rest still match", async () => {
+      const found = await devices()
+        .where({ id: ["ada", known] })
+        .toArray();
+
+      expect(found.map(({ name }) => name)).toEqual(["phone"]);
+    });
+
+    test("whereNot with it excludes nothing", async () => {
+      expect(await devices().whereNot({ id: "ada" }).count()).toBe(1);
+    });
+  });
+
+  describe("one form", () => {
+    test.each([
+      ["capitals", known.toUpperCase()],
+      ["braces", `{${known}}`],
+      ["no hyphens", known.replaceAll("-", "")],
+      ["a hyphen after every four digits", "0b6f-8a1e-3c2d-4e5f-9a7b-1c2d-3e4f-5a6b"],
+    ])("a UUID in %s is held lowercase with hyphens", (_, given) => {
+      expect(Device.build({ id: given }).id).toBe(known);
+    });
+
+    test("a condition in another form finds the record", async () => {
+      expect((await devices().findBy({ id: `{${known.toUpperCase()}}` }))?.name).toBe("phone");
+    });
+
+    test("assigning another form of the value it holds isn't a change", async () => {
+      const device = await devices().find(known);
+
+      device.id = known.toUpperCase();
+
+      expect(device.changed()).toEqual([]);
+    });
+  });
+
+  describe("assigning", () => {
+    test.each([
+      ["a name", "ada", '"ada"'],
+      ["a UUID one digit short", known.slice(0, -1), `"${known.slice(0, -1)}"`],
+      ["a UUID with a hyphen at its end", `${known}-`, `"${known}-"`],
+      ["one brace", `{${known}`, `"{${known}"`],
+      ["spaces", ` ${known}`, `" ${known}"`],
+      ["a number", 7, "7"],
+    ])("%s is a TypeError", (_, value, shown) => {
+      expect(() => Device.build({ id: untyped(value) })).toThrow(
+        new TypeError(`Device: ${shown} isn't a UUID for "id"`),
+      );
     });
   });
 
