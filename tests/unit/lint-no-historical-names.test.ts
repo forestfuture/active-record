@@ -60,6 +60,22 @@ ruleTester.run("no-historical-names", noHistoricalNames, {
       errors: [{ messageId: "historical", data: { name: "hedy" }, line: 1 }],
     },
     {
+      name: "each variable of the same name, in its own test",
+      code: 'test("a", () => { const hedy = 1; });\ntest("b", () => { const hedy = 2; });',
+      errors: [
+        { messageId: "historical", data: { name: "hedy" }, line: 1 },
+        { messageId: "historical", data: { name: "hedy" }, line: 2 },
+      ],
+    },
+    {
+      name: "a variable named like a property read before it",
+      code: "console.log(user.hedy);\nconst hedy = 1;",
+      errors: [
+        { messageId: "historical", data: { name: "hedy" }, line: 1 },
+        { messageId: "historical", data: { name: "hedy" }, line: 2 },
+      ],
+    },
+    {
       name: "a name starting a camel-case variable",
       code: "const adaPosts = [];",
       errors: [{ messageId: "historical", data: { name: "ada" } }],
