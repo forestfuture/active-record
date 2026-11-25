@@ -14,6 +14,12 @@ const uuidPattern = literal(`^(?:\\{${uuidText}\\}|${uuidText})$`);
 /** Text that's an integer, as a condition casts one: digits, a sign, and spaces around them. */
 const integerPattern = literal("^\\s*[+-]?[0-9]+\\s*$");
 
+/**
+ * Whether `text` matches `pattern`, under C's collation: a collation that ignores case runs no
+ * regular expression (#563). Only the test takes it, so a selected key keeps its column's.
+ */
+const matches = (text: string, pattern: string) => `${text} COLLATE "C" ~ ${pattern}`;
+
 /** How Postgres compares an attribute's values: as a uuid, as text, or as a number. */
 const kindOf = ({ isUuid, isText }: Attribute) => (isUuid ? "uuid" : isText ? "text" : "number");
 
@@ -85,11 +91,11 @@ export const postgres: Dialect = {
     const text = `CAST(${key} AS TEXT)`;
     switch (kind) {
       case "uuid":
-        return `CASE WHEN ${text} ~ ${uuidPattern} THEN CAST(${text} AS UUID) END`;
+        return `CASE WHEN ${matches(text, uuidPattern)} THEN CAST(${text} AS UUID) END`;
       case "text":
         return text;
       case "number":
-        return `CASE WHEN ${text} ~ ${integerPattern} THEN CAST(${text} AS NUMERIC) END`;
+        return `CASE WHEN ${matches(text, integerPattern)} THEN CAST(${text} AS NUMERIC) END`;
     }
   },
   /**
