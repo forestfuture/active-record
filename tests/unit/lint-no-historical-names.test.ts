@@ -65,6 +65,16 @@ ruleTester.run("no-historical-names", noHistoricalNames, {
       errors: [{ messageId: "historical", data: { name: "Edsger" } }],
     },
     {
+      name: "a name in capitals starting a camel-case variable",
+      code: "const ADAUser = 1;",
+      errors: [{ messageId: "historical", data: { name: "ADA" } }],
+    },
+    {
+      name: "a name after an acronym in a camel-case variable",
+      code: "const XMLHopper = 1;",
+      errors: [{ messageId: "historical", data: { name: "Hopper" } }],
+    },
+    {
       name: "a name in capitals",
       code: 'const name = "ALAN";',
       errors: [{ messageId: "historical", data: { name: "ALAN" } }],
