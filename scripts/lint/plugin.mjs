@@ -3,6 +3,7 @@ import { definePlugin } from "vite-plus/lint/plugins";
 import disableReason from "./disable-reason.mjs";
 import moduleHeader from "./module-header.mjs";
 import noFixedDelay from "./no-fixed-delay.mjs";
+import noOrphanDocComment from "./no-orphan-doc-comment.mjs";
 import noSqlText from "./no-sql-text.mjs";
 import oneModelPerTest from "./one-model-per-test.mjs";
 import predicateName from "./predicate-name.mjs";
@@ -16,6 +17,7 @@ export default definePlugin({
     "disable-reason": disableReason,
     "module-header": moduleHeader,
     "no-fixed-delay": noFixedDelay,
+    "no-orphan-doc-comment": noOrphanDocComment,
     "no-sql-text": noSqlText,
     "one-model-per-test": oneModelPerTest,
     "predicate-name": predicateName,
