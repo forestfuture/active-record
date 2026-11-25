@@ -39,9 +39,12 @@ describe("a uuid attribute's cells on D1", () => {
     );
   });
 
-  test("a UUID stored lowercase with hyphens reads as it is", async () => {
-    await insert(phoneId);
+  test("pluck refuses a UUID stored in capitals", async () => {
+    const stored = phoneId.toUpperCase();
+    await insert(stored);
 
-    expect((await devices().find(phoneId)).name).toBe("phone");
+    await expect(devices().pluck("id")).rejects.toThrow(
+      new TypeError(`Device: "${stored}" isn't a UUID for "id"`),
+    );
   });
 });
