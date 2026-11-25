@@ -1,4 +1,4 @@
-// A value the type it's passed as doesn't name, as one from a request or untyped code would arrive (#565).
+// Passing a value its type doesn't allow, for the conformance tests (#565).
 
-/** Passes `value` where its type isn't allowed, as JSON, a form or a query string can. */
+/** `value` as any type, as JSON, a form, a query string or untyped code can send it. */
 export const untyped = (value: unknown) => value as never;
