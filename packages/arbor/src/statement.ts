@@ -191,8 +191,11 @@ export function insertStatement<Row>(
     throw new TypeError(`${method}(): nothing to insert; give each row at least one attribute`);
   }
   const values = assigned.map((row) => names.map((name) => row.get(name)));
-  // A clashing row keeps its read-only attributes' values, which it was created with (#358).
-  const updated = given.filter((name) => model.attributeDefinitions.get(name)?.readonly !== true);
+  // A clashing row keeps its read-only attributes' values, which it was created with (#358),
+  // and its primary key, when the upsert matches on another index (#533).
+  const updated = given.filter(
+    (name) => name !== model.primaryKey && model.attributeDefinitions.get(name)?.readonly !== true,
+  );
   const resolved =
     conflict?.kind === "update" ? resolvedUpdate(conflict, { updated, names, method }) : conflict;
   const compiled = compileInsertRows(executor.dialect, model, {
