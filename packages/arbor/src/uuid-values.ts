@@ -24,14 +24,11 @@ export function castUuid(value: unknown): unknown {
   return inner.replaceAll("-", "").toLowerCase().replace(groups, "$1-$2-$3-$4-$5");
 }
 
-/** A UUID in its one form: lowercase hex digits, with hyphens after the 8th, 12th, 16th and 20th. */
-const canonicalText = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
 /**
  * A stored cell, only in its one form, as Postgres returns a `uuid`; any other is `uncastable`.
  * A D1 TEXT key in capitals would otherwise be held in lowercase, and its record's writes, which
  * find their row by the key held, would miss it, since D1 compares text exactly.
  */
 export function readUuid(value: unknown): unknown {
-  return typeof value === "string" && canonicalText.test(value) ? value : uncastable;
+  return castUuid(value) === value ? value : uncastable;
 }
