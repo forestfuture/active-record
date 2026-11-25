@@ -17,7 +17,7 @@ const modules = ["arbor/src", "arbor/cli"]
   .filter((path) => path.endsWith(".ts"));
 
 /** The module paths the _Code:_ lines name: a file, or a folder ending in `/` that names the files under it. */
-const named = contract
+const codePaths = contract
   .split("\n")
   .flatMap((line) => line.split("_Code:_").slice(1))
   .flatMap((code) => [...code.matchAll(/`(arbor\/[^`]+)`/g)].map(([, path]) => path!));
@@ -26,25 +26,27 @@ function isNamedBy(module: string, path: string): boolean {
   return path.endsWith("/") ? module.startsWith(path) : module === path;
 }
 
+function isNamed(module: string): boolean {
+  return codePaths.some((path) => isNamedBy(module, path));
+}
+
 // A section's _Code:_ line is where a change to its behavior starts looking, so a module left off it is missed (#566).
 describe("the contract's Code lines", () => {
   test("name every module", () => {
-    const unnamed = modules.filter(
-      (module) => !(module in noBehaviorSection) && !named.some((path) => isNamedBy(module, path)),
-    );
+    const unnamed = modules.filter((module) => !(module in noBehaviorSection) && !isNamed(module));
 
     expect(unnamed).toEqual([]);
   });
 
   test("name only modules that exist", () => {
-    const stale = named.filter((path) => !modules.some((module) => isNamedBy(module, path)));
+    const stale = codePaths.filter((path) => !modules.some((module) => isNamedBy(module, path)));
 
     expect(stale).toEqual([]);
   });
 
   test("leave out only modules that exist and no Code line names", () => {
     const stale = Object.keys(noBehaviorSection).filter(
-      (module) => !modules.includes(module) || named.some((path) => isNamedBy(module, path)),
+      (module) => !modules.includes(module) || isNamed(module),
     );
 
     expect(stale).toEqual([]);
