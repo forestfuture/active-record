@@ -1,7 +1,8 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { globSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, test } from "vite-plus/test";
 
-const packages = new URL("../../packages/", import.meta.url).pathname;
+const root = new URL("../../", import.meta.url).pathname;
+const packages = `${root}packages/`;
 const contract = readFileSync(new URL("../../docs/contract.md", import.meta.url), "utf8");
 
 /** Modules no behavior section owns, each with the reason it's left off every _Code:_ line. */
@@ -16,11 +17,17 @@ const modules = ["arbor/src", "arbor/cli"]
   )
   .filter((path) => path.endsWith(".ts"));
 
-/** The module paths the _Code:_ lines name: a file, or a folder ending in `/` that names the files under it. */
-const codePaths = contract
+/** Every path the _Code:_ lines name. */
+const allCodePaths = contract
   .split("\n")
   .flatMap((line) => line.split("_Code:_").slice(1))
-  .flatMap((code) => [...code.matchAll(/`(arbor\/[^`]+)`/g)].map(([, path]) => path!));
+  .flatMap((code) => [...code.matchAll(/`([^`]+)`/g)].map(([, path]) => path!));
+
+/** The module paths the _Code:_ lines name: a file, or a folder ending in `/` that names the files under it. */
+const codePaths = allCodePaths.filter((path) => path.startsWith("arbor/"));
+
+/** The other paths, from the repository's root: its config files, which may be globs. */
+const rootPaths = allCodePaths.filter((path) => !path.startsWith("arbor/"));
 
 function isNamedBy(module: string, path: string): boolean {
   return path.endsWith("/") ? module.startsWith(path) : module === path;
@@ -40,6 +47,12 @@ describe("the contract's Code lines", () => {
 
   test("name only modules that exist", () => {
     const stale = codePaths.filter((path) => !modules.some((module) => isNamedBy(module, path)));
+
+    expect(stale).toEqual([]);
+  });
+
+  test("name only root files that exist", () => {
+    const stale = rootPaths.filter((path) => globSync(path, { cwd: root }).length === 0);
 
     expect(stale).toEqual([]);
   });
