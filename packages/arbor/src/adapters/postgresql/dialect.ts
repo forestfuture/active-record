@@ -11,6 +11,9 @@ const literal = (text: string) => `E'${text.replaceAll("\\", "\\\\").replaceAll(
 const uuidText = "(?:[0-9a-fA-F]{4}-?){7}[0-9a-fA-F]{4}";
 const uuidPattern = literal(`^(?:\\{${uuidText}\\}|${uuidText})$`);
 
+/** How Postgres compares an attribute's values: as a uuid, as text, or as a number. */
+const kindOf = ({ isUuid, isText }: Attribute) => (isUuid ? "uuid" : isText ? "text" : "number");
+
 /** A quoted identifier; embedded double quotes are doubled. */
 const quoted = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
@@ -68,17 +71,16 @@ export const postgres: Dialect = {
     return text;
   },
   /**
-   * Postgres compares no text with a number. A number selected for a text attribute is its text,
-   * and text selected for a number is the number its digits are, as a condition casts it; text
-   * that isn't one matches nothing.
+   * Postgres compares no text with a number, nor a uuid with either (#563). A key selected for a
+   * text attribute is its text; text selected for a uuid is the UUID it holds, and for a number
+   * the number its digits are, as a condition casts it; text that isn't one matches nothing. Only
+   * the key is cast, so the linked attribute's column keeps its index.
    */
   linkedKey(key, keyAttribute, linked) {
-    if (linked.isUuid && !keyAttribute.isUuid) {
-      const text = `CAST(${key} AS TEXT)`;
-      return `CASE WHEN ${text} ~ ${uuidPattern} THEN CAST(${text} AS UUID) END`;
-    }
-    if (linked.isText === keyAttribute.isText) return key;
-    if (linked.isText) return `CAST(${key} AS TEXT)`;
+    if (kindOf(linked) === kindOf(keyAttribute)) return key;
+    const text = `CAST(${key} AS TEXT)`;
+    if (linked.isUuid) return `CASE WHEN ${text} ~ ${uuidPattern} THEN CAST(${text} AS UUID) END`;
+    if (linked.isText) return text;
     return `CASE WHEN ${key} ~ ${literal("^\\s*[+-]?[0-9]+\\s*$")} THEN CAST(${key} AS NUMERIC) END`;
   },
   /**
