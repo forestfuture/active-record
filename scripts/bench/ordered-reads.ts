@@ -1,6 +1,6 @@
 // Rows D1 reads for exists(), count() and paginate()'s count on an ordered Relation (#215).
 // Run with `vp run bench:ordered-reads` before and after a change to how they're compiled.
-import { Miniflare } from "miniflare";
+import { startMiniflare } from "../../tests/support/miniflare.ts";
 import { Model } from "../../packages/arbor/src/index.ts";
 import { connect, type QueryEvent } from "../../packages/arbor/src/adapters/d1/index.ts";
 
@@ -10,7 +10,7 @@ class Post extends Model.define({
   title: { type: "string", null: false },
 }) {}
 
-const mf = new Miniflare({ modules: true, script: "export default {}", d1Databases: ["DB"] });
+const mf = startMiniflare({ d1: { DB: "DB" } });
 const binding = await mf.getD1Database("DB");
 await binding.exec(
   "CREATE TABLE posts (id TEXT PRIMARY KEY, author_id TEXT NOT NULL, title TEXT NOT NULL); " +

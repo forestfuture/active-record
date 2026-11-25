@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import { Miniflare } from "miniflare";
+import type { Miniflare } from "miniflare";
+import { startMiniflare } from "./miniflare.ts";
 
 const fixtureSchema = new URL("../fixtures/migrations/db/0001_schema.sql", import.meta.url);
 
@@ -14,11 +15,7 @@ export async function createTestDatabase(schema: URL | readonly URL[] = fixtureS
   db: TestDatabase;
   dispose: () => Promise<void>;
 }> {
-  const mf = new Miniflare({
-    modules: true,
-    script: "export default {}",
-    d1Databases: ["DB"],
-  });
+  const mf = startMiniflare({ d1: { DB: "DB" } });
   const db = await mf.getD1Database("DB");
   // Several files apply in order, as a project's migrations do.
   const statements = (Array.isArray(schema) ? schema : [schema])

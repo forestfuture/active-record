@@ -1,14 +1,12 @@
-import { Miniflare } from "miniflare";
+import { startMiniflare } from "../../support/miniflare.ts";
 import { describe, expect, test } from "vite-plus/test";
 
 /** What the fixture Worker reports, run in workerd with these compatibility flags. */
 async function report(compatibilityFlags: string[]) {
-  const mf = new Miniflare({
-    modules: true,
-    scriptPath: new URL("../../fixtures/workerd/platform.mjs", import.meta.url).pathname,
-    compatibilityDate: "2025-09-01",
+  const mf = startMiniflare({
+    main: new URL("../../fixtures/workerd/platform.mjs", import.meta.url).pathname,
     compatibilityFlags,
-    d1Databases: ["DB"],
+    d1: { DB: "DB" },
   });
   try {
     return await (await mf.dispatchFetch("http://localhost/")).json();

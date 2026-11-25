@@ -8,7 +8,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { Miniflare } from "miniflare";
+import type { Miniflare } from "miniflare";
+import { startMiniflare } from "../../support/miniflare.ts";
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { runGenerate } from "../../../packages/arbor/cli/generate/command.ts";
 import { connect } from "../../../packages/arbor/src/adapters/d1/index.ts";
@@ -345,7 +346,7 @@ describe("generated files against D1", { timeout: 30_000 }, () => {
     await generate(cwd, ["model", "User", "email:string!:unique", "admin:boolean!=false"]);
     await generate(cwd, ["model", "Post", "user:references", "title:string!", "meta:json"]);
     await generate(cwd, ["migration", "AddViewsToPosts", "views:integer!=0:index"]);
-    mf = new Miniflare({ modules: true, script: "export default {}", d1Databases: ["DB"] });
+    mf = startMiniflare({ d1: { DB: "DB" } });
     const binding = await mf.getD1Database("DB");
     for (const file of readdirSync(join(cwd, "migrations")).sort()) {
       await binding.exec(read(cwd, `migrations/${file}`).replaceAll("\n", " "));
@@ -373,11 +374,7 @@ describe("generated files against D1", { timeout: 30_000 }, () => {
     await generate(cwd, ["model", "User"]);
     await generate(cwd, ["model", "Post", "user:references", "title"]);
     const removed = await generate(cwd, ["migration", "RemoveUserFromPosts", "user:references"]);
-    const local = new Miniflare({
-      modules: true,
-      script: "export default {}",
-      d1Databases: ["DB"],
-    });
+    const local = startMiniflare({ d1: { DB: "DB" } });
     const binding = await local.getD1Database("DB");
 
     try {

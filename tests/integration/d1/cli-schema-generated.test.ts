@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { Miniflare } from "miniflare";
+import type { Miniflare } from "miniflare";
+import { startMiniflare } from "../../support/miniflare.ts";
 import { afterAll, beforeAll, describe, expect, expectTypeOf, test, vi } from "vite-plus/test";
 import { runSchema } from "../../../packages/arbor/cli/schema/command.ts";
 import { connect, type QueryEvent } from "../../../packages/arbor/src/adapters/d1/index.ts";
@@ -17,7 +18,7 @@ describe("a schema generated from migrations", () => {
   let binding: Awaited<ReturnType<Miniflare["getD1Database"]>>;
 
   beforeAll(async () => {
-    mf = new Miniflare({ modules: true, script: "export default {}", d1Databases: ["DB"] });
+    mf = startMiniflare({ d1: { DB: "DB" } });
     binding = await mf.getD1Database("DB");
     for (const file of readdirSync(`${projectDir}migrations`).sort()) {
       await binding.exec(
