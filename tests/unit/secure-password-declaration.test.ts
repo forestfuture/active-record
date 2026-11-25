@@ -171,6 +171,19 @@ describe("a secure password spec's type", () => {
     expectTypeOf(db.model(Lock).build({ pin: "1234" }).pin).toEqualTypeOf<string | null>();
   });
 
+  test("gives a typed spec no confirmation or challenge, as only a declaration has them", () => {
+    class Lock extends Model.define({
+      id: { type: "integer", null: false },
+      pin: { type: "string", virtual: true, securePassword: true },
+      pinDigest: "string",
+    }) {}
+    const lock = db.model(Lock).build({ pin: "1234" });
+
+    expectTypeOf(lock).not.toHaveProperty("pinConfirmation");
+    expectTypeOf(lock).not.toHaveProperty("pinChallenge");
+    expect(Object.keys(lock.attributes())).toEqual(["id", "pin", "pinDigest"]);
+  });
+
   test("isn't an integer's", () => {
     class Lock extends Model.define({
       id: { type: "integer", null: false },
