@@ -26,11 +26,11 @@ describe("Model.permit", () => {
 
   test("keeps the named attributes and drops every other key", () => {
     const body = JSON.parse(
-      '{"email":"ada@example.com","role":"admin","isActive":"on","token":"x"}',
+      '{"email":"jane@example.com","role":"admin","isActive":"on","token":"x"}',
     );
 
     expect(User.permit(body, "email", "isActive")).toEqual({
-      email: "ada@example.com",
+      email: "jane@example.com",
       isActive: true,
     });
   });
@@ -40,9 +40,9 @@ describe("Model.permit", () => {
   });
 
   test("reads only the input's own keys, so __proto__ and inherited keys never get through", () => {
-    const body = JSON.parse('{"__proto__":{"role":"admin"},"email":"ada@example.com"}');
+    const body = JSON.parse('{"__proto__":{"role":"admin"},"email":"jane@example.com"}');
 
-    expect(User.permit(body, "email", "role")).toEqual({ email: "ada@example.com" });
+    expect(User.permit(body, "email", "role")).toEqual({ email: "jane@example.com" });
     expect(User.permit(Object.assign(Object.create(null), { role: "x" }), "role")).toEqual({
       role: "x",
     });
@@ -57,14 +57,14 @@ describe("Model.permit", () => {
 
   test("its result is typed as the named attributes, and goes straight into create", async () => {
     const body: unknown = JSON.parse(
-      '{"email":"ada@example.com","isActive":"false","role":"admin"}',
+      '{"email":"jane@example.com","isActive":"false","role":"admin"}',
     );
     const permitted = User.permit(body, "email", "isActive");
     expectTypeOf(permitted).toEqualTypeOf<{ email?: string; isActive?: boolean }>();
 
     const user = await users().create(permitted);
 
-    expect([user.email, user.isActive, user.role]).toEqual(["ada@example.com", false, null]);
+    expect([user.email, user.isActive, user.role]).toEqual(["jane@example.com", false, null]);
   });
 
   test("subclasses and an app's base class have it", () => {
@@ -83,13 +83,13 @@ describe("Model.permit", () => {
 
   test("reads FormData and URLSearchParams; a repeated key takes its last value", async () => {
     const form = new FormData();
-    form.append("email", "ada@example.com");
+    form.append("email", "jane@example.com");
     form.append("isActive", "on");
     form.append("role", "admin");
     const query = new URLSearchParams("age=30&age=31&role=admin");
 
     expect(User.permit(form, "email", "isActive")).toEqual({
-      email: "ada@example.com",
+      email: "jane@example.com",
       isActive: true,
     });
     expect(User.permit(query, "age")).toEqual({ age: 31 });

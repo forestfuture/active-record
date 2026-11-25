@@ -141,7 +141,7 @@ describe("preloading an association through another", () => {
 
   test("a hasOne through a belongsTo: the first record its owner reaches", async () => {
     await harness.exec(
-      "INSERT INTO profiles (id, user_id, bio) VALUES (1, 1, 'Ada'), (2, 3, 'Cy')",
+      "INSERT INTO profiles (id, user_id, bio) VALUES (1, 1, 'Jane'), (2, 3, 'Cy')",
     );
     const profiles = await db()
       .model(Profile)

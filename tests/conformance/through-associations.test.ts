@@ -353,7 +353,7 @@ describe("an association through another", () => {
         "INSERT INTO comments (id, post_id, body) VALUES (1, 2, 'Nice'), (2, 1, 'Hello'), (3, 3, 'Elsewhere')",
       );
       await harness.exec(
-        "INSERT INTO profiles (id, user_id, bio) VALUES (1, 1, 'Ada'), (2, 2, 'Bo')",
+        "INSERT INTO profiles (id, user_id, bio) VALUES (1, 1, 'Jane'), (2, 2, 'Bo')",
       );
     });
 

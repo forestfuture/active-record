@@ -81,7 +81,7 @@ describe("values by their use", () => {
 
   describe("a key copied from another record", () => {
     test("a hasMany build writes an integer key into a text foreign key as its digits", async () => {
-      const owner = await db().model(Owner).create({ id: 9, email: "ada@example.com" });
+      const owner = await db().model(Owner).create({ id: 9, email: "jane@example.com" });
 
       const note = owner.notes().build({ id: 1 });
       await note.save();
@@ -91,7 +91,7 @@ describe("values by their use", () => {
     });
 
     test("a hasOne build and a belongsTo set write an integer key into a text foreign key as its digits", async () => {
-      const owner = await db().model(Owner).create({ id: 9, email: "ada@example.com" });
+      const owner = await db().model(Owner).create({ id: 9, email: "jane@example.com" });
 
       expect(owner.note.build({ id: 1 }).label).toBe("9");
 
@@ -101,7 +101,7 @@ describe("values by their use", () => {
     });
 
     test("a key the database generates is written as its digits when the owner is saved with its records", async () => {
-      const owner = db().model(Owner).build({ email: "grace@example.com" });
+      const owner = db().model(Owner).build({ email: "sam@example.com" });
       const note = owner.notes().build({ id: 3 });
 
       await owner.save();
@@ -120,7 +120,7 @@ describe("values by their use", () => {
 
   describe("preloading across key types", () => {
     test("includes finds the records an integer key and a text foreign key link", async () => {
-      await db().model(Owner).insert({ id: 9, email: "ada@example.com" });
+      await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
       await db().model(Note).insert({ id: 1, label: "9" });
 
       const [owner] = await db().model(Owner).includes("notes").toArray();
@@ -135,7 +135,7 @@ describe("values by their use", () => {
     test.each(["notes", "note"] as const)(
       "%s finds the text foreign keys that are an integer key's digits, not '09'",
       async (name) => {
-        await db().model(Owner).insert({ id: 9, email: "ada@example.com" });
+        await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
         await db()
           .model(Note)
           .insertAll([
@@ -186,7 +186,7 @@ describe("values by their use", () => {
 
     test("a belongsTo finds the integer key a text foreign key casts to, as a condition does", async () => {
       await db().model(Note).insert({ id: 3, label: "09" });
-      await db().model(Owner).insert({ id: 9, email: "ada@example.com" });
+      await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
 
       const [note] = await db().model(Note).where({ id: 3 }).includes("owner").toArray();
 
@@ -196,7 +196,7 @@ describe("values by their use", () => {
 
   describe("through an association's own Relation", () => {
     test("insert, upsert and insertAll inherit the owner's key as the foreign key holds it", async () => {
-      const owner = await db().model(Owner).create({ id: 9, email: "ada@example.com" });
+      const owner = await db().model(Owner).create({ id: 9, email: "jane@example.com" });
 
       await owner.notes().insert({ id: 1 });
       await owner.notes().upsert({ id: 2 }, { uniqueBy: "id" });
