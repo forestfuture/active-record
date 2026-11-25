@@ -10,6 +10,7 @@ class Device extends Model.define({ id: { type: "uuid", null: false }, name: "st
 
   readings = hasMany(Reading);
   gauges = hasMany(Gauge, { foreignKey: "level" });
+  notes = hasMany(Note, { as: "subject" });
 }
 
 class Reading extends Model.define({
@@ -20,6 +21,7 @@ class Reading extends Model.define({
   static table = "readings";
 
   device = belongsTo(Device);
+  siblings = hasMany(Reading, { through: "device", source: "readings" });
 }
 
 // An integer foreign key (level) pointing at a UUID key, which no integer is.
@@ -29,9 +31,20 @@ class Gauge extends Model.define({ id: { type: "integer", null: false }, level: 
   device = belongsTo(Device, { foreignKey: "level" });
 }
 
-// Links between a UUID and a text key compare them as a condition on the linked attribute would
-// (#563): Postgres compares no uuid with text.
-describe("links between a uuid and a text key", () => {
+// A polymorphic text id (subject_id) pointing at a UUID key.
+class Note extends Model.define({
+  id: { type: "integer", null: false },
+  subjectType: "string",
+  subjectId: "string",
+}) {
+  static table = "readings";
+
+  subject = belongsTo([Device], { optional: true });
+}
+
+// A link between a UUID and another key compares them as a condition on the linked attribute
+// would (#563): Postgres compares no uuid with text or a number.
+describe("uuid links", () => {
   let harness: Harness;
   const db = () => harness.connect();
 
@@ -44,64 +57,108 @@ describe("links between a uuid and a text key", () => {
     await harness.exec("INSERT INTO devices (id, name) VALUES (?, ?)", [phoneId, "phone"]);
   });
 
-  test("a belongsTo preload finds the uuid key a text foreign key holds", async () => {
-    await db().model(Reading).insert({ id: 1, deviceId: phoneId });
+  describe("to a text key", () => {
+    // The phone's reading, and one whose text isn't a UUID.
+    const insertReadings = () =>
+      db()
+        .model(Reading)
+        .insertAll([
+          { id: 1, deviceId: phoneId },
+          { id: 2, deviceId: "lamp" },
+        ]);
 
-    const [reading] = await db().model(Reading).includes("device").toArray();
+    test("a belongsTo preload finds the uuid key a text foreign key holds", async () => {
+      await db().model(Reading).insert({ id: 1, deviceId: phoneId });
 
-    expect(reading!.loaded("device")?.name).toBe("phone");
+      const [reading] = await db().model(Reading).includes("device").toArray();
+
+      expect(reading!.loaded("device")?.name).toBe("phone");
+    });
+
+    test("a hasMany preload finds the text foreign keys that hold its uuid key", async () => {
+      await insertReadings();
+
+      const [device] = await db().model(Device).includes("readings").toArray();
+
+      expect(device!.loaded("readings").map(({ id }) => id)).toEqual([1]);
+    });
+
+    test("a join from the uuid key finds the text foreign keys that hold it", async () => {
+      await insertReadings();
+
+      expect(await db().model(Device).joins("readings").pluck("name")).toEqual(["phone"]);
+    });
+
+    test("a join from the text foreign key finds the uuid key it holds", async () => {
+      await insertReadings();
+
+      expect(await db().model(Reading).joins("device").pluck("id")).toEqual([1]);
+    });
+
+    test("a through association reads the records its text foreign keys link", async () => {
+      await insertReadings();
+      await db().model(Reading).insert({ id: 3, deviceId: phoneId });
+      const reading = await db().model(Reading).find(1);
+
+      expect(await reading.siblings().order({ id: "asc" }).pluck("id")).toEqual([1, 3]);
+    });
+
+    test("a polymorphic belongsTo preload finds the uuid key a text id holds", async () => {
+      await db().model(Note).insert({ id: 1, subjectType: "Device", subjectId: phoneId });
+
+      const [note] = await db().model(Note).includes("subject").toArray();
+
+      expect((note!.loaded("subject") as Device | null)?.name).toBe("phone");
+    });
+
+    test("a polymorphic hasMany preload finds the text ids that hold its uuid key", async () => {
+      await db().model(Note).insert({ id: 1, subjectType: "Device", subjectId: phoneId });
+
+      const [device] = await db().model(Device).includes("notes").toArray();
+
+      expect(device!.loaded("notes").map(({ id }) => id)).toEqual([1]);
+    });
+
+    test("a belongsTo preload finds no uuid key for a text foreign key holding it in capitals", async () => {
+      await db().model(Reading).insert({ id: 1, deviceId: phoneId.toUpperCase() });
+
+      const [reading] = await db().model(Reading).includes("device").toArray();
+
+      expect(reading!.loaded("device")).toBeNull();
+    });
+
+    test("a text foreign key that isn't a UUID finds nothing, without an error", async () => {
+      await db().model(Reading).insert({ id: 1, deviceId: "lamp" });
+
+      const [reading] = await db().model(Reading).includes("device").toArray();
+
+      expect(reading!.loaded("device")).toBeNull();
+    });
   });
 
-  test("a hasMany preload finds the text foreign keys that hold its uuid key", async () => {
-    await db()
-      .model(Reading)
-      .insertAll([
-        { id: 1, deviceId: phoneId },
-        { id: 2, deviceId: "lamp" },
-      ]);
+  describe("to an integer key", () => {
+    beforeEach(async () => {
+      await db().model(Gauge).insert({ id: 1, level: 7 });
+    });
 
-    const [device] = await db().model(Device).includes("readings").toArray();
+    test("a hasMany preload from the uuid key finds nothing, without an error", async () => {
+      const [device] = await db().model(Device).includes("gauges").toArray();
 
-    expect(device!.loaded("readings").map(({ id }) => id)).toEqual([1]);
-  });
+      expect(device!.loaded("gauges")).toEqual([]);
+    });
 
-  test("joins link a uuid key and a text foreign key either way", async () => {
-    await db()
-      .model(Reading)
-      .insertAll([
-        { id: 1, deviceId: phoneId },
-        { id: 2, deviceId: "lamp" },
-      ]);
+    test("a belongsTo preload from the integer key finds nothing, without an error", async () => {
+      const [gauge] = await db().model(Gauge).includes("device").toArray();
 
-    expect(await db().model(Device).joins("readings").pluck("name")).toEqual(["phone"]);
-    expect(await db().model(Reading).joins("device").pluck("id")).toEqual([1]);
-  });
+      expect(gauge!.loaded("device")).toBeNull();
+    });
 
-  test("a belongsTo preload finds no uuid key for a text foreign key holding it in capitals", async () => {
-    await db().model(Reading).insert({ id: 1, deviceId: phoneId.toUpperCase() });
+    test("a join from the uuid key finds nothing, without an error", async () => {
+      expect(await db().model(Device).joins("gauges").count()).toBe(0);
+    });
 
-    const [reading] = await db().model(Reading).includes("device").toArray();
-
-    expect(reading!.loaded("device")).toBeNull();
-  });
-
-  test("a text foreign key that isn't a UUID finds nothing, without an error", async () => {
-    await db().model(Reading).insert({ id: 1, deviceId: "lamp" });
-
-    const [reading] = await db().model(Reading).includes("device").toArray();
-
-    expect(reading!.loaded("device")).toBeNull();
-  });
-
-  test("a uuid key and an integer foreign key find nothing either way, without an error", async () => {
-    await db().model(Gauge).insert({ id: 1, level: 7 });
-
-    const [device] = await db().model(Device).includes("gauges").toArray();
-    const [gauge] = await db().model(Gauge).includes("device").toArray();
-
-    expect(device!.loaded("gauges")).toEqual([]);
-    expect(gauge!.loaded("device")).toBeNull();
-    expect(await db().model(Device).joins("gauges").count()).toBe(0);
-    expect(await db().model(Gauge).joins("device").count()).toBe(0);
+    test("a join from the integer key finds nothing, without an error", async () => {
+      expect(await db().model(Gauge).joins("device").count()).toBe(0);
+    });
   });
 });

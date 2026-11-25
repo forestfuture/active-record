@@ -145,7 +145,7 @@ export const allowedDifferences: readonly AllowedDifference[] = [
       "the uuid finds it. D1 compares the text exactly, so only the UUID's own form links.",
     contract: "links to a `string` key as text does on D1",
     tests: [
-      "links between a uuid and a text key > a belongsTo preload finds no uuid key for a text foreign key holding it in capitals",
+      "uuid links > to a text key > a belongsTo preload finds no uuid key for a text foreign key holding it in capitals",
     ],
   },
 ];
