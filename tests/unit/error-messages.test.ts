@@ -136,12 +136,12 @@ describe("error messages", () => {
         this.validates("handle", { format: /^[a-z]+$/ });
       }
     }
-    const account = db.model(Handle).build({ handle: "Ada!" });
+    const account = db.model(Handle).build({ handle: "Jane!" });
     await account.isValid();
 
-    account.handle = "Ada?";
+    account.handle = "Jane?";
 
-    expect(account.errors.get("handle")).toEqual(["Ada? isn't a handle"]);
+    expect(account.errors.get("handle")).toEqual(["Jane? isn't a handle"]);
   });
 
   test("full messages and %{attribute} use the names from humanAttributeNames", async () => {
@@ -313,8 +313,8 @@ describe("error messages", () => {
       }
     }
 
-    expect(await messagesOf(BlogAccount as never, { handle: "Ada!" })).toEqual([
-      "Handle Ada! isn't allowed for a Blog account",
+    expect(await messagesOf(BlogAccount as never, { handle: "Jane!" })).toEqual([
+      "Handle Jane! isn't allowed for a Blog account",
     ]);
   });
 
@@ -328,7 +328,7 @@ describe("error messages", () => {
       }
     };
 
-    expect(await messagesOf(e as never, { handle: "Ada!" })).toEqual([
+    expect(await messagesOf(e as never, { handle: "Jane!" })).toEqual([
       "Handle isn't allowed for a Blog account",
     ]);
   });
@@ -341,7 +341,7 @@ describe("error messages", () => {
       }
     }
 
-    expect(await messagesOf(Contact as never, { email: "ada" })).toEqual([
+    expect(await messagesOf(Contact as never, { email: "jane" })).toEqual([
       "Email [FILTERED] isn't an email",
     ]);
   });

@@ -34,7 +34,7 @@ class Account extends Model.define({
 const accounts = connect({} as never).model(Account);
 
 const valid = {
-  handle: "ada",
+  handle: "jane",
   code: "ABCD",
   plan: "free",
   age: 30,

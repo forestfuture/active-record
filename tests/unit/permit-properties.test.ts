@@ -96,8 +96,8 @@ describe("Model.permit, for any request body", () => {
       configurable: true,
     });
     try {
-      expect(User.permit({ email: "ada@example.com" }, "email", "role")).toEqual({
-        email: "ada@example.com",
+      expect(User.permit({ email: "jane@example.com" }, "email", "role")).toEqual({
+        email: "jane@example.com",
       });
     } finally {
       delete (Object.prototype as Record<string, unknown>).role;

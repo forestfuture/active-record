@@ -27,15 +27,15 @@ describe("exclusion", () => {
   const handles = connect({} as never).model(Handle);
 
   test("passes a value outside the list", async () => {
-    expect(await errorsOf(handles.build({ name: "ada", slug: "ada", nick: "ada" }))).toEqual([]);
+    expect(await errorsOf(handles.build({ name: "jane", slug: "jane", nick: "jane" }))).toEqual([]);
   });
 
   test("passes null when the list doesn't hold it", async () => {
-    expect(await errorsOf(handles.build({ name: null, slug: "ada", nick: "ada" }))).toEqual([]);
+    expect(await errorsOf(handles.build({ name: null, slug: "jane", nick: "jane" }))).toEqual([]);
   });
 
   test("fails a value in the list as reserved, in either form", async () => {
-    const handle = handles.build({ name: "admin", slug: "new", nick: "ada" });
+    const handle = handles.build({ name: "admin", slug: "new", nick: "jane" });
 
     expect(await errorsOf(handle)).toEqual([
       "name exclusion: is reserved",
@@ -44,13 +44,13 @@ describe("exclusion", () => {
   });
 
   test("fails null when the list holds it", async () => {
-    const handle = handles.build({ name: "ada", slug: null, nick: "ada" });
+    const handle = handles.build({ name: "jane", slug: null, nick: "jane" });
 
     expect(await errorsOf(handle)).toEqual(["slug exclusion: is reserved"]);
   });
 
   test("skips null with allowNull, even when the list holds it", async () => {
-    const handle = handles.build({ name: "ada", slug: "ada", nick: null });
+    const handle = handles.build({ name: "jane", slug: "jane", nick: null });
 
     expect(await errorsOf(handle)).toEqual([]);
   });
