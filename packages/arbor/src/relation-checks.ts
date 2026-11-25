@@ -360,6 +360,7 @@ function updateRefusal(
 ): string | undefined {
   if (columnOf(model, name).readonly === true) return "which is read-only";
   if (matched.has(name)) return "which uniqueBy matches on";
+  if (name === model.primaryKey) return "which is the primary key";
   if (name === "createdAt") return "which an update keeps";
   return undefined;
 }
