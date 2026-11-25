@@ -2,10 +2,10 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Miniflare, supportedCompatibilityDate } from "miniflare";
 import { onTestFinished, vi } from "vite-plus/test";
 import { main } from "../../packages/arbor/cli/main.ts";
 import { parseJsonc } from "../../packages/arbor/cli/project/config-file.ts";
+import { startMiniflare, type TestWorker } from "./miniflare.ts";
 
 const wrangler = new URL("../../node_modules/.bin/wrangler", import.meta.url).pathname;
 
@@ -40,19 +40,19 @@ interface WranglerConfig {
 }
 
 /**
- * Miniflare's options for the app's Worker, from its Wrangler config: its compatibility settings,
- * the date no later than this Miniflare's workerd supports, and its D1 and Hyperdrive bindings,
- * each D1 database kept in Wrangler's local state and each Hyperdrive reaching its local URL.
+ * The app's Worker, from its Wrangler config: its compatibility settings, and its D1 and
+ * Hyperdrive bindings, each D1 database kept in Wrangler's local state and each Hyperdrive
+ * reaching its local URL.
  */
-function fromConfig(cwd: string) {
+function fromConfig(cwd: string): TestWorker {
   const config = parseJsonc(readFileSync(join(cwd, "wrangler.jsonc"), "utf8")) as WranglerConfig;
   const d1 = config.d1_databases ?? [];
   const hyperdrive = config.hyperdrive ?? [];
   return {
-    compatibilityDate: [config.compatibility_date, supportedCompatibilityDate].sort()[0],
+    compatibilityDate: config.compatibility_date,
     compatibilityFlags: config.compatibility_flags ?? [],
-    d1Databases: Object.fromEntries(d1.map((entry) => [entry.binding, entry.database_id])),
-    d1Persist: join(cwd, ".wrangler/state/v3/d1"),
+    d1: Object.fromEntries(d1.map((entry) => [entry.binding, entry.database_id])),
+    persistTo: join(cwd, ".wrangler/state/v3"),
     hyperdrives: Object.fromEntries(
       hyperdrive.map((entry) => [entry.binding, entry.localConnectionString]),
     ),
@@ -66,11 +66,7 @@ function fromConfig(cwd: string) {
 export async function serve(cwd: string): Promise<Served> {
   const out = join(cwd, ".bundle");
   runWrangler(cwd, ["deploy", "--dry-run", "--outdir", out]);
-  const mf = new Miniflare({
-    modules: true,
-    scriptPath: join(out, "index.js"),
-    ...fromConfig(cwd),
-  });
+  const mf = startMiniflare({ main: join(out, "index.js"), ...fromConfig(cwd) });
   return {
     async fetch(method, body) {
       const init = body === undefined ? { method } : { method, body: JSON.stringify(body) };

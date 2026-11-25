@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
-import { Miniflare } from "miniflare";
+import type { Miniflare } from "miniflare";
+import { startMiniflare } from "../../support/miniflare.ts";
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
 import { scratchDirs } from "../../support/scratch.ts";
@@ -31,12 +32,10 @@ describe("the PostgreSQL adapter in workerd", { timeout: 60_000 }, () => {
       cwd: fixture,
       stdio: "pipe",
     });
-    mf = new Miniflare({
-      modules: true,
-      scriptPath: join(out, "worker.js"),
-      compatibilityDate: "2025-09-01",
+    mf = startMiniflare({
+      main: join(out, "worker.js"),
       compatibilityFlags: ["nodejs_compat"],
-      bindings: {
+      vars: {
         DATABASE_URL: schema.url,
         UNANSWERED_URL: unanswered.url("?connect_timeout=2"),
       },

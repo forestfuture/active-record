@@ -2,7 +2,7 @@
 // Not part of CI; run with `vp run bench:preload` before and after a change to preloading.
 // Miniflare is local, so the time leaves out network latency; the round trips are what real
 // D1 multiplies.
-import { Miniflare } from "miniflare";
+import { startMiniflare } from "../../tests/support/miniflare.ts";
 import { hasMany, Model, sql } from "../../packages/arbor/src/index.ts";
 import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
 
@@ -30,7 +30,7 @@ class Author extends Model.define({
   posts = hasMany(Post);
 }
 
-const mf = new Miniflare({ modules: true, script: "export default {}", d1Databases: ["DB"] });
+const mf = startMiniflare({ d1: { DB: "DB" } });
 const binding = await mf.getD1Database("DB");
 await binding.exec(
   "CREATE TABLE authors (id TEXT PRIMARY KEY, name TEXT NOT NULL); " +

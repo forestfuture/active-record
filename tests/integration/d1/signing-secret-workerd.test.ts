@@ -3,7 +3,7 @@
 // compatibility, so process.env isn't there to fall back on.
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Miniflare } from "miniflare";
+import { startMiniflare } from "../../support/miniflare.ts";
 import { describe, expect, test } from "vite-plus/test";
 import { runWrangler } from "../../support/worker-app.ts";
 import { scratchDirs } from "../../support/scratch.ts";
@@ -48,12 +48,10 @@ describe("a signing secret in workerd", () => {
     const config = { name: "signing", main: "index.ts", compatibility_date: "2026-01-01" };
     writeFileSync(join(cwd, "wrangler.jsonc"), JSON.stringify(config));
     runWrangler(cwd, ["deploy", "--dry-run", "--outdir", join(cwd, ".bundle")]);
-    const mf = new Miniflare({
-      modules: true,
-      scriptPath: join(cwd, ".bundle", "index.js"),
-      compatibilityDate: "2025-09-01",
-      d1Databases: ["DB"],
-      bindings: { SECRET_KEY_BASE: secret },
+    const mf = startMiniflare({
+      main: join(cwd, ".bundle", "index.js"),
+      d1: { DB: "DB" },
+      vars: { SECRET_KEY_BASE: secret },
     });
 
     try {

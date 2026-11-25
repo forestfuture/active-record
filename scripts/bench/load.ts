@@ -3,7 +3,7 @@
 // before and after a change to how records are loaded. Prints the mean CPU (process.cpuUsage,
 // user + system) of several runs after a warm-up, so Miniflare's waiting doesn't count, though
 // its transport's CPU does.
-import { Miniflare } from "miniflare";
+import { startMiniflare } from "../../tests/support/miniflare.ts";
 import { connect } from "../../packages/arbor/src/adapters/d1/index.ts";
 import { databaseExecutor } from "../../packages/arbor/src/database.ts";
 import { hydrate } from "../../packages/arbor/src/model.ts";
@@ -28,7 +28,7 @@ async function measure(label: string, run: () => unknown): Promise<number> {
   return ms;
 }
 
-const mf = new Miniflare({ modules: true, script: "export default {}", d1Databases: ["DB"] });
+const mf = startMiniflare({ d1: { DB: "DB" } });
 const binding = await mf.getD1Database("DB");
 await binding.exec(schema.replaceAll("\n", " "));
 for (let start = 0; start < ROWS; start += 500) {
