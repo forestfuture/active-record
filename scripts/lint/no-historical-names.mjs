@@ -63,12 +63,22 @@ export default defineRule({
     },
   },
   create(context) {
+    /** The identifiers already reported: a variable is reported where it first appears, once. */
+    const reported = new Set();
+
     /** Reports the node when its text holds a historical name. */
     function check(node) {
       const text = nodeText[node.type](node);
       const name = text === undefined ? undefined : historicalName(text);
       if (name !== undefined) context.report({ node, messageId: "historical", data: { name } });
     }
-    return { Literal: check, TemplateElement: check, Identifier: check };
+
+    /** Reports an identifier's first appearance in the file, not each use. */
+    function checkIdentifier(node) {
+      if (reported.has(node.name)) return;
+      reported.add(node.name);
+      check(node);
+    }
+    return { Literal: check, TemplateElement: check, Identifier: checkIdentifier };
   },
 });
