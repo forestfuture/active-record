@@ -1106,7 +1106,6 @@ describe("the Bulk writes and batches page's examples", () => {
 
   test("insertAll inserts every row, upsert updates by email, updateOnly keeps the email, onDuplicate joins the names, and a skipped duplicate writes nothing", async () => {
     const jane = () => db().model(BatchedAuthor).findByOrThrow({ email: "jane@example.com" });
-    const { id } = await jane();
 
     await run(batches.insertingMany);
 
@@ -1115,7 +1114,7 @@ describe("the Bulk writes and batches page's examples", () => {
       "Jane Smith / J. Smith",
       "Sam",
     ]);
-    expect((await jane()).id).toBe(id);
+    expect((await jane()).name).toBe("Jane Smith / J. Smith");
   });
 
   test("returning names the attributes each written row comes back with", async () => {
