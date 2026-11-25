@@ -11,6 +11,9 @@ const literal = (text: string) => `E'${text.replaceAll("\\", "\\\\").replaceAll(
 const uuidText = "(?:[0-9a-fA-F]{4}-?){7}[0-9a-fA-F]{4}";
 const uuidPattern = literal(`^(?:\\{${uuidText}\\}|${uuidText})$`);
 
+/** Text that's an integer, as a condition casts one: digits, a sign, and spaces around them. */
+const integerPattern = literal("^\\s*[+-]?[0-9]+\\s*$");
+
 /** How Postgres compares an attribute's values: as a uuid, as text, or as a number. */
 const kindOf = ({ isUuid, isText }: Attribute) => (isUuid ? "uuid" : isText ? "text" : "number");
 
@@ -77,11 +80,17 @@ export const postgres: Dialect = {
    * the key is cast, so the linked attribute's column keeps its index.
    */
   linkedKey(key, keyAttribute, linked) {
-    if (kindOf(linked) === kindOf(keyAttribute)) return key;
+    const kind = kindOf(linked);
+    if (kind === kindOf(keyAttribute)) return key;
     const text = `CAST(${key} AS TEXT)`;
-    if (linked.isUuid) return `CASE WHEN ${text} ~ ${uuidPattern} THEN CAST(${text} AS UUID) END`;
-    if (linked.isText) return text;
-    return `CASE WHEN ${text} ~ ${literal("^\\s*[+-]?[0-9]+\\s*$")} THEN CAST(${text} AS NUMERIC) END`;
+    switch (kind) {
+      case "uuid":
+        return `CASE WHEN ${text} ~ ${uuidPattern} THEN CAST(${text} AS UUID) END`;
+      case "text":
+        return text;
+      case "number":
+        return `CASE WHEN ${text} ~ ${integerPattern} THEN CAST(${text} AS NUMERIC) END`;
+    }
   },
   /**
    * The write returns a row if it changed one, and the statement casts the marker to an integer
