@@ -96,7 +96,7 @@ A `uuid` attribute finds nothing for an id that isn’t a UUID, so a mistyped or
 - `arbor schema` gives a Postgres `UUID` column a `uuid` attribute, and a `UUID` key the UUIDs `generateId` makes.
 
 :::note
-D1 has no UUID type, so a D1 key is a `string`, and an id that isn’t one of its keys finds nothing there too. To hold a D1 key in one form, [override](./models#overriding-attributes) it: `id: { type: "uuid", null: false, generateId: true }`.
+D1 has no UUID type, so a D1 key is a `string`, and an id that isn’t one of its keys finds nothing there too. To hold a D1 key in one form, [override](./models#overriding-attributes) it: `id: { type: "uuid", null: false, generateId: true }`. Its stored keys must then be lowercase with hyphens, as `generateId` makes them.
 :::
 
 ## Casting assigned values
@@ -152,7 +152,7 @@ A stored cell is checked the same way, when the record loads or `pluck` reads it
 - For an `integer`: text, a fraction, or a number outside the safe integer range.
 - For a `real`: anything but a finite number.
 - For a `string`: anything but text.
-- For a `uuid`: anything but a UUID’s text.
+- For a `uuid`: anything but a UUID lowercase with hyphens.
 - For a `datetime`: text that isn’t a date or a date and time (`"garbage"`, `"12"`), or a number. A number is a [Unix time](./adopt-a-database#reading-unix-timestamps), which needs a `storage`.
 - For a `datetime` with a `storage`: anything but a number, or one past what a `Date` can hold.
 - For a `decimal`: anything but a number or a decimal’s text.

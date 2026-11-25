@@ -7,7 +7,7 @@ import type { EpochStorage } from "./epoch-storage.ts";
 import type { AnyCustomType } from "./custom-types.ts";
 import type { AttributeDefinition, AttributeType } from "./metadata.ts";
 import { jsonText, NestedReferenceFound } from "./json-values.ts";
-import { castUuid } from "./uuid-values.ts";
+import { castUuid, readUuid } from "./uuid-values.ts";
 
 /** A value that can't be read as the attribute's type. */
 export const uncastable = Symbol("uncastable");
@@ -48,7 +48,7 @@ const keyOf = ({ type, storage }: Convertible): ConversionKey => storage ?? type
 
 const converters: Record<ConversionKey, Converter> = {
   string: { cast: text, read: text, write: identity },
-  uuid: { cast: castUuid, read: castUuid, write: identity },
+  uuid: { cast: castUuid, read: readUuid, write: identity },
   integer: { cast: castInteger, read: safeInteger, write: identity },
   real: { cast: castReal, read: finiteNumber, write: identity },
   boolean: { cast: castBoolean, read: readBoolean, write: (value) => (value ? 1 : 0) },
