@@ -35,12 +35,16 @@ const names = [
 /** Any of the names, whole: only a letter or a digit joins a word, so `ada_id` holds one. */
 const namePattern = new RegExp(`(?<![\\p{L}\\p{N}])(?:${names.join("|")})(?![\\p{L}\\p{N}])`, "iu");
 
-/** A lowercase letter followed by a capital: where a camel-case name's words meet. */
+/** A lowercase letter followed by a capital: where a camel-case name's words meet (`adaPosts`). */
 const camelCaseJoin = /(\p{Ll})(\p{Lu})/gu;
+
+/** A capital followed by a capitalized word: where an acronym ends (`ADAUser`, `XMLHopper`). */
+const acronymJoin = /(\p{Lu})(\p{Lu}\p{Ll})/gu;
 
 /** The first historical name in `text`, as written there, or undefined for none. */
 export function historicalName(text) {
-  return namePattern.exec(text.replace(camelCaseJoin, "$1 $2"))?.[0];
+  const words = text.replace(camelCaseJoin, "$1 $2").replace(acronymJoin, "$1 $2");
+  return namePattern.exec(words)?.[0];
 }
 
 /** The text a node holds that the rule reads: a string's, a template's piece, or a name. */
