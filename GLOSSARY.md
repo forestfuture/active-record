@@ -205,7 +205,7 @@ An **Attribute** declared with `enum`, whose values are only the names it lists,
 _Avoid_: Enumeration, enum type (Postgres's is a column type), status field
 
 **Generated id**:
-A string **Attribute** declared with `generateId: true`, whose value, when not given, comes from its **Model**'s `generateId` where a default would: a key made in code, before the row is written. A string primary key without a literal default in the **Generated schema** is one: `TEXT` on D1, `UUID` (or `TEXT`) on Postgres.
+A string or uuid **Attribute** declared with `generateId: true`, whose value, when not given, comes from its **Model**'s `generateId` where a default would: a key made in code, before the row is written. A string or uuid primary key without a literal default in the **Generated schema** is one: `TEXT` (a string) on D1, `UUID` (a uuid) or `TEXT` on Postgres.
 _Avoid_: Generated attribute, auto id
 
 **Column**:

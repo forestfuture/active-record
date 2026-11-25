@@ -140,6 +140,17 @@ describe("the Attribute types page's examples", () => {
 
     expect([product.name, product.photo]).toEqual(["photo.png", new Uint8Array([7, 8])]);
   });
+
+  test("an id that isn't a UUID is a not-found, and a product's id finds it", async () => {
+    const lamp = await run(attributeTypes.building);
+    await run(() => lamp.save());
+
+    const found = await run(() => attributeTypes.show(lamp.id));
+    const missing = await run(() => attributeTypes.show("lamp"));
+
+    expect([found.status, await found.json()]).toEqual([200, { name: "Lamp" }]);
+    expect([missing.status, await missing.text()]).toEqual([404, "Not found"]);
+  });
 });
 
 // The Enums page's examples, on the tables it shows.

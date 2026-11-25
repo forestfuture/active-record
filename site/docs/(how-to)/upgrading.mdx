@@ -2,8 +2,22 @@
 title: Upgrading
 description: "Move an app up one release at a time, starting from the release you’re on."
 seo:
-  description: "Upgrade an Arbor app one release at a time, from d1-record 0.5 to Arbor 0.11, with the code and schema changes each release needs."
+  description: "Upgrade an Arbor app one release at a time, from d1-record 0.5 to Arbor 0.12, with the code and schema changes each release needs."
 ---
+
+## Upgrading from 0.11 to 0.12
+
+In 0.12, a Postgres `UUID` column is a [`uuid` attribute](./attribute-types#storing-uuids). Upgrade in one step.
+
+### Regenerating the schema
+
+On Postgres, regenerate your schema:
+
+```sh
+npx arbor schema
+```
+
+Each `UUID` column becomes a `uuid` attribute, so a query with an id that isn’t a UUID finds nothing, where Postgres used to refuse it with an error. Assigning one throws `TypeError`. Until you regenerate the schema, `arbor schema --check` reports it as out of date. On D1, nothing changes.
 
 ## Upgrading from 0.10 to 0.11
 

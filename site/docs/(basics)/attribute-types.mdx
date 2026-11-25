@@ -9,7 +9,8 @@ seo:
 
 | Type       | JavaScript     | D1 column                                    | Postgres column     |
 | ---------- | -------------- | -------------------------------------------- | ------------------- |
-| `string`   | `string`       | `TEXT`                                       | `TEXT`, `UUID`      |
+| `string`   | `string`       | `TEXT`                                       | `TEXT`              |
+| `uuid`     | `string`       | `TEXT`                                       | `UUID`              |
 | `integer`  | `number`       | `INTEGER`                                    | `INTEGER`, `BIGINT` |
 | `real`     | `number`       | `REAL`                                       | `DOUBLE PRECISION`  |
 | `decimal`  | `string`       | `NUMERIC`, `DECIMAL`                         | `NUMERIC`           |
@@ -85,6 +86,15 @@ D1 keeps about 15 significant digits of a decimal, and rounds the rest. Postgres
 To do arithmetic with decimals, wrap a decimal library in a [custom type](./custom-types) stored as `"decimal"`.
 :::
 
+## Storing UUIDs
+
+A `uuid` attribute holds a UUID, such as the key `generateId` makes. A value that isn’t a UUID finds nothing, so an id from a URL that’s mistyped or tampered with is a not-found:
+
+<include>/_excerpts/pages/attribute-types/examples/uuids.mdx</include>
+
+- A UUID is held lowercase with hyphens, whichever form it’s given in, so `"{0B6F8A1E-3C2D-4E5F-9A7B-1C2D3E4F5A6B}"` is held as `"0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b"`.
+- On Postgres, `arbor schema` gives a `UUID` column a `uuid` attribute. D1 has no UUID type, so a `TEXT` key is a `string` there, and a value that isn’t one of its keys finds nothing too. To hold a D1 key in one form, [override](./models#overriding-attributes) it: `id: { type: "uuid", null: false, generateId: true }`.
+
 ## Casting assigned values
 
 Every value is cast to its attribute’s type when it’s assigned, so text from JSON, a form, or a query string becomes the right type:
@@ -93,18 +103,19 @@ Every value is cast to its attribute’s type when it’s assigned, so text from
 
 Values are cast wherever they’re assigned: `build`, `create`, `assign`, `update`, a property setter, a default, [`permit`](./untrusted-input#permitting-fields), and the values given to `insert`, `insertAll`, `upsert`, `upsertAll`, and `updateAll`. `null` is always NULL. Only unambiguous values are accepted:
 
-| Type       | Accepts                                                                                                                                |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `boolean`  | `true`, `false`, `1`, `0`, `"1"`, `"0"`, and `"true"`, `"false"`, `"on"`, `"off"` in any case                                          |
-| `integer`  | a safe integer, or a string that’s wholly one, with an optional sign and spaces around it: `"42"`, `" -7 "`, `"+3"`                    |
-| `real`     | a finite number, or a string that’s wholly one, with an optional sign, point, and exponent: `"1.5"`, `".5"`, `"5."`, `"-2e3"`          |
-| `decimal`  | a finite number, a `bigint`, or a string that’s wholly a decimal number, as for a `real`: `"12.50"`, `"-2e3"`                          |
-| `string`   | a string                                                                                                                               |
-| `datetime` | a valid `Date`; a date, `"2026-01-02"` (midnight UTC); or a date and time with `Z` or a `±HH:MM` offset: `"2026-01-02T09:30:00+02:00"` |
-| `date`     | a day that exists, as `"YYYY-MM-DD"`: `"2026-01-02"`                                                                                   |
-| `time`     | a time of day, with or without seconds and up to six digits of a fraction: `"09:30"`, `"09:30:15.25"`                                  |
-| `json`     | any value JSON can write                                                                                                               |
-| `binary`   | a `Uint8Array`, or an `ArrayBuffer`                                                                                                    |
+| Type       | Accepts                                                                                                                                       |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `boolean`  | `true`, `false`, `1`, `0`, `"1"`, `"0"`, and `"true"`, `"false"`, `"on"`, `"off"` in any case                                                 |
+| `integer`  | a safe integer, or a string that’s wholly one, with an optional sign and spaces around it: `"42"`, `" -7 "`, `"+3"`                           |
+| `real`     | a finite number, or a string that’s wholly one, with an optional sign, point, and exponent: `"1.5"`, `".5"`, `"5."`, `"-2e3"`                 |
+| `decimal`  | a finite number, a `bigint`, or a string that’s wholly a decimal number, as for a `real`: `"12.50"`, `"-2e3"`                                 |
+| `string`   | a string                                                                                                                                      |
+| `uuid`     | a UUID in any case, with or without its hyphens, or in braces: `"0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b"`, `"0B6F8A1E3C2D4E5F9A7B1C2D3E4F5A6B"` |
+| `datetime` | a valid `Date`; a date, `"2026-01-02"` (midnight UTC); or a date and time with `Z` or a `±HH:MM` offset: `"2026-01-02T09:30:00+02:00"`        |
+| `date`     | a day that exists, as `"YYYY-MM-DD"`: `"2026-01-02"`                                                                                          |
+| `time`     | a time of day, with or without seconds and up to six digits of a fraction: `"09:30"`, `"09:30:15.25"`                                         |
+| `json`     | any value JSON can write                                                                                                                      |
+| `binary`   | a `Uint8Array`, or an `ArrayBuffer`                                                                                                           |
 
 ## Refusing other values
 
@@ -118,6 +129,7 @@ The error shows at most 60 characters of the value, and none of a [filtered attr
 - `1.7`, `"12abc"`, `"1e3"`, and integers past `Number.MAX_SAFE_INTEGER`, for an `integer`.
 - `NaN` and `Infinity`.
 - A number, boolean, or `Date` for a `string`.
+- For a `uuid`: text that isn’t 32 hexadecimal digits, a hyphen at its start or end, one brace, and numbers.
 - For a `datetime`: a time without an offset, a lowercase `t` or `z`, a day that doesn’t exist (`"2026-02-30"`), other formats, and numbers.
 - For a `decimal`: text with anything but a number in it, a number too large or too small for a JavaScript `number`, such as `"1e400"` or `"1e-400"`, and one with more digits after its point than Postgres holds.
 - For a `date` or a `time`: a `Date`, a time zone, a day or time that doesn’t exist (`"2026-02-30"`, `"24:00:01"`), other formats (`"2026-1-2"`, `"9:30"`), and numbers.
@@ -136,6 +148,7 @@ A stored cell is checked the same way, when the record loads or `pluck` reads it
 - For an `integer`: text, a fraction, or a number outside the safe integer range.
 - For a `real`: anything but a finite number.
 - For a `string`: anything but text.
+- For a `uuid`: anything but a UUID’s text.
 - For a `datetime`: text that isn’t a date or a date and time (`"garbage"`, `"12"`), or a number. A number is a [Unix time](./adopt-a-database#reading-unix-timestamps), which needs a `storage`.
 - For a `datetime` with a `storage`: anything but a number, or one past what a `Date` can hold.
 - For a `decimal`: anything but a number or a decimal’s text.
@@ -148,7 +161,7 @@ See [Fixing cells of the wrong type](./adopt-a-database#fixing-cells-of-the-wron
 
 ## Casting conditions and keys
 
-Conditions are cast the same way, so `where({ stock: "42" })` finds 42. A condition value that can’t be cast matches nothing, so `find("abc")` on an integer key throws `RecordNotFound`.
+Conditions are cast the same way, so `where({ stock: "42" })` finds 42. A condition value that can’t be cast matches nothing, so `find("abc")` on an integer or `uuid` key throws `RecordNotFound`.
 
 - A condition reads a number as its digits for a `string` attribute, and a record built from that Relation starts with what it matched: `where({ name: 7 }).build()` has the name `"7"`.
 - A key copied from another record through an association is cast too, so an integer key written into a text foreign key becomes its digits.
@@ -162,6 +175,6 @@ Rails holds a `decimal` as a `BigDecimal`, a `date` as a `Date`, and a `time` as
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-Rails casts leniently: `"12abc"` becomes `12`, `1.7` becomes `1`, any other text is `true`, and `""` is `nil`. Arbor refuses each, so `inStock=no` from a form can’t save `true`, and an empty field can’t silently become `null`.
+Rails casts leniently: `"12abc"` becomes `12`, `1.7` becomes `1`, any other text is `true`, `""` is `nil`, and so is text that isn’t a UUID for a `uuid`. Arbor refuses each, so `inStock=no` from a form can’t save `true`, and an empty field can’t silently become `null`.
 
 </Callout>
