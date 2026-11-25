@@ -88,12 +88,16 @@ To do arithmetic with decimals, wrap a decimal library in a [custom type](./cust
 
 ## Storing UUIDs
 
-A `uuid` attribute holds a UUID, such as the key `generateId` makes. A value that isn’t a UUID finds nothing, so an id from a URL that’s mistyped or tampered with is a not-found:
+A `uuid` attribute finds nothing for an id that isn’t a UUID, so a mistyped or tampered id from a URL is a not-found:
 
 <include>/_excerpts/pages/attribute-types/examples/uuids.mdx</include>
 
 - A UUID is held lowercase with hyphens, whichever form it’s given in, so `"{0B6F8A1E-3C2D-4E5F-9A7B-1C2D3E4F5A6B}"` is held as `"0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b"`.
-- On Postgres, `arbor schema` gives a `UUID` column a `uuid` attribute. D1 has no UUID type, so a `TEXT` key is a `string` there, and a value that isn’t one of its keys finds nothing too. To hold a D1 key in one form, [override](./models#overriding-attributes) it: `id: { type: "uuid", null: false, generateId: true }`.
+- `arbor schema` gives a Postgres `UUID` column a `uuid` attribute, and a `UUID` key the UUIDs `generateId` makes.
+
+:::note
+D1 has no UUID type, so a D1 key is a `string`, and an id that isn’t one of its keys finds nothing there too. To hold a D1 key in one form, [override](./models#overriding-attributes) it: `id: { type: "uuid", null: false, generateId: true }`.
+:::
 
 ## Casting assigned values
 
