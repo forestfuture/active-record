@@ -91,7 +91,7 @@ Regenerate your schema from the new migrations:
 npx arbor schema
 ```
 
-Its attributes come out the same as on D1. Only its adapter changes:
+Its attributes come out the same as on D1, except that each `UUID` column is a [`uuid` attribute](./attribute-types#storing-uuids). Its adapter changes too:
 
 ```ts src/db/schema.ts
 import { defineSchema } from "@forestfuture/arbor";

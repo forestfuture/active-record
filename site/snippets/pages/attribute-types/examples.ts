@@ -1,3 +1,4 @@
+import { RecordNotFound } from "@forestfuture/arbor";
 import { Product } from "./src/models/product";
 
 export function building() {
@@ -48,3 +49,15 @@ export async function addPhoto(form: FormData) {
   return Product.create({ name: file.name, price: "0", stock: 0, inStock: false, photo });
 }
 // #endregion bytes
+
+// #region uuids
+export async function show(id: string) {
+  try {
+    const product = await Product.find(id); // an id from the URL, such as "lamp"
+    return Response.json({ name: product.name });
+  } catch (error) {
+    if (error instanceof RecordNotFound) return new Response("Not found", { status: 404 });
+    throw error;
+  }
+}
+// #endregion uuids

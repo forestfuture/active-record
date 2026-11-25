@@ -129,6 +129,12 @@ questions:
       - '"true" is cast to true when it''s assigned'
       - '"no" throws a TypeError naming the Model and attribute'
     routes: /attribute-types
+  - id: malformed-uuid-id
+    question: 'On Postgres, what happens when Product.find gets an id from the URL that isn''t a UUID, such as "lamp"?'
+    expected:
+      - "a UUID column is a uuid attribute, so text that isn't a UUID matches nothing"
+      - "find throws RecordNotFound, and findBy resolves to null, rather than a database error"
+    routes: /attribute-types
   - id: enum-scope-and-setter
     question: "My tickets have a status of open, in_progress or closed. How do I find tickets that aren't closed, and close one?"
     expected:

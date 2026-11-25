@@ -261,12 +261,13 @@ On Postgres, an override in the Model still comes first. Otherwise each column�
 | `time`                                       | `time`                                         |
 | `json`, `jsonb`                              | `json`                                         |
 | `bytea`                                      | `binary`                                       |
-| `text`, `varchar`, `char`, `citext`, `uuid`  | `string`                                       |
+| `text`, `varchar`, `char`, `citext`          | `string`                                       |
+| `uuid`                                       | `uuid`                                         |
 | an enum type                                 | `string`, with the enum’s labels as its `enum` |
 | an array                                     | An error: not supported                        |
 | anything else (`inet`, `interval`, `timetz`) | `string`, with a note                          |
 
-A domain maps as the type it’s built on. Names, `NOT NULL`, keys, and `CHECK (column IN (…))` work as on D1, and an enum type’s labels keep their order. A string key gets `generateId: true` unless it has a literal default, even when Postgres has a default such as `gen_random_uuid()`. Literal defaults (`'draft'`, `0`, `true`, `'{}'::jsonb`) are copied, and functions such as `now()` are left to Postgres. Views, other schemas, and `schema_migrations` are left out.
+A domain maps as the type it’s built on. Names, `NOT NULL`, keys, and `CHECK (column IN (…))` work as on D1, and an enum type’s labels keep their order. A string or `uuid` key gets `generateId: true` unless it has a literal default, even when Postgres has a default such as `gen_random_uuid()`. Literal defaults (`'draft'`, `0`, `true`, `'{}'::jsonb`) are copied, and functions such as `now()` are left to Postgres. Views, other schemas, and `schema_migrations` are left out.
 
 **Extensions:** a migration can `CREATE EXTENSION` any of the extensions PGlite has its own build of, such as `citext`, `uuid-ossp`, `pg_trgm`, `pgcrypto`, `hstore`, and `ltree`. For any other, such as PostGIS, set `schemaUrl` to a Postgres server that has it, such as a local one. The schema is then read there, in a database of its own:
 
