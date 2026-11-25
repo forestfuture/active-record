@@ -170,8 +170,8 @@ function insertAssignments(model: ModelClass, attributes: Record<string, unknown
  * `INSERT` of `rows` into `model`'s table, as one Statement. Every row must have the same
  * attributes as given; `conflict` skips or updates rows that clash with a unique
  * index. An update sets every attribute in `rows` (the given ones and any a Relation added,
- * #475), or only those `updateOnly` names, and `updatedAt` when one of them changes (#36), never
- * filled-in defaults.
+ * #475) but the primary key and read-only ones, or only those `updateOnly` names, and
+ * `updatedAt` when one of them changes (#36), never filled-in defaults.
  * It returns the attributes `returning` names of each row written.
  */
 export function insertStatement<Row>(
@@ -192,7 +192,7 @@ export function insertStatement<Row>(
   }
   const values = assigned.map((row) => names.map((name) => row.get(name)));
   // A clashing row keeps its read-only attributes' values, which it was created with (#358),
-  // and its primary key, when the upsert matches on another index (#533).
+  // and its primary key, which matters when the upsert matches on another index (#533).
   const updated = given.filter(
     (name) => name !== model.primaryKey && model.attributeDefinitions.get(name)?.readonly !== true,
   );
