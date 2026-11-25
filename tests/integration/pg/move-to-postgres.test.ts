@@ -121,7 +121,7 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     onD1 = await serve(cwd);
 
     const signups = [];
-    for (const email of ["Ada@example.com", "grace@example.com", "ada@example.com"]) {
+    for (const email of ["Jane@example.com", "sam@example.com", "jane@example.com"]) {
       signups.push((await onD1.fetch("POST", { email })).status);
     }
     const listed = await onD1.fetch("GET");
@@ -129,8 +129,8 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
 
     expect(signups).toEqual([201, 201, 422]);
     expect((listed.body as { email: string }[]).map((user) => user.email)).toEqual([
-      "grace@example.com",
-      "ada@example.com",
+      "sam@example.com",
+      "jane@example.com",
     ]);
   });
 
@@ -183,7 +183,7 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
       cwd,
       "INSERT INTO posts (id, user_id, title, created_at, updated_at) " +
         "SELECT '00000000-0000-4000-8000-000000000000', id, '', created_at, updated_at FROM users " +
-        "WHERE email = 'grace@example.com'",
+        "WHERE email = 'sam@example.com'",
     );
     writeFileSync(
       join(cwd, "wrangler.jsonc"),
@@ -210,8 +210,8 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     onPostgres = await serve(cwd);
 
     const listed = await onPostgres.fetch("GET");
-    const signedUp = await onPostgres.fetch("POST", { email: "Hedy@example.com" });
-    const again = await onPostgres.fetch("POST", { email: "hedy@example.com" });
+    const signedUp = await onPostgres.fetch("POST", { email: "Kim@example.com" });
+    const again = await onPostgres.fetch("POST", { email: "kim@example.com" });
     const after = await onPostgres.fetch("GET");
 
     expect(listed).toEqual({ status: 200, body: listedOnD1 });
@@ -220,15 +220,15 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
       { status: 422, body: { errors: ["Email has already been taken"] } },
     ]);
     expect((after.body as { email: string }[]).map((user) => user.email)).toEqual([
-      "hedy@example.com",
-      "grace@example.com",
-      "ada@example.com",
+      "kim@example.com",
+      "sam@example.com",
+      "jane@example.com",
     ]);
     // Signed up on Postgres, not on the D1 binding still beside it.
-    const hedy = await database.pool.query({
-      text: "SELECT count(*)::int AS n FROM users WHERE email = 'hedy@example.com'",
+    const stored = await database.pool.query({
+      text: "SELECT count(*)::int AS n FROM users WHERE email = 'kim@example.com'",
     });
-    expect(hedy.rows[0]).toEqual({ n: 1 });
+    expect(stored.rows[0]).toEqual({ n: 1 });
   });
 
   test("after the move, the schema is current", async () => {

@@ -40,7 +40,7 @@ class Order extends D1Record.define({
 }
 
 const fixture = (name: string) => new URL(`../../fixtures/cross-database/${name}`, import.meta.url);
-const ada = "8d0e8f8a-2d5b-4a8e-9a43-3b7c6c1f2e10";
+const customerId = "8d0e8f8a-2d5b-4a8e-9a43-3b7c6c1f2e10";
 
 let binding: TestDatabase;
 let disposeD1: () => Promise<void>;
@@ -57,12 +57,14 @@ afterAll(async () => {
 beforeEach(async () => {
   await binding.batch([
     binding.prepare("DELETE FROM orders"),
-    binding.prepare("INSERT INTO orders (id, customer_id, total) VALUES (1, ?, 30)").bind(ada),
+    binding
+      .prepare("INSERT INTO orders (id, customer_id, total) VALUES (1, ?, 30)")
+      .bind(customerId),
   ]);
   await schema.pool.query({ text: "DELETE FROM customers" });
   await schema.pool.query({
-    text: "INSERT INTO customers (id, name) VALUES ($1, 'Ada')",
-    values: [ada],
+    text: "INSERT INTO customers (id, name) VALUES ($1, 'Jane')",
+    values: [customerId],
   });
 });
 
@@ -77,11 +79,13 @@ describe("an association between a D1 Model and a Postgres one", () => {
   test("a D1 record reads its belongsTo from Postgres", async () => {
     const name = await inRequest(async () => (await (await Order.find(1)).customer())?.name);
 
-    expect(name).toBe("Ada");
+    expect(name).toBe("Jane");
   });
 
   test("a Postgres record reads its hasMany from D1", async () => {
-    const totals = await inRequest(async () => (await Customer.find(ada)).orders().pluck("total"));
+    const totals = await inRequest(async () =>
+      (await Customer.find(customerId)).orders().pluck("total"),
+    );
 
     expect(totals).toEqual([30]);
   });
@@ -89,26 +93,28 @@ describe("an association between a D1 Model and a Postgres one", () => {
   test("D1 records preload their belongsTo from Postgres", async () => {
     const [order] = await inRequest(() => Order.includes("customer").toArray());
 
-    expect(order!.loaded("customer")?.name).toBe("Ada");
+    expect(order!.loaded("customer")?.name).toBe("Jane");
   });
 
   test("Postgres records preload their hasMany from D1", async () => {
-    const customer = await inRequest(() => Customer.includes("orders").find(ada));
+    const customer = await inRequest(() => Customer.includes("orders").find(customerId));
 
     expect(customer.loaded("orders").map((order) => order.total)).toEqual([30]);
   });
 
   test("creating through a hasMany writes the record to D1", async () => {
-    await inRequest(async () => (await Customer.find(ada)).orders().create({ id: 2, total: 12 }));
+    await inRequest(async () =>
+      (await Customer.find(customerId)).orders().create({ id: 2, total: 12 }),
+    );
 
     const { results } = await binding.prepare("SELECT customer_id FROM orders WHERE id = 2").all();
-    expect(results).toEqual([{ customer_id: ada }]);
+    expect(results).toEqual([{ customer_id: customerId }]);
   });
 
   test("a new Postgres record a D1 record points at is written to Postgres first", async () => {
     const id = await inRequest(async () => {
       const order = Order.build({ id: 2, total: 12 });
-      const customer = order.customer.build({ name: "Grace" });
+      const customer = order.customer.build({ name: "Sam" });
       await order.saveOrThrow();
       return customer.id;
     });
@@ -117,7 +123,7 @@ describe("an association between a D1 Model and a Postgres one", () => {
       text: "SELECT name FROM customers WHERE id = $1",
       values: [id],
     });
-    expect(rows).toEqual([{ name: "Grace" }]);
+    expect(rows).toEqual([{ name: "Sam" }]);
     const { results } = await binding.prepare("SELECT customer_id FROM orders WHERE id = 2").all();
     expect(results).toEqual([{ customer_id: id }]);
   });

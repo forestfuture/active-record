@@ -71,7 +71,7 @@ describe("migrate and console on a mixed project's Postgres database", pgliteTim
       {
         cwd,
         database: "HYPERDRIVE",
-        eval: 'await User.create({ name: "Ada" }); await User.count()',
+        eval: 'await User.create({ name: "Jane" }); await User.count()',
       },
       quiet,
       streams,
@@ -82,7 +82,7 @@ describe("migrate and console on a mixed project's Postgres database", pgliteTim
       "Local database HYPERDRIVE (active_record_test on localhost)\nModels: Post, User\n",
     );
     const { rows } = await schema.pool.query({ text: "SELECT name FROM users" });
-    expect(rows).toEqual([{ name: "Ada" }]);
+    expect(rows).toEqual([{ name: "Jane" }]);
   });
 
   /** `migrate --database HYPERDRIVE`: its code, and what the runner printed. */
