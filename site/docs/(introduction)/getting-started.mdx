@@ -131,11 +131,11 @@ npx wrangler dev
 In another terminal, sign up a user, then list the users:
 
 ```sh
-curl -X POST http://localhost:8787 -d '{"email":"Ada@Example.com"}'
+curl -X POST http://localhost:8787 -d '{"email":"Jane@Example.com"}'
 curl http://localhost:8787
 ```
 
-The list includes Ada, with her email lowercased by `beforeSave`. Sign her up again, and you’ll get a `422` with `["Email has already been taken"]`.
+The list includes Jane, with her email lowercased by `beforeSave`. Sign her up again, and you’ll get a `422` with `["Email has already been taken"]`.
 
 ## Next steps
 

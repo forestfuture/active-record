@@ -149,7 +149,7 @@ beforeAll(async () => {
 afterAll(() => Promise.all(databases.map((database) => database.dispose())));
 
 test("signing in logs an entry", async () => {
-  const request = new Request("https://example.com/?email=ada@example.com");
+  const request = new Request("https://example.com/?email=jane@example.com");
   const response = await worker.fetch(request, env);
   expect(response.status).toBe(200);
 });
