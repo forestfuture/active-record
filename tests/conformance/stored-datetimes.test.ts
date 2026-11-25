@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import { between, gte, Model } from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { untyped } from "../support/untyped.ts";
 
 // Integer epoch columns, as other tools leave them.
 // Drizzle's integer({ mode: "timestamp" }) and integer({ mode: "timestamp_ms" }).
@@ -47,9 +48,6 @@ describe("datetimes stored by other tools (#73)", () => {
     expect(stamp?.seconds?.toISOString()).toBe("2026-01-02T03:04:05.000Z");
     expect(stamp?.milliseconds?.toISOString()).toBe("2026-01-02T03:04:05.678Z");
   });
-
-  // From a form or JSON, so not typed as a Date.
-  const untyped = (value: unknown) => value as never;
 
   // These passed on first run, as the storage rides on the converters, so they guard it; the
   // update test at the end was red (the review of #73).

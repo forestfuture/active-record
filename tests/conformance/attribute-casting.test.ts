@@ -9,6 +9,7 @@ import {
 } from "../../packages/arbor/src/index.ts";
 import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { untyped } from "../support/untyped.ts";
 
 class Sample extends Model.define({
   id: { type: "integer", null: false },
@@ -39,9 +40,6 @@ class KeyedSample extends Model.define({
 /** A value as the error shows it: JSON, with numbers as written (`NaN`, `Infinity`). */
 const shown = (value: unknown) =>
   typeof value === "number" ? String(value) : JSON.stringify(value);
-
-/** Assigns a value no TypeScript type allows, as JSON, a form or a query string can (#81). */
-const untyped = (value: unknown) => value as never;
 
 describe("values assigned to attributes are cast to the attribute's type (#81)", () => {
   let harness: Harness;

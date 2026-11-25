@@ -10,9 +10,7 @@ import { User } from "../fixtures/models/user.ts";
 import { withDatabase } from "../../packages/arbor/src/index.ts";
 import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
-
-/** A name the types don't allow, as one from a request would arrive. */
-const untyped = (value: unknown) => value as never;
+import { untyped } from "../support/untyped.ts";
 
 class Review extends Model.define({
   id: { type: "integer", null: false },

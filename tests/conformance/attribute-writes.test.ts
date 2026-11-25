@@ -7,6 +7,7 @@ import {
 } from "../../packages/arbor/src/index.ts";
 import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { untyped } from "../support/untyped.ts";
 
 class Member extends Model.define({
   id: { type: "integer", null: false },
@@ -64,9 +65,6 @@ const callbacks: string[] = [];
 const previouslyNew: boolean[] = [];
 /** What it said in each of Member's afterCommit callbacks. */
 const committedAsNew: boolean[] = [];
-
-/** A name or amount the method's type refuses, as one from untyped code would arrive. */
-const untyped = (value: unknown) => value as never;
 
 describe("changing one attribute (#351)", () => {
   let harness: Harness;
