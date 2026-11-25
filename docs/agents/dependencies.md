@@ -4,7 +4,7 @@ Read a dependency's types and docs from these paths, rather than searching `node
 
 - **D1 and the Workers runtime**: `node_modules/@cloudflare/workers-types/index.d.ts` (`D1Database`, `D1DatabaseSession`, and the `cloudflare:workers` module).
 - **Wrangler's API** (`getPlatformProxy`, remote bindings): `node_modules/wrangler/wrangler-dist/cli.d.ts`. What it does that the types don't say, such as how D1 migrations are numbered and tracked, is in `cli.js` beside it.
-- **Miniflare**: `node_modules/miniflare/dist/src/index.d.ts`. Tests and benchmarks start it only through `tests/support/miniflare.ts`, which writes Miniflare 5's config (`workers: [{ config }]`), and reach D1 through `tests/support/d1.ts`.
+- **Miniflare**: `node_modules/miniflare/dist/src/index.d.ts`. Tests and benchmarks start it only through `tests/support/miniflare.ts`. That helper writes Miniflare 5's config, which nests each Worker as `workers: [{ config }]`.
 - **Vite+** commands and config: `node_modules/vite-plus/docs/guide/<command>.md`. `lint.md` covers the repo's own lint rules (`scripts/lint/`).
 - **Oxlint rules** and their options: https://oxc.rs/docs/guide/usage/linter/rules.html. `vp lint --rules` prints nothing here.
 - **Blume**, the documentation site: its docs are bundled at `site/node_modules/blume/docs/` (configuration in `configuration/index.mdx`, includes in `content/includes.mdx`, components in `content/components.mdx`), and its skills at `site/node_modules/blume/skills/`. `useblume.dev` has the same pages.
