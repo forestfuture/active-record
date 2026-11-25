@@ -1,9 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import { between, gt, Model } from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
-
-/** A value the property's type doesn't name, as one from a request would arrive. */
-const untyped = (value: unknown) => value as never;
+import { untyped } from "../support/untyped.ts";
 
 class Line extends Model.define({
   id: { type: "integer", null: false },

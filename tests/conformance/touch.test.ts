@@ -11,6 +11,7 @@ import {
 import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { statementKinds } from "../support/statement-kinds.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { untyped } from "../support/untyped.ts";
 
 /** A member whose timestamps `touch` sets. */
 class Member extends Model.define({
@@ -111,9 +112,6 @@ class LateAborter extends Model.define({
     });
   }
 }
-
-/** A value the method's type refuses, as one from untyped code would arrive. */
-const untyped = (value: unknown) => value as never;
 
 /** A time well before the test runs, so a touched timestamp can't hold it by chance. */
 const stored = new Date("2026-01-02T03:04:05.000Z");

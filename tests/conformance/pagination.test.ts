@@ -11,6 +11,7 @@ import {
 } from "../../packages/arbor/src/index.ts";
 import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { untyped } from "../support/untyped.ts";
 
 class User extends Model.define({
   id: { type: "integer", null: false },
@@ -132,11 +133,10 @@ describe("paginate", () => {
       "%j from a JSON body throws TypeError, as a page or a perPage",
       async (value) => {
         const posts = db().model(Post);
-        // A JSON body's value can be any JSON, whatever the type says.
-        const untyped = value as unknown as number;
 
-        await expect(posts.paginate({ page: untyped })).rejects.toThrow(TypeError);
-        await expect(posts.paginate({ perPage: untyped })).rejects.toThrow(TypeError);
+        // A JSON body's value can be any JSON, whatever the type says.
+        await expect(posts.paginate({ page: untyped(value) })).rejects.toThrow(TypeError);
+        await expect(posts.paginate({ perPage: untyped(value) })).rejects.toThrow(TypeError);
         expect(events).toEqual([]);
       },
     );

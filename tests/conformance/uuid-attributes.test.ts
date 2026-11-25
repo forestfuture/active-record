@@ -10,9 +10,7 @@ import {
 import { gt, Model, RecordNotFound, type TableAttributes } from "../../packages/arbor/src/index.ts";
 import { d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
-
-/** A value the property's type doesn't name, as one from a request would arrive. */
-const untyped = (value: unknown) => value as never;
+import { untyped } from "../support/untyped.ts";
 
 const phoneId = "0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b";
 
