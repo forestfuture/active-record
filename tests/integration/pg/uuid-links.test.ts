@@ -17,6 +17,16 @@ class Reading extends Model.define({ id: { type: "integer", null: false }, devic
   device = belongsTo(Device);
 }
 
+// The same, in a column whose collation ignores case, where Postgres runs no regular expression.
+class FoldedReading extends Model.define({
+  id: { type: "integer", null: false },
+  deviceId: "string",
+}) {
+  static table = "folded_readings";
+
+  device = belongsTo(Device);
+}
+
 // Text selected for a uuid is the UUID it holds, in any form Postgres reads, as a condition on
 // the uuid finds it (#563). D1 compares the text exactly: an allowed difference. A UUID selected
 // for the text is its own form, as a condition on the text compares it.
@@ -30,6 +40,11 @@ describe("a text foreign key linked to a UUID key", () => {
     await schema.pool.query({
       text: "INSERT INTO devices (id, name) VALUES ($1, 'phone')",
       values: [phoneId],
+    });
+    await schema.pool.query({
+      text:
+        "CREATE COLLATION folded (provider = icu, locale = 'und-u-ks-level2', deterministic = false);" +
+        "CREATE TABLE folded_readings (id INTEGER PRIMARY KEY, device_id TEXT COLLATE folded)",
     });
   });
   afterAll(() => schema.dispose());
@@ -46,5 +61,13 @@ describe("a text foreign key linked to a UUID key", () => {
 
     expect(reading!.loaded("device")?.name).toBe("phone");
     expect(await db().model(Device).joins("readings").count()).toBe(1);
+  });
+
+  test("a text column whose collation ignores case links to its UUID key", async () => {
+    await connect(schema.url).model(FoldedReading).insert({ id: 1, deviceId: phoneId });
+
+    const [reading] = await connect(schema.url).model(FoldedReading).includes("device").toArray();
+
+    expect(reading!.loaded("device")?.name).toBe("phone");
   });
 });
