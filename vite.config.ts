@@ -270,7 +270,7 @@ export default defineConfig({
       },
       {
         // Example data uses everyday names (Jane, Sam), never a historical person's
-        // (CODING_STANDARDS.md's Tests, and docs/agents/docs-pages.md for the guide's; #567).
+        // (CODING_STANDARDS.md's Tests; docs/agents/docs-pages.md for the guide's examples; #567).
         files: ["tests/**", "site/snippets/**"],
         rules: { "arbor/no-historical-names": "error" },
       },
