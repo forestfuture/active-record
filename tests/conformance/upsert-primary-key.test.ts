@@ -56,7 +56,7 @@ describe("an upsert matching on another index keeps a clashing row's primary key
 
 describe("an upsert matching on another index refuses to update the primary key (#533)", () => {
   let harness: Harness;
-  const users = () => harness.connect().model(Member);
+  const members = () => harness.connect().model(Member);
   const row = { id: 1, email: "a@example.com", role: "admin" };
 
   beforeAll(async () => {
@@ -66,17 +66,19 @@ describe("an upsert matching on another index refuses to update the primary key 
 
   test("named in updateOnly, or by an alias", async () => {
     for (const updateOnly of ["id", "key"] as const) {
-      await expect(users().upsert(row, { uniqueBy: "email", updateOnly })).rejects.toThrow(
+      await expect(members().upsert(row, { uniqueBy: "email", updateOnly })).rejects.toThrow(
         new TypeError(`upsert() updateOnly can't name ${updateOnly}, which is the primary key`),
       );
     }
   });
 
-  test("named in onDuplicate", async () => {
-    await expect(
-      users().upsertAll([row], { uniqueBy: "email", onDuplicate: { id: 2 } }),
-    ).rejects.toThrow(
-      new TypeError("upsertAll() onDuplicate can't name id, which is the primary key"),
-    );
+  test("named in onDuplicate, or by an alias", async () => {
+    for (const name of ["id", "key"] as const) {
+      await expect(
+        members().upsertAll([row], { uniqueBy: "email", onDuplicate: { [name]: 2 } }),
+      ).rejects.toThrow(
+        new TypeError(`upsertAll() onDuplicate can't name ${name}, which is the primary key`),
+      );
+    }
   });
 });
