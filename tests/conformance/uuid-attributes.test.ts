@@ -67,25 +67,25 @@ describe("uuid attributes", () => {
 
   describe("a value that isn't a UUID matches nothing", () => {
     test("find throws RecordNotFound", async () => {
-      await expect(devices().find("ada")).rejects.toThrow(RecordNotFound);
-      await expect(devices().find(["ada", known])).rejects.toThrow(RecordNotFound);
+      await expect(devices().find("lamp")).rejects.toThrow(RecordNotFound);
+      await expect(devices().find(["lamp", known])).rejects.toThrow(RecordNotFound);
     });
 
     test("findBy resolves to null", async () => {
-      expect(await devices().findBy({ id: "ada" })).toBeNull();
+      expect(await devices().findBy({ id: "lamp" })).toBeNull();
       expect(await devices().findBy({ id: untyped(7) })).toBeNull();
     });
 
     test("a list leaves it out, and the rest still match", async () => {
       const found = await devices()
-        .where({ id: ["ada", known] })
+        .where({ id: ["lamp", known] })
         .toArray();
 
       expect(found.map(({ name }) => name)).toEqual(["phone"]);
     });
 
     test("whereNot with it excludes nothing", async () => {
-      expect(await devices().whereNot({ id: "ada" }).count()).toBe(1);
+      expect(await devices().whereNot({ id: "lamp" }).count()).toBe(1);
     });
   });
 
@@ -114,7 +114,7 @@ describe("uuid attributes", () => {
 
   describe("assigning", () => {
     test.each([
-      ["a name", "ada", '"ada"'],
+      ["a word", "lamp", '"lamp"'],
       ["a UUID one digit short", known.slice(0, -1), `"${known.slice(0, -1)}"`],
       ["a UUID with a hyphen at its end", `${known}-`, `"${known}-"`],
       ["one brace", `{${known}`, `"{${known}"`],
@@ -132,7 +132,7 @@ describe("uuid attributes", () => {
     const gadgets = harness.connect().model(Gadget);
 
     expect(gadgets.build().id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-/);
-    await expect(gadgets.find("ada")).rejects.toThrow(RecordNotFound);
+    await expect(gadgets.find("lamp")).rejects.toThrow(RecordNotFound);
     expect((await gadgets.find(known.toUpperCase())).name).toBe("phone");
   });
 
