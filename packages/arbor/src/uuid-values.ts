@@ -2,8 +2,9 @@
 import { uncastable } from "./conversion.ts";
 
 /**
- * A UUID as Postgres reads one: 32 hex digits in any case, a hyphen allowed after any group of
- * four but the last, the whole optionally in braces. Every count is fixed, so it can't backtrack.
+ * A UUID's digits as Postgres reads them, once `castUuid` has taken off any braces: 32 hex digits
+ * in any case, a hyphen allowed after any group of four but the last. Every count is fixed, so a
+ * long string fails without backtracking far.
  */
 const uuidText = /^(?:[0-9a-f]{4}-?){7}[0-9a-f]{4}$/i;
 
