@@ -43,4 +43,29 @@ describe("links between a uuid and a text key", () => {
 
     expect(reading!.loaded("device")?.name).toBe("phone");
   });
+
+  test("a hasMany preload finds the text foreign keys that hold its uuid key", async () => {
+    await db()
+      .model(Reading)
+      .insertAll([
+        { id: 1, deviceId: phoneId },
+        { id: 2, deviceId: "lamp" },
+      ]);
+
+    const [device] = await db().model(Device).includes("readings").toArray();
+
+    expect(device!.loaded("readings").map(({ id }) => id)).toEqual([1]);
+  });
+
+  test("joins link a uuid key and a text foreign key either way", async () => {
+    await db()
+      .model(Reading)
+      .insertAll([
+        { id: 1, deviceId: phoneId },
+        { id: 2, deviceId: "lamp" },
+      ]);
+
+    expect(await db().model(Device).joins("readings").pluck("name")).toEqual(["phone"]);
+    expect(await db().model(Reading).joins("device").pluck("id")).toEqual([1]);
+  });
 });
