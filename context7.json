@@ -10,8 +10,7 @@
     "CONTRIBUTING.md",
     "CODING_STANDARDS.md",
     "AGENTS.md",
-    "packages/arbor/CHANGELOG.md",
-    "packages/d1-record/CHANGELOG.md",
+    "CHANGELOG.md",
     "brief.md"
   ],
   "rules": [
