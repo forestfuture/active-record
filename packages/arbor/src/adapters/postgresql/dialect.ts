@@ -81,7 +81,7 @@ export const postgres: Dialect = {
     const text = `CAST(${key} AS TEXT)`;
     if (linked.isUuid) return `CASE WHEN ${text} ~ ${uuidPattern} THEN CAST(${text} AS UUID) END`;
     if (linked.isText) return text;
-    return `CASE WHEN ${key} ~ ${literal("^\\s*[+-]?[0-9]+\\s*$")} THEN CAST(${key} AS NUMERIC) END`;
+    return `CASE WHEN ${text} ~ ${literal("^\\s*[+-]?[0-9]+\\s*$")} THEN CAST(${text} AS NUMERIC) END`;
   },
   /**
    * The write returns a row if it changed one, and the statement casts the marker to an integer

@@ -9,6 +9,7 @@ class Device extends Model.define({ id: { type: "uuid", null: false }, name: "st
   static table = "devices";
 
   readings = hasMany(Reading);
+  gauges = hasMany(Gauge, { foreignKey: "level" });
 }
 
 class Reading extends Model.define({
@@ -19,6 +20,13 @@ class Reading extends Model.define({
   static table = "readings";
 
   device = belongsTo(Device);
+}
+
+// An integer foreign key (level) pointing at a UUID key, which no integer is.
+class Gauge extends Model.define({ id: { type: "integer", null: false }, level: "integer" }) {
+  static table = "readings";
+
+  device = belongsTo(Device, { foreignKey: "level" });
 }
 
 // Links between a UUID and a text key compare them as a condition on the linked attribute would
@@ -67,5 +75,25 @@ describe("links between a uuid and a text key", () => {
 
     expect(await db().model(Device).joins("readings").pluck("name")).toEqual(["phone"]);
     expect(await db().model(Reading).joins("device").pluck("id")).toEqual([1]);
+  });
+
+  test("a text foreign key that isn't a UUID finds nothing, without an error", async () => {
+    await db().model(Reading).insert({ id: 1, deviceId: "lamp" });
+
+    const [reading] = await db().model(Reading).includes("device").toArray();
+
+    expect(reading!.loaded("device")).toBeNull();
+  });
+
+  test("a uuid key and an integer foreign key find nothing either way, without an error", async () => {
+    await db().model(Gauge).insert({ id: 1, level: 7 });
+
+    const [device] = await db().model(Device).includes("gauges").toArray();
+    const [gauge] = await db().model(Gauge).includes("device").toArray();
+
+    expect(device!.loaded("gauges")).toEqual([]);
+    expect(gauge!.loaded("device")).toBeNull();
+    expect(await db().model(Device).joins("gauges").count()).toBe(0);
+    expect(await db().model(Gauge).joins("device").count()).toBe(0);
   });
 });
