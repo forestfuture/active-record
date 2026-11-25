@@ -1,12 +1,12 @@
 # Behavior contract (draft)
 
-The public behavior agreed during design, which the tests must prove. The guide at arbor.forestfuture.dev is written from it. Terms follow `GLOSSARY.md`; the reasons for decisions are in `docs/adr/`. Each section names the modules that implement it, and its guide pages where it has them. Each is marked _Portable_, proven on every adapter by the conformance suite (`tests/conformance/`), or _D1_, proven by the D1 adapter's own tests (`tests/integration/d1/`). A bullet or sentence marked (D1) in a portable section is the D1 adapter's alone, and one marked (Postgres) is the PostgreSQL adapter's.
+The public behavior agreed during design, which the tests must prove. The guide at arbor.forestfuture.dev is written from it. Terms follow `GLOSSARY.md`; the reasons for decisions are in `docs/adr/`. Each section names the modules that implement it on its _Code_ line, and its guide pages where it has them. A module's path is within `packages/`: `arbor/src/` is the core and `arbor/cli/` its command, `arbor/src/adapters/d1/` and `arbor/cli/adapters/d1/` are the D1 adapter and its plugin for the command, and `arbor/src/adapters/postgresql/` and `arbor/cli/adapters/postgresql/` are the PostgreSQL adapter and its plugin. Every module is named on some section's _Code_ line, or listed with a reason in `tests/unit/contract-code-lines.test.ts`, which checks it. Each is marked _Portable_, proven on every adapter by the conformance suite (`tests/conformance/`), or _D1_, proven by the D1 adapter's own tests (`tests/integration/d1/`). A bullet or sentence marked (D1) in a portable section is the D1 adapter's alone, and one marked (Postgres) is the PostgreSQL adapter's.
 
 ## Toolchain
 
 _D1._
 
-_Code:_ `vite.config.ts`, `package.json`, `packages/*/package.json`, `packages/*/vite.config.ts`. Below, a module's path is within `packages/`: `arbor/src/` is the core and `arbor/cli/` its command, `arbor/src/adapters/d1/` and `arbor/cli/adapters/d1/` are the D1 adapter and its plugin for the command, and `arbor/src/adapters/postgresql/` and `arbor/cli/adapters/postgresql/` are the PostgreSQL adapter and its plugin.
+_Code:_ `vite.config.ts`, `package.json`, `packages/*/package.json`, `packages/*/vite.config.ts`, `arbor/src/index.ts`, `arbor/src/for-adapters.ts`, `arbor/cli/for-adapters.ts`.
 
 - Vite+ `1.0.0`, pinned exactly; upgrade with `vp upgrade`, then `vp migrate`. pnpm 12.6.0 through `devEngines`. Node 24 LTS through `.node-version`.
 - One package, `@forestfuture/arbor` (`packages/arbor`, ADR-0019), in a pnpm workspace with the site; scoped, published with `access: public`, ESM-only, target ES2022, `.d.ts` emitted, attw `esm-only` profile and publint on every `vp pack`. MIT license. One build, so every entry shares the core's modules (one copy of each class).
@@ -23,7 +23,7 @@ _Code:_ `vite.config.ts`, `package.json`, `packages/*/package.json`, `packages/*
 
 _Portable._ A bullet or sentence marked (D1) is the D1 adapter's alone.
 
-_Guide:_ [connecting](<../site/docs/(basics)/connecting.mdx>), [query-databases](<../site/docs/(background)/query-databases.md>), [several-databases](<../site/docs/(how-to)/several-databases.mdx>), [read-your-own-writes](<../site/docs/(how-to)/read-your-own-writes.mdx>), [d1](<../site/docs/(adapters)/d1.mdx>), [postgres](<../site/docs/(adapters)/postgres.mdx>). _Code:_ `arbor/src/database.ts`, `arbor/src/current-database.ts`, `arbor/src/executor.ts`, `arbor/src/adapters/d1/`, `arbor/src/adapters/postgresql/`.
+_Guide:_ [connecting](<../site/docs/(basics)/connecting.mdx>), [query-databases](<../site/docs/(background)/query-databases.md>), [several-databases](<../site/docs/(how-to)/several-databases.mdx>), [read-your-own-writes](<../site/docs/(how-to)/read-your-own-writes.mdx>), [d1](<../site/docs/(adapters)/d1.mdx>), [postgres](<../site/docs/(adapters)/postgres.mdx>). _Code:_ `arbor/src/database.ts`, `arbor/src/current-database.ts`, `arbor/src/executor.ts`, `arbor/src/adapters/d1/`, `arbor/src/adapters/postgresql/`, `arbor/src/adapter.ts`, `arbor/src/driver.ts`, `arbor/src/dialect.ts`, `arbor/src/workers-env.ts`, `arbor/src/async-storage.ts`, `arbor/src/request-database.ts`, `arbor/src/request-store.ts`, `arbor/src/request-cache.ts`.
 
 A query finds its database one of three ways (#77):
 
@@ -71,7 +71,7 @@ const models = db.models({ User, Post }); // convenience: models.User has the sa
 
 _Portable._ A bullet or sentence marked (D1) is the D1 adapter's alone.
 
-_Guide:_ [models](<../site/docs/(basics)/models.mdx>), [untrusted-input](<../site/docs/(how-to)/untrusted-input.mdx>), [querying](<../site/docs/(basics)/querying.mdx>), [adopt-a-database](<../site/docs/(how-to)/adopt-a-database.mdx>), [custom-types](<../site/docs/(how-to)/custom-types.mdx>). _Code:_ `arbor/src/model.ts`, `arbor/src/model-statics.ts`, `arbor/src/generated-model.ts`, `arbor/src/metadata.ts`, `arbor/src/spec-keys.ts`, `arbor/src/table-names.ts`, `arbor/src/verify-model.ts`, `arbor/src/permit.ts`, `arbor/src/attribute.ts`, `arbor/src/conversion.ts`, `arbor/src/decimal-values.ts`, `arbor/src/calendar-values.ts`, `arbor/src/uuid-values.ts`, `arbor/src/attribute-conversions.ts`, `arbor/src/enum-values.ts`, `arbor/src/enum-methods.ts`, `arbor/src/enum-switch.ts`, `arbor/src/define-schema.ts`, `arbor/src/binary-values.ts`, `arbor/src/custom-types.ts`.
+_Guide:_ [models](<../site/docs/(basics)/models.mdx>), [untrusted-input](<../site/docs/(how-to)/untrusted-input.mdx>), [querying](<../site/docs/(basics)/querying.mdx>), [adopt-a-database](<../site/docs/(how-to)/adopt-a-database.mdx>), [custom-types](<../site/docs/(how-to)/custom-types.mdx>). _Code:_ `arbor/src/model.ts`, `arbor/src/model-statics.ts`, `arbor/src/generated-model.ts`, `arbor/src/metadata.ts`, `arbor/src/spec-keys.ts`, `arbor/src/table-names.ts`, `arbor/src/verify-model.ts`, `arbor/src/permit.ts`, `arbor/src/attribute.ts`, `arbor/src/conversion.ts`, `arbor/src/decimal-values.ts`, `arbor/src/calendar-values.ts`, `arbor/src/uuid-values.ts`, `arbor/src/attribute-conversions.ts`, `arbor/src/enum-values.ts`, `arbor/src/enum-methods.ts`, `arbor/src/enum-switch.ts`, `arbor/src/define-schema.ts`, `arbor/src/binary-values.ts`, `arbor/src/custom-types.ts`, `arbor/src/attribute-aliases.ts`, `arbor/src/defined-model.ts`, `arbor/src/epoch-storage.ts`, `arbor/src/json-values.ts`, `arbor/src/naming.ts`, `arbor/src/inflections.ts`, `arbor/src/identifiers.ts`, `arbor/src/normalization.ts`, `arbor/src/normalized-values.ts`, `arbor/src/timestamps.ts`.
 
 A Model extends the app's base class (`ApplicationRecord`). A **generated Model**'s attributes are its table's in the generated schema (see The generated schema): `class Post extends ApplicationRecord {}`. A **hand-declared Model** declares them in its class, with `define`:
 
@@ -158,7 +158,7 @@ class User extends ApplicationRecord.define({
 
 _Portable._
 
-_Guide:_ [command-line](<../site/docs/(basics)/command-line.mdx>). _Code:_ `arbor/cli/main.ts`, `arbor/cli/adapter.ts`, `arbor/cli/project/adapters.ts`, `arbor/cli/project/databases.ts`, `arbor/cli/project/config-file.ts`, `arbor/cli/migrate/`, `arbor/cli/adapters/d1/plugin.ts`, `arbor/cli/adapters/d1/databases.ts`, `arbor/cli/adapters/d1/migrate.ts`, `arbor/cli/adapters/d1/installed-wrangler.ts`, `arbor/cli/adapters/postgresql/plugin.ts`, `arbor/cli/adapters/postgresql/config.ts`, `arbor/cli/adapters/postgresql/runner.ts`.
+_Guide:_ [command-line](<../site/docs/(basics)/command-line.mdx>). _Code:_ `arbor/cli/main.ts`, `arbor/cli/adapter.ts`, `arbor/cli/project/adapters.ts`, `arbor/cli/project/databases.ts`, `arbor/cli/project/config-file.ts`, `arbor/cli/migrate/`, `arbor/cli/adapters/d1/plugin.ts`, `arbor/cli/adapters/d1/databases.ts`, `arbor/cli/adapters/d1/migrate.ts`, `arbor/cli/adapters/d1/installed-wrangler.ts`, `arbor/cli/adapters/postgresql/plugin.ts`, `arbor/cli/adapters/postgresql/config.ts`, `arbor/cli/adapters/postgresql/runner.ts`, `arbor/cli/bin.ts`, `arbor/cli/plan.ts`, `arbor/cli/source.ts`, `arbor/cli/subcommand.ts`, `arbor/cli/init/`, `arbor/cli/adapters/d1/init.ts`, `arbor/cli/adapters/postgresql/init.ts`, `arbor/cli/adapters/postgresql/wrangler.ts`, `arbor/cli/adapters/postgresql/urls.ts`, `arbor/cli/adapters/postgresql/client.ts`, `arbor/cli/adapters/postgresql/drivers.ts`, `arbor/cli/adapters/postgresql/migrate.ts`, `arbor/cli/adapters/postgresql/transaction-control.ts`, `arbor/cli/adapters/postgresql/versions.ts`.
 
 - One command, `arbor`, comes with `@forestfuture/arbor` (#278): `init`, `schema`, `g model`, `g migration`, `console` (`c`) and `migrate`. There's no `d1-record` command.
 - **Finding the adapter (#301, ADR-0019):** the project's `arbor.jsonc`, or the file `--config` names, names each database's adapter: `"DB": { "adapter": "d1" }`, `"HYPERDRIVE": { "adapter": "postgresql", … }`. The command reads it and never guesses. Without the file, it says to run `npx arbor init`; a file that isn't an object, or can't be read, a file with no `databases`, an entry that isn't an object, an entry with no `adapter` (naming the ones there are), or one that isn't an adapter, is refused, naming it. **Each database uses the adapter its entry names (#305):** one project can hold a D1 database and a PostgreSQL one. The command loads the plugin of every adapter the file names (checking `unsupported` for each before anything is read) and hands each plugin only the entries for it; `schema` reads each database with its own plugin, and the generators, `migrate` and the console use the plugin of the database `--database` chooses. Every plugin's notes are printed. Two databases on different adapters whose migrations folders are one folder are refused, naming both (`DB and HYPERDRIVE both read migrations/, on different adapters (d1 and postgresql); give each its own migrations folder`, or each one's path when a link makes them one folder), since both adapters default to `migrations/`; databases on one adapter may share one. There's no `--adapter`, but on `init`.
@@ -281,7 +281,7 @@ _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>), [models](<../site/doc
 
 _Portable._
 
-_Guide:_ [shared-behavior](<../site/docs/(how-to)/shared-behavior.mdx>), [models](<../site/docs/(basics)/models.mdx>). _Code:_ `arbor/src/ancestors.ts`, `arbor/src/declarations.ts`, `arbor/src/model.ts`, `arbor/src/model-statics.ts`, `arbor/src/verify-model.ts`.
+_Guide:_ [shared-behavior](<../site/docs/(how-to)/shared-behavior.mdx>), [models](<../site/docs/(basics)/models.mdx>). _Code:_ `arbor/src/ancestors.ts`, `arbor/src/declarations.ts`, `arbor/src/model.ts`, `arbor/src/model-statics.ts`, `arbor/src/verify-model.ts`, `arbor/src/inspect-support.ts`, `arbor/src/record-inspect.ts`, `arbor/src/relation-inspect.ts`.
 
 - A subclass (`class Admin extends User`) inherits a copy of its parent's attributes, validations, callbacks, scopes and associations. Declaring more on the child never changes the parent. Single-table inheritance is out of scope.
 - Share behavior between all Models on the app's base class, `ApplicationRecord` (see "Shared behavior" under The generated schema), as Rails does. Behavior only some Models share can go on a class between them and it, marked `static abstract = true`, or in a function called from their `static {}` (e.g. `audited(this)`). A `.with({...})` helper for adding attributes to a subclass of a shared base is deferred (#14).
@@ -328,7 +328,7 @@ _Guide:_ [models](<../site/docs/(basics)/models.mdx>). _Code:_ `arbor/src/record
 
 _Portable._
 
-_Guide:_ [associations](<../site/docs/(basics)/associations.mdx>). _Code:_ `arbor/src/association-fields.ts`, `arbor/src/associations.ts`, `arbor/src/association-writers.ts`, `arbor/src/foreign-keys.ts`, `arbor/src/resolved-association.ts`, `arbor/src/owned-collection.ts`, `arbor/src/point-back-at-owner.ts`, `arbor/src/inverse-associations.ts`, `arbor/src/relation-state.ts`, `arbor/src/collection-methods.ts`, `arbor/src/autosave.ts`, `arbor/src/autosave-plan.ts`, `arbor/src/dependents.ts`, `arbor/src/preload.ts`, `arbor/src/through-associations.ts`, `arbor/src/through-preload.ts`, `arbor/src/polymorphic-checks.ts`, `arbor/src/polymorphic-preload.ts`, `arbor/src/counter-caches.ts`, `arbor/src/owners-counter.ts`, `arbor/src/association-touch.ts`, `arbor/src/no-touching.ts`.
+_Guide:_ [associations](<../site/docs/(basics)/associations.mdx>). _Code:_ `arbor/src/association-fields.ts`, `arbor/src/associations.ts`, `arbor/src/association-writers.ts`, `arbor/src/foreign-keys.ts`, `arbor/src/resolved-association.ts`, `arbor/src/owned-collection.ts`, `arbor/src/point-back-at-owner.ts`, `arbor/src/inverse-associations.ts`, `arbor/src/relation-state.ts`, `arbor/src/collection-methods.ts`, `arbor/src/autosave.ts`, `arbor/src/autosave-plan.ts`, `arbor/src/dependents.ts`, `arbor/src/preload.ts`, `arbor/src/through-associations.ts`, `arbor/src/through-preload.ts`, `arbor/src/polymorphic-checks.ts`, `arbor/src/polymorphic-preload.ts`, `arbor/src/counter-caches.ts`, `arbor/src/owners-counter.ts`, `arbor/src/association-touch.ts`, `arbor/src/no-touching.ts`, `arbor/src/loaded-associations.ts`, `arbor/src/pending-autosaves.ts`, `arbor/src/through-writes.ts`, `arbor/src/required-associations.ts`.
 
 ```ts
 class User extends Model.define({ id: { type: "integer", null: false } }) {
@@ -514,7 +514,7 @@ _Guide:_ [errors](<../site/docs/(basics)/errors.mdx>). _Code:_ `arbor/src/constr
 
 _Portable._
 
-_Guide:_ [validations](<../site/docs/(basics)/validations.mdx>). _Code:_ `arbor/src/validations.ts`, `arbor/src/lifecycle.ts`.
+_Guide:_ [validations](<../site/docs/(basics)/validations.mdx>). _Code:_ `arbor/src/validations.ts`, `arbor/src/lifecycle.ts`, `arbor/src/validation-context.ts`, `arbor/src/validation-pass.ts`, `arbor/src/listed-contexts.ts`.
 
 `await record.isValid(context?)` is the only public entry point. It clears `errors`, runs `beforeValidation`, runs the synchronous and asynchronous validators (uniqueness reads D1, and `validatesAssociated` may load an association), runs `afterValidation`, and returns `true`/`false`. It catches `abort()` and returns `false`; every other error propagates, a `strict` rule's included. `save()` and `saveOrThrow()` call it internally, in the context given as `save({ context })` (below). `isChanged()` is a pure synchronous state check, while `isValid()` does work and may query D1.
 
@@ -546,7 +546,7 @@ Validators add entries with a `type` (`"blank"`, `"taken"`, `"tooShort"`, …) a
 
 _Portable._
 
-_Guide:_ [validations](<../site/docs/(basics)/validations.mdx>). _Code:_ `arbor/src/validations.ts`, `arbor/src/associated-validation.ts`.
+_Guide:_ [validations](<../site/docs/(basics)/validations.mdx>). _Code:_ `arbor/src/validations.ts`, `arbor/src/associated-validation.ts`, `arbor/src/blank.ts`, `arbor/src/comparison-validation.ts`.
 
 Declared in `static {}` with `this.validates(attribute, rules)`. The attribute name and the `if` callback's record are typed against the Model. Every declared validation runs, in declaration order, with no stopping at the first failure, so one attribute can collect several errors. Within one `validates` call the rules apply in a fixed order: presence, absence, length, format, inclusion, exclusion, numericality, comparison, acceptance, uniqueness, confirmation (#342, #356).
 
@@ -589,7 +589,7 @@ _Guide:_ [read-only](<../site/docs/(basics)/read-only.mdx>). _Code:_ `arbor/src/
 
 _Portable._
 
-_Guide:_ [callbacks](<../site/docs/(basics)/callbacks.mdx>). _Code:_ `arbor/src/lifecycle.ts`, `arbor/src/callbacks.ts`, `arbor/src/around-callbacks.ts`, `arbor/src/load-callbacks.ts`, `arbor/src/declarations.ts`.
+_Guide:_ [callbacks](<../site/docs/(basics)/callbacks.mdx>). _Code:_ `arbor/src/lifecycle.ts`, `arbor/src/callbacks.ts`, `arbor/src/around-callbacks.ts`, `arbor/src/load-callbacks.ts`, `arbor/src/declarations.ts`, `arbor/src/thenables.ts`.
 
 Declared in `static {}`: `this.beforeValidation(fn)`, `afterValidation`, `beforeSave`, `beforeCreate`, `beforeUpdate`, `afterCreate`, `afterUpdate`, `afterSave`, `beforeDestroy`, `afterDestroy`, `afterTouch` (#50, under _Changing one attribute_), the commit callbacks `afterCommit`, `afterCreateCommit`, `afterUpdateCommit`, `afterSaveCommit` and `afterDestroyCommit` (#341), `afterRollback`, `afterFind` and `afterInitialize` (#49), and the around callbacks `aroundSave`, `aroundCreate`, `aroundUpdate` and `aroundDestroy` (#48), which also receive `next`. Each takes a function that receives the record, typed as the Model's record, and may be async, except `afterFind` and `afterInitialize`; callbacks of one kind run in declaration order. `beforeValidation` and `afterValidation` also take `{ on }`, to run only in those validation contexts (#51, under _Validators_); on a class without `validationContexts` (the app's base class), that's `"create"` or `"update"`. A subclass runs its parent's callbacks and validations plus its own, and declaring on it never changes the parent. Declarations belong in the class's `static {}` block: once a Model has been used (`db.model(X)`), declaring on it throws `InvalidModel`, so request code can never add callbacks that leak into later requests.
 
@@ -706,7 +706,7 @@ _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>), and [persistence](<..
 
 _Portable._
 
-_Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `arbor/src/relation.ts`, `arbor/src/calculations.ts`, `arbor/src/grouping.ts`, `arbor/src/find.ts`, `arbor/src/one-record.ts`, `arbor/src/record-counts.ts`, `arbor/src/load.ts`, `arbor/src/pagination.ts`, `arbor/src/batch-iteration.ts`.
+_Guide:_ [querying](<../site/docs/(basics)/querying.mdx>). _Code:_ `arbor/src/relation.ts`, `arbor/src/calculations.ts`, `arbor/src/grouping.ts`, `arbor/src/find.ts`, `arbor/src/one-record.ts`, `arbor/src/record-counts.ts`, `arbor/src/load.ts`, `arbor/src/pagination.ts`, `arbor/src/batch-iteration.ts`, `arbor/src/count-questions.ts`, `arbor/src/finder-order.ts`.
 
 - `toArray`, `first`, `last`, `take`, `find`, `findBy`, `findByOrThrow`.
 - **Finders that must find (#349).** `firstOrThrow()`, `lastOrThrow()` and `takeOrThrow()` find what `first`, `last` and `take` find, and throw `RecordNotFound` (`User not found`) instead of resolving to `null` (ADR-0005's suffix). `sole()` is the only record the Relation matches, as Rails' `sole`: it asks for two rows, keeping the Relation's order, and throws `RecordNotFound` with none and `SoleRecordExceeded` (`Wanted only one User`) with more than one. It has no nullable form: asserting is its point, as with `find`. `findSoleBy(conds)` is `where(conds).sole()`. `second()`, `third()` and the like aren't provided: `offset(1).first()` covers them.
