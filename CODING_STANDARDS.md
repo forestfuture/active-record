@@ -15,6 +15,7 @@ Judgement calls the `code-review` skill's Standards axis checks, beyond what `vp
 ## Names and comments
 
 - A module's first line says what it owns (lint enforces it); update it when the module gains a responsibility.
+- **A doc comment sits directly above what it documents.** One followed by another documents nothing, since the second sits above the member the first was written for. Lint flags one (`arbor/no-orphan-doc-comment`), even with other comments between the two.
 - Extract a dense pipeline into a named helper instead of casting through it.
 - **Comments and test names say what the code does, not where the idea came from.** Rails is the project's starting point, not its goal, so write "start at their defaults on a load", not "as Rails does". A deliberate difference is stated as the behavior and its reason. Rails comparisons belong in the guide's Compared with Rails boxes and in `docs/contract.md`. Lint flags "Rails" in a comment in `packages/*/src/`, `packages/*/cli/` and `tests/`, and in a test's name (`arbor/say-what-it-does`, whose `words` in `vite.config.ts` list the names it flags). When the word belongs to what the code does, such as a test of the Compared with Rails box, opt out on the line before it with the reason: `// oxlint-disable-next-line arbor/say-what-it-does -- <why>`. Lint flags an opt-out with no reason (`arbor/disable-reason`).
 
