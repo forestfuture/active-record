@@ -75,7 +75,7 @@ describe("a schema generated from migrations", () => {
 
   test("a Model built from it round-trips every type against D1, defaults included", async () => {
     const db = connect(binding);
-    const user = await db.model(User).createOrThrow({ email: "ada@example.com" });
+    const user = await db.model(User).createOrThrow({ email: "jane@example.com" });
     const built = db.model(Product).build({ userId: user.id, name: "Lamp", priceCents: 4500 });
 
     // Generated defaults show on a new record.
@@ -106,7 +106,7 @@ describe("a schema generated from migrations", () => {
   test("overrides change a Model's types and defaults, and an ignored column is never read or written", async () => {
     const events: QueryEvent[] = [];
     const db = connect(binding, { onQuery: (event) => events.push(event) });
-    const user = await db.model(User).createOrThrow({ email: "grace@example.com" });
+    const user = await db.model(User).createOrThrow({ email: "sam@example.com" });
     const listing = db.model(Listing).build({ userId: user.id, name: "Desk", priceCents: 9900 });
     expectTypeOf<Listing["available"]>().toEqualTypeOf<number>();
     expectTypeOf<Listing["tagline"]>().toEqualTypeOf<string>();
@@ -128,7 +128,7 @@ describe("a schema generated from migrations", () => {
     class Featured extends Listing {}
     const events: QueryEvent[] = [];
     const db = connect(binding, { onQuery: (event) => events.push(event) });
-    const user = await db.model(User).createOrThrow({ email: "edsger@example.com" });
+    const user = await db.model(User).createOrThrow({ email: "kim@example.com" });
     const featured = await db
       .model(Featured)
       .createOrThrow({ userId: user.id, name: "Chair", priceCents: 12000 });
@@ -161,7 +161,7 @@ describe("a schema generated from migrations", () => {
     const logged = vi.spyOn(console, "log").mockImplementation(() => {});
     const db = connect(binding);
 
-    const user = await db.model(User).createOrThrow({ email: "linus@example.com" });
+    const user = await db.model(User).createOrThrow({ email: "lee@example.com" });
     await db.model(Note).createOrThrow({ userId: user.id, name: "Pen", priceCents: 150 });
     await db.model(Visit).createOrThrow({ path: "/notes" });
     // The callbacks' lines; the base class's onQuery logs each query too (checked below).
@@ -172,8 +172,8 @@ describe("a schema generated from migrations", () => {
 
     expect(lines).toEqual(["Saving User", "Saving Note", "Note's own", "Saving Visit"]);
     expectTypeOf<User["label"]>().toEqualTypeOf<() => string>();
-    expect(user.label()).toMatch(/^User \{"id":".+","email":"linus@example.com"/);
+    expect(user.label()).toMatch(/^User \{"id":".+","email":"lee@example.com"/);
     expect((await db.model(Product).newest().first())?.name).toBe("Pen");
-    expect((await db.model(User).newest().first())?.email).toBe("linus@example.com");
+    expect((await db.model(User).newest().first())?.email).toBe("lee@example.com");
   });
 });

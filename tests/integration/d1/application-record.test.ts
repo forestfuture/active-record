@@ -35,7 +35,7 @@ describe("Models extending the app's base class", () => {
   });
 
   test("a Model has its table's attributes, its table named after its class", async () => {
-    const user = await db().model(User).create({ email: "ada@example.com" });
+    const user = await db().model(User).create({ email: "jane@example.com" });
     const post = await db().model(Post).create({ userId: user.id, title: "Hello" });
 
     const found = await db().model(Post).find(post.id);
@@ -46,7 +46,7 @@ describe("Models extending the app's base class", () => {
   });
 
   test("its statics query the binding in the generated schema", async () => {
-    const user = await User.create({ email: "grace@example.com" });
+    const user = await User.create({ email: "sam@example.com" });
     await Post.create({ userId: user.id, title: "First" });
     await Post.create({ userId: user.id, title: "Second" });
 

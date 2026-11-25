@@ -112,13 +112,13 @@ describe("withSession(request, env.DB, fn)", () => {
 
   test("fn runs with the Session's Database as the request's, and its Response is returned", async () => {
     const response = await withSession(getRequest(), binding, async () => {
-      await User.create({ id: 1, email: "ada@example.com" });
+      await User.create({ id: 1, email: "jane@example.com" });
       return new Response("created");
     });
 
     expect(await response.text()).toBe("created");
     expect(await database.prepare("SELECT email FROM users").all()).toMatchObject({
-      results: [{ email: "ada@example.com" }],
+      results: [{ email: "jane@example.com" }],
     });
   });
 
@@ -132,7 +132,7 @@ describe("withSession(request, env.DB, fn)", () => {
 
   test("the next request's bookmark cookie is where its Session starts, so it reads the last request's write", async () => {
     const first = await withSession(getRequest(), binding, async () => {
-      await User.create({ id: 1, email: "ada@example.com" });
+      await User.create({ id: 1, email: "jane@example.com" });
       return new Response("created");
     });
     const bookmark = bookmarkFrom(first);
@@ -141,7 +141,7 @@ describe("withSession(request, env.DB, fn)", () => {
     const next = await withSession(request, binding, async () => Response.json(await User.find(1)));
 
     expect(starts).toEqual(["first-unconstrained", bookmark]);
-    expect(await next.json()).toMatchObject({ email: "ada@example.com" });
+    expect(await next.json()).toMatchObject({ email: "jane@example.com" });
     expect(bookmarkFrom(next)).toEqual(expect.any(String));
   });
 
@@ -303,7 +303,7 @@ describe("withSession(request, env.DB, fn)", () => {
 
   test("fn gets the request's Database", async () => {
     const response = await withSession(getRequest(), binding, async (db) => {
-      await db.model(User).create({ id: 1, email: "ada@example.com" });
+      await db.model(User).create({ id: 1, email: "jane@example.com" });
       return Response.json({ bookmark: db.bookmark() });
     });
 

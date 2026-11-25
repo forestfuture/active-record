@@ -235,7 +235,7 @@ beforeEach(async () => {
       ...["users", "entries", "badges", "notes"].map((table) =>
         binding.prepare(`DELETE FROM ${table}`),
       ),
-      binding.prepare("INSERT INTO users (id, email) VALUES (1, ?)").bind(`ada@${where}`),
+      binding.prepare("INSERT INTO users (id, email) VALUES (1, ?)").bind(`jane@${where}`),
       binding.prepare("INSERT INTO entries (id, user_id, message) VALUES (1, 1, ?)").bind(where),
       binding.prepare("INSERT INTO badges (id, user_id, label) VALUES (1, 1, ?)").bind(where),
       binding.prepare("INSERT INTO notes (id, entry_id, body) VALUES (1, 1, ?)").bind(where),
@@ -269,7 +269,7 @@ describe("reading an association to another database", () => {
   test("a belongsTo reads its target's database", async () => {
     const email = await inRequest(async () => (await (await Entry.find(1)).user())?.email);
 
-    expect(email).toBe("ada@DB");
+    expect(email).toBe("jane@DB");
   });
 
   test("a required belongsTo looks for its record on its target's database", async () => {
@@ -312,13 +312,13 @@ describe("reading an association to another database", () => {
   test("with no request database, the target is read from its own binding", async () => {
     const entry = await Entry.find(1);
 
-    expect((await entry.user())?.email).toBe("ada@DB");
+    expect((await entry.user())?.email).toBe("jane@DB");
   });
 
   test("an owner from an explicit database reads its target from the target's binding", async () => {
     const entry = await connect(logs).model(Entry).find(1);
 
-    expect((await entry.user())?.email).toBe("ada@DB");
+    expect((await entry.user())?.email).toBe("jane@DB");
   });
 
   test("a target loaded from another database reads its own associations there", async () => {
@@ -399,12 +399,12 @@ describe("writing through an association to another database", () => {
   test("creating through a belongsTo writes the record to the target's database", async () => {
     const userId = await inRequest(async () => {
       const entry = await Entry.find(1);
-      await entry.user.create({ id: 2, email: "grace@DB" });
+      await entry.user.create({ id: 2, email: "sam@DB" });
       return entry.userId;
     });
 
     expect(userId).toBe(2);
-    expect(await rows(db, "SELECT email FROM users WHERE id = 2")).toEqual([{ email: "grace@DB" }]);
+    expect(await rows(db, "SELECT email FROM users WHERE id = 2")).toEqual([{ email: "sam@DB" }]);
     expect(await rows(logs, "SELECT id FROM users WHERE id = 2")).toEqual([]);
   });
 
@@ -466,7 +466,7 @@ describe("writing through an association to another database", () => {
 describe("autosaving records on another database", () => {
   test("a hasMany's built records are written to their database", async () => {
     const saved = await inRequest(async () => {
-      const user = User.build({ id: 2, email: "grace@DB" });
+      const user = User.build({ id: 2, email: "sam@DB" });
       user.entries().build({ id: 2, message: "built" });
       return user.save();
     });
@@ -478,7 +478,7 @@ describe("autosaving records on another database", () => {
 
   test("a hasMany's built records take the key the database generates for the owner", async () => {
     const id = await inRequest(async () => {
-      const user = User.build({ email: "grace@DB" });
+      const user = User.build({ email: "sam@DB" });
       user.entries().build({ id: 2, message: "built" });
       await user.saveOrThrow();
       return user.id;
@@ -489,7 +489,7 @@ describe("autosaving records on another database", () => {
 
   test("a hasOne's built record is written to its database", async () => {
     await inRequest(async () => {
-      const user = User.build({ id: 2, email: "grace@DB" });
+      const user = User.build({ id: 2, email: "sam@DB" });
       user.badge.build({ id: 2, label: "built" });
       await user.saveOrThrow();
     });
@@ -500,20 +500,20 @@ describe("autosaving records on another database", () => {
   test("a new record a belongsTo points at is written to its database first", async () => {
     const id = await inRequest(async () => {
       const entry = Entry.build({ id: 2, message: "built" });
-      const user = entry.user.build({ email: "grace@DB" });
+      const user = entry.user.build({ email: "sam@DB" });
       await entry.saveOrThrow();
       return user.id;
     });
 
     expect(await rows(db, `SELECT email FROM users WHERE id = ${id}`)).toEqual([
-      { email: "grace@DB" },
+      { email: "sam@DB" },
     ]);
     expect(await rows(logs, "SELECT user_id FROM entries WHERE id = 2")).toEqual([{ user_id: id }]);
   });
 
   test("records built through a built record come back to the owner's database", async () => {
     await inRequest(async () => {
-      const user = User.build({ id: 2, email: "grace@DB" });
+      const user = User.build({ id: 2, email: "sam@DB" });
       const entry = user.entries().build({ id: 2, message: "built" });
       entry.notes().build({ id: 2, body: "noted" });
       await user.saveOrThrow();
@@ -527,24 +527,24 @@ describe("autosaving records on another database", () => {
 
   test("the owner's database is written first, after every before-callback", async () => {
     await inRequest(async () => {
-      const user = User.build({ id: 2, email: "grace@DB" });
+      const user = User.build({ id: 2, email: "sam@DB" });
       user.entries().build({ id: 2, message: "built" });
       await user.saveOrThrow();
     });
 
     expect(log).toEqual([
-      "before save grace@DB",
+      "before save sam@DB",
       "before save built",
       "write DB",
       "write LOGS",
-      "after save grace@DB",
+      "after save sam@DB",
       "after save built",
     ]);
   });
 
   test("an invalid record on another database makes the owner invalid, writing nothing", async () => {
     const saved = await inRequest(async () => {
-      const user = User.build({ id: 2, email: "grace@DB" });
+      const user = User.build({ id: 2, email: "sam@DB" });
       user.entries().build({ id: 2, message: "" });
       return user.save();
     });
@@ -556,7 +556,7 @@ describe("autosaving records on another database", () => {
 
   test("a write the other database refuses leaves the owner saved and the record new", async () => {
     const outcome = await inRequest(async () => {
-      const user = User.build({ id: 2, email: "grace@DB" });
+      const user = User.build({ id: 2, email: "sam@DB" });
       const entry = user.entries().build({ id: 1, message: "clashes" });
       const error = await user.save().catch((caught: unknown) => caught);
       return { error, isNew: entry.isNewRecord() };
@@ -571,7 +571,7 @@ describe("autosaving records on another database", () => {
 describe("a batch with records on another database", () => {
   test("refuses a save whose callback builds them, writing nothing", async () => {
     const saving = inRequest(() =>
-      batch((b) => [b.save(Greeter.build({ id: 2, email: "grace@DB" }))]),
+      batch((b) => [b.save(Greeter.build({ id: 2, email: "sam@DB" }))]),
     );
 
     await expect(saving).rejects.toThrow(
@@ -586,7 +586,7 @@ describe("a batch with records on another database", () => {
 
   test("refuses a save that autosaves them, before any callback runs", async () => {
     const saving = inRequest(async () => {
-      const user = User.build({ id: 2, email: "grace@DB" });
+      const user = User.build({ id: 2, email: "sam@DB" });
       user.entries().build({ id: 2, message: "built" });
       return batch((b) => [b.save(user)]);
     });
@@ -602,7 +602,7 @@ describe("a batch with records on another database", () => {
 
   test("db.batch refuses a save that autosaves them, writing nothing", async () => {
     const saving = inRequest(async () => {
-      const user = User.build({ id: 2, email: "grace@DB" });
+      const user = User.build({ id: 2, email: "sam@DB" });
       user.entries().build({ id: 2, message: "built" });
       return connect(db).batch((b) => [b.save(user)]);
     });
@@ -708,7 +708,7 @@ describe("preloading an association to another database", () => {
   test("a belongsTo's records come from the target's database", async () => {
     const [entry] = await inRequest(() => Entry.includes("user").toArray());
 
-    expect(entry!.loaded("user")?.email).toBe("ada@DB");
+    expect(entry!.loaded("user")?.email).toBe("jane@DB");
   });
 
   test("a hasMany's records come from the target's database", async () => {

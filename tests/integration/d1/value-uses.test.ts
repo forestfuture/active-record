@@ -63,7 +63,7 @@ describe("values by their use", () => {
 
       test("for a hasMany", async () => {
         await binding.exec("CREATE INDEX IF NOT EXISTS samples_label ON samples (label)");
-        await db().model(Owner).insert({ id: 9, email: "ada@example.com" });
+        await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
         await db()
           .model(Note)
           .insertAll(labels.map((label, index) => ({ id: index + 1, label })));

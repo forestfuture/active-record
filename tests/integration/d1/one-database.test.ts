@@ -95,7 +95,7 @@ describe("one database", () => {
     for (const db of [one, two]) {
       await db.batch([db.prepare("DELETE FROM posts"), db.prepare("DELETE FROM users")]);
     }
-    await connect(one).model(User).insert({ id: 1, email: "ada@example.com" });
+    await connect(one).model(User).insert({ id: 1, email: "jane@example.com" });
     await connect(one)
       .model(Post)
       .insertAll([
@@ -141,7 +141,7 @@ describe("one database", () => {
       const request = connect(one, { onQuery: (event) => seen.push(event) });
       let post!: Post;
       await withDatabase(request, async () => {
-        const user = User.build({ id: 2, email: "grace@example.com" });
+        const user = User.build({ id: 2, email: "sam@example.com" });
         post = user.posts().build({ id: 20, title: "Draft" });
         await user.save();
       });
@@ -156,7 +156,7 @@ describe("one database", () => {
       const seen: QueryEvent[] = [];
       let post!: Post;
       await withDatabase(connect(one, { onQuery: (event) => seen.push(event) }), async () => {
-        const user = User.build({ id: 3, email: "linus@example.com" });
+        const user = User.build({ id: 3, email: "kim@example.com" });
         post = user.posts().build({ id: 30, title: "Draft" });
         await batch((b) => [b.save(user)]);
       });

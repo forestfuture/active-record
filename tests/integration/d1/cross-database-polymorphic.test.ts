@@ -93,7 +93,7 @@ beforeEach(async () => {
   ] as const) {
     await binding.batch([
       ...["users", "entries", "remarks"].map((table) => binding.prepare(`DELETE FROM ${table}`)),
-      binding.prepare("INSERT INTO users (id, email) VALUES (1, ?)").bind(`ada@${where}`),
+      binding.prepare("INSERT INTO users (id, email) VALUES (1, ?)").bind(`jane@${where}`),
       binding.prepare("INSERT INTO entries (id, message) VALUES (1, ?)").bind(where),
       binding
         .prepare(
@@ -110,7 +110,7 @@ describe("a polymorphic belongsTo whose Models are on different databases (#60)"
       Remark.order({ id: "asc" }).toArray(),
     );
 
-    expect(((await onUser!.subject()) as User).email).toBe("ada@DB");
+    expect(((await onUser!.subject()) as User).email).toBe("jane@DB");
     expect(((await onEntry!.subject()) as Entry).message).toBe("LOGS");
   });
 
@@ -149,7 +149,7 @@ describe("a polymorphic belongsTo whose Models are on different databases (#60)"
         Remark.includes("subject").order({ id: "asc" }).toArray(),
       );
 
-      expect((onUser!.loaded("subject") as User).email).toBe("ada@DB");
+      expect((onUser!.loaded("subject") as User).email).toBe("jane@DB");
       expect((onEntry!.loaded("subject") as Entry).message).toBe("LOGS");
     } finally {
       Object.assign(workers.env, { DB: db, LOGS: logs });
