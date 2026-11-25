@@ -156,7 +156,7 @@ A stored cell is checked the same way, when the record loads or `pluck` reads it
 - For a `datetime`: text that isn’t a date or a date and time (`"garbage"`, `"12"`), or a number. A number is a [Unix time](./adopt-a-database#reading-unix-timestamps), which needs a `storage`.
 - For a `datetime` with a `storage`: anything but a number, or one past what a `Date` can hold.
 - For a `decimal`: anything but a number or a decimal’s text.
-- For a `date`: anything but a day’s text. A date and time, such as `"2026-01-02T00:00:00.000Z"`, fails too; see [Reading `DATE` columns](./upgrading#reading-date-columns).
+- For a `date`: anything but a day’s text. A date and time, such as `"2026-01-02T00:00:00.000Z"`, fails too.
 - For a `time`: anything but a time of day’s text.
 - For a `json`: text that isn’t JSON.
 - For a `binary`: anything but bytes.
