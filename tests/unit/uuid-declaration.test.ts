@@ -60,4 +60,18 @@ describe("a uuid attribute's declaration", () => {
       new InvalidModel('Device.kind is "uuid", so it can\'t have secureToken: a token is a string'),
     );
   });
+
+  test("refuses a secure password", () => {
+    class Device extends Model.define({
+      id: { type: "integer", null: false },
+      pin: { type: "uuid", virtual: true, securePassword: true },
+      pinDigest: "string",
+    }) {}
+
+    expect(() => db.model(Device)).toThrow(
+      new InvalidModel(
+        'Device.pin is "uuid", so it can\'t have securePassword: a password is a string',
+      ),
+    );
+  });
 });
