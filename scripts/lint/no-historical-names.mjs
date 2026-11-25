@@ -1,5 +1,6 @@
 // The repo's lint rule that example data uses everyday names, never a historical person's (#567), and the names it looks for, which the guide's check reads too.
 import { defineRule } from "vite-plus/lint/plugins";
+import { variableOf } from "./variables.mjs";
 
 /**
  * Historical people's names that example data has used, or might reach for. Everyday first names
@@ -63,9 +64,6 @@ export default defineRule({
     },
   },
   create(context) {
-    /** The identifiers already reported: a variable is reported where it first appears, once. */
-    const reported = new Set();
-
     /** Reports the node when its text holds a historical name. */
     function check(node) {
       const text = nodeText[node.type](node);
@@ -73,11 +71,19 @@ export default defineRule({
       if (name !== undefined) context.report({ node, messageId: "historical", data: { name } });
     }
 
-    /** Reports an identifier's first appearance in the file, not each use. */
+    /**
+     * Whether `identifier` uses a variable the file declares, rather than declaring it: its
+     * declaration is reported, so each use isn't too.
+     */
+    function isUse(identifier) {
+      const variable = variableOf(context.sourceCode.getScope(identifier), identifier);
+      if (variable === undefined || variable.identifiers.includes(identifier)) return false;
+      return variable.references.some((reference) => reference.identifier === identifier);
+    }
+
+    /** Reports an identifier that declares a name, or isn't a variable's, such as a property. */
     function checkIdentifier(node) {
-      if (reported.has(node.name)) return;
-      reported.add(node.name);
-      check(node);
+      if (!isUse(node)) check(node);
     }
     return { Literal: check, TemplateElement: check, Identifier: checkIdentifier };
   },
