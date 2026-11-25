@@ -77,6 +77,15 @@ describe("the generators, on Postgres", pgliteTimeout, () => {
     );
   });
 
+  test("a reference to a UUID key is a uuid attribute in the regenerated schema", async () => {
+    const cwd = writePgProject(scratch("pg-generate-", true), { HYPERDRIVE: {} });
+    await generate(cwd, ["model", "Customer"]);
+
+    await generate(cwd, ["model", "Invoice", "customer:references"]);
+
+    expect(read(cwd, "src/db/schema.ts")).toContain('customerId: { type: "uuid", null: false },');
+  });
+
   test("a migration Postgres refuses after the others is refused, and nothing is written", async () => {
     const cwd = writePgProject(
       scratch("pg-generate-", true),
