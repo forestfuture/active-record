@@ -26,7 +26,7 @@ function isNamedBy(module: string, path: string): boolean {
   return path.endsWith("/") ? module.startsWith(path) : module === path;
 }
 
-// Review twice found a new module missing from its section's _Code:_ line (#566).
+// A section's _Code:_ line is where a change to its behavior starts looking, so a module left off it is missed (#566).
 describe("the contract's Code lines", () => {
   test("name every module", () => {
     const unnamed = modules.filter(
