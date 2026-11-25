@@ -45,6 +45,14 @@ describe("the contract's Code lines", () => {
     expect(unnamed).toEqual([]);
   });
 
+  test("name no folder as wide as the core or the command", () => {
+    const tooWide = codePaths.filter((path) =>
+      ["arbor/src/", "arbor/cli/"].some((folder) => folder.startsWith(path)),
+    );
+
+    expect(tooWide).toEqual([]);
+  });
+
   test("name only modules that exist", () => {
     const stale = codePaths.filter((path) => !modules.some((module) => isNamedBy(module, path)));
 
