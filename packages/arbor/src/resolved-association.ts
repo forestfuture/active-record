@@ -213,11 +213,11 @@ export class ResolvedAssociation {
     if (this.hops === undefined) {
       const attribute = attributeFor(this.target, this.targetAttribute);
       if (Array.isArray(key)) {
-        const keys = key.map((each) => attribute.linkedKey(each));
+        const keys = key.map((each) => attribute.keyAsStored(each));
         return this.all(executor)[linkedToOwner]({ [this.targetAttribute]: keys });
       }
       const linked = this.all(executor)[linkedToOwner]({ [this.targetAttribute]: key });
-      return attribute.linkedKey(key) === noMatch ? linked.none() : linked;
+      return attribute.keyAsStored(key) === noMatch ? linked.none() : linked;
     }
     const { via, source } = this.hops;
     return source.narrowToLinked(executor, this.all(executor), via.linkedTo(executor, key));
