@@ -522,9 +522,9 @@ function targetsOfOwner(
   const key = association.isPolymorphic
     ? association.keyOf(owner)
     : owner[state].read(ownerAttribute);
-  const matchable = targetKey.matchable(targetKey.condition(targetKey.keyAsStored(key)));
+  const lookupKey = targetKey.lookupKey(targetKey.condition(targetKey.keyAsStored(key)));
   // A key that can't be cast or written as a target's is held by no target (#591).
-  return matchable === noMatch ? [] : (byKey.get(matchable) ?? []);
+  return lookupKey === noMatch ? [] : (byKey.get(lookupKey) ?? []);
 }
 
 /**
@@ -549,11 +549,11 @@ function gatherReached({ association, ownersAt, reached }: Gather, found: Found)
 const targetAttributeOf = ({ target, targetAttribute }: ResolvedAssociation) =>
   attributeFor(target, targetAttribute);
 
-/** Records grouped by one attribute's value, as `matchable` gives it, in their order. */
+/** Records grouped by one attribute's `lookupKey`, in their order. */
 function groupBy(records: readonly Model[], attribute: Attribute): Map<unknown, Model[]> {
   const groups = new Map<unknown, Model[]>();
   for (const record of records) {
-    const key = attribute.matchable(record[state].read(attribute.name));
+    const key = attribute.lookupKey(record[state].read(attribute.name));
     const group = groups.get(key);
     if (group === undefined) groups.set(key, [record]);
     else group.push(record);
