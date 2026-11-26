@@ -1,8 +1,15 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, Model } from "../../packages/arbor/src/index.ts";
+import { belongsTo, hasMany, Model, withDatabase } from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const phoneId = "0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b";
+
+// A UUID in another form than its one, as a uuid is held: text compares exactly on D1.
+const otherForms = [
+  ["capitals", phoneId.toUpperCase()],
+  ["braces", `{${phoneId}}`],
+  ["no hyphens", phoneId.replaceAll("-", "")],
+];
 
 // A UUID key (a UUID column on Postgres) and a text foreign key pointing at it.
 class Device extends Model.define({
@@ -47,6 +54,22 @@ class TouchingReading extends Model.define({
   static table = "readings";
 
   device = belongsTo(Device, { touch: true, optional: true });
+}
+
+// A text key pointed at by a uuid foreign key (a UUID column on Postgres), counted (#588).
+class Phone extends Model.define({
+  id: { type: "string", null: false },
+  callsCount: { type: "integer", null: false },
+}) {
+  static table = "phones";
+
+  calls = hasMany(Call);
+}
+
+class Call extends Model.define({ id: { type: "integer", null: false }, phoneId: "uuid" }) {
+  static table = "calls";
+
+  phone = belongsTo(Phone, { counterCache: true, optional: true });
 }
 
 // An integer foreign key (level) pointing at a UUID key, which no integer is.
@@ -143,13 +166,6 @@ describe("uuid links", () => {
 
       expect(device!.loaded("notes").map(({ id }) => id)).toEqual([1]);
     });
-
-    // A UUID in another form than its one, as a uuid is held: text compares exactly on D1.
-    const otherForms = [
-      ["capitals", phoneId.toUpperCase()],
-      ["braces", `{${phoneId}}`],
-      ["no hyphens", phoneId.replaceAll("-", "")],
-    ];
 
     test.each(otherForms)(
       "a belongsTo preload finds no uuid key for a text foreign key holding it in %s",
@@ -345,6 +361,58 @@ describe("uuid links", () => {
       const [reading] = await db().model(Reading).includes("device").toArray();
 
       expect(reading!.loaded("device")).toBeNull();
+    });
+  });
+
+  // A text key in another form than a uuid's one finds none of its records (#588), read or
+  // preloaded alike.
+  describe("from a text key to a uuid foreign key", () => {
+    beforeEach(async () => {
+      await harness.reset("phones", "calls");
+      await db().model(Call).insert({ id: 1, phoneId });
+    });
+
+    test.each(otherForms)("in %s, a hasMany reads none of its records", async (_, id) => {
+      const phone = await db().model(Phone).create({ id });
+
+      expect(await phone.calls().pluck("id")).toEqual([]);
+    });
+
+    test.each(otherForms)("in %s, a hasMany preloads none of its records", async (_, id) => {
+      await db().model(Phone).create({ id });
+
+      const [phone] = await db().model(Phone).includes("calls").toArray();
+
+      expect(phone!.loaded("calls")).toEqual([]);
+    });
+
+    test.each(otherForms)(
+      "in %s, a record built through a hasMany takes the key in its one form",
+      async (_, id) => {
+        const phone = await db().model(Phone).create({ id });
+
+        expect(phone.calls().build({ id: 2 }).phoneId).toBe(phoneId);
+      },
+    );
+
+    test.each(otherForms)("in %s, resetCounters counts none of its records", async (_, id) => {
+      await db().model(Phone).create({ id });
+
+      await withDatabase(db(), () => Phone.resetCounters(id, "calls"));
+
+      expect((await db().model(Phone).find(id)).callsCount).toBe(0);
+    });
+
+    test("in its one form, a hasMany reads, preloads and counts its records", async () => {
+      const phone = await db().model(Phone).create({ id: phoneId });
+      await withDatabase(db(), () => Phone.resetCounters(phoneId, "calls"));
+      const [preloaded] = await db().model(Phone).includes("calls").toArray();
+
+      expect([
+        await phone.calls().pluck("id"),
+        preloaded!.loaded("calls").map(({ id }) => id),
+        preloaded!.callsCount,
+      ]).toEqual([[1], [1], 1]);
     });
   });
 

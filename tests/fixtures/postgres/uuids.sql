@@ -15,3 +15,14 @@ CREATE TABLE readings (
   subject_type TEXT,
   subject_id TEXT
 );
+
+-- A text key (phones.id) pointed at by a uuid foreign key (calls.phone_id), counted (#588).
+CREATE TABLE phones (
+  id TEXT PRIMARY KEY,
+  calls_count INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE calls (
+  id INTEGER PRIMARY KEY,
+  phone_id UUID
+);
