@@ -522,7 +522,7 @@ function targetsOfOwner(
   const key = association.isPolymorphic
     ? association.keyOf(owner)
     : owner[state].read(ownerAttribute);
-  return byKey.get(targetKey.condition(targetKey.linkedKey(key))) ?? [];
+  return byKey.get(targetKey.condition(targetKey.keyAsStored(key))) ?? [];
 }
 
 /**

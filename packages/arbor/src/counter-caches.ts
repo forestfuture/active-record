@@ -273,7 +273,7 @@ export function countersOnInsert(record: Model): CounterChanges {
  */
 function isLinkedKey({ target, targetKey }: CounterCache, key: unknown): boolean {
   if (key === null || key === undefined) return false;
-  return attributeFor(target, targetKey).linkedKey(key) !== noMatch;
+  return attributeFor(target, targetKey).keyAsStored(key) !== noMatch;
 }
 
 /**

@@ -177,7 +177,7 @@ export class Attribute {
    * stored in, as a preload or a join compares it, so another form is `noMatch`; any other value
    * as it is, for `condition` to cast.
    */
-  linkedKey(value: unknown): unknown {
+  keyAsStored(value: unknown): unknown {
     if (!this.isUuid || this.#definition.customType !== undefined || value === null) return value;
     return readUuid(value);
   }
