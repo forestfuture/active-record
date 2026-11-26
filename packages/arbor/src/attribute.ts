@@ -5,7 +5,7 @@
 // Records, Relations, associations, preloads, and the compiler all go through here, so no caller
 // has to cast or bind a value its own way.
 import { attributeName } from "./attribute-aliases.ts";
-import { isSameCell } from "./binary-values.ts";
+import { hexOf, isSameCell } from "./binary-values.ts";
 import {
   castCondition,
   castKey,
@@ -249,6 +249,24 @@ export class Attribute {
     if (x === noMatch || y === noMatch) return false;
     // Written as is, not through write, which refuses a validated enum's unknown value.
     return isSameCell(writeValue(this.#definition, x), writeValue(this.#definition, y));
+  }
+
+  /**
+   * An already cast value as a preload looks it up among its records' (#591): in the form it's
+   * stored in, bytes as their hex, since a json value, a `Date` or bytes equals only itself.
+   * Written as is, as `isSame` writes it. `null` and `noMatch` stay as they are, and so does a
+   * value that can't be written, as a key of another type cast to a custom type may be, which
+   * is `noMatch`: no record holds it.
+   */
+  matchable(value: unknown): unknown {
+    if (value === null || value === noMatch) return value;
+    let cell: unknown;
+    try {
+      cell = writeValue(this.#definition, value);
+    } catch {
+      return noMatch;
+    }
+    return cell instanceof Uint8Array ? hexOf(cell) : cell;
   }
 
   /**

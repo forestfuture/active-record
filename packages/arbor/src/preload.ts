@@ -1,6 +1,6 @@
 // `includes()`: preloading associations, the whole tree planned to go to D1 with its query (#217), and each level on another database to its own (#228).
 import { asStored } from "./normalized-values.ts";
-import { attributeFor } from "./attribute.ts";
+import { attributeFor, noMatch, type Attribute } from "./attribute.ts";
 import type { CompiledSql } from "./compiler.ts";
 import type { Dialect } from "./dialect.ts";
 import { databaseNow, type Executor } from "./executor.ts";
@@ -303,7 +303,7 @@ function planHopStep(planning: Planning, request: HopRequest): Hop | undefined {
     position,
     includes,
     reached: (owner, found) => {
-      byKey ??= groupBy(found[position] ?? [], association.targetAttribute);
+      byKey ??= groupBy(found[position] ?? [], targetAttributeOf(association));
       return targetsOfOwner(byKey, association, owner);
     },
   };
@@ -496,7 +496,7 @@ function attach(
   association: ResolvedAssociation,
   targets: readonly Model[],
 ): void {
-  const byKey = groupBy(targets, association.targetAttribute);
+  const byKey = groupBy(targets, targetAttributeOf(association));
   for (const record of records) {
     // A polymorphic branch's owners are those of its type, and those of none (#60). Another
     // listed Model's is left to its branch; a type none of them has throws UnknownModelName.
@@ -514,15 +514,17 @@ function targetsOfOwner(
   association: ResolvedAssociation,
   owner: Model,
 ): Model[] {
-  const { ownerAttribute, target, targetAttribute } = association;
+  const { ownerAttribute } = association;
   // Looked up as the targets hold it: an integer key matches a text foreign key's digits (#94),
   // and a uuid only its one form, as the query that found them compares it (#588).
-  const targetKey = attributeFor(target, targetAttribute);
+  const targetKey = targetAttributeOf(association);
   // A polymorphic belongsTo's owner with no type has no key (#60).
   const key = association.isPolymorphic
     ? association.keyOf(owner)
     : owner[state].read(ownerAttribute);
-  return byKey.get(targetKey.condition(targetKey.keyAsStored(key))) ?? [];
+  const matchable = targetKey.matchable(targetKey.condition(targetKey.keyAsStored(key)));
+  // A key that can't be cast or written as a target's is held by no target (#591).
+  return matchable === noMatch ? [] : (byKey.get(matchable) ?? []);
 }
 
 /**
@@ -543,11 +545,15 @@ function gatherReached({ association, ownersAt, reached }: Gather, found: Found)
   for (const owner of found[ownersAt] ?? []) loadedAs(owner, association, reached(owner, found));
 }
 
-/** Records grouped by one attribute's value, keeping their order. */
-function groupBy(records: readonly Model[], attribute: string): Map<unknown, Model[]> {
+/** The attribute `association`'s records are linked to their owners by. */
+const targetAttributeOf = ({ target, targetAttribute }: ResolvedAssociation) =>
+  attributeFor(target, targetAttribute);
+
+/** Records grouped by one attribute's value, as `matchable` gives it, in their order. */
+function groupBy(records: readonly Model[], attribute: Attribute): Map<unknown, Model[]> {
   const groups = new Map<unknown, Model[]>();
   for (const record of records) {
-    const key = record[state].read(attribute);
+    const key = attribute.matchable(record[state].read(attribute.name));
     const group = groups.get(key);
     if (group === undefined) groups.set(key, [record]);
     else group.push(record);

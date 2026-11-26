@@ -63,3 +63,6 @@ CREATE TABLE drafts (id INTEGER PRIMARY KEY, body TEXT, lock_version INTEGER);
 -- Read-only records and attributes (#358): shelves hold volumes, whose slug is set only on create.
 CREATE TABLE shelves (id INTEGER PRIMARY KEY, name TEXT, volumes_count INTEGER DEFAULT 0, is_featured INTEGER DEFAULT 0, opened_at TEXT, updated_at TEXT);
 CREATE TABLE volumes (id INTEGER PRIMARY KEY, shelf_id INTEGER REFERENCES shelves (id), title TEXT, slug TEXT, code TEXT UNIQUE, details TEXT, shelved_at TEXT, updated_at TEXT);
+-- Keys a record holds as an object (#591): a course's tag (JSON), start (a Date) and digest (bytes), each a key its lessons point at.
+CREATE TABLE courses (id INTEGER PRIMARY KEY, tag TEXT, starts_at TEXT, digest BLOB);
+CREATE TABLE lessons (id INTEGER PRIMARY KEY, course_tag TEXT, course_starts_at TEXT, course_digest BLOB);
