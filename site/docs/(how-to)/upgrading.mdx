@@ -2,16 +2,16 @@
 title: Upgrading
 description: "Move an app up one release at a time, starting from the release you’re on."
 seo:
-  description: "Upgrade an Arbor app one release at a time, from 0.10 to 0.13: the rename to Arbor in 0.11, uuid attributes on Postgres in 0.12, then only ASCII spaces around a number in 0.13."
+  description: "Upgrade an Arbor app one release at a time, from 0.10 to 0.14: the rename to Arbor, uuid attributes on Postgres, then spaces around numbers."
 ---
 
-## Upgrading from 0.12 to 0.13
+## Upgrading from 0.13 to 0.14
 
-In 0.13, a number in text reads only spaces, tabs, and line breaks around it. Upgrade in one step.
+In 0.14, an `integer`, `real`, or `decimal` attribute reads only spaces, tabs, and line breaks around a number in text. Upgrade in one step.
 
 ### Trimming other spaces
 
-An `integer`, `real`, or `decimal` attribute now refuses text with a no-break space or another Unicode space around its number, and a condition with that text finds nothing. Before, both read the number. If your app takes numbers from text that can hold such a space, such as a pasted value, call `trim()` on it first, which removes every Unicode space.
+These attributes now refuse text with a no-break space or another Unicode space around its number. A condition with that text finds nothing, and `whereNot` with it excludes nothing. On D1, a `DECIMAL` cell that holds that text fails to load. Before, each of them read the number. Call `trim()` on text before you use it as a number. It removes every Unicode space.
 
 ## Upgrading from 0.11 to 0.12
 
