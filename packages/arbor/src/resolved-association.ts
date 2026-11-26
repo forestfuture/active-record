@@ -205,22 +205,31 @@ export class ResolvedAssociation {
   }
 
   /**
-   * The target's records linked to `key` (one value, or a list), for an owner on `executor`: a
-   * uuid only in its one form, as a preload or a join links it (#588). A key in another form
-   * finds none, but a record built through it still takes the key, cast, as before.
+   * The target's records linked to `key` (one value, or a list), for an owner on `executor`,
+   * the key as the target holds it (`asTargetKey`): a uuid only in its one form, as a preload or
+   * a join links it (#588), so a key in another form finds none, and a Unix time as its integer
+   * (#592). A record built through it takes the owner's key, cast from the owner's attribute.
    */
   linkedTo(executor: Executor, key: unknown): Scoped<Model> {
     if (this.hops === undefined) {
-      const attribute = attributeFor(this.target, this.targetAttribute);
-      if (Array.isArray(key)) {
-        const keys = key.map((each) => attribute.keyAsStored(each));
-        return this.all(executor)[linkedToOwner]({ [this.targetAttribute]: keys });
-      }
-      const linked = this.all(executor)[linkedToOwner]({ [this.targetAttribute]: key });
-      return attribute.keyAsStored(key) === noMatch ? linked.none() : linked;
+      const linked = this.asTargetKey(key);
+      const relation = this.all(executor)[linkedToOwner]({ [this.targetAttribute]: linked });
+      return linked === noMatch ? relation.none() : relation;
     }
     const { via, source } = this.hops;
     return source.narrowToLinked(executor, this.all(executor), via.linkedTo(executor, key));
+  }
+
+  /**
+   * An owner's key (one value, or a list) as the target's attribute holds it, each one that
+   * can't be `noMatch`: a uuid only in its one form (#588), and a datetime kept as a Unix time
+   * linking as the integer it stores (#592).
+   */
+  asTargetKey(key: unknown): unknown {
+    const target = attributeFor(this.target, this.targetAttribute);
+    const owner = attributeFor(this.owner, this.ownerAttribute);
+    const linked = (each: unknown) => target.linked(target.keyAsStored(each), owner);
+    return Array.isArray(key) ? key.map(linked) : linked(key);
   }
 
   /**
