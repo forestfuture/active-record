@@ -138,6 +138,70 @@ describe("uuid links", () => {
     );
 
     test.each(otherForms)(
+      "a belongsTo preload loads no uuid key for a text foreign key holding it in %s beside one in its one form",
+      async (_, deviceId) => {
+        await db()
+          .model(Reading)
+          .insertAll([
+            { id: 1, deviceId: phoneId },
+            { id: 2, deviceId },
+          ]);
+
+        const readings = await db()
+          .model(Reading)
+          .includes("device")
+          .order({ id: "asc" })
+          .toArray();
+
+        expect(readings.map((reading) => reading.loaded("device")?.name ?? null)).toEqual([
+          "phone",
+          null,
+        ]);
+      },
+    );
+
+    test.each(otherForms)(
+      "a through preload reaches nothing by a text foreign key holding a uuid key in %s beside one in its one form",
+      async (_, deviceId) => {
+        await db()
+          .model(Reading)
+          .insertAll([
+            { id: 1, deviceId: phoneId },
+            { id: 2, deviceId },
+          ]);
+
+        const readings = await db()
+          .model(Reading)
+          .includes("siblings")
+          .order({ id: "asc" })
+          .toArray();
+
+        expect(readings.map((reading) => reading.loaded("siblings").map(({ id }) => id))).toEqual([
+          [1],
+          [],
+        ]);
+      },
+    );
+
+    test.each(otherForms)(
+      "a polymorphic belongsTo preload loads no uuid key for a text id holding it in %s beside one in its one form",
+      async (_, subjectId) => {
+        await db()
+          .model(Note)
+          .insertAll([
+            { id: 1, subjectType: "Device", subjectId: phoneId },
+            { id: 2, subjectType: "Device", subjectId },
+          ]);
+
+        const notes = await db().model(Note).includes("subject").order({ id: "asc" }).toArray();
+
+        expect(
+          notes.map((note) => (note.loaded("subject") as Device | null)?.name ?? null),
+        ).toEqual(["phone", null]);
+      },
+    );
+
+    test.each(otherForms)(
       "a join from the uuid key finds no text foreign key holding it in %s",
       async (_, deviceId) => {
         await db().model(Reading).insert({ id: 1, deviceId });
