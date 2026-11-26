@@ -13,6 +13,8 @@ In 0.14, an `integer`, `real`, or `decimal` attribute reads only spaces, tabs, a
 
 These attributes now refuse text with a no-break space or another Unicode space around its number. A condition with that text finds nothing, and `whereNot` with it excludes nothing. On D1, a `DECIMAL` cell that holds that text fails to load. Before, each of them read the number. Call `trim()` on text before you use it as a number. It removes every Unicode space.
 
+On Postgres, a connection string’s `connect_timeout` with one of these spaces around its number now throws `TypeError` when the Database is built, just as libpq refuses it. Remove the space from the connection string.
+
 ## Upgrading from 0.11 to 0.12
 
 In 0.12, a Postgres `UUID` column is a [`uuid` attribute](./attribute-types#storing-uuids). Upgrade in one step.
