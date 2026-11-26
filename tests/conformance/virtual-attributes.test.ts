@@ -2,7 +2,16 @@
    declarations arbor schema generates, which merge from another file: the accessors they
    type are defined when the Model's attributes resolve. */
 // Virtual attributes (#356): attributes that aren't columns, never read from a row or written to one.
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from "vite-plus/test";
 import { Model, UnknownAttribute, type TableAttributes } from "../../packages/arbor/src/index.ts";
 import { d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
 import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
@@ -83,6 +92,9 @@ describe("a virtual attribute", () => {
     await harness.reset("posts", "users", "samples");
     events.length = 0;
   });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   describe("when saved", () => {
     test("isn't inserted", async () => {
@@ -121,8 +133,11 @@ describe("a virtual attribute", () => {
     });
 
     test("alone, save updates only updatedAt", async () => {
+      // A fixed clock, so the two writes never share a millisecond.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-21T12:00:00Z"));
       const user = await db().model(User).create({ email: "jane@example.com" });
-      const before = user.updatedAt;
+      vi.setSystemTime(new Date("2026-11-21T12:01:00Z"));
       events.length = 0;
 
       user.nickname = "Janie";
@@ -130,7 +145,7 @@ describe("a virtual attribute", () => {
 
       expect(statementKinds(events)).toEqual(["UPDATE"]);
       expect(bound()).not.toContain("Janie");
-      expect(user.updatedAt).not.toEqual(before);
+      expect(user.updatedAt).toEqual(new Date("2026-11-21T12:01:00Z"));
       expect(user.changes()).toEqual({});
       expect(user.savedChanges()).toMatchObject({ nickname: [null, "Janie"] });
     });
