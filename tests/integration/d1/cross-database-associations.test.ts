@@ -73,6 +73,23 @@ class Badge extends LogsRecord.define({
   static override table = "badges";
 }
 
+// A uuid key (users.email, as text) and a text foreign key on another database pointing at it.
+class Account extends DbRecord.define({
+  id: { type: "integer", null: false },
+  email: { type: "uuid", null: false },
+}) {
+  static override table = "users";
+}
+
+class Mention extends LogsRecord.define({
+  id: { type: "integer", null: false },
+  message: { type: "string", null: false },
+}) {
+  static override table = "entries";
+
+  account = belongsTo(Account, { foreignKey: "message", primaryKey: "email" });
+}
+
 class Note extends DbRecord.define({
   id: { type: "integer", null: false },
   entryId: "integer",
@@ -760,6 +777,22 @@ describe("preloading an association to another database", () => {
     const user = await connect(db).model(User).includes("entries").find(1);
 
     expect(user.loaded("entries").map((entry) => entry.message)).toEqual(["LOGS"]);
+  });
+
+  // A loaded record's key links as it's stored (#588): a uuid only in its one form.
+  test("a text foreign key holding a uuid key in another form loads no record", async () => {
+    const accountId = "0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b";
+    await db.prepare("UPDATE users SET email = ?").bind(accountId).run();
+    await logs.batch([
+      logs.prepare("UPDATE entries SET message = ?").bind(accountId),
+      logs.prepare("INSERT INTO entries (id, message) VALUES (2, ?)").bind(accountId.toUpperCase()),
+    ]);
+
+    const mentions = await inRequest(() =>
+      Mention.includes("account").order({ id: "asc" }).toArray(),
+    );
+
+    expect(mentions.map((mention) => mention.loaded("account")?.id ?? null)).toEqual([1, null]);
   });
 
   test("the records it preloads save to the target's database", async () => {
