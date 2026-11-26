@@ -436,6 +436,21 @@ describe("the commit-msg hook on invisible characters", () => {
     expect(named).toEqual(invisibleCharacters.map(codePointName));
   });
 
+  test("passes the characters on each side of every range it refuses", () => {
+    const listed = new Set(invisibleCharacters.map((character) => character.codePointAt(0)!));
+    const neighbors = [...listed]
+      .flatMap((codePoint) => [codePoint - 1, codePoint + 1])
+      .filter((codePoint) => !listed.has(codePoint) && (codePoint < 0xd800 || codePoint > 0xdfff))
+      .map((codePoint) => String.fromCodePoint(codePoint));
+    const { status, output } = runHookEditingTheReadme(
+      `Edit the README (#1)\n\n${neighbors.join("\n")}\n`,
+    );
+
+    expect(neighbors.length).toBeGreaterThan(0);
+    expect(output).toBe("");
+    expect(status).toBe(0);
+  });
+
   test("passes the typographic characters a message may hold", () => {
     const { status, output } = runHookEditingTheReadme("Edit the README’s — “intro” (#1)\n");
 
