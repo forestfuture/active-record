@@ -102,7 +102,7 @@ describe("a connection string's connect_timeout (#292)", () => {
     await schema.dispose();
   });
 
-  test.each(["soon", "", "1.5", "10s"])(
+  test.each(["soon", "", "1.5", "10s", "5+", "+-5"])(
     "of %j throws when the Database is built, naming it but not the URL",
     (value) => {
       const url = `postgres://app:secret@db.example.com/app?connect_timeout=${value}`;
