@@ -1,10 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
+import { codePointName, invisibleCharacters } from "../support/invisible-characters.ts";
 
-// The commit-msg hook: its title and body length checks, read past git's comments, and its guard warning (#322, #329, #386).
+// The commit-msg hook: its title and body length checks, read past git's comments, its refusal of invisible characters, and its guard warning (#322, #329, #386, #605).
 const hook = new URL("../../.vite-hooks/commit-msg", import.meta.url).pathname;
 
 /** Each file's text, or null for a file to delete. */
@@ -210,6 +211,19 @@ function runHookEditingTheReadme(message: Message, config: GitConfig = {}) {
 
 const semicolonComments = { "core.commentChar": ";" };
 
+/** The runs of consecutive code points in characters, in hex as the hook writes them: a0, 600-605. */
+function rangesOf(characters: readonly string[]): string[] {
+  const runs: [number, number][] = [];
+  for (const codePoint of characters.map((character) => character.codePointAt(0)!)) {
+    const last = runs.at(-1);
+    if (last && last[1] === codePoint - 1) last[1] = codePoint;
+    else runs.push([codePoint, codePoint]);
+  }
+  return runs.map(([low, high]) =>
+    low === high ? low.toString(16) : `${low.toString(16)}-${high.toString(16)}`,
+  );
+}
+
 /** A line of `length` characters, made of words. */
 function lineOfWords(length: number): string {
   return "word ".repeat(length).slice(0, length - 1) + "x";
@@ -341,21 +355,6 @@ describe("the commit-msg hook on a commit's body", () => {
     expect(output).toBe("");
   });
 
-  test("passes a long line whose only spaces are non-breaking, as dash does", () => {
-    const line = lineOfWords(80).replaceAll(" ", "\u00a0");
-    const { status } = runHookEditingTheReadme(`Edit the README (#1)\n\n${line}\n`);
-
-    expect(status).toBe(0);
-  });
-
-  test("counts a trailing non-breaking space, which git keeps", () => {
-    const { status } = runHookEditingTheReadme(
-      `Edit the README (#1)\n\n${lineOfWords(72)}\u00a0\n`,
-    );
-
-    expect(status).toBe(1);
-  });
-
   test.each([
     ["trailing spaces", "   "],
     ["a carriage return", "\r"],
@@ -421,4 +420,97 @@ describe("the commit-msg hook on a commit's body", () => {
     expect(output).toContain("Commit body line 3 is 73 characters");
     expect(output).toContain("Commit body line 5 is 80 characters");
   });
+});
+
+describe("the commit-msg hook on invisible characters", () => {
+  test("refuses one in the title, naming it and showing its line", () => {
+    const { status, output } = runHookEditingTheReadme("Edit the\u00a0README (#1)\n");
+
+    expect(status).toBe(1);
+    expect(output).toContain("Commit message holds an invisible character, U+00A0, in this line:");
+    expect(output).toContain("  Edit the\u00a0README (#1)\n");
+  });
+
+  test("refuses one in the body", () => {
+    const { status, output } = runHookEditingTheReadme("Edit the README (#1)\n\nWhy.\u2028\n");
+
+    expect(status).toBe(1);
+    expect(output).toContain("U+2028, in this line:\n  Why.\u2028\n");
+  });
+
+  test("lists the ranges of the characters the tracked files' test refuses", () => {
+    const ranges = readFileSync(hook, "utf8").match(/^invisible_ranges='([^']*)'/m)![1]!;
+
+    expect(ranges.split(/\s+/)).toEqual(rangesOf(invisibleCharacters));
+  });
+
+  test("refuses every character the tracked files' test refuses", () => {
+    const message = `Edit the README (#1)\n\n${invisibleCharacters.join("\n")}\n`;
+    const { status, output } = runHookEditingTheReadme(message);
+    const named = [...output.matchAll(/invisible character, (U\+[0-9A-F]+)/g)].map(
+      ([, name]) => name,
+    );
+
+    expect(status).toBe(1);
+    expect(named).toEqual(invisibleCharacters.map(codePointName));
+  });
+
+  test("passes the characters on each side of every range it refuses", () => {
+    const listed = new Set(invisibleCharacters.map((character) => character.codePointAt(0)!));
+    const neighbors = [...listed]
+      .flatMap((codePoint) => [codePoint - 1, codePoint + 1])
+      .filter((codePoint) => !listed.has(codePoint) && (codePoint < 0xd800 || codePoint > 0xdfff))
+      .map((codePoint) => String.fromCodePoint(codePoint));
+    const { status, output } = runHookEditingTheReadme(
+      `Edit the README (#1)\n\n${neighbors.join("\n")}\n`,
+    );
+
+    expect(neighbors.length).toBeGreaterThan(0);
+    expect(output).toBe("");
+    expect(status).toBe(0);
+  });
+
+  test("passes the typographic characters a message may hold", () => {
+    const { status, output } = runHookEditingTheReadme("Edit the README’s — “intro” (#1)\n");
+
+    expect(status).toBe(0);
+    expect(output).toBe("");
+  });
+
+  test("refuses one beside a long title", () => {
+    const { status, output } = runHookEditingTheReadme(`${lineOfWords(73)}\n\nWhy.\ufeff\n`);
+
+    expect(status).toBe(1);
+    expect(output).toContain("Commit title is 73 characters");
+    expect(output).toContain("U+FEFF");
+  });
+
+  test("passes a byte that isn't UTF-8 beside the bytes of one", () => {
+    const bytes = Buffer.concat([
+      Buffer.from("Edit the README (#1)\n\nWhy "),
+      Buffer.from([0xc2, 0xff, 0xa0]),
+      Buffer.from("\n"),
+    ]);
+    const { status } = runHookEditingTheReadme(new Uint8Array(bytes));
+
+    expect(status).toBe(0);
+  });
+
+  test.each([
+    ["three", [0xe0, 0x82, 0xa0]],
+    ["four", [0xf0, 0x80, 0x82, 0xa0]],
+  ])(
+    "passes a no-break space's code point in %s overlong bytes, which aren't UTF-8",
+    (_length, overlong) => {
+      const bytes = Buffer.concat([
+        Buffer.from("Edit the README (#1)\n\nWhy "),
+        Buffer.from(overlong),
+        Buffer.from("\n"),
+      ]);
+      const { status, output } = runHookEditingTheReadme(new Uint8Array(bytes));
+
+      expect(status).toBe(0);
+      expect(output).toBe("");
+    },
+  );
 });
