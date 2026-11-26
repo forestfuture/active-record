@@ -2,7 +2,6 @@
 import { castBinary, readBinary } from "./binary-values.ts";
 import { castDay, castTime } from "./calendar-values.ts";
 import { castDecimal, limitDecimal, readDecimal } from "./decimal-values.ts";
-import { asciiSpace } from "./number-spaces.ts";
 import { enumEntries, type EnumValues } from "./enum-values.ts";
 import type { EpochStorage } from "./epoch-storage.ts";
 import type { AnyCustomType } from "./custom-types.ts";
@@ -311,18 +310,18 @@ function readJson(value: unknown): unknown {
   }
 }
 
-/** A whole number, signed, with nothing else but ASCII spaces around it. */
-const integerText = new RegExp(String.raw`^${asciiSpace}*[+-]?\d+${asciiSpace}*$`);
+/**
+ * A whole number, signed, with nothing else but ASCII spaces around it: `[ \t\n\v\f\r]`, as
+ * Postgres and SQLite read a number in text, where `\s` would read a no-break space too (#590).
+ */
+const integerText = /^[ \t\n\v\f\r]*[+-]?\d+[ \t\n\v\f\r]*$/;
 
 /**
  * A decimal number, with an optional exponent (`1.5`, `-2e3`, `.5`), and ASCII spaces around it.
  * Digits after the point only follow a point, so no run of digits can match two ways: an
  * optional point between two runs of digits backtracks quadratically on a long string (ReDoS).
  */
-const realText = new RegExp(
-  String.raw`^${asciiSpace}*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?${asciiSpace}*$`,
-  "i",
-);
+const realText = /^[ \t\n\v\f\r]*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?[ \t\n\v\f\r]*$/i;
 
 /** `value` as a number: a number as it is, or a string matching `pattern`; else `uncastable`. */
 function numberFrom(value: unknown, pattern: RegExp): unknown {

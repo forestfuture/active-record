@@ -1,16 +1,13 @@
 // A decimal attribute's values (#391): exact numbers as text in one canonical form (`"12.5"`), from what an app assigns and what each database returns.
 import { uncastable } from "./conversion.ts";
-import { asciiSpace } from "./number-spaces.ts";
 
 /**
  * A decimal number: a sign, digits with an optional point (`1.5`, `5.`, `.5`), an optional
  * exponent, and ASCII spaces around it (#590). Digits after the point only follow a point, so no
  * run of digits can match two ways (ReDoS).
  */
-const decimalText = new RegExp(
-  String.raw`^${asciiSpace}*([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:e([+-]?\d+))?${asciiSpace}*$`,
-  "i",
-);
+const decimalText =
+  /^[ \t\n\v\f\r]*([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:e([+-]?\d+))?[ \t\n\v\f\r]*$/i;
 
 /** The most digits Postgres's `numeric` holds before its point, and after it. */
 const maxWholeDigits = 131072;
