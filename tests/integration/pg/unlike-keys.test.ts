@@ -159,8 +159,8 @@ describe("a link between keys of unlike types", () => {
     ]);
   });
 
-  // A datetime with storage is a Unix time, an integer, so an integer key links to it as a number.
-  test("an integer key links to a datetime stored as a Unix time", async () => {
+  // A datetime with storage is a Unix time, an integer, so an integer key joins it as a number.
+  test("an integer key joins a datetime stored as a Unix time", async () => {
     const { Event, Ticket } = modelsLinking("number", "beginsAtUnix");
 
     expect(await db().model(Event).joins("tickets").count()).toBe(4);
