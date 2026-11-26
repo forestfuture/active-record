@@ -156,8 +156,11 @@ export async function resetCounters(
   const sets: string[] = [];
   const params: unknown[] = [];
   for (const [attribute, association] of counted) {
-    const rows = association.linkedTo(executor, association.keyOf(record));
-    const count = compileCount(executor.dialect, rows[queryOf]);
+    const rows = association.linkedTo(executor, association.keyOf(record))[queryOf];
+    // A key that links no records counts none (#588): its query is `none()`.
+    const count = rows.none
+      ? { sql: "SELECT 0", params: [] }
+      : compileCount(executor.dialect, rows);
     sets.push(`${quoteIdentifier(attributeFor(model, attribute).column)} = (${count.sql})`);
     params.push(...count.params);
   }
