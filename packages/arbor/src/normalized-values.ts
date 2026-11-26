@@ -37,7 +37,8 @@ export function checkedConditions<T extends object>(
  * is kept as it is: its typed values are normalized as it's compiled.
  */
 export function normalizedConditions<T extends object>(model: ModelClass, conditions: T): T {
-  if (conditions instanceof SafeSql || storedConditions.has(conditions)) return conditions;
+  if (conditions instanceof SafeSql) return conditions;
+  if (storedConditions.has(conditions)) return linkedConditions(model, conditions);
   let changed = false;
   const entries = Object.entries(conditions).map(([name, value]) => {
     const attribute = attributeFor(model, name);
@@ -46,6 +47,21 @@ export function normalizedConditions<T extends object>(model: ModelClass, condit
     return [name, normalizedValue(attribute, value)];
   });
   return changed ? (Object.fromEntries(entries) as T) : conditions;
+}
+
+/**
+ * Stored keys as a link compares them (#588): a uuid's in its one form only, so a key in another
+ * form matches nothing, as in a preload or a join. Still marked stored.
+ */
+function linkedConditions<T extends object>(model: ModelClass, conditions: T): T {
+  const entries = Object.entries(conditions);
+  if (!entries.some(([name]) => attributeFor(model, name).isUuid)) return conditions;
+  const linked = entries.map(([name, value]) => {
+    const attribute = attributeFor(model, name);
+    const keys = Array.isArray(value) ? value.map((each) => attribute.linkedKey(each)) : undefined;
+    return [name, keys ?? attribute.linkedKey(value)];
+  });
+  return asStored(Object.fromEntries(linked) as T);
 }
 
 /** One condition's value normalized: a list item by item, a comparison by its values. */
