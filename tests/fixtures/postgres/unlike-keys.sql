@@ -9,9 +9,12 @@ CREATE TABLE events (
   name TEXT
 );
 
--- A text key (code) and an integer one (number), each pointing at any of an event's keys.
+-- A text key (code), an integer one (number), a boolean one (is_open) and a date (held_on), each
+-- pointing at any of an event's keys.
 CREATE TABLE tickets (
   id INTEGER PRIMARY KEY,
   code TEXT,
-  number INTEGER
+  number INTEGER,
+  is_open BOOLEAN,
+  held_on DATE
 );
