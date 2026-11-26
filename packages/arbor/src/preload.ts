@@ -367,8 +367,13 @@ function linkedQuery(
     const scoped = scopedQuery(association, base);
     return scoped && { ...scoped, conditions: [...scoped.conditions, linked] };
   }
-  const keys = owners.records.map((record) => record[state].read(ownerAttribute));
-  const distinct = [...new Set(keys.filter((key) => key !== null && key !== undefined))];
+  // Bound as the targets hold them, so a Unix time binds its integer (#592).
+  const keys = owners.records.map((record) =>
+    association.asTargetKey(record[state].read(ownerAttribute) ?? null),
+  );
+  const linked = keys.filter((key) => key !== null && key !== noMatch);
+  const { targetKey } = association;
+  const distinct = [...new Map(linked.map((key) => [targetKey.lookupKey(key), key])).values()];
   if (distinct.length === 0) return undefined;
   return scopedQuery(association, base.where(asStored({ [targetAttribute]: distinct })));
 }
