@@ -128,6 +128,7 @@ describe("values assigned to attributes are cast to the attribute's type (#81)",
       [0, 0],
       ["42", 42],
       [" 42 ", 42],
+      ["\t\n\v\f\r42 ", 42],
       ["-7", -7],
       ["+3", 3],
       [Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
@@ -143,6 +144,8 @@ describe("values assigned to attributes are cast to the attribute's type (#81)",
       ["1.0"],
       [""],
       [" "],
+      ["\u00a042"],
+      ["42\u2003"],
       [Number.NaN],
       [Number.POSITIVE_INFINITY],
       [Number.MAX_SAFE_INTEGER + 1],
@@ -324,6 +327,7 @@ describe("values assigned to attributes are cast to the attribute's type (#81)",
           .count(),
       ).toBe(0);
       expect(await samples().findBy({ quantity: untyped("1 OR 1=1") })).toBeNull();
+      expect(await samples().findBy({ quantity: untyped("\u00a01") })).toBeNull();
       expect(await samples().exists({ stamp: untyped("yesterday") })).toBe(false);
     });
 

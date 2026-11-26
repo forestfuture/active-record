@@ -310,8 +310,14 @@ function readJson(value: unknown): unknown {
   }
 }
 
-/** A whole number, signed, with nothing else but spaces around it. */
-const integerText = /^\s*[+-]?\d+\s*$/;
+/**
+ * ASCII whitespace, the only spaces read around a number's digits, as Postgres and SQLite read
+ * them (#590). JavaScript's `\s` would also read a no-break space, which a link doesn't.
+ */
+const asciiSpace = String.raw`[ \t\n\v\f\r]`;
+
+/** A whole number, signed, with nothing else but ASCII spaces around it. */
+const integerText = new RegExp(String.raw`^${asciiSpace}*[+-]?\d+${asciiSpace}*$`);
 
 /**
  * A decimal number, with an optional exponent (`1.5`, `-2e3`, `.5`), and spaces around it.
