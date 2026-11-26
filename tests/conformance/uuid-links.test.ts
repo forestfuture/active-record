@@ -267,7 +267,7 @@ describe("uuid links", () => {
     );
 
     test.each(otherForms)(
-      "a required belongsTo by a text foreign key holding a uuid key in %s must exist",
+      "a required belongsTo is invalid by a text foreign key holding a uuid key in %s",
       async (_, deviceId) => {
         const reading = db().model(Reading).build({ id: 1, deviceId });
 
@@ -292,7 +292,7 @@ describe("uuid links", () => {
     });
 
     test.each(otherForms)(
-      "a touch reaches no uuid key by a text foreign key holding it in %s, saved or stored",
+      "a touch reaches no uuid key by a text foreign key holding it in %s, on create or when it changes",
       async (_, deviceId) => {
         const reading = await db().model(TouchingReading).create({ id: 1, deviceId });
         await reading.update({ deviceId: null });
