@@ -22,6 +22,14 @@ export function isSameCell(a: unknown, b: unknown): boolean {
   return a.length === b.length && a.every((byte, index) => byte === b[index]);
 }
 
+/**
+ * A stored cell, bytes as their hex text: as a bulk write's JSON holds them, which has no form for
+ * bytes (#20), and as a preload's lookup key, where bytes equal only themselves (#591).
+ */
+export function bytesAsHex(cell: unknown): unknown {
+  return cell instanceof Uint8Array ? hexOf(cell) : cell;
+}
+
 /** The character codes of the hex digits, `0`–`9` then `a`–`f`. */
 const digitCodes = new TextEncoder().encode("0123456789abcdef");
 
