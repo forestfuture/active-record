@@ -2,18 +2,22 @@
 title: Upgrading
 description: "Move an app up one release at a time, starting from the release you’re on."
 seo:
-  description: "Upgrade an Arbor app one release at a time, from 0.10 to 0.14: the rename to Arbor, uuid attributes on Postgres, then spaces around numbers."
+  description: "Upgrade an Arbor app one release at a time, from 0.10 to 0.14: the rename to Arbor, uuid attributes on Postgres, then spaces and plus signs around numbers."
 ---
 
 ## Upgrading from 0.13 to 0.14
 
-In 0.14, an `integer`, `real`, or `decimal` attribute reads only spaces, tabs, and line breaks around a number in text. So does a Postgres connection string’s `connect_timeout`. Its number must also fit the range libpq reads. Upgrade in one step.
+In 0.14, an `integer`, `real`, or `decimal` attribute reads only spaces, tabs, and line breaks around a number in text. So does a Postgres connection string’s `connect_timeout`, which keeps a `+` as libpq does. Its number must also fit the range libpq reads. Upgrade in three steps.
 
 ### Trimming other spaces
 
 These attributes now refuse text with a no-break space or another Unicode space around its number. A condition with that text finds nothing, and `whereNot` with it excludes nothing. On D1, a `DECIMAL` cell that holds that text fails to load. Before, each of them read the number. Call `trim()` on text before you use it as a number. It removes every Unicode space.
 
-On Postgres, a connection string’s `connect_timeout` with one of these spaces around its number now throws `TypeError` when the Database is built. libpq refuses it too. Remove the space from the connection string. A `connect_timeout` with a `+` after its number or before its sign now throws too. Before, the `+` read as a space. Remove the `+`, so `5+` becomes `5`.
+On Postgres, a connection string’s `connect_timeout` with one of these spaces around its number now throws `TypeError` when the Database is built. libpq refuses it too. Remove the space from the connection string.
+
+### Removing a `+` from `connect_timeout`
+
+On Postgres, a `connect_timeout` with a `+` after its number or before its sign now throws `TypeError` too. Before, the `+` read as a space. Remove the `+`, so `5+` becomes `5`.
 
 ### Keeping connect timeouts in range
 
