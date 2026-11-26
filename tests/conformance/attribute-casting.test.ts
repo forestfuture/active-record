@@ -217,6 +217,7 @@ describe("values assigned to attributes are cast to the attribute's type (#81)",
       [3, 3],
       ["1.5", 1.5],
       [" -2.25 ", -2.25],
+      ["\t\n\v\f\r1.5 ", 1.5],
       ["-2e3", -2000],
       [".5", 0.5],
       ["5.", 5],
@@ -225,14 +226,21 @@ describe("values assigned to attributes are cast to the attribute's type (#81)",
       expect(await roundTrip("ratio", value)).toEqual([expected, expected]);
     });
 
-    test.each([["1.5x"], ["0x10"], [""], ["."], [Number.NaN], [Number.NEGATIVE_INFINITY], [false]])(
-      "%j is refused",
-      (value: unknown) => {
-        expect(() => samples().build({ ratio: untyped(value) })).toThrow(
-          new TypeError(`Sample: ${shown(value)} isn't a real for "ratio"`),
-        );
-      },
-    );
+    test.each([
+      ["1.5x"],
+      ["0x10"],
+      [""],
+      ["."],
+      ["\u00a01.5"],
+      ["1.5\u2003"],
+      [Number.NaN],
+      [Number.NEGATIVE_INFINITY],
+      [false],
+    ])("%j is refused", (value: unknown) => {
+      expect(() => samples().build({ ratio: untyped(value) })).toThrow(
+        new TypeError(`Sample: ${shown(value)} isn't a real for "ratio"`),
+      );
+    });
 
     // A pattern that backtracks would take seconds on this, and a request body can hold it (ReDoS).
     test("a long string that isn't a number is refused in linear time", () => {

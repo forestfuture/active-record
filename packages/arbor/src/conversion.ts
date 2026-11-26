@@ -320,11 +320,14 @@ const asciiSpace = String.raw`[ \t\n\v\f\r]`;
 const integerText = new RegExp(String.raw`^${asciiSpace}*[+-]?\d+${asciiSpace}*$`);
 
 /**
- * A decimal number, with an optional exponent (`1.5`, `-2e3`, `.5`), and spaces around it.
+ * A decimal number, with an optional exponent (`1.5`, `-2e3`, `.5`), and ASCII spaces around it.
  * Digits after the point only follow a point, so no run of digits can match two ways: an
  * optional point between two runs of digits backtracks quadratically on a long string (ReDoS).
  */
-const realText = /^\s*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?\s*$/i;
+const realText = new RegExp(
+  String.raw`^${asciiSpace}*[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?${asciiSpace}*$`,
+  "i",
+);
 
 /** `value` as a number: a number as it is, or a string matching `pattern`; else `uncastable`. */
 function numberFrom(value: unknown, pattern: RegExp): unknown {
