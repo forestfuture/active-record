@@ -4,4 +4,3 @@ export function followingOnce<T>(
   context: unknown,
   read: (variable: unknown) => T,
 ): (identifier: { name: string }) => T | undefined;
-export function variableOf(scope: unknown, identifier: { name: string }): unknown;
