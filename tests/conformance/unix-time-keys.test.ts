@@ -13,6 +13,9 @@ class Slot extends Model.define({
   static table = "stamps";
 
   bookings = hasMany(Booking, { foreignKey: "quantity", primaryKey: "seconds" });
+  labeled = hasMany(Booking, { foreignKey: "label", primaryKey: "seconds" });
+  // Seconds linked to milliseconds: the two integers compare as they are, as a join compares them.
+  inMilliseconds = hasMany(Slot, { foreignKey: "milliseconds", primaryKey: "seconds" });
 }
 
 class Booking extends Model.define({
@@ -23,6 +26,19 @@ class Booking extends Model.define({
   static table = "samples";
 
   slot = belongsTo(Slot, { foreignKey: "quantity", primaryKey: "seconds", optional: true });
+  labeledSlot = belongsTo(Slot, { foreignKey: "label", primaryKey: "seconds", optional: true });
+}
+
+// The same instant kept as ISO text (a timestamp on Postgres) and as a Unix time.
+class Mark extends Model.define({
+  id: { type: "integer", null: false },
+  seconds: { type: "datetime", storage: "unixSeconds" },
+  iso: "datetime",
+}) {
+  static table = "guarded_stamps";
+
+  bySeconds = hasMany(Mark, { foreignKey: "seconds", primaryKey: "iso" });
+  byIso = hasMany(Mark, { foreignKey: "iso", primaryKey: "seconds" });
 }
 
 // A datetime kept as a Unix time links as the integer it stores, in a preload and a lazy read
@@ -102,5 +118,40 @@ describe("a key linked to a Unix time", () => {
 
     expect(booking.quantity).toBe(120);
     expect((await db().model(Booking).find(1)).quantity).toBe(120);
+  });
+
+  test("text holding a Unix time's digits links to it, as in a join", async () => {
+    await harness.exec("INSERT INTO samples (id, label) VALUES (3, '120')");
+    const slot = await db().model(Slot).find(2);
+    const booking = await db().model(Booking).find(3);
+    const [, preloaded] = await db().model(Slot).includes("labeled").order({ id: "asc" }).toArray();
+
+    expect(await db().model(Booking).joins("labeledSlot").pluck("id")).toEqual([3]);
+    expect((await booking.labeledSlot())?.name).toBe("b");
+    expect((await slot.labeled().toArray()).map((each) => each.id)).toEqual([3]);
+    expect((await preloaded!.labeled().toArray()).map((each) => each.id)).toEqual([3]);
+  });
+
+  test("seconds link to milliseconds by the integers they store, as in a join", async () => {
+    const slots = await db().model(Slot).includes("inMilliseconds").order({ id: "asc" }).toArray();
+    const slot = await db().model(Slot).find(1);
+
+    expect(await db().model(Slot).joins("inMilliseconds").pluck("id")).toEqual([1]);
+    expect((await slot.inMilliseconds().toArray()).map((each) => each.id)).toEqual([1]);
+    const preloaded = await Promise.all(
+      slots.map(async (each) => (await each.inMilliseconds().toArray()).map((one) => one.id)),
+    );
+    expect(preloaded).toEqual([[1], []]);
+  });
+
+  test("an instant kept as ISO text doesn't link to the same one kept as a Unix time", async () => {
+    await harness.reset("guarded_stamps");
+    await db()
+      .model(Mark)
+      .create({ id: 1, seconds: new Date(60_000), iso: new Date(60_000) });
+    const mark = await db().model(Mark).find(1);
+
+    expect(await mark.bySeconds().toArray()).toEqual([]);
+    expect(await mark.byIso().toArray()).toEqual([]);
   });
 });
