@@ -2,7 +2,8 @@
 CREATE TABLE devices (
   id TEXT PRIMARY KEY NOT NULL,
   name TEXT,
-  readings_count INTEGER NOT NULL DEFAULT 0
+  readings_count INTEGER NOT NULL DEFAULT 0,
+  updated_at DATETIME
 );
 
 -- A text foreign key (device_id), an integer one (level) and a polymorphic one (subject_type,
