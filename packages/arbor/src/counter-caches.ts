@@ -1,7 +1,7 @@
 // Counter caches (#61): a belongsTo's `counterCache`, kept up to date by statements written in the same atomic batch as its record's insert, update or delete, and checking it and a hasMany's.
 import { associationsOf } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
-import { attributeFor } from "./attribute.ts";
+import { attributeFor, noMatch } from "./attribute.ts";
 import type { CompiledSql } from "./compiler.ts";
 import type { StatementResult } from "./driver.ts";
 import { valueMark } from "./dialect.ts";
@@ -255,17 +255,25 @@ export const noCounterChanges: CounterChanges = { around: (own) => [...own], com
 /** Counting a new record in: each counter cache whose key is set, on its target by that key. */
 export function countersOnInsert(record: Model): CounterChanges {
   const recordState = record[state];
-  const counted = countersOf(modelOf(record)).filter((counter) => {
-    const key = recordState.read(counter.foreignKey);
-    return (
-      key !== null && key !== undefined && isTypeOfTarget(counter, (name) => recordState.read(name))
-    );
-  });
+  const counted = countersOf(modelOf(record)).filter(
+    (counter) =>
+      isLinkedKey(counter, recordState.read(counter.foreignKey)) &&
+      isTypeOfTarget(counter, (name) => recordState.read(name)),
+  );
   const after = counted.map((counter) => {
     const key = keyed(counter, recordState.read(counter.foreignKey));
     return compileCounterChange(counter, changeBy(counter, 1), key);
   });
   return counterChanges(record, [[], after], counted, 1);
+}
+
+/**
+ * Whether `key` links to a target of `counter`: set, and a uuid only in its one form, as the
+ * stored row's link compares it when the record is counted out (#588).
+ */
+function isLinkedKey({ target, targetKey }: CounterCache, key: unknown): boolean {
+  if (key === null || key === undefined) return false;
+  return attributeFor(target, targetKey).linkedKey(key) !== noMatch;
 }
 
 /**
