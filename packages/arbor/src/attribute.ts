@@ -181,7 +181,8 @@ export class Attribute {
    * as it is, for `condition` to cast.
    */
   keyAsStored(value: unknown): unknown {
-    if (!this.isUuid || this.#definition.customType !== undefined || value === null) return value;
+    if (this.storedType !== "uuid" || this.#definition.customType !== undefined || value === null)
+      return value;
     return readUuid(value);
   }
 

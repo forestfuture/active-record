@@ -58,7 +58,7 @@ function keysAsStored<T extends object>(model: ModelClass, conditions: T): T {
   let changed = false;
   const entries = Object.entries(conditions).map(([name, value]) => {
     const attribute = attributeFor(model, name);
-    if (!attribute.isUuid) return [name, value];
+    if (attribute.storedType !== "uuid") return [name, value];
     changed = true;
     const asKey = (key: unknown) => attribute.keyAsStored(key);
     return [name, Array.isArray(value) ? value.map(asKey) : asKey(value)];
