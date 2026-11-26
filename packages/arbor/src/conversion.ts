@@ -2,6 +2,7 @@
 import { castBinary, readBinary } from "./binary-values.ts";
 import { castDay, castTime } from "./calendar-values.ts";
 import { castDecimal, limitDecimal, readDecimal } from "./decimal-values.ts";
+import { asciiSpace } from "./number-spaces.ts";
 import { enumEntries, type EnumValues } from "./enum-values.ts";
 import type { EpochStorage } from "./epoch-storage.ts";
 import type { AnyCustomType } from "./custom-types.ts";
@@ -309,12 +310,6 @@ function readJson(value: unknown): unknown {
     return uncastable;
   }
 }
-
-/**
- * ASCII whitespace, the only spaces read around a number's digits, as Postgres and SQLite read
- * them (#590). JavaScript's `\s` would also read a no-break space, which a link doesn't.
- */
-const asciiSpace = String.raw`[ \t\n\v\f\r]`;
 
 /** A whole number, signed, with nothing else but ASCII spaces around it. */
 const integerText = new RegExp(String.raw`^${asciiSpace}*[+-]?\d+${asciiSpace}*$`);
