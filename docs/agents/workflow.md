@@ -36,6 +36,7 @@ Follow the `tdd` skill, one vertical slice at a time:
 
 - **Title**: aim for 50 characters (the `commit-msg` hook warns past 60 and rejects past 72; a few over is fine). Imperative, capitalized, no trailing period, no `feat:`-style prefixes. End with the issue number: `(#82)`.
 - **Body**, after a blank line: what behavior changed and why, in a few short lines or bullets wrapped at 72 (the hook rejects a longer line, unless it holds a URL or has no space after its indent). The detail goes here, not in the title.
+- **No invisible characters**, such as a no-break space or a line separator, in the title or body: the hook rejects one. Name the character by its code point (U+00A0) instead.
 
 ```text
 Tidy permit's docs, types and tests (#82)
