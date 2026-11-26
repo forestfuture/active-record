@@ -157,3 +157,7 @@ The command reads a Postgres database’s migrations from its folder, not from f
 ## jsonb keeps the value
 
 A `jsonb` column keeps a JSON value, not the text you wrote. A raw query reads it back with Postgres’s own spacing and key order. Your Models read the same value either way.
+
+## json columns can’t be compared
+
+Postgres has no `=` for a `json` column. A condition on a `json` attribute stored in one fails with Postgres’s own error, and so does an association whose keys are `json` attributes. Keep JSON in a `jsonb` column, as generated migrations do. An association’s two `json` keys link when both columns are `jsonb`, or both `text`.
