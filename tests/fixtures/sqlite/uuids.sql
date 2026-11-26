@@ -1,7 +1,8 @@
 -- Keys that are UUIDs: text on D1, which has no UUID type (../postgres/uuids.sql declares them UUID).
 CREATE TABLE devices (
   id TEXT PRIMARY KEY NOT NULL,
-  name TEXT
+  name TEXT,
+  readings_count INTEGER NOT NULL DEFAULT 0
 );
 
 -- A text foreign key (device_id), an integer one (level) and a polymorphic one (subject_type,

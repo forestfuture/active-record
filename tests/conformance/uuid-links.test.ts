@@ -5,7 +5,11 @@ import { openHarness, type Harness } from "../support/harness.ts";
 const phoneId = "0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b";
 
 // A UUID key (a UUID column on Postgres) and a text foreign key pointing at it.
-class Device extends Model.define({ id: { type: "uuid", null: false }, name: "string" }) {
+class Device extends Model.define({
+  id: { type: "uuid", null: false },
+  name: "string",
+  readingsCount: { type: "integer", null: false },
+}) {
   static table = "devices";
 
   readings = hasMany(Reading);
@@ -22,6 +26,16 @@ class Reading extends Model.define({
 
   device = belongsTo(Device);
   siblings = hasMany(Reading, { through: "device", source: "readings" });
+}
+
+// A reading its device counts (#588).
+class CountedReading extends Model.define({
+  id: { type: "integer", null: false },
+  deviceId: "string",
+}) {
+  static table = "readings";
+
+  device = belongsTo(Device, { counterCache: "readingsCount", optional: true });
 }
 
 // An integer foreign key (level) pointing at a UUID key, which no integer is.
@@ -240,6 +254,31 @@ describe("uuid links", () => {
         expect(await reading.device()).toBeNull();
       },
     );
+
+    test.each(otherForms)(
+      "a required belongsTo by a text foreign key holding a uuid key in %s must exist",
+      async (_, deviceId) => {
+        const reading = db().model(Reading).build({ id: 1, deviceId });
+
+        expect(await reading.isValid()).toBe(false);
+        expect(reading.errors.get("device")).toEqual(["must exist"]);
+      },
+    );
+
+    test.each(otherForms)(
+      "a counter cache counts nothing in for a text foreign key holding a uuid key in %s",
+      async (_, deviceId) => {
+        await db().model(CountedReading).create({ id: 1, deviceId });
+
+        expect((await db().model(Device).find(phoneId)).readingsCount).toBe(0);
+      },
+    );
+
+    test("a counter cache counts nothing in for a text foreign key that isn't a UUID, without an error", async () => {
+      await db().model(CountedReading).create({ id: 1, deviceId: "lamp" });
+
+      expect((await db().model(Device).find(phoneId)).readingsCount).toBe(0);
+    });
 
     test.each(otherForms)(
       "a polymorphic belongsTo reads no uuid key for a text id holding it in %s",

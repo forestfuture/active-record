@@ -1,7 +1,8 @@
 -- ../sqlite/uuids.sql with UUID columns, which refuse text that isn't a UUID.
 CREATE TABLE devices (
   id UUID PRIMARY KEY,
-  name TEXT
+  name TEXT,
+  readings_count INTEGER NOT NULL DEFAULT 0
 );
 
 -- A text foreign key (device_id), an integer one (level) and a polymorphic one (subject_type,
