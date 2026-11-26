@@ -121,4 +121,26 @@ describe("a link by a key a record holds as an object", () => {
       ]);
     });
   });
+
+  // Only a custom type's key can fail to write when cast from another type's; any other key that
+  // can't be written is a bug to show, not a link to leave out.
+  test("a json key a callback left JSON can't write throws, naming it", async () => {
+    class Course extends Model.define(courseAttributes) {
+      static table = "courses";
+
+      static {
+        this.afterFind((course) => {
+          (course.tag as Record<string, unknown>).count = 1n;
+        });
+      }
+    }
+
+    class Lesson extends Model.define(lessonAttributes) {
+      static table = "lessons";
+
+      course = belongsTo(Course, { foreignKey: "courseTag", primaryKey: "tag" });
+    }
+
+    await expect(db().model(Lesson).includes("course").toArray()).rejects.toThrow(/"tag"/);
+  });
 });

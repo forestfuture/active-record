@@ -201,14 +201,22 @@ export class Attribute {
     try {
       stored = writeValue(this.#definition, value);
     } catch (error) {
-      this.#refuseNested(error);
-      if (this.#definition.customType !== undefined) throw this.#refusal(value, undefined, error);
-      if (this.#definition.type !== "json") throw error;
-      throw this.#refusal(value);
+      throw this.#writeError(error, value);
     }
     // Only a json value gives nothing: JSON writes no function or symbol.
     if (stored === undefined) throw this.#refusal(value);
     return stored;
+  }
+
+  /**
+   * The error a value that can't be written throws: a nested reference's, or a refusal naming
+   * the attribute for a custom type or a json value, else the error itself.
+   */
+  #writeError(error: unknown, value: unknown): unknown {
+    this.#refuseNested(error);
+    if (this.#definition.customType !== undefined) return this.#refusal(value, undefined, error);
+    if (this.#definition.type !== "json") return error;
+    return this.#refusal(value);
   }
 
   /** An assigned value cast, then in the form D1 stores. */
@@ -254,17 +262,18 @@ export class Attribute {
   /**
    * The key a preload finds a record by (#591): an already cast value in the form it's stored
    * in, bytes as their hex, since a json value, a `Date` or bytes equals only itself in a `Map`.
-   * Written as is, as `isSame` writes it. `null` and `noMatch` stay as they are. A value that
-   * can't be written, as a key of another type cast to a custom type may be, is `noMatch`: no
-   * record holds it.
+   * Written as is, as `isSame` writes it. `null` and `noMatch` stay as they are. A custom
+   * type's value its `serialize` refuses, as a key of another type cast to it may be, is
+   * `noMatch`: no record holds it. Any other value that can't be written throws, as `write` does.
    */
   lookupKey(value: unknown): unknown {
     if (value === null || value === noMatch) return value;
     let cell: unknown;
     try {
       cell = writeValue(this.#definition, value);
-    } catch {
-      return noMatch;
+    } catch (error) {
+      if (this.#definition.customType !== undefined) return noMatch;
+      throw this.#writeError(error, value);
     }
     return cell instanceof Uint8Array ? hexOf(cell) : cell;
   }
