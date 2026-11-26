@@ -10,8 +10,11 @@ const longestTimeoutMs = 2 ** 31 - 1;
 /** libpq's shortest limit, in seconds: a `connect_timeout` of 1 waits 2. */
 const shortestTimeoutSeconds = 2;
 
-/** A whole number as libpq reads one: a sign, digits, and spaces around them. */
-const wholeNumber = /^\s*[-+]?\d+\s*$/;
+/**
+ * A whole number as libpq reads one: a sign, digits, and ASCII spaces around them, `[ \t\n\v\f\r]`,
+ * the ones `strtol` and `isspace` skip, where `\s` would read a no-break space too (#598).
+ */
+const wholeNumber = /^[ \t\n\v\f\r]*[-+]?\d+[ \t\n\v\f\r]*$/;
 
 /**
  * `pg`'s `connectionTimeoutMillis` for clients opened from `connectionString`: its `connect_timeout`

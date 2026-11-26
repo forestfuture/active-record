@@ -112,6 +112,20 @@ describe("a connection string's connect_timeout (#292)", () => {
     },
   );
 
+  // libpq reads the number with `strtol` and `isspace`, which skip only ASCII whitespace (#598).
+  test.each([
+    ["a no-break space before", "%C2%A05", "\u00a05"],
+    ["a no-break space after", "5%C2%A0", "5\u00a0"],
+    ["a line separator before", "%E2%80%A85", "\u20285"],
+  ])("with %s its digits throws, as libpq refuses it", (_name, encoded, value) => {
+    const url = `postgres://app@db.example.com/app?connect_timeout=${encoded}`;
+    expect(() => connect(url)).toThrow(
+      new TypeError(
+        `connect_timeout must be a whole number of seconds, not ${JSON.stringify(value)}`,
+      ),
+    );
+  });
+
   test("is read from a socket's string, with no host before its path", () => {
     const url = "postgres://app@/app?host=/var/run/postgresql&connect_timeout=soon";
     expect(() => connect(url)).toThrow(TypeError);
