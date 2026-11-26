@@ -514,15 +514,17 @@ function targetsOfOwner(
   association: ResolvedAssociation,
   owner: Model,
 ): Model[] {
-  const { ownerAttribute } = association;
+  const { owner: ownerModel, ownerAttribute } = association;
   // Looked up as the targets hold it: an integer key matches a text foreign key's digits (#94),
-  // and a uuid only its one form, as the query that found them compares it (#588).
+  // a uuid only its one form, as the query that found them compares it (#588), and a Unix
+  // time its integer (#592).
   const targetKey = targetAttributeOf(association);
   // A polymorphic belongsTo's owner with no type has no key (#60).
   const key = association.isPolymorphic
     ? association.keyOf(owner)
     : owner[state].read(ownerAttribute);
-  const lookupKey = targetKey.lookupKey(targetKey.condition(targetKey.keyAsStored(key)));
+  const from = attributeFor(ownerModel, ownerAttribute);
+  const lookupKey = targetKey.lookupKey(targetKey.linked(targetKey.keyAsStored(key), from));
   // A key that can't be cast or written as a target's is held by no target (#591).
   return lookupKey === noMatch ? [] : (byKey.get(lookupKey) ?? []);
 }

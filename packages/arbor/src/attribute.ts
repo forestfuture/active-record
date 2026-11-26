@@ -16,6 +16,7 @@ import {
   writeValue,
 } from "./conversion.ts";
 import { listedNames } from "./enum-values.ts";
+import { castLinked } from "./linked-keys.ts";
 import { FILTERED, Filtered, isFiltered } from "./filtering.ts";
 import {
   type AttributeDefinition,
@@ -164,6 +165,21 @@ export class Attribute {
   key(value: unknown, association?: string): unknown {
     requireDefined(this.#model, this.name, value);
     return this.#orRefuse(castKey(this.#definition, value), value, association);
+  }
+
+  /**
+   * A key of `from`, another Model's attribute linked to this one, as this one holds it (#592):
+   * as `key` casts it, but a datetime kept as a Unix time links as the integer it stores. One
+   * that can't be cast throws, naming the association it came through.
+   */
+  linkedKey(value: unknown, from: Attribute, association: string): unknown {
+    requireDefined(this.#model, this.name, value);
+    return this.#orRefuse(this.linked(value, from), value, association);
+  }
+
+  /** A key of `from` as this attribute holds it, as `linkedKey` casts it, or `noMatch`. */
+  linked(value: unknown, from: Attribute): unknown {
+    return castLinked(this.#definition, from.#definition, value);
   }
 
   /**
