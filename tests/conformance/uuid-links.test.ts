@@ -315,6 +315,21 @@ describe("uuid links", () => {
     );
 
     test.each(otherForms)(
+      "a through association reads nothing by a text foreign key holding a uuid key in %s",
+      async (_, deviceId) => {
+        await db()
+          .model(Reading)
+          .insertAll([
+            { id: 1, deviceId: phoneId },
+            { id: 2, deviceId },
+          ]);
+        const reading = await db().model(Reading).find(2);
+
+        expect(await reading.siblings().pluck("id")).toEqual([]);
+      },
+    );
+
+    test.each(otherForms)(
       "a polymorphic belongsTo reads no uuid key for a text id holding it in %s",
       async (_, subjectId) => {
         await db().model(Note).insert({ id: 1, subjectType: "Device", subjectId });
