@@ -160,4 +160,4 @@ A `jsonb` column keeps a JSON value, not the text you wrote. A raw query reads i
 
 ## json columns can’t be compared
 
-Postgres has no `=` for a `json` column. A condition on a `json` attribute stored in one fails with Postgres’s own error, and so does an association whose `json` keys are stored in one. Keep JSON in a `jsonb` column, as generated migrations do. A condition works in a `jsonb` or `text` column, and an association’s two `json` keys link when both columns are `jsonb`, or both `text`.
+Postgres has no `=` for a `json` column. A condition on a `json` attribute stored in one fails with Postgres’s own error, and so does an association whose `json` keys are stored in one. Keep JSON in a `jsonb` column, as generated migrations do. A condition works in a `jsonb` or `text` column. An association’s two `json` keys link when both columns are `jsonb`, or both `text`.
