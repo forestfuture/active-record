@@ -87,8 +87,22 @@ describe("a link to a key no text or number compares with", () => {
       ]);
     });
 
+    test("a hasMany preload links no ticket", async () => {
+      const [event] = await db().model(Event).includes("tickets").toArray();
+
+      expect(event!.loaded("tickets")).toEqual([]);
+    });
+
     test("a hasMany join finds no event", async () => {
       expect(await db().model(Event).joins("tickets").count()).toBe(0);
+    });
+
+    test("a belongsTo join finds no ticket", async () => {
+      expect(await db().model(Ticket).joins("event").count()).toBe(0);
+    });
+
+    test("a belongsTo outer join keeps each ticket once, with no event", async () => {
+      expect(await db().model(Ticket).leftJoins("event").count()).toBe(4);
     });
 
     test("a through preload links no ticket to another", async () => {

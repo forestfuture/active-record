@@ -51,6 +51,10 @@ function kindOf({ storedType }: Attribute): Kind {
   }
 }
 
+/** The kinds a link casts a key between, by its text: the others link only to their own kind. */
+const isCastable = (kind: Kind): kind is "uuid" | "text" | "number" =>
+  kind === "uuid" || kind === "text" || kind === "number";
+
 /** A quoted identifier; embedded double quotes are doubled. */
 const quoted = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
@@ -111,13 +115,16 @@ export const postgres: Dialect = {
    * Postgres compares no text with a number, nor a uuid with either (#563). A key selected for a
    * text attribute is its text; text selected for a uuid is the UUID it holds in its one form, and
    * for a number the number its digits are, as a condition casts it; text that isn't one matches
-   * nothing. Only the key is cast, so the linked attribute's column keeps its index. A key of
-   * another type linked to a date, a time, a timestamp, a boolean, JSON or bytes matches nothing,
-   * as Postgres compares them with nothing else (#586).
+   * nothing. Only the key is cast, so the linked attribute's column keeps its index. A date, a
+   * time, a timestamp, a boolean, JSON or bytes, linked either way to a key of another type,
+   * matches nothing (#586): Postgres compares most of them with no other type, and a date with a
+   * timestamp, which it can compare, links nothing on D1, which compares their text.
    */
   linkedKey(key, keyAttribute, linked) {
     const kind = kindOf(linked);
-    if (kind === kindOf(keyAttribute)) return key;
+    const keyKind = kindOf(keyAttribute);
+    if (kind === keyKind) return key;
+    if (!isCastable(kind) || !isCastable(keyKind)) return undefined;
     const text = `CAST(${key} AS TEXT)`;
     switch (kind) {
       case "uuid":
@@ -126,8 +133,6 @@ export const postgres: Dialect = {
         return text;
       case "number":
         return `CASE WHEN ${matches(text, integerPattern)} THEN CAST(${text} AS NUMERIC) END`;
-      default:
-        return undefined;
     }
   },
   /**
