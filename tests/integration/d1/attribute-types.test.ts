@@ -99,4 +99,27 @@ describe("decimal attributes on D1", () => {
 
     expect(value).toBe("12345678901234570000");
   });
+
+  // SQLite keeps text it can't read as a number as TEXT, which a decimal reads as Arbor casts it.
+  test("a cell with ASCII spaces around its number reads as the number", async () => {
+    await binding
+      .prepare("INSERT INTO amounts (id, value) VALUES (?, ?)")
+      .bind(101, "\t12.50\n")
+      .run();
+
+    const { value } = await amounts().find(101);
+
+    expect(value).toBe("12.5");
+  });
+
+  test("a cell with a no-break space around its number fails to load", async () => {
+    await binding
+      .prepare("INSERT INTO amounts (id, value) VALUES (?, ?)")
+      .bind(102, "\u00a012.50")
+      .run();
+
+    await expect(amounts().find(102)).rejects.toThrow(
+      new TypeError(`Amount: "\u00a012.50" isn't a decimal for "value"`),
+    );
+  });
 });
