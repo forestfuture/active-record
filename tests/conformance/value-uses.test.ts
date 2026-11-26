@@ -44,6 +44,9 @@ class Counted extends Model.define({ id: { type: "integer", null: false }, quant
   code = belongsTo(Code, { foreignKey: "quantity" });
 }
 
+// More digits than any number a record holds, and than Postgres's numeric can be cast from.
+const tooManyDigits = "9".repeat(140_000);
+
 // Values a record inherits from a condition, and keys copied from another record, are cast as
 // the condition or key they came from, not as values a request assigns (#94).
 describe("values by their use", () => {
@@ -193,25 +196,6 @@ describe("values by their use", () => {
       expect(note!.loaded("owner")?.id).toBe(9);
     });
 
-    // More digits than any number a record holds, and than Postgres's numeric can be cast from.
-    const tooManyDigits = "9".repeat(140_000);
-
-    test("a belongsTo finds nothing for a text foreign key with more digits than a number holds", async () => {
-      await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
-      await db().model(Note).insert({ id: 3, label: tooManyDigits });
-
-      const [note] = await db().model(Note).includes("owner").toArray();
-
-      expect(note!.loaded("owner")).toBeNull();
-    });
-
-    test("a join finds nothing for a text foreign key with more digits than a number holds", async () => {
-      await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
-      await db().model(Note).insert({ id: 3, label: tooManyDigits });
-
-      expect(await db().model(Owner).joins("notes").pluck("id")).toEqual([]);
-    });
-
     test("a belongsTo finds the integer key past a text foreign key's leading zeros", async () => {
       await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
       await db()
@@ -224,15 +208,25 @@ describe("values by their use", () => {
     });
 
     test.each([
-      ["a no-break space", " 9"],
-      ["an em space", "9 "],
-    ])("a belongsTo finds nothing for a text foreign key with %s around it", async (_, label) => {
+      ["more digits than a number holds", tooManyDigits],
+      ["a no-break space before its digits", "\u00a09"],
+      ["an em space after its digits", "9\u2003"],
+    ])("a belongsTo finds nothing for a text foreign key with %s", async (_, label) => {
       await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
       await db().model(Note).insert({ id: 3, label });
 
       const [note] = await db().model(Note).includes("owner").toArray();
 
       expect(note!.loaded("owner")).toBeNull();
+    });
+  });
+
+  describe("joining across key types", () => {
+    test("a join finds nothing for a text foreign key with more digits than a number holds", async () => {
+      await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
+      await db().model(Note).insert({ id: 3, label: tooManyDigits });
+
+      expect(await db().model(Owner).joins("notes").pluck("id")).toEqual([]);
     });
   });
 
