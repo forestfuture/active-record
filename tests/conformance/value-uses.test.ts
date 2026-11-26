@@ -21,7 +21,7 @@ class Note extends Model.define({ id: { type: "integer", null: false }, label: "
   owner = belongsTo(Owner, { foreignKey: "label" });
 }
 
-// A text foreign key (label) pointing at a real (ratio), as a key of its own.
+// A text foreign key (label) pointing at a real (ratio) as its primary key.
 class Reading extends Model.define({ id: { type: "integer", null: false }, label: "string" }) {
   static table = "samples";
 
@@ -230,9 +230,7 @@ describe("values by their use", () => {
 
       expect(note!.loaded("owner")).toBeNull();
     });
-  });
 
-  describe("linking text to a real key", () => {
     test("a belongsTo finds nothing for a text foreign key past the largest real", async () => {
       await db().model(Measured).insert({ id: 1, ratio: 9 });
       await db()
