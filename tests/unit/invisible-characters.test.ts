@@ -62,6 +62,9 @@ describe("finding invisible characters", () => {
     const codePoints = invisibleCharacters.map((character) => character.codePointAt(0)!);
 
     expect(codePoints).toEqual([...new Set(codePoints)].sort((a, b) => a - b));
+  });
+
+  test("leaves the ASCII space off the list", () => {
     expect(invisibleCharacters).not.toContain(" ");
   });
 });
