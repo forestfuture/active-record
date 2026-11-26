@@ -1,6 +1,7 @@
 // An association resolved for one owner: which attributes link the records (a polymorphic one's type too, #60), in what order, which database its records are on, and what nullifying them clears.
 // associations.ts imports this module too; both uses are at call time, never at load.
 import { readyModel, type AssociationDefinition } from "./associations.ts";
+import { attributeFor, noMatch } from "./attribute.ts";
 import { LinkedTo, type QueryDescription } from "./query.ts";
 import { currentExecutorOf } from "./current-database.ts";
 import { UnknownModelName } from "./errors.ts";
@@ -203,10 +204,20 @@ export class ResolvedAssociation {
     return relation[linkedToOwner]({ [attribute]: value });
   }
 
-  /** The target's records linked to `key` (one value, or a list), for an owner on `executor`. */
+  /**
+   * The target's records linked to `key` (one value, or a list), for an owner on `executor`: a
+   * uuid only in its one form, as a preload or a join links it (#588). A key in another form
+   * finds none, but a record built through it still takes the key, cast, as before.
+   */
   linkedTo(executor: Executor, key: unknown): Scoped<Model> {
     if (this.hops === undefined) {
-      return this.all(executor)[linkedToOwner]({ [this.targetAttribute]: key });
+      const attribute = attributeFor(this.target, this.targetAttribute);
+      if (Array.isArray(key)) {
+        const keys = key.map((each) => attribute.linkedKey(each));
+        return this.all(executor)[linkedToOwner]({ [this.targetAttribute]: keys });
+      }
+      const linked = this.all(executor)[linkedToOwner]({ [this.targetAttribute]: key });
+      return attribute.linkedKey(key) === noMatch ? linked.none() : linked;
     }
     const { via, source } = this.hops;
     return source.narrowToLinked(executor, this.all(executor), via.linkedTo(executor, key));
