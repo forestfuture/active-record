@@ -133,7 +133,7 @@ describe("a virtual attribute", () => {
     });
 
     test("alone, save updates only updatedAt", async () => {
-      // A fixed clock, so the two writes never share a millisecond.
+      // The clock is set for each write, a minute apart, so they never share a millisecond.
       vi.useFakeTimers({ toFake: ["Date"] });
       vi.setSystemTime(new Date("2026-11-21T12:00:00Z"));
       const user = await db().model(User).create({ email: "jane@example.com" });
