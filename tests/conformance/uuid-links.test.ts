@@ -146,6 +146,26 @@ describe("uuid links", () => {
       },
     );
 
+    test.each(otherForms)(
+      "a hasMany preload finds no text foreign key holding its uuid key in %s",
+      async (_, deviceId) => {
+        await db().model(Reading).insert({ id: 1, deviceId });
+
+        const [device] = await db().model(Device).includes("readings").toArray();
+
+        expect(device!.loaded("readings")).toEqual([]);
+      },
+    );
+
+    test.each(otherForms)(
+      "a join from a text foreign key holding a uuid key in %s finds nothing",
+      async (_, deviceId) => {
+        await db().model(Reading).insert({ id: 1, deviceId });
+
+        expect(await db().model(Reading).joins("device").count()).toBe(0);
+      },
+    );
+
     test("a text foreign key that isn't a UUID finds nothing, without an error", async () => {
       await db().model(Reading).insert({ id: 1, deviceId: "lamp" });
 

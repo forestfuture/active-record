@@ -118,7 +118,7 @@ After `distinct()`, `pluck("title")` selects only `title`. So does `count("title
 
 ## UUID columns
 
-Declare a `UUID` column as a `uuid` attribute, as `arbor schema` does. A `uuid` key links to a `string` foreign key, such as a polymorphic `commentable_id TEXT`, as it does on D1. A `string` attribute over a `UUID` column can’t be linked to a `uuid` one.
+Declare a `UUID` column as a `uuid` attribute, as `arbor schema` does. A `uuid` key links to a `string` foreign key as it does on D1. That includes a polymorphic id such as `commentable_id TEXT`. A `string` attribute over a `UUID` column can’t be linked to a `uuid` one.
 
 ## NUL characters
 

@@ -6,7 +6,7 @@ const literal = (text: string) => `E'${text.replaceAll("\\", "\\\\").replaceAll(
 
 /**
  * Text that's a UUID in its one form, lowercase with hyphens, as a uuid attribute holds it: text
- * in another form links to no UUID, as it doesn't on D1, which compares text exactly (#563).
+ * in another form links to no UUID, just as on D1, which compares text exactly (#563).
  */
 const uuidPattern = literal("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
 
