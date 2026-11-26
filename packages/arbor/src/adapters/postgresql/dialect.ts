@@ -15,11 +15,12 @@ const asciiSpace = "[ \\t\\n\\v\\f\\r]";
 
 /**
  * Text that's an integer, as a condition casts one but with ASCII spaces only (#590): digits, a
- * sign, and spaces around them. Past leading zeros, it has at most 309 digits, as many as any
- * number a record holds (about 1.8e308), so the cast can't overflow `numeric` and fail the query
- * (#585). A bound stops at 255.
+ * sign, and spaces around them. Past leading zeros, it has at most 308 digits, below the largest
+ * number a record holds (about 1.8e308), so neither its cast to `numeric` nor a comparison with a
+ * real, which casts it on to `double precision`, can overflow and fail the query (#585). A
+ * regular expression's bound stops at 255.
  */
-const integerPattern = literal(`^${asciiSpace}*[+-]?0*[0-9]{1,255}[0-9]{0,54}${asciiSpace}*$`);
+const integerPattern = literal(`^${asciiSpace}*[+-]?0*[0-9]{1,255}[0-9]{0,53}${asciiSpace}*$`);
 
 /**
  * Whether `text` matches `pattern`, under C's collation: a collation that ignores case runs no
