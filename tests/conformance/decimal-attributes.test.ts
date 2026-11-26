@@ -36,6 +36,7 @@ describe("decimal attributes", () => {
     test.each([
       ["decimal text", "12.50", "12.5"],
       ["text with a sign, spaces and an exponent", " +1.25e3 ", "1250"],
+      ["text with tabs and line breaks around it", "\t\n\v\f\r12.5 ", "12.5"],
       ["text with a leading point", ".5", "0.5"],
       ["text with a trailing point", "5.", "5"],
       ["a negative zero", "-0.00", "0"],
@@ -61,6 +62,8 @@ describe("decimal attributes", () => {
       ["text that isn't a number", "abc", '"abc"'],
       ["text with a number in it", "12abc", '"12abc"'],
       ["an empty string", "", '""'],
+      ["text with a no-break space before it", "\u00a012.5", '"\u00a012.5"'],
+      ["text with an em space after it", "12.5\u2003", '"12.5\u2003"'],
       ["NaN", Number.NaN, "NaN"],
       ["Infinity", Number.POSITIVE_INFINITY, "Infinity"],
       ["a boolean", true, "true"],
