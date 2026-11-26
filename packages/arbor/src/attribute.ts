@@ -264,7 +264,7 @@ export class Attribute {
    * in, bytes as their hex, since a json value, a `Date` or bytes equals only itself in a `Map`.
    * Written as is, as `isSame` writes it. `null` and `noMatch` stay as they are. A custom
    * type's value its `serialize` refuses, as a key of another type cast to it may be, is
-   * `noMatch`: no record holds it. Any other value that can't be written throws, as `write` does.
+   * `noMatch`: no record holds it. Any other error writing it throws `write`'s error.
    */
   lookupKey(value: unknown): unknown {
     if (value === null || value === noMatch) return value;
