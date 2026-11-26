@@ -114,7 +114,7 @@ function link({ owner, association, collection }: OwnersHasMany, records: readon
   const key = association.keyOf(owner);
   const { name, definition } = association;
   for (const record of records) {
-    record[state].writeKey(definition.foreignKey, key, name);
+    record[state].writeKey(definition.foreignKey, key, name, association.ownerKey);
     association.writeOwnersType(record);
     // So a required belongsTo passes without a query, as for a record created through it (#339).
     collection.pointBack(record);

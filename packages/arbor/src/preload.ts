@@ -1,6 +1,6 @@
 // `includes()`: preloading associations, the whole tree planned to go to D1 with its query (#217), and each level on another database to its own (#228).
 import { asStored } from "./normalized-values.ts";
-import { attributeFor, noMatch, type Attribute } from "./attribute.ts";
+import { noMatch, type Attribute } from "./attribute.ts";
 import type { CompiledSql } from "./compiler.ts";
 import type { Dialect } from "./dialect.ts";
 import { databaseNow, type Executor } from "./executor.ts";
@@ -303,7 +303,7 @@ function planHopStep(planning: Planning, request: HopRequest): Hop | undefined {
     position,
     includes,
     reached: (owner, found) => {
-      byKey ??= groupBy(found[position] ?? [], targetAttributeOf(association));
+      byKey ??= groupBy(found[position] ?? [], association.targetKey);
       return targetsOfOwner(byKey, association, owner);
     },
   };
@@ -496,7 +496,7 @@ function attach(
   association: ResolvedAssociation,
   targets: readonly Model[],
 ): void {
-  const byKey = groupBy(targets, targetAttributeOf(association));
+  const byKey = groupBy(targets, association.targetKey);
   for (const record of records) {
     // A polymorphic branch's owners are those of its type, and those of none (#60). Another
     // listed Model's is left to its branch; a type none of them has throws UnknownModelName.
@@ -514,17 +514,14 @@ function targetsOfOwner(
   association: ResolvedAssociation,
   owner: Model,
 ): Model[] {
-  const { owner: ownerModel, ownerAttribute } = association;
-  // Looked up as the targets hold it: an integer key matches a text foreign key's digits (#94),
-  // a uuid only its one form, as the query that found them compares it (#588), and a Unix
-  // time its integer (#592).
-  const targetKey = targetAttributeOf(association);
   // A polymorphic belongsTo's owner with no type has no key (#60).
   const key = association.isPolymorphic
     ? association.keyOf(owner)
-    : owner[state].read(ownerAttribute);
-  const from = attributeFor(ownerModel, ownerAttribute);
-  const lookupKey = targetKey.lookupKey(targetKey.linked(targetKey.keyAsStored(key), from));
+    : owner[state].read(association.ownerAttribute);
+  // Looked up as the targets hold it: an integer key matches a text foreign key's digits (#94),
+  // a uuid only its one form, as the query that found them compares it (#588), and a Unix
+  // time its integer (#592).
+  const lookupKey = association.targetKey.lookupKey(association.asTargetKey(key));
   // A key that can't be cast or written as a target's is held by no target (#591).
   return lookupKey === noMatch ? [] : (byKey.get(lookupKey) ?? []);
 }
@@ -546,10 +543,6 @@ function loadedAs(owner: Model, association: ResolvedAssociation, records: Model
 function gatherReached({ association, ownersAt, reached }: Gather, found: Found): void {
   for (const owner of found[ownersAt] ?? []) loadedAs(owner, association, reached(owner, found));
 }
-
-/** The attribute `association`'s records are linked to their owners by. */
-const targetAttributeOf = ({ target, targetAttribute }: ResolvedAssociation) =>
-  attributeFor(target, targetAttribute);
 
 /** Records grouped by one attribute's `lookupKey`, in their order. */
 function groupBy(records: readonly Model[], attribute: Attribute): Map<unknown, Model[]> {

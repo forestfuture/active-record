@@ -109,7 +109,12 @@ export function pointOwnerAt(
   requireSettable(association, record);
   // Read only for a record: a polymorphic belongsTo set to null has no one target (#60).
   const key = record === null ? null : record[state].read(association.targetAttribute);
-  owner[state].pointAt(association, key, record);
+  owner[state].pointAt(
+    association,
+    key,
+    record,
+    record === null ? undefined : association.targetKey,
+  );
   owner[state].autosaves.setBelongsTo(
     name,
     record !== null && record[state].isNew ? record : undefined,
@@ -276,7 +281,8 @@ function adopt(owner: Model, association: ResolvedAssociation, record: Model): v
 /** Points a hasOne's `record` at `owner`: its foreign key, and its owner's type if polymorphic. */
 function pointAtOwner(owner: Model, association: ResolvedAssociation, record: Model): void {
   const { name, ownerAttribute, definition } = association;
-  record[state].writeKey(definition.foreignKey, owner[state].read(ownerAttribute), name);
+  const key = owner[state].read(ownerAttribute);
+  record[state].writeKey(definition.foreignKey, key, name, association.ownerKey);
   association.writeOwnersType(record);
 }
 

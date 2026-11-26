@@ -1,5 +1,5 @@
 // A hasMany's Relation as its owner sees it (records built through it join the owner), or no owner.
-import { type Attribute, attributeFor } from "./attribute.ts";
+import type { Attribute } from "./attribute.ts";
 import { countedOut, ownersCount } from "./owners-counter.ts";
 import { pointBackAtOwner } from "./point-back-at-owner.ts";
 import type { Model } from "./model.ts";
@@ -135,8 +135,7 @@ export function ownedCollection(
  */
 function ownersLink(association: ResolvedAssociation, key: unknown): Partial<OwnersLink> {
   if (association.hops !== undefined) return {};
-  const { type, owner, ownerAttribute } = association;
-  const keyAttribute = attributeFor(owner, ownerAttribute);
+  const { type, ownerKey: keyAttribute } = association;
   return type === undefined ? { key, keyAttribute } : { key, keyAttribute, type };
 }
 
