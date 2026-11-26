@@ -38,7 +38,7 @@ export function connectTimeoutOf(connectionString: string): number {
 
 /**
  * `connect_timeout`'s seconds, or a `TypeError` for a value libpq refuses: one that isn't a whole
- * number, or doesn't fit its `int`. The parsed number is exact near the range's ends.
+ * number, or doesn't fit its `int`.
  */
 function secondsOf(value: string): number {
   if (!wholeNumber.test(value)) {
