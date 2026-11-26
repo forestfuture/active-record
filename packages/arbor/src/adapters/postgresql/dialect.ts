@@ -14,9 +14,10 @@ const uuidPattern = literal("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 const asciiSpace = "[ \\t\\n\\v\\f\\r]";
 
 /**
- * Text that's an integer, as a condition casts one: digits, a sign, and spaces around them. Past
- * leading zeros, it has at most 309 digits, as many as any number a record holds (about 1.8e308),
- * so the cast can't overflow `numeric` and fail the query (#585). A bound stops at 255.
+ * Text that's an integer, as a condition casts one but with ASCII spaces only (#590): digits, a
+ * sign, and spaces around them. Past leading zeros, it has at most 309 digits, as many as any
+ * number a record holds (about 1.8e308), so the cast can't overflow `numeric` and fail the query
+ * (#585). A bound stops at 255.
  */
 const integerPattern = literal(`^${asciiSpace}*[+-]?0*[0-9]{1,255}[0-9]{0,54}${asciiSpace}*$`);
 
