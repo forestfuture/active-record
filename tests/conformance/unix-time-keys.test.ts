@@ -81,4 +81,26 @@ describe("a key linked to a Unix time", () => {
 
     expect((await slot.bookings().toArray()).map((booking) => booking.label)).toEqual(["second"]);
   });
+
+  test("a record built, created or pushed through a Unix time takes its integer", async () => {
+    const slot = await db().model(Slot).find(2);
+    const pushed = await db().model(Booking).create({ id: 3, label: "pushed" });
+
+    const built = slot.bookings().build({ id: 4, label: "built" });
+    const created = await slot.bookings().create({ id: 5, label: "created" });
+    await slot.bookings().push(pushed);
+
+    expect([built.quantity, created.quantity, pushed.quantity]).toEqual([120, 120, 120]);
+    expect(await db().model(Booking).where({ quantity: 120 }).count()).toBe(3);
+  });
+
+  test("a record pointed at a Unix time takes its integer", async () => {
+    const booking = await db().model(Booking).find(1);
+
+    booking.slot.set(await db().model(Slot).find(2));
+    await booking.save();
+
+    expect(booking.quantity).toBe(120);
+    expect((await db().model(Booking).find(1)).quantity).toBe(120);
+  });
 });

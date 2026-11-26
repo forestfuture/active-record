@@ -235,7 +235,8 @@ export function linkAfter(owner: Model, after: readonly Linked[]): void {
   for (const { association, record, keepsKey, destroys } of after) {
     if (keepsKey || destroys) continue;
     const { name, definition, ownerAttribute } = association;
-    record[state].writeKey(definition.foreignKey, owner[state].read(ownerAttribute), name);
+    const key = owner[state].read(ownerAttribute);
+    record[state].writeKey(definition.foreignKey, key, name, association.ownerKey);
     association.writeOwnersType(record);
     pointBackAtOwner(owner, association, record);
     if (definition.kind === "hasOne") {

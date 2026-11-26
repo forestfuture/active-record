@@ -1,7 +1,7 @@
 // An association resolved for one owner: which attributes link the records (a polymorphic one's type too, #60), in what order, which database its records are on, and what nullifying them clears.
 // associations.ts imports this module too; both uses are at call time, never at load.
 import { readyModel, type AssociationDefinition } from "./associations.ts";
-import { attributeFor, noMatch } from "./attribute.ts";
+import { type Attribute, attributeFor, noMatch } from "./attribute.ts";
 import { LinkedTo, type QueryDescription } from "./query.ts";
 import { currentExecutorOf } from "./current-database.ts";
 import { UnknownModelName } from "./errors.ts";
@@ -226,10 +226,19 @@ export class ResolvedAssociation {
    * linking as the integer it stores (#592).
    */
   asTargetKey(key: unknown): unknown {
-    const target = attributeFor(this.target, this.targetAttribute);
-    const owner = attributeFor(this.owner, this.ownerAttribute);
-    const linked = (each: unknown) => target.linked(target.keyAsStored(each), owner);
+    const { targetKey, ownerKey } = this;
+    const linked = (each: unknown) => targetKey.linked(targetKey.keyAsStored(each), ownerKey);
     return Array.isArray(key) ? key.map(linked) : linked(key);
+  }
+
+  /** The owner's attribute holding the link, resolved: what a key copied from it is cast from. */
+  get ownerKey(): Attribute {
+    return attributeFor(this.owner, this.ownerAttribute);
+  }
+
+  /** The target's attribute the owner's links to, resolved. */
+  get targetKey(): Attribute {
+    return attributeFor(this.target, this.targetAttribute);
   }
 
   /**
