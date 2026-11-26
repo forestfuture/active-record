@@ -205,7 +205,7 @@ describe("a key linked to a Unix time", () => {
     expect(await db().model(Booking).where({ quantity: 120 }).count()).toBe(3);
   });
 
-  test("a record holding a Unix time's integer is one of its records", async () => {
+  test("deleting a record that holds a Unix time's integer through it clears its key", async () => {
     const slot = await db().model(Slot).find(2);
     const booking = await db().model(Booking).find(2);
 
@@ -340,7 +340,7 @@ describe("a key linked to a Unix time", () => {
     expect(preloaded).toEqual([[1], []]);
   });
 
-  test("loaded records preload by their keys, a Unix time's integer", async () => {
+  test("preloads a level by its loaded owners' keys, binding the integers", async () => {
     await harness.reset("stamps");
     await harness.exec("INSERT INTO stamps (id, name, seconds) VALUES (1, 'a', 1)");
     await harness.exec(
