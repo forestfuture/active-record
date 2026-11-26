@@ -111,18 +111,20 @@ invisible=$(printf '%s\n' "$message" | od -An -v -tu1 | awk '
     for (i = 1; i <= count; i++)
       if (code >= low[i] && code <= high[i]) { printf "%d %04X\n", line, code; return }
   }
-  # A byte that breaks a sequence, as one that is not UTF-8 does, starts afresh.
+  # A byte that breaks a sequence, as one that is not UTF-8 does, starts
+  # afresh. Nor is an overlong sequence UTF-8: one that decodes below the
+  # least code point of its length.
   function feed(byte) {
     if (need > 0 && byte >= 128 && byte < 192) {
       code = code * 64 + byte - 128
-      if (--need == 0) report(code)
+      if (--need == 0 && code >= least) report(code)
       return
     }
     need = 0
     if (byte == 10) line++
-    else if (byte >= 194 && byte < 224) { code = byte - 192; need = 1 }
-    else if (byte >= 224 && byte < 240) { code = byte - 224; need = 2 }
-    else if (byte >= 240 && byte < 245) { code = byte - 240; need = 3 }
+    else if (byte >= 194 && byte < 224) { code = byte - 192; need = 1; least = 128 }
+    else if (byte >= 224 && byte < 240) { code = byte - 224; need = 2; least = 2048 }
+    else if (byte >= 240 && byte < 245) { code = byte - 240; need = 3; least = 65536 }
   }
   BEGIN {
     count = split(ENVIRON["invisible_ranges"], list, " ")
