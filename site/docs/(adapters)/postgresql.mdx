@@ -116,11 +116,9 @@ Postgres refuses to order `distinct()` records by a column they don’t select, 
 
 After `distinct()`, `pluck("title")` selects only `title`. So does `count("title")` with a `limit` or `offset`. Order them by `title`, or leave the order out.
 
-## UUIDs linked to text
+## UUID columns
 
-A `uuid` key can be linked to a `string` foreign key, such as a polymorphic `commentable_id TEXT`. Postgres compares no `uuid` with text, so a preload or a join casts the key it links. A `uuid` linked to a `string` is compared as its text, lowercase with hyphens. Text linked to a `uuid` is compared as the UUID it holds, in any form Postgres reads, so a foreign key in capitals still finds its record. D1 compares text exactly, so there only the lowercase form links. Text that isn’t a UUID finds nothing.
-
-Declare a `UUID` column as a `uuid` attribute, as `arbor schema` does. A `string` attribute over a `UUID` column can’t be linked to a `uuid` one.
+Declare a `UUID` column as a `uuid` attribute, as `arbor schema` does. A `uuid` key links to a `string` foreign key, such as a polymorphic `commentable_id TEXT`, as it does on D1. A `string` attribute over a `UUID` column can’t be linked to a `uuid` one.
 
 ## NUL characters
 

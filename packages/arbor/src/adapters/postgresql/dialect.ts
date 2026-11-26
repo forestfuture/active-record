@@ -5,11 +5,10 @@ import { type Attribute, type Dialect, valueMark } from "@forestfuture/arbor/ada
 const literal = (text: string) => `E'${text.replaceAll("\\", "\\\\").replaceAll("'", "''")}'`;
 
 /**
- * Text that's a UUID as Postgres reads one: 32 hex digits in any case, a hyphen allowed after any
- * group of four but the last, the whole optionally in braces, as `castUuid` takes it.
+ * Text that's a UUID in its one form, lowercase with hyphens, as a uuid attribute holds it: text
+ * in another form links to no UUID, as it doesn't on D1, which compares text exactly (#563).
  */
-const uuidText = "(?:[0-9a-fA-F]{4}-?){7}[0-9a-fA-F]{4}";
-const uuidPattern = literal(`^(?:\\{${uuidText}\\}|${uuidText})$`);
+const uuidPattern = literal("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
 
 /** Text that's an integer, as a condition casts one: digits, a sign, and spaces around them. */
 const integerPattern = literal("^\\s*[+-]?[0-9]+\\s*$");
@@ -81,9 +80,9 @@ export const postgres: Dialect = {
   },
   /**
    * Postgres compares no text with a number, nor a uuid with either (#563). A key selected for a
-   * text attribute is its text; text selected for a uuid is the UUID it holds, and for a number
-   * the number its digits are, as a condition casts it; text that isn't one matches nothing. Only
-   * the key is cast, so the linked attribute's column keeps its index.
+   * text attribute is its text; text selected for a uuid is the UUID it holds in its one form, and
+   * for a number the number its digits are, as a condition casts it; text that isn't one matches
+   * nothing. Only the key is cast, so the linked attribute's column keeps its index.
    */
   linkedKey(key, keyAttribute, linked) {
     const kind = kindOf(linked);
