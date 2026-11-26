@@ -84,9 +84,8 @@ export interface OwnedCollection {
 interface OwnersLink {
   attribute: string;
   association: string;
-  key?: unknown;
-  /** The owner's attribute holding `key`, which a record's foreign key is cast from (#592). */
-  keyAttribute?: Attribute;
+  /** The owner's key, and its attribute, which a record's foreign key is cast from (#592). */
+  ownersKey?: { value: unknown; attribute: Attribute };
   type?: { attribute: string; value: string };
 }
 
@@ -135,8 +134,9 @@ export function ownedCollection(
  */
 function ownersLink(association: ResolvedAssociation, key: unknown): Partial<OwnersLink> {
   if (association.hops !== undefined) return {};
-  const { type, ownerKey: keyAttribute } = association;
-  return type === undefined ? { key, keyAttribute } : { key, keyAttribute, type };
+  const { type, ownerKeyAttribute: attribute } = association;
+  const ownersKey = { value: key, attribute };
+  return type === undefined ? { ownersKey } : { ownersKey, type };
 }
 
 /** An owner with a key: its loaded records live in its association cache. */

@@ -79,11 +79,11 @@ export function bulkRowValues(
  */
 export function ownersValues({ model, collection }: RelationState<Model>): Record<string, unknown> {
   const { link } = collection;
-  if (link === undefined || !("key" in link)) return {};
+  if (link?.ownersKey === undefined) return {};
   const type = link.type === undefined ? {} : { [link.type.attribute]: link.type.value };
-  const key = attributeFor(model, link.attribute).linkedKey(
-    link.key,
-    link.keyAttribute!,
+  const key = attributeFor(model, link.attribute).keyFrom(
+    link.ownersKey.value,
+    link.ownersKey.attribute,
     link.association,
   );
   return { [link.attribute]: key, ...type };

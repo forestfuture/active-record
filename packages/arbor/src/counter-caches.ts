@@ -10,7 +10,11 @@ import { InvalidModel } from "./errors.ts";
 import { Model, modelOf, type ModelClass } from "./model.ts";
 import { quoteIdentifier } from "./query-tables.ts";
 import { state } from "./record-state.ts";
-import { isOnDifferentDatabases, resolveAssociation } from "./resolved-association.ts";
+import {
+  isOnDifferentDatabases,
+  resolveAssociation,
+  type ResolvedAssociation,
+} from "./resolved-association.ts";
 import { tableOwnerModelName } from "./table-names.ts";
 
 /**
@@ -187,6 +191,8 @@ export interface CounterCache {
   type: { attribute: string; value: string } | undefined;
   /** Whether `size` reads it: not while it's declared `active: false`. */
   isActive: boolean;
+  /** The belongsTo to this target (a polymorphic one's branch), which links a record's key. */
+  link: ResolvedAssociation;
 }
 
 /** The counter caches a Model's records keep: each belongsTo's declaring one, on each target. */
@@ -196,14 +202,15 @@ export function countersOf(owner: ModelClass): CounterCache[] {
     const attribute = counterAttribute(owner, definition);
     const { foreignKey } = definition;
     const { isActive } = counterCacheOf(definition);
-    return resolveAssociation(owner, name).branches.map(({ target, targetAttribute, type }) => ({
+    return resolveAssociation(owner, name).branches.map((link) => ({
       name,
       foreignKey,
-      target,
+      target: link.target,
       attribute,
-      targetKey: targetAttribute,
-      type,
+      targetKey: link.targetAttribute,
+      type: link.type,
       isActive,
+      link,
     }));
   });
 }
@@ -254,10 +261,8 @@ function counterChanges(
  * stored row's link compares it when the record is counted out (#588), and a Unix time as its
  * integer (#592). Null for none, and `noMatch` for one no target can hold.
  */
-function targetsKey(record: Model, { target, targetKey, foreignKey }: CounterCache): unknown {
-  const key = record[state].read(foreignKey) ?? null;
-  const to = attributeFor(target, targetKey);
-  return to.linked(to.keyAsStored(key), attributeFor(modelOf(record), foreignKey));
+function targetsKey(record: Model, { link, foreignKey }: CounterCache): unknown {
+  return link.asTargetKey(record[state].read(foreignKey) ?? null);
 }
 
 /** A write that changes no counter: a record that was never saved has no row to delete. */

@@ -58,6 +58,6 @@ export function isOwnersKey(key: unknown, owner: Model, association: ResolvedAss
   const ownerKey = owner[state].read(association.ownerAttribute);
   if (ownerKey === null) return false;
   const linked = association.asTargetKey(ownerKey);
-  const { targetKey: target } = association;
+  const { targetKeyAttribute: target } = association;
   return linked !== noMatch && target.lookupKey(linked) === target.lookupKey(key);
 }
