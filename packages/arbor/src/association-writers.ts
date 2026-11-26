@@ -27,7 +27,7 @@ export function belongsToAccessor(owner: Model, association: ResolvedAssociation
     cachedRead(owner, association, (key) =>
       association
         .all(owner[state].executor)
-        .findBy(asStored({ [association.targetAttribute]: key })),
+        .findBy(asStored({ [association.targetAttribute]: association.asTargetKey(key) })),
     );
   const set = (record: Model | null) => pointOwnerAt(owner, association, record);
   // On the target's database, which is the owner's unless the association crosses to another.

@@ -418,13 +418,18 @@ export function attributeFor(model: ModelClass, given: string): Attribute {
 export function castInherited(
   model: ModelClass,
   inherited: Record<string, unknown>,
-  link?: { attribute: string; association: string },
+  link?: { attribute: string; association: string; key?: unknown },
 ): Record<string, unknown> {
+  // The owner's key, which its condition holds as the records hold it (#592), is cast from the
+  // owner's own attribute instead, and set over every other value.
+  const fromOwner = link !== undefined && "key" in link ? link.attribute : undefined;
   return Object.fromEntries(
-    Object.entries(inherited).map(([attribute, value]) => {
-      const association = attribute === link?.attribute ? link.association : undefined;
-      return [attribute, attributeFor(model, attribute).key(value, association)];
-    }),
+    Object.entries(inherited)
+      .filter(([attribute]) => attribute !== fromOwner)
+      .map(([attribute, value]) => {
+        const association = attribute === link?.attribute ? link.association : undefined;
+        return [attribute, attributeFor(model, attribute).key(value, association)];
+      }),
   );
 }
 

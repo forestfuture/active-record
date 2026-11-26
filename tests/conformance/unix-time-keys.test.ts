@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import { belongsTo, hasMany, Model } from "../../packages/arbor/src/index.ts";
+import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 // A slot's start, kept as a Unix time, is the key its bookings' integer `quantity` links to.
@@ -34,8 +35,10 @@ describe("a key linked to a Unix time", () => {
   });
   afterAll(() => harness.dispose());
 
-  const db = () => harness.connect();
+  const events: QueryEvent[] = [];
+  const db = () => harness.connect({ onQuery: (event) => events.push(event) });
   beforeEach(async () => {
+    events.length = 0;
     await harness.reset("stamps", "samples");
     await harness.exec(
       "INSERT INTO stamps (id, name, seconds, milliseconds) VALUES (1, 'a', 60, 60)",
@@ -54,5 +57,28 @@ describe("a key linked to a Unix time", () => {
       "a",
       "b",
     ]);
+  });
+
+  test("an integer key reads the record whose Unix time it is", async () => {
+    const booking = await db().model(Booking).find(2);
+
+    expect((await booking.slot())?.name).toBe("b");
+  });
+
+  test("a Unix time preloads the records whose integer key it is", async () => {
+    const slots = await db().model(Slot).includes("bookings").order({ id: "asc" }).toArray();
+    const sent = events.length;
+
+    const labels = await Promise.all(
+      slots.map(async (each) => (await each.bookings().toArray()).map((booking) => booking.label)),
+    );
+    expect(labels).toEqual([["first"], ["second"]]);
+    expect(events).toHaveLength(sent);
+  });
+
+  test("a Unix time reads the records whose integer key it is", async () => {
+    const slot = await db().model(Slot).find(2);
+
+    expect((await slot.bookings().toArray()).map((booking) => booking.label)).toEqual(["second"]);
   });
 });
