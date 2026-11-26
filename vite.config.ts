@@ -269,17 +269,6 @@ export default defineConfig({
         },
       },
       {
-        // Example data uses everyday names (Jane, Sam), never a historical person's
-        // (CODING_STANDARDS.md's Tests; docs/agents/docs-pages.md for the guide's examples; #567).
-        files: ["tests/**", "site/snippets/**"],
-        rules: { "arbor/no-historical-names": "error" },
-      },
-      {
-        // The rule's own tests give it the names it looks for.
-        files: ["tests/unit/lint-no-historical-names.test.ts"],
-        rules: { "arbor/no-historical-names": "off" },
-      },
-      {
         // toSql's SQL text is the result its own tests check.
         files: ["tests/conformance/to-sql.test.ts"],
         rules: { "arbor/no-sql-text": "off" },

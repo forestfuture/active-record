@@ -35,7 +35,7 @@ pages/<page>/
 
 - Regenerate `src/db/schema.ts` with `arbor schema` in the project whenever its migrations or Models change.
 - Each region of `examples.ts` is one example. Write it to stand alone: it finds the records it needs (`Tag.findByOrThrow({ name: "essays" })`) rather than taking them as parameters, so it can be copied as it is. It imports its Models from `./src/models/<model>`, which the page shows as `./models/<model>`. A region can't use a name declared outside it, so an example that needs `env` or `request` is a whole function or Worker, and code it shares with others goes in `src/`.
-- Name data for everyday people and things: `jane@example.com`, Sam, "Getting started". Never a historical person. Lint flags one in an example's code (`arbor/no-historical-names`), and `tests/unit/docs-conventions.test.ts` in a page's text or `site/evals.yaml`.
+- Name data for everyday people and things: `jane@example.com`, Sam, "Getting started". Never a historical person.
 - Show a value with `console.log(record.email); // "jane@example.com"`, since a bare expression fails lint.
 - Embed it with `<include>/_excerpts/pages/<page>/examples/<region>.mdx</include>`, a partial `site/excerpts.ts` writes. On the site it's a Twoslash fence: the project's `src/` files are compiled with it, hidden, so hovering a name shows its type, and the build fails if an example doesn't type-check. Agents (each page's `.md`, and `llms-full.txt`) get the plain example instead, since Blume gives them a fence as written, hidden files included. Never include a Twoslash fence with hidden files directly.
 - Don't pin a type with `// ^?`: its popup never closes.

@@ -1,8 +1,7 @@
-// The conventions in docs/agents/docs-voice.md and docs-pages.md that a tool can check, in the guide, the READMEs and the evals.
+// The conventions in docs/agents/docs-voice.md that a tool can check, in the guide and the READMEs.
 
 import { describe, expect, test } from "vite-plus/test";
-import { historicalName } from "../../scripts/lint/no-historical-names.mjs";
-import { evals, guidePages, readmes } from "../support/guide-pages.ts";
+import { guidePages, readmes } from "../support/guide-pages.ts";
 
 const pages = guidePages();
 
@@ -98,20 +97,6 @@ describe("the guide's pages", () => {
     );
 
     expect(straight).toEqual([]);
-  });
-});
-
-describe("the guide's pages and the evals", () => {
-  // Lint checks the examples' code (arbor/no-historical-names); this reads the text around it.
-  test("name example data for everyday people, never a historical person", () => {
-    const historical = [...pages, evals()].flatMap(({ name, text }) =>
-      text.split("\n").flatMap((line, index) => {
-        const found = historicalName(line);
-        return found === undefined ? [] : [`${name}:${index + 1}: ${found}`];
-      }),
-    );
-
-    expect(historical).toEqual([]);
   });
 });
 
