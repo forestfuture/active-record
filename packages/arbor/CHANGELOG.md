@@ -1,5 +1,17 @@
 # @forestfuture/arbor
 
+## 0.13.0
+
+### Minor Changes
+
+- [#576](https://github.com/forestfuture/arbor/pull/576) [`2488c7b`](https://github.com/forestfuture/arbor/commit/2488c7b80de086671996d7628817d56b7122815e) Thanks [@christopherstyles](https://github.com/christopherstyles)! - An upsert whose `uniqueBy` names an index other than the primary key no longer changes a clashing row's primary key when its rows give one. The row keeps its own primary key, and `rows` returns it. When the primary key is all the upsert would update, the row is left alone and isn't counted or returned. Naming the primary key in `updateOnly` or `onDuplicate` with such a `uniqueBy` throws `TypeError`. To change a row's primary key, use `updateAll`.
+
+### Patch Changes
+
+- [#583](https://github.com/forestfuture/arbor/pull/583) [`3311ea4`](https://github.com/forestfuture/arbor/commit/3311ea49f2f3ec1a6d958dc8287710bea93dc4e7) Thanks [@christopherstyles](https://github.com/christopherstyles)! - `securePassword` on an attribute whose type isn't `string`, such as `{ type: "integer", virtual: true, securePassword: true }`, is now a compile error, in `define`, and in a generated Model's `static attributes`, where TypeScript reports it at the generated `interface` line, as it already was an `InvalidModel` when the Model was first used. A spec with a type and `securePassword` is also no longer typed as having a confirmation and a challenge, which it never had.
+
+- [#589](https://github.com/forestfuture/arbor/pull/589) [`45a86d1`](https://github.com/forestfuture/arbor/commit/45a86d11f7981baab550bf6e69e40873206b446e) Thanks [@christopherstyles](https://github.com/christopherstyles)! - On Postgres, a `uuid` key now links to a `string` foreign key, such as a polymorphic `TEXT` id, in preloads and joins, where it failed with `operator does not exist: uuid = text`. Text finds its record when it holds the UUID lowercase with hyphens, as on D1. Text in another form finds nothing, and so does text that isn't a UUID. A `uuid` linked to an `integer` finds nothing rather than failing. Declare a `UUID` column as a `uuid` attribute, as `arbor schema` does: a `string` attribute over one can't be linked to a `uuid`.
+
 ## 0.12.0
 
 ### Minor Changes
