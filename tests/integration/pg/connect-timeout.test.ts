@@ -113,6 +113,19 @@ describe("a connection string's connect_timeout (#292)", () => {
     },
   );
 
+  // libpq refuses a number that doesn't fit a C `int` (#602).
+  test.each(["2147483648", "-2147483649", "99999999999"])(
+    "of %j, past libpq's int range, throws when the Database is built",
+    (value) => {
+      const url = `postgres://app:secret@db.example.com/app?connect_timeout=${value}`;
+      expect(() => connect(url)).toThrow(
+        new TypeError(
+          `connect_timeout must be from -2147483648 to 2147483647 seconds, not ${JSON.stringify(value)}`,
+        ),
+      );
+    },
+  );
+
   // libpq reads the number with `strtol` and `isspace`, which skip only ASCII whitespace (#598).
   test.each([
     ["a no-break space before", "%C2%A05", "\u00a05"],

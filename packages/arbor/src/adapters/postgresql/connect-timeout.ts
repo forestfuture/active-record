@@ -19,23 +19,40 @@ const asciiSpace = "[ \\t\\n\\v\\f\\r]";
 /** A whole number as libpq reads one: a sign, digits, and ASCII spaces around them. */
 const wholeNumber = new RegExp(`^${asciiSpace}*[-+]?[0-9]+${asciiSpace}*$`);
 
+/** The range of a C `int`, as libpq reads the number into one (#602). */
+const intRange = { least: -(2 ** 31), most: 2 ** 31 - 1 };
+
 /**
  * `pg`'s `connectionTimeoutMillis` for clients opened from `connectionString`: its `connect_timeout`
  * in seconds, as libpq takes it (`pg` reads it only through libpq), where 0 or less sets no limit.
- * Throws `TypeError` for a value that isn't a whole number, as libpq refuses one, naming the
- * parameter but not the connection string, which may hold a password.
+ * Throws `TypeError` for a value that isn't a whole number, or doesn't fit libpq's `int`, as
+ * libpq refuses one, naming the parameter but not the connection string, which may hold a password.
  */
 export function connectTimeoutOf(connectionString: string): number {
   const value = queryParameter(connectionString, "connect_timeout");
   if (value === undefined) return defaultTimeoutMs;
+  const seconds = secondsOf(value);
+  if (seconds <= 0) return 0;
+  return Math.min(Math.max(seconds, shortestTimeoutSeconds) * 1000, longestTimeoutMs);
+}
+
+/**
+ * `connect_timeout`'s seconds, or a `TypeError` for a value libpq refuses: one that isn't a whole
+ * number, or doesn't fit its `int`. The parsed number is exact near the range's ends.
+ */
+function secondsOf(value: string): number {
   if (!wholeNumber.test(value)) {
     throw new TypeError(
       `connect_timeout must be a whole number of seconds, not ${JSON.stringify(value)}`,
     );
   }
   const seconds = Number.parseInt(value, 10);
-  if (seconds <= 0) return 0;
-  return Math.min(Math.max(seconds, shortestTimeoutSeconds) * 1000, longestTimeoutMs);
+  if (seconds < intRange.least || seconds > intRange.most) {
+    throw new TypeError(
+      `connect_timeout must be from ${intRange.least} to ${intRange.most} seconds, not ${JSON.stringify(value)}`,
+    );
+  }
+  return seconds;
 }
 
 /**
