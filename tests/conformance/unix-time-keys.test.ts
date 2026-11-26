@@ -36,11 +36,34 @@ class Booking extends Model.define({
   labeledSlot = belongsTo(Slot, { foreignKey: "label", primaryKey: "seconds", optional: true });
 }
 
+// A booking that touches its slot's `milliseconds`, and counts itself in its mark's `mappedAt`.
+class Visit extends Model.define({
+  id: { type: "integer", null: false },
+  label: "string",
+  quantity: "integer",
+}) {
+  static table = "samples";
+
+  slot = belongsTo(Slot, {
+    foreignKey: "quantity",
+    primaryKey: "seconds",
+    optional: true,
+    touch: "milliseconds",
+  });
+  mark = belongsTo(Mark, {
+    foreignKey: "quantity",
+    primaryKey: "seconds",
+    optional: true,
+    counterCache: "mappedAt",
+  });
+}
+
 // The same instant kept as ISO text (a timestamp on Postgres) and as a Unix time.
 class Mark extends Model.define({
   id: { type: "integer", null: false },
   seconds: { type: "datetime", storage: "unixSeconds" },
   iso: "datetime",
+  mappedAt: "integer",
 }) {
   static table = "guarded_stamps";
 
@@ -134,6 +157,27 @@ describe("a key linked to a Unix time", () => {
 
     expect(booking.quantity).toBe(120);
     expect((await db().model(Booking).find(1)).quantity).toBe(120);
+  });
+
+  test("a record touches the records whose Unix times its key was and is", async () => {
+    const visit = await db().model(Visit).find(2);
+
+    visit.quantity = 60;
+    await visit.save();
+
+    const slots = await db().model(Slot).order({ id: "asc" }).toArray();
+    expect(slots.map((each) => each.milliseconds!.getTime() > 60)).toEqual([true, true]);
+  });
+
+  test("a record counts itself in the record whose Unix time its key is", async () => {
+    await harness.reset("guarded_stamps");
+    await db()
+      .model(Mark)
+      .create({ id: 1, seconds: new Date(120_000), mappedAt: 0 });
+
+    await db().model(Visit).create({ id: 3, label: "third", quantity: 120 });
+
+    expect((await db().model(Mark).find(1)).mappedAt).toBe(1);
   });
 
   test("text holding a Unix time's digits links to it, as in a join", async () => {
