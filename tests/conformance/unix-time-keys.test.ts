@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, Model } from "../../packages/arbor/src/index.ts";
+import { belongsTo, hasMany, type HasMany, Model } from "../../packages/arbor/src/index.ts";
 import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -16,6 +16,13 @@ class Slot extends Model.define({
   labeled = hasMany(Booking, { foreignKey: "label", primaryKey: "seconds" });
   // Seconds linked to milliseconds: the two integers compare as they are, as a join compares them.
   inMilliseconds = hasMany(Slot, { foreignKey: "milliseconds", primaryKey: "seconds" });
+  // A chain of slots, each preloading the next, a level at a time by the loaded slots' keys.
+  // Annotated, since the scope names the association it declares.
+  next: HasMany<typeof Slot> = hasMany(Slot, {
+    foreignKey: "milliseconds",
+    primaryKey: "seconds",
+    scope: (q) => q.includes("next"),
+  });
 }
 
 class Booking extends Model.define({
@@ -151,6 +158,23 @@ describe("a key linked to a Unix time", () => {
       slots.map(async (each) => (await each.inMilliseconds().toArray()).map((one) => one.id)),
     );
     expect(preloaded).toEqual([[1], []]);
+  });
+
+  test("loaded records preload by their keys, a Unix time's integer", async () => {
+    await harness.reset("stamps");
+    await harness.exec("INSERT INTO stamps (id, name, seconds) VALUES (1, 'a', 1)");
+    await harness.exec(
+      "INSERT INTO stamps (id, name, seconds, milliseconds) VALUES (2, 'b', 2, 1)",
+    );
+    await harness.exec(
+      "INSERT INTO stamps (id, name, seconds, milliseconds) VALUES (3, 'c', 3, 2)",
+    );
+
+    const [first] = await db().model(Slot).where({ id: 1 }).includes("next").toArray();
+    const second = first!.loaded("next")[0];
+
+    expect(second?.name).toBe("b");
+    expect(second?.loaded("next").map((each) => each.name)).toEqual(["c"]);
   });
 
   test("an instant kept as ISO text doesn't link to the same one kept as a Unix time", async () => {
