@@ -100,7 +100,7 @@ invisible_ranges='a0 ad 600-605 61c 6dd 70f 890-891 8e2 1680 180e 2000-200f
 # message and its code point. It reads the ranges from the environment,
 # since some awks refuse a newline in awk -v.
 export invisible_ranges
-invisible=$(printf '%s\n' "$message" | od -An -v -tu1 | awk '
+invisible_lines=$(printf '%s\n' "$message" | od -An -v -tu1 | awk '
   function hex(digits, i, n) {
     n = 0
     for (i = 1; i <= length(digits); i++)
@@ -137,8 +137,8 @@ invisible=$(printf '%s\n' "$message" | od -An -v -tu1 | awk '
   }
   { for (f = 1; f <= NF; f++) feed($f + 0) }')
 
-if [ -n "$invisible" ]; then
-  printf '%s\n' "$invisible" | while read -r number code; do
+if [ -n "$invisible_lines" ]; then
+  printf '%s\n' "$invisible_lines" | while read -r number code; do
     echo "Commit message holds an invisible character, U+$code, in this line:"
     printf '  %s\n' "$(printf '%s\n' "$message" | sed -n "${number}p")"
   done
