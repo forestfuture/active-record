@@ -54,6 +54,18 @@ class Remark extends Model.define({
   commentable = belongsTo([Slot], { primaryKey: "seconds", optional: true });
 }
 
+// A note counted in its mark's `mappedAt` by the Unix time its label holds.
+class Note extends Model.define({ id: { type: "integer", null: false }, label: "string" }) {
+  static table = "samples";
+
+  mark = belongsTo(Mark, {
+    foreignKey: "label",
+    primaryKey: "seconds",
+    optional: true,
+    counterCache: "mappedAt",
+  });
+}
+
 // A tag held as text, whose cast refuses "bad" and reads anything else as its text.
 const tag = defineType({
   storedAs: "string",
@@ -281,6 +293,27 @@ describe("a key linked to a Unix time", () => {
 
       expect(await db().model(Seat).where({ enabled: 1 }).count()).toBe(0);
     });
+  });
+
+  test("a condition on a Unix time still refuses a number", async () => {
+    expect(
+      await db()
+        .model(Slot)
+        .where({ seconds: 60 as never })
+        .count(),
+    ).toBe(0);
+  });
+
+  test("a key no Unix time can be is counted in no record", async () => {
+    await harness.reset("guarded_stamps");
+    await db()
+      .model(Mark)
+      .create({ id: 1, seconds: new Date(120_000), mappedAt: 0 });
+
+    await db().model(Note).create({ id: 3, label: "abc" });
+    await db().model(Note).create({ id: 4, label: "120" });
+
+    expect((await db().model(Mark).find(1)).mappedAt).toBe(1);
   });
 
   test("text holding a Unix time's digits links to it, as in a join", async () => {
