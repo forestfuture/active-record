@@ -204,6 +204,36 @@ describe("values by their use", () => {
 
       expect(note!.loaded("owner")).toBeNull();
     });
+
+    test("a join finds nothing for a text foreign key with more digits than a number holds", async () => {
+      await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
+      await db().model(Note).insert({ id: 3, label: tooManyDigits });
+
+      expect(await db().model(Owner).joins("notes").pluck("id")).toEqual([]);
+    });
+
+    test("a belongsTo finds the integer key past a text foreign key's leading zeros", async () => {
+      await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
+      await db()
+        .model(Note)
+        .insert({ id: 3, label: `${"0".repeat(1_000)}9` });
+
+      const [note] = await db().model(Note).includes("owner").toArray();
+
+      expect(note!.loaded("owner")?.id).toBe(9);
+    });
+
+    test.each([
+      ["a no-break space", " 9"],
+      ["an em space", "9 "],
+    ])("a belongsTo finds nothing for a text foreign key with %s around it", async (_, label) => {
+      await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
+      await db().model(Note).insert({ id: 3, label });
+
+      const [note] = await db().model(Note).includes("owner").toArray();
+
+      expect(note!.loaded("owner")).toBeNull();
+    });
   });
 
   describe("through an association's own Relation", () => {
