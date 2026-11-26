@@ -231,6 +231,14 @@ export class ResolvedAssociation {
     return Array.isArray(key) ? key.map(linked) : linked(key);
   }
 
+  /**
+   * A target's key as the owner's attribute holds it, or `noMatch`: the other way from
+   * `asTargetKey`, for a query of owners by their targets' keys (#592).
+   */
+  asOwnerKey(key: unknown): unknown {
+    return this.ownerKey.linked(key, this.targetKey);
+  }
+
   /** The owner's attribute holding the link, resolved: what a key copied from it is cast from. */
   get ownerKey(): Attribute {
     return attributeFor(this.owner, this.ownerAttribute);
