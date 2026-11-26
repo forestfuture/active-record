@@ -41,21 +41,42 @@ describe("json keys on Postgres", () => {
   });
   afterAll(() => schema.dispose());
 
-  test("in text columns, a preload and a join link them", async () => {
+  test("in text columns, a preload links them", async () => {
     const { Book } = modelsOn("text");
 
     const books = await db().model(Book).includes("shelf").order({ id: "asc" }).toArray();
 
     expect(books.map((book) => book.loaded("shelf")?.id ?? null)).toEqual([1, null]);
+  });
+
+  test("in text columns, a join links them", async () => {
+    const { Book } = modelsOn("text");
+
     expect(await db().model(Book).joins("shelf").pluck("id")).toEqual([1]);
   });
 
-  test("in json columns, a join and a condition fail at Postgres", async () => {
+  test("in a text column, a condition finds the value", async () => {
+    const { Book } = modelsOn("text");
+
+    expect(
+      await db()
+        .model(Book)
+        .where({ shelfLabel: { row: 1 } })
+        .pluck("id"),
+    ).toEqual([1]);
+  });
+
+  test("in json columns, a join fails at Postgres", async () => {
     const { Book } = modelsOn("json");
 
     await expect(db().model(Book).joins("shelf").toArray()).rejects.toThrow(
       /operator does not exist: json = json/,
     );
+  });
+
+  test("in a json column, a condition fails at Postgres", async () => {
+    const { Book } = modelsOn("json");
+
     await expect(
       db()
         .model(Book)
