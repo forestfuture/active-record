@@ -81,7 +81,7 @@ export interface OwnedCollection {
 }
 
 /** A collection's `link`: its foreign key and association, and what its records take from the owner. */
-interface OwnersLink {
+export interface OwnersLink {
   attribute: string;
   association: string;
   /** The owner's key, and its attribute, which a record's foreign key is cast from (#592). */

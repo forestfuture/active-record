@@ -17,6 +17,7 @@ import {
 } from "./conversion.ts";
 import { listedNames } from "./enum-values.ts";
 import { castLinked } from "./linked-keys.ts";
+import type { OwnersLink } from "./owned-collection.ts";
 import { FILTERED, Filtered, isFiltered } from "./filtering.ts";
 import {
   type AttributeDefinition,
@@ -422,7 +423,7 @@ export function attributeFor(model: ModelClass, given: string): Attribute {
 export function castInherited(
   model: ModelClass,
   inherited: Record<string, unknown>,
-  link?: { attribute: string; association: string; ownersKey?: unknown },
+  link?: OwnersLink,
 ): Record<string, unknown> {
   // The owner's key is left out: its condition holds it as the records hold it (#592), and
   // `ownersValues` sets it over every other value, cast from the owner's own attribute.
