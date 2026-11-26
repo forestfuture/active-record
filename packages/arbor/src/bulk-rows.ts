@@ -1,6 +1,6 @@
 // A bulk write's rows as the values that bind them: JSON values within the database's cap on one value, and a row too large for one bound value by value (#392).
 import { attributeFor } from "./attribute.ts";
-import { hexOf } from "./binary-values.ts";
+import { bytesAsHex } from "./binary-values.ts";
 import { FILTERED, Filtered, isFiltered } from "./filtering.ts";
 import type { ModelClass } from "./model.ts";
 
@@ -65,7 +65,7 @@ function jsonRowOf(model: ModelClass, names: readonly string[]) {
   const filtered = names.map((name) => isFiltered(model, name));
   const hiding = filtered.includes(true);
   return (values: readonly unknown[]): JsonRow => {
-    const stored = values.map((value, index) => inJson(attributes[index]!.store(value)));
+    const stored = values.map((value, index) => bytesAsHex(attributes[index]!.store(value)));
     const text = JSON.stringify(stored);
     if (!hiding) return { values, text, shown: text };
     const shown = JSON.stringify(stored.map((cell, index) => (filtered[index] ? FILTERED : cell)));
@@ -93,9 +93,4 @@ function utf8Length(text: string): number {
     bytes += unit < 0x800 || (unit >= 0xd800 && unit <= 0xdfff) ? 1 : 2;
   }
   return bytes;
-}
-
-/** A stored cell as a bulk write's JSON holds it: bytes as hex text, which JSON has no form for (#20). */
-function inJson(cell: unknown): unknown {
-  return cell instanceof Uint8Array ? hexOf(cell) : cell;
 }

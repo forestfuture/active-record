@@ -5,7 +5,7 @@
 // Records, Relations, associations, preloads, and the compiler all go through here, so no caller
 // has to cast or bind a value its own way.
 import { attributeName } from "./attribute-aliases.ts";
-import { hexOf, isSameCell } from "./binary-values.ts";
+import { bytesAsHex, isSameCell } from "./binary-values.ts";
 import {
   castCondition,
   castKey,
@@ -275,7 +275,7 @@ export class Attribute {
       if (this.#definition.customType !== undefined) return noMatch;
       throw this.#writeError(error, value);
     }
-    return cell instanceof Uint8Array ? hexOf(cell) : cell;
+    return bytesAsHex(cell);
   }
 
   /**
