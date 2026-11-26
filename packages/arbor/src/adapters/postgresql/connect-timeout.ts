@@ -59,13 +59,15 @@ function secondsOf(value: string): number {
  * A parameter of a connection string's query (its last, when it's given twice, as `pg` reads it),
  * or undefined when it has none. The query is read on its own, before any `#` and after the first
  * `?`, as a URL's is: `pg` takes strings a URL can't parse, such as a socket's with no host
- * (`postgres://app@/app?host=/tmp`).
+ * (`postgres://app@/app?host=/tmp`). It is percent-decoded only, as libpq decodes it, so a `+`
+ * stays a `+` where a form would read a space.
  */
 function queryParameter(connectionString: string, name: string): string | undefined {
   const [beforeFragment = ""] = connectionString.split("#");
   const start = beforeFragment.indexOf("?");
   if (start === -1) return undefined;
-  return new URLSearchParams(beforeFragment.slice(start + 1)).getAll(name).at(-1);
+  const query = beforeFragment.slice(start + 1).replaceAll("+", "%2B");
+  return new URLSearchParams(query).getAll(name).at(-1);
 }
 
 /**
