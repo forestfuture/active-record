@@ -476,4 +476,15 @@ describe("the commit-msg hook on invisible characters", () => {
 
     expect(status).toBe(0);
   });
+
+  test("passes a no-break space's code point in overlong bytes, which aren't UTF-8", () => {
+    const bytes = Buffer.concat([
+      Buffer.from("Edit the README (#1)\n\nWhy "),
+      Buffer.from([0xe0, 0x82, 0xa0]),
+      Buffer.from("\n"),
+    ]);
+    const { status } = runHookEditingTheReadme(new Uint8Array(bytes));
+
+    expect(status).toBe(0);
+  });
 });
