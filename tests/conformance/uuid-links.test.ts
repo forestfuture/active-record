@@ -119,13 +119,32 @@ describe("uuid links", () => {
       expect(device!.loaded("notes").map(({ id }) => id)).toEqual([1]);
     });
 
-    test("a belongsTo preload finds no uuid key for a text foreign key holding it in capitals", async () => {
-      await db().model(Reading).insert({ id: 1, deviceId: phoneId.toUpperCase() });
+    // A UUID in another form than its one, as a uuid is held: text compares exactly on D1.
+    const otherForms = [
+      ["capitals", phoneId.toUpperCase()],
+      ["braces", `{${phoneId}}`],
+      ["no hyphens", phoneId.replaceAll("-", "")],
+    ];
 
-      const [reading] = await db().model(Reading).includes("device").toArray();
+    test.each(otherForms)(
+      "a belongsTo preload finds no uuid key for a text foreign key holding it in %s",
+      async (_, deviceId) => {
+        await db().model(Reading).insert({ id: 1, deviceId });
 
-      expect(reading!.loaded("device")).toBeNull();
-    });
+        const [reading] = await db().model(Reading).includes("device").toArray();
+
+        expect(reading!.loaded("device")).toBeNull();
+      },
+    );
+
+    test.each(otherForms)(
+      "a join from the uuid key finds no text foreign key holding it in %s",
+      async (_, deviceId) => {
+        await db().model(Reading).insert({ id: 1, deviceId });
+
+        expect(await db().model(Device).joins("readings").count()).toBe(0);
+      },
+    );
 
     test("a text foreign key that isn't a UUID finds nothing, without an error", async () => {
       await db().model(Reading).insert({ id: 1, deviceId: "lamp" });
