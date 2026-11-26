@@ -171,7 +171,7 @@ Conditions are cast the same way, so `where({ stock: "42" })` finds 42. A condit
 
 - A condition reads a number as its digits for a `string` attribute, and a record built from that Relation starts with what it matched: `where({ name: 7 }).build()` has the name `"7"`.
 - A key copied from another record through an association is cast too, so an integer key written into a text foreign key becomes its digits.
-- A key linked to a `datetime` kept as a Unix time is the integer it stores. An integer foreign key finds the record whose Unix time it holds, in a join, a preload or a read. A record built through the association gets that integer.
+- A key linked to a `datetime` kept as a Unix time is the integer it stores. An integer foreign key finds the record whose Unix time it holds, in a join, a preload, or a lazy read. A record built through the association gets that integer.
 - A `json` value JSON can’t write matches nothing, never the rows whose cell is `NULL`. In a list, it’s left out and the rest still match.
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
