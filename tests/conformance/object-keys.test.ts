@@ -124,7 +124,7 @@ describe("a link by a key a record holds as an object", () => {
 
   // Only a custom type's key can fail to write when cast from another type's; any other key that
   // can't be written is a bug to show, not a link to leave out.
-  test("a json key a callback left JSON can't write throws, naming it", async () => {
+  test("throws, naming it, for a json key a callback made unwritable", async () => {
     class Course extends Model.define(courseAttributes) {
       static table = "courses";
 
