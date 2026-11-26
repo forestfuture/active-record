@@ -121,6 +121,14 @@ describe("decimal attributes", () => {
       expect(found).toEqual(["ten"]);
     });
 
+    test("a condition with a no-break space around the number finds nothing", async () => {
+      await seed();
+
+      const found = await lines().where({ amount: "\u00a010.5" }).pluck("label");
+
+      expect(found).toEqual([]);
+    });
+
     test("a list finds each number, and leaves out a value that isn't one", async () => {
       await seed();
 

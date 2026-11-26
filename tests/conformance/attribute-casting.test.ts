@@ -303,9 +303,15 @@ describe("values assigned to attributes are cast to the attribute's type (#81)",
   describe("conditions", () => {
     beforeEach(async () => {
       await samples().insertAll([
-        { id: 1, quantity: 1, enabled: true, stamp: new Date("2026-01-02T00:00:00.000Z") },
-        { id: 2, quantity: 2, enabled: false, stamp: null },
-        { id: 3, quantity: null, enabled: null, stamp: null },
+        {
+          id: 1,
+          quantity: 1,
+          ratio: 1,
+          enabled: true,
+          stamp: new Date("2026-01-02T00:00:00.000Z"),
+        },
+        { id: 2, quantity: 2, ratio: null, enabled: false, stamp: null },
+        { id: 3, quantity: null, ratio: null, enabled: null, stamp: null },
       ]);
     });
     const ids = (relation: { pluck(name: "id"): Promise<number[]> }) => relation.pluck("id");
@@ -315,6 +321,7 @@ describe("values assigned to attributes are cast to the attribute's type (#81)",
       expect(await ids(samples().where({ enabled: untyped("false") }))).toEqual([2]);
       expect(await ids(samples().where({ stamp: untyped("2026-01-02") }))).toEqual([1]);
       expect((await samples().findBy({ quantity: untyped(" 1 ") }))?.id).toBe(1);
+      expect((await samples().findBy({ ratio: untyped("\t1\n") }))?.id).toBe(1);
       expect(await samples().exists({ enabled: untyped("on") })).toBe(true);
     });
 
@@ -336,6 +343,7 @@ describe("values assigned to attributes are cast to the attribute's type (#81)",
       ).toBe(0);
       expect(await samples().findBy({ quantity: untyped("1 OR 1=1") })).toBeNull();
       expect(await samples().findBy({ quantity: untyped("\u00a01") })).toBeNull();
+      expect(await samples().findBy({ ratio: untyped("1\u2003") })).toBeNull();
       expect(await samples().exists({ stamp: untyped("yesterday") })).toBe(false);
     });
 
