@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import { batch, belongsTo, hasMany, hasOne, Model } from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
+import { untyped } from "../support/untyped.ts";
 
 class Sample extends Model.define({
   id: { type: "integer", null: false },
@@ -222,14 +223,22 @@ describe("values by their use", () => {
       ["more digits than a number holds", tooManyDigits],
       ["a no-break space before its digits", "\u00a09"],
       ["an em space after its digits", "9\u2003"],
-    ])("a belongsTo finds nothing for a text foreign key with %s", async (_, label) => {
-      await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
-      await db().model(Note).insert({ id: 3, label });
+    ])(
+      "a belongsTo finds nothing for a text foreign key with %s, as a condition does",
+      async (_, label) => {
+        await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
+        await db().model(Note).insert({ id: 3, label });
 
-      const [note] = await db().model(Note).includes("owner").toArray();
+        const [note] = await db().model(Note).includes("owner").toArray();
 
-      expect(note!.loaded("owner")).toBeNull();
-    });
+        expect(note!.loaded("owner")).toBeNull();
+        expect(
+          await db()
+            .model(Owner)
+            .findBy({ id: untyped(label) }),
+        ).toBeNull();
+      },
+    );
 
     test("a belongsTo finds nothing for a text foreign key past the largest real", async () => {
       await db().model(Measured).insert({ id: 1, ratio: 9 });
