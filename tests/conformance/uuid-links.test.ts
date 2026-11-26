@@ -302,6 +302,19 @@ describe("uuid links", () => {
     );
 
     test.each(otherForms)(
+      "a condition with a uuid key in %s still finds its record",
+      async (_, id) => {
+        const found = [
+          (await db().model(Device).find(id)).name,
+          (await db().model(Device).findBy({ id }))?.name,
+          await db().model(Device).where({ id }).pluck("name"),
+        ];
+
+        expect(found).toEqual(["phone", "phone", ["phone"]]);
+      },
+    );
+
+    test.each(otherForms)(
       "a polymorphic belongsTo reads no uuid key for a text id holding it in %s",
       async (_, subjectId) => {
         await db().model(Note).insert({ id: 1, subjectType: "Device", subjectId });
