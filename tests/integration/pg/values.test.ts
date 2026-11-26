@@ -79,7 +79,8 @@ describe("the PostgreSQL adapter's values", () => {
     );
     const db = connect(url.toString());
     await db.model(User).insertAll([{ id: 7, email: "a@example.com" }]);
-    // Spaces around the digits, which the key test reads with \s: a condition casts " 7" to 7.
+    // Spaces around the digits, which the key test reads with a class of ASCII spaces: a condition
+    // casts " 7" to 7.
     await db.model(Note).insertAll([{ id: 1, label: " 7" }]);
 
     const [note] = await db.model(Note).includes("owner").toArray();
