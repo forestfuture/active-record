@@ -252,13 +252,13 @@ export class Attribute {
   }
 
   /**
-   * An already cast value as a preload looks it up among its records' (#591): in the form it's
-   * stored in, bytes as their hex, since a json value, a `Date` or bytes equals only itself.
-   * Written as is, as `isSame` writes it. `null` and `noMatch` stay as they are, and so does a
-   * value that can't be written, as a key of another type cast to a custom type may be, which
-   * is `noMatch`: no record holds it.
+   * The key a preload finds a record by (#591): an already cast value in the form it's stored
+   * in, bytes as their hex, since a json value, a `Date` or bytes equals only itself in a `Map`.
+   * Written as is, as `isSame` writes it. `null` and `noMatch` stay as they are. A value that
+   * can't be written, as a key of another type cast to a custom type may be, is `noMatch`: no
+   * record holds it.
    */
-  matchable(value: unknown): unknown {
+  lookupKey(value: unknown): unknown {
     if (value === null || value === noMatch) return value;
     let cell: unknown;
     try {
