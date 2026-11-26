@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
@@ -210,6 +210,19 @@ function runHookEditingTheReadme(message: Message, config: GitConfig = {}) {
 }
 
 const semicolonComments = { "core.commentChar": ";" };
+
+/** The runs of consecutive code points in characters, in hex as the hook writes them: a0, 600-605. */
+function rangesOf(characters: readonly string[]): string[] {
+  const runs: [number, number][] = [];
+  for (const codePoint of characters.map((character) => character.codePointAt(0)!)) {
+    const last = runs.at(-1);
+    if (last && last[1] === codePoint - 1) last[1] = codePoint;
+    else runs.push([codePoint, codePoint]);
+  }
+  return runs.map(([low, high]) =>
+    low === high ? low.toString(16) : `${low.toString(16)}-${high.toString(16)}`,
+  );
+}
 
 /** A line of `length` characters, made of words. */
 function lineOfWords(length: number): string {
@@ -425,6 +438,12 @@ describe("the commit-msg hook on invisible characters", () => {
     expect(output).toContain("U+2028, in this line:\n  Why.\u2028\n");
   });
 
+  test("lists the ranges of the characters the tracked files' test refuses", () => {
+    const ranges = readFileSync(hook, "utf8").match(/^invisible_ranges='([^']*)'/m)![1]!;
+
+    expect(ranges.split(/\s+/)).toEqual(rangesOf(invisibleCharacters));
+  });
+
   test("refuses every character the tracked files' test refuses", () => {
     const message = `Edit the README (#1)\n\n${invisibleCharacters.join("\n")}\n`;
     const { status, output } = runHookEditingTheReadme(message);
@@ -477,14 +496,21 @@ describe("the commit-msg hook on invisible characters", () => {
     expect(status).toBe(0);
   });
 
-  test("passes a no-break space's code point in overlong bytes, which aren't UTF-8", () => {
-    const bytes = Buffer.concat([
-      Buffer.from("Edit the README (#1)\n\nWhy "),
-      Buffer.from([0xe0, 0x82, 0xa0]),
-      Buffer.from("\n"),
-    ]);
-    const { status } = runHookEditingTheReadme(new Uint8Array(bytes));
+  test.each([
+    ["three", [0xe0, 0x82, 0xa0]],
+    ["four", [0xf0, 0x80, 0x82, 0xa0]],
+  ])(
+    "passes a no-break space's code point in %s overlong bytes, which aren't UTF-8",
+    (_length, overlong) => {
+      const bytes = Buffer.concat([
+        Buffer.from("Edit the README (#1)\n\nWhy "),
+        Buffer.from(overlong),
+        Buffer.from("\n"),
+      ]);
+      const { status, output } = runHookEditingTheReadme(new Uint8Array(bytes));
 
-    expect(status).toBe(0);
-  });
+      expect(status).toBe(0);
+      expect(output).toBe("");
+    },
+  );
 });
