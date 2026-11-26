@@ -7,7 +7,7 @@ seo:
 
 ## Upgrading from 0.13 to 0.14
 
-In 0.14, an `integer`, `real`, or `decimal` attribute reads only spaces, tabs, and line breaks around a number in text. So does a Postgres connection string’s `connect_timeout`. It also refuses a number too large for libpq. Upgrade in one step.
+In 0.14, an `integer`, `real`, or `decimal` attribute reads only spaces, tabs, and line breaks around a number in text. So does a Postgres connection string’s `connect_timeout`. Its number must also fit the range libpq reads. Upgrade in one step.
 
 ### Trimming other spaces
 
@@ -15,9 +15,9 @@ These attributes now refuse text with a no-break space or another Unicode space 
 
 On Postgres, a connection string’s `connect_timeout` with one of these spaces around its number now throws `TypeError` when the Database is built. libpq refuses it too. Remove the space from the connection string.
 
-### Shortening long connect timeouts
+### Keeping connect timeouts in range
 
-On Postgres, a `connect_timeout` past 2147483647 seconds, or below -2147483648, now throws `TypeError` when the Database is built. libpq refuses it too. Before, a larger number waited about 24 days, and a smaller one set no limit. Use a smaller number, or `connect_timeout=0` for no limit.
+On Postgres, a `connect_timeout` outside -2147483648 to 2147483647 seconds now throws `TypeError` when the Database is built. libpq refuses it too. Before, a larger number waited about 24 days, and a smaller one set no limit. Use a smaller number, or `connect_timeout=0` for no limit.
 
 ## Upgrading from 0.11 to 0.12
 
