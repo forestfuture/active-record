@@ -67,6 +67,14 @@ export class Attribute {
     return this.#definition.type === "uuid";
   }
 
+  /**
+   * The type its column holds it as (#586): a custom type's `storedAs`, and `"integer"` for a
+   * datetime with `storage`, which is held as a Unix time.
+   */
+  get storedType(): AttributeType {
+    return this.#definition.storage === undefined ? this.#definition.type : "integer";
+  }
+
   /** Whether it's a `binary` attribute, whose cells are bytes, which JSON can't hold (#20). */
   get isBinary(): boolean {
     return this.#definition.type === "binary";
