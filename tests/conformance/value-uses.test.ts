@@ -192,6 +192,18 @@ describe("values by their use", () => {
 
       expect(note!.loaded("owner")?.id).toBe(9);
     });
+
+    // More digits than any number a record holds, and than Postgres's numeric can be cast from.
+    const tooManyDigits = "9".repeat(140_000);
+
+    test("a belongsTo finds nothing for a text foreign key with more digits than a number holds", async () => {
+      await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
+      await db().model(Note).insert({ id: 3, label: tooManyDigits });
+
+      const [note] = await db().model(Note).includes("owner").toArray();
+
+      expect(note!.loaded("owner")).toBeNull();
+    });
   });
 
   describe("through an association's own Relation", () => {
