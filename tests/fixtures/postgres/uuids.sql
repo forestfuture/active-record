@@ -2,7 +2,8 @@
 CREATE TABLE devices (
   id UUID PRIMARY KEY,
   name TEXT,
-  readings_count INTEGER NOT NULL DEFAULT 0
+  readings_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ
 );
 
 -- A text foreign key (device_id), an integer one (level) and a polymorphic one (subject_type,

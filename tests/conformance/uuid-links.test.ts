@@ -9,6 +9,7 @@ class Device extends Model.define({
   id: { type: "uuid", null: false },
   name: "string",
   readingsCount: { type: "integer", null: false },
+  updatedAt: "datetime",
 }) {
   static table = "devices";
 
@@ -36,6 +37,16 @@ class CountedReading extends Model.define({
   static table = "readings";
 
   device = belongsTo(Device, { counterCache: "readingsCount", optional: true });
+}
+
+// A reading that touches its device (#588).
+class TouchingReading extends Model.define({
+  id: { type: "integer", null: false },
+  deviceId: "string",
+}) {
+  static table = "readings";
+
+  device = belongsTo(Device, { touch: true, optional: true });
 }
 
 // An integer foreign key (level) pointing at a UUID key, which no integer is.
@@ -279,6 +290,16 @@ describe("uuid links", () => {
 
       expect((await db().model(Device).find(phoneId)).readingsCount).toBe(0);
     });
+
+    test.each(otherForms)(
+      "a touch reaches no uuid key by a text foreign key holding it in %s, saved or stored",
+      async (_, deviceId) => {
+        const reading = await db().model(TouchingReading).create({ id: 1, deviceId });
+        await reading.update({ deviceId: null });
+
+        expect((await db().model(Device).find(phoneId)).updatedAt).toBeNull();
+      },
+    );
 
     test.each(otherForms)(
       "a polymorphic belongsTo reads no uuid key for a text id holding it in %s",
