@@ -72,6 +72,7 @@ describe("a query to a host that never answers (#292)", () => {
     ["with connect_timeout=0", "?connect_timeout=0"],
     ["with a negative connect_timeout", "?connect_timeout=-5"],
     ["with a connect_timeout longer than a timer can wait", "?connect_timeout=99999999"],
+    ["with connect_timeout=2147483647, libpq's longest", "?connect_timeout=2147483647"],
   ])("%s is still waiting an hour later", async (_name, query) => {
     const sent = await pendingAfter(query, 3_600_000);
     expect(sent.settled).toBe(false);
@@ -123,6 +124,15 @@ describe("a connection string's connect_timeout (#292)", () => {
           `connect_timeout must be from -2147483648 to 2147483647 seconds, not ${JSON.stringify(value)}`,
         ),
       );
+    },
+  );
+
+  test.each(["2147483647", "-2147483648", "00000000002147483647"])(
+    "of %j, inside libpq's int range, builds the Database",
+    (value) => {
+      expect(() =>
+        connect(`postgres://app@db.example.com/app?connect_timeout=${value}`),
+      ).not.toThrow();
     },
   );
 
