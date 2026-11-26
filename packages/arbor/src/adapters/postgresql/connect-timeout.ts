@@ -11,10 +11,13 @@ const longestTimeoutMs = 2 ** 31 - 1;
 const shortestTimeoutSeconds = 2;
 
 /**
- * A whole number as libpq reads one: a sign, digits, and ASCII spaces around them, `[ \t\n\v\f\r]`,
- * the ones `strtol` and `isspace` skip, where `\s` would read a no-break space too (#598).
+ * ASCII whitespace, `[ \t\n\v\f\r]`: the spaces libpq's `strtol` and `isspace` skip around a
+ * number, where `\s` would read a no-break space too (#598).
  */
-const wholeNumber = /^[ \t\n\v\f\r]*[-+]?\d+[ \t\n\v\f\r]*$/;
+const asciiSpace = "[ \\t\\n\\v\\f\\r]";
+
+/** A whole number as libpq reads one: a sign, digits, and ASCII spaces around them. */
+const wholeNumber = new RegExp(`^${asciiSpace}*[-+]?[0-9]+${asciiSpace}*$`);
 
 /**
  * `pg`'s `connectionTimeoutMillis` for clients opened from `connectionString`: its `connect_timeout`
