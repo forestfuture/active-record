@@ -62,11 +62,6 @@ export class Attribute {
     return this.#definition.type === "string" || this.#definition.type === "uuid";
   }
 
-  /** Whether it's a `uuid` attribute (#507), a `UUID` column on Postgres, which compares no uuid with text. */
-  get isUuid(): boolean {
-    return this.#definition.type === "uuid";
-  }
-
   /**
    * The type its column holds it as (#586): a custom type's `storedAs`, and `"integer"` for a
    * datetime with `storage`, which is held as a Unix time.
