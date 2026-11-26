@@ -68,9 +68,9 @@ function modelsLinking(foreignKey: TicketKey, key: EventKey) {
   return { Event, Ticket };
 }
 
-// Postgres compares a date, a time, a timestamp or a boolean with no text or number, so a key of
-// another type linked to one matches nothing, rather than failing at Postgres (#586).
-describe("a link to a key no text or number compares with", () => {
+// A date, a time, a timestamp, a boolean, JSON or bytes linked either way to a key of another
+// type matches nothing, rather than failing at Postgres (#586).
+describe("a link between keys of unlike types", () => {
   let schema: PgSchema;
   const db = () => connect(schema.url);
 
