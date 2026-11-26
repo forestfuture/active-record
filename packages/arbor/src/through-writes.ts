@@ -237,7 +237,10 @@ async function remove<M extends Model>(
   viaCollection.removed(builtJoins(viaCollection.added(), source, records));
   const stored = owner[state].isNew ? [] : records.filter((record) => !record[state].isNew);
   if (stored.length > 0) {
-    const keys = stored.map((record) => record[state].read(source.targetAttribute));
+    // As the join records hold them, so a Unix time is its integer (#592).
+    const keys = stored.map((record) =>
+      source.asOwnerKey(record[state].read(source.targetAttribute)),
+    );
     // Narrowed from the association's Relation, so its deleteAll deletes rather than nullifying.
     const joins = via().where(asStored({ [source.ownerAttribute]: keys }) as never);
     if (removal === "deleteAll") {

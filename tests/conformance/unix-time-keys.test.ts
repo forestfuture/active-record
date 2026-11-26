@@ -108,6 +108,20 @@ class Mark extends Model.define({
 
   bySeconds = hasMany(Mark, { foreignKey: "seconds", primaryKey: "iso" });
   byIso = hasMany(Mark, { foreignKey: "iso", primaryKey: "seconds" });
+  seats = hasMany(Seat, { foreignKey: "enabled" });
+  slots = hasMany(Slot, { through: "seats", source: "slot" });
+}
+
+// A mark's seat on a slot: `enabled` holds the mark's id, `quantity` the slot's Unix time.
+class Seat extends Model.define({
+  id: { type: "integer", null: false },
+  enabled: "integer",
+  quantity: "integer",
+}) {
+  static table = "samples";
+
+  mark = belongsTo(Mark, { foreignKey: "enabled", optional: true });
+  slot = belongsTo(Slot, { foreignKey: "quantity", primaryKey: "seconds", optional: true });
 }
 
 // A datetime kept as a Unix time links as the integer it stores, in a preload and a lazy read
@@ -239,6 +253,34 @@ describe("a key linked to a Unix time", () => {
 
     expect(((await remark.commentable()) as Slot | null)?.name).toBe("b");
     expect(((await preloaded!.commentable()) as Slot | null)?.name).toBe("b");
+  });
+
+  describe("through a record linked to a Unix time", () => {
+    beforeEach(async () => {
+      await harness.reset("guarded_stamps");
+      await harness.exec("INSERT INTO guarded_stamps (id, seconds) VALUES (1, 0)");
+      await harness.exec("UPDATE samples SET enabled = 1 WHERE id = 2");
+    });
+
+    test("preloads the records it reaches", async () => {
+      const [mark] = await db().model(Mark).includes("slots").toArray();
+      const [loaded] = await db()
+        .model(Mark)
+        .includes({ seats: { mark: "slots" } })
+        .toArray();
+
+      expect((await mark!.slots().toArray()).map((each) => each.name)).toEqual(["b"]);
+      const again = loaded!.loaded("seats")[0]!.loaded("mark") as Mark;
+      expect(again.loaded("slots").map((each) => each.name)).toEqual(["b"]);
+    });
+
+    test("deletes the join records of the records it removes", async () => {
+      const mark = await db().model(Mark).find(1);
+
+      await mark.slots().delete(await db().model(Slot).find(2));
+
+      expect(await db().model(Seat).where({ enabled: 1 }).count()).toBe(0);
+    });
   });
 
   test("text holding a Unix time's digits links to it, as in a join", async () => {
