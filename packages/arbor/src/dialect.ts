@@ -46,8 +46,8 @@ export interface Dialect {
   /**
    * The owners' `key` (a quoted column, of `keyAttribute`) as a linked condition selects it, so
    * it matches `linked`'s column as a condition on `linked` would: by text for a text attribute.
-   * `undefined` when no key of `keyAttribute`'s type can match `linked`'s column: the link then
-   * matches nothing (#586).
+   * `undefined` when the dialect links no key of `keyAttribute`'s type to `linked`'s column: the
+   * link then matches nothing (#586).
    */
   linkedKey(key: string, keyAttribute: Attribute, linked: Attribute): string | undefined;
   /**
