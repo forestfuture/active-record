@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, type HasMany, Model } from "../../packages/arbor/src/index.ts";
+import {
+  belongsTo,
+  defineType,
+  hasMany,
+  type HasMany,
+  Model,
+} from "../../packages/arbor/src/index.ts";
 import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
@@ -34,6 +40,27 @@ class Booking extends Model.define({
 
   slot = belongsTo(Slot, { foreignKey: "quantity", primaryKey: "seconds", optional: true });
   labeledSlot = belongsTo(Slot, { foreignKey: "label", primaryKey: "seconds", optional: true });
+}
+
+// A tag held as text, whose cast refuses "bad" and reads anything else as its text.
+const tag = defineType({
+  storedAs: "string",
+  cast(input) {
+    if (input === "bad") throw new TypeError("not a tag");
+    return String(input);
+  },
+  serialize: (value) => value,
+  deserialize: (text) => text,
+});
+
+class Tagged extends Model.define({ id: { type: "integer", null: false }, label: tag }) {
+  static table = "samples";
+}
+
+class Tagging extends Model.define({ id: { type: "integer", null: false }, label: "string" }) {
+  static table = "samples";
+
+  tagged = belongsTo(Tagged, { foreignKey: "label", primaryKey: "label", optional: true });
 }
 
 // A booking that touches its slot's `milliseconds`, and counts itself in its mark's `mappedAt`.
@@ -230,5 +257,12 @@ describe("a key linked to a Unix time", () => {
 
     expect(await mark.bySeconds().toArray()).toEqual([]);
     expect(await mark.byIso().toArray()).toEqual([]);
+  });
+
+  test("a key the linked attribute can't hold finds nothing, whatever its type casts", async () => {
+    await harness.exec("INSERT INTO samples (id, label) VALUES (3, 'bad')");
+    await harness.exec("INSERT INTO samples (id, label) VALUES (4, 'Symbol(uncastable)')");
+
+    expect(await (await db().model(Tagging).find(3)).tagged()).toBeNull();
   });
 });
