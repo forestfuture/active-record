@@ -1,7 +1,24 @@
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, Model } from "../../../packages/arbor/src/index.ts";
+import {
+  belongsTo,
+  defineType,
+  hasMany,
+  Model,
+  type QueryEvent,
+} from "../../../packages/arbor/src/index.ts";
 import { connect } from "../../../packages/arbor/src/adapters/postgresql/index.ts";
 import { openPgSchema, type PgSchema } from "../../support/pg.ts";
+
+/** A day kept as a date, as its text: a custom type stored as one (#20). */
+const day = defineType({
+  storedAs: "date",
+  cast(input) {
+    if (typeof input === "string") return input;
+    throw new TypeError("not a day");
+  },
+  serialize: (text) => text,
+  deserialize: (text) => text,
+});
 
 const attributes = {
   id: { type: "integer", null: false },
@@ -9,10 +26,22 @@ const attributes = {
   startsAt: "time",
   beginsAt: "datetime",
   isOpen: "boolean",
+  data: "json",
+  bytes: "binary",
+  beginsAtUnix: { type: "datetime", storage: "unixSeconds" },
+  day: { type: day, column: "held_on" },
   name: "string",
 } as const;
 
-type EventKey = "heldOn" | "startsAt" | "beginsAt" | "isOpen";
+type EventKey =
+  | "heldOn"
+  | "startsAt"
+  | "beginsAt"
+  | "isOpen"
+  | "data"
+  | "bytes"
+  | "beginsAtUnix"
+  | "day";
 type TicketKey = "code" | "number" | "isOpen" | "heldOn";
 
 /** An event Model whose tickets link to its `key` from their `foreignKey`. */
@@ -54,7 +83,7 @@ describe("a link to a key no text or number compares with", () => {
     // session's zone, the instant Postgres would compare the ticket's date as.
     await schema.pool.query({
       text:
-        "INSERT INTO events VALUES (1, '2026-11-25', '09:30:00', '2026-11-25', true, 'fair');" +
+        "INSERT INTO events VALUES (1, '2026-11-25', '09:30:00', '2026-11-25', true, '\"2026-11-25\"', '\\x01', 1, 'fair');" +
         "INSERT INTO tickets VALUES (1, '2026-11-25', 1, true, '2026-11-25')," +
         " (2, '09:30:00', 1, true, '2026-11-25'), (3, '2026-11-25 00:00:00+00', 1, true, '2026-11-25')," +
         " (4, 'true', 1, true, '2026-11-25')",
@@ -71,6 +100,9 @@ describe("a link to a key no text or number compares with", () => {
     ["number", "startsAt"],
     ["number", "beginsAt"],
     ["number", "isOpen"],
+    ["code", "data"],
+    ["code", "bytes"],
+    ["code", "day"],
     ["isOpen", "heldOn"],
     ["heldOn", "beginsAt"],
   ])("from %s to %s", (foreignKey, key) => {
@@ -110,5 +142,28 @@ describe("a link to a key no text or number compares with", () => {
 
       expect(tickets.map((ticket) => ticket.loaded("siblings"))).toEqual([[], [], [], []]);
     });
+  });
+
+  test("a preload that links nothing still sends its query, which doesn't fail", async () => {
+    const { Ticket } = modelsLinking("code", "heldOn");
+    const events: QueryEvent[] = [];
+
+    await connect(schema.url, { onQuery: (event) => events.push(event) })
+      .model(Ticket)
+      .includes("event")
+      .toArray();
+
+    expect(events.map(({ model, error }) => ({ model, error }))).toEqual([
+      { model: "Ticket", error: undefined },
+      { model: "Event", error: undefined },
+    ]);
+  });
+
+  // A datetime with storage is a Unix time, an integer, so an integer key links to it as a number.
+  test("an integer key links to a datetime stored as a Unix time", async () => {
+    const { Event, Ticket } = modelsLinking("number", "beginsAtUnix");
+
+    expect(await db().model(Event).joins("tickets").count()).toBe(4);
+    expect(await db().model(Ticket).joins("event").count()).toBe(4);
   });
 });
