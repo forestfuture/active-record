@@ -42,6 +42,18 @@ class Booking extends Model.define({
   labeledSlot = belongsTo(Slot, { foreignKey: "label", primaryKey: "seconds", optional: true });
 }
 
+// A remark on a slot, through a polymorphic belongsTo linked to its Unix time.
+class Remark extends Model.define({
+  id: { type: "integer", null: false },
+  body: "string",
+  commentableType: "string",
+  commentableId: "integer",
+}) {
+  static table = "remarks";
+
+  commentable = belongsTo([Slot], { primaryKey: "seconds", optional: true });
+}
+
 // A tag held as text, whose cast refuses "bad" and reads anything else as its text.
 const tag = defineType({
   storedAs: "string",
@@ -214,6 +226,19 @@ describe("a key linked to a Unix time", () => {
     await booking.save();
 
     expect((await db().model(Booking).find(1)).quantity).toBe(180);
+  });
+
+  test("a polymorphic key reads and preloads the record whose Unix time it is", async () => {
+    await harness.reset("remarks");
+    await harness.exec(
+      "INSERT INTO remarks (id, body, commentable_type, commentable_id) VALUES (1, 'x', 'Slot', 120)",
+    );
+
+    const remark = await db().model(Remark).find(1);
+    const [preloaded] = await db().model(Remark).includes("commentable").toArray();
+
+    expect(((await remark.commentable()) as Slot | null)?.name).toBe("b");
+    expect(((await preloaded!.commentable()) as Slot | null)?.name).toBe("b");
   });
 
   test("text holding a Unix time's digits links to it, as in a join", async () => {
