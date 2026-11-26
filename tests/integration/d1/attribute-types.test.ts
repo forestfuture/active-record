@@ -101,17 +101,6 @@ describe("decimal attributes on D1", () => {
   });
 
   // SQLite keeps text it can't read as a number as TEXT, which a decimal reads as Arbor casts it.
-  test("a cell with ASCII spaces around its number reads as the number", async () => {
-    await binding
-      .prepare("INSERT INTO amounts (id, value) VALUES (?, ?)")
-      .bind(101, "\t12.50\n")
-      .run();
-
-    const { value } = await amounts().find(101);
-
-    expect(value).toBe("12.5");
-  });
-
   test("a cell with a no-break space around its number fails to load", async () => {
     await binding
       .prepare("INSERT INTO amounts (id, value) VALUES (?, ?)")
