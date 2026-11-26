@@ -28,11 +28,17 @@ const integerPattern = literal(`^${asciiSpace}*[+-]?0*[0-9]{1,255}[0-9]{0,53}${a
  */
 const matches = (text: string, pattern: string) => `${text} COLLATE "C" ~ ${pattern}`;
 
+/** The kinds of value a link compares: numbers of any stored type together, any other alone. */
+type Kind =
+  | "text"
+  | "number"
+  | Exclude<Attribute["storedType"], "string" | "integer" | "real" | "decimal">;
+
 /**
  * How Postgres compares an attribute's values: as a uuid, as text, as a number, or as its own
- * type, which compares with no other (a date, a time, a timestamp, a boolean, JSON or bytes).
+ * type (a date, a time, a timestamp, a boolean, JSON or bytes).
  */
-function kindOf({ storedType }: Attribute): string {
+function kindOf({ storedType }: Attribute): Kind {
   switch (storedType) {
     case "string":
       return "text";
