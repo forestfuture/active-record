@@ -60,6 +60,7 @@ describe("a query to a host that never answers (#292)", () => {
       "?sslmode=disable&connect_timeout=30",
     ],
     ["with connect_timeout=1, libpq's shortest of 2", 2_000, "?connect_timeout=1"],
+    ["with connect_timeout=3 between ASCII spaces", 3_000, "?connect_timeout=%20%09%0B3%0C%0D%0A"],
   ])("%s fails after %ims", async (_name, ms, query) => {
     const sent = await pendingAfter(query, ms - 1);
     expect(sent.settled).toBe(false);
