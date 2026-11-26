@@ -1,4 +1,4 @@
-// Values normalized where a Relation takes them (#354): its conditions, as `where`, `whereNot`, `rewhere` and `inOrderOf` take them, and a bulk write's values.
+// Values normalized where a Relation takes them (#354): its conditions, as `where`, `whereNot`, `rewhere` and `inOrderOf` take them, and a bulk write's values; and keys copied from records, kept as they're stored (#588).
 import { attributeFor, type Attribute } from "./attribute.ts";
 import { Comparison, comparisonParts } from "./comparisons.ts";
 import type { ModelClass } from "./model.ts";
@@ -34,11 +34,12 @@ export function checkedConditions<T extends object>(
 /**
  * `conditions` with each value of a normalized attribute normalized: a list's items, a
  * comparison's values, or the value itself. `null` stays, so it still matches NULL. A fragment
- * is kept as it is: its typed values are normalized as it's compiled.
+ * is kept as it is: its typed values are normalized as it's compiled. Conditions marked
+ * `asStored` aren't normalized: their uuid keys are kept only in their one form.
  */
 export function normalizedConditions<T extends object>(model: ModelClass, conditions: T): T {
   if (conditions instanceof SafeSql) return conditions;
-  if (storedConditions.has(conditions)) return linkedConditions(model, conditions);
+  if (storedConditions.has(conditions)) return keysAsStored(model, conditions);
   let changed = false;
   const entries = Object.entries(conditions).map(([name, value]) => {
     const attribute = attributeFor(model, name);
@@ -53,15 +54,16 @@ export function normalizedConditions<T extends object>(model: ModelClass, condit
  * Stored keys as a link compares them (#588): a uuid's in its one form only, so a key in another
  * form matches nothing, as in a preload or a join. Still marked stored.
  */
-function linkedConditions<T extends object>(model: ModelClass, conditions: T): T {
-  const entries = Object.entries(conditions);
-  if (!entries.some(([name]) => attributeFor(model, name).isUuid)) return conditions;
-  const linked = entries.map(([name, value]) => {
+function keysAsStored<T extends object>(model: ModelClass, conditions: T): T {
+  let changed = false;
+  const entries = Object.entries(conditions).map(([name, value]) => {
     const attribute = attributeFor(model, name);
-    const keys = Array.isArray(value) ? value.map((each) => attribute.linkedKey(each)) : undefined;
-    return [name, keys ?? attribute.linkedKey(value)];
+    if (!attribute.isUuid) return [name, value];
+    changed = true;
+    const asKey = (key: unknown) => attribute.keyAsStored(key);
+    return [name, Array.isArray(value) ? value.map(asKey) : asKey(value)];
   });
-  return asStored(Object.fromEntries(linked) as T);
+  return changed ? asStored(Object.fromEntries(entries) as T) : conditions;
 }
 
 /** One condition's value normalized: a list item by item, a comparison by its values. */
