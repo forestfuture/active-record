@@ -46,8 +46,10 @@ export interface Dialect {
   /**
    * The owners' `key` (a quoted column, of `keyAttribute`) as a linked condition selects it, so
    * it matches `linked`'s column as a condition on `linked` would: by text for a text attribute.
+   * `undefined` when no key of `keyAttribute`'s type can match `linked`'s column: the link then
+   * matches nothing (#586).
    */
-  linkedKey(key: string, keyAttribute: Attribute, linked: Attribute): string;
+  linkedKey(key: string, keyAttribute: Attribute, linked: Attribute): string | undefined;
   /**
    * A record's write that must change its row (an update or delete by its key and `lockVersion`,
    * #357), followed by a check that fails the whole atomic batch when it changed none, with an

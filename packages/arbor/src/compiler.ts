@@ -91,6 +91,9 @@ export function compileSelect(
   return { sql, params: context.params, model: query.model };
 }
 
+/** A link the dialect says no key can match (#586): it matches nothing. */
+const nothing = "1 = 0";
+
 /** Each joined table's `INNER JOIN` or `LEFT OUTER JOIN`, on its link and its scope's conditions. */
 function compileJoins(context: Context): string {
   return context.tables.joined
@@ -103,7 +106,8 @@ function compileJoins(context: Context): string {
         attributeFor(join.model, join.targetAttribute),
         attributeFor(parent.model, join.ownerAttribute),
       );
-      let on = `${columnIn(parent, join.ownerAttribute)} = ${linked}`;
+      let on =
+        linked === undefined ? nothing : `${columnIn(parent, join.ownerAttribute)} = ${linked}`;
       if (join.on.length > 0) on += ` AND ${compileAll({ ...context, source }, join.on)}`;
       return ` ${kind} ${table} ON ${on}`;
     })
@@ -161,6 +165,7 @@ function compileLinkedTo(
   const column = columnIn(source, attribute);
   const keyColumn = columnIn(ownSource(owners), ownerKey);
   const selected = dialect.linkedKey(keyColumn, keyAttribute, linked);
+  if (selected === undefined) return nothing;
   const limited = owners.limit !== undefined || owners.offset !== undefined;
   const order = limited ? owners.order : [];
   // A distinct() with includes selects every column (a distinct select() can't be preloaded),

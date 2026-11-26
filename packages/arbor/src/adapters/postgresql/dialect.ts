@@ -28,8 +28,22 @@ const integerPattern = literal(`^${asciiSpace}*[+-]?0*[0-9]{1,255}[0-9]{0,53}${a
  */
 const matches = (text: string, pattern: string) => `${text} COLLATE "C" ~ ${pattern}`;
 
-/** How Postgres compares an attribute's values: as a uuid, as text, or as a number. */
-const kindOf = ({ isUuid, isText }: Attribute) => (isUuid ? "uuid" : isText ? "text" : "number");
+/**
+ * How Postgres compares an attribute's values: as a uuid, as text, as a number, or as its own
+ * type, which compares with no other (a date, a time, a timestamp, a boolean, JSON or bytes).
+ */
+function kindOf({ storedType }: Attribute): string {
+  switch (storedType) {
+    case "string":
+      return "text";
+    case "integer":
+    case "real":
+    case "decimal":
+      return "number";
+    default:
+      return storedType;
+  }
+}
 
 /** A quoted identifier; embedded double quotes are doubled. */
 const quoted = (name: string) => `"${name.replaceAll('"', '""')}"`;
@@ -91,7 +105,9 @@ export const postgres: Dialect = {
    * Postgres compares no text with a number, nor a uuid with either (#563). A key selected for a
    * text attribute is its text; text selected for a uuid is the UUID it holds in its one form, and
    * for a number the number its digits are, as a condition casts it; text that isn't one matches
-   * nothing. Only the key is cast, so the linked attribute's column keeps its index.
+   * nothing. Only the key is cast, so the linked attribute's column keeps its index. A key of
+   * another type linked to a date, a time, a timestamp, a boolean, JSON or bytes matches nothing,
+   * as Postgres compares them with nothing else (#586).
    */
   linkedKey(key, keyAttribute, linked) {
     const kind = kindOf(linked);
@@ -104,6 +120,8 @@ export const postgres: Dialect = {
         return text;
       case "number":
         return `CASE WHEN ${matches(text, integerPattern)} THEN CAST(${text} AS NUMERIC) END`;
+      default:
+        return undefined;
     }
   },
   /**
