@@ -207,6 +207,15 @@ describe("a key linked to a Unix time", () => {
     expect((await db().model(Mark).find(1)).mappedAt).toBe(1);
   });
 
+  test("a record pointed at a new record takes its Unix time's integer once both are saved", async () => {
+    const booking = await db().model(Booking).find(1);
+
+    booking.slot.build({ id: 3, name: "c", seconds: new Date(180_000) });
+    await booking.save();
+
+    expect((await db().model(Booking).find(1)).quantity).toBe(180);
+  });
+
   test("text holding a Unix time's digits links to it, as in a join", async () => {
     await harness.exec("INSERT INTO samples (id, label) VALUES (3, '120')");
     const slot = await db().model(Slot).find(2);
