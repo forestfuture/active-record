@@ -29,6 +29,7 @@ import { jsonText, NestedReferenceFound } from "./json-values.ts";
 import { refuseAssignedReference } from "./sql.ts";
 import { refuseThenable } from "./thenables.ts";
 import { normalizationsOf } from "./normalization.ts";
+import { readUuid } from "./uuid-values.ts";
 import { isLockVersion } from "./lock-version.ts";
 
 /** What `condition()` and `conditionCell()` give for a value that can't match anything. */
@@ -169,6 +170,16 @@ export class Attribute {
    */
   condition(value: unknown): unknown {
     return castCondition(this.#definition, value);
+  }
+
+  /**
+   * A key copied from a record, as a link compares it (#588): a uuid only in the one form it's
+   * stored in, as a preload or a join compares it, so another form is `noMatch`; any other value
+   * as it is, for `condition` to cast.
+   */
+  linkedKey(value: unknown): unknown {
+    if (!this.isUuid || this.#definition.customType !== undefined || value === null) return value;
+    return readUuid(value);
   }
 
   /** A condition's value in the form D1 stores, or `noMatch`. */

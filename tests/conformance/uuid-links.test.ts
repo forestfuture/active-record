@@ -166,6 +166,27 @@ describe("uuid links", () => {
       },
     );
 
+    // A record's key links as it's stored (#588): its lazy read agrees with its preload.
+    test.each(otherForms)(
+      "a belongsTo reads no uuid key for a text foreign key holding it in %s",
+      async (_, deviceId) => {
+        await db().model(Reading).insert({ id: 1, deviceId });
+        const reading = await db().model(Reading).find(1);
+
+        expect(await reading.device()).toBeNull();
+      },
+    );
+
+    test.each(otherForms)(
+      "a polymorphic belongsTo reads no uuid key for a text id holding it in %s",
+      async (_, subjectId) => {
+        await db().model(Note).insert({ id: 1, subjectType: "Device", subjectId });
+        const note = await db().model(Note).find(1);
+
+        expect(await note.subject()).toBeNull();
+      },
+    );
+
     test("a text foreign key that isn't a UUID finds nothing, without an error", async () => {
       await db().model(Reading).insert({ id: 1, deviceId: "lamp" });
 
