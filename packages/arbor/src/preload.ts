@@ -303,7 +303,7 @@ function planHopStep(planning: Planning, request: HopRequest): Hop | undefined {
     position,
     includes,
     reached: (owner, found) => {
-      byKey ??= groupBy(found[position] ?? [], association.targetKey);
+      byKey ??= groupBy(found[position] ?? [], association.targetKeyAttribute);
       return targetsOfOwner(byKey, association, owner);
     },
   };
@@ -372,7 +372,7 @@ function linkedQuery(
     association.asTargetKey(record[state].read(ownerAttribute) ?? null),
   );
   const linked = keys.filter((key) => key !== null && key !== noMatch);
-  const { targetKey } = association;
+  const { targetKeyAttribute: targetKey } = association;
   const distinct = [...new Map(linked.map((key) => [targetKey.lookupKey(key), key])).values()];
   if (distinct.length === 0) return undefined;
   return scopedQuery(association, base.where(asStored({ [targetAttribute]: distinct })));
@@ -501,7 +501,7 @@ function attach(
   association: ResolvedAssociation,
   targets: readonly Model[],
 ): void {
-  const byKey = groupBy(targets, association.targetKey);
+  const byKey = groupBy(targets, association.targetKeyAttribute);
   for (const record of records) {
     // A polymorphic branch's owners are those of its type, and those of none (#60). Another
     // listed Model's is left to its branch; a type none of them has throws UnknownModelName.
@@ -526,7 +526,7 @@ function targetsOfOwner(
   // Looked up as the targets hold it: an integer key matches a text foreign key's digits (#94),
   // a uuid only its one form, as the query that found them compares it (#588), and a Unix
   // time its integer (#592).
-  const lookupKey = association.targetKey.lookupKey(association.asTargetKey(key));
+  const lookupKey = association.targetKeyAttribute.lookupKey(association.asTargetKey(key));
   // A key that can't be cast or written as a target's is held by no target (#591).
   return lookupKey === noMatch ? [] : (byKey.get(lookupKey) ?? []);
 }

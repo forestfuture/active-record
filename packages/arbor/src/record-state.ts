@@ -197,7 +197,7 @@ export class RecordState {
     const key =
       from === undefined
         ? attribute.key(value, association)
-        : attribute.linkedKey(value, from, association);
+        : attribute.keyFrom(value, from, association);
     this.#requireSameIfReadonly(name, key);
     this.#store(name, key);
   }

@@ -168,18 +168,22 @@ export class Attribute {
   }
 
   /**
-   * A key of `from`, another Model's attribute linked to this one, as this one holds it (#592):
-   * as `key` casts it, but a datetime kept as a Unix time links as the integer it stores. One
-   * that can't be cast throws, naming the association it came through.
+   * A key copied from `from`, another Model's attribute linked to this one, as this one holds it
+   * (#592): as `key` casts it, but a datetime kept as a Unix time links as the integer it
+   * stores. One that can't be cast throws, naming the association it came through.
    */
-  linkedKey(value: unknown, from: Attribute, association: string): unknown {
+  keyFrom(value: unknown, from: Attribute, association: string): unknown {
     requireDefined(this.#model, this.name, value);
-    return this.#orRefuse(this.linked(value, from), value, association);
+    const cast = castLinked(this.#definition, from.#definition, value);
+    return this.#orRefuse(cast, value, association);
   }
 
-  /** A key of `from` as this attribute holds it, as `linkedKey` casts it, or `noMatch`. */
-  linked(value: unknown, from: Attribute): unknown {
-    return castLinked(this.#definition, from.#definition, value);
+  /**
+   * A key of `from` as a link compares it with this attribute's, or `noMatch`: a uuid only in
+   * its one form (`keyAsStored`, #588), then cast as `keyFrom` casts it (#592).
+   */
+  conditionFrom(value: unknown, from: Attribute): unknown {
+    return castLinked(this.#definition, from.#definition, this.keyAsStored(value));
   }
 
   /**
@@ -418,11 +422,11 @@ export function attributeFor(model: ModelClass, given: string): Attribute {
 export function castInherited(
   model: ModelClass,
   inherited: Record<string, unknown>,
-  link?: { attribute: string; association: string; key?: unknown },
+  link?: { attribute: string; association: string; ownersKey?: unknown },
 ): Record<string, unknown> {
-  // The owner's key, which its condition holds as the records hold it (#592), is cast from the
-  // owner's own attribute instead, and set over every other value.
-  const fromOwner = link !== undefined && "key" in link ? link.attribute : undefined;
+  // The owner's key is left out: its condition holds it as the records hold it (#592), and
+  // `ownersValues` sets it over every other value, cast from the owner's own attribute.
+  const fromOwner = link?.ownersKey === undefined ? undefined : link.attribute;
   return Object.fromEntries(
     Object.entries(inherited)
       .filter(([attribute]) => attribute !== fromOwner)

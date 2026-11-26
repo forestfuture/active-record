@@ -226,9 +226,9 @@ export class ResolvedAssociation {
    * linking as the integer it stores (#592).
    */
   asTargetKey(key: unknown): unknown {
-    const { targetKey, ownerKey } = this;
-    const linked = (each: unknown) => targetKey.linked(targetKey.keyAsStored(each), ownerKey);
-    return Array.isArray(key) ? key.map(linked) : linked(key);
+    const { targetKeyAttribute: target, ownerKeyAttribute: owner } = this;
+    if (!Array.isArray(key)) return target.conditionFrom(key, owner);
+    return key.map((each) => target.conditionFrom(each, owner));
   }
 
   /**
@@ -236,16 +236,24 @@ export class ResolvedAssociation {
    * `asTargetKey`, for a query of owners by their targets' keys (#592).
    */
   asOwnerKey(key: unknown): unknown {
-    return this.ownerKey.linked(key, this.targetKey);
+    return this.ownerKeyAttribute.conditionFrom(key, this.targetKeyAttribute);
+  }
+
+  /**
+   * Writes the owner's `key` into a hasMany's or hasOne's `record`, cast from the owner's
+   * attribute, so a Unix time is written as its integer (#592).
+   */
+  writeOwnersKey(record: Model, key: unknown): void {
+    record[state].writeKey(this.targetAttribute, key, this.name, this.ownerKeyAttribute);
   }
 
   /** The owner's attribute holding the link, resolved: what a key copied from it is cast from. */
-  get ownerKey(): Attribute {
+  get ownerKeyAttribute(): Attribute {
     return attributeFor(this.owner, this.ownerAttribute);
   }
 
   /** The target's attribute the owner's links to, resolved. */
-  get targetKey(): Attribute {
+  get targetKeyAttribute(): Attribute {
     return attributeFor(this.target, this.targetAttribute);
   }
 
