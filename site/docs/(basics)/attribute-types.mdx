@@ -93,7 +93,7 @@ Looking a record up by an id that isn’t a UUID finds nothing, so a mistyped or
 <include>/_excerpts/pages/attribute-types/examples/uuids.mdx</include>
 
 - A UUID is held lowercase with hyphens, whichever form it’s given in, so `"{0B6F8A1E-3C2D-4E5F-9A7B-1C2D3E4F5A6B}"` is held as `"0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b"`.
-- A text foreign key reaches a UUID only when it holds it lowercase with hyphens, as the UUID is held. In another form, its record isn’t found, whether it’s read, preloaded, or joined. A lookup you write, such as `find` or `where`, still takes any form.
+- A text foreign key reaches a UUID only when it holds it lowercase with hyphens, as the UUID is held. In another form, its record isn’t found, whether it’s read, preloaded, or joined. `find`, `findBy`, and `where` still take a UUID in any form.
 - `arbor schema` gives a Postgres `UUID` column a `uuid` attribute. A `UUID` key gets its value from `generateId`, which makes UUIDs.
 
 :::note
