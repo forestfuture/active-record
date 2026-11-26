@@ -110,6 +110,15 @@ describe("a key linked to a Unix time", () => {
     expect(await db().model(Booking).where({ quantity: 120 }).count()).toBe(3);
   });
 
+  test("a record holding a Unix time's integer is one of its records", async () => {
+    const slot = await db().model(Slot).find(2);
+    const booking = await db().model(Booking).find(2);
+
+    await slot.bookings().delete(booking);
+
+    expect((await db().model(Booking).find(2)).quantity).toBeNull();
+  });
+
   test("a record pointed at a Unix time takes its integer", async () => {
     const booking = await db().model(Booking).find(1);
 
