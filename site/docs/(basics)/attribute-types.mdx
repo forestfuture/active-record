@@ -108,19 +108,19 @@ Every value is cast to its attribute’s type when it’s assigned, so text from
 
 Values are cast wherever they’re assigned: `build`, `create`, `assign`, `update`, a property setter, a default, [`permit`](./untrusted-input#permitting-fields), and the values given to `insert`, `insertAll`, `upsert`, `upsertAll`, and `updateAll`. `null` is always NULL. Only unambiguous values are accepted:
 
-| Type       | Accepts                                                                                                                                       |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `boolean`  | `true`, `false`, `1`, `0`, `"1"`, `"0"`, and `"true"`, `"false"`, `"on"`, `"off"` in any case                                                 |
-| `integer`  | a safe integer, or a string that’s wholly one, with an optional sign and spaces around it: `"42"`, `" -7 "`, `"+3"`                           |
-| `real`     | a finite number, or a string that’s wholly one, with an optional sign, point, and exponent: `"1.5"`, `".5"`, `"5."`, `"-2e3"`                 |
-| `decimal`  | a finite number, a `bigint`, or a string that’s wholly a decimal number, as for a `real`: `"12.50"`, `"-2e3"`                                 |
-| `string`   | a string                                                                                                                                      |
-| `uuid`     | a UUID in any case, with or without its hyphens, or in braces: `"0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b"`, `"0B6F8A1E3C2D4E5F9A7B1C2D3E4F5A6B"` |
-| `datetime` | a valid `Date`; a date, `"2026-01-02"` (midnight UTC); or a date and time with `Z` or a `±HH:MM` offset: `"2026-01-02T09:30:00+02:00"`        |
-| `date`     | a day that exists, as `"YYYY-MM-DD"`: `"2026-01-02"`                                                                                          |
-| `time`     | a time of day, with or without seconds and up to six digits of a fraction: `"09:30"`, `"09:30:15.25"`                                         |
-| `json`     | any value JSON can write                                                                                                                      |
-| `binary`   | a `Uint8Array`, or an `ArrayBuffer`                                                                                                           |
+| Type       | Accepts                                                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `boolean`  | `true`, `false`, `1`, `0`, `"1"`, `"0"`, and `"true"`, `"false"`, `"on"`, `"off"` in any case                                                                             |
+| `integer`  | a safe integer, or a string that’s wholly one, with an optional sign and spaces, tabs, or line breaks around it: `"42"`, `" -7 "`, `"+3"`                                 |
+| `real`     | a finite number, or a string that’s wholly one, with an optional sign, point, and exponent, and spaces, tabs, or line breaks around it: `"1.5"`, `".5"`, `"5."`, `"-2e3"` |
+| `decimal`  | a finite number, a `bigint`, or a string that’s wholly a decimal number, as for a `real`: `"12.50"`, `"-2e3"`                                                             |
+| `string`   | a string                                                                                                                                                                  |
+| `uuid`     | a UUID in any case, with or without its hyphens, or in braces: `"0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b"`, `"0B6F8A1E3C2D4E5F9A7B1C2D3E4F5A6B"`                             |
+| `datetime` | a valid `Date`; a date, `"2026-01-02"` (midnight UTC); or a date and time with `Z` or a `±HH:MM` offset: `"2026-01-02T09:30:00+02:00"`                                    |
+| `date`     | a day that exists, as `"YYYY-MM-DD"`: `"2026-01-02"`                                                                                                                      |
+| `time`     | a time of day, with or without seconds and up to six digits of a fraction: `"09:30"`, `"09:30:15.25"`                                                                     |
+| `json`     | any value JSON can write                                                                                                                                                  |
+| `binary`   | a `Uint8Array`, or an `ArrayBuffer`                                                                                                                                       |
 
 ## Refusing other values
 
@@ -132,6 +132,7 @@ The error shows at most 60 characters of the value, and none of a [filtered attr
 
 - `""` for every type but `string`.
 - `1.7`, `"12abc"`, `"1e3"`, and integers past `Number.MAX_SAFE_INTEGER`, for an `integer`.
+- Text with a no-break space or another Unicode space around its number, such as `"\u00a042"`, for an `integer`, `real`, or `decimal`.
 - `NaN` and `Infinity`.
 - A number, boolean, or `Date` for a `string`.
 - For a `uuid`: text that isn’t 32 hexadecimal digits, a hyphen at its start or end, one brace, and numbers.
