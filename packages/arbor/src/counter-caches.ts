@@ -249,31 +249,34 @@ function counterChanges(
   };
 }
 
+/**
+ * The record's foreign key as its counter's target holds it: a uuid only in its one form, as the
+ * stored row's link compares it when the record is counted out (#588), and a Unix time as its
+ * integer (#592). Null for none, and `noMatch` for one no target can hold.
+ */
+function targetsKey(record: Model, { target, targetKey, foreignKey }: CounterCache): unknown {
+  const key = record[state].read(foreignKey) ?? null;
+  const to = attributeFor(target, targetKey);
+  return to.linked(to.keyAsStored(key), attributeFor(modelOf(record), foreignKey));
+}
+
 /** A write that changes no counter: a record that was never saved has no row to delete. */
 export const noCounterChanges: CounterChanges = { around: (own) => [...own], commit: () => {} };
 
 /** Counting a new record in: each counter cache whose key is set, on its target by that key. */
 export function countersOnInsert(record: Model): CounterChanges {
   const recordState = record[state];
-  const counted = countersOf(modelOf(record)).filter(
-    (counter) =>
-      isLinkedKey(counter, recordState.read(counter.foreignKey)) &&
-      isTypeOfTarget(counter, (name) => recordState.read(name)),
-  );
+  const counted = countersOf(modelOf(record)).filter((counter) => {
+    const key = targetsKey(record, counter);
+    return (
+      key !== null && key !== noMatch && isTypeOfTarget(counter, (name) => recordState.read(name))
+    );
+  });
   const after = counted.map((counter) => {
-    const key = keyed(counter, recordState.read(counter.foreignKey));
+    const key = keyed(counter, targetsKey(record, counter));
     return compileCounterChange(counter, changeBy(counter, 1), key);
   });
   return counterChanges(record, [[], after], counted, 1);
-}
-
-/**
- * Whether `key` links to a target of `counter`: set, and a uuid only in its one form, as the
- * stored row's link compares it when the record is counted out (#588).
- */
-function isLinkedKey({ target, targetKey }: CounterCache, key: unknown): boolean {
-  if (key === null || key === undefined) return false;
-  return attributeFor(target, targetKey).keyAsStored(key) !== noMatch;
 }
 
 /**
