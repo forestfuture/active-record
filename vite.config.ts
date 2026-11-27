@@ -81,6 +81,16 @@ export default defineConfig({
               },
             },
           ]),
+      // The built package, packed and bundled by Wrangler, in workerd (#10): only for
+      // `vp run test:workerd`, which sets ARBOR_WORKERD, since it needs `vp run build` first.
+      ...(process.env["ARBOR_WORKERD"] === "1"
+        ? [
+            {
+              extends: true,
+              test: { name: "workerd", include: ["tests/workerd/**/*.test.ts"] },
+            },
+          ]
+        : []),
       // Real remote D1 through Wrangler's remote bindings (docs/agents/remote-smoke.md): only for
       // `vp run test:remote`, which sets D1_REMOTE_SMOKE, so a plain `vp test` stays local even
       // with the credentials in the environment (#202). Still skipped without them.

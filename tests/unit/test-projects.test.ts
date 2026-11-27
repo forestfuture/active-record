@@ -12,6 +12,7 @@ const projectFolders = [
   "tests/integration/d1/",
   "tests/integration/pg/",
   "tests/remote/",
+  "tests/workerd/",
 ];
 
 /** Every test file in the repository, committed or not, that git doesn't ignore. */

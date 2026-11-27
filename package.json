@@ -8,6 +8,7 @@
     "build": "vp run @forestfuture/arbor#build",
     "test": "vp test",
     "coverage": "vp test --coverage",
+    "test:workerd": "ARBOR_WORKERD=1 vp test --project workerd",
     "test:remote": "D1_REMOTE_SMOKE=1 vp test --project remote",
     "test:durations": "node scripts/record-test-durations.mjs",
     "check:public-types": "node scripts/check-public-types.mjs",
