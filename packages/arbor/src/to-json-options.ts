@@ -1,7 +1,8 @@
 // What `toJSON` sends: a record's attributes, less those never sent, and what its options add.
 import { attributeName } from "./attribute-aliases.ts";
+import { associationOf, associationsOf } from "./association-fields.ts";
 import { declared } from "./declarations.ts";
-import type { AttributesOf, IncludeSpec, Model, ModelClass } from "./model.ts";
+import type { AssociationName, AttributesOf, Model, ModelClass, TargetRecord } from "./model.ts";
 import { secretAttributeNames } from "./secure-passwords.ts";
 import { confirmationNames } from "./validations.ts";
 
@@ -12,12 +13,27 @@ import { confirmationNames } from "./validations.ts";
  * record's getters and methods that take no arguments.
  */
 export type ToJSONOptions<R> = {
-  readonly include?: IncludeSpec<R> | readonly IncludeSpec<R>[];
+  readonly include?: Include<R> | readonly Include<R>[];
   readonly methods?: readonly MethodName<R>[];
 } & (
   | { readonly only?: readonly AttributeName<R>[]; readonly except?: never }
   | { readonly except?: readonly AttributeName<R>[]; readonly only?: never }
 );
+
+/**
+ * What `include` takes for records `R`: what `includes()` does, or under an association's name,
+ * the options its records are serialized with (`{ posts: { only: ["title"] } }`).
+ */
+type Include<R> = R extends unknown
+  ?
+      | AssociationName<R>
+      | {
+          readonly [K in AssociationName<R>]?:
+            | Include<TargetRecord<R[K]>>
+            | readonly Include<TargetRecord<R[K]>>[]
+            | ToJSONOptions<TargetRecord<R[K]>>;
+        }
+  : never;
 
 /**
  * A record's getter, or its method that takes no arguments, whose value isn't a promise, as
@@ -63,7 +79,7 @@ export function recordJSON(
       ...(options.methods ?? []).map((name) => [name, methodValue(record, name)] as const),
     ].map(([name, value]) => [name, value instanceof Date ? value.toISOString() : value]),
   );
-  for (const [name, nested] of includedAssociations(options.include)) {
+  for (const [name, nested] of includedAssociations(model, options.include)) {
     result[name] = serializeLoaded(record.loaded(name as never), nested);
   }
   return result;
@@ -141,14 +157,47 @@ function methodValue(record: Model, name: string): unknown {
 }
 
 /** Each association an `include` names, with the options its records are serialized with. */
-function includedAssociations(spec: unknown): [string, Nested][] {
+function includedAssociations(model: ModelClass, spec: unknown): [string, Nested][] {
   if (spec === undefined) return [];
   if (typeof spec === "string") return [[spec, undefined]];
-  if (Array.isArray(spec)) return spec.flatMap(includedAssociations);
+  if (Array.isArray(spec)) return spec.flatMap((each) => includedAssociations(model, each));
   return Object.entries(spec as Record<string, unknown>).map(([name, value]) => [
     name,
-    { include: value } as Nested,
+    nestedOptions(model, name, value),
   ]);
+}
+
+/** The names that make an object under an association's name its options, not what it includes. */
+const optionNames = ["include", "only", "except", "methods"];
+
+/**
+ * The options for association `name`'s records: `value` itself when it names an option
+ * (`{ only: ["title"] }`), else what they include (`"comments"`, `{ comments: "author" }`).
+ */
+function nestedOptions(model: ModelClass, name: string, value: unknown): Nested {
+  const given =
+    typeof value === "object" && value !== null && !Array.isArray(value)
+      ? Object.keys(value).filter((key) => optionNames.includes(key))
+      : [];
+  if (given.length === 0) return { include: value };
+  checkUnambiguous(model, name, given);
+  return value as GivenOptions;
+}
+
+/**
+ * Throws `TypeError` when an option given under association `name` is also the name of one of its
+ * records' associations, as it could be either.
+ */
+function checkUnambiguous(model: ModelClass, name: string, given: readonly string[]): void {
+  const { target, targets } = associationOf(model, name);
+  for (const each of targets?.() ?? [target()]) {
+    const clash = given.find((option) => associationsOf(each).has(option));
+    if (clash !== undefined) {
+      throw new TypeError(
+        `${each.name} has an association named "${clash}", so toJSON can't tell whether { ${clash} } under "${name}" names it or is an option`,
+      );
+    }
+  }
 }
 
 /** A loaded association as JSON: a list of records, a record, or null. */

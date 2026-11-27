@@ -126,7 +126,7 @@ export type AssociationName<R> = {
   string;
 
 /** The record type an association accessor loads: `Post` for `HasMany<typeof Post>`. */
-type TargetRecord<F> =
+export type TargetRecord<F> =
   LoadedValue<F> extends readonly (infer T)[] ? T : NonNullable<LoadedValue<F>>;
 
 /**
