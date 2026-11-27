@@ -150,7 +150,7 @@ function isRealDouble(number: string, { lowest, highest, step }: Magnitudes): st
 /**
  * A `double precision` or decimal key as a `real`, when a `real` holds it; otherwise NULL, which
  * links nothing. A decimal is compared as a `numeric`, exactly, since it may hold a number past a
- * `double precision`'s range; its infinities and NaN, which a `numeric` orders past them, link.
+ * `double precision`'s range; its infinities and NaN, which a `numeric` orders past every number, link.
  */
 function asReal(key: string, { storedType }: Attribute): string {
   const holds =
@@ -161,8 +161,9 @@ function asReal(key: string, { storedType }: Attribute): string {
 }
 
 /**
- * A real key as `type`, read through its text: the shortest that reads back as the same value
- * (`0.1`), and the value its record holds, rather than its exact widening.
+ * A real key as `type`, read through its text: under Postgres's default `extra_float_digits`,
+ * the shortest that reads back as the same value (`0.1`), rather than its exact widening. Its
+ * record reads the same text under any setting, so the link compares the value the record holds.
  */
 const throughText = (key: string, type: string) => `CAST(CAST(${key} AS TEXT) AS ${type})`;
 
