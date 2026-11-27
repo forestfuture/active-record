@@ -31,6 +31,16 @@ class Note extends Model.define({
   });
 }
 
+// A price kept as a decimal to the cent, found by the notes whose bodies hold it.
+class Price extends Model.define({
+  id: { type: "integer", null: false },
+  price: { type: "decimal", precision: 10, scale: 2 },
+}) {
+  static table = "ledger_lines";
+
+  notes = hasMany(Note, { foreignKey: "body", primaryKey: "price" });
+}
+
 // A topic, which reaches the measures its notes' bodies hold.
 class Topic extends Model.define({ id: { type: "integer", null: false } }) {
   static table = "topics";
@@ -79,7 +89,7 @@ describe("text selected for a number key", () => {
       topic!
         .loaded("measures")
         .map(({ id }) => id)
-        .sort(),
+        .sort((a, b) => a - b),
     ).toEqual([1, 2, 3]);
   });
 
@@ -107,5 +117,22 @@ describe("text selected for a number key", () => {
     );
 
     expect(await db().model(Measure).joins("byQuantity").count()).toBe(0);
+  });
+
+  describe("for a decimal", () => {
+    beforeEach(async () => {
+      await harness.reset("ledger_lines");
+      await harness.exec("INSERT INTO ledger_lines (id, price) VALUES (1, 9.5), (2, 100), (3, 5)");
+      await harness.exec("DELETE FROM replies");
+      await harness.exec(
+        "INSERT INTO replies (id, topic_id, body) VALUES (1, 1, '9.50'), (2, 1, '1e2'), (3, 1, ' .5e1 ')",
+      );
+    });
+
+    test("a join finds the decimals the notes' bodies hold", async () => {
+      const ids = await db().model(Price).joins("notes").order({ id: "asc" }).pluck("id");
+
+      expect(ids).toEqual([1, 2, 3]);
+    });
   });
 });
