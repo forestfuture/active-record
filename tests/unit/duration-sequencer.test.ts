@@ -72,9 +72,12 @@ describe("balanceShards (#614)", () => {
 });
 
 describe("DurationSequencer (#614)", () => {
-  /** A test file as Vitest gives the sequencer one: its project's name and its absolute path. */
-  const spec = (project: string, path: string) =>
-    ({ project: { name: project }, moduleId: `/repo/${path}` }) as unknown as TestSpecification;
+  /** A test file as Vitest gives the sequencer one: its project, and its absolute path. */
+  const spec = (project: string, path: string, root = "/repo") =>
+    ({
+      project: { name: project, config: { root } },
+      moduleId: `${root}/${path}`,
+    }) as unknown as TestSpecification;
   const sequencer = (index: number, count: number, durations: Record<string, number>) =>
     new DurationSequencer(
       { config: { root: "/repo", shard: { index, count } } } as never,
@@ -93,5 +96,19 @@ describe("DurationSequencer (#614)", () => {
 
     expect(await sequencer(1, 2, durations).shard([unit, onD1, onPg])).toEqual([onD1]);
     expect(await sequencer(2, 2, durations).shard([unit, onD1, onPg])).toEqual([onPg, unit]);
+  });
+
+  // As Vitest names a file in its reports: by its path from its own project's root.
+  test("finds a file's record by its path from its project's root", async () => {
+    const durations = {
+      "site tests/a.test.ts": 9,
+      "unit tests/b.test.ts": 5,
+      "unit tests/c.test.ts": 1,
+    };
+    const inSite = spec("site", "tests/a.test.ts", "/repo/site");
+    const b = spec("unit", "tests/b.test.ts");
+    const c = spec("unit", "tests/c.test.ts");
+
+    expect(await sequencer(1, 2, durations).shard([inSite, b, c])).toEqual([inSite]);
   });
 });
