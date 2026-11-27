@@ -73,22 +73,25 @@ const bigintRange = "BETWEEN -9223372036854775808 AND 9223372036854775807";
  */
 const doubleRange = "BETWEEN 4.9406564584124654e-324 AND 1.7976931348623157e308";
 
-/** The magnitudes a 4-byte `real` holds, as `doubleRange` gives a `double precision`'s (#623). */
-const floatRange = "BETWEEN 1.4012984643248171e-45 AND 3.4028234663852886e38";
+/** The magnitudes a 4-byte `real` (`float4`) holds, as `doubleRange` gives a `double precision`'s (#623). */
+const float4Range = "BETWEEN 1.4012984643248171e-45 AND 3.4028234663852886e38";
+
+/** Number text as a `numeric`, which holds it exactly. */
+const asNumeric = (text: string) => `CAST(${text} AS NUMERIC)`;
 
 /**
  * Real-number text as `type`, when it's zero or within `range`, the magnitudes `type` holds;
  * otherwise NULL, which links nothing rather than failing the cast.
  */
-function realIn(text: string, type: string, range: string): string {
-  const number = `CAST(${text} AS NUMERIC)`;
+function realCast(text: string, type: string, range: string): string {
+  const number = asNumeric(text);
   return `CASE WHEN ${number} = 0 OR ABS(${number}) ${range} THEN CAST(${text} AS ${type}) END`;
 }
 
 /**
- * Real-number text as the width of `linked`'s column: a 4-byte `real` for one, as a condition
- * bound to it reads its value, so a fraction links to the `real` it rounds to, and a `double
- * precision` for any other (#623). The column's type is read from a query of its table that
+ * Real-number text as a `double precision`, rounded first to a 4-byte `real` for a `float4`
+ * column, as a condition bound to it reads its value, so a fraction links to the `real` it
+ * rounds to (#623). Postgres widens both the column and the rounded value exactly. The column's type is read from a query of its table that
  * finds no row, not from the row being linked, so the test is the same for every row and the
  * column's index is still searched. A query names the table as a table: a cast to its row type
  * would find a type of Postgres's own first, should the table share its name (`point`).
@@ -97,27 +100,27 @@ function linkedReal(text: string, linked: Attribute): string {
   const column = `(SELECT ${quoted(linked.column)} FROM ${quoted(linked.table)} WHERE false)`;
   const type = `pg_typeof(${column})`;
   return (
-    `CASE WHEN ${type} = 'real'::regtype THEN ${realIn(text, "REAL", floatRange)} ` +
-    `ELSE ${realIn(text, "DOUBLE PRECISION", doubleRange)} END`
+    `CASE WHEN ${type} = 'real'::regtype THEN ${realCast(text, "REAL", float4Range)} ` +
+    `ELSE ${realCast(text, "DOUBLE PRECISION", doubleRange)} END`
   );
 }
 
 /**
  * `text` as the number it holds, cast to the type of `linked`'s column, so a comparison with that
- * column searches its index (#618): an integer's `bigint`, a real's `real` or `double precision`
+ * column searches its index (#618): an integer's `bigint`, a real's `double precision` (rounded to a `real` for a `float4`)
  * and a decimal's `numeric`. A real or a decimal takes a point and an exponent, as a condition
  * does (#617). Text past the type's range links nothing rather than failing the cast. Each CASE
  * decides before the next cast runs.
  */
 function linkedNumber(text: string, linked: Attribute): string {
   if (linked.storedType === "integer") {
-    return `CASE WHEN ${matches(text, integerPattern)} THEN CASE WHEN CAST(${text} AS NUMERIC) ${bigintRange} THEN CAST(${text} AS BIGINT) END END`;
+    return `CASE WHEN ${matches(text, integerPattern)} THEN CASE WHEN ${asNumeric(text)} ${bigintRange} THEN CAST(${text} AS BIGINT) END END`;
   }
   const isReal = matches(text, realPattern);
   if (linked.storedType === "real")
     return `CASE WHEN ${isReal} THEN ${linkedReal(text, linked)} END`;
   // The one other number kind, a decimal, is held as a numeric.
-  return `CASE WHEN ${isReal} THEN CAST(${text} AS NUMERIC) END`;
+  return `CASE WHEN ${isReal} THEN ${asNumeric(text)} END`;
 }
 
 /** A quoted identifier; embedded double quotes are doubled. */
