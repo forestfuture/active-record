@@ -3,6 +3,7 @@ import { belongsTo, hasMany, Model, withDatabase } from "../../packages/arbor/sr
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const phoneId = "0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b";
+const tabletId = "5d4c3b2a-1f0e-4d9c-8b7a-6f5e4d3c2b1a";
 
 // A UUID in another form than its one, as a uuid is held: text compares exactly on D1.
 const otherForms = [
@@ -309,6 +310,19 @@ describe("uuid links", () => {
       expect((await db().model(Device).find(phoneId)).readingsCount).toBe(0);
     });
 
+    test("a counter cache moves a text foreign key's count to the uuid key it changes to", async () => {
+      await harness.exec("INSERT INTO devices (id, name) VALUES (?, ?)", [tabletId, "tablet"]);
+      const reading = await db().model(CountedReading).create({ id: 1, deviceId: phoneId });
+
+      await reading.update({ deviceId: tabletId });
+
+      const devices = [
+        await db().model(Device).find(phoneId),
+        await db().model(Device).find(tabletId),
+      ];
+      expect(devices.map((device) => device.readingsCount)).toEqual([0, 1]);
+    });
+
     test("a counter cache counts a text foreign key holding a uuid key out when it's destroyed", async () => {
       const reading = await db().model(CountedReading).create({ id: 1, deviceId: phoneId });
 
@@ -438,6 +452,24 @@ describe("uuid links", () => {
       await call.update({ phoneId: null });
 
       expect((await db().model(Phone).find(phoneId)).callsCount).toBe(0);
+    });
+
+    test("a uuid foreign key moves its count to the text key it changes to", async () => {
+      await db()
+        .model(Phone)
+        .insertAll([
+          { id: phoneId, callsCount: 0 },
+          { id: tabletId, callsCount: 0 },
+        ]);
+      const call = await db().model(Call).create({ id: 2, phoneId });
+
+      await call.update({ phoneId: tabletId });
+
+      const phones = [
+        await db().model(Phone).find(phoneId),
+        await db().model(Phone).find(tabletId),
+      ];
+      expect(phones.map((phone) => phone.callsCount)).toEqual([0, 1]);
     });
 
     test("a uuid foreign key counts out of its text key when it's destroyed", async () => {
