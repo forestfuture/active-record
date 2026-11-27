@@ -358,11 +358,28 @@ function changeThroughRow(
   const ownerKey = attributeFor(owner, owner.primaryKey);
   if (when === "before") ownerKey.bindCells(params, recordState.storedKey);
   else ownerKey.bind(params, recordState.read(owner.primaryKey));
-  const foreignKey = quoteIdentifier(attributeFor(owner, counter.foreignKey).column);
+  const selected = rowsTargetKey(record, counter);
+  // A key no target key can link to was counted in nowhere, so it's counted out of nowhere.
+  if (selected === undefined) {
+    return compileCounterChange(counter, changeBy(counter, by), { sql: "NULL", params: [] });
+  }
   const typed =
     counter.type === undefined ? "" : ` AND ${typeCondition(owner, counter.type, params)}`;
-  const row = `(SELECT ${foreignKey} FROM ${quoteIdentifier(owner.table)} WHERE ${quoteIdentifier(ownerKey.column)} = ${valueMark}${typed})`;
+  const row = `(SELECT ${selected} FROM ${quoteIdentifier(owner.table)} WHERE ${quoteIdentifier(ownerKey.column)} = ${valueMark}${typed})`;
   return compileCounterChange(counter, changeBy(counter, by), { sql: row, params });
+}
+
+/**
+ * The stored row's foreign key, selected as the dialect links it to the counter's target key, as
+ * a join compares them (#607): `undefined` when it links no key of its type to that one.
+ */
+function rowsTargetKey(record: Model, { foreignKey, target, targetKey }: CounterCache) {
+  const linked = attributeFor(modelOf(record), foreignKey);
+  return record[state].executor.dialect.linkedKey(
+    quoteIdentifier(linked.column),
+    linked,
+    attributeFor(target, targetKey),
+  );
 }
 
 /**

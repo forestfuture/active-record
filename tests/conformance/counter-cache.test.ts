@@ -119,6 +119,15 @@ class Pin extends Model.define({
   card = belongsTo(Card);
 }
 
+/** A sample counted in a topic's reply tally by the topic's id, which its text label holds. */
+class LabeledSample extends Model.define({
+  id: { type: "integer", null: false },
+  label: "string",
+}) {
+  static table = "samples";
+  topic = belongsTo(Topic, { foreignKey: "label", counterCache: "replyTally", optional: true });
+}
+
 describe("counter caches", () => {
   let harness: Harness;
   const db = () => harness.connect();
@@ -389,6 +398,22 @@ describe("counter caches", () => {
       await reply.save();
 
       expect(await repliesCount(1)).toBe(1);
+    });
+  });
+
+  describe("a text foreign key linked to an integer key", () => {
+    beforeEach(async () => {
+      await harness.reset("samples");
+      await harness.exec("UPDATE topics SET reply_tally = 1 WHERE id = 1");
+      await harness.exec("INSERT INTO samples (id, label) VALUES (1, '1')");
+    });
+
+    test("destroying the record counts it out", async () => {
+      const sample = await db().model(LabeledSample).find(1);
+
+      await sample.destroy();
+
+      expect(Number(await replyTally(1))).toBe(0);
     });
   });
 
