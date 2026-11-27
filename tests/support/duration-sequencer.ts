@@ -49,7 +49,7 @@ export function balanceShards<File extends TimedFile>(
 export const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /** The middle of `values` once sorted, or 1 when there are none. */
-function median(values: number[]): number {
+export function median(values: readonly number[]): number {
   if (values.length === 0) return 1;
   const sorted = values.toSorted((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
