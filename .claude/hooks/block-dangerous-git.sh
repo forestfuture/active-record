@@ -47,12 +47,14 @@ BLOCKED=(
 
 # Whether a git add's arguments stage everything: -A or --all, a path that names the whole tree,
 # or -u or --update without a path. A short flag may stand in a cluster (-vu), a redirect isn't a
-# path, and after -- every word is one.
+# path, and after -- every word is one. A quoted word ('.') is read without its quotes, but a word
+# with an unpaired quote ends the command: the git add is text inside quotes, such as a message.
 stages_everything() {
   local words word update=no paths=0 flags=yes skip=no
   read -ra words <<<"$1"
   for word in "${words[@]}"; do
-    word=${word//[\'\"]/}
+    [[ $word =~ ^\'[^\']*\'$ || $word =~ ^\"[^\"]*\"$ ]] && word=${word:1:${#word}-2}
+    [[ $word == *[\'\"]* ]] && return 1
     if [[ $skip == yes ]]; then skip=no; continue; fi
     if [[ $word =~ ^[0-9]*[\<\>]+$ ]]; then skip=yes; continue; fi
     [[ $word =~ ^[0-9]*[\<\>] ]] && continue
@@ -71,29 +73,9 @@ stages_everything() {
   [[ $update == yes && $paths -eq 0 ]]
 }
 
-# A git add, its arguments in the fourth group.
-ADD='(^|[^a-zA-Z0-9_./-])git( -[cC] [^ ]+)* add( (.*))?$'
-
-# Each simple command on its own line, so an allowed command can't carry a blocked one with it.
-SEGMENTS=${COMMAND//&/$'\n'}
-SEGMENTS=${SEGMENTS//|/$'\n'}
-SEGMENTS=${SEGMENTS//;/$'\n'}
-
-while IFS= read -r segment; do
-  if [[ $segment =~ $ADD ]] && stages_everything "${BASH_REMATCH[4]}"; then
-    echo "BLOCKED: '$segment' stages everything. $STAGE" >&2
-    exit 2
-  fi
-  for ((i = 0; i < ${#BLOCKED[@]}; i += 2)); do
-    if grep -qE "${BLOCKED[i]}" <<<"$segment"; then
-      echo "BLOCKED: '$segment' matches '${BLOCKED[i]}'. ${BLOCKED[i + 1]}" >&2
-      exit 2
-    fi
-  done
-done <<<"$SEGMENTS"
-
-exit 0
-
+# A git add, its arguments in the fourth group. git starts the command, or follows a space, a ( or
+# a backtick; one after a quote is text, as in a commit message that names the command.
+ADD='(^|[ (`])git( -[cC] [^ ]+)* add( (.*))?$'
 
 # Each simple command on its own line, so an allowed command can't carry a blocked one with it.
 SEGMENTS=${COMMAND//&/$'\n'}
