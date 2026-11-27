@@ -794,7 +794,7 @@ _Code:_ `arbor/src/scoped-relation.ts`.
 _Portable._
 
 _Guide:_ [shared-behavior](<../site/docs/(how-to)/shared-behavior.mdx>), [models](<../site/docs/(basics)/models.mdx>).
-_Code:_ `arbor/src/ancestors.ts`, `arbor/src/declarations.ts`, `arbor/src/model.ts`, `arbor/src/model-statics.ts`, `arbor/src/verify-model.ts`, `arbor/src/inspect-support.ts`, `arbor/src/record-inspect.ts`, `arbor/src/relation-inspect.ts`.
+_Code:_ `arbor/src/ancestors.ts`, `arbor/src/declarations.ts`, `arbor/src/model.ts`, `arbor/src/model-statics.ts`, `arbor/src/to-json-options.ts`, `arbor/src/verify-model.ts`, `arbor/src/inspect-support.ts`, `arbor/src/record-inspect.ts`, `arbor/src/relation-inspect.ts`.
 
 - A subclass (`class Admin extends User`) inherits a copy of its parent's attributes, validations, callbacks, scopes and associations.
   Declaring more on the child never changes the parent.
