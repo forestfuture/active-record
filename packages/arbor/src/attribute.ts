@@ -59,6 +59,11 @@ export class Attribute {
     return columnOf(this.#model, this.name).column;
   }
 
+  /** Its Model's table, unquoted, so an adapter can name its column's type (#623). */
+  get table(): string {
+    return this.#model.table;
+  }
+
   /** Whether it's a `string` or `uuid` attribute (#507), which D1 compares as text, not by number. */
   get isText(): boolean {
     return this.#definition.type === "string" || this.#definition.type === "uuid";
