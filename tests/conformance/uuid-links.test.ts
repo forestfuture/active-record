@@ -301,6 +301,30 @@ describe("uuid links", () => {
       },
     );
 
+    test("a counter cache counts a text foreign key holding a uuid key out when it moves or goes", async () => {
+      const readingsCount = async () => (await db().model(Device).find(phoneId)).readingsCount;
+      const moved = await db().model(CountedReading).create({ id: 1, deviceId: phoneId });
+      const destroyed = await db().model(CountedReading).create({ id: 2, deviceId: phoneId });
+
+      await moved.update({ deviceId: null });
+      const afterMove = await readingsCount();
+      await destroyed.destroy();
+
+      expect([afterMove, await readingsCount()]).toEqual([1, 0]);
+    });
+
+    test.each(otherForms)(
+      "a counter cache counts out nothing for a text foreign key holding a uuid key in %s",
+      async (_, deviceId) => {
+        const reading = await db().model(CountedReading).create({ id: 1, deviceId });
+        await harness.exec("UPDATE devices SET readings_count = 1 WHERE id = ?", [phoneId]);
+
+        await reading.destroy();
+
+        expect((await db().model(Device).find(phoneId)).readingsCount).toBe(1);
+      },
+    );
+
     test("a counter cache counts nothing in for a text foreign key that isn't a UUID, without an error", async () => {
       await db().model(CountedReading).create({ id: 1, deviceId: "lamp" });
 
@@ -401,6 +425,19 @@ describe("uuid links", () => {
       await withDatabase(db(), () => Phone.resetCounters(id, "calls"));
 
       expect((await db().model(Phone).find(id)).callsCount).toBe(0);
+    });
+
+    test("a uuid foreign key counts out of its text key when it moves or goes", async () => {
+      const callsCount = async () => (await db().model(Phone).find(phoneId)).callsCount;
+      await db().model(Phone).create({ id: phoneId, callsCount: 0 });
+      const moved = await db().model(Call).create({ id: 2, phoneId });
+      const destroyed = await db().model(Call).create({ id: 3, phoneId });
+
+      await moved.update({ phoneId: null });
+      const afterMove = await callsCount();
+      await destroyed.destroy();
+
+      expect([afterMove, await callsCount()]).toEqual([1, 0]);
     });
 
     test("in its one form, a hasMany reads, preloads and counts its records", async () => {
