@@ -2,7 +2,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Reporter, TestModule, Vitest } from "vite-plus/test/node";
-import { durationKey, durationsPath } from "./duration-sequencer.ts";
+import { byCodePoint, durationKey, durationsPath } from "./duration-sequencer.ts";
 
 /**
  * A test file's time in its worker, to a tenth of a second: its tests and hooks, collecting them,
@@ -32,7 +32,7 @@ export default class DurationsReporter implements Reporter {
         (module) =>
           [durationKey(module.project.name, module.relativeModuleId), secondsOf(module)] as const,
       )
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+      .sort(([a], [b]) => byCodePoint(a, b));
     const text = `${JSON.stringify(Object.fromEntries(durations), null, 2)}\n`;
     writeFileSync(join(this.#root, durationsPath), text);
     console.log(`Recorded ${durations.length} test files' durations in ${durationsPath}`);

@@ -40,7 +40,8 @@ export function balanceShards<File extends TimedFile>(
   return shards.map((shard) => shard.files);
 }
 
-const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+/** Orders keys as `<` compares them, the same on every platform. */
+export const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
 /** The middle of `values` once sorted, or 1 when there are none. */
 function median(values: number[]): number {
