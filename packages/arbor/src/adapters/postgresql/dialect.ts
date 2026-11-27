@@ -88,11 +88,14 @@ function realIn(text: string, type: string, range: string): string {
 /**
  * Real-number text as the width of `linked`'s column: a 4-byte `real` for one, as a condition
  * bound to it reads its value, so a fraction links to the `real` it rounds to, and a `double
- * precision` for any other (#623). The column's type is read from the table's, not from a row,
- * so the test is the same for every row and the column's index is still searched.
+ * precision` for any other (#623). The column's type is read from a query of its table that
+ * finds no row, not from the row being linked, so the test is the same for every row and the
+ * column's index is still searched. A query names the table as a table: a cast to its row type
+ * would find a type of Postgres's own first, should the table share its name (`point`).
  */
 function linkedReal(text: string, linked: Attribute): string {
-  const type = `pg_typeof((NULL::${quoted(linked.table)}).${quoted(linked.column)})`;
+  const column = `(SELECT ${quoted(linked.column)} FROM ${quoted(linked.table)} WHERE false)`;
+  const type = `pg_typeof(${column})`;
   return (
     `CASE WHEN ${type} = 'real'::regtype THEN ${realIn(text, "REAL", floatRange)} ` +
     `ELSE ${realIn(text, "DOUBLE PRECISION", doubleRange)} END`
