@@ -151,8 +151,9 @@ export const postgres: Dialect = {
   /**
    * Postgres compares no text with a number, nor a uuid with either (#563). A key selected for a
    * text attribute is its text; text selected for a uuid is the UUID it holds in its one form, and
-   * for a number the number its digits are, as a condition casts it; text that isn't one matches
-   * nothing. Only the key is cast, so the linked attribute's column keeps its index. A date, a
+   * for a number the number it holds, as a condition casts it, in the number's own type (#617,
+   * #618); text that isn't one matches nothing. Only the key is cast, so the linked attribute's
+   * column keeps its index. A date, a
    * time, a timestamp, a boolean, JSON or bytes, linked either way to a key of another type,
    * matches nothing (#586): Postgres compares most of them with no other type, and a date with a
    * timestamp, which it can compare, links nothing on D1, which compares their text.
