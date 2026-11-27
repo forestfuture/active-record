@@ -236,4 +236,23 @@ describe("a number linked to a float4 real", () => {
 
     expect(meters).toEqual([1]);
   });
+
+  test.each(["1e39", "-1e39", "1e-50"])(
+    "a double precision past a float4's range, %s, links nothing rather than failing",
+    async (wide) => {
+      await schema.pool.query({ text: "UPDATE samples SET wide = $1", values: [wide] });
+
+      expect(await db().model(Meter).joins("samplesByWide").pluck("id")).toEqual([]);
+    },
+  );
+
+  test.each(["3.4028234663852886e38", "1.401298464324817e-45", "0", "Infinity", "-Infinity"])(
+    "a join finds the meter by a double precision %s a float4 holds (guard)",
+    async (wide) => {
+      await schema.pool.query({ text: "UPDATE meters SET narrow = $1", values: [wide] });
+      await schema.pool.query({ text: "UPDATE samples SET wide = $1", values: [wide] });
+
+      expect(await db().model(Meter).joins("samplesByWide").pluck("id")).toEqual([1]);
+    },
+  );
 });
