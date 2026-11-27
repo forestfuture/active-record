@@ -38,13 +38,13 @@ export const standalonePages = [
   "raw-statements",
 ];
 
-/** A page's project folder, or a path in it. */
-export const pageProject = (page: string, path = "") =>
-  new URL(`../../site/snippets/pages/${page}/${path}`, import.meta.url);
+/** A page's project folder. */
+export const pageProject = (page: string) =>
+  new URL(`../../site/snippets/pages/${page}/`, import.meta.url);
 
-/** What `arbor schema` exits with, and what it prints, in `cwd`. */
-export async function schemaCommand(cwd: string, check = false) {
+/** What `arbor schema --check` exits with, and what it prints, in `cwd`. */
+export async function checkSchema(cwd: string) {
   const said: string[] = [];
-  const code = await runSchema({ cwd, check }, (line) => said.push(line));
+  const code = await runSchema({ cwd, check: true }, (line) => said.push(line));
   return { code, said: said.join("\n") };
 }
