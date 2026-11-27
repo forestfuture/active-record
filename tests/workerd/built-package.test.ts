@@ -13,6 +13,9 @@ const pkg = new URL("../../packages/arbor/", import.meta.url).pathname;
 const fixture = new URL("../fixtures/workerd/built/", import.meta.url).pathname;
 const scratch = scratchDirs();
 
+/** The Worker's compatibility settings, for Wrangler's bundle and Miniflare's runtime alike. */
+const compatibility = { date: "2026-01-01", flags: ["nodejs_compat"] };
+
 /**
  * A folder outside the repo holding the packed package in its node_modules, as an app installs
  * it, so nothing the Worker imports can come from the workspace's sources.
@@ -39,8 +42,8 @@ function bundle(app: string): string {
   const config = {
     name: "built-package",
     main: "worker.ts",
-    compatibility_date: "2026-01-01",
-    compatibility_flags: ["nodejs_compat"],
+    compatibility_date: compatibility.date,
+    compatibility_flags: compatibility.flags,
   };
   writeFileSync(join(app, "wrangler.jsonc"), JSON.stringify(config));
   runWrangler(app, ["deploy", "--dry-run", "--outdir", join(app, "bundle")]);
@@ -54,8 +57,8 @@ describe("the built package in workerd", () => {
   beforeAll(async () => {
     mf = startMiniflare({
       main: bundle(installPacked()),
-      compatibilityDate: "2026-01-01",
-      compatibilityFlags: ["nodejs_compat"],
+      compatibilityDate: compatibility.date,
+      compatibilityFlags: compatibility.flags,
       d1: { DB: "DB" },
     });
     const db = await mf.getD1Database("DB");
