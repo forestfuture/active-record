@@ -68,24 +68,43 @@ const isCastable = (kind: Kind): kind is "uuid" | "text" | "number" =>
 const bigintRange = "BETWEEN -9223372036854775808 AND 9223372036854775807";
 
 /**
- * The magnitudes a `double precision` holds, from the least subnormal to the greatest, besides
- * zero: text outside them, which its cast would refuse, links to no real.
+ * The magnitudes a binary floating-point type's cast accepts, as powers of 2: those that round to
+ * one of its values besides zero. They lie past half its least subnormal, `2 ** -lowest`, which
+ * rounds to zero, and below the midpoint of its greatest value and the next power of 2, `2 **
+ * highest - 2 ** step`, which rounds to infinity: the cast refuses both (#623).
  */
-const doubleRange = "BETWEEN 4.9406564584124654e-324 AND 1.7976931348623157e308";
+interface Magnitudes {
+  readonly lowest: bigint;
+  readonly highest: bigint;
+  readonly step: bigint;
+}
 
-/** The magnitudes a 4-byte `real` (`float4`) holds, as `doubleRange` gives a `double precision`'s (#623). */
-const float4Range = "BETWEEN 1.4012984643248171e-45 AND 3.4028234663852886e38";
+/** A `double precision`'s magnitudes (#585). */
+const doubleMagnitudes: Magnitudes = { lowest: 1075n, highest: 1024n, step: 970n };
+
+/** A 4-byte `real`'s (`float4`) magnitudes (#623). */
+const float4Magnitudes: Magnitudes = { lowest: 150n, highest: 128n, step: 103n };
+
+/**
+ * Whether `number`, a `numeric`, is within `magnitudes`, compared exactly: the least bound as
+ * its product with `2 ** lowest`, whole, as a `numeric` holds a fraction that small only
+ * rounded.
+ */
+function isWithin(number: string, { lowest, highest, step }: Magnitudes): string {
+  const limit = 2n ** highest - 2n ** step;
+  return `ABS(${number}) * ${2n ** lowest} > 1 AND ABS(${number}) < ${limit}`;
+}
 
 /** Number text as a `numeric`, which holds it exactly. */
 const asNumeric = (text: string) => `CAST(${text} AS NUMERIC)`;
 
 /**
- * Real-number text as `type`, when it's zero or within `range`, the magnitudes `type` holds;
+ * Real-number text as `type`, when it's zero or within `magnitudes`, those `type` holds;
  * otherwise NULL, which links nothing rather than failing the cast.
  */
-function realCast(text: string, type: string, range: string): string {
+function realCast(text: string, type: string, magnitudes: Magnitudes): string {
   const number = asNumeric(text);
-  return `CASE WHEN ${number} = 0 OR ABS(${number}) ${range} THEN CAST(${text} AS ${type}) END`;
+  return `CASE WHEN ${number} = 0 OR ${isWithin(number, magnitudes)} THEN CAST(${text} AS ${type}) END`;
 }
 
 /**
@@ -100,8 +119,8 @@ function linkedReal(text: string, linked: Attribute): string {
   const column = `(SELECT ${quoted(linked.column)} FROM ${quoted(linked.table)} WHERE false)`;
   const type = `pg_typeof(${column})`;
   return (
-    `CASE WHEN ${type} = 'real'::regtype THEN ${realCast(text, "REAL", float4Range)} ` +
-    `ELSE ${realCast(text, "DOUBLE PRECISION", doubleRange)} END`
+    `CASE WHEN ${type} = 'real'::regtype THEN ${realCast(text, "REAL", float4Magnitudes)} ` +
+    `ELSE ${realCast(text, "DOUBLE PRECISION", doubleMagnitudes)} END`
   );
 }
 
