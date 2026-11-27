@@ -60,6 +60,26 @@ class Profile extends Model.define({
   static table = "profiles";
 }
 
+class Entry extends Model.define({
+  id: { type: "integer", null: false },
+  userId: { type: "integer", null: false },
+  title: { type: "string", null: false },
+}) {
+  static table = "posts";
+
+  // An association named as one of toJSON's options.
+  include = belongsTo(User, { foreignKey: "userId" });
+}
+
+class Writer extends Model.define({
+  id: { type: "integer", null: false },
+  email: { type: "string", null: false },
+}) {
+  static table = "users";
+
+  entries = hasMany(Entry, { foreignKey: "userId" });
+}
+
 // What toJSON's options choose to send: associations it was given, and which attributes (#300).
 describe("toJSON options", () => {
   let harness: Harness;
@@ -238,6 +258,32 @@ describe("toJSON options", () => {
 
       expect(() => jane.toJSON({ methods: ["rank" as "handle"] })).toThrow(
         new TypeError("User's \"rank\" returned a promise; toJSON's methods can't wait for one"),
+      );
+    });
+  });
+
+  describe("an included association's own options", () => {
+    test("choose its records' attributes and associations", async () => {
+      const jane = await db().model(User).includes({ posts: "comments" }).find(1);
+
+      expect(
+        jane.toJSON({ only: ["id"], include: { posts: { only: ["title"], include: "comments" } } }),
+      ).toEqual({
+        id: 1,
+        posts: [
+          { title: "First", comments: [{ id: 20, body: "Nice" }] },
+          { title: "Second", comments: [] },
+        ],
+      });
+    });
+
+    test("an option named as one of the records' associations throws, as it could mean either", async () => {
+      const jane = await db().model(Writer).includes("entries").find(1);
+
+      expect(() => jane.toJSON({ include: { entries: { include: "include" } } })).toThrow(
+        new TypeError(
+          'Entry has an association named "include", so toJSON can\'t tell whether { include } under "entries" names it or is an option',
+        ),
       );
     });
   });
