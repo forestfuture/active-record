@@ -9,8 +9,9 @@ permissions:
   contents: read
 
 jobs:
-  # Everything but the tests, beside them (#365).
-  static:
+  # Formatting, lint and type checks, in a job of their own: the type-aware lint takes minutes on
+  # a runner, as long as the static job below, so the two run at once.
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -18,6 +19,15 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-vp
       - run: vp check
+
+  # Everything else but the tests, beside them (#365).
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-vp
       # Both packages: the core first, since the D1 adapter's types are built against its.
       - run: vp run build
       # The published types show only the public interface, no library internals.
@@ -91,7 +101,7 @@ jobs:
   # (vite.config.ts), which the Best Practices dynamic analysis criterion relies on.
   check:
     runs-on: ubuntu-latest
-    needs: [static, test]
+    needs: [lint, static, test]
     # A required check that's skipped counts as passing, so this runs, and fails, when a job it
     # needs failed: a failing shard can't let a pull request merge.
     if: ${{ !cancelled() }}
@@ -111,16 +121,17 @@ jobs:
       # Merged before the gate below, so this log lists every failing test across the shards
       # (#402); it fails on its own when one did.
       - run: vp test --merge-reports=blob --coverage
-      # Runs after a failed merge too, and fails for a failed static job, or a shard that wrote
-      # no results.
+      # Runs after a failed merge too, and fails for a failed lint or static job, or a shard that
+      # wrote no results.
       - name: Every job it needs passed
         if: ${{ !cancelled() }}
         env:
+          LINT: ${{ needs.lint.result }}
           STATIC: ${{ needs.static.result }}
           TEST: ${{ needs.test.result }}
         run: |
-          if [ "$STATIC" != success ] || [ "$TEST" != success ]; then
-            echo "static: $STATIC, test: $TEST"
+          if [ "$LINT" != success ] || [ "$STATIC" != success ] || [ "$TEST" != success ]; then
+            echo "lint: $LINT, static: $STATIC, test: $TEST"
             exit 1
           fi
 
