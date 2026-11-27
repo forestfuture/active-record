@@ -9,4 +9,6 @@ Our toolchain is Vite+ 1.0, which bundles Vitest 5. `@cloudflare/vitest-pool-wor
 
 ## Consequences
 
-Revisit once pool-workers supports Vitest 5. Then add a small workerd smoke suite; don't move the whole integration suite.
+A small smoke suite runs the library inside workerd without pool-workers (#10). `tests/workerd/` packs the built package, installs the tarball in a folder outside the repo, and bundles a fixture Worker that imports it by name with Wrangler's own build (`wrangler deploy --dry-run --outdir`), as an app's Worker is bundled. Miniflare runs the bundle with `nodejs_compat` and a real D1, and the suite checks the Workers-only seams: a Model's binding read from `cloudflare:workers`, `withDatabase`'s `AsyncLocalStorage`, a preload, and class names kept through the bundle. It needs the build, so it's its own Vitest project, `workerd`, run with `vp run test:workerd` after `vp run build`, in `vp run validate` and CI's `static` job. Plain `vp test` leaves it out.
+
+The main integration suite stays in Node. Moving the workerd suite to pool-workers is optional, once pool-workers supports the toolchain's Vitest: it would make the tests nicer to write, not check more.
