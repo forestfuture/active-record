@@ -40,7 +40,11 @@ type Include<R> = R extends unknown
  * `toJSON` can't wait for one.
  */
 type MethodName<R> = {
-  [K in keyof R]: R[K] extends () => infer T ? Unawaited<T, K> : Unawaited<R[K], K>;
+  [K in keyof R]: R[K] extends () => infer T
+    ? Unawaited<T, K>
+    : R[K] extends (...args: never[]) => unknown
+      ? never
+      : Unawaited<R[K], K>;
 }[keyof R] &
   string;
 
