@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
 import { codePointName, invisibleCharacters } from "../support/invisible-characters.ts";
 
-// The commit-msg hook: its title and body length checks, read past git's comments, its refusal of invisible characters, and its guard warning (#322, #329, #386, #605).
+// The commit-msg hook: its title length check, its wrapping of the body at 72, read past git's comments, its refusal of invisible characters, and its guard warning (#322, #329, #386, #605, #620).
 const hook = new URL("../../.vite-hooks/commit-msg", import.meta.url).pathname;
 
 /** Each file's text, or null for a file to delete. */
@@ -41,7 +41,7 @@ function git(dir: string, ...args: string[]): void {
 /**
  * Commits `before` in a new repository with `config` set, stages `after` on
  * top of it, and runs the hook on `message` as git would: what it prints,
- * and its status. It runs in a UTF-8 locale.
+ * its status, and the message as it leaves it. It runs in a UTF-8 locale.
  */
 function runHook(before: Files, after: Files, message: Message, config: GitConfig = {}) {
   const dir = mkdtempSync(join(tmpdir(), "commit-msg-hook-"));
@@ -57,7 +57,8 @@ function runHook(before: Files, after: Files, message: Message, config: GitConfi
   // ${#line} counts characters; dash, Linux's sh, does neither in any locale.
   const env = { ...process.env, LC_ALL: "en_US.UTF-8" };
   const result = spawnSync("sh", ["-e", hook, ".git/COMMIT_EDITMSG"], { cwd: dir, env });
-  return { status: result.status, output: String(result.stdout) };
+  const written = readFileSync(join(dir, ".git", "COMMIT_EDITMSG"), "utf8");
+  return { status: result.status, output: String(result.stdout), message: written };
 }
 
 const oneTest = 'test("finds a record", () => {});\n';
@@ -229,6 +230,11 @@ function lineOfWords(length: number): string {
   return "word ".repeat(length).slice(0, length - 1) + "x";
 }
 
+/** A line of `length` characters that can't wrap: a word, then one word too long for a line. */
+function unwrappableLine(length: number): string {
+  return `a ${"x".repeat(length - 2)}`;
+}
+
 describe("the commit-msg hook on a commit's title", () => {
   test("skips a long comment line that opens with git's comment character", () => {
     const { status, output } = runHookEditingTheReadme(
@@ -311,27 +317,66 @@ describe("the commit-msg hook on a commit's title", () => {
 });
 
 describe("the commit-msg hook on a commit's body", () => {
-  test("refuses a body line past 72 characters, naming it", () => {
-    const line = lineOfWords(73);
+  test("wraps a body line past 72 characters, keeping its words", () => {
+    const line = lineOfWords(150);
+    const { status, output, message } = runHookEditingTheReadme(
+      `Edit the README (#1)\n\n${line}\nShort.\n`,
+    );
+    const lines = message.split("\n");
+
+    expect(status).toBe(0);
+    expect(output).toBe("Wrapped the commit body at 72 characters.\n");
+    expect(lines.slice(0, 2)).toEqual(["Edit the README (#1)", ""]);
+    expect(lines.slice(2, -2).join(" ")).toBe(line);
+    expect(lines.slice(2, -2).every((wrapped) => wrapped.length <= 72)).toBe(true);
+    expect(lines.slice(-2)).toEqual(["Short.", ""]);
+  });
+
+  test.each([
+    ["a bullet", "- ", "  "],
+    ["a numbered item", "12. ", "    "],
+    ["an indented line", "    ", "    "],
+  ])("wraps %s under its text", (_what, lead, hang) => {
+    const { message } = runHookEditingTheReadme(
+      `Edit the README (#1)\n\n${lead}${lineOfWords(100)}\n`,
+    );
+    const lines = message.trimEnd().split("\n").slice(2);
+
+    expect(lines[0]!.startsWith(lead)).toBe(true);
+    expect(lines.slice(1).every((wrapped) => wrapped.startsWith(hang))).toBe(true);
+    expect(lines.length).toBeGreaterThan(1);
+  });
+
+  test("counts characters, not bytes, as it wraps", () => {
+    const words = Array.from({ length: 30 }, () => "naïve—café").join(" ");
+    const { message } = runHookEditingTheReadme(`Edit the README (#1)\n\n${words}\n`);
+    const lines = message.trimEnd().split("\n").slice(2);
+
+    expect(lines.every((wrapped) => wrapped.length <= 72)).toBe(true);
+    expect(lines.slice(0, -1).every((wrapped) => wrapped.length > 60)).toBe(true);
+  });
+
+  test("refuses a long line it can't wrap, naming it", () => {
+    const line = unwrappableLine(80);
     const { status, output } = runHookEditingTheReadme(`Edit the README (#1)\n\n${line}\n`);
 
     expect(status).toBe(1);
-    expect(output).toContain("Commit body line 3 is 73 characters; wrap the body at 72:");
+    expect(output).toContain("Commit body line 3 is 80 characters; wrap the body at 72:");
     expect(output).toContain(line);
   });
 
   test.each([
-    ["blank lines before the title", `\n\nEdit the README (#1)\n\n${lineOfWords(73)}\n`],
-    ["a run of blank lines", `Edit the README (#1)\n\n\n \n${lineOfWords(73)}\n`],
-    ["a comment", `# A comment\nEdit the README (#1)\n\n${lineOfWords(73)}\n`],
+    ["blank lines before the title", `\n\nEdit the README (#1)\n\n${unwrappableLine(80)}\n`],
+    ["a run of blank lines", `Edit the README (#1)\n\n\n \n${unwrappableLine(80)}\n`],
+    ["a comment", `# A comment\nEdit the README (#1)\n\n${unwrappableLine(80)}\n`],
   ])("numbers a refused line as git stores the message, past %s", (_what, message) => {
     const { output } = runHookEditingTheReadme(message);
 
-    expect(output).toContain("Commit body line 3 is 73 characters");
+    expect(output).toContain("Commit body line 3 is 80 characters");
   });
 
   test("shows a refused line's backslashes as written", () => {
-    const line = `${lineOfWords(70)} a\\c b \\n c`;
+    const line = `a\\c b \\n ${"x".repeat(75)}`;
     const { output } = runHookEditingTheReadme(`Edit the README (#1)\n\n${line}\n`);
 
     expect(output).toContain(`  ${line}\n`);
@@ -394,31 +439,22 @@ describe("the commit-msg hook on a commit's body", () => {
 
   test("lists long body lines beside a long title", () => {
     const { status, output } = runHookEditingTheReadme(
-      `${lineOfWords(73)}\n\n${lineOfWords(73)}\n`,
+      `${lineOfWords(73)}\n\n${unwrappableLine(80)}\n`,
     );
 
     expect(status).toBe(1);
     expect(output).toContain("Commit title is 73 characters");
-    expect(output).toContain("Commit body line 3 is 73 characters");
-  });
-
-  test("refuses a long indented line that has spaces", () => {
-    const { status, output } = runHookEditingTheReadme(
-      `Edit the README (#1)\n\n    ${lineOfWords(73)}\n`,
-    );
-
-    expect(status).toBe(1);
-    expect(output).toContain("Commit body line 3 is 77 characters");
+    expect(output).toContain("Commit body line 3 is 80 characters");
   });
 
   test("lists every long line", () => {
     const { status, output } = runHookEditingTheReadme(
-      `Edit the README (#1)\n\n${lineOfWords(73)}\nShort.\n${lineOfWords(80)}\n`,
+      `Edit the README (#1)\n\n${unwrappableLine(80)}\nShort.\n${unwrappableLine(90)}\n`,
     );
 
     expect(status).toBe(1);
-    expect(output).toContain("Commit body line 3 is 73 characters");
-    expect(output).toContain("Commit body line 5 is 80 characters");
+    expect(output).toContain("Commit body line 3 is 80 characters");
+    expect(output).toContain("Commit body line 5 is 90 characters");
   });
 });
 
