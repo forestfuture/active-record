@@ -1,4 +1,4 @@
-// Puts CI's test files in shards by how long each took in a recorded run (test-durations.json), so the shards take about as long as each other (#614).
+// The test files' recorded durations (test-durations.json: its path, its keys, reading it), and the sequencer that puts CI's test files in shards by them, so the shards take about as long as each other (#614).
 import { readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { BaseSequencer, type TestSpecification, type Vitest } from "vite-plus/test/node";
@@ -9,7 +9,7 @@ export interface TimedFile {
   readonly seconds: number | undefined;
 }
 
-/** The key a file's duration is recorded under: its project's name, then its path from the repo's root. */
+/** The key a file's duration is recorded under: its project's name, then its path from that project's root. */
 export const durationKey = (project: string, path: string) => `${project} ${path}`;
 
 /** The seconds each test file took in a recorded run, by `durationKey`. */
