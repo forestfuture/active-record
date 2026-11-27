@@ -82,14 +82,15 @@ const doubleRange = "BETWEEN 4.9406564584124654e-324 AND 1.7976931348623157e308"
  */
 function linkedNumber(text: string, linked: Attribute): string {
   const number = `CAST(${text} AS NUMERIC)`;
-  switch (linked.storedType) {
-    case "integer":
-      return `CASE WHEN ${matches(text, integerPattern)} THEN CASE WHEN ${number} ${bigintRange} THEN CAST(${text} AS BIGINT) END END`;
-    case "real":
-      return `CASE WHEN ${matches(text, realPattern)} THEN CASE WHEN ${number} = 0 OR ABS(${number}) ${doubleRange} THEN CAST(${text} AS DOUBLE PRECISION) END END`;
-    default:
-      return `CASE WHEN ${matches(text, realPattern)} THEN ${number} END`;
+  if (linked.storedType === "integer") {
+    return `CASE WHEN ${matches(text, integerPattern)} THEN CASE WHEN ${number} ${bigintRange} THEN CAST(${text} AS BIGINT) END END`;
   }
+  const isReal = matches(text, realPattern);
+  if (linked.storedType === "real") {
+    return `CASE WHEN ${isReal} THEN CASE WHEN ${number} = 0 OR ABS(${number}) ${doubleRange} THEN CAST(${text} AS DOUBLE PRECISION) END END`;
+  }
+  // The one other number kind, a decimal, is held as a numeric.
+  return `CASE WHEN ${isReal} THEN ${number} END`;
 }
 
 /** A quoted identifier; embedded double quotes are doubled. */
@@ -153,10 +154,10 @@ export const postgres: Dialect = {
    * text attribute is its text; text selected for a uuid is the UUID it holds in its one form, and
    * for a number the number it holds, as a condition casts it, in the number's own type (#617,
    * #618); text that isn't one matches nothing. Only the key is cast, so the linked attribute's
-   * column keeps its index. A date, a
-   * time, a timestamp, a boolean, JSON or bytes, linked either way to a key of another type,
-   * matches nothing (#586): Postgres compares most of them with no other type, and a date with a
-   * timestamp, which it can compare, links nothing on D1, which compares their text.
+   * column keeps its index. A date, a time, a timestamp, a boolean, JSON or bytes, linked either
+   * way to a key of another type, matches nothing (#586): Postgres compares most of them with no
+   * other type, and a date with a timestamp, which it can compare, links nothing on D1, which
+   * compares their text.
    */
   linkedKey(key, keyAttribute, linked) {
     const kind = kindOf(linked);
