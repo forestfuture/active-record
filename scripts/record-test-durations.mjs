@@ -6,10 +6,12 @@ import { mkdirSync, mkdtempSync, readdirSync, renameSync, rmSync } from "node:fs
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+// The repository the runs belong to, named so a fork's clone can't pick its own runs.
+const repo = "forestfuture/arbor";
 const run = process.argv[2];
 if (!/^\d+$/.test(run ?? "")) {
   console.error(
-    "Usage: vp run test:durations <run-id>, a CI run from gh run list --workflow ci.yml",
+    "Usage: vp run test:durations <run-id>, a passing CI run of a push to main, from gh run list --workflow ci.yml --branch main --event push",
   );
   process.exit(1);
 }
@@ -17,9 +19,13 @@ if (!/^\d+$/.test(run ?? "")) {
 // Only a passing run of a push to main: a pull request's run, from a fork among others, uploads
 // reports its author controls, and a failed run's are missing what didn't finish.
 const { event, headBranch, conclusion, workflowName } = JSON.parse(
-  execFileSync("gh", ["run", "view", run, "--json", "event,headBranch,conclusion,workflowName"], {
-    encoding: "utf8",
-  }),
+  execFileSync(
+    "gh",
+    ["run", "view", run, "--repo", repo, "--json", "event,headBranch,conclusion,workflowName"],
+    {
+      encoding: "utf8",
+    },
+  ),
 );
 if (
   workflowName !== "CI" ||
@@ -35,9 +41,13 @@ if (
 
 const dir = mkdtempSync(join(tmpdir(), "test-durations-"));
 try {
-  execFileSync("gh", ["run", "download", run, "--pattern", "blob-*", "--dir", dir], {
-    stdio: "inherit",
-  });
+  execFileSync(
+    "gh",
+    ["run", "download", run, "--repo", repo, "--pattern", "blob-*", "--dir", dir],
+    {
+      stdio: "inherit",
+    },
+  );
   // gh saves each shard's report in a folder of its own, and the merge reads one folder.
   const merged = join(dir, "merged");
   mkdirSync(merged);
