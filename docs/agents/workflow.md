@@ -38,7 +38,7 @@ Follow the `tdd` skill, one vertical slice at a time:
 ### Commit messages
 
 - **Title**: aim for 50 characters (the `commit-msg` hook warns past 60 and rejects past 72; a few over is fine). Imperative, capitalized, no trailing period, no `feat:`-style prefixes. End with the issue number: `(#82)`.
-- **Body**, after a blank line: what behavior changed and why, in a few short lines or bullets wrapped at 72. The hook wraps a longer line between its words, with a bullet's following lines under its text, and rejects one it can't wrap: a line with a word too long for a line. A line that holds a URL, or has no space after its indent, stays as written. The detail goes here, not in the title.
+- **Body**, after a blank line: what behavior changed and why, in a few short lines or bullets wrapped at 72. The hook wraps a longer line of prose at its spaces, with a bullet's following lines under its text. It rejects a longer line it leaves as written: one indented four spaces or a tab, a quoted line, a trailer, or one with a word too long for a line. A line that holds a URL, or has no space after its indent, passes as written. The detail goes here, not in the title.
 - **No invisible characters**, such as a no-break space or a line separator, in the title or body: the hook rejects one. Name the character by its code point (U+00A0) instead.
 
 ```text

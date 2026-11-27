@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, test } from "vite-plus/test";
@@ -335,7 +335,7 @@ describe("the commit-msg hook on a commit's body", () => {
   test.each([
     ["a bullet", "- ", "  "],
     ["a numbered item", "12. ", "    "],
-    ["an indented line", "    ", "    "],
+    ["a nested bullet", "  * ", "    "],
   ])("wraps %s under its text", (_what, lead, hang) => {
     const { message } = runHookEditingTheReadme(
       `Edit the README (#1)\n\n${lead}${lineOfWords(100)}\n`,
@@ -345,6 +345,36 @@ describe("the commit-msg hook on a commit's body", () => {
     expect(lines[0]!.startsWith(lead)).toBe(true);
     expect(lines.slice(1).every((wrapped) => wrapped.startsWith(hang))).toBe(true);
     expect(lines.length).toBeGreaterThan(1);
+  });
+
+  test("keeps the spaces between a wrapped line's words", () => {
+    const line = `Two  spaces stay.  ${lineOfWords(80)}`;
+    const { message } = runHookEditingTheReadme(`Edit the README (#1)\n\n${line}\n`);
+
+    expect(message.split("\n")[2]!.startsWith("Two  spaces stay.  word")).toBe(true);
+  });
+
+  test.each([
+    ["a line indented four spaces, as code is", `    ${lineOfWords(80)}`],
+    ["a line indented with a tab", `\t${lineOfWords(80)}`],
+    ["a quoted line", `> ${lineOfWords(80)}`],
+    ["a trailer", `Co-authored-by: ${lineOfWords(60)} <long-address@example.com>`],
+  ])("leaves %s as written, and refuses it", (_what, line) => {
+    const text = `Edit the README (#1)\n\n${line}\n`;
+    const { status, output, message } = runHookEditingTheReadme(text);
+
+    expect(message).toBe(text);
+    expect(status).toBe(1);
+    expect(output).toContain("Commit body line 3 is");
+  });
+
+  test("leaves no file beside the message", () => {
+    const dir = mkdtempSync(join(tmpdir(), "commit-msg-file-"));
+    const file = join(dir, "COMMIT_EDITMSG");
+    writeFileSync(file, `Edit the README (#1)\n\n${lineOfWords(80)}\n`);
+    spawnSync("sh", ["-e", hook, file], { cwd: dir });
+
+    expect(readdirSync(dir)).toEqual(["COMMIT_EDITMSG"]);
   });
 
   test("counts characters, not bytes, as it wraps", () => {
