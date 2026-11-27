@@ -177,13 +177,13 @@ describe("CI's tests (#365)", () => {
   });
 
   test("leave the static checks to two jobs of their own, beside them and each other", () => {
-    const lint = ci().get("lint") ?? "";
-    const job = ci().get("static") ?? "";
+    const lintJob = ci().get("lint") ?? "";
+    const staticJob = ci().get("static") ?? "";
 
-    expect(lint).toContain("vp check");
-    expect(job).not.toContain("vp check");
-    expect(job).toContain("vp run docs:build");
-    expect(lint).not.toContain("needs:");
-    expect(job).not.toContain("needs:");
+    expect(lintJob).toContain("vp check");
+    expect(staticJob).not.toContain("vp check");
+    expect(staticJob).toContain("vp run docs:build");
+    expect(lintJob).not.toContain("needs:");
+    expect(staticJob).not.toContain("needs:");
   });
 });
