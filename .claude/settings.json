@@ -1,5 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": ["Bash(node scripts/push-branch.mjs)"]
+  },
   "attribution": {
     "commit": "",
     "pr": "",

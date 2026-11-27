@@ -1,13 +1,18 @@
 import { spawnSync } from "node:child_process";
 import { describe, expect, test } from "vite-plus/test";
 
-// The PreToolUse hook that stops an agent staging everything or throwing work away (#302 retro), and lets it force-push its own issue branch (#484).
+// The PreToolUse hook that stops an agent staging everything or throwing work away (#302 retro), and says what to do instead (#620).
 const hook = new URL("../../.claude/hooks/block-dangerous-git.sh", import.meta.url).pathname;
 
-/** The hook's exit status for a Bash command: 2 blocks it, 0 lets it run. */
-function statusFor(command: string): number | null {
+/** The hook's answer to a Bash command: status 2 blocks it, 0 lets it run; stderr says why. */
+function run(command: string) {
   const input = JSON.stringify({ tool_input: { command } });
-  return spawnSync(hook, { input }).status;
+  return spawnSync(hook, { input, encoding: "utf8" });
+}
+
+/** The hook's exit status for a Bash command. */
+function statusFor(command: string): number | null {
+  return run(command).status;
 }
 
 describe("the git guard hook", () => {
@@ -16,6 +21,12 @@ describe("the git guard hook", () => {
     "git add .",
     "git add -- .",
     "git add -u",
+    "git add -u -- .",
+    "git add -u :/",
+    "git add --update 2>&1 | tail -1",
+    "git push --force-with-lease origin 24-joins:24-joins",
+    "git push --force-with-lease=24-joins:origin/24-joins origin 24-joins:24-joins 2>&1 | tail -1",
+    "git -C .claude/worktrees/24-joins push --force-with-lease origin 24-joins:24-joins",
     "cd x && git add --all",
     "git commit -am x",
     "git commit -q -a -m x",
@@ -58,10 +69,9 @@ describe("the git guard hook", () => {
     "git commit -q -F -",
     "git commit --amend",
     "git commit -m 'add -a flag'",
+    "git add -u packages/arbor/src tests/unit/x.test.ts",
     "git push -u origin 302-retro:302-retro",
-    "git push --force-with-lease origin 24-joins:24-joins",
-    "git push --force-with-lease=24-joins:origin/24-joins origin 24-joins:24-joins 2>&1 | tail -1",
-    "git -C .claude/worktrees/24-joins push --force-with-lease origin 24-joins:24-joins",
+    "node scripts/push-branch.mjs",
     "git checkout -b 302-retro",
     "git branch -d old",
     "git restore --staged f.ts",
@@ -75,5 +85,14 @@ describe("the git guard hook", () => {
 
     expect(statusFor(commit)).toBe(0);
     expect(statusFor("cat <<EOF > notes\ngit reset --hard\nEOF")).toBe(0);
+  });
+
+  test.each([
+    ["git add -A", "Stage files by path"],
+    ["git reset --hard", "Leave discarding work to the human"],
+    ["git push --force-with-lease origin 24-joins:24-joins", "node scripts/push-branch.mjs"],
+    ["git branch -D 24-joins", "node scripts/remove-merged-branch.mjs"],
+  ])("answers %j with what to do instead", (command, instead) => {
+    expect(run(command).stderr).toContain(instead);
   });
 });

@@ -1,8 +1,8 @@
 #!/bin/bash
 # Blocks git commands an agent must not run here: staging everything at once (the human may have
-# work in progress, so stage files by path), and commands that throw work away. Pushing an issue
-# branch stays allowed, and so does force-pushing it with a lease after a rebase,
-# `git push --force-with-lease origin <issue>-<slug>:<issue>-<slug>` (docs/agents/workflow.md, step 5).
+# work in progress, so stage files by path), and commands that throw work away. A force-push goes
+# through `node scripts/push-branch.mjs`, which pushes only the checked-out issue branch, with a
+# lease (docs/agents/workflow.md, step 5). Each block says what to do instead.
 
 INPUT=$(jq -r '.tool_input.command // empty')
 
@@ -28,39 +28,34 @@ COMMAND=$(sed -E "s/[[:space:]]+/ /g; s/'([-+][^' ]*)'/\1/g; s/\"([-+][^\" ]*)\"
 GIT='git( -[cC] [^ ]+)*'
 FORCE='(--force|-[a-zA-Z]*f[a-zA-Z]*)'
 DELETE='(--delete|-[a-zA-Z]*d[a-zA-Z]*)'
-BLOCKED_PATTERNS=(
-  "$GIT add( -[^ ]+)* (-A|--all|-u|--update|\.)( |$)"
-  "$GIT commit( -[^ ]+)* (-[a-zA-Z]*a[a-zA-Z]*|--all)( |$)"
-  "$GIT reset( [^ ]+)* --hard"
-  "$GIT clean( -[^ ]+)* -[a-zA-Z]*f"
-  "$GIT branch( -[^ ]+)* -[a-zA-Z]*D"
-  "$GIT branch( -[^ ]+)* -[a-zA-Z]*(d[a-zA-Z]*f|f[a-zA-Z]*d)"
-  "$GIT branch( -[^ ]+)* $DELETE( -[^ ]+)* $FORCE( |$)"
-  "$GIT branch( -[^ ]+)* $FORCE( -[^ ]+)* $DELETE( |$)"
-  "$GIT (checkout|restore)( --)? \.( |$)"
-  "$GIT push( [^ ]+)* (--force[^ ]*|-[a-zA-Z]*f[a-zA-Z]*|--mirror|--delete|-d|\+[^ ]+|:[^ ]+)( |$)"
+STAGE="Stage files by path: git add <path>..., or git add -u <path>..."
+DISCARD="Leave discarding work to the human: say what you'd discard, and ask them to."
+PUSH="Push the checked-out issue branch with node scripts/push-branch.mjs; a branch other than <issue>-<slug> is the human's to push."
+BRANCH="Remove a merged branch with node scripts/remove-merged-branch.mjs <branch>, from the main checkout; otherwise leave it to the human."
+# Each pattern, then what to do instead.
+BLOCKED=(
+  "$GIT add( -[^ ]+)* (-A|--all|\.|:/)( |$)" "$STAGE"
+  "$GIT add( -[^ ]+)* (-u|--update)( -[^ ]+)*( [0-9]?>[^ ]*)* *$" "$STAGE"
+  "$GIT commit( -[^ ]+)* (-[a-zA-Z]*a[a-zA-Z]*|--all)( |$)" "$STAGE"
+  "$GIT reset( [^ ]+)* --hard" "$DISCARD"
+  "$GIT clean( -[^ ]+)* -[a-zA-Z]*f" "$DISCARD"
+  "$GIT (checkout|restore)( --)? \.( |$)" "$DISCARD"
+  "$GIT branch( -[^ ]+)* -[a-zA-Z]*D" "$BRANCH"
+  "$GIT branch( -[^ ]+)* -[a-zA-Z]*(d[a-zA-Z]*f|f[a-zA-Z]*d)" "$BRANCH"
+  "$GIT branch( -[^ ]+)* $DELETE( -[^ ]+)* $FORCE( |$)" "$BRANCH"
+  "$GIT branch( -[^ ]+)* $FORCE( -[^ ]+)* $DELETE( |$)" "$BRANCH"
+  "$GIT push( [^ ]+)* (--force[^ ]*|-[a-zA-Z]*f[a-zA-Z]*|--mirror|--delete|-d|\+[^ ]+|:[^ ]+)( |$)" "$PUSH"
 )
 
-# A forced push of an issue branch to itself, with a lease: `<issue>-<slug>:<issue>-<slug>`, flags
-# limited to the lease and -u, output redirects allowed after it. A value is one plain word.
-WORD='[^[:space:]&;|$()`<>\\]'
-ISSUE='[0-9]+-[a-z0-9-]+'
-ISSUE_BRANCH_PUSH="^ *git( -C $WORD+)? push(( --force-with-lease(=$WORD+)?)|( -u))+ origin ($ISSUE):($ISSUE)( [0-9]?>$WORD*)* *$"
-
-# Each simple command on its own line, so one allowed push can't carry a blocked command with it.
+# Each simple command on its own line, so an allowed command can't carry a blocked one with it.
 SEGMENTS=${COMMAND//&/$'\n'}
 SEGMENTS=${SEGMENTS//|/$'\n'}
 SEGMENTS=${SEGMENTS//;/$'\n'}
 
 while IFS= read -r segment; do
-  if [[ $segment =~ $ISSUE_BRANCH_PUSH ]]; then
-    source=${BASH_REMATCH[6]}
-    target=${BASH_REMATCH[7]}
-    [[ $source == "$target" ]] && continue
-  fi
-  for pattern in "${BLOCKED_PATTERNS[@]}"; do
-    if grep -qE "$pattern" <<<"$segment"; then
-      echo "BLOCKED: '$COMMAND' matches '$pattern'. Stage files by path, and leave discarding work to the human." >&2
+  for ((i = 0; i < ${#BLOCKED[@]}; i += 2)); do
+    if grep -qE "${BLOCKED[i]}" <<<"$segment"; then
+      echo "BLOCKED: '$segment' matches '${BLOCKED[i]}'. ${BLOCKED[i + 1]}" >&2
       exit 2
     fi
   done
