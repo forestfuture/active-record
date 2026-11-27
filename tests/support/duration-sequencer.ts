@@ -25,9 +25,11 @@ export function balanceShards<File extends TimedFile>(
   files: readonly File[],
   count: number,
 ): File[][] {
-  const fallback = median(files.flatMap(({ seconds }) => (seconds === undefined ? [] : [seconds])));
+  const unrecordedSeconds = median(
+    files.flatMap(({ seconds }) => (seconds === undefined ? [] : [seconds])),
+  );
   const longestFirst = files
-    .map((file) => ({ file, seconds: file.seconds ?? fallback }))
+    .map((file) => ({ file, seconds: file.seconds ?? unrecordedSeconds }))
     .sort((a, b) => b.seconds - a.seconds || byCodePoint(a.file.key, b.file.key));
   const shards = Array.from({ length: count }, () => ({ files: [] as File[], seconds: 0 }));
   for (const { file, seconds } of longestFirst) {
