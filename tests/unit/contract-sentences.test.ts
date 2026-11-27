@@ -5,19 +5,19 @@ import { describe, expect, test } from "vite-plus/test";
 // lines, and a rebase merges them without a conflict (#620).
 const contract = readFileSync(new URL("../../docs/contract.md", import.meta.url), "utf8");
 
-/** Words a period follows mid-sentence. */
-const abbreviations = /(?:^|[\s(])(?:e\.g|i\.e|etc|vs|cf)\.$/;
+/** What a period ends mid-sentence: an abbreviation, or a numbered item's number. */
+const notAnEnd = /(?:(?:^|[\s(])(?:e\.g|i\.e|etc|vs|cf)|^\s*\d+)\.$/;
 
 /**
- * Where a line's prose breaks between sentences: after a period, ! or ?, and any closing ) " ' _ or `,
- * at a space before a capital, a backtick, an underscore, a ( or a [. A code span's inside is skipped.
+ * Where a line's prose breaks between sentences: after a period, ! or ?, and any closing ) " ' _ * or `,
+ * at a space before more text. A code span's inside is skipped.
  */
 function sentenceBreaks(line: string): string[] {
   const prose = line.replace(/`[^`]*`/g, (span) => `\`${"x".repeat(span.length - 2)}\``);
   const breaks: string[] = [];
-  for (const match of prose.matchAll(/[.!?][)"'_`]*( +)(?=[A-Z`_([])/g)) {
+  for (const match of prose.matchAll(/[.!?][)"'_`*]*( +)(?=\S)/g)) {
     const end = match.index + match[0].length - match[1]!.length;
-    if (abbreviations.test(prose.slice(0, end))) continue;
+    if (notAnEnd.test(prose.slice(0, end))) continue;
     breaks.push(line.slice(Math.max(0, end - 30), end + 30));
   }
   return breaks;
@@ -49,5 +49,10 @@ describe("docs/contract.md", () => {
     );
     expect(sentenceBreaks("_Portable._ A bullet marked (D1) is D1's.")).toHaveLength(1);
     expect(sentenceBreaks("Ends here (see #2). _Code:_ `a.ts`.")).toHaveLength(1);
+    expect(sentenceBreaks("It keeps every digit. **Precision:** it rounds.")).toHaveLength(1);
+    expect(
+      sentenceBreaks("Upgrade with `vp upgrade`. pnpm 12.6.0 through `devEngines`."),
+    ).toHaveLength(1);
+    expect(sentenceBreaks("  2. Every write goes out as one batch.")).toHaveLength(0);
   });
 });
