@@ -328,41 +328,61 @@ describe("a key linked to a Unix time", () => {
     expect((await db().model(Mark).find(1)).mappedAt).toBe(1);
   });
 
-  test("a key holding a Unix time's digits counts out of its record when it moves or goes", async () => {
-    await harness.reset("guarded_stamps");
-    await db()
-      .model(Mark)
-      .insertAll([
-        { id: 1, seconds: new Date(120_000), mappedAt: 0 },
-        { id: 2, seconds: new Date(60_000), mappedAt: 0 },
-      ]);
+  describe("counting a record out", () => {
+    beforeEach(async () => {
+      await harness.reset("guarded_stamps");
+      await db()
+        .model(Mark)
+        .insertAll([
+          { id: 1, seconds: new Date(120_000), mappedAt: 0 },
+          { id: 2, seconds: new Date(60_000), mappedAt: 0 },
+        ]);
+    });
+    // The two marks' counts: an IsoNote's row is a mark too, but none links to it.
     const counts = async () =>
-      (await db().model(Mark).order({ id: "asc" }).toArray()).map((mark) => mark.mappedAt);
-    const note = await db().model(Note).create({ id: 3, label: "120" });
+      (
+        await db()
+          .model(Mark)
+          .where({ id: [1, 2] })
+          .order({ id: "asc" })
+          .toArray()
+      ).map((mark) => mark.mappedAt);
 
-    await note.update({ label: "60" });
-    const moved = await counts();
-    await note.destroy();
+    test("a key holding a Unix time's digits moves its count when it changes", async () => {
+      const note = await db().model(Note).create({ id: 3, label: "120" });
 
-    expect([moved, await counts()]).toEqual([
-      [0, 1],
-      [0, 0],
-    ]);
-  });
+      await note.update({ label: "60" });
 
-  test("a key no Unix time's type links to counts out of no record when it moves or goes", async () => {
-    await harness.reset("guarded_stamps");
-    await db()
-      .model(Mark)
-      .create({ id: 1, seconds: new Date(120_000), mappedAt: 0 });
-    const note = await db()
-      .model(IsoNote)
-      .create({ id: 2, iso: new Date(120_000) });
+      expect(await counts()).toEqual([0, 1]);
+    });
 
-    await note.update({ iso: new Date(60_000) });
-    await note.destroy();
+    test("a key holding a Unix time's digits counts out of its record when it's destroyed", async () => {
+      const note = await db().model(Note).create({ id: 3, label: "120" });
 
-    expect((await db().model(Mark).find(1)).mappedAt).toBe(0);
+      await note.destroy();
+
+      expect(await counts()).toEqual([0, 0]);
+    });
+
+    test("a key whose type links to no Unix time counts out of no record when it changes", async () => {
+      const note = await db()
+        .model(IsoNote)
+        .create({ id: 3, iso: new Date(120_000) });
+
+      await note.update({ iso: new Date(60_000) });
+
+      expect(await counts()).toEqual([0, 0]);
+    });
+
+    test("a key whose type links to no Unix time counts out of no record when it's destroyed", async () => {
+      const note = await db()
+        .model(IsoNote)
+        .create({ id: 3, iso: new Date(120_000) });
+
+      await note.destroy();
+
+      expect(await counts()).toEqual([0, 0]);
+    });
   });
 
   test("text holding a Unix time's digits links to it, as in a join", async () => {

@@ -301,16 +301,20 @@ describe("uuid links", () => {
       },
     );
 
-    test("a counter cache counts a text foreign key holding a uuid key out when it moves or goes", async () => {
-      const readingsCount = async () => (await db().model(Device).find(phoneId)).readingsCount;
-      const moved = await db().model(CountedReading).create({ id: 1, deviceId: phoneId });
-      const destroyed = await db().model(CountedReading).create({ id: 2, deviceId: phoneId });
+    test("a counter cache counts a text foreign key holding a uuid key out when it changes", async () => {
+      const reading = await db().model(CountedReading).create({ id: 1, deviceId: phoneId });
 
-      await moved.update({ deviceId: null });
-      const afterMove = await readingsCount();
-      await destroyed.destroy();
+      await reading.update({ deviceId: null });
 
-      expect([afterMove, await readingsCount()]).toEqual([1, 0]);
+      expect((await db().model(Device).find(phoneId)).readingsCount).toBe(0);
+    });
+
+    test("a counter cache counts a text foreign key holding a uuid key out when it's destroyed", async () => {
+      const reading = await db().model(CountedReading).create({ id: 1, deviceId: phoneId });
+
+      await reading.destroy();
+
+      expect((await db().model(Device).find(phoneId)).readingsCount).toBe(0);
     });
 
     test.each(otherForms)(
@@ -427,17 +431,22 @@ describe("uuid links", () => {
       expect((await db().model(Phone).find(id)).callsCount).toBe(0);
     });
 
-    test("a uuid foreign key counts out of its text key when it moves or goes", async () => {
-      const callsCount = async () => (await db().model(Phone).find(phoneId)).callsCount;
+    test("a uuid foreign key counts out of its text key when it changes", async () => {
       await db().model(Phone).create({ id: phoneId, callsCount: 0 });
-      const moved = await db().model(Call).create({ id: 2, phoneId });
-      const destroyed = await db().model(Call).create({ id: 3, phoneId });
+      const call = await db().model(Call).create({ id: 2, phoneId });
 
-      await moved.update({ phoneId: null });
-      const afterMove = await callsCount();
-      await destroyed.destroy();
+      await call.update({ phoneId: null });
 
-      expect([afterMove, await callsCount()]).toEqual([1, 0]);
+      expect((await db().model(Phone).find(phoneId)).callsCount).toBe(0);
+    });
+
+    test("a uuid foreign key counts out of its text key when it's destroyed", async () => {
+      await db().model(Phone).create({ id: phoneId, callsCount: 0 });
+      const call = await db().model(Call).create({ id: 2, phoneId });
+
+      await call.destroy();
+
+      expect((await db().model(Phone).find(phoneId)).callsCount).toBe(0);
     });
 
     test("in its one form, a hasMany reads, preloads and counts its records", async () => {
