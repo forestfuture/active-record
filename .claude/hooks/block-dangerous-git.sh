@@ -34,8 +34,6 @@ PUSH="Push the checked-out issue branch with node scripts/push-branch.mjs; a bra
 BRANCH="Remove a merged branch with node scripts/remove-merged-branch.mjs <branch>, from the main checkout; otherwise leave it to the human."
 # Each pattern, then what to do instead.
 BLOCKED=(
-  "$GIT add( -[^ ]+)* (-A|--all|\.|:/)( |$)" "$STAGE"
-  "$GIT add( -[^ ]+)* (-u|--update)( -[^ ]+)*( [0-9]?>[^ ]*)* *$" "$STAGE"
   "$GIT commit( -[^ ]+)* (-[a-zA-Z]*a[a-zA-Z]*|--all)( |$)" "$STAGE"
   "$GIT reset( [^ ]+)* --hard" "$DISCARD"
   "$GIT clean( -[^ ]+)* -[a-zA-Z]*f" "$DISCARD"
@@ -47,12 +45,66 @@ BLOCKED=(
   "$GIT push( [^ ]+)* (--force[^ ]*|-[a-zA-Z]*f[a-zA-Z]*|--mirror|--delete|-d|\+[^ ]+|:[^ ]+)( |$)" "$PUSH"
 )
 
+# Whether a git add's arguments stage everything: -A or --all, a path that names the whole tree,
+# or -u or --update without a path. A short flag may stand in a cluster (-vu), a redirect isn't a
+# path, and after -- every word is one.
+stages_everything() {
+  local words word update=no paths=0 flags=yes skip=no
+  read -ra words <<<"$1"
+  for word in "${words[@]}"; do
+    word=${word//[\'\"]/}
+    if [[ $skip == yes ]]; then skip=no; continue; fi
+    if [[ $word =~ ^[0-9]*[\<\>]+$ ]]; then skip=yes; continue; fi
+    [[ $word =~ ^[0-9]*[\<\>] ]] && continue
+    case $flags:$word in
+      yes:--) flags=no ;;
+      yes:--all | yes:--no-ignore-removal) return 0 ;;
+      yes:--update) update=yes ;;
+      yes:--*) ;;
+      yes:-*A*) return 0 ;;
+      yes:-*u*) update=yes ;;
+      yes:-*) ;;
+      *:. | *:./ | *::/ | *::/.) return 0 ;;
+      *) paths=$((paths + 1)) ;;
+    esac
+  done
+  [[ $update == yes && $paths -eq 0 ]]
+}
+
+# A git add, its arguments in the fourth group.
+ADD='(^|[^a-zA-Z0-9_./-])git( -[cC] [^ ]+)* add( (.*))?$'
+
 # Each simple command on its own line, so an allowed command can't carry a blocked one with it.
 SEGMENTS=${COMMAND//&/$'\n'}
 SEGMENTS=${SEGMENTS//|/$'\n'}
 SEGMENTS=${SEGMENTS//;/$'\n'}
 
 while IFS= read -r segment; do
+  if [[ $segment =~ $ADD ]] && stages_everything "${BASH_REMATCH[4]}"; then
+    echo "BLOCKED: '$segment' stages everything. $STAGE" >&2
+    exit 2
+  fi
+  for ((i = 0; i < ${#BLOCKED[@]}; i += 2)); do
+    if grep -qE "${BLOCKED[i]}" <<<"$segment"; then
+      echo "BLOCKED: '$segment' matches '${BLOCKED[i]}'. ${BLOCKED[i + 1]}" >&2
+      exit 2
+    fi
+  done
+done <<<"$SEGMENTS"
+
+exit 0
+
+
+# Each simple command on its own line, so an allowed command can't carry a blocked one with it.
+SEGMENTS=${COMMAND//&/$'\n'}
+SEGMENTS=${SEGMENTS//|/$'\n'}
+SEGMENTS=${SEGMENTS//;/$'\n'}
+
+while IFS= read -r segment; do
+  if [[ $segment =~ $ADD ]] && stages_everything "${BASH_REMATCH[4]}"; then
+    echo "BLOCKED: '$segment' stages everything. $STAGE" >&2
+    exit 2
+  fi
   for ((i = 0; i < ${#BLOCKED[@]}; i += 2)); do
     if grep -qE "${BLOCKED[i]}" <<<"$segment"; then
       echo "BLOCKED: '$segment' matches '${BLOCKED[i]}'. ${BLOCKED[i + 1]}" >&2
