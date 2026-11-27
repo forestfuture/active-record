@@ -1,6 +1,6 @@
 // Puts CI's test files in shards by how long each took in a recorded run (test-durations.json), so the shards take about as long as each other (#614).
 import { readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { BaseSequencer, type TestSpecification, type Vitest } from "vite-plus/test/node";
 
 /** A test file in one project, and the seconds a recorded run took for it, if one did. */
@@ -67,11 +67,20 @@ export class DurationSequencer extends BaseSequencer {
     const { root, shard } = this.ctx.config;
     const durations = this.#durations ?? readDurations(root);
     const timed = files.map((spec) => {
-      const key = durationKey(spec.project.name, relative(root, spec.moduleId));
+      const key = keyOf(spec);
       return { key, seconds: durations[key], spec };
     });
     return balanceShards(timed, shard!.count)[shard!.index - 1]!.map(({ spec }) => spec);
   }
+}
+
+/**
+ * A file's key, from its path as Vitest's reports name it: from its project's root, with `/`
+ * between folders on every platform.
+ */
+function keyOf(spec: TestSpecification): string {
+  const path = relative(spec.project.config.root, spec.moduleId).split(sep).join("/");
+  return durationKey(spec.project.name, path);
 }
 
 function readDurations(root: string): Record<string, number> {
