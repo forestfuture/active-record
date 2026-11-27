@@ -6,7 +6,7 @@ When reporting to me in chat, be extremely concise and sacrifice grammar for the
 
 ### Issue tracker
 
-Issues live in GitHub Issues on `forestfuture/arbor`. Before any `gh issue` command, read `docs/agents/issue-tracker.md`: plain `gh issue view` prints nothing here.
+Issues live in GitHub Issues on `forestfuture/arbor`. Read one with `gh issue view <n> --repo forestfuture/arbor --json title,body,comments,labels,state`, since plain `gh issue view` prints nothing here. For any other `gh issue` command, read `docs/agents/issue-tracker.md` first.
 
 ### Triage labels
 
