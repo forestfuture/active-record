@@ -134,5 +134,13 @@ describe("text selected for a number key", () => {
 
       expect(ids).toEqual([1, 2, 3]);
     });
+
+    test("a join compares the number unrounded, so more digits than the scale find none", async () => {
+      await harness.exec("UPDATE replies SET body = '9.504' WHERE id = 1");
+
+      expect(await db().model(Price).joins("notes").order({ id: "asc" }).pluck("id")).toEqual([
+        2, 3,
+      ]);
+    });
   });
 });
