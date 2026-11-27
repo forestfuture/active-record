@@ -182,3 +182,58 @@ describe("text linked to a float4 real", () => {
     },
   );
 });
+
+// A meter's ratio, as a 4-byte float4 real, a double precision real and a decimal, and the
+// samples whose own ratio of one width or type is linked to one of the meter's of another.
+class Meter extends Model.define({
+  id: { type: "integer", null: false },
+  narrow: "real",
+  wide: "real",
+  exact: "decimal",
+}) {
+  static table = "meters";
+
+  // A sample's double precision ratio, linked to the meter's float4 ratio.
+  samplesByWide = hasMany(Sample, { foreignKey: "wide", primaryKey: "narrow" });
+}
+
+class Sample extends Model.define({
+  id: { type: "integer", null: false },
+  narrow: "real",
+  wide: "real",
+  exact: "decimal",
+}) {
+  static table = "samples";
+}
+
+// A number linked to a float4 real, or a float4 linked to a number of another width or type, is
+// compared at a float4's precision, as a condition is, rather than by widening the float4 (#625).
+describe("a number linked to a float4 real", () => {
+  let schema: PgSchema;
+  const db = () => connect(schema.url);
+
+  beforeAll(async () => {
+    schema = await openPgSchema([]);
+    await schema.pool.query({
+      text: `CREATE TABLE meters (id BIGINT PRIMARY KEY, narrow REAL, wide DOUBLE PRECISION,
+          exact NUMERIC);
+        CREATE TABLE samples (id BIGINT PRIMARY KEY, narrow REAL, wide DOUBLE PRECISION,
+          exact NUMERIC);`,
+    });
+  });
+  afterAll(() => schema.dispose());
+
+  beforeEach(async () => {
+    await schema.pool.query({
+      text: `TRUNCATE meters, samples;
+        INSERT INTO meters (id, narrow, wide, exact) VALUES (1, 0.1, 0.1, 0.1);
+        INSERT INTO samples (id, narrow, wide, exact) VALUES (1, 0.1, 0.1, 0.1);`,
+    });
+  });
+
+  test("a join finds the meter by a double precision 0.1", async () => {
+    const meters = await db().model(Meter).joins("samplesByWide").pluck("id");
+
+    expect(meters).toEqual([1]);
+  });
+});
