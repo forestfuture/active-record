@@ -39,6 +39,9 @@ jobs:
       # Each tarball holds exactly its files: the core with its docs for agents (llms-full.txt and
       # its skill) and the `arbor` command, and the D1 adapter with its plugin for the command.
       - run: vp run check:package
+      # The packed package, bundled by Wrangler as an app's Worker is, in workerd (#10). It needs
+      # the build above, so it runs here rather than in the test shards.
+      - run: vp run test:workerd
       # docs-deploy's own Wrangler, installed frozen with install scripts off, checks the site built
       # above as a deploy would, without uploading it or needing a token. So a bump of
       # tools/docs-deploy that breaks it fails here, not on main (#253).
