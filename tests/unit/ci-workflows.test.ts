@@ -169,13 +169,13 @@ describe("CI's tests (#365)", () => {
     expect(job).toMatch(
       /needs: \[lint, static, test\]\n(?:\s+#.*\n)*\s+if: \$\{\{ !cancelled\(\) \}\}/,
     );
-    // The gate reads each job's result, and fails unless it passed.
+    // The gate reads each job's result, and tests that it passed.
     for (const [name, variable] of [
       ["lint", "LINT"],
       ["static", "STATIC"],
       ["test", "TEST"],
     ]) {
-      expect(job, name).toContain(`${variable}: ${"${{"} needs.${name}.result }}`);
+      expect(job, name).toContain(`${variable}: \${{ needs.${name}.result }}`);
       expect(job, name).toContain(`[ "$${variable}" != success ]`);
     }
     expect(job).toContain("vp test --merge-reports");
