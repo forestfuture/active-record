@@ -88,12 +88,17 @@ const float4Magnitudes: Magnitudes = { lowest: 150n, highest: 128n, step: 103n }
 /**
  * Whether `number`, a `numeric`, is within `magnitudes`, compared exactly. The least bound is
  * compared as its product with `2 ** lowest`, a whole number, since a `numeric` holds a fraction
- * that small only rounded.
+ * that small only rounded. The product is taken only below the greatest bound, so a `numeric` of
+ * any size can't overflow it.
  */
 function isWithin(number: string, { lowest, highest, step }: Magnitudes): string {
   const limit = 2n ** highest - 2n ** step;
-  return `ABS(${number}) * ${2n ** lowest} > 1 AND ABS(${number}) < ${limit}`;
+  return `CASE WHEN ABS(${number}) < ${limit} THEN ABS(${number}) * ${2n ** lowest} > 1 ELSE false END`;
 }
+
+/** Whether a cast of `number`, a `numeric`, accepts it: zero, or within `magnitudes`. */
+const isHeld = (number: string, magnitudes: Magnitudes) =>
+  `${number} = 0 OR ${isWithin(number, magnitudes)}`;
 
 /** Number text as a `numeric`, which holds it exactly. */
 const asNumeric = (text: string) => `CAST(${text} AS NUMERIC)`;
@@ -104,7 +109,7 @@ const asNumeric = (text: string) => `CAST(${text} AS NUMERIC)`;
  */
 function realCast(text: string, type: string, magnitudes: Magnitudes): string {
   const number = asNumeric(text);
-  return `CASE WHEN ${number} = 0 OR ${isWithin(number, magnitudes)} THEN CAST(${text} AS ${type}) END`;
+  return `CASE WHEN ${isHeld(number, magnitudes)} THEN CAST(${text} AS ${type}) END`;
 }
 
 /**
@@ -145,13 +150,13 @@ function isRealDouble(number: string, { lowest, highest, step }: Magnitudes): st
 /**
  * A `double precision` or decimal key as a `real`, when a `real` holds it; otherwise NULL, which
  * links nothing. A decimal is compared as a `numeric`, exactly, since it may hold a number past a
- * `double precision`'s range.
+ * `double precision`'s range; its infinities and NaN, which a `numeric` orders past them, link.
  */
 function narrowed(key: string, { storedType }: Attribute): string {
   const holds =
     storedType === "real"
       ? isRealDouble(key, float4Magnitudes)
-      : `${key} = 0 OR ${isWithin(key, float4Magnitudes)}`;
+      : `${isHeld(key, float4Magnitudes)} OR ABS(${key}) >= 'Infinity'`;
   return `CASE WHEN ${holds} THEN CAST(${key} AS REAL) END`;
 }
 

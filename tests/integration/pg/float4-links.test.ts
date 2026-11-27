@@ -323,7 +323,24 @@ describe("a number linked to a float4 real", () => {
     },
   );
 
-  test.each(["1e39", "1e-50", "1e400"])(
+  test.each(["NaN", "Infinity", "-Infinity", "3.4028234663852886e38"])(
+    "a join finds the meter by a decimal %s a float4 holds (guard)",
+    async (exact) => {
+      await schema.pool.query({ text: "UPDATE meters SET narrow = $1", values: [exact] });
+      await schema.pool.query({ text: "UPDATE samples SET exact = $1", values: [exact] });
+
+      expect(await db().model(Meter).joins("exactToNarrow").pluck("id")).toEqual([1]);
+    },
+  );
+
+  test("a join finds the meter by a double precision NaN (guard)", async () => {
+    await schema.pool.query({ text: "UPDATE meters SET narrow = 'NaN'" });
+    await schema.pool.query({ text: "UPDATE samples SET wide = 'NaN'" });
+
+    expect(await db().model(Meter).joins("wideToNarrow").pluck("id")).toEqual([1]);
+  });
+
+  test.each(["1e39", "1e-50", "1e400", "1e131030"])(
     "a decimal past a float4's range, %s, links nothing rather than failing",
     async (exact) => {
       await schema.pool.query({ text: "UPDATE samples SET exact = $1", values: [exact] });
