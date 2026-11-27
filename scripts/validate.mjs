@@ -15,6 +15,8 @@ const steps = [
   { name: "knip", args: ["run", "knip"] },
   { name: "docs build", args: ["run", "docs:build"] },
   { name: "package contents", args: ["run", "check:package"] },
+  // The packed package, bundled by Wrangler, in workerd: after the build (#10).
+  { name: "workerd", args: ["run", "test:workerd"] },
   // docs-deploy's own Wrangler, as check runs it (#253).
   {
     name: "docs deploy install",
