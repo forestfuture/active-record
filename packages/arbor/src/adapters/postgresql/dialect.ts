@@ -131,6 +131,23 @@ function linkedReal(text: string, linked: Attribute): string {
 }
 
 /**
+ * Whether `number`, a `double precision`, is one a cast to a `real` accepts: zero, an infinity,
+ * NaN, which Postgres orders past them, or within `magnitudes`. Each bound is an exact power of 2,
+ * so it's compared without rounding, and nothing is multiplied, so nothing can overflow.
+ */
+function isRealDouble(number: string, { lowest, highest, step }: Magnitudes): string {
+  const power = (exponent: bigint) => `CAST(2 AS DOUBLE PRECISION) ^ (${exponent})`;
+  const magnitude = `ABS(${number})`;
+  const within = `${magnitude} > ${power(-lowest)} AND ${magnitude} < ${power(highest)} - ${power(step)}`;
+  return `${number} = 0 OR ${magnitude} >= 'Infinity' OR (${within})`;
+}
+
+/** A number key as a `real`, when a `real` holds it; otherwise NULL, which links nothing. */
+function narrowed(key: string): string {
+  return `CASE WHEN ${isRealDouble(key, float4Magnitudes)} THEN CAST(${key} AS REAL) END`;
+}
+
+/**
  * A number key linked to a number of another width or type, compared at a `float4`'s precision
  * when either is a `float4` real rather than by widening the `float4` (#625). A `double
  * precision` or a decimal linked to a `float4` is rounded to a `real`, as a condition bound to
@@ -143,7 +160,7 @@ function linkedWidth(key: string, keyAttribute: Attribute, linked: Attribute): s
   const cases: string[] = [];
   if (linked.storedType === "real") {
     const isWide = keyAttribute.storedType === "real" ? ` AND NOT ${isFloat4(keyAttribute)}` : "";
-    cases.push(`WHEN ${isFloat4(linked)}${isWide} THEN CAST(${key} AS REAL)`);
+    cases.push(`WHEN ${isFloat4(linked)}${isWide} THEN ${narrowed(key)}`);
   }
   if (cases.length === 0) return key;
   return `CASE ${cases.join(" ")} ELSE CAST(${key} AS DOUBLE PRECISION) END`;
