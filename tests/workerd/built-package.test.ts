@@ -7,10 +7,10 @@ import type { Miniflare } from "miniflare";
 import { afterAll, beforeAll, describe, expect, test } from "vite-plus/test";
 import { startMiniflare } from "../support/miniflare.ts";
 import { scratchDirs } from "../support/scratch.ts";
+import { runWrangler } from "../support/wrangler.ts";
 
 const pkg = new URL("../../packages/arbor/", import.meta.url).pathname;
 const fixture = new URL("../fixtures/workerd/built/", import.meta.url).pathname;
-const wrangler = new URL("../../node_modules/.bin/wrangler", import.meta.url).pathname;
 const scratch = scratchDirs();
 
 /**
@@ -43,10 +43,7 @@ function bundle(app: string): string {
     compatibility_flags: ["nodejs_compat"],
   };
   writeFileSync(join(app, "wrangler.jsonc"), JSON.stringify(config));
-  execFileSync(wrangler, ["deploy", "--dry-run", "--outdir", join(app, "bundle")], {
-    cwd: app,
-    stdio: "pipe",
-  });
+  runWrangler(app, ["deploy", "--dry-run", "--outdir", join(app, "bundle")]);
   return join(app, "bundle/worker.js");
 }
 

@@ -6,7 +6,8 @@ import { libraryPaths } from "../../support/library-paths.ts";
 import { openPgDatabase, type PgDatabase } from "../../support/pg.ts";
 import { writePgProject } from "../../support/pg-project.ts";
 import { scratchDirs } from "../../support/scratch.ts";
-import { command, runWrangler, serve, type Served } from "../../support/worker-app.ts";
+import { command, serve, type Served } from "../../support/worker-app.ts";
+import { runWrangler } from "../../support/wrangler.ts";
 
 /** A package entry at its source in this repo, as a tsconfig `paths` entry. */
 const sourcePaths = (path: string) => [
