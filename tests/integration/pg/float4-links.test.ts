@@ -193,6 +193,8 @@ class Plant extends Model.define({ id: { type: "integer", null: false } }) {
   meters = hasMany(Meter);
   samplesWideToNarrow = hasMany(Sample, { through: "meters", source: "wideToNarrow" });
   samplesNarrowToWide = hasMany(Sample, { through: "meters", source: "narrowToWide" });
+  samplesExactToNarrow = hasMany(Sample, { through: "meters", source: "exactToNarrow" });
+  samplesNarrowToExact = hasMany(Sample, { through: "meters", source: "narrowToExact" });
 }
 
 // A meter's ratio, as a 4-byte float4 real, a double precision real and a decimal, and the
@@ -203,8 +205,10 @@ class Meter extends Model.define({
   wide: "real",
   exact: "decimal",
   plantId: "integer",
-  wideSamplesCount: "integer",
-  narrowSamplesCount: "integer",
+  wideToNarrowCount: "integer",
+  narrowToWideCount: "integer",
+  exactToNarrowCount: "integer",
+  narrowToExactCount: "integer",
 }) {
   static table = "meters";
 
@@ -224,23 +228,34 @@ class Sample extends Model.define({
   static table = "samples";
 }
 
-// A sample counted on its meter by each of its ratios of another width.
+// A sample counted on its meter by each link of its ratios to the meter's of another width.
 class CountedSample extends Model.define({
   id: { type: "integer", null: false },
   narrow: "real",
   wide: "real",
+  exact: "decimal",
 }) {
   static table = "samples";
 
-  wideMeter = belongsTo(Meter, {
+  wideToNarrow = belongsTo(Meter, {
     foreignKey: "wide",
     primaryKey: "narrow",
-    counterCache: "wideSamplesCount",
+    counterCache: "wideToNarrowCount",
   });
-  narrowMeter = belongsTo(Meter, {
+  narrowToWide = belongsTo(Meter, {
     foreignKey: "narrow",
     primaryKey: "wide",
-    counterCache: "narrowSamplesCount",
+    counterCache: "narrowToWideCount",
+  });
+  exactToNarrow = belongsTo(Meter, {
+    foreignKey: "exact",
+    primaryKey: "narrow",
+    counterCache: "exactToNarrowCount",
+  });
+  narrowToExact = belongsTo(Meter, {
+    foreignKey: "narrow",
+    primaryKey: "exact",
+    counterCache: "narrowToExactCount",
   });
 }
 
@@ -255,8 +270,10 @@ describe("a float4 real linked to a number of another width", () => {
     await schema.pool.query({
       text: `CREATE TABLE plants (id BIGINT PRIMARY KEY);
         CREATE TABLE meters (id BIGINT PRIMARY KEY, narrow REAL, wide DOUBLE PRECISION,
-          exact NUMERIC, plant_id BIGINT, wide_samples_count BIGINT NOT NULL DEFAULT 0,
-          narrow_samples_count BIGINT NOT NULL DEFAULT 0);
+          exact NUMERIC, plant_id BIGINT, wide_to_narrow_count BIGINT NOT NULL DEFAULT 0,
+          narrow_to_wide_count BIGINT NOT NULL DEFAULT 0,
+          exact_to_narrow_count BIGINT NOT NULL DEFAULT 0,
+          narrow_to_exact_count BIGINT NOT NULL DEFAULT 0);
         CREATE INDEX meters_narrow ON meters (narrow);
         CREATE INDEX meters_wide ON meters (wide);
         CREATE TABLE samples (id BIGINT PRIMARY KEY, narrow REAL, wide DOUBLE PRECISION,
@@ -269,8 +286,9 @@ describe("a float4 real linked to a number of another width", () => {
     await schema.pool.query({
       text: `TRUNCATE plants, meters, samples;
         INSERT INTO plants (id) VALUES (1);
-        INSERT INTO meters (id, narrow, wide, exact, plant_id, wide_samples_count,
-          narrow_samples_count) VALUES (1, 0.1, 0.1, 0.1, 1, 1, 1);
+        INSERT INTO meters (id, narrow, wide, exact, plant_id, wide_to_narrow_count,
+          narrow_to_wide_count, exact_to_narrow_count, narrow_to_exact_count)
+          VALUES (1, 0.1, 0.1, 0.1, 1, 1, 1, 1, 1);
         INSERT INTO samples (id, narrow, wide, exact) VALUES (1, 0.1, 0.1, 0.1);`,
     });
   });
@@ -349,7 +367,12 @@ describe("a float4 real linked to a number of another width", () => {
     },
   );
 
-  test.each(["samplesWideToNarrow", "samplesNarrowToWide"] as const)(
+  test.each([
+    "samplesWideToNarrow",
+    "samplesNarrowToWide",
+    "samplesExactToNarrow",
+    "samplesNarrowToExact",
+  ] as const)(
     "a through association, %s, finds the sample by its meter's ratio (guard)",
     async (association) => {
       const plant = await db().model(Plant).find(1);
@@ -358,13 +381,18 @@ describe("a float4 real linked to a number of another width", () => {
     },
   );
 
-  test("a counter cache counts the sample out of its meter by each width (guard)", async () => {
+  test("a counter cache counts the sample out of its meter by each link (guard)", async () => {
     const sample = await db().model(CountedSample).find(1);
 
     await sample.destroy();
 
     const meter = await db().model(Meter).find(1);
-    expect([meter.wideSamplesCount, meter.narrowSamplesCount]).toEqual([0, 0]);
+    expect([
+      meter.wideToNarrowCount,
+      meter.narrowToWideCount,
+      meter.exactToNarrowCount,
+      meter.narrowToExactCount,
+    ]).toEqual([0, 0, 0, 0]);
   });
 
   test.each([
