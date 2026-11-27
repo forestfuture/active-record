@@ -127,7 +127,14 @@ describe("text selected for a number key", () => {
     });
 
     test("text past a real's range links nothing, without an error", async () => {
-      await insertNotes("1e400", "-1e400", "1e-400", "1e10000");
+      await insertNotes(
+        "1e400",
+        "-1e400",
+        "1e-400",
+        "1e10000",
+        "1e-99999",
+        `0.${"1".repeat(20_000)}`,
+      );
 
       expect(await db().model(Measure).joins("notes").count()).toBe(0);
     });
@@ -191,7 +198,14 @@ describe("text selected for a number key", () => {
     });
 
     test("text past a decimal's range links nothing, without an error", async () => {
-      await insertNotes("1e400", "-1e400", "1e-400", "1e10000");
+      await insertNotes(
+        "1e400",
+        "-1e400",
+        "1e-400",
+        "1e10000",
+        "1e-99999",
+        `0.${"1".repeat(20_000)}`,
+      );
 
       expect(await db().model(Price).joins("notes").count()).toBe(0);
     });
