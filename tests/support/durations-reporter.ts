@@ -4,11 +4,18 @@ import { join } from "node:path";
 import type { Reporter, TestModule, Vitest } from "vite-plus/test/node";
 import { durationKey, durationsPath } from "./duration-sequencer.ts";
 
-/** A test file's time in a run: its tests and hooks, collecting them, and its setup files and environment. */
+/**
+ * A test file's time in its worker, to a tenth of a second: its tests and hooks, collecting them,
+ * its setup files, its environment, and setting up the test harness.
+ */
 function secondsOf(module: TestModule): number {
-  const { duration, collectDuration, setupDuration, environmentSetupDuration } =
-    module.diagnostic();
-  const total = duration + collectDuration + setupDuration + environmentSetupDuration;
+  const diagnostic = module.diagnostic();
+  const total =
+    diagnostic.duration +
+    diagnostic.collectDuration +
+    diagnostic.setupDuration +
+    diagnostic.environmentSetupDuration +
+    diagnostic.prepareDuration;
   return Math.round(total / 100) / 10;
 }
 
