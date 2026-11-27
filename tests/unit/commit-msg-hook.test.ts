@@ -368,6 +368,16 @@ describe("the commit-msg hook on a commit's body", () => {
     expect(output).toContain("Commit body line 3 is");
   });
 
+  test("wraps prose that opens with a hyphenated word and a colon", () => {
+    const { status, message } = runHookEditingTheReadme(
+      `Edit the README (#1)\n\nFollow-up: ${lineOfWords(90)}\n`,
+    );
+
+    expect(status).toBe(0);
+    expect(message.split("\n")[2]!.startsWith("Follow-up: word")).toBe(true);
+    expect(message.split("\n")[3]).toMatch(/^word/);
+  });
+
   test("leaves no file beside the message", () => {
     const dir = mkdtempSync(join(tmpdir(), "commit-msg-file-"));
     const file = join(dir, "COMMIT_EDITMSG");

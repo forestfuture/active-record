@@ -21,7 +21,8 @@ case "$comment" in '' | [Aa][Uu][Tt][Oo]) comment='#' ;; esac
 # following lines line up under its text. Lines that aren't prose are
 # left as written, and the check below refuses one past 72: a line
 # indented four spaces or a tab, as code is, a quoted line, a trailer
-# such as Co-authored-by, and a line with a word too long for a line. A
+# such as Co-authored-by: (a word ending in -by and a colon), and a line
+# with a word too long for a line. A
 # line that holds a URL is left too. Characters are counted, not bytes:
 # in the C locale awk counts bytes, so it drops UTF-8's continuation
 # bytes first.
@@ -33,7 +34,7 @@ wrapped=$(awk -v c="$comment" '
     return length(copy)
   }
   function prose(line) {
-    return line !~ /^(\t|    | *>|[A-Za-z]+(-[A-Za-z]+)+: )/ && line !~ /:\/\//
+    return line !~ /^(\t|    | *>|[A-Za-z]+(-[A-Za-z]+)*-by: )/ && line !~ /:\/\//
   }
   function wrap(line, lead, hang, rest, count, words, gaps, i, out) {
     match(line, /^ *(([-*+]|[0-9]+[.)]) +)?/)
