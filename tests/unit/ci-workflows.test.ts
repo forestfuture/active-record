@@ -164,20 +164,26 @@ describe("CI's tests (#365)", () => {
   test("are merged by check, the required job, which holds the coverage floor", () => {
     const job = ci().get("check") ?? "";
 
-    expect(job).toMatch(/needs: \[static, test\]/);
+    expect(job).toMatch(/needs: \[lint, static, test\]/);
     // A skipped required check counts as passing, so check runs and fails when a job it needs did.
-    expect(job).toMatch(/needs: \[static, test\]\n(?:\s+#.*\n)*\s+if: \$\{\{ !cancelled\(\) \}\}/);
+    expect(job).toMatch(
+      /needs: \[lint, static, test\]\n(?:\s+#.*\n)*\s+if: \$\{\{ !cancelled\(\) \}\}/,
+    );
+    expect(job).toContain("needs.lint.result");
     expect(job).toContain("needs.static.result");
     expect(job).toContain("needs.test.result");
     expect(job).toContain("vp test --merge-reports");
     expect(job).toContain("--coverage");
   });
 
-  test("leave the static checks to a job of their own, beside them", () => {
+  test("leave the static checks to two jobs of their own, beside them and each other", () => {
+    const lint = ci().get("lint") ?? "";
     const job = ci().get("static") ?? "";
 
-    expect(job).toContain("vp check");
+    expect(lint).toContain("vp check");
+    expect(job).not.toContain("vp check");
     expect(job).toContain("vp run docs:build");
+    expect(lint).not.toContain("needs:");
     expect(job).not.toContain("needs:");
   });
 });
