@@ -130,6 +130,16 @@ describe("text linked to a float4 real", () => {
     expect(points).toEqual([1]);
   });
 
+  test.each([
+    ["-0.1", -0.1],
+    ["-0", 0],
+  ])("a join finds a gauge of %s by its text (guard)", async (label, ratio) => {
+    await schema.pool.query({ text: "UPDATE gauges SET ratio = $1", values: [ratio] });
+    await schema.pool.query({ text: "UPDATE readings SET label = $1", values: [label] });
+
+    expect(await db().model(Gauge).joins("readings").pluck("id")).toEqual([1]);
+  });
+
   test.each(["1e39", "1e-50"])(
     "text past a float4's range, %s, links nothing rather than failing (guard)",
     async (label) => {
