@@ -148,10 +148,17 @@ function narrowed(key: string): string {
 }
 
 /**
+ * A `float4` key as a `double precision`, read through its text: the shortest that reads back as
+ * the same `float4` (`0.1`), and the value its record holds, rather than its exact widening.
+ */
+const shortest = (key: string) => `CAST(CAST(${key} AS TEXT) AS DOUBLE PRECISION)`;
+
+/**
  * A number key linked to a number of another width or type, compared at a `float4`'s precision
  * when either is a `float4` real rather than by widening the `float4` (#625). A `double
  * precision` or a decimal linked to a `float4` is rounded to a `real`, as a condition bound to
- * it reads its value. Every other link compares as a `double precision`, which Postgres widens a
+ * it reads its value, and a `float4` linked to a `double precision` or a decimal is read through
+ * its text, as its record holds it. Every other link compares as a `double precision`, which Postgres widens a
  * `float4` column to exactly, so the CASE's branches agree on one type. An integer on either side
  * is left as it is: a `float4` that equals an integer widens to it exactly.
  */
@@ -161,6 +168,10 @@ function linkedWidth(key: string, keyAttribute: Attribute, linked: Attribute): s
   if (linked.storedType === "real") {
     const isWide = keyAttribute.storedType === "real" ? ` AND NOT ${isFloat4(keyAttribute)}` : "";
     cases.push(`WHEN ${isFloat4(linked)}${isWide} THEN ${narrowed(key)}`);
+  }
+  if (keyAttribute.storedType === "real") {
+    const isWide = linked.storedType === "real" ? ` AND NOT ${isFloat4(linked)}` : "";
+    cases.push(`WHEN ${isFloat4(keyAttribute)}${isWide} THEN ${shortest(key)}`);
   }
   if (cases.length === 0) return key;
   return `CASE ${cases.join(" ")} ELSE CAST(${key} AS DOUBLE PRECISION) END`;

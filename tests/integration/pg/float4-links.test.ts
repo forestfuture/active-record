@@ -195,6 +195,8 @@ class Meter extends Model.define({
 
   // A sample's double precision ratio, linked to the meter's float4 ratio.
   samplesByWide = hasMany(Sample, { foreignKey: "wide", primaryKey: "narrow" });
+  // A sample's float4 ratio, linked to the meter's double precision ratio.
+  samplesByNarrow = hasMany(Sample, { foreignKey: "narrow", primaryKey: "wide" });
 }
 
 class Sample extends Model.define({
@@ -253,6 +255,22 @@ describe("a number linked to a float4 real", () => {
       await schema.pool.query({ text: "UPDATE samples SET wide = $1", values: [wide] });
 
       expect(await db().model(Meter).joins("samplesByWide").pluck("id")).toEqual([1]);
+    },
+  );
+
+  test("a join finds the meter by a float4 0.1", async () => {
+    const meters = await db().model(Meter).joins("samplesByNarrow").pluck("id");
+
+    expect(meters).toEqual([1]);
+  });
+
+  test.each(["3.4028235e38", "1e-45", "-0.1", "Infinity"])(
+    "a join finds the meter by a float4 %s (guard)",
+    async (ratio) => {
+      await schema.pool.query({ text: "UPDATE samples SET narrow = $1", values: [ratio] });
+      await schema.pool.query({ text: "UPDATE meters SET wide = $1", values: [ratio] });
+
+      expect(await db().model(Meter).joins("samplesByNarrow").pluck("id")).toEqual([1]);
     },
   );
 });
