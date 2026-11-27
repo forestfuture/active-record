@@ -23,6 +23,15 @@ const asciiSpace = "[ \\t\\n\\v\\f\\r]";
 const integerPattern = literal(`^${asciiSpace}*[+-]?0*[0-9]{1,255}[0-9]{0,53}${asciiSpace}*$`);
 
 /**
+ * Text that's a real number, as a condition casts one for a real or a decimal (#617): an integer
+ * as above, or with a point, digits after it or before it, and an exponent of at most 4 digits,
+ * so its cast to `numeric` can't overflow. A regular expression's bound stops at 255.
+ */
+const realPattern = literal(
+  `^${asciiSpace}*[+-]?(0*[0-9]{1,255}[0-9]{0,53}([.][0-9]{0,255})?|[.][0-9]{1,255})([eE][+-]?[0-9]{1,4})?${asciiSpace}*$`,
+);
+
+/**
  * Whether `text` matches `pattern`, under C's collation: a collation that ignores case runs no
  * regular expression (#563). Only the test takes it, so a selected key keeps its column's.
  */
@@ -59,16 +68,28 @@ const isCastable = (kind: Kind): kind is "uuid" | "text" | "number" =>
 const bigintRange = "BETWEEN -9223372036854775808 AND 9223372036854775807";
 
 /**
+ * The magnitudes a `double precision` holds, from the least subnormal to the greatest, besides
+ * zero: text outside them, which its cast would refuse, links to no real.
+ */
+const doubleRange = "BETWEEN 4.9406564584124654e-324 AND 1.7976931348623157e308";
+
+/**
  * `text` as the number it holds, cast to the type of `linked`'s column, so a comparison with that
- * column searches its index (#618): text linked to an integer is a `bigint`, and text past its
- * range links nothing rather than failing the cast. Each CASE decides before the next cast runs.
+ * column searches its index (#618): an integer's `bigint`, a real's `double precision` and a
+ * decimal's `numeric`. A real or a decimal takes a point and an exponent, as a condition does
+ * (#617). Text past the type's range links nothing rather than failing the cast. Each CASE
+ * decides before the next cast runs.
  */
 function linkedNumber(text: string, linked: Attribute): string {
-  const digits = matches(text, integerPattern);
-  if (linked.storedType === "integer") {
-    return `CASE WHEN ${digits} THEN CASE WHEN CAST(${text} AS NUMERIC) ${bigintRange} THEN CAST(${text} AS BIGINT) END END`;
+  const number = `CAST(${text} AS NUMERIC)`;
+  switch (linked.storedType) {
+    case "integer":
+      return `CASE WHEN ${matches(text, integerPattern)} THEN CASE WHEN ${number} ${bigintRange} THEN CAST(${text} AS BIGINT) END END`;
+    case "real":
+      return `CASE WHEN ${matches(text, realPattern)} THEN CASE WHEN ${number} = 0 OR ABS(${number}) ${doubleRange} THEN CAST(${text} AS DOUBLE PRECISION) END END`;
+    default:
+      return `CASE WHEN ${matches(text, realPattern)} THEN ${number} END`;
   }
-  return `CASE WHEN ${digits} THEN CAST(${text} AS NUMERIC) END`;
 }
 
 /** A quoted identifier; embedded double quotes are doubled. */
