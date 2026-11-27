@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
 import type { TestModule, TestSpecification } from "vite-plus/test/node";
-import { balanceShards, DurationSequencer } from "../support/duration-sequencer.ts";
+import { balanceShards, DurationSequencer, median } from "../support/duration-sequencer.ts";
 import DurationsReporter from "../support/durations-reporter.ts";
 import { PURE_RUNS } from "../support/properties.ts";
 import { scratchDirs } from "../support/scratch.ts";
@@ -79,6 +79,36 @@ describe("balanceShards (#614)", () => {
       }),
       PURE_RUNS,
     );
+  });
+
+  // Longest first, into the least-loaded shard: a shard passes the even share only by the file
+  // that took it there, which is no longer than the longest.
+  test("keeps each shard within its even share and the longest file", () => {
+    const recorded = fc.array(fc.double({ min: 0, max: 600, noNaN: true }), { maxLength: 40 });
+    fc.assert(
+      fc.property(recorded, counts, (seconds, count) => {
+        const given = seconds.map((time, index) => ({ key: String(index), seconds: time }));
+        const total = seconds.reduce((sum, time) => sum + time, 0);
+        const longest = Math.max(0, ...seconds);
+        const sums = balanceShards(given, count).map((shard) =>
+          shard.reduce((sum, file) => sum + file.seconds, 0),
+        );
+
+        for (const sum of sums) expect(sum).toBeLessThanOrEqual(total / count + longest + 1e-6);
+      }),
+      PURE_RUNS,
+    );
+  });
+});
+
+describe("median (#614)", () => {
+  test("is the middle value of an odd number, and the mean of the middle two of an even one", () => {
+    expect(median([10, 2, 4])).toBe(4);
+    expect(median([10, 2, 4, 6])).toBe(5);
+  });
+
+  test("is 1 with nothing recorded, so the files split by count", () => {
+    expect(median([])).toBe(1);
   });
 });
 
