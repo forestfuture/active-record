@@ -217,6 +217,7 @@ class Meter extends Model.define({
   narrowToWide = hasMany(Sample, { foreignKey: "narrow", primaryKey: "wide" });
   exactToNarrow = hasMany(Sample, { foreignKey: "exact", primaryKey: "narrow" });
   narrowToExact = hasMany(Sample, { foreignKey: "narrow", primaryKey: "exact" });
+  wideToExact = hasMany(Sample, { foreignKey: "wide", primaryKey: "exact" });
 }
 
 class Sample extends Model.define({
@@ -276,6 +277,7 @@ describe("a float4 real linked to a number of another width", () => {
           narrow_to_exact_count BIGINT NOT NULL DEFAULT 0);
         CREATE INDEX meters_narrow ON meters (narrow);
         CREATE INDEX meters_wide ON meters (wide);
+        CREATE INDEX meters_exact ON meters (exact);
         CREATE TABLE samples (id BIGINT PRIMARY KEY, narrow REAL, wide DOUBLE PRECISION,
           exact NUMERIC);`,
     });
@@ -398,9 +400,31 @@ describe("a float4 real linked to a number of another width", () => {
   test.each([
     ["wideToNarrow", "meters_narrow"],
     ["narrowToWide", "meters_wide"],
-  ] as const)("a join through %s searches %s (guard)", async (association, index) => {
+    ["narrowToExact", "meters_exact"],
+    ["wideToExact", "meters_exact"],
+  ] as const)("a join through %s searches %s", async (association, index) => {
     const plan = await planOf(schema, db().model(Meter).joins(association).toSql());
 
     expect(plan).toMatch(new RegExp(`Index (Only )?Scan using ${index} on meters`));
+  });
+
+  test.each(["narrowToExact", "wideToExact"] as const)(
+    "a join through %s past a decimal a double can't hold links nothing rather than failing",
+    async (association) => {
+      await schema.pool.query({ text: "UPDATE meters SET exact = 1e400" });
+
+      expect(await db().model(Meter).joins(association).pluck("id")).toEqual([]);
+    },
+  );
+
+  test("a join finds the meter by a double precision 0.1 linked to a decimal (guard)", async () => {
+    expect(await db().model(Meter).joins("wideToExact").pluck("id")).toEqual([1]);
+  });
+
+  test("a double precision links to a decimal by its shortest text, not a rounded decimal", async () => {
+    await schema.pool.query({ text: "UPDATE meters SET exact = 0.30000000000000001" });
+    await schema.pool.query({ text: "UPDATE samples SET wide = 0.3" });
+
+    expect(await db().model(Meter).joins("wideToExact").pluck("id")).toEqual([]);
   });
 });
