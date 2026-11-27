@@ -261,8 +261,9 @@ class CountedSample extends Model.define({
 }
 
 // A number linked to a float4 real, or a float4 linked to a number of another width or type, is
-// compared at a float4's precision, as a condition is, rather than by widening the float4 (#625).
-describe("a float4 real linked to a number of another width", () => {
+// compared at a float4's precision, as a condition is, rather than by widening the float4, and a
+// real of either width linked to a decimal is read through its text (#625).
+describe("a real linked to a number of another width or type", () => {
   let schema: PgSchema;
   const db = () => connect(schema.url);
 
@@ -343,8 +344,8 @@ describe("a float4 real linked to a number of another width", () => {
     },
   );
 
-  test.each(["NaN", "Infinity", "-Infinity", "3.4028234663852886e38"])(
-    "a join finds the meter by a decimal %s a float4 holds (guard)",
+  test.each(["NaN", "Infinity", "-Infinity"])(
+    "a join finds the meter by a decimal %s",
     async (exact) => {
       await schema.pool.query({ text: "UPDATE meters SET narrow = $1", values: [exact] });
       await schema.pool.query({ text: "UPDATE samples SET exact = $1", values: [exact] });
@@ -352,6 +353,14 @@ describe("a float4 real linked to a number of another width", () => {
       expect(await db().model(Meter).joins("exactToNarrow").pluck("id")).toEqual([1]);
     },
   );
+
+  test("a join finds the meter by a decimal of a float4's greatest value (guard)", async () => {
+    const greatest = "3.4028234663852886e38";
+    await schema.pool.query({ text: "UPDATE meters SET narrow = $1", values: [greatest] });
+    await schema.pool.query({ text: "UPDATE samples SET exact = $1", values: [greatest] });
+
+    expect(await db().model(Meter).joins("exactToNarrow").pluck("id")).toEqual([1]);
+  });
 
   test("a join finds the meter by a double precision NaN (guard)", async () => {
     await schema.pool.query({ text: "UPDATE meters SET narrow = 'NaN'" });
