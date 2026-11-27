@@ -3,10 +3,18 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test, vi } from "vite-plus/test";
 import type { TestModule, TestSpecification } from "vite-plus/test/node";
-import { balanceShards, DurationSequencer, median } from "../support/duration-sequencer.ts";
+import {
+  balanceShards,
+  DurationSequencer,
+  type Durations,
+  durationsPath,
+  median,
+} from "../support/duration-sequencer.ts";
 import DurationsReporter from "../support/durations-reporter.ts";
 import { PURE_RUNS } from "../support/properties.ts";
 import { scratchDirs } from "../support/scratch.ts";
+
+const scratch = scratchDirs();
 
 const keysOf = (shards: { key: string }[][]) => shards.map((shard) => shard.map(({ key }) => key));
 
@@ -83,7 +91,7 @@ describe("balanceShards (#614)", () => {
 
   // Longest first, into the least-loaded shard: a shard passes the even share only by the file
   // that took it there, which is no longer than the longest.
-  test("keeps each shard within its even share and the longest file", () => {
+  test("keeps each shard within its even share plus the longest file", () => {
     const recorded = fc.array(fc.double({ min: 0, max: 600, noNaN: true }), { maxLength: 40 });
     fc.assert(
       fc.property(recorded, counts, (seconds, count) => {
@@ -113,7 +121,7 @@ describe("median (#614)", () => {
 });
 
 describe("DurationSequencer (#614)", () => {
-  const sequencer = (index: number, count: number, durations: Record<string, number>) =>
+  const sequencer = (index: number, count: number, durations: Durations) =>
     new DurationSequencer(
       { config: { root: "/repo", shard: { index, count } } } as never,
       durations,
@@ -147,10 +155,11 @@ describe("DurationSequencer (#614)", () => {
     expect(await sequencer(1, 2, durations).shard([inSite, b, c])).toEqual([inSite]);
   });
 
-  // The split only ever sees the files Vitest lists, so a deleted file's record changes nothing.
+  // The split only ever sees the files Vitest lists, so a deleted file's record changes nothing:
+  // not even the median an unrecorded file counts as.
   test("ignores a record for a file that no longer exists", async () => {
     const durations = { "unit tests/b.test.ts": 5, "unit tests/c.test.ts": 1 };
-    const files = [spec("unit", "tests/b.test.ts"), spec("unit", "tests/c.test.ts")];
+    const files = ["b", "c", "unrecorded"].map((name) => spec("unit", `tests/${name}.test.ts`));
     const withGone = { ...durations, "unit tests/gone.test.ts": 100 };
 
     expect(await sequencer(1, 2, withGone).shard(files)).toEqual(
@@ -160,38 +169,40 @@ describe("DurationSequencer (#614)", () => {
 });
 
 describe("DurationsReporter (#614)", () => {
-  const scratch = scratchDirs();
+  /** The milliseconds Vitest's diagnostic gives a file, each 0 unless given. */
+  type Times = Partial<ReturnType<TestModule["diagnostic"]>>;
   /** A test file as Vitest reports one: its project, its path from that project's root, its times. */
-  const reported = (project: string, path: string, seconds: number) =>
+  const reported = (project: string, path: string, times: Times) =>
     ({
       project: { name: project },
       relativeModuleId: path,
       diagnostic: () => ({
-        duration: seconds * 1000,
+        duration: 0,
         collectDuration: 0,
         setupDuration: 0,
         environmentSetupDuration: 0,
         prepareDuration: 0,
+        ...times,
       }),
     }) as unknown as TestModule;
 
-  /** What the reporter writes, from the repo at `root`, for `modules`. */
-  function record(modules: TestModule[]): Record<string, number> {
+  /** What the reporter writes for `modules`, in a scratch folder standing for the repo. */
+  function record(modules: TestModule[]): Durations {
     const root = scratch("durations-", true);
     mkdirSync(join(root, "tests/support"), { recursive: true });
     const reporter = new DurationsReporter();
     reporter.onInit({ config: { root } } as never);
     reporter.onTestRunEnd(modules);
-    return JSON.parse(readFileSync(join(root, "tests/support/test-durations.json"), "utf8"));
+    return JSON.parse(readFileSync(join(root, durationsPath), "utf8")) as Durations;
   }
 
   // Run on CI's merged reports, its keys must be the ones the sequencer looks each file up by.
   test("records each file under the key the sequencer finds it by", async () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
     const durations = record([
-      reported("unit", "tests/a.test.ts", 9),
-      reported("unit", "tests/b.test.ts", 5),
-      reported("unit", "tests/c.test.ts", 1),
+      reported("unit", "tests/a.test.ts", { duration: 9000 }),
+      reported("unit", "tests/b.test.ts", { duration: 5000 }),
+      reported("unit", "tests/c.test.ts", { duration: 1000 }),
     ]);
     const files = ["a", "b", "c"].map((name) => spec("unit", `tests/${name}.test.ts`));
     const sequencer = new DurationSequencer(
@@ -204,17 +215,13 @@ describe("DurationsReporter (#614)", () => {
 
   test("records all the time a file takes its worker, to a tenth of a second", () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
-    const timed = {
-      project: { name: "unit" },
-      relativeModuleId: "tests/a.test.ts",
-      diagnostic: () => ({
-        duration: 1000,
-        collectDuration: 200,
-        setupDuration: 300,
-        environmentSetupDuration: 400,
-        prepareDuration: 520,
-      }),
-    } as unknown as TestModule;
+    const timed = reported("unit", "tests/a.test.ts", {
+      duration: 1000,
+      collectDuration: 200,
+      setupDuration: 300,
+      environmentSetupDuration: 400,
+      prepareDuration: 520,
+    });
 
     expect(record([timed])).toEqual({ "unit tests/a.test.ts": 2.4 });
   });
