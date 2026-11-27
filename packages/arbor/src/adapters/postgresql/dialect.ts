@@ -55,6 +55,22 @@ function kindOf({ storedType }: Attribute): Kind {
 const isCastable = (kind: Kind): kind is "uuid" | "text" | "number" =>
   kind === "uuid" || kind === "text" || kind === "number";
 
+/** The range of a `bigint`, which an integer attribute's column holds at most. */
+const bigintRange = "BETWEEN -9223372036854775808 AND 9223372036854775807";
+
+/**
+ * `text` as the number it holds, cast to the type of `linked`'s column, so a comparison with that
+ * column searches its index (#618): text linked to an integer is a `bigint`, and text past its
+ * range links nothing rather than failing the cast. Each CASE decides before the next cast runs.
+ */
+function linkedNumber(text: string, linked: Attribute): string {
+  const digits = matches(text, integerPattern);
+  if (linked.storedType === "integer") {
+    return `CASE WHEN ${digits} THEN CASE WHEN CAST(${text} AS NUMERIC) ${bigintRange} THEN CAST(${text} AS BIGINT) END END`;
+  }
+  return `CASE WHEN ${digits} THEN CAST(${text} AS NUMERIC) END`;
+}
+
 /** A quoted identifier; embedded double quotes are doubled. */
 const quoted = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
@@ -132,7 +148,7 @@ export const postgres: Dialect = {
       case "text":
         return text;
       case "number":
-        return `CASE WHEN ${matches(text, integerPattern)} THEN CAST(${text} AS NUMERIC) END`;
+        return linkedNumber(text, linked);
     }
   },
   /**
