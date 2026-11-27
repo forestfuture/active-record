@@ -140,6 +140,39 @@ describe("text linked to a float4 real", () => {
     expect(await db().model(Gauge).joins("readings").pluck("id")).toEqual([1]);
   });
 
+  test.each([
+    ["readings", "ratio", "3.4028235e38"],
+    ["readings", "ratio", "1e-45"],
+    ["wideReadings", "wide_ratio", "1.7976931348623158e308"],
+    ["wideReadings", "wide_ratio", "3e-324"],
+  ] as const)(
+    "a join through %s finds the extreme of %s that %s rounds to",
+    async (association, column, label) => {
+      const type = column === "ratio" ? "REAL" : "DOUBLE PRECISION";
+      await schema.pool.query({
+        text: `UPDATE gauges SET ${column} = CAST($1 AS ${type})`,
+        values: [label],
+      });
+      await schema.pool.query({ text: "UPDATE readings SET label = $1", values: [label] });
+
+      expect(await db().model(Gauge).joins(association).pluck("id")).toEqual([1]);
+    },
+  );
+
+  test.each([
+    ["readings", "3.4028236e38"],
+    ["readings", "7e-46"],
+    ["wideReadings", "1.7976931348623159e308"],
+    ["wideReadings", "2.4703282292062327e-324"],
+  ] as const)(
+    "a join through %s on text its type can't hold, %s, links nothing (guard)",
+    async (association, label) => {
+      await schema.pool.query({ text: "UPDATE readings SET label = $1", values: [label] });
+
+      expect(await db().model(Gauge).joins(association).pluck("id")).toEqual([]);
+    },
+  );
+
   test.each(["1e39", "1e-50"])(
     "text past a float4's range, %s, links nothing rather than failing (guard)",
     async (label) => {
