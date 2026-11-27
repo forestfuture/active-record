@@ -246,7 +246,7 @@ class CountedSample extends Model.define({
 
 // A number linked to a float4 real, or a float4 linked to a number of another width or type, is
 // compared at a float4's precision, as a condition is, rather than by widening the float4 (#625).
-describe("a number linked to a float4 real", () => {
+describe("a float4 real linked to a number of another width", () => {
   let schema: PgSchema;
   const db = () => connect(schema.url);
 
