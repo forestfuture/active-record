@@ -27,7 +27,7 @@ import {
   type WithSecurePasswords,
 } from "./secure-passwords.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
-import { recordJSON, type ToJSONOptions } from "./to-json-options.ts";
+import { type GivenOptions, recordJSON, type ToJSONOptions } from "./to-json-options.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
   destroyLifecycle,
@@ -756,7 +756,11 @@ export class Model extends ReadonlyMarks {
    * key `JSON.stringify` passes is ignored.
    */
   toJSON<O extends ToJSONOptions<this>>(options?: O | string): Record<string, unknown> {
-    return recordJSON(this, this[state].attributes(), typeof options === "object" ? options : {});
+    return recordJSON(
+      this,
+      this[state].attributes(),
+      typeof options === "object" ? (options as GivenOptions) : {},
+    );
   }
 }
 

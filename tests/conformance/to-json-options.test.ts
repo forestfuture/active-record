@@ -18,6 +18,18 @@ class User extends Model.define({
 
   posts = hasMany(Post, { foreignKey: "userId" });
   profile = hasOne(Profile, { foreignKey: "userId" });
+
+  get handle(): string {
+    return this.email.split("@")[0]!;
+  }
+
+  firstSeen(): Date {
+    return new Date(Date.UTC(2026, 0, this.id));
+  }
+
+  async rank(): Promise<number> {
+    return this.id;
+  }
 }
 
 class Post extends Model.define({
@@ -189,6 +201,43 @@ describe("toJSON options", () => {
 
       expect(() => jane.toJSON({ except: ["emial" as "email"] })).toThrow(
         new TypeError('User has no attribute "emial"; toJSON\'s except names attributes exactly'),
+      );
+    });
+  });
+
+  describe("methods", () => {
+    test("adds each getter's or method's value, a date as an ISO string", async () => {
+      const jane = await db().model(User).find(1);
+
+      expect(jane.toJSON({ methods: ["handle", "firstSeen"] })).toEqual({
+        id: 1,
+        email: "jane@example.com",
+        handle: "jane",
+        firstSeen: "2026-01-01T00:00:00.000Z",
+      });
+    });
+
+    test("adds their values whatever only says", async () => {
+      const jane = await db().model(User).find(1);
+
+      expect(jane.toJSON({ only: ["id"], methods: ["handle"] })).toEqual({ id: 1, handle: "jane" });
+    });
+
+    test("a name the record has no member for throws", async () => {
+      const jane = await db().model(User).find(1);
+
+      expect(() => jane.toJSON({ methods: ["handel" as "handle"] })).toThrow(
+        new TypeError(
+          "User has no method or getter \"handel\"; toJSON's methods names the record's own",
+        ),
+      );
+    });
+
+    test("a method that returns a promise throws, since toJSON can't wait for it", async () => {
+      const jane = await db().model(User).find(1);
+
+      expect(() => jane.toJSON({ methods: ["rank" as "handle"] })).toThrow(
+        new TypeError("User's \"rank\" returned a promise; toJSON's methods can't wait for one"),
       );
     });
   });
