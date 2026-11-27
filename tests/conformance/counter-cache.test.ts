@@ -415,6 +415,15 @@ describe("counter caches", () => {
 
       expect(Number(await replyTally(1))).toBe(0);
     });
+
+    test("changing the key moves the count", async () => {
+      const sample = await db().model(LabeledSample).find(1);
+
+      sample.label = "2";
+      await sample.save();
+
+      expect([Number(await replyTally(1)), Number(await replyTally(2))]).toEqual([0, 1]);
+    });
   });
 
   describe("a loaded target", () => {

@@ -66,6 +66,18 @@ class Note extends Model.define({ id: { type: "integer", null: false }, label: "
   });
 }
 
+// A mark counted in another mark's `mappedAt` by its ISO instant, which links to no Unix time.
+class IsoNote extends Model.define({ id: { type: "integer", null: false }, iso: "datetime" }) {
+  static table = "guarded_stamps";
+
+  mark = belongsTo(Mark, {
+    foreignKey: "iso",
+    primaryKey: "seconds",
+    optional: true,
+    counterCache: "mappedAt",
+  });
+}
+
 // A tag held as text, whose cast refuses "bad" and reads anything else as its text.
 const tag = defineType({
   storedAs: "string",
@@ -314,6 +326,43 @@ describe("a key linked to a Unix time", () => {
     await db().model(Note).create({ id: 4, label: "120" });
 
     expect((await db().model(Mark).find(1)).mappedAt).toBe(1);
+  });
+
+  test("a key holding a Unix time's digits counts out of its record when it moves or goes", async () => {
+    await harness.reset("guarded_stamps");
+    await db()
+      .model(Mark)
+      .insertAll([
+        { id: 1, seconds: new Date(120_000), mappedAt: 0 },
+        { id: 2, seconds: new Date(60_000), mappedAt: 0 },
+      ]);
+    const counts = async () =>
+      (await db().model(Mark).order({ id: "asc" }).toArray()).map((mark) => mark.mappedAt);
+    const note = await db().model(Note).create({ id: 3, label: "120" });
+
+    await note.update({ label: "60" });
+    const moved = await counts();
+    await note.destroy();
+
+    expect([moved, await counts()]).toEqual([
+      [0, 1],
+      [0, 0],
+    ]);
+  });
+
+  test("a key no Unix time's type links to counts out of no record when it moves or goes", async () => {
+    await harness.reset("guarded_stamps");
+    await db()
+      .model(Mark)
+      .create({ id: 1, seconds: new Date(120_000), mappedAt: 0 });
+    const note = await db()
+      .model(IsoNote)
+      .create({ id: 2, iso: new Date(120_000) });
+
+    await note.update({ iso: new Date(60_000) });
+    await note.destroy();
+
+    expect((await db().model(Mark).find(1)).mappedAt).toBe(0);
   });
 
   test("text holding a Unix time's digits links to it, as in a join", async () => {
