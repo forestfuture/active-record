@@ -15,7 +15,7 @@ import { type AttributeConversions, conversionsFor } from "./attribute-conversio
 import { defaultFilterAttributes, type FilterAttribute } from "./filtering.ts";
 import type { Errors } from "./errors-collection.ts";
 import { humanAttributeName, type ErrorMessages } from "./error-messages.ts";
-import { declare, declared } from "./declarations.ts";
+import { declare } from "./declarations.ts";
 import { checkNormalizedName, type NormalizeOptions } from "./normalization.ts";
 import { defineModel, type SpecsOrWidened } from "./defined-model.ts";
 import type { DefinedSpecs } from "./attribute-aliases.ts";
@@ -23,11 +23,11 @@ import type { SecureTokenMethods } from "./secure-tokens.ts";
 import {
   authenticateBy,
   type AuthenticateByAttributes,
-  secretAttributeNames,
   type SecurePasswordMethods,
   type WithSecurePasswords,
 } from "./secure-passwords.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
+import { recordJSON, type ToJSONOptions } from "./to-json-options.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
   destroyLifecycle,
@@ -67,7 +67,6 @@ import type { ContextOf, SaveOptions, ValidationContexts } from "./validation-co
 import { scopeBodies, scopeName, useModelBase } from "./scoped-relation.ts";
 import {
   checkValidatedNames,
-  confirmationNames,
   type AssociatedValidationOptions,
   type Validation,
   type ValidationOptions,
@@ -753,20 +752,11 @@ export class Model extends ReadonlyMarks {
    * The loaded attributes as JSON-ready values (dates as ISO strings), without the Model's
    * `hiddenAttributes`, the virtual attributes its `confirmation` rules read, or its secrets: each
    * secure password, its confirmation, challenge and digest, and each secure token (#355), for
-   * `Response.json(record)`.
+   * `Response.json(record)`. `options` add loaded associations (`{ include: "posts" }`); the
+   * key `JSON.stringify` passes is ignored.
    */
-  toJSON(): Record<string, unknown> {
-    const model = modelOf(this);
-    const hidden = [
-      ...model.hiddenAttributes,
-      ...confirmationNames(declared(model, "validations")),
-      ...secretAttributeNames(model.attributeDefinitions),
-    ];
-    return Object.fromEntries(
-      Object.entries(this[state].attributes())
-        .filter(([name]) => !hidden.includes(name))
-        .map(([name, value]) => [name, value instanceof Date ? value.toISOString() : value]),
-    );
+  toJSON<O extends ToJSONOptions<this>>(options?: O | string): Record<string, unknown> {
+    return recordJSON(this, this[state].attributes(), typeof options === "object" ? options : {});
   }
 }
 
