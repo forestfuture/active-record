@@ -1,7 +1,4 @@
-// A standalone guide page's project (site/snippets/pages/<page>/): its migrations, and the schema `arbor schema` generates from them.
-import { readdirSync, readFileSync } from "node:fs";
-import { afterAll, beforeAll, beforeEach, vi, type MockInstance } from "vite-plus/test";
-import { join } from "node:path";
+// A standalone guide page's project (site/snippets/pages/<page>/), and the schema `arbor schema` generates from its migrations.
 import { runSchema } from "../../packages/arbor/cli/schema/command.ts";
 
 /** The guide pages laid out as docs/agents/docs-pages.md says, by their project's folder name. */
@@ -45,41 +42,9 @@ export const standalonePages = [
 export const pageProject = (page: string, path = "") =>
   new URL(`../../site/snippets/pages/${page}/${path}`, import.meta.url);
 
-/** A page's migrations, in order: its D1 ones (`migrations`) or its Postgres ones (`postgres`). */
-export function pageMigrations(page: string, folder: "migrations" | "postgres"): URL[] {
-  const dir = pageProject(page, `${folder}/`);
-  return readdirSync(dir)
-    .filter((name) => name.endsWith(".sql"))
-    .sort()
-    .map((name) => new URL(name, dir));
-}
-
 /** What `arbor schema` exits with, and what it prints, in `cwd`. */
 export async function schemaCommand(cwd: string, check = false) {
   const said: string[] = [];
   const code = await runSchema({ cwd, check }, (line) => said.push(line));
   return { code, said: said.join("\n") };
-}
-
-/** Each table's attributes in a project's generated schema, one trimmed line each. */
-export function generatedAttributes(cwd: string): Record<string, string[]> {
-  const schema = readFileSync(join(cwd, "src/db/schema.ts"), "utf8");
-  const tables = schema.matchAll(/^export const (\w+) = \{\n([\s\S]*?)\n\} as const;/gm);
-  return Object.fromEntries(
-    [...tables].map(([, table, body]) => [table!, body!.split("\n").map((line) => line.trim())]),
-  );
-}
-
-/**
- * console.log, quiet for a describe whose examples log what they show: the tests check the calls
- * instead. Made in beforeAll, so describes that don't run yet don't share it; cleared before each.
- */
-export function quietLog(): { calls: () => unknown[][] } {
-  let log: MockInstance<typeof console.log>;
-  beforeAll(() => {
-    log = vi.spyOn(console, "log").mockImplementation(() => {});
-  });
-  afterAll(() => log.mockRestore());
-  beforeEach(() => log.mockClear());
-  return { calls: () => log.mock.calls };
 }
