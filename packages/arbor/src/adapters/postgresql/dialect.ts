@@ -108,21 +108,45 @@ function realCast(text: string, type: string, magnitudes: Magnitudes): string {
 }
 
 /**
+ * Whether `attribute`'s column is a 4-byte `real` (`float4`). Its type is read from a query of
+ * its table that finds no row, not from the row being linked, so the test is the same for every
+ * row and the column's index is still searched. A query names the table as a table: a cast to its
+ * row type would find a type of Postgres's own first, should the table share its name (`point`).
+ */
+function isFloat4({ table, column }: Attribute): string {
+  const selected = `(SELECT ${quoted(column)} FROM ${quoted(table)} WHERE false)`;
+  return `pg_typeof(${selected}) = 'real'::regtype`;
+}
+
+/**
  * Real-number text as a `double precision`, rounded first to a 4-byte `real` for a `float4`
  * column, as a condition bound to it reads its value, so a fraction links to the `real` it
- * rounds to (#623). Postgres widens both the column and the rounded value exactly. The column's
- * type is read from a query of its table that finds no row, not from the row being linked, so
- * the test is the same for every row and the column's index is still searched. A query names
- * the table as a table: a cast to its row type would find a type of Postgres's own first, should
- * the table share its name (`point`).
+ * rounds to (#623). Postgres widens both the column and the rounded value exactly.
  */
 function linkedReal(text: string, linked: Attribute): string {
-  const column = `(SELECT ${quoted(linked.column)} FROM ${quoted(linked.table)} WHERE false)`;
-  const type = `pg_typeof(${column})`;
   return (
-    `CASE WHEN ${type} = 'real'::regtype THEN ${realCast(text, "REAL", float4Magnitudes)} ` +
+    `CASE WHEN ${isFloat4(linked)} THEN ${realCast(text, "REAL", float4Magnitudes)} ` +
     `ELSE ${realCast(text, "DOUBLE PRECISION", doubleMagnitudes)} END`
   );
+}
+
+/**
+ * A number key linked to a number of another width or type, compared at a `float4`'s precision
+ * when either is a `float4` real rather than by widening the `float4` (#625). A `double
+ * precision` or a decimal linked to a `float4` is rounded to a `real`, as a condition bound to
+ * it reads its value. Every other link compares as a `double precision`, which Postgres widens a
+ * `float4` column to exactly, so the CASE's branches agree on one type. An integer on either side
+ * is left as it is: a `float4` that equals an integer widens to it exactly.
+ */
+function linkedWidth(key: string, keyAttribute: Attribute, linked: Attribute): string {
+  if (keyAttribute.storedType === "integer" || linked.storedType === "integer") return key;
+  const cases: string[] = [];
+  if (linked.storedType === "real") {
+    const isWide = keyAttribute.storedType === "real" ? ` AND NOT ${isFloat4(keyAttribute)}` : "";
+    cases.push(`WHEN ${isFloat4(linked)}${isWide} THEN CAST(${key} AS REAL)`);
+  }
+  if (cases.length === 0) return key;
+  return `CASE ${cases.join(" ")} ELSE CAST(${key} AS DOUBLE PRECISION) END`;
 }
 
 /**
@@ -212,7 +236,7 @@ export const postgres: Dialect = {
   linkedKey(key, keyAttribute, linked) {
     const kind = kindOf(linked);
     const keyKind = kindOf(keyAttribute);
-    if (kind === keyKind) return key;
+    if (kind === keyKind) return kind === "number" ? linkedWidth(key, keyAttribute, linked) : key;
     if (!isCastable(kind) || !isCastable(keyKind)) return undefined;
     const text = `CAST(${key} AS TEXT)`;
     switch (kind) {
