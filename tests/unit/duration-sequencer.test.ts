@@ -171,4 +171,21 @@ describe("DurationsReporter (#614)", () => {
 
     expect(await sequencer.shard(files)).toEqual([files[0]]);
   });
+
+  test("records all the time a file takes its worker, to a tenth of a second", () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const timed = {
+      project: { name: "unit" },
+      relativeModuleId: "tests/a.test.ts",
+      diagnostic: () => ({
+        duration: 1000,
+        collectDuration: 200,
+        setupDuration: 300,
+        environmentSetupDuration: 400,
+        prepareDuration: 520,
+      }),
+    } as unknown as TestModule;
+
+    expect(record([timed])).toEqual({ "unit tests/a.test.ts": 2.4 });
+  });
 });
