@@ -1102,9 +1102,13 @@ class Post extends Model.define({ id: "integer", userId: "integer" }) {
   The batch is planned before anything is found, so every association in the tree is sent, even under owners that find nothing; one with a `none()` scope sends nothing, and nor does anything under it.
   With a `limit` or `offset`, a query with `includes` ends its order with the primary key (unless the order has it already), and the subqueries keep its order, limit and offset, so they select the records it loads.
   A uuid or number key, linked to a text key, is selected as text (`CAST(… AS TEXT)`), so the text column's index is searched.
-  (Postgres) A text key linked to an integer key is selected as the number its digits are, as a condition casts it, and text that isn't digits matches nothing, since Postgres compares no text with a number.
-  So does text with more than 308 digits past its leading zeros, since its cast to `numeric`, or on to a real's `double precision`, could overflow (#585).
-  Only a real past 1e308 holds a number that long, and on D1 such text can still match one.
+  (Postgres) A text key linked to a number key is selected as the number it holds, as a condition casts it, and cast to the key's own type so the key's index is searched (#618): a `bigint` for an integer, a `double precision` for a real and a `numeric` for a decimal.
+  Text that holds no such number matches nothing, since Postgres compares no text with a number.
+  For an integer key the text holds digits only.
+  For a real or a decimal key it may also hold a point and an exponent (`"9.0"`, `"1e2"`, `".5"`), as D1 compares them (#617).
+  The number is compared unrounded, as on D1, so `"9.504"` finds no `9.50` of a decimal with a scale of 2 in a join, though a lazy read rounds it as a condition does.
+  Text past the key type's range matches nothing rather than failing the query: more than 308 digits past its leading zeros, an exponent of more than 4 digits, an integer past a `bigint`'s range, or a real past a `double precision`'s (#585).
+  On D1 such text can still match a real.
   As a condition does, a link reads only ASCII whitespace around the digits, so text with a no-break space around them matches nothing (#590).
   A `boolean`, `date`, `time`, `datetime` (one without `storage`: one with it is held as an integer, and links as a number), `json` or `binary` key linked either way to a key of another type matches nothing in a preload, a join or a through association (#586): text holding `"2026-11-25"` and a `date` link in neither direction, nor do an integer and a `boolean`.
   Postgres compares most of those types with no other type, and would fail the comparison; a `date` and a `datetime`, which it can compare, match nothing too, as on D1, which compares their text.
