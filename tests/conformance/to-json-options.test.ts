@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, hasOne, Model } from "../../packages/arbor/src/index.ts";
+import {
+  AssociationNotLoaded,
+  belongsTo,
+  hasMany,
+  hasOne,
+  Model,
+} from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 class User extends Model.define({
@@ -74,6 +80,74 @@ describe("toJSON options", () => {
           { id: 10, userId: 1, title: "First" },
           { id: 11, userId: 1, title: "Second" },
         ],
+      });
+    });
+
+    test("a belongsTo is sent as its record", async () => {
+      const post = await db().model(Post).includes("author").find(10);
+
+      expect(post.toJSON({ include: "author" })).toEqual({
+        id: 10,
+        userId: 1,
+        title: "First",
+        author: { id: 1, email: "jane@example.com" },
+      });
+    });
+
+    test("a hasOne with no record is sent as null", async () => {
+      const sam = await db().model(User).includes("profile").find(2);
+
+      expect(sam.toJSON({ include: "profile" })).toEqual({
+        id: 2,
+        email: "sam@example.com",
+        profile: null,
+      });
+    });
+
+    test("a list sends each association it names", async () => {
+      const jane = await db().model(User).includes("posts", "profile").find(1);
+
+      expect(jane.toJSON({ include: ["posts", "profile"] })).toMatchObject({
+        posts: [{ title: "First" }, { title: "Second" }],
+        profile: { id: 30, userId: 1, bio: "Writes" },
+      });
+    });
+
+    test("a nested include sends the included records' own associations, without their hidden attributes", async () => {
+      const jane = await db().model(User).includes({ posts: "comments" }).find(1);
+
+      expect(jane.toJSON({ include: { posts: "comments" } })).toEqual({
+        id: 1,
+        email: "jane@example.com",
+        posts: [
+          { id: 10, userId: 1, title: "First", comments: [{ id: 20, body: "Nice" }] },
+          { id: 11, userId: 1, title: "Second", comments: [] },
+        ],
+      });
+    });
+
+    test("an association read lazily is sent as a preloaded one is", async () => {
+      const post = await db().model(Post).find(10);
+      await post.author();
+
+      expect(post.toJSON({ include: "author" })).toMatchObject({ author: { id: 1 } });
+    });
+
+    test("an association that wasn't loaded throws AssociationNotLoaded", async () => {
+      const jane = await db().model(User).find(1);
+
+      expect(() => jane.toJSON({ include: "posts" })).toThrow(
+        new AssociationNotLoaded(
+          'User record hasn\'t loaded "posts"; preload it with includes("posts"), or read it first',
+        ),
+      );
+    });
+
+    test("JSON.stringify sends the attributes alone, since the key it passes isn't options", async () => {
+      const jane = await db().model(User).includes("posts").find(1);
+
+      expect(JSON.parse(JSON.stringify({ user: jane }))).toEqual({
+        user: { id: 1, email: "jane@example.com" },
       });
     });
   });
