@@ -1114,7 +1114,8 @@ class Post extends Model.define({ id: "integer", userId: "integer" }) {
   As a condition does, a link reads only ASCII whitespace around the digits, so text with a no-break space around them matches nothing (#590).
   (Postgres) A real over a `float4` column linked either way to a `double precision` real or a decimal is compared at a `real`'s precision rather than by widening the `float4`, so `0.1` held at either width links (#625).
   A `double precision` or a decimal linked to a `float4` is rounded to a `real`, as a condition reads its value, and matches nothing past a `real`'s range.
-  A `float4` linked to a `double precision` or a decimal is read as its text (`0.1`), the value its record holds.
+  A `float4` linked to a `double precision` is read as its text (`0.1`), the value its record holds.
+  A real of either width linked to a decimal is read as its text too, as a `numeric`, so the decimal's index is searched and a decimal past a `double precision`'s range matches nothing rather than failing: a `double precision` `0.3` finds no decimal `0.30000000000000001`.
   An integer on either side is compared as it is, since a `float4` that equals an integer widens to it exactly.
   D1 holds every real at 8 bytes, so it has no such case.
   A `boolean`, `date`, `time`, `datetime` (one without `storage`: one with it is held as an integer, and links as a number), `json` or `binary` key linked either way to a key of another type matches nothing in a preload, a join or a through association (#586): text holding `"2026-11-25"` and a `date` link in neither direction, nor do an integer and a `boolean`.
