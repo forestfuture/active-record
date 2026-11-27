@@ -152,7 +152,7 @@ function isRealDouble(number: string, { lowest, highest, step }: Magnitudes): st
  * links nothing. A decimal is compared as a `numeric`, exactly, since it may hold a number past a
  * `double precision`'s range; its infinities and NaN, which a `numeric` orders past them, link.
  */
-function narrowed(key: string, { storedType }: Attribute): string {
+function asReal(key: string, { storedType }: Attribute): string {
   const holds =
     storedType === "real"
       ? isRealDouble(key, float4Magnitudes)
@@ -164,27 +164,31 @@ function narrowed(key: string, { storedType }: Attribute): string {
  * A `float4` key as a `double precision`, read through its text: the shortest that reads back as
  * the same `float4` (`0.1`), and the value its record holds, rather than its exact widening.
  */
-const shortest = (key: string) => `CAST(CAST(${key} AS TEXT) AS DOUBLE PRECISION)`;
+const throughText = (key: string) => `CAST(CAST(${key} AS TEXT) AS DOUBLE PRECISION)`;
+
+/** Whether `attribute` alone is a `float4`: `other`, when it's a real too, isn't one. */
+function isOnlyFloat4(attribute: Attribute, other: Attribute): string {
+  const otherIsWide = other.storedType === "real" ? ` AND NOT ${isFloat4(other)}` : "";
+  return isFloat4(attribute) + otherIsWide;
+}
 
 /**
  * A number key linked to a number of another width or type, compared at a `float4`'s precision
  * when either is a `float4` real rather than by widening the `float4` (#625). A `double
  * precision` or a decimal linked to a `float4` is rounded to a `real`, as a condition bound to
  * it reads its value, and a `float4` linked to a `double precision` or a decimal is read through
- * its text, as its record holds it. Every other link compares as a `double precision`, which Postgres widens a
- * `float4` column to exactly, so the CASE's branches agree on one type. An integer on either side
- * is left as it is: a `float4` that equals an integer widens to it exactly.
+ * its text, as its record holds it. Every other link compares as a `double precision`, which
+ * Postgres widens a `float4` column to exactly, so the CASE's branches agree on one type. An
+ * integer on either side is left as it is: a `float4` that equals an integer widens to it exactly.
  */
 function linkedWidth(key: string, keyAttribute: Attribute, linked: Attribute): string {
   if (keyAttribute.storedType === "integer" || linked.storedType === "integer") return key;
   const cases: string[] = [];
   if (linked.storedType === "real") {
-    const isWide = keyAttribute.storedType === "real" ? ` AND NOT ${isFloat4(keyAttribute)}` : "";
-    cases.push(`WHEN ${isFloat4(linked)}${isWide} THEN ${narrowed(key, keyAttribute)}`);
+    cases.push(`WHEN ${isOnlyFloat4(linked, keyAttribute)} THEN ${asReal(key, keyAttribute)}`);
   }
   if (keyAttribute.storedType === "real") {
-    const isWide = linked.storedType === "real" ? ` AND NOT ${isFloat4(linked)}` : "";
-    cases.push(`WHEN ${isFloat4(keyAttribute)}${isWide} THEN ${shortest(key)}`);
+    cases.push(`WHEN ${isOnlyFloat4(keyAttribute, linked)} THEN ${throughText(key)}`);
   }
   if (cases.length === 0) return key;
   return `CASE ${cases.join(" ")} ELSE CAST(${key} AS DOUBLE PRECISION) END`;
