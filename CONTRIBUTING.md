@@ -46,7 +46,7 @@ A change to public behavior or the public API updates, in the same pull request,
 
 - **`docs/contract.md`**: the section for the behavior. Its _Guide_ and _Code_ line names the pages and modules to check.
 - **`GLOSSARY.md`**: a new term, or a term whose meaning changed.
-- **`site/docs/`**: the guide page for the behavior, and its examples in `site/snippets/`, the values their comments show included (see [Documentation](#documentation)). No test runs a standalone page’s examples, so this is what keeps those values true.
+- **`site/docs/`**: the guide page for the behavior, and its examples in `site/snippets/` with the values their comments show (see [Documentation](#documentation)).
 - **An entry's index**: a new public name is exported from the index of its entry (the core's `src/index.ts`, or an adapter's `src/adapters/<name>/index.ts`); an internal one is marked `/** @internal */`, and `vp run check:public-types` keeps it out of the published types. What only adapters need goes in the core's `src/for-adapters.ts`.
 - **`packages/arbor/skills/arbor/SKILL.md`**: the agent skill's rules, when the change alters how an app should write code with the library.
 - **`README.md`**: its quick look and feature list, when they show the behavior.
@@ -65,7 +65,7 @@ The guide is in `site/docs/` (a [Blume](https://useblume.dev) site at [arbor.for
 - **Write in the guide's voice** ([docs-voice.md](docs/agents/docs-voice.md)): open with what the reader does, assume a competent developer, keep examples short, and put side facts in notes.
 - **Examples use Arbor's syntax**, even for features not built yet. Rails syntax appears only when comparing.
 - **Where Arbor goes beyond Rails or differs from it**, a Rails box says so.
-- **Larger examples live in `site/snippets/`**, where `vp check` type-checks them against the library. A standalone page’s come from its project in `site/snippets/pages/`, and the values their comments show are written as the page’s prose is, not run. The rest run on D1 in the site tests (`tests/integration/d1/site-examples.test.ts`). A page embeds one with `<include>`, from the excerpts `site/excerpts.ts` writes. An example written inline in a page imports what it uses.
+- **Larger examples live in `site/snippets/`**, where `vp check` type-checks them against the library. A standalone page’s examples come from its project in `site/snippets/pages/`. No test runs them, so the values their comments show are written from the behavior in `docs/contract.md`. The rest run on D1 in the site tests (`tests/integration/d1/site-examples.test.ts`). A page embeds one with `<include>`, from the excerpts `site/excerpts.ts` writes. An example written inline in a page imports what it uses.
 
 ## Naming and attribution
 
