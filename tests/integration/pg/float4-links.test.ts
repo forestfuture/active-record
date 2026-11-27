@@ -49,6 +49,23 @@ class CountedReading extends Model.define({
   });
 }
 
+/** The plan Postgres picks for `sql` when a sequential scan or a hash or merge join is its last resort. */
+async function planOf(
+  schema: PgSchema,
+  { sql, params }: { sql: string; params: readonly unknown[] },
+) {
+  const client = await schema.pool.connect();
+  try {
+    await client.query({
+      text: "SET enable_seqscan = off; SET enable_hashjoin = off; SET enable_mergejoin = off",
+    });
+    const { rows } = await client.query({ text: `EXPLAIN ${sql}`, values: [...params] });
+    return rows.map((row) => row["QUERY PLAN"] as string).join("\n");
+  } finally {
+    client.release();
+  }
+}
+
 // Text linked to a real over a float4 column is read as a float4, as a condition reads it, so a
 // fraction links to the float4 it rounds to (#623).
 describe("text linked to a float4 real", () => {
@@ -78,20 +95,6 @@ describe("text linked to a float4 real", () => {
     });
   });
 
-  /** The plan Postgres picks for `sql` when a sequential scan or a hash or merge join is its last resort. */
-  async function planOf({ sql, params }: { sql: string; params: readonly unknown[] }) {
-    const client = await schema.pool.connect();
-    try {
-      await client.query({
-        text: "SET enable_seqscan = off; SET enable_hashjoin = off; SET enable_mergejoin = off",
-      });
-      const { rows } = await client.query({ text: `EXPLAIN ${sql}`, values: [...params] });
-      return rows.map((row) => row["QUERY PLAN"] as string).join("\n");
-    } finally {
-      client.release();
-    }
-  }
-
   test("a join finds the gauge by its ratio's text", async () => {
     const gauges = await db().model(Gauge).joins("readings").pluck("id");
 
@@ -119,7 +122,7 @@ describe("text linked to a float4 real", () => {
   });
 
   test("a join searches the float4 column's index (guard)", async () => {
-    const plan = await planOf(db().model(Gauge).joins("readings").toSql());
+    const plan = await planOf(schema, db().model(Gauge).joins("readings").toSql());
 
     expect(plan).toMatch(/Index (Only )?Scan using gauges_ratio on gauges/);
   });
@@ -183,6 +186,15 @@ describe("text linked to a float4 real", () => {
   );
 });
 
+// A plant's meters, and their samples through them.
+class Plant extends Model.define({ id: { type: "integer", null: false } }) {
+  static table = "plants";
+
+  meters = hasMany(Meter);
+  samplesWideToNarrow = hasMany(Sample, { through: "meters", source: "wideToNarrow" });
+  samplesNarrowToWide = hasMany(Sample, { through: "meters", source: "narrowToWide" });
+}
+
 // A meter's ratio, as a 4-byte float4 real, a double precision real and a decimal, and the
 // samples whose own ratio of one width or type is linked to one of the meter's of another.
 class Meter extends Model.define({
@@ -190,6 +202,9 @@ class Meter extends Model.define({
   narrow: "real",
   wide: "real",
   exact: "decimal",
+  plantId: "integer",
+  wideSamplesCount: "integer",
+  narrowSamplesCount: "integer",
 }) {
   static table = "meters";
 
@@ -209,6 +224,26 @@ class Sample extends Model.define({
   static table = "samples";
 }
 
+// A sample counted on its meter by each of its ratios of another width.
+class CountedSample extends Model.define({
+  id: { type: "integer", null: false },
+  narrow: "real",
+  wide: "real",
+}) {
+  static table = "samples";
+
+  wideMeter = belongsTo(Meter, {
+    foreignKey: "wide",
+    primaryKey: "narrow",
+    counterCache: "wideSamplesCount",
+  });
+  narrowMeter = belongsTo(Meter, {
+    foreignKey: "narrow",
+    primaryKey: "wide",
+    counterCache: "narrowSamplesCount",
+  });
+}
+
 // A number linked to a float4 real, or a float4 linked to a number of another width or type, is
 // compared at a float4's precision, as a condition is, rather than by widening the float4 (#625).
 describe("a number linked to a float4 real", () => {
@@ -218,8 +253,12 @@ describe("a number linked to a float4 real", () => {
   beforeAll(async () => {
     schema = await openPgSchema([]);
     await schema.pool.query({
-      text: `CREATE TABLE meters (id BIGINT PRIMARY KEY, narrow REAL, wide DOUBLE PRECISION,
-          exact NUMERIC);
+      text: `CREATE TABLE plants (id BIGINT PRIMARY KEY);
+        CREATE TABLE meters (id BIGINT PRIMARY KEY, narrow REAL, wide DOUBLE PRECISION,
+          exact NUMERIC, plant_id BIGINT, wide_samples_count BIGINT NOT NULL DEFAULT 0,
+          narrow_samples_count BIGINT NOT NULL DEFAULT 0);
+        CREATE INDEX meters_narrow ON meters (narrow);
+        CREATE INDEX meters_wide ON meters (wide);
         CREATE TABLE samples (id BIGINT PRIMARY KEY, narrow REAL, wide DOUBLE PRECISION,
           exact NUMERIC);`,
     });
@@ -228,8 +267,10 @@ describe("a number linked to a float4 real", () => {
 
   beforeEach(async () => {
     await schema.pool.query({
-      text: `TRUNCATE meters, samples;
-        INSERT INTO meters (id, narrow, wide, exact) VALUES (1, 0.1, 0.1, 0.1);
+      text: `TRUNCATE plants, meters, samples;
+        INSERT INTO plants (id) VALUES (1);
+        INSERT INTO meters (id, narrow, wide, exact, plant_id, wide_samples_count,
+          narrow_samples_count) VALUES (1, 0.1, 0.1, 0.1, 1, 1, 1);
         INSERT INTO samples (id, narrow, wide, exact) VALUES (1, 0.1, 0.1, 0.1);`,
     });
   });
@@ -290,4 +331,31 @@ describe("a number linked to a float4 real", () => {
       expect(await db().model(Meter).joins("exactToNarrow").pluck("id")).toEqual([]);
     },
   );
+
+  test.each(["samplesWideToNarrow", "samplesNarrowToWide"] as const)(
+    "a through association, %s, finds the sample by its meter's ratio (guard)",
+    async (association) => {
+      const plant = await db().model(Plant).find(1);
+
+      expect(await plant[association]().pluck("id")).toEqual([1]);
+    },
+  );
+
+  test("a counter cache counts the sample out of its meter by each width (guard)", async () => {
+    const sample = await db().model(CountedSample).find(1);
+
+    await sample.destroy();
+
+    const meter = await db().model(Meter).find(1);
+    expect([meter.wideSamplesCount, meter.narrowSamplesCount]).toEqual([0, 0]);
+  });
+
+  test.each([
+    ["wideToNarrow", "meters_narrow"],
+    ["narrowToWide", "meters_wide"],
+  ] as const)("a join through %s searches %s (guard)", async (association, index) => {
+    const plan = await planOf(schema, db().model(Meter).joins(association).toSql());
+
+    expect(plan).toMatch(new RegExp(`Index (Only )?Scan using ${index} on meters`));
+  });
 });
