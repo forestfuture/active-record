@@ -120,7 +120,7 @@ A **mechanical** finding (a fixed pattern, a banned API, an import shape, a file
   **Check candidates:** <mechanical findings a lint rule or test could catch, or "none">
   ```
 
-- **Merging is the human's.** Wait for their go-ahead; `main` takes a pull request only, merged by rebase once `check` passes.
+- **Merging is the human's.** Wait for their go-ahead; `main` takes a pull request only, merged by rebase once `check` passes. When the go-ahead is to merge once CI passes, turn on auto-merge, `gh pr merge <number> --auto --rebase`, and GitHub merges it when `check` passes.
 - After the merge, wait for CI on `main` to pass (`gh run watch`), then close the issue with a summary comment (if `Closes` didn't): what was delivered, the decisions made (link any `deferred` issues), and what the review found and fixed. Then, from the main checkout, remove the branch and its worktree with `node scripts/remove-merged-branch.mjs <branch>`; it keeps both unless the merged pull request's head is the branch's tip.
 - The human may then run `/retro` on the session. It suggests changes to the agent's environment (checks, standards, steering files), not to the code. The Review section's check candidates are its first leads.
 
