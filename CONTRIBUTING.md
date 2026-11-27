@@ -38,7 +38,7 @@ The rules that matter most:
 - **Examples are neutral.** Tests, comments, docs, commit messages and changesets use neutral names (`User`, `Post`, `Product`). Nothing in them comes from a project you tried Arbor in.
 - **Rails is the precedent.** When a behavior is open, Arbor does what Rails' Active Record does, unless D1 or TypeScript gets in the way.
 
-The pre-commit hook runs `vp check --fix` on the staged files. The commit-msg hook checks the length of the title and of each body line, refuses an invisible character in the message, and warns when a commit stages nothing outside `tests/`, adds more tests than it removes, and doesn't say "guard". A unit test refuses an invisible character in a tracked file too. Run `vp test` yourself before pushing.
+The pre-commit hook runs `vp check --fix` on the staged files. The commit-msg hook checks the length of the title, wraps a body line of prose past 72 characters and refuses any other, refuses an invisible character in the message, and warns when a commit stages nothing outside `tests/`, adds more tests than it removes, and doesn't say "guard". A unit test refuses an invisible character in a tracked file too. Run `vp test` yourself before pushing.
 
 ## What a public change touches
 

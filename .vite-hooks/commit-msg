@@ -16,31 +16,45 @@ comment=$(git config --get-regexp '^core\.comment(char|string)$' | tail -n 1 | c
 case "$comment" in '' | [Aa][Uu][Tt][Oo]) comment='#' ;; esac
 
 # Commit bodies wrap at 72, since git shows them as written. A body line
-# past 72 is wrapped here, in the message file, between its words: a
-# bullet's or a numbered item's following lines line up under its text,
-# and an indented line's keep its indent. A line that holds a URL is left
-# as written, and so is one with a word too long for a line: the check
-# below refuses that one. Characters are counted, not bytes: in the C
-# locale awk counts bytes, so it drops UTF-8's continuation bytes first.
+# of prose past 72 is wrapped here, in the message file, at the spaces
+# between its words, which it keeps: a bullet's or a numbered item's
+# following lines line up under its text. Lines that aren't prose are
+# left as written, and the check below refuses one past 72: a line
+# indented four spaces or a tab, as code is, a quoted line, a trailer
+# such as Co-authored-by, and a line with a word too long for a line. A
+# line that holds a URL is left too. Characters are counted, not bytes:
+# in the C locale awk counts bytes, so it drops UTF-8's continuation
+# bytes first.
+trap 'rm -f "$1.wrapping"' EXIT
 wrapped=$(awk -v c="$comment" '
   function characters(text, copy) {
     copy = text
     gsub(/[\200-\277]/, "", copy)
     return length(copy)
   }
-  function wrap(line, lead, hang, rest, count, words, i, out) {
-    match(line, /^[ \t]*(([-*+]|[0-9]+[.)])[ \t]+)?/)
+  function prose(line) {
+    return line !~ /^(\t|    | *>|[A-Za-z]+(-[A-Za-z]+)+: )/ && line !~ /:\/\//
+  }
+  function wrap(line, lead, hang, rest, count, words, gaps, i, out) {
+    match(line, /^ *(([-*+]|[0-9]+[.)]) +)?/)
     lead = substr(line, 1, RLENGTH)
     rest = substr(line, RLENGTH + 1)
     hang = lead
-    gsub(/[^ \t]/, " ", hang)
-    count = split(rest, words, /[ \t]+/)
+    gsub(/[^ ]/, " ", hang)
+    count = 0
+    while (rest != "") {
+      match(rest, /^[^ \t]+/)
+      words[++count] = substr(rest, 1, RLENGTH)
+      if (characters(hang words[count]) > 72) return 0
+      rest = substr(rest, RLENGTH + 1)
+      match(rest, /^[ \t]*/)
+      gaps[count] = substr(rest, 1, RLENGTH)
+      rest = substr(rest, RLENGTH + 1)
+    }
     if (count < 2) return 0
-    for (i = 1; i <= count; i++)
-      if (characters(hang words[i]) > 72) return 0
     out = lead words[1]
     for (i = 2; i <= count; i++) {
-      if (characters(out " " words[i]) <= 72) { out = out " " words[i]; continue }
+      if (characters(out gaps[i - 1] words[i]) <= 72) { out = out gaps[i - 1] words[i]; continue }
       print out
       out = hang words[i]
     }
@@ -54,7 +68,7 @@ wrapped=$(awk -v c="$comment" '
   {
     line = $0
     sub(/[[:space:]]+$/, "", line)
-    if (characters(line) > 72 && line !~ /:\/\// && wrap(line)) { changed = 1; next }
+    if (characters(line) > 72 && prose(line) && wrap(line)) { changed = 1; next }
     print
   }
   END { if (changed) print "wrapped" > "/dev/stderr" }' "$1" 2>&1 >"$1.wrapping")
@@ -62,7 +76,6 @@ if [ "$wrapped" = wrapped ]; then
   cat "$1.wrapping" >"$1"
   echo "Wrapped the commit body at 72 characters."
 fi
-rm -f "$1.wrapping"
 
 message=$(awk -v c="$comment" '
   $0 == c " ------------------------ >8 ------------------------" { exit }
