@@ -1,10 +1,21 @@
 import fc from "fast-check";
-import { describe, expect, test } from "vite-plus/test";
-import type { TestSpecification } from "vite-plus/test/node";
+import { mkdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, test, vi } from "vite-plus/test";
+import type { TestModule, TestSpecification } from "vite-plus/test/node";
 import { balanceShards, DurationSequencer } from "../support/duration-sequencer.ts";
+import DurationsReporter from "../support/durations-reporter.ts";
 import { PURE_RUNS } from "../support/properties.ts";
+import { scratchDirs } from "../support/scratch.ts";
 
 const keysOf = (shards: { key: string }[][]) => shards.map((shard) => shard.map(({ key }) => key));
+
+/** A test file as Vitest gives the sequencer one: its project, and its absolute path. */
+const spec = (project: string, path: string, root = "/repo") =>
+  ({
+    project: { name: project, config: { root } },
+    moduleId: `${root}/${path}`,
+  }) as unknown as TestSpecification;
 
 describe("balanceShards (#614)", () => {
   test("puts the longest files first, each in the shard with the least time so far", () => {
@@ -72,12 +83,6 @@ describe("balanceShards (#614)", () => {
 });
 
 describe("DurationSequencer (#614)", () => {
-  /** A test file as Vitest gives the sequencer one: its project, and its absolute path. */
-  const spec = (project: string, path: string, root = "/repo") =>
-    ({
-      project: { name: project, config: { root } },
-      moduleId: `${root}/${path}`,
-    }) as unknown as TestSpecification;
   const sequencer = (index: number, count: number, durations: Record<string, number>) =>
     new DurationSequencer(
       { config: { root: "/repo", shard: { index, count } } } as never,
@@ -110,5 +115,60 @@ describe("DurationSequencer (#614)", () => {
     const c = spec("unit", "tests/c.test.ts");
 
     expect(await sequencer(1, 2, durations).shard([inSite, b, c])).toEqual([inSite]);
+  });
+
+  // The split only ever sees the files Vitest lists, so a deleted file's record changes nothing.
+  test("ignores a record for a file that no longer exists", async () => {
+    const durations = { "unit tests/b.test.ts": 5, "unit tests/c.test.ts": 1 };
+    const files = [spec("unit", "tests/b.test.ts"), spec("unit", "tests/c.test.ts")];
+    const withGone = { ...durations, "unit tests/gone.test.ts": 100 };
+
+    expect(await sequencer(1, 2, withGone).shard(files)).toEqual(
+      await sequencer(1, 2, durations).shard(files),
+    );
+  });
+});
+
+describe("DurationsReporter (#614)", () => {
+  const scratch = scratchDirs();
+  /** A test file as Vitest reports one: its project, its path from that project's root, its times. */
+  const reported = (project: string, path: string, seconds: number) =>
+    ({
+      project: { name: project },
+      relativeModuleId: path,
+      diagnostic: () => ({
+        duration: seconds * 1000,
+        collectDuration: 0,
+        setupDuration: 0,
+        environmentSetupDuration: 0,
+        prepareDuration: 0,
+      }),
+    }) as unknown as TestModule;
+
+  /** What the reporter writes, from the repo at `root`, for `modules`. */
+  function record(modules: TestModule[]): Record<string, number> {
+    const root = scratch("durations-", true);
+    mkdirSync(join(root, "tests/support"), { recursive: true });
+    const reporter = new DurationsReporter();
+    reporter.onInit({ config: { root } } as never);
+    reporter.onTestRunEnd(modules);
+    return JSON.parse(readFileSync(join(root, "tests/support/test-durations.json"), "utf8"));
+  }
+
+  // Run on CI's merged reports, its keys must be the ones the sequencer looks each file up by.
+  test("records each file under the key the sequencer finds it by", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const durations = record([
+      reported("unit", "tests/a.test.ts", 9),
+      reported("unit", "tests/b.test.ts", 5),
+      reported("unit", "tests/c.test.ts", 1),
+    ]);
+    const files = ["a", "b", "c"].map((name) => spec("unit", `tests/${name}.test.ts`));
+    const sequencer = new DurationSequencer(
+      { config: { root: "/repo", shard: { index: 1, count: 2 } } } as never,
+      durations,
+    );
+
+    expect(await sequencer.shard(files)).toEqual([files[0]]);
   });
 });
