@@ -29,6 +29,13 @@ class Reading extends Model.define({ id: { type: "integer", null: false }, label
   static table = "readings";
 }
 
+// A Model whose table is named like one of Postgres's own types.
+class Point extends Model.define({ id: { type: "integer", null: false }, ratio: "real" }) {
+  static table = "point";
+
+  readings = hasMany(Reading, { foreignKey: "label", primaryKey: "ratio" });
+}
+
 class CountedReading extends Model.define({
   id: { type: "integer", null: false },
   label: "string",
@@ -55,7 +62,9 @@ describe("text linked to a float4 real", () => {
         CREATE TABLE gauges (id BIGINT PRIMARY KEY, site_id BIGINT, ratio REAL,
           wide_ratio DOUBLE PRECISION, readings_count BIGINT NOT NULL DEFAULT 0);
         CREATE INDEX gauges_ratio ON gauges (ratio);
-        CREATE TABLE readings (id BIGINT PRIMARY KEY, label TEXT);`,
+        CREATE TABLE readings (id BIGINT PRIMARY KEY, label TEXT);
+        CREATE TABLE point (id BIGINT PRIMARY KEY, ratio REAL);
+        INSERT INTO point (id, ratio) VALUES (1, 0.1);`,
     });
   });
   afterAll(() => schema.dispose());
@@ -113,6 +122,12 @@ describe("text linked to a float4 real", () => {
     const plan = await planOf(db().model(Gauge).joins("readings").toSql());
 
     expect(plan).toMatch(/Index (Only )?Scan using gauges_ratio on gauges/);
+  });
+
+  test("a join finds a row of a table named like a Postgres type", async () => {
+    const points = await db().model(Point).joins("readings").pluck("id");
+
+    expect(points).toEqual([1]);
   });
 
   test.each(["1e39", "1e-50"])(
