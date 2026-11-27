@@ -70,8 +70,8 @@ const bigintRange = "BETWEEN -9223372036854775808 AND 9223372036854775807";
 /**
  * The magnitudes a binary floating-point type's cast accepts, as powers of 2: those that round to
  * one of its values besides zero. They lie past half its least subnormal, `2 ** -lowest`, which
- * rounds to zero, and below the midpoint of its greatest value and the next power of 2, `2 **
- * highest - 2 ** step`, which rounds to infinity: the cast refuses both (#623).
+ * rounds to zero, and below the midpoint of its greatest value and the next power of 2,
+ * `2 ** highest - 2 ** step`, which rounds to infinity: the cast refuses both (#623).
  */
 interface Magnitudes {
   readonly lowest: bigint;
@@ -86,9 +86,9 @@ const doubleMagnitudes: Magnitudes = { lowest: 1075n, highest: 1024n, step: 970n
 const float4Magnitudes: Magnitudes = { lowest: 150n, highest: 128n, step: 103n };
 
 /**
- * Whether `number`, a `numeric`, is within `magnitudes`, compared exactly: the least bound as
- * its product with `2 ** lowest`, whole, as a `numeric` holds a fraction that small only
- * rounded.
+ * Whether `number`, a `numeric`, is within `magnitudes`, compared exactly. The least bound is
+ * compared as its product with `2 ** lowest`, a whole number, since a `numeric` holds a fraction
+ * that small only rounded.
  */
 function isWithin(number: string, { lowest, highest, step }: Magnitudes): string {
   const limit = 2n ** highest - 2n ** step;
@@ -110,10 +110,11 @@ function realCast(text: string, type: string, magnitudes: Magnitudes): string {
 /**
  * Real-number text as a `double precision`, rounded first to a 4-byte `real` for a `float4`
  * column, as a condition bound to it reads its value, so a fraction links to the `real` it
- * rounds to (#623). Postgres widens both the column and the rounded value exactly. The column's type is read from a query of its table that
- * finds no row, not from the row being linked, so the test is the same for every row and the
- * column's index is still searched. A query names the table as a table: a cast to its row type
- * would find a type of Postgres's own first, should the table share its name (`point`).
+ * rounds to (#623). Postgres widens both the column and the rounded value exactly. The column's
+ * type is read from a query of its table that finds no row, not from the row being linked, so
+ * the test is the same for every row and the column's index is still searched. A query names
+ * the table as a table: a cast to its row type would find a type of Postgres's own first, should
+ * the table share its name (`point`).
  */
 function linkedReal(text: string, linked: Attribute): string {
   const column = `(SELECT ${quoted(linked.column)} FROM ${quoted(linked.table)} WHERE false)`;
@@ -126,10 +127,10 @@ function linkedReal(text: string, linked: Attribute): string {
 
 /**
  * `text` as the number it holds, cast to the type of `linked`'s column, so a comparison with that
- * column searches its index (#618): an integer's `bigint`, a real's `double precision` (rounded to a `real` for a `float4`)
- * and a decimal's `numeric`. A real or a decimal takes a point and an exponent, as a condition
- * does (#617). Text past the type's range links nothing rather than failing the cast. Each CASE
- * decides before the next cast runs.
+ * column searches its index (#618): an integer's `bigint`, a real's `double precision`, rounded
+ * first to a `real` for a `float4`, and a decimal's `numeric`. A real or a decimal takes a
+ * point and an exponent, as a condition does (#617). Text past the type's range links nothing
+ * rather than failing the cast. Each CASE decides before the next cast runs.
  */
 function linkedNumber(text: string, linked: Attribute): string {
   if (linked.storedType === "integer") {
