@@ -193,10 +193,11 @@ class Meter extends Model.define({
 }) {
   static table = "meters";
 
-  // A sample's double precision ratio, linked to the meter's float4 ratio.
-  samplesByWide = hasMany(Sample, { foreignKey: "wide", primaryKey: "narrow" });
-  // A sample's float4 ratio, linked to the meter's double precision ratio.
-  samplesByNarrow = hasMany(Sample, { foreignKey: "narrow", primaryKey: "wide" });
+  // Each links a sample's ratio of one width or type to the meter's of another.
+  wideToNarrow = hasMany(Sample, { foreignKey: "wide", primaryKey: "narrow" });
+  narrowToWide = hasMany(Sample, { foreignKey: "narrow", primaryKey: "wide" });
+  exactToNarrow = hasMany(Sample, { foreignKey: "exact", primaryKey: "narrow" });
+  narrowToExact = hasMany(Sample, { foreignKey: "narrow", primaryKey: "exact" });
 }
 
 class Sample extends Model.define({
@@ -234,7 +235,7 @@ describe("a number linked to a float4 real", () => {
   });
 
   test("a join finds the meter by a double precision 0.1", async () => {
-    const meters = await db().model(Meter).joins("samplesByWide").pluck("id");
+    const meters = await db().model(Meter).joins("wideToNarrow").pluck("id");
 
     expect(meters).toEqual([1]);
   });
@@ -244,7 +245,7 @@ describe("a number linked to a float4 real", () => {
     async (wide) => {
       await schema.pool.query({ text: "UPDATE samples SET wide = $1", values: [wide] });
 
-      expect(await db().model(Meter).joins("samplesByWide").pluck("id")).toEqual([]);
+      expect(await db().model(Meter).joins("wideToNarrow").pluck("id")).toEqual([]);
     },
   );
 
@@ -254,12 +255,12 @@ describe("a number linked to a float4 real", () => {
       await schema.pool.query({ text: "UPDATE meters SET narrow = $1", values: [wide] });
       await schema.pool.query({ text: "UPDATE samples SET wide = $1", values: [wide] });
 
-      expect(await db().model(Meter).joins("samplesByWide").pluck("id")).toEqual([1]);
+      expect(await db().model(Meter).joins("wideToNarrow").pluck("id")).toEqual([1]);
     },
   );
 
   test("a join finds the meter by a float4 0.1", async () => {
-    const meters = await db().model(Meter).joins("samplesByNarrow").pluck("id");
+    const meters = await db().model(Meter).joins("narrowToWide").pluck("id");
 
     expect(meters).toEqual([1]);
   });
@@ -270,7 +271,23 @@ describe("a number linked to a float4 real", () => {
       await schema.pool.query({ text: "UPDATE samples SET narrow = $1", values: [ratio] });
       await schema.pool.query({ text: "UPDATE meters SET wide = $1", values: [ratio] });
 
-      expect(await db().model(Meter).joins("samplesByNarrow").pluck("id")).toEqual([1]);
+      expect(await db().model(Meter).joins("narrowToWide").pluck("id")).toEqual([1]);
+    },
+  );
+
+  test.each(["exactToNarrow", "narrowToExact"] as const)(
+    "a join through %s finds the meter by 0.1 (guard)",
+    async (association) => {
+      expect(await db().model(Meter).joins(association).pluck("id")).toEqual([1]);
+    },
+  );
+
+  test.each(["1e39", "1e-50", "1e400"])(
+    "a decimal past a float4's range, %s, links nothing rather than failing",
+    async (exact) => {
+      await schema.pool.query({ text: "UPDATE samples SET exact = $1", values: [exact] });
+
+      expect(await db().model(Meter).joins("exactToNarrow").pluck("id")).toEqual([]);
     },
   );
 });
