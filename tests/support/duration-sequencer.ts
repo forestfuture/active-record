@@ -12,6 +12,9 @@ export interface TimedFile {
 /** The key a file's duration is recorded under: its project's name, then its path from the repo's root. */
 export const durationKey = (project: string, path: string) => `${project} ${path}`;
 
+/** The seconds each test file took in a recorded run, by `durationKey`. */
+export type Durations = Readonly<Record<string, number>>;
+
 /** Where the recorded durations live, from the repo's root. */
 export const durationsPath = "tests/support/test-durations.json";
 
@@ -58,10 +61,10 @@ function median(values: number[]): number {
  * (`balanceShards`) instead of by a hash of each path. Without `--shard` it changes nothing.
  */
 export class DurationSequencer extends BaseSequencer {
-  readonly #durations: Record<string, number> | undefined;
+  readonly #durations: Durations | undefined;
 
   /** `durations` replaces the recorded ones, for tests. */
-  constructor(ctx: Vitest, durations?: Record<string, number>) {
+  constructor(ctx: Vitest, durations?: Durations) {
     super(ctx);
     this.#durations = durations;
   }
@@ -86,6 +89,6 @@ function keyOf(spec: TestSpecification): string {
   return durationKey(spec.project.name, path);
 }
 
-function readDurations(root: string): Record<string, number> {
-  return JSON.parse(readFileSync(join(root, durationsPath), "utf8")) as Record<string, number>;
+function readDurations(root: string): Durations {
+  return JSON.parse(readFileSync(join(root, durationsPath), "utf8")) as Durations;
 }
