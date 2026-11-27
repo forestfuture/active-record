@@ -78,6 +78,22 @@ describe("scripts/push-branch.mjs", () => {
     expect(git(origin, "rev-parse", "7-thing")).toBe(theirs);
   });
 
+  test("refuses when origin's branch holds a commit this branch never had, though fetched", () => {
+    const { dir, origin } = clone("7-thing");
+    git(dir, "commit", "-q", "--allow-empty", "-m", "work");
+    expect(run(dir).status).toBe(0);
+    const other = mkdtempSync(join(tmpdir(), "push-branch-other-"));
+    git(other, "clone", "-q", "-b", "7-thing", origin, ".");
+    git(other, "commit", "-q", "--allow-empty", "-m", "theirs");
+    git(other, "push", "-q", "origin", "7-thing:7-thing");
+    const theirs = git(other, "rev-parse", "HEAD");
+    git(dir, "fetch", "-q", "origin");
+    git(dir, "commit", "-q", "--amend", "--allow-empty", "-m", "reworded");
+
+    expect(run(dir).status).not.toBe(0);
+    expect(git(origin, "rev-parse", "7-thing")).toBe(theirs);
+  });
+
   test.each(["main", "feature", "claude/retro"])("refuses to push %j", (branch) => {
     const { dir, origin } = clone(branch);
     const before = git(origin, "rev-parse", "main");
