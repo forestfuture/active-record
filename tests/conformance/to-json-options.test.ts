@@ -151,4 +151,45 @@ describe("toJSON options", () => {
       });
     });
   });
+
+  describe("only and except", () => {
+    test("only sends the attributes it names", async () => {
+      const jane = await db().model(User).find(1);
+
+      expect(jane.toJSON({ only: ["email"] })).toEqual({ email: "jane@example.com" });
+    });
+
+    test("except sends every attribute but those it names", async () => {
+      const post = await db().model(Post).find(10);
+
+      expect(post.toJSON({ except: ["userId"] })).toEqual({ id: 10, title: "First" });
+    });
+
+    test("only wins when both are given", async () => {
+      const post = await db().model(Post).find(10);
+      const both = { only: ["title"], except: ["title"] } as never;
+
+      expect(post.toJSON(both)).toEqual({ title: "First" });
+    });
+
+    test("only never sends a hidden attribute", async () => {
+      const jane = await db().model(User).find(1);
+
+      expect(jane.toJSON({ only: ["email", "role"] })).toEqual({ email: "jane@example.com" });
+    });
+
+    test("only leaves out an attribute a partial record didn't load", async () => {
+      const [jane] = await db().model(User).select("id").toArray();
+
+      expect(jane!.toJSON({ only: ["id", "email"] })).toEqual({ id: 1 });
+    });
+
+    test("a name the Model has no attribute for throws, so a typo in except can't send it", async () => {
+      const jane = await db().model(User).find(1);
+
+      expect(() => jane.toJSON({ except: ["emial" as "email"] })).toThrow(
+        new TypeError('User has no attribute "emial"; toJSON\'s except names attributes exactly'),
+      );
+    });
+  });
 });
