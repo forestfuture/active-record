@@ -1,4 +1,5 @@
 import { defineConfig } from "vite-plus";
+import { DurationSequencer } from "./tests/support/duration-sequencer.ts";
 
 // These tests run the `arbor` command, which loads the library through jiti from src/,
 // compiling it in each test file's first test that loads it: about 0.6 s locally, 2–5 s on CI
@@ -15,6 +16,9 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   test: {
+    // CI's shards (--shard) split the test files by how long each took in a recorded run, so they
+    // take about as long as each other. `vp run test:durations <run-id>` refreshes the record (#614).
+    sequence: { sequencer: DurationSequencer },
     // `vp run coverage` fails when branch coverage of the library and command line drops below the
     // floor (#121). CI runs the tests in shards and checks the floor on their merged coverage
     // (#365). The Best Practices `dynamic_analysis` criterion asks for 80%.

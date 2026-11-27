@@ -204,6 +204,7 @@ vp test                   # unit and integration tests against a real local D1
 vp pack                   # build the library into dist/
 vp run check:public-types # after vp pack: the published types expose no internals
 vp run test:remote        # the smoke suite against a real remote D1 (see docs/agents/remote-smoke.md)
+vp run test:durations <run-id>  # record a CI run's test times, which balance CI's test shards
 vp run docs:dev           # the documentation site, at localhost:4321
 ```
 
