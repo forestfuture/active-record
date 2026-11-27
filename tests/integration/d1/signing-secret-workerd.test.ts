@@ -5,7 +5,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { startMiniflare } from "../../support/miniflare.ts";
 import { describe, expect, test } from "vite-plus/test";
-import { runWrangler } from "../../support/worker-app.ts";
+import { runWrangler } from "../../support/wrangler.ts";
 import { scratchDirs } from "../../support/scratch.ts";
 
 const scratch = scratchDirs();

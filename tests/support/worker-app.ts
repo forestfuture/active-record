@@ -1,13 +1,11 @@
 // A Worker app in a folder of its own, driven as its developer does: the arbor command run in it, its Worker bundled by Wrangler and served by Miniflare.
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { onTestFinished, vi } from "vite-plus/test";
 import { main } from "../../packages/arbor/cli/main.ts";
 import { parseJsonc } from "../../packages/arbor/cli/project/config-file.ts";
 import { startMiniflare, type TestWorker } from "./miniflare.ts";
-
-const wrangler = new URL("../../node_modules/.bin/wrangler", import.meta.url).pathname;
+import { runWrangler } from "./wrangler.ts";
 
 /** Runs `arbor` with `argv` in `cwd`, as from a terminal there: its exit code and output. */
 export async function command(
@@ -19,11 +17,6 @@ export async function command(
   onTestFinished(() => inProject.mockRestore());
   const code = await main(argv, (line) => lines.push(line));
   return { code, out: lines.join("\n") };
-}
-
-/** Runs Wrangler in `cwd`, with `env` added to the environment; what it printed. */
-export function runWrangler(cwd: string, args: string[], env: Record<string, string> = {}): string {
-  return execFileSync(wrangler, args, { cwd, env: { ...process.env, ...env }, encoding: "utf8" });
 }
 
 export interface Served {
