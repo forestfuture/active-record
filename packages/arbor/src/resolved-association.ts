@@ -1,7 +1,7 @@
 // An association resolved for one owner: which attributes link the records (a polymorphic one's type too, #60), in what order, which database its records are on, and what nullifying them clears.
 // associations.ts imports this module too; both uses are at call time, never at load.
 import { readyModel, type AssociationDefinition } from "./associations.ts";
-import { attributeFor, noMatch } from "./attribute.ts";
+import { type Attribute, attributeFor, noMatch } from "./attribute.ts";
 import { LinkedTo, type QueryDescription } from "./query.ts";
 import { currentExecutorOf } from "./current-database.ts";
 import { UnknownModelName } from "./errors.ts";
@@ -205,22 +205,56 @@ export class ResolvedAssociation {
   }
 
   /**
-   * The target's records linked to `key` (one value, or a list), for an owner on `executor`: a
-   * uuid only in its one form, as a preload or a join links it (#588). A key in another form
-   * finds none, but a record built through it still takes the key, cast, as before.
+   * The target's records linked to `key` (one value, or a list), for an owner on `executor`,
+   * the key as the target holds it (`asTargetKey`): a uuid only in its one form, as a preload or
+   * a join links it (#588), so a key in another form finds none, and a Unix time as its integer
+   * (#592). A record built through it takes the owner's key, cast from the owner's attribute.
    */
   linkedTo(executor: Executor, key: unknown): Scoped<Model> {
     if (this.hops === undefined) {
-      const attribute = attributeFor(this.target, this.targetAttribute);
-      if (Array.isArray(key)) {
-        const keys = key.map((each) => attribute.keyAsStored(each));
-        return this.all(executor)[linkedToOwner]({ [this.targetAttribute]: keys });
-      }
-      const linked = this.all(executor)[linkedToOwner]({ [this.targetAttribute]: key });
-      return attribute.keyAsStored(key) === noMatch ? linked.none() : linked;
+      const linked = this.asTargetKey(key);
+      const relation = this.all(executor)[linkedToOwner]({ [this.targetAttribute]: linked });
+      return linked === noMatch ? relation.none() : relation;
     }
     const { via, source } = this.hops;
     return source.narrowToLinked(executor, this.all(executor), via.linkedTo(executor, key));
+  }
+
+  /**
+   * An owner's key (one value, or a list) as the target's attribute holds it, each one that
+   * can't be `noMatch`: a uuid only in its one form (#588), and a datetime kept as a Unix time
+   * linking as the integer it stores (#592).
+   */
+  asTargetKey(key: unknown): unknown {
+    const { targetKeyAttribute: target, ownerKeyAttribute: owner } = this;
+    if (!Array.isArray(key)) return target.conditionFrom(key, owner);
+    return key.map((each) => target.conditionFrom(each, owner));
+  }
+
+  /**
+   * A target's key as the owner's attribute holds it, or `noMatch`: the other way from
+   * `asTargetKey`, for a query of owners by their targets' keys (#592).
+   */
+  asOwnerKey(key: unknown): unknown {
+    return this.ownerKeyAttribute.conditionFrom(key, this.targetKeyAttribute);
+  }
+
+  /**
+   * Writes the owner's `key` into a hasMany's or hasOne's `record`, cast from the owner's
+   * attribute, so a Unix time is written as its integer (#592).
+   */
+  writeOwnersKey(record: Model, key: unknown): void {
+    record[state].writeKey(this.targetAttribute, key, this.name, this.ownerKeyAttribute);
+  }
+
+  /** The owner's attribute holding the link, resolved: what a key copied from it is cast from. */
+  get ownerKeyAttribute(): Attribute {
+    return attributeFor(this.owner, this.ownerAttribute);
+  }
+
+  /** The target's attribute the owner's links to, resolved. */
+  get targetKeyAttribute(): Attribute {
+    return attributeFor(this.target, this.targetAttribute);
   }
 
   /**

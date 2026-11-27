@@ -222,7 +222,8 @@ export function isOwnerKeyKnown(owner: Model, after: readonly Linked[]): boolean
 /** Points the owner at the records it points at, now that their keys exist, keeping them loaded. */
 export function linkBefore(owner: Model, pointedAt: readonly Linked[]): void {
   for (const { association, record } of pointedAt) {
-    owner[state].pointAt(association, record[state].read(association.targetAttribute), record);
+    const key = record[state].read(association.targetAttribute);
+    owner[state].pointAt(association, key, record, association.targetKeyAttribute);
     owner[state].autosaves.setBelongsTo(association.name, undefined);
   }
 }
@@ -235,7 +236,7 @@ export function linkAfter(owner: Model, after: readonly Linked[]): void {
   for (const { association, record, keepsKey, destroys } of after) {
     if (keepsKey || destroys) continue;
     const { name, definition, ownerAttribute } = association;
-    record[state].writeKey(definition.foreignKey, owner[state].read(ownerAttribute), name);
+    association.writeOwnersKey(record, owner[state].read(ownerAttribute));
     association.writeOwnersType(record);
     pointBackAtOwner(owner, association, record);
     if (definition.kind === "hasOne") {

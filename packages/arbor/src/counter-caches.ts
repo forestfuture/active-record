@@ -10,7 +10,11 @@ import { InvalidModel } from "./errors.ts";
 import { Model, modelOf, type ModelClass } from "./model.ts";
 import { quoteIdentifier } from "./query-tables.ts";
 import { state } from "./record-state.ts";
-import { isOnDifferentDatabases, resolveAssociation } from "./resolved-association.ts";
+import {
+  isOnDifferentDatabases,
+  resolveAssociation,
+  type ResolvedAssociation,
+} from "./resolved-association.ts";
 import { tableOwnerModelName } from "./table-names.ts";
 
 /**
@@ -187,6 +191,8 @@ export interface CounterCache {
   type: { attribute: string; value: string } | undefined;
   /** Whether `size` reads it: not while it's declared `active: false`. */
   isActive: boolean;
+  /** The belongsTo to this target (a polymorphic one's branch), which links a record's key. */
+  link: ResolvedAssociation;
 }
 
 /** The counter caches a Model's records keep: each belongsTo's declaring one, on each target. */
@@ -196,14 +202,15 @@ export function countersOf(owner: ModelClass): CounterCache[] {
     const attribute = counterAttribute(owner, definition);
     const { foreignKey } = definition;
     const { isActive } = counterCacheOf(definition);
-    return resolveAssociation(owner, name).branches.map(({ target, targetAttribute, type }) => ({
+    return resolveAssociation(owner, name).branches.map((link) => ({
       name,
       foreignKey,
-      target,
+      target: link.target,
       attribute,
-      targetKey: targetAttribute,
-      type,
+      targetKey: link.targetAttribute,
+      type: link.type,
       isActive,
+      link,
     }));
   });
 }
@@ -249,31 +256,32 @@ function counterChanges(
   };
 }
 
+/**
+ * The record's foreign key as its counter's target holds it: a uuid only in its one form, as the
+ * stored row's link compares it when the record is counted out (#588), and a Unix time as its
+ * integer (#592). Null for none, and `noMatch` for one no target can hold.
+ */
+function targetsKey(record: Model, { link, foreignKey }: CounterCache): unknown {
+  return link.asTargetKey(record[state].read(foreignKey) ?? null);
+}
+
 /** A write that changes no counter: a record that was never saved has no row to delete. */
 export const noCounterChanges: CounterChanges = { around: (own) => [...own], commit: () => {} };
 
 /** Counting a new record in: each counter cache whose key is set, on its target by that key. */
 export function countersOnInsert(record: Model): CounterChanges {
   const recordState = record[state];
-  const counted = countersOf(modelOf(record)).filter(
-    (counter) =>
-      isLinkedKey(counter, recordState.read(counter.foreignKey)) &&
-      isTypeOfTarget(counter, (name) => recordState.read(name)),
-  );
+  const counted = countersOf(modelOf(record)).filter((counter) => {
+    const key = targetsKey(record, counter);
+    return (
+      key !== null && key !== noMatch && isTypeOfTarget(counter, (name) => recordState.read(name))
+    );
+  });
   const after = counted.map((counter) => {
-    const key = keyed(counter, recordState.read(counter.foreignKey));
+    const key = keyed(counter, targetsKey(record, counter));
     return compileCounterChange(counter, changeBy(counter, 1), key);
   });
   return counterChanges(record, [[], after], counted, 1);
-}
-
-/**
- * Whether `key` links to a target of `counter`: set, and a uuid only in its one form, as the
- * stored row's link compares it when the record is counted out (#588).
- */
-function isLinkedKey({ target, targetKey }: CounterCache, key: unknown): boolean {
-  if (key === null || key === undefined) return false;
-  return attributeFor(target, targetKey).keyAsStored(key) !== noMatch;
 }
 
 /**

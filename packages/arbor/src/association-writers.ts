@@ -27,7 +27,7 @@ export function belongsToAccessor(owner: Model, association: ResolvedAssociation
     cachedRead(owner, association, (key) =>
       association
         .all(owner[state].executor)
-        .findBy(asStored({ [association.targetAttribute]: key })),
+        .findBy(asStored({ [association.targetAttribute]: association.asTargetKey(key) })),
     );
   const set = (record: Model | null) => pointOwnerAt(owner, association, record);
   // On the target's database, which is the owner's unless the association crosses to another.
@@ -70,7 +70,8 @@ export function polymorphicBelongsToAccessor(
     cachedRead(owner, association, (key) => {
       const branch = association.branchForOwner(owner);
       if (branch === undefined) return Promise.resolve(null);
-      return branch.all(owner[state].executor).findBy(asStored({ [branch.targetAttribute]: key }));
+      const linked = { [branch.targetAttribute]: branch.asTargetKey(key) };
+      return branch.all(owner[state].executor).findBy(asStored(linked));
     });
   return Object.assign(read, {
     set: (record: Model | null) => pointPolymorphicAt(owner, association, record),
@@ -108,8 +109,11 @@ export function pointOwnerAt(
   const { name } = association;
   requireSettable(association, record);
   // Read only for a record: a polymorphic belongsTo set to null has no one target (#60).
-  const key = record === null ? null : record[state].read(association.targetAttribute);
-  owner[state].pointAt(association, key, record);
+  if (record === null) owner[state].pointAt(association, null, null);
+  else {
+    const key = record[state].read(association.targetAttribute);
+    owner[state].pointAt(association, key, record, association.targetKeyAttribute);
+  }
   owner[state].autosaves.setBelongsTo(
     name,
     record !== null && record[state].isNew ? record : undefined,
@@ -275,8 +279,7 @@ function adopt(owner: Model, association: ResolvedAssociation, record: Model): v
 
 /** Points a hasOne's `record` at `owner`: its foreign key, and its owner's type if polymorphic. */
 function pointAtOwner(owner: Model, association: ResolvedAssociation, record: Model): void {
-  const { name, ownerAttribute, definition } = association;
-  record[state].writeKey(definition.foreignKey, owner[state].read(ownerAttribute), name);
+  association.writeOwnersKey(record, owner[state].read(association.ownerAttribute));
   association.writeOwnersType(record);
 }
 

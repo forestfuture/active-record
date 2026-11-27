@@ -16,6 +16,8 @@ import {
   writeValue,
 } from "./conversion.ts";
 import { listedNames } from "./enum-values.ts";
+import { castLinked } from "./linked-keys.ts";
+import type { OwnersLink } from "./owned-collection.ts";
 import { FILTERED, Filtered, isFiltered } from "./filtering.ts";
 import {
   type AttributeDefinition,
@@ -164,6 +166,25 @@ export class Attribute {
   key(value: unknown, association?: string): unknown {
     requireDefined(this.#model, this.name, value);
     return this.#orRefuse(castKey(this.#definition, value), value, association);
+  }
+
+  /**
+   * A key copied from `from`, another Model's attribute linked to this one, as this one holds it
+   * (#592): as `key` casts it, but a datetime kept as a Unix time links as the integer it
+   * stores. One that can't be cast throws, naming the association it came through.
+   */
+  keyFrom(value: unknown, from: Attribute, association: string): unknown {
+    requireDefined(this.#model, this.name, value);
+    const cast = castLinked(this.#definition, from.#definition, value);
+    return this.#orRefuse(cast, value, association);
+  }
+
+  /**
+   * A key of `from` as a link compares it with this attribute's, or `noMatch`: a uuid only in
+   * its one form (`keyAsStored`, #588), then cast as `keyFrom` casts it (#592).
+   */
+  conditionFrom(value: unknown, from: Attribute): unknown {
+    return castLinked(this.#definition, from.#definition, this.keyAsStored(value));
   }
 
   /**
@@ -402,13 +423,18 @@ export function attributeFor(model: ModelClass, given: string): Attribute {
 export function castInherited(
   model: ModelClass,
   inherited: Record<string, unknown>,
-  link?: { attribute: string; association: string },
+  link?: OwnersLink,
 ): Record<string, unknown> {
+  // The owner's key is left out: its condition holds it as the records hold it (#592), and
+  // `ownersValues` sets it over every other value, cast from the owner's own attribute.
+  const fromOwner = link?.ownersKey === undefined ? undefined : link.attribute;
   return Object.fromEntries(
-    Object.entries(inherited).map(([attribute, value]) => {
-      const association = attribute === link?.attribute ? link.association : undefined;
-      return [attribute, attributeFor(model, attribute).key(value, association)];
-    }),
+    Object.entries(inherited)
+      .filter(([attribute]) => attribute !== fromOwner)
+      .map(([attribute, value]) => {
+        const association = attribute === link?.attribute ? link.association : undefined;
+        return [attribute, attributeFor(model, attribute).key(value, association)];
+      }),
   );
 }
 

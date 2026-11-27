@@ -210,6 +210,9 @@ export function castCondition(attribute: Convertible, value: unknown): unknown {
  * refused, as it will be held as an assigned value is (#398).
  */
 export function castKey(attribute: Convertible, value: unknown): unknown {
+  // A key already found uncastable, such as one linked from an attribute this one can't hold
+  // (#592), stays so: a custom type's cast never sees it.
+  if (value === uncastable) return uncastable;
   // A value a custom type can't hold matches nothing, as for any type (#20).
   if (attribute.customType !== undefined) return castOrUncastable(attribute, value);
   if (attribute.type === "string" && typeof value === "number" && Number.isFinite(value)) {

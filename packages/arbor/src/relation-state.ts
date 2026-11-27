@@ -1,6 +1,6 @@
 // What a Relation is made of, for the modules that write through it, and what those writes take from it: its values for new rows, and whether its owner can have them.
 import { assignedValues } from "./normalized-values.ts";
-import { castInherited } from "./attribute.ts";
+import { attributeFor, castInherited } from "./attribute.ts";
 import { RecordNotSaved } from "./errors.ts";
 import type { Executor } from "./executor.ts";
 import type { Model, ModelClass } from "./model.ts";
@@ -79,9 +79,14 @@ export function bulkRowValues(
  */
 export function ownersValues({ model, collection }: RelationState<Model>): Record<string, unknown> {
   const { link } = collection;
-  if (link === undefined || !("key" in link)) return {};
+  if (link?.ownersKey === undefined) return {};
   const type = link.type === undefined ? {} : { [link.type.attribute]: link.type.value };
-  return { ...castInherited(model, { [link.attribute]: link.key }, link), ...type };
+  const key = attributeFor(model, link.attribute).keyFrom(
+    link.ownersKey.value,
+    link.ownersKey.attribute,
+    link.association,
+  );
+  return { [link.attribute]: key, ...type };
 }
 
 /**

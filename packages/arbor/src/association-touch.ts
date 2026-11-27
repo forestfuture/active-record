@@ -265,7 +265,7 @@ async function readStored(record: Model, name: string): Promise<Model | null> {
   if (branch === undefined || key === null || key === undefined) return null;
   const query = branch
     .all(recordState.executor)
-    .findBy(asStored({ [branch.targetAttribute]: key }));
+    .findBy(asStored({ [branch.targetAttribute]: branch.asTargetKey(key) }));
   return (await query) as Model | null;
 }
 

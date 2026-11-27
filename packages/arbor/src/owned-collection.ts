@@ -1,4 +1,5 @@
 // A hasMany's Relation as its owner sees it (records built through it join the owner), or no owner.
+import type { Attribute } from "./attribute.ts";
 import { countedOut, ownersCount } from "./owners-counter.ts";
 import { pointBackAtOwner } from "./point-back-at-owner.ts";
 import type { Model } from "./model.ts";
@@ -80,10 +81,11 @@ export interface OwnedCollection {
 }
 
 /** A collection's `link`: its foreign key and association, and what its records take from the owner. */
-interface OwnersLink {
+export interface OwnersLink {
   attribute: string;
   association: string;
-  key?: unknown;
+  /** The owner's key, and its attribute, which a record's foreign key is cast from (#592). */
+  ownersKey?: { value: unknown; attribute: Attribute };
   type?: { attribute: string; value: string };
 }
 
@@ -132,8 +134,9 @@ export function ownedCollection(
  */
 function ownersLink(association: ResolvedAssociation, key: unknown): Partial<OwnersLink> {
   if (association.hops !== undefined) return {};
-  const { type } = association;
-  return type === undefined ? { key } : { key, type };
+  const { type, ownerKeyAttribute: attribute } = association;
+  const ownersKey = { value: key, attribute };
+  return type === undefined ? { ownersKey } : { ownersKey, type };
 }
 
 /** An owner with a key: its loaded records live in its association cache. */

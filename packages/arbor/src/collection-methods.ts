@@ -112,9 +112,8 @@ async function push(hasMany: OwnersHasMany, records: Model[]): Promise<boolean> 
 /** Writes the owner's key into each record, which then has the owner loaded as its belongsTo. */
 function link({ owner, association, collection }: OwnersHasMany, records: readonly Model[]): void {
   const key = association.keyOf(owner);
-  const { name, definition } = association;
   for (const record of records) {
-    record[state].writeKey(definition.foreignKey, key, name);
+    association.writeOwnersKey(record, key);
     association.writeOwnersType(record);
     // So a required belongsTo passes without a query, as for a record created through it (#339).
     collection.pointBack(record);

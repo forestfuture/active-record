@@ -188,11 +188,16 @@ export class RecordState {
 
   /**
    * Writes a key copied from another record through `association`, cast as a condition's value
-   * is (#94): an integer key into a text foreign key becomes its digits.
+   * is (#94): an integer key into a text foreign key becomes its digits. Copied from `from`, it's
+   * cast as linked from that attribute, so a Unix time is written as its integer (#592).
    */
-  writeKey(name: string, value: unknown, association: string): void {
+  writeKey(name: string, value: unknown, association: string, from?: Attribute): void {
     this.#requireNotDestroyed("be changed");
-    const key = this.#attribute(name).key(value, association);
+    const attribute = this.#attribute(name);
+    const key =
+      from === undefined
+        ? attribute.key(value, association)
+        : attribute.keyFrom(value, from, association);
     this.#requireSameIfReadonly(name, key);
     this.#store(name, key);
   }
@@ -239,9 +244,9 @@ export class RecordState {
    * Points this record at `value` through `association`'s foreign key, keeping it loaded for its
    * key attributes (a polymorphic belongsTo's type is written before, by its `set`; #60).
    */
-  pointAt(association: PointingAssociation, key: unknown, value: unknown): void {
+  pointAt(association: PointingAssociation, key: unknown, value: unknown, from?: Attribute): void {
     const { name, ownerAttribute, keyAttributes } = association;
-    this.writeKey(ownerAttribute, key, name);
+    this.writeKey(ownerAttribute, key, name, from);
     // After the write, so the association is loaded for the key as the foreign key stores it.
     this.associations.set(name, keyAttributes, value);
   }

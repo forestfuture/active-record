@@ -1,4 +1,5 @@
 // A record built, created or loaded through its owner's hasMany or hasOne points back at the owner (#339, #62).
+import { noMatch } from "./attribute.ts";
 import { inverseHasOne, inverseOf } from "./inverse-associations.ts";
 import { Model } from "./model.ts";
 import { state } from "./record-state.ts";
@@ -46,16 +47,17 @@ export function pointLoadedBack(
 }
 
 /**
- * Whether the record's foreign key is its owner's: the same key (an integer matching a text
- * key's digits, #94), or null while the owner has none yet, which saving the owner fills in. A
- * key that isn't the owner's, null included, points elsewhere. Only a pushed record can hold
- * one: a record built or created through the owner always gets the owner's key (#346).
+ * Whether the record's foreign key is its owner's: the same key, as the record holds the owner's
+ * (an integer matching a text key's digits, #94, or a Unix time's integer, #592), or null while
+ * the owner has none yet, which saving the owner fills in. A key that isn't the owner's, null
+ * included, points elsewhere. Only a pushed record can hold one: a record built or created
+ * through the owner always gets the owner's key (#346).
  */
 export function isOwnersKey(key: unknown, owner: Model, association: ResolvedAssociation): boolean {
   if (key === null) return association.keyOf(owner) === null;
-  const ownerKey = owner[state].read(association.ownerAttribute) as Key | null;
-  return ownerKey !== null && String(key as Key) === String(ownerKey);
+  const ownerKey = owner[state].read(association.ownerAttribute);
+  if (ownerKey === null) return false;
+  const linked = association.asTargetKey(ownerKey);
+  const { targetKeyAttribute: target } = association;
+  return linked !== noMatch && target.lookupKey(linked) === target.lookupKey(key);
 }
-
-/** A key's value: what an integer or string key attribute holds. */
-type Key = string | number;
