@@ -142,9 +142,17 @@ function isRealDouble(number: string, { lowest, highest, step }: Magnitudes): st
   return `${number} = 0 OR ${magnitude} >= 'Infinity' OR (${within})`;
 }
 
-/** A number key as a `real`, when a `real` holds it; otherwise NULL, which links nothing. */
-function narrowed(key: string): string {
-  return `CASE WHEN ${isRealDouble(key, float4Magnitudes)} THEN CAST(${key} AS REAL) END`;
+/**
+ * A `double precision` or decimal key as a `real`, when a `real` holds it; otherwise NULL, which
+ * links nothing. A decimal is compared as a `numeric`, exactly, since it may hold a number past a
+ * `double precision`'s range.
+ */
+function narrowed(key: string, { storedType }: Attribute): string {
+  const holds =
+    storedType === "real"
+      ? isRealDouble(key, float4Magnitudes)
+      : `${key} = 0 OR ${isWithin(key, float4Magnitudes)}`;
+  return `CASE WHEN ${holds} THEN CAST(${key} AS REAL) END`;
 }
 
 /**
@@ -167,7 +175,7 @@ function linkedWidth(key: string, keyAttribute: Attribute, linked: Attribute): s
   const cases: string[] = [];
   if (linked.storedType === "real") {
     const isWide = keyAttribute.storedType === "real" ? ` AND NOT ${isFloat4(keyAttribute)}` : "";
-    cases.push(`WHEN ${isFloat4(linked)}${isWide} THEN ${narrowed(key)}`);
+    cases.push(`WHEN ${isFloat4(linked)}${isWide} THEN ${narrowed(key, keyAttribute)}`);
   }
   if (keyAttribute.storedType === "real") {
     const isWide = linked.storedType === "real" ? ` AND NOT ${isFloat4(linked)}` : "";
