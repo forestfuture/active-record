@@ -7,7 +7,7 @@ interface Env {
   DB: Parameters<typeof connect>[0];
 }
 
-/** What each Workers-only path did, for the test to assert on. */
+/** What the Workers-only paths and a preload did, for the test to assert on. */
 async function smoke(env: Env) {
   // The Model's binding, read from cloudflare:workers: no database given.
   const product = await Product.find(1);
