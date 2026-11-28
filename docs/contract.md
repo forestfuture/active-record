@@ -1922,7 +1922,7 @@ _Code:_ `arbor/src/relation.ts`, `arbor/src/calculations.ts`, `arbor/src/groupin
   `pluck("id", "email")` resolves to tuples.
 - `pick("email")` (#349) is the first row's value, converted as `pluck`'s, in the Relation's order, or `null` with no rows: `pluck` with `LIMIT 1`, keeping the Relation's offset and `distinct`, and reading its own attributes in place of any `select`.
   `pick("id", "email")` resolves to a tuple, or `null`.
-  `ids()` is `pluck` of the primary key, in the Relation's order, leaving out any `null` key, typed `(string | number)[]` as `find` takes ids; on a loaded association it reads stored records only, as `pluck` does, so a built record's key is left out even when it was made in code.
+  `ids()` is `pluck` of the primary key, in the Relation's order, leaving out any `null` key, typed `(string | number)[]` as `find` takes ids; on a loaded association it reads stored records only, as `pluck` does, so a built record's key is left out even when it's a generated id.
 - `count()` counts over the whole query as a subquery, so it always equals the number of rows `toArray()` would return, including `limit`, `offset`, `select` and `distinct` (with `select("role").distinct()`, NULL counts as one distinct value).
   `count("role")` counts non-null values, and after `distinct()` without a `limit` or `offset` it compiles to `COUNT(DISTINCT "role")`, the distinct non-null values.
   After `distinct()` with a `limit` or `offset`, the limit and offset pick from the distinct values, as in Rails.
