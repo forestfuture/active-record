@@ -220,7 +220,7 @@ Attributes are camelCase, and map to snake_case columns:
 
 To map an attribute to a column with another name, give it `{ column: "..." }`. Conditions, ordering, and association keys always name attributes; only [SQL fragments](./conditions#writing-sql-fragments) name columns.
 
-Each column has one attribute. Two attributes on one column throw `InvalidModel` when `define` is called, whether `column` maps the second one there or its name does, as `userId` and `userID` both map to `user_id`. To give a column a second name, [alias its attribute](#aliasing-attributes).
+Each column has one attribute. Two attributes on one column throw `InvalidModel` when `define` is called. Their names can map to one column too: `userId` and `userID` both map to `user_id`. To give a column a second name, [alias its attribute](#aliasing-attributes).
 
 ## Building records
 
