@@ -79,6 +79,8 @@ JSON can send `null` or a list. `findBy({ token: null })` matches rows whose tok
 
 `findOrCreateBy`, `findOrInitializeBy`, and `createOrFindBy` refuse a list. They throw a `TypeError` before they query, since their attributes become the new record’s values.
 
+Check that a body has the fields you query by. Empty attributes add no condition. `findOrCreateBy({})`, `findOrInitializeBy({})`, and `findBy({})` find any record. Permitting fields from an empty body gives `{}`.
+
 :::note
 A value that can’t be cast matches nothing, so `whereNot({ id: "abc" })` excludes nothing.
 :::

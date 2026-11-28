@@ -1876,7 +1876,7 @@ _Code:_ `arbor/src/relation.ts`, `arbor/src/find-or-create.ts`, `arbor/src/recor
   Two requests at once can both create, and the second's `RecordNotUnique` reaches it, as in Rails.
   `createOrFindBy(attrs, init?)` is `create(attrs, init)` first; when that throws `RecordNotUnique`, it's `findByOrThrow(attrs)`, but only for a record saved alone.
   When `init` gave it records to save with it (built or set through its associations), a refusal may be theirs, written before or after it, so any `RecordNotUnique` reaches the caller: Rails' savepoint undoes the whole create, and here a kept stage stays (#341), and Rails finds even then.
-  When it finds nothing, it throws `RecordNotFound`: when the clash was in a column `attrs` doesn't name, or on a D1 Session reading a replica the other row hasn't reached.
+  When it finds nothing, it throws `RecordNotFound`, as it can when the clash was in a column `attrs` doesn't name, or on a D1 Session reading a replica the other row hasn't reached.
   Through a through association (#434), the record is created with its join record, and a refused one is found only among the records the owner reaches, so one it doesn't reach throws `RecordNotFound`, as in Rails.
   An invalid record comes back unsaved without a find, so a `uniqueness` validation on those attributes stops it finding anything (as in Rails).
   `createOrFindByOrThrow` creates with `createOrThrow`.
@@ -1884,6 +1884,8 @@ _Code:_ `arbor/src/relation.ts`, `arbor/src/find-or-create.ts`, `arbor/src/recor
   Rails doesn't refuse, as its params must be permitted first and keep scalars only.
   An array the attribute casts as one value (a `json` attribute's, or a custom type's whose values are arrays) is one value: the find compares the whole stored value, as the new record holds it.
   `attrs` that aren't an object throw `TypeError` too, and a `__proto__` key in parsed JSON stays a key, so it throws `UnknownAttribute`.
+  Empty `attrs` add no condition, as with `findBy({})` (#472), so they find any record the Relation matches, as in Rails: through a hasMany, `user.posts().findOrCreateBy({})` is one of the user's posts, or a new one.
+  Checking that untrusted input has the attributes a find needs is the app's (#634 tracks a way to require them).
   They're Relation methods, so statics, on scopes, and through a hasMany, whose created record joins what it has loaded; a hasOne or belongsTo accessor has none of them.
   A find is a read, so none of them is a `batch` write.
 - **`init` (#346).**
