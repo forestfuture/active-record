@@ -1876,7 +1876,7 @@ _Code:_ `arbor/src/relation.ts`, `arbor/src/find-or-create.ts`, `arbor/src/recor
   Two requests at once can both create, and the second's `RecordNotUnique` reaches it, as in Rails.
   `createOrFindBy(attrs, init?)` is `create(attrs, init)` first; when that throws `RecordNotUnique`, it's `findByOrThrow(attrs)`, but only for a record saved alone.
   When `init` gave it records to save with it (built or set through its associations), a refusal may be theirs, written before or after it, so any `RecordNotUnique` reaches the caller: Rails' savepoint undoes the whole create, and here a kept stage stays (#341), and Rails finds even then.
-  When it finds nothing, it throws `RecordNotFound`: when the clash was in a column `attrs` doesn't name, or on a D1 Session reading a replica the other row hasn't reached.
+  When it finds nothing, it throws `RecordNotFound`, as it can when the clash was in a column `attrs` doesn't name, or on a D1 Session reading a replica the other row hasn't reached.
   Through a through association (#434), the record is created with its join record, and a refused one is found only among the records the owner reaches, so one it doesn't reach throws `RecordNotFound`, as in Rails.
   An invalid record comes back unsaved without a find, so a `uniqueness` validation on those attributes stops it finding anything (as in Rails).
   `createOrFindByOrThrow` creates with `createOrThrow`.
