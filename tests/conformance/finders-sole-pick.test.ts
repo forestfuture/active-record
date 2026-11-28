@@ -78,7 +78,7 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       expect(events).toHaveLength(0);
     });
 
-    test("on a loaded hasMany, reads stored records only, leaving out built ones", async () => {
+    test("on an unsaved owner's hasMany, is null with only built records, without a query", async () => {
       const unsaved = users().build({ email: "b@example.com" });
       unsaved.posts().build({ title: "Built" });
 
@@ -87,12 +87,14 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       expect(events).toHaveLength(0);
     });
 
-    test("on a loaded hasMany, skips a built record to the first stored one", async () => {
+    test("on a loaded hasMany, is the first stored record's value, past a built one", async () => {
       const user = await withLoadedPosts();
       user.posts().build({ title: "Built" });
       await user.posts().createOrThrow({ id: 20, title: "Created" });
+      events.length = 0;
 
       expect(await user.posts().pick("title")).toBe("Created");
+      expect(events).toHaveLength(0);
     });
   });
 

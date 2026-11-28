@@ -106,7 +106,13 @@ describe("autosave: records built through a hasMany are saved with their owner",
 
     expect(await user.posts().toArray()).toHaveLength(2);
     expect(await user.posts().first()).toBe(first);
-    // pluck reads stored records only, as a query would (#467).
+    expect(events).toHaveLength(0);
+  });
+
+  test("an unsaved owner's pluck leaves out its built records, without a query", async () => {
+    const user = db().model(User).build({ email: "a@example.com" });
+    user.posts().build({ title: "One" });
+
     expect(await user.posts().pluck("title")).toEqual([]);
     expect(events).toHaveLength(0);
   });
