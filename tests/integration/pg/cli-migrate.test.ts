@@ -32,6 +32,31 @@ async function migrated(cwd: string, options: object = {}, typed?: string) {
   return { code, printed, lines };
 }
 
+/** What `migrate` prints when it asks for a database's name. */
+const prompt = "Type its name to continue";
+
+/**
+ * Runs `migrate --remote` on a terminal, typing each of `typed` once it asks for a name (and
+ * ending the input when it asks for more); its code and its output.
+ */
+async function answering(cwd: string, typed: readonly string[]) {
+  const input = new PassThrough();
+  const output = new PassThrough();
+  let printed = "";
+  let asked = 0;
+  output.on("data", (chunk: Buffer) => {
+    printed += chunk.toString();
+    for (; asked < printed.split(prompt).length - 1; asked++) {
+      if (asked < typed.length) input.write(`${typed[asked]}\n`);
+      else input.end();
+    }
+  });
+  const lines: string[] = [];
+  const io = { input, output, terminal: true };
+  const code = await runMigrate({ cwd, remote: true }, (line) => lines.push(line), io);
+  return { code, printed, lines };
+}
+
 // `arbor migrate` applies a Postgres database's pending migrations itself (#285).
 describe("migrate, on Postgres", pgliteTimeout, () => {
   let schema: PgSchema;
@@ -256,6 +281,59 @@ describe("migrate, on Postgres", pgliteTimeout, () => {
 
       expect(code).toBe(0);
       expect(printed).not.toContain(new URL(schema.url).password || "no password here");
+    });
+
+    describe("with several databases", () => {
+      let logs: PgSchema;
+      beforeAll(async () => {
+        logs = await openPgSchema([]);
+      });
+      afterAll(() => logs.dispose());
+
+      /** DB, this schema, then LOGS, another, each a real database named by a variable. */
+      function twoRemotes(): string {
+        vi.stubEnv("PRODUCTION_DATABASE_URL", schema.url);
+        vi.stubEnv("LOGS_DATABASE_URL", logs.url);
+        const files = {
+          ...createUsers,
+          "logs/1_create_entries.sql": "CREATE TABLE entries (id INT);",
+        };
+        return project(files, {
+          DB: { remoteUrl: "${PRODUCTION_DATABASE_URL}" },
+          LOGS: { remoteUrl: "${LOGS_DATABASE_URL}", migrationsDir: "logs" },
+        });
+      }
+
+      /** Whether `table` is in this schema. */
+      async function has(on: PgSchema, table: string): Promise<boolean> {
+        const { rows } = await on.pool.query({
+          text: "SELECT to_regclass($1) IS NOT NULL AS found",
+          values: [table],
+        });
+        return rows[0]!["found"] as boolean;
+      }
+
+      test("asks for each one's name before migrating any, and a wrong one migrates none", async () => {
+        const { code, printed, lines } = await answering(twoRemotes(), [
+          "active_record_test",
+          "nope",
+        ]);
+
+        expect(printed).toContain("Remote database DB (active_record_test on localhost)");
+        expect(printed).toContain("Remote database LOGS (active_record_test on localhost)");
+        expect([code, lines]).toEqual([1, ["Not migrated."]]);
+        expect([await has(schema, "users"), await has(logs, "entries")]).toEqual([false, false]);
+      });
+
+      test("migrates each one once every name is typed", async () => {
+        const typed = ["active_record_test", "active_record_test"];
+        const { code, printed } = await answering(twoRemotes(), typed);
+
+        expect(code).toBe(0);
+        expect(printed).toContain("Applied 1_create_entries.sql\n");
+        expect([await has(schema, "users"), await has(logs, "entries")]).toEqual([true, true]);
+        await logs.pool.query({ text: "DROP TABLE entries, schema_migrations" });
+      });
     });
 
     test("a database with no remoteUrl is refused, before asking", async () => {

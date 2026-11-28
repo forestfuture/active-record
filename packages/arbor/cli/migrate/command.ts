@@ -74,6 +74,40 @@ async function remoteRefusal(
   return typeof target === "string" ? target : allowed(target, options, io);
 }
 
+/** Why the databases may not be migrated remotely, asking for each before any is migrated. */
+async function remoteRefusals(
+  databases: readonly Chosen[],
+  options: MigrateOptions,
+  io: MigrateTerminal,
+): Promise<string | undefined> {
+  for (const each of databases) {
+    const refusal = await remoteRefusal(each, options, io);
+    if (refusal !== undefined) return refusal;
+  }
+  return undefined;
+}
+
+/** Migrates each database in turn, stopping at the first that fails: its code, or 0. */
+async function migrateEach(
+  cwd: string,
+  databases: readonly Chosen[],
+  remote: boolean,
+  io: MigrateTerminal,
+): Promise<number> {
+  const output = { output: (text: string) => io.output.write(text) };
+  for (const { adapter, chosen } of databases) {
+    const code = await adapter.migrate(cwd, chosen, { remote }, output);
+    if (code !== 0) return code;
+  }
+  return 0;
+}
+
+/** Prints why `migrate` won't go on: exit code 1. */
+function refused(why: string, print: (line: string) => void): number {
+  print(why);
+  return 1;
+}
+
 /** `arbor migrate`: resolves to the exit code, the first failing adapter's when one fails. */
 export async function runMigrate(
   options: MigrateOptions,
@@ -84,20 +118,9 @@ export async function runMigrate(
   const project = await loadForCommand(cwd, options, print);
   if (project === undefined) return 1;
   const databases = databasesFor(project, options);
-  if (typeof databases === "string") {
-    print(databases);
-    return 1;
-  }
+  if (typeof databases === "string") return refused(databases, print);
   const remote = options.remote === true;
-  for (const each of databases) {
-    const refusal = remote ? await remoteRefusal(each, options, io) : undefined;
-    if (refusal !== undefined) {
-      print(refusal);
-      return 1;
-    }
-    const output = { output: (text: string) => io.output.write(text) };
-    const code = await each.adapter.migrate(cwd, each.chosen, { remote }, output);
-    if (code !== 0) return code;
-  }
-  return 0;
+  const refusal = remote ? await remoteRefusals(databases, options, io) : undefined;
+  if (refusal !== undefined) return refused(refusal, print);
+  return migrateEach(cwd, databases, remote, io);
 }
