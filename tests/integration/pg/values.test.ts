@@ -178,4 +178,19 @@ describe("the PostgreSQL adapter's bulk writes to a table named like a Postgres 
 
     expect({ shape, notes }).toEqual({ shape: { sides: 3 }, notes: ["tall"] });
   });
+
+  test("upsertAll inserts a new row and updates one it finds by its key (guard)", async () => {
+    await points().insert({ id: 1, label: "north", shape: { sides: 3 } });
+
+    await points().upsertAll([
+      { id: 1, label: "east", shape: { sides: 4 } },
+      { id: 2, label: "west", shape: { sides: 5 } },
+    ]);
+
+    const rows = await points().order({ id: "asc" }).pluck("label", "shape");
+    expect(rows).toEqual([
+      ["east", { sides: 4 }],
+      ["west", { sides: 5 }],
+    ]);
+  });
 });
