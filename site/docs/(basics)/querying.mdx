@@ -79,7 +79,8 @@ Read attributes without loading records with `pluck`, `pick`, and `ids`:
 
 - `pluck` reads one attribute from every record, or a tuple of several.
 - `pick` reads from the first record, and resolves to `null` when nothing matches.
-- `ids` plucks every primary key. On a loaded association, it leaves out records you’ve built that don’t have a key yet.
+- `ids` plucks every primary key.
+- On a loaded association, all three read only the records that are saved, as a query would. They leave out records you’ve built. To read those too, map over `toArray()`.
 
 ## Counting and checking
 
@@ -133,7 +134,7 @@ See the SQL a Relation’s `toArray()` would send, without sending it, with `toS
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
 
-`size()`, `isEmpty()`, and `hasAny()` are Rails’ `size`, `empty?`, and `any?`, and `hasMoreThanOne()` and `hasExactlyOne()` are `many?` and `one?`. `firstOrThrow()` is `first!`, and `findSoleBy` is `find_sole_by`. There’s no `second` or `third`. Use `offset(1).first()` instead. Rails’ `ids` gives `nil` for a built record with no key, where `ids()` leaves it out.
+`size()`, `isEmpty()`, and `hasAny()` are Rails’ `size`, `empty?`, and `any?`, and `hasMoreThanOne()` and `hasExactlyOne()` are `many?` and `one?`. `firstOrThrow()` is `first!`, and `findSoleBy` is `find_sole_by`. There’s no `second` or `third`. Use `offset(1).first()` instead. On a loaded association, Rails’ `pluck` and `ids` include records you’ve built, with `nil` for a value they don’t have. Arbor leaves those records out.
 
 `merge` replaces the receiver’s order, where Rails adds the argument’s to it. `toSql()` is Rails’ `to_sql`, except that Rails writes the values into the SQL and `toSql()` keeps them in `params`.
 
