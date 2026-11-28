@@ -160,13 +160,15 @@ describe("a counter cache over a mixed-type link", () => {
     expect(await counts()).toEqual([0, 1, 0]);
   });
 
-  test("a stale reply counts out of the topic its last-saved body names", async () => {
+  // The topic it's moved to keeps its count: only its stored row could say where it is now.
+  test("a stale reply whose body another request changed counts out of no topic", async () => {
     const reply = await db().model(CountedReply).create({ id: 1, body: "2" });
-    await harness.exec("UPDATE replies SET body = '9' WHERE id = 1");
+    const moved = await db().model(CountedReply).find(1);
+    await moved.update({ body: "9" });
 
     await reply.destroy();
 
-    expect(await counts()).toEqual([0, 0, 0]);
+    expect(await counts()).toEqual([0, 0, 1]);
   });
 
   test("a reply loaded without its body counts out of its topic when it's destroyed", async () => {
