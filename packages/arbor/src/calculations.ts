@@ -96,7 +96,7 @@ async function valuesOf(
 
 /**
  * The primary keys, as `pluck` reads them: a loaded association's stored records only, so a built
- * record's key is left out even when it was made in code. A `null` key is left out too, so every
+ * record's key is left out even when it's a generated id. A `null` key is left out too, so every
  * key is a `string` or a `number`.
  */
 export async function ids(source: ValueSource): Promise<(string | number)[]> {
