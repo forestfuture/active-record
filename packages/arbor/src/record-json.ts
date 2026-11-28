@@ -206,6 +206,12 @@ function nestedOptions(model: ModelClass, name: string, value: unknown): Nested 
       : [];
   if (given.length === 0) return { include: value };
   checkUnambiguous(model, name, given);
+  const stray = Object.keys(value as object).find((key) => !optionNames.includes(key));
+  if (stray !== undefined) {
+    throw new TypeError(
+      `toJSON's options under "${name}" have "${stray}", which isn't an option; give include, only, except, or methods`,
+    );
+  }
   return value as GivenOptions;
 }
 
