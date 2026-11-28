@@ -258,9 +258,12 @@ export class ResolvedAssociation {
     return attributeFor(this.target, this.targetAttribute);
   }
 
-  /** Whether its two keys are of different kinds, text and an integer or a uuid (#596). */
+  /**
+   * Whether its two keys are of different kinds, text and an integer or a uuid (#596). Never for
+   * an association through another: its keys are two hops apart, and each hop links its own.
+   */
   get isMixedType(): boolean {
-    return isMixedType(this.ownerKeyAttribute, this.targetKeyAttribute);
+    return this.hops === undefined && isMixedType(this.ownerKeyAttribute, this.targetKeyAttribute);
   }
 
   /**

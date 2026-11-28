@@ -10,6 +10,13 @@ class User extends Model.define({
   static table = "users";
 
   linkedAccounts = hasMany(Account, { foreignKey: "externalAccountId" });
+  ownedAccounts = hasMany(Account, { foreignKey: "userId" });
+  // Two same-type hops, from an integer key to a text one.
+  apiKeys = hasMany(ApiKey, { through: "ownedAccounts", source: "apiKey" });
+}
+
+class ApiKey extends Model.define({ id: { type: "string", null: false }, label: "string" }) {
+  static table = "api_keys";
 }
 
 // external_account_id is text holding a user's id: a mixed-type link to the integer key.
@@ -22,6 +29,7 @@ class Account extends Model.define({
 
   owner = belongsTo(User, { foreignKey: "userId", optional: true });
   linkedUser = belongsTo(User, { foreignKey: "externalAccountId", optional: true });
+  apiKey = belongsTo(ApiKey, { foreignKey: "externalAccountId", optional: true });
 }
 
 // A level over a mixed-type link is preloaded by its owners' loaded keys, after they're loaded
@@ -42,9 +50,11 @@ describe("preloading over a mixed-type link", () => {
     queries.length = 0;
     await binding.batch([
       binding.prepare("DELETE FROM accounts"),
+      binding.prepare("DELETE FROM api_keys"),
+      binding.prepare("INSERT INTO api_keys (id, label) VALUES ('2', 'two'), ('1', 'one')"),
       binding.prepare("DELETE FROM users"),
       binding.prepare(
-        "INSERT INTO users (id, email) VALUES (1, 'a@example.com'), (2, 'b@example.com')",
+        "INSERT INTO users (id, email) VALUES (1, 'jane@example.com'), (2, 'sam@example.com')",
       ),
       binding.prepare(
         "INSERT INTO accounts (id, user_id, external_account_id) VALUES (1, 1, '2'), (2, 2, '1'), (3, NULL, '09')",
@@ -60,7 +70,7 @@ describe("preloading over a mixed-type link", () => {
       .toArray();
 
     const emails = accounts.map((account) => account.loaded("linkedUser")?.email ?? null);
-    expect(emails).toEqual(["b@example.com", "a@example.com", null]);
+    expect(emails).toEqual(["sam@example.com", "jane@example.com", null]);
     expect(recording.batches).toEqual([]);
     expect(queries).toHaveLength(2);
   });
@@ -95,5 +105,13 @@ describe("preloading over a mixed-type link", () => {
     expect(owners).toEqual([[2], [1]]);
     expect(recording.batches).toEqual([2]);
     expect(queries).toHaveLength(3);
+  });
+
+  test("a through association whose hops are each of one kind goes in the owners' round trip", async () => {
+    const users = await db().model(User).includes("apiKeys").order({ id: "asc" }).toArray();
+
+    const labels = users.map((user) => user.loaded("apiKeys").map((key) => key.label));
+    expect(labels).toEqual([["two"], ["one"]]);
+    expect(recording.batches).toEqual([3]);
   });
 });
