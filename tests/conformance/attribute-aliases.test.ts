@@ -273,6 +273,31 @@ describe("an attribute alias", () => {
       expect(byAttribute.rows).toEqual([]);
     });
 
+    test("doesn't return a clashing row when uniqueBy names it on a Model with timestamps", async () => {
+      const users = db().model(User);
+      await users.create({ login: "jane@example.com" });
+
+      const { rows } = await users.upsertAll([{ login: "jane@example.com" }], {
+        uniqueBy: ["login"],
+        returning: ["id"],
+      });
+
+      expect(rows).toEqual([]);
+    });
+
+    test("is an attribute uniqueBy matches on, which updateOnly can't name", async () => {
+      const upsert = db()
+        .model(User)
+        .upsert(
+          { login: "jane@example.com", years: 31 },
+          { uniqueBy: ["login"], updateOnly: ["email"] },
+        );
+
+      await expect(upsert).rejects.toThrow(
+        new TypeError("upsert() updateOnly can't name email, which uniqueBy matches on"),
+      );
+    });
+
     test("fills in what the row doesn't give under either name", async () => {
       const users = db().model(User);
 
