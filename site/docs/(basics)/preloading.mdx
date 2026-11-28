@@ -86,6 +86,12 @@ Index each foreign key, as the migrations index `author_id` and `article_id`:
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-Rails sends each association’s preload query on its own, so every association adds a round trip. On D1, the whole tree on one database takes one. Rails preloads a polymorphic association after the likes load, with one query per type it finds. Here every listed Model’s query goes with the likes’ own, in one round trip, at the cost of reading the likes’ query again for each. A text key holding another type’s ID is preloaded by the loaded keys, as Rails preloads every association.
+Rails sends each association’s preload query on its own, so every association adds a round trip. On D1, the whole tree on one database takes one. Rails preloads a polymorphic association after the likes load, with one query per type it finds. Here every listed Model’s query goes with the likes’ own, in one round trip, at the cost of reading the likes’ query again for each.
+
+</Callout>
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails preloads every association by the keys of the records it loaded. Here only a text key holding an integer or UUID key waits for them. Rails matches such keys by their text, as Arbor does, but its lazy read casts `09` to 9. Arbor finds no record for `09` either way.
 
 </Callout>
