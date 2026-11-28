@@ -94,7 +94,7 @@ Looking a record up by an id that isn’t a UUID finds nothing, so a mistyped or
 
 - A UUID is held lowercase with hyphens, whichever form it’s given in, so `"{0B6F8A1E-3C2D-4E5F-9A7B-1C2D3E4F5A6B}"` is held as `"0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b"`.
 - A text foreign key reaches a UUID only when it holds it lowercase with hyphens, as the UUID is held. In another form, its record isn’t found, whether it’s read, preloaded, or joined. `find`, `findBy`, and `where` still take a UUID in any form.
-- A foreign key links only to a key of its own kind, or to text. Text may link to an integer or a UUID, and any other pair throws `InvalidModel` when the Model is first used. A `uuid` foreign key can’t point at an integer key, for one.
+- A foreign key links to a key of the same kind. Text may also link to an integer or a UUID. Any other pair throws `InvalidModel` when the Model is first used, such as a `uuid` foreign key pointing at an integer key.
 - `arbor schema` gives a Postgres `UUID` column a `uuid` attribute. A `UUID` key gets its value from `generateId`, which makes UUIDs.
 
 :::note
