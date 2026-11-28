@@ -11,6 +11,7 @@ import {
   type DeclaredAttributes,
 } from "./metadata.ts";
 import type { BaseClass, Model, ModelBaseFor } from "./model.ts";
+import { InvalidModel } from "./errors.ts";
 import { inferTableNames } from "./table-names.ts";
 import { defineSecureTokenMethods } from "./secure-tokens.ts";
 import {
@@ -39,6 +40,7 @@ export function defineModel<A extends DeclaredAttributes, B extends BaseClass>(
     ),
   );
   const aliases = aliasesIn("", declared, definitions);
+  rejectSharedColumns(definitions);
   rejectMissingDigests("", definitions);
   class DefinedModel extends Parent {
     static override attributeDefinitions: ReadonlyMap<string, AttributeDefinition> = definitions;
@@ -51,4 +53,23 @@ export function defineModel<A extends DeclaredAttributes, B extends BaseClass>(
   defineSecurePasswordMethods(DefinedModel.prototype, DefinedModel.attributeDefinitions);
   defineSecureTokenMethods(DefinedModel.prototype, DefinedModel.attributeDefinitions);
   return DefinedModel as never;
+}
+
+/**
+ * Two stored attributes on one column, refused: the checks that keep a column on a write (the
+ * primary key, a read-only attribute) go by attribute, so a second one could write it (#575).
+ * An alias gives a column a second name instead.
+ */
+function rejectSharedColumns(definitions: ReadonlyMap<string, AttributeDefinition>): void {
+  const owners = new Map<string, string>();
+  for (const [name, { column, virtual }] of definitions) {
+    if (virtual === true) continue;
+    const owner = owners.get(column);
+    if (owner !== undefined) {
+      throw new InvalidModel(
+        `${name}'s column, ${column}, is ${owner}'s too; to give it a second name, declare ${name}: { aliasOf: "${owner}" }`,
+      );
+    }
+    owners.set(column, name);
+  }
 }

@@ -32,7 +32,7 @@ class Event extends Model.define({
   stamp: { type: "datetime", storage: "unixSeconds" },
   isOpen: "boolean",
   data: "json",
-  day: { type: day, column: "held_on" },
+  day: { type: day },
 }) {
   static table = "events";
 }
