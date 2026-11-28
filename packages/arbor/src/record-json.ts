@@ -4,6 +4,7 @@ import { associationOf, associationsOf } from "./association-fields.ts";
 import { declared } from "./declarations.ts";
 import type { AssociationName, AttributesOf, Model, ModelClass, TargetRecord } from "./model.ts";
 import { secretAttributeNames } from "./secure-passwords.ts";
+import { refuseThenable } from "./thenables.ts";
 import { confirmationNames } from "./validations.ts";
 
 /**
@@ -152,11 +153,10 @@ function methodValue(record: Model, name: string): unknown {
   }
   const member = (record as unknown as Record<string, unknown>)[name];
   const value = typeof member === "function" ? (member as () => unknown).call(record) : member;
-  if (typeof (value as PromiseLike<unknown> | undefined)?.then === "function") {
-    throw new TypeError(
-      `${model.name}'s "${name}" returned a promise; toJSON's methods can't wait for one`,
-    );
-  }
+  refuseThenable(
+    value,
+    `${model.name}'s "${name}" returned a promise; toJSON's methods can't wait for one`,
+  );
   return value;
 }
 
@@ -172,7 +172,12 @@ function includedAssociations(model: ModelClass, spec: unknown): [string, Nested
 }
 
 /** The names that make an object under an association's name its options, not what it includes. */
-const optionNames = ["include", "only", "except", "methods"];
+const optionNames: readonly string[] = [
+  "include",
+  "only",
+  "except",
+  "methods",
+] satisfies readonly (keyof GivenOptions)[];
 
 /**
  * The options for association `name`'s records: `value` itself when it names an option

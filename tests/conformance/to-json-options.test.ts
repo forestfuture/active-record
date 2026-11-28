@@ -30,6 +30,10 @@ class User extends Model.define({
   async rank(): Promise<number> {
     return this.id;
   }
+
+  async verdict(): Promise<string> {
+    throw new Error("not ready");
+  }
 }
 
 class Post extends Model.define({
@@ -335,6 +339,14 @@ describe("toJSON options", () => {
 
       expect(() => user.toJSON({ methods: ["rank" as "handle"] })).toThrow(
         new TypeError("User's \"rank\" returned a promise; toJSON's methods can't wait for one"),
+      );
+    });
+
+    test("a method whose promise rejects throws, and its rejection isn't left unhandled", async () => {
+      const user = await db().model(User).find(1);
+
+      expect(() => user.toJSON({ methods: ["verdict" as "handle"] })).toThrow(
+        new TypeError("User's \"verdict\" returned a promise; toJSON's methods can't wait for one"),
       );
     });
   });

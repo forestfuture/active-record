@@ -27,7 +27,7 @@ import {
   type WithSecurePasswords,
 } from "./secure-passwords.ts";
 import { runLoadedCallbacks } from "./load-callbacks.ts";
-import { type GivenOptions, recordJSON, type ToJSONOptions } from "./to-json-options.ts";
+import { type GivenOptions, recordJSON, type ToJSONOptions } from "./record-json.ts";
 import { AssociationNotLoaded, RecordNotDestroyed } from "./errors.ts";
 import {
   destroyLifecycle,
@@ -752,8 +752,9 @@ export class Model extends ReadonlyMarks {
    * The loaded attributes as JSON-ready values (dates as ISO strings), without the Model's
    * `hiddenAttributes`, the virtual attributes its `confirmation` rules read, or its secrets: each
    * secure password, its confirmation, challenge and digest, and each secure token (#355), for
-   * `Response.json(record)`. `options` add loaded associations (`{ include: "posts" }`); the
-   * key `JSON.stringify` passes is ignored.
+   * `Response.json(record)`. `options` add loaded associations (`{ include: "posts" }`), pick
+   * attributes (`only`, `except`) and add getters' and methods' values (`methods`); the key
+   * `JSON.stringify` passes is ignored.
    */
   toJSON<O extends ToJSONOptions<this>>(options?: O | string): Record<string, unknown> {
     return recordJSON(
