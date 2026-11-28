@@ -251,10 +251,9 @@ export function returnedNames(
 }
 
 /**
- * An upsert's conflict: update, matching on `uniqueBy` (the primary key by default) by its
- * attributes' own names, an alias resolved (#532), a row
- * that already has the new row's `ownedBy` values (#451), only `updateOnly`'s attributes when
- * it's given (#36).
+ * An upsert's conflict: update a row that clashes on `uniqueBy` (the primary key by default) and
+ * already has the new row's `ownedBy` values (#451), only `updateOnly`'s attributes when it's
+ * given (#36). It keeps `uniqueBy` by its attributes' own names, an alias resolved (#532).
  */
 export function updateOn<M>(
   model: ModelClass,
@@ -324,6 +323,7 @@ function onDuplicateSets(
 /**
  * The attributes `updateOnly` or `onDuplicate` names, by their own names, checked: each one an
  * attribute an update can write, not one of the owner's `kept` keys, and at least one (#36, #531).
+ * `uniqueBy` holds its attributes' own names, as `updateOn` resolves them (#532).
  */
 function updatedNames(
   model: ModelClass,
