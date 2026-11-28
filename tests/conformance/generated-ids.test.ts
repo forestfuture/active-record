@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
 import { hasMany, InvalidModel, Model, RecordNotUnique } from "../../packages/arbor/src/index.ts";
 import { d1 } from "../../packages/arbor/src/adapters/d1/index.ts";
+import type { QueryEvent } from "../../packages/arbor/src/executor.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -140,14 +141,18 @@ describe("generated ids", () => {
     expect(await notebooks.pluck("id", "title")).toEqual([[existing.id, "Better ideas"]]);
   });
 
-  test("a loaded hasMany's ids() leaves out a built record, though its key is made", async () => {
-    const notebook = await harness.connect().model(Notebook).create({ title: "Ideas" });
+  test("a loaded hasMany's ids() leaves out a built record's generated id, without a query", async () => {
+    const events: QueryEvent[] = [];
+    const db = harness.connect({ onQuery: (event) => events.push(event) });
+    const notebook = await db.model(Notebook).create({ title: "Ideas" });
     const stored = await notebook.notes().create({ body: "Stored" });
     await notebook.notes().toArray();
     const built = notebook.notes().build({ body: "Built" });
+    events.length = 0;
 
     expect(built.id).toMatch(uuid);
     expect(await notebook.notes().ids()).toEqual([stored.id]);
+    expect(events).toHaveLength(0);
   });
 
   test("a given id is kept", async () => {
