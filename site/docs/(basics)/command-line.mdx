@@ -60,7 +60,7 @@ With `--adapter postgresql` and no Hyperdrive binding, it writes a `DATABASE_URL
 }
 ```
 
-Your generated schema names each database by its binding. The `$schema` line lets your editor complete and check the file. Each database names its own adapter, so one project can use D1 and Postgres together, as [Multiple databases](./several-databases#using-databases-on-different-adapters) shows.
+Your generated schema names each database by its binding. The `$schema` line lets your editor complete and check the file. Each database names its own adapter, so one project can use D1 and Postgres together, as [Multiple databases](./several-databases#using-databases-on-different-adapters) shows. `"migrate": false` on an entry leaves that database to another app’s migrations, so `migrate` skips it. [Multiple databases](./several-databases#skipping-a-database-another-app-migrates) shows how.
 
 On D1, the rest of a database’s settings stay in your Wrangler config’s `d1_databases`, which must have its binding. A D1 database there that the file doesn’t name is left out, and every command notes it.
 
@@ -100,8 +100,6 @@ On Postgres, the file holds a database’s settings:
 | `schemaUrl`     | A server the schema may be read on, for an extension PGlite doesn’t have. |
 
 `${NAME}` reads a variable from the environment, so a password stays out of the file. The command never prints a connection string, only its database and host. `--config` names another file.
-
-On either adapter, `"migrate": false` on an entry leaves that database to another app’s migrations. `migrate` skips it, as [Multiple databases](./several-databases#skipping-a-database-another-app-migrates) shows.
 
 On Postgres, the command needs `pg` installed, and PGlite to read your schema. It says what to install when either is missing.
 
@@ -180,12 +178,12 @@ Apply your pending migrations to the local database:
 npx arbor migrate
 ```
 
-With several databases, it migrates each one in turn, in the order `arbor.jsonc` names them, and stops at the first that fails. It skips a database set to `"migrate": false`. With `--remote`, it asks you to type each database’s name before it migrates any.
+With several databases, it migrates each one in turn. It goes in the order `arbor.jsonc` names them and stops at the first that fails. It skips a database set to `"migrate": false`. With `--remote`, it asks you to type each database’s name before it migrates any.
 
 | Option              |                                                                               |
 | ------------------- | ----------------------------------------------------------------------------- |
 | `--database <name>` | Migrate only this database. Every one by default.                             |
-| `--remote`          | Migrate your remote database instead, after you type its name.                |
+| `--remote`          | Migrate your remote databases instead, after you type each one’s name.        |
 | `--yes`             | With `--remote`, don’t ask first (also how to migrate it without a terminal). |
 | `--config <file>`   | Use this config file.                                                         |
 

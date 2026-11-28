@@ -46,7 +46,7 @@ Options for console:
 
 Options for migrate:
   --database <name>   Migrate only this database; every one by default
-  --remote            Migrate your remote database instead, after asking you to type its name
+  --remote            Migrate your remote databases instead, after asking you to type each one's name
   --yes               Don't ask first (with --remote); also how to migrate it without a terminal
 
 Options for every command:

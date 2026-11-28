@@ -52,14 +52,15 @@ await Entry.where({ level: "error" }).count(); // on LOGS
 
 ## Generating Models for one database
 
-The generators write for the first database `arbor.jsonc` names. Name another binding with `--database`:
+Name the binding with `--database`:
 
 ```sh
 npx arbor g model Entry 'level:string!' message --database LOGS
 npx arbor migrate
 ```
 
-- `npx arbor migrate` applies each database’s pending migrations, in the order `arbor.jsonc` names them. It stops at the first one that fails, and the databases before it stay migrated.
+- Without `--database`, the generators use the first database `arbor.jsonc` names.
+- `npx arbor migrate` applies each database’s pending migrations in the order `arbor.jsonc` names them. It stops at the first one that fails, and the databases before it stay migrated.
 - `npx arbor migrate --database LOGS` migrates only `LOGS`.
 - With `--remote`, it asks you to type each database’s name before it migrates any of them.
 
@@ -167,7 +168,7 @@ Assign the bindings onto the mocked `env` object, as above. Arbor reads `env` th
 
 ## Opening one in the console
 
-The console opens the first database `arbor.jsonc` names. Name another binding with `--database`:
+To open a database other than the first one `arbor.jsonc` names, give its binding with `--database`:
 
 ```sh
 npx arbor console --database LOGS
@@ -208,12 +209,14 @@ import { HyperdriveRecord } from "./hyperdrive-record";
 export class Order extends HyperdriveRecord {}
 ```
 
-`npx arbor migrate` migrates each database through its own adapter. The generators and the console use the first database, so name another with `--database`:
+The generators and the console use the first database, so name the Postgres one with `--database`:
 
 ```sh
 npx arbor g model Order total:integer --database HYPERDRIVE
 npx arbor migrate
 ```
+
+`npx arbor migrate` migrates each database through its own adapter.
 
 ## Skipping a database another app migrates
 
