@@ -186,4 +186,15 @@ describe("migrate, with several databases", () => {
     expect(await tablesIn(cwd, shopDb, "migrations")).toEqual(["users"]);
     expect(await tablesIn(cwd, logsDb, "logs")).toEqual(["entries"]);
   }, 120_000);
+
+  test("stops at the first database whose migration fails, with Wrangler's code", async () => {
+    const cwd = twoDatabases();
+    writeFileSync(join(cwd, "migrations/0002_broken.sql"), "CREATE TABLE users (id INTEGER);\n");
+
+    const { code, printed } = await migrated(cwd);
+
+    expect(code).not.toBe(0);
+    expect(printed).not.toContain("0001_create_entries.sql");
+    expect(await tablesIn(cwd, logsDb, "logs")).toEqual([]);
+  }, 120_000);
 });
