@@ -341,14 +341,14 @@ describe("a real linked to a number of another width or type", () => {
     expect(await db().model(LooseMeter).joins("samples").pluck("id")).toEqual([1]);
   });
 
-  test("a through association past a decimal a double can't hold links nothing", async () => {
+  test("a through association links nothing by a decimal a double can't hold", async () => {
     await schema.pool.query({ text: "UPDATE samples SET exact = 1e400" });
     const plant = await db().model(Plant).find(1);
 
     expect(await plant.samplesExactToWide().pluck("id")).toEqual([]);
   });
 
-  test("a counter cache counts nothing out by a stored decimal a double can't hold", async () => {
+  test("a counter cache counts nothing out of the meter by a stored decimal a double can't hold", async () => {
     const sample = await db().model(CountedSample).find(1);
     await schema.pool.query({ text: "UPDATE samples SET exact = 1e400" });
 
