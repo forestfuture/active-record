@@ -136,3 +136,33 @@ describe("the PostgreSQL adapter's decimals", () => {
     expect((await amounts().find(amount.id)).price).toBe("2.35");
   });
 });
+
+// A table named like one of Postgres's own types, which a cast to its row type would find first.
+class Point extends Model.define({ id: { type: "integer", null: false }, label: "string" }) {
+  static table = "point";
+}
+
+// Bulk rows are read into the table's row type, which is named as a table (#626).
+describe("the PostgreSQL adapter's bulk writes to a table named like a Postgres type", () => {
+  let schema: PgSchema;
+  const points = () => connect(schema.url).model(Point);
+
+  beforeAll(async () => {
+    schema = await openPgSchema();
+    // A column named like its table, which a query of the table would read before its row.
+    await schema.pool.query({
+      text: "CREATE TABLE point (id BIGINT PRIMARY KEY, label TEXT, point TEXT)",
+    });
+  });
+  afterAll(() => schema.dispose());
+  afterEach(() => schema.pool.query({ text: "DELETE FROM point" }));
+
+  test("insertAll writes its rows", async () => {
+    await points().insertAll([
+      { id: 1, label: "north" },
+      { id: 2, label: "south" },
+    ]);
+
+    expect(await points().order({ id: "asc" }).pluck("label")).toEqual(["north", "south"]);
+  });
+});
