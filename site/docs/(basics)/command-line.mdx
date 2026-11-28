@@ -101,6 +101,8 @@ On Postgres, the file holds a database’s settings:
 
 `${NAME}` reads a variable from the environment, so a password stays out of the file. The command never prints a connection string, only its database and host. `--config` names another file.
 
+On either adapter, `"migrate": false` on an entry leaves that database to another app’s migrations. `migrate` skips it, as [Multiple databases](./several-databases#skipping-a-database-another-app-migrates) shows.
+
 On Postgres, the command needs `pg` installed, and PGlite to read your schema. It says what to install when either is missing.
 
 ## `arbor schema`
@@ -158,7 +160,7 @@ npx arbor console
 
 | Option              |                                                                                       |
 | ------------------- | ------------------------------------------------------------------------------------- |
-| `--database <name>` | The database to open, by its binding, when the config has several.                    |
+| `--database <name>` | The database to open, by its binding. The config’s first by default.                  |
 | `--models <path>`   | Where the Models are: a folder (`src/models`) or one file (`src/models.ts`).          |
 | `--config <file>`   | Use this config file, in place of `arbor.jsonc`.                                      |
 | `--no-history`      | Don’t keep what you type (in `.wrangler/` on D1, `node_modules/.cache/` on Postgres). |
@@ -168,7 +170,7 @@ npx arbor console
 | `--yes`             | With `--remote`, don’t ask first (also how to open it without a terminal).            |
 | `--history`         | Keep what you type in a remote session, which isn’t kept unless you ask.              |
 
-It reads TypeScript Models and uses your project’s own `@forestfuture/arbor` and its adapter. On D1, it opens the database through your project’s `wrangler`. On Postgres, it opens a connection to the database’s `url`, or with `--remote` its `remoteUrl`, and closes it when you leave. It refuses, printing why, when there’s no config, with several databases and no `--database`, with no Models, or with the library not installed. On D1, it also refuses without `wrangler` installed, or with `--remote` when the binding has no `database_id`. On Postgres, it refuses when the database has no `url` (or, with `--remote`, no `remoteUrl`), or names a variable that isn’t set. With `--remote`, it refuses when you don’t confirm it, or aren’t on a terminal and didn’t pass `--yes`. `--yes` only goes with `--remote`, `--history` can’t be combined with `--no-history`, and `-e` takes one piece of code, once.
+It reads TypeScript Models and uses your project’s own `@forestfuture/arbor` and its adapter. On D1, it opens the database through your project’s `wrangler`. On Postgres, it opens a connection to the database’s `url`, or with `--remote` its `remoteUrl`, and closes it when you leave. It refuses, printing why, when there’s no config, with a `--database` the config doesn’t name, with no Models, or with the library not installed. On D1, it also refuses without `wrangler` installed, or with `--remote` when the binding has no `database_id`. On Postgres, it refuses when the database has no `url` (or, with `--remote`, no `remoteUrl`), or names a variable that isn’t set. With `--remote`, it refuses when you don’t confirm it, or aren’t on a terminal and didn’t pass `--yes`. `--yes` only goes with `--remote`, `--history` can’t be combined with `--no-history`, and `-e` takes one piece of code, once.
 
 ## `arbor migrate`
 
@@ -178,9 +180,11 @@ Apply your pending migrations to the local database:
 npx arbor migrate
 ```
 
+With several databases, it migrates each one in turn, in the order `arbor.jsonc` names them, and stops at the first that fails. It skips a database set to `"migrate": false`. With `--remote`, it asks you to type each database’s name before it migrates any.
+
 | Option              |                                                                               |
 | ------------------- | ----------------------------------------------------------------------------- |
-| `--database <name>` | The database to migrate, when the config has several.                         |
+| `--database <name>` | Migrate only this database. Every one by default.                             |
 | `--remote`          | Migrate your remote database instead, after you type its name.                |
 | `--yes`             | With `--remote`, don’t ask first (also how to migrate it without a terminal). |
 | `--config <file>`   | Use this config file.                                                         |
@@ -293,7 +297,7 @@ npx arbor g migration <Name> [columns] [options]
 | `--id integer\|text`   | `integer`: a key the database generates. `text` (the default): a key generated in code.                                |
 | `--no-timestamps`      | Leave out `created_at` and `updated_at`.                                                                               |
 | `--models <path>`      | Write Models in this folder (importing `application-record.ts` from it), or append them to one file (`src/models.ts`). |
-| `--database <binding>` | The database to use, when the config has several.                                                                      |
+| `--database <binding>` | The database to use. The config’s first by default.                                                                    |
 | `--out <file>`         | The schema file to regenerate, as for `arbor schema` (for a Drizzle project’s `src/db/arbor.ts`, say).                 |
 | `--config <file>`      | Use this config file.                                                                                                  |
 

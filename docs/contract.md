@@ -452,7 +452,7 @@ _Code:_ `arbor/cli/main.ts`, `arbor/cli/adapter.ts`, `arbor/cli/project/adapters
   The command reads it and never guesses.
   Without the file, it says to run `npx arbor init`; a file that isn't an object, or can't be read, a file with no `databases`, an entry that isn't an object, an entry with no `adapter` (naming the ones there are), or one that isn't an adapter, is refused, naming it.
   **Each database uses the adapter its entry names (#305):** one project can hold a D1 database and a PostgreSQL one.
-  The command loads the plugin of every adapter the file names (checking `unsupported` for each before anything is read) and hands each plugin only the entries for it; `schema` reads each database with its own plugin, and the generators, `migrate` and the console use the plugin of the database `--database` chooses.
+  The command loads the plugin of every adapter the file names (checking `unsupported` for each before anything is read) and hands each plugin only the entries for it; `schema` reads each database with its own plugin, and the generators and the console use the plugin of the database `--database` chooses (the file's first by default, #313), and `migrate` each database's own.
   Every plugin's notes are printed.
   Two databases on different adapters whose migrations folders are one folder are refused, naming both (`DB and HYPERDRIVE both read migrations/, on different adapters (d1 and postgresql); give each its own migrations folder`, or each one's path when a link makes them one folder), since both adapters default to `migrations/`; databases on one adapter may share one.
   There's no `--adapter`, but on `init`.
@@ -471,6 +471,7 @@ _Code:_ `arbor/cli/main.ts`, `arbor/cli/adapter.ts`, `arbor/cli/project/adapters
   A unit test fails on any database named in `arbor/cli/` outside the registry of adapters.
 - **The project's config file** is `arbor.jsonc`, beside `package.json`, or the file `--config` names (JSON with comments and trailing commas).
   The core reads it, and hands each plugin its databases' entries, so later settings can go in it too.
+  On either adapter, an entry's `"migrate": false` leaves that database to another app's migrations (#313): `migrate` without `--database` skips it (and `--remote` doesn't ask for it), `migrate --database` naming it is refused (`LOGS is set not to migrate ("migrate": false)`), and `schema`, the generators and the console use it as any other; a `migrate` that isn't `true` or `false` is refused by every command (`arbor.jsonc: databases.LOGS.migrate isn't true or false`).
   (D1) A D1 database's settings stay in its Wrangler config: the one its entry's `wranglerConfig` names, relative to the file (`"DB": { "adapter": "d1", "wranglerConfig": "../worker/wrangler.jsonc" }`, for a Worker in another folder, #306), or else the one beside the file (`wrangler.jsonc`, `wrangler.json` or `wrangler.toml`), which is needed only when some D1 entry names none.
   Databases may name different Wrangler configs.
   A `wranglerConfig` that isn't a string, isn't there, or is a folder is refused, naming the setting and its path relative to the file.
@@ -482,9 +483,13 @@ _Code:_ `arbor/cli/main.ts`, `arbor/cli/adapter.ts`, `arbor/cli/project/adapters
   Each `${NAME}` in them is read from the environment when it's used, and one that isn't set is an error naming it.
   A connection string is never printed: messages name its database and host.
   A setting that isn't a string is refused, naming it.
-- **`migrate`** applies a database's pending migrations, to the local database by default.
-  `--database` chooses one, as for the console.
-  `--remote` names the real database and asks for its name to be typed first, as the console does, and `--yes` skips that (the only way without a terminal).
+- **`migrate`** applies each database's pending migrations, to the local database by default (#313).
+  Without `--database`, it migrates every database the file names, but those set to `"migrate": false`, one at a time in the file's order, each through its own adapter, and stops at the first that fails, exiting with its code; the databases before it stay migrated, and the ones after it aren't started.
+  With every database set to `"migrate": false`, it prints `No database to migrate: each is set not to ("migrate": false)` and exits 0.
+  Rails' `db:migrate` interleaves every database's migrations by version, but Wrangler applies a D1 database's pending migrations together, with no version to stop at.
+  `--database` migrates only the database it names.
+  `--remote` names each real database and asks for its name to be typed first, as the console does, one database after another before any is migrated, so any answer that isn't the name migrates none; `--yes` skips that (the only way without a terminal).
+  A database with no remote target (a D1 `database_id`, a Postgres `remoteUrl`) is refused before anything is asked.
   (D1) It runs the project's `wrangler d1 migrations apply <binding> --local` or `--remote`, with its config, printing what Wrangler prints, and exits with Wrangler's code.
   (Postgres) The PostgreSQL adapter's runner applies them itself, to `url`, or with `--remote` to `remoteUrl`, which needs the real database's password in the environment and a network route to it.
   It prints the database (`Local database HYPERDRIVE (shop_development on localhost)`), then `Applied <file>` for each migration, or `No migrations to apply`.
@@ -492,7 +497,7 @@ _Code:_ `arbor/cli/main.ts`, `arbor/cli/adapter.ts`, `arbor/cli/project/adapters
   It holds an advisory lock for the database and schema while it runs, and a run that finds it held exits 1 at once ("Another migrate is running on this database"), as Rails refuses one; creates `schema_migrations (version TEXT PRIMARY KEY)` if it's missing; and applies each pending migration in a transaction with its version's row, so one that fails is rolled back whole (`<file> failed: <Postgres's message>`, exit 1) and none after it runs.
   A migration that can't run in a transaction (`CREATE INDEX CONCURRENTLY`) fails.
   There's no status or rollback, on either adapter.
-- The generators' next step is `npx arbor migrate` (with `--database` when there are several).
+- The generators' next step is `npx arbor migrate`, which migrates every database (#313).
 
 ## The generated schema
 
@@ -655,7 +660,7 @@ _Guide:_ [generators](<../site/docs/(how-to)/generators.mdx>), [change-a-table](
 _Code:_ `arbor/cli/generate/`, `arbor/cli/adapters/d1/migration.ts`, `arbor/cli/adapters/postgresql/migration.ts`, `arbor/cli/source.ts`.
 
 `npx arbor g model <Name> [columns]` writes a `CREATE TABLE` migration and a Model; `npx arbor g migration <Name> [columns]` writes a migration whose name says what it does.
-Both then regenerate the schema and print the next step (`npx arbor migrate`, with `--database` when there are several); neither applies migrations.
+Both then regenerate the schema and print the next step (`npx arbor migrate`); neither applies migrations.
 
 - **Columns** are `name:type`: `string` (the default, so `title` and `slug:index` are strings), `integer`, `real`, `decimal`, `boolean`, `datetime`, `date`, `time`, `json`, `binary` or `references`; then `!` for `NOT NULL`, `=value` for a literal default (`string`, `integer`, `real`, `decimal`, `boolean`, `date` and `time` only, a decimal's, a date's and a time's cast to its one form and written as quoted text, and it may hold a `:`; Rails' generators have no such syntax), `{precision,scale}` after `decimal` for its size (`decimal{10,2}`, `decimal{6}`, as Rails writes it; #398), writing `DECIMAL(10, 2)` on D1 and `NUMERIC(10, 2)` on Postgres, its `=value` rounded and checked as an assigned value is (braces on another type or on `references`, a precision outside 1 to 1000, a scale past the precision, and a default past the precision are refused, each saying why), and `:unique` or `:index` for an index named as Rails names it (`index_products_on_sku`).
   Names are written in snake_case whichever way they're given.
@@ -678,7 +683,7 @@ Both then regenerate the schema and print the next step (`npx arbor migrate`, wi
   (D1) A file the config's `migrations_pattern` wouldn't match is refused, as `wrangler d1 migrations create` refuses it.
 - **Nothing is written** unless the new migration applies after the existing ones (in memory, as `arbor schema` applies them) and the Model file is new (or, for `--models` with one file, doesn't have the class yet).
   Otherwise the command prints why, then "Wrote nothing".
-  With several databases, `--database <binding>` chooses one, and the Model imports that database's schema file.
+  With several databases, they write for the file's first, or the one `--database <binding>` chooses (#313), and the Model imports that database's schema file.
   `--config <file>` names the config file, as for `arbor schema`.
 
 ## Console
@@ -693,7 +698,7 @@ See ADR-0014.
   (Postgres) It opens a `pg` Pool on the database's `url` (with `--remote`, its `remoteUrl`), from the `pg` the project's PostgreSQL adapter imports, passes it to the project's `connect`, and ends it when the console closes; it prints `Local database DB (shop_development on localhost)` after any notes, and `--remote` asks for the database's name, from the connection string.
   The rest of this section is D1's.
   (D1) **Local unless `--remote`**: `getPlatformProxy` is called with `remoteBindings: false`, so a binding marked `remote: true` still opens locally.
-- **The database** is the only database `arbor.jsonc` names, or the one `--database` names; with several and no `--database`, or a name the config doesn't bind, it prints why and exits 1, as `g` does.
+- **The database** is the first database `arbor.jsonc` names, or the one `--database` names (#313); a name the config doesn't bind prints why and exits 1, as `g` does.
   Only that binding is started: `getPlatformProxy` is given a temporary Wrangler config holding the chosen `d1_databases` entry as the project's config has it (removed when the console ends), because it starts every binding a config declares (Durable Objects, services, secrets from `.dev.vars`), with their warnings and failures.
   State is read and written in `<config dir>/.wrangler/state/v3`, where `wrangler dev` keeps it (not relative to the working directory, as `getPlatformProxy`'s own default is).
 - **The project's own code.**

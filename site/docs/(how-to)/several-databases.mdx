@@ -52,12 +52,16 @@ await Entry.where({ level: "error" }).count(); // on LOGS
 
 ## Generating Models for one database
 
-Name the binding with `--database`:
+The generators write for the first database `arbor.jsonc` names. Name another binding with `--database`:
 
 ```sh
 npx arbor g model Entry 'level:string!' message --database LOGS
-npx arbor migrate --database LOGS
+npx arbor migrate
 ```
+
+- `npx arbor migrate` applies each database’s pending migrations, in the order `arbor.jsonc` names them. It stops at the first one that fails, and the databases before it stay migrated.
+- `npx arbor migrate --database LOGS` migrates only `LOGS`.
+- With `--remote`, it asks you to type each database’s name before it migrates any of them.
 
 ## Using both in a request
 
@@ -163,7 +167,7 @@ Assign the bindings onto the mocked `env` object, as above. Arbor reads `env` th
 
 ## Opening one in the console
 
-Name the binding with `--database`:
+The console opens the first database `arbor.jsonc` names. Name another binding with `--database`:
 
 ```sh
 npx arbor console --database LOGS
@@ -204,9 +208,31 @@ import { HyperdriveRecord } from "./hyperdrive-record";
 export class Order extends HyperdriveRecord {}
 ```
 
-Name the database with `--database` for the generators, `migrate`, and the console:
+`npx arbor migrate` migrates each database through its own adapter. The generators and the console use the first database, so name another with `--database`:
 
 ```sh
 npx arbor g model Order total:integer --database HYPERDRIVE
-npx arbor migrate --database HYPERDRIVE
+npx arbor migrate
 ```
+
+## Skipping a database another app migrates
+
+When another app owns a database’s migrations, set `"migrate": false` on its entry:
+
+```jsonc arbor.jsonc
+{
+  "databases": {
+    "DB": { "adapter": "d1" },
+    "LOGS": { "adapter": "d1", "migrate": false },
+  },
+}
+```
+
+- `npx arbor migrate` leaves `LOGS` alone, and `npx arbor migrate --database LOGS` is refused.
+- `npx arbor schema`, the generators, and the console still use it.
+
+<Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails’ `db:migrate` runs every database’s migrations together, in the order of their versions. Here each database is migrated in turn, because Wrangler applies all of a D1 database’s pending migrations at once. `"migrate": false` does what `database_tasks: false` does for `db:migrate`, and the first database plays the part of Rails’ primary one.
+
+</Callout>
