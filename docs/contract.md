@@ -1884,6 +1884,8 @@ _Code:_ `arbor/src/relation.ts`, `arbor/src/find-or-create.ts`, `arbor/src/recor
   Rails doesn't refuse, as its params must be permitted first and keep scalars only.
   An array the attribute casts as one value (a `json` attribute's, or a custom type's whose values are arrays) is one value: the find compares the whole stored value, as the new record holds it.
   `attrs` that aren't an object throw `TypeError` too, and a `__proto__` key in parsed JSON stays a key, so it throws `UnknownAttribute`.
+  Empty `attrs` add no condition, as with `findBy({})` (#472), so they find any record the Relation matches, as in Rails: through a hasMany, `user.posts().findOrCreateBy({})` is one of the user's posts, or a new one.
+  Checking that untrusted input has the attributes a find needs is the app's (#634 tracks a way to require them).
   They're Relation methods, so statics, on scopes, and through a hasMany, whose created record joins what it has loaded; a hasOne or belongsTo accessor has none of them.
   A find is a read, so none of them is a `batch` write.
 - **`init` (#346).**
