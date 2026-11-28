@@ -15,6 +15,7 @@ export type Conflict =
   | { kind: "skip" }
   | {
       kind: "update";
+      /** The attributes the conflict matches on, by their own names, never an alias (#532). */
       uniqueBy: readonly string[];
       update?: readonly string[];
       /** What `onDuplicate` sets each attribute it names to (#531). */
