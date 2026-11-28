@@ -59,13 +59,15 @@ async function allowed(
 }
 
 /**
- * The databases to migrate: the one `--database` names, or else every one not set to
- * `"migrate": false`; or why there isn't one.
+ * The databases to migrate: the one `--database` names, or else every one; but never one set to
+ * `"migrate": false`. Or why there isn't one.
  */
 function databasesFor(project: LoadedProject, options: MigrateOptions): Chosen[] | string {
   if (options.database === undefined) return everyDatabase(project).filter((each) => each.migrates);
   const found = chosenDatabase(project, options);
-  return typeof found === "string" ? found : [found];
+  if (typeof found === "string") return found;
+  if (!found.migrates) return `${found.chosen.binding} is set not to migrate ("migrate": false)`;
+  return [found];
 }
 
 /** Each database's remote target, as its adapter names it; or why one can't be reached. */

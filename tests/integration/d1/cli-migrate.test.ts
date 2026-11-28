@@ -248,4 +248,16 @@ describe("migrate, with several databases", () => {
       ['No database to migrate: each is set not to ("migrate": false)'],
     ]);
   });
+
+  test('--database naming a database set to "migrate": false is refused', async () => {
+    const cwd = twoDatabases({ migrate: false });
+
+    const { code, printed, lines } = await migrated(cwd, { database: "LOGS" });
+
+    expect([code, printed, lines]).toEqual([
+      1,
+      "",
+      ['LOGS is set not to migrate ("migrate": false)'],
+    ]);
+  });
 });
