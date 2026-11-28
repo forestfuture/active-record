@@ -703,10 +703,10 @@ describe("making records", () => {
       expect(statementKinds(events)).toEqual(["SELECT"]);
     });
 
-    test("through a hasMany, they find the owner's record, not another owner's", async () => {
-      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (1, 2, 'Theirs')");
-      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (2, 1, 'Mine')");
-      await harness.exec("INSERT INTO posts (id, user_id, title) VALUES (3, 2, 'Theirs too')");
+    test("through a hasMany, findOrCreateBy finds the owner's record, not another owner's", async () => {
+      await harness.exec(
+        "INSERT INTO posts (id, user_id, title) VALUES (1, 2, 'Theirs'), (2, 1, 'Mine'), (3, 2, 'Theirs too')",
+      );
       const user = await db().model(User).find(1);
 
       const post = await user.posts().findOrCreateBy({});
