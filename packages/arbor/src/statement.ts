@@ -3,7 +3,6 @@ import { compileInsertRows, type Conflict } from "./bulk-insert-sql.ts";
 import { compileInsert, type Assignment, type CompiledSql } from "./compiler.ts";
 import type { StatementResult } from "./driver.ts";
 import type { Executor } from "./executor.ts";
-import { attributeName } from "./attribute-aliases.ts";
 import { attributeFor } from "./attribute.ts";
 import { initialValues, requireDefined, columnOf } from "./metadata.ts";
 import type { AttributesOf, ModelClass } from "./model.ts";
@@ -194,8 +193,8 @@ export function insertStatement<Row>(
     throw new TypeError(`${method}(): nothing to insert; give each row at least one attribute`);
   }
   const values = assigned.map((row) => names.map((name) => row.get(name)));
-  const uniqueBy = conflict?.kind === "update" ? conflict.uniqueBy : [];
-  const matched = new Set(uniqueBy.map((name) => attributeName(model, name)));
+  // `updateOn` holds `uniqueBy` by its attributes' own names (#532).
+  const matched = new Set(conflict?.kind === "update" ? conflict.uniqueBy : []);
   const updated = given.filter((name) => clashKeeps(model, name, matched) === undefined);
   const resolved =
     conflict?.kind === "update" ? resolvedUpdate(conflict, { updated, names, method }) : conflict;
