@@ -313,6 +313,30 @@ describe("a real linked to a number of another width or type", () => {
     expect(await db().model(Meter).joins("exactToWide").pluck("id")).toEqual([1]);
   });
 
+  // A double's cast bounds, exactly: the midpoint of its greatest value and 2 ** 1024, and half
+  // its least subnormal, 2 ** -1075. Each rounds past a double, so the cast refuses it.
+  const midpointPastGreatest = 2n ** 1024n - 2n ** 970n;
+  const halfLeastSubnormal = `0.${String(5n ** 1075n).padStart(1075, "0")}`;
+
+  test.each([
+    ["just below the midpoint past a double's greatest value", String(midpointPastGreatest - 1n)],
+    ["just past half a double's least subnormal", `${halfLeastSubnormal}1`],
+  ])("a join finds the meter by a decimal %s (guard)", async (_, exact) => {
+    await schema.pool.query({ text: "UPDATE meters SET wide = $1", values: [exact] });
+    await schema.pool.query({ text: "UPDATE samples SET exact = $1", values: [exact] });
+
+    expect(await db().model(Meter).joins("exactToWide").pluck("id")).toEqual([1]);
+  });
+
+  test.each([
+    ["at the midpoint past a double's greatest value", String(midpointPastGreatest)],
+    ["at half a double's least subnormal", halfLeastSubnormal],
+  ])("a decimal %s links nothing rather than failing (guard)", async (_, exact) => {
+    await schema.pool.query({ text: "UPDATE samples SET exact = $1", values: [exact] });
+
+    expect(await db().model(Meter).joins("exactToWide").pluck("id")).toEqual([]);
+  });
+
   test("a decimal declared over a double precision column links to a double precision", async () => {
     expect(await db().model(LooseMeter).joins("samples").pluck("id")).toEqual([1]);
   });
