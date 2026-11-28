@@ -39,14 +39,21 @@ const isHeld = (number: string, magnitudes: Magnitudes) =>
   `${number} = 0 OR ${isWithin(number, magnitudes)}`;
 
 /**
+ * `selected` from a query of `table`, already quoted, that finds no row: NULL, of the type
+ * `selected` has in the table. A query names the table as a table, where a cast to its row type
+ * (`NULL::"point"`) would find a type of Postgres's own first, should the table share its name
+ * (#623, #626).
+ */
+const noRowOf = (table: string, selected: string) =>
+  `(SELECT ${selected} FROM ${table} WHERE false)`;
+
+/**
  * Whether `attribute`'s column is a 4-byte `real` (`float4`). Its type is read from a query of
  * its table that finds no row, not from the row being linked, so the test is the same for every
- * row and the column's index is still searched. A query names the table as a table: a cast to its
- * row type would find a type of Postgres's own first, should the table share its name (`point`).
+ * row and the column's index is still searched.
  */
 function isFloat4({ table, column }: Attribute): string {
-  const selected = `(SELECT ${quoted(column)} FROM ${quoted(table)} WHERE false)`;
-  return `pg_typeof(${selected}) = 'real'::regtype`;
+  return `pg_typeof(${noRowOf(quoted(table), quoted(column))}) = 'real'::regtype`;
 }
 
 /**
@@ -210,7 +217,9 @@ export const postgres: Dialect = {
   },
   /**
    * Each row's cells become an object of its columns, read into a record of `table`, so every
-   * value converts to its column's own type as an insert's would.
+   * value converts to its column's own type as an insert's would. The record's type is a row of
+   * `table` that a query finds none of: `table.*` in an expression is its whole row, which a
+   * column of the table's own name can't stand in for.
    */
   bulkRows(table, attributes) {
     const pairs = attributes.map((attribute, index) => {
@@ -220,7 +229,7 @@ export const postgres: Dialect = {
       select: attributes.map(({ column }) => `row.${quoted(column)}`).join(", "),
       from:
         `jsonb_array_elements(${valueMark}::jsonb) AS cells, ` +
-        `jsonb_populate_record(NULL::${table}, ${jsonObject(pairs)}) AS row`,
+        `jsonb_populate_record(${noRowOf(table, `COALESCE(${table}.*)`)}, ${jsonObject(pairs)}) AS row`,
     };
   },
 };
