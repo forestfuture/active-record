@@ -30,5 +30,9 @@ CREATE TABLE likes (
   likeable_type TEXT NOT NULL,
   likeable_id UUID NOT NULL
 );
+CREATE TABLE bookmarks (
+  id UUID PRIMARY KEY,
+  article_ref TEXT NOT NULL
+);
 CREATE INDEX index_articles_on_author_id ON articles (author_id);
 CREATE INDEX index_comments_on_article_id ON comments (article_id);

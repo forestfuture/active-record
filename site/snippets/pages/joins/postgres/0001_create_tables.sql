@@ -17,3 +17,7 @@ CREATE TABLE comments (
   article_id UUID NOT NULL REFERENCES articles (id),
   body TEXT NOT NULL
 );
+CREATE TABLE bookmarks (
+  id UUID PRIMARY KEY,
+  article_ref TEXT NOT NULL
+);

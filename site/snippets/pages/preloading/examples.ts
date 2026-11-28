@@ -1,4 +1,5 @@
 import { Author } from "./src/models/author";
+import { Bookmark } from "./src/models/bookmark";
 import { Like } from "./src/models/like";
 
 export async function preloading() {
@@ -22,4 +23,15 @@ export async function preloadingPolymorphic() {
   }
   // #endregion polymorphic
   return likes;
+}
+
+export async function preloadingAcrossKeyTypes() {
+  // #region across-key-types
+  const bookmarks = await Bookmark.includes("article").toArray(); // once the bookmarks are loaded
+
+  for (const bookmark of bookmarks) {
+    console.log(bookmark.loaded("article")?.title); // no query: already loaded
+  }
+  // #endregion across-key-types
+  return bookmarks;
 }

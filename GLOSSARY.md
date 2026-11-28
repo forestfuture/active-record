@@ -260,6 +260,10 @@ _Avoid_: Target association
 One of the associations a **Through association** reaches its records by, in turn: the one it goes through, then its **Source association**, each of which may go through others. A read selects each hop's keys with a subquery, and a **Preload** sends a query per hop.
 _Avoid_: Step, leg, link (a link is how two records' keys match)
 
+**Mixed-type link**:
+A link whose two keys are of different kinds: text and an `integer` (a `datetime` kept as a Unix time included) or a `uuid`, the only kinds an **Association** may mix. It compares its keys as text, so text links to an integer or a uuid only in that key's own text form (`"9"`, not `"09"`). Any other pair of kinds is an `InvalidModel`.
+_Avoid_: Cross-type link, unlike link
+
 **Polymorphic association**:
 A `belongsTo` whose record may be of any of several **Models** it lists (`belongsTo([Post, Photo])`): its **Record** holds a **Type attribute** naming the Model, and a foreign key. Each listed Model's side is a `hasMany` or `hasOne` declared with `as`, reading the records whose type names it.
 _Avoid_: Generic association, union association

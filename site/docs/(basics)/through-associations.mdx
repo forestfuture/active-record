@@ -79,6 +79,7 @@ Read a through association as you would any `hasMany`:
 - `tag.articles()` is a Relation, with every Relation method, read in one query. Its writes go to the taggings, as [below](#writing-through-it).
 - Each record comes back once, however many join records point at it.
 - The scopes of both associations it goes through apply, and so does its own `scope`.
+- A text foreign key on the way may hold an integer or UUID key. The query compares the two as text, as a [join](./joins#joining-across-key-types) does, so the database can’t search the integer or UUID key’s index.
 
 ## Preloading records
 

@@ -1,5 +1,6 @@
 import { Article } from "./src/models/article";
 import { Author } from "./src/models/author";
+import { Bookmark } from "./src/models/bookmark";
 
 export async function joining() {
   // #region joins
@@ -25,4 +26,13 @@ export async function merging() {
     .toArray();
   // #endregion merge
   return { byJane, byAuthorName };
+}
+
+export async function joiningAcrossKeyTypes() {
+  // #region across-key-types
+  const bookmarks = await Bookmark.joins("article")
+    .merge(Article.where({ title: "Getting started" }))
+    .toArray();
+  // #endregion across-key-types
+  return bookmarks;
 }
