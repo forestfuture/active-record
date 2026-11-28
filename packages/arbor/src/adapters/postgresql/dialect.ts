@@ -51,11 +51,14 @@ const noRowOf = (table: string, selected: string) =>
   `(SELECT ${selected} FROM ${table} WHERE false)`;
 
 /**
- * Whether a cast of `decimal`, a `numeric`, to a binary floating-point type accepts it: held
- * within `magnitudes`, or an infinity or NaN, which a `numeric` orders past every number.
+ * Whether a cast of `decimal` to a binary floating-point type accepts it: held within
+ * `magnitudes`, or an infinity or NaN, which a `numeric` orders past every number. It's compared
+ * as a `numeric`, so a decimal attribute declared over a `real` column compares too (#628).
  */
-const isHeldDecimal = (decimal: string, magnitudes: Magnitudes) =>
-  `${isHeld(decimal, magnitudes)} OR ABS(${decimal}) >= 'Infinity'`;
+function isHeldDecimal(decimal: string, magnitudes: Magnitudes): string {
+  const number = `CAST(${decimal} AS NUMERIC)`;
+  return `${isHeld(number, magnitudes)} OR ABS(${number}) >= 'Infinity'`;
+}
 
 /**
  * Whether `attribute`'s column is a 4-byte `real` (`float4`). Its type is read from a query of
