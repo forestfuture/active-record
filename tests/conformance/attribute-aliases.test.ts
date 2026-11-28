@@ -261,7 +261,7 @@ describe("an attribute alias", () => {
       ]);
     });
 
-    test("leaves a clashing row as it is when uniqueBy names it and nothing else is given", async () => {
+    test("doesn't return a clashing row when uniqueBy names it and nothing else is given", async () => {
       await harness.exec("INSERT INTO users (id, email) VALUES (1, 'jane@example.com')");
       const visitors = db().model(Visitor);
       const row = [{ login: "jane@example.com" }];
