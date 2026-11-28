@@ -141,6 +141,20 @@ describe("caching lazily loaded associations", () => {
     expect(queries).toHaveLength(1);
   });
 
+  test("on a loaded hasMany, pluck reads stored records only, leaving out built ones", async () => {
+    const user = await db().model(User).find(1);
+    await user.posts().toArray();
+    user.posts().build({ title: "Draft" });
+    queries.length = 0;
+
+    expect(await user.posts().pluck("id")).toEqual([10, 11]);
+    expect(await user.posts().pluck("id", "title")).toEqual([
+      [10, "A1"],
+      [11, "A2"],
+    ]);
+    expect(queries).toHaveLength(0);
+  });
+
   test("chaining on a loaded hasMany queries, and doesn't change what's cached", async () => {
     const user = await db().model(User).find(1);
     await user.posts().toArray();

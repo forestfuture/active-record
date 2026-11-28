@@ -50,7 +50,7 @@ export async function pluck(
 ): Promise<unknown[]> {
   if (attributes.length === 0) throw new TypeError(`${method}() needs at least one attribute`);
   const resolved = attributes.map((name) => attributeFor(query.model, name));
-  const loaded = cached();
+  const loaded = storedOf(cached());
   const values =
     loaded === undefined
       ? (await runner.rows(() => compileSelect(dialect(), query, { attributes }))).map((row) =>
@@ -61,6 +61,14 @@ export async function pluck(
           resolved.map((attribute) => attribute.copy(Reflect.get(record, attribute.name))),
         );
   return attributes.length === 1 ? values.map(([value]) => value) : values;
+}
+
+/**
+ * A loaded association's stored records, leaving out new ones: a built record lacks what it
+ * wasn't given, a key included, and a query wouldn't return it either (#467).
+ */
+function storedOf(records: readonly Model[] | undefined): readonly Model[] | undefined {
+  return records?.filter((record) => !record.isNewRecord());
 }
 
 /**

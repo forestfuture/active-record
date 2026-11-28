@@ -106,7 +106,8 @@ describe("autosave: records built through a hasMany are saved with their owner",
 
     expect(await user.posts().toArray()).toHaveLength(2);
     expect(await user.posts().first()).toBe(first);
-    expect(await user.posts().pluck("title")).toEqual(["One", "Two"]);
+    // pluck reads stored records only, as a query would (#467).
+    expect(await user.posts().pluck("title")).toEqual([]);
     expect(events).toHaveLength(0);
   });
 
