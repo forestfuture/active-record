@@ -45,7 +45,8 @@ Most names are Rails’ own, in camelCase:
 | `user.profile = profile`                 | `await user.profile.set(profile)`                 |
 | `reload_author`                          | `post.reloadAssociation("author")`                |
 | `throw :abort`                           | `throw abort("reason")`                           |
-| `to_json`                                | `toJSON()`                                        |
+| `as_json(include: :posts)`               | `user.toJSON({ include: "posts" })`               |
+| `to_json`                                | `JSON.stringify(user)`                            |
 
 Attributes, conditions, and association keys all name attributes, in camelCase. Column names only appear inside `sql` fragments. Foreign keys follow Rails’ conventions, so `User`’s `has_many` uses `userId`.
 

@@ -1,8 +1,8 @@
 ---
 title: Serialization
-description: "Turn records into JSON, keep secrets out of responses and logs, and print records in the console."
+description: "Turn records into JSON, choose what they send, keep secrets out of responses and logs, and print records in the console."
 seo:
-  description: "Serialize Arbor records with toJSON and Response.json, hide attributes from responses, filter secrets from logs, and print records and Relations."
+  description: "Serialize Arbor records with toJSON and Response.json, include associations, pick attributes, hide secrets from responses and logs, and print records."
 ---
 
 ## At a glance
@@ -10,6 +10,10 @@ seo:
 | To                                        | Write                                                                    |
 | ----------------------------------------- | ------------------------------------------------------------------------ |
 | send a record as JSON                     | `Response.json(account)`                                                 |
+| send it with its loaded associations      | `account.toJSON({ include: "orders" })`                                  |
+| send only some attributes                 | `account.toJSON({ only: ["id", "email"] })`                              |
+| send all but some attributes              | `account.toJSON({ except: ["iban"] })`                                   |
+| add a getter’s or method’s value          | `account.toJSON({ methods: ["domain"] })`                                |
 | read its attributes as JavaScript values  | `account.attributes()`                                                   |
 | keep an attribute out of JSON             | `static override hiddenAttributes = ["passwordDigest"]`                  |
 | show an attribute as `[FILTERED]` in logs | `static override filterAttributes = [...Model.filterAttributes, "iban"]` |
@@ -22,7 +26,7 @@ seo:
 
 ## The Model
 
-The examples use this Model, whose attributes come from its table through the schema `arbor schema` generates. Your app’s base class holds the settings every Model shares:
+The examples use these Models, whose attributes come from their tables through the schema `arbor schema` generates. Your app’s base class holds the settings every Model shares:
 
 <CodeGroup>
 
@@ -32,11 +36,13 @@ The examples use this Model, whose attributes come from its table through the sc
 
 <include meta="account.ts">/_excerpts/pages/serialization/src/models/account.ts</include>
 
+<include meta="order.ts">/_excerpts/pages/serialization/src/models/order.ts</include>
+
 <include meta="schema.ts">/_excerpts/pages/serialization/src/db/schema.ts</include>
 
-<include meta="D1">/_excerpts/pages/serialization/migrations/0001_create_accounts.sql</include>
+<include meta="D1">/_excerpts/pages/serialization/migrations/0001_create_tables.sql</include>
 
-<include meta="Postgres">/_excerpts/pages/serialization/postgres/0001_create_accounts.sql</include>
+<include meta="Postgres">/_excerpts/pages/serialization/postgres/0001_create_tables.sql</include>
 
 </CodeGroup>
 
@@ -46,9 +52,40 @@ The examples use this Model, whose attributes come from its table through the sc
 
 <include>/_excerpts/pages/serialization/examples/json.mdx</include>
 
-Associations are never included, so a response never loads more than you asked for. `Response.json(record)` uses `toJSON()`:
+Associations are left out unless you [name them](#choosing-whats-sent), so a response never sends more than you asked for. `Response.json(record)` uses `toJSON()`:
 
 <include>/_excerpts/pages/serialization/examples/response.mdx</include>
+
+## Choosing what’s sent
+
+Name the associations to send in `include`, after preloading them with `includes`:
+
+<include>/_excerpts/pages/serialization/examples/include.mdx</include>
+
+- `include` takes what `includes` does: a name, a list, or nested names like `{ orders: "items" }`.
+- A `hasMany` is sent as a list, and a `belongsTo` or `hasOne` as a record or `null`.
+- Each included record is sent as its own `toJSON()` sends it, so its hidden attributes stay out.
+
+:::note
+`toJSON` never sends a query. An association that wasn’t preloaded or read throws `AssociationNotLoaded`.
+:::
+
+Pick the attributes with `only` or `except`, and add a getter’s or method’s value with `methods`:
+
+<include>/_excerpts/pages/serialization/examples/choose.mdx</include>
+
+- `only` and `except` take attribute names. Give one or the other.
+- Neither sends a hidden attribute or a secret.
+- A name the Model doesn’t have throws `TypeError`, so a typo in `except` can’t send what you meant to leave out.
+- `methods` takes getters, and methods with no arguments. A date becomes an ISO string, and a promise throws `TypeError`, since `toJSON` can’t wait for it.
+
+Give an association its own options in place of the names it includes:
+
+<include>/_excerpts/pages/serialization/examples/nested.mdx</include>
+
+:::note
+An object under an association’s name is its options when it has `include`, `only`, `except`, or `methods`. If the association’s records have an association with one of those names, `toJSON` throws `TypeError`, since the object could mean either.
+:::
 
 ## Hiding attributes
 
@@ -113,6 +150,8 @@ Errors [
 ```
 
 <Callout type="info" title="Compared with Rails" icon="/ruby.svg">
+
+Rails’ `as_json` is `toJSON()` here, and Rails’ `to_json` is `JSON.stringify(record)`. In JavaScript, `toJSON` returns the object `JSON.stringify` encodes, so it can’t return a string as `to_json` does. Its `include`, `only`, `except`, and `methods` options are `as_json`’s. Rails loads an included association that isn’t loaded yet, while `toJSON` can’t send a query, so preload it with `includes`. Rails ignores a name `only` or `except` doesn’t know, and here it throws `TypeError`.
 
 The default filter list is Rails’ own `filter_parameters` list, and the filtered values read as they do in Rails’ logs. A record prints as Rails’ `inspect` does. A Rails Relation runs its query to print its records, which a synchronous `console.log` can’t do here.
 

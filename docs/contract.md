@@ -812,6 +812,17 @@ _Code:_ `arbor/src/ancestors.ts`, `arbor/src/declarations.ts`, `arbor/src/model.
   A name a partial record didn't load is harmless.
   The generated `application-record.ts` shows a commented-out example.
   Associations are never included automatically.
+- **`toJSON(options)` (#300)** takes Rails' `as_json` options; JavaScript's `toJSON` is `as_json`, returning the object `JSON.stringify` encodes, and Rails' `to_json` is `JSON.stringify(record)`, so there's no `asJSON`.
+  A string argument, the key `JSON.stringify` passes, means no options, so `Response.json(users)` sends attributes only.
+  `include` takes what `includes()` does (`"posts"`, `["posts", "profile"]`, `{ posts: "comments" }`), typed from the association fields, and adds each named association under its name: a `hasMany`'s records in their loaded order, a `belongsTo`'s or `hasOne`'s record, or `null`.
+  It reads only what's loaded, as `loaded()` does, and throws the same `AssociationNotLoaded` for an association that wasn't preloaded or read, never sending a query (Rails loads it), so it reaches no rows beyond what was already loaded.
+  Each included record is serialized by its own `toJSON`, so its own hidden attributes, secrets and confirmation attributes stay out at every level.
+  Under an association's name, an object is that association's options when any of its keys is `include`, `only`, `except` or `methods` (`{ posts: { only: ["title"], include: "comments" } }`), and what it includes otherwise; an option given there that's also the name of one of the records' associations is a `TypeError`, as it could mean either.
+  `only` sends just the attributes it names, `except` all but those; the types forbid both, and at runtime `only` wins, as in Rails.
+  Neither sends an attribute `toJSON()` never does (hidden attributes, secrets, confirmation attributes), and an attribute a partial record didn't load is absent; an alias names its attribute.
+  A name in `only`, `except` or `methods` the Model has no attribute or member for is a `TypeError` (Rails ignores it), so a typo in `except` can't send what it meant to drop.
+  `methods` adds a getter's value, or what a method with no arguments returns, under its name, whatever `only` and `except` say, with a `Date` as an ISO string; a promise is a `TypeError`, as `toJSON` is synchronous, and the types reject a method that takes arguments or returns one.
+  Attributes come first, then methods, then included associations.
 - **Printing (#104):** a record and a Relation print readably under `Symbol.for("nodejs.util.inspect.custom")`, so Node's `util.inspect`, `console.log`, the REPL and workerd's `node:util` use it, with the `depth`, `colors` and `stylize` they pass.
   A record prints `Name { attribute: value, … }` with its loaded attributes (a new record's unassigned ones as `null`; a partial record's only the columns it loaded), and its values printed by the runtime's own `inspect`.
   A filtered attribute's non-null value prints as `[FILTERED]`, unquoted and in the special color; `null` prints as `null`.

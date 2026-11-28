@@ -153,6 +153,18 @@ questions:
       - "name it in static hiddenAttributes, on the app's base class to cover every Model"
       - "a Model's own list replaces the base class's, so it repeats the names it still wants hidden"
     routes: /serialization
+  - id: json-with-associations
+    question: "How do I send each user with their posts in a JSON response, without a query per user?"
+    expected:
+      - 'preload with includes("posts"), then send user.toJSON({ include: "posts" }) for each user'
+      - "toJSON never sends a query, so an association that wasn't preloaded throws AssociationNotLoaded"
+    routes: /serialization
+  - id: json-pick-attributes
+    question: "How do I send only some of a record's attributes, plus a computed value, as JSON?"
+    expected:
+      - 'toJSON({ only: ["id", "email"] }) or except picks the attributes, and methods: ["domain"] adds a getter'
+      - "a name the Model doesn't have throws TypeError, and hidden attributes stay out even if only names them"
+    routes: /serialization
   - id: boolean-in-integer
     question: "My table stores a flag as 0 or 1 in a plain INTEGER column. How do I read it as a boolean on the Model?"
     expected:
