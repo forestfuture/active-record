@@ -213,7 +213,7 @@ function planBranch(
   const owners = ownersOfBranch(association, start.owners);
   const tree = treeForBranch(association, start.tree[name] ?? {});
   const deferred = { ...onlyOne(start, name, association), ownersAt };
-  if (isLeftForAfterwards(planning, association, owners, deferred)) return;
+  if (leftForAfterwards(planning, association, owners, deferred)) return;
   if (association.hops !== undefined) {
     planThrough(planning, start, level, association);
     return;
@@ -239,11 +239,12 @@ function planBranch(
 }
 
 /**
- * Whether `association`'s step is left for afterwards, before its query is planned: on another
+ * Leaves `association`'s step for afterwards, before its query is planned, and says whether it did: on another
  * database (#228), its query goes there; over a mixed-type link (#596), it selects by its owners'
  * loaded keys, so the targets' key keeps its index.
  */
-function isLeftForAfterwards(
+// oxlint-disable-next-line arbor/predicate-name -- an action that says whether it left the step
+function leftForAfterwards(
   planning: Planning,
   association: ResolvedAssociation,
   owners: Owners,
