@@ -129,9 +129,10 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     listedOnD1 = listed.body;
 
     expect(signups).toEqual([201, 201, 422]);
-    expect((listed.body as { email: string }[]).map((user) => user.email)).toEqual([
-      "sam@example.com",
-      "jane@example.com",
+    const users = listed.body as { email: string; posts: { title: string }[] }[];
+    expect(users.map(({ email, posts }) => [email, posts.map((post) => post.title)])).toEqual([
+      ["sam@example.com", ["Hello, world"]],
+      ["jane@example.com", ["Hello, world"]],
     ]);
   });
 
@@ -205,6 +206,8 @@ describe("moving the Getting started app from D1 to Postgres", { timeout: 60_000
     }
     const titles = await database.pool.query({ text: "SELECT title FROM posts" });
     expect(titles.rows.map((row) => row["title"])).toContain("");
+    // The list on D1 now, with the post added above, for the app on Postgres to match.
+    listedOnD1 = (await onD1.fetch("GET")).body;
   });
 
   test("on Hyperdrive, the same code lists the same users, and signs up more", async () => {
