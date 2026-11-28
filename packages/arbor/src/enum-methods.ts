@@ -3,6 +3,7 @@
 import { enumEntries, type EnumModel, type EnumNames, type EnumValues } from "./enum-values.ts";
 import { isIdentifier, reservedWords } from "./identifiers.ts";
 import { capitalized } from "./naming.ts";
+import { scopeNameClash } from "./scope-names.ts";
 import type { AttributeDefinition } from "./metadata.ts";
 import type { ScopeStatic } from "./model.ts";
 
@@ -188,7 +189,10 @@ const enumScopes = new WeakSet<object>();
 export interface TakenNames {
   /** Whether a record already has `name`: a record method or property. */
   isRecordName(name: string): boolean;
-  /** Whether a scope can't be named `name`: a Relation method or a Model static. */
+  /**
+   * Whether a scope can't be named `name`: a Relation method, a Model static, or "then". It may
+   * answer yes for a Function's names too, which `scopeNameClash` checks first.
+   */
   isReservedStatic(name: string): boolean;
   /** How the Model (or a class it extends below the library's) declares the static `name`. */
   staticOf(name: string): PropertyDescriptor | undefined;
@@ -312,13 +316,7 @@ function staticProblem(
   checks: NameChecks,
 ): string | undefined {
   for (const scope of scopes) {
-    // A Function method too: every class has it, and a scope would hide it.
-    const what =
-      scope in Function.prototype
-        ? "a Function method"
-        : checks.isReservedStatic(scope)
-          ? "a Relation method or a Model static"
-          : undefined;
+    const what = scopeNameClash(scope, (name) => checks.isReservedStatic(name));
     if (what !== undefined) {
       return `${model.name}'s enum ${attribute} gives a scope named "${scope}", which is the name of ${what}; ${remedy(attribute, checks)}`;
     }

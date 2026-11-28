@@ -5,6 +5,7 @@ import type { Executor } from "./executor.ts";
 import { ancestors } from "./ancestors.ts";
 import type { Model, ModelClass, ScopesOf } from "./model.ts";
 import { applyScope, Relation, type RelationArgs, type Scope, type Scoped } from "./relation.ts";
+import { scopeNameClash } from "./scope-names.ts";
 
 type RelationClass = new (...args: RelationArgs<Model>) => Relation<Model>;
 
@@ -69,19 +70,25 @@ export function scopeName(model: ModelClass, scoped: object): string {
 }
 
 /**
- * Whether no scope may be named `name`: a Relation method or a Model static, or "then", which
- * would make Relations awaitable. A Model's own statics are taken too, besides the Relation
- * methods it mirrors.
+ * Whether no scope may be named `name`: a Function method (see `scopeNameClash`), a Relation
+ * method or a Model static, or "then", which would make Relations awaitable. A Model's own
+ * statics are taken too, besides the Relation methods it mirrors.
  */
 export function isReservedScopeName(name: string): boolean {
+  return scopeNameClash(name, isTakenName) !== undefined;
+}
+
+/** A Relation method, a Model static, or "then". */
+function isTakenName(name: string): boolean {
   return name === "then" || name in Relation.prototype || setUp().statics.has(name);
 }
 
-/** Rejects a scope named like a Relation method or a Model static, or "then". */
+/** Rejects a scope named like a Function method, a Relation method or a Model static, or "then". */
 function requireScopeName(model: ModelClass, name: string): void {
-  if (isReservedScopeName(name)) {
+  const clash = scopeNameClash(name, isTakenName);
+  if (clash !== undefined) {
     throw new InvalidModel(
-      `${model.name} declares a scope "${name}", which is the name of a Relation method or a Model static; rename the scope`,
+      `${model.name} declares a scope "${name}", which is the name of ${clash}; rename the scope`,
     );
   }
 }

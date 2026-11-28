@@ -47,7 +47,7 @@ Call a scope as a static, or on any Relation of the Model:
 
 - Its arguments, and anything it computes such as `new Date()`, are evaluated when you call it.
 - Scopes are inherited, including those on your app’s base class ([Shared behavior](./shared-behavior)). A subclass can replace one with `static override published = this.scope(…)`.
-- A scope can’t reuse a Relation method’s name (`where`, `count`) or a Model static’s (`validates`, `scope`, `all`).
+- A scope can’t reuse a Relation method’s name (`where`, `count`), a Model static’s (`validates`, `scope`, `all`), or the name of a method every class has (`bind`, `call`, `apply`).
 - Inside a scope, `q` has every Relation method but not the Model’s other scopes. Share logic between scopes with a plain function.
 
 :::note

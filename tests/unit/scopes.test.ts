@@ -77,6 +77,27 @@ describe("scope rules", () => {
     expect(() => db.model(Thenable)).toThrow(/"then"/);
   });
 
+  test("a scope named like a Function method (bind, call, apply) is rejected on first use", () => {
+    // TypeScript accepts these statics, so only the runtime check catches them.
+    class Bound extends Model.define({ id: "integer" }) {
+      static table = "users";
+      static bind = this.scope((q) => q);
+    }
+    class Called extends Model.define({ id: "integer" }) {
+      static table = "users";
+      static call = this.scope((q) => q);
+    }
+    class Applied extends Model.define({ id: "integer" }) {
+      static table = "users";
+      static apply = this.scope((q) => q);
+    }
+
+    expect(() => db.model(Bound)).toThrow(InvalidModel);
+    expect(() => db.model(Bound)).toThrow(/Bound.*"bind".*a Function method/);
+    expect(() => db.model(Called)).toThrow(/Called.*"call".*a Function method/);
+    expect(() => db.model(Applied)).toThrow(/Applied.*"apply".*a Function method/);
+  });
+
   test("a scope must return a Relation of its own Model", () => {
     class Sloppy extends Model.define({ id: "integer", role: "string" }) {
       static table = "users";
