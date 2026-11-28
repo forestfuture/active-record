@@ -116,7 +116,7 @@ Queries start from the Model. Each Model uses the `DB` binding, so there’s not
 
 <include meta="src/index.ts">/_excerpts/getting-started/src/index.ts</include>
 
-- `includes("posts")` loads every user’s posts in one more query.
+- `includes("posts")` loads every user’s posts in one more query, and `toJSON({ include: "posts" })` sends them with each user.
 - A post built with `user.posts().build(…)` is saved with its user, in one atomic batch.
 - `save()` resolves to `false` when validation fails.
 
@@ -135,7 +135,7 @@ curl -X POST http://localhost:8787 -d '{"email":"Jane@Example.com"}'
 curl http://localhost:8787
 ```
 
-The list includes Jane, with her email lowercased by `beforeSave`. Sign her up again, and you’ll get a `422` with `["Email has already been taken"]`.
+The list includes Jane, with her email lowercased by `beforeSave` and her first post. Sign her up again, and you’ll get a `422` with `["Email has already been taken"]`.
 
 ## Next steps
 
