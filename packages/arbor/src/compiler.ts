@@ -24,6 +24,7 @@ import {
 } from "./sql.ts";
 import { writeUntypedValue } from "./conversion.ts";
 import { type Dialect, valueMark } from "./dialect.ts";
+import { isMixedType } from "./linked-keys.ts";
 import { boundValue } from "./filtering.ts";
 import {
   columnIn,
@@ -101,18 +102,50 @@ function compileJoins(context: Context): string {
       const kind = join.kind === "inner" ? "INNER JOIN" : "LEFT OUTER JOIN";
       const table =
         quoteIdentifier(join.model.table) + (alias === undefined ? "" : ` ${source.name}`);
-      const linked = context.dialect.linkedKey(
-        columnIn(source, join.targetAttribute),
-        attributeFor(join.model, join.targetAttribute),
-        attributeFor(parent.model, join.ownerAttribute),
+      const sides = linkSides(
+        context.dialect,
+        {
+          column: columnIn(parent, join.ownerAttribute),
+          attribute: attributeFor(parent.model, join.ownerAttribute),
+        },
+        {
+          column: columnIn(source, join.targetAttribute),
+          attribute: attributeFor(join.model, join.targetAttribute),
+        },
       );
-      let on =
-        linked === undefined ? nothing : `${columnIn(parent, join.ownerAttribute)} = ${linked}`;
+      let on = sides === undefined ? nothing : `${sides.linked} = ${sides.key}`;
       if (join.on.length > 0) on += ` AND ${compileAll({ ...context, source }, join.on)}`;
       return ` ${kind} ${table} ON ${on}`;
     })
     .join("");
 }
+
+/** One side of a link: a quoted column, and its attribute. */
+interface LinkSide {
+  column: string;
+  attribute: Attribute;
+}
+
+/**
+ * A link's two sides as SQL compares them, `linked`'s column with the `key` selected for it, or
+ * none when the dialect links no key of its type to it (#586). A mixed-type link compares as
+ * text (#596): its integer or uuid side is cast, so text that isn't the key's own text form links
+ * to nothing, and no text is parsed as another type.
+ */
+function linkSides(
+  dialect: Dialect,
+  linked: LinkSide,
+  key: LinkSide,
+): { linked: string; key: string } | undefined {
+  if (isMixedType(key.attribute, linked.attribute))
+    return { linked: asText(linked), key: asText(key) };
+  const selected = dialect.linkedKey(key.column, key.attribute, linked.attribute);
+  return selected === undefined ? undefined : { linked: linked.column, key: selected };
+}
+
+/** A link's side as text: a text attribute's column as it is, any other's cast. */
+const asText = ({ column, attribute }: LinkSide) =>
+  attribute.storedType === "string" ? column : `CAST(${column} AS TEXT)`;
 
 function compileWhere(context: Context, conditions: readonly Condition[]): string {
   return conditions.length === 0 ? "" : ` WHERE ${compileAll(context, conditions)}`;
@@ -160,19 +193,22 @@ function compileLinkedTo(
   { dialect, source, params }: Context,
   { attribute, owners, ownerKey }: LinkedTo,
 ): string {
-  const linked = attributeFor(source.model, attribute);
-  const keyAttribute = attributeFor(owners.model, ownerKey);
-  const column = columnIn(source, attribute);
-  const keyColumn = columnIn(ownSource(owners), ownerKey);
-  const selected = dialect.linkedKey(keyColumn, keyAttribute, linked);
-  if (selected === undefined) return nothing;
+  const sides = linkSides(
+    dialect,
+    { column: columnIn(source, attribute), attribute: attributeFor(source.model, attribute) },
+    {
+      column: columnIn(ownSource(owners), ownerKey),
+      attribute: attributeFor(owners.model, ownerKey),
+    },
+  );
+  if (sides === undefined) return nothing;
   const limited = owners.limit !== undefined || owners.offset !== undefined;
   const order = limited ? owners.order : [];
   // A distinct() with includes selects every column (a distinct select() can't be preloaded),
   // so the primary key already makes each row distinct: left out, it changes nothing.
-  const inner = compileSelect(dialect, { ...owners, order, distinct: false }, selected);
+  const inner = compileSelect(dialect, { ...owners, order, distinct: false }, sides.key);
   params.push(...inner.params);
-  return `${column} IN (${inner.sql})`;
+  return `${sides.linked} IN (${inner.sql})`;
 }
 
 /** An attribute and the value to write to it. */
