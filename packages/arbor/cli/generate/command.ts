@@ -33,7 +33,7 @@ export interface GenerateOptions {
   cwd?: string;
   /** The project's config file, in place of its `arbor.jsonc`. */
   config?: string;
-  /** The database to generate for, by its binding, when the config has several. */
+  /** The database to generate for, by its binding; the config's first by default. */
   database?: string;
   kind: "model" | "migration";
   /** The Model's class name, or the migration's name. */

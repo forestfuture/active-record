@@ -21,7 +21,7 @@ datetime, json or references; then ! for NOT NULL, =value for a default, and :un
   --no-timestamps     Leave out created_at and updated_at
   --models <path>     Write Models here (src/models), or append them to one file (src/models.ts);
                       ApplicationRecord is imported from the same folder
-  --database <name>   The database to use, when the config has several
+  --database <name>   The database to use; the config's first by default
   --out <file>        The schema file to regenerate, when it isn't src/db/schema.ts`,
   action({ values, positionals }, print, fail) {
     const [kind, name, ...columns] = positionals;

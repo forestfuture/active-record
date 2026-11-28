@@ -11,7 +11,7 @@ export const migrateSubcommand = defineSubcommand({
   },
   usage: `  arbor migrate                       Apply your pending migrations to the local database`,
   flagHelp: `Options for migrate:
-  --database <name>   The database to migrate, when the config has several
+  --database <name>   Migrate only this database; every one by default
   --remote            Migrate your remote database instead, after asking you to type its name
   --yes               Don't ask first (with --remote); also how to migrate it without a terminal`,
   action({ values, positionals }, print, fail) {
