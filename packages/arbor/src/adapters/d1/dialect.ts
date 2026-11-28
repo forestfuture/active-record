@@ -60,8 +60,6 @@ export const sqlite: Dialect = {
       model: write.model,
     },
   ],
-  // A key that isn't text, selected for a text attribute, is cast to text: SQLite would compare
-  // them by number, which can't search the attribute's index, and which '09' matches.
-  linkedKey: (key, keyAttribute, linked) =>
-    linked.isText && !keyAttribute.isText ? `CAST(${key} AS TEXT)` : key,
+  // SQLite compares numbers of any type or width by their values.
+  linkedKey: (key) => key,
 };

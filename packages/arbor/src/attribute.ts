@@ -64,11 +64,6 @@ export class Attribute {
     return this.#model.table;
   }
 
-  /** Whether it's a `string` or `uuid` attribute (#507), which D1 compares as text, not by number. */
-  get isText(): boolean {
-    return this.#definition.type === "string" || this.#definition.type === "uuid";
-  }
-
   /**
    * The type its column holds it as (#586): a custom type's `storedAs`, and `"integer"` for a
    * datetime with `storage`, which is held as a Unix time.
