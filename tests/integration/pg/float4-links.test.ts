@@ -52,6 +52,7 @@ class Meter extends Model.define({
   exactToNarrow = hasMany(Sample, { foreignKey: "exact", primaryKey: "narrow" });
   narrowToExact = hasMany(Sample, { foreignKey: "narrow", primaryKey: "exact" });
   wideToExact = hasMany(Sample, { foreignKey: "wide", primaryKey: "exact" });
+  exactToWide = hasMany(Sample, { foreignKey: "exact", primaryKey: "wide" });
 }
 
 class Sample extends Model.define({
@@ -263,6 +264,16 @@ describe("a real linked to a number of another width or type", () => {
 
     expect(plan).toMatch(new RegExp(`Index (Only )?Scan using ${index} on meters`));
   });
+
+  // A decimal linked to a double precision is cast to one only when a double holds it (#628).
+  test.each(["1e400", "-1e400", "1e-400", "1e131030"])(
+    "a decimal past a double precision's range, %s, links nothing rather than failing",
+    async (exact) => {
+      await schema.pool.query({ text: "UPDATE samples SET exact = $1", values: [exact] });
+
+      expect(await db().model(Meter).joins("exactToWide").pluck("id")).toEqual([]);
+    },
+  );
 
   test.each(["narrowToExact", "wideToExact"] as const)(
     "a join through %s past a decimal a double can't hold links nothing rather than failing",

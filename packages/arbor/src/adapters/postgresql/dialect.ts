@@ -23,6 +23,9 @@ const isNumber = ({ storedType }: Attribute) =>
 /** A 4-byte `real`'s (`float4`) magnitudes (#623). */
 const float4Magnitudes: Magnitudes = { lowest: 150n, highest: 128n, step: 103n };
 
+/** A `double precision`'s (`float8`) magnitudes (#628). */
+const float8Magnitudes: Magnitudes = { lowest: 1075n, highest: 1024n, step: 970n };
+
 /**
  * Whether `number`, a `numeric`, is within `magnitudes`, compared exactly. The least bound is
  * compared as its product with `2 ** lowest`, a whole number, since a `numeric` holds a fraction
@@ -48,6 +51,13 @@ const noRowOf = (table: string, selected: string) =>
   `(SELECT ${selected} FROM ${table} WHERE false)`;
 
 /**
+ * Whether a cast of `decimal`, a `numeric`, to a binary floating-point type accepts it: held
+ * within `magnitudes`, or an infinity or NaN, which a `numeric` orders past every number.
+ */
+const isHeldDecimal = (decimal: string, magnitudes: Magnitudes) =>
+  `${isHeld(decimal, magnitudes)} OR ABS(${decimal}) >= 'Infinity'`;
+
+/**
  * Whether `attribute`'s column is a 4-byte `real` (`float4`). Its type is read from a query of
  * its table that finds no row, not from the row being linked, so the test is the same for every
  * row and the column's index is still searched.
@@ -71,14 +81,24 @@ function isRealDouble(number: string, { lowest, highest, step }: Magnitudes): st
 /**
  * A `double precision` or decimal key as a `real`, when a `real` holds it; otherwise NULL, which
  * links nothing. A decimal is compared as a `numeric`, exactly, since it may hold a number past a
- * `double precision`'s range; its infinities and NaN, which a `numeric` orders past every number, link.
+ * `double precision`'s range; its infinities and NaN link.
  */
 function asReal(key: string, { storedType }: Attribute): string {
   const holds =
     storedType === "real"
       ? isRealDouble(key, float4Magnitudes)
-      : `${isHeld(key, float4Magnitudes)} OR ABS(${key}) >= 'Infinity'`;
+      : isHeldDecimal(key, float4Magnitudes);
   return `CASE WHEN ${holds} THEN CAST(${key} AS REAL) END`;
+}
+
+/**
+ * A real or decimal key as a `double precision`. A decimal is cast only when a `double precision`
+ * holds it, compared as a `numeric`; otherwise it's NULL, which links nothing rather than failing
+ * the query (#628). Its infinities and NaN link.
+ */
+function asDouble(key: string, { storedType }: Attribute): string {
+  if (storedType === "real") return `CAST(${key} AS DOUBLE PRECISION)`;
+  return `CASE WHEN ${isHeldDecimal(key, float8Magnitudes)} THEN CAST(${key} AS DOUBLE PRECISION) END`;
 }
 
 /**
@@ -101,9 +121,10 @@ function isOnlyFloat4(attribute: Attribute, other: Attribute): string {
  * it reads its value, and a `float4` linked to a `double precision` is read through its text, as
  * its record holds it. A real of either width linked to a decimal is read through its text as a
  * `numeric`, so the decimal's index is searched and a decimal of any size compares without
- * failing. Every other link compares as a `double precision`, which
- * Postgres widens a `float4` column to exactly, so the CASE's branches agree on one type. An
- * integer on either side is left as it is: a `float4` that equals an integer widens to it exactly.
+ * failing. Every other link compares as a `double precision`, which Postgres widens a `float4`
+ * column to exactly, so the CASE's branches agree on one type, and a decimal a `double precision`
+ * can't hold links nothing (#628). An integer on either side is left as it is: a `float4` that
+ * equals an integer widens to it exactly.
  */
 function linkedWidth(key: string, keyAttribute: Attribute, linked: Attribute): string {
   if (keyAttribute.storedType === "integer" || linked.storedType === "integer") return key;
@@ -116,7 +137,7 @@ function linkedWidth(key: string, keyAttribute: Attribute, linked: Attribute): s
     const shortest = throughText(key, "DOUBLE PRECISION");
     cases.push(`WHEN ${isOnlyFloat4(keyAttribute, linked)} THEN ${shortest}`);
   }
-  return `CASE ${cases.join(" ")} ELSE CAST(${key} AS DOUBLE PRECISION) END`;
+  return `CASE ${cases.join(" ")} ELSE ${asDouble(key, keyAttribute)} END`;
 }
 
 /** A quoted identifier; embedded double quotes are doubled. */
