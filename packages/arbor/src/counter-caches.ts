@@ -377,7 +377,8 @@ function changeThroughRow(
 /**
  * `changeThroughRow` over a mixed-type link (#596), by the foreign key the record last saved
  * `before` its write, or holds `after` it, cast as the link compares it, so the target's key
- * keeps its index. Only while the record's `row` is there, so a row already gone counts nothing.
+ * keeps its index. Only while the record's `row` is there with that key, so a row already gone,
+ * or one whose key another request changed, counts nothing.
  */
 function changeByOwnKey(
   record: Model,
@@ -393,8 +394,10 @@ function changeByOwnKey(
   const key = counter.link.asTargetKey(value ?? null);
   const change = changeBy(counter, by);
   if (key === null || key === noMatch) return compileCounterChange(counter, change, nowhere);
+  const foreignKey = attributeFor(modelOf(record), counter.foreignKey);
+  foreignKey.bind(params, value);
   const { sql, params: keyParams } = keyed(counter, key);
-  const rowExists = `EXISTS (SELECT 1 ${row})`;
+  const rowExists = `EXISTS (SELECT 1 ${row} AND ${quoteIdentifier(foreignKey.column)} = ${valueMark})`;
   return compileCounterChange(counter, change, {
     sql: `${sql} AND ${rowExists}`,
     params: [...keyParams, ...params],
