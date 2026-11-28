@@ -1,4 +1,4 @@
-// The adapters a project's `arbor.jsonc` names, each database's own (#305), and their command line plugins (#278, #301).
+// The adapters a project's `arbor.jsonc` names, each database's own (#305), and their command line plugins (#278, #301); and each entry's `migrate`, checked and read (#313).
 import { basename } from "node:path";
 import type { CliAdapter, ProjectDatabases } from "../adapter.ts";
 import { projectDatabases } from "./config-file.ts";
@@ -45,8 +45,13 @@ function entryError(binding: string, entry: Record<string, unknown>): string | u
   const error = adapterError(binding, entry["adapter"]);
   if (error !== undefined) return error;
   const migrate = entry["migrate"];
-  const boolean = migrate === undefined || typeof migrate === "boolean";
-  return boolean ? undefined : `databases.${binding}.migrate isn't true or false`;
+  if (migrate === undefined || typeof migrate === "boolean") return undefined;
+  return `databases.${binding}.migrate isn't true or false`;
+}
+
+/** Whether `migrate` leaves a database alone unless named: its entry's `"migrate": false`. */
+export function isSkippedByMigrate(entry: Record<string, unknown> | undefined): boolean {
+  return entry?.["migrate"] === false;
 }
 
 /** The adapters the project's databases name, each once, in the file's order; or why one won't do. */

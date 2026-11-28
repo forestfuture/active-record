@@ -87,7 +87,7 @@ function isPlan(value: object): value is Plan {
   return "steps" in value;
 }
 
-/** The database to generate for: the only one, or the one `--database` names. */
+/** The database to generate for: the one `--database` names, or else the config's first. */
 function databaseFor(
   project: ProjectSnapshot,
   options: GenerateOptions,

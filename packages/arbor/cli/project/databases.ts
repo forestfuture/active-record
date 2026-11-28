@@ -2,7 +2,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { ChosenDatabase, CliAdapter, DatabaseConfig, ProjectDatabases } from "../adapter.ts";
-import { loadAdapters, type NamedAdapters } from "./adapters.ts";
+import { isSkippedByMigrate, loadAdapters, type NamedAdapters } from "./adapters.ts";
 import { listed } from "./names.ts";
 import { shown } from "./paths.ts";
 
@@ -44,7 +44,7 @@ function databasesOf({ project, plugins }: NamedAdapters): LoadedProject | strin
     for (const database of config.databases) {
       const configFile = database.configFile ?? config.file;
       const configDir = database.configFile === undefined ? config.dir : dirname(configFile);
-      const migrates = project.databases[database.binding]?.["migrate"] !== false;
+      const migrates = !isSkippedByMigrate(project.databases[database.binding]);
       loaded.databases.push({ adapter, database, configFile, configDir, migrates });
     }
     loaded.notes.push(...(config.notes ?? []));
