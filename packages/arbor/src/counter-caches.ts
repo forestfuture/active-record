@@ -2,7 +2,7 @@
 import { associationsOf } from "./association-fields.ts";
 import type { AssociationDefinition } from "./associations.ts";
 import { attributeFor, noMatch } from "./attribute.ts";
-import type { CompiledSql } from "./compiler.ts";
+import { asText, type CompiledSql } from "./compiler.ts";
 import type { StatementResult } from "./driver.ts";
 import { type Dialect, valueMark } from "./dialect.ts";
 import { pluralize } from "./inflections.ts";
@@ -345,6 +345,8 @@ export function addToCount(record: Model, attribute: string, by: number): void {
 /**
  * `counter`'s change by `by` on the target the record's row points at, found by the row's key
  * `before` its write, or `after` it (its key as the record holds it, should the write change it).
+ * Over a mixed-type link (#596), the row's key and the target's are compared as text, unless the
+ * record has its foreign key loaded, which then names the target itself.
  */
 function changeThroughRow(
   record: Model,
@@ -358,27 +360,31 @@ function changeThroughRow(
   const ownerKey = attributeFor(owner, owner.primaryKey);
   if (when === "before") ownerKey.bindCells(params, recordState.storedKey);
   else ownerKey.bind(params, recordState.read(owner.primaryKey));
-  if (counter.link.isMixedType) return changeByRecordsKey(record, counter, by, { when, params });
-  const selected = linkedForeignKey(owner, recordState.executor.dialect, counter);
-  const typed =
-    counter.type === undefined ? "" : ` AND ${typeCondition(owner, counter.type, params)}`;
-  const row = `(SELECT ${selected} FROM ${quoteIdentifier(owner.table)} WHERE ${quoteIdentifier(ownerKey.column)} = ${valueMark}${typed})`;
-  return compileCounterChange(counter, changeBy(counter, by), { sql: row, params });
+  const row = `FROM ${quoteIdentifier(owner.table)} WHERE ${quoteIdentifier(ownerKey.column)} = ${valueMark}${typeClause(owner, counter, params)}`;
+  const { isMixedType } = counter.link;
+  if (isMixedType && counter.foreignKey in recordState.attributes()) {
+    return changeByOwnKey(record, counter, by, { when, row, params });
+  }
+  const foreignKey = attributeFor(owner, counter.foreignKey);
+  const column = quoteIdentifier(foreignKey.column);
+  const selected = isMixedType
+    ? asText({ column, attribute: foreignKey })
+    : linkedForeignKey(owner, recordState.executor.dialect, counter);
+  const key = { sql: `(SELECT ${selected} ${row})`, params };
+  return compileCountersChange([counter], changeBy(counter, by), key, isMixedType);
 }
 
 /**
- * `changeThroughRow` over a mixed-type link (#596): on the target the record's own key names,
- * the one it last saved `before` its write, or holds `after` it, cast as the link compares it,
- * so no text is parsed in SQL. Only while the record's row is there, found by its key, bound
- * in `params`, so a row already gone counts nothing.
+ * `changeThroughRow` over a mixed-type link (#596), by the foreign key the record last saved
+ * `before` its write, or holds `after` it, cast as the link compares it, so the target's key
+ * keeps its index. Only while the record's `row` is there, so a row already gone counts nothing.
  */
-function changeByRecordsKey(
+function changeByOwnKey(
   record: Model,
   counter: CounterCache,
   by: number,
-  { when, params }: { when: "before" | "after"; params: unknown[] },
+  { when, row, params }: { when: "before" | "after"; row: string; params: unknown[] },
 ): CompiledSql {
-  const owner = modelOf(record);
   const recordState = record[state];
   const value =
     when === "before"
@@ -387,19 +393,21 @@ function changeByRecordsKey(
   const key = counter.link.asTargetKey(value ?? null);
   const change = changeBy(counter, by);
   if (key === null || key === noMatch) return compileCounterChange(counter, change, nowhere);
-  const typed =
-    counter.type === undefined ? "" : ` AND ${typeCondition(owner, counter.type, params)}`;
-  const primaryKey = quoteIdentifier(attributeFor(owner, owner.primaryKey).column);
   const { sql, params: keyParams } = keyed(counter, key);
-  const there = `EXISTS (SELECT 1 FROM ${quoteIdentifier(owner.table)} WHERE ${primaryKey} = ${valueMark}${typed})`;
+  const rowExists = `EXISTS (SELECT 1 ${row})`;
   return compileCounterChange(counter, change, {
-    sql: `${sql} AND ${there}`,
+    sql: `${sql} AND ${rowExists}`,
     params: [...keyParams, ...params],
   });
 }
 
 /** A key no target has: the change counts nothing. */
 const nowhere: SqlPart = { sql: "NULL", params: [] };
+
+/** ` AND type = ?` for a polymorphic counter, its value bound in `params`; nothing otherwise. */
+function typeClause(owner: ModelClass, counter: CounterCache, params: unknown[]): string {
+  return counter.type === undefined ? "" : ` AND ${typeCondition(owner, counter.type, params)}`;
+}
 
 /**
  * The stored row's foreign key, selected as the dialect links it to the counter's target key, as
@@ -476,21 +484,24 @@ function compileCounterChange(counter: CounterCache, change: SqlPart, key: SqlPa
 }
 
 /**
- * `compileCounterChange` for several counters of one target, found by one key, each changed by
- * `change`, in one UPDATE: Postgres changes a row once in one statement, so two UPDATEs of it in
+ * `compileCounterChange` for several counters of one target, found by one key (compared as text
+ * when `asTextKey`, for a mixed-type link, #596), each changed by `change`, in one UPDATE: Postgres changes a row once in one statement, so two UPDATEs of it in
  * one would keep only one change.
  */
 export function compileCountersChange(
   counters: readonly CounterCache[],
   change: SqlPart,
   key: SqlPart,
+  asTextKey = false,
 ): CompiledSql {
   const { target, targetKey } = counters[0]!;
   const sets = counters.map(({ attribute }) => {
     const column = quoteIdentifier(attributeFor(target, attribute).column);
     return `${column} = COALESCE(${column}, 0) ${change.sql}`;
   });
-  const keyColumn = quoteIdentifier(attributeFor(target, targetKey).column);
+  const keyAttribute = attributeFor(target, targetKey);
+  const column = quoteIdentifier(keyAttribute.column);
+  const keyColumn = asTextKey ? asText({ column, attribute: keyAttribute }) : column;
   return {
     sql: `UPDATE ${quoteIdentifier(target.table)} SET ${sets.join(", ")} WHERE ${keyColumn} = ${key.sql}`,
     params: [...counters.flatMap(() => change.params), ...key.params],
