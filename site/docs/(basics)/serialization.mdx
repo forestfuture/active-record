@@ -101,13 +101,14 @@ Pick the attributes with `only` or `except`, and add a getter’s or method’s 
 - Neither sends a hidden attribute or a secret.
 - A name the Model doesn’t have throws `TypeError`, so a typo in `except` can’t send what you meant to leave out.
 - `methods` takes getters, and methods with no arguments. A date becomes an ISO string, and a promise throws `TypeError`, since `toJSON` can’t wait for it.
+- `methods` can’t name an association, which goes in `include`, or an attribute that’s never sent. Either throws `TypeError`.
 
 Give an association its own options in place of the names it includes:
 
 <include>/_excerpts/pages/serialization/examples/nested.mdx</include>
 
 :::note
-An object under an association’s name is its options when it has `include`, `only`, `except`, or `methods`. If the association’s records have an association with one of those names, `toJSON` throws `TypeError`, since the object could mean either.
+An object under an association’s name is its options when it has `include`, `only`, `except`, or `methods`. If the association’s records have an association with one of those names, `toJSON` throws `TypeError`, since the object could mean either. Any other key in it throws `TypeError` too.
 :::
 
 ## Hiding attributes
