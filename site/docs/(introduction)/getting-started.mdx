@@ -135,7 +135,7 @@ curl -X POST http://localhost:8787 -d '{"email":"Jane@Example.com"}'
 curl http://localhost:8787
 ```
 
-The list includes Jane, with her email lowercased by `beforeSave` and her first post. Sign her up again, and you’ll get a `422` with `["Email has already been taken"]`.
+The list includes Jane and her first post, with her email lowercased by `beforeSave`. Sign her up again, and you’ll get a `422` with `["Email has already been taken"]`.
 
 ## Next steps
 

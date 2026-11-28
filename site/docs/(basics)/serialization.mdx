@@ -24,7 +24,30 @@ seo:
 | `hiddenAttributes` | `toJSON()`, so `Response.json` and `JSON.stringify`      | nothing                                       |
 | `filterAttributes` | `onQuery` listeners, error messages, and printed records | passwords, emails, tokens, keys, and the like |
 
-## The Model
+`toJSON()` takes these options:
+
+<TypeTable
+  type={{
+    include: {
+      type: "string | string[] | { [association]: names or options }",
+      description: "Loaded associations to send, named as includes() names them.",
+    },
+    only: {
+      type: "string[]",
+      description: "The only attributes to send. Not with except.",
+    },
+    except: {
+      type: "string[]",
+      description: "Attributes to leave out. Not with only.",
+    },
+    methods: {
+      type: "string[]",
+      description: "Getters and methods with no arguments whose values to add.",
+    },
+  }}
+/>
+
+## The Models
 
 The examples use these Models, whose attributes come from their tables through the schema `arbor schema` generates. Your app’s base class holds the settings every Model shares:
 
