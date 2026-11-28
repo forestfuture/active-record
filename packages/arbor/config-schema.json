@@ -25,6 +25,11 @@
       "type": "object",
       "properties": {
         "adapter": { "description": "The database's adapter.", "const": "d1" },
+        "migrate": {
+          "description": "false leaves it to another app's migrations: migrate skips it, and refuses --database naming it.",
+          "type": "boolean",
+          "default": true
+        },
         "wranglerConfig": {
           "description": "Its Wrangler config, relative to this file, when it isn't beside this file: \"../worker/wrangler.jsonc\".",
           "type": "string"
@@ -38,6 +43,11 @@
       "type": "object",
       "properties": {
         "adapter": { "description": "The database's adapter.", "const": "postgresql" },
+        "migrate": {
+          "description": "false leaves it to another app's migrations: migrate skips it, and refuses --database naming it.",
+          "type": "boolean",
+          "default": true
+        },
         "migrationsDir": {
           "description": "Its migrations folder, relative to this file.",
           "type": "string",

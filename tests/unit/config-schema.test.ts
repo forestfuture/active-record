@@ -72,4 +72,12 @@ describe("arbor.jsonc's JSON Schema", () => {
       expect(described["postgresql"]!.properties).toHaveProperty(setting);
     }
   });
+
+  // `"migrate": false` leaves a database to another app's migrations, on any adapter (#313).
+  test("takes migrate, true or false, on every adapter's entry", () => {
+    for (const definition of Object.values(described)) {
+      const setting = definition.properties["migrate"] as { type?: string } | undefined;
+      expect(setting?.type).toBe("boolean");
+    }
+  });
 });
