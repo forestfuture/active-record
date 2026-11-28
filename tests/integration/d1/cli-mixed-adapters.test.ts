@@ -84,9 +84,6 @@ async function migrating(cwd: string, database?: string) {
   return { code, said, applied };
 }
 
-/** What a command says when it needs `--database`. */
-const asked = "This config has several databases; choose one with --database (DB or HYPERDRIVE)";
-
 /** `g model <name> name:string` in the project, on the database `--database` names, if any. */
 const generate =
   (name: string, database?: string) => (options: { cwd: string }, print: (line: string) => void) =>
@@ -164,10 +161,13 @@ describe("a project whose databases use different adapters", pgliteTimeout, () =
     expect(read(cwd, "src/db/DB.ts")).toContain("tags");
   });
 
-  test("g without --database asks for one, as with several databases on one adapter", async () => {
+  test("g without --database writes for the first database, in its adapter's types", async () => {
     const cwd = mixedProject();
 
-    expect(await run(generate("Product"), cwd)).toEqual({ code: 1, output: asked });
+    expect((await run(generate("Product"), cwd)).code).toBe(0);
+
+    expect(migration(cwd, "migrations", "_create_products.sql")).toMatch(/id TEXT PRIMARY KEY/);
+    expect(read(cwd, "src/db/DB.ts")).toContain("products");
   });
 
   // Their D1 side, which needs no Postgres server: tests/integration/pg/ has the other.
@@ -198,17 +198,24 @@ describe("a project whose databases use different adapters", pgliteTimeout, () =
     expect(streams.seen.stderr).toBe("Local database DB (.wrangler/state)\nModels: Post, User\n");
   }, 120_000);
 
-  test("migrate without --database asks for one", async () => {
+  test("migrate without --database migrates DB, then stops at HYPERDRIVE, which has no url", async () => {
     const cwd = mixedProject();
 
-    expect(await migrating(cwd)).toEqual({ code: 1, said: [asked], applied: "" });
-  });
+    const { code, said, applied } = await migrating(cwd);
 
-  test("console without --database asks for one", async () => {
-    const cwd = mixedProject();
-    const said: string[] = [];
+    expect([code, said]).toEqual([1, []]);
+    expect(applied).toContain("0001_posts.sql");
+    expect(applied).toContain("HYPERDRIVE has no url");
+  }, 120_000);
 
-    expect(await runConsole({ cwd }, (line) => said.push(line), capturedStreams())).toBe(1);
-    expect(said).toEqual([asked]);
-  });
+  test("console without --database opens the first database", async () => {
+    const cwd = await withModels();
+    await migrating(cwd, "DB");
+    const streams = capturedStreams();
+
+    const opened = await runConsole({ cwd, eval: "await Post.count()" }, () => {}, streams);
+
+    expect([opened, streams.seen.stdout]).toEqual([0, "0\n"]);
+    expect(streams.seen.stderr).toContain("Local database DB (.wrangler/state)\n");
+  }, 120_000);
 });

@@ -132,3 +132,135 @@ describe("migrate", () => {
     ]);
   });
 });
+
+/** The two D1 databases of `twoDatabases`, as its Wrangler config declares them. */
+const shopDb = { binding: "DB", database_name: "shop", database_id: "local-shop" };
+const logsDb = { binding: "LOGS", database_name: "logs", database_id: "local-logs" };
+
+/**
+ * A project with two D1 databases: DB, reading `migrations/`, then LOGS, reading `logs/`, with
+ * these settings in LOGS's arbor.jsonc entry.
+ */
+function twoDatabases(logsEntry: Record<string, unknown> = {}): string {
+  const cwd = project();
+  const databases = [shopDb, { ...logsDb, migrations_dir: "logs" }];
+  writeFileSync(join(cwd, "wrangler.jsonc"), JSON.stringify({ d1_databases: databases }));
+  const entries = { DB: { adapter: "d1" }, LOGS: { adapter: "d1", ...logsEntry } };
+  writeFileSync(join(cwd, "arbor.jsonc"), JSON.stringify({ databases: entries }));
+  mkdirSync(join(cwd, "logs"));
+  writeFileSync(
+    join(cwd, "logs/0001_create_entries.sql"),
+    "CREATE TABLE entries (id INTEGER PRIMARY KEY, message TEXT);\n",
+  );
+  return cwd;
+}
+
+/** The tables `twoDatabases` migrations make that the local database `entry` has. */
+async function tablesIn(cwd: string, entry: { binding: string }, folder: string) {
+  const configFile = join(cwd, "wrangler.jsonc");
+  const chosen = { binding: entry.binding, entry, configFile, migrationsDir: join(cwd, folder) };
+  const opened = await cli.open(cwd, chosen, { remote: false });
+  if (typeof opened === "string") throw new Error(opened);
+  try {
+    const db = opened.binding as {
+      prepare(sql: string): { all(): Promise<{ results: { name: string }[] }> };
+    };
+    const { results } = await db
+      .prepare("SELECT name FROM sqlite_master WHERE name IN ('users', 'entries')")
+      .all();
+    return results.map((row) => row.name);
+  } finally {
+    await opened.dispose();
+  }
+}
+
+// With several databases, `migrate` migrates each one, in arbor.jsonc's order (#313).
+describe("migrate, with several databases", () => {
+  test("applies each database's pending migrations, in the config's order", async () => {
+    const cwd = twoDatabases();
+
+    const { code, printed } = await migrated(cwd);
+
+    expect(code).toBe(0);
+    expect(printed.indexOf("0001_create_users.sql")).toBeGreaterThan(-1);
+    expect(printed.indexOf("0001_create_entries.sql")).toBeGreaterThan(
+      printed.indexOf("0001_create_users.sql"),
+    );
+    expect(await tablesIn(cwd, shopDb, "migrations")).toEqual(["users"]);
+    expect(await tablesIn(cwd, logsDb, "logs")).toEqual(["entries"]);
+  }, 120_000);
+
+  test("stops at the first database whose migration fails, with Wrangler's code", async () => {
+    const cwd = twoDatabases();
+    writeFileSync(join(cwd, "migrations/0002_broken.sql"), "CREATE TABLE users (id INTEGER);\n");
+
+    const { code, printed } = await migrated(cwd);
+
+    expect(code).not.toBe(0);
+    expect(printed).not.toContain("0001_create_entries.sql");
+    expect(await tablesIn(cwd, logsDb, "logs")).toEqual([]);
+  }, 120_000);
+
+  test("--remote refuses a database with no id before asking for any name", async () => {
+    const cwd = twoDatabases();
+    const databases = [shopDb, { ...logsDb, database_id: undefined, migrations_dir: "logs" }];
+    writeFileSync(join(cwd, "wrangler.jsonc"), JSON.stringify({ d1_databases: databases }));
+
+    const { code, printed, lines } = await migrated(cwd, { remote: true }, "shop");
+
+    expect(printed).toBe("");
+    expect([code, lines]).toEqual([
+      1,
+      ["LOGS has no database_id in wrangler.jsonc, which --remote needs"],
+    ]);
+  });
+
+  test('skips a database set to "migrate": false', async () => {
+    const cwd = twoDatabases({ migrate: false });
+
+    const { code, printed } = await migrated(cwd);
+
+    expect(code).toBe(0);
+    expect(printed).not.toContain("0001_create_entries.sql");
+    expect(await tablesIn(cwd, shopDb, "migrations")).toEqual(["users"]);
+    expect(await tablesIn(cwd, logsDb, "logs")).toEqual([]);
+  }, 120_000);
+
+  test('--remote doesn\'t ask for a database set to "migrate": false', async () => {
+    const { code, printed, lines } = await migrated(
+      twoDatabases({ migrate: false }),
+      { remote: true },
+      "nope",
+    );
+
+    expect(printed).toContain("Remote database DB (shop, id local-shop)");
+    expect(printed).not.toContain("LOGS");
+    expect([code, lines]).toEqual([1, ["Not migrated."]]);
+  });
+
+  test('with every database set to "migrate": false, says so and succeeds', async () => {
+    const cwd = project();
+    const entries = { DB: { adapter: "d1", migrate: false } };
+    writeFileSync(join(cwd, "arbor.jsonc"), JSON.stringify({ databases: entries }));
+
+    const { code, printed, lines } = await migrated(cwd);
+
+    expect([code, printed, lines]).toEqual([
+      0,
+      "",
+      ['No database to migrate: each is set not to ("migrate": false)'],
+    ]);
+  });
+
+  test('--database naming a database set to "migrate": false is refused', async () => {
+    const cwd = twoDatabases({ migrate: false });
+
+    const { code, printed, lines } = await migrated(cwd, { database: "LOGS" });
+
+    expect([code, printed, lines]).toEqual([
+      1,
+      "",
+      ['LOGS is set not to migrate ("migrate": false)'],
+    ]);
+  });
+});

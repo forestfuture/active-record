@@ -93,6 +93,15 @@ describe("the adapter the command uses", () => {
     );
   });
 
+  // `"migrate": false` leaves a database to another app's migrations (#313).
+  test('a "migrate" that isn\'t true or false is refused, naming the database', async () => {
+    const entries = config({ DB: { adapter: "d1", migrate: "no" } });
+
+    expect(await found(project({ "arbor.jsonc": entries, "wrangler.jsonc": wrangler("DB") }))).toBe(
+      "arbor.jsonc: databases.DB.migrate isn't true or false",
+    );
+  });
+
   // Each plugin reads only the entries for its adapter, so neither sees the other's (#305).
   test("databases on different adapters are each read by their own, in the file's order", async () => {
     const cwd = project({

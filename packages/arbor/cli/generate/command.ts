@@ -33,7 +33,7 @@ export interface GenerateOptions {
   cwd?: string;
   /** The project's config file, in place of its `arbor.jsonc`. */
   config?: string;
-  /** The database to generate for, by its binding, when the config has several. */
+  /** The database to generate for, by its binding; the config's first by default. */
   database?: string;
   kind: "model" | "migration";
   /** The Model's class name, or the migration's name. */
@@ -87,7 +87,7 @@ function isPlan(value: object): value is Plan {
   return "steps" in value;
 }
 
-/** The database to generate for: the only one, or the one `--database` names. */
+/** The database to generate for: the one `--database` names, or else the config's first. */
 function databaseFor(
   project: ProjectSnapshot,
   options: GenerateOptions,
@@ -270,14 +270,12 @@ export async function planGenerate(
   const { cwd } = project;
   const own = model === undefined ? [migration] : [migration, model];
   const schema = schemaWrites(project, db, checked.schema);
-  const several = project.databases.length > 1;
-  const named = several ? ` --database ${db.target.database.binding}` : "";
   return {
     steps: [
       ...own.map((file) => written(file, `Wrote ${shown(cwd, file.path)}`)),
       ...schema.steps,
       ...notes.map((note) => printed(`Note: ${note}`)),
-      printed(`Next: npx arbor migrate${named}`),
+      printed("Next: npx arbor migrate"),
     ],
     code: 0,
   };

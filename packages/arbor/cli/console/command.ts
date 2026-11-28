@@ -16,7 +16,7 @@ export interface ConsoleOptions {
   cwd?: string;
   /** The project's config file, in place of its `arbor.jsonc`. */
   config?: string;
-  /** The database to open, by its binding, when the config has several. */
+  /** The database to open, by its binding; the config's first by default. */
   database?: string;
   /** Where the Models are: a folder or one file (`src/models`). */
   models?: string;

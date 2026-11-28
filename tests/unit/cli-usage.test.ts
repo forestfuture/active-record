@@ -31,11 +31,11 @@ Options for g:
   --no-timestamps     Leave out created_at and updated_at
   --models <path>     Write Models here (src/models), or append them to one file (src/models.ts);
                       ApplicationRecord is imported from the same folder
-  --database <name>   The database to use, when the config has several
+  --database <name>   The database to use; the config's first by default
   --out <file>        The schema file to regenerate, when it isn't src/db/schema.ts
 
 Options for console:
-  --database <name>   The database to open, when the config has several
+  --database <name>   The database to open; the config's first by default
   --models <path>     Where the Models are: a folder (src/models) or one file (src/models.ts)
   --remote            Open your remote database instead, after asking you to type its name
   --yes               Don't ask first (with --remote); also how to open it without a terminal
@@ -45,8 +45,8 @@ Options for console:
   -e, --eval <code>   Run this code, print its result, and exit (only the result goes to stdout)
 
 Options for migrate:
-  --database <name>   The database to migrate, when the config has several
-  --remote            Migrate your remote database instead, after asking you to type its name
+  --database <name>   Migrate only this database; every one by default
+  --remote            Migrate your remote databases instead, after asking you to type each one's name
   --yes               Don't ask first (with --remote); also how to migrate it without a terminal
 
 Options for every command:

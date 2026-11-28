@@ -43,6 +43,7 @@ function project(
             entry: { binding: "DB" },
           },
           configFile: `${cwd}/wrangler.jsonc`,
+          migrates: true,
           configDir: cwd,
           migrationsDir: `${cwd}/migrations`,
           out: `${cwd}/src/db/schema.ts`,

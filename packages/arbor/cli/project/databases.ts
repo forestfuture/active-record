@@ -1,8 +1,8 @@
-// The project's databases, each with its adapter's plugin, as the command loads them (#305), and choosing the one a command acts on: the only one, or the one `--database` names.
+// The project's databases, each with its adapter's plugin, as the command loads them (#305), and choosing the one a command acts on: the one `--database` names, or else the first.
 import { existsSync, realpathSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { ChosenDatabase, CliAdapter, DatabaseConfig, ProjectDatabases } from "../adapter.ts";
-import { loadAdapters, type NamedAdapters } from "./adapters.ts";
+import { isSkippedByMigrate, loadAdapters, type NamedAdapters } from "./adapters.ts";
 import { listed } from "./names.ts";
 import { shown } from "./paths.ts";
 
@@ -19,6 +19,8 @@ export interface LoadedDatabase {
   /** The file that declares it (its adapter's own config, if it reads one), and its folder. */
   configFile: string;
   configDir: string;
+  /** Whether `migrate` migrates it unless named: not when its entry is `"migrate": false` (#313). */
+  migrates: boolean;
 }
 
 /** A database's migrations folder, as an absolute path: its config's, beside its config file. */
@@ -42,7 +44,8 @@ function databasesOf({ project, plugins }: NamedAdapters): LoadedProject | strin
     for (const database of config.databases) {
       const configFile = database.configFile ?? config.file;
       const configDir = database.configFile === undefined ? config.dir : dirname(configFile);
-      loaded.databases.push({ adapter, database, configFile, configDir });
+      const migrates = !isSkippedByMigrate(project.databases[database.binding]);
+      loaded.databases.push({ adapter, database, configFile, configDir, migrates });
     }
     loaded.notes.push(...(config.notes ?? []));
   }
@@ -115,19 +118,16 @@ export async function loadForCommand(
 }
 
 /**
- * The database a command works on: the only one, or the one `--database` names; or, as a message
- * to print, why there isn't one (several and none named, or a name no binding has).
+ * The database a command works on: the one `--database` names, or else the config's first; or, as
+ * a message to print, why there isn't one (a name no binding has).
  */
 export function chooseDatabase<D extends { binding: string }>(
   databases: readonly D[],
   named: string | undefined,
 ): D | string {
-  const bindings = listed(databases.map((database) => database.binding));
-  if (named === undefined) {
-    if (databases.length === 1) return databases[0]!;
-    return `This config has several databases; choose one with --database (${bindings})`;
-  }
+  if (named === undefined) return databases[0]!;
   const chosen = databases.find((database) => database.binding === named);
+  const bindings = listed(databases.map((database) => database.binding));
   return chosen ?? `No database is bound as ${named}; this config has ${bindings}`;
 }
 
@@ -135,20 +135,32 @@ export function chooseDatabase<D extends { binding: string }>(
 export interface Chosen {
   adapter: CliAdapter;
   chosen: ChosenDatabase;
+  /** Whether `migrate` migrates it unless named (`"migrate": false` says not). */
+  migrates: boolean;
 }
 
-/** The database `--database` names (or the only one), with its adapter, or why there isn't one. */
+/** A loaded database as a command acts on it, with its adapter. */
+function chosenFrom(loaded: LoadedDatabase): Chosen {
+  const { adapter, database, configFile, migrates } = loaded;
+  const migrationsDir = migrationsFolderOf(loaded);
+  return {
+    adapter,
+    chosen: { binding: database.binding, entry: database.entry, configFile, migrationsDir },
+    migrates,
+  };
+}
+
+/** The database `--database` names (or the first), with its adapter, or why there isn't one. */
 export function chosenDatabase(
   project: LoadedProject,
   options: { database?: string },
 ): Chosen | string {
   const bindings = project.databases.map((each) => ({ ...each, binding: each.database.binding }));
   const found = chooseDatabase(bindings, options.database);
-  if (typeof found === "string") return found;
-  const { adapter, database, configFile } = found;
-  const migrationsDir = migrationsFolderOf(found);
-  return {
-    adapter,
-    chosen: { binding: database.binding, entry: database.entry, configFile, migrationsDir },
-  };
+  return typeof found === "string" ? found : chosenFrom(found);
+}
+
+/** Every one of the project's databases, in its file's order, each with its adapter. */
+export function everyDatabase(project: LoadedProject): Chosen[] {
+  return project.databases.map(chosenFrom);
 }

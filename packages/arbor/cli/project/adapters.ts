@@ -1,4 +1,4 @@
-// The adapters a project's `arbor.jsonc` names, each database's own (#305), and their command line plugins (#278, #301).
+// The adapters a project's `arbor.jsonc` names, each database's own (#305), and their command line plugins (#278, #301); and each entry's `migrate`, checked and read (#313).
 import { basename } from "node:path";
 import type { CliAdapter, ProjectDatabases } from "../adapter.ts";
 import { projectDatabases } from "./config-file.ts";
@@ -40,12 +40,26 @@ function adapterError(binding: string, adapter: unknown): string | undefined {
   return `databases.${binding} has the adapter ${JSON.stringify(adapter)}, which isn't ${listed(adapterNames)}`;
 }
 
+/** What's wrong with a database's entry, if anything: its `adapter`, or a `migrate` not a boolean. */
+function entryError(binding: string, entry: Record<string, unknown>): string | undefined {
+  const error = adapterError(binding, entry["adapter"]);
+  if (error !== undefined) return error;
+  const migrate = entry["migrate"];
+  if (migrate === undefined || typeof migrate === "boolean") return undefined;
+  return `databases.${binding}.migrate isn't true or false`;
+}
+
+/** Whether `migrate` leaves a database alone unless named: its entry's `"migrate": false`. */
+export function isSkippedByMigrate(entry: Record<string, unknown> | undefined): boolean {
+  return entry?.["migrate"] === false;
+}
+
 /** The adapters the project's databases name, each once, in the file's order; or why one won't do. */
 function adaptersNamed(project: ProjectDatabases): string[] | string {
   const file = basename(project.file);
   const names: string[] = [];
   for (const [binding, entry] of Object.entries(project.databases)) {
-    const error = adapterError(binding, entry.adapter);
+    const error = entryError(binding, entry);
     if (error !== undefined) return `${file}: ${error}`;
     if (!names.includes(entry.adapter as string)) names.push(entry.adapter as string);
   }

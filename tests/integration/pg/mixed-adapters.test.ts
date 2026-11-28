@@ -85,13 +85,26 @@ describe("migrate and console on a mixed project's Postgres database", pgliteTim
     expect(rows).toEqual([{ name: "Jane" }]);
   });
 
-  /** `migrate --database HYPERDRIVE`: its code, and what the runner printed. */
-  async function migrating() {
+  // Each database through its own adapter, in arbor.jsonc's order (#313).
+  test("migrate without --database applies D1's migrations, then Postgres's, each through its adapter", async () => {
+    const { code, applied } = await migrating({ every: true });
+
+    expect(code).toBe(0);
+    const hyperdrive = applied.indexOf(
+      "Local database HYPERDRIVE (active_record_test on localhost)\n",
+    );
+    expect(applied.indexOf("0001_posts.sql")).toBeGreaterThan(-1);
+    expect(hyperdrive).toBeGreaterThan(applied.indexOf("0001_posts.sql"));
+  }, 120_000);
+
+  /** `migrate --database HYPERDRIVE`, or with `every` no `--database`: its code, and what it printed. */
+  async function migrating({ every = false } = {}) {
     const output = new PassThrough();
     let applied = "";
     output.on("data", (chunk: Buffer) => (applied += chunk.toString()));
     const io = { input: new PassThrough(), output, terminal: false };
-    const code = await runMigrate({ cwd, database: "HYPERDRIVE" }, quiet, io);
+    const options = every ? {} : { database: "HYPERDRIVE" };
+    const code = await runMigrate({ cwd, ...options }, quiet, io);
     return { code, applied };
   }
 });

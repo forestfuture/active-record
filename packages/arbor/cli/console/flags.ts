@@ -39,7 +39,7 @@ export const consoleSubcommand = defineSubcommand({
   options,
   usage: `  arbor console (or c)                Open a console on your database, with your Models`,
   flagHelp: `Options for console:
-  --database <name>   The database to open, when the config has several
+  --database <name>   The database to open; the config's first by default
   --models <path>     Where the Models are: a folder (src/models) or one file (src/models.ts)
   --remote            Open your remote database instead, after asking you to type its name
   --yes               Don't ask first (with --remote); also how to open it without a terminal
