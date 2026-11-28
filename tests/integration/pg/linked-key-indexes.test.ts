@@ -52,7 +52,7 @@ describe("text linked to a number key", () => {
     }
   }
 
-  test.each(["byId", "byRatio", "byAmount"] as const)(
+  test.each(["byRatio", "byAmount"] as const)(
     "a join through %s searches the key's index",
     async (association) => {
       const plan = await planOf(db().model(Target).joins(association).toSql());

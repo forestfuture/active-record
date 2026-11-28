@@ -180,7 +180,8 @@ describe("values by their use", () => {
       expect(counted!.loaded("code")?.id).toBe("9");
     });
 
-    test("a hasMany finds the integer foreign keys a text key casts to, as a condition does", async () => {
+    // A mixed-type link compares as text (#596): text links to an integer only as its digits.
+    test("a hasMany finds no integer foreign key for a text key that isn't its digits", async () => {
       await db()
         .model(Code)
         .insertAll([
@@ -196,27 +197,20 @@ describe("values by their use", () => {
 
       const codes = await db().model(Code).includes("counted").order({ id: "asc" }).toArray();
 
-      expect(codes.map((code) => code.loaded("counted").map((each) => each.id))).toEqual([[1], []]);
+      expect(codes.map((code) => code.loaded("counted").map((each) => each.id))).toEqual([[], []]);
     });
 
-    test("a belongsTo finds the integer key a text foreign key casts to, as a condition does", async () => {
-      await db().model(Note).insert({ id: 3, label: "09" });
+    test.each([
+      ["a leading zero", "09"],
+      ["many leading zeros", `${"0".repeat(1_000)}9`],
+      ["a space before its digits", " 9"],
+    ])("a belongsTo finds no integer key for a text foreign key with %s", async (_, label) => {
+      await db().model(Note).insert({ id: 3, label });
       await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
 
       const [note] = await db().model(Note).where({ id: 3 }).includes("owner").toArray();
 
-      expect(note!.loaded("owner")?.id).toBe(9);
-    });
-
-    test("a belongsTo finds the integer key past a text foreign key's leading zeros", async () => {
-      await db().model(Owner).insert({ id: 9, email: "jane@example.com" });
-      await db()
-        .model(Note)
-        .insert({ id: 3, label: `${"0".repeat(1_000)}9` });
-
-      const [note] = await db().model(Note).includes("owner").toArray();
-
-      expect(note!.loaded("owner")?.id).toBe(9);
+      expect(note!.loaded("owner")).toBeNull();
     });
 
     test.each([

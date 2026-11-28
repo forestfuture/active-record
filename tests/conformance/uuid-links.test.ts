@@ -429,11 +429,11 @@ describe("uuid links", () => {
     });
 
     test.each(otherForms)(
-      "in %s, a record built through a hasMany takes the key in its one form",
+      "in %s, a record built through a hasMany is refused: its key links to no uuid",
       async (_, id) => {
         const phone = await db().model(Phone).create({ id });
 
-        expect(phone.calls().build({ id: 2 }).phoneId).toBe(phoneId);
+        expect(() => phone.calls().build({ id: 2 })).toThrow(/phoneId/);
       },
     );
 

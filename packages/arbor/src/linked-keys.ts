@@ -6,11 +6,12 @@ const integer: Convertible = { type: "integer" };
 
 /**
  * `value`, a key of `from`, as `to` holds it, or `uncastable`. Keys stored alike are cast as a
- * condition's (#94). Where one is a datetime kept as a Unix time and the other isn't kept the
+ * condition's (#94), and text linked to an integer or a uuid only in its own text form (#596). Where one is a datetime kept as a Unix time and the other isn't kept the
  * same way, the link compares what they store, as a join does: a Unix time links as its
  * integer, and an integer links to a Unix time as the instant it stores.
  */
 export function castLinked(to: Convertible, from: Convertible, value: unknown): unknown {
+  if (!isOwnTextForm(to, from, value)) return uncastable;
   if (value === null || to.storage === from.storage) return castKey(to, value);
   const own = castKey(from, value);
   if (own === uncastable) return uncastable;
@@ -18,6 +19,32 @@ export function castLinked(to: Convertible, from: Convertible, value: unknown): 
   if (to.storage === undefined) return castKey(to, stored);
   const held = castKey(integer, stored);
   return held === uncastable ? uncastable : readValue(to, held);
+}
+
+/** An integer's own text: its digits, with no leading zero, and a minus sign for a negative. */
+const integerText = /^(?:0|-?[1-9][0-9]*)$/;
+
+/** A UUID's one text form, lowercase with hyphens, as a uuid attribute holds it (#588). */
+const uuidText = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** The type a key's column holds it as: an integer for a datetime kept as a Unix time. */
+const storedTypeOf = ({ type, storage }: Convertible) => (storage === undefined ? type : "integer");
+
+/**
+ * Whether `value`, a key of `from`, links to `to` as SQL compares a mixed-type link, as text
+ * (#596): text links to an integer or a uuid only in that key's own text form, so `'09'` links
+ * to no integer. Any other key links as it's cast.
+ */
+function isOwnTextForm(to: Convertible, from: Convertible, value: unknown): boolean {
+  if (typeof value !== "string" || storedTypeOf(from) !== "string") return true;
+  switch (storedTypeOf(to)) {
+    case "integer":
+      return integerText.test(value);
+    case "uuid":
+      return uuidText.test(value);
+    default:
+      return true;
+  }
 }
 
 /** A link compares text, numbers of any stored type together, uuids, and every other type alone. */
