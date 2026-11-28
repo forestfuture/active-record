@@ -3,9 +3,11 @@ import { compileInsertRows, type Conflict } from "./bulk-insert-sql.ts";
 import { compileInsert, type Assignment, type CompiledSql } from "./compiler.ts";
 import type { StatementResult } from "./driver.ts";
 import type { Executor } from "./executor.ts";
+import { attributeName } from "./attribute-aliases.ts";
 import { attributeFor } from "./attribute.ts";
 import { initialValues, requireDefined, columnOf } from "./metadata.ts";
 import type { AttributesOf, ModelClass } from "./model.ts";
+import { clashKeeps } from "./relation-checks.ts";
 import { timestampsFor } from "./timestamps.ts";
 
 /** @internal The library's key for what `db.batch` needs from a Statement. */
@@ -170,9 +172,9 @@ function insertAssignments(model: ModelClass, attributes: Record<string, unknown
  * `INSERT` of `rows` into `model`'s table, as one Statement. Every row must have the same
  * attributes as given; `conflict` skips or updates rows that clash with a unique
  * index. An update sets every attribute in `rows` (the given ones and any a Relation added,
- * #475) but the primary key, read-only ones, and (left out as it's compiled) the `uniqueBy`
- * ones and `createdAt`, or only those `updateOnly` names, and `updatedAt` when one of them
- * changes (#36), never filled-in defaults.
+ * #475) but those a clashing row keeps (`clashKeeps`: the primary key, read-only ones, the
+ * `uniqueBy` ones and `createdAt`), or only those `updateOnly` names, and `updatedAt` when one of
+ * them changes (#36), never filled-in defaults.
  * It returns the attributes `returning` names of each row written.
  */
 export function insertStatement<Row>(
@@ -192,11 +194,9 @@ export function insertStatement<Row>(
     throw new TypeError(`${method}(): nothing to insert; give each row at least one attribute`);
   }
   const values = assigned.map((row) => names.map((name) => row.get(name)));
-  // A clashing row keeps its read-only attributes' values, which it was created with (#358),
-  // and its primary key, which matters when the upsert matches on another index (#533).
-  const updated = given.filter(
-    (name) => name !== model.primaryKey && model.attributeDefinitions.get(name)?.readonly !== true,
-  );
+  const uniqueBy = conflict?.kind === "update" ? conflict.uniqueBy : [];
+  const matched = new Set(uniqueBy.map((name) => attributeName(model, name)));
+  const updated = given.filter((name) => clashKeeps(model, name, matched) === undefined);
   const resolved =
     conflict?.kind === "update" ? resolvedUpdate(conflict, { updated, names, method }) : conflict;
   const compiled = compileInsertRows(executor.dialect, model, {

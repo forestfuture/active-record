@@ -351,15 +351,20 @@ function updatedNames(
     const own = attributeName(model, name);
     const refusal = kept.includes(own)
       ? "which its owner's records keep"
-      : updateRefusal(model, own, matched);
+      : clashKeeps(model, own, matched);
     if (refusal !== undefined)
       throw new TypeError(`${method}() ${option} can't name ${name}, ${refusal}`);
     return own;
   });
 }
 
-/** Why an upsert can't update `name` on a clash, if it can't. */
-function updateRefusal(
+/**
+ * Why a clashing row keeps `name` rather than taking an upsert's value, if it does: it's
+ * read-only (#358), an attribute `matched` (`uniqueBy`'s, by their own names) holds, the primary
+ * key (#533), or `createdAt`. The default update leaves each of them out, and `updateOnly` and
+ * `onDuplicate` can't name one. It goes by attribute, which is a column's only one (#575).
+ */
+export function clashKeeps(
   model: ModelClass,
   name: string,
   matched: ReadonlySet<string>,

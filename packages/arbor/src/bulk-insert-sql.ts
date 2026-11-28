@@ -76,9 +76,9 @@ export function compileInsertRows(
 
 /**
  * `ON CONFLICT DO NOTHING`, or `ON CONFLICT (…) DO UPDATE SET` the `update` attributes (every
- * inserted one by default) except the `uniqueBy` ones and `createdAt`, or what `set` gives
- * (#531), and `touch` when one of them changes (#36), `WHERE` the clashing row already has the
- * new row's `ownedBy` values (#451). The values it binds are appended to `params`.
+ * inserted one by default), or what `set` gives (#531), and `touch` when one of them changes
+ * (#36), `WHERE` the clashing row already has the new row's `ownedBy` values (#451). The values
+ * it binds are appended to `params`.
  */
 function compileConflict(
   dialect: Dialect,
@@ -93,7 +93,7 @@ function compileConflict(
   if (conflict.kind === "skip") return " ON CONFLICT DO NOTHING";
   const column = (name: string) => quoteIdentifier(attributeFor(model, name).column);
   const target = conflict.uniqueBy.map(column).join(", ");
-  const sets = conflict.set ?? copiedSets(model, names, conflict);
+  const sets = conflict.set ?? copiedSets(names, conflict);
   if (sets.length === 0) return ` ON CONFLICT (${target}) DO NOTHING`;
   const written = sets.map((set) => `${column(set.name)} = ${setValue(model, set, params)}`);
   if (conflict.touch !== undefined)
@@ -101,15 +101,15 @@ function compileConflict(
   return ` ON CONFLICT (${target}) DO UPDATE SET ${written.join(", ")}${compileOwnedBy(model, conflict.ownedBy)}`;
 }
 
-/** What an update sets by default: each `update` attribute to its incoming value. */
+/**
+ * What an update sets by default: each `update` attribute to its incoming value. `update` leaves
+ * out what a clashing row keeps already (`clashKeeps`, #575).
+ */
 function copiedSets(
-  model: ModelClass<Model>,
   names: readonly string[],
   conflict: Extract<Conflict, { kind: "update" }>,
 ): AttributeSet[] {
-  return (conflict.update ?? names)
-    .filter((name) => !conflict.uniqueBy.includes(name) && name !== "createdAt")
-    .map((name) => ({ name, value: incoming(name) }));
+  return (conflict.update ?? names).map((name) => ({ name, value: incoming(name) }));
 }
 
 /**
