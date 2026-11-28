@@ -14,12 +14,7 @@ describe("choosing the database a command works on", () => {
       "LOGS",
       "No database is bound as LOGS; this config has DB",
     ],
-    [
-      "several, none named",
-      ["DB", "LOGS"],
-      undefined,
-      "This config has several databases; choose one with --database (DB or LOGS)",
-    ],
+    ["several, none named: the first", ["DB", "LOGS"], undefined, { binding: "DB" }],
     ["several, one named", ["DB", "LOGS"], "LOGS", { binding: "LOGS" }],
     [
       "several, another named",

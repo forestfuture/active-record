@@ -132,3 +132,58 @@ describe("migrate", () => {
     ]);
   });
 });
+
+/** The two D1 databases of `twoDatabases`, as its Wrangler config declares them. */
+const shopDb = { binding: "DB", database_name: "shop", database_id: "local-shop" };
+const logsDb = { binding: "LOGS", database_name: "logs", database_id: "local-logs" };
+
+/** A project with two D1 databases: DB, reading `migrations/`, then LOGS, reading `logs/`. */
+function twoDatabases(logs: Record<string, unknown> = {}): string {
+  const cwd = project();
+  const databases = [shopDb, { ...logsDb, migrations_dir: "logs" }];
+  writeFileSync(join(cwd, "wrangler.jsonc"), JSON.stringify({ d1_databases: databases }));
+  const entries = { DB: { adapter: "d1" }, LOGS: { adapter: "d1", ...logs } };
+  writeFileSync(join(cwd, "arbor.jsonc"), JSON.stringify({ databases: entries }));
+  mkdirSync(join(cwd, "logs"));
+  writeFileSync(
+    join(cwd, "logs/0001_create_entries.sql"),
+    "CREATE TABLE entries (id INTEGER PRIMARY KEY, message TEXT);\n",
+  );
+  return cwd;
+}
+
+/** The tables `twoDatabases` migrations make that the local database `entry` has. */
+async function tablesIn(cwd: string, entry: { binding: string }, folder: string) {
+  const configFile = join(cwd, "wrangler.jsonc");
+  const chosen = { binding: entry.binding, entry, configFile, migrationsDir: join(cwd, folder) };
+  const opened = await cli.open(cwd, chosen, { remote: false });
+  if (typeof opened === "string") throw new Error(opened);
+  try {
+    const db = opened.binding as {
+      prepare(sql: string): { all(): Promise<{ results: { name: string }[] }> };
+    };
+    const { results } = await db
+      .prepare("SELECT name FROM sqlite_master WHERE name IN ('users', 'entries')")
+      .all();
+    return results.map((row) => row.name);
+  } finally {
+    await opened.dispose();
+  }
+}
+
+// With several databases, `migrate` migrates each one, in arbor.jsonc's order (#313).
+describe("migrate, with several databases", () => {
+  test("applies each database's pending migrations, in the config's order", async () => {
+    const cwd = twoDatabases();
+
+    const { code, printed } = await migrated(cwd);
+
+    expect(code).toBe(0);
+    expect(printed.indexOf("0001_create_users.sql")).toBeGreaterThan(-1);
+    expect(printed.indexOf("0001_create_entries.sql")).toBeGreaterThan(
+      printed.indexOf("0001_create_users.sql"),
+    );
+    expect(await tablesIn(cwd, shopDb, "migrations")).toEqual(["users"]);
+    expect(await tablesIn(cwd, logsDb, "logs")).toEqual(["entries"]);
+  }, 120_000);
+});

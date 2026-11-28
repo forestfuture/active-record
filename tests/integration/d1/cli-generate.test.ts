@@ -310,7 +310,7 @@ describe("arbor g migration", () => {
     });
   });
 
-  test("several databases need --database, and a migrations_pattern the file wouldn't match is refused", async () => {
+  test("several databases: the first by default, --database for another, and a migrations_pattern the file wouldn't match is refused", async () => {
     const two = project({
       "wrangler.jsonc":
         '{ "d1_databases": [{ "binding": "DB" }, { "binding": "LOGS", "migrations_dir": "logs" }] }',
@@ -320,10 +320,9 @@ describe("arbor g migration", () => {
         '{ "d1_databases": [{ "binding": "DB", "migrations_pattern": "migrations/*/migration.sql" }] }',
     });
 
-    expect(await generate(two, ["model", "Product"])).toEqual({
-      code: 1,
-      output: "This config has several databases; choose one with --database (DB or LOGS)",
-    });
+    expect((await generate(two, ["model", "Product"])).output).toContain(
+      "Wrote migrations/20261108090503_create_products.sql\nWrote src/models/product.ts\nWrote src/db/DB.ts",
+    );
     expect((await generate(two, ["model", "Entry"], { database: "LOGS" })).output).toContain(
       "Wrote logs/20261108090503_create_entries.sql\nWrote src/models/entry.ts\nWrote src/db/LOGS.ts",
     );

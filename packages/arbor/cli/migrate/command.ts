@@ -1,15 +1,21 @@
-// `arbor migrate`: applies a database's pending migrations through its adapter, locally or remotely (#278).
+// `arbor migrate`: applies each database's pending migrations through its adapter, or the one `--database` names, locally or remotely (#278, #313).
 import type { Readable, Writable } from "node:stream";
 import { WriteStream } from "node:tty";
 import { confirmRemote } from "../console/confirm.ts";
-import { chosenDatabase, loadForCommand } from "../project/databases.ts";
+import {
+  chosenDatabase,
+  everyDatabase,
+  loadForCommand,
+  type Chosen,
+  type LoadedProject,
+} from "../project/databases.ts";
 
 export interface MigrateOptions {
   /** The project's folder; the current one by default. */
   cwd?: string;
   /** The project's config file, in place of its `arbor.jsonc`. */
   config?: string;
-  /** The database to migrate, when the config has several. */
+  /** The one database to migrate; every one by default. */
   database?: string;
   /** The real database, after its name is typed, instead of the local one. */
   remote?: boolean;
@@ -51,7 +57,24 @@ async function allowed(
   return confirmed ? undefined : "Not migrated.";
 }
 
-/** `arbor migrate`: resolves to the exit code, the adapter's own when it ran. */
+/** The databases to migrate: the one `--database` names, or else every one; or why there isn't one. */
+function databasesFor(project: LoadedProject, options: MigrateOptions): Chosen[] | string {
+  if (options.database === undefined) return everyDatabase(project);
+  const found = chosenDatabase(project, options);
+  return typeof found === "string" ? found : [found];
+}
+
+/** Why one database may not be migrated remotely, if it may not; after asking, unless `--yes`. */
+async function remoteRefusal(
+  { adapter, chosen }: Chosen,
+  options: MigrateOptions,
+  io: MigrateTerminal,
+): Promise<string | undefined> {
+  const target = adapter.remote(chosen, "migrate");
+  return typeof target === "string" ? target : allowed(target, options, io);
+}
+
+/** `arbor migrate`: resolves to the exit code, the first failing adapter's when one fails. */
 export async function runMigrate(
   options: MigrateOptions,
   print: (line: string) => void,
@@ -60,20 +83,21 @@ export async function runMigrate(
   const cwd = options.cwd ?? process.cwd();
   const project = await loadForCommand(cwd, options, print);
   if (project === undefined) return 1;
-  const found = chosenDatabase(project, options);
-  if (typeof found === "string") {
-    print(found);
+  const databases = databasesFor(project, options);
+  if (typeof databases === "string") {
+    print(databases);
     return 1;
   }
-  const { adapter, chosen } = found;
   const remote = options.remote === true;
-  if (remote) {
-    const target = adapter.remote(chosen, "migrate");
-    const refusal = typeof target === "string" ? target : await allowed(target, options, io);
+  for (const each of databases) {
+    const refusal = remote ? await remoteRefusal(each, options, io) : undefined;
     if (refusal !== undefined) {
       print(refusal);
       return 1;
     }
+    const output = { output: (text: string) => io.output.write(text) };
+    const code = await each.adapter.migrate(cwd, each.chosen, { remote }, output);
+    if (code !== 0) return code;
   }
-  return adapter.migrate(cwd, chosen, { remote }, { output: (text) => io.output.write(text) });
+  return 0;
 }
