@@ -189,7 +189,10 @@ const enumScopes = new WeakSet<object>();
 export interface TakenNames {
   /** Whether a record already has `name`: a record method or property. */
   isRecordName(name: string): boolean;
-  /** Whether a scope can't be named `name`: a Relation method or a Model static. */
+  /**
+   * Whether a scope can't be named `name`: a Relation method, a Model static, or "then". It may
+   * answer yes for a Function's names too, which `scopeNameClash` checks first.
+   */
   isReservedStatic(name: string): boolean;
   /** How the Model (or a class it extends below the library's) declares the static `name`. */
   staticOf(name: string): PropertyDescriptor | undefined;
