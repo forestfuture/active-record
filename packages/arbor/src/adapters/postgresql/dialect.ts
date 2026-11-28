@@ -37,10 +37,6 @@ function isWithin(number: string, { lowest, highest, step }: Magnitudes): string
   return `CASE WHEN ABS(${number}) < ${limit} THEN ABS(${number}) * ${2n ** lowest} > 1 ELSE false END`;
 }
 
-/** Whether a cast of `number`, a `numeric`, accepts it: zero, or within `magnitudes`. */
-const isHeld = (number: string, magnitudes: Magnitudes) =>
-  `${number} = 0 OR ${isWithin(number, magnitudes)}`;
-
 /**
  * `selected` from a query of `table`, already quoted, that finds no row: NULL, of the type
  * `selected` has in the table. A query names the table as a table, where a cast to its row type
@@ -51,14 +47,18 @@ const noRowOf = (table: string, selected: string) =>
   `(SELECT ${selected} FROM ${table} WHERE false)`;
 
 /**
- * Whether a cast of `decimal` to a binary floating-point type accepts it: held within
+ * Whether a cast of `decimal` to a binary floating-point type accepts it: zero, within
  * `magnitudes`, or an infinity or NaN, which a `numeric` orders past every number. It's compared
  * as a `numeric`, so a decimal attribute declared over a `real` column compares too (#628).
  */
-function isHeldDecimal(decimal: string, magnitudes: Magnitudes): string {
+function isCastableDecimal(decimal: string, magnitudes: Magnitudes): string {
   const number = `CAST(${decimal} AS NUMERIC)`;
-  return `${isHeld(number, magnitudes)} OR ABS(${number}) >= 'Infinity'`;
+  return `${number} = 0 OR ${isWithin(number, magnitudes)} OR ABS(${number}) >= 'Infinity'`;
 }
+
+/** `key` cast to `type` when `isCastable` holds; otherwise NULL, which links nothing. */
+const castWhen = (isCastable: string, key: string, type: string) =>
+  `CASE WHEN ${isCastable} THEN CAST(${key} AS ${type}) END`;
 
 /**
  * Whether `attribute`'s column is a 4-byte `real` (`float4`). Its type is read from a query of
@@ -87,11 +87,11 @@ function isRealDouble(number: string, { lowest, highest, step }: Magnitudes): st
  * `double precision`'s range; its infinities and NaN link.
  */
 function asReal(key: string, { storedType }: Attribute): string {
-  const holds =
+  const isCastable =
     storedType === "real"
       ? isRealDouble(key, float4Magnitudes)
-      : isHeldDecimal(key, float4Magnitudes);
-  return `CASE WHEN ${holds} THEN CAST(${key} AS REAL) END`;
+      : isCastableDecimal(key, float4Magnitudes);
+  return castWhen(isCastable, key, "REAL");
 }
 
 /**
@@ -101,7 +101,7 @@ function asReal(key: string, { storedType }: Attribute): string {
  */
 function asDouble(key: string, { storedType }: Attribute): string {
   if (storedType === "real") return `CAST(${key} AS DOUBLE PRECISION)`;
-  return `CASE WHEN ${isHeldDecimal(key, float8Magnitudes)} THEN CAST(${key} AS DOUBLE PRECISION) END`;
+  return castWhen(isCastableDecimal(key, float8Magnitudes), key, "DOUBLE PRECISION");
 }
 
 /**
