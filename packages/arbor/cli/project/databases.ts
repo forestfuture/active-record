@@ -19,6 +19,8 @@ export interface LoadedDatabase {
   /** The file that declares it (its adapter's own config, if it reads one), and its folder. */
   configFile: string;
   configDir: string;
+  /** Whether `migrate` migrates it unless named: not when its entry is `"migrate": false` (#313). */
+  migrates: boolean;
 }
 
 /** A database's migrations folder, as an absolute path: its config's, beside its config file. */
@@ -42,7 +44,8 @@ function databasesOf({ project, plugins }: NamedAdapters): LoadedProject | strin
     for (const database of config.databases) {
       const configFile = database.configFile ?? config.file;
       const configDir = database.configFile === undefined ? config.dir : dirname(configFile);
-      loaded.databases.push({ adapter, database, configFile, configDir });
+      const migrates = project.databases[database.binding]?.["migrate"] !== false;
+      loaded.databases.push({ adapter, database, configFile, configDir, migrates });
     }
     loaded.notes.push(...(config.notes ?? []));
   }
@@ -132,15 +135,18 @@ export function chooseDatabase<D extends { binding: string }>(
 export interface Chosen {
   adapter: CliAdapter;
   chosen: ChosenDatabase;
+  /** Whether `migrate` migrates it unless named (`"migrate": false` says not). */
+  migrates: boolean;
 }
 
 /** A loaded database as a command acts on it, with its adapter. */
 function chosenFrom(loaded: LoadedDatabase): Chosen {
-  const { adapter, database, configFile } = loaded;
+  const { adapter, database, configFile, migrates } = loaded;
   const migrationsDir = migrationsFolderOf(loaded);
   return {
     adapter,
     chosen: { binding: database.binding, entry: database.entry, configFile, migrationsDir },
+    migrates,
   };
 }
 

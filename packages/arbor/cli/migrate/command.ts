@@ -58,9 +58,12 @@ async function allowed(
   return confirmed ? undefined : "Not migrated.";
 }
 
-/** The databases to migrate: the one `--database` names, or else every one; or why there isn't one. */
+/**
+ * The databases to migrate: the one `--database` names, or else every one not set to
+ * `"migrate": false`; or why there isn't one.
+ */
 function databasesFor(project: LoadedProject, options: MigrateOptions): Chosen[] | string {
-  if (options.database === undefined) return everyDatabase(project);
+  if (options.database === undefined) return everyDatabase(project).filter((each) => each.migrates);
   const found = chosenDatabase(project, options);
   return typeof found === "string" ? found : [found];
 }
@@ -126,6 +129,10 @@ export async function runMigrate(
   if (project === undefined) return 1;
   const databases = databasesFor(project, options);
   if (typeof databases === "string") return refused(databases, print);
+  if (databases.length === 0) {
+    print('No database to migrate: each is set not to ("migrate": false)');
+    return 0;
+  }
   const remote = options.remote === true;
   const refusal = remote ? await remoteRefusal(databases, options, io) : undefined;
   if (refusal !== undefined) return refused(refusal, print);

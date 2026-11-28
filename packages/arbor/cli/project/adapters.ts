@@ -40,12 +40,21 @@ function adapterError(binding: string, adapter: unknown): string | undefined {
   return `databases.${binding} has the adapter ${JSON.stringify(adapter)}, which isn't ${listed(adapterNames)}`;
 }
 
+/** What's wrong with a database's entry, if anything: its `adapter`, or a `migrate` not a boolean. */
+function entryError(binding: string, entry: Record<string, unknown>): string | undefined {
+  const error = adapterError(binding, entry["adapter"]);
+  if (error !== undefined) return error;
+  const migrate = entry["migrate"];
+  const boolean = migrate === undefined || typeof migrate === "boolean";
+  return boolean ? undefined : `databases.${binding}.migrate isn't true or false`;
+}
+
 /** The adapters the project's databases name, each once, in the file's order; or why one won't do. */
 function adaptersNamed(project: ProjectDatabases): string[] | string {
   const file = basename(project.file);
   const names: string[] = [];
   for (const [binding, entry] of Object.entries(project.databases)) {
-    const error = adapterError(binding, entry.adapter);
+    const error = entryError(binding, entry);
     if (error !== undefined) return `${file}: ${error}`;
     if (!names.includes(entry.adapter as string)) names.push(entry.adapter as string);
   }

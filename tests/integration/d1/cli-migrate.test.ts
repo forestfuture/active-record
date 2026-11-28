@@ -211,4 +211,41 @@ describe("migrate, with several databases", () => {
       ["LOGS has no database_id in wrangler.jsonc, which --remote needs"],
     ]);
   });
+
+  test('skips a database set to "migrate": false', async () => {
+    const cwd = twoDatabases({ migrate: false });
+
+    const { code, printed } = await migrated(cwd);
+
+    expect(code).toBe(0);
+    expect(printed).not.toContain("0001_create_entries.sql");
+    expect(await tablesIn(cwd, shopDb, "migrations")).toEqual(["users"]);
+    expect(await tablesIn(cwd, logsDb, "logs")).toEqual([]);
+  }, 120_000);
+
+  test('--remote doesn\'t ask for a database set to "migrate": false', async () => {
+    const { code, printed, lines } = await migrated(
+      twoDatabases({ migrate: false }),
+      { remote: true },
+      "nope",
+    );
+
+    expect(printed).toContain("Remote database DB (shop, id local-shop)");
+    expect(printed).not.toContain("LOGS");
+    expect([code, lines]).toEqual([1, ["Not migrated."]]);
+  });
+
+  test('with every database set to "migrate": false, says so and succeeds', async () => {
+    const cwd = project();
+    const entries = { DB: { adapter: "d1", migrate: false } };
+    writeFileSync(join(cwd, "arbor.jsonc"), JSON.stringify({ databases: entries }));
+
+    const { code, printed, lines } = await migrated(cwd);
+
+    expect([code, printed, lines]).toEqual([
+      0,
+      "",
+      ['No database to migrate: each is set not to ("migrate": false)'],
+    ]);
+  });
 });
