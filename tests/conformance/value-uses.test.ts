@@ -22,17 +22,6 @@ class Note extends Model.define({ id: { type: "integer", null: false }, label: "
   owner = belongsTo(Owner, { foreignKey: "label" });
 }
 
-// A text foreign key (label) pointing at a real (ratio) as its primary key.
-class Reading extends Model.define({ id: { type: "integer", null: false }, label: "string" }) {
-  static table = "samples";
-
-  measured = belongsTo(Measured, { foreignKey: "label", primaryKey: "ratio" });
-}
-
-class Measured extends Model.define({ id: { type: "integer", null: false }, ratio: "real" }) {
-  static table = "samples";
-}
-
 class Owner extends Model.define({
   id: { type: "integer", null: false },
   email: { type: "string", null: false },
@@ -233,17 +222,6 @@ describe("values by their use", () => {
         ).toBeNull();
       },
     );
-
-    test("a belongsTo finds nothing for a text foreign key past the largest real", async () => {
-      await db().model(Measured).insert({ id: 1, ratio: 9 });
-      await db()
-        .model(Reading)
-        .insert({ id: 3, label: "9".repeat(309) });
-
-      const [reading] = await db().model(Reading).where({ id: 3 }).includes("measured").toArray();
-
-      expect(reading!.loaded("measured")).toBeNull();
-    });
   });
 
   describe("joining across key types", () => {

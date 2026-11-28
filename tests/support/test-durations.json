@@ -309,7 +309,6 @@
   "integration:pg tests/integration/pg/move-to-postgres.test.ts": 34.7,
   "integration:pg tests/integration/pg/site-pages.test.ts": 159.7,
   "integration:pg tests/integration/pg/statics.test.ts": 0.4,
-  "integration:pg tests/integration/pg/unlike-keys.test.ts": 1.4,
   "integration:pg tests/integration/pg/upserts.test.ts": 0.5,
   "integration:pg tests/integration/pg/uuid-links.test.ts": 0.3,
   "integration:pg tests/integration/pg/values.test.ts": 0.6,

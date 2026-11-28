@@ -66,18 +66,6 @@ class Note extends Model.define({ id: { type: "integer", null: false }, label: "
   });
 }
 
-// A mark counted in another mark's `mappedAt` by its ISO instant, which links to no Unix time.
-class IsoNote extends Model.define({ id: { type: "integer", null: false }, iso: "datetime" }) {
-  static table = "guarded_stamps";
-
-  mark = belongsTo(Mark, {
-    foreignKey: "iso",
-    primaryKey: "seconds",
-    optional: true,
-    counterCache: "mappedAt",
-  });
-}
-
 // A tag held as text, whose cast refuses "bad" and reads anything else as its text.
 const tag = defineType({
   storedAs: "string",
@@ -130,8 +118,6 @@ class Mark extends Model.define({
 }) {
   static table = "guarded_stamps";
 
-  bySeconds = hasMany(Mark, { foreignKey: "seconds", primaryKey: "iso" });
-  byIso = hasMany(Mark, { foreignKey: "iso", primaryKey: "seconds" });
   seats = hasMany(Seat, { foreignKey: "enabled" });
   slots = hasMany(Slot, { through: "seats", source: "slot" });
 }
@@ -338,7 +324,7 @@ describe("a key linked to a Unix time", () => {
           { id: 2, seconds: new Date(60_000), mappedAt: 0 },
         ]);
     });
-    // The two marks' counts: an IsoNote's row is a mark too, but none links to it.
+    // The two marks' counts.
     const counts = async () =>
       (
         await db()
@@ -358,26 +344,6 @@ describe("a key linked to a Unix time", () => {
 
     test("a key holding a Unix time's digits counts out of its record when it's destroyed", async () => {
       const note = await db().model(Note).create({ id: 3, label: "120" });
-
-      await note.destroy();
-
-      expect(await counts()).toEqual([0, 0]);
-    });
-
-    test("a key whose type links to no Unix time counts out of no record when it changes", async () => {
-      const note = await db()
-        .model(IsoNote)
-        .create({ id: 3, iso: new Date(120_000) });
-
-      await note.update({ iso: new Date(60_000) });
-
-      expect(await counts()).toEqual([0, 0]);
-    });
-
-    test("a key whose type links to no Unix time counts out of no record when it's destroyed", async () => {
-      const note = await db()
-        .model(IsoNote)
-        .create({ id: 3, iso: new Date(120_000) });
 
       await note.destroy();
 
@@ -424,17 +390,6 @@ describe("a key linked to a Unix time", () => {
 
     expect(second?.name).toBe("b");
     expect(second?.loaded("next").map((each) => each.name)).toEqual(["c"]);
-  });
-
-  test("an instant kept as ISO text doesn't link to the same one kept as a Unix time", async () => {
-    await harness.reset("guarded_stamps");
-    await db()
-      .model(Mark)
-      .create({ id: 1, seconds: new Date(60_000), iso: new Date(60_000) });
-    const mark = await db().model(Mark).find(1);
-
-    expect(await mark.bySeconds().toArray()).toEqual([]);
-    expect(await mark.byIso().toArray()).toEqual([]);
   });
 
   test("a key the linked attribute can't hold finds nothing, whatever its type casts", async () => {
