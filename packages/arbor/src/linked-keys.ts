@@ -79,3 +79,11 @@ export function isMixedType(key: Attribute, linked: Attribute): boolean {
   const [text, other] = key.storedType === "string" ? [key, linked] : [linked, key];
   return text.storedType === "string" && isMixable(other);
 }
+
+/**
+ * Whether a link may join these two keys (#596): of one kind, or a mixed-type link. Any other
+ * pair can't be compared alike on every database.
+ */
+export function isLinkable(key: Attribute, linked: Attribute): boolean {
+  return linkKindOf(key) === linkKindOf(linked) || isMixedType(key, linked);
+}

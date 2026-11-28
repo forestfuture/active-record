@@ -22,7 +22,6 @@ class Device extends Model.define({
   static table = "devices";
 
   readings = hasMany(Reading);
-  gauges = hasMany(Gauge, { foreignKey: "level" });
   notes = hasMany(Note, { as: "subject" });
 }
 
@@ -71,13 +70,6 @@ class Call extends Model.define({ id: { type: "integer", null: false }, phoneId:
   static table = "calls";
 
   phone = belongsTo(Phone, { counterCache: true, optional: true });
-}
-
-// An integer foreign key (level) pointing at a UUID key, which no integer is.
-class Gauge extends Model.define({ id: { type: "integer", null: false }, level: "integer" }) {
-  static table = "readings";
-
-  device = belongsTo(Device, { foreignKey: "level" });
 }
 
 // A polymorphic text id (subject_id) pointing at a UUID key.
@@ -491,32 +483,6 @@ describe("uuid links", () => {
         preloaded!.loaded("calls").map(({ id }) => id),
         preloaded!.callsCount,
       ]).toEqual([[1], [1], 1]);
-    });
-  });
-
-  describe("to an integer key", () => {
-    beforeEach(async () => {
-      await db().model(Gauge).insert({ id: 1, level: 7 });
-    });
-
-    test("a hasMany preload from the uuid key finds nothing, without an error", async () => {
-      const [device] = await db().model(Device).includes("gauges").toArray();
-
-      expect(device!.loaded("gauges")).toEqual([]);
-    });
-
-    test("a belongsTo preload from the integer key finds nothing, without an error", async () => {
-      const [gauge] = await db().model(Gauge).includes("device").toArray();
-
-      expect(gauge!.loaded("device")).toBeNull();
-    });
-
-    test("a join from the uuid key finds nothing, without an error", async () => {
-      expect(await db().model(Device).joins("gauges").count()).toBe(0);
-    });
-
-    test("a join from the integer key finds nothing, without an error", async () => {
-      expect(await db().model(Gauge).joins("device").count()).toBe(0);
     });
   });
 });

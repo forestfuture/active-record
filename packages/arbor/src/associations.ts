@@ -1,5 +1,7 @@
 // Association types and options, and readying a Model: its associations checked and installed.
 import { InvalidModel } from "./errors.ts";
+import { attributeFor } from "./attribute.ts";
+import { isLinkable } from "./linked-keys.ts";
 import { associationsOf } from "./association-fields.ts";
 import {
   belongsToAccessor,
@@ -326,7 +328,33 @@ function checkKeys(
       : ["check primaryKey", keyHint(definition)];
   requireAttribute(label, model, ownerAttribute, ownerHint);
   requireAttribute(label, target, targetAttribute, targetHint);
+  const foreignKey = definition.kind === "belongsTo" ? ownerAttribute : targetAttribute;
+  refuseUnlinkable(label, [model, ownerAttribute], [target, targetAttribute], foreignKey);
 }
+
+/**
+ * Its keys must be of one kind, or text and an integer or a uuid (#596): any other pair can't be
+ * compared alike on every database, so its foreign key must take its key's type.
+ */
+function refuseUnlinkable(
+  label: string,
+  [owner, ownerAttribute]: [ModelClass, string],
+  [target, targetAttribute]: [ModelClass, string],
+  foreignKey: string,
+): void {
+  const ownerKey = attributeFor(owner, ownerAttribute);
+  const targetKey = attributeFor(target, targetAttribute);
+  if (isLinkable(ownerKey, targetKey)) return;
+  const [keyModel, keyAttribute] =
+    foreignKey === ownerAttribute ? [target, targetAttribute] : [owner, ownerAttribute];
+  const stored = (attribute: typeof ownerKey) => `stored as ${withArticle(attribute.storedType)}`;
+  throw new InvalidModel(
+    `${label} links ${owner.name}.${ownerAttribute}, ${stored(ownerKey)}, to ${target.name}.${targetAttribute}, ${stored(targetKey)}, which can't be compared; declare ${foreignKey} as ${keyModel.name}.${keyAttribute} is declared`,
+  );
+}
+
+/** A type's name with its article: an integer, a uuid. */
+const withArticle = (type: string) => `${/^[aeio]/.test(type) ? "an" : "a"} ${type}`;
 
 /** Its `dependent:` strategy must be one its kind has. */
 function checkDependent(label: string, { dependent, kind }: AssociationDefinition): void {
