@@ -16,7 +16,7 @@ import {
   writeValue,
 } from "./conversion.ts";
 import { listedNames } from "./enum-values.ts";
-import { castLinked } from "./linked-keys.ts";
+import { castLinked, storedTypeOf } from "./linked-keys.ts";
 import type { OwnersLink } from "./owned-collection.ts";
 import { FILTERED, Filtered, isFiltered } from "./filtering.ts";
 import {
@@ -69,7 +69,7 @@ export class Attribute {
    * datetime with `storage`, which is held as a Unix time.
    */
   get storedType(): AttributeType {
-    return this.#definition.storage === undefined ? this.#definition.type : "integer";
+    return storedTypeOf(this.#definition);
   }
 
   /** Whether it's a `binary` attribute, whose cells are bytes, which JSON can't hold (#20). */

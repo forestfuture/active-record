@@ -328,8 +328,8 @@ function checkKeys(
       : ["check primaryKey", keyHint(definition)];
   requireAttribute(label, model, ownerAttribute, ownerHint);
   requireAttribute(label, target, targetAttribute, targetHint);
-  const foreignKey = definition.kind === "belongsTo" ? ownerAttribute : targetAttribute;
-  refuseUnlinkable(label, [model, ownerAttribute], [target, targetAttribute], foreignKey);
+  const isOwnersForeignKey = definition.kind === "belongsTo";
+  refuseUnlinkable(label, [model, ownerAttribute], [target, targetAttribute], isOwnersForeignKey);
 }
 
 /**
@@ -340,13 +340,14 @@ function refuseUnlinkable(
   label: string,
   [owner, ownerAttribute]: [ModelClass, string],
   [target, targetAttribute]: [ModelClass, string],
-  foreignKey: string,
+  isOwnersForeignKey: boolean,
 ): void {
   const ownerKey = attributeFor(owner, ownerAttribute);
   const targetKey = attributeFor(target, targetAttribute);
   if (isLinkable(ownerKey, targetKey)) return;
-  const [keyModel, keyAttribute] =
-    foreignKey === ownerAttribute ? [target, targetAttribute] : [owner, ownerAttribute];
+  const [foreignKey, keyModel, keyAttribute] = isOwnersForeignKey
+    ? [ownerAttribute, target, targetAttribute]
+    : [targetAttribute, owner, ownerAttribute];
   const stored = (attribute: typeof ownerKey) => `stored as ${withArticle(attribute.storedType)}`;
   throw new InvalidModel(
     `${label} links ${owner.name}.${ownerAttribute}, ${stored(ownerKey)}, to ${target.name}.${targetAttribute}, ${stored(targetKey)}, which can't be compared; declare ${foreignKey} as ${keyModel.name}.${keyAttribute} is declared`,
