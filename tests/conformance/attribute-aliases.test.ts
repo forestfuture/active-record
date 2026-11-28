@@ -273,7 +273,7 @@ describe("an attribute alias", () => {
       expect(byAttribute.rows).toEqual([]);
     });
 
-    test("doesn't return a clashing row when uniqueBy names it on a Model with timestamps", async () => {
+    test("doesn't return a clashing row when uniqueBy names it, nothing else is given, and the Model has timestamps", async () => {
       const users = db().model(User);
       await users.create({ login: "jane@example.com" });
 
@@ -285,7 +285,7 @@ describe("an attribute alias", () => {
       expect(rows).toEqual([]);
     });
 
-    test("is an attribute uniqueBy matches on, which updateOnly can't name", async () => {
+    test("in uniqueBy, refuses updateOnly naming its attribute", async () => {
       const upsert = db()
         .model(User)
         .upsert(
