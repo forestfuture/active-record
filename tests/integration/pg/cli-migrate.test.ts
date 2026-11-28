@@ -289,6 +289,9 @@ describe("migrate, on Postgres", pgliteTimeout, () => {
         logs = await openPgSchema([]);
       });
       afterAll(() => logs.dispose());
+      afterEach(async () => {
+        await logs.pool.query({ text: "DROP TABLE IF EXISTS entries, schema_migrations" });
+      });
 
       /** DB, this schema, then LOGS, another, each a real database named by a variable. */
       function twoRemotes(): string {
@@ -332,7 +335,6 @@ describe("migrate, on Postgres", pgliteTimeout, () => {
         expect(code).toBe(0);
         expect(printed).toContain("Applied 1_create_entries.sql\n");
         expect([await has(schema, "users"), await has(logs, "entries")]).toEqual([true, true]);
-        await logs.pool.query({ text: "DROP TABLE entries, schema_migrations" });
       });
     });
 

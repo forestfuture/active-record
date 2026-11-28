@@ -137,12 +137,15 @@ describe("migrate", () => {
 const shopDb = { binding: "DB", database_name: "shop", database_id: "local-shop" };
 const logsDb = { binding: "LOGS", database_name: "logs", database_id: "local-logs" };
 
-/** A project with two D1 databases: DB, reading `migrations/`, then LOGS, reading `logs/`. */
-function twoDatabases(logs: Record<string, unknown> = {}): string {
+/**
+ * A project with two D1 databases: DB, reading `migrations/`, then LOGS, reading `logs/`, with
+ * these settings in LOGS's arbor.jsonc entry.
+ */
+function twoDatabases(logsEntry: Record<string, unknown> = {}): string {
   const cwd = project();
   const databases = [shopDb, { ...logsDb, migrations_dir: "logs" }];
   writeFileSync(join(cwd, "wrangler.jsonc"), JSON.stringify({ d1_databases: databases }));
-  const entries = { DB: { adapter: "d1" }, LOGS: { adapter: "d1", ...logs } };
+  const entries = { DB: { adapter: "d1" }, LOGS: { adapter: "d1", ...logsEntry } };
   writeFileSync(join(cwd, "arbor.jsonc"), JSON.stringify({ databases: entries }));
   mkdirSync(join(cwd, "logs"));
   writeFileSync(

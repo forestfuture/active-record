@@ -310,25 +310,37 @@ describe("arbor g migration", () => {
     });
   });
 
-  test("several databases: the first by default, --database for another, and a migrations_pattern the file wouldn't match is refused", async () => {
-    const two = project({
+  /** A project with two D1 databases: DB, reading `migrations/`, then LOGS, reading `logs/`. */
+  const twoDatabases = () =>
+    project({
       "wrangler.jsonc":
         '{ "d1_databases": [{ "binding": "DB" }, { "binding": "LOGS", "migrations_dir": "logs" }] }',
     });
+
+  test("with several databases, writes for the first unless --database names another", async () => {
+    const cwd = twoDatabases();
+
+    expect((await generate(cwd, ["model", "Product"])).output).toContain(
+      "Wrote migrations/20261108090503_create_products.sql\nWrote src/models/product.ts\nWrote src/db/DB.ts",
+    );
+    expect((await generate(cwd, ["model", "Entry"], { database: "LOGS" })).output).toContain(
+      "Wrote logs/20261108090503_create_entries.sql\nWrote src/models/entry.ts\nWrote src/db/LOGS.ts",
+    );
+  });
+
+  // `migrate` migrates every database, LOGS included (#313).
+  test("with several databases, the next step is plain migrate", async () => {
+    const { output } = await generate(twoDatabases(), ["model", "Entry"], { database: "LOGS" });
+
+    expect(output.split("\n").at(-1)).toBe("Next: npx arbor migrate");
+  });
+
+  test("a migrations_pattern the file wouldn't match is refused", async () => {
     const drizzle = project({
       "wrangler.jsonc":
         '{ "d1_databases": [{ "binding": "DB", "migrations_pattern": "migrations/*/migration.sql" }] }',
     });
 
-    expect((await generate(two, ["model", "Product"])).output).toContain(
-      "Wrote migrations/20261108090503_create_products.sql\nWrote src/models/product.ts\nWrote src/db/DB.ts",
-    );
-    const entries = (await generate(two, ["model", "Entry"], { database: "LOGS" })).output;
-    expect(entries).toContain(
-      "Wrote logs/20261108090503_create_entries.sql\nWrote src/models/entry.ts\nWrote src/db/LOGS.ts",
-    );
-    // `migrate` migrates every database, LOGS included (#313).
-    expect(entries.split("\n").at(-1)).toBe("Next: npx arbor migrate");
     expect(await generate(drizzle, ["model", "Product"])).toEqual({
       code: 1,
       output:
