@@ -168,4 +168,13 @@ describe("a counter cache over a mixed-type link", () => {
 
     expect(await counts()).toEqual([0, 0, 0]);
   });
+
+  test("a reply loaded without its body counts out of its topic when it's destroyed", async () => {
+    await db().model(CountedReply).create({ id: 1, body: "2" });
+    const [reply] = await db().model(CountedReply).select("id").toArray();
+
+    await reply!.destroy();
+
+    expect(await counts()).toEqual([0, 0, 0]);
+  });
 });

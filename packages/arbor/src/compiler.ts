@@ -118,7 +118,7 @@ function compileJoins(context: Context): string {
 }
 
 /** One side of a link: a quoted column, and its attribute. */
-interface LinkSide {
+export interface LinkSide {
   column: string;
   attribute: Attribute;
 }
@@ -142,7 +142,7 @@ function linkSides(
 }
 
 /** A link's side as text: a text attribute's column as it is, any other's cast. */
-const asText = ({ column, attribute }: LinkSide) =>
+export const asText = ({ column, attribute }: LinkSide) =>
   attribute.storedType === "string" ? column : `CAST(${column} AS TEXT)`;
 
 function compileWhere(context: Context, conditions: readonly Condition[]): string {
