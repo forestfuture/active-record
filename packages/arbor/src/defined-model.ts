@@ -58,18 +58,19 @@ export function defineModel<A extends DeclaredAttributes, B extends BaseClass>(
 /**
  * Two stored attributes on one column, refused: the checks that keep a column on a write (the
  * primary key, a read-only attribute) go by attribute, so a second one could write it (#575).
- * An alias gives a column a second name instead.
+ * Columns are compared in lowercase, as SQLite matches them. An alias gives a column a second
+ * name instead.
  */
 function rejectSharedColumns(definitions: ReadonlyMap<string, AttributeDefinition>): void {
   const owners = new Map<string, string>();
   for (const [name, { column, virtual }] of definitions) {
     if (virtual === true) continue;
-    const owner = owners.get(column);
+    const owner = owners.get(column.toLowerCase());
     if (owner !== undefined) {
       throw new InvalidModel(
         `${name}'s column, ${column}, is ${owner}'s too; to give it a second name, declare ${name}: { aliasOf: "${owner}" }`,
       );
     }
-    owners.set(column, name);
+    owners.set(column.toLowerCase(), name);
   }
 }

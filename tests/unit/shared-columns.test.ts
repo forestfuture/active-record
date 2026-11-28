@@ -23,6 +23,17 @@ describe("two attributes on one column", () => {
     );
   });
 
+  test("are refused when their columns differ only in case, which SQLite reads as one", () => {
+    const defining = () =>
+      Model.define({
+        id: { type: "integer", null: false },
+        legacyId: { type: "integer", column: "ID" },
+      });
+    expect(defining).toThrow(
+      `legacyId's column, ID, is id's too; to give it a second name, declare legacyId: { aliasOf: "id" }`,
+    );
+  });
+
   test("are accepted as an attribute and its alias", () => {
     const Post = Model.define({ id: "integer", title: "string", name: { aliasOf: "title" } });
     expect([...Post.attributeDefinitions.keys()]).toEqual(["id", "title"]);
