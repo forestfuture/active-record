@@ -261,6 +261,18 @@ describe("an attribute alias", () => {
       ]);
     });
 
+    test("leaves a clashing row as it is when uniqueBy names it and nothing else is given", async () => {
+      await harness.exec("INSERT INTO users (id, email) VALUES (1, 'jane@example.com')");
+      const visitors = db().model(Visitor);
+      const row = [{ login: "jane@example.com" }];
+
+      const byAlias = await visitors.upsertAll(row, { uniqueBy: ["login"], returning: ["id"] });
+      const byAttribute = await visitors.upsertAll(row, { uniqueBy: ["email"], returning: ["id"] });
+
+      expect(byAlias.rows).toEqual([]);
+      expect(byAttribute.rows).toEqual([]);
+    });
+
     test("fills in what the row doesn't give under either name", async () => {
       const users = db().model(User);
 

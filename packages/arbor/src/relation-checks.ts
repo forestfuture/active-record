@@ -251,7 +251,8 @@ export function returnedNames(
 }
 
 /**
- * An upsert's conflict: update, matching on `uniqueBy` (the primary key by default), a row
+ * An upsert's conflict: update, matching on `uniqueBy` (the primary key by default) by its
+ * attributes' own names, an alias resolved (#532), a row
  * that already has the new row's `ownedBy` values (#451), only `updateOnly`'s attributes when
  * it's given (#36).
  */
@@ -260,8 +261,9 @@ export function updateOn<M>(
   options: UpsertOptions<M>,
   { ownedBy, method }: { ownedBy: readonly string[]; method: UpsertMethod },
 ): Conflict {
-  const uniqueBy = [options.uniqueBy ?? model.primaryKey].flat() as string[];
-  for (const name of uniqueBy) columnOf(model, name);
+  const given = [options.uniqueBy ?? model.primaryKey].flat() as string[];
+  for (const name of given) columnOf(model, name);
+  const uniqueBy = given.map((name) => attributeName(model, name));
   if (options.onDuplicate !== undefined) {
     if (options.updateOnly !== undefined) {
       throw new TypeError(`${method}() takes updateOnly or onDuplicate, not both`);
@@ -270,8 +272,12 @@ export function updateOn<M>(
     return { kind: "update", uniqueBy, ownedBy, set };
   }
   if (options.updateOnly === undefined) return { kind: "update", uniqueBy, ownedBy };
-  const given = [options.updateOnly].flat();
-  const update = updatedNames(model, given, { uniqueBy, method, option: "updateOnly", kept: [] });
+  const update = updatedNames(model, [options.updateOnly].flat(), {
+    uniqueBy,
+    method,
+    option: "updateOnly",
+    kept: [],
+  });
   return { kind: "update", uniqueBy, ownedBy, update };
 }
 
@@ -340,7 +346,7 @@ function updatedNames(
       `${method}() ${option} names no attributes; to leave a clashing row as it is, use ${skip}, { onDuplicate: "skip" })`,
     );
   }
-  const matched = new Set(uniqueBy.map((name) => attributeName(model, name)));
+  const matched = new Set(uniqueBy);
   return given.map((name) => {
     const own = attributeName(model, name);
     const refusal = kept.includes(own)
