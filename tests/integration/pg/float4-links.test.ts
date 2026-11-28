@@ -29,6 +29,7 @@ class Plant extends Model.define({ id: { type: "integer", null: false } }) {
   samplesNarrowToWide = hasMany(Sample, { through: "meters", source: "narrowToWide" });
   samplesExactToNarrow = hasMany(Sample, { through: "meters", source: "exactToNarrow" });
   samplesNarrowToExact = hasMany(Sample, { through: "meters", source: "narrowToExact" });
+  samplesExactToWide = hasMany(Sample, { through: "meters", source: "exactToWide" });
 }
 
 // A meter's ratio, as a 4-byte float4 real, a double precision real and a decimal, and the
@@ -43,6 +44,7 @@ class Meter extends Model.define({
   narrowToWideCount: "integer",
   exactToNarrowCount: "integer",
   narrowToExactCount: "integer",
+  exactToWideCount: "integer",
 }) {
   static table = "meters";
 
@@ -100,6 +102,11 @@ class CountedSample extends Model.define({
     primaryKey: "exact",
     counterCache: "narrowToExactCount",
   });
+  exactToWide = belongsTo(Meter, {
+    foreignKey: "exact",
+    primaryKey: "wide",
+    counterCache: "exactToWideCount",
+  });
 }
 
 // A number linked to a float4 real, or a float4 linked to a number of another width or type, is
@@ -117,7 +124,8 @@ describe("a real linked to a number of another width or type", () => {
           exact NUMERIC, plant_id BIGINT, wide_to_narrow_count BIGINT NOT NULL DEFAULT 0,
           narrow_to_wide_count BIGINT NOT NULL DEFAULT 0,
           exact_to_narrow_count BIGINT NOT NULL DEFAULT 0,
-          narrow_to_exact_count BIGINT NOT NULL DEFAULT 0);
+          narrow_to_exact_count BIGINT NOT NULL DEFAULT 0,
+          exact_to_wide_count BIGINT NOT NULL DEFAULT 0);
         CREATE INDEX meters_narrow ON meters (narrow);
         CREATE INDEX meters_wide ON meters (wide);
         CREATE INDEX meters_exact ON meters (exact);
@@ -134,8 +142,9 @@ describe("a real linked to a number of another width or type", () => {
       text: `TRUNCATE plants, meters, samples;
         INSERT INTO plants (id) VALUES (1);
         INSERT INTO meters (id, narrow, wide, exact, plant_id, wide_to_narrow_count,
-          narrow_to_wide_count, exact_to_narrow_count, narrow_to_exact_count)
-          VALUES (1, 0.1, 0.1, 0.1, 1, 1, 1, 1, 1);
+          narrow_to_wide_count, exact_to_narrow_count, narrow_to_exact_count,
+          exact_to_wide_count)
+          VALUES (1, 0.1, 0.1, 0.1, 1, 1, 1, 1, 1, 1);
         INSERT INTO samples (id, narrow, wide, exact) VALUES (1, 0.1, 0.1, 0.1);`,
     });
   });
@@ -231,6 +240,7 @@ describe("a real linked to a number of another width or type", () => {
     "samplesNarrowToWide",
     "samplesExactToNarrow",
     "samplesNarrowToExact",
+    "samplesExactToWide",
   ] as const)(
     "a through association, %s, finds the sample by its meter's ratio (guard)",
     async (association) => {
@@ -251,7 +261,8 @@ describe("a real linked to a number of another width or type", () => {
       meter.narrowToWideCount,
       meter.exactToNarrowCount,
       meter.narrowToExactCount,
-    ]).toEqual([0, 0, 0, 0]);
+      meter.exactToWideCount,
+    ]).toEqual([0, 0, 0, 0, 0]);
   });
 
   test.each([
@@ -259,6 +270,7 @@ describe("a real linked to a number of another width or type", () => {
     ["narrowToWide", "meters_wide"],
     ["narrowToExact", "meters_exact"],
     ["wideToExact", "meters_exact"],
+    ["exactToWide", "meters_wide"],
   ] as const)("a join through %s searches %s", async (association, index) => {
     const plan = await planOf(schema, db().model(Meter).joins(association).toSql());
 
@@ -274,6 +286,37 @@ describe("a real linked to a number of another width or type", () => {
       expect(await db().model(Meter).joins("exactToWide").pluck("id")).toEqual([]);
     },
   );
+
+  test.each([
+    "1.7976931348623157e308",
+    "-1.7976931348623157e308",
+    "5e-324",
+    "0",
+    "NaN",
+    "Infinity",
+    "-Infinity",
+  ])("a join finds the meter by a decimal %s a double precision holds (guard)", async (exact) => {
+    await schema.pool.query({ text: "UPDATE meters SET wide = $1", values: [exact] });
+    await schema.pool.query({ text: "UPDATE samples SET exact = $1", values: [exact] });
+
+    expect(await db().model(Meter).joins("exactToWide").pluck("id")).toEqual([1]);
+  });
+
+  test("a through association past a decimal a double can't hold links nothing", async () => {
+    await schema.pool.query({ text: "UPDATE samples SET exact = 1e400" });
+    const plant = await db().model(Plant).find(1);
+
+    expect(await plant.samplesExactToWide().pluck("id")).toEqual([]);
+  });
+
+  test("a counter cache counts nothing out by a stored decimal a double can't hold", async () => {
+    const sample = await db().model(CountedSample).find(1);
+    await schema.pool.query({ text: "UPDATE samples SET exact = 1e400" });
+
+    await sample.destroy();
+
+    expect((await db().model(Meter).find(1)).exactToWideCount).toBe(1);
+  });
 
   test.each(["narrowToExact", "wideToExact"] as const)(
     "a join through %s past a decimal a double can't hold links nothing rather than failing",
