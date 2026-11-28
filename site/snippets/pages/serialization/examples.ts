@@ -22,7 +22,8 @@ export async function including() {
   // #region include
   const account = await Account.includes("orders").findByOrThrow({ email: "jane@example.com" });
 
-  const body = JSON.stringify(account.toJSON({ include: "orders" })); // its attributes, and "orders": [...]
+  const body = account.toJSON({ include: "orders" });
+  console.log(body.orders); // [{ id: "…", accountId: "…", reference: "A-1001", … }]
   // #endregion include
   return body;
 }
