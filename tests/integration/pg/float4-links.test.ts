@@ -73,6 +73,17 @@ class Point extends Model.define({ id: { type: "integer", null: false }, ratio: 
   samples = hasMany(Sample, { foreignKey: "wide", primaryKey: "ratio" });
 }
 
+// A sample whose double precision ratio is declared a decimal, linked to its meter's.
+class LooseSample extends Model.define({ id: { type: "integer", null: false }, wide: "decimal" }) {
+  static table = "samples";
+}
+
+class LooseMeter extends Model.define({ id: { type: "integer", null: false }, wide: "real" }) {
+  static table = "meters";
+
+  samples = hasMany(LooseSample, { foreignKey: "wide", primaryKey: "wide" });
+}
+
 // A sample counted on its meter by each link of its ratios to the meter's of another width.
 class CountedSample extends Model.define({
   id: { type: "integer", null: false },
@@ -300,6 +311,10 @@ describe("a real linked to a number of another width or type", () => {
     await schema.pool.query({ text: "UPDATE samples SET exact = $1", values: [exact] });
 
     expect(await db().model(Meter).joins("exactToWide").pluck("id")).toEqual([1]);
+  });
+
+  test("a decimal declared over a double precision column links to a double precision", async () => {
+    expect(await db().model(LooseMeter).joins("samples").pluck("id")).toEqual([1]);
   });
 
   test("a through association past a decimal a double can't hold links nothing", async () => {
