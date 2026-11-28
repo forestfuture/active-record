@@ -80,6 +80,37 @@ class Writer extends Model.define({
   entries = hasMany(Entry, { foreignKey: "userId" });
 }
 
+class Member extends Model.define({
+  id: { type: "integer", null: false },
+  email: "string",
+  login: { aliasOf: "email" },
+  emailConfirmation: { type: "string", virtual: true },
+  passwordDigest: "string",
+  password: { securePassword: { validations: false } },
+  authToken: { type: "string", secureToken: true },
+}) {
+  static table = "members";
+
+  static {
+    this.validates("email", { confirmation: true });
+  }
+}
+
+class Photo extends Model.define({ id: { type: "integer", null: false }, title: "string" }) {
+  static table = "photos";
+}
+
+class Remark extends Model.define({
+  id: { type: "integer", null: false },
+  body: "string",
+  commentableType: "string",
+  commentableId: "integer",
+}) {
+  static table = "remarks";
+
+  commentable = belongsTo([Post, Photo], { optional: true });
+}
+
 // What toJSON's options choose to send: associations it was given, and which attributes (#300).
 describe("toJSON options", () => {
   let harness: Harness;
@@ -90,7 +121,7 @@ describe("toJSON options", () => {
   });
   afterAll(() => harness.dispose());
   beforeEach(async () => {
-    await harness.reset("comments", "posts", "profiles", "users");
+    await harness.reset("comments", "remarks", "photos", "posts", "profiles", "members", "users");
     await harness.exec(
       "INSERT INTO users (id, email, role) VALUES (1, 'jane@example.com', 'admin'), (2, 'sam@example.com', NULL)",
     );
@@ -99,13 +130,20 @@ describe("toJSON options", () => {
     );
     await harness.exec("INSERT INTO comments (id, post_id, body) VALUES (20, 10, 'Nice')");
     await harness.exec("INSERT INTO profiles (id, user_id, bio) VALUES (30, 1, 'Writes')");
+    await harness.exec(
+      "INSERT INTO members (id, email, password_digest, auth_token) VALUES (40, 'kim@example.com', 'digest', 'token')",
+    );
+    await harness.exec("INSERT INTO photos (id, title) VALUES (50, 'Sunset')");
+    await harness.exec(
+      "INSERT INTO remarks (id, body, commentable_type, commentable_id) VALUES (60, 'Lovely', 'Photo', 50)",
+    );
   });
 
   describe("include", () => {
     test("a hasMany is sent as its records, in their loaded order", async () => {
-      const jane = await db().model(User).includes("posts").find(1);
+      const user = await db().model(User).includes("posts").find(1);
 
-      expect(jane.toJSON({ include: "posts" })).toEqual({
+      expect(user.toJSON({ include: "posts" })).toEqual({
         id: 1,
         email: "jane@example.com",
         posts: [
@@ -127,9 +165,9 @@ describe("toJSON options", () => {
     });
 
     test("a hasOne with no record is sent as null", async () => {
-      const sam = await db().model(User).includes("profile").find(2);
+      const user = await db().model(User).includes("profile").find(2);
 
-      expect(sam.toJSON({ include: "profile" })).toEqual({
+      expect(user.toJSON({ include: "profile" })).toEqual({
         id: 2,
         email: "sam@example.com",
         profile: null,
@@ -137,18 +175,18 @@ describe("toJSON options", () => {
     });
 
     test("a list sends each association it names", async () => {
-      const jane = await db().model(User).includes("posts", "profile").find(1);
+      const user = await db().model(User).includes("posts", "profile").find(1);
 
-      expect(jane.toJSON({ include: ["posts", "profile"] })).toMatchObject({
+      expect(user.toJSON({ include: ["posts", "profile"] })).toMatchObject({
         posts: [{ title: "First" }, { title: "Second" }],
         profile: { id: 30, userId: 1, bio: "Writes" },
       });
     });
 
     test("a nested include sends the included records' own associations, without their hidden attributes", async () => {
-      const jane = await db().model(User).includes({ posts: "comments" }).find(1);
+      const user = await db().model(User).includes({ posts: "comments" }).find(1);
 
-      expect(jane.toJSON({ include: { posts: "comments" } })).toEqual({
+      expect(user.toJSON({ include: { posts: "comments" } })).toEqual({
         id: 1,
         email: "jane@example.com",
         posts: [
@@ -165,10 +203,19 @@ describe("toJSON options", () => {
       expect(post.toJSON({ include: "author" })).toMatchObject({ author: { id: 1 } });
     });
 
-    test("an association that wasn't loaded throws AssociationNotLoaded", async () => {
-      const jane = await db().model(User).find(1);
+    test("a polymorphic belongsTo is sent as the record of whichever Model it points at", async () => {
+      const remark = await db().model(Remark).includes("commentable").find(60);
 
-      expect(() => jane.toJSON({ include: "posts" })).toThrow(
+      expect(remark.toJSON({ only: ["body"], include: "commentable" })).toEqual({
+        body: "Lovely",
+        commentable: { id: 50, title: "Sunset" },
+      });
+    });
+
+    test("an association that wasn't loaded throws AssociationNotLoaded", async () => {
+      const user = await db().model(User).find(1);
+
+      expect(() => user.toJSON({ include: "posts" })).toThrow(
         new AssociationNotLoaded(
           'User record hasn\'t loaded "posts"; preload it with includes("posts"), or read it first',
         ),
@@ -176,9 +223,9 @@ describe("toJSON options", () => {
     });
 
     test("JSON.stringify sends the attributes alone, since the key it passes isn't options", async () => {
-      const jane = await db().model(User).includes("posts").find(1);
+      const user = await db().model(User).includes("posts").find(1);
 
-      expect(JSON.parse(JSON.stringify({ user: jane }))).toEqual({
+      expect(JSON.parse(JSON.stringify({ user: user }))).toEqual({
         user: { id: 1, email: "jane@example.com" },
       });
     });
@@ -186,9 +233,9 @@ describe("toJSON options", () => {
 
   describe("only and except", () => {
     test("only sends the attributes it names", async () => {
-      const jane = await db().model(User).find(1);
+      const user = await db().model(User).find(1);
 
-      expect(jane.toJSON({ only: ["email"] })).toEqual({ email: "jane@example.com" });
+      expect(user.toJSON({ only: ["email"] })).toEqual({ email: "jane@example.com" });
     });
 
     test("except sends every attribute but those it names", async () => {
@@ -205,21 +252,51 @@ describe("toJSON options", () => {
     });
 
     test("only never sends a hidden attribute", async () => {
-      const jane = await db().model(User).find(1);
+      const user = await db().model(User).find(1);
 
-      expect(jane.toJSON({ only: ["email", "role"] })).toEqual({ email: "jane@example.com" });
+      expect(user.toJSON({ only: ["email", "role"] })).toEqual({ email: "jane@example.com" });
     });
 
     test("only leaves out an attribute a partial record didn't load", async () => {
-      const [jane] = await db().model(User).select("id").toArray();
+      const [user] = await db().model(User).select("id").toArray();
 
-      expect(jane!.toJSON({ only: ["id", "email"] })).toEqual({ id: 1 });
+      expect(user!.toJSON({ only: ["id", "email"] })).toEqual({ id: 1 });
+    });
+
+    test("only never sends a secret or a confirmation attribute", async () => {
+      const member = await db().model(Member).find(40);
+      member.emailConfirmation = "kim@example.com";
+
+      expect(
+        member.toJSON({ only: ["email", "passwordDigest", "authToken", "emailConfirmation"] }),
+      ).toEqual({ email: "kim@example.com" });
+    });
+
+    test("an alias names the attribute it's an alias of", async () => {
+      const member = await db().model(Member).find(40);
+
+      expect(member.toJSON({ only: ["id", "login"] })).toEqual({
+        id: 40,
+        email: "kim@example.com",
+      });
+      expect(member.toJSON({ except: ["login"] })).toEqual({ id: 40 });
+    });
+
+    test("attributes come first, then methods, then included associations", async () => {
+      const user = await db().model(User).includes("profile").find(1);
+
+      expect(Object.keys(user.toJSON({ include: "profile", methods: ["handle"] }))).toEqual([
+        "id",
+        "email",
+        "handle",
+        "profile",
+      ]);
     });
 
     test("a name the Model has no attribute for throws, so a typo in except can't send it", async () => {
-      const jane = await db().model(User).find(1);
+      const user = await db().model(User).find(1);
 
-      expect(() => jane.toJSON({ except: ["emial" as "email"] })).toThrow(
+      expect(() => user.toJSON({ except: ["emial" as "email"] })).toThrow(
         new TypeError('User has no attribute "emial"; toJSON\'s except names attributes exactly'),
       );
     });
@@ -227,9 +304,9 @@ describe("toJSON options", () => {
 
   describe("methods", () => {
     test("adds each getter's or method's value, a date as an ISO string", async () => {
-      const jane = await db().model(User).find(1);
+      const user = await db().model(User).find(1);
 
-      expect(jane.toJSON({ methods: ["handle", "firstSeen"] })).toEqual({
+      expect(user.toJSON({ methods: ["handle", "firstSeen"] })).toEqual({
         id: 1,
         email: "jane@example.com",
         handle: "jane",
@@ -238,15 +315,15 @@ describe("toJSON options", () => {
     });
 
     test("adds their values whatever only says", async () => {
-      const jane = await db().model(User).find(1);
+      const user = await db().model(User).find(1);
 
-      expect(jane.toJSON({ only: ["id"], methods: ["handle"] })).toEqual({ id: 1, handle: "jane" });
+      expect(user.toJSON({ only: ["id"], methods: ["handle"] })).toEqual({ id: 1, handle: "jane" });
     });
 
     test("a name the record has no member for throws", async () => {
-      const jane = await db().model(User).find(1);
+      const user = await db().model(User).find(1);
 
-      expect(() => jane.toJSON({ methods: ["handel" as "handle"] })).toThrow(
+      expect(() => user.toJSON({ methods: ["handel" as "handle"] })).toThrow(
         new TypeError(
           "User has no method or getter \"handel\"; toJSON's methods names the record's own",
         ),
@@ -254,9 +331,9 @@ describe("toJSON options", () => {
     });
 
     test("a method that returns a promise throws, since toJSON can't wait for it", async () => {
-      const jane = await db().model(User).find(1);
+      const user = await db().model(User).find(1);
 
-      expect(() => jane.toJSON({ methods: ["rank" as "handle"] })).toThrow(
+      expect(() => user.toJSON({ methods: ["rank" as "handle"] })).toThrow(
         new TypeError("User's \"rank\" returned a promise; toJSON's methods can't wait for one"),
       );
     });
@@ -264,10 +341,10 @@ describe("toJSON options", () => {
 
   describe("an included association's own options", () => {
     test("choose its records' attributes and associations", async () => {
-      const jane = await db().model(User).includes({ posts: "comments" }).find(1);
+      const user = await db().model(User).includes({ posts: "comments" }).find(1);
 
       expect(
-        jane.toJSON({ only: ["id"], include: { posts: { only: ["title"], include: "comments" } } }),
+        user.toJSON({ only: ["id"], include: { posts: { only: ["title"], include: "comments" } } }),
       ).toEqual({
         id: 1,
         posts: [
@@ -278,9 +355,9 @@ describe("toJSON options", () => {
     });
 
     test("an option named as one of the records' associations throws, as it could mean either", async () => {
-      const jane = await db().model(Writer).includes("entries").find(1);
+      const user = await db().model(Writer).includes("entries").find(1);
 
-      expect(() => jane.toJSON({ include: { entries: { include: "include" } } })).toThrow(
+      expect(() => user.toJSON({ include: { entries: { include: "include" } } })).toThrow(
         new TypeError(
           'Entry has an association named "include", so toJSON can\'t tell whether { include } under "entries" names it or is an option',
         ),
