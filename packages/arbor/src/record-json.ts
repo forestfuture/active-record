@@ -141,8 +141,8 @@ function neverSent(model: ModelClass): string[] {
 }
 
 /**
- * What `methods` adds for `name`: a getter's value, or what a method returns. A name the record
- * has no member for, and a promise, are `TypeError`s.
+ * What `methods` adds for `name`: a getter's value, or what a method returns. A name
+ * `checkMethodName` refuses, and a promise, are `TypeError`s.
  */
 function methodValue(record: Model, name: string): unknown {
   const model = record.constructor as ModelClass;

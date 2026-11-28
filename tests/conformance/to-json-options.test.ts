@@ -88,6 +88,7 @@ class Member extends Model.define({
   id: { type: "integer", null: false },
   email: "string",
   login: { aliasOf: "email" },
+  digest: { aliasOf: "passwordDigest" },
   emailConfirmation: { type: "string", virtual: true },
   passwordDigest: "string",
   password: { securePassword: { validations: false } },
@@ -358,6 +359,30 @@ describe("toJSON options", () => {
       );
     });
 
+    test("a hidden attribute named in methods throws", async () => {
+      const user = await db().model(User).find(1);
+
+      expect(() => user.toJSON({ methods: ["role"] })).toThrow(
+        new TypeError("toJSON never sends User's \"role\", so methods can't add it"),
+      );
+    });
+
+    test("a confirmation attribute named in methods throws", async () => {
+      const member = await db().model(Member).find(40);
+
+      expect(() => member.toJSON({ methods: ["emailConfirmation"] })).toThrow(
+        new TypeError("toJSON never sends Member's \"emailConfirmation\", so methods can't add it"),
+      );
+    });
+
+    test("an alias of an attribute toJSON never sends throws", async () => {
+      const member = await db().model(Member).find(40);
+
+      expect(() => member.toJSON({ methods: ["digest" as never] })).toThrow(
+        new TypeError("toJSON never sends Member's \"digest\", so methods can't add it"),
+      );
+    });
+
     test("an association throws, pointing to include", async () => {
       const user = await db().model(User).includes("posts").find(1);
 
@@ -403,9 +428,9 @@ describe("toJSON options", () => {
     });
 
     test("an option named as one of the records' associations throws, as it could mean either", async () => {
-      const user = await db().model(Writer).includes("entries").find(1);
+      const writer = await db().model(Writer).includes("entries").find(1);
 
-      expect(() => user.toJSON({ include: { entries: { include: "include" } } })).toThrow(
+      expect(() => writer.toJSON({ include: { entries: { include: "include" } } })).toThrow(
         new TypeError(
           'Entry has an association named "include", so toJSON can\'t tell whether { include } under "entries" names it or is an option',
         ),
