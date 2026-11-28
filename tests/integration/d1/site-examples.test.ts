@@ -126,17 +126,15 @@ describe("Getting started", () => {
   test("GET lists active users, newest first, each with their posts", async () => {
     await request("POST", { email: "sam@example.com" });
 
-    const users = (await (await request("GET")).json()) as { email: string }[];
+    const users = (await (await request("GET")).json()) as {
+      email: string;
+      posts: { title: string }[];
+    }[];
 
-    expect(users.map((user) => user.email)).toEqual(["sam@example.com", "jane@example.com"]);
-    // Associations aren't part of toJSON(), so the posts were preloaded but not serialized.
-    const db = connect(binding);
-    const [author] = await db
-      .model(User)
-      .where({ email: "sam@example.com" })
-      .includes("posts")
-      .toArray();
-    expect(author!.loaded("posts").map((post) => post.title)).toEqual(["Hello, world"]);
+    expect(users.map(({ email, posts }) => [email, posts.map((post) => post.title)])).toEqual([
+      ["sam@example.com", ["Hello, world"]],
+      ["jane@example.com", ["Hello, world"]],
+    ]);
   });
 
   test("a batch publishes the drafts and destroys a user with their posts, atomically", async () => {

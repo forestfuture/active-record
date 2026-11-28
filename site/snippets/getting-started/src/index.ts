@@ -9,7 +9,7 @@ export default {
         .order({ createdAt: "desc" })
         .limit(20)
         .toArray();
-      return Response.json(users);
+      return Response.json(users.map((user) => user.toJSON({ include: "posts" })));
     }
 
     // POST: sign up a user with a first post, saved together.
