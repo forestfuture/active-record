@@ -391,6 +391,17 @@ describe("toJSON options", () => {
       });
     });
 
+    test("a key that isn't an option throws, rather than being dropped", async () => {
+      const user = await db().model(User).includes({ posts: "comments" }).find(1);
+      const options = { include: { posts: { only: ["title"], comments: "body" } } } as never;
+
+      expect(() => user.toJSON(options)).toThrow(
+        new TypeError(
+          'toJSON\'s options under "posts" have "comments", which isn\'t an option; give include, only, except, or methods',
+        ),
+      );
+    });
+
     test("an option named as one of the records' associations throws, as it could mean either", async () => {
       const user = await db().model(Writer).includes("entries").find(1);
 
