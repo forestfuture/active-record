@@ -284,9 +284,8 @@ class User extends ApplicationRecord.define({
   A stored cell is read only in that one form: any other, such as a D1 `TEXT` key in capitals, fails when it's read (#159), since its record's writes find their row by the key held and D1 compares text exactly.
   Postgres always returns that form.
   Its property type is `string`; it's stored in a `TEXT` column on D1 and a `UUID` column on Postgres, takes `generateId`, links to a `string` key as text does on D1, and compares and orders as text, which agrees with Postgres's order of `uuid`s.
-  A key copied from a record links to a `uuid` only in its one form (#588), on both databases: a belongsTo's read (a polymorphic one's too), its preload, its touch, its counter cache and "must exist", and a through association's read across it, find no record by a `string` foreign key holding the UUID in another form, or text that isn't one, as a join finds none (and a hasMany or hasOne from a `string` key, read, preloaded, counted by `resetCounters` or followed by `dependent`, finds no `uuid` foreign key by a key in another form, while a record built through it still takes the key in its one form), while a condition an app writes (`find`, `findBy`, `where`) still takes every form.
-  (Postgres) Postgres compares no `uuid` with `text` or a number, so a preload, a join or a through association selects the key it links cast to the linked attribute's type, and the linked column keeps its index (#563): a uuid selected for a `string` is its text, in its one form, and text selected for a `uuid` is the UUID it holds only in that form, so text links to a uuid as it does on D1, which compares text exactly; text in another form (capitals, braces, no hyphens) or that isn't a UUID, and any number, matches nothing.
-  A `boolean`, `date`, `time`, `datetime` (one without `storage`), `json` or `binary` key links to no key of another type there in a preload, a join or a through association (#586, see `includes`).
+  A key copied from a record links to a `uuid` only in its one form (#588), on both databases: a belongsTo's read (a polymorphic one's too), its preload, its touch, its counter cache and "must exist", and a through association's read across it, find no record by a `string` foreign key holding the UUID in another form, or text that isn't one, as a join finds none (and a hasMany or hasOne from a `string` key, read, preloaded, counted by `resetCounters` or followed by `dependent`, finds no `uuid` foreign key by a key in another form, and a record built through it from a key in another form throws `TypeError`), while a condition an app writes (`find`, `findBy`, `where`) still takes every form.
+  A `uuid` linked to a `string` key is a mixed-type link (#596, see Associations), compared as text on both databases; one linked to an `integer` is an `InvalidModel`.
   A `string` attribute declared over a `UUID` column can't be linked to a `uuid` one: declare a `UUID` column as a `uuid`, as the generated schema does.
   An enum, a secure token or a secure password on it is a compile error and an `InvalidModel` (#564).
 - **Custom types (#20, ADR-0022).**
@@ -310,7 +309,7 @@ class User extends ApplicationRecord.define({
   Conditions compare the stored integer, so under `unixSeconds` a `Date` with milliseconds compares to the second.
   A key linked to one through an association is the integer it stores, as a join compares the two columns (#592): a preload, a lazy read, a touch and a counter cache find the record whose Unix time an `integer` key (or text holding its digits) is, and building, creating, pushing or pointing a record through the association writes the integer.
   A through association that reaches one removes its join records by that integer.
-  Linked to a `datetime` stored another way, it compares what each stores: seconds link to milliseconds by equal integers, and ISO text links to none, though it may hold the same instant.
+  Linked to a `datetime` stored another way, it compares what each stores: seconds link to milliseconds by equal integers, and one kept as text can't be linked to it (`InvalidModel`, #596).
   A condition still refuses a number, so `where({ beginsAt: 60 })` matches nothing.
   A `Date` interpolated into an `sql` fragment has no attribute, so it's written as ISO text and won't compare with the integer; use `column(attribute).value(date)` there, which writes it as the attribute stores it (#142).
   (D1) A column holding both `T…Z` text and SQLite's space form (Prisma's engine writes and its `CURRENT_TIMESTAMP` default) reads both as UTC but compares as text, so `order` and range conditions can misplace values within a day; the guide shows a migration that rewrites every date text form to Arbor's with `strftime` (leaving NULLs and anything it can't read), and a fragment that compares through `strftime` for a column another tool still writes (the comparison can't use the column's index) (#143).
@@ -401,7 +400,8 @@ class User extends ApplicationRecord.define({
   Those values, and a key copied from another record (a `hasMany` or `hasOne` build, an association's `insert`, `upsert` or `insertAll`, `belongsTo` `set()`, or the key autosave fills in once D1 generates it), are cast as a condition's value is, not as an assigned one (#94): `where({ label: 7 }).build()` has `label: "7"`, and an integer key written into a text foreign key becomes its digits.
   One that still can't be cast throws `TypeError`, naming the association it came through (`Counted: "abc" isn't an integer for "quantity", the key of code`).
   Every value the compiler writes is cast as it's bound, so no write depends on a caller casting first.
-  Preloading (`includes`) matches each record's key to its targets the same way, so an integer key finds a text foreign key's digits.
+  Text copied into an integer or uuid key, or linked to one, is taken only in that key's own text form (#596, see Associations): `"09"` throws rather than becoming 9.
+  Preloading (`includes`) matches each record's key to its targets the same way, so an integer key finds a text foreign key's digits, and text finds no integer key it doesn't spell exactly.
 - `record.assign(attrs)` assigns several attributes without saving.
   `update(attrs)` is `assign` then `save`.
   An unknown key throws `UnknownAttribute` and an `undefined` value throws `TypeError` (use `null` to store NULL), in `build`, `create`, `assign`, `update`, and when setting a property (`user.email = undefined`).
@@ -962,6 +962,14 @@ class Post extends Model.define({ id: "integer", userId: "integer" }) {
   It defaults to the target's primary key for `belongsTo`, and the owner's for `hasMany`/`hasOne`.
   Keys aren't type-checked.
   They're checked when the Model is first used, as are an association named like an attribute or a record method/property, and a target that isn't a Model: all `InvalidModel`.
+- **Key types (#596).**
+  A link's two keys are of one kind (text, a number of any type or width, a uuid, or another type alike, by the type each is stored as), or a **mixed-type link**: text and an `integer` (a `datetime` kept as a Unix time included) or a `uuid`, either way, ordinary or polymorphic.
+  Any other pair is an `InvalidModel` when the Model is first used, naming both attributes, the types they're stored as, and the attribute to declare the foreign key like: text and a `real`, `decimal`, `date`, `time`, `datetime`, `boolean`, `json` or `binary`, an `integer` and a `uuid`, or a `datetime` kept as text and one kept as a Unix time (Rails accepts them; on Postgres their joins then fail).
+  A mixed-type link compares its keys as text everywhere, so text links to an integer or a uuid only in that key's own text form (an integer's digits, with no leading zero or space; a UUID lowercase with hyphens): `"09"` and `" 9"` link to no 9.
+  - A join or a through association's subquery casts the integer or uuid side to text, on both databases, so that side's index isn't searched (Rails' join fails on Postgres).
+  - A preload of a level over one selects by its owners' loaded keys (one bound value), cast as the link compares them, after its owners are loaded: on D1 one more round trip, with the levels under it (see `includes`).
+  - A lazy read, records attached by a preload, and a key copied through the association take text only in that form: copying text in another form into an integer or uuid key throws `TypeError`, as any key that can't be cast does (Rails' lazy read casts `"09"` to 9, while its preload compares the keys' text).
+  - A counter cache over one counts by the key its record last saved (see Counter caches).
 - `await post.author()` and `await user.profile()` resolve to a record or `null`.
   `user.posts()` returns a lazy Relation of the target, with its scopes and every Relation method.
   All three query through the owner's Database, or for an association to another database, the target's (below).
@@ -1113,27 +1121,15 @@ class Post extends Model.define({ id: "integer", userId: "integer" }) {
   Each subquery runs its owners' query's conditions again, and its order only with a `limit` or `offset`, so a query that scans its table reads it once more for each association below it (D1 bills rows read): index what it filters and sorts by.
   The batch is planned before anything is found, so every association in the tree is sent, even under owners that find nothing; one with a `none()` scope sends nothing, and nor does anything under it.
   With a `limit` or `offset`, a query with `includes` ends its order with the primary key (unless the order has it already), and the subqueries keep its order, limit and offset, so they select the records it loads.
-  A uuid or number key, linked to a text key, is selected as text (`CAST(… AS TEXT)`), so the text column's index is searched.
-  (Postgres) A text key linked to a number key is selected as the number it holds, as a condition casts it, and cast to the key's own type so the key's index is searched (#618): a `bigint` for an integer, a `double precision` for a real and a `numeric` for a decimal.
-  Text linked to a real over a 4-byte `real` (`float4`) column is rounded to a `real` first, as a condition reads its value, so `"0.1"` finds the `float4` it rounds to (#623).
-  Text that holds no such number matches nothing, since Postgres compares no text with a number.
-  For an integer key the text holds digits only.
-  For a real or a decimal key it may also hold a point and an exponent (`"9.0"`, `"1e2"`, `".5"`), as D1 compares them (#617).
-  The number isn't rounded to a decimal's scale, so `"9.504"` finds no `9.50` of a decimal with a scale of 2 in a join, though a lazy read rounds it as a condition does.
-  D1 holds a decimal as a real, so there text with more digits than a real keeps can still match one.
-  Text past the key type's range matches nothing rather than failing the query: more than 308 digits past its leading zeros, more than 255 after its point, an exponent of more than 4 digits, an integer past a `bigint`'s range, or a real past a `double precision`'s (#585) or, over a `float4` column, past a `real`'s (#623).
-  On D1 such text can still match a real.
-  As a condition does, a link reads only ASCII whitespace around the digits, so text with a no-break space around them matches nothing (#590).
+  A level over a mixed-type link (text and an integer or a uuid, #596) is left until its owners are loaded, then selected by their keys (one bound value), cast as the link compares them, so the targets' key keeps its index and no text is parsed in SQL: on D1 that's one more round trip, which the levels under it share, while same-type siblings stay in the first batch.
+  A through association's hops are subqueries of each other, so a mixed-type hop compares as text there, casting its integer or uuid side.
   (Postgres) A real over a `float4` column linked either way to a `double precision` real or a decimal is compared at a `real`'s precision rather than by widening the `float4`, so `0.1` held at either width links (#625).
   A `double precision` or a decimal linked to a `float4` is rounded to a `real`, as a condition reads its value, and matches nothing past a `real`'s range.
   A `float4` linked to a `double precision` is read as its text (`0.1`), the value its record holds.
   A real of either width linked to a decimal is read as its text too, as a `numeric`, so the decimal's index is searched and a decimal past a `double precision`'s range matches nothing rather than failing: a `double precision` `0.3` finds no decimal `0.30000000000000001`.
   An integer on either side is compared as it is, since a `float4` that equals an integer widens to it exactly.
   D1 holds every real at 8 bytes, so it has no such case.
-  A `boolean`, `date`, `time`, `datetime` (one without `storage`: one with it is held as an integer, and links as a number), `json` or `binary` key linked either way to a key of another type matches nothing in a preload, a join or a through association (#586): text holding `"2026-11-25"` and a `date` link in neither direction, nor do an integer and a `boolean`.
-  Postgres compares most of those types with no other type, and would fail the comparison; a `date` and a `datetime`, which it can compare, match nothing too, as on D1, which compares their text.
-  A lazy read (`ticket.event()`) and a preload by loaded keys bind the key cast as a condition's, so they still link as a condition does: `ticket.event()` finds the event on the `date` its text holds, which `includes("event")` doesn't.
-  Records are attached by the key cast as a condition's (#94), so an integer key matches a text key's digits only, and a `datetime` kept as a Unix time links as the integer it stores (#592, see `storage`), and compared as stored, so a `json`, `datetime` or `binary` key, which a record holds as an object, matches the records whose key holds the same value (#591).
+  Records are attached by the key cast as a condition's (#94), so an integer key matches a text key's digits only, text matches an integer key only as its own digits (#596), and a `datetime` kept as a Unix time links as the integer it stores (#592, see `storage`), and compared as stored, so a `json`, `datetime` or `binary` key, which a record holds as an object, matches the records whose key holds the same value (#591).
   (Postgres) A `json` key linked to a `json` key is selected as it is, so the link works only when both columns are `jsonb`, as the generated migrations create, or both `text`, as a condition on a `json` attribute works only in a `jsonb` or `text` column: Postgres has no `=` for a `json` column, nor between `jsonb` and `text`, and fails the query.
   An association scope's own `includes` go in the same batch.
   An association the caller writes out again further down (`includes({ author: { posts: "author" } })`) goes in the batch like any other.
@@ -1269,7 +1265,7 @@ class Post extends Model.define({ id: "integer", userId: "integer" }) {
   - Saving a new record adds one to the target its key names (a `null` key counts nothing); destroying it takes one from the target its row points at, before its DELETE (`UPDATE … WHERE id = (SELECT article_id FROM comments WHERE id = ?)`), so a row already gone counts nothing and a key changed by another request counts out the target it has now (Rails uses the key loaded).
     Changing its key, or a polymorphic belongsTo's type, moves the count: out of the target its row points at before the UPDATE, into the one after.
     The row's key is selected as a join links it to the target's key (#607).
-    So on Postgres a `string` key counts out of the `integer`, Unix-time or `uuid` key whose text it holds, and a key of a type that links to none counts out of nothing.
+    Over a mixed-type link (#596) it counts instead by the key the record last saved (and, moving in, the one it saves), bound as the link compares it, and only while the record's row is there: a row already gone still counts nothing, but a key another request changed counts out the target the record last saved, as Rails does, and text that spells no key counts in and out of nothing.
     Each is `SET n = COALESCE(n, 0) ± …` in the record's own atomic batch, with autosaves and `db.batch` included; a refused write changes no count.
     A record destroyed by its owner's `dependent: "destroy"` doesn't count out that owner, which is deleted with it (Rails' `destroyed_by_association`).
     The target the record has loaded takes the change in memory, with no unsaved change (Rails' `increment!`).

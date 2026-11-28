@@ -13,6 +13,7 @@ seo:
 | preload several                             | `Author.includes("profile", "articles")`                                             |
 | preload nested associations                 | `includes({ articles: "comments" })`, `includes({ articles: ["comments", "tags"] })` |
 | preload a polymorphic association           | `Like.includes("likeable")`                                                          |
+| preload through a text key holding an ID    | `Bookmark.includes("article")`                                                       |
 | read a preloaded association, with no query | `author.loaded("profile")`                                                           |
 | check whether it’s loaded                   | `author.isLoaded("profile")`                                                         |
 
@@ -35,6 +36,8 @@ The examples use these Models, whose attributes come from their tables through t
 <include meta="photo.ts">/_excerpts/pages/preloading/src/models/photo.ts</include>
 
 <include meta="video.ts">/_excerpts/pages/preloading/src/models/video.ts</include>
+
+<include meta="bookmark.ts">/_excerpts/pages/preloading/src/models/bookmark.ts</include>
 
 <include meta="schema.ts">/_excerpts/pages/preloading/src/db/schema.ts</include>
 
@@ -63,6 +66,16 @@ Load an association for every record at once with `includes`, one query per asso
 - Each query runs the likes’ query again to find their keys, even for a Model no like points at. Index what that query filters and sorts by.
 - A nested include can name an association that only some listed Models have: `includes({ likeable: "album" })` loads the photos’ albums and skips the videos.
 
+## Preloading across key types
+
+A text foreign key may hold an integer or UUID key, and `includes` preloads it by the records’ keys once they’re loaded:
+
+<include>/_excerpts/pages/preloading/examples/across-key-types.mdx</include>
+
+- On D1, an association like this takes one more round trip. The associations under it go in that round trip, and the others stay in the first one.
+- Text finds a record only when it spells the key exactly. A UUID must be in lowercase with hyphens, and an integer must be its plain digits, so `09` finds nothing.
+- Give the foreign key its key’s type when you can. A link between text and another type, such as a date, throws `InvalidModel` when the Model is first used.
+
 ## Indexing what preloads read
 
 Index each foreign key, as the migrations index `author_id` and `article_id`:
@@ -73,6 +86,6 @@ Index each foreign key, as the migrations index `author_id` and `article_id`:
 
 <Callout type="info" title="Beyond Rails" icon="/ruby.svg">
 
-Rails sends each association’s preload query on its own, so every association adds a round trip. On D1, the whole tree on one database takes one. Rails preloads a polymorphic association after the likes load, with one query per type it finds. Here every listed Model’s query goes with the likes’ own, in one round trip, at the cost of reading the likes’ query again for each.
+Rails sends each association’s preload query on its own, so every association adds a round trip. On D1, the whole tree on one database takes one. Rails preloads a polymorphic association after the likes load, with one query per type it finds. Here every listed Model’s query goes with the likes’ own, in one round trip, at the cost of reading the likes’ query again for each. A text key holding another type’s ID is preloaded by the loaded keys, as Rails preloads every association.
 
 </Callout>

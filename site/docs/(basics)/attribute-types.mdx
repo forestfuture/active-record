@@ -94,6 +94,7 @@ Looking a record up by an id that isn’t a UUID finds nothing, so a mistyped or
 
 - A UUID is held lowercase with hyphens, whichever form it’s given in, so `"{0B6F8A1E-3C2D-4E5F-9A7B-1C2D3E4F5A6B}"` is held as `"0b6f8a1e-3c2d-4e5f-9a7b-1c2d3e4f5a6b"`.
 - A text foreign key reaches a UUID only when it holds it lowercase with hyphens, as the UUID is held. In another form, its record isn’t found, whether it’s read, preloaded, or joined. `find`, `findBy`, and `where` still take a UUID in any form.
+- A foreign key links only to a key of its own kind, or to text. Text may link to an integer or a UUID, and any other pair throws `InvalidModel` when the Model is first used. A `uuid` foreign key can’t point at an integer key, for one.
 - `arbor schema` gives a Postgres `UUID` column a `uuid` attribute. A `UUID` key gets its value from `generateId`, which makes UUIDs.
 
 :::note
@@ -170,7 +171,7 @@ See [Fixing cells of the wrong type](./adopt-a-database#fixing-cells-of-the-wron
 Conditions are cast the same way, so `where({ stock: "42" })` finds 42. A condition value that can’t be cast matches nothing, so `find("abc")` on an integer or `uuid` key throws `RecordNotFound`.
 
 - A condition reads a number as its digits for a `string` attribute, and a record built from that Relation starts with what it matched: `where({ name: 7 }).build()` has the name `"7"`.
-- A key copied from another record through an association is cast too, so an integer key written into a text foreign key becomes its digits.
+- A key copied from another record through an association is cast too, so an integer key written into a text foreign key becomes its digits. Text copied into an integer or UUID key must spell it exactly: `"9"` becomes 9, and `"09"` throws `TypeError`.
 - A key linked to a `datetime` kept as a Unix time is the integer it stores. An integer foreign key finds the record whose Unix time it holds, in a join, a preload, or a lazy read. A record built through the association gets that integer.
 - A `json` value JSON can’t write matches nothing, never the rows whose cell is `NULL`. In a list, it’s left out and the rest still match.
 

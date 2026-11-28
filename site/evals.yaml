@@ -94,6 +94,13 @@ questions:
     expected:
       - 'Article.joins("author").merge(Author.where({ name: "Jane" }))'
     routes: /joins
+  - id: join-text-key
+    question: "My bookmarks table keeps each article's UUID in a TEXT column. Can I join it to articles, and what does it cost?"
+    expected:
+      - "yes: the join compares the two keys as text"
+      - "the UUID key is cast to text, so its index isn't searched"
+      - "the text must spell the UUID exactly, lowercase with hyphens"
+    routes: /joins
   - id: raw-bind-date
     question: "I send my own SQL to D1. How do I bind a Date for a column that stores Unix seconds?"
     expected:
@@ -176,6 +183,13 @@ questions:
     expected:
       - 'Author.includes("articles") preloads them, with one query per association'
       - "on D1 the whole tree goes in one round trip"
+    routes: /preloading
+  - id: preload-text-key
+    question: "A TEXT column holds an integer id of another table. Can I preload that association, and does it change the round trips?"
+    expected:
+      - "yes: includes preloads it by the loaded records' keys"
+      - "on D1 it takes one more round trip, which the associations under it share"
+      - "text such as 09 finds no record; it must be the plain digits"
     routes: /preloading
   - id: save-graph-atomically
     question: "How do I save a new author with two new articles and a profile all at once?"

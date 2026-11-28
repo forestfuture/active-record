@@ -59,6 +59,7 @@ Creating a comment adds one to its article’s count, and destroying it takes on
 - Changing a comment’s `articleId` moves the count to the other article. An article you’ve loaded takes the new count too, without a save.
 - Removing comments through the article’s association counts them out: `delete`, `clear`, and `deleteAll()` on `article.comments()`. Removing records through an association through another counts out its join records the same way.
 - Bulk writes leave the count alone: `insert`, `insertAll`, `upsert`, `updateAll`, and `deleteAll()` on any other Relation.
+- A text foreign key that holds an integer or UUID key counts by the key the comment last saved. Text that doesn’t spell a key exactly, such as `09`, counts nowhere.
 
 :::tip
 Each change is written in the same atomic batch as the comment, so the count can’t drift from the rows.

@@ -14,6 +14,7 @@ seo:
 | get each record once                   | `.distinct()`                                        |
 | keep records with no linked record     | `Author.leftJoins("profile")`                        |
 | filter or sort by the joined Model     | `Article.joins("author").merge(Author.where({ … }))` |
+| join through a text key holding an ID  | `Bookmark.joins("article")`                          |
 
 ## The Models
 
@@ -28,6 +29,8 @@ The examples use these Models, whose attributes come from their tables through t
 <include meta="article.ts">/_excerpts/pages/joins/src/models/article.ts</include>
 
 <include meta="comment.ts">/_excerpts/pages/joins/src/models/comment.ts</include>
+
+<include meta="bookmark.ts">/_excerpts/pages/joins/src/models/bookmark.ts</include>
 
 <include meta="schema.ts">/_excerpts/pages/joins/src/db/schema.ts</include>
 
@@ -65,6 +68,15 @@ Its conditions, its scopes, and its order apply to the joined table. As with any
 The merged Relation can only add conditions and an order. A `limit`, `offset`, `select`, `distinct()`, `includes`, or `joins` of its own throws `IncompatibleRelation`. Merging a Model the query doesn’t join, or joins more than once, throws it too. So does `distinct()` on a query ordered by a joined Model.
 :::
 
+## Joining across key types
+
+A text foreign key may hold an integer or UUID key, and a join compares the two keys as text:
+
+<include>/_excerpts/pages/joins/examples/across-key-types.mdx</include>
+
+- The join casts the integer or UUID key to text, so the database can’t search that key’s index. Give the foreign key its key’s type when the table is large.
+- Text finds a record only when it spells the key exactly. A UUID must be in lowercase with hyphens, and an integer must be its plain digits.
+
 ## Joining what can’t be joined
 
 Some associations can’t be joined, and joining one throws `IncompatibleRelation` when you write the query:
@@ -80,6 +92,7 @@ Some associations can’t be joined, and joining one throws `IncompatibleRelatio
 - Rails leaves `distinct` with an order on a joined table to the database, which Postgres refuses and SQLite runs. Arbor throws `IncompatibleRelation` on both.
 - With a `hasMany` join, Rails’ `find(1, 2)` counts the duplicate rows and raises `RecordNotFound`. Arbor returns each record once.
 - With a `hasMany` join, Rails’ `destroy_all` destroys a record once for each of its rows, running its callbacks each time. Arbor destroys each record once.
+- Rails joins a text key to an integer or UUID key with no cast, which Postgres refuses when the query runs. Arbor compares them as text on both databases.
 - Rails’ `where(author: { name: "Jane" })`, `where.missing`, `eager_load`, and joins through another association aren’t here yet.
 
 </Callout>
