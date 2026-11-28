@@ -524,8 +524,8 @@ export class Relation<M extends Model, S = {}> extends CountQuestions<M> {
    * Creates a record with these attributes (handing it to `init` first), as `create` does, or,
    * when a unique index refuses it (`RecordNotUnique`), finds the record with these attributes:
    * safe where two requests create at once, as `findOrCreateBy` isn't. Throws `RecordNotFound`
-   * if the index refused a value the attributes don't name. A record `init` gave others to save
-   * with it throws its `RecordNotUnique`, which may be theirs.
+   * if none has them, as when the index refused a value they don't name. A record `init` gave
+   * others to save with it throws its `RecordNotUnique`, which may be theirs.
    */
   async createOrFindBy(attributes: Partial<AttributesOf<M>>, init?: Init<M>): Promise<M> {
     return createOrFind(this.#call("createOrFindBy"), attributes, { init, orThrow: false });

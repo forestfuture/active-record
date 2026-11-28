@@ -703,6 +703,21 @@ describe("making records", () => {
       expect(statementKinds(events)).toEqual(["SELECT"]);
     });
 
+    test.each(["createOrFindBy", "createOrFindByOrThrow"] as const)(
+      "%s, when a unique index refuses the record, finds a record the Relation matches",
+      async (method) => {
+        const user = await db()
+          .model(User)
+          .where({ role: "member" })
+          [method]({}, (record) => {
+            record.email = "taken@example.com";
+          });
+
+        expect(user.id).toBe(2);
+        expect(statementKinds(events)).toEqual(["INSERT", "SELECT"]);
+      },
+    );
+
     test("through a hasMany, findOrCreateBy finds the owner's record, not another owner's", async () => {
       await harness.exec(
         "INSERT INTO posts (id, user_id, title) VALUES (1, 2, 'Theirs'), (2, 1, 'Mine'), (3, 2, 'Theirs too')",
