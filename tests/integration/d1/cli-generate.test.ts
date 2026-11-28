@@ -323,9 +323,12 @@ describe("arbor g migration", () => {
     expect((await generate(two, ["model", "Product"])).output).toContain(
       "Wrote migrations/20261108090503_create_products.sql\nWrote src/models/product.ts\nWrote src/db/DB.ts",
     );
-    expect((await generate(two, ["model", "Entry"], { database: "LOGS" })).output).toContain(
+    const entries = (await generate(two, ["model", "Entry"], { database: "LOGS" })).output;
+    expect(entries).toContain(
       "Wrote logs/20261108090503_create_entries.sql\nWrote src/models/entry.ts\nWrote src/db/LOGS.ts",
     );
+    // `migrate` migrates every database, LOGS included (#313).
+    expect(entries.split("\n").at(-1)).toBe("Next: npx arbor migrate");
     expect(await generate(drizzle, ["model", "Product"])).toEqual({
       code: 1,
       output:

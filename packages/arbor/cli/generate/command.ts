@@ -270,14 +270,12 @@ export async function planGenerate(
   const { cwd } = project;
   const own = model === undefined ? [migration] : [migration, model];
   const schema = schemaWrites(project, db, checked.schema);
-  const several = project.databases.length > 1;
-  const named = several ? ` --database ${db.target.database.binding}` : "";
   return {
     steps: [
       ...own.map((file) => written(file, `Wrote ${shown(cwd, file.path)}`)),
       ...schema.steps,
       ...notes.map((note) => printed(`Note: ${note}`)),
-      printed(`Next: npx arbor migrate${named}`),
+      printed("Next: npx arbor migrate"),
     ],
     code: 0,
   };
