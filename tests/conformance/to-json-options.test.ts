@@ -349,6 +349,23 @@ describe("toJSON options", () => {
         new TypeError("User's \"verdict\" returned a promise; toJSON's methods can't wait for one"),
       );
     });
+
+    test("an attribute toJSON never sends throws, so methods can't send what only can't", async () => {
+      const member = await db().model(Member).find(40);
+
+      expect(() => member.toJSON({ methods: ["passwordDigest"] })).toThrow(
+        new TypeError("toJSON never sends Member's \"passwordDigest\", so methods can't add it"),
+      );
+    });
+
+    test("an attribute it does send can be named", async () => {
+      const user = await db().model(User).find(1);
+
+      expect(user.toJSON({ only: ["id"], methods: ["email"] })).toEqual({
+        id: 1,
+        email: "jane@example.com",
+      });
+    });
   });
 
   describe("an included association's own options", () => {
