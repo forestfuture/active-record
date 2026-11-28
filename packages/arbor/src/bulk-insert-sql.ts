@@ -17,6 +17,7 @@ export type Conflict =
       kind: "update";
       /** The attributes the conflict matches on, by their own names, never an alias (#532). */
       uniqueBy: readonly string[];
+      /** What it updates, once resolved against the rows: none of what a clash keeps (#575). */
       update?: readonly string[];
       /** What `onDuplicate` sets each attribute it names to (#531). */
       set?: readonly AttributeSet[];
@@ -56,7 +57,7 @@ export function compileInsertRows(
   const { select, from } = dialect.bulkRows(table, attributes);
   const endParams: unknown[] = [];
   const end =
-    compileConflict(dialect, model, { names, conflict, params: endParams }) +
+    compileConflict(dialect, model, { conflict, params: endParams }) +
     compileReturning(model, returning);
   return rowGroups(model, names, rows, dialect.maxValueBytes).map((group) => {
     if (group.kind === "json") {
@@ -75,25 +76,21 @@ export function compileInsertRows(
 }
 
 /**
- * `ON CONFLICT DO NOTHING`, or `ON CONFLICT (…) DO UPDATE SET` the `update` attributes (every
- * inserted one by default), or what `set` gives (#531), and `touch` when one of them changes
- * (#36), `WHERE` the clashing row already has the new row's `ownedBy` values (#451). The values
- * it binds are appended to `params`.
+ * `ON CONFLICT DO NOTHING`, or `ON CONFLICT (…) DO UPDATE SET` the `update` attributes, or what
+ * `set` gives (#531), and `touch` when one of them changes (#36), `WHERE` the clashing row
+ * already has the new row's `ownedBy` values (#451); with nothing to set, `DO NOTHING`. The
+ * values it binds are appended to `params`.
  */
 function compileConflict(
   dialect: Dialect,
   model: ModelClass<Model>,
-  {
-    names,
-    conflict,
-    params,
-  }: { names: readonly string[]; conflict: Conflict | undefined; params: unknown[] },
+  { conflict, params }: { conflict: Conflict | undefined; params: unknown[] },
 ): string {
   if (conflict === undefined) return "";
   if (conflict.kind === "skip") return " ON CONFLICT DO NOTHING";
   const column = (name: string) => quoteIdentifier(attributeFor(model, name).column);
   const target = conflict.uniqueBy.map(column).join(", ");
-  const sets = conflict.set ?? copiedSets(names, conflict);
+  const sets = conflict.set ?? copiedSets(conflict);
   if (sets.length === 0) return ` ON CONFLICT (${target}) DO NOTHING`;
   const written = sets.map((set) => `${column(set.name)} = ${setValue(model, set, params)}`);
   if (conflict.touch !== undefined)
@@ -103,13 +100,10 @@ function compileConflict(
 
 /**
  * What an update sets by default: each `update` attribute to its incoming value. `update` leaves
- * out what a clashing row keeps already (`clashKeeps`, #575).
+ * out what a clashing row keeps (`clashKeeps`, #575); unresolved, it sets nothing.
  */
-function copiedSets(
-  names: readonly string[],
-  conflict: Extract<Conflict, { kind: "update" }>,
-): AttributeSet[] {
-  return (conflict.update ?? names).map((name) => ({ name, value: incoming(name) }));
+function copiedSets(conflict: Extract<Conflict, { kind: "update" }>): AttributeSet[] {
+  return (conflict.update ?? []).map((name) => ({ name, value: incoming(name) }));
 }
 
 /**
