@@ -1128,6 +1128,7 @@ class Post extends Model.define({ id: "integer", userId: "integer" }) {
   A `double precision` or a decimal linked to a `float4` is rounded to a `real`, as a condition reads its value, and matches nothing past a `real`'s range.
   A `float4` linked to a `double precision` is read as its text (`0.1`), the value its record holds.
   A real of either width linked to a decimal is read as its text too, as a `numeric`, so the decimal's index is searched and a decimal past a `double precision`'s range matches nothing rather than failing: a `double precision` `0.3` finds no decimal `0.30000000000000001`.
+  A decimal linked to a `double precision` real is cast to one, and matches nothing past a `double precision`'s range (`1e400`, `1e-400`) rather than failing; its `NaN` and infinities link to the real's (#628).
   An integer on either side is compared as it is, since a `float4` that equals an integer widens to it exactly.
   D1 holds every real at 8 bytes, so it has no such case.
   Records are attached by the key cast as a condition's (#94), so an integer key matches a text key's digits only, text matches an integer key only as its own digits (#596), and a `datetime` kept as a Unix time links as the integer it stores (#592, see `storage`), and compared as stored, so a `json`, `datetime` or `binary` key, which a record holds as an object, matches the records whose key holds the same value (#591).
