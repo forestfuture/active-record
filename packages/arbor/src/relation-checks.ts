@@ -253,7 +253,7 @@ export function returnedNames(
 /**
  * An upsert's conflict: update a row that clashes on `uniqueBy` (the primary key by default) and
  * already has the new row's `ownedBy` values (#451), only `updateOnly`'s attributes when it's
- * given (#36). It keeps `uniqueBy` by its attributes' own names, an alias resolved (#532).
+ * given (#36). It holds `uniqueBy` by its attributes' own names, an alias resolved (#532).
  */
 export function updateOn<M>(
   model: ModelClass,
