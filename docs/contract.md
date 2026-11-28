@@ -759,7 +759,7 @@ See ADR-0014.
 _Portable._
 
 _Guide:_ [querying](<../site/docs/(basics)/querying.mdx>), [models](<../site/docs/(basics)/models.mdx>).
-_Code:_ `arbor/src/scoped-relation.ts`.
+_Code:_ `arbor/src/scoped-relation.ts`, `arbor/src/scope-names.ts`.
 
 - Declared one static each, as Rails' `scope :active, -> { … }`: `static active = this.scope((q, ...args) => q…)`.
   A scope receives the current Relation and its arguments and returns a changed Relation of the **same Model**; anything else throws `TypeError` naming the scope.
@@ -774,7 +774,7 @@ _Code:_ `arbor/src/scoped-relation.ts`.
   The parent never gains the subclass's.
   Scopes on the app's base class (`ApplicationRecord`) are every Model's.
 - A scope whose body names its own class needs its type written out, as any self-reference does: `static elsewhere: ScopeStatic<[]> = this.scope(…)` (`ScopeStatic<[...arguments]>`).
-- A scope can't use any name a Relation already has: its methods (`where`, `count`, …), the standard object ones (`constructor`, `toString`, …), or `then`, which would make Relations awaitable; nor a Model static's (`validates`, `beforeSave`, `scope`, `all`, …).
+- A scope can't use any name a Relation already has: its methods (`where`, `count`, …), the standard object ones (`constructor`, `toString`, …), or `then`, which would make Relations awaitable; nor a Model static's (`validates`, `beforeSave`, `scope`, `all`, …), nor a Function method's (`bind`, `call`, `apply`, …), which every class has and the scope would hide.
   `db.model(X)` throws `InvalidModel` for such a name.
 - Scopes are fixed once a Model is used: replacing one afterwards (`User.active = User.scope(…)`) makes `db.model(X)` throw `InvalidModel`.
 - **Default scopes (#25):** `this.defaultScope((q) => q…)` in `static {}`, as Rails' `default_scope`, declared with callbacks and validations (sealed at first use, `InvalidModel` after).
