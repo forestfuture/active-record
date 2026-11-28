@@ -160,6 +160,17 @@ describe("uuid links", () => {
       expect(device!.loaded("notes").map(({ id }) => id)).toEqual([1]);
     });
 
+    test("a polymorphic hasMany join finds the text ids that hold its uuid key", async () => {
+      await db()
+        .model(Note)
+        .insertAll([
+          { id: 1, subjectType: "Device", subjectId: phoneId },
+          { id: 2, subjectType: "Device", subjectId: phoneId.toUpperCase() },
+        ]);
+
+      expect(await db().model(Device).joins("notes").pluck("name")).toEqual(["phone"]);
+    });
+
     test.each(otherForms)(
       "a belongsTo preload finds no uuid key for a text foreign key holding it in %s",
       async (_, deviceId) => {

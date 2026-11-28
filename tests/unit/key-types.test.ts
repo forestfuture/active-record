@@ -26,6 +26,8 @@ class Event extends Model.define({
   ratio: "real",
   amount: { type: "decimal", precision: 10, scale: 2 },
   heldOn: "date",
+  opensAt: "time",
+  bytes: "binary",
   startsAt: "datetime",
   stamp: { type: "datetime", storage: "unixSeconds" },
   isOpen: "boolean",
@@ -77,6 +79,8 @@ describe("the key types a link may join", () => {
     ["string", "isOpen", "boolean"],
     ["string", "data", "json"],
     ["string", "day", "date"],
+    ["string", "opensAt", "time"],
+    ["string", "bytes", "binary"],
     ["integer", "token", "uuid"],
     ["uuid", "id", "integer"],
     ["date", "startsAt", "datetime"],
@@ -103,6 +107,27 @@ describe("the key types a link may join", () => {
     expect(() => db.model(Mark)).toThrow(
       new InvalidModel(
         `Mark association "bySeconds" links Mark.iso, stored as a datetime, to Mark.seconds, stored as an integer, which can't be compared; declare iso as Mark.seconds is declared`,
+      ),
+    );
+  });
+
+  test("a polymorphic belongsTo checks each listed Model's key", () => {
+    class Venue extends Model.define({ id: { type: "integer", null: false }, heldOn: "date" }) {
+      static table = "venues";
+    }
+    class Booking extends Model.define({
+      id: { type: "integer", null: false },
+      bookableType: "string",
+      bookableId: "string",
+    }) {
+      static table = "bookings";
+
+      bookable = belongsTo([Event, Venue], { primaryKey: "heldOn", optional: true });
+    }
+
+    expect(() => db.model(Booking)).toThrow(
+      new InvalidModel(
+        `Booking association "bookable" links Booking.bookableId, stored as a string, to Event.heldOn, stored as a date, which can't be compared; declare bookableId as Event.heldOn is declared`,
       ),
     );
   });

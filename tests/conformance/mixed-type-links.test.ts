@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vite-plus/test";
-import { belongsTo, hasMany, Model } from "../../packages/arbor/src/index.ts";
+import { belongsTo, hasMany, Model, type QueryEvent } from "../../packages/arbor/src/index.ts";
 import { openHarness, type Harness } from "../support/harness.ts";
 
 // A topic, whose integer key a reply's text body may hold: a mixed-type link (#596).
-class Topic extends Model.define({ id: { type: "integer", null: false } }) {
+class Topic extends Model.define({ id: { type: "integer", null: false }, number: "integer" }) {
   static table = "topics";
 
   replies = hasMany(Reply, { foreignKey: "topicId" });
@@ -21,6 +21,8 @@ class Reply extends Model.define({
 
   topic = belongsTo(Topic, { foreignKey: "topicId", optional: true });
   topicByBody = belongsTo(Topic, { foreignKey: "body", optional: true });
+  // The topics whose integer number the reply's body holds.
+  numbered = hasMany(Topic, { foreignKey: "number", primaryKey: "body" });
 }
 
 // A reply counted on the topic whose digits its body holds.
@@ -102,6 +104,33 @@ describe("a mixed-type link", () => {
     expect(topics).toEqual([2, 9, null, null]);
   });
 
+  test("a preload sends one query for the records and one for the association (guard)", async () => {
+    const events: QueryEvent[] = [];
+
+    await harness
+      .connect({ onQuery: (event) => events.push(event) })
+      .model(Reply)
+      .includes("topicByBody")
+      .toArray();
+
+    expect(events).toHaveLength(2);
+  });
+
+  test("a record built through text that holds an integer's digits takes the integer (guard)", async () => {
+    const reply = await db().model(Reply).find(2);
+
+    expect(reply.numbered().build({ id: 5 }).number).toBe(9);
+  });
+
+  test.each([3, 4])(
+    "a record built through text that isn't an integer's digits is refused (reply %i, guard)",
+    async (id) => {
+      const reply = await db().model(Reply).find(id);
+
+      expect(() => reply.numbered().build({ id: 5 })).toThrow(TypeError);
+    },
+  );
+
   test("a hasMany preload finds the text that holds the integer key's digits", async () => {
     const topics = await db().model(Topic).includes("repliesByBody").order({ id: "asc" }).toArray();
 
@@ -129,25 +158,47 @@ describe("a counter cache over a mixed-type link", () => {
     await harness.exec("INSERT INTO topics (id, replies_count) VALUES (1, 0), (2, 0), (9, 0)");
   });
 
-  test("a reply counts in and out of the topic whose digits its body holds", async () => {
-    const reply = await db().model(CountedReply).create({ id: 1, body: "2" });
+  test("a reply counts in on the topic whose digits its body holds", async () => {
+    await db().model(CountedReply).create({ id: 1, body: "2" });
+
     expect(await counts()).toEqual([0, 1, 0]);
+  });
+
+  test("a reply moves its count to the topic its new body names", async () => {
+    const reply = await db().model(CountedReply).create({ id: 1, body: "2" });
 
     await reply.update({ body: "9" });
+
     expect(await counts()).toEqual([0, 0, 1]);
+  });
+
+  test("a reply counts out of its topic when it's destroyed", async () => {
+    const reply = await db().model(CountedReply).create({ id: 1, body: "2" });
 
     await reply.destroy();
+
     expect(await counts()).toEqual([0, 0, 0]);
   });
 
-  test("a body that isn't a topic's digits counts in and out of no topic", async () => {
-    const reply = await db().model(CountedReply).create({ id: 1, body: "09" });
-    expect(await counts()).toEqual([0, 0, 0]);
+  test.each(["09", " 9"])("a body of %j counts in on no topic", async (body) => {
+    await db().model(CountedReply).create({ id: 1, body });
 
-    await reply.update({ body: " 9" });
     expect(await counts()).toEqual([0, 0, 0]);
+  });
+
+  test("a body changed to text that isn't a topic's digits counts in on no topic", async () => {
+    const reply = await db().model(CountedReply).create({ id: 1, body: "2" });
+
+    await reply.update({ body: "09" });
+
+    expect(await counts()).toEqual([0, 0, 0]);
+  });
+
+  test("a body that isn't a topic's digits counts out of no topic when it's destroyed", async () => {
+    const reply = await db().model(CountedReply).create({ id: 1, body: "09" });
 
     await reply.destroy();
+
     expect(await counts()).toEqual([0, 0, 0]);
   });
 
