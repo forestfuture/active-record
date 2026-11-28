@@ -146,11 +146,7 @@ function neverSent(model: ModelClass): string[] {
  */
 function methodValue(record: Model, name: string): unknown {
   const model = record.constructor as ModelClass;
-  if (!(name in record)) {
-    throw new TypeError(
-      `${model.name} has no method or getter "${name}"; toJSON's methods names the record's own`,
-    );
-  }
+  checkMethodName(record, model, name);
   const member = (record as unknown as Record<string, unknown>)[name];
   const value = typeof member === "function" ? (member as () => unknown).call(record) : member;
   refuseThenable(
@@ -158,6 +154,22 @@ function methodValue(record: Model, name: string): unknown {
     `${model.name}'s "${name}" returned a promise; toJSON's methods can't wait for one`,
   );
   return value;
+}
+
+/**
+ * Throws `TypeError` unless `name` is a member of `record` that `methods` may read: not an
+ * attribute `toJSON` never sends, so `methods` can't send what `only` can't.
+ */
+function checkMethodName(record: Model, model: ModelClass, name: string): void {
+  if (!(name in record)) {
+    throw new TypeError(
+      `${model.name} has no method or getter "${name}"; toJSON's methods names the record's own`,
+    );
+  }
+  const attribute = attributeName(model, name);
+  if (neverSent(model).includes(attribute)) {
+    throw new TypeError(`toJSON never sends ${model.name}'s "${name}", so methods can't add it`);
+  }
 }
 
 /** Each association an `include` names, with the options its records are serialized with. */
