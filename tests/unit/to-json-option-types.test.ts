@@ -79,6 +79,8 @@ describe("toJSON options' types", () => {
       author.toJSON({ methods: ["rank"] });
       // @ts-expect-error no such member
       author.toJSON({ methods: ["nickname"] });
+      // @ts-expect-error an association goes in include
+      author.toJSON({ methods: ["articles"] });
     };
     expectTypeOf(typeOnly).toBeFunction();
   });

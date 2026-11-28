@@ -38,15 +38,15 @@ type Include<R> = R extends unknown
 
 /**
  * A record's getter, or its method that takes no arguments, whose value isn't a promise, as
- * `toJSON` can't wait for one.
+ * `toJSON` can't wait for one; not an association, which `include` names.
  */
 type MethodName<R> = {
-  [K in keyof R]: R[K] extends () => infer T
+  [K in Exclude<keyof R, AssociationName<R>>]: R[K] extends () => infer T
     ? Unawaited<T, K>
     : R[K] extends (...args: never[]) => unknown
       ? never
       : Unawaited<R[K], K>;
-}[keyof R] &
+}[Exclude<keyof R, AssociationName<R>>] &
   string;
 
 /** `K`, unless `T` is a promise. */
@@ -158,13 +158,17 @@ function methodValue(record: Model, name: string): unknown {
 
 /**
  * Throws `TypeError` unless `name` is a member of `record` that `methods` may read: not an
- * attribute `toJSON` never sends, so `methods` can't send what `only` can't.
+ * association, which `include` sends, nor an attribute `toJSON` never sends, so `methods` can't
+ * send what `only` can't.
  */
 function checkMethodName(record: Model, model: ModelClass, name: string): void {
   if (!(name in record)) {
     throw new TypeError(
       `${model.name} has no method or getter "${name}"; toJSON's methods names the record's own`,
     );
+  }
+  if (associationsOf(model).has(name)) {
+    throw new TypeError(`${model.name}'s "${name}" is an association; name it in toJSON's include`);
   }
   const attribute = attributeName(model, name);
   if (neverSent(model).includes(attribute)) {

@@ -358,6 +358,14 @@ describe("toJSON options", () => {
       );
     });
 
+    test("an association throws, pointing to include", async () => {
+      const user = await db().model(User).includes("posts").find(1);
+
+      expect(() => user.toJSON({ methods: ["posts" as "handle"] })).toThrow(
+        new TypeError("User's \"posts\" is an association; name it in toJSON's include"),
+      );
+    });
+
     test("an attribute it does send can be named", async () => {
       const user = await db().model(User).find(1);
 
