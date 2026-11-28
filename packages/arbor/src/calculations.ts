@@ -73,11 +73,11 @@ function storedOf(records: readonly Model[] | undefined): readonly Model[] | und
 
 /**
  * What `pluck` reads from the first row in the query's order (`LIMIT 1`, keeping its offset), or
- * null with none: a loaded association's first record answers without a query.
+ * null with none: a loaded association's first stored record answers without a query.
  */
 export async function pick(source: ValueSource, attributes: readonly string[]): Promise<unknown> {
   const query = { ...source.query, limit: atMostOne(source.query.limit) };
-  const cached = () => source.cached()?.slice(0, 1);
+  const cached = () => storedOf(source.cached())?.slice(0, 1);
   const [first] = await pluck({ ...source, query, cached }, attributes, "pick");
   return first ?? null;
 }
