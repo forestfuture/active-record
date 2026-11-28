@@ -197,4 +197,18 @@ describe("migrate, with several databases", () => {
     expect(printed).not.toContain("0001_create_entries.sql");
     expect(await tablesIn(cwd, logsDb, "logs")).toEqual([]);
   }, 120_000);
+
+  test("--remote refuses a database with no id before asking for any name", async () => {
+    const cwd = twoDatabases();
+    const databases = [shopDb, { ...logsDb, database_id: undefined, migrations_dir: "logs" }];
+    writeFileSync(join(cwd, "wrangler.jsonc"), JSON.stringify({ d1_databases: databases }));
+
+    const { code, printed, lines } = await migrated(cwd, { remote: true }, "shop");
+
+    expect(printed).toBe("");
+    expect([code, lines]).toEqual([
+      1,
+      ["LOGS has no database_id in wrangler.jsonc, which --remote needs"],
+    ]);
+  });
 });
