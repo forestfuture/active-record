@@ -146,7 +146,6 @@ function rowCell(table: string, { column, isJson, isBinary }: Attribute, index: 
 /**
  * A json attribute's cell, which is its JSON's text: read as JSON for a json or jsonb column,
  * which would otherwise keep it as a JSON string, and kept as that text for any other column.
- * The column's type is read from a query of `table`, already quoted, that finds no row.
  */
 function jsonCell(table: string, column: string, index: number): string {
   const type = `pg_typeof(${noRowOf(table, quoted(column))})`;
@@ -219,18 +218,20 @@ export const postgres: Dialect = {
   /**
    * Each row's cells become an object of its columns, read into a record of `table`, so every
    * value converts to its column's own type as an insert's would. The record's type is a row of
-   * `table` that a query finds none of: `table.*` in an expression is its whole row, which a
-   * column of the table's own name can't stand in for.
+   * `table` that a query finds none of. COALESCE makes `table.*` an expression, which is the
+   * table's whole row: alone it would be its columns, and a bare `table` would be a column of
+   * that name, should the table have one.
    */
   bulkRows(table, attributes) {
     const pairs = attributes.map((attribute, index) => {
       return `${literal(attribute.column)}, ${rowCell(table, attribute, index)}`;
     });
+    const emptyRow = noRowOf(table, `COALESCE(${table}.*)`);
     return {
       select: attributes.map(({ column }) => `row.${quoted(column)}`).join(", "),
       from:
         `jsonb_array_elements(${valueMark}::jsonb) AS cells, ` +
-        `jsonb_populate_record(${noRowOf(table, `COALESCE(${table}.*)`)}, ${jsonObject(pairs)}) AS row`,
+        `jsonb_populate_record(${emptyRow}, ${jsonObject(pairs)}) AS row`,
     };
   },
 };
