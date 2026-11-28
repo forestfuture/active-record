@@ -1,5 +1,29 @@
 # @forestfuture/arbor
 
+## 0.15.0
+
+### Minor Changes
+
+- [#632](https://github.com/forestfuture/arbor/pull/632) [`6a775cd`](https://github.com/forestfuture/arbor/commit/6a775cde6ba5c8f636f4b9a0cb40ab54ba1aa96c) Thanks [@christopherstyles](https://github.com/christopherstyles)! - An association may link keys of different types only when one is text and the other an `integer` (a `datetime` kept as a Unix time included) or a `uuid`, a mixed-type link. Any other pair, such as text and a `date`, a `real` or a `decimal`, or an `integer` and a `uuid`, now throws `InvalidModel` when the Model is first used, naming the attribute to declare the foreign key like.
+
+  A mixed-type link now compares its keys as text everywhere, on D1 and Postgres alike: text links to an integer or a uuid only in that key's own form, so `"09"` and `" 9"` link to no 9, in a lazy read, a preload, a join and a through association, and copying such text into an integer or uuid key throws `TypeError`. A join or a through association casts the integer or uuid side to text, so that side's index isn't searched. A preload of a mixed-type link selects by the loaded records' keys, so on D1 it takes one more round trip. A counter cache over one counts by the key its record last saved, so on Postgres destroying the record or changing its key no longer fails with `operator does not exist`.
+
+  For adapters: `Dialect#linkedKey` is only asked about keys of one kind and always returns a string, and `Attribute#isText` is removed.
+
+- [#642](https://github.com/forestfuture/arbor/pull/642) [`9a2cade`](https://github.com/forestfuture/arbor/commit/9a2cade9199cb4f70104e9a6314e6e397210b3fe) Thanks [@christopherstyles](https://github.com/christopherstyles)! - `Model.define` now throws `InvalidModel` when two attributes map to one column, whether through `column` or through names that map to the same one, such as `userId` and `userID`. A second attribute on a column could write it where the first can't be written: an upsert could change the primary key, and a save could change a read-only attribute. To give a column a second name, declare an alias, `legacyId: { aliasOf: "id" }`.
+
+### Patch Changes
+
+- [#633](https://github.com/forestfuture/arbor/pull/633) [`80a9a42`](https://github.com/forestfuture/arbor/commit/80a9a42f137bf9d42f6c8fe02673ffd5167af50c) Thanks [@christopherstyles](https://github.com/christopherstyles)! - On Postgres, `insertAll` and `upsertAll` now write to a table named like one of Postgres's own types, such as `point`, `path` or `money`. They used to fail with a type error. A bulk write now needs the `SELECT` privilege on its table as well as `INSERT`.
+
+- [#637](https://github.com/forestfuture/arbor/pull/637) [`edc5877`](https://github.com/forestfuture/arbor/commit/edc5877c93cd44124f5037ef842ea8ad1e494baf) Thanks [@christopherstyles](https://github.com/christopherstyles)! - On Postgres, a `decimal` key linked to a `double precision` real that a `double precision` can't hold, such as `1e400` or `1e-400`, now links nothing, in a join, a through association and a counter cache, rather than failing the query with `out of range for type double precision`.
+
+- [#624](https://github.com/forestfuture/arbor/pull/624) [`0458918`](https://github.com/forestfuture/arbor/commit/0458918b43cc033cd1664d30e74369fbe3d8f6e9) Thanks [@christopherstyles](https://github.com/christopherstyles)! - On Postgres, a `float4` real linked either way to a `double precision` real or a `decimal` is now compared at a `real`'s precision rather than by widening it, so `0.1` held at either width links. A `real` of either width linked to a `decimal` is now compared as the text it reads as, so Postgres searches the decimal's index.
+
+- [#631](https://github.com/forestfuture/arbor/pull/631) [`e8350e0`](https://github.com/forestfuture/arbor/commit/e8350e0dfb89e2350a409d1bf7063c57b5c1aa1f) Thanks [@christopherstyles](https://github.com/christopherstyles)! - `toJSON()` takes options: `include` sends loaded associations (`user.toJSON({ include: "posts" })`), `only` and `except` pick the attributes sent, and `methods` adds getters' and methods' values. An association that wasn't preloaded throws `AssociationNotLoaded`, and a name the Model doesn't have throws `TypeError`.
+
+- [#638](https://github.com/forestfuture/arbor/pull/638) [`d0f364a`](https://github.com/forestfuture/arbor/commit/d0f364a5448bcd1d3d9013802e304ac4817aebd3) Thanks [@christopherstyles](https://github.com/christopherstyles)! - An upsert whose `uniqueBy` names an attribute alias now leaves that attribute out of what it updates, as it does when `uniqueBy` names the attribute itself. So when such an upsert's row gives nothing else to update, `upsert` and `upsertAll` now leave a clashing row as it is, and don't count or return it.
+
 ## 0.14.0
 
 ### Minor Changes

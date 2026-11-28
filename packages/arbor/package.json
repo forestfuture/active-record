@@ -1,6 +1,6 @@
 {
   "name": "@forestfuture/arbor",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "Arbor ORM: an Active Record ORM for TypeScript on Cloudflare D1 and PostgreSQL, built for Cloudflare Workers.",
   "keywords": [
     "active-record",
