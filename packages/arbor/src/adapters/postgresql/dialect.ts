@@ -146,9 +146,10 @@ function rowCell(table: string, { column, isJson, isBinary }: Attribute, index: 
 /**
  * A json attribute's cell, which is its JSON's text: read as JSON for a json or jsonb column,
  * which would otherwise keep it as a JSON string, and kept as that text for any other column.
+ * The column's type is read from a query of `table`, already quoted, that finds no row.
  */
 function jsonCell(table: string, column: string, index: number): string {
-  const type = `pg_typeof((NULL::${table}).${quoted(column)})`;
+  const type = `pg_typeof(${noRowOf(table, quoted(column))})`;
   return (
     `CASE WHEN ${type} IN ('json'::regtype, 'jsonb'::regtype) ` +
     `THEN (cells ->> ${index})::jsonb ELSE cells -> ${index} END`
