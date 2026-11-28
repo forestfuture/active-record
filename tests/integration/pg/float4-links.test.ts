@@ -73,15 +73,20 @@ class Point extends Model.define({ id: { type: "integer", null: false }, ratio: 
   samples = hasMany(Sample, { foreignKey: "wide", primaryKey: "ratio" });
 }
 
-// A sample whose double precision ratio is declared a decimal, linked to its meter's.
+// A sample whose double precision ratio is declared a decimal, linked to its meter's of each width.
 class LooseSample extends Model.define({ id: { type: "integer", null: false }, wide: "decimal" }) {
   static table = "samples";
 }
 
-class LooseMeter extends Model.define({ id: { type: "integer", null: false }, wide: "real" }) {
+class LooseMeter extends Model.define({
+  id: { type: "integer", null: false },
+  narrow: "real",
+  wide: "real",
+}) {
   static table = "meters";
 
   samples = hasMany(LooseSample, { foreignKey: "wide", primaryKey: "wide" });
+  narrowSamples = hasMany(LooseSample, { foreignKey: "wide", primaryKey: "narrow" });
 }
 
 // A sample counted on its meter by each link of its ratios to the meter's of another width.
@@ -339,6 +344,27 @@ describe("a real linked to a number of another width or type", () => {
 
   test("a decimal declared over a double precision column links to a double precision", async () => {
     expect(await db().model(LooseMeter).joins("samples").pluck("id")).toEqual([1]);
+  });
+
+  test("a decimal declared over a double precision column links a double's greatest value", async () => {
+    const greatest = "1.7976931348623157e308";
+    await schema.pool.query({ text: "UPDATE meters SET wide = $1", values: [greatest] });
+    await schema.pool.query({ text: "UPDATE samples SET wide = $1", values: [greatest] });
+
+    expect(await db().model(LooseMeter).joins("samples").pluck("id")).toEqual([1]);
+  });
+
+  test("a decimal declared over a double precision column links a float4 just below its midpoint", async () => {
+    await schema.pool.query({ text: "UPDATE meters SET narrow = 3.4028235e38" });
+    await schema.pool.query({ text: "UPDATE samples SET wide = 3.4028235677973362e38" });
+
+    expect(await db().model(LooseMeter).joins("narrowSamples").pluck("id")).toEqual([1]);
+  });
+
+  test("a decimal declared over a double precision column at half a float4's least subnormal links nothing", async () => {
+    await schema.pool.query({ text: "UPDATE samples SET wide = 7.006492321624085e-46" });
+
+    expect(await db().model(LooseMeter).joins("narrowSamples").pluck("id")).toEqual([]);
   });
 
   test("a through association links nothing by a decimal a double can't hold", async () => {
