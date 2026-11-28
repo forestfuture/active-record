@@ -358,6 +358,7 @@ function changeThroughRow(
   const ownerKey = attributeFor(owner, owner.primaryKey);
   if (when === "before") ownerKey.bindCells(params, recordState.storedKey);
   else ownerKey.bind(params, recordState.read(owner.primaryKey));
+  if (counter.link.isMixedType) return changeByRecordsKey(record, counter, by, { when, params });
   const selected = linkedForeignKey(owner, recordState.executor.dialect, counter);
   // A key no target key can link to was counted in nowhere, so it's counted out of nowhere.
   if (selected === undefined) {
@@ -368,6 +369,41 @@ function changeThroughRow(
   const row = `(SELECT ${selected} FROM ${quoteIdentifier(owner.table)} WHERE ${quoteIdentifier(ownerKey.column)} = ${valueMark}${typed})`;
   return compileCounterChange(counter, changeBy(counter, by), { sql: row, params });
 }
+
+/**
+ * `changeThroughRow` over a mixed-type link (#596): on the target the record's own key names,
+ * the one it last saved `before` its write, or holds `after` it, cast as the link compares it,
+ * so no text is parsed in SQL. Only while the record's row is there, found by its key, bound
+ * in `params`, so a row already gone counts nothing.
+ */
+function changeByRecordsKey(
+  record: Model,
+  counter: CounterCache,
+  by: number,
+  { when, params }: { when: "before" | "after"; params: unknown[] },
+): CompiledSql {
+  const owner = modelOf(record);
+  const recordState = record[state];
+  const value =
+    when === "before"
+      ? recordState.valueInDatabase(counter.foreignKey)
+      : recordState.read(counter.foreignKey);
+  const key = counter.link.asTargetKey(value ?? null);
+  const change = changeBy(counter, by);
+  if (key === null || key === noMatch) return compileCounterChange(counter, change, nowhere);
+  const typed =
+    counter.type === undefined ? "" : ` AND ${typeCondition(owner, counter.type, params)}`;
+  const primaryKey = quoteIdentifier(attributeFor(owner, owner.primaryKey).column);
+  const { sql, params: keyParams } = keyed(counter, key);
+  const there = `EXISTS (SELECT 1 FROM ${quoteIdentifier(owner.table)} WHERE ${primaryKey} = ${valueMark}${typed})`;
+  return compileCounterChange(counter, change, {
+    sql: `${sql} AND ${there}`,
+    params: [...keyParams, ...params],
+  });
+}
+
+/** A key no target has: the change counts nothing. */
+const nowhere: SqlPart = { sql: "NULL", params: [] };
 
 /**
  * The stored row's foreign key, selected as the dialect links it to the counter's target key, as

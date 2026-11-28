@@ -23,6 +23,27 @@ class Reply extends Model.define({
   topicByBody = belongsTo(Topic, { foreignKey: "body", optional: true });
 }
 
+// A reply counted on the topic whose digits its body holds.
+class CountedReply extends Model.define({
+  id: { type: "integer", null: false },
+  body: { type: "string", null: false },
+}) {
+  static table = "replies";
+
+  topic = belongsTo(CountedTopic, {
+    foreignKey: "body",
+    optional: true,
+    counterCache: "repliesCount",
+  });
+}
+
+class CountedTopic extends Model.define({
+  id: { type: "integer", null: false },
+  repliesCount: "integer",
+}) {
+  static table = "topics";
+}
+
 // A mixed-type link compares its keys as text, so text that isn't the integer's own digits
 // ('09', ' 9') links to no integer, from either side, however it's read (#596).
 describe("a mixed-type link", () => {
@@ -86,5 +107,65 @@ describe("a mixed-type link", () => {
 
     const replies = topics.map((topic) => topic.loaded("repliesByBody").map(({ id }) => id));
     expect(replies).toEqual([[], [1], [2]]);
+  });
+});
+
+// A counter cache over a mixed-type link counts by the key its record last saved, cast as the
+// link compares it, rather than through its stored row (#596).
+describe("a counter cache over a mixed-type link", () => {
+  let harness: Harness;
+  const db = () => harness.connect();
+  const counts = async () =>
+    (await db().model(CountedTopic).order({ id: "asc" }).toArray()).map(
+      (topic) => topic.repliesCount,
+    );
+
+  beforeAll(async () => {
+    harness = await openHarness();
+  });
+  afterAll(() => harness.dispose());
+  beforeEach(async () => {
+    await harness.reset("replies", "topics");
+    await harness.exec("INSERT INTO topics (id, replies_count) VALUES (1, 0), (2, 0), (9, 0)");
+  });
+
+  test("a reply counts in and out of the topic whose digits its body holds", async () => {
+    const reply = await db().model(CountedReply).create({ id: 1, body: "2" });
+    expect(await counts()).toEqual([0, 1, 0]);
+
+    await reply.update({ body: "9" });
+    expect(await counts()).toEqual([0, 0, 1]);
+
+    await reply.destroy();
+    expect(await counts()).toEqual([0, 0, 0]);
+  });
+
+  test("a body that isn't a topic's digits counts in and out of no topic", async () => {
+    const reply = await db().model(CountedReply).create({ id: 1, body: "09" });
+    expect(await counts()).toEqual([0, 0, 0]);
+
+    await reply.update({ body: " 9" });
+    expect(await counts()).toEqual([0, 0, 0]);
+
+    await reply.destroy();
+    expect(await counts()).toEqual([0, 0, 0]);
+  });
+
+  test("a reply whose row is already gone counts out of nothing (guard)", async () => {
+    const reply = await db().model(CountedReply).create({ id: 1, body: "2" });
+    await harness.exec("DELETE FROM replies WHERE id = 1");
+
+    await reply.destroy();
+
+    expect(await counts()).toEqual([0, 1, 0]);
+  });
+
+  test("a stale reply counts out of the topic its last-saved body names", async () => {
+    const reply = await db().model(CountedReply).create({ id: 1, body: "2" });
+    await harness.exec("UPDATE replies SET body = '9' WHERE id = 1");
+
+    await reply.destroy();
+
+    expect(await counts()).toEqual([0, 0, 0]);
   });
 });
