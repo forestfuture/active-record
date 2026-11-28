@@ -77,6 +77,25 @@ describe("pick, ids, sole and the OrThrow finders (#349)", () => {
       expect(await user.posts().pick("title")).toBe("First");
       expect(events).toHaveLength(0);
     });
+
+    test("on an unsaved owner's hasMany, is null with only built records, without a query", async () => {
+      const unsaved = users().build({ email: "b@example.com" });
+      unsaved.posts().build({ title: "Built" });
+
+      expect(await unsaved.posts().pick("title")).toBeNull();
+      expect(await unsaved.posts().pick("id", "title")).toBeNull();
+      expect(events).toHaveLength(0);
+    });
+
+    test("on a loaded hasMany, is the first stored record's value, past a built one", async () => {
+      const user = await withLoadedPosts();
+      user.posts().build({ title: "Built" });
+      await user.posts().createOrThrow({ id: 20, title: "Created" });
+      events.length = 0;
+
+      expect(await user.posts().pick("title")).toBe("Created");
+      expect(events).toHaveLength(0);
+    });
   });
 
   describe("ids", () => {

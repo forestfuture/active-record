@@ -1039,7 +1039,7 @@ class Post extends Model.define({ id: "integer", userId: "integer" }) {
   On an unsaved owner, `create`/`createOrThrow` throw `RecordNotSaved`, as in Rails, and `build` gives a record whose key is filled in when the owner is saved (autosave, below).
 - **Autosave**, as Rails' `has_many` does by default: a record built through a `hasMany` joins the association at once, and saving the owner saves the ones still new, with its key.
   An unsaved owner's `user.posts().toArray()` returns its built records without a query; a saved owner's loaded collection is its stored records followed by the built ones, however and whenever it's loaded.
-  (As in Rails, `pluck` and `count` on a collection that isn't loaded query the database, so they leave built records out.)
+  (As in Rails, `pluck` and `count` on a collection that isn't loaded query the database, so they leave built records out; a loaded collection's `pluck` leaves them out too, see loaded associations.)
   - They're validated with the owner: an invalid one makes the owner invalid, with "Posts is invalid" on the owner and its own errors on the record.
   - The order is the owner's validation (the records included), the owner's before-callbacks, the records' before-callbacks, the writes, then the owner's after-callbacks and the records'.
     An owner with no changes of its own still saves its built records.
@@ -1146,8 +1146,11 @@ class Post extends Model.define({ id: "integer", userId: "integer" }) {
   `includes` on `none()` sends nothing.
   Models reached only through `includes` are checked and prepared like any other.
 - On a loaded `hasMany`, `toArray`, `first`, `last`, `take` (and their `OrThrow` forms), `sole`, `pluck`, `pick` and `ids` answer from the loaded records without a query.
-  They read built records too, as `first` does, so `sole()` with a stored record and a built one throws `SoleRecordExceeded`; `ids()` leaves out a built record with no primary key yet (Rails gives `nil` for it), so it stays `(string | number)[]`.
-  `count` always queries, like Rails' `count`; `size()` uses the loaded records.
+  The finders and `sole` read built records too, as `toArray` does, so `sole()` with a stored record and a built one throws `SoleRecordExceeded`.
+  `pluck`, `pick` and `ids` read stored records only, leaving out built ones, as a query does (#467): a built record may lack its key or an attribute it wasn't given, which their types don't allow for, so `pluck("id")` stays `number[]`, and an unsaved owner's `pluck` is `[]`.
+  Rails includes built records, with `nil` for what they lack.
+  To read built records' values, map over `toArray()`.
+  `count` always queries, like Rails' `count`; `size()` uses the loaded records, built ones included, so it can count records `pluck` leaves out.
   Chaining further (`user.posts().published()`, …) queries as normal and doesn't change the cache.
   `create` through a loaded `hasMany`, narrowed or not (`user.posts().where(…).create(…)`), appends the new record when it saves, as Rails' association and association relation do.
   `insert`, `upsert`, `updateAll` and `deleteAll` built through it, narrowed or not, clear the cache, and clear it again once they're written, alone or in `db.batch`.
@@ -1919,7 +1922,7 @@ _Code:_ `arbor/src/relation.ts`, `arbor/src/calculations.ts`, `arbor/src/groupin
   `pluck("id", "email")` resolves to tuples.
 - `pick("email")` (#349) is the first row's value, converted as `pluck`'s, in the Relation's order, or `null` with no rows: `pluck` with `LIMIT 1`, keeping the Relation's offset and `distinct`, and reading its own attributes in place of any `select`.
   `pick("id", "email")` resolves to a tuple, or `null`.
-  `ids()` is `pluck` of the primary key, in the Relation's order, leaving out any `null` key (a built record's, see loaded associations), typed `(string | number)[]` as `find` takes ids.
+  `ids()` is `pluck` of the primary key, in the Relation's order, leaving out any `null` key, typed `(string | number)[]` as `find` takes ids; on a loaded association it reads stored records only, as `pluck` does, so a built record's key is left out even when it's a generated id.
 - `count()` counts over the whole query as a subquery, so it always equals the number of rows `toArray()` would return, including `limit`, `offset`, `select` and `distinct` (with `select("role").distinct()`, NULL counts as one distinct value).
   `count("role")` counts non-null values, and after `distinct()` without a `limit` or `offset` it compiles to `COUNT(DISTINCT "role")`, the distinct non-null values.
   After `distinct()` with a `limit` or `offset`, the limit and offset pick from the distinct values, as in Rails.

@@ -42,15 +42,46 @@ export async function count(
   return Number(row?.["count"] ?? 0);
 }
 
-/** Converted values of one attribute, or tuples of several, in the query's order. */
+/**
+ * Converted values of one attribute, or tuples of several, in the query's order: a loaded
+ * association's stored records answer without a query.
+ */
 export async function pluck(
-  { query, dialect, runner, cached }: ValueSource,
+  source: ValueSource,
   attributes: readonly string[],
   method = "pluck",
 ): Promise<unknown[]> {
+  return valuesOf(source, attributes, method, storedOf(source.cached()));
+}
+
+/**
+ * What `pluck` reads from the first row in the query's order (`LIMIT 1`, keeping its offset), or
+ * null with none: a loaded association's first stored record answers without a query.
+ */
+export async function pick(source: ValueSource, attributes: readonly string[]): Promise<unknown> {
+  const query = { ...source.query, limit: atMostOne(source.query.limit) };
+  const loaded = storedOf(source.cached())?.slice(0, 1);
+  const [first] = await valuesOf({ ...source, query }, attributes, "pick", loaded);
+  return first ?? null;
+}
+
+/**
+ * A loaded association's stored records, leaving out new ones: a built record lacks what it
+ * wasn't given, a key included, and a query wouldn't return it either (#467).
+ */
+function storedOf(records: readonly Model[] | undefined): readonly Model[] | undefined {
+  return records?.filter((record) => !record.isNewRecord());
+}
+
+/** The values `pluck` gives: read from `loaded` when there are loaded records, else queried. */
+async function valuesOf(
+  { query, dialect, runner }: ValueSource,
+  attributes: readonly string[],
+  method: string,
+  loaded: readonly Model[] | undefined,
+): Promise<unknown[]> {
   if (attributes.length === 0) throw new TypeError(`${method}() needs at least one attribute`);
   const resolved = attributes.map((name) => attributeFor(query.model, name));
-  const loaded = cached();
   const values =
     loaded === undefined
       ? (await runner.rows(() => compileSelect(dialect(), query, { attributes }))).map((row) =>
@@ -64,19 +95,9 @@ export async function pluck(
 }
 
 /**
- * What `pluck` reads from the first row in the query's order (`LIMIT 1`, keeping its offset), or
- * null with none: a loaded association's first record answers without a query.
- */
-export async function pick(source: ValueSource, attributes: readonly string[]): Promise<unknown> {
-  const query = { ...source.query, limit: atMostOne(source.query.limit) };
-  const cached = () => source.cached()?.slice(0, 1);
-  const [first] = await pluck({ ...source, query, cached }, attributes, "pick");
-  return first ?? null;
-}
-
-/**
- * The primary keys, as `pluck` reads them, leaving out a `null` one: a loaded association's built
- * record that has no key yet, so every key is a `string` or a `number`.
+ * The primary keys, as `pluck` reads them: a loaded association's stored records only, so a built
+ * record's key is left out even when it's a generated id. A `null` key is left out too, so every
+ * key is a `string` or a `number`.
  */
 export async function ids(source: ValueSource): Promise<(string | number)[]> {
   const keys = await pluck(source, [source.query.model.primaryKey], "ids");
