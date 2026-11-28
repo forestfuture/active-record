@@ -44,12 +44,12 @@ export interface Dialect {
    */
   maxValueBytes?: number;
   /**
-   * The owners' `key` (a quoted column, of `keyAttribute`) as a linked condition selects it, so
-   * it matches `linked`'s column as a condition on `linked` would: by text for a text attribute.
-   * `undefined` when the dialect links no key of `keyAttribute`'s type to `linked`'s column: the
-   * link then matches nothing (#586).
+   * The owners' `key` (a quoted column, of `keyAttribute`) as a link selects it, to compare with
+   * `linked`'s column: a key of the same kind (text, a number, a uuid, or another type alike),
+   * though a number may be of another type or width (#625). The core compares a mixed-type link,
+   * text and an integer or a uuid, as text itself (#596).
    */
-  linkedKey(key: string, keyAttribute: Attribute, linked: Attribute): string | undefined;
+  linkedKey(key: string, keyAttribute: Attribute, linked: Attribute): string;
   /**
    * A record's write that must change its row (an update or delete by its key and `lockVersion`,
    * #357), followed by a check that fails the whole atomic batch when it changed none, with an

@@ -134,8 +134,7 @@ describe("values by their use", () => {
       expect(note!.loaded("owner")?.id).toBe(9);
     });
 
-    // A preload selects the keys with a subquery (#217), where a database could compare an integer
-    // with text by its number: an integer key matches only its own digits, as a condition does.
+    // A mixed-type link compares as text (#596): an integer key matches only its own digits.
     test.each(["notes", "note"] as const)(
       "%s finds the text foreign keys that are an integer key's digits, not '09'",
       async (name) => {

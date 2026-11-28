@@ -92,9 +92,6 @@ export function compileSelect(
   return { sql, params: context.params, model: query.model };
 }
 
-/** A link the dialect says no key can match (#586): it matches nothing. */
-const nothing = "1 = 0";
-
 /** Each joined table's `INNER JOIN` or `LEFT OUTER JOIN`, on its link and its scope's conditions. */
 function compileJoins(context: Context): string {
   return context.tables.joined
@@ -113,7 +110,7 @@ function compileJoins(context: Context): string {
           attribute: attributeFor(join.model, join.targetAttribute),
         },
       );
-      let on = sides === undefined ? nothing : `${sides.linked} = ${sides.key}`;
+      let on = `${sides.linked} = ${sides.key}`;
       if (join.on.length > 0) on += ` AND ${compileAll({ ...context, source }, join.on)}`;
       return ` ${kind} ${table} ON ${on}`;
     })
@@ -127,20 +124,21 @@ interface LinkSide {
 }
 
 /**
- * A link's two sides as SQL compares them, `linked`'s column with the `key` selected for it, or
- * none when the dialect links no key of its type to it (#586). A mixed-type link compares as
- * text (#596): its integer or uuid side is cast, so text that isn't the key's own text form links
- * to nothing, and no text is parsed as another type.
+ * A link's two sides as SQL compares them, `linked`'s column with the `key` selected for it. A
+ * mixed-type link compares as text (#596): its integer or uuid side is cast, so text that isn't
+ * the key's own text form links to nothing, and no text is parsed as another type.
  */
 function linkSides(
   dialect: Dialect,
   linked: LinkSide,
   key: LinkSide,
-): { linked: string; key: string } | undefined {
+): { linked: string; key: string } {
   if (isMixedType(key.attribute, linked.attribute))
     return { linked: asText(linked), key: asText(key) };
-  const selected = dialect.linkedKey(key.column, key.attribute, linked.attribute);
-  return selected === undefined ? undefined : { linked: linked.column, key: selected };
+  return {
+    linked: linked.column,
+    key: dialect.linkedKey(key.column, key.attribute, linked.attribute),
+  };
 }
 
 /** A link's side as text: a text attribute's column as it is, any other's cast. */
@@ -201,7 +199,6 @@ function compileLinkedTo(
       attribute: attributeFor(owners.model, ownerKey),
     },
   );
-  if (sides === undefined) return nothing;
   const limited = owners.limit !== undefined || owners.offset !== undefined;
   const order = limited ? owners.order : [];
   // A distinct() with includes selects every column (a distinct select() can't be preloaded),
