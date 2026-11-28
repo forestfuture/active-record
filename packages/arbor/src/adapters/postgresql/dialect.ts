@@ -47,14 +47,11 @@ const noRowOf = (table: string, selected: string) =>
   `(SELECT ${selected} FROM ${table} WHERE false)`;
 
 /**
- * Whether a cast of `decimal` to a binary floating-point type accepts it: zero, within
- * `magnitudes`, or an infinity or NaN, which a `numeric` orders past every number. It's compared
- * as a `numeric`, so a decimal attribute declared over a `real` column compares too (#628).
+ * Whether a cast of `decimal`, a `numeric`, to a binary floating-point type accepts it: zero,
+ * within `magnitudes`, or an infinity or NaN, which a `numeric` orders past every number.
  */
-function isCastableDecimal(decimal: string, magnitudes: Magnitudes): string {
-  const number = `CAST(${decimal} AS NUMERIC)`;
-  return `${number} = 0 OR ${isWithin(number, magnitudes)} OR ABS(${number}) >= 'Infinity'`;
-}
+const isCastableDecimal = (decimal: string, magnitudes: Magnitudes) =>
+  `${decimal} = 0 OR ${isWithin(decimal, magnitudes)} OR ABS(${decimal}) >= 'Infinity'`;
 
 /** `key` cast to `type` when `isCastable` holds; otherwise NULL, which links nothing. */
 const castWhen = (isCastable: string, key: string, type: string) =>
@@ -95,21 +92,24 @@ function asReal(key: string, { storedType }: Attribute): string {
 }
 
 /**
- * A real or decimal key as a `double precision`. A decimal is cast only when a `double precision`
- * holds it, compared as a `numeric`; otherwise it's NULL, which links nothing rather than failing
- * the query (#628). Its infinities and NaN link.
- */
-function asDouble(key: string, { storedType }: Attribute): string {
-  if (storedType === "real") return `CAST(${key} AS DOUBLE PRECISION)`;
-  return castWhen(isCastableDecimal(key, float8Magnitudes), key, "DOUBLE PRECISION");
-}
-
-/**
  * A real key as `type`, read through its text: under Postgres's default `extra_float_digits`,
  * the shortest that reads back as the same value (`0.1`), rather than its exact widening. Its
  * record reads the same text under any setting, so the link compares the value the record holds.
  */
 const throughText = (key: string, type: string) => `CAST(CAST(${key} AS TEXT) AS ${type})`;
+
+/**
+ * A real or decimal key as a `double precision`. A decimal is cast only when a `double precision`
+ * holds it; otherwise it's NULL, which links nothing rather than failing the query (#628). Its
+ * infinities and NaN link. It's compared as a `numeric` read through its text, which is exact for
+ * a `numeric` column and, for a decimal attribute declared over a `real` column, reads back as the
+ * same value, so every value that column holds links: a `numeric` cast would keep 15 digits only.
+ */
+function asDouble(key: string, { storedType }: Attribute): string {
+  if (storedType === "real") return `CAST(${key} AS DOUBLE PRECISION)`;
+  const isCastable = isCastableDecimal(throughText(key, "NUMERIC"), float8Magnitudes);
+  return castWhen(isCastable, key, "DOUBLE PRECISION");
+}
 
 /** Whether `attribute` alone is a `float4`: `other`, when it's a real too, isn't one. */
 function isOnlyFloat4(attribute: Attribute, other: Attribute): string {
