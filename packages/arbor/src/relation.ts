@@ -669,7 +669,10 @@ export class Relation<M extends Model, S = {}> extends CountQuestions<M> {
     return exists((conditions === undefined ? this : this.where(conditions)).#valueSource());
   }
 
-  /** Converted values of one attribute, or tuples of several, in this Relation's order. */
+  /**
+   * Converted values of one attribute, or tuples of several, in this Relation's order. A loaded
+   * association answers from its stored records, leaving out the ones built through it.
+   */
   async pluck<K extends keyof AttributesOf<M> & string>(
     attribute: K,
   ): Promise<AttributesOf<M>[K][]>;
@@ -692,8 +695,8 @@ export class Relation<M extends Model, S = {}> extends CountQuestions<M> {
   }
 
   /**
-   * Each record's primary key, in this Relation's order: `pluck` of the primary key, leaving out a
-   * loaded association's built records that have no key yet.
+   * Each record's primary key, in this Relation's order: `pluck` of the primary key, so a loaded
+   * association's built records are left out.
    */
   async ids(): Promise<(string | number)[]> {
     return ids(this.#valueSource());

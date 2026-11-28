@@ -140,6 +140,16 @@ describe("generated ids", () => {
     expect(await notebooks.pluck("id", "title")).toEqual([[existing.id, "Better ideas"]]);
   });
 
+  test("a loaded hasMany's ids() leaves out a built record, though its key is made", async () => {
+    const notebook = await harness.connect().model(Notebook).create({ title: "Ideas" });
+    const stored = await notebook.notes().create({ body: "Stored" });
+    await notebook.notes().toArray();
+    const built = notebook.notes().build({ body: "Built" });
+
+    expect(built.id).toMatch(uuid);
+    expect(await notebook.notes().ids()).toEqual([stored.id]);
+  });
+
   test("a given id is kept", async () => {
     const note = await harness.connect().model(Note).create({ id: "mine", body: "hi" });
 

@@ -83,8 +83,9 @@ export async function pick(source: ValueSource, attributes: readonly string[]): 
 }
 
 /**
- * The primary keys, as `pluck` reads them, leaving out a `null` one: a loaded association's built
- * record that has no key yet, so every key is a `string` or a `number`.
+ * The primary keys, as `pluck` reads them: a loaded association's stored records only, so a built
+ * record's key is left out even when it was made in code. A `null` key is left out too, so every
+ * key is a `string` or a `number`.
  */
 export async function ids(source: ValueSource): Promise<(string | number)[]> {
   const keys = await pluck(source, [source.query.model.primaryKey], "ids");
