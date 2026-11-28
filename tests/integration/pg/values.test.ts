@@ -138,7 +138,12 @@ describe("the PostgreSQL adapter's decimals", () => {
 });
 
 // A table named like one of Postgres's own types, which a cast to its row type would find first.
-class Point extends Model.define({ id: { type: "integer", null: false }, label: "string" }) {
+class Point extends Model.define({
+  id: { type: "integer", null: false },
+  label: "string",
+  shape: "json",
+  notes: "json",
+}) {
   static table = "point";
 }
 
@@ -151,7 +156,7 @@ describe("the PostgreSQL adapter's bulk writes to a table named like a Postgres 
     schema = await openPgSchema();
     // A column named like its table, which a query of the table would read before its row.
     await schema.pool.query({
-      text: "CREATE TABLE point (id BIGINT PRIMARY KEY, label TEXT, point TEXT)",
+      text: "CREATE TABLE point (id BIGINT PRIMARY KEY, label TEXT, point TEXT, shape JSONB, notes JSON)",
     });
   });
   afterAll(() => schema.dispose());
@@ -164,5 +169,13 @@ describe("the PostgreSQL adapter's bulk writes to a table named like a Postgres 
     ]);
 
     expect(await points().order({ id: "asc" }).pluck("label")).toEqual(["north", "south"]);
+  });
+
+  test("insertAll writes json to json and jsonb columns as JSON, not as strings of it", async () => {
+    await points().insertAll([{ id: 1, shape: { sides: 3 }, notes: ["tall"] }]);
+
+    const { shape, notes } = await points().find(1);
+
+    expect({ shape, notes }).toEqual({ shape: { sides: 3 }, notes: ["tall"] });
   });
 });
