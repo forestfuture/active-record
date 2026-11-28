@@ -2,6 +2,7 @@
 // associations.ts imports this module too; both uses are at call time, never at load.
 import { readyModel, type AssociationDefinition } from "./associations.ts";
 import { type Attribute, attributeFor, noMatch } from "./attribute.ts";
+import { isMixedType } from "./linked-keys.ts";
 import { LinkedTo, type QueryDescription } from "./query.ts";
 import { currentExecutorOf } from "./current-database.ts";
 import { UnknownModelName } from "./errors.ts";
@@ -255,6 +256,11 @@ export class ResolvedAssociation {
   /** The target's attribute the owner's links to, resolved. */
   get targetKeyAttribute(): Attribute {
     return attributeFor(this.target, this.targetAttribute);
+  }
+
+  /** Whether its two keys are of different kinds, text and an integer or a uuid (#596). */
+  get isMixedType(): boolean {
+    return isMixedType(this.ownerKeyAttribute, this.targetKeyAttribute);
   }
 
   /**

@@ -212,12 +212,8 @@ function planBranch(
   const { ownersAt, path } = level;
   const owners = ownersOfBranch(association, start.owners);
   const tree = treeForBranch(association, start.tree[name] ?? {});
-  const targetDatabase = association.targetExecutor(planning.executor);
   const deferred = { ...onlyOne(start, name, association), ownersAt };
-  if (targetDatabase !== planning.executor) {
-    leaveForAfterwards(planning, { ...deferred, elsewhere: targetDatabase });
-    return;
-  }
+  if (isLeftForAfterwards(planning, association, owners, deferred)) return;
   if (association.hops !== undefined) {
     planThrough(planning, start, level, association);
     return;
@@ -240,6 +236,27 @@ function planBranch(
     written: treeForBranch(association, start.written[name] ?? {}),
   };
   planSteps(planning, next, { ownersAt: position, path: new Set([...path, association]) });
+}
+
+/**
+ * Whether `association`'s step is left for afterwards, before its query is planned: on another
+ * database (#228), its query goes there; over a mixed-type link (#596), it selects by its owners'
+ * loaded keys, so the targets' key keeps its index.
+ */
+function isLeftForAfterwards(
+  planning: Planning,
+  association: ResolvedAssociation,
+  owners: Owners,
+  deferred: Afterwards,
+): boolean {
+  const targetDatabase = association.targetExecutor(planning.executor);
+  if (targetDatabase !== planning.executor) {
+    leaveForAfterwards(planning, { ...deferred, elsewhere: targetDatabase });
+    return true;
+  }
+  if (!("query" in owners) || !association.isMixedType) return false;
+  leaveForAfterwards(planning, deferred);
+  return true;
 }
 
 /**
